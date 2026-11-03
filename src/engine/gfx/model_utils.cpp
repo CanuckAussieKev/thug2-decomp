@@ -172,7 +172,7 @@ bool scale_from_args(maths::Vec4* scale, Struct* params)
 }
 
 // 0x00487BD0
-void HiddenModels::conceal()
+void conceal(HiddenModels& models)
 {
     auto* manager = objects::object_hub_slot().get();
     auto first = [manager] {
@@ -189,36 +189,36 @@ void HiddenModels::conceal()
         return;
     if (!memory::manager_ready_flag())
         memory::ensure_manager();
-    ids_ptr_ = static_cast<uint32_t*>(memory::Hub::get_pull()->carve(count * 4, 1, nullptr));
-    num_ = 0;
-    const std::span<uint32_t> ids(ids_ptr_, static_cast<size_t>(count));
+    models.ids_ptr_ = static_cast<uint32_t*>(memory::Hub::get_pull()->carve(count * 4, 1, nullptr));
+    models.num_ = 0;
+    const std::span<uint32_t> ids(models.ids_ptr_, static_cast<size_t>(count));
     for (auto* component = first(); component;
          component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type())) {
         if (hideable(component)) {
-            core::at(ids, num_) = current_object_id(component);
+            core::at(ids, models.num_) = current_object_id(component);
             component->mesh_instance()->conceal(1);
-            ++num_;
+            ++models.num_;
         }
     }
-    debug::printf("Hid %d objects\n", num_);
+    debug::printf("Hid %d objects\n", models.num_);
 }
 
 // 0x00487CB0
-void HiddenModels::get_show()
+void get_show(HiddenModels& models)
 {
-    if (ids_ptr_) {
-        const std::span<const uint32_t> ids(ids_ptr_, static_cast<size_t>(num_));
-        for (int i = 0; i < num_; ++i) {
+    if (models.ids_ptr_) {
+        const std::span<const uint32_t> ids(models.ids_ptr_, static_cast<size_t>(models.num_));
+        for (int i = 0; i < models.num_; ++i) {
             if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(core::at(ids, i)))) {
                 auto* component =
                     core::down_cast<objects::MeshInstanceModule>(object->fetch_module(objects::MeshInstanceModule::kType));
                 component->mesh_instance()->conceal(0);
             }
         }
-        memory::Hub::get_pull()->dealloc(ids_ptr_);
-        ids_ptr_ = nullptr;
+        memory::Hub::get_pull()->dealloc(models.ids_ptr_);
+        models.ids_ptr_ = nullptr;
     }
-    num_ = 0;
+    models.num_ = 0;
 }
 
 namespace {
@@ -231,9 +231,9 @@ HiddenModels& hidden_models()
 } // namespace
 
 // 0x00487D20
-void hide_models_for_cutscene() { hidden_models().conceal(); }
+void hide_models_for_cutscene() { conceal(hidden_models()); }
 
 // 0x00487D30
-void show_models_after_cutscene() { hidden_models().get_show(); }
+void show_models_after_cutscene() { get_show(hidden_models()); }
 
 } // namespace gfx

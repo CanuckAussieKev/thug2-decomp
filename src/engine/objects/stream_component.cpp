@@ -71,7 +71,7 @@ void AudioStreamModule::configure_from_data(script::Struct* params)
 maths::Vec4* AudioStreamModule::get_stream_position(maths::Vec4* out, void* camera)
 {
     if (spewer_ && camera) {
-        spewer_->nearest_point_on(out, viewer_location(camera));
+        nearest_point_on(*spewer_, out, viewer_location(camera));
         return out;
     }
     *out = entity()->at_point();

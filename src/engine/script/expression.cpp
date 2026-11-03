@@ -169,7 +169,7 @@ namespace {
 // A component's value and type, a name standing for a global symbol counting as the symbol's.
 void resolved_value(const Component* component, uint32_t* type, Cell* value)
 {
-    *type = component->kind_tag();
+    *type = value_kind(*component);
     *value = component->value;
     if (*type == kQbvalName) {
         if (const SymbolTableEntry* symbol = resolve_symbol(value->word())) {
@@ -250,15 +250,15 @@ bool greater_than(Component* a, Component* b)
 // 0x0046D160
 bool is_reference(const Component* component)
 {
-    return component->kind_tag() == kQbvalStructRef || component->kind_tag() == kEsymboltypeArraypointer;
+    return value_kind(*component) == kQbvalStructRef || value_kind(*component) == kEsymboltypeArraypointer;
 }
 
 // 0x0046D180
 void make_reference(Component* component)
 {
-    if (component->kind_tag() == kQbvalStruct)
+    if (value_kind(*component) == kQbvalStruct)
         component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (kQbvalStructRef << 1));
-    else if (component->kind_tag() == kQbvalArray)
+    else if (value_kind(*component) == kQbvalArray)
         component->type_and_flag_ =
             static_cast<uint8_t>((component->type_and_flag_ & 1) | (kEsymboltypeArraypointer << 1));
 }
@@ -266,18 +266,18 @@ void make_reference(Component* component)
 // 0x0046D1A0
 void make_owning(Component* component)
 {
-    if (component->kind_tag() == kQbvalStructRef)
+    if (value_kind(*component) == kQbvalStructRef)
         component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (kQbvalStruct << 1));
-    else if (component->kind_tag() == kEsymboltypeArraypointer)
+    else if (value_kind(*component) == kEsymboltypeArraypointer)
         component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (kQbvalArray << 1));
 }
 
 // 0x0046D280
 int fetch_flag(const Component* component)
 {
-    if (component->kind_tag() == kQbvalInteger)
+    if (value_kind(*component) == kQbvalInteger)
         return component->value.integer();
-    if (component->kind_tag() == kQbvalFloat && component->value.real() != 0.0f)
+    if (value_kind(*component) == kQbvalFloat && component->value.real() != 0.0f)
         return 1;
     return 0;
 }
@@ -433,8 +433,8 @@ void ValueResolver::execute()
     Component& result = get_result();
     result.type_and_flag_ &= 1;
     result.value.set_word(0);
-    const uint32_t type_a = a->kind_tag();
-    const uint32_t type_b = b->kind_tag();
+    const uint32_t type_a = value_kind(*a);
+    const uint32_t type_b = value_kind(*b);
     auto error = [&](const char* message) { change_fault(message); };
 
     switch (op) {
@@ -627,8 +627,8 @@ void ValueResolver::execute()
                 Struct* other = b->value.structure();
                 for (Component* each = other->step_to_entry(nullptr); each; each = other->step_to_entry(each)) {
                     if (each->name) {
-                        result.value.structure()->remove_component_of_type(each->name, each->kind_tag());
-                    } else if (each->kind_tag() == kQbvalName) {
+                        result.value.structure()->remove_component_of_type(each->name, value_kind(*each));
+                    } else if (value_kind(*each) == kQbvalName) {
                         result.value.structure()->erase_module(each->value.word());
                         result.value.structure()->remove_flag(each->value.word());
                     }

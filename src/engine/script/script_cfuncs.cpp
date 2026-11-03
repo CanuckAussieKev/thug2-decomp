@@ -203,7 +203,7 @@ int format_text(script::Struct* results, script::Struct* params)
         value.value.set_word(found->value.word());
         script::evaluate_name_token(&value);
         std::array<char, 100> text{}; // (the original's sprintf into it is unbounded)
-        switch (value.kind_tag()) {
+        switch (value_kind(value)) {
         case script::kQbvalInteger:
             if (params->has_bare_flag(kUseCommas)) {
                 text::format_to(text, "%s", text::format_with_separators(value.value.integer()));
@@ -289,17 +289,17 @@ bool cfunc_change(script::Struct* params, script::Script*)
     script::construct_component(&copy);
     copy.type_and_flag_ = static_cast<uint8_t>((value->type_and_flag_ & ~1) | (copy.type_and_flag_ & 1));
     copy.value.set_word(value->value.word());
-    if (copy.kind_tag() == script::kQbvalName && params->has_bare_flag(kResolve)) {
+    if (value_kind(copy) == script::kQbvalName && params->has_bare_flag(kResolve)) {
         if (SymbolTableEntry* resolved = script::resolve_symbol(copy.value.word())) {
             copy.type_and_flag_ = static_cast<uint8_t>((resolved->type() << 1) | (copy.type_and_flag_ & 1));
             copy.value.set_word(resolved->value().word());
         }
     }
-    switch (copy.kind_tag()) {
+    switch (value_kind(copy)) {
     case script::kQbvalInteger:
     case script::kQbvalFloat:
     case script::kQbvalName:
-        entry->set_type(copy.kind_tag());
+        entry->set_type(value_kind(copy));
         entry->value().set_word(copy.value.word());
         break;
     case script::kQbvalStruct: {

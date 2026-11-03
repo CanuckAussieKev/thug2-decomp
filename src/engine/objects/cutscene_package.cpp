@@ -378,7 +378,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
 {
     const uint32_t model_name = entry->name + kTypeModel; // (the original prints name + type, compiled out)
     assets::SkinParams params{};
-    params.get_clear(); // (the skinned model's load parameters, 0x00409E90)
+    get_clear(params); // (the skinned model's load parameters, 0x00409E90)
     void* texture_data = bundle_ptr_->find_asset(entry->name, kTypeTextures, 1);
     const file::AssetBundle::TableRow* textures = bundle_ptr_->find_entry(entry->name, kTypeTextures, 1);
     const uint32_t texture_size = textures->size;

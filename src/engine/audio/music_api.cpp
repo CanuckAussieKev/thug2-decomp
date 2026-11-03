@@ -398,21 +398,21 @@ bool disc_mode_active()
 }
 
 // 0x00450540
-bool FamData::read_in(uint32_t fam_name)
+bool read_in(FamData& data, uint32_t fam_name)
 {
     std::array<char, 256> path{};
     text::format_to(path, "fam\\%x.fam", fam_name);
     file::AsyncFileHandle* file = file::async_open(path.data(), true, 100);
     if (!file)
         return false;
-    size = file->get_file_size();
-    if (size >= 0x1000) {
+    data.size = file->get_file_size();
+    if (data.size >= 0x1000) {
         file::async_close(file);
         return false;
     }
-    file->get_take_in(data.data(), 1, size);
+    file->get_take_in(data.data.data(), 1, data.size);
     file::async_close(file);
-    name = fam_name;
+    data.name = fam_name;
     return true;
 }
 

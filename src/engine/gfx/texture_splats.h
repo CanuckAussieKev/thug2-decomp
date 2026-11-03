@@ -39,12 +39,14 @@ struct TextureSplats {
     std::array<std::array<float, 2>, 0x300> uvs;              // +0x1C10: each vertex's texture coordinates before the correction
     std::array<std::array<ProjectedVertex, 3>, 0x100> vertices; // +0x3410: drawn as they are
 
-    // Vertex `index` counted through the triangles (0-0x2FF).
-    ProjectedVertex& vertex(int index);
-    // 0x00490CD0 (thiscall on a set): the first free triangle of the first `count` (alive 0), else the one with the
-    // most steps past its start (the first on ties).
-    [[nodiscard]] int oldest_slot(uint32_t count) const;
 };
+
+// Vertex `index` counted through the triangles (0-0x2FF).
+ProjectedVertex& splat_vertex(TextureSplats& splats, int index);
+
+// 0x00490CD0 (thiscall on a set): the first free triangle of the first `count` (alive 0), else the one with the
+// most steps past its start (the first on ties).
+[[nodiscard]] int oldest_slot(const TextureSplats& splats, uint32_t count);
 
 // 0x004B7F30: triangle `index` of a set collapsed onto its first vertex (killed).
 void collapse_splat_triangle(TextureSplats* splats, int index);

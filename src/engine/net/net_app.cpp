@@ -642,7 +642,7 @@ bool AppHost::handle_incoming()
             // (a local connection takes its alias's - the other end, in this process - send buffer straight into its
             // own receive buffer)
             const size_t length = alias->outgoing().used;
-            core::copy_into(std::span<const uint8_t>(alias->outgoing().filled()), conn->incoming().vacant());
+            core::copy_into(std::span<const uint8_t>(filled(alias->outgoing())), vacant(conn->incoming()));
             alias->outgoing().used = 0;
             conn->incoming().used += length;
         }

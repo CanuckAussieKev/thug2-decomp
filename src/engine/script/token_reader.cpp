@@ -89,11 +89,11 @@ Tokens add_expression(Tokens token, Struct* dest, Struct* args)
 {
     gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
-    if (value->kind_tag() == kQbvalStruct) {
+    if (value_kind(*value) == kQbvalStruct) {
         dest->append_structure_if_any(value->value.structure());
         release_component(value);
         free_component(value);
-    } else if (value->kind_tag() != kQbvalNone) {
+    } else if (value_kind(*value) != kQbvalNone) {
         value->name = 0;
         dest->attach_module(value);
     } else {
@@ -227,11 +227,11 @@ Tokens resolve_random_jumps(Tokens token)
                 stored->ordinal_ = 0;
                 for (uint16_t i = 0; i < stored->num_; ++i)
                     core::at(stored->order_, i) = static_cast<uint8_t>(i);
-                stored->shuffle(false);
+                shuffle(*stored, false);
             }
             stored->owner_ = get_running_script();
             if (++stored->ordinal_ >= stored->num_) {
-                stored->shuffle(true);
+                shuffle(*stored, true);
                 stored->ordinal_ = 0;
             }
             const Tokens offset = table + 4 * core::at(stored->order_, stored->ordinal_);

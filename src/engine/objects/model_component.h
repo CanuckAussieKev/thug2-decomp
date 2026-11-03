@@ -26,10 +26,6 @@ namespace objects {
 // milliseconds - linearly (power 0), eased in (power > 0: sin(pi/2 t) squared power - 1 times) or out (power < 0:
 // 1 - sin(pi/2 - pi/2 t)) -, then off (or held at its end).
 struct ModelSpin {
-    // 0x00420590: its angle now (degrees; 0 when off; unrounded, as the original leaves it in ST0). Past its period:
-    // switched off (0), or held at base + range. The time is the game clock's (slow motion counted), or the real one
-    // (kModelSpinRealTime).
-    double bearing();
 
     float period_;      // +0x00 milliseconds
     uint32_t outset_;   // +0x04 when it started (the game clock's time, or the real time)
@@ -39,6 +35,11 @@ struct ModelSpin {
     uint8_t flag_bits_; // +0x14 MODEL_SPIN_*
     std::array<uint8_t, 3> pad15;
 };
+
+// 0x00420590: its angle now (degrees; 0 when off; unrounded, as the original leaves it in ST0). Past its period:
+// switched off (0), or held at base + range. The time is the game clock's (slow motion counted), or the real one
+// (kModelSpinRealTime).
+double bearing(ModelSpin& spin);
 static_assert(sizeof(ModelSpin) == 0x18, "layout must match the original");
 
 // ModelSpin::flag_bits_
@@ -48,16 +49,19 @@ constexpr uint8_t kModelSpinRealTime = 0x4; // dontpause: the real time, not the
 
 // A model's turns about one axis: up to six at once, added up.
 struct ModelSpinAxis {
-    // 0x004204F0: every turn off, inactive.
-    void get_clear();
-    // 0x00420520: a new turn in the first free slot (none free: nothing), the axis active.
-    void append_one(float period, uint32_t start, float base, float range, int power, bool hold, bool real_time);
-    // 0x004213E0: the angles of the turns still on, added up (degrees). Inactive once none is.
-    float bearing();
 
     std::array<ModelSpin, 6> spins_; // +0x00
     bool active_;        // +0x90
 };
+
+// 0x004204F0: every turn off, inactive.
+void get_clear(ModelSpinAxis& axis);
+
+// 0x00420520: a new turn in the first free slot (none free: nothing), the axis active.
+void append_one(ModelSpinAxis& axis, float period, uint32_t start, float base, float range, int power, bool hold, bool real_time);
+
+// 0x004213E0: the angles of the turns still on, added up (degrees). Inactive once none is.
+float bearing(ModelSpinAxis& axis);
 static_assert(sizeof(ModelSpinAxis) == 0x94, "layout must match the original");
 
 // The model component (type 0x286A8D26 "model", vtable 0x00646128, 0x238 bytes; made by 0x00421490): an object's

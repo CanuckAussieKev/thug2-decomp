@@ -211,7 +211,7 @@ void get_visit(Hunt& search, UiWidget* element, bool parent_accepts, int index, 
         return;
     UiWidget* parent = current_parent(element);
     if (parent_accepts && !item_passed_over(element) && item_focusable(element)) {
-        if (item_contains(element, parent, search.x, search.y) && (!clipped || clip.get_holds(search.x, search.y))) {
+        if (item_contains(element, parent, search.x, search.y) && (!clipped || get_holds(clip, search.x, search.y))) {
             search.found = true;
             search.hit = {.menu = parent, .item = element, .index = index};
         }
@@ -336,9 +336,9 @@ bool item_passed_over(const UiWidget* item)
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
     const script::Struct* tags = as_object(item)->tag_table();
     for (const script::Component* c = tags ? tags->head() : nullptr; c; c = c->next) {
-        if (c->name == 0 && c->kind_tag() == script::kQbvalName && c->value.word() == kTagBlank)
+        if (c->name == 0 && value_kind(*c) == script::kQbvalName && c->value.word() == kTagBlank)
             return true;
-        if (c->name == kTagActive && c->kind_tag() == script::kQbvalInteger && c->value.integer() == 0)
+        if (c->name == kTagActive && value_kind(*c) == script::kQbvalInteger && c->value.integer() == 0)
             return true;
     }
     return false;
@@ -351,7 +351,7 @@ bool item_contains(const UiWidget* item, const UiWidget* menu, float x, float y)
     const bool any = item_shape(item, x, y, false, &bounds, &turned_hit);
     if (turned_hit)
         return true;
-    return any && widen(bounds, menu).get_holds(x, y);
+    return any && get_holds(widen(bounds, menu), x, y);
 }
 
 Rect2 item_bounds(const UiWidget* item, const UiWidget* menu)

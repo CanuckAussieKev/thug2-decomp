@@ -110,9 +110,9 @@ BoneVolume** new_volume_array(uint32_t count)
 } // namespace
 
 // 0x0048B330
-int BoneVolume::intersects_segment(const maths::Seg* segment, float* s)
+int intersects_segment(BoneVolume& volume, const maths::Seg* segment, float* s)
 {
-    return capsule_.intersects_segment(*segment, s, nullptr, nullptr);
+    return volume.capsule_.intersects_segment(*segment, s, nullptr, nullptr);
 }
 
 // 0x0048B350

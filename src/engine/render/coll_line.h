@@ -41,9 +41,10 @@ struct CollisionHit {
     std::array<uint8_t, 2> pad4a_;
     WorldScene* scene; // +0x4C the scene whose grid held the static object hit (collide_with_statics)
 
-    // 0x004F8160: every field copied (not the padding). Returns this.
-    CollisionHit* copy_from(const CollisionHit& other);
 };
+
+// 0x004F8160: every field copied (not the padding). Returns this.
+CollisionHit* copy_from(CollisionHit& hit, const CollisionHit& other);
 static_assert(sizeof(CollisionHit) == 0x50 && offsetof(CollisionHit, hit) == 0x48, "layout must match the original");
 
 // A face the line crosses, as a line test hands it on: its normal, where it's crossed, and its index.

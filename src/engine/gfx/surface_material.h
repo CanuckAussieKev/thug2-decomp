@@ -59,15 +59,17 @@ struct TextureAnim {
     std::array<int, 4> loops;            // +0x24
     std::array<TextureKey*, 4> keys;     // +0x34
 
-    // NOT ORIGINAL - a pass's keys as a run of its key count.
-    [[nodiscard]] std::span<TextureKey> key_run(size_t pass) const
-    {
-        return {keys.at(pass), key_counts_.at(pass)};
-    }
 
-    // 0x004D1A80: started again (the time now, frame_clock::GetTime).
-    void relaunch();
 };
+
+// NOT ORIGINAL - a pass's keys as a run of its key count.
+[[nodiscard]] inline std::span<TextureKey> key_run(const TextureAnim& anim, size_t pass)
+{
+    return {anim.keys.at(pass), anim.key_counts_.at(pass)};
+}
+
+// 0x004D1A80: started again (the time now, frame_clock::GetTime).
+void relaunch(TextureAnim& anim);
 static_assert(sizeof(TextureAnim) == 0x44, "layout must match the original");
 
 // A colour animation (12 bytes): keys of a time (in frames, 0x00786D00) and an RGBA colour, blended between.
@@ -80,9 +82,10 @@ struct ColorAnim {
     int phase_;
     ColorKey* keys;
 
-    // NOT ORIGINAL - the keys as a run of key_count_.
-    [[nodiscard]] std::span<ColorKey> key_run() const { return {keys, key_count_}; }
 };
+
+// NOT ORIGINAL - the keys as a run of key_count_.
+[[nodiscard]] inline std::span<ColorKey> key_run(const ColorAnim& anim) { return {anim.keys, anim.key_count_}; }
 
 struct MaterialRef {
     // The fields other code reads and sets.

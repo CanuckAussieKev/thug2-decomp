@@ -80,7 +80,7 @@ bool play_on_channel(uint32_t checksum, int channel, const void* volume, float p
 // StreamAmpCurve's load (FamData::ReadIn: data\fam\<checksum>.fam into the slot).
 bool read_amp_curve(StreamAmpCurve* slot, uint32_t checksum)
 {
-    return slot->read_in(checksum);
+    return read_in(*slot, checksum);
 }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
 void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }

@@ -146,10 +146,13 @@ struct Run {
     std::array<float, kMotions> motion_seconds_ = {};
     bool visible = true;
     bool full = false;
-    [[nodiscard]] int gaps_landed() const;
-    [[nodiscard]] int bails() const;
-    [[nodiscard]] int top_combo_value() const;
 };
+
+[[nodiscard]] int gaps_landed(const Run& run_record);
+
+[[nodiscard]] int bails(const Run& run_record);
+
+[[nodiscard]] int top_combo_value(const Run& run_record);
 
 // A level's trails: its runs (the newest last, at most kMaxRuns) and the gaps landed in them.
 constexpr size_t kMaxRuns = 12;

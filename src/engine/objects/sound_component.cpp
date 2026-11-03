@@ -142,7 +142,7 @@ void AudioEmitterModule::keep_looping_sound(const sound::PlaybackProps* props, u
 maths::Vec4* AudioEmitterModule::get_sound_position(maths::Vec4* out, void* camera)
 {
     if (spewer_ && camera) {
-        spewer_->nearest_point_on(out, viewer_location(camera));
+        nearest_point_on(*spewer_, out, viewer_location(camera));
         return out;
     }
     *out = at_point_;
@@ -153,7 +153,7 @@ maths::Vec4* AudioEmitterModule::get_sound_position(maths::Vec4* out, void* came
 maths::Vec4* AudioEmitterModule::get_previous_sound_position(maths::Vec4* out, void* camera)
 {
     if (spewer_ && camera) {
-        spewer_->nearest_point_on(out, viewer_location(camera));
+        nearest_point_on(*spewer_, out, viewer_location(camera));
         return out;
     }
     *out = last_pos_;

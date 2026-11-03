@@ -836,9 +836,9 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     font_stats().hd_pages += hd;
     check(reader.remaining() == 0, name + ": the rectangles end at the file's end");
     for (int i = 0; i < header.glyph_count; ++i) {
-        if (header.format == 1 && core::at(entries, i).code() < 0) {
+        if (header.format == 1 && glyph_code(core::at(entries, i)) < 0) {
             ++font_stats().specials;
-            if (0xFF - (core::at(entries, i).code() & 0xFF) >= font_format::kSpecialGlyphs)
+            if (0xFF - (glyph_code(core::at(entries, i)) & 0xFF) >= font_format::kSpecialGlyphs)
                 ++font_stats().specials_past_map;
         }
         check(static_cast<uint32_t>(core::at(rects, i).x + core::at(rects, i).w) <= page.width / scale &&

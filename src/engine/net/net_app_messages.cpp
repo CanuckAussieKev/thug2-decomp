@@ -116,7 +116,7 @@ bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
     auto size = static_cast<uint16_t>(msg->byte_count() + ((~flags & kMsgNoLength) ? 3 : 1));
     if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
         return false;
-    util::ByteWriter writer(conn->outgoing().vacant().first(packet_space_left(conn)));
+    util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));
     writer.u8(msg->ident());
     if (!(message_flags(app->supervisor(), msg->ident()) & kMsgNoLength))
         writer.u16(msg->byte_count());
@@ -134,7 +134,7 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
     auto size = static_cast<uint16_t>(length + 9);
     if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
         return false;
-    util::ByteWriter writer(conn->outgoing().vacant().first(packet_space_left(conn)));
+    util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));
     writer.u8(kMsgSequenced);
     writer.u16(static_cast<uint16_t>(length + wire::kSequencedHeaderSize));
     wire::write_sequenced_header(writer, {.group = link->bundle_id(), .sequence = link->order_index(), .id = msg->ident()});

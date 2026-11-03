@@ -42,11 +42,12 @@ struct FileRecord {
     const uint8_t* data = nullptr; // in place: stored_size() bytes
     size_t offset = 0;             // of the file's header in the archive
 
-    [[nodiscard]] uint32_t stored_size() const
-    {
-        return static_cast<uint32_t>(compressed_size ? compressed_size : size);
-    }
 };
+
+[[nodiscard]] inline uint32_t stored_size(const FileRecord& record)
+{
+    return static_cast<uint32_t>(record.compressed_size ? record.compressed_size : record.size);
+}
 // NOLINTEND(readability-identifier-naming)
 
 // The header; false if the archive is shorter or its count negative.

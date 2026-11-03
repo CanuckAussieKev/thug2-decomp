@@ -234,26 +234,26 @@ bool ComboTracker::tick_frame(int pending_now, bool bailing, ComboEnd* end)
     return decided;
 }
 
-int Run::gaps_landed() const
+int gaps_landed(const Run& run_record)
 {
     int n = 0;
-    for (const Occurrence& e : events)
+    for (const Occurrence& e : run_record.events)
         n += e.kind == EventKind::kGap && e.status == GapStatus::kLanded;
     return n;
 }
 
-int Run::bails() const
+int bails(const Run& run_record)
 {
     int n = 0;
-    for (const Occurrence& e : events)
+    for (const Occurrence& e : run_record.events)
         n += e.kind == EventKind::kBail;
     return n;
 }
 
-int Run::top_combo_value() const
+int top_combo_value(const Run& run_record)
 {
     int best = 0;
-    for (const Occurrence& e : events) {
+    for (const Occurrence& e : run_record.events) {
         if (e.kind == EventKind::kCombo && e.status == GapStatus::kLanded)
             best = std::max(best, e.value);
     }
@@ -643,7 +643,7 @@ void close_run(const char* why)
     level_editor_playtest_state().rec_.run.number = level.next_number_;
     get_log("level editor: trail run %d recorded (%s): %.1f s, %u points, %d gaps landed, %d bails, best combo %d%s",
             level_editor_playtest_state().rec_.run.number, why, level_editor_playtest_state().rec_.run.seconds, static_cast<unsigned>(level_editor_playtest_state().rec_.run.samples.size()),
-            level_editor_playtest_state().rec_.run.gaps_landed(), level_editor_playtest_state().rec_.run.bails(), level_editor_playtest_state().rec_.run.top_combo_value(), level_editor_playtest_state().rec_.run.full ? " (full)" : "");
+            gaps_landed(level_editor_playtest_state().rec_.run), bails(level_editor_playtest_state().rec_.run), top_combo_value(level_editor_playtest_state().rec_.run), level_editor_playtest_state().rec_.run.full ? " (full)" : "");
     level.append_one(std::move(level_editor_playtest_state().rec_.run));
 }
 

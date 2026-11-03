@@ -671,7 +671,7 @@ bool cfunc_set_array_element(Struct* params, Script* script)
         store = false;
         break;
     case script::kQbvalFloat:
-        if (value->kind_tag() == script::kQbvalFloat)
+        if (value_kind(*value) == script::kQbvalFloat)
             array->change_float(index, value->value.real());
         else
             array->change_float(index, static_cast<float>(value->value.integer()));

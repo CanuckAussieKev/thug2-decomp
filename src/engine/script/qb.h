@@ -112,8 +112,6 @@ void set_script_flag_6f_2564();
 
 // A stored random sequence (the scripts' RandomNoRepeat / RandomPermute): a shuffled order of choices.
 struct StoredRandom {
-    // Shuffle the order; with `avoid_repeat`, the new first choice isn't the old last one.
-    void shuffle(bool avoid_repeat);
 
     const Script* owner_;         // the script using it (null: none)
     const uint8_t* lookup_table_; // the random table's offsets in the script
@@ -126,5 +124,8 @@ struct StoredRandom {
     StoredRandom* succ_;     // older
     StoredRandom* previous_; // newer
 };
+
+// Shuffle the order; with `avoid_repeat`, the new first choice isn't the old last one.
+void shuffle(StoredRandom& random, bool avoid_repeat);
 
 } // namespace script

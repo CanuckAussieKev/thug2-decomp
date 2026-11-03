@@ -67,19 +67,19 @@ constexpr float kFacingWeight = 10.0f;          // 0x00646710
 EmitterNode* emitter_get_node(uint32_t name) { return static_cast<EmitterNode*>(stored_emitter_table()->fetch_entry(name)); }
 
 // 0x00468120
-bool EmitterNode::is_within(const maths::Vec4* point)
+bool is_within(EmitterNode& node, const maths::Vec4* point)
 {
-    const float dx = point->x - at_point_.x;
-    const float dy = point->y - at_point_.y;
-    const float dz = point->z - at_point_.z;
-    switch (form_) {
+    const float dx = point->x - node.at_point_.x;
+    const float dy = point->y - node.at_point_.y;
+    const float dz = point->z - node.at_point_.z;
+    switch (node.form_) {
     case kEmitterShapeBox:
-        return box_.contains_point(*point) != 0;
+        return node.box_.contains_point(*point) != 0;
     case kEmitterShapeSphere: {
         // (summed unrounded: z, x, then y)
         double distance = static_cast<double>(dz) * dz + static_cast<double>(dx) * dx;
         distance += static_cast<double>(dy) * dy;
-        return distance <= reach_sq_;
+        return distance <= node.reach_sq_;
     }
     default:
         return false;
@@ -87,27 +87,27 @@ bool EmitterNode::is_within(const maths::Vec4* point)
 }
 
 // 0x004681A0
-maths::Vec4* EmitterNode::nearest_point_on(maths::Vec4* out, const maths::Vec4* point)
+maths::Vec4* nearest_point_on(EmitterNode& node, maths::Vec4* out, const maths::Vec4* point)
 {
-    if (is_within(point)) {
+    if (is_within(node, point)) {
         *out = *point;
         return out;
     }
-    switch (form_) {
+    switch (node.form_) {
     case kEmitterShapeBox: {
         maths::Vec4 closest;
-        box_.get_closest_surface_point(*point, closest);
+        node.box_.get_closest_surface_point(*point, closest);
         *out = closest;
         break;
     }
     case kEmitterShapeSphere: {
-        maths::Vec4 direction = *point - at_point_;
+        maths::Vec4 direction = *point - node.at_point_;
         direction.make_unit();
-        out->x = direction.x * radius_ + at_point_.x;
-        out->y = direction.y * radius_ + at_point_.y;
-        out->z = direction.z * radius_ + at_point_.z;
+        out->x = direction.x * node.radius_ + node.at_point_.x;
+        out->y = direction.y * node.radius_ + node.at_point_.y;
+        out->z = direction.z * node.radius_ + node.at_point_.z;
         // (w's product unrounded before the add, as the original)
-        out->w = static_cast<float>(static_cast<double>(radius_) * direction.w + at_point_.w);
+        out->w = static_cast<float>(static_cast<double>(node.radius_) * direction.w + node.at_point_.w);
         break;
     }
     default:

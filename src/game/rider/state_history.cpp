@@ -178,13 +178,16 @@ void send_event(GameEntity* skater, uint32_t type, const char* name, uint32_t fl
 // --- StateHistoryMessage ---
 
 // 0x00519800
-uint32_t StateHistoryMessage::get_time() { return static_cast<uint32_t>(time_high_) << 16 | clock_; }
+uint32_t get_time(StateHistoryMessage& message)
+{
+    return static_cast<uint32_t>(message.time_high_) << 16 | message.clock_;
+}
 
 // 0x00519810
-void StateHistoryMessage::change_moment(uint32_t time)
+void change_moment(StateHistoryMessage& message, uint32_t time)
 {
-    clock_ = static_cast<uint16_t>(time);
-    time_high_ = static_cast<uint16_t>(time >> 16);
+    message.clock_ = static_cast<uint16_t>(time);
+    message.time_high_ = static_cast<uint16_t>(time >> 16);
 }
 
 // --- RiderFrameLog ---

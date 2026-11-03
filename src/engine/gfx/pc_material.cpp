@@ -215,7 +215,7 @@ void MaterialRef::update_color_anims()
         return;
     for (uint32_t i = 0; i < color_anim_count_; ++i) {
         const ColorAnim& anim = core::at(color_anim_run(), i);
-        const std::span<ColorKey> keys = anim.key_run();
+        const std::span<ColorKey> keys = key_run(anim);
         const int first = core::at(keys, 0).time;
         const int period = core::at(keys, anim.key_count_ - 1).time - first;
         const int t = period ? (anim.phase_ + renderer().step_seconds()) % period + first : 1;
@@ -238,7 +238,7 @@ void MaterialRef::update_texture_anims()
     for (int pass = 0; pass < 4; ++pass) {
         if (!(core::at(pass_flags_, pass) & kPassTextureAnim))
             continue;
-        const std::span<TextureKey> keys = anim->key_run(static_cast<size_t>(pass));
+        const std::span<TextureKey> keys = key_run(*anim, static_cast<size_t>(pass));
         const int count = static_cast<int>(core::at(anim->key_counts_, pass));
         const int first = core::at(keys, 0).time;
         const int period = core::at(keys, count - 1).time - first;

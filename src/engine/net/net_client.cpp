@@ -128,7 +128,7 @@ void Guest::pull_inbound()
             if (static_cast<int>(conn->incoming().used) + size < static_cast<int>(kConnReceiveBufferSize)) {
                 const uint32_t time = frame_clock::get_time();
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
-                                  conn->incoming().vacant())) {
+                                  vacant(conn->incoming()))) {
                     conn->incoming().used += static_cast<size_t>(size);
                     add_packet_metric(&conn->receive_metrics(), received + 0x1C, get_timestamp(this));
                     if (time > conn->last_heard_from())
@@ -142,7 +142,7 @@ void Guest::pull_inbound()
             if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
                 fresh->set_owner_app(this);
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
-                                  fresh->incoming().vacant())) {
+                                  vacant(fresh->incoming()))) {
                     fresh->incoming().used = static_cast<size_t>(size);
                     mark_new_connection(fresh);
                 } else {

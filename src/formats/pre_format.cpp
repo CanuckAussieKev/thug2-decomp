@@ -30,7 +30,7 @@ bool read_file_record(util::ByteReader& reader, FileRecord* out)
     if (!reader.skip(out->name_size) || std::memchr(out->name, 0, out->name_size) == nullptr)
         return false;
     out->data = reader.cursor();
-    const uint32_t stored = out->stored_size();
+    const uint32_t stored = stored_size(*out);
     if (!reader.skip(stored))
         return false;
     // (the padding: the last file's may be missing at the end of the archive)

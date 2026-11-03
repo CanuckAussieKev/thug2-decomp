@@ -68,7 +68,7 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 // position, +0x68 the timed flags as bits, +0x6C the end run flags, +0x70 the state, +0x74 doing a trick, +0x75 the
 // physics mode, +0x76 driving, +0x78 the time, +0x7C the terrain.
 SkaterStateHistoryFrame* history_frame(RiderFrameLog* history, int index) { return &core::at(history->states(), index); }
-uint32_t history_frame_stamp(SkaterStateHistoryFrame* frame) { return frame->get_time(); }
+uint32_t history_frame_stamp(SkaterStateHistoryFrame* frame) { return get_time(*frame); }
 maths::Mat4& snapshot_orientation(SkaterStateHistoryFrame* frame) { return frame->matrix; }
 maths::Vec4& frame_position(SkaterStateHistoryFrame* frame) { return frame->position; }
 
@@ -542,7 +542,7 @@ void RiderRemoteSync::play_history_events()
     int i = first;
     for (bool again = true; again; again = i != first) {
         StateHistoryMessage* msg = &core::at(messages, i);
-        if (msg->get_time() > last_event_time_ && msg->get_time() <= now) {
+        if (get_time(*msg) > last_event_time_ && get_time(*msg) <= now) {
             switch (msg->ident_) {
             case 0x29: // an animation played (the primary channel)
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
@@ -583,8 +583,7 @@ void RiderRemoteSync::play_history_events()
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (msg->spin_axes_ & (1u << bit))
-                        core::at(mesh_set_->twist_rate(), bit).append_one(
-                            static_cast<float>(msg->spin_period_), static_cast<uint32_t>(time), msg->spin_start_,
+                        append_one(core::at(mesh_set_->twist_rate(), bit), static_cast<float>(msg->spin_period_), static_cast<uint32_t>(time), msg->spin_start_,
                             msg->spin_range_, msg->spin_power_, msg->spin_hold_, false);
                 }
                 break;
@@ -611,7 +610,7 @@ void RiderRemoteSync::play_history_events()
                 break;
             case 0x8C:
                 for (ModelSpinAxis& axis : mesh_set_->twist_rate())
-                    axis.get_clear();
+                    get_clear(axis);
                 break;
             default:
                 break;

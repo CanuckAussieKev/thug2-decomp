@@ -24,11 +24,6 @@ struct StageMap {
     std::vector<std::string>
         art_labels_; // a label per picture for the indicator (levels.json art_labels, e.g. "70%"; may be empty)
     int variant = 0; // the one shown (Q / E on the level select; saved in thug2-decomp-art.txt)
-    // The picture shown: the chosen variant, else `art`.
-    [[nodiscard]] const std::string& current_art() const
-    {
-        return variant >= 0 && std::cmp_less(variant, art_variants_.size()) ? core::at(art_variants_, variant) : art;
-    }
     std::string level_num_name_; // level_num as a script name ("LevelNum_BO"), or empty when it was a number
     int level_index_ = -1;       // level_num as a number (-1: a name - resolved by the game)
     std::string flag;            // its unlock flag's script name ("LEVEL_UNLOCKED_BO")
@@ -38,6 +33,12 @@ struct StageMap {
     bool generic_art_ = false; // (the art is one of THUG2's generic loading screens: the level has none of its own)
     std::string game_tag_;
 };
+
+// The picture shown: the chosen variant, else `art`.
+[[nodiscard]] inline const std::string& current_art(const StageMap& stage_map)
+{
+    return stage_map.variant >= 0 && std::cmp_less(stage_map.variant, stage_map.art_variants_.size()) ? core::at(stage_map.art_variants_, stage_map.variant) : stage_map.art;
+}
 
 struct Section {
     std::string id;               // "thug2", "thps3", "misc"...

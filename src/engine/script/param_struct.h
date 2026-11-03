@@ -152,8 +152,12 @@ struct Component {
     Cell value;
     Component* next{};
 
-    [[nodiscard]] QbValueKind kind_tag() const { return static_cast<QbValueKind>(type_and_flag_ >> 1); }
 };
+
+[[nodiscard]] inline QbValueKind value_kind(const Component& component)
+{
+    return static_cast<QbValueKind>(component.type_and_flag_ >> 1);
+}
 static_assert(sizeof(Component) == 0x10, "layout must match the original");
 
 struct SymbolTableEntry {

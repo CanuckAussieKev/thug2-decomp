@@ -171,9 +171,6 @@ private:
 // The skater's state history (SkaterStateHistory, state_history.h): a state a non-local skater was sent (0x84 bytes;
 // 20 of them from the component's +0x1C), its time as two halves. (Its destructor body 0x005197C0 is here too.)
 struct SkaterStateHistoryFrame {
-    // 0x005197D0 / 0x005197E0: the frame's time (time the low 16 bits, wraps the high).
-    uint32_t get_time();
-    void change_moment(uint32_t time);
 
     std::array<int16_t, 3> pos; // +0x00 the position, in half units (y in quarters)
     uint16_t pad06;
@@ -194,6 +191,11 @@ struct SkaterStateHistoryFrame {
     std::array<uint8_t, 3> pad7d_;
     uint32_t value80; // +0x80 (32 bits)
 };
+
+// 0x005197D0 / 0x005197E0: the frame's time (time the low 16 bits, wraps the high).
+uint32_t get_time(SkaterStateHistoryFrame& frame);
+
+void change_moment(SkaterStateHistoryFrame& frame, uint32_t time);
 
 } // namespace objects
 

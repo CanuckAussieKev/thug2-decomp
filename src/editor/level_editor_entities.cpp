@@ -698,7 +698,7 @@ void update_sounds()
         const maths::Vec4 listener = *viewer_location(camera);
         maths::Vec4 heard = centre;
         if (emitter->form_ != objects::kEmitterShapeOther)
-            emitter->nearest_point_on(&heard, &listener);
+            nearest_point_on(*emitter, &heard, &listener);
         sound::VolumeRef volume;
         if (!m->fetch_loudness(&volume, &heard, wave->dropoff, 0, camera, nullptr)) {
             stop_playing(&*p); // (out of range)

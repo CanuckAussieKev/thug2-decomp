@@ -5,11 +5,12 @@ namespace frontend::level_editor::ui_layout {
 
 struct Rect2 {
     float x, y, width, height;
-    [[nodiscard]] bool get_holds(float px, float py) const
-    {
-        return px >= x && px < x + width && py >= y && py < y + height;
-    }
 };
+
+[[nodiscard]] inline bool get_holds(const Rect2& rect2, float px, float py)
+{
+    return px >= rect2.x && px < rect2.x + rect2.width && py >= rect2.y && py < rect2.y + rect2.height;
+}
 
 // The UI's scale for a window: 1 at 1920 x 1080, the smaller of width / 1920 and height / 1080 rounded down to a quarter
 // (2560 x 1440: 1.25, 4K: 2), at least 0.875 (1280 x 720), at most 3. [editor] ui_scale_pct overrides it.

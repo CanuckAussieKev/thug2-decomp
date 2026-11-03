@@ -175,7 +175,7 @@ objects::StateHistoryMessage* new_message(objects::RiderFrameLog* history, uint8
     objects::StateHistoryMessage* message = history->get_latest_message();
     message->ident_ = id;
     auto* state = history->fetch_newest_snapshot();
-    message->change_moment(state->get_time());
+    change_moment(*message, get_time(*state));
     return message;
 }
 float get_scaled(uint32_t value, float constant) { return static_cast<float>(static_cast<double>(value) * constant); }

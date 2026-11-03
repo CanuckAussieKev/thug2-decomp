@@ -207,9 +207,9 @@ static_assert(sizeof(ParticleVertex) == 0x18, "layout must match the original");
 } // namespace
 
 // 0x004BB040
-void ParticleBurst::get_skip(int particles)
+void get_skip(ParticleBurst& burst, int particles)
 {
-    uint32_t a = core::at(seed, 0), b = core::at(seed, 1), c = core::at(seed, 2);
+    uint32_t a = core::at(burst.seed, 0), b = core::at(burst.seed, 1), c = core::at(burst.seed, 2);
     random_a() = a;
     random_b() = b;
     random_c() = c;
@@ -221,9 +221,9 @@ void ParticleBurst::get_skip(int particles)
         random_b() = b;
         random_a() = a;
     }
-    core::at(seed, 2) = c;
-    core::at(seed, 0) = a;
-    core::at(seed, 1) = b;
+    core::at(burst.seed, 2) = c;
+    core::at(burst.seed, 0) = a;
+    core::at(burst.seed, 1) = b;
 }
 
 // 0x004BCE90
@@ -356,7 +356,7 @@ void PcParticleSystem::draw(bool advance)
         } else {
             ParticleBurst* burst = oldest;
             burst->age = static_cast<float>(burst->age - static_cast<double>(gone) * burst->period);
-            oldest->get_skip(gone);
+            get_skip(*oldest, gone);
         }
     }
     if (!args().local_positions()) {

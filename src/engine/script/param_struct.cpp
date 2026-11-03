@@ -94,7 +94,7 @@ namespace {
 // The global structure an unnamed name component includes, or null.
 Struct* included_structure(const Component* component)
 {
-    if (component->name != 0 || component->kind_tag() != kQbvalName)
+    if (component->name != 0 || value_kind(*component) != kQbvalName)
         return nullptr;
     const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
     return symbol && symbol->type() == kQbvalStruct ? symbol->value().structure() : nullptr;
@@ -147,7 +147,7 @@ Component* Struct::find_component(uint32_t name)
     for (Component* component = head_; component; component = component->next) {
         if (component->name == name)
             return component;
-        if (component->name == 0 && component->kind_tag() == kQbvalName) {
+        if (component->name == 0 && value_kind(*component) == kQbvalName) {
             if (component->value.word() == name)
                 return component;
             const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
@@ -166,7 +166,7 @@ bool Struct::get_hunt(uint32_t name, uint32_t type, Cell* out)
     bool found = false;
     for (const Component* component = head_; component; component = component->next) {
         if (component->name == name) {
-            const QbValueKind component_type = component->kind_tag();
+            const QbValueKind component_type = value_kind(*component);
             if (component_type == type) {
                 *out = component->value;
                 found = true;
@@ -207,7 +207,7 @@ bool Struct::has_entry_named(const char* name) { return find_component(checksums
 bool Struct::has_bare_flag(uint32_t flag)
 {
     for (const Component* component = head_; component; component = component->next) {
-        if (component->name != 0 || component->kind_tag() != kQbvalName)
+        if (component->name != 0 || value_kind(*component) != kQbvalName)
             continue;
         if (component->value.word() == flag)
             return true;
@@ -227,7 +227,7 @@ bool Struct::ref_tally(Struct* other)
     if (other == this)
         return true;
     for (const Component* component = head_; component; component = component->next) {
-        if (component->kind_tag() == kQbvalStruct && component->value.structure()->ref_tally(other))
+        if (value_kind(*component) == kQbvalStruct && component->value.structure()->ref_tally(other))
             return true;
     }
     return false;
@@ -395,7 +395,7 @@ bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
     bool found = false;
     for (const Component* component = head_; component; component = component->next) {
         if (component->name == name) {
-            if (component->kind_tag() == kQbvalName) {
+            if (value_kind(*component) == kQbvalName) {
                 const SymbolTableEntry* symbol = nullptr;
                 // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
                 if (name != 0 || !(symbol = resolve_symbol(component->value.word())) || symbol->type() != kQbvalStruct) {
@@ -687,7 +687,7 @@ void release_array_storage(Array* array)
 // 0x004772A0
 void release_component(Component* component)
 {
-    switch (component->kind_tag()) {
+    switch (value_kind(*component)) {
     case kQbvalString:
     case kQbvalInlineText:
         if (component->value.text())
@@ -735,7 +735,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
         release_component(dest);
     dest->type_and_flag_ = static_cast<uint8_t>((source->type_and_flag_ & ~1) | (dest->type_and_flag_ & 1));
     dest->name = source->name;
-    switch (source->kind_tag()) {
+    switch (value_kind(*source)) {
     case kQbvalString:
     case kQbvalInlineText:
         dest->value.set_text(spawn_text(source->value.text()));
@@ -865,7 +865,7 @@ void Struct::remove_component_of_type(uint32_t name, uint8_t type)
     Component* component = head_;
     while (component) {
         Component* next = component->next;
-        if (component->name == name && component->kind_tag() == type) {
+        if (component->name == name && value_kind(*component) == type) {
             if (previous)
                 previous->next = next;
             else
@@ -944,8 +944,8 @@ void Struct::attach_module(Component* added)
     while (component) {
         bool replace = false;
         if (component->name == added->name) {
-            const QbValueKind mine = component->kind_tag();
-            const QbValueKind theirs = added->kind_tag();
+            const QbValueKind mine = value_kind(*component);
+            const QbValueKind theirs = value_kind(*added);
             if (mine == theirs)
                 replace = !(mine == kQbvalName && component->name == 0) || component->value.word() == added->value.word();
             else
@@ -1591,7 +1591,7 @@ bool components_equal(Component* a, Component* b)
 {
     // A name standing for a global symbol counts as the symbol's value.
     auto resolve = [](Component* component, uint32_t* type, Cell* value) {
-        *type = component->kind_tag();
+        *type = value_kind(*component);
         *value = component->value;
         if (*type == kQbvalName) {
             if (const SymbolTableEntry* symbol = resolve_symbol(value->word())) {

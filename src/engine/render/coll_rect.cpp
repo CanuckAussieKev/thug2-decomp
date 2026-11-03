@@ -168,21 +168,24 @@ double dot3(float ax, float ay, float az, float bx, float by, float bz)
 } // namespace
 
 // 0x00417AD0
-RectHit* RectHit::copy_from(const RectHit* other)
+RectHit* copy_from(RectHit& hit, const RectHit* other)
 {
     for (int e = 0; e < 2; ++e) {
-        core::at(ends, e).point = core::at(other->ends, e).point;
-        core::at(ends, e).edge = core::at(other->ends, e).edge;
-        core::at(ends, e).on_triangle_edge_ = core::at(other->ends, e).on_triangle_edge_;
+        core::at(hit.ends, e).point = core::at(other->ends, e).point;
+        core::at(hit.ends, e).edge = core::at(other->ends, e).edge;
+        core::at(hit.ends, e).on_triangle_edge_ = core::at(other->ends, e).on_triangle_edge_;
     }
-    normal = other->normal;
-    checksum = other->checksum;
-    face_flag40_ = other->face_flag40_;
-    return this;
+    hit.normal = other->normal;
+    hit.checksum = other->checksum;
+    hit.face_flag40_ = other->face_flag40_;
+    return &hit;
 }
 
 // 0x00417B60
-RectHit* RectHit::get_assign(const RectHit* other) { return copy_from(other); }
+RectHit* get_assign(RectHit& hit, const RectHit* other)
+{
+    return copy_from(hit, other);
+}
 
 // 0x0040FEE0 (the far corner's x part, and its y part for the box, summed in double precision first)
 bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCache* cache)
@@ -346,7 +349,7 @@ void BoxProbe::join_hits()
     joined_count_ = 0;
     for (int j = count - 1; j >= 0; --j) {
         RectHit joined{};
-        joined.copy_from(&core::at(hits, j));
+        copy_from(joined, &core::at(hits, j));
         if (core::at(used, j))
             continue;
         for (int k = j - 1; k >= 0; --k) {
@@ -376,7 +379,7 @@ void BoxProbe::join_hits()
             }
             core::at(used, k) = true;
         }
-        core::at(joined_, joined_count_++).get_assign(&joined);
+        get_assign(core::at(joined_, joined_count_++), &joined);
     }
 }
 

@@ -74,7 +74,7 @@ void free_slots(AnimCacheEntry* entry)
 {
     for (AnimCacheSlot*& slot : entry->slots_ptr()) {
         if (slot) {
-            slot->get_clear();
+            get_clear(*slot);
             if (slot)
                 AnimCacheSlot::dealloc(slot);
             slot = nullptr;
@@ -127,11 +127,11 @@ void free_data(AnimCacheEntry* entry)
 // 0x00480A70
 void AnimCacheSlot::dealloc(AnimCacheSlot* slot) { anim_slot_pools().dealloc(slot); }
 
-void AnimCacheSlot::get_clear()
+void get_clear(AnimCacheSlot& slot)
 {
-    rotation_keys_.fill(nullptr);
-    translation_keys_.fill(nullptr);
-    clock_ = 0x8000;
+    slot.rotation_keys_.fill(nullptr);
+    slot.translation_keys_.fill(nullptr);
+    slot.clock_ = 0x8000;
 }
 
 // --- an entry ---
@@ -229,7 +229,7 @@ void AnimCacheEntry::free_slot(int index)
     // then ignores it unless index > 0)
     AnimCacheSlot* slot = index > 0 && std::cmp_less(index, slots_ptr_.size()) ? core::at(slots_ptr_, index) : nullptr;
     if (slot) {
-        slot->get_clear();
+        get_clear(*slot);
         if (core::at(slots_ptr_, index))
             AnimCacheSlot::dealloc(core::at(slots_ptr_, index));
         core::at(slots_ptr_, index) = nullptr;
@@ -503,7 +503,7 @@ int ClipStore::defragment()
             entry->set_payload(nullptr);
             for (AnimCacheSlot* slot : entry->slots_ptr()) {
                 if (slot)
-                    slot->get_clear();
+                    get_clear(*slot);
             }
         }
     }

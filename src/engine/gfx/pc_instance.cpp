@@ -414,6 +414,9 @@ UvOscillator::UvOscillator()
 }
 
 // 0x004D1A80
-void TextureAnim::relaunch() { start_time_ = frame_clock::get_time(); }
+void relaunch(TextureAnim& anim)
+{
+    anim.start_time_ = frame_clock::get_time();
+}
 
 } // namespace render

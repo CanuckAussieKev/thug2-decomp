@@ -855,7 +855,7 @@ void PcGeom::reset_texture_anims()
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         const MaterialRef* material = material_of(core::at(mesh_run(), i));
         if (material && material->texture_anim())
-            material->texture_anim()->relaunch();
+            relaunch(*(material->texture_anim()));
     }
 }
 

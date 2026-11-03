@@ -26,9 +26,6 @@ static_assert(sizeof(RectHitEnd) == 0x24, "layout must match the original");
 
 // Where the rect crosses a triangle (0x60 bytes): a segment, the face's normal, its object's checksum and flag 0x40.
 struct RectHit {
-    // 0x00417AD0 / 0x00417B60: every field copied (not the padding). Returns this.
-    RectHit* copy_from(const RectHit* other);
-    RectHit* get_assign(const RectHit* other);
 
     std::array<RectHitEnd, 2> ends;
     maths::Vec4 normal;   // +0x48
@@ -36,6 +33,11 @@ struct RectHit {
     uint8_t face_flag40_; // +0x5C
     std::array<uint8_t, 3> pad;
 };
+
+// 0x00417AD0 / 0x00417B60: every field copied (not the padding). Returns this.
+RectHit* copy_from(RectHit& hit, const RectHit* other);
+
+RectHit* get_assign(RectHit& hit, const RectHit* other);
 static_assert(sizeof(RectHit) == 0x60 && offsetof(RectHit, normal) == 0x48, "layout must match the original");
 
 // What a rect query fills (0xC08 bytes): up to 32 hits; faces with an ignored flag or without a required one are

@@ -119,11 +119,11 @@ KinematicsModule* get_motion(GameEntity* object)
 } // namespace
 
 // 0x004EDC10
-GroundTriangle& GroundTriangle::get_assign(const GroundTriangle& source)
+GroundTriangle& get_assign(GroundTriangle& triangle, const GroundTriangle& source)
 {
     for (int i = 0; i < 3; ++i)
-        core::at(corners, i) = core::at(source.corners, i);
-    return *this;
+        core::at(triangle.corners, i) = core::at(source.corners, i);
+    return triangle;
 }
 
 // 0x004F0B10

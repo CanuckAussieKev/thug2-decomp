@@ -90,17 +90,20 @@ float midpoint(float a, float b) { return static_cast<float>((static_cast<double
 
 } // namespace
 
-ProjectedVertex& TextureSplats::vertex(int index) { return core::at(core::at(vertices, index / 3), index % 3); }
+ProjectedVertex& splat_vertex(TextureSplats& splats, int index)
+{
+    return core::at(core::at(splats.vertices, index / 3), index % 3);
+}
 
 // 0x00490CD0
-int TextureSplats::oldest_slot(uint32_t count) const
+int oldest_slot(const TextureSplats& splats, uint32_t count)
 {
     int oldest = 0;
-    int most = core::at(correction_steps_, 0) - static_cast<int>(core::at(alive, 0));
+    int most = core::at(splats.correction_steps_, 0) - static_cast<int>(core::at(splats.alive, 0));
     for (uint32_t i = 0; i < count; ++i) {
-        if (!core::at(alive, i))
+        if (!core::at(splats.alive, i))
             return static_cast<int>(i);
-        const int age = core::at(correction_steps_, i) - static_cast<int>(core::at(alive, i));
+        const int age = core::at(splats.correction_steps_, i) - static_cast<int>(core::at(splats.alive, i));
         if (age > most) {
             most = age;
             oldest = static_cast<int>(i);
@@ -181,7 +184,7 @@ void draw_texture_splats()
                 const double t = (steps - static_cast<int>(core::at(splats->alive, j))) / steps;
                 factor = 1.0 / (t * (1.0 - r) + r);
             }
-            auto& uv = splats->vertex(j).uv; // (vertex j: the coordinates follow the vertices, not the triangles)
+            auto& uv = splat_vertex(*splats, j).uv; // (vertex j: the coordinates follow the vertices, not the triangles)
             core::at(uv, 0) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 0)) - 0.5f) * factor + 0.5f);
             core::at(uv, 1) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 1)) - 0.5f) * factor + 0.5f);
         }
@@ -368,7 +371,7 @@ void ortho(maths::Mat4* out, float width, float height, float near_z, float far_
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A set's oldest triangle (a free one first: 0x00490CD0, the engine's).
-int oldest_triangle(const TextureSplats* splats) { return splats->oldest_slot(0x100); }
+int oldest_triangle(const TextureSplats* splats) { return oldest_slot(*splats, 0x100); }
 // The lifetime in milliseconds (the C runtime's _ftol: truncated).
 int get_milliseconds(float seconds) { return static_cast<int>(static_cast<double>(seconds) * 1000.0f); }
 // A vertex colour as the splats keep it: opaque-ish (alpha 0x80).
@@ -410,7 +413,7 @@ TextureSplats* get_texture_splats(TextureImage* texture)
     splats->material = material;
     std::memset(splats->alive.data(), 0, sizeof(splats->alive));
     for (int v = 0; v < 0x300; ++v) {
-        ProjectedVertex& vertex = splats->vertex(v);
+        ProjectedVertex& vertex = splat_vertex(*splats, v);
         vertex.position = {};
         vertex.argb = 0x80808080;
     }

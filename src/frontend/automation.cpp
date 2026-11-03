@@ -773,7 +773,7 @@ bool struct_denied(script::Struct* params, int depth)
         return false;
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
-        if (checksum_denied(component->name) || value_denied(component->kind_tag(), component->value, depth))
+        if (checksum_denied(component->name) || value_denied(value_kind(*component), component->value, depth))
             return true;
     }
     return false;

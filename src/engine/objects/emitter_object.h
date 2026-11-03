@@ -29,11 +29,6 @@ enum EmitterShape : uint8_t {
 };
 
 struct EmitterNode {
-    // 0x00468120: whether `point` is in the shape.
-    bool is_within(const maths::Vec4* point);
-    // 0x004681A0: `point` itself when it's inside, else the shape's nearest point (the box's surface, the
-    // sphere's). The other shape leaves `out` as it was (the original copies its uninitialised locals).
-    maths::Vec4* nearest_point_on(maths::Vec4* out, const maths::Vec4* point);
 
     uint32_t label_{};       // +0x00
     maths::Vec4 at_point_{}; // +0x04
@@ -47,6 +42,13 @@ struct EmitterNode {
     uint32_t unknown58_{};
     uint32_t own_script_{}; // +0x5C
 };
+
+// 0x00468120: whether `point` is in the shape.
+bool is_within(EmitterNode& node, const maths::Vec4* point);
+
+// 0x004681A0: `point` itself when it's inside, else the shape's nearest point (the box's surface, the
+// sphere's). The other shape leaves `out` as it was (the original copies its uninitialised locals).
+maths::Vec4* nearest_point_on(EmitterNode& node, maths::Vec4* out, const maths::Vec4* point);
 
 // 0x004680E0: the emitter named `name` (null if none).
 EmitterNode* emitter_get_node(uint32_t name);

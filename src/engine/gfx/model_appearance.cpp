@@ -138,7 +138,7 @@ void ModelLook::resolve_random_parts()
     script::Component* next = nullptr;
     for (script::Component* component = structure_.step_to_entry(nullptr); component; component = next) {
         next = structure_.step_to_entry(component);
-        if (component->kind_tag() != script::kQbvalStruct)
+        if (value_kind(*component) != script::kQbvalStruct)
             continue;
         const uint32_t part = component->name;
         script::Struct* option = nullptr;

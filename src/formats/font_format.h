@@ -38,8 +38,12 @@ struct Header {
 struct GlyphEntry {
     uint16_t baseline = 0;
     std::array<uint8_t, 4> codes = {}; // format 1: an i16 character / special glyph (codes 0-1); format 2: up to four characters
-    [[nodiscard]] int16_t code() const { return static_cast<int16_t>(core::at(codes, 0) | core::at(codes, 1) << 8); }
 };
+
+[[nodiscard]] inline int16_t glyph_code(const GlyphEntry& entry)
+{
+    return static_cast<int16_t>(core::at(entry.codes, 0) | core::at(entry.codes, 1) << 8);
+}
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Page {

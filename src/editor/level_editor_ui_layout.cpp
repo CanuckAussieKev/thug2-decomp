@@ -73,9 +73,9 @@ Layout compute(float width, float height, float scale, bool outliner_open, bool 
 
 bool on_panel(const Layout& layout, float x, float y)
 {
-    return layout.toolbar.get_holds(x, y) || layout.status.get_holds(x, y) ||
-           (layout.outliner_shown_ && layout.outliner.get_holds(x, y)) ||
-           (layout.inspector_shown_ && layout.inspector.get_holds(x, y));
+    return get_holds(layout.toolbar, x, y) || get_holds(layout.status, x, y) ||
+           (layout.outliner_shown_ && get_holds(layout.outliner, x, y)) ||
+           (layout.inspector_shown_ && get_holds(layout.inspector, x, y));
 }
 
 Route decide(const RouteInput& input)

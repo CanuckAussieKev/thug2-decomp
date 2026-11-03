@@ -110,7 +110,7 @@ uint32_t relocate_component(std::span<uint8_t> image, Component* component, uint
     if (component->next)
         relocate(component->next, base);
     const uint32_t end = end_of(image, component);
-    switch (component->kind_tag()) {
+    switch (value_kind(*component)) {
     case kQbvalString:
     case kQbvalInlineText:
         relocate(component->value, base);

@@ -63,9 +63,10 @@ struct CutsceneSkater {
 
 // 0x00464340 (code Ghidra missed; nothing calls it): an identity rotation (0, 0, 0, 1).
 struct IdentityQuat {
-    void assign_value();
     std::array<float, 4> q;
 };
+
+void assign_value(IdentityQuat& quat);
 // 0x00463BA0: the name of the skater model a cutscene uses: the profile 0x1804A7C4 names looked up in array
 // 0xCA1DB456, else "Male1" when integer 0x3F813177 is 1, "Female1" when not.
 const char* skater_model_name(script::Struct* params);

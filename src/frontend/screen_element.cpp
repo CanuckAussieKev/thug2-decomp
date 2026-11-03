@@ -119,10 +119,10 @@ void get_rotated(const UiWidget* parent, float x, float y, double c, double s, f
 } // namespace
 
 // 0x004A8730
-ElementState* ElementState::get_assign(const ElementState* other)
+ElementState* get_assign(ElementState& state, const ElementState* other)
 {
-    std::memcpy(this, other, sizeof(*this));
-    return this;
+    std::memcpy(&state, other, sizeof(state));
+    return &state;
 }
 
 // --- construction ---------------------------------------------------------------------------------------------
@@ -137,8 +137,8 @@ UiWidget::UiWidget()
     shown_.pos3d = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     core::at(shown_.rgba, 0) = core::at(shown_.rgba, 1) = core::at(shown_.rgba, 2) = core::at(shown_.rgba, 3) = 0x80;
     shown_.alpha = 1.0f;
-    aim_point_.get_assign(&shown_);
-    summed_.get_assign(&shown_);
+    get_assign(aim_point_, &shown_);
+    get_assign(summed_, &shown_);
     object_flags() |= kNew | kDirty;
     span_ = level_y_ = 0.0f;
     core::at(rgba168_, 0) = core::at(rgba168_, 1) = core::at(rgba168_, 2) = core::at(rgba168_, 3) = 0x80;
@@ -384,7 +384,7 @@ void UiWidget::start_morph(int ms)
     morph_curve_done_ = 0.0f;
     morph_done_ = 0.0f;
     if (ms == 0)
-        shown_.get_assign(&aim_point_);
+        get_assign(shown_, &aim_point_);
     object_flags() = (object_flags() & ~(kPauseAsked | kPaused)) | kDirty;
 }
 
@@ -634,7 +634,7 @@ void UiWidget::update_layout()
             morph_curve_done_ = curve;
             morph_done_ = t;
         } else {
-            shown_.get_assign(&aim_point_);
+            get_assign(shown_, &aim_point_);
             object_flags() &= ~kDirty;
         }
         changed = true;
@@ -656,7 +656,7 @@ void UiWidget::update_layout()
             summed_.alpha = static_cast<float>(static_cast<double>(parent->summed_.alpha) * shown_.alpha);
             get_rotated(parent, shown_.left, shown_.top, c, s, &summed_.left, &summed_.top);
         } else {
-            summed_.get_assign(&shown_);
+            get_assign(summed_, &shown_);
         }
         object_flags() |= kChildrenDirty;
     }

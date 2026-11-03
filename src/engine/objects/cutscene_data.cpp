@@ -124,12 +124,12 @@ void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translat
 }
 
 // 0x00464340
-void IdentityQuat::assign_value()
+void assign_value(IdentityQuat& quat)
 {
-    core::at(q, 0) = 0.0f;
-    core::at(q, 1) = 0.0f;
-    core::at(q, 2) = 0.0f;
-    core::at(q, 3) = 1.0f;
+    core::at(quat.q, 0) = 0.0f;
+    core::at(quat.q, 1) = 0.0f;
+    core::at(quat.q, 2) = 0.0f;
+    core::at(quat.q, 3) = 1.0f;
 }
 
 // 0x00463BA0

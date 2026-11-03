@@ -73,9 +73,10 @@ struct FamData {
     int size;
     std::array<uint8_t, 0x1000> data;
 
-    // 0x00450540: load fam\<name in hex>.fam (blocking). False if it can't be opened or is 4 KB or more.
-    bool read_in(uint32_t name);
 };
+
+// 0x00450540: load fam\<name in hex>.fam (blocking). False if it can't be opened or is 4 KB or more.
+bool read_in(FamData& data, uint32_t name);
 static_assert(sizeof(FamData) == 0x1008, "layout must match the original");
 
 } // namespace audio

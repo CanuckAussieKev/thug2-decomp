@@ -179,9 +179,10 @@ struct LadderHit {
     maths::Vec4 facing; // +0x10
     float along;        // +0x20
 
-    // 0x0057C500: a copy (the compiler-made assignment). Returns this.
-    LadderHit* get_assign(const LadderHit* other);
 };
+
+// 0x0057C500: a copy (the compiler-made assignment). Returns this.
+LadderHit* get_assign(LadderHit& hit, const LadderHit* other);
 // What a hang test finds: where on the rail, the way the skater faces, how far along, out and up, the hang's
 // animation (SWING, or WALL) and the node.
 struct RailHit {
@@ -193,8 +194,9 @@ struct RailHit {
     uint32_t anim;      // +0x2C
     GrindPoint* node;   // +0x30
 
-    // 0x0057C540: a copy (the compiler-made assignment). Returns this.
-    RailHit* get_assign(const RailHit* other);
 };
+
+// 0x0057C540: a copy (the compiler-made assignment). Returns this.
+RailHit* get_assign(RailHit& hit, const RailHit* other);
 
 } // namespace objects

@@ -836,7 +836,7 @@ std::vector<uint32_t> own_links(script::Struct* node)
         return links;
     for (const script::Component* c = node->head(); c; c = c->next) {
         if (c->name == kLinks &&
-            (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) && c->value.array()) {
+            (value_kind(*c) == script::kQbvalArray || value_kind(*c) == script::kEsymboltypeArraypointer) && c->value.array()) {
             links.clear();
             for (uint32_t i = 0; i < c->value.array()->extent(); ++i)
                 links.push_back(c->value.array()->fetch_part(i));
@@ -851,7 +851,7 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
     const script::Component* own = nullptr;
     for (const script::Component* c = node->head(); c; c = c->next) {
         if (c->name == kLinks &&
-            (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) && c->value.array())
+            (value_kind(*c) == script::kQbvalArray || value_kind(*c) == script::kEsymboltypeArraypointer) && c->value.array())
             own = c;
     }
     if (links.empty()) {
@@ -880,7 +880,7 @@ void write_pos(script::Struct* node, V3 pos)
 {
     const script::Component* own = nullptr;
     for (const script::Component* c = node->head(); c; c = c->next) {
-        if (c->name == kPos && c->kind_tag() == script::kQbvalVector && c->value.vector())
+        if (c->name == kPos && value_kind(*c) == script::kQbvalVector && c->value.vector())
             own = c;
     }
     if (own) {
@@ -898,7 +898,7 @@ void write_angles(script::Struct* node, V3 angles)
     constexpr uint32_t kAngles = 0x9D2D0915; // angles
     const script::Component* own = nullptr;
     for (const script::Component* c = node->head(); c; c = c->next) {
-        if (c->name == kAngles && c->kind_tag() == script::kQbvalVector && c->value.vector())
+        if (c->name == kAngles && value_kind(*c) == script::kQbvalVector && c->value.vector())
             own = c;
     }
     if (own) {

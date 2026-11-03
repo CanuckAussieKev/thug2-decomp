@@ -41,12 +41,14 @@ struct HiddenModels {
     uint32_t* ids_ptr_;
     int num_;
 
-    // 0x00487BD0: every model component's model with an object id that isn't hidden yet is hidden, its object's id
-    // kept ("Hid %d objects").
-    void conceal();
-    // 0x00487CB0: those objects still there get their models shown again; the list freed.
-    void get_show();
 };
+
+// 0x00487BD0: every model component's model with an object id that isn't hidden yet is hidden, its object's id
+// kept ("Hid %d objects").
+void conceal(HiddenModels& models);
+
+// 0x00487CB0: those objects still there get their models shown again; the list freed.
+void get_show(HiddenModels& models);
 // 0x00487D20 / 0x00487D30: the cutscene's (0x006FA2F0).
 void hide_models_for_cutscene();
 void show_models_after_cutscene();

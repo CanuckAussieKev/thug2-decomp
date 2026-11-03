@@ -170,17 +170,17 @@ maths::Mat4& GrindRailHub::change_body_transform(const maths::Mat4& matrix)
 }
 
 // 0x0057C500
-LadderHit* LadderHit::get_assign(const LadderHit* other)
+LadderHit* get_assign(LadderHit& hit, const LadderHit* other)
 {
-    *this = *other;
-    return this;
+    hit = *other;
+    return &hit;
 }
 
 // 0x0057C540
-RailHit* RailHit::get_assign(const RailHit* other)
+RailHit* get_assign(RailHit& hit, const RailHit* other)
 {
-    *this = *other;
-    return this;
+    hit = *other;
+    return &hit;
 }
 
 // 0x0057C5A0
@@ -691,7 +691,7 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
             *found = next;
         }
         best = distance_squared;
-        result->get_assign(&record);
+        get_assign(*result, &record);
     }
     return *found != nullptr;
 }
@@ -757,7 +757,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         if (!static_cast<FootMovement*>(checker)->check_rail(node_pos, next_pos, rail_at, line_at, t, &record, false))
             continue;
         best = distance_squared;
-        result->get_assign(&record);
+        get_assign(*result, &record);
         found = true;
     }
     return found;

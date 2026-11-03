@@ -394,21 +394,21 @@ void forget_stored_randoms_of(const Script* owner)
 }
 
 // 0x0046F8A0
-void StoredRandom::shuffle(bool avoid_repeat)
+void shuffle(StoredRandom& random, bool avoid_repeat)
 {
-    const uint8_t last = core::at(order_, num_ - 1);
-    for (int swaps = num_ * 10; swaps; --swaps) {
-        const int a = maths::rnd(num_);
-        const int b = maths::rnd(num_);
-        const uint8_t swapped = core::at(order_, a);
-        core::at(order_, a) = core::at(order_, b);
-        core::at(order_, b) = swapped;
+    const uint8_t last = core::at(random.order_, random.num_ - 1);
+    for (int swaps = random.num_ * 10; swaps; --swaps) {
+        const int a = maths::rnd(random.num_);
+        const int b = maths::rnd(random.num_);
+        const uint8_t swapped = core::at(random.order_, a);
+        core::at(random.order_, a) = core::at(random.order_, b);
+        core::at(random.order_, b) = swapped;
     }
-    if (avoid_repeat && core::at(order_, 0) == last) {
-        const int other = maths::rnd(num_ - 1) + 1;
-        const uint8_t swapped = core::at(order_, 0);
-        core::at(order_, 0) = core::at(order_, other);
-        core::at(order_, other) = swapped;
+    if (avoid_repeat && core::at(random.order_, 0) == last) {
+        const int other = maths::rnd(random.num_ - 1) + 1;
+        const uint8_t swapped = core::at(random.order_, 0);
+        core::at(random.order_, 0) = core::at(random.order_, other);
+        core::at(random.order_, other) = swapped;
     }
 }
 

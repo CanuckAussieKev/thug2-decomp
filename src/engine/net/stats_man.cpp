@@ -352,12 +352,12 @@ constexpr std::array<uint32_t, 15> kLevelChecksums{{0x55894059, 0x2A179957, 0xCD
 } // namespace
 
 // 0x0054DDB0
-void PersonalStats::get_fill()
+void get_fill(PersonalStats& stats)
 {
     const auto& levels = kLevelChecksums;
     SortedList sorted;
     for (int i = 0; i < 15; ++i) {
-        const int score = core::at(high_scores_, i);
+        const int score = core::at(stats.high_scores_, i);
         if (score == 0)
             continue;
         SortEntry* line = new_sort_entry();
@@ -852,7 +852,7 @@ bool fill_stats_arrays(script::Struct* params, script::Script*)
         core::at(stats->top_lists(), 4).fill_sorted_scores(true);
         return true;
     case 0xFEF84FFF:
-        stats->personal().get_fill();
+        get_fill(stats->personal());
         return true;
     default:
         return true;

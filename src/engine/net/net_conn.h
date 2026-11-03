@@ -25,9 +25,11 @@ struct AppHost;
 struct PacketBuffer {
     std::span<uint8_t> bytes;
     std::size_t used = 0;
-    [[nodiscard]] std::span<uint8_t> filled() const { return bytes.first(used); }
-    [[nodiscard]] std::span<uint8_t> vacant() const { return bytes.subspan(used); }
 };
+
+[[nodiscard]] inline std::span<uint8_t> filled(const PacketBuffer& buffer) { return buffer.bytes.first(buffer.used); }
+
+[[nodiscard]] inline std::span<uint8_t> vacant(const PacketBuffer& buffer) { return buffer.bytes.subspan(buffer.used); }
 
 // (The local searches over Conn's lists have vtables holding only a destructor that resets it - 0x004559D0 /
 // 0x00455A80, 0x004559E0 / 0x00455AB0, 0x004559F0 / 0x00455AE0, 0x00455A00 / 0x00455B10: not kept.)

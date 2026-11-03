@@ -1738,7 +1738,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
         const float x = frame.design_x(wx);
         const float y = frame.design_y(wy);
         for (const paint::Hit& hit : menu_mirror().mirror_hits_)
-            if (hit.get_holds(x, y))
+            if (get_holds(hit, x, y))
                 return &hit;
         return nullptr;
     };
@@ -2128,7 +2128,7 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         const float x = frame.design_x(wx);
         const float y = frame.design_y(wy);
         for (const paint::Hit& hit : new_frontend_state().hits_)
-            if (hit.get_holds(x, y))
+            if (get_holds(hit, x, y))
                 return &hit;
         return nullptr;
     };

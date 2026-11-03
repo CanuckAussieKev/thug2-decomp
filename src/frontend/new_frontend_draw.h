@@ -56,8 +56,12 @@ struct Hit {
     enum class Kind : uint8_t { kItem, kStageMap, kTab, kBack, kSkate, kContinue, kChoice } kind;
     int index;
     float x0, y0, x1, y1;
-    [[nodiscard]] bool get_holds(float x, float y) const { return x >= x0 && x < x1 && y >= y0 && y < y1; }
 };
+
+[[nodiscard]] inline bool get_holds(const Hit& hit, float x, float y)
+{
+    return x >= hit.x0 && x < hit.x1 && y >= hit.y0 && y < hit.y1;
+}
 
 // The session in the level (the pause menu's panel; -1: not known - not shown).
 struct Session {

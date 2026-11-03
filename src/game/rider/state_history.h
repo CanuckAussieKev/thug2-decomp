@@ -53,11 +53,13 @@ struct StateHistoryMessage {
     bool spin_hold_;          // +0x50 0x76
     std::array<uint8_t, 3> pad51;
 
-    // 0x00519800: the 32-bit time stamp.
-    uint32_t get_time();
-    // 0x00519810: the time stamp set (its two halves).
-    void change_moment(uint32_t time);
 };
+
+// 0x00519800: the 32-bit time stamp.
+uint32_t get_time(StateHistoryMessage& message);
+
+// 0x00519810: the time stamp set (its two halves).
+void change_moment(StateHistoryMessage& message, uint32_t time);
 
 class RiderFrameLog final : public ObjectModule {
 public:

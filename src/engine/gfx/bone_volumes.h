@@ -22,10 +22,11 @@ class RigData;
 struct BoneVolume {
     maths::Capsule capsule_; // +0x08 (its radius +0x28)
 
-    // 0x0048B330 (not a Ghidra function; the vtable's slot 0): whether `segment` passes through the capsule (where along
-    // the capsule's line: `s`).
-    int intersects_segment(const maths::Seg* segment, float* s);
 };
+
+// 0x0048B330 (not a Ghidra function; the vtable's slot 0): whether `segment` passes through the capsule (where along
+// the capsule's line: `s`).
+int intersects_segment(BoneVolume& volume, const maths::Seg* segment, float* s);
 
 // A skeleton's bone volumes (0x0C bytes): one per bone (the root has none).
 struct BoneVolumes {

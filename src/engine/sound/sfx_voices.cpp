@@ -667,7 +667,7 @@ void free_permanent_waves()
 }
 
 // 0x0047C870
-bool PcWave::read_in(const char* file_name, uint32_t flags)
+bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
 {
     // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., frontend/data_overlay.h - THAW's
     // BMX sounds, tools/pipeline/thaw_bmx/convert.ts).
@@ -697,28 +697,28 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
         debug::printf("sound %s damaged: cut short, no format or data, or less data than it decodes\n", file_name);
         return false;
     }
-    std::memcpy(this, wave.format().data(), wave_format::kFormatSize); // (the WAVEFORMATEX at its start)
-    unknown12 = 0x40;
-    looping = wave.looping();
-    uint32_t size = bytes_per_second_;
-    bytes_per_second_ = bits_per_sample_ * samples_per_second_ >> 3;
+    std::memcpy(&pc_wave, wave.format().data(), wave_format::kFormatSize); // (the WAVEFORMATEX at its start)
+    pc_wave.unknown12 = 0x40;
+    pc_wave.looping = wave.looping();
+    uint32_t size = pc_wave.bytes_per_second_;
+    pc_wave.bytes_per_second_ = pc_wave.bits_per_sample_ * pc_wave.samples_per_second_ >> 3;
     void* converted = memory::alloc(size);
     os_layer::decode_adpcm(std::span<int16_t>(static_cast<int16_t*>(converted), size >> 1),
                            std::span<const uint8_t>(wave.samples(), wave.sample_bytes()));
-    data = static_cast<uint8_t*>(converted);
-    data_size_ = size;
-    desc_size_ = 0;
-    desc_flags_ = 0;
-    desc_bytes_ = 0;
-    desc_reserved_ = 0;
-    desc_format_ = nullptr;
-    std::memset(desc_3d_algorithm_.data(), 0, sizeof(desc_3d_algorithm_));
-    desc_size_ = 0x24;
-    desc_flags_ = flags;
-    desc_format_ = this;
-    if (block_align_)
-        size -= size % block_align_;
-    desc_bytes_ = size;
+    pc_wave.data = static_cast<uint8_t*>(converted);
+    pc_wave.data_size_ = size;
+    pc_wave.desc_size_ = 0;
+    pc_wave.desc_flags_ = 0;
+    pc_wave.desc_bytes_ = 0;
+    pc_wave.desc_reserved_ = 0;
+    pc_wave.desc_format_ = nullptr;
+    std::memset(pc_wave.desc_3d_algorithm_.data(), 0, sizeof(pc_wave.desc_3d_algorithm_));
+    pc_wave.desc_size_ = 0x24;
+    pc_wave.desc_flags_ = flags;
+    pc_wave.desc_format_ = &pc_wave;
+    if (pc_wave.block_align_)
+        size -= size % pc_wave.block_align_;
+    pc_wave.desc_bytes_ = size;
     return true;
 }
 
@@ -736,7 +736,7 @@ bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, in
         wave->data_size_ = 0;
         wave->data = nullptr;
     }
-    const bool loaded = wave->read_in(file_name.data(), 0x400E0);
+    const bool loaded = read_in(*wave, file_name.data(), 0x400E0);
     if (loaded) {
         entry->wave = wave;
         entry->looping = wave->looping;

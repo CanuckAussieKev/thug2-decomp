@@ -15,6 +15,7 @@
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app.h"
+#include "engine/net/net_conn.h"
 #include "engine/net/net_guards.h"
 #include "engine/net/net_manager.h"
 #include "formats/byte_stream.h"
@@ -134,7 +135,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     void* metrics = &conn->receive_metrics();
 
     // (the messages one after another: net_wire.h)
-    util::ByteReader packet(std::span<const uint8_t>(conn->incoming().filled()));
+    util::ByteReader packet(std::span<const uint8_t>(filled(conn->incoming())));
     for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size())) {
         context.set_type_code(packet.u8());
         Hub* table = fetch_hub(conn->owner_app());

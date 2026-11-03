@@ -134,11 +134,12 @@ render::WorldCell* duplicate_scene_sector(uint32_t source)
 // The bytes of a colour word (red, green, blue; alpha 0) as the highlight writes them.
 struct Colour {
     uint8_t r, g, b;
-    [[nodiscard]] uint32_t get_word() const
-    {
-        return r | static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b) << 16;
-    }
 };
+
+[[nodiscard]] inline uint32_t get_word(const Colour& colour)
+{
+    return colour.r | static_cast<uint32_t>(colour.g) << 8 | static_cast<uint32_t>(colour.b) << 16;
+}
 
 // The template's vertices of the segment as Stretch turns them: the 10 at the start of the piece, then the 10 at its
 // end (0x0064... built on the stack by the original).
@@ -546,7 +547,7 @@ void EditedRailPoint::spotlight(bool flash, bool include_end_posts)
                rail_corner_ok(&p->following_->at_point_, &p->at_point_, &p->preceding_->at_point_);
     };
     auto paint = [mask](render::WorldCell* sector, const Colour& colour) {
-        set_sector_colour(sector, colour.get_word());
+        set_sector_colour(sector, get_word(colour));
         set_sector_visibility(sector, mask);
     };
     // (the colour last chosen carries on to the segment when there's no next point to judge it by)

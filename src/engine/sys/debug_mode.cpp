@@ -62,14 +62,15 @@ bool in_view_mode() { return objects::view_mode() != 0; }
 struct Key {
     SDL_Scancode code;
     bool was_down_;
-    bool squeezed(platform::KeyState keys)
-    {
-        const bool down = core::at(keys, code) != 0;
-        const bool pressed = down && !was_down_;
-        was_down_ = down;
-        return pressed;
-    }
 };
+
+inline bool squeezed(Key& key_record, platform::KeyState keys)
+{
+    const bool down = core::at(keys, key_record.code) != 0;
+    const bool pressed = down && !key_record.was_down_;
+    key_record.was_down_ = down;
+    return pressed;
+}
 
 bool& started()
 {
@@ -117,13 +118,13 @@ void tick_frame(modules::FrontEnd* front_end)
         f12{.code = SDL_SCANCODE_F12, .was_down_ = false}, tab{.code = SDL_SCANCODE_TAB, .was_down_ = false}, t{.code = SDL_SCANCODE_T, .was_down_ = false},
         home{.code = SDL_SCANCODE_HOME, .was_down_ = false};
     // (every key's state noted each frame, so a press counts once wherever it happened)
-    const bool pressed_f9 = f9.squeezed(keys);
-    const bool pressed_f10 = f10.squeezed(keys);
-    const bool pressed_f11 = f11.squeezed(keys);
-    const bool pressed_f12 = f12.squeezed(keys);
-    const bool pressed_tab = tab.squeezed(keys);
-    const bool pressed_t = t.squeezed(keys);
-    const bool pressed_home = home.squeezed(keys);
+    const bool pressed_f9 = squeezed(f9, keys);
+    const bool pressed_f10 = squeezed(f10, keys);
+    const bool pressed_f11 = squeezed(f11, keys);
+    const bool pressed_f12 = squeezed(f12, keys);
+    const bool pressed_tab = squeezed(tab, keys);
+    const bool pressed_t = squeezed(t, keys);
+    const bool pressed_home = squeezed(home, keys);
     if (frontend::level_editor::live_now() || (front_end && front_end->is_halted()) || render::current_level() == 0)
         return;
     if (!started()) {

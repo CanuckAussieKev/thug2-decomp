@@ -143,7 +143,7 @@ script::Component* own_vector(script::Struct* node, uint32_t name)
 {
     script::Component* found = nullptr;
     for (script::Component* c = node->head(); c; c = c->next) {
-        if (c->name == name && c->kind_tag() == script::kQbvalVector && c->value.vector())
+        if (c->name == name && value_kind(*c) == script::kQbvalVector && c->value.vector())
             found = c;
     }
     return found;

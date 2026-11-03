@@ -71,10 +71,6 @@ static_assert(sizeof(VolumeRef) == 0x2C, "layout must match the original");
 
 // A loaded sound: its WAVEFORMATEX, the DirectSound buffer description, its samples (0x44 bytes).
 struct PcWave {
-    // 0x0047C870: the .wav file's format and samples (converted, 0x005F5A20), its loops (a smpl chunk with some);
-    // the buffer description with `descFlags`. False if the file can't be opened. (The sample buffer is the
-    // format's bytes-per-second long: one second, whatever the data chunk's size.)
-    bool read_in(const char* file_name, uint32_t desc_flags);
 
     uint16_t format_tag_;           // +0x00 (WAVEFORMATEX)
     uint16_t channels;              // +0x02
@@ -94,6 +90,11 @@ struct PcWave {
     uint8_t* data;                  // +0x3C
     bool looping;                   // +0x40: the file's smpl chunk has loops
 };
+
+// 0x0047C870: the .wav file's format and samples (converted, 0x005F5A20), its loops (a smpl chunk with some);
+// the buffer description with `descFlags`. False if the file can't be opened. (The sample buffer is the
+// format's bytes-per-second long: one second, whatever the data chunk's size.)
+bool read_in(PcWave& pc_wave, const char* file_name, uint32_t desc_flags);
 static_assert(sizeof(PcWave) == 0x44 && offsetof(PcWave, desc_size_) == 0x14 && offsetof(PcWave, data) == 0x3C,
               "layout must match the original");
 

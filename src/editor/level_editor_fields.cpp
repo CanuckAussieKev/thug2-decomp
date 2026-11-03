@@ -680,7 +680,7 @@ std::unordered_map<uint32_t, std::string>& names_state()
 
 script::Struct* get_included(const script::Component* c)
 {
-    if (c->name != 0 || c->kind_tag() != script::kQbvalName)
+    if (c->name != 0 || value_kind(*c) != script::kQbvalName)
         return nullptr;
     const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
     return symbol && symbol->type() == script::kQbvalStruct ? symbol->value().structure() : nullptr;
@@ -688,7 +688,7 @@ script::Struct* get_included(const script::Component* c)
 
 bool is_flag(const script::Component* c)
 {
-    return c->name == 0 && c->kind_tag() == script::kQbvalName && !get_included(c);
+    return c->name == 0 && value_kind(*c) == script::kQbvalName && !get_included(c);
 }
 
 // The key a component goes by: its name, a bare flag's name.
@@ -702,7 +702,7 @@ Value value_of(const script::Component* c)
         v.on = true;
         return v;
     }
-    switch (c->kind_tag()) {
+    switch (value_kind(*c)) {
     case script::kQbvalInteger:
         v.kind = Kind::kInteger;
         v.integer = c->value.integer();

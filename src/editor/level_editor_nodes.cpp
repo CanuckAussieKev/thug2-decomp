@@ -613,7 +613,7 @@ std::string array_text(script::Array* array, int depth)
 std::string value_text(script::Component* c, int depth)
 {
     std::array<char, 96> buffer{};
-    switch (c->kind_tag()) {
+    switch (value_kind(*c)) {
     case script::kQbvalInteger:
         text::format_to(buffer, "%d", c->value.integer());
         return buffer.data();
@@ -652,7 +652,7 @@ void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* 
     if (!s || depth > 3)
         return;
     for (script::Component* c = s->head(); c; c = c->next) {
-        if (c->name == 0 && c->kind_tag() == script::kQbvalName) {
+        if (c->name == 0 && value_kind(*c) == script::kQbvalName) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
             const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
             if (symbol && symbol->type() == script::kQbvalStruct && symbol->value().structure()) {

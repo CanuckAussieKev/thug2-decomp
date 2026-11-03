@@ -637,7 +637,7 @@ void PedestrianBrainModule::align_to_ground()
     if (!motion)
         return;
     GroundTriangle t{};
-    t.get_assign(GroundTriangle{motion->ground_triangle()});
+    get_assign(t, GroundTriangle{motion->ground_triangle()});
     const auto& c = t.corners;
     const double e1x = static_cast<double>(core::at(c, 1).x) - core::at(c, 0).x;
     const double e1y = static_cast<double>(core::at(c, 1).y) - core::at(c, 0).y;

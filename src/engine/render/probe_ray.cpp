@@ -216,7 +216,7 @@ ProbeRay* ProbeRay::copy_construct(const ProbeRay& other)
 {
     line_ = other.line_;
     callback_ = other.callback_;
-    hit_.copy_from(other.hit_);
+    copy_from(hit_, other.hit_);
     reach_ = other.reach_;
     contact_pos_ = other.contact_pos_;
     surface_dir_ = other.surface_dir_;
@@ -232,7 +232,7 @@ ProbeRay* ProbeRay::get_assign(const ProbeRay& other)
 {
     line_ = other.line_;
     callback_ = other.callback_;
-    hit_.copy_from(other.hit_);
+    copy_from(hit_, other.hit_);
     reach_ = other.reach_;
     contact_pos_ = other.contact_pos_;
     surface_dir_ = other.surface_dir_;

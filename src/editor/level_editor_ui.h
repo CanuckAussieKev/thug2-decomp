@@ -258,15 +258,16 @@ struct Overlay {
     std::vector<Triangle> triangles;
     std::vector<Triangle> under; // (drawn first, under the lines: the collision view - level_editor_view.h)
     std::vector<OverlayText> texts;
-    void get_clear()
-    {
-        lines.clear();
-        circles.clear();
-        triangles.clear();
-        texts.clear();
-        under.clear();
-    }
 };
+
+inline void get_clear(Overlay& overlay)
+{
+    overlay.lines.clear();
+    overlay.circles.clear();
+    overlay.triangles.clear();
+    overlay.texts.clear();
+    overlay.under.clear();
+}
 
 // What the user asked for on the panels, for the editor to do in its next Update.
 struct Request {

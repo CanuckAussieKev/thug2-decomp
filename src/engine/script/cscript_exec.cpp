@@ -233,7 +233,7 @@ bool Script::execute_command(Tokens& pc)
         pc_ = pc.address();
         pc = parse_expression(pc, args_.get(), value);
         pc_ = pc.address();
-        if (value->kind_tag() != kQbvalName) {
+        if (value_kind(*value) != kQbvalName) {
             const bool result = value->value.word() != 0;
             delete_component(value);
             return result;
@@ -293,7 +293,7 @@ bool Script::execute_command(Tokens& pc)
         else
             pc = parse_value(pc, args_.get(), value);
         pc_ = pc.address();
-        if (value->kind_tag() != kQbvalNone) {
+        if (value_kind(*value) != kQbvalNone) {
             value->name = target;
             args_->attach_module(value);
         } else {

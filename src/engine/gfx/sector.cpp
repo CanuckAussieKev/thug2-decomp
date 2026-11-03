@@ -25,9 +25,14 @@ void set_geom_coll_tri_data(void* geom, TriMeshSource* faces) { static_cast<Geom
 // read and wrote the byte; the high byte is kept).
 struct CollFlags {
     HitMesh* coll;
-    [[nodiscard]] uint8_t get() const { return static_cast<uint8_t>(coll->flag_bits()); }
-    void set(uint8_t low) const { coll->flag_bits() = static_cast<uint16_t>((coll->flag_bits() & 0xFF00) | low); }
 };
+
+[[nodiscard]] inline uint8_t low_byte(const CollFlags& flags) { return static_cast<uint8_t>(flags.coll->flag_bits()); }
+
+inline void set_low_byte(const CollFlags& flags, uint8_t low)
+{
+    flags.coll->flag_bits() = static_cast<uint16_t>((flags.coll->flag_bits() & 0xFF00) | low);
+}
 CollFlags coll_flags(HitMesh* coll) { return {coll}; }
 
 
@@ -151,9 +156,9 @@ void WorldCell::change_live(bool active)
 {
     if (hit_body_) {
         if (active)
-            coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() & ~4));
+            set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & ~4));
         else
-            coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() | 4));
+            set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) | 4));
     }
     if (geom_handle_)
         geom_of(geom_handle_)->change_live(active);
@@ -164,7 +169,7 @@ bool WorldCell::is_operative()
 {
     if (geom_handle_)
         return geom_of(geom_handle_)->is_operative();
-    return !(coll_flags(hit_body_).get() & 4);
+    return !(low_byte(coll_flags(hit_body_)) & 4);
 }
 
 // 0x0049EA30
@@ -176,9 +181,9 @@ void WorldCell::enable_collision(bool collidable)
         flag_bits_ &= ~kSectorCollidable;
     if (hit_body_) {
         if (collidable)
-            coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() & ~2));
+            set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & ~2));
         else
-            coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() | 2));
+            set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) | 2));
     }
 }
 
@@ -188,10 +193,10 @@ void WorldCell::mark_as_occluder(bool occluder)
     if (!hit_body_)
         return;
     if (!occluder) {
-        coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() & 0x7F));
+        set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & 0x7F));
         return;
     }
-    if (!(coll_flags(hit_body_).get() & 0x80)) {
+    if (!(low_byte(coll_flags(hit_body_)) & 0x80)) {
         hit_body_->flag_bits() |= 0x80;
         hit_body_->add_occlusion_polys(); // its occlusion polygons added
     }

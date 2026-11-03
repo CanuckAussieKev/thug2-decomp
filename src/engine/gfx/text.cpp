@@ -538,7 +538,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
         // Each glyph: its baseline, then a character (>= 0) or a special glyph (-1 - index).
         for (int i = 0; i < count; ++i) {
             font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
-            const int16_t code = core::at(entries, i).code();
+            const int16_t code = glyph_code(core::at(entries, i));
             if (code >= 0) {
                 core::at(font->map_, code & 0xFF) = static_cast<uint8_t>(i);
             } else {

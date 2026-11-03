@@ -683,15 +683,15 @@ void RigResource::free_buffer() { free_malloc_buffer(octets()); }
 // --- skinned model --------------------------------------------------------------------------------------------
 
 // 0x00409E90
-SkinParams* SkinParams::get_clear()
+SkinParams* get_clear(SkinParams& params)
 {
-    flag0 = 0;
-    value = 0;
-    cas_data_ = nullptr;
-    cas_size_ = 0; // (Not original: the original left +0x0C)
-    has_cas_ = 0;
-    on_heap_ = 0;
-    return this;
+    params.flag0 = 0;
+    params.value = 0;
+    params.cas_data_ = nullptr;
+    params.cas_size_ = 0; // (Not original: the original left +0x0C)
+    params.has_cas_ = 0;
+    params.on_heap_ = 0;
+    return &params;
 }
 
 // 0x00409E00
@@ -703,7 +703,7 @@ const char* SkinResource::fetch_title() const { return "Skin"; }
 void SkinResource::set_up_params(void* params, void* structure)
 {
     args_ = static_cast<SkinParams*>(alloc_load_params(0x14));
-    args_->get_clear(); // (inlined)
+    get_clear(*args_); // (inlined)
     if (params)
         copy_words(args_, params, 5);
     if (auto* s = static_cast<Struct*>(structure)) {

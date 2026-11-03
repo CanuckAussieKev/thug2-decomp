@@ -6683,7 +6683,7 @@ void blit()
     }
     // The UI: the lines through ImGui's draw list, with the panels (level_editor_ui.h).
     if (ui::underway()) {
-        pick_cycle().overlay_.get_clear();
+        get_clear(pick_cycle().overlay_);
         ui::ShapeMesh model = assemble_model();
         // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
         preview::tick_cycle(&model);

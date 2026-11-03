@@ -166,10 +166,11 @@ struct PersonalStats {
     std::array<int, 15> high_scores_; // +0x04 by level (1-14 filled: index i at high_scores_[i - 1])
     std::array<int, 15> high_combos_; // +0x40
 
-    // 0x0054DDB0: the levels' high scores (the level checksums at 0x0067F260), best first, into the menu (script
-    // 0xA6111F30: score, level name; its parameters are never freed - kept).
-    void get_fill();
 };
+
+// 0x0054DDB0: the levels' high scores (the level checksums at 0x0067F260), best first, into the menu (script
+// 0xA6111F30: score, level name; its parameters are never freed - kept).
+void get_fill(PersonalStats& stats);
 static_assert(sizeof(PersonalStats) == 0x7C, "layout must match the original");
 
 class RankingsManager {

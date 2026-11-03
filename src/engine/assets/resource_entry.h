@@ -350,8 +350,9 @@ struct SkinParams {
     uint8_t has_cas_; // +0x10
     uint8_t on_heap_; // +0x11 (cleared by Load; a pop of the heap context when set)
     std::array<uint8_t, 2> pad12;
-    SkinParams* get_clear();
 };
+
+SkinParams* get_clear(SkinParams& params);
 
 // Skinned model (+0x4C archive, +0x50 parameters, +0x54 / +0x58 the .cas file and its contents, +0x5C the files
 // still being read).

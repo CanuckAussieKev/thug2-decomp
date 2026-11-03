@@ -245,7 +245,7 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
                 callback();
             uint32_t written = 0;
             const size_t at = out.position();
-            switch (component->kind_tag()) {
+            switch (value_kind(*component)) {
             case kQbvalInteger:
                 written = emit_int(out, component->name, component->value.integer());
                 break;

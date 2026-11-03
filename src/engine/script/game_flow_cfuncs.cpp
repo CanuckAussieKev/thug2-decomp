@@ -529,7 +529,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 {
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
-        if (component->name == 0 && component->kind_tag() == script::kQbvalName &&
+        if (component->name == 0 && value_kind(*component) == script::kQbvalName &&
             game_mode_object()->is_true(component->value.word()))
             return true;
     }

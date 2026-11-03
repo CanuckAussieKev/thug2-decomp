@@ -46,26 +46,26 @@ void get_corners(const TriMeshSource* geometry, uint32_t face, maths::Vec4* v0, 
 } // namespace
 
 // 0x004F8160
-CollisionHit* CollisionHit::copy_from(const CollisionHit& other)
+CollisionHit* copy_from(CollisionHit& hit, const CollisionHit& other)
 {
-    normal = other.normal;
-    point = other.point;
-    face = other.face;
-    distance = other.distance;
-    ignore_flags_ = other.ignore_flags_;
-    require_flags_ = other.require_flags_;
-    face_flags_ = other.face_flags_;
-    terrain = other.terrain;
-    object = other.object;
-    object_checksum_ = other.object_checksum_;
-    unknown38 = other.unknown38;
-    callback = other.callback;
-    callback_data_ = other.callback_data_;
-    owner = other.owner;
-    hit = other.hit;
-    face_flag40_ = other.face_flag40_;
-    scene = other.scene;
-    return this;
+    hit.normal = other.normal;
+    hit.point = other.point;
+    hit.face = other.face;
+    hit.distance = other.distance;
+    hit.ignore_flags_ = other.ignore_flags_;
+    hit.require_flags_ = other.require_flags_;
+    hit.face_flags_ = other.face_flags_;
+    hit.terrain = other.terrain;
+    hit.object = other.object;
+    hit.object_checksum_ = other.object_checksum_;
+    hit.unknown38 = other.unknown38;
+    hit.callback = other.callback;
+    hit.callback_data_ = other.callback_data_;
+    hit.owner = other.owner;
+    hit.hit = other.hit;
+    hit.face_flag40_ = other.face_flag40_;
+    hit.scene = other.scene;
+    return &hit;
 }
 
 // 0x004131F0
@@ -74,7 +74,7 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
     const bool better = collision_state().want_farthest_ ? !(distance < hit->distance) : distance <= hit->distance;
     CollisionHit saved;
     if (!better)
-        saved.copy_from(*hit);
+        copy_from(saved, *hit);
     bool taken = false;
     const uint32_t flags = object->get_triangle_attrs(static_cast<int>(face.face));
     if (!(flags & hit->ignore_flags_) && !(~flags & hit->require_flags_)) {
@@ -103,7 +103,7 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
         taken = true;
     }
     if (!better) {
-        hit->copy_from(saved);
+        copy_from(*hit, saved);
         return false;
     }
     return taken;

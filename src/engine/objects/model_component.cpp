@@ -118,45 +118,45 @@ void send_to_server(GameEntity* object, uint8_t id, uint16_t length, void* data)
 } // namespace
 
 // 0x00420590
-double ModelSpin::bearing()
+double bearing(ModelSpin& spin)
 {
-    if (!(flag_bits_ & kModelSpinOn))
+    if (!(spin.flag_bits_ & kModelSpinOn))
         return 0.0;
-    const int elapsed = flag_bits_ & kModelSpinRealTime ? static_cast<int>(frame_clock::get_time() - outset_)
-                                                        : frame_clock::game_clock_time_since(static_cast<int>(outset_));
+    const int elapsed = spin.flag_bits_ & kModelSpinRealTime ? static_cast<int>(frame_clock::get_time() - spin.outset_)
+                                                        : frame_clock::game_clock_time_since(static_cast<int>(spin.outset_));
     auto t = static_cast<double>(elapsed);
     if (elapsed < 0)
         t += kTwoTo32; // (as unsigned)
-    if (t > period_) { // (a NaN period never ends)
-        if (flag_bits_ & kModelSpinHold)
-            return static_cast<double>(range_) + base_;
-        flag_bits_ &= ~kModelSpinOn;
+    if (t > spin.period_) { // (a NaN period never ends)
+        if (spin.flag_bits_ & kModelSpinHold)
+            return static_cast<double>(spin.range_) + spin.base_;
+        spin.flag_bits_ &= ~kModelSpinOn;
         return 0.0;
     }
-    if (power_ == 0)
-        return static_cast<double>(range_) / period_ * t + base_;
-    const double phase = t / period_ * kHalfPi;
-    if (power_ < 0)
-        return (1.0 - std::sin(kHalfPi - phase)) * range_ + base_;
+    if (spin.power_ == 0)
+        return static_cast<double>(spin.range_) / spin.period_ * t + spin.base_;
+    const double phase = t / spin.period_ * kHalfPi;
+    if (spin.power_ < 0)
+        return (1.0 - std::sin(kHalfPi - phase)) * spin.range_ + spin.base_;
     double s = std::sin(phase);
-    for (int i = power_ - 1; i > 0; --i)
+    for (int i = spin.power_ - 1; i > 0; --i)
         s *= s;
-    return s * range_ + base_;
+    return s * spin.range_ + spin.base_;
 }
 
 // 0x004204F0
-void ModelSpinAxis::get_clear()
+void get_clear(ModelSpinAxis& axis)
 {
-    for (ModelSpin& spin : spins_)
+    for (ModelSpin& spin : axis.spins_)
         spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
-    active_ = false;
+    axis.active_ = false;
 }
 
 // 0x00420520
-void ModelSpinAxis::append_one(float period, uint32_t start, float base, float range, int power, bool hold,
+void append_one(ModelSpinAxis& axis, float period, uint32_t start, float base, float range, int power, bool hold,
                                bool real_time)
 {
-    for (ModelSpin& spin : spins_) {
+    for (ModelSpin& spin : axis.spins_) {
         if (spin.flag_bits_ & kModelSpinOn)
             continue;
         spin.period_ = period;
@@ -167,22 +167,22 @@ void ModelSpinAxis::append_one(float period, uint32_t start, float base, float r
         spin.flag_bits_ =
             static_cast<uint8_t>((spin.flag_bits_ & ~(kModelSpinHold | kModelSpinRealTime)) |
                                  (real_time ? kModelSpinRealTime : 0) | (hold ? kModelSpinHold : 0) | kModelSpinOn);
-        active_ = true;
+        axis.active_ = true;
         return;
     }
 }
 
 // 0x004213E0
-float ModelSpinAxis::bearing()
+float bearing(ModelSpinAxis& axis)
 {
     float angle = 0.0f;
-    if (!active_)
+    if (!axis.active_)
         return angle;
-    active_ = false;
-    for (ModelSpin& spin : spins_) {
+    axis.active_ = false;
+    for (ModelSpin& spin : axis.spins_) {
         if (spin.flag_bits_ & kModelSpinOn) {
-            active_ = true;
-            angle = static_cast<float>(spin.bearing() + angle);
+            axis.active_ = true;
+            angle = static_cast<float>(bearing(spin) + angle);
         }
     }
     return angle;
@@ -205,7 +205,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
     for (int axis = 0; axis < 3; ++axis) {
         if (!core::at(twist_rate_, axis).active_)
             continue;
-        const float angle = core::at(twist_rate_, axis).bearing();
+        const float angle = bearing(core::at(twist_rate_, axis));
         if (angle == 0.0f)
             continue;
         if (none)
@@ -343,7 +343,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     for (int axis = 0; axis < 3; ++axis) {
         if (!core::at(flags, axis))
             continue;
-        core::at(twist_rate_, axis).append_one(period, now, start, end - start, power, hold, false);
+        append_one(core::at(twist_rate_, axis), period, now, start, end - start, power, hold, false);
         axes |= static_cast<uint8_t>(1 << axis);
     }
     online::SpinModelMessage sent;

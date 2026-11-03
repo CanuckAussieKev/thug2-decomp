@@ -65,8 +65,12 @@ bool window_to_layout(const ScreenMapping& mapping, float window_x, float window
 // Rotation is ignored.
 struct Rect2 {
     float left, top, right, bottom;
-    [[nodiscard]] bool get_holds(float x, float y) const { return x >= left && x < right && y >= top && y < bottom; }
 };
+
+[[nodiscard]] inline bool get_holds(const Rect2& rect2, float x, float y)
+{
+    return x >= rect2.left && x < rect2.right && y >= rect2.top && y < rect2.bottom;
+}
 Rect2 element_rect(const frontend::UiWidget* element);
 
 // An element's area with its rotation: from its absolute top left (+0x134 / +0x138) along its absolute angle

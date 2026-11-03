@@ -262,9 +262,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kCancelRotateDisplay: {
-        core::at(twist_rate_, 0).get_clear();
-        core::at(twist_rate_, 1).get_clear();
-        core::at(twist_rate_, 2).get_clear();
+        get_clear(core::at(twist_rate_, 0));
+        get_clear(core::at(twist_rate_, 1));
+        get_clear(core::at(twist_rate_, 2));
         void* manager = net_session_slot();
         void* player = find_player_slot_by_obj(manager, entity()->ident());
         if (player && is_own_player(player)) {
@@ -302,7 +302,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         for (int axis = 0; axis < 3; ++axis) {
             if (!params->has_bare_flag(core::at(kAxes, axis)))
                 continue;
-            core::at(twist_rate_, axis).append_one(duration, now, start, end - start, power, hold, dont_pause);
+            append_one(core::at(twist_rate_, axis), duration, now, start, end - start, power, hold, dont_pause);
             axes |= static_cast<uint8_t>(1 << axis);
         }
         void* manager = net_session_slot();

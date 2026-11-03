@@ -275,7 +275,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
             assets->fetch_or_load_resource(tex_name.data(), 0, 0, 0, false, false, assets->get_permanent_by_default(),
                                            &tex_params, nullptr);
         assets::SkinParams skin_params{};
-        skin_params.get_clear();
+        get_clear(skin_params);
         skin_params.flag0 = (flag_bits_ >> 5) & 1;
         skin_params.value = tex_dict_offset;
         if (by_name)

@@ -36,9 +36,10 @@ struct ElementState {
     std::array<uint8_t, 4> rgba;                    // +0x3C
     uint32_t unknown40;                 // +0x40
 
-    // 0x004A8730: a copy (returns this).
-    ElementState* get_assign(const ElementState* other);
 };
+
+// 0x004A8730: a copy (returns this).
+ElementState* get_assign(ElementState& state, const ElementState* other);
 
 class UiWidget : public objects::Entity {
 public:

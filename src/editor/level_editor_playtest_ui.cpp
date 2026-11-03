@@ -129,11 +129,11 @@ void pane(float scale, ImFont* heading, ImFont* small)
             ImGui::TableNextColumn();
             gui::text("%.1f s", run.seconds);
             ImGui::TableNextColumn();
-            gui::text("%d", run.gaps_landed());
+            gui::text("%d", gaps_landed(run));
             ImGui::TableNextColumn();
-            gui::text("%d", run.bails());
+            gui::text("%d", bails(run));
             ImGui::TableNextColumn();
-            gui::text("%d", run.top_combo_value());
+            gui::text("%d", top_combo_value(run));
             ImGui::SameLine();
             if (ImGui::SmallButton("x"))
                 remove = run.number;

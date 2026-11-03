@@ -530,7 +530,7 @@ bool SkaterPhysicsModule::apply_model_rotations()
     maths::Vec4 axis = core::at(object->basis_frame().row, 1);
     model->get_draw_matrix(&object->basis_frame());
     objects::ModelSpinAxis* y_rotation = &core::at(model->twist_rate(), 1);
-    const float angle = y_rotation->bearing();
+    const float angle = bearing(*y_rotation);
     if (angle != 0.0f) {
         // The velocity turned with the model about the up axis.
         maths::Vec4& velocity = entity()->vel();
@@ -540,9 +540,9 @@ bool SkaterPhysicsModule::apply_model_rotations()
         velocity = *quat->spin_by(&axis, velocity);
     }
     display_matrix_ = entity()->basis_frame();
-    core::at(model->twist_rate(), 0).get_clear();
-    y_rotation->get_clear();
-    core::at(model->twist_rate(), 2).get_clear();
+    get_clear(core::at(model->twist_rate(), 0));
+    get_clear(*y_rotation);
+    get_clear(core::at(model->twist_rate(), 2));
     return true;
 }
 

@@ -21,9 +21,10 @@ struct AnimCacheSlot {
 
     // 0x00480A70 (cdecl): back to whichever item pool holds it, or freed.
     static void dealloc(AnimCacheSlot* slot);
-    // Its key positions cleared and its time 0x8000 (the code that frees a slot does this first).
-    void get_clear();
 };
+
+// Its key positions cleared and its time 0x8000 (the code that frees a slot does this first).
+void get_clear(AnimCacheSlot& slot);
 static_assert(offsetof(AnimCacheSlot, clock_) == 0x1E0 && sizeof(AnimCacheSlot) == 0x1E4,
               "layout must match the original");
 

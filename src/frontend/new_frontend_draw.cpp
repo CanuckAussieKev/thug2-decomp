@@ -947,7 +947,7 @@ void levels_screen(Ctx& c, int* visible_rows)
 
     // The level's loading screen behind the whole screen, the column's scrim over it (a launch: the scrim and the
     // list go under the sharp picture), the thin edge in the game's colour.
-    const Art art = art_for(c.extras, level ? level->current_art() : std::string());
+    const Art art = art_for(c.extras, level ? current_art(*level) : std::string());
     backdrop(c.dl, c.f, art, menu.get_pan());
     c.dl->AddRectFilled(ImVec2(c.f.get_x(kColumn), c.f.get_y(0.0f)),
                         ImVec2(c.f.get_x(kColumn + 4.0f), c.f.get_y(720.0f)), get_col(colour, 1.0f - grow));

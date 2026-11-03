@@ -176,7 +176,7 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
     if (!part || depth > 4)
         return;
     for (script::Component* c = part->step_to_entry(nullptr); c; c = part->step_to_entry(c)) {
-        switch (c->kind_tag()) {
+        switch (value_kind(*c)) {
         case script::kQbvalString:
             if (c->value.text() && is_path(c->value.text()))
                 out->push_back(c->value.text());

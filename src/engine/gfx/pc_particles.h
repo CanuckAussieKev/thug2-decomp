@@ -25,10 +25,11 @@ struct ParticleBurst {
     float age;        // +0x0C: of its first particle, seconds
     std::array<uint32_t, 3> seed; // +0x10: the random sequence its particles' spreads come from (rand(), 0x12B9B0A1, 0x0AA2FB3F)
 
-    // 0x004BB040 (Ghidra never made it): the seed moved on past `particles` particles (four numbers each); the random
-    // sequence's state (0x00705608, 0x0067E974, 0x0067E978) left there too.
-    void get_skip(int particles);
 };
+
+// 0x004BB040 (Ghidra never made it): the seed moved on past `particles` particles (four numbers each); the random
+// sequence's state (0x00705608, 0x0067E974, 0x0067E978) left there too.
+void get_skip(ParticleBurst& burst, int particles);
 static_assert(sizeof(ParticleBurst) == 0x1C, "layout must match the original");
 
 // A quadratic in a particle's age t, per component: a + b t + c t^2.

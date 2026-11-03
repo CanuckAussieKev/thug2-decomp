@@ -20,11 +20,12 @@ class ObjectGroup;
 
 // The motion component's last ground triangle (KinematicsModule +0x40): three corners.
 struct GroundTriangle {
-    // 0x004EDC10 (not a Ghidra function): the copy assignment (ECX = this, RET 4; returns this).
-    GroundTriangle& get_assign(const GroundTriangle& source);
 
     std::array<maths::Vec4, 3> corners;
 };
+
+// 0x004EDC10 (not a Ghidra function): the copy assignment (ECX = this, RET 4; returns this).
+GroundTriangle& get_assign(GroundTriangle& triangle, const GroundTriangle& source);
 static_assert(sizeof(GroundTriangle) == 0x30, "layout must match the original");
 
 // PedestrianBrainModule::flag_bits_ (+0x20)
