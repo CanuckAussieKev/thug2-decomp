@@ -55,6 +55,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
+#include "engine/net/online_identity.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)
 
@@ -71,7 +72,6 @@ constexpr uint8_t kQr2KeyHostPort = 4;
 constexpr uint8_t kQr2KeyGameType = 6;
 constexpr int kListingPollMilliseconds = 100;
 constexpr size_t kNewsClearBytes = 0x1900 * 4;
-constexpr int kGameSpyProductId = 10368; // THUG2 PC's product
 constexpr int kHighWordShift = 32;
 constexpr uint8_t kNewsScramble = 0x6D;
 
@@ -553,7 +553,7 @@ unsigned long __stdcall motd_thread(void* argument)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id, 0); // (not used)
     manager->set_request_started_at(frame_clock::get_time());
-    manager->set_request(game_spy::track_usage(0, kGameSpyProductId, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
+    manager->set_request(game_spy::track_usage(0, net::kGameSpyProductId, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
     manager->assign_service_state(kServiceStateMotdShow);
     ram_stats()->leave_heap_scope();
     return 0;

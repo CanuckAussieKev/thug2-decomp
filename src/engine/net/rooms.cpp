@@ -56,7 +56,6 @@ namespace online {
 using namespace detail;
 
 namespace {
-constexpr SIZE_T kThreadStackBytes = 0x8000;
 // The server-browsing keys (qr2 key ids) the game registers.
 constexpr uint8_t kQr2KeyNumObservers = 0x33;
 constexpr uint8_t kQr2KeyMaxObservers = 0x34;
@@ -664,7 +663,7 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
     const char* name = net::get_game_name();
     game_spy::peer_set_title(manager->lobby_service()->remote(), name, key, name, key, kPeerGameVersion, kPeerMaxUpdates, 1, ping_rooms.data(),
                              cross_ping_rooms.data());
-    HANDLE thread = CreateThread(nullptr, kThreadStackBytes, &online::RoomManager::connect_thread, manager->lobby_service().get(),
+    HANDLE thread = CreateThread(nullptr, net::kSdkThreadStackBytes, &online::RoomManager::connect_thread, manager->lobby_service().get(),
                                  CREATE_SUSPENDED, &thread_id);
     manager->set_room_id(thread_id);
     ResumeThread(thread);

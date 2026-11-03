@@ -64,6 +64,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
+#include "engine/net/online_identity.h"
 
 namespace online {
 
@@ -72,7 +73,6 @@ using namespace detail;
 namespace {
 constexpr uint32_t kPlayerSessionFlags = 0x00020100u; // ready and eliminated: cleared when a game starts
 constexpr uint32_t kBitMask = 31;
-constexpr int kGameSpyGameId = 1003; // THUG2 PC's (the CD-key SDK)
 constexpr int kLogoDeckGraphic = 8;
 constexpr uint32_t kAppearanceBufferBytes = 0x1000;
 constexpr int kJoinNoticeTime = 2000; // ms
@@ -572,7 +572,7 @@ void Hub::disconnect_clients()
         game_spy::get_qr2_shutdown(nullptr);
         net_game_state().set_query_reporting(false);
     }
-    game_spy::cd_key_disconnect_all(kGameSpyGameId);
+    game_spy::cd_key_disconnect_all(net::kGameSpyGameId);
     keyboard_job_->drop_out();
     score_broadcast_job_->drop_out();
     level_change_job_->drop_out();

@@ -54,6 +54,7 @@
 #include "engine/core/checksums.h"
 #include "wire/message_ids.h"
 #include "wire/play_messages.h"
+#include "engine/net/online_identity.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -82,7 +83,6 @@ constexpr uint32_t kPlayerGameEnded = 0x100;    // its game has ended (message 0
 constexpr uint32_t kPlayerInfoSize = 0x1F0;
 
 
-constexpr int kGameSpyGameId = 1003; // THUG2 PC's (the CD-key SDK)
 constexpr int kPanelTime = 2000;
 
 // Why a player is dropped (evict_player's reason) and the panel message for each.
@@ -319,7 +319,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         return;
     }
     const net::Conn* conn = player->conn();
-    game_spy::cd_key_disconnect_user(kGameSpyGameId, static_cast<int>(conn->ident())); // gcd_disconnect_user
+    game_spy::cd_key_disconnect_user(net::kGameSpyGameId, static_cast<int>(conn->ident())); // gcd_disconnect_user
     if (!is_observer(player)) {
         PlayerSearch search;
         for (PlayerRecord* other = start_roster_sweep(this, &search, true); other;

@@ -44,7 +44,6 @@
 
 namespace {
 constexpr int kStatsLevelCount = 15;
-constexpr SIZE_T kThreadStackBytes = 0x8000;
 constexpr size_t kGcdBufferBytes = 0x100;
 constexpr int kStatsResultLateFailure = 5; // (text unknown) failed like 1-3
 constexpr int kLastPersonalStatsIndex = 14;
@@ -453,7 +452,7 @@ void RankingsManager::log_in()
     login_start() = frame_clock::get_time();
     get_run(kLoggingInScript);
     DWORD id = 0;
-    HANDLE thread = CreateThread(nullptr, kThreadStackBytes, &log_in_thread, this, CREATE_SUSPENDED, &id);
+    HANDLE thread = CreateThread(nullptr, net::kSdkThreadStackBytes, &log_in_thread, this, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread); // (never closed)
     if (!task_->is_on_task_list())

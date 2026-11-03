@@ -64,6 +64,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_address.h"
 #include "wire/message_ids.h"
+#include "engine/net/online_identity.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -108,7 +109,6 @@ constexpr int kRankTestGreater = 2; // get_rank_test: the joiner's rank must be 
 constexpr int kRankTestLess = 1;    // ... below it
 constexpr int kConnectionTypeModem = 1;
 constexpr uint32_t kCdKeyResponseLength = 72;
-constexpr int kGameSpyGameId = 1003; // THUG2 PC's (the CD-key check)
 constexpr int kDeferredJoinFrames = 10;
 constexpr uint16_t kJoinPort = 0x1422; // 5154
 constexpr uint16_t kHostPort = 0x1421; // 5153
@@ -185,7 +185,7 @@ void compute_cd_key_response(const char* key, const char* challenge, char* respo
 void authenticate_user(int local_id, uint32_t ip, const char* challenge, const char* response, void* instance)
 {
     using HookFn = void (*)(int, int, int, char*, void*);
-    game_spy::cd_key_authenticate_user(kGameSpyGameId, local_id, ip, challenge, response, &Hub::client_authorized,
+    game_spy::cd_key_authenticate_user(net::kGameSpyGameId, local_id, ip, challenge, response, &Hub::client_authorized,
                                        instance);
 }
 

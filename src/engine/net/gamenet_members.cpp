@@ -55,6 +55,7 @@
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
+#include "engine/net/online_identity.h"
 
 namespace online {
 
@@ -64,7 +65,6 @@ namespace {
 constexpr int kStartPointsSeedRange = 256;
 constexpr int kStartPointCount = 8;
 constexpr int kCrownStartRange = 10;
-constexpr int kGameSpyGameId = 1003; // THUG2 PC's (the CD-key SDK)
 constexpr int kLogoDeckGraphic = 8;
 
 constexpr uint32_t kFlagsServer = 1;   // flag_bits_ bit 0
@@ -453,7 +453,7 @@ void Hub::unlink_all_nodes(memory::ListNode* head)
 Hub::~Hub()
 {
     // GameSpy shut down (the SDK's), its reporting if it's up.
-    game_spy::cd_key_disconnect_all(kGameSpyGameId);
+    game_spy::cd_key_disconnect_all(net::kGameSpyGameId);
     game_spy::cd_key_shutdown();
     if (net_game_state().query_reporting()) {
         game_spy::get_qr2_shutdown(nullptr);

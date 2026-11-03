@@ -31,6 +31,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
+#include "engine/net/online_identity.h"
 
 namespace online {
 
@@ -40,7 +41,6 @@ namespace {
 
 constexpr uint32_t kNetSettingsKey = 0x7D1C1C0F; // (the global structure of the network preferences)
 constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
-constexpr int kGameSpyGameId = 1003;
 constexpr int kEarlyTaskPriority = -2000;
 constexpr int kChallengeDigits = 10;
 constexpr int kChallengeLetters = 36;
@@ -116,7 +116,7 @@ Hub::Hub()
     presence_service_.reset(memory ? new (memory) FriendsManager : nullptr);
     memory = carve(sizeof(RankingsManager));
     rating_service_.reset(memory ? new (memory) RankingsManager : nullptr);
-    game_spy::cd_key_init(kGameSpyGameId); // the CD-key SDK (gcd_init)
+    game_spy::cd_key_init(net::kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
     crt::get_srand(crt::get_instant());
     for (int i = 0; i < kChallengeLength; ++i) {

@@ -37,9 +37,9 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/online_identity.h"
 
 namespace {
-constexpr SIZE_T kThreadStackBytes = 0x8000;
 constexpr int kMaxSemaphoreCount = 10;
 constexpr int kProgressComplete = 100;
 // The progress callback's states while a file comes in or goes out.
@@ -96,7 +96,7 @@ void get_release(void* semaphore) { ReleaseSemaphore(static_cast<HANDLE>(semapho
 HANDLE start_thread(LPTHREAD_START_ROUTINE thread, void* param)
 {
     DWORD id = 0;
-    HANDLE handle = CreateThread(nullptr, kThreadStackBytes, thread, param, CREATE_SUSPENDED, &id);
+    HANDLE handle = CreateThread(nullptr, net::kSdkThreadStackBytes, thread, param, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     return handle; // (never closed)
 }

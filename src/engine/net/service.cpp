@@ -33,9 +33,9 @@
 #include "engine/net/stats_man.h"
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/online_identity.h"
 
 namespace {
-constexpr SIZE_T kThreadStackBytes = 0x8000;
 constexpr uint32_t kAvailabilityRecheckDelay = 100; // ms
 
 // Names (the checksums of their text).
@@ -97,7 +97,7 @@ void ghttp_cleanup() { game_spy::http_cleanup(); }
 void start_thread(online::Hub* manager, LPTHREAD_START_ROUTINE thread)
 {
     DWORD id = 0;
-    HANDLE handle = CreateThread(nullptr, kThreadStackBytes, thread, manager, CREATE_SUSPENDED, &id);
+    HANDLE handle = CreateThread(nullptr, net::kSdkThreadStackBytes, thread, manager, CREATE_SUSPENDED, &id);
     manager->set_room_id(id); // (+0x9950 = id)
     ResumeThread(handle);
 }

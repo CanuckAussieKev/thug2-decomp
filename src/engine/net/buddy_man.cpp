@@ -61,16 +61,15 @@
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
+#include "engine/net/online_identity.h"
 
 namespace {
-constexpr int kGameSpyProductId = 0x2880; // THUG2 PC's product (10368)
 constexpr int kGpCallbackError = 0;
 constexpr int kGpCallbackBuddyRequest = 1;
 constexpr int kGpCallbackBuddyStatus = 2;
 constexpr int kGpCallbackBuddyMessage = 3;
 constexpr int kGpCallbackUnused4 = 4;
 constexpr int kGpCallbackUnused5 = 5;
-constexpr SIZE_T kThreadStackBytes = 0x8000;
 constexpr float kDefaultMenuScale = 1.1f;
 constexpr int kCookieRange = 0xFFFF;
 
@@ -316,7 +315,7 @@ FriendsManager::FriendsManager()
     friends_.make_head();
     messages_.make_head();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
-    gp_initialize(this, kGameSpyProductId, 0);
+    gp_initialize(this, net::kGameSpyProductId, 0);
     gp_set_callback(this, kGpCallbackError, code_address(&on_error), this);
     gp_set_callback(this, kGpCallbackBuddyRequest, kOnBuddyRequest, this);
     gp_set_callback(this, kGpCallbackBuddyStatus, code_address(&on_buddy_status), this);
@@ -350,7 +349,7 @@ void FriendsManager::log_in()
     login_start() = frame_clock::get_time();
     get_run("log_in_profile");
     DWORD id = 0;
-    HANDLE thread = CreateThread(nullptr, kThreadStackBytes, kLoginThread, this, CREATE_SUSPENDED, &id);
+    HANDLE thread = CreateThread(nullptr, net::kSdkThreadStackBytes, kLoginThread, this, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread); // (the handle is never closed)
     if (!task_->is_on_task_list())
@@ -367,7 +366,7 @@ void FriendsManager::spawn_account()
     login_start() = frame_clock::get_time();
     push_top_down();
     DWORD id = 0;
-    HANDLE thread = CreateThread(nullptr, kThreadStackBytes, &create_profile_thread, this, CREATE_SUSPENDED, &id);
+    HANDLE thread = CreateThread(nullptr, net::kSdkThreadStackBytes, &create_profile_thread, this, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread);
     get_logic_tasks()->queue_job(task_.get()); // (not checked for being in the list already, unlike LogIn)
