@@ -26,6 +26,19 @@
 namespace goals {
 
 namespace {
+constexpr int kDefaultMaxPlayers = 8;
+constexpr uint32_t kNetTrickAttack = 0x30C2FFA3;  // nettrickattack
+constexpr uint32_t kTrickAttack = 0xF9283EE7;     // trickattack
+constexpr uint32_t kNetGraffiti = 0x5E2EA50C;     // netgraffiti
+constexpr uint32_t kGraffiti = 0xC8A82B5A;        // Graffiti
+constexpr uint32_t kNetComboMambo = 0xC50AFFD0;   // netcombomambo
+constexpr uint32_t kComboMambo = 0x23EB3DA3;      // combomambo
+constexpr uint32_t kNetSlap = 0xF9D5D933;         // netslap
+constexpr uint32_t kSlap = 0xCA1F360F;            // slap
+constexpr uint32_t kNetCtf = 0x6C5FF266;          // netctf
+constexpr uint32_t kCtf = 0xA5AD2B0B;             // CTF
+constexpr uint32_t kNetElimiskate = 0x10F84276;   // netelimiskate
+constexpr uint32_t kElimiskate = 0xF6198005;      // elimiskate
 
 std::unique_ptr<goals::MatchRules>& stored_game_mode()
 {
@@ -308,7 +321,7 @@ int MatchRules::get_first_condition_value()
 // 0x00553AD0
 bool MatchRules::apply_match_style(uint32_t type)
 {
-    int max_players = 8;
+    int max_players = kDefaultMaxPlayers;
     online::Hub* net = online::online_hub();
     if (net && net->in_net_game())
         args_.fetch_int_value(kMaxPlayers, &max_players, true);
@@ -505,22 +518,22 @@ uint32_t MatchRules::get_team_graffiti_mode()
 uint32_t MatchRules::remap_online_name_key(uint32_t name)
 {
     switch (name) {
-    case 0x30C2FFA3:
-        return 0xF9283EE7; // nettrickattack: trickattack
-    case 0x5E2EA50C:
-        return 0xC8A82B5A; // netgraffiti: Graffiti
-    case 0xC50AFFD0:
-        return 0x23EB3DA3; // netcombomambo: combomambo
-    case 0xF9D5D933:
-        return 0xCA1F360F; // netslap: slap
+    case kNetTrickAttack:
+        return kTrickAttack; // nettrickattack: trickattack
+    case kNetGraffiti:
+        return kGraffiti; // netgraffiti: Graffiti
+    case kNetComboMambo:
+        return kComboMambo; // netcombomambo: combomambo
+    case kNetSlap:
+        return kSlap; // netslap: slap
     case kNetKing:
         return kKing;
     case kNetFirefight:
         return kFirefight;
-    case 0x6C5FF266:
-        return 0xA5AD2B0B; // netctf: CTF
-    case 0x10F84276:
-        return 0xF6198005; // netelimiskate: elimiskate
+    case kNetCtf:
+        return kCtf; // netctf: CTF
+    case kNetElimiskate:
+        return kElimiskate; // netelimiskate: elimiskate
     default:
         return name;
     }

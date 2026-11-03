@@ -85,6 +85,20 @@ namespace modules {
 
 namespace {
 
+constexpr int kSkaterSlotCount = 8;
+constexpr std::size_t kMatrixFloats = 16;
+constexpr int kMatrixRow1W = 7;                      // the fourth column of the rows of a 4x4 matrix
+constexpr int kMatrixRow2W = 11;
+constexpr std::size_t kMatrixTranslationIndex = 12;  // the translation row
+constexpr std::size_t kPointBytes = 12;              // three floats
+constexpr int kMatrixCornerW = 15;
+constexpr double kFramesPerSecond = 60.0;
+constexpr float kMillisecondsPerFrame = 16.666666f;  // one frame at 60 a second
+constexpr float kMillisecondsToSeconds = 0.001f;
+constexpr float kKingBeepStartTime = 10.0f;          // the timer beeps start this many seconds before the target
+constexpr float kKingBeepRate = 10.0f;
+constexpr int kHighScoreLevelCount = 0x15;
+
 int& stored_viewport_count()
 {
     static int viewport_count{};
@@ -380,7 +394,7 @@ void Skate::set_skater_shadow(objects::Rider* skater)
 // 0x00567090
 void Skate::bind_controllers()
 {
-    for (uint32_t i = 0; i < 8; ++i) {
+    for (uint32_t i = 0; i < kSkaterSlotCount; ++i) {
         objects::Rider* skater = get_skater_at(i);
         if (!skater || !skater->is_local_skater())
             continue;
@@ -617,7 +631,7 @@ void Skate::test_rider_contacts()
         goals::game_mode()->get_name_key() != kFirefight && goals::game_mode()->get_name_key() != kNetKing &&
         goals::game_mode()->get_name_key() != kKing && goals::game_mode()->get_name_key() != kNetCtf)
         return;
-    for (uint32_t i = 0; i < 8; ++i) {
+    for (uint32_t i = 0; i < kSkaterSlotCount; ++i) {
         if (const objects::Rider* skater = get_skater_at(i))
             skater->state_history()->check_for_collisions(0);
     }
@@ -628,7 +642,7 @@ void Skate::test_rider_contacts()
         return;
     // The crown to the first skater near the local one.
     const objects::Rider* king = nullptr;
-    for (uint32_t i = 0; i < 8 && !king; ++i) {
+    for (uint32_t i = 0; i < kSkaterSlotCount && !king; ++i) {
         const objects::Rider* skater = get_skater_at(i);
         if (skater && skater->state_history()->is_near_local_skater())
             king = skater;
@@ -807,13 +821,13 @@ void Skate::debug_rails()
     for (objects::ObjectModule* component = manager->find_first_module_of_kind(kRailManagerType); component;
          component = component->next_of_type()) {
         objects::GameEntity* object = component->entity();
-        std::array<float, 16> matrix{};
+        std::array<float, kMatrixFloats> matrix{};
         std::memcpy(matrix.data(), &object->basis_frame(), sizeof(matrix));
         core::at(matrix, 3) = 0.0f;
-        core::at(matrix, 7) = 0.0f;
-        core::at(matrix, 11) = 0.0f;
-        std::memcpy(std::span(matrix).subspan(12, 3).data(), &object->at_point(), 12);
-        core::at(matrix, 15) = 1.0f;
+        core::at(matrix, kMatrixRow1W) = 0.0f;
+        core::at(matrix, kMatrixRow2W) = 0.0f;
+        std::memcpy(std::span(matrix).subspan(kMatrixTranslationIndex, 3).data(), &object->at_point(), kPointBytes);
+        core::at(matrix, kMatrixCornerW) = 1.0f;
         const void* rails = core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
         if (rails)
             stubs::ignore_argument(matrix.data());
@@ -923,7 +937,7 @@ void Skate::run_frame_logic()
         return;
     bool unplugged = false;
     const objects::PadInputModule::Responder* device = nullptr;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kSkaterSlotCount; ++i) {
         auto* skater = core::down_cast<objects::Rider>(get_rider_at(i));
         if (!skater || !skater->is_local_skater())
             continue;
@@ -980,11 +994,11 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     auto* score = king->rider()->get_points_total();
     const int total = score->get_total_score();
     score->set_grand_total(total -
-                           ftol(frame_clock::get_slomo_frame_seconds() * 60.0 * static_cast<double>(-16.666666f)));
+                           ftol(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * static_cast<double>(-kMillisecondsPerFrame)));
     const int target = goals::game_mode()->get_first_condition_value();
     const int current = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? net->get_squad_points(king->team())
                                                                                 : score->get_total_score();
-    skate->timer_beep({.time_left_ = static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), .start_time_ = 10.0f, .rate = 10.0f}, "timer_runout_beep"); // "timer_runout_beep"
+    skate->timer_beep({.time_left_ = static_cast<float>(static_cast<double>(target - current) * static_cast<double>(kMillisecondsToSeconds)), .start_time_ = kKingBeepStartTime, .rate = kKingBeepRate}, "timer_runout_beep"); // "timer_runout_beep"
 }
 
 // --- made and destroyed ---------------------------------------------------------------------------------------------
@@ -1013,8 +1027,8 @@ Skate::Skate()
     horse_ = memory::make_zeroed<LetterMatch>();
     movies_ = std::make_unique<objects::VideoHub>();
     object_movies_ = std::make_unique<objects::VideoHub>();
-    highscores::game_records()->init_levels(0x15);
-    for (uint32_t i = 0; i < 8; ++i) {
+    highscores::game_records()->init_levels(kHighScoreLevelCount);
+    for (uint32_t i = 0; i < kSkaterSlotCount; ++i) {
         core::at(participants_, i).unknown0_ = static_cast<int>(i); // (its index)
         core::at(participants_, i).vibration_ = true;
         core::at(participants_, i).auto_kick_ = true;

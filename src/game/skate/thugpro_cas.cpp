@@ -39,6 +39,29 @@
 namespace objects::thugpro_cas {
 
 namespace {
+constexpr std::size_t kDataPrefixLength = 5;   // "data\"
+constexpr std::size_t kDiskPathBytes = 256;
+constexpr unsigned kMaxFileMegabytes = 64u;       // the biggest file read
+constexpr int kMegabyteShift = 20;
+constexpr std::size_t kLzssWindowBytes = 4096; // the decompressor's ring buffer
+constexpr int kLzssWindowSize = 4096;
+constexpr int kLzssMatchBase = 18;        // the ring starts this far below its end
+constexpr int kLzssWindowMask = 4095;
+constexpr int kLzssFlagsMarker = 0x100;   // the flag byte's refill marker bit
+constexpr uint32_t kLzssFlagsFill = 0xFF00u;
+constexpr std::size_t kArchiveHeaderBytes = 12;
+constexpr std::size_t kEntryHeaderBytes = 16;
+constexpr std::size_t kEntryNameSizeOffset = 8;
+constexpr int kTokenName = 0x16;               // name = value
+constexpr int kNameTokenBytes = 5;             // the token and its 4-byte checksum
+constexpr int kTokenEquals = 0x07;
+constexpr int kTokenArrayStart = 0x05;
+constexpr int kTokenScriptStart = 0x23;
+constexpr int kScriptTokenBytes = 6;
+constexpr int kTokenSectionMarker = 0x45;
+constexpr int kSectionTokenBytes = 6;
+constexpr std::size_t kMaxLoggedFiles = 1000;
+constexpr std::size_t kWalkPaddingBytes = 16;  // zeros after the data: the walk stops at a 0 token
 
 constexpr uint32_t kDescId = 0x4BB2084E;             // desc_id
 constexpr uint32_t kHidden = 0x77A21642;             // hidden
@@ -103,7 +126,7 @@ std::string get_relative(const char* path)
     for (const char c : std::string_view(path))
         out += c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     if (out.starts_with("data\\"))
-        out.erase(0, 5);
+        out.erase(0, kDataPrefixLength);
     return out;
 }
 
@@ -121,12 +144,12 @@ std::vector<std::string> get_candidates(const char* path)
 // it opens the file, and any error but "not found" - a folder that isn't there - is the game's fatal file error.)
 bool game_has(const std::string& name)
 {
-    std::array<char, 260> overlay{};
+    std::array<char, kPathBytes> overlay{};
     if (frontend::data_overlay::get_overlay_path(name.c_str(), overlay))
         return true;
     if (pre::hub() && pre::is_present(name.c_str()))
         return true;
-    std::array<char, 256> disk{};
+    std::array<char, kDiskPathBytes> disk{};
     file::make_disk_path(disk, name.c_str());
     return is_file(game_folder_path(disk.data()));
 }
@@ -211,7 +234,7 @@ std::vector<uint8_t> read_whole_file(const std::string& path)
     if (!file)
         return data;
     const DWORD size = GetFileSize(file.get(), nullptr);
-    if (size != INVALID_FILE_SIZE && size < 64u << 20) {
+    if (size != INVALID_FILE_SIZE && size < kMaxFileMegabytes << kMegabyteShift) {
         data.resize(size);
         DWORD read = 0;
         if (!ReadFile(file.get(), data.data(), size, &read, nullptr) || read != size)
@@ -238,24 +261,24 @@ std::string install_folder()
 
 std::vector<uint8_t> expand_lzss(std::span<const uint8_t> in, size_t length, size_t size)
 {
-    std::array<uint8_t, 4096> window{};
+    std::array<uint8_t, kLzssWindowBytes> window{};
     std::memset(window.data(), ' ', sizeof(window));
-    uint32_t r = 4096 - 18;
+    uint32_t r = kLzssWindowSize - kLzssMatchBase;
     std::vector<uint8_t> out;
     out.reserve(size);
     size_t i = 0;
     uint32_t flags = 0;
     while (out.size() < size && i < length) {
         flags >>= 1;
-        if (!(flags & 0x100))
-            flags = core::at(in, i++) | 0xFF00u;
+        if (!(flags & kLzssFlagsMarker))
+            flags = core::at(in, i++) | kLzssFlagsFill;
         if (flags & 1) {
             if (i >= length)
                 break;
             const uint8_t c = core::at(in, i++);
             out.push_back(c);
             core::at(window, r) = c;
-            r = (r + 1) & 4095;
+            r = (r + 1) & kLzssWindowMask;
         } else {
             if (i + 1 >= length)
                 break;
@@ -266,7 +289,7 @@ std::vector<uint8_t> expand_lzss(std::span<const uint8_t> in, size_t length, siz
                 const uint8_t c = core::at(window, (position + k) & 4095);
                 out.push_back(c);
                 core::at(window, r) = c;
-                r = (r + 1) & 4095;
+                r = (r + 1) & kLzssWindowMask;
             }
         }
     }
@@ -278,7 +301,7 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
 {
     // {total size, version, file count}, then each file: {size, compressed size (0: stored), name size (int16), use
     // count, checksum}, its name, its data padded to 4 bytes (src/engine/file/packs.cpp next_raw_entry).
-    if (archive.size() < 12)
+    if (archive.size() < kArchiveHeaderBytes)
         return false;
     auto u32 = [&archive](size_t at) {
         uint32_t value = 0;
@@ -286,20 +309,20 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
         return value;
     };
     const uint32_t count = u32(8);
-    size_t offset = 12;
+    size_t offset = kArchiveHeaderBytes;
     for (uint32_t k = 0; k < count; ++k) {
-        if (offset + 16 > archive.size())
+        if (offset + kEntryHeaderBytes > archive.size())
             return false;
         const uint32_t size = u32(offset);
         const uint32_t compressed = u32(offset + 4);
         uint16_t name_size = 0;
-        std::memcpy(&name_size, std::span<const uint8_t>(archive).subspan(offset + 8, 2).data(), 2);
+        std::memcpy(&name_size, std::span<const uint8_t>(archive).subspan(offset + kEntryNameSizeOffset, 2).data(), 2);
         const size_t body = offset + 16 + name_size;
         const size_t stored = compressed ? compressed : size;
         if (body > archive.size() || stored > archive.size() - body)
             return false;
         std::string name(name_size, char{});
-        std::memcpy(name.data(), std::span<const uint8_t>(archive).subspan(offset + 16, name_size).data(), name_size);
+        std::memcpy(name.data(), std::span<const uint8_t>(archive).subspan(offset + kEntryHeaderBytes, name_size).data(), name_size);
         name.resize(strnlen(name.c_str(), name_size));
         const std::string key = get_relative(name.c_str());
         for (const std::string& wanted : names) {
@@ -326,24 +349,24 @@ std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<cons
         switch (*p) {
         case 0x00:
             return arrays;
-        case 0x16: { // name = value
+        case kTokenName: { // name = value
             const uint32_t name = script::fetch_word32(p + 1);
-            script::Tokens q = script::skip_newline_tokens(p + 5);
-            if (*q != 0x07) {
+            script::Tokens q = script::skip_newline_tokens(p + kNameTokenBytes);
+            if (*q != kTokenEquals) {
                 p = script::step_over_token(p);
                 break;
             }
             q = script::skip_newline_tokens(q + 1);
-            if (*q == 0x05)
+            if (*q == kTokenArrayStart)
                 arrays.emplace_back(name, q);
             p = script::skip_value(q);
             break;
         }
-        case 0x23:
-            p = script::skip_to_end_of_script(p + 6);
+        case kTokenScriptStart:
+            p = script::skip_to_end_of_script(p + kScriptTokenBytes);
             break; // script name ... endscript
-        case 0x45:
-            p += 6;
+        case kTokenSectionMarker:
+            p += kSectionTokenBytes;
             break; // a section marker
         default:
             p = script::step_over_token(p);
@@ -403,7 +426,7 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
     return picked;
 }
 
-bool file_path(const char* relative, std::array<char, 260>& path)
+bool file_path(const char* relative, std::array<char, kPathBytes>& path)
 {
     const std::set<std::string>* served = thugpro_cas_state().served_.load();
     if (!served || !relative || !served->count(path_key(relative)))
@@ -413,7 +436,7 @@ bool file_path(const char* relative, std::array<char, 260>& path)
         return false;
     std::memcpy(path.data(), full.c_str(), full.size() + 1);
     static std::set<std::string> logged;
-    if (logged.size() < 1000 && logged.insert(full).second)
+    if (logged.size() < kMaxLoggedFiles && logged.insert(full).second)
         get_log("THUGPRO CAS (TP-R10): %s read from THUGPRO's install (%s)", relative, full.c_str());
     return true;
 }
@@ -460,7 +483,7 @@ void load_once()
     std::vector<Target> targets;
     for (auto& [name, data] : files) {
         const size_t size = data.size();
-        data.resize(size + 16, 0); // (the walk stops at a 0 token)
+        data.resize(size + kWalkPaddingBytes, 0); // (the walk stops at a 0 token)
         for (auto [array, at] : top_level_arrays(data, size)) {
             script::Array* ours = script::fetch_list(array);
             if (is_part_list(ours))
