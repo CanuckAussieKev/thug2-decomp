@@ -24,6 +24,7 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/language.h"
 #include <gsl/pointers>
 namespace commands {
 
@@ -308,7 +309,7 @@ bool cfunc_set_config(Struct* params, Script*)
     switch (language) {
     case kItalian:
     case kGerman:
-        config_language() = game_config::kLanguageGerman;
+        config_language() = core::kLanguageGerman;
         break;
     case kFrench:
     case kSpanish:

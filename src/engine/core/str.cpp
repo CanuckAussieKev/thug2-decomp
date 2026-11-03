@@ -10,15 +10,12 @@
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/language.h"
 
 namespace text {
 namespace {
 constexpr size_t kSeparatedNumberSize = 16;
 constexpr size_t kDigitsSize = 32;
-constexpr int kLanguageFrench = 3;        // the game's language numbers: 3 French, 4 Spanish, 5 German, 6 Italian
-constexpr int kLanguageSpanish = 4;
-constexpr int kLanguageGerman = 5;
-constexpr int kLanguageItalian = 6;
 constexpr int kLetterDigitOffset = 10;    // 'a' is the digit ten
 } // namespace
 
@@ -91,12 +88,12 @@ const char* format_with_separators(int value)
 
     char separator = 0;
     switch (game_config::get_language()) { // the game's language setting
-    case kLanguageFrench:
+    case core::kLanguageFrench:
         separator = ' ';
         break;
-    case kLanguageSpanish:
-    case kLanguageGerman:
-    case kLanguageItalian:
+    case core::kLanguageSpanish:
+    case core::kLanguageGerman:
+    case core::kLanguageItalian:
         separator = '.';
         break;
     default:

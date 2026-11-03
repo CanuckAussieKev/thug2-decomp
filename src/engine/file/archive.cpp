@@ -30,6 +30,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/core/gathered_call.h"
+#include "engine/core/language.h"
 
 namespace pre {
 
@@ -371,7 +372,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         uint8_t* patch = nullptr;
         uint32_t patch_size = 0;
         bool patched = false;
-        const char letter = get_language() == 3 ? 'f' : get_language() == 5 ? 'd' : '\0';
+        const char letter = get_language() == core::kLanguageFrench ? 'f' : get_language() == core::kLanguageGerman ? 'd' : '\0';
         if (letter) {
             core::at(path, length - 1) = letter;
             if (!file::is_present(path.data())) {

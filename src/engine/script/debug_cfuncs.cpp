@@ -26,6 +26,7 @@
 #include "engine/objects/stream_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/script/script_state.h"
+#include "engine/core/language.h"
 #include <gsl/pointers>
 #include <span>
 
@@ -183,10 +184,10 @@ bool cfunc_toggle_metrics(script::Struct*, script::Script*)
 
 // 0x004494F0 / 0x00449500 / 0x00449510 / 0x00449520 / 0x00449530: German / French / Spanish / Italian / English:
 // whether the game runs in that language.
-bool cfunc_german(script::Struct*, script::Script*) { return get_language() == game_config::kLanguageGerman; }
+bool cfunc_german(script::Struct*, script::Script*) { return get_language() == core::kLanguageGerman; }
 bool cfunc_french(script::Struct*, script::Script*) { return get_language() == 3; }
 bool cfunc_spanish(script::Struct*, script::Script*) { return get_language() == 4; }
-bool cfunc_italian(script::Struct*, script::Script*) { return get_language() == game_config::kLanguageItalian; }
+bool cfunc_italian(script::Struct*, script::Script*) { return get_language() == core::kLanguageItalian; }
 bool cfunc_english(script::Struct*, script::Script*) { return get_language() == 2; }
 
 // 0x004498F0: ProximCleanup: every sound and stream component's proximity node cleared (what they keep of

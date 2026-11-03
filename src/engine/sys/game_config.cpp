@@ -15,6 +15,7 @@
 #include "engine/core/checked_index.h"
 #include "platform/registry.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/language.h"
 
 namespace game_config {
 
@@ -154,21 +155,21 @@ const char* get_path_prefix() { return path_prefix().data(); }
 const char* get_locale_label()
 {
     switch (get_language()) {
-    case kLanguageJapanese:
+    case core::kLanguageJapanese:
         return "Japanese"; // "Japanese"
-    case kLanguageEnglish:
+    case core::kLanguageEnglish:
         return "English"; // "English"
-    case kLanguageFrench:
+    case core::kLanguageFrench:
         return "French"; // "French"
-    case kLanguageSpanish:
+    case core::kLanguageSpanish:
         return "Spanish"; // "Spanish"
-    case kLanguageGerman:
+    case core::kLanguageGerman:
         return "German"; // "German"
-    case kLanguageItalian:
+    case core::kLanguageItalian:
         return "Italian"; // "Italian"
-    case kLanguageDutch:
+    case core::kLanguageDutch:
         return "Dutch"; // "Dutch"
-    case kLanguagePortuguese:
+    case core::kLanguagePortuguese:
         return "Portuguese"; // "Portuguese"
     default:
         return "Unknown language"; // "Unknown language"
@@ -297,7 +298,7 @@ void read_registry(Arguments)
     const char* path =
         R"(Software\Activision\Tony Hawk's Underground 2\Install)"; // "Software\Activision\Tony Hawk's Underground 2\Install"
     hardware() = kHardwareWin32;
-    get_language() = kLanguageEnglish;
+    get_language() = core::kLanguageEnglish;
     get_extra_memory() = false;
     DWORD language = 0;
     HKEY key = nullptr;
@@ -315,13 +316,13 @@ void read_registry(Arguments)
     }
     switch (language) {
     case kRegistryFrench:
-        get_language() = kLanguageFrench;
+        get_language() = core::kLanguageFrench;
         break; // French
     case kRegistryGerman:
-        get_language() = kLanguageGerman;
+        get_language() = core::kLanguageGerman;
         break; // German
     default:
-        get_language() = kLanguageEnglish;
+        get_language() = core::kLanguageEnglish;
         break;
     }
 }

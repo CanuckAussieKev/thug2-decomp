@@ -32,6 +32,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/language.h"
 
 namespace render {
 
@@ -51,7 +52,6 @@ constexpr float kTickSeconds = 0.03f;
 constexpr float kLoadSecondsScale = 0.6f;
 constexpr int kLoadingTimerPeriod = 29; // milliseconds between redraws of the loading screen
 constexpr std::size_t kPickedNameBytes = 0xC8;
-constexpr int kLanguageGerman = 5;
 
 namespace {
 
@@ -273,7 +273,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
             if (language == 3 && !is_select_name(name)) { // (no text on a level select picture: one for all languages)
                 text::format_to(localised, "fr/%s", name);
                 file = localised.data();
-            } else if (language == kLanguageGerman && !is_select_name(name)) {
+            } else if (language == core::kLanguageGerman && !is_select_name(name)) {
                 text::format_to(localised, "gr/%s", name);
                 file = localised.data();
             }

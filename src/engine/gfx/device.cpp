@@ -31,6 +31,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/maths/rect.h"
+#include "engine/core/language.h"
 
 namespace render {
 
@@ -51,7 +52,6 @@ constexpr int kMinAnisotropyFilterCap = 0x400; // D3DPTFILTERCAPS_MINFANISOTROPY
 constexpr int kDepthBits16 = 16;
 constexpr int kDepthBits32 = 32;
 constexpr float kFlashChannel = 0.25f;
-constexpr int kLanguageGerman = 5;
 constexpr float kDiscErrorX = 48.0f;
 constexpr float kDiscErrorY = 128.0f;
 constexpr uint32_t kDiscErrorScaleBits = 0x3F4CCCCDu; // 0.8
@@ -426,7 +426,7 @@ void show_disc_error()
         first = kDiscErrorFrench1;
         second = kDiscErrorFrench2;
         break;
-    case kLanguageGerman:
+    case core::kLanguageGerman:
         first = kDiscErrorGerman1;
         second = kDiscErrorGerman2;
         break;

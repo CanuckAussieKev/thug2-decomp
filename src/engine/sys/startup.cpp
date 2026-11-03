@@ -60,6 +60,7 @@
 #include "engine/objects/collide_and_die.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/language.h"
 
 namespace sys {
 
@@ -104,7 +105,7 @@ int game_main(int argc, char** argv)
     case 3:                            // French
         set_key_names();
         break;
-    case game_config::kLanguageGerman: // German
+    case core::kLanguageGerman: // German
         set_german_key_names();
         break;
     default:

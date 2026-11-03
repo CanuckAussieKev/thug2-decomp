@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <span>
 
+#include "engine/core/language.h"
+
 // The game's own configuration (0x005B5C90-0x005B6370): the command line's options (CD / NotCD, NoExtraMem,
 // Bootstrap, Pal / NTSC, FrameRate=50|60), the language from the registry (HKCU, then HKLM, ...\Install\language),
 // and the names of the language, territory, hardware, display type and platform. (Not thug2-decomp.ini
@@ -12,15 +14,8 @@ namespace game_config {
 // The command line: its words (the program name first).
 using Arguments = std::span<char* const>;
 
-// The language, territory, hardware and display numbers (the settings below hold one of each).
-constexpr int kLanguageJapanese = 1;
-constexpr int kLanguageEnglish = 2;
-constexpr int kLanguageFrench = 3;
-constexpr int kLanguageSpanish = 4;
-constexpr int kLanguageGerman = 5;
-constexpr int kLanguageItalian = 6;
-constexpr int kLanguageDutch = 7;
-constexpr int kLanguagePortuguese = 8;
+// The territory, hardware and display numbers (the settings below hold one of each; the language numbers:
+// engine/core/language.h).
 constexpr int kTerritoryEurope = 1;
 constexpr int kTerritoryUs = 2;
 constexpr int kTerritoryAsia = 3;

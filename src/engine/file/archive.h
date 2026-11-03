@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/core/language.h"
+
 namespace file {
 class AsyncFileHandle;
 }
@@ -35,8 +37,8 @@ constexpr size_t kPendingOffset = 0x18;
 constexpr size_t kQueuedCountOffset = 0x238;
 constexpr size_t kManagerBytes = 0x23C;
 constexpr size_t kScriptsArchiveNameLength = 11; // "scripts.pre"
-constexpr int kFirstLetterLanguage = 3;          // the languages that name their scripts archive by a letter: 3 to 6
-constexpr int kLastLetterLanguage = 6;
+constexpr int kFirstLetterLanguage = core::kLanguageFrench;  // the languages that name their scripts archive by a
+constexpr int kLastLetterLanguage = core::kLanguageItalian; // letter: French to Italian
 class ArchiveFile {
 public:
     ArchiveFile(const ArchiveFile&) = delete;
