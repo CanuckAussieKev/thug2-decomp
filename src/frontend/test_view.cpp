@@ -7,6 +7,7 @@
 #include <array>
 #include <string>
 #include <optional>
+#include <numbers>
 
 #include "engine/gfx/view_cam.h"
 #include "engine/maths/mat4.h"
@@ -29,7 +30,6 @@ constexpr float kMinDirectionLength = 1e-6f;
 constexpr float kMinRightLength = 1e-4f;
 constexpr double kDegreesPerHalfTurn = 180.0;
 
-constexpr double kPi = 3.14159265358979323846;
 constexpr float kProbeAbove = 12.0f;   // the ground ray starts this far above the point...
 constexpr float kProbeBelow = 4000.0f; // ...and ends this far below it
 
@@ -113,7 +113,7 @@ std::optional<CameraRows> camera_rows(Vec3 direction)
 
 void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
 {
-    const double h = static_cast<double>(heading_degrees) * kPi / 180.0;
+    const double h = static_cast<double>(heading_degrees) * std::numbers::pi / 180.0;
     auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     *at = {.x = s, .y = 0.0f, .z = c};
     *up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
@@ -130,7 +130,7 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     if (!has_heading) {
         const maths::Vec4& at = core::at(skater->basis_frame().row, 2);
         heading_degrees =
-            static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * kDegreesPerHalfTurn / kPi);
+            static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * kDegreesPerHalfTurn / std::numbers::pi);
     }
     float ground = 0.0f;
     const bool grounded = ground_below(position, &ground);

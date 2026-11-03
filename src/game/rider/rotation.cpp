@@ -26,6 +26,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
+#include "engine/maths/trig.h"
 
 namespace skater {
 
@@ -62,11 +63,10 @@ constexpr uint32_t kBreakVertSlow = 0x13F33B41;
 constexpr uint32_t kBreakVertUpScale = 0x848C5CD6;
 constexpr uint32_t kBreakVertPitch = 0xD757F4BB;
 
-constexpr float kPi = 3.14159274f;                 // 0x0064BB7C
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kDegreesPerRadian = 57.2957764f;   // 0x00645468
 constexpr float kBreakVertPush = 24.0f;            // 0x00645EE8
-static_assert(std::bit_cast<uint32_t>(kPi) == kHash40490FDB && std::bit_cast<uint32_t>(kRadiansPerDegree) == kHash3C8EFA35 &&
+static_assert(std::bit_cast<uint32_t>(maths::kPi) == kHash40490FDB && std::bit_cast<uint32_t>(kRadiansPerDegree) == kHash3C8EFA35 &&
                   std::bit_cast<uint32_t>(kDegreesPerRadian) == kHash42652EE0,
               "the original's constants");
 
@@ -136,12 +136,12 @@ void SkaterPhysicsModule::get_spin()
         if (pad->shoulder_left_a().fired()) {
             take_press(&pad->shoulder_left_a());
             if (!pad->shoulder_right_a().held_down())
-                queued = static_cast<float>(static_cast<double>(queued) + kPi);
+                queued = static_cast<float>(static_cast<double>(queued) + maths::kPi);
         }
         if (pad->shoulder_right_a().fired()) {
             take_press(&pad->shoulder_right_a());
             if (!pad->shoulder_left_a().held_down())
-                queued = static_cast<float>(static_cast<double>(queued) - kPi);
+                queued = static_cast<float>(static_cast<double>(queued) - maths::kPi);
         }
         if (queued != 0.0f) {
             spinning = true;

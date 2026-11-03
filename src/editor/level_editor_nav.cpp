@@ -4,6 +4,7 @@
 #include "editor/level_editor.h"
 #include "editor/level_editor_organize.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/trig.h"
 
 #include <algorithm>
 #include <cmath>
@@ -29,7 +30,6 @@ constexpr float kHalf = 0.5f; // half
 
 namespace {
 
-constexpr float kPi = 3.14159265358979f;
 
 // Whether the feet can go from `from` by `move` (horizontal): no wall at knee or head height, up to the radius past it.
 bool get_clear(V3 from, V3 move, const Cast& cast)
@@ -185,15 +185,15 @@ int slice_at(float dx, float dy, int count, float deadzone)
     // (clockwise from straight up: screen y points down)
     float angle = std::atan2(dx, -dy);
     if (angle < 0.0f)
-        angle += kFullTurnFactor * kPi;
-    const float slice = 2.0f * kPi / static_cast<float>(count);
+        angle += kFullTurnFactor * maths::kPi;
+    const float slice = 2.0f * maths::kPi / static_cast<float>(count);
     const int index = static_cast<int>(std::floor((angle + slice * 0.5f) / slice));
     return index % count;
 }
 
 void slice_direction(int index, int count, float* dx, float* dy)
 {
-    const float angle = count > 0 ? 2.0f * kPi * static_cast<float>(index) / static_cast<float>(count) : 0.0f;
+    const float angle = count > 0 ? 2.0f * maths::kPi * static_cast<float>(index) / static_cast<float>(count) : 0.0f;
     *dx = std::sin(angle);
     *dy = -std::cos(angle);
 }

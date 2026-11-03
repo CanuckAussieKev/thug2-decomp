@@ -104,7 +104,6 @@ constexpr uint32_t kUnlitLinkColour = 0x80E0A030; // ARGB
 constexpr uint32_t kLitPairColour = 0x90FFE070;   // ARGB
 constexpr uint32_t kUnlitPairColour = 0x50E0A030; // ARGB
 
-constexpr float kPi = 3.14159265f;
 
 struct TypeInfo {
     const char* name;  // its checksum's name
@@ -587,8 +586,8 @@ bool read_record(const std::string& text, Goal* out)
     return true;
 }
 
-float get_image_angle(float heading) { return heading + kPi; }
-float get_heading_of(float image_angle) { return image_angle - kPi; }
+float get_image_angle(float heading) { return heading + maths::kPi; }
+float get_heading_of(float image_angle) { return image_angle - maths::kPi; }
 
 void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<int>& gap_numbers,
                 GoalImage* out)
@@ -1185,7 +1184,7 @@ bool fabricate(KindTag type)
     Goal g = get_defaults(type, get_fresh_id());
     g.name = fresh_title(type);
     // The pro facing the camera, the start beside it facing away; letters / checkpoints in a line ahead.
-    g.points.push_back({.pos = base, .heading = view.yaw + kPi, .height = 0.0f});
+    g.points.push_back({.pos = base, .heading = view.yaw + maths::kPi, .height = 0.0f});
     g.points.push_back({.pos = get_grounded(base + right * kPointSpacing), .heading = view.yaw, .height = 0.0f});
     const int count = min_points(type);
     for (int k = 2; k < count; ++k) {

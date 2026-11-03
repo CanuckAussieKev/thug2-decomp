@@ -39,6 +39,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -66,7 +67,6 @@ constexpr uint32_t kLevelObject = 0xB7B3BD86, kGameObject = 0xEF59C100;
 // (copied too since the feature map's second round - level_editor_entities.h: peds and cars of the types the level has
 // made, particle systems)
 constexpr uint32_t kPedestrian = 0xA0DFAC98, kVehicle = 0xE47F1B79, kParticleObject = 0x9E7D469E;
-constexpr float kPi = 3.14159265f;
 
 // The node of that name (0x0045C1B0: by name).
 script::Struct* node_of(uint32_t name) { return level_nodes::fetch_vertex(name, false); }
@@ -413,7 +413,7 @@ std::string describe(objects::GameEntity* object)
     std::array<char, kDescribeSize> text{};
     text::format_to(text, "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident()),
                     caption(object->ident()).c_str(), object->at_point().x, object->at_point().y, object->at_point().z,
-                    std::atan2(at.x, at.z) * kDegreesPerHalfTurn / kPi);
+                    std::atan2(at.x, at.z) * kDegreesPerHalfTurn / maths::kPi);
     return text.data();
 }
 

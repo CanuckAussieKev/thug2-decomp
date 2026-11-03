@@ -1,5 +1,6 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 
 #include <cmath>
 #include <cstdint>
@@ -10,7 +11,6 @@ namespace maths {
 namespace {
 
 constexpr float kHuge = 10000000.0f;
-constexpr float kPi = 3.14159265f;
 constexpr float kMidpoint = 0.5f;            // halfway between a box's corners
 constexpr float kParallelRayStep = 1e-6f;    // stands in for a ray direction component of exactly zero
 constexpr float kSphereVolumeFactor = 4.0f / 3.0f;

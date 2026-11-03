@@ -30,6 +30,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "engine/render/coll_obj.h"
+#include "engine/maths/trig.h"
 
 namespace skater {
 
@@ -76,7 +77,6 @@ constexpr float kWallPushOut = 0.1f;               // 0x00645D74
 constexpr float kBounceBack = 6.0f;                // 0x00646284
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kHalfPi = 1.57079637f;             // 0x00645484
-constexpr float kPi = 3.14159274f;                 // 0x0064BB7C
 
 
 
@@ -473,7 +473,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0) || !entity()->is_local_skater())
         return;
     // Into a corner: turned back the other way, half as fast; fast enough, a flail.
-    const double back = static_cast<double>(kPi) - turn;
+    const double back = static_cast<double>(maths::kPi) - turn;
     auto back_angle = static_cast<float>(back);
     turn_velocity(entity()->vel(), back);
     entity()->basis_frame().yaw_locally(back_angle);

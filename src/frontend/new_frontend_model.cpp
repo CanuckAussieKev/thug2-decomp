@@ -7,6 +7,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/maths/rect.h"
 #include "engine/core/str.h"
+#include "engine/maths/trig.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -32,7 +33,6 @@ constexpr std::size_t kColourTextLength = 7;       // "#rrggbb"
 constexpr int kHexBase = 16;
 constexpr std::uint32_t kOpaqueAlphaMask = 0xFF000000u; // a colour with full alpha
 constexpr float kHalf = 0.5f;
-constexpr float kPi = 3.14159265f;
 constexpr std::size_t kGroupPrefixLength = 6;       // the group id's prefix before its name
 constexpr float kMaxStepSeconds = 0.1f;             // a long frame - a load, a hitch - doesn't skip the motion
 constexpr float kScrollSettle = 0.001f;
@@ -709,7 +709,7 @@ float Menu::get_pan() const
 {
     const float phase = std::fmod(clock_, kPanSeconds * 2.0f) / kPanSeconds; // 0..2
     const float linear = phase <= 1.0f ? phase : 2.0f - phase;
-    return kHalf - kHalf * std::cos(linear * kPi); // (eased at both ends)
+    return kHalf - kHalf * std::cos(linear * maths::kPi); // (eased at both ends)
 }
 
 uint32_t Menu::accent_colour() const

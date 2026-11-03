@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <span>
+#include <numbers>
 
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
@@ -35,7 +36,6 @@ constexpr float kHalfTurnF = 180.0f;
 constexpr float kTurnF = 360.0f;
 constexpr double kHalfTurnD = 180.0;
 
-constexpr double kPi = 3.14159265358979323846;
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
@@ -157,7 +157,7 @@ objects::GameEntity* object_of(script::Struct* params)
 // The skater put at `pos` facing `heading` (standing upright), its drawn matrix and the core physics' with it.
 void place_skater(objects::Rider* skater, Point pos, float heading)
 {
-    const double h = static_cast<double>(heading) * kPi / 180.0;
+    const double h = static_cast<double>(heading) * std::numbers::pi / 180.0;
     auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     for (maths::Mat4* m : {&skater->basis_frame(), &skater->display_matrix()}) {
         core::at(m->row, 0) = {.x = c, .y = 0.0f, .z = -s, .w = 0.0f};
@@ -267,14 +267,14 @@ float get_heading_of(float x, float z)
 {
     if (x == 0.0f && z == 0.0f)
         return 0.0f;
-    return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * kHalfTurnD / kPi);
+    return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * kHalfTurnD / std::numbers::pi);
 }
 
 void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Point, 4> out)
 {
     const auto heading = heading_reach.heading;
     const auto distance = heading_reach.distance;
-    const double h = static_cast<double>(heading) * kPi / 180.0;
+    const double h = static_cast<double>(heading) * std::numbers::pi / 180.0;
     auto ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h));  // (at)
     const float rx = az;
     const float rz = -ax; // (right: up x at)

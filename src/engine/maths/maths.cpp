@@ -1,5 +1,6 @@
 #include "engine/maths/maths.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/trig.h"
 
 #include <bit>
 #include <cmath>
@@ -11,7 +12,6 @@ namespace maths {
 
 namespace {
 
-constexpr float kPi = 3.14159265f;
 
 // One step of the lookup table: the value at this angle and the difference to the next step.
 struct SinCosEntry {

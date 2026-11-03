@@ -16,6 +16,7 @@
 #include "engine/maths/vec2.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::xform {
 
@@ -53,7 +54,6 @@ constexpr float kHalf = 0.5f; // half
 
 namespace {
 
-constexpr float kPi = 3.14159265f;
 
 // NOT ORIGINAL grouping - level_editor_transform.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_transform_state()).
@@ -172,11 +172,11 @@ float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x
 
 float get_wrap(float radians)
 {
-    float r = std::fmod(radians, kFullTurnFactor * kPi);
-    if (r <= -kPi)
-        r += kFullTurnFactor * kPi;
-    else if (r > kPi)
-        r -= kFullTurnFactor * kPi;
+    float r = std::fmod(radians, kFullTurnFactor * maths::kPi);
+    if (r <= -maths::kPi)
+        r += kFullTurnFactor * maths::kPi;
+    else if (r > maths::kPi)
+        r -= kFullTurnFactor * maths::kPi;
     return r;
 }
 
@@ -186,11 +186,11 @@ float snap_angle(AngleSnap angle_snap)
     const auto step_degrees = angle_snap.step_degrees_;
     if (step_degrees <= 0.0f)
         return radians;
-    const float step = step_degrees * kPi / 180.0f;
+    const float step = step_degrees * maths::kPi / 180.0f;
     return std::round(radians / step) * step;
 }
 
-int get_quarters(float radians) { return static_cast<int>(std::lround(radians / (kPi * kHalf))); }
+int get_quarters(float radians) { return static_cast<int>(std::lround(radians / (maths::kPi * kHalf))); }
 
 float snap_relative(float distance, float grid) { return grid > 0.0f ? std::round(distance / grid) * grid : distance; }
 
@@ -216,7 +216,7 @@ std::vector<V3> get_ring(V3 pivot, RingShape ring)
     const auto count = ring.count;
     std::vector<V3> points;
     for (int i = 0; i < count; ++i) {
-        const float a = 2.0f * kPi * static_cast<float>(i) / static_cast<float>(count);
+        const float a = 2.0f * maths::kPi * static_cast<float>(i) / static_cast<float>(count);
         points.push_back({.x = pivot.x + std::sin(a) * radius, .y = pivot.y, .z = pivot.z + std::cos(a) * radius});
     }
     return points;

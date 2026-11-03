@@ -13,6 +13,7 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_transform.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/trig.h"
 namespace frontend::level_editor::adjust {
 
 namespace {
@@ -31,7 +32,6 @@ constexpr float kQuarterTurnDegrees = 90.0f; // degrees in a quarter turn
 } // namespace
 
 namespace {
-constexpr float kPi = 3.14159265f;
 }
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
@@ -94,7 +94,7 @@ xform::RepeatStep step_of(const ActStep& action)
         step.quarters = ((static_cast<int>(std::lround(action.degrees / kQuarterTurnDegrees)) % 4) + 4) % 4;
         step.turn = 0.0f;
     } else {
-        step.turn = action.degrees * kPi / kDegreesPerHalfTurn;
+        step.turn = action.degrees * maths::kPi / kDegreesPerHalfTurn;
     }
     return step;
 }
@@ -144,7 +144,7 @@ void get_apply(const ActStep& wanted)
             edit::place_at(n.pos);
         const float turn = n.degrees - level_editor_adjust_state().last_.action.degrees;
         if (std::fabs(turn) > kTurnEpsilon)
-            edit::turn_by(turn * kPi / kDegreesPerHalfTurn);
+            edit::turn_by(turn * maths::kPi / kDegreesPerHalfTurn);
         edit::get_settle();
         pushed = false;
         break;
@@ -158,7 +158,7 @@ void get_apply(const ActStep& wanted)
     case Kind::kTurn:
         edit::take_back();
         edit::get_begin();
-        edit::turn_by(n.degrees * kPi / kDegreesPerHalfTurn);
+        edit::turn_by(n.degrees * maths::kPi / kDegreesPerHalfTurn);
         edit::get_end();
         break;
     case Kind::kScale:

@@ -52,7 +52,6 @@ constexpr uint32_t kSubject = 0x0431C185, kLerp = 0x9213625F, kHeight = 0x14849B
 
 constexpr float kSpeedScale = 0.0037878789007663727f; // 0x0064C5D4
 constexpr float kMinFlatSpeed = 88000000.0f;          // 0x0064C5D8
-constexpr float kPi = 3.1415927410125732f;            // 0x0064C59C
 constexpr float kHalfPi = 1.5707963705062866f;        // 0x00645484
 constexpr float kDegrees = 0.01745329238474369f;      // 0x00645464 (degrees to radians)
 
@@ -233,7 +232,7 @@ void CarView::tick_frame()
     bool obtuse = false;
     float angle = maths::acos_f({.value = cosine, .limit = kHalfPi}, &obtuse);
     if (obtuse)
-        angle = kPi - angle;
+        angle = maths::kPi - angle;
     const bool left = static_cast<double>(direction_.z) * target_direction_.x -
                           static_cast<double>(target_direction_.z) * direction_.x >
                       0.0;

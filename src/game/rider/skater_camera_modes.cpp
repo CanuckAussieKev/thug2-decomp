@@ -15,6 +15,7 @@
 #include "game/rider/skater_camera_component.h"
 #include "engine/objects/camera_component.h"
 #include "engine/core/down_cast.h"
+#include "engine/maths/trig.h"
 
 namespace objects {
 
@@ -38,7 +39,7 @@ constexpr uint32_t kHorizFov = 0x94DF1603, kBehind = 0x52E6C41B, kAbove = 0x0B96
 
 constexpr float kFeet = 12.0f; // 0x0064546C
 constexpr float kHalf = 0.5f;  // 0x006453BC
-constexpr float kPi = 3.14159274f, kHalfPi = 1.57079637f;
+constexpr float kHalfPi = 1.57079637f;
 
 float one_frame()
 {
@@ -163,7 +164,7 @@ void RiderChaseView::change_regime(CameraRegime camera_regime)
     switch (mode) {
     case kModeBackA:
     case kModeBackB:
-        heading = kPi;
+        heading = maths::kPi;
         break;
     case kModeRightA:
     case kModeRightB:

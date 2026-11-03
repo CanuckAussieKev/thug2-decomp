@@ -38,6 +38,7 @@
 #include "engine/core/checksums.h"
 #include "game/rider/core_physics.h"
 #include "engine/render/coll_obj.h"
+#include "engine/maths/trig.h"
 
 namespace objects {
 
@@ -60,7 +61,6 @@ constexpr uint32_t kNetFirefight = 0xBFF33600, kFirefight = 0x3D6D444F;
 
 constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 constexpr float kHalfPi = 1.5707963705062866f;            // 0x00645484
-constexpr float kPi = 3.1415927410125732f;                // 0x0064BFA4
 constexpr float kLightingRise = 0.001f;                   // 0x006461D8 (of the up row)
 constexpr float kLightingAbove = 8.0f;                    // 0x006461D4
 constexpr float kLightingBelow = 4800.0f;                 // 0x006461D0
@@ -251,7 +251,7 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
     const double exact = std::acos(static_cast<double>(cosine));
     auto angle = static_cast<float>(exact);
     if (exact > kHalfPi) // (the unrounded angle compared; the rounded one adjusted)
-        angle = static_cast<float>(static_cast<double>(angle) - kPi);
+        angle = static_cast<float>(static_cast<double>(angle) - maths::kPi);
     const double rotation = static_cast<double>(script::fetch_float(kWallBounceAngleMultiplier)) * angle;
     *turn = static_cast<float>(rotation);
     // The velocity turned about y (sine / cosine unrounded), then the matrix by the rounded turn.
@@ -357,7 +357,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater())
         return;
     // Another wall: turned round by what's left of a half turn, and halved.
-    const double around = static_cast<double>(kPi) - turn;
+    const double around = static_cast<double>(maths::kPi) - turn;
     auto s = static_cast<float>(std::sin(around));
     auto c = static_cast<float>(std::cos(around));
     maths::Vec4& vel = skater->vel();

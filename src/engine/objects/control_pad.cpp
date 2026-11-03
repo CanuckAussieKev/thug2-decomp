@@ -15,6 +15,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
 #include "engine/maths/vec2.h"
+#include "engine/maths/trig.h"
 
 namespace objects {
 
@@ -64,7 +65,6 @@ double get_now() { return static_cast<double>(frame_clock::get_time()); }
 
 constexpr float float_from_bits(uint32_t bits) noexcept { return std::bit_cast<float>(bits); }
 
-constexpr float kPi = float_from_bits(0x40490FDB);
 constexpr float kHalfPi = float_from_bits(0x3FC90FDB);
 constexpr float kQuarterPi = float_from_bits(0x3F490FDB);
 constexpr float kThreeQuarterPi = float_from_bits(0x4016CBE4);
@@ -287,7 +287,7 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
 
     const double angle = std::fabs(static_cast<double>(core::at(polar_, 1).angle));
     update_lock(core::at(lock_, 0), core::at(polar_, 1).length, angle < kQuarterPi);
-    update_lock(core::at(lock_, 1), core::at(polar_, 1).length, static_cast<double>(kPi) - angle < kQuarterPi);
+    update_lock(core::at(lock_, 1), core::at(polar_, 1).length, static_cast<double>(maths::kPi) - angle < kQuarterPi);
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
     // game/rider/thaw_bmx.h. Original behaviour: none.
     if (skater::thaw_bmx::is_switched_on())
@@ -343,8 +343,8 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
     static const std::array<float, 16> kAngles = {{
         0.0f,
         0.0f,
-        kPi,
-        kPi,
+        maths::kPi,
+        maths::kPi,
         -kHalfPi,
         -kQuarterPi,
         -kThreeQuarterPi,
@@ -376,7 +376,7 @@ double stick_length(maths::Vec2 stick, float angle)
     else if (a > kQuarterPi && a < kThreeQuarterPi)
         to_gate = a - kHalfPi;
     else if (std::fabs(a) > kThreeQuarterPi)
-        to_gate = std::fabs(a) - kPi;
+        to_gate = std::fabs(a) - maths::kPi;
     else
         to_gate = a + kHalfPi;
     const double length =

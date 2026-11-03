@@ -58,6 +58,7 @@
 #include "engine/core/format.h"
 #include "engine/core/field_reader.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -65,7 +66,6 @@ namespace {
 
 constexpr std::uint32_t kUnknownMotionColour = 0xFFFFFFFF; // a motion with no colour of its own
 constexpr float kMinTurnSegment = 0.001f; // a trail segment shorter than this has no direction
-constexpr float kPi = 3.14159265f;
 constexpr std::size_t kTrailLineSize = 256;
 constexpr std::size_t kFileNameSize = 32;
 constexpr double kMaxScorePoints = 2.0e9; // a score above this is taken as a misread
@@ -214,7 +214,7 @@ void Recorder::feed(V3 pos, Motion motion)
             const float lb = len_of(before);
             if (lb > kMinTurnSegment) {
                 const float c = get_dot(before, d) / (lb * distance);
-                keep = c < std::cos(kTurnDegrees * kPi / kDegreesPerHalfTurn);
+                keep = c < std::cos(kTurnDegrees * maths::kPi / kDegreesPerHalfTurn);
             }
         }
     }

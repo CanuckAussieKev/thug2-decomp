@@ -27,6 +27,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 
 namespace render {
 
@@ -38,7 +39,6 @@ constexpr double kByteMax = 255.0;
 namespace {
 
 constexpr float kRandomUnit = std::bit_cast<float>(0x38000100u); // 0x00646510: 1 / 32767
-constexpr float kPi = std::bit_cast<float>(0x40490FDBu);         // 0x006493C0
 constexpr float kDegrees = std::bit_cast<float>(0x3C8EFA35u);    // 0x00645464: pi / 180
 constexpr float kFarAway = 1024.0f;                              // where a removed particle's positions go
 
@@ -181,7 +181,7 @@ void EmitterInstance::get_emit(int count)
         }
         // the direction: a point on the disc of the spread about the third row
         float a = random_signed(), b = random_signed(), c = random_signed();
-        const double spread = static_cast<double>(angle_spread_) * 0.25f * kPi;
+        const double spread = static_cast<double>(angle_spread_) * 0.25f * maths::kPi;
         const double x = a * spread;
         const double y = spread * b;
         const double z = 1.0 - (x * x + y * y);

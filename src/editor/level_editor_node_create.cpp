@@ -38,13 +38,13 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::node_create {
 
 namespace {
 
 constexpr std::size_t kBaseSuffixLength = 5; // "_Base"
-constexpr float kPi = 3.14159265f;
 constexpr int kLightColourRed = 255; // a new light's colour (warm white)
 constexpr int kLightColourGreen = 214;
 constexpr int kLightColourBlue = 170;
@@ -114,9 +114,9 @@ constexpr float kTwoPi = 6.28318531f;
 
 float wrapped(float yaw)
 {
-    while (yaw > kPi)
+    while (yaw > maths::kPi)
         yaw -= kTwoPi;
-    while (yaw <= -kPi)
+    while (yaw <= -maths::kPi)
         yaw += kTwoPi;
     return yaw;
 }

@@ -41,6 +41,7 @@
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
 #include "engine/core/checksums.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::cameras {
 
@@ -72,7 +73,6 @@ constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 
 namespace {
 
-constexpr float kPi = 3.14159265f;
 
 // Numbers separated by commas, the whole text (as the layout's other records read them).
 bool read_numbers(const std::string& text, std::span<float> out, int count)
@@ -508,7 +508,7 @@ std::string create_from_view()
     }
     hud::get_message("Added camera " + c.name);
     get_log("level editor: camera %s made at (%.1f, %.1f, %.1f), heading %.1f, pitch %.1f", c.name.c_str(), c.pos.x,
-            c.pos.y, c.pos.z, view.yaw * kDegreesPerHalfTurn / kPi, view.pitch * kDegreesPerHalfTurn / kPi);
+            c.pos.y, c.pos.z, view.yaw * kDegreesPerHalfTurn / maths::kPi, view.pitch * kDegreesPerHalfTurn / maths::kPi);
     return c.name;
 }
 
@@ -549,7 +549,7 @@ bool set_pitch(checksums::Name camera, float degrees, bool done)
     node_edit::Values values;
     values.pos = c->pos;
     values.angles = c->angles;
-    values.angles.x = -std::clamp(degrees, -kMaxPitchDegrees, kMaxPitchDegrees) * kPi / kDegreesPerHalfTurn;
+    values.angles.x = -std::clamp(degrees, -kMaxPitchDegrees, kMaxPitchDegrees) * maths::kPi / kDegreesPerHalfTurn;
     node_edit::assign_value(name, values);
     return true;
 }
@@ -688,7 +688,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         return;
     float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(c->angles, {.yaw = &yaw, .pitch = &pitch});
-    float pitch_degrees = pitch * kDegreesPerHalfTurn / kPi;
+    float pitch_degrees = pitch * kDegreesPerHalfTurn / maths::kPi;
     ImGui::PushFont(mono);
     ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
     if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, kPitchDragSpeed, -kMaxPitchDegrees, kMaxPitchDegrees, "%.1f deg",

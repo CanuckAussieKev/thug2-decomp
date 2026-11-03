@@ -31,6 +31,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/maths/rect.h"
 #include "engine/maths/vec2.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::new_frontend::paint {
 
@@ -51,7 +52,6 @@ constexpr float kLabelTextSize = 13.0f;
 constexpr float kNameTextSize = 28.0f;
 constexpr float kNoteTextSize = 12.0f;        // text sizes in design pixels
 constexpr float kPanelHintsBottom = 692.0f;  // the baseline of the hint bar under a panel
-constexpr float kPi = 3.14159265f;
 constexpr float kRoundHalf = 0.5f;               // added before truncating: round to the nearest
 constexpr float kRowRight = 1240.0f;             // where a row ends and its hit box with it
 constexpr float kRowTiltDegrees = 3.0f;          // the tilt a row starts its entrance at
@@ -848,7 +848,7 @@ void get_row(Ctx& c, const RowStyle& rs, float top, const char* number, const ch
     draw_text(dl, num, c.f, {.x = c.f.get_x(kColumnLeft), .y = base}, number);
     if (e > kVisibleThreshold) {
         const float pivot_y = c.f.get_y(top + rs.row_height_ * 0.5f);
-        xform(dl, start, {.x = c.f.get_x(kColumnLeft), .y = pivot_y}, -kRowTiltDegrees * kPi / kDegreesPerHalfTurn * e, {.x = c.f.current_s(kRowSlideDistance) * e, .y = 0.0f});
+        xform(dl, start, {.x = c.f.get_x(kColumnLeft), .y = pivot_y}, -kRowTiltDegrees * maths::kPi / kDegreesPerHalfTurn * e, {.x = c.f.current_s(kRowSlideDistance) * e, .y = 0.0f});
     }
 }
 
@@ -1560,7 +1560,7 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
         draw_text(dl, rs.number, c.f, {.x = c.f.get_x(rows_left), .y = base}, pad2(i + 1).c_str());
         if (e > kVisibleThreshold)
             xform(dl, start, {.x = c.f.get_x(rows_left), .y = c.f.get_y(row_top + kLevelRowHeight * kHalf)},
-                  -kRowTiltDegrees * kPi / kDegreesPerHalfTurn * e, {.x = c.f.current_s(kRowSlideDistance) * e, .y = 0.0f});
+                  -kRowTiltDegrees * maths::kPi / kDegreesPerHalfTurn * e, {.x = c.f.current_s(kRowSlideDistance) * e, .y = 0.0f});
         if (core::at(v.rows, i).focusable)
             c.get_hit(Hit::Kind::kItem, i, rows_left, row_top, kRowRight, row_top + kLevelRowHeight);
     }
@@ -1628,7 +1628,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
         s.colour = get_mix(core::at(v.rows, i).focusable ? kPaper : kMuted2, kGround, e);
         draw_text(dl, s, c.f, {.x = c.f.get_x(x), .y = datum(s, c.f, c.f.get_y(strip_top), kTabLineHeight)}, core::at(v.rows, i).label.c_str());
         if (e > kVisibleThreshold)
-            xform(dl, start, {.x = c.f.get_x(x), .y = c.f.get_y(strip_top + line_h * kHalf)}, -kRowTiltDegrees * kPi / kDegreesPerHalfTurn * e, {.x = 0.0f, .y = -c.f.current_s(kStripTiltLift) * e});
+            xform(dl, start, {.x = c.f.get_x(x), .y = c.f.get_y(strip_top + line_h * kHalf)}, -kRowTiltDegrees * maths::kPi / kDegreesPerHalfTurn * e, {.x = 0.0f, .y = -c.f.current_s(kStripTiltLift) * e});
         if (core::at(v.rows, i).focusable && x + core::at(widths, i) > 0.0f && x < kDesignWidth)
             c.get_hit(Hit::Kind::kItem, static_cast<int>(i), x - kStripHitLeft, strip_top - kStripHitVertical, x + core::at(widths, i) + kStripHitRight,
                       strip_top + line_h + kStripHitVertical);

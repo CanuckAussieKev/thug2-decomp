@@ -21,11 +21,11 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/core/checksums.h"
+#include "engine/maths/trig.h"
 
 namespace gfx {
 
 constexpr std::size_t kBoneVolumeCount = 64;
-constexpr float kPiFloat = 3.14159274f;
 constexpr float kSphereVolumeFactor = 4.18879032f; // 4/3 pi, rounded as the original has it
 constexpr int kBoneVolumeBuckets = 8;
 
@@ -110,7 +110,7 @@ double capsule_volume(const maths::Capsule& capsule)
     const double dz = static_cast<double>(capsule.line.end.z) - capsule.line.start.z;
     const double length = std::sqrt(dz * dz + dx * dx + dy * dy);
     const double r = capsule.radius;
-    return length * r * r * static_cast<double>(kPiFloat) + r * r * r * static_cast<double>(kSphereVolumeFactor);
+    return length * r * r * static_cast<double>(maths::kPi) + r * r * r * static_cast<double>(kSphereVolumeFactor);
 }
 
 // The array of `count` volumes, zeroed (no memory: a crash, as the original).

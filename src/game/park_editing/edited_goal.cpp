@@ -22,6 +22,7 @@
 #include "engine/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -70,7 +71,6 @@ constexpr int kTrickCutoffSeconds = 5;        // trick adding stops this long be
 constexpr std::uint32_t kLetterObjectFlag = 0x3BD176D9u; // a bare flag on a letter's object (text unknown)
 constexpr float kPlacementMargin = 30.0f;     // how far from the park's edge a point may be placed
 
-constexpr float kPi = 3.14159274101257324f;            // 0x006453D8
 constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
 
 // The game's sprintf (its C runtime; 0x006234FE).
@@ -379,7 +379,7 @@ void EditedGoal::write_node_position(int index, checksums::Name node_label)
     script::Struct* node = level_nodes::fetch_vertex(node_name, true);
     const EditedGoalPoint& point = core::at(path_vertices_, index);
     node->put_vec3(checksums::Name{kPos}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
-    node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = point.angle - kPi, .z = 0.0f});
+    node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = point.angle - maths::kPi, .z = 0.0f});
     if (static_cast<uint32_t>(index) >= 2) {
         node->put_name_key(checksums::Name{kType}, goal_object_name(checksums::Name{kind_tag_}, index - 2));
         node->append_word(kModel, goal_object_model(checksums::Name{kind_tag_}, index - 2));

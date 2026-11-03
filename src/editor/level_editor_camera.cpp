@@ -26,6 +26,7 @@
 #include "engine/core/format.h"
 #include "engine/core/field_reader.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::view_cam {
 
@@ -74,8 +75,7 @@ constexpr float kHalf = 0.5f; // half
 } // namespace
 
 namespace {
-constexpr float kPi = 3.14159265f;
-constexpr float kTopPitch = 89.0f * kPi / 180.0f; // (Look's limit: the frame needs a heading)
+constexpr float kTopPitch = 89.0f * maths::kPi / 180.0f; // (Look's limit: the frame needs a heading)
 } // namespace
 
 // --- the pieces ---
@@ -88,11 +88,11 @@ float get_ease(float t)
 
 float nearest_angle(float from, float to)
 {
-    double d = std::fmod(static_cast<double>(to) - from, kFullTurnPerPi * kPi);
-    if (d > kPi)
-        d -= kFullTurnPerPi * kPi;
-    else if (d < -kPi)
-        d += kFullTurnPerPi * kPi;
+    double d = std::fmod(static_cast<double>(to) - from, kFullTurnPerPi * maths::kPi);
+    if (d > maths::kPi)
+        d -= kFullTurnPerPi * maths::kPi;
+    else if (d < -maths::kPi)
+        d += kFullTurnPerPi * maths::kPi;
     return static_cast<float>(from + d);
 }
 
@@ -142,9 +142,9 @@ float ortho_angle(OrthoAngle ortho)
 {
     const auto base_degrees = ortho.base_degrees_;
     const auto equivalent = ortho.equivalent;
-    const double half = static_cast<double>(base_degrees) * kPi / 360.0;
+    const double half = static_cast<double>(base_degrees) * maths::kPi / 360.0;
     const double narrowed = std::atan(std::tan(half) * equivalent / eye_distance(equivalent));
-    return static_cast<float>(narrowed * kFullTurnDegrees / kPi);
+    return static_cast<float>(narrowed * kFullTurnDegrees / maths::kPi);
 }
 
 float ortho_near(float equivalent) { return eye_distance(equivalent) * kOrthoNearFraction; }
@@ -166,13 +166,13 @@ void axis_yaw_pitch(View view, YawPitchOut out_view)
         *yaw = 0.0f;
         break; // (looking along +z)
     case View::kBack:
-        *yaw = kPi;
+        *yaw = maths::kPi;
         break;
     case View::kRight:
-        *yaw = -kPi * kHalf;
+        *yaw = -maths::kPi * kHalf;
         break; // (from +x, looking along -x)
     case View::kLeft:
-        *yaw = kPi * kHalf;
+        *yaw = maths::kPi * kHalf;
         break;
     default:
         break;

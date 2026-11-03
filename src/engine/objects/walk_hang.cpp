@@ -40,9 +40,9 @@
 #include <gsl/pointers>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/trig.h"
 
 namespace {
-constexpr double kPi = 3.1415927410125732;
 constexpr double kQuarterPi = 0.78539818525314331;
 constexpr float kQuarterPiF = 0.78539818525314331f;
 constexpr double kHalfPi = 1.5707963705062866;
@@ -326,7 +326,7 @@ maths::Vec4* walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths:
 int walk::turned_round(const objects::PadSnapshot* pad)
 {
     if (core::at(pad->lock(), 1) == 0 && core::at(pad->polar(), 1).length != 0.0f &&
-        kPi - std::fabs(static_cast<double>(core::at(pad->polar(), 1).angle)) < kQuarterPi)
+        maths::kPi - std::fabs(static_cast<double>(core::at(pad->polar(), 1).angle)) < kQuarterPi)
         return 1;
     return 0;
 }

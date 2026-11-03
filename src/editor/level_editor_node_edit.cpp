@@ -29,6 +29,7 @@
 #include "engine/gfx/light_sets.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::node_edit {
 
@@ -49,8 +50,7 @@ constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 
 namespace {
 
-constexpr float kPi = 3.14159265358979f;
-constexpr float kStep = 15.0f * kPi / 180.0f; // (Z / X: as objects turn)
+constexpr float kStep = 15.0f * maths::kPi / 180.0f; // (Z / X: as objects turn)
 
 } // namespace
 
@@ -68,7 +68,7 @@ float wrap_angle(float radians)
         return 0.0f;
     // (the half turn as a float - a little over pi - and a hair's room, so a half turn either way comes out +pi)
     constexpr double kTwoPi = 6.283185307179586;
-    constexpr double kHalf = static_cast<double>(kPi) + 1e-6;
+    constexpr double kHalf = static_cast<double>(maths::kPi) + 1e-6;
     double a = std::fmod(static_cast<double>(radians), kTwoPi);
     if (a > kHalf)
         a -= kTwoPi;
@@ -85,13 +85,13 @@ V3 get_turned(V3 angles, int notches)
 
 float get_heading_degrees(V3 angles)
 {
-    const float degrees = wrap_angle(angles.y) * (180.0f / kPi);
+    const float degrees = wrap_angle(angles.y) * (180.0f / maths::kPi);
     return degrees <= -kHalfTurnDegrees ? kHalfTurnDegrees : degrees;
 }
 
 V3 with_heading(V3 angles, float degrees)
 {
-    angles.y = wrap_angle(degrees * (kPi / kDegreesPerHalfTurn));
+    angles.y = wrap_angle(degrees * (maths::kPi / kDegreesPerHalfTurn));
     return angles;
 }
 

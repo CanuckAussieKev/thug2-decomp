@@ -28,6 +28,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/render/coll_obj.h"
+#include "engine/maths/trig.h"
 
 namespace skater {
 
@@ -57,7 +58,6 @@ constexpr float kSlopeTurnSpeed = 0.001f;                // 0x006461D8
 constexpr float kSlowGroundTurnSpeed = 10.0f;            // 0x00646710
 constexpr float kSlowGroundTurnRate = 0.00166666671f;    // 0x0064BD38 (1 / 600)
 constexpr float kHalfPi = 1.57079637f;                   // 0x00645484
-constexpr float kPi = 3.14159274f;                       // 0x0064BB7C
 constexpr float kNatasSpinScale = 4000.0f;               // 0x0064B8F8
 constexpr float kNatasSpinBase = 5.0f;                   // 0x006469AC
 constexpr float kAcidDropEase = 1.5f;                    // 0x00646744
@@ -177,7 +177,7 @@ float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* t
     const double unrounded = std::acos(static_cast<double>(cosine)); // (the C runtime's, 0x00623630)
     auto angle = static_cast<float>(unrounded);
     if (unrounded > kHalfPi)
-        angle = angle - kPi;
+        angle = angle - maths::kPi;
     const double amount = static_cast<double>(script::fetch_float(kWallBounceMultiplier)) * angle * scale;
     *turn = static_cast<float>(amount);
     turn_velocity(entity()->vel(), amount); // (by the unrounded turn)

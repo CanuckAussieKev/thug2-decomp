@@ -51,6 +51,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/maths/trig.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -64,7 +65,6 @@ constexpr std::size_t kLineTextSize = 96;
 constexpr float kMinMoved = 0.5f;              // a move smaller than this is none
 constexpr float kDefaultWeld = 0.5f;           // the grid size points are welded on
 constexpr float kTinyLength = 1e-6f;
-constexpr float kPiSingle = 3.14159265f;
 constexpr float kFullTurnPerPi = 2.0f;         // a full turn is two pi radians
 constexpr float kMoveEpsilon = 1e-4f;          // a move smaller than this is none
 constexpr double kMessageSeconds = 4.0;
@@ -372,7 +372,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
     auto direction = [&](int from, int to) { return make_unit(core::at(points, to) - core::at(points, from)); };
     auto joins = [&](int prev, int mid, int next) {
         const float c = get_dot(direction(prev, mid), direction(mid, next));
-        return c >= std::cos(kJoinDegrees * kPiSingle / kDegreesPerHalfTurn);
+        return c >= std::cos(kJoinDegrees * maths::kPi / kDegreesPerHalfTurn);
     };
     std::vector<bool> used(lips.size(), false);
     // (the next edge from `point` along the run that came from `prev`: the point's only other lip edge, turning little)
@@ -420,7 +420,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
         for (size_t i = 1; i + 1 < chain.size(); ++i) {
             const V3 a = make_unit(core::at(points, core::at(chain, i)) - run.points.back());
             const V3 b = make_unit(core::at(points, core::at(chain, i + 1)) - core::at(points, core::at(chain, i)));
-            if (get_dot(a, b) < std::cos(kFullTurnPerPi * kPiSingle / kDegreesPerHalfTurn))
+            if (get_dot(a, b) < std::cos(kFullTurnPerPi * maths::kPi / kDegreesPerHalfTurn))
                 run.points.push_back(core::at(points, core::at(chain, i)));
         }
         run.points.push_back(core::at(points, chain.back()));

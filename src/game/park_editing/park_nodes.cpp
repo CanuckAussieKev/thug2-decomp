@@ -29,6 +29,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 
 namespace park_editing {
 
@@ -98,7 +99,6 @@ constexpr uint32_t kLadderTall = 0xA94E4D6A;  // sk6ed_ladderTall
 constexpr uint32_t kLamp = 0xD48417FF;        // sk6ed_Lamp
 constexpr uint32_t kQuarterTurnedA = 0x649FDDCA;
 constexpr uint32_t kQuarterTurnedB = 0x54055089;
-constexpr float kPi = 3.14159274101257324f;     // 0x40490FDB
 constexpr float kHalfPi = 1.57079637050628662f; // 0x3FC90FDB (also 0x00645484)
 // The script run before the source rails are read.
 constexpr uint32_t kLoadTerrain = 0xA4F9A278; // LoadTerrain
@@ -433,7 +433,7 @@ void ParkAssembler::build_rails(MapListNode* metas)
                     cluster = 0;
                 float angle = 0.0f;
                 if (name == kLadderSmall || name == kLadderMid || name == kLadderTall)
-                    angle = kPi;
+                    angle = maths::kPi;
                 if (name == kLamp) {
                     rails.free_rail(rail);
                     continue;
