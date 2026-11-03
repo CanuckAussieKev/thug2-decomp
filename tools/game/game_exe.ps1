@@ -124,11 +124,13 @@ function Set-IniValue([string]$text, [string]$section, [string]$key, [string]$va
 }
 
 # Workspace games always run muted (the user is at the machine): [features] mute_audio=1 in a workspace's
-# thug2-decomp.ini (src/engine/sound/mute_audio.h). Does nothing anywhere else - the main install's ini is never touched.
+# thug2-decomp.ini (src/engine/sound/mute_audio.h), and on the user's second monitor: [Graphics] WindowDisplay=2
+# (src/platform/sdl_window.cpp; the primary one when there's no second). Does nothing anywhere else - the main
+# install's ini is never touched.
 function Set-WorkspaceMuted([string]$folder) {
     if (-not (Test-Workspace $folder)) { return }
     $ini = Join-Path $folder 'thug2-decomp.ini'
     $text = if (Test-Path $ini) { [IO.File]::ReadAllText($ini) } else { '' }
-    $new = Set-IniValue $text 'features' 'mute_audio' '1'
+    $new = Set-IniValue (Set-IniValue $text 'features' 'mute_audio' '1') 'Graphics' 'WindowDisplay' '2'
     if ($new -ne $text) { [IO.File]::WriteAllText($ini, $new) }
 }

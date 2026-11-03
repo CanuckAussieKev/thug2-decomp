@@ -73,6 +73,17 @@ void load_window_settings()
     sdl_window_state().borderless_ = build_info::fetch_flag(build_info::kGraphics, "Borderless", false);
 }
 
+// NOT ORIGINAL: [Graphics] WindowDisplay=<n> (1 = the first monitor, 2 = the second...; 0, the default, or a monitor
+// that isn't there: centred on the primary one, as before) - the monitor a window is centred on. The workspaces'
+// test games use 2 (tools/game/game_exe.ps1 Set-WorkspaceMuted).
+int window_position()
+{
+    const int display = build_info::get_int(build_info::kGraphics, "WindowDisplay", 0);
+    if (display < 1 || display > SDL_GetNumVideoDisplays())
+        return SDL_WINDOWPOS_CENTERED;
+    return static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(display - 1));
+}
+
 void handle_window_event(SDL_Event* event)
 {
     if (event->type != SDL_WINDOWEVENT)
@@ -120,7 +131,8 @@ void create_sdl_window()
     if (sdl_window_state().client_height_ < kMinClientHeight)
         sdl_window_state().client_height_ = kMinClientHeight;
 
-    sdl_window_state().window_ = SDL_CreateWindow("THUG2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, sdl_window_state().client_width_,
+    const int position = window_position();
+    sdl_window_state().window_ = SDL_CreateWindow("THUG2", position, position, sdl_window_state().client_width_,
                                 sdl_window_state().client_height_, flags);
     if (!sdl_window_state().window_)
         debug_log::printf(debug_log::StageMap::kError, "Failed to create window! Error: %s\n", SDL_GetError());
