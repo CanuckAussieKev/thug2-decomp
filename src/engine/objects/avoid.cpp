@@ -32,13 +32,30 @@
 #include "engine/maths/vec4.h"
 
 namespace objects {
+namespace {
+constexpr double kExactDoubleLimit = 9.2e18;       // beyond this a double no longer converts to a 64-bit integer
+constexpr double kNearSkaterDistance = 30.0;
+constexpr float kHalfTurnDegrees = 180.0f;
+constexpr float kQuarterTurnDegrees = 90.0f;
+constexpr float kFramesPerSecond = 60.0f;
+constexpr float kSecondsPerFrame = 0.01666666753590107f;
+constexpr uint32_t kPedSelectAvoidPoint = 0x6157CBC0; // Ped_SelectAvoidPoint
+constexpr uint32_t kAvoidName = 0x6EB050ED; // Avoid
+constexpr uint32_t kHashD2AA4D2D = 0xD2AA4D2D; // (text unknown)
+constexpr uint32_t kPedMoveTowardsAvoidPoint = 0x41226942; // Ped_MoveTowardsAvoidPoint
+constexpr uint32_t kPedAvoidPointReached = 0x3C7F8F3E; // Ped_AvoidPointReached
+constexpr uint32_t kPedRememberCurrentPosition = 0x6A4BCA91; // Ped_RememberCurrentPosition
+constexpr uint32_t kPedRememberNextWaypoint = 0x3FB422E8; // Ped_RememberNextWaypoint
+constexpr uint32_t kPedRememberStickToGround = 0x539A32DC; // Ped_RememberStickToGround
+constexpr uint32_t kPedRestoreStickToGround = 0x53BC3B4E; // Ped_RestoreStickToGround
+} // namespace
 
-std::array<script::MemberFunctionEntry, 9>& avoid_member_functions()
+std::array<script::MemberFunctionEntry, kAvoidMemberFunctionCount>& avoid_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 9> avoid_member_functions{{
-        {.callsign_ = 0x6157CBC0, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0xD2AA4D2D, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x41226942, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x3C7F8F3E, .owner_kind_ = 0x6EB050ED},
-        {.callsign_ = 0x6A4BCA91, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x3FB422E8, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x539A32DC, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x53BC3B4E, .owner_kind_ = 0x6EB050ED},
-        {.callsign_ = 0, .owner_kind_ = 0x6EB050ED}}};
+    static std::array<script::MemberFunctionEntry, kAvoidMemberFunctionCount> avoid_member_functions{{
+        {.callsign_ = kPedSelectAvoidPoint, .owner_kind_ = kAvoidName}, {.callsign_ = kHashD2AA4D2D, .owner_kind_ = kAvoidName}, {.callsign_ = kPedMoveTowardsAvoidPoint, .owner_kind_ = kAvoidName}, {.callsign_ = kPedAvoidPointReached, .owner_kind_ = kAvoidName},
+        {.callsign_ = kPedRememberCurrentPosition, .owner_kind_ = kAvoidName}, {.callsign_ = kPedRememberNextWaypoint, .owner_kind_ = kAvoidName}, {.callsign_ = kPedRememberStickToGround, .owner_kind_ = kAvoidName}, {.callsign_ = kPedRestoreStickToGround, .owner_kind_ = kAvoidName},
+        {.callsign_ = 0, .owner_kind_ = kAvoidName}}};
     return avoid_member_functions;
 }
 
@@ -64,7 +81,7 @@ int get_quarter(float angle)
     // _ftol2 converts to 64 bits and the low half is used: not a number or out of range (the integer
     // indefinite, 0x8000000000000000) gives 0 - ahead.
     const double quarters = value * kToQuarters;
-    if (!(std::fabs(quarters) < 9.2e18))
+    if (!(std::fabs(quarters) < kExactDoubleLimit))
         return 0;
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(quarters))));
 }
@@ -234,7 +251,7 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, J
     const double dy = static_cast<double>(end.y) - s.y;
     const double dz = static_cast<double>(end.z) - s.z;
     const double from_skater = std::sqrt((dz * dz + dy * dy) + dx * dx);
-    if (from_skater < 30.0) {
+    if (from_skater < kNearSkaterDistance) {
         debug::printf("Too close to skater %f!\n", from_skater);
         return false;
     }
@@ -289,11 +306,11 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     const float side = side_away_from_skater();
     bool found = try_jump(start, end, {.angle = side, .distance = avoid_distance(side, params), .max_distance_ = max_distance});
     if (!found) {
-        auto other = static_cast<float>(static_cast<double>(side) + 180.0f);
+        auto other = static_cast<float>(static_cast<double>(side) + kHalfTurnDegrees);
         found = try_jump(start, end, {.angle = other, .distance = avoid_distance(other, params), .max_distance_ = max_distance});
     }
     if (!found) {
-        auto back = static_cast<float>(static_cast<double>(side) - 90.0f);
+        auto back = static_cast<float>(static_cast<double>(side) - kQuarterTurnDegrees);
         found = try_jump(start, end, {.angle = back, .distance = avoid_distance(back, params), .max_distance_ = max_distance});
     }
     if (!found) {
@@ -330,7 +347,7 @@ bool ObstacleDodgeModule::debug_box(script::Struct* params, script::Script* /*sc
 // 0x004E3EC0
 bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    progress_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() * 60.0f * lasts_for_ * 0.01666666753590107f +
+    progress_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * lasts_for_ * kSecondsPerFrame +
                                    progress_);
     maths::Mat4 now{};
     slerp_.fetch_mat(now, progress_);

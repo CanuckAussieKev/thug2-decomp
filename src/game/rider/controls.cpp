@@ -21,6 +21,11 @@ namespace skater {
 bool ps2_controls() { return sio::the_input_settings().ps2_controls_ != 0; }
 
 namespace {
+constexpr int kOsLayerPs2Style = 5;
+constexpr uint32_t kXboxTrigger = 0xCE42EE1A; // Xbox_Trigger
+constexpr uint32_t kTrigger = 0xE594F0A2; // Trigger
+constexpr uint32_t kNGCTrigger = 0xCB0E600C; // NGC_Trigger
+constexpr uint32_t kAcidDropJumpVelocity = 0xC0491D2E; // acid_drop_jump_velocity
 
 int& os_layer() { return game_config::hardware(); }
 
@@ -65,16 +70,16 @@ script::Struct* platform_structure(script::Struct* params)
     script::Struct* found = nullptr;
     const int xbox = ps2_controls() ? 5 : 7; // (PartyMod's byte at 0x0051F4C8)
     if (os_layer() == xbox) {
-        if (!params->read_sub_struct(0xCE42EE1A, &found, 0))
-            params->read_sub_struct(0xE594F0A2, &found, 1);
+        if (!params->read_sub_struct(kXboxTrigger, &found, 0))
+            params->read_sub_struct(kTrigger, &found, 1);
         return found;
     }
-    if (os_layer() == 5) {
-        if (!params->read_sub_struct(0xCB0E600C, &found, 0))
-            params->read_sub_struct(0xE594F0A2, &found, 1);
+    if (os_layer() == kOsLayerPs2Style) {
+        if (!params->read_sub_struct(kNGCTrigger, &found, 0))
+            params->read_sub_struct(kTrigger, &found, 1);
         return found;
     }
-    params->read_sub_struct(0xE594F0A2, &found, 1);
+    params->read_sub_struct(kTrigger, &found, 1);
     return found;
 }
 
@@ -98,7 +103,7 @@ bool try_acid_drop(objects::FootMovement* walk)
         return false;
     maths::Vec4 velocity = walk->vel();
     // (a physics value, 0xC0491D2E, as the second component)
-    velocity.y = objects::FootMovement::get_param(0xC0491D2E);
+    velocity.y = objects::FootMovement::get_param(kAcidDropJumpVelocity);
     if (!find_acid_drop(walk, &velocity))
         return false;
     if (walk->feeler_hit()) {

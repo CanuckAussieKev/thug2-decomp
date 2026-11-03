@@ -3,6 +3,7 @@
 #include "game/rider/gap_entry.h"
 #include "engine/lists/chain_start.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
@@ -45,6 +46,11 @@
 namespace objects {
 
 namespace {
+constexpr int kHalfTurnDegrees = 180;
+constexpr int kGapKindWallplant = 5;
+constexpr std::size_t kColouredBytes = 256;
+constexpr int kGapScoreKind = 0x10;                // the score trick flag for a gap
+constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 
 constexpr uint32_t kSkaterGap = 0x11B4C67F;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterBalanceTrick = 0x589E5FB3,
@@ -163,7 +169,7 @@ RiderPoseState* state_of(RiderBoardPhysics* physics_control) { return physics_co
 RiderPoseState* get_core_state(skater::SkaterPhysicsModule* core_physics) { return core_physics->state(); }
 
 // Spin degrees in half turns (truncated, as the original's division).
-int get_half_turns(int degrees) { return degrees / 180; }
+int get_half_turns(int degrees) { return degrees / kHalfTurnDegrees; }
 
 } // namespace
 
@@ -273,7 +279,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
     case 4:
         set(kGapRail);
         break;
-    case 5:
+    case kGapKindWallplant:
         set(kGapWallplant);
         break;
     default:
@@ -484,7 +490,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         const char* text = nullptr;
         if (!params->fetch_text(kText, &text, 0))
             text = "Unnamed Gap";
-        std::array<char, 256> coloured{};
+        std::array<char, kColouredBytes> coloured{};
         text::format_to(coloured, "\\c1%s\\c0", text);
 
         // Its gap trick done: no trick needed, or the trick was done since the gap started.
@@ -519,7 +525,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         gap_tally_ref()->set_gap_positions(text, {.pos = gap_start_pos(gap), .dir = gap_start_dir(gap)});
         int points = 0;
         if (params->fetch_int_value(kScore, &points, 0) && entity()->is_local_skater()) {
-            add_gap_score(points_held_, coloured.data(), points, 0x10);
+            add_gap_score(points_held_, coloured.data(), points, kGapScoreKind);
             core::down_cast<MoveExecutor>(entity()->fetch_module(kTrick))->set_bailed(true);
             gap_tally_ref()->register_gap_hit(text);
             entity()->start_script_task(kDefaultGapScript, 0, false, false, nullptr);
@@ -534,7 +540,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         if (params->read_sub_struct(kContinue, &continuation, 0))
             start_gap(continuation, script);
         const uint32_t success = checksums::fold_text_into_checksum(gap_id, "_Success");
-        get_tracker()->launch_event(success, 0xFFFFFFFF, entity()->ident(), params, true, -1.0f);
+        get_tracker()->launch_event(success, kAllBitsSet, entity()->ident(), params, true, -1.0f);
         // The gap deleted if it's still in the list; then the walk begins again.
         for (auto* other = get_first<TrickListEntry>(gaps_); other; other = get_next(other)) {
             if (other == gap) {

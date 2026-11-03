@@ -14,6 +14,7 @@ class ProbeRay;
 }
 
 namespace objects {
+constexpr std::size_t kUnknown2cBytes = 0x40;
 
 struct RideTracker;
 
@@ -74,7 +75,7 @@ public:
 private:
     memory::HeapUnique<RideTracker> ride_; // +0x18
     maths::Vec4 contact_point_{}; // +0x1C in the object's frame
-    std::array<uint8_t, 0x40> unknown2c_{};   // +0x2C
+    std::array<uint8_t, kUnknown2cBytes> unknown2c_{};   // +0x2C
     GameEntity* last_object_{};   // +0x6C the object last ridden
     int stop_time_{0};            // +0x70 the game clock when it stopped riding
 };

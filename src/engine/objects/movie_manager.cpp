@@ -26,6 +26,9 @@
 namespace objects {
 
 namespace {
+constexpr int kAssetKindObjectAnim = 5;
+constexpr int kAssetKindObjectCamera = 9;
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // Load_MainMenu
 
 bool& stored_simulation_halted()
 {
@@ -175,7 +178,7 @@ void VideoHub::keep_camera(Movie* movie)
         return;
     if (stored_simulation_halted()) // (the game paused)
         return;
-    if (modules::Skate::sole()->level() == 0xE92ECAFE)
+    if (modules::Skate::sole()->level() == kLoadMainMenu)
         return;
     assign_camera_fields(&viewer_, movie->viewer());
     keep_until_ = static_cast<uint32_t>(frame_clock::get_draw_frame()) + 1;
@@ -373,9 +376,9 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
         while (kill_movie(name)) {
         }
         const int kind = asset->fetch_kind(); // (the original's slot 0)
-        if (kind == 5) {
+        if (kind == kAssetKindObjectAnim) {
             movie = new ObjectAnimMovie;
-        } else if (kind == 9) {
+        } else if (kind == kAssetKindObjectCamera) {
             const CutsceneSkater context = skater_context(false);
             movie = new_object_camera(&context);
         }

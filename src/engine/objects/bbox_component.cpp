@@ -27,6 +27,7 @@
 namespace objects {
 
 namespace {
+constexpr float kDefaultHalfExtent = 10.0f;        // a new box reaches this far each way
 
 constexpr uint32_t kObjObjectInRect = 0x6520B902;         // Obj_ObjectInRect
 constexpr uint32_t kObjObjectInRadius = 0x67660FE5;       // Obj_ObjectInRadius
@@ -85,8 +86,8 @@ gsl::owner<ObjectModule*> CbBoxComponent::fabricate() { return new CbBoxComponen
 CbBoxComponent::CbBoxComponent()
 {
     set_kind_tag(kType);
-    box_max_ = {.x = 10.0f, .y = 10.0f, .z = 10.0f, .w = 1.0f};
-    box_min_ = {.x = -10.0f, .y = -10.0f, .z = -10.0f, .w = 1.0f};
+    box_max_ = {.x = kDefaultHalfExtent, .y = kDefaultHalfExtent, .z = kDefaultHalfExtent, .w = 1.0f};
+    box_min_ = {.x = -kDefaultHalfExtent, .y = -kDefaultHalfExtent, .z = -kDefaultHalfExtent, .w = 1.0f};
     shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 

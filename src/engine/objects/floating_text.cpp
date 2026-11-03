@@ -144,7 +144,7 @@ void FloatingTextComponent::tick_frame()
     params->put_name_key(checksums::Name{kId}, ident_);
     // (the original: the game's sprintf, 0x006234FE, into 64 bytes - a text of more than about 60 characters overran
     // them into the stack cookie, ending the game; here it's cut short)
-    std::array<char, 0x40> text{};
+    std::array<char, kTextBytes> text{};
     text::format_to(text, "\\c%d%s", tint_, text_.data());
     params->append_word(kText, text.data());
     const maths::Vec4& pos = entity()->at_point();

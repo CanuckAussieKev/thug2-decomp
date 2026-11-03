@@ -23,6 +23,7 @@ class Struct;
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 the empty 0x005480A0, 5 0x004E3F90 (shared), 11 0x0042BB20
 // (member function entries by table: the StatsManager_ functions, the table at 0x00684180), 12 0x0051ADC0 (shared).
 namespace objects {
+constexpr std::size_t kStatsManagerMemberFunctionCount = 10;
 
 class RiderPoseState;
 class RiderBoardPhysics;
@@ -154,5 +155,5 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 10>& stats_manager_member_functions();
+std::array<script::MemberFunctionEntry, kStatsManagerMemberFunctionCount>& stats_manager_member_functions();
 } // namespace objects

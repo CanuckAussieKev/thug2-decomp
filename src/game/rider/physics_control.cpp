@@ -2,6 +2,7 @@
 
 #include "game/rider/physics_control.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
@@ -25,13 +26,28 @@
 #include "engine/core/down_cast.h"
 
 namespace objects {
+namespace {
+constexpr int kCameraStateAlignment = 16;
+constexpr std::size_t kCameraStateBytes = 0x60;
+constexpr uint32_t kPausePhysics = 0x3522D612; // PausePhysics
+constexpr uint32_t kSkaterPhysicsControlName = 0xD9151D4D; // SkaterPhysicsControl
+constexpr uint32_t kUnPausePhysics = 0x0595627C; // UnPausePhysics
+constexpr uint32_t kGetTimeSincePhysicsSwitch = 0x9569D5B1; // GetTimeSincePhysicsSwitch
+constexpr uint32_t kGetPreviousPhysicsStateDuration = 0xA887285A; // GetPreviousPhysicsStateDuration
+constexpr uint32_t kSetBoardMissing = 0x9366A509; // SetBoardMissing
+constexpr uint32_t kUnsetBoardMissing = 0x04830E80; // UnsetBoardMissing
+constexpr uint32_t kIsBoardMissing = 0xD5A9F889; // IsBoardMissing
+constexpr uint32_t kSetForceWalk = 0x27FDDEB7; // SetForceWalk
+constexpr uint32_t kUnSetForceWalk = 0x174A6AD9; // UnSetForceWalk
+constexpr uint32_t kIsForceWalkOn = 0x246322C9; // IsForceWalkOn
+} // namespace
 
-std::array<script::MemberFunctionEntry, 11>& physics_control_member_functions()
+std::array<script::MemberFunctionEntry, kPhysicsControlMemberFunctionCount>& physics_control_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 11> physics_control_member_functions{{
-        {.callsign_ = 0x3522D612, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x0595627C, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x9569D5B1, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0xA887285A, .owner_kind_ = 0xD9151D4D},
-        {.callsign_ = 0x9366A509, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x04830E80, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0xD5A9F889, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x27FDDEB7, .owner_kind_ = 0xD9151D4D},
-        {.callsign_ = 0x174A6AD9, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x246322C9, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0, .owner_kind_ = 0xD9151D4D}}};
+    static std::array<script::MemberFunctionEntry, kPhysicsControlMemberFunctionCount> physics_control_member_functions{{
+        {.callsign_ = kPausePhysics, .owner_kind_ = kSkaterPhysicsControlName}, {.callsign_ = kUnPausePhysics, .owner_kind_ = kSkaterPhysicsControlName}, {.callsign_ = kGetTimeSincePhysicsSwitch, .owner_kind_ = kSkaterPhysicsControlName}, {.callsign_ = kGetPreviousPhysicsStateDuration, .owner_kind_ = kSkaterPhysicsControlName},
+        {.callsign_ = kSetBoardMissing, .owner_kind_ = kSkaterPhysicsControlName}, {.callsign_ = kUnsetBoardMissing, .owner_kind_ = kSkaterPhysicsControlName}, {.callsign_ = kIsBoardMissing, .owner_kind_ = kSkaterPhysicsControlName}, {.callsign_ = kSetForceWalk, .owner_kind_ = kSkaterPhysicsControlName},
+        {.callsign_ = kUnSetForceWalk, .owner_kind_ = kSkaterPhysicsControlName}, {.callsign_ = kIsForceWalkOn, .owner_kind_ = kSkaterPhysicsControlName}, {.callsign_ = 0, .owner_kind_ = kSkaterPhysicsControlName}}};
     return physics_control_member_functions;
 }
 
@@ -156,7 +172,7 @@ void RiderBoardPhysics::dismount_to_walk()
     freeze_module(walk, false);
     walk_starting(walk, skater_state == 0);
     freeze_module(walk_camera, false);
-    alignas(16) std::array<uint8_t, 0x60> camera_state{};
+    alignas(kCameraStateAlignment) std::array<uint8_t, kCameraStateBytes> camera_state{};
     skater_camera_save(skater_camera, camera_state.data());
     walk_camera_restore(walk_camera, camera_state.data());
     if (is_halted_)
@@ -188,7 +204,7 @@ void RiderBoardPhysics::remount_board()
     freeze_module(entity()->fetch_module(kSkaterAdjustPhysics), false);
     freeze_module(entity()->fetch_module(kSkaterFinalizePhysics), false);
     freeze_module(skater_camera, false);
-    alignas(16) std::array<uint8_t, 0x60> camera_state{};
+    alignas(kCameraStateAlignment) std::array<uint8_t, kCameraStateBytes> camera_state{};
     walk_camera_save(walk_camera, camera_state.data());
     skater_camera_set(skater_camera, camera_state.data());
     if (is_halted_)

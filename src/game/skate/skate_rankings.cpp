@@ -6,6 +6,7 @@
 
 #include "engine/core/str.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <span>
@@ -29,6 +30,9 @@
 namespace modules {
 
 namespace {
+constexpr std::size_t kScoreTextBytes = 0x40;
+constexpr int kSecondsPerMinute = 60;
+constexpr int kNotEliminatedPriority = 100000; // the sort priority of a player still in the game
 
 constexpr uint32_t kShouldResetScores = 0x0B803C5E; // should_reset_scores
 constexpr uint32_t kText = 0xC4745838;              // text
@@ -109,7 +113,7 @@ template <typename Format>
 void add_score_line(Format format, uint32_t id, bool team_score, bool font_first = false)
 {
     const script::StructPtr params = script::make_struct();
-    std::array<char, 0x40> text{};
+    std::array<char, kScoreTextBytes> text{};
     format(std::span<char>(text));
     params->append_word(kText, text.data());
     if (font_first)
@@ -129,9 +133,9 @@ void format_score(std::span<char> out, uint32_t score, int colour, bool coloured
     if (is_crown_rule_active()) {
         const uint32_t seconds = score / 1000;
         if (coloured)
-            text::format_to(out, "\\c%d%.2d:%.2d", colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
+            text::format_to(out, "\\c%d%.2d:%.2d", colour, seconds / kSecondsPerMinute, seconds % kSecondsPerMinute); // "\c%d%.2d:%.2d"
         else
-            text::format_to(out, "%.2d:%.2d", seconds / 60, seconds % 60); // "%.2d:%.2d"
+            text::format_to(out, "%.2d:%.2d", seconds / kSecondsPerMinute, seconds % kSecondsPerMinute); // "%.2d:%.2d"
     } else {
         if (coloured)
             text::format_to(out, "\\c%d%d", colour, score); // "\c%d%d"
@@ -157,13 +161,13 @@ void fill_elimination_ranking()
         text::copy_unbounded(entry->text().data(), info->rider()->fetch_shown_name());
         entry->set_team_score(reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident()));
         entry->set_shade(static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team() + 2 : 0);
-        entry->set_priority(info->eliminated_time() ? static_cast<int>(info->eliminated_time()) : 100000);
+        entry->set_priority(info->eliminated_time() ? static_cast<int>(info->eliminated_time()) : kNotEliminatedPriority);
         lists::append_vertex(list.head(), entry); // (inlined there)
     }
     uint32_t id = kFirstLine;
     for (online::ScoreEntry* entry = RankingList::get_after(&list.head()); entry; ++id) {
         online::ScoreEntry* next = RankingList::get_after(entry);
-        std::array<char, 0x40> text{};
+        std::array<char, kScoreTextBytes> text{};
         text::format_to(text, "\\c%d%s", entry->shade(), entry->text().data()); // "\c%d%s"
         add_player_line(text.data(), false);
         add_score_line(
@@ -206,7 +210,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             entry->set_shade(team + 2);
             entry->set_unknown44(static_cast<uint32_t>(team));
             entry->set_team_score(net->get_squad_points(team));
-            std::array<char, 0x40> name{};
+            std::array<char, kScoreTextBytes> name{};
             text::format_to(name, "team_%d_name", team + 1);             // "team_%d_name"
             const char* total = script::fetch_text("total_str");         // "total_str"
             const char* team_name = script::fetch_text(name.data());
@@ -224,7 +228,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
                 if (ints::as_unsigned(info->team()) != entry->unknown44())
                     continue;
                 uint32_t score = score_of(info);
-                std::array<char, 0x40> text{};
+                std::array<char, kScoreTextBytes> text{};
                 // "\c%d> %s" (the own player's) / "\c%d%s"
                 text::format_to(text, "\\c%d%s%s", entry->shade(),
                                 static_cast<uint8_t>(info->is_own_player()) ? "> " : "", info->label().data());

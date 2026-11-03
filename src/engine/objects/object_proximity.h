@@ -14,6 +14,9 @@ class Struct;
 
 namespace objects {
 
+constexpr std::size_t kObjectProximityComponentInnerRadiusSquaredOffset = 0x18;
+constexpr std::size_t kObjectProximityComponentAttentionRadiusSquaredOffset = 0x28;
+constexpr std::size_t kObjectProximityComponentBytes = 0x30;
 // The object proximity component ("objectproximity", type 0x1D5B1AE6, vtable 0x0064B6C4, 0x30 bytes; made by
 // 0x004EC420): radii (kept squared, in inches: the scripts give feet) round an object and the nearest skater's
 // distance from it. Its script member functions are the table at 0x00682620 (filled at start-up).
@@ -72,9 +75,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ObjectProximityComponent, inner_radius_squared_) == 0x18 &&
-                          offsetof(ObjectProximityComponent, attention_radius_squared_) == 0x28 &&
-                          sizeof(ObjectProximityComponent) == 0x30,
+        static_assert(offsetof(ObjectProximityComponent, inner_radius_squared_) == kObjectProximityComponentInnerRadiusSquaredOffset &&
+                          offsetof(ObjectProximityComponent, attention_radius_squared_) == kObjectProximityComponentAttentionRadiusSquaredOffset &&
+                          sizeof(ObjectProximityComponent) == kObjectProximityComponentBytes,
                       "layout must match the original");
     }
 };
@@ -83,5 +86,6 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 7>& object_proximity_member_functions();
+constexpr std::size_t kObjectProximityMemberFunctionCount = 7;
+std::array<script::MemberFunctionEntry, kObjectProximityMemberFunctionCount>& object_proximity_member_functions();
 } // namespace objects

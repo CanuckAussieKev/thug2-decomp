@@ -22,6 +22,8 @@
 namespace objects {
 
 namespace {
+constexpr int kDumpDepth = 13;
+constexpr uint32_t kController = 0xB30D9965; // Controller
 
 using script::Script;
 using script::Struct;
@@ -88,7 +90,7 @@ int event_controller(Signal* event)
 {
     int controller = 0;
     if (event->payload())
-        event->payload()->fetch_int_value(0xB30D9965, &controller, 0); // "controller"
+        event->payload()->fetch_int_value(kController, &controller, 0); // "controller"
     return controller;
 }
 
@@ -155,7 +157,7 @@ int SignalRouteTable::list_wait_table(SignalRouteTable* table)
             debug::printf("  Exception: %s\n", (entry.flags & TableRow::kFlagReplacesRunning) ? "yes" : "no");
             if (entry.params) {
                 debug::printf("  Params   :\n");
-                script::dump_to_log(entry.params, 13);
+                script::dump_to_log(entry.params, kDumpDepth);
             }
         }
     }

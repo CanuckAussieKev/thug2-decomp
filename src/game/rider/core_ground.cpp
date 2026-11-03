@@ -30,6 +30,7 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
+constexpr float kStepSlack = 0.1f;
 
 constexpr uint32_t kGroundGravity = 0x6618A713;    // Physics_Ground_Gravity
 constexpr uint32_t kSkitchSpeedMatch = 0xDEF25B34; // skitch_speed_match
@@ -242,7 +243,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             end.w = position.w - down_w;
             end.x = static_cast<float>(position.x - static_cast<double>(up.x) * kSkitchFeelDown);
             end.y = position.y - down_y;
-            if (get_feel(this, 0x10, 0)) {
+            if (get_feel(this, kProbeIgnoreFlags, 0)) {
                 const uint8_t terrain = feeler_.hit().terrain;
                 state_->set_surface_kind(terrain);
                 sound_->set_surface_type(terrain);
@@ -260,7 +261,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         auto step_length =
             static_cast<float>(std::sqrt((static_cast<double>(step.z) * step.z + static_cast<double>(step.y) * step.y) +
                                          static_cast<double>(step.x) * step.x));
-        if (again || state_of(this) != kGround || !(moved < static_cast<double>(step_length) - 0.1f))
+        if (again || state_of(this) != kGround || !(moved < static_cast<double>(step_length) - kStepSlack))
             return;
         // The rest: along the velocity (x, y the unrounded unit vector, z rounded), the step's length, scaled by
         // what's left of it.

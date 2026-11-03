@@ -109,5 +109,6 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 26>& flexible_particle_member_functions();
+constexpr std::size_t kFlexibleParticleMemberFunctionCount = 26;
+std::array<script::MemberFunctionEntry, kFlexibleParticleMemberFunctionCount>& flexible_particle_member_functions();
 } // namespace objects

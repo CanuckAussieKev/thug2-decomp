@@ -36,10 +36,12 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
 namespace {
+constexpr double kHalf = 0.5;
 
 constexpr uint32_t kSkaterNonLocalNetLogic = 0x850EEF66;
 constexpr uint32_t kSkaterStateHistory = 0x18223FD6, kSkaterState = 0x43686585, kSkaterEndRun = 0xB1D5A3E1,
@@ -170,7 +172,7 @@ void RiderRemoteSync::settle_onto_floor()
     end.z = static_cast<float>(static_cast<double>(down_z) + pos.z);
     end.w = static_cast<float>(static_cast<double>(down_w) + pos.w);
     feeler.change_strand(&start, &end);
-    feeler.set_excluded({.ignore = 0x10, .require = 0});
+    feeler.set_excluded({.ignore = skater::kProbeIgnoreFlags, .require = 0});
     if (!feeler.get_hit_shape(true, false))
         return;
 
@@ -352,7 +354,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     if (std::sqrt((ex * ex + ey * ey) + ez * ez) > kBounceReach)
         return;
     feeler.change_strand(&from, &to);
-    feeler.set_excluded({.ignore = 0x10, .require = 0});
+    feeler.set_excluded({.ignore = skater::kProbeIgnoreFlags, .require = 0});
     if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater())
         return;
     // Another wall: turned round by what's left of a half turn, and halved.
@@ -369,10 +371,10 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     maths::Mat4 rotate{};
     maths::make_yaw_matrix(rotate, static_cast<float>(around));
     turn_by(skater->basis_frame(), rotate);
-    vel.x = static_cast<float>(vel.x * 0.5);
-    vel.y = static_cast<float>(vel.y * 0.5);
-    vel.z = static_cast<float>(vel.z * 0.5);
-    vel.w = static_cast<float>(vel.w * 0.5);
+    vel.x = static_cast<float>(vel.x * kHalf);
+    vel.y = static_cast<float>(vel.y * kHalf);
+    vel.z = static_cast<float>(vel.z * kHalf);
+    vel.w = static_cast<float>(vel.w * kHalf);
 }
 
 // 0x00517270

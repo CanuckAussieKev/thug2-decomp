@@ -34,6 +34,18 @@ namespace objects {
 using namespace vehicle;
 
 namespace {
+constexpr int kPassMinMs = 300;
+constexpr int kLastLoadIndex = 9;
+constexpr int kLoadHistoryLength = 10;
+constexpr double kStandstillSpeed = 1e-6;
+constexpr int kProbeIgnoreFlags = 0x10;           // the faces the probes pass through
+constexpr int kProbeRequireFlags = 0x50;
+constexpr float kBlendFullSpeed = 1000.0f;
+constexpr int kPeriodTicks = 15;
+constexpr uint32_t kHashFF003232 = 0xFF003232; // (text unknown)
+constexpr uint32_t kHashFF006464 = 0xFF006464; // (text unknown)
+constexpr uint32_t kHashFFFF0000 = 0xFFFF0000; // (text unknown)
+constexpr uint32_t kHashCBAA3476 = 0xCBAA3476; // (text unknown)
 int& vehicle_net_update_counter()
 {
     static int vehicle_net_update_counter{};
@@ -240,7 +252,7 @@ void DrivableModule::apply_gravity()
     double gravity = 0.0;
     if (righting_ && static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
                              (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(righting_start_)) >
-                         300)
+                         kPassMinMs)
         gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kRightingGravity;
     else
         gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kGravity;
@@ -249,7 +261,7 @@ void DrivableModule::apply_gravity()
         const maths::Vec4 down{.x = at_point_.x,
                                .y = static_cast<float>(-static_cast<double>(kGravity) / inv_mass_ * 0.05f + at_point_.y),
                                .z = at_point_.z, .w = static_cast<float>(static_cast<double>(at_point_.w) + 0.05f)};
-        gfx::push_diag_line(&at_point_, &down, 0xFF003232, 0xFF003232, 1);
+        gfx::push_diag_line(&at_point_, &down, kHashFF003232, kHashFF003232, 1);
     }
 }
 
@@ -278,16 +290,16 @@ void DrivableModule::apply_suspension()
                                .y = static_cast<float>(static_cast<double>(force_rounded) * n.y),
                                .z = static_cast<float>(static_cast<double>(force_rounded) * n.z),
                                .w = static_cast<float>(static_cast<double>(force_rounded) * n.w)};
-        add_force_at_point(&push, &wheel.pos, 0xFF006464);
+        add_force_at_point(&push, &wheel.pos, kHashFF006464);
         core::at(wheel.load_history_, load_index_) = force_rounded;
         // The load: the average of the last ten.
         wheel.load = 0.0f;
-        for (int k = 9; k >= 0; --k)
+        for (int k = kLastLoadIndex; k >= 0; --k)
             wheel.load = static_cast<float>(static_cast<double>(core::at(wheel.load_history_, k)) + wheel.load);
         wheel.load = static_cast<float>(static_cast<double>(wheel.load) * kTenth);
     }
     auto next = static_cast<int8_t>(load_index_ + 1);
-    load_index_ = static_cast<int8_t>(next % 10);
+    load_index_ = static_cast<int8_t>(next % kLoadHistoryLength);
 }
 
 // 0x004364B0
@@ -312,7 +324,7 @@ void DrivableModule::apply_tyre_forces()
                                        static_cast<double>(slip.x) * slip.x);
         auto speed_rounded = static_cast<float>(speed);
         wheel.slip = speed_rounded;
-        if (speed < 1e-6)
+        if (speed < kStandstillSpeed)
             continue;
         // The friction against the slip's direction.
         double dir_x = slip.x;
@@ -352,7 +364,7 @@ void DrivableModule::apply_tyre_forces()
                     .w = static_cast<float>(static_cast<double>(extra.w) + friction.w)};
             wheel_torque = stop;
         }
-        add_force_at_point(&push, &wheel.pos, 0xFFFF0000);
+        add_force_at_point(&push, &wheel.pos, kHashFFFF0000);
         spin_wheel(wheel, static_cast<double>(wheel_torque) * wheel.inv_moment_, step_length_);
     }
 }
@@ -609,7 +621,7 @@ void DrivableModule::update_wheel_contacts()
         Wheel& wheel = core::at(wheels_, i);
         feeler.line().start = wheel.feeler_start_;
         feeler.line().end = wheel.feeler_end_;
-        feeler.set_excluded({.ignore = 0x10, .require = 0});
+        feeler.set_excluded({.ignore = kProbeIgnoreFlags, .require = 0});
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == kWheelInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
@@ -643,7 +655,7 @@ void DrivableModule::update_wheel_contacts()
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
         if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff) {
-            feeler.set_excluded({.ignore = 0, .require = 0x50});
+            feeler.set_excluded({.ignore = 0, .require = kProbeRequireFlags});
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
                 if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
@@ -758,7 +770,7 @@ void DrivableModule::read_controls()
                 reverse_ = false;
             }
             if (std::fabs(forward) < kStoppedSpeed)
-                entity()->announce(0xCBAA3476, nullptr, 0.0f);
+                entity()->announce(kHashCBAA3476, nullptr, 0.0f);
         }
     } else {
         reverse_ = false;
@@ -799,14 +811,14 @@ void DrivableModule::update_skater()
     const double duration = blender->fetch_value(rider_anim_name_);
     auto frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     auto frame_bits = std::bit_cast<uint32_t>(frame);
-    auto blend = std::bit_cast<uint32_t>(1000.0f);
+    auto blend = std::bit_cast<uint32_t>(kBlendFullSpeed);
     if (!online::net_game_state().online_hub()->in_net_game()) {
         blender->play_animation_ex(rider_anim_name_, 0, frame_bits, blend, 1, 0, 0);
         return;
     }
     // In a network game every fifteenth update is sent on (b = 1).
     int& counter = vehicle_net_update_counter();
-    if (++counter == 15) {
+    if (++counter == kPeriodTicks) {
         counter = 0;
         blender->play_animation_ex(rider_anim_name_, 1, frame_bits, blend, 1, 0, 0);
         return;

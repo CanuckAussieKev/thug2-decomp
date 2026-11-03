@@ -27,6 +27,21 @@
 namespace objects {
 
 namespace {
+constexpr int kSphereSegments = 12;
+constexpr float kMarkerSize = 36.0f;
+constexpr float kSpringMarkerSize = 24.0f;
+constexpr int kVoiceLimit = 48;
+constexpr int kVoiceReserve = 12;                  // voices left free for other sounds
+constexpr uint32_t kHashFFC80000 = 0xFFC80000; // (text unknown)
+constexpr uint32_t kHashFF00C800 = 0xFF00C800; // (text unknown)
+constexpr uint32_t kHashFF0000C8 = 0xFF0000C8; // (text unknown)
+constexpr uint32_t kHashFF640064 = 0xFF640064; // (text unknown)
+constexpr uint32_t kHashFFC800C8 = 0xFFC800C8; // (text unknown)
+constexpr uint32_t kHashFFC86400 = 0xFFC86400; // (text unknown)
+constexpr uint32_t kHashFFC80064 = 0xFFC80064; // (text unknown)
+constexpr uint32_t kHash43F454D0 = 0x43F454D0; // (text unknown)
+constexpr uint32_t kPercent = 0x9E497FC6; // Percent
+constexpr uint32_t kHashFF00FFFF = 0xFF00FFFF; // (text unknown)
 
 constexpr float kZero = 0.0f;               // 0x0066D520 (rotational w changes by 0 * mass_over_moment)
 constexpr float kSpringMinSpeed = 0.1f;     // 0x00645D74
@@ -180,13 +195,13 @@ void BodyDynamicsModule::debug_draw()
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (cur_phase_) {
     case kStateAsleep:
-        colour = 0xFFC80000;
+        colour = kHashFFC80000;
         break;
     case kStateAwake:
-        colour = push_cooldown_ > kZero ? 0xFF00C800 : 0xFF0000C8;
+        colour = push_cooldown_ > kZero ? kHashFF00C800 : kHashFF0000C8;
         break;
     case kStateDisabled:
-        colour = 0xFF640064;
+        colour = kHashFF640064;
         break;
     }
     auto at = [this](const maths::Vec4& p) {
@@ -204,17 +219,17 @@ void BodyDynamicsModule::debug_draw()
     for (int i = sphere_count_; i != 0;) {
         --i;
         const maths::Vec4 center = at(core::at(centers, i));
-        gfx::add_debug_sphere(&center, core::at(sphere_run(), i).radius, &basis_frame_, 12, colour, 1);
+        gfx::add_debug_sphere(&center, core::at(sphere_run(), i).radius, &basis_frame_, kSphereSegments, colour, 1);
     }
     if (objects_shared().rigid_body_draw_details())
-        gfx::push_diag_marker(at_point_, 36.0f, 0xFFC800C8, 1);
+        gfx::push_diag_marker(at_point_, kMarkerSize, kHashFFC800C8, 1);
     const auto& springs = world_spring_points();
     for (int i = spring_count_; i != 0;) {
         --i;
         if (!core::at(spring_run(), i).active)
             continue;
-        gfx::push_diag_marker(at(core::at(springs, i)), 24.0f, 0xFFC86400, 1);
-        gfx::push_diag_marker(core::at(spring_run(), i).anchor, 24.0f, 0xFFC80064, 1);
+        gfx::push_diag_marker(at(core::at(springs, i)), kSpringMarkerSize, kHashFFC86400, 1);
+        gfx::push_diag_marker(core::at(spring_run(), i).anchor, kSpringMarkerSize, kHashFFC80064, 1);
     }
 }
 
@@ -310,16 +325,16 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
             params = new (params) script::Struct;
         if (callback_params_ptr_)
             params->merge_structure(callback_params_ptr_); // (out of memory: through null, as the original)
-        params->put_vec3(checksums::Name{0x43F454D0}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
+        params->put_vec3(checksums::Name{kHash43F454D0}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
         entity()->spawn_script(bounce_script_, params, 0, false)->tick_frame();
         if (params) {
             params->get_clear();
             script::delete_struct(params);
         }
     }
-    if (audio_module_ && bounce_sfx_ && 48 - sound::count_playing_voices() > 12) {
+    if (audio_module_ && bounce_sfx_ && kVoiceLimit - sound::count_playing_voices() > kVoiceReserve) {
         const float percent = maths::confine(get_narrow(get_wide(speed) / bounce_full_speed_ * 100.0f), 0.0f, 100.0f);
-        bounce_sfx_->push_float(checksums::Name{0x9E497FC6}, percent); // Percent
+        bounce_sfx_->push_float(checksums::Name{kPercent}, percent); // Percent
         audio_module_->emit_sound(bounce_sfx_);
     }
 }
@@ -479,7 +494,7 @@ void BodyDynamicsModule::resolve_contacts()
             const maths::Vec4 from = {.x = r.x + at_point_.x, .y = at_point_.y + r.y, .z = at_point_.z + r.z, .w = at_point_.w + r.w};
             const maths::Vec4 to = {.x = from.x + push.x * kDebugImpulseScale, .y = from.y + push.y * kDebugImpulseScale,
                                     .z = from.z + push.z * kDebugImpulseScale, .w = from.w + push.w * kDebugImpulseScale};
-            gfx::push_diag_line(&to, &from, 0xFF00FFFF, 0, 1);
+            gfx::push_diag_line(&to, &from, kHashFF00FFFF, 0, 1);
         }
     }
 

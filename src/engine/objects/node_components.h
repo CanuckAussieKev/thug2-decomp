@@ -52,7 +52,8 @@ public:
 private:
     script::Array* nodes_{nullptr}; // +0x18
 };
-static_assert(sizeof(WaypointListModule) == 0x1C, "layout must match the original (0x00428010 allocates 0x1C bytes)");
+constexpr std::size_t kWaypointListModuleBytes = 0x1C;
+static_assert(sizeof(WaypointListModule) == kWaypointListModuleBytes, "layout must match the original (0x00428010 allocates 0x1C bytes)");
 
 // The object hook manager component (type 0x27443708 "objecthookmanager", vtable 0x006462D4, 0x1C bytes; made by
 // 0x00428130): the object hooks (class 0xD18719D5 nodes) of the object's node array.
@@ -79,7 +80,8 @@ public:
 private:
     ClassNodeList* hooks_ptr_{nullptr}; // +0x18 (0x4C bytes)
 };
-static_assert(sizeof(HookPointRegistryModule) == 0x1C,
+constexpr std::size_t kHookPointRegistryModuleBytes = 0x1C;
+static_assert(sizeof(HookPointRegistryModule) == kHookPointRegistryModuleBytes,
               "layout must match the original (0x00428130 allocates 0x1C bytes)");
 
 // The rail manager component (type 0x1CDFB2A3 "railmanager", vtable 0x0064637C, 0x1C bytes; made by 0x0042B920):
@@ -110,6 +112,7 @@ public:
 private:
     memory::HeapUnique<GrindRailHub> rail_groups_; // +0x18 (0x54 bytes)
 };
-static_assert(sizeof(GrindPathLinkModule) == 0x1C, "layout must match the original (0x0042B920 allocates 0x1C bytes)");
+constexpr std::size_t kGrindPathLinkModuleBytes = 0x1C;
+static_assert(sizeof(GrindPathLinkModule) == kGrindPathLinkModuleBytes, "layout must match the original (0x0042B920 allocates 0x1C bytes)");
 
 } // namespace objects

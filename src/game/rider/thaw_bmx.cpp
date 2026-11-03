@@ -3,6 +3,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/keyboard.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -35,6 +36,7 @@
 namespace skater::thaw_bmx {
 
 namespace {
+constexpr std::size_t kSettingBytes = 64;
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
@@ -388,7 +390,7 @@ void register_script_functions()
     script::publish_method_table(kMembers);
     register_parked_functions(); // (the parked bikes: thaw_bmx_parked.h)
     render::set_shadow_companion(&shadow_companion);
-    std::array<char, 64> setting = {""};
+    std::array<char, kSettingBytes> setting = {""};
     build_info::fetch_text(build_info::kKeybinds, "ThawBmx", "", setting.data(), sizeof(setting));
     auto by_name = [](const std::string& text) { return static_cast<int>(SDL_GetScancodeFromName(text.c_str())); };
     thaw_bmx_state().key_ = sys::screenshot::parse_key(setting.data(), SDL_SCANCODE_F7, by_name);

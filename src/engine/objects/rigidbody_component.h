@@ -26,6 +26,19 @@ class ProbeRay;
 }
 
 namespace objects {
+constexpr std::size_t kContactCount = 24;
+constexpr float kDefaultMassOverMoment = 0.003000000026077032f;      // the body's default tunings
+constexpr float kDefaultRestitution = 0.4000000059604645f;
+constexpr float kDefaultDragFactor = 0.5f;
+constexpr float kDefaultSpringConst = 10.0f;
+constexpr float kDefaultSkaterRadius = 48.0f;
+constexpr float kDefaultSkaterApplicationRadius = 12.0f;
+constexpr float kDefaultAngularSleepSquared = 0.1600000113248825f;
+constexpr float kPusherQuietSeconds = 0.0833333358168602f;
+constexpr int kDefaultImpactQuietMs = 1000;
+constexpr int kDefaultCollideMuteDelay = 100;
+constexpr float kDefaultBounceCallbackThreshold = 20.0f;
+constexpr float kDefaultBounceFullSpeed = 300.0f;
 
 class AudioEmitterModule;
 
@@ -175,8 +188,8 @@ public:
     };
     // The shape turned to the world this frame (from the centre of mass): the contact points (0x00694E30), the
     // spheres' centres (0x00694FB0), the springs' points (0x00695130); and the contacts (0x006949B0).
-    static std::array<maths::Vec4, 24>& world_contact_points();
-    static std::array<maths::Vec4, 24>& world_sphere_centers();
+    static std::array<maths::Vec4, kContactCount>& world_contact_points();
+    static std::array<maths::Vec4, kContactCount>& world_sphere_centers();
     static std::array<maths::Vec4, 2>& world_spring_points();
     static std::span<Contact> get_contacts();
 
@@ -233,21 +246,21 @@ public:
     void check_sleep();
 
 private:
-    float mass_over_moment_{0.003000000026077032f}; // +0x18 mass_over_moment (0.003)
+    float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
-    float restitution_{0.4000000059604645f}; // +0x2C coeff_restitution (0.4)
-    float drag_factor_{0.5f};                // +0x30 coeff_friction (0.5)
-    float spring_const_{10.0f};              // +0x34 spring_const (10)
+    float restitution_{kDefaultRestitution}; // +0x2C coeff_restitution (0.4)
+    float drag_factor_{kDefaultDragFactor};                // +0x30 coeff_friction (0.5)
+    float spring_const_{kDefaultSpringConst};              // +0x34 spring_const (10)
     float unknown38_{};                // +0x38 (0xDE76C3A7): the linear damping (0x0042C6D0)
     float unknown3c_{};                // +0x3C (0x9DA897CF): the angular damping (0x0042C6D0)
-    float skater_radius_{48.0f};       // +0x40 skater_collision_radius (48)
-    float skater_application_radius_{12.0f}; // +0x44 skater_collision_application_radius (12)
+    float skater_radius_{kDefaultSkaterRadius};       // +0x40 skater_collision_radius (48)
+    float skater_application_radius_{kDefaultSkaterApplicationRadius}; // +0x44 skater_collision_application_radius (12)
     float skater_assent_cos_;          // +0x48 skater_collision_assent (25 degrees)
     float skater_assent_sin_;          // +0x4C
     float skater_impulse_factor_{1.0f};                // +0x50 skater_collision_impulse_factor (1)
     float skater_rotation_factor_{1.0f};               // +0x54 skater_collision_rotation_factor (1)
     float linear_sleep_squared_{100.0f};               // +0x58 linear_velocity_sleep_point squared (100)
-    float angular_sleep_squared_{0.1600000113248825f}; // +0x5C angular_velocity_sleep_point squared (0.16)
+    float angular_sleep_squared_{kDefaultAngularSleepSquared}; // +0x5C angular_velocity_sleep_point squared (0.16)
     maths::Vec4* contacts_{};          // +0x60 the shape's points (body space)
 
 public:
@@ -271,7 +284,7 @@ private:
     maths::Vec4 balance_point_{};         // +0xA0 center_of_mass
     maths::Vec4 model_offset_{};          // +0xB0 the model's offset from the centre of mass
     float push_cooldown_time_{
-        0.0833333358168602f};               // +0xC0 (0x1F4D0CA5; 1/12): seconds the pushers aren't felt after a push
+        kPusherQuietSeconds};               // +0xC0 (0x1F4D0CA5; 1/12): seconds the pushers aren't felt after a push
     uint32_t collide_script_{0};            // +0xC4 CollideScript
     uint32_t bounce_script_{0};             // +0xC8 BounceScript
     uint32_t settle_script_{0};             // +0xCC SettleScript
@@ -279,10 +292,10 @@ private:
     gsl::owner<script::Struct*> callback_params_ptr_{}; // +0xD4 CallbackParams (a copy)
     gsl::owner<script::Struct*> collide_sound_ptr_{}; // +0xD8 the sound type's CollideSound (a copy)
     gsl::owner<script::Struct*> bounce_sfx_{};        // +0xDC ... BounceSound
-    int impact_quiet_ms_{1000};             // +0xE0 (1000)
-    int global_collide_mute_delay_{100};    // +0xE4 (100)
-    float bounce_callback_threshold_{20.0f}; // +0xE8 BounceVelocityCallbackThreshold (20)
-    float bounce_full_speed_{300.0f};        // +0xEC BounceVelocityFullSpeed (300)
+    int impact_quiet_ms_{kDefaultImpactQuietMs};             // +0xE0 (1000)
+    int global_collide_mute_delay_{kDefaultCollideMuteDelay};    // +0xE4 (100)
+    float bounce_callback_threshold_{kDefaultBounceCallbackThreshold}; // +0xE8 BounceVelocityCallbackThreshold (20)
+    float bounce_full_speed_{kDefaultBounceFullSpeed};        // +0xEC BounceVelocityFullSpeed (300)
     uint32_t unknownf0_{};                // +0xF0
     uint32_t flag_bits_{0};               // +0xF4 FLAG_*
     maths::Vec4 wake_pos_{};              // +0xF8 where it last woke
@@ -315,5 +328,6 @@ bool cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* scrip
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 13>& rigid_body_member_functions();
+constexpr std::size_t kRigidBodyMemberFunctionCount = 13;
+std::array<script::MemberFunctionEntry, kRigidBodyMemberFunctionCount>& rigid_body_member_functions();
 } // namespace objects

@@ -36,10 +36,15 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "game/rider/core_physics.h"
+#include "wire/skater_messages.h"
 
 namespace objects {
 
 namespace {
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr int kCatchUpFrames = 10;                 // how far behind the playback may fall before it jumps ahead
+constexpr float kModelPivotHeight = 30.0f;
 int& nonlocal_lag()
 {
     static int nonlocal_lag{};
@@ -144,10 +149,10 @@ void RiderRemoteSync::interpolate()
     if (now > history_frame_stamp(last)) {
         // Past the newest state: the playback falls back (by a second's frames, or to the state when further).
         int adjust = 0;
-        if (now - history_frame_stamp(last) > 1000)
+        if (now - history_frame_stamp(last) > kMillisecondsPerSecond)
             adjust = static_cast<int>(history_frame_stamp(last) - now);
         else
-            adjust = -1000 / frame_rate();
+            adjust = -kMillisecondsPerSecond / frame_rate();
         sync_time_ += adjust;
         now = app->clock() - sync_frame_ + sync_time_;
     }
@@ -161,8 +166,8 @@ void RiderRemoteSync::interpolate()
     const int lag = (oldest - entry + kHistory) % kHistory;
     play_idx_ = entry;
     nonlocal_lag() = lag;
-    if (lag >= 10)
-        sync_time_ += 1000 / frame_rate() * 10; // (far behind: ten frames on)
+    if (lag >= kCatchUpFrames)
+        sync_time_ += kMillisecondsPerSecond / frame_rate() * kCatchUpFrames; // (far behind: ten frames on)
     else if (lag == 0)
         skater->reset_27c();
     SkaterStateHistoryFrame* from = history_frame(past_frames_, (entry + kHistory - 1) % kHistory);
@@ -319,7 +324,7 @@ void RiderRemoteSync::get_extrapolate()
     if (std::sqrt((ez * ez + ey * ey) + ex * ex) > kWallCheckReach)
         return;
     feeler.change_strand(&from, &to);
-    feeler.set_excluded({.ignore = 0x10, .require = 0});
+    feeler.set_excluded({.ignore = skater::kProbeIgnoreFlags, .require = 0});
     if (feeler.get_hit_shape(true, false))
         deflect_from_wall(&feeler.surface_dir(), &feeler.contact_pos());
 }
@@ -544,42 +549,42 @@ void RiderRemoteSync::play_history_events()
         StateHistoryMessage* msg = &core::at(messages, i);
         if (get_time(*msg) > last_event_time_ && get_time(*msg) <= now) {
             switch (msg->ident_) {
-            case 0x29: // an animation played (the primary channel)
+            case online::kMsgPlayAnim: // an animation played (the primary channel)
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->play_anim(msg->name_, false, msg->from_, msg->to_, static_cast<int8_t>(msg->loop_type_),
                                        msg->blend_period_, msg->speed_, nullptr);
                 break;
-            case 0x2A: // the board rotated (the byte passed as it was sent)
+            case online::kMsgBoardRotated: // the board rotated (the byte passed as it was sent)
                 core::down_cast<RiderSpinAndFlip>(flip_and_rotate_)
                     ->apply_board_turned(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->rotated_, 0,
                                          false);
                 break;
-            case 0x2B:
+            case online::kMsgWobbleTarget:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->choose_wobble_goal(msg->wobble_target_, false);
                 break;
-            case 0x2C:
+            case online::kMsgFlip:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->set_flipped(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->flipped_, 0,
                                          false); // (the byte passed as it was sent)
                 break;
-            case 0x3C: // (the five details passed by address)
+            case online::kMsgWobbleDetails: // (the five details passed by address)
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->set_wobble_details(msg->wobble_details_, false);
                 break;
-            case 0x3D:
+            case online::kMsgLoopType:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->change_repeat_mode(static_cast<int8_t>(msg->loop_type_), false);
                 break;
-            case 0x3E:
+            case online::kMsgHideGeom:
                 mesh_set_->conceal_mesh(msg->name_, msg->hidden_, false);
                 break;
-            case 0x41:
+            case online::kMsgAnimSpeed:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->set_speed(msg->speed_, false, false, false);
                 break;
-            case 0x76: { // the model's three parts set going, by the message's bits
-                mesh_set_->set_pivot({.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 1.0f});
+            case online::kMsgSpinModel: { // the model's three parts set going, by the message's bits
+                mesh_set_->set_pivot({.x = 0.0f, .y = kModelPivotHeight, .z = 0.0f, .w = 1.0f});
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (msg->spin_axes_ & (1u << bit))
@@ -587,7 +592,7 @@ void RiderRemoteSync::play_history_events()
                 }
                 break;
             }
-            case 0x77: { // a special item made: its +0x5CB5CB7E component told its name and owner
+            case online::kMsgCreateSpecialItem: { // a special item made: its +0x5CB5CB7E component told its name and owner
                 auto* items = core::down_cast<PickupItemHandler>(entity()->fetch_module(PickupItemHandler::kType));
                 script::Struct* structure = script::read_sub_struct(msg->name_); // (the original also passes 1)
                 GameEntity* item = items->create_item(msg->item_slot_, structure);
@@ -603,11 +608,11 @@ void RiderRemoteSync::play_history_events()
                 }
                 break;
             }
-            case 0x78: // the special item gone
+            case online::kMsgDestroySpecialItem: // the special item gone
                 core::down_cast<PickupItemHandler>(entity()->fetch_module(PickupItemHandler::kType))
                     ->destroy_item(msg->item_slot_);
                 break;
-            case 0x8C:
+            case online::kMsgCancelSpins:
                 for (ModelSpinAxis& axis : mesh_set_->twist_rate())
                     get_clear(axis);
                 break;

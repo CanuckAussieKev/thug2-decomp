@@ -52,8 +52,12 @@ private:
     uint32_t label_;     // +0x18
     float locked_until_; // +0x1C
 };
-static_assert(sizeof(ControlButton) == 0x20, "layout must match the original");
+constexpr std::size_t kControlButtonBytes = 0x20;
+static_assert(sizeof(ControlButton) == kControlButtonBytes, "layout must match the original");
 
+constexpr std::size_t kPadSnapshotStickOffset = 0x200;
+constexpr std::size_t kPadSnapshotPolarOffset = 0x220;
+constexpr std::size_t kPadSnapshotLockOffset = 0x230;
 class PadSnapshot {
 public:
     // 0x0046B940: the buttons' names; no locks.
@@ -143,8 +147,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PadSnapshot, stick_) == 0x200 && offsetof(PadSnapshot, polar_) == 0x220 &&
-                          offsetof(PadSnapshot, lock_) == 0x230,
+        static_assert(offsetof(PadSnapshot, stick_) == kPadSnapshotStickOffset && offsetof(PadSnapshot, polar_) == kPadSnapshotPolarOffset &&
+                          offsetof(PadSnapshot, lock_) == kPadSnapshotLockOffset,
                       "layout must match the original");
     }
 

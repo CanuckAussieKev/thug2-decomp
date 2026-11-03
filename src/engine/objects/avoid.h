@@ -17,6 +17,13 @@ class Struct;
 
 namespace objects {
 
+constexpr std::size_t kObstacleDodgeModuleLastsForOffset = 0x18;
+constexpr std::size_t kObstacleDodgeModuleSlerpOffset = 0x1C;
+constexpr std::size_t kObstacleDodgeModuleProgressOffset = 0xB4;
+constexpr std::size_t kObstacleDodgeModuleHerdPointOffset = 0xB8;
+constexpr std::size_t kObstacleDodgeModuleAimPointOffset = 0xC8;
+constexpr std::size_t kObstacleDodgeModuleMotionHeldOffset = 0xD8;
+constexpr std::size_t kObstacleDodgeModuleBytes = 0xDC;
 // The Avoid component (type 0x6EB050ED, vtable 0x0064B220, 0xDC bytes; made by 0x004E39E0): a ped that jumps out
 // of the local skater's way - to its side, or ahead / back, or away from a herd point - playing a jump animation
 // (JumpLeft / JumpRight / JumpBack / JumpForward of the parameters) while it moves along a slerp from where it was
@@ -95,15 +102,16 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ObstacleDodgeModule, lasts_for_) == 0x18 && offsetof(ObstacleDodgeModule, slerp_) == 0x1C &&
-                          offsetof(ObstacleDodgeModule, progress_) == 0xB4 &&
-                          offsetof(ObstacleDodgeModule, herd_point_) == 0xB8 &&
-                          offsetof(ObstacleDodgeModule, aim_point_) == 0xC8 &&
-                          offsetof(ObstacleDodgeModule, motion_held_) == 0xD8 && sizeof(ObstacleDodgeModule) == 0xDC,
+        static_assert(offsetof(ObstacleDodgeModule, lasts_for_) == kObstacleDodgeModuleLastsForOffset && offsetof(ObstacleDodgeModule, slerp_) == kObstacleDodgeModuleSlerpOffset &&
+                          offsetof(ObstacleDodgeModule, progress_) == kObstacleDodgeModuleProgressOffset &&
+                          offsetof(ObstacleDodgeModule, herd_point_) == kObstacleDodgeModuleHerdPointOffset &&
+                          offsetof(ObstacleDodgeModule, aim_point_) == kObstacleDodgeModuleAimPointOffset &&
+                          offsetof(ObstacleDodgeModule, motion_held_) == kObstacleDodgeModuleMotionHeldOffset && sizeof(ObstacleDodgeModule) == kObstacleDodgeModuleBytes,
                       "layout must match the original");
     }
 };
-static_assert(sizeof(maths::ArcRotationBlender) == 0x98, "layout must match the original");
+constexpr std::size_t kArcRotationBlenderBytes = 0x98;
+static_assert(sizeof(maths::ArcRotationBlender) == kArcRotationBlenderBytes, "layout must match the original");
 
 // 0x004E3270 (cdecl, `params` in ESI): the distance for the quarter `angle` falls in (as play_jump's quarters, but
 // distLeft / distBack / distRight / distForward), 0 if not given.
@@ -115,5 +123,6 @@ bool line_collides(const maths::Vec4& start, const maths::Vec4& end);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 9>& avoid_member_functions();
+constexpr std::size_t kAvoidMemberFunctionCount = 9;
+std::array<script::MemberFunctionEntry, kAvoidMemberFunctionCount>& avoid_member_functions();
 } // namespace objects

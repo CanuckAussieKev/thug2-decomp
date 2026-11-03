@@ -29,29 +29,83 @@
 #include "engine/core/no_destroy.h"
 
 namespace objects {
+namespace {
+constexpr int kKilobyteShift = 10;
+constexpr uint32_t kObjGetPosition = 0xE90AAD2D; // Obj_GetPosition
+constexpr uint32_t kCompositeobject = 0x0ADA4E74; // compositeobject
+constexpr uint32_t kHashC2404947 = 0xC2404947; // (text unknown)
+constexpr uint32_t kCreateComponentFromStructure = 0x406998A5; // CreateComponentFromStructure
+constexpr uint32_t kContainsComponent = 0x2BFFEAA3; // ContainsComponent
+constexpr uint32_t kObjSetPosition = 0xF7251A64; // Obj_SetPosition
+constexpr uint32_t kObjSetOrientation = 0xC6F3BAA5; // Obj_SetOrientation
+constexpr uint32_t kObjGetQuat = 0x77403AFC; // Obj_GetQuat
+constexpr uint32_t kObjForceUpdate = 0xC1BFF0F3; // Obj_ForceUpdate
+constexpr uint32_t kObjGetVelocity = 0x11FE9F71; // Obj_GetVelocity
+constexpr uint32_t kGetSpeed = 0xC0CAAC4A; // GetSpeed
+constexpr uint32_t kHide = 0x5B6634D4; // Hide
+constexpr uint32_t kUnHide = 0xB60D1F35; // UnHide
+constexpr uint32_t kIsHidden = 0xB16619AE; // IsHidden
+constexpr uint32_t kMove = 0x10C1C887; // Move
+constexpr uint32_t kSuspend = 0xCE0CA665; // Suspend
+constexpr uint32_t kUnsuspend = 0xCA3C59A6; // Unsuspend
+constexpr uint32_t kPause = 0x28656D12; // Pause
+constexpr uint32_t kUnPause = 0xFF85D4D7; // UnPause
+constexpr uint32_t kObjGetCollision = 0x0168B09C; // Obj_GetCollision
+constexpr uint32_t kObjGetOrientation = 0xB9ED09D2; // Obj_GetOrientation
+constexpr uint32_t kHashD96C0A20 = 0xD96C0A20; // (text unknown)
+constexpr uint32_t kObjGetDistanceToObject = 0x4AF57BBB; // Obj_GetDistanceToObject
+constexpr uint32_t kObjGetOrientationToObject = 0x2A26FFA2; // Obj_GetOrientationToObject
+constexpr uint32_t kBackwards = 0xF8CFD515; // Backwards
+constexpr uint32_t kHash7DCC5FB9 = 0x7DCC5FB9; // (text unknown)
+constexpr uint32_t kSpeedGreaterThan = 0xE5DF66D7; // SpeedGreaterThan
+constexpr uint32_t kSpeedLessThan = 0xDD468509; // SpeedLessThan
+constexpr uint32_t kObjAngleToNearestSkaterGreaterThan = 0x37185D8A; // Obj_AngleToNearestSkaterGreaterThan
+constexpr uint32_t kObjGetType = 0x70ED3048; // Obj_GetType
+constexpr uint32_t kObjHasComponent = 0x33CAC5FF; // Obj_HasComponent
+constexpr uint32_t kGetTags = 0x3611C136; // GetTags
+constexpr uint32_t kObject = 0x57525413; // Object
+constexpr uint32_t kGetSingleTag = 0x62C11CB9; // GetSingleTag
+constexpr uint32_t kHashEEEB7220 = 0xEEEB7220; // (text unknown)
+constexpr uint32_t kSetTags = 0xA58079EB; // SetTags
+constexpr uint32_t kRemoveTags = 0x0C7CD27A; // RemoveTags
+constexpr uint32_t kDisassociateFromObject = 0xB3C262EC; // DisassociateFromObject
+constexpr uint32_t kObjGetID = 0x500EB224; // Obj_GetID
+constexpr uint32_t kObjFlagSet = 0x4BABC987; // Obj_FlagSet
+constexpr uint32_t kObjFlagNotSet = 0x53EBEE03; // Obj_FlagNotSet
+constexpr uint32_t kObjClearFlag = 0x6C2B67F9; // Obj_ClearFlag
+constexpr uint32_t kObjSetFlag = 0xBE563426; // Obj_SetFlag
+constexpr uint32_t kObjKillSpawnedScript = 0xFBD89CD5; // Obj_KillSpawnedScript
+constexpr uint32_t kObjSpawnScript = 0x23A4E5C2; // Obj_SpawnScript
+constexpr uint32_t kHash714937C7 = 0x714937C7; // (text unknown)
+constexpr uint32_t kObjVisible = 0x20D125D7; // Obj_Visible
+constexpr uint32_t kObjInvisible = 0x3578E5A9; // Obj_Invisible
+constexpr uint32_t kHashBA2C7CCB = 0xBA2C7CCB; // (text unknown)
+constexpr uint32_t kHashB5527B89 = 0xB5527B89; // (text unknown)
+constexpr uint32_t kHashD84C26CF = 0xD84C26CF; // (text unknown)
+} // namespace
 
-std::array<script::MemberFunctionEntry, 31>& composite_object_member_functions()
+std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount>& composite_object_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 31> composite_object_member_functions{{
-        {.callsign_ = 0xE90AAD2D, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC2404947, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x406998A5, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x2BFFEAA3, .owner_kind_ = 0x0ADA4E74},
-        {.callsign_ = 0xF7251A64, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC6F3BAA5, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x77403AFC, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC1BFF0F3, .owner_kind_ = 0x0ADA4E74},
-        {.callsign_ = 0x11FE9F71, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC0CAAC4A, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x5B6634D4, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xB60D1F35, .owner_kind_ = 0x0ADA4E74},
-        {.callsign_ = 0xB16619AE, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x10C1C887, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xCE0CA665, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xCA3C59A6, .owner_kind_ = 0x0ADA4E74},
-        {.callsign_ = 0x28656D12, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xFF85D4D7, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x0168B09C, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xB9ED09D2, .owner_kind_ = 0x0ADA4E74},
-        {.callsign_ = 0xD96C0A20, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x4AF57BBB, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x2A26FFA2, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xF8CFD515, .owner_kind_ = 0x0ADA4E74},
-        {.callsign_ = 0x7DCC5FB9, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xE5DF66D7, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xDD468509, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x37185D8A, .owner_kind_ = 0x0ADA4E74},
-        {.callsign_ = 0x70ED3048, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x33CAC5FF, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0, .owner_kind_ = 0x0ADA4E74}}};
+    static std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount> composite_object_member_functions{{
+        {.callsign_ = kObjGetPosition, .owner_kind_ = kCompositeobject}, {.callsign_ = kHashC2404947, .owner_kind_ = kCompositeobject}, {.callsign_ = kCreateComponentFromStructure, .owner_kind_ = kCompositeobject}, {.callsign_ = kContainsComponent, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kObjSetPosition, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjSetOrientation, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetQuat, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjForceUpdate, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kObjGetVelocity, .owner_kind_ = kCompositeobject}, {.callsign_ = kGetSpeed, .owner_kind_ = kCompositeobject}, {.callsign_ = kHide, .owner_kind_ = kCompositeobject}, {.callsign_ = kUnHide, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kIsHidden, .owner_kind_ = kCompositeobject}, {.callsign_ = kMove, .owner_kind_ = kCompositeobject}, {.callsign_ = kSuspend, .owner_kind_ = kCompositeobject}, {.callsign_ = kUnsuspend, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kPause, .owner_kind_ = kCompositeobject}, {.callsign_ = kUnPause, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetCollision, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetOrientation, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kHashD96C0A20, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetDistanceToObject, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetOrientationToObject, .owner_kind_ = kCompositeobject}, {.callsign_ = kBackwards, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kHash7DCC5FB9, .owner_kind_ = kCompositeobject}, {.callsign_ = kSpeedGreaterThan, .owner_kind_ = kCompositeobject}, {.callsign_ = kSpeedLessThan, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjAngleToNearestSkaterGreaterThan, .owner_kind_ = kCompositeobject},
+        {.callsign_ = kObjGetType, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjHasComponent, .owner_kind_ = kCompositeobject}, {.callsign_ = 0, .owner_kind_ = kCompositeobject}}};
     return composite_object_member_functions;
 }
 
-std::array<script::MemberFunctionEntry, 17>& object_member_functions()
+std::array<script::MemberFunctionEntry, kObjectMemberFunctionCount>& object_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 17> object_member_functions{{
-        {.callsign_ = 0x3611C136, .owner_kind_ = 0x57525413}, {.callsign_ = 0x62C11CB9, .owner_kind_ = 0x57525413}, {.callsign_ = 0xEEEB7220, .owner_kind_ = 0x57525413}, {.callsign_ = 0xA58079EB, .owner_kind_ = 0x57525413},
-        {.callsign_ = 0x0C7CD27A, .owner_kind_ = 0x57525413}, {.callsign_ = 0xB3C262EC, .owner_kind_ = 0x57525413}, {.callsign_ = 0x500EB224, .owner_kind_ = 0x57525413}, {.callsign_ = 0x4BABC987, .owner_kind_ = 0x57525413},
-        {.callsign_ = 0x53EBEE03, .owner_kind_ = 0x57525413}, {.callsign_ = 0x6C2B67F9, .owner_kind_ = 0x57525413}, {.callsign_ = 0xBE563426, .owner_kind_ = 0x57525413}, {.callsign_ = 0xFBD89CD5, .owner_kind_ = 0x57525413},
-        {.callsign_ = 0x23A4E5C2, .owner_kind_ = 0x57525413}, {.callsign_ = 0x714937C7, .owner_kind_ = 0x57525413}, {.callsign_ = 0x20D125D7, .owner_kind_ = 0x57525413}, {.callsign_ = 0x3578E5A9, .owner_kind_ = 0x57525413},
-        {.callsign_ = 0, .owner_kind_ = 0x57525413}}};
+    static std::array<script::MemberFunctionEntry, kObjectMemberFunctionCount> object_member_functions{{
+        {.callsign_ = kGetTags, .owner_kind_ = kObject}, {.callsign_ = kGetSingleTag, .owner_kind_ = kObject}, {.callsign_ = kHashEEEB7220, .owner_kind_ = kObject}, {.callsign_ = kSetTags, .owner_kind_ = kObject},
+        {.callsign_ = kRemoveTags, .owner_kind_ = kObject}, {.callsign_ = kDisassociateFromObject, .owner_kind_ = kObject}, {.callsign_ = kObjGetID, .owner_kind_ = kObject}, {.callsign_ = kObjFlagSet, .owner_kind_ = kObject},
+        {.callsign_ = kObjFlagNotSet, .owner_kind_ = kObject}, {.callsign_ = kObjClearFlag, .owner_kind_ = kObject}, {.callsign_ = kObjSetFlag, .owner_kind_ = kObject}, {.callsign_ = kObjKillSpawnedScript, .owner_kind_ = kObject},
+        {.callsign_ = kObjSpawnScript, .owner_kind_ = kObject}, {.callsign_ = kHash714937C7, .owner_kind_ = kObject}, {.callsign_ = kObjVisible, .owner_kind_ = kObject}, {.callsign_ = kObjInvisible, .owner_kind_ = kObject},
+        {.callsign_ = 0, .owner_kind_ = kObject}}};
     return object_member_functions;
 }
 
@@ -389,7 +443,7 @@ bool create_coim_heap(uint32_t size)
         coim_heap() = memory::Hub::get_pull()->add_heap(coim_region().get(), 1, "COIMHeap");
         coim_heap()->set_unknown64(true);
         coim_heap()->set_unknown68(coim_b() - kCompositeMgrBlockHeaderSize); // (16: a block header)
-        script::fetch_int_value(0xBA2C7CCB);                                    // (the result isn't used)
+        script::fetch_int_value(kHashBA2C7CCB);                                    // (the result isn't used)
     }
     return false;
 }
@@ -399,11 +453,11 @@ void init_coim(int a, uint32_t heap_size, int b, int c)
 {
     coim_a() = a;
     coim_b() = b;
-    coim_integer0() = script::fetch_int_value(0xB5527B89);
-    coim_integer1() = script::fetch_int_value(0xD84C26CF);
+    coim_integer0() = script::fetch_int_value(kHashB5527B89);
+    coim_integer1() = script::fetch_int_value(kHashD84C26CF);
     coim_c() = c;
     create_coim_heap(heap_size);
-    debug::printf("Initializing CCompositeObjectInstanceMgr at %dk\n", heap_size >> 10);
+    debug::printf("Initializing CCompositeObjectInstanceMgr at %dk\n", heap_size >> kKilobyteShift);
 }
 
 // 0x0045F1C0

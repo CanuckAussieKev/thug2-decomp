@@ -20,6 +20,7 @@ struct InboundMsgCtx;
 // (0x00512EA0 / 0x005131A0) carries the big-level positions, TP-R6 - engine/net/thugpro_compat.h. Vtable 0x0064BEF0:
 // 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 12 the shared invoke_method_by_name 0x0051ADC0.
 namespace objects {
+constexpr uint8_t kNotSent = 0xFF;                  // nothing sent yet
 
 class RiderPoseState;
 
@@ -63,7 +64,7 @@ public:
 
 private:
     uint32_t last_transmit_at_{0}; // +0x18 the client app's time when the last update went
-    uint8_t sent_value_7c_{0xFF};  // +0x1C (the core component's +0xE1)
+    uint8_t sent_value_7c_{kNotSent};  // +0x1C (the core component's +0xE1)
     uint8_t pad1d_{};
     std::array<int16_t, 3> sent_pos_{};    // +0x1E (x, z in half units - y in quarters; whole units in a big level)
     std::array<int16_t, 3> sent_angles_{}; // +0x24 (in 1/4096ths)
@@ -71,7 +72,7 @@ private:
     uint32_t sent_controls_;             // +0x2C (a bit per control the core component holds)
     uint32_t sent_value_6c_{0};          // +0x30 (the 0xB1D5A3E1 component's +0x18)
     uint8_t sent_state_{0};              // +0x34 (the core component's +0x18)
-    uint8_t sent_flag74_{0xFF};          // +0x35 (+0xE0)
+    uint8_t sent_flag74_{kNotSent};          // +0x35 (+0xE0)
     uint8_t sent_flag75_{};              // +0x36 (+0x1C is 1)
     uint8_t sent_flag76_{};              // +0x37 (+0x118)
     uint32_t sent_value80_{0};           // +0x38 (the board's: +0x40's +0x22C's +0x4C)

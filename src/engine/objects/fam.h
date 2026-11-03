@@ -14,6 +14,9 @@ class Struct;
 
 namespace objects {
 
+constexpr std::size_t kFamComponentFamOffset = 0x18;
+constexpr std::size_t kFamComponentFeedOffset = 0x1C;
+constexpr std::size_t kFamComponentBytes = 0x20;
 // The fam component (type 0x0301D67C "fam", vtable 0x00645F8C, 0x20 bytes; made by 0x0041D200): plays a "fam" on its
 // object - a stream (a voice line) with the facial animation that goes with it (fam\<checksum>.fam, loaded into the
 // object's anim set and played through an anim controller - partialAnim jawRotation), run by the script
@@ -72,8 +75,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(FamComponent, fam_) == 0x18 && offsetof(FamComponent, feed_) == 0x1C &&
-                          sizeof(FamComponent) == 0x20,
+        static_assert(offsetof(FamComponent, fam_) == kFamComponentFamOffset && offsetof(FamComponent, feed_) == kFamComponentFeedOffset &&
+                          sizeof(FamComponent) == kFamComponentBytes,
                       "layout must match the original");
     }
 };

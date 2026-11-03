@@ -23,6 +23,10 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr int kGoalWordsPerLevel = 8;            // 32 goal (or flag) bits to a word, 256 to a level
+constexpr std::size_t kGoalWordExtent = 8;
+constexpr std::size_t kCounterExtent = 18;       // a counter per level of the classic mode
+constexpr std::size_t kGlobalFlagExtent = 16;
 
 class RiderStoryProgress : public memory::HeapObject {
 public:
@@ -94,8 +98,8 @@ public:
     void write_to_structure(script::Struct* save);
 
     // The goal / flag words of every level, in one run (level * 8 + word).
-    std::span<uint32_t> goal_words() { return {core::at(goals_, 0).data(), kLevels * 8}; }
-    std::span<uint32_t> flag_words() { return {core::at(flag_bits_, 0).data(), kLevels * 8}; }
+    std::span<uint32_t> goal_words() { return {core::at(goals_, 0).data(), kLevels * kGoalWordsPerLevel}; }
+    std::span<uint32_t> flag_words() { return {core::at(flag_bits_, 0).data(), kLevels * kGoalWordsPerLevel}; }
 
     // The fields other code reads and sets.
     std::array<uint16_t, kLevels>& funds() { return funds_; }
@@ -106,8 +110,8 @@ public:
     void set_lifetime_funds(uint16_t value) { lifetime_funds_ = value; }
     [[nodiscard]] uint16_t total_amount() const { return total_amount_; }
     void set_total_amount(uint16_t value) { total_amount_ = value; }
-    std::array<uint8_t, 18>& counter() { return counter_; }
-    [[nodiscard]] const std::array<uint8_t, 18>& counter() const { return counter_; }
+    std::array<uint8_t, kCounterExtent>& counter() { return counter_; }
+    [[nodiscard]] const std::array<uint8_t, kCounterExtent>& counter() const { return counter_; }
     [[nodiscard]] uint8_t total_counter() const { return total_counter_; }
     void set_total_counter(uint8_t value) { total_counter_ = value; }
     [[nodiscard]] uint8_t flag_5e_f() const { return flag_5e_f_; }
@@ -119,18 +123,18 @@ public:
 
 private:
     // (The offsets are the original's, which has a vtable at +0x000 - 0x0064EFD4 - holding only the destructor.)
-    std::array<std::array<uint32_t, 8>, kLevels> goals_{};     // +0x004
-    std::array<std::array<uint32_t, 8>, kLevels> flag_bits_{}; // +0x2A4
-    std::array<uint32_t, 8> start_goals_{};        // +0x544
-    std::array<uint32_t, 8> start_flags_{};        // +0x564
+    std::array<std::array<uint32_t, kGoalWordExtent>, kLevels> goals_{};     // +0x004
+    std::array<std::array<uint32_t, kGoalWordExtent>, kLevels> flag_bits_{}; // +0x2A4
+    std::array<uint32_t, kGoalWordExtent> start_goals_{};        // +0x544
+    std::array<uint32_t, kGoalWordExtent> start_flags_{};        // +0x564
     std::array<uint16_t, kLevels> funds_{};        // +0x584
     std::array<uint16_t, kLevels> amount_{};       // +0x5AE
     uint16_t lifetime_funds_{};        // +0x5D8
     uint16_t total_amount_{};          // +0x5DA
-    std::array<uint8_t, 18> counter_{};            // +0x5DC
+    std::array<uint8_t, kCounterExtent> counter_{};            // +0x5DC
     uint8_t total_counter_{};          // +0x5EE
     uint8_t flag_5e_f_{};              // +0x5EF
-    std::array<uint32_t, 16> global_flags_{};      // +0x5F0
+    std::array<uint32_t, kGlobalFlagExtent> global_flags_{};      // +0x5F0
     int level_{};                      // +0x630
     int value634_{};                   // +0x634
     int max_value634_{};               // +0x638

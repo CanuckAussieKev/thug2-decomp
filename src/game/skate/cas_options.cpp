@@ -1,5 +1,6 @@
 // The CAS option lists (see cas_options.h). From the disassembly of 0x00485CB0-0x004860BD.
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <span>
@@ -15,6 +16,7 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kOptionCapacity = 32; // options of one create-a-skater part
 
 using script::Array;
 using script::Struct;
@@ -97,8 +99,8 @@ Struct* pick_random_cas_option(CasFilter cas_filter)
 {
     const auto part = cas_filter.part;
     const auto filter = cas_filter.filter;
-    std::array<Struct*, 32> options{};
-    std::array<bool, 32> selected{};
+    std::array<Struct*, kOptionCapacity> options{};
+    std::array<bool, kOptionCapacity> selected{};
     Array* list = script::fetch_list(part);
     const int size = static_cast<int>(list->extent());
     int count = 0;

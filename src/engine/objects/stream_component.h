@@ -84,5 +84,6 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 5>& stream_component_member_functions();
+constexpr std::size_t kStreamComponentMemberFunctionCount = 5;
+std::array<script::MemberFunctionEntry, kStreamComponentMemberFunctionCount>& stream_component_member_functions();
 } // namespace objects

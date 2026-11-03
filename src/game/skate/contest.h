@@ -19,6 +19,9 @@ class Struct;
 } // namespace script
 
 namespace modules {
+constexpr int kByteShift1 = 8; // little-endian byte positions of a word
+constexpr int kByteShift2 = 16;
+constexpr int kByteShift3 = 24;
 
 struct Contest {
     static constexpr int kLeaders = 8;
@@ -114,9 +117,9 @@ public:
 {
     if (index == Contest::kRuns)
         return static_cast<int>(static_cast<uint32_t>(leader.unknown1c) |
-                                (static_cast<uint32_t>(core::at(leader.pad1d, 0)) << 8) |
-                                (static_cast<uint32_t>(core::at(leader.pad1d, 1)) << 16) |
-                                (static_cast<uint32_t>(core::at(leader.pad1d, 2)) << 24));
+                                (static_cast<uint32_t>(core::at(leader.pad1d, 0)) << kByteShift1) |
+                                (static_cast<uint32_t>(core::at(leader.pad1d, 1)) << kByteShift2) |
+                                (static_cast<uint32_t>(core::at(leader.pad1d, 2)) << kByteShift3));
     return core::at(leader.scores, index);
 }
 // best_two of the four words from the scores on (the debug output's: unknown1c and its padding the fourth).

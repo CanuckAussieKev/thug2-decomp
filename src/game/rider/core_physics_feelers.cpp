@@ -37,6 +37,9 @@ namespace skater {
 using namespace physics;
 
 namespace {
+constexpr float kNoHitDistance = 999.0f;
+constexpr int kSideHitMs = 500;
+constexpr uint32_t kModel = 0x286A8D26; // Model
 
 constexpr uint32_t kWallNonSkatableAngle = 0x3EEDE4D3; // Wall_Non_Skatable_Angle (degrees)
 constexpr uint32_t kRight = 0x4B358AEB;                // Right
@@ -76,7 +79,6 @@ constexpr uint32_t kDown = 0xE3006FC4;                 // Down
 constexpr uint16_t kFaceSkatable = 0x1;
 constexpr uint16_t kFaceNotSkatable = 0x2;
 constexpr uint16_t kFaceWall = 0x4;
-constexpr uint16_t kFaceVert = 0x8;
 
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kNearGroundReach = 16.0f;          // 0x00645D68
@@ -228,7 +230,7 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script*)
     start.y = start.y + kNearGroundHeight;
     end = start;
     end.y = end.y - kNearGroundHeight;
-    return probe_touches_zone(0x10, 0) ? 1 : 0;
+    return probe_touches_zone(kProbeIgnoreFlags, 0) ? 1 : 0;
 }
 
 // 0x00500F10
@@ -249,7 +251,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
         start.y = end.y - back * up.y;
         start.z = end.z - back * up.z;
         start.w = end.w - back * up.w;
-        if (!probe_touches_zone(0x10, 0)) {
+        if (!probe_touches_zone(kProbeIgnoreFlags, 0)) {
             back = tuning_float_lookup(kLipExtraHorizOffset, object);
             down = tuning_float_lookup(kLipExtraDownOffset, object);
             const maths::Vec4& position = entity()->at_point();
@@ -260,7 +262,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
             start.w = position.w - back * up2.w;
             end = start;
             end.y = end.y - down;
-            if (!probe_touches_zone(0x10, 0))
+            if (!probe_touches_zone(kProbeIgnoreFlags, 0))
                 return 0;
         }
         return hit_vert_ ? 1 : 0;
@@ -290,7 +292,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
         start = far_side;
         end = near_side;
     }
-    if (!probe_touches_zone(0x10, 0))
+    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
         return 0;
     return hit_vert_ ? 1 : 0;
 }
@@ -405,7 +407,7 @@ void SkaterPhysicsModule::find_nearest_wall_side()
     render::ProbeRay feeler;
     nearest_wall_side_ = 0;
     feeler.line().start = entity()->at_point();
-    float nearest = 999.0f;
+    float nearest = kNoHitDistance;
     // Each end and side of the board: 12 along the forward or side row.
     struct FeelerSide {
         uint32_t side;
@@ -434,12 +436,12 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
 {
     // (The original's loop over the other three sides checks the opposite side's time each time round.)
     for (uint32_t other = 0; other < 4; ++other) {
-        if (other != side && get_since(static_cast<uint32_t>(core::at(side_hit_times_, side ^ 1))) > 500)
+        if (other != side && get_since(static_cast<uint32_t>(core::at(side_hit_times_, side ^ 1))) > kSideHitMs)
             return;
     }
     probe_start_ = *start;
     probe_end_ = *end;
-    if (!probe_touches_zone(0x10, 0))
+    if (!probe_touches_zone(kProbeIgnoreFlags, 0))
         return;
     maths::Vec4& sum = side_normal_sum_;
     const maths::Vec4& normal = feeler_.surface_dir();
@@ -524,7 +526,7 @@ void SkaterPhysicsModule::check_side_feelers()
 // 0x005054A0
 bool SkaterPhysicsModule::apply_model_rotations()
 {
-    auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(0x286A8D26)); // (Model)
+    auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(kModel)); // (Model)
     if (!core::at(model->twist_rate(), 0).active_ && !core::at(model->twist_rate(), 1).active_ && !core::at(model->twist_rate(), 2).active_)
         return false;
     objects::GameEntity* object = object_of(this);

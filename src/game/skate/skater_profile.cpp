@@ -26,6 +26,33 @@
 namespace objects {
 
 namespace {
+constexpr int kMaxAbilityLevel = 10;
+constexpr uint32_t kPointsAvailable = 0x471FC4DD; // points_available
+constexpr uint32_t kIsSecret = 0xF3149AC5;        // is_secret
+constexpr uint32_t kIsHeadLocked = 0x09F350E5;    // is_head_locked
+constexpr uint32_t kCasFileName = 0xF36C1878;     // CASFileName
+constexpr uint32_t kTrick = 0x270F56E1;           // trick
+constexpr uint32_t kConfigurableTricks = 0x5004A967; // ConfigurableTricks
+constexpr uint32_t kIsHidden = 0x27EB9B9D;        // is_hidden
+constexpr uint32_t kHasCustomTag = 0xB78D4AAE;    // has_custom_tag
+constexpr uint32_t kLastName = 0x37F745A5;        // last_name
+constexpr uint32_t kVersionNumber = 0x1902C8F0;   // version_number
+constexpr uint32_t kFaceTexture = 0xF0D3BC94;     // FaceTexture
+constexpr uint32_t kTagTexture = 0x4FA8DF27;      // tag_texture
+constexpr uint32_t kStickerTexture = 0x130618A0;  // sticker_texture
+constexpr uint32_t kFileName = 0x2820E997;        // file_name
+constexpr uint32_t kFirstName = 0x562E3ECD;       // first_name
+constexpr uint32_t kOllie = 0x9B65D7B8;           // ollie
+constexpr uint32_t kIsMale = 0x3F813177;          // is_male
+constexpr uint32_t kAir = 0x439F4704;             // air
+constexpr uint32_t kFlipSpeed = 0x6DCB497C;       // flip_speed
+constexpr uint32_t kSwitch = 0x9016B4E7;          // switch
+constexpr uint32_t kRun = 0xAF895B3F;             // run
+constexpr uint32_t kLipBalance = 0xAE798769;      // lip_balance
+constexpr uint32_t kManualBalance = 0xB1FC0722;   // manual_balance
+constexpr uint32_t kSpeed = 0xF0D90109;           // speed
+constexpr uint32_t kSpin = 0xEDF5DB70;            // spin
+constexpr uint32_t kRailBalance = 0xF73A13E3;     // rail_balance
 
 // Names.
 constexpr uint32_t kName = 0xA1DC81F9;        // name
@@ -113,7 +140,7 @@ int RiderIdentity::fetch_tally(uint32_t name)
 }
 bool RiderIdentity::set_ability_level(uint32_t name, int value)
 {
-    if (value < 0 || value > 10)
+    if (value < 0 || value > kMaxAbilityLevel)
         return false;
     details_params()->put_int(checksums::Name{name}, value);
     return true;
@@ -123,14 +150,14 @@ bool RiderIdentity::set_ability_level(uint32_t name, int value)
 bool RiderIdentity::add_to_info_471f_c_4d_d(int amount)
 {
     int value = 0;
-    details_params()->fetch_int_value(0x471FC4DD, &value, 1);
-    details_params()->add_component_of_type(0x471FC4DD, script::kQbvalInteger, static_cast<uint32_t>(value + amount));
+    details_params()->fetch_int_value(kPointsAvailable, &value, 1);
+    details_params()->add_component_of_type(kPointsAvailable, script::kQbvalInteger, static_cast<uint32_t>(value + amount));
     return true;
 }
 int RiderIdentity::get_info_471f_c_4d_d()
 {
     int value = 0;
-    details_params()->fetch_int_value(0x471FC4DD, &value, 1);
+    details_params()->fetch_int_value(kPointsAvailable, &value, 1);
     return value;
 }
 
@@ -187,20 +214,20 @@ bool RiderIdentity::is_pro()
 }
 
 // 0x00586190 / 0x005861A0
-bool RiderIdentity::has_flag_f_3149a_c5() { return details_params()->has_bare_flag(0xF3149AC5); }
+bool RiderIdentity::has_flag_f_3149a_c5() { return details_params()->has_bare_flag(kIsSecret); }
 void RiderIdentity::set_value_09f_350e_5(uint8_t value)
 {
-    details_params()->add_component_of_type(0x09F350E5, script::kQbvalInteger, value);
+    details_params()->add_component_of_type(kIsHeadLocked, script::kQbvalInteger, value);
 }
 
 // 0x005861C0 / 0x005861F0
 const char* RiderIdentity::get_string_f_36c_1878()
 {
     const char* text = "Unimplemented";
-    details_params()->fetch_text(0xF36C1878, &text, 0);
+    details_params()->fetch_text(kCasFileName, &text, 0);
     return text;
 }
-void RiderIdentity::set_string_f_36c_1878(const char* text) { details_params()->append_word(0xF36C1878, text); }
+void RiderIdentity::set_string_f_36c_1878(const char* text) { details_params()->append_word(kCasFileName, text); }
 
 // 0x00586210
 const char* RiderIdentity::fetch_shown_name()
@@ -258,7 +285,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
         // The current skater's trick state told.
         auto* skater = modules::Skate::sole()->get_home_rider();
         if (skater)
-            core::down_cast<MoveExecutor>(skater->fetch_module(0x270F56E1))->apply_trick_bindings(this);
+            core::down_cast<MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(this);
     }
     return true;
 }
@@ -274,7 +301,7 @@ ChecksumSet::ChecksumSet() = default;
 void ChecksumSet::get_fill()
 {
     num_ = 0;
-    script::Array* array = script::fetch_list(0x5004A967);
+    script::Array* array = script::fetch_list(kConfigurableTricks);
     for (uint32_t i = 0; i < array->extent(); ++i) {
         const uint32_t item = array->fetch_part(i);
         int j = 0;
@@ -311,14 +338,14 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
             mine->append_word(name, text);
         }
         for (const uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
-            params->fetch_int_value(name, &number, name != 0x27EB9B9D);
+            params->fetch_int_value(name, &number, name != kIsHidden);
             mine->put_int(checksums::Name{name}, static_cast<int>(number));
         }
         params->read_hash_value(kName, &checksum, 1);
         mine->put_name_key(checksums::Name{kName}, checksum);
         if (checksum == kCustomSkater) {
-            params->fetch_int_value(0xB78D4AAE, &number, 1);
-            mine->put_int(checksums::Name{0xB78D4AAE}, static_cast<int>(number));
+            params->fetch_int_value(kHasCustomTag, &number, 1);
+            mine->put_int(checksums::Name{kHasCustomTag}, static_cast<int>(number));
         }
         for (const uint32_t name : {kStance, kPushStyle, 0xDFD4043Eu}) {
             params->read_hash_value(name, &checksum, 1);
@@ -359,8 +386,8 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
         mine->put_int(checksums::Name{stat_name}, stat);
     }
     int points = 0;
-    params->fetch_int_value(0x471FC4DD, &points, 1);
-    mine->put_int(checksums::Name{0x471FC4DD}, points);
+    params->fetch_int_value(kPointsAvailable, &points, 1);
+    mine->put_int(checksums::Name{kPointsAvailable}, points);
     return true;
 }
 
@@ -400,7 +427,7 @@ bool RiderIdentity::get_reset(script::Struct* params)
     mine->read_hash_value(kName, &name, 1);
     if (name != kCustomSkater) {
         const char* unused = nullptr; // (read, unused)
-        mine->fetch_text(0x37F745A5, &unused, 1);
+        mine->fetch_text(kLastName, &unused, 1);
     }
     return true;
 }
@@ -409,7 +436,7 @@ bool RiderIdentity::get_reset(script::Struct* params)
 void RiderIdentity::write_to_save(script::Struct* save)
 {
     gsl::owner<script::Struct*> mine = script::new_struct();
-    mine->add_component_of_type(0x1902C8F0, script::kQbvalInteger, 2); // the version
+    mine->add_component_of_type(kVersionNumber, script::kQbvalInteger, 2); // the version
     int pro = 0; // (the original's: the slot's last value - a structure's address)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
@@ -421,7 +448,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
     if (face && static_cast<gfx::FaceSkin*>(face)->is_sound()) {
         gsl::owner<script::Struct*> texture = script::new_struct();
         static_cast<gfx::FaceSkin*>(face)->save_to_structure(texture);
-        mine->append_struct_ref(0xF0D3BC94, texture);
+        mine->append_struct_ref(kFaceTexture, texture);
     }
     gsl::owner<script::Struct*> info = script::new_struct();
     info->append_structure_if_any(details_params());
@@ -503,11 +530,11 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
     for (script::Component* c = mine->step_to_entry(nullptr); c;) {
         script::Component* next = mine->step_to_entry(c);
         switch (c->name) {
-        case 0x4FA8DF27:
+        case kTagTexture:
         case kDisplayName:
-        case 0x130618A0:
-        case 0x2820E997:
-        case 0x562E3ECD:
+        case kStickerTexture:
+        case kFileName:
+        case kFirstName:
             sent->append_word(c->name, script::kQbvalString, c->value.text());
             break;
         case kStance:
@@ -515,19 +542,19 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case kName:
             sent->add_component_of_type(c->name, script::kQbvalName, c->value.word());
             break;
-        case 0x9B65D7B8:
-        case 0x3F813177:
-        case 0x439F4704:
-        case 0x6DCB497C:
-        case 0x9016B4E7:
-        case 0xAF895B3F:
-        case 0xAE798769:
-        case 0xB1FC0722:
-        case 0xB78D4AAE:
-        case 0xF0D90109:
+        case kOllie:
+        case kIsMale:
+        case kAir:
+        case kFlipSpeed:
+        case kSwitch:
+        case kRun:
+        case kLipBalance:
+        case kManualBalance:
+        case kHasCustomTag:
+        case kSpeed:
         case kIsPro:
-        case 0xEDF5DB70:
-        case 0xF73A13E3:
+        case kSpin:
+        case kRailBalance:
             sent->add_component_of_type(c->name, script::kQbvalInteger, c->value.word());
             break;
         default:

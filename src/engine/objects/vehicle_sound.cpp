@@ -28,6 +28,24 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kEngineSound = 0x2A19E830; // engine_sound
+constexpr uint32_t kTireSound = 0xE798FE80; // tire_sound
+constexpr uint32_t kHash36FA68D2 = 0x36FA68D2; // (text unknown)
+constexpr uint32_t kEngineSoundName = 0x306F8A9F; // EngineSound
+constexpr uint32_t kTireSoundName = 0x667FA96A; // TireSound
+constexpr uint32_t kGears = 0x83273E6B; // Gears
+constexpr uint32_t kUpshiftPoint = 0xFAD20901; // UpshiftPoint
+constexpr uint32_t kDownshiftPoint = 0xFCF5C8A2; // DownshiftPoint
+constexpr uint32_t kBottomRPM = 0x735B5CE4; // BottomRPM
+constexpr uint32_t kTopRPM = 0xE59A89A6; // TopRPM
+constexpr uint32_t kCollideSound = 0xBF8E0ACE; // CollideSound
+constexpr uint32_t kCAGEngineSound = 0xF5406E1A; // CAGEngineSound
+constexpr uint32_t kCAGTireSound = 0x060E93A2; // CAGTireSound
+constexpr uint32_t kCAGCollideSound = 0x22995285; // CAGCollideSound
+constexpr uint32_t kIdleEngineEffectiveSpeedFactor = 0xEC67BC97; // idle_engine_effective_speed_factor
+constexpr uint32_t kPercentName = 0x9E497FC6; // Percent
+constexpr uint32_t kStrength = 0x29461E27; // Strength
+constexpr uint32_t kHashC4A60423 = 0xC4A60423; // (text unknown)
 
 constexpr uint32_t kVehicle = 0xE47F1B79;
 constexpr uint32_t kSound = 0x07713C7B;
@@ -133,9 +151,9 @@ void EngineAudioModule::tick_frame()
 // 0x0043C540
 void EngineAudioModule::fetch_diagnostics(script::Struct* info)
 {
-    info->put_name_key(checksums::Name{0x2A19E830}, engine_sound_name_);
-    info->put_name_key(checksums::Name{0xE798FE80}, skid_sound_name_);
-    info->put_sub_struct(0x36FA68D2, collide_sound_);
+    info->put_name_key(checksums::Name{kEngineSound}, engine_sound_name_);
+    info->put_name_key(checksums::Name{kTireSound}, skid_sound_name_);
+    info->put_sub_struct(kHash36FA68D2, collide_sound_);
     // (then the base's fetch_diagnostics, which is empty: 0x005BAB90)
 }
 
@@ -143,24 +161,24 @@ void EngineAudioModule::fetch_diagnostics(script::Struct* info)
 void EngineAudioModule::read_settings()
 {
     script::read_sub_struct(kAllSettings)->read_sub_struct(vehicle_ptr_->sounds_name(), &settings_, 1);
-    settings_->read_hash_value(0x306F8A9F, &engine_sound_name_, 0);
-    settings_->read_hash_value(0x667FA96A, &skid_sound_name_, 0);
+    settings_->read_hash_value(kEngineSoundName, &engine_sound_name_, 0);
+    settings_->read_hash_value(kTireSoundName, &skid_sound_name_, 0);
     script::Array* gears = nullptr;
-    settings_->fetch_list(0x83273E6B, &gears, 1);
+    settings_->fetch_list(kGears, &gears, 1);
     gear_count_ = static_cast<int>(gears->extent());
     for (int i = 0; i < gear_count_; ++i) {
         auto* gear = gears->struct_at(static_cast<uint32_t>(i));
-        gear->fetch_float(0xFAD20901, &core::at(gear_steps_, i).up_at_, 1);
-        gear->fetch_float(0xFCF5C8A2, &core::at(gear_steps_, i).down_at_, 1);
-        gear->fetch_float(0x735B5CE4, &core::at(gear_steps_, i).low_rpm_, 1);
-        gear->fetch_float(0xE59A89A6, &core::at(gear_steps_, i).high_rpm_, 1);
+        gear->fetch_float(kUpshiftPoint, &core::at(gear_steps_, i).up_at_, 1);
+        gear->fetch_float(kDownshiftPoint, &core::at(gear_steps_, i).down_at_, 1);
+        gear->fetch_float(kBottomRPM, &core::at(gear_steps_, i).low_rpm_, 1);
+        gear->fetch_float(kTopRPM, &core::at(gear_steps_, i).high_rpm_, 1);
     }
-    settings_->read_sub_struct(0xBF8E0ACE, &collide_sound_, 1);
+    settings_->read_sub_struct(kCollideSound, &collide_sound_, 1);
     if (park_editor_level_) {
         script::Struct* park = script::read_sub_struct(kRates);
-        park->read_hash_value(0xF5406E1A, &engine_sound_name_, 1);
-        park->read_hash_value(0x060E93A2, &skid_sound_name_, 1);
-        park->read_sub_struct(0x22995285, &collide_sound_, 1);
+        park->read_hash_value(kCAGEngineSound, &engine_sound_name_, 1);
+        park->read_hash_value(kCAGTireSound, &skid_sound_name_, 1);
+        park->read_sub_struct(kCAGCollideSound, &collide_sound_, 1);
     }
 }
 
@@ -181,7 +199,7 @@ void EngineAudioModule::tick_engine()
     }
     auto speed = static_cast<float>(slowest * kToMph);
     if (!(vehicle->throttle() || vehicle->get_reverse()) || vehicle->brake())
-        speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
+        speed = static_cast<float>(get_rate(kIdleEngineEffectiveSpeedFactor) * static_cast<double>(speed));
 
     // The speed eased towards the wheels', each step limited by the rates (as the original compares them, a step
     // the wrong way is kept and one the right way isn't).
@@ -310,7 +328,7 @@ void EngineAudioModule::update_collide_sound()
     const float cutoff = get_rate(0xF6981837);
     if (!(strength > cutoff))
         return;
-    collide_sound_->push_float(checksums::Name{0x9E497FC6}, static_cast<float>(strength * kPercent));
+    collide_sound_->push_float(checksums::Name{kPercentName}, static_cast<float>(strength * kPercent));
     play_sound_from_structure(sound_ptr_, collide_sound_);
     collide_time_ = get_now(frame_clock::game_clock_elapsed());
 
@@ -318,8 +336,8 @@ void EngineAudioModule::update_collide_sound()
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
-    event->push_float(checksums::Name{0x29461E27}, level);
-    vehicle_ptr_->rider_ref()->post_own_event(0xC4A60423, event);
+    event->push_float(checksums::Name{kStrength}, level);
+    vehicle_ptr_->rider_ref()->post_own_event(kHashC4A60423, event);
     if (event) {
         event->get_clear();
         script::delete_struct(event);

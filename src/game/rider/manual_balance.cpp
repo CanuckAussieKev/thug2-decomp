@@ -32,6 +32,14 @@
 namespace objects {
 
 namespace {
+constexpr float kRobotRunTime = 0.5f;
+constexpr double kHalf = 0.5;
+constexpr float kBailFraction = 0.9f;
+constexpr float kCheeseFloor = 0.01f;
+constexpr int kShakeRange = 50;
+constexpr float kShakeScale = 0.01f;
+constexpr float kPositionToUnits = 0.0001220703125f; // 1 / 8192
+constexpr float kLeanToUnits = 0.000244140625f;      // 1 / 4096
 
 // Names.
 constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3;
@@ -192,15 +200,15 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
         rail_ = static_cast<int>(static_cast<GrindPoint*>(rail)->label());
         // A robot rail: a short run (under half a second) gets time and a nudge.
         const float run_time = score_display(points_held_)->robot_factor();
-        if (run_time < 0.5f) {
+        if (run_time < kRobotRunTime) {
             auto inverse = static_cast<float>(1.0 / run_time);
             on_rail_seconds_ = static_cast<float>(
-                script::fetch_float(kRobotRailAddTime) * static_cast<double>(inverse) * 0.5 + on_rail_seconds_);
+                script::fetch_float(kRobotRailAddTime) * static_cast<double>(inverse) * kHalf + on_rail_seconds_);
             float side = -1.0f;
             if (!(lean_speed_ < 0.0f))
                 side = 1.0f;
             lean_ = static_cast<float>(
-                script::fetch_float(kRobotRailNudge) * static_cast<double>(inverse) * side * 0.5 + lean_);
+                script::fetch_float(kRobotRailNudge) * static_cast<double>(inverse) * side * kHalf + lean_);
         }
     }
     auto repeat_min = static_cast<float>(get_physics(balance_trick_, kRepeatMin));
@@ -223,7 +231,7 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
     const double bail = get_physics(balance_trick_, kLeanBailAngle);
     if (std::fabs(lean_) > bail) {
         // Kept just inside the bail angle, leaning the way it speeds.
-        auto limit = static_cast<float>(0.9f * bail);
+        auto limit = static_cast<float>(kBailFraction * bail);
         lean_ = limit;
         double side = lean_speed_ < 0.0f ? -1.0 : 1.0;
         lean_ = static_cast<float>(std::fabs(limit) * side);
@@ -245,7 +253,7 @@ void Balance::tick_frame()
     if (net->host())                                                           // (the folded getter 0x005480C0)
         net->find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident())); // (its result unused)
     // The cheese wears off.
-    if (cheese_ > 0.01f) {
+    if (cheese_ > kCheeseFloor) {
         auto cheese = static_cast<float>(get_physics(balance_trick_, kCheese));
         const double wear = cheese / get_physics(balance_trick_, kCheeseFrames) * frame * kFrames;
         const double left = cheese_ - wear;
@@ -293,8 +301,8 @@ void Balance::tick_frame()
             auto shake = static_cast<float>(maths::rnd(range));
             lean_speed_ = static_cast<float>(maths::get_sign(lean_speed_) * shake);
         } else {
-            auto shake = static_cast<float>(maths::rnd(50));
-            lean_speed_ = static_cast<float>(maths::get_sign(lean_speed_) * shake * 0.01f + lean_speed_);
+            auto shake = static_cast<float>(maths::rnd(kShakeRange));
+            lean_speed_ = static_cast<float>(maths::get_sign(lean_speed_) * shake * kShakeScale + lean_speed_);
         }
     }
     if (!skater_->own_script()) {
@@ -318,10 +326,10 @@ void Balance::tick_frame()
         if (ObjectModule* blender = skater_->fetch_module(kAnimBlender)) {
             const double position = flip ? 4096.0 - lean_ : lean_ + 4096.0;
             core::down_cast<AnimBlenderComponent>(blender)->first_channel_47e_280(
-                static_cast<float>(position * 0.0001220703125f), 1);
+                static_cast<float>(position * kPositionToUnits), 1);
         }
     }
-    auto shown = static_cast<float>(lean_ * -0.000244140625f);
+    auto shown = static_cast<float>(lean_ * -kLeanToUnits);
     if (hide_display_ || !get_trick_type(balance_trick_))
         return;
     const bool up_down =

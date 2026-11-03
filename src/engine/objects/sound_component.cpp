@@ -24,11 +24,33 @@
 #include "engine/core/checked_index.h"
 
 namespace objects {
+namespace {
+constexpr int kSoundTypeCount = 8;
+constexpr uint32_t kObjPlaySound = 0xAFA20E18; // Obj_PlaySound
+constexpr uint32_t kSound = 0x07713C7B; // Sound
+constexpr uint32_t kProximNode = 0x08470F2E; // ProximNode
+constexpr uint32_t kVol = 0xF6A36814; // Vol
+constexpr uint32_t kPitch = 0xD8604126; // Pitch
+constexpr uint32_t kPercentName = 0x9E497FC6; // Percent
+constexpr uint32_t kMaxVol = 0x0693DAAF; // maxVol
+constexpr uint32_t kMinVol = 0x4391992D; // minVol
+constexpr uint32_t kMaxPitch = 0xFA3E14C5; // maxPitch
+constexpr uint32_t kMinPitch = 0x1C5EBB24; // minPitch
+constexpr uint32_t kDropoff = 0xFF2020EC; // Dropoff
+constexpr uint32_t kDropoffFunction = 0x0C6AC50A; // dropoff_function
+constexpr uint32_t kNoPosUpdate = 0xBB39837F; // NoPosUpdate
+constexpr uint32_t kEmitter = 0x8A7132CE; // Emitter
+constexpr uint32_t kVolumePercent = 0x330F3415; // volumePercent
+constexpr uint32_t kVolumeStep = 0xDAA9A3C2; // volumeStep
+constexpr uint32_t kPitchPercent = 0xEE616C13; // pitchPercent
+constexpr uint32_t kPitchStep = 0x7B090774; // pitchStep
+constexpr uint32_t kTypeName = 0x7321A8D6; // Type
+} // namespace
 
 std::array<script::MemberFunctionEntry, 2>& sound_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 2> sound_component_member_functions{{
-        {.callsign_ = 0xAFA20E18, .owner_kind_ = 0x07713C7B}, {.callsign_ = 0, .owner_kind_ = 0x07713C7B}}};
+        {.callsign_ = kObjPlaySound, .owner_kind_ = kSound}, {.callsign_ = 0, .owner_kind_ = kSound}}};
     return sound_component_member_functions;
 }
 
@@ -89,7 +111,7 @@ AudioEmitterModule::~AudioEmitterModule() { audio_mixer_handle()->stop_object_so
 void AudioEmitterModule::configure_from_data(script::Struct* params)
 {
     uint32_t node = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
+    if (params->read_hash_value(kProximNode, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }
 
@@ -231,27 +253,27 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
     bool keep_placement = false;
     int falloff = 0;
     params->read_hash_value(0u, &sound, 0);
-    params->fetch_float(0xF6A36814, &volume, 0); // vol
-    params->fetch_float(0xD8604126, &pitch, 0);  // pitch
-    if (params->has_entry_named(0x9E497FC6)) {   // Percent: between the min and max
+    params->fetch_float(kVol, &volume, 0); // vol
+    params->fetch_float(kPitch, &pitch, 0);  // pitch
+    if (params->has_entry_named(kPercentName)) {   // Percent: between the min and max
         float min_volume = 0.0f, max_volume = 100.0f, min_pitch = 100.0f, max_pitch = 100.0f, percent = 0.0f;
-        params->fetch_float(0x0693DAAF, &max_volume, 0); // maxVol
-        params->fetch_float(0x4391992D, &min_volume, 0); // floor_loudness_
-        params->fetch_float(0xFA3E14C5, &max_pitch, 0);  // maxPitch
-        params->fetch_float(0x1C5EBB24, &min_pitch, 0);  // minPitch
-        params->fetch_float(0x9E497FC6, &percent, 1);    // Percent
+        params->fetch_float(kMaxVol, &max_volume, 0); // maxVol
+        params->fetch_float(kMinVol, &min_volume, 0); // floor_loudness_
+        params->fetch_float(kMaxPitch, &max_pitch, 0);  // maxPitch
+        params->fetch_float(kMinPitch, &min_pitch, 0);  // minPitch
+        params->fetch_float(kPercentName, &percent, 1);    // Percent
         const double fraction = static_cast<double>(percent) * kPercent;
         volume = static_cast<float>((static_cast<double>(max_volume) - min_volume) * fraction + min_volume);
         pitch = static_cast<float>((static_cast<double>(max_pitch) - min_pitch) * fraction + min_pitch);
     }
-    if (params->fetch_float(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
+    if (params->fetch_float(kDropoff, &dropoff, 0)) // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
     uint32_t function = 0;                                 // (the original's slot holds Percent's value, or garbage)
-    if (params->read_hash_value(0x0C6AC50A, &function, 0)) // dropoff_function
+    if (params->read_hash_value(kDropoffFunction, &function, 0)) // dropoff_function
         falloff = sound::falloff_from_checksum(function);
-    if (params->has_bare_flag(0xBB39837F)) // NoPosUpdate
+    if (params->has_bare_flag(kNoPosUpdate)) // NoPosUpdate
         keep_placement = true;
-    if (params->read_hash_value(0x8A7132CE, &emitter, 0)) // emitter
+    if (params->read_hash_value(kEmitter, &emitter, 0)) // emitter
         spewer_ = emitter_get_node(emitter);
     else
         spewer_ = nullptr;
@@ -259,7 +281,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
         // The sound set for a type (Obj_SetSound). (Read into the parameters' own argument slot.)
         int type = -1;
         params->fetch_int_value("Type", &type, 0);
-        if (type == -1 || type > 8)
+        if (type == -1 || type > kSoundTypeCount)
             return;
         sound = core::at(sound_cues_, type); // (type 8 reads the first waiting sound's checksum, as the original)
         if (!sound)
@@ -288,14 +310,14 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
         if (!props)
             return;
     }
-    if (params->fetch_float(0x330F3415, &loudness_percent, 0)) { // loudness_percent
+    if (params->fetch_float(kVolumePercent, &loudness_percent, 0)) { // loudness_percent
         props->volume3 = static_cast<float>(static_cast<double>(loudness_percent) * props->volume2 * kPercent);
-        if (!params->fetch_float(0xDAA9A3C2, (&props->unknown24), 0)) // volumeStep
+        if (!params->fetch_float(kVolumeStep, (&props->unknown24), 0)) // volumeStep
             props->volume = props->volume3;
     }
-    if (params->fetch_float(0xEE616C13, &pitch_percent, 0)) { // pitchPercent
+    if (params->fetch_float(kPitchPercent, &pitch_percent, 0)) { // pitchPercent
         props->pitch3 = static_cast<float>(static_cast<double>(pitch_percent) * props->pitch2 * kPercent);
-        if (!params->fetch_float(0x7B090774, (&props->unknown20), 0)) // pitchStep
+        if (!params->fetch_float(kPitchStep, (&props->unknown20), 0)) // pitchStep
             props->pitch = props->pitch3;
     }
 }
@@ -305,9 +327,9 @@ void AudioEmitterModule::assign_sound_cue(script::Struct* params)
 {
     int type = -1;
     uint32_t sound = 0;
-    params->fetch_int_value(0x7321A8D6, &type, 0); // type
+    params->fetch_int_value(kTypeName, &type, 0); // type
     params->read_hash_value(0u, &sound, 0);
-    if (type != -1 && sound && type <= 8)
+    if (type != -1 && sound && type <= kSoundTypeCount)
         core::at(sound_cues_, type) = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
 }
 

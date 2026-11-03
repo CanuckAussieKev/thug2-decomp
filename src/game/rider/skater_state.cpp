@@ -23,15 +23,37 @@
 #include "engine/core/checked_index.h"
 
 namespace objects {
+namespace {
+constexpr int kWrapShift = 16;                      // a frame's clock wraps are the high half
+constexpr uint32_t kOnGround = 0x5EA287F2; // OnGround
+constexpr uint32_t kSkaterStateName = 0x43686585; // SkaterState
+constexpr uint32_t kInAir = 0x3527FC07; // InAir
+constexpr uint32_t kOnWall = 0xA32C1A15; // OnWall
+constexpr uint32_t kOnLip = 0x5CB1FBD8; // OnLip
+constexpr uint32_t kOnRail = 0xE9851E62; // OnRail
+constexpr uint32_t kHashA64DCF8B = 0xA64DCF8B; // (text unknown)
+constexpr uint32_t kHash1AB2389B = 0x1AB2389B; // (text unknown)
+constexpr uint32_t kWalkingName = 0x57BFBAE8; // Walking
+constexpr uint32_t kSkatingName = 0xF2813EE5; // Skating
+constexpr uint32_t kDriving = 0xEE584CBC; // Driving
+constexpr uint32_t kSetDriving = 0xB32E9EAE; // SetDriving
+constexpr uint32_t kUnsetDriving = 0x953A7B6D; // UnsetDriving
+constexpr uint32_t kDoingTrick = 0x58AD903F; // DoingTrick
+constexpr uint32_t kHasPowerup = 0xB07AC662; // HasPowerup
+constexpr uint32_t kPickeduppowerup = 0x0E11B7CA; // pickeduppowerup
+constexpr uint32_t kGetTerrain = 0x44BA5FCE; // GetTerrain
+constexpr uint32_t kGetSparksPos = 0xE0645004; // GetSparksPos
+constexpr uint32_t kSetSparksPos = 0xEF7A8687; // SetSparksPos
+} // namespace
 
-std::array<script::MemberFunctionEntry, 19>& skater_state_member_functions()
+std::array<script::MemberFunctionEntry, kSkaterStateMemberFunctionCount>& skater_state_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 19> skater_state_member_functions{{
-        {.callsign_ = 0x5EA287F2, .owner_kind_ = 0x43686585}, {.callsign_ = 0x3527FC07, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA32C1A15, .owner_kind_ = 0x43686585}, {.callsign_ = 0x5CB1FBD8, .owner_kind_ = 0x43686585},
-        {.callsign_ = 0xE9851E62, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA64DCF8B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x1AB2389B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x57BFBAE8, .owner_kind_ = 0x43686585},
-        {.callsign_ = 0xF2813EE5, .owner_kind_ = 0x43686585}, {.callsign_ = 0xEE584CBC, .owner_kind_ = 0x43686585}, {.callsign_ = 0xB32E9EAE, .owner_kind_ = 0x43686585}, {.callsign_ = 0x953A7B6D, .owner_kind_ = 0x43686585},
-        {.callsign_ = 0x58AD903F, .owner_kind_ = 0x43686585}, {.callsign_ = 0xB07AC662, .owner_kind_ = 0x43686585}, {.callsign_ = 0x0E11B7CA, .owner_kind_ = 0x43686585}, {.callsign_ = 0x44BA5FCE, .owner_kind_ = 0x43686585},
-        {.callsign_ = 0xE0645004, .owner_kind_ = 0x43686585}, {.callsign_ = 0xEF7A8687, .owner_kind_ = 0x43686585}, {.callsign_ = 0, .owner_kind_ = 0x43686585}}};
+    static std::array<script::MemberFunctionEntry, kSkaterStateMemberFunctionCount> skater_state_member_functions{{
+        {.callsign_ = kOnGround, .owner_kind_ = kSkaterStateName}, {.callsign_ = kInAir, .owner_kind_ = kSkaterStateName}, {.callsign_ = kOnWall, .owner_kind_ = kSkaterStateName}, {.callsign_ = kOnLip, .owner_kind_ = kSkaterStateName},
+        {.callsign_ = kOnRail, .owner_kind_ = kSkaterStateName}, {.callsign_ = kHashA64DCF8B, .owner_kind_ = kSkaterStateName}, {.callsign_ = kHash1AB2389B, .owner_kind_ = kSkaterStateName}, {.callsign_ = kWalkingName, .owner_kind_ = kSkaterStateName},
+        {.callsign_ = kSkatingName, .owner_kind_ = kSkaterStateName}, {.callsign_ = kDriving, .owner_kind_ = kSkaterStateName}, {.callsign_ = kSetDriving, .owner_kind_ = kSkaterStateName}, {.callsign_ = kUnsetDriving, .owner_kind_ = kSkaterStateName},
+        {.callsign_ = kDoingTrick, .owner_kind_ = kSkaterStateName}, {.callsign_ = kHasPowerup, .owner_kind_ = kSkaterStateName}, {.callsign_ = kPickeduppowerup, .owner_kind_ = kSkaterStateName}, {.callsign_ = kGetTerrain, .owner_kind_ = kSkaterStateName},
+        {.callsign_ = kGetSparksPos, .owner_kind_ = kSkaterStateName}, {.callsign_ = kSetSparksPos, .owner_kind_ = kSkaterStateName}, {.callsign_ = 0, .owner_kind_ = kSkaterStateName}}};
     return skater_state_member_functions;
 }
 
@@ -199,14 +221,14 @@ bool RiderPoseState::set_sparks_pos(script::Struct* params, script::Script*)
 // 0x005197D0
 uint32_t get_time(SkaterStateHistoryFrame& frame)
 {
-    return static_cast<uint32_t>(frame.wraps) << 16 | frame.time;
+    return static_cast<uint32_t>(frame.wraps) << kWrapShift | frame.time;
 }
 
 // 0x005197E0
 void change_moment(SkaterStateHistoryFrame& frame, uint32_t stamp)
 {
     frame.time = static_cast<uint16_t>(stamp);
-    frame.wraps = static_cast<uint16_t>(stamp >> 16);
+    frame.wraps = static_cast<uint16_t>(stamp >> kWrapShift);
 }
 
 // 0x005197C0 (0x00519840 the deleting one)

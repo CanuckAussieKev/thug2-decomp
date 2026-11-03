@@ -2,6 +2,7 @@
 // collision_events.h).
 
 #include "game/rider/collision_events.h"
+#include "game/rider/core_physics.h"
 
 #include <windows.h>
 
@@ -40,6 +41,31 @@
 namespace skater::collision_events {
 
 namespace {
+constexpr std::size_t kSpotCapacity = 32;
+constexpr std::size_t kShortTextBytes = 16;
+constexpr std::size_t kLoadPrefixLength = 5;      // "Load_"
+constexpr std::size_t kFileTextBytes = 64;
+constexpr int kHighWordShift = 32;
+constexpr double kDegreesPerHalfTurn = 180.0;
+constexpr double kPiDecimal = 3.14159265358979;
+constexpr float kSamePointDistanceSq = 0.25f;     // two hits closer than this (squared, in feet) are one spot
+constexpr float kFloorNormalMinY = 0.5f;          // a face leaning less than this is not a floor
+constexpr float kHalf = 0.5f;
+constexpr float kProbeOffsetDistance = 6.0f;      // how far from the edge the probe pair is placed
+constexpr int kStateNameCount = 6;
+constexpr std::size_t kLineTextBytes = 160;
+constexpr float kJitterFraction = 0.02f;
+constexpr std::size_t kNoteBytes = 64;
+constexpr int kHistoryOldestAge = 50;             // frames back the history is shown from
+constexpr int kHistoryAgeStep = 10;
+constexpr std::size_t kAgeTextBytes = 64;
+constexpr std::size_t kNoticeBytes = 96;
+constexpr int kPadButtonCount = 16;
+constexpr unsigned kPadButtonStride = 0x20u;
+constexpr std::size_t kReportBytes = 256;
+constexpr std::size_t kReportLineBytes = 96;
+constexpr std::size_t kHeadBytes = 160;
+constexpr int kProbeFaceLimit = 6;
 
 using namespace physics;
 
@@ -142,7 +168,7 @@ struct Spot {
 };
 // NOT ORIGINAL - the spots' ring and the slot for the next. Made on first use, never destroyed (spot_ring()).
 struct SpotRing {
-    std::array<Spot, 32> spots_{};
+    std::array<Spot, kSpotCapacity> spots_{};
     int spot_next_ = 0;
 };
 SpotRing& spot_ring()
@@ -183,7 +209,7 @@ std::string get_name_of(uint32_t checksum)
     const char* name = script::kept_qb_name(checksum);
     if (!name)
         name = script::look_up_hash_name(checksum);
-    std::array<char, 16> text{};
+    std::array<char, kShortTextBytes> text{};
     if (!name) {
         text::format_to(text, "0x%08X", checksum);
         return text.data();
@@ -203,8 +229,8 @@ std::string get_level_name()
     if (!load)
         return "-";
     std::string name = get_name_of(load);
-    if (name.size() > 5 && _strnicmp(name.c_str(), "Load_", 5) == 0)
-        name.erase(0, 5);
+    if (name.size() > kLoadPrefixLength && _strnicmp(name.c_str(), "Load_", kLoadPrefixLength) == 0)
+        name.erase(0, kLoadPrefixLength);
     return name;
 }
 
@@ -218,9 +244,9 @@ std::string file_stamp(const std::string& path)
     SYSTEMTIME t;
     if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t))
         return {};
-    std::array<char, 64> text{};
+    std::array<char, kFileTextBytes> text{};
     text::format_to(text, "%llu@%04u-%02u-%02uT%02u:%02u:%02u",
-                    (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow, t.wYear, t.wMonth,
+                    (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow, t.wYear, t.wMonth,
                     t.wDay, t.wHour, t.wMinute, t.wSecond);
     return text.data();
 }
@@ -256,8 +282,8 @@ float get_horizontal(const std::array<float, 3>& v, std::array<float, 2>& direct
 
 float get_heading_of(const std::array<float, 3>& facing)
 {
-    return static_cast<float>(std::atan2(static_cast<double>(facing.front()), static_cast<double>(facing.back())) * 180.0 /
-                              3.14159265358979);
+    return static_cast<float>(std::atan2(static_cast<double>(facing.front()), static_cast<double>(facing.back())) * kDegreesPerHalfTurn /
+                              kPiDecimal);
 }
 
 const Sample& sample_at(int age) // 0: the newest
@@ -279,7 +305,7 @@ Face get_probe(const std::array<float, 3>& from, const std::array<float, 3>& to,
     const maths::Vec4 end = {.x = std::get<0>(to), .y = std::get<1>(to), .z = std::get<2>(to), .w = 1.0f};
     render::ProbeRay ray_storage(&start, &end);
     render::ProbeRay* feeler = &ray_storage;
-    feeler->set_excluded({.ignore = static_cast<uint16_t>(everything ? 0 : 0x10), .require = 0});
+    feeler->set_excluded({.ignore = static_cast<uint16_t>(everything ? 0 : skater::kProbeIgnoreFlags), .require = 0});
     feeler->get_hit_shape(true, false);
     return face_of(*feeler);
 }
@@ -369,7 +395,7 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         const float dx = v.x - core::at(raw, k).x;
         const float dy = v.y - core::at(raw, k).y;
         const float dz = v.z - core::at(raw, k).z;
-        return dx * dx + dy * dy + dz * dz < 0.25f;
+        return dx * dx + dy * dy + dz * dz < kSamePointDistanceSq;
     };
     for (int j = 0; std::cmp_less(j, geometry->tri_count()); ++j) {
         if (j == face.index)
@@ -387,7 +413,7 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     }
     // None in its object: for ground (a face facing up), anything (another object's) just beyond the edge's middle,
     // away from the third corner? (A wall's edges aren't judged: open stays unknown.)
-    if (core::at(face.normal, 1) < 0.5f)
+    if (core::at(face.normal, 1) < kFloorNormalMinY)
         return;
     const std::array<float, 3>& pa = core::at(detail->corners, a);
     const std::array<float, 3>& pb = core::at(detail->corners, b);
@@ -402,7 +428,7 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         return;
     std::array<float, 3> q{};
     for (int k = 0; k < 3; ++k)
-        core::at(q, k) = (core::at(pa, k) + core::at(pb, k)) * 0.5f + core::at(out, k) / length * 6.0f;
+        core::at(q, k) = (core::at(pa, k) + core::at(pb, k)) * kHalf + core::at(out, k) / length * kProbeOffsetDistance;
     const std::array<float, 3> high = {core::at(q, 0), core::at(q, 1) + 24.0f, core::at(q, 2)};
     const std::array<float, 3> low = {core::at(q, 0), core::at(q, 1) - 48.0f, core::at(q, 2)};
     detail->edge_open_ = get_probe(high, low, false).hit ? 0 : 1;
@@ -411,12 +437,12 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
 const char* get_state_name(int state)
 {
     static const auto kNames = std::to_array<const char*>({"ground", "air", "wallride", "lip", "rail", "wallplant"});
-    return state >= 0 && state < 6 ? core::at(kNames, state) : "-";
+    return state >= 0 && state < kStateNameCount ? core::at(kNames, state) : "-";
 }
 char state_letter(int state)
 {
     constexpr std::string_view kLetters = "gawlrp";
-    return state >= 0 && state < 6 ? core::at(kLetters, state) : '?';
+    return state >= 0 && state < kStateNameCount ? core::at(kLetters, state) : '?';
 }
 
 const char* balance_name(uint32_t kind)
@@ -484,7 +510,7 @@ void get_emit(int before)
             continue;
         const bool against = core::at(mark.vel, 0) * core::at(dir_old, 0) + core::at(mark.vel, 2) * core::at(dir_old, 1) < 0.0f;
         if (against && previous) {
-            std::array<char, 160> text{};
+            std::array<char, kLineTextBytes> text{};
             text::format_to(text, "%s>%s@%u", previous->label, mark.label, mark.frame);
             event.flipped = text.data();
             flip = &mark;
@@ -499,7 +525,7 @@ void get_emit(int before)
                 size += core::at(previous->vel, k) * core::at(previous->vel, k);
             }
             if (std::strcmp(previous->label, "update-rest") == 0 && std::strcmp(mark.label, "update-start") == 0 &&
-                std::sqrt(sum) < 0.02f * std::sqrt(size) + 1.0f)
+                std::sqrt(sum) < kJitterFraction * std::sqrt(size) + 1.0f)
                 uber_frig = true;
             break;
         }
@@ -566,7 +592,7 @@ void get_emit(int before)
     static const bool kShots = config_int("debug", "collision_event_screenshots", 1) != 0;
     event.screenshot = "-";
     if (kShots) {
-        std::array<char, 64> note{};
+        std::array<char, kNoteBytes> note{};
         text::format_to(note, "collision event %d", event.number);
         event.screenshot = sys::screenshot::request_event_shot(note.data()) ? "requested" : "busy";
     }
@@ -591,11 +617,11 @@ void get_emit(int before)
     detail.col_file_ = col_file_stamp();
     detail.scn_file_ = scn_file_stamp();
     detail.approach.clear();
-    for (int age = 50; age >= 0; age -= 10) {
+    for (int age = kHistoryOldestAge; age >= 0; age -= kHistoryAgeStep) {
         if (age >= collision_events_state().sample_total_)
             continue;
         const Sample& s = sample_at(age);
-        std::array<char, 64> text{};
+        std::array<char, kAgeTextBytes> text{};
         text::format_to(text, "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", core::at(s.pos, 0),
                         core::at(s.pos, 1), core::at(s.pos, 2), state_letter(s.state));
         detail.approach += text.data();
@@ -605,7 +631,7 @@ void get_emit(int before)
     get_log("%s", format_event(event, &get_name_of).c_str());
     get_log("%s", format_detail(detail).c_str());
     // (on screen too, for 2 s: a newer one replaces it)
-    std::array<char, 96> notice{};
+    std::array<char, kNoticeBytes> notice{};
     text::format_to(notice, "collision event %d: %s%s", event.number, event.reason,
                     event.screenshot == "requested" ? " (screenshot)" : "");
     sys::screenshot::show_notice(notice.data());
@@ -781,8 +807,8 @@ void end_frame(SkaterPhysicsModule* component)
     s.balance = balance ? balance->trick() : 0;
     if (objects::PadInputModule* input = component->input()) {
         // The pad's 16 buttons (0x20 bytes each from +0x20 - the first is up) and its scaled first stick.
-        for (int i = 0; i < 16; ++i)
-            if (const objects::ControlButton* button = input->pad_primary().button_at_offset(static_cast<uint32_t>(i) * 0x20u);
+        for (int i = 0; i < kPadButtonCount; ++i)
+            if (const objects::ControlButton* button = input->pad_primary().button_at_offset(static_cast<uint32_t>(i) * kPadButtonStride);
                 button && button->held_down())
                 s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));
         core::at(s.stick, 0) = core::at(input->pad_primary().scaled_stick(), 0);
@@ -821,7 +847,7 @@ std::string flag_names(uint16_t flags)
                                            "no_shadow",      "shadow",       "no_shadow_wall", "under_ok",
                                            "invisible",      "0x2000",       "0x4000",         "0x8000"}};
     std::string out;
-    for (int bit = 0; bit < 16; ++bit) {
+    for (int bit = 0; bit < kPadButtonCount; ++bit) {
         if (!(flags & (1u << bit)))
             continue;
         if (!out.empty())
@@ -836,7 +862,7 @@ std::string pad_button_labels(uint16_t mask)
     static const std::array<const char*, 16> kNames = {{"up", "down", "left",   "right",  "l1",       "l2", "l3",    "r1",
                                            "r2", "r3",   "circle", "square", "triangle", "x",  "start", "select"}};
     std::string out;
-    for (int bit = 0; bit < 16; ++bit) {
+    for (int bit = 0; bit < kPadButtonCount; ++bit) {
         if (!(mask & (1u << bit)))
             continue;
         if (!out.empty())
@@ -850,7 +876,7 @@ std::string face_text(const Face& face, std::string (*name)(uint32_t))
 {
     if (!face.hit)
         return "none";
-    std::array<char, 256> text{};
+    std::array<char, kReportBytes> text{};
     text::format_to(text, "%s:%s;face:%d;flags:0x%04X;decoded:%s;terrain:%u;n:%.2f,%.2f,%.2f;at:%.1f,%.1f,%.1f",
                     face.object ? "object" : "sector", name(face.checksum).c_str(), face.index, face.flags,
                     flag_names(face.flags).c_str(), face.terrain, core::at(face.normal, 0), core::at(face.normal, 1),
@@ -863,7 +889,7 @@ namespace {
 
 std::string v3(std::span<const float> v, int places = 1)
 {
-    std::array<char, 96> text{};
+    std::array<char, kReportLineBytes> text{};
     text::format_to(text, "%.*f,%.*f,%.*f", places, core::at(v, 0), places, core::at(v, 1), places, core::at(v, 2));
     return text.data();
 }
@@ -874,7 +900,7 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
 {
     static const std::array<const char*, 6> kProbes = {{"probe_down_hit",        "probe_down_hit_all", "probe_down_beyond",
                                            "probe_down_beyond_all", "probe_ahead",        "probe_ahead_all"}};
-    std::array<char, 160> head{};
+    std::array<char, kHeadBytes> head{};
     text::format_to(head, "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", e.number,
                     e.level.empty() ? "-" : e.level.c_str(), e.frame, e.reason, e.paths.c_str(), e.frames);
     std::string line = head.data();
@@ -883,14 +909,14 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
     line += " pos=" + v3(e.pos);
     line += " vel_before=" + v3(e.vel_before_);
     line += " vel_after=" + v3(e.vel_after_);
-    std::array<char, 96> text{};
+    std::array<char, kReportLineBytes> text{};
     text::format_to(text, " heading_before=%.1f heading=%.1f", e.heading_before_, e.heading);
     line += text.data();
     line += " ground_n=" + v3(e.ground_normal_, 2);
     text::format_to(text, " ground_min_y=%.2f", e.ground_min_y_);
     line += text.data();
     line += " face=" + face_text(e.face, name);
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < kProbeFaceLimit; ++i)
         line += std::string(" ") + core::at(kProbes, i) + "=" + face_text(core::at(e.probes, i), name);
     line += " probe_dir=" + v3(e.probe_dir_, 2);
     line += " flipped=" + (e.flipped.empty() ? std::string("-") : e.flipped);
@@ -901,7 +927,7 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
 
 std::string format_detail(const Detail& d)
 {
-    std::array<char, 256> text{};
+    std::array<char, kReportBytes> text{};
     text::format_to(text,
                     "collision-event-detail: n=%d state=%s physics=%s speed=%.1f trick=%d balance=%s input=%s "
                     "input_window=%s stick=%.2f,%.2f",

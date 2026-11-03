@@ -35,12 +35,19 @@
 namespace objects {
 
 namespace {
+constexpr float kBalanceRollScale = 0.00012783174f;
+constexpr float kAirTiltRate = 0.011635667f;
+constexpr float kTiltRecovery = 0.046542667f;
+constexpr int kCameraIgnoreFlags = 0x90;           // the faces the camera's probes pass through
+constexpr float kLipTurnFactor = 2.0f;
+constexpr int kShiftCountMask = 31;                // a left shift's count: the low 5 bits
+constexpr float kSettleDivisor = 6.0f;
 // NOT ORIGINAL grouping - skater_camera_update.cpp's state (the original's globals). Made on first use, never destroyed
 // (skater_camera_update_state()).
 struct SkaterCameraUpdateState {
-    float balance_roll_scale_{-0.00012783174f};
-    float air_tilt_rate_{0.011635667f};
-    float tilt_recovery_{0.046542667f};
+    float balance_roll_scale_{-kBalanceRollScale};
+    float air_tilt_rate_{kAirTiltRate};
+    float tilt_recovery_{kTiltRecovery};
     float lip_turn_{};
 };
 
@@ -353,10 +360,10 @@ void RiderChaseView::tick_frame()
             auto reach_x = static_cast<float>(side.x * static_cast<double>(kLipReach));
             const maths::Vec4 end(start.x - reach_x, start.y - reach_y, static_cast<float>(start_z) - reach_z,
                                   static_cast<float>(start_w - reach_w));
-            feeler.set_excluded({.ignore = 0x90, .require = 0});
+            feeler.set_excluded({.ignore = kCameraIgnoreFlags, .require = 0});
             if (feeler.get_collision_along(&start, &end, true)) {
                 const float first_distance = feeler.reach();
-                orient.rotate_y(lip_turn() * -2.0f);
+                orient.rotate_y(lip_turn() * -kLipTurnFactor);
                 maths::Vec4 other(core::at(orient.row, 2).x, 0.0f, core::at(orient.row, 2).z, 1.0f);
                 other.make_unit();
                 const maths::Vec4 back = rider_ref_->at_point() - core::at(orient.row, 2) * kLipBack;
@@ -365,7 +372,7 @@ void RiderChaseView::tick_frame()
                     !(feeler.reach() >= first_distance || std::isnan(feeler.reach()))) {
                     lip = 2;
                 } else {
-                    orient.rotate_y(lip_turn() * 2.0f);
+                    orient.rotate_y(lip_turn() * kLipTurnFactor);
                     lip = 1;
                 }
             } else {
@@ -383,9 +390,9 @@ void RiderChaseView::tick_frame()
     {
         auto* s = rider_ref_;
         if (s && lip_state_ == 2)
-            s->flag_bits() |= 1u << (script::fetch_int_value(kHideFlagBit) & 31); // (SHL: the count's low 5 bits)
+            s->flag_bits() |= 1u << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask); // (SHL: the count's low 5 bits)
         else
-            rider_ref_->flag_bits() &= ~(1u << (script::fetch_int_value(kHideFlagBit) & 31));
+            rider_ref_->flag_bits() &= ~(1u << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask));
     }
 
     // The view looking along the orientation (right and at reversed), slerped from the camera's.
@@ -409,7 +416,7 @@ void RiderChaseView::tick_frame()
         view = goal;
         if (vert_air(state_ref_)) {
             slerp->fetch_mat(view, static_cast<float>(frame_blend(vert_air_slerp_, seconds)));
-            settle_time_ = 1.0f / 6.0f;
+            settle_time_ = 1.0f / kSettleDivisor;
         } else if (state_ref_->cur_phase() == 0 && settle_time_ >= seconds) {
             settle_time_ = static_cast<float>(settle_time_ - static_cast<double>(seconds));
             slerp->fetch_mat(view, static_cast<float>(frame_blend(vert_air_landed_slerp_, seconds)));

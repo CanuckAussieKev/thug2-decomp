@@ -23,6 +23,7 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
+constexpr float kAlongWallMin = 0.01f;
 
 constexpr uint32_t kWallRideGravity = 0x0C617CAF;   // Wall_Ride_Gravity
 constexpr uint32_t kWallRideTurnSpeed = 0x64A48A64; // Wall_Ride_Turn_Speed
@@ -212,7 +213,7 @@ void SkaterPhysicsModule::step_wall_ride()
         end.z = ahead_z + end.z;
         end.w = ahead_w + end.w;
     }
-    if (get_feel(this, 0x10, 0)) {
+    if (get_feel(this, kProbeIgnoreFlags, 0)) {
         const maths::Vec4 hit = feeler_.surface_dir();
         const maths::Vec4& w = wall_normal_;
         const double along_wall =
@@ -223,7 +224,7 @@ void SkaterPhysicsModule::step_wall_ride()
         p.w = hit.w + point.w;
         p.x = hit.x + point.x;
         p.y = hit.y + point.y;
-        if (hit_wall_ && !(std::fabs(along_wall) < 0.01f)) {
+        if (hit_wall_ && !(std::fabs(along_wall) < kAlongWallMin)) {
             // Round a corner: the new wall.
             wall_normal_ = hit;
             turn_to_normal(wall_normal_);
@@ -276,7 +277,7 @@ void SkaterPhysicsModule::step_wall_ride()
         const maths::Vec4& q = entity()->at_point();
         end.x = end.x + q.x, end.y = q.y + end.y, end.z = q.z + end.z, end.w = q.w + end.w;
     }
-    if (get_feel(this, 0x10, 0)) {
+    if (get_feel(this, kProbeIgnoreFlags, 0)) {
         // At the wall (just off it), along it.
         wall_normal_ = feeler_.surface_dir();
         objects::GameEntity* o = object_of(this);

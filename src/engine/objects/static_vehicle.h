@@ -7,6 +7,7 @@
 #include <array>
 
 namespace objects {
+constexpr std::size_t kUnused18Bytes = 0x40;
 
 // The static vehicle component (type 0x9649D4F9, "staticvehicle"; vtable 0x00646560, 0x58 bytes - nothing of its own
 // is used; made by 0x00433690): a parked car that doesn't drive - when its object is finalised, its skeleton's bones
@@ -34,7 +35,7 @@ public:
     void seal() override;
 
 private:
-    std::array<uint8_t, 0x40> unused18_{};
+    std::array<uint8_t, kUnused18Bytes> unused18_{};
 };
 
 } // namespace objects

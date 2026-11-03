@@ -18,6 +18,12 @@ class Struct;
 
 namespace objects {
 
+constexpr std::size_t kPadInputModulePadPrimaryOffset = 0x20;
+constexpr std::size_t kPadInputModulePadSecondaryOffset = 0x258;
+constexpr std::size_t kPadInputModuleHandlerOffset = 0x490;
+constexpr std::size_t kPadInputModuleDisabledOffset = 0x498;
+constexpr std::size_t kPadInputModuleUnknown49cOffset = 0x49C;
+constexpr std::size_t kPadInputModuleBytes = 0x4A0;
 // The input component (type 0x27D7CD28 "input", vtable 0x0064605C, 0x4A0 bytes; made by 0x0041EEC0): an object's
 // controller - two control pads fed once a frame by input handlers on the input manager's controller servers (the
 // first on the object's controller, the second always on controller 1), and, with input events on, the object's own
@@ -138,9 +144,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PadInputModule, pad_primary_) == 0x20 && offsetof(PadInputModule, pad_secondary_) == 0x258 &&
-                          offsetof(PadInputModule, handler_) == 0x490 && offsetof(PadInputModule, disabled_) == 0x498 &&
-                          offsetof(PadInputModule, unknown49c_) == 0x49C && sizeof(PadInputModule) == 0x4A0,
+        static_assert(offsetof(PadInputModule, pad_primary_) == kPadInputModulePadPrimaryOffset && offsetof(PadInputModule, pad_secondary_) == kPadInputModulePadSecondaryOffset &&
+                          offsetof(PadInputModule, handler_) == kPadInputModuleHandlerOffset && offsetof(PadInputModule, disabled_) == kPadInputModuleDisabledOffset &&
+                          offsetof(PadInputModule, unknown49c_) == kPadInputModuleUnknown49cOffset && sizeof(PadInputModule) == kPadInputModuleBytes,
                       "layout must match the original");
     }
 };
@@ -149,5 +155,6 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 15>& input_component_member_functions();
+constexpr std::size_t kInputComponentMemberFunctionCount = 15;
+std::array<script::MemberFunctionEntry, kInputComponentMemberFunctionCount>& input_component_member_functions();
 } // namespace objects

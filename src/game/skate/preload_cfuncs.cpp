@@ -39,6 +39,12 @@
 namespace commands {
 
 namespace {
+constexpr std::size_t kNameBytes = 0x100;
+constexpr int kResourceTypeCollision = 8;  // the asset manager's kind of a .col file
+constexpr int kResourceTypeScript = 0xA;   // ... of a .qb script
+constexpr int kTexDictOffset = 8;          // the texture dictionary offset the pedestrians' and vehicles' models are made with
+constexpr std::size_t kMatchingCapacity = 64;
+constexpr int kSeenTextureLimit = 32;      // car texture sets remembered (the original's stack room)
 
 using namespace skate_calls;
 
@@ -159,7 +165,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
         ingest_mesh(nx_model, path.c_str(), 0, 1, 0, node->has_bare_flag(kAllowReplaceTex), 0, 1, 0);
         if (!node->has_bare_flag(kNoCollision)) {
             const char* file = path.c_str();
-            std::array<char, 0x100> name{};
+            std::array<char, kNameBytes> name{};
             std::memcpy(name.data(), file, std::strlen(file) + 1); // (no bound: as the original)
             text::to_lower_text(name.data());
             if (std::strstr(name.data(), ".mdl")) {
@@ -167,17 +173,17 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
                 text::append_unbounded(name.data(), ".col");
                 assets::ResourceRegistry* assets = assets::asset_manager();
                 const bool permanent = assets->get_permanent_by_default();
-                assets->fetch_or_load_resource(name.data(), 8, 0, checksums::hash_from_text(file), false, false, permanent,
+                assets->fetch_or_load_resource(name.data(), kResourceTypeCollision, 0, checksums::hash_from_text(file), false, false, permanent,
                                                nullptr, nullptr);
             }
         }
         if (node_class == kVehicle) {
-            std::array<char, 0x100> script{};
+            std::array<char, kNameBytes> script{};
             get_base_name(path.c_str(), script.data());
             text::append_unbounded(script.data(), ".qb");
             assets::ResourceRegistry* assets = assets::asset_manager();
             const bool permanent = assets->get_permanent_by_default();
-            assets->fetch_or_load_resource(script.data(), 0xA, 0, 0, false, false, permanent, nullptr, nullptr);
+            assets->fetch_or_load_resource(script.data(), kResourceTypeScript, 0, 0, false, false, permanent, nullptr, nullptr);
         }
         delete_model(nx_model);
     }
@@ -213,14 +219,14 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
             text::Chars path;
             path = model_path(model, ".skin");
             gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
-            ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
+            ingest_mesh(nx_model, path.c_str(), 0, 1, kTexDictOffset, 0, 0, 1, 0);
             delete_model(nx_model);
         }
         if (node->fetch_text(kSecondModel, &model, 0)) {
             text::Chars path;
             path = model_path(model, ".mdl");
             gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
-            ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
+            ingest_mesh(nx_model, path.c_str(), 0, 1, kTexDictOffset, 0, 0, 1, 0);
             delete_model(nx_model);
         }
         uint32_t profile_name = 0;
@@ -233,7 +239,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         // The pedestrian's appearance and a model builder (destroyed at the end of the loop: the builder first).
         gfx::ModelLook appearance;
         appearance.read_in(profile, false);
-        gfx::ModelAssembler builder(true, 8);
+        gfx::ModelAssembler builder(true, kTexDictOffset);
         builder.get_build(&appearance, nx_model, nullptr, kPreloadModelFromAppearance);
         delete_model(nx_model);
     }
@@ -316,7 +322,7 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     params->fetch_int_value(kNum, &wanted, 0);
     if (wanted > candidates)
         wanted = candidates;
-    std::array<script::Struct*, 64> matching{};
+    std::array<script::Struct*, kMatchingCapacity> matching{};
     int count = 0;
     matching_options(part, 0, matching, &count);
     if (count) {
@@ -350,7 +356,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
 {
     auto* objects = objects::object_hub_slot().get();
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
-    std::array<const render::TextureSet*, 32> seen{};
+    std::array<const render::TextureSet*, kSeenTextureLimit> seen{};
     int seen_count = 0;
     for (objects::ObjectModule* component = objects->find_first_module_of_kind(kModel); component;
          component = component->next_of_type()) {
@@ -365,7 +371,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
                 if (core::at(seen, k) == textures)
                     found = true;
             }
-            if (!found && seen_count < 32) {
+            if (!found && seen_count < kSeenTextureLimit) {
                 core::at(seen, seen_count++) = textures;
                 added = true;
             }

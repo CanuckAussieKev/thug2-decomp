@@ -21,11 +21,15 @@
 #include "engine/core/checked_index.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kVibrate = 0xDF8A5F0A; // Vibrate
+constexpr uint32_t kVibration = 0x404EB936; // Vibration
+} // namespace
 
 std::array<script::MemberFunctionEntry, 2>& vibration_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 2> vibration_component_member_functions{{
-        {.callsign_ = 0xDF8A5F0A, .owner_kind_ = 0x404EB936}, {.callsign_ = 0, .owner_kind_ = 0x404EB936}}};
+        {.callsign_ = kVibrate, .owner_kind_ = kVibration}, {.callsign_ = 0, .owner_kind_ = kVibration}}};
     return vibration_component_member_functions;
 }
 

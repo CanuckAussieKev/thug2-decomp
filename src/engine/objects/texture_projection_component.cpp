@@ -21,6 +21,10 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kHash1EE8B7B9 = 0x1EE8B7B9; // (text unknown)
+constexpr uint32_t kSuspend = 0xCE0CA665; // Suspend
+constexpr uint32_t kSkeleton = 0x222756D5; // Skeleton
+constexpr uint32_t kModel = 0x286A8D26; // Model
 
 constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 
@@ -63,7 +67,7 @@ void TextureProjectionComponent::configure_from_data(script::Struct* params)
     for (uint32_t i = 0; i < projections->extent(); ++i) {
         auto* settings = projections->struct_at(i);
         uint32_t name = 0; // (read into the parameters' own argument slot)
-        settings->read_hash_value(0x1EE8B7B9, &name, 1);
+        settings->read_hash_value(kHash1EE8B7B9, &name, 1);
         gsl::owner<render::TextureProjection*> projection = new_projection();
         // (out of memory: written through null, as the original)
         projection->set_label(name);
@@ -80,9 +84,9 @@ void TextureProjectionComponent::configure_from_data(script::Struct* params)
 // 0x00434630
 void TextureProjectionComponent::seal()
 {
-    suspend_ = entity()->fetch_module(0xCE0CA665);
-    bone_rig_ = entity()->fetch_module(0x222756D5);
-    mesh_instance_ = entity()->fetch_module(0x286A8D26);
+    suspend_ = entity()->fetch_module(kSuspend);
+    bone_rig_ = entity()->fetch_module(kSkeleton);
+    mesh_instance_ = entity()->fetch_module(kModel);
 }
 
 // 0x00434810

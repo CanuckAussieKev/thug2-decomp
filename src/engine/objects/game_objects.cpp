@@ -2,6 +2,7 @@
 
 #include "engine/objects/game_objects.h"
 
+#include <cstddef>
 #include <cstdint>
 
 #include "engine/core/mem.h"
@@ -36,6 +37,28 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kDormancyModuleBytes = 0x4C;   // the sizes the components are allocated with
+constexpr std::size_t kKinematicsModuleBytes = 0x24C;
+constexpr std::size_t kObjectProximityBytes = 0x30;
+constexpr std::size_t kAudioEmitterBytes = 0xC0;
+constexpr std::size_t kAudioStreamBytes = 0x2C;
+constexpr std::size_t kPinnedObjectBytes = 0x90;
+constexpr std::size_t kAutomobileDynamicsBytes = 0x58;
+constexpr float kPedMaxSpeed = 44.0f;                // a ped's path-following tunings (inches per second, inches)
+constexpr float kPedAcceleration = 48.0f;
+constexpr float kPedDeceleration = 12.0f;
+constexpr float kPedStopDistance = 24.0f;
+constexpr float kPedCornerDistance = 24.0f;
+constexpr uint32_t kMotionFlag2PedPath = 0x400;
+constexpr float kVehicleMaxSpeed = 528.0f;           // a vehicle's
+constexpr float kVehicleAcceleration = 216.0f;
+constexpr float kVehicleDeceleration = 384.0f;
+constexpr float kVehicleCornerDistance = 240.0f;
+constexpr float kPitchQuarterTurn = 90.0f;
+constexpr float kLodDistanceNear = 1000000.0f;       // lod distances so far that no level of detail switches
+constexpr float kLodDistanceNear1 = 1000001.0f;
+constexpr float kLodDistanceNear2 = 1000002.0f;
+constexpr float kLodDistanceNear3 = 1000003.0f;
 
 // Names.
 constexpr uint32_t kMotion = 0x0A015E17;           // motion (a component)
@@ -76,18 +99,18 @@ void update_model(ObjectModule* model) { core::down_cast<MeshInstanceModule>(mod
 // 0x0057B250
 void add_base_components(GameEntity* object)
 {
-    object->attach_module(new_component<DormancyModule, 0x4C>()); // suspend
-    object->attach_module(new_component<CbBoxComponent, 0x4C>()); // (type 0xB87C8E43)
+    object->attach_module(new_component<DormancyModule, kDormancyModuleBytes>()); // suspend
+    object->attach_module(new_component<CbBoxComponent, kCbBoxComponentBytes>()); // (type 0xB87C8E43)
 }
 
 // 0x0057B2F0
 void add_motion_components(GameEntity* object)
 {
-    object->attach_module(new_component<KinematicsModule, 0x24C>());        // motion
-    object->attach_module(new_component<ObjectProximityComponent, 0x30>()); // objectproximity
-    object->attach_module(new_component<AudioEmitterModule, 0xC0>());       // sound
-    object->attach_module(new_component<AudioStreamModule, 0x2C>());        // stream
-    object->attach_module(new_component<PinnedObjectModule, 0x90>());       // lockobj
+    object->attach_module(new_component<KinematicsModule, kKinematicsModuleBytes>());        // motion
+    object->attach_module(new_component<ObjectProximityComponent, kObjectProximityBytes>()); // objectproximity
+    object->attach_module(new_component<AudioEmitterModule, kAudioEmitterBytes>());       // sound
+    object->attach_module(new_component<AudioStreamModule, kAudioStreamBytes>());        // stream
+    object->attach_module(new_component<PinnedObjectModule, kPinnedObjectBytes>());       // lockobj
 }
 
 // 0x0057B420
@@ -123,14 +146,14 @@ void spawn_pedestrian(script::Struct* params)
     ped->seal();
     script::launch_script(kPedInitModel, params, ped, false, nullptr);
     auto* motion = core::down_cast<KinematicsModule>(ped->fetch_module(kMotion));
-    motion->set_path_max_speed(44.0f);
-    motion->assign_path_acceleration(48.0f);
-    motion->assign_path_deceleration(12.0f);
-    motion->set_path_stop_distance(24.0f);
+    motion->set_path_max_speed(kPedMaxSpeed);
+    motion->assign_path_acceleration(kPedAcceleration);
+    motion->assign_path_deceleration(kPedDeceleration);
+    motion->set_path_stop_distance(kPedStopDistance);
     motion->init_path_follower(ped);
     auto* path = motion->get_path_follower();
-    path->set_corner_distance(24.0f);
-    motion->motion_flags2() |= 0x400;
+    path->set_corner_distance(kPedCornerDistance);
+    motion->motion_flags2() |= kMotionFlag2PedPath;
     update_model(ped->fetch_module(kModel));
     script::launch_script(kPedDisableBones, nullptr, ped, false, nullptr);
 }
@@ -141,13 +164,13 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
     add_motion_components(car);
     add_node_components(car, params);
     auto* motion = core::down_cast<KinematicsModule>(car->fetch_module(kMotion));
-    motion->set_path_max_speed(528.0f);
-    motion->assign_path_acceleration(216.0f);
-    motion->assign_path_deceleration(384.0f);
+    motion->set_path_max_speed(kVehicleMaxSpeed);
+    motion->assign_path_acceleration(kVehicleAcceleration);
+    motion->assign_path_deceleration(kVehicleDeceleration);
     motion->set_ground_height_only(false);
     motion->init_path_follower(car);
     auto* extra = motion->get_path_follower();
-    extra->set_corner_distance(240.0f);
+    extra->set_corner_distance(kVehicleCornerDistance);
     script::launch_script(kCarAddComponents, params, car, false, nullptr);
     car->seal();
     update_model(car->fetch_module(kModel));
@@ -159,7 +182,7 @@ void spawn_automobile(script::Struct* params)
     auto car = memory::make_owned<GameEntity>();
     add_base_components(car);
     car->change_species(kObjectTypeCar);
-    car->attach_module(new_component<AutomobileDynamicsModule, 0x58>());
+    car->attach_module(new_component<AutomobileDynamicsModule, kAutomobileDynamicsBytes>());
     level_nodes::fetch_place(params, &car->at_point());
     object_hub_slot()->enrol_subject(car);
     set_up_automobile(car, params);
@@ -201,7 +224,7 @@ void CrownObject::own_update()
     void* skeleton = core::down_cast<objects::BoneRigModule>(skater_->fetch_module(kSkeleton))->bone_rig();
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame());
     maths::Mat4 turn;
-    maths::get_multiply(basis_frame(), maths::make_pitch_matrix(turn, 90.0f), basis_frame());
+    maths::get_multiply(basis_frame(), maths::make_pitch_matrix(turn, kPitchQuarterTurn), basis_frame());
     const maths::Vec4 raise = {.x = 0.0f, .y = 0.0f, .z = -18.0f, .w = 0.0f};
     basis_frame().offset_local(raise);
     const maths::Vec4 offset = core::at(basis_frame().row, 3);
@@ -228,10 +251,10 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     add_node_components(this, node);
     change_serial(kCrownObject);
     auto* suspend = core::down_cast<DormancyModule>(fetch_module(kSuspend));
-    core::at(suspend->lod_distances(), 0) = 1000000.0f;
-    core::at(suspend->lod_distances(), 1) = 1000001.0f;
-    core::at(suspend->lod_distances(), 2) = 1000002.0f;
-    core::at(suspend->lod_distances(), 3) = 1000003.0f;
+    core::at(suspend->lod_distances(), 0) = kLodDistanceNear;
+    core::at(suspend->lod_distances(), 1) = kLodDistanceNear1;
+    core::at(suspend->lod_distances(), 2) = kLodDistanceNear2;
+    core::at(suspend->lod_distances(), 3) = kLodDistanceNear3;
     text::Chars file;
     file = gfx::make_model_path("crown", ".mdl"); // (0x004879D0 returns a String: a temporary)
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).

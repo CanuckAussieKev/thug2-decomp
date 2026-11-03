@@ -35,6 +35,23 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kMatrixDiagonalStride = 5;   // the diagonal of a 4 x 4 matrix is every fifth float
+constexpr unsigned kMakesPoseFlag = 0x40;
+constexpr int kRow2X = 8;                          // floats of a 4 x 4 matrix, by row and component
+constexpr int kRow2Y = 9;
+constexpr int kRow2Z = 10;
+constexpr int kRow2W = 11;
+constexpr int kRow1W = 7;
+constexpr std::size_t kQuadBytes = 16;             // four floats
+constexpr uint32_t kFov = 0x17E7321E; // Fov
+constexpr uint32_t kTargetID = 0x531E4D28; // targetID
+constexpr uint32_t kTargetOffset = 0x906642BF; // targetOffset
+constexpr uint32_t kPositionOffset = 0xA00D3D6E; // PositionOffset
+constexpr uint32_t kSetTargetObject = 0xA8D5A188; // SetTargetObject
+constexpr uint32_t kClearTargetObject = 0xD7241A6C; // ClearTargetObject
+constexpr uint32_t kCameraFov = 0x99529205; // camera_fov
+constexpr uint32_t kHash2F510F45 = 0x2F510F45; // (text unknown)
+constexpr uint32_t kModel = 0x286A8D26; // Model
 
 constexpr uint32_t kNoAsset = 0xEE721991; // a timer, not an asset
 constexpr uint32_t kFrames = 0x019176C5;  // its length in frames
@@ -74,14 +91,14 @@ float seconds_per_frame() { return kAnimMoviesSecondsPerFrame; } // 1/60
 
 constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
 
-void set_identity(std::span<float, 16> m)
+void set_identity(std::span<float, kMatrixFloats> m)
 {
-    for (size_t i = 0; i < 16; ++i)
-        core::at(m, i) = (i % 5 == 0) ? 1.0f : 0.0f;
+    for (size_t i = 0; i < kMatrixFloats; ++i)
+        core::at(m, i) = (i % kMatrixDiagonalStride == 0) ? 1.0f : 0.0f;
 }
 
 // Row `row` of a matrix as its first three floats (x, y, z).
-std::span<float, 3> axis_of(std::span<float, 16> m, size_t row) { return std::span<float, 3>(m.subspan(row * 4, 3)); }
+std::span<float, 3> axis_of(std::span<float, kMatrixFloats> m, size_t row) { return std::span<float, 3>(m.subspan(row * 4, 3)); }
 
 // out = a x b (x, y and z; each a difference of products, rounded once).
 void cross_into(std::span<float, 3> out, std::span<const float, 3> a, std::span<const float, 3> b)
@@ -189,7 +206,7 @@ bool CameraAnimMovie::read_in(script::Struct* params)
 {
     base_load(this, params);
     float fov = 0.0f;
-    if (params->fetch_float(0x17E7321E, &fov, 0)) {
+    if (params->fetch_float(kFov, &fov, 0)) {
         field_of_view_ = fov;
         viewer()->change_h_fov(fov);
     }
@@ -206,18 +223,18 @@ bool CameraAnimMovie::read_in(script::Struct* params)
 // 0x00587480
 void CameraAnimMovie::load_target(script::Struct* params)
 {
-    has_goal_ = params->read_hash_value(0x531E4D28, &aim_point_, 0);
+    has_goal_ = params->read_hash_value(kTargetID, &aim_point_, 0);
     if (!has_goal_)
         return;
     goal_shift_.x = goal_shift_.y = goal_shift_.z = 0.0f;
     goal_shift_.w = 1.0f;
-    params->fetch_vec(0x906642BF, &goal_shift_, 0);
+    params->fetch_vec(kTargetOffset, &goal_shift_, 0);
     const float zero = kFloatZero;
     // (not equal, or unordered: a NaN counts as set)
     target_offset_set_ = !(goal_shift_.x == zero) || !(goal_shift_.y == zero) || !(goal_shift_.z == zero);
     look_offset_.x = look_offset_.y = look_offset_.z = 0.0f;
     look_offset_.w = 1.0f;
-    look_offset_set_ = params->fetch_vec(0xA00D3D6E, &look_offset_, 0);
+    look_offset_set_ = params->fetch_vec(kPositionOffset, &look_offset_, 0);
 }
 
 // 0x00587540
@@ -249,11 +266,11 @@ bool CameraAnimMovie::is_held_and_complete() { return flag18() && is_accomplishe
 // 0x00587590
 bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
-    if (name == 0xA8D5A188) {
+    if (name == kSetTargetObject) {
         load_target(params);
         return true;
     }
-    if (name == 0xD7241A6C) {
+    if (name == kClearTargetObject) {
         has_goal_ = false;
         aim_point_ = 0;
         return true;
@@ -281,7 +298,7 @@ void CameraAnimMovie::place_camera()
     const std::span<float, 16> m(mat->data(), 16);
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     for (const auto& handler : modules::front_end_instance()->pad_listeners()) {
-        if (handler->control_data()->makes() & 0x40)
+        if (handler->control_data()->makes() & kMakesPoseFlag)
             check_done(true);
     }
     if (anim_) {
@@ -301,7 +318,7 @@ void CameraAnimMovie::place_camera()
         set_identity(m);
         float fov = field_of_view_;
         if (fov == kFloatZero)
-            fov = script::fetch_float(0x99529205);
+            fov = script::fetch_float(kCameraFov);
         viewer()->change_h_fov(fov);
     }
     if (!has_goal_)
@@ -337,7 +354,7 @@ void CameraAnimMovie::place_camera()
         dir.make_unit();
         set_identity(m);
         for (int i = 0; i < 4; ++i)
-            core::at(m, 8 + i) = dir[i];
+            core::at(m, kRow2X + i) = dir[i];
         cross_into(axis_of(m, 0), axis_of(m, 1), axis_of(m, 2)); // the right axis: up x at
         core::at(m, 3) = 0.0f;
         (*mat)[0].make_unit();
@@ -358,10 +375,10 @@ void CameraAnimMovie::place_camera()
             z = static_cast<float>(z * inverse);
         }
         set_identity(m);
-        core::at(m, 8) = static_cast<float>(x);
-        core::at(m, 10) = z;
-        core::at(m, 9) = static_cast<float>(y);
-        core::at(m, 11) = 0.0f;
+        core::at(m, kRow2X) = static_cast<float>(x);
+        core::at(m, kRow2Z) = z;
+        core::at(m, kRow2Y) = static_cast<float>(y);
+        core::at(m, kRow2W) = 0.0f;
         cross_into(axis_of(m, 0), axis_of(m, 1), axis_of(m, 2));
         core::at(m, 3) = 0.0f;
         const double a = core::at(m, 0);
@@ -377,7 +394,7 @@ void CameraAnimMovie::place_camera()
     }
     // The up axis: at x right.
     cross_into(axis_of(m, 1), axis_of(m, 2), axis_of(m, 0));
-    core::at(m, 7) = 0.0f;
+    core::at(m, kRow1W) = 0.0f;
 }
 
 // 0x005876A0 (and the thunk 0x00587F60)
@@ -390,7 +407,7 @@ void ObjectAnimMovie::tick_frame()
     // Every object the asset moves: its frame's rotation and position.
     auto* frames = static_cast<gfx::JointClipFrames*>(anim_);
     const int count = frames->bone_count();
-    auto* quat_memory = static_cast<float*>(memory::alloc(count * 16));
+    auto* quat_memory = static_cast<float*>(memory::alloc(count * kQuadBytes));
     const auto bones = static_cast<size_t>(count);
     const std::span<float> quats(quat_memory, bones * 4);
     for (size_t i = 0; i < bones; ++i) {
@@ -398,7 +415,7 @@ void ObjectAnimMovie::tick_frame()
         core::at(quat, 0) = core::at(quat, 1) = core::at(quat, 2) = 0.0f;
         core::at(quat, 3) = 1.0f;
     }
-    auto* position_memory = static_cast<float*>(memory::alloc(frames->bone_count() * 16));
+    auto* position_memory = static_cast<float*>(memory::alloc(frames->bone_count() * kQuadBytes));
     const std::span<float> positions(position_memory, bones * 4);
     auto* flags = static_cast<bool*>(memory::alloc(frames->bone_count()));
     static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose({.rotations = quats, .translations = positions}, flags, timeline_.ongoing(), 0);
@@ -410,19 +427,19 @@ void ObjectAnimMovie::tick_frame()
             continue;
         }
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        std::array<float, 16> matrix{};
+        std::array<float, kMatrixFloats> matrix{};
         objects::quat_to_matrix(gfx::quad_at(quats, static_cast<size_t>(i)), origin, matrix);
         std::memcpy(&object->basis_frame(), matrix.data(), sizeof(matrix));    // its matrix
         std::memcpy(&object->display_matrix(), matrix.data(), sizeof(matrix)); // and its display matrix
-        std::memcpy(&object->at_point(), gfx::quad_at(positions, static_cast<size_t>(i)).data(), 16); // its position
-        if (script::fetch_int_value(0x2F510F45)) {
+        std::memcpy(&object->at_point(), gfx::quad_at(positions, static_cast<size_t>(i)).data(), kQuadBytes); // its position
+        if (script::fetch_int_value(kHash2F510F45)) {
             debug::printf("Object %s @ time %f:  ", script::find_checksum_name_or_unknown(name),
                           static_cast<double>(timeline_.ongoing()));
             object->at_point().echo_out(); // (printed)
             object->basis_frame().echo_out();
         }
         // The object's model told (the Update of its 0x286A8D26 component).
-        ObjectModule* component = object->fetch_module(0x286A8D26);
+        ObjectModule* component = object->fetch_module(kModel);
         if (component)
             component->tick_frame();
     }

@@ -20,6 +20,8 @@
 namespace objects {
 
 namespace {
+constexpr int kUberFrigTries = 5;
+constexpr int kAdjustIgnoreFlags = 0x810;
 
 // The core physics component's fields read here.
 // The skater object's.
@@ -83,13 +85,13 @@ void RiderPhysicsTweaks::keep_above_ground()
     auto* physics = static_cast<skater::SkaterPhysicsModule*>(core);
     const park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::sole();
 
-    if (!physics->probe_touches_zone(0x10, 0)) {
+    if (!physics->probe_touches_zone(skater::kProbeIgnoreFlags, 0)) {
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame
         // began (a little off it each try), going the other way; out of the air states, into the air.
         int state = state_of(core);
         if (!((state == 4 || state == 3) && park_editor->editor_state() == kParkEditorTestPlay)) {
             uber_frigged_ = 1;
-            if (uber_frig_tries_ < 5) {
+            if (uber_frig_tries_ < kUberFrigTries) {
                 const auto& offset = core::at(kUberFrigOffsets, uber_frig_tries_++);
                 const maths::Vec4& from = core->safe_pos();
                 position = {.x = core::at(offset, 0) + from.x, .y = from.y + core::at(offset, 1), .z = from.z + core::at(offset, 2),
@@ -146,7 +148,7 @@ void RiderPhysicsTweaks::keep_above_ground()
         // passed over) hits a floor. Within 6 of it: onto it. Further, moved this frame: back where the frame began
         // at half the speed the other way (a lip: out of it, into the air, 2 up); hardly moved: onto it.
         render::ProbeRay feeler;
-        feeler.set_excluded({.ignore = 0x810, .require = 0});
+        feeler.set_excluded({.ignore = kAdjustIgnoreFlags, .require = 0});
         const maths::Vec4 from = {.x = position.x, .y = static_cast<float>(static_cast<double>(position.y) + kFloorProbeHeight),
                                   .z = position.z, .w = position.w};
         feeler.change_origin(&from);

@@ -35,6 +35,11 @@ class TaggingControlComponent;
 // The skater's core physics component (on the ground, in the air): the pieces PartyMod changes for its
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::ps2_controls()).
 namespace skater {
+constexpr int kProbeIgnoreFlags = 0x10;             // the faces the skater's probes pass through
+constexpr int kFaceVert = 8;                        // a face flag: a vert face
+constexpr float kTimerForLevel = 2.0f;              // a timer of the negative of this lasts for the level
+constexpr std::size_t kUnknown29cBytes = 0x10;
+constexpr std::size_t kCoreMemberFunctionCount = 110;
 
 // What the acid drop search (SkaterPhysicsModule::find_acid_drop) finds (0x28 bytes).
 struct AcidDrop {
@@ -849,7 +854,7 @@ private:
     maths::Vec4 vert_wall_normal_{}; // +0x278 the vert wall's normal
     maths::Vec4 vert_facing_{};      // +0x288 the facing up the wall, y reversed
     float vert_step_{};              // +0x298 the step the vert air feeler searches up by (6 when it starts, halved)
-    std::array<uint8_t, 0x10> unknown29c_{};
+    std::array<uint8_t, kUnknown29cBytes> unknown29c_{};
     maths::Vec4 side_normal_sum_{}; // +0x2AC the side feelers' hit normals added up
     float side_nearest_{};          // +0x2BC the nearest side hit's distance
     float side_reach_{};            // +0x2C0 the side collisions' reach (SetExtraPush radius; 0: off)
@@ -1011,5 +1016,5 @@ void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
 
 namespace skater {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 110>& core_member_functions();
+std::array<script::MemberFunctionEntry, kCoreMemberFunctionCount>& core_member_functions();
 } // namespace skater

@@ -129,7 +129,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     no_kick_ = 0;
     can_brake_ = 1;
     state_->set_lip_straight_up(0); // (without its time)
-    if (limits_time_ != -2.0f)
+    if (limits_time_ != -kTimerForLevel)
         limits_time_ = 0.0f;
     speed_override_ = 1.0f;
     wallplant_time_ = 0;

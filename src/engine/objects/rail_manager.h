@@ -33,6 +33,10 @@ constexpr uint32_t kRailFlagLadder = 0x20;   // of type Ladder
 constexpr uint32_t kRailFlagHangLeft = 0x40;
 constexpr uint32_t kRailFlagHangRight = 0x80;
 
+constexpr std::size_t kGrindPointAtPointOffset = 0x20;
+constexpr std::size_t kGrindPointSuccOffset = 0x40;
+constexpr std::size_t kGrindPointLabelOffset = 0x4C;
+constexpr std::size_t kGrindPointBytes = 0x54;
 // A rail or climbing node (0x54 bytes).
 struct GrindPoint {
     // The fields other code reads and sets.
@@ -79,12 +83,15 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GrindPoint, at_point_) == 0x20 && offsetof(GrindPoint, succ_) == 0x40 &&
-                          offsetof(GrindPoint, label_) == 0x4C && sizeof(GrindPoint) == 0x54,
+        static_assert(offsetof(GrindPoint, at_point_) == kGrindPointAtPointOffset && offsetof(GrindPoint, succ_) == kGrindPointSuccOffset &&
+                          offsetof(GrindPoint, label_) == kGrindPointLabelOffset && sizeof(GrindPoint) == kGrindPointBytes,
                       "layout must match the original");
     }
 };
 
+constexpr std::size_t kGrindRailHubNodesOffset = 0x40;
+constexpr std::size_t kGrindRailHubNumOffset = 0x48;
+constexpr std::size_t kGrindRailHubOnObjectOffset = 0x50;
 class GrindRailHub {
 public:
     // 0x0057CC10: no nodes, not on an object.
@@ -182,8 +189,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GrindRailHub, nodes_) == 0x40 && offsetof(GrindRailHub, num_) == 0x48 &&
-                          offsetof(GrindRailHub, on_object_) == 0x50,
+        static_assert(offsetof(GrindRailHub, nodes_) == kGrindRailHubNodesOffset && offsetof(GrindRailHub, num_) == kGrindRailHubNumOffset &&
+                          offsetof(GrindRailHub, on_object_) == kGrindRailHubOnObjectOffset,
                       "layout must match the original");
     }
 };

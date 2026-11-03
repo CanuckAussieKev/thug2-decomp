@@ -34,11 +34,16 @@
 #include "engine/gfx/scene_load.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kHashA2331896 = 0xA2331896; // (text unknown)
+constexpr uint32_t kCarPhysics = 0xC695136D; // CarPhysics
+constexpr uint32_t kHashC9F0DB4B = 0xC9F0DB4B; // (text unknown)
+} // namespace
 
 std::array<script::MemberFunctionEntry, 3>& car_physics_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 3> car_physics_member_functions{{
-        {.callsign_ = 0xA2331896, .owner_kind_ = 0xC695136D}, {.callsign_ = 0xC9F0DB4B, .owner_kind_ = 0xC695136D}, {.callsign_ = 0, .owner_kind_ = 0xC695136D}}};
+        {.callsign_ = kHashA2331896, .owner_kind_ = kCarPhysics}, {.callsign_ = kHashC9F0DB4B, .owner_kind_ = kCarPhysics}, {.callsign_ = 0, .owner_kind_ = kCarPhysics}}};
     return car_physics_member_functions;
 }
 

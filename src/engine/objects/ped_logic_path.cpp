@@ -5,6 +5,7 @@
 // on the FPU stack are worked in double.
 
 #include <bit>
+#include <cstddef>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -27,6 +28,12 @@
 namespace objects {
 
 namespace {
+constexpr double kExactDoubleLimit = 9.2e18;
+constexpr std::size_t kRouteSlots = 20;
+constexpr int kHalfTurnDegrees = 180;
+constexpr int kTurnDegrees = 360;
+constexpr uint32_t kMotionFlagBailing = 0x100;
+constexpr uint32_t kMotionFlagPathStep = 0x10;
 
 constexpr uint32_t kMotion = 0x0A015E17;
 constexpr uint32_t kAnimBlender = 0x7149B753;
@@ -108,7 +115,7 @@ KinematicsModule* get_motion(GameEntity* object)
 // 0).
 int truncate(double value)
 {
-    if (!(std::fabs(value) < 9.2e18))
+    if (!(std::fabs(value) < kExactDoubleLimit))
         return 0;
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(value))));
 }
@@ -161,8 +168,8 @@ void PedestrianBrainModule::choose_node_after()
     } else {
         const maths::Vec4 incoming = {.x = next_node_pos_.x - node_pos_.x, .y = next_node_pos_.y - node_pos_.y,
                                       .z = next_node_pos_.z - node_pos_.z, .w = next_node_pos_.w - node_pos_.w};
-        std::array<int, 20> lows{};
-        std::array<int, 20> normals{};
+        std::array<int, kRouteSlots> lows{};
+        std::array<int, kRouteSlots> normals{};
         for (int i = 0; i < count; ++i) {
             core::at(normals, i) = i;
             core::at(lows, i) = i;
@@ -311,7 +318,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         int half_turns = truncate(jump_time / static_cast<double>(script::fetch_float(kMinSpinTime)));
         if (half_turns > 4)
             half_turns = 4;
-        spin = maths::rnd(half_turns + 1) * 180;
+        spin = maths::rnd(half_turns + 1) * kHalfTurnDegrees;
     } else {
         float angle = 0.0f;
         if (params->fetch_float(kSpinAngle, &angle, 0))
@@ -339,7 +346,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
     // A spine transfer turns it round over the top.
     const bool spine = params->has_bare_flag(kSpineTransfer);
     bool turn = false;
-    if (spin % 360 == 0) {
+    if (spin % kTurnDegrees == 0) {
         if (spine)
             turn = true;
         else
@@ -528,7 +535,7 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
         flag_bits_ &= ~kPedFlagMoving;
         params->put_name_key(checksums::Name{0u}, kIsVert);
     }
-    params->put_int(checksums::Name{kIsJumping}, (motion->motion_flags() & 0x100) ? 1 : 0);
+    params->put_int(checksums::Name{kIsJumping}, (motion->motion_flags() & kMotionFlagBailing) ? 1 : 0);
     if (node->has_bare_flag(kJumpToNextNode))
         flag_bits_ = (flag_bits_ & ~kPedFlagMoving) | kPedFlagJumpingToNode;
     change_phase(kStateFlip, kTable, params);
@@ -673,7 +680,7 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
     choose_node_after();
     flag_bits_ |= kPedFlagMoving;
     peds_ = PathManager::sole()->add_to_extra_group(entity(), next_node_);
-    get_motion(entity())->motion_flags() |= 0x10;
+    get_motion(entity())->motion_flags() |= kMotionFlagPathStep;
     // Facing along the way to the first waypoint.
     float dx = next_node_pos_.x - node_pos_.x, dy = next_node_pos_.y - node_pos_.y, dz = next_node_pos_.z - node_pos_.z,
           dw = next_node_pos_.w - node_pos_.w;

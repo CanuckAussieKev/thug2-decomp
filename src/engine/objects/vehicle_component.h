@@ -34,6 +34,8 @@ class Struct;
 // at 0x00684060, registered by 0x00434F00, its pointers written by the static initialiser 0x006436B0), 12
 // invoke_method_by_name 0x0051ADC0 (not mine).
 namespace objects {
+constexpr std::size_t kLoadHistoryCount = 10;
+constexpr uint32_t kDefault = 0x1CA1FF20; // Default
 
 class PadInputModule;
 
@@ -68,7 +70,7 @@ public:
         maths::Vec4 pos{};             // +0x18 the contact point (world)
         maths::Vec4 vel{};             // +0x28 the body's velocity there
         float load{};                  // +0x38 the suspension's force, averaged over the last ten steps
-        std::array<float, 10> load_history_{};     // +0x3C
+        std::array<float, kLoadHistoryCount> load_history_{};     // +0x3C
         maths::Vec4 normal{};          // +0x64 the ground's normal under it
         float friction{};              // +0x74 the tyre's friction coefficient this step (0x00435250)
         maths::Vec4 feeler_start_{};   // +0x78 the suspension's line (world): top
@@ -399,7 +401,7 @@ private:
     maths::Vec4 skater_pos_{};             // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
     uint32_t rider_anim_name_{};           // +0x12EC skater_anim (0xDA75A33E)
     float display_steering_{0.0f};         // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
-    uint32_t sounds_name_{0x1CA1FF20};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
+    uint32_t sounds_name_{kDefault};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
     float gravity_scale_{};                // +0x12F8 (Vehicle_AdjustGravity)
     float gravity_time_{};                 // +0x12FC seconds left of it
     bool handbrake_active_{};              // +0x1300 (forces the brake)

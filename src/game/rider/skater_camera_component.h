@@ -19,6 +19,8 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr std::size_t kUnknown18Start = 0x18;
+constexpr std::size_t kUnknown18End = 0x24;
 
 class RiderPoseState;
 class RiderBoardPhysics;
@@ -112,7 +114,7 @@ public:
     [[nodiscard]] float lean_angle() const { return lean_angle_; }
 
 private:
-    std::array<uint8_t, 0x24 - 0x18> unknown18_{};
+    std::array<uint8_t, kUnknown18End - kUnknown18Start> unknown18_{};
     int mode_sel_{0};            // +0x24 the camera mode (an index of Skater_Camera_Array)
     int instant_frames_{};       // +0x28 frames that jump straight to the target
     float turn_cosine_;          // +0x2C the last turn's cosine (the new facing against the old)

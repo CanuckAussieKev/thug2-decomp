@@ -42,6 +42,17 @@
 namespace objects {
 
 namespace {
+constexpr int kEventRing = 100;                  // events kept in the queue's ring
+constexpr int kLastEventIndex = 99;
+constexpr int kSpecialTrickSlots = 12;
+constexpr int kDirections = 8;                   // the d-pad's eight directions
+constexpr uint32_t kAllEventFlags = 0xFFFFFFFF;
+constexpr int kDefaultSqueezeDuration = 15;
+constexpr std::size_t kNameBytes = 100;
+constexpr int kTriggerLookback = 5;              // a trigger counts if it was pressed this long ago (the window is negative)
+constexpr int kTriggerKindHeld = 8;
+constexpr unsigned kTypeBitsMask = 0xFE;         // a component's type with the flag bit off
+constexpr float kBlendInRate = 2.0f;
 
 constexpr uint32_t kTrick = 0x270F56E1;
 constexpr uint32_t kAnimBlender = 0x7149B753;
@@ -139,7 +150,7 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
             break;
         visit(event);
         if (--index < 0)
-            index += 100;
+            index += kEventRing;
     }
 }
 
@@ -178,7 +189,7 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
     if (!mappings)
         mappings = script::new_struct();
     mappings->get_clear();
-    for (int i = 0; i < 12; ++i) {
+    for (int i = 0; i < kSpecialTrickSlots; ++i) {
         RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
         if (!special.is_vacant())
@@ -194,7 +205,7 @@ void MoveExecutor::update_buttons()
     const uint32_t mask = input_->events();
     auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
     const int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
-    for (int i = 1; i <= 8; ++i)
+    for (int i = 1; i <= kDirections; ++i)
         set_button(this, i, direction == i);
     struct ButtonBit {
         int button;
@@ -219,7 +230,7 @@ double MoveExecutor::get_bash_speed()
         const int kind = event->type;
         if ((kind == 1 || kind == 2) && event->button != kTriangle) {
             ++mashes;
-            event->flags = 0xFFFFFFFF;
+            event->flags = kAllEventFlags;
         }
     });
     auto speed = static_cast<float>(static_cast<double>(script::fetch_float(kBashSpeedupFactor)) * mashes);
@@ -236,7 +247,7 @@ double MoveExecutor::count_triangle_bashes()
         const int kind = event->type;
         if ((kind == 1 || kind == 2) && event->button == kTriangle) {
             ++mashes;
-            event->flags = 0xFFFFFFFF;
+            event->flags = kAllEventFlags;
         }
     });
     return mashes;
@@ -246,7 +257,7 @@ double MoveExecutor::count_triangle_bashes()
 int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t button = 0;
-    int duration = 15;
+    int duration = kDefaultSqueezeDuration;
     params->read_hash_value(0u, &button, 0);
     params->fetch_int_value("dur", &duration, 0);
     if (!button)
@@ -367,7 +378,7 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
             if (entry == tail) {
                 tail = -1;
                 head = -1;
-            } else if (++head > 99) {
+            } else if (++head > kLastEventIndex) {
                 head = 0;
             }
         }
@@ -488,7 +499,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     if (scripts) {
         script = scripts->fetch_part(which);
     } else {
-        std::array<char, 100> name{};
+        std::array<char, kNameBytes> name{};
         crt::get_sprintf(name.data(), "%s%s", prefix, templates->find_inline_text(which));
         script = checksums::hash_from_text(name.data());
     }
@@ -512,7 +523,7 @@ void MoveExecutor::update_manual_tricks()
 {
     const uint32_t special = manual_.special_;
     if (special && score_->special_active()) {
-        check_manual_tricks(this, special, -5, true);
+        check_manual_tricks(this, special, -kTriggerLookback, true);
         if (manual_.pending_)
             return;
     }
@@ -534,7 +545,7 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alt_trigger = nullptr;
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
-        if (!trigger_done(this, trigger, 8, -5, false) && !trigger_done(this, alt_trigger, 8, -5, false))
+        if (!trigger_done(this, trigger, kTriggerKindHeld, -kTriggerLookback, false) && !trigger_done(this, alt_trigger, kTriggerKindHeld, -kTriggerLookback, false))
             continue;
         grind_.array_ = array;
         grind_.index_ = i;
@@ -597,7 +608,7 @@ bool MoveExecutor::try_extra_tricks(ExtraTrickCall extra_call)
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alt_trigger = nullptr;
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
-        if (trigger_done(this, trigger, 2, -5, false) || trigger_done(this, alt_trigger, 2, -5, false)) {
+        if (trigger_done(this, trigger, 2, -kTriggerLookback, false) || trigger_done(this, alt_trigger, 2, -kTriggerLookback, false)) {
             if (try_trick(trick, kIsExtra, nullptr)) {
                 started = true;
             } else {
@@ -667,7 +678,7 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
         core::at(extra_.arrays_, 0) = tricks;
     } else {
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-            if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
+            if (c->name == 0 && (c->type_and_flag_ & kTypeBitsMask) == script::kQbvalName << 1)
                 core::at(extra_.arrays_, count++) = c->value.word();
         }
     }
@@ -703,7 +714,7 @@ void MoveExecutor::update_bash()
             float one = 0.0f;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
-            blender->first_channel_47e_850(2.0f, one, 0.0f, 0.0f);
+            blender->first_channel_47e_850(kBlendInRate, one, 0.0f, 0.0f);
             return;
         }
         script::launch_script(kTantrumOff, nullptr, entity(), false, nullptr);

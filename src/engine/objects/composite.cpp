@@ -39,6 +39,8 @@ using script::Script;
 using script::Struct;
 
 namespace {
+constexpr float kDefaultLength = 3.0f;
+constexpr float kDefaultHeight = 3.0f;
 constexpr float kCompositeAcosA0{1.5707288f};
 constexpr float kCompositeAcosA1{0.2121144f};
 constexpr float kCompositeAcosA2{0.074261f};
@@ -587,10 +589,10 @@ bool GameEntity::obj_has_component(Struct* params, Script* /*script*/)
 bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
 {
     CollisionFeeler feeler;
-    float length = 3.0f;
+    float length = kDefaultLength;
     params->fetch_float(kLength, &length, 0);
     length *= feet_as_inches();
-    float height = 3.0f;
+    float height = kDefaultHeight;
     params->fetch_float(kHeight, &height, 0);
     height *= feet_as_inches();
     float distance = 0.0f;

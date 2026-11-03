@@ -34,6 +34,10 @@ namespace skater {
 using namespace physics;
 
 namespace {
+constexpr float kReflectFactor = 2.0f;              // a velocity bounced off a wall: minus twice its normal part
+constexpr int kPhaseWallplant = 5;
+constexpr float kProbeReach = 3.0f;
+constexpr uint32_t kAllBitsSet = 0xFFFFFFFFu; // (text unknown)
 
 constexpr uint32_t kCanWallplant = 0x5310E7B5;          // canwallplant (a tag: a vehicle that may)
 constexpr uint32_t kDisallowRewallplant = 0x82135DD7;   // Physics_Disallow_Rewallplant_Duration (ms)
@@ -86,7 +90,7 @@ bool SkaterPhysicsModule::button_pressed(uint32_t button)
     if (skater->is_key_held(button))
         return true;
     const uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
-    return static_cast<objects::MoveExecutor*>(trick_)->find_press(checksums::Name{button}, {.ms = window, .mask = 0xFFFFFFFFu});
+    return static_cast<objects::MoveExecutor*>(trick_)->find_press(checksums::Name{button}, {.ms = window, .mask = kAllBitsSet});
 }
 
 // Moving up the wall: whether there's wall 6 either side of the hit point raised by 0.15 of the upward speed (along
@@ -132,7 +136,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         if (script::fetch_float(kMinWallplantHeight) > state_->height_above_ground())
             return false;
         // Not a steep enough wall: only for a late plant (unless just checking, or it's vert).
-        if (!check_only && !(feeler_.hit().face_flags_ & 8) && std::fabs(feeler_.surface_dir().y) > kMaxTilt01 && !late)
+        if (!check_only && !(feeler_.hit().face_flags_ & kFaceVert) && std::fabs(feeler_.surface_dir().y) > kMaxTilt01 && !late)
             return false;
         // A wall plant trick pressed? (Not original: THAW 0x005DB1ED - on the bike square held plants without asking
         // the list, and the list is the bike's, bike_Wallplant_Trick.)
@@ -195,7 +199,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             const float x = hx + now.x;
             maths::Vec4& end = probe_end_;
             end = {.x = x + lx, .y = y + ly, .z = z + lz, .w = static_cast<float>(w + lw)};
-            if (!probe_touches_zone(0x10, 0))
+            if (!probe_touches_zone(kProbeIgnoreFlags, 0))
                 return false;
         }
     } else {
@@ -210,7 +214,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         const maths::Vec4 reach = direction * kWalkReach;
         const maths::Vec4 base = entity()->at_point() + lift;
         probe_end_ = base + reach;
-        if (!probe_touches_zone(0x10, 0))
+        if (!probe_touches_zone(kProbeIgnoreFlags, 0))
             return false;
     }
 
@@ -256,7 +260,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
                                    static_cast<double>(wall.x) * velocity.x);
     const maths::Vec4 bounce = into * wall;
     if (!walking) {
-        velocity -= 2.0f * bounce;
+        velocity -= kReflectFactor * bounce;
         maths::Vec4& v = entity()->vel();
         auto flat = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z));
         if (flat > kMinFlatSpeed) {
@@ -308,7 +312,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     set_timed_flag(this, PoseFlag::kNoSecondSpin, 0);
     set_timed_flag(this, PoseFlag::kNoAcidDrop, 0);
     set_timed_flag(this, PoseFlag::kWallplanted, 1);
-    physics::change_phase(this, 5);
+    physics::change_phase(this, kPhaseWallplant);
     late_wallplant_frames_ = 0;
     wallplant_end_ = get_now();
     return true;
@@ -370,8 +374,8 @@ bool SkaterPhysicsModule::start_wall_ride()
     maths::Vec4 move = object->at_point() - object->old_pos();
     move.align_to_plane(wall);
     probe_start_ = entity()->at_point();
-    probe_end_ = entity()->at_point() + move * 3.0f;
-    if (probe_touches_zone(0x10, 0))
+    probe_end_ = entity()->at_point() + move * kProbeReach;
+    if (probe_touches_zone(kProbeIgnoreFlags, 0))
         return false;
     // On the wall: at the hit, one off it; moving and facing along it, up its normal.
     wall_ride_start_ = get_now();

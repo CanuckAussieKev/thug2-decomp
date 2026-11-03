@@ -15,6 +15,8 @@ class Struct;
 } // namespace script
 
 namespace modules {
+constexpr std::size_t kWordBytes = 0x200;  // the word (HORSE) buffer
+constexpr std::size_t kPanelBytes = 0x200; // the panel text buffer
 
 class LetterMatch {
 public:
@@ -27,8 +29,8 @@ private:
     int points_target_{};     // +0x000 (0: none set)
     int skater_{};            // +0x004: the skater taking the run (its id)
     int last_skater_{};       // +0x008
-    std::array<char, 0x200> word_{};      // +0x00C ("HORSE")
-    std::array<char, 0x200> panel_{};     // +0x20C: what the last run did
+    std::array<char, kWordBytes> word_{};      // +0x00C ("HORSE")
+    std::array<char, kPanelBytes> panel_{};     // +0x20C: what the last run did
     std::array<int, kPlayers> letters_{}; // +0x40C: each player's letters
     uint32_t unknown42c_{};
     int restart_{0};          // +0x430: the restart the next run starts from

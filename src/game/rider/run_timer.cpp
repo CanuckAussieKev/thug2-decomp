@@ -21,18 +21,31 @@
 #include "engine/core/down_cast.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kRunTimerGetFactorCompleteName = 0xAB04CBF9; // RunTimer_GetFactorComplete
+constexpr uint32_t kRunTimerGetRunTimerControllerIdName = 0x96D81D8E; // RunTimer_GetRunTimerControllerId
+constexpr uint32_t kRunTimerGetRunTimerIdName = 0x81AAA6DD; // RunTimer_GetRunTimerId
+constexpr uint32_t kRunTimerComboStartedName = 0x37CC7691; // RunTimer_ComboStarted
+constexpr uint32_t kRunTimerPause = 0x82445966; // RunTimer_Pause
+constexpr uint32_t kSkaterRunTimer = 0x8BCE7E66; // SkaterRunTimer
+constexpr uint32_t kRunTimerUnpause = 0x956236B1; // RunTimer_Unpause
+constexpr uint32_t kRunTimerGetFactorComplete = 0xAB04CBF9; // RunTimer_GetFactorComplete
+constexpr uint32_t kRunTimerGetRunTimerControllerId = 0x96D81D8E; // RunTimer_GetRunTimerControllerId
+constexpr uint32_t kRunTimerGetRunTimerId = 0x81AAA6DD; // RunTimer_GetRunTimerId
+constexpr uint32_t kRunTimerComboStarted = 0x37CC7691; // RunTimer_ComboStarted
+} // namespace
 
-std::array<script::MemberFunctionEntry, 7>& run_timer_member_functions()
+std::array<script::MemberFunctionEntry, kRunTimerMemberFunctionCount>& run_timer_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 7> run_timer_member_functions{{
-        {.callsign_ = 0x82445966, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x956236B1, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0xAB04CBF9, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x96D81D8E, .owner_kind_ = 0x8BCE7E66},
-        {.callsign_ = 0x81AAA6DD, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x37CC7691, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0, .owner_kind_ = 0x8BCE7E66}}};
+    static std::array<script::MemberFunctionEntry, kRunTimerMemberFunctionCount> run_timer_member_functions{{
+        {.callsign_ = kRunTimerPause, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = kRunTimerUnpause, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = kRunTimerGetFactorComplete, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = kRunTimerGetRunTimerControllerId, .owner_kind_ = kSkaterRunTimer},
+        {.callsign_ = kRunTimerGetRunTimerId, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = kRunTimerComboStarted, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = 0, .owner_kind_ = kSkaterRunTimer}}};
     return run_timer_member_functions;
 }
 
 namespace {
 
-constexpr uint32_t kSkaterRunTimer = 0x8BCE7E66, kWalk = 0x726E85AA;
+constexpr uint32_t kWalk = 0x726E85AA;
 constexpr uint32_t kMState = 0x109B9260, kMTimer = 0xD9D89E81, kHangSpeedAdjustment = 0x92FB4D09,
                    kRunTimerUp = 0x9E22A8E9, kHideRunTimer = 0x813CC576, kShowRunTimer = 0x47EEC244,
                    kDuration = 0x0B84F532 /* Physics_RunTimer_Duration */, kFactorComplete = 0x41F56511,

@@ -2,6 +2,7 @@
 
 #include "game/rider/balance_trick.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 #include <gsl/pointers>
@@ -25,11 +26,17 @@
 #include "engine/core/checked_index.h"
 
 namespace objects {
+namespace {
+constexpr std::size_t kBalanceTrickBytes = 0xF4;
+constexpr int kValueCount = 5;
+constexpr uint32_t kDoingBalanceTrick = 0x6DF82E70; // DoingBalanceTrick
+constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick
+} // namespace
 
 std::array<script::MemberFunctionEntry, 2>& balance_trick_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 2> balance_trick_member_functions{{
-        {.callsign_ = 0x6DF82E70, .owner_kind_ = 0x589E5FB3}, {.callsign_ = 0, .owner_kind_ = 0x589E5FB3}}};
+        {.callsign_ = kDoingBalanceTrick, .owner_kind_ = kSkaterBalanceTrick}, {.callsign_ = 0, .owner_kind_ = kSkaterBalanceTrick}}};
     return balance_trick_member_functions;
 }
 
@@ -234,12 +241,12 @@ void RiderTeeterMoves::change_args(script::Struct* params)
 void RiderTeeterMoves::set_wobble(script::Struct* wobble)
 {
     if (!entity()->own_script()) {
-        void* memory = script::script_pools().carve(0xF4);
+        void* memory = script::script_pools().carve(kBalanceTrickBytes);
         entity()->set_own_script(memory ? static_cast<script::Script*>(memory)->make_new() : nullptr);
     }
-    std::array<float, 5> values{};
+    std::array<float, kValueCount> values{};
     script::Struct* value = nullptr; // (not cleared again: a missing one leaves the last found)
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < kValueCount; ++i) {
         wobble->read_sub_struct(core::at(kWobbleNames, i), &value, 1);
         core::at(values, i) = skater_of(entity())->get_scaled_value(value);
     }

@@ -23,6 +23,8 @@ UiTree* fetch_ui_tree();
 } // namespace frontend
 
 namespace objects {
+constexpr std::size_t kTextBytes = 0x40;
+constexpr float kDefaultYOffset = 120.0f;
 
 // The floating text component (type 0xEADA1621 - its name isn't in THUG2's scripts -, vtable 0x00646018, 0x6C bytes;
 // made by 0x0041E3C0): a line of text over its object - a 3D screen element (id: its object's id - 0x1525E9DF unless
@@ -62,9 +64,9 @@ public:
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
 private:
-    std::array<char, 0x40> text_{};           // +0x18 string (0 first: none)
+    std::array<char, kTextBytes> text_{};           // +0x18 string (0 first: none)
     int tint_{2};                 // +0x58 color (a font colour index)
-    float y_offset_{120.0f};      // +0x5C y_offset
+    float y_offset_{kDefaultYOffset};      // +0x5C y_offset
     uint32_t ident_{0};           // +0x60 the element's id
     uint32_t end_time_{0};        // +0x64 the game clock's time to end the text (0: none)
     ObjectModule* mesh_instance_{}; // +0x68 the model component (its +0x208: the model)

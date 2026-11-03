@@ -26,6 +26,9 @@
 namespace highscores {
 
 namespace {
+constexpr int kHighScoreEntries = 5;
+constexpr int kBestComboEntries = 5;
+constexpr int kArcadeScoreEntries = 10;
 
 memory::HeapUnique<highscores::BestResults>& stored_game_records()
 {
@@ -244,9 +247,9 @@ void BestEntryList::write_to_structure(script::Struct* params)
 StageBests::StageBests()
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    high_scores_ = new_table(5);
-    best_combos_ = new_table(5);
-    arcade_scores_ = new_table(10);
+    high_scores_ = new_table(kHighScoreEntries);
+    best_combos_ = new_table(kBestComboEntries);
+    arcade_scores_ = new_table(kArcadeScoreEntries);
     biggest_chain_ = new_longest_record();
     grind_record_ = new_longest_record();
     longest_lip_trick_ = new_longest_record();

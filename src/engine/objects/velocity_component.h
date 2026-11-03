@@ -19,6 +19,7 @@ class Struct;
 // into +0x18), the empty 0x005480A0 / 0x005BAB90, the base's Suspend, 10 0x005144C0 (empty), 11 0x0045D720, 12
 // invoke_method_by_name 0x0051ADC0 ("not mine").
 namespace objects {
+constexpr uint32_t kSuspend = 0xCE0CA665; // Suspend
 
 class VelocityTrackerModule final : public ObjectModule {
 public:
@@ -34,7 +35,7 @@ public:
     ~VelocityTrackerModule() override;
     void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
     // 0x0041C330 (slot 3, the collide-and-die component's Finalize, folded): the object's Suspend component kept.
-    void seal() override { suspend_ = entity()->fetch_module(0xCE0CA665); }
+    void seal() override { suspend_ = entity()->fetch_module(kSuspend); }
     // 0x0043D2F0 (vtable slot 2): the object's velocity from `vel` (0x0C4C809E, asserted).
     void configure_from_data(script::Struct* params) override;
     // 0x0043D340 (vtable slot 1): the object's position (w too) plus half its velocity times the frame's length -

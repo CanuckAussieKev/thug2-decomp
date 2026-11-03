@@ -41,6 +41,17 @@
 namespace objects {
 
 namespace {
+constexpr float kFadeStep = 0.02f;
+constexpr std::size_t kMatrixBytes = 64;
+constexpr std::size_t kRecordWords = 5;            // the words of a record in the table
+constexpr int kFlagBitHidden = 30;
+constexpr int kFlagBitLast = 31;
+constexpr std::size_t kQuadBytes = 16;             // four floats
+constexpr std::size_t kTranslationStart = 12;      // the translation row of a 4 x 4 matrix
+constexpr int kRow1W = 7;
+constexpr int kRow2W = 11;
+constexpr std::size_t kRotationBytes = 48;         // the three rotation rows
+constexpr uint32_t kHashFF0000C8 = 0xFF0000C8; // (text unknown)
 
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kModelModuleName = 0x286A8D26;
@@ -75,13 +86,13 @@ void* fader_of(void* model) { return model_fader(model); }
 void fade_model(void* model, float target)
 {
     void* fader = fader_of(model);
-    static_cast<render::ModelLights*>(fader)->move_brightness({.target = target, .step = 0.02f});
+    static_cast<render::ModelLights*>(fader)->move_brightness({.target = target, .step = kFadeStep});
 }
 // An object's two matrices (its orientation and display matrix) set to `matrix`.
 void set_matrices(GameEntity* object, const float* matrix)
 {
-    std::memcpy(&object->basis_frame(), matrix, 64);
-    std::memcpy(&object->display_matrix(), matrix, 64);
+    std::memcpy(&object->basis_frame(), matrix, kMatrixBytes);
+    std::memcpy(&object->display_matrix(), matrix, kMatrixBytes);
 }
 
 // (debug drawing, compiled out: the object's box)
@@ -95,7 +106,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
     std::span<const uint32_t> words(table, 2);
     params->put_int(checksums::Name{kVersion}, static_cast<int>(core::at(words, 0)));
     const int count = static_cast<int>(core::at(words, 1));
-    words = std::span<const uint32_t>(table, 2 + (static_cast<size_t>(count) * 5)); // (a version, a count, 5 words each)
+    words = std::span<const uint32_t>(table, 2 + (static_cast<size_t>(count) * kRecordWords)); // (a version, a count, 5 words each)
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> objects = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     objects->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
@@ -108,9 +119,9 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
         object->put_name_key(checksums::Name{kSkeleton}, core::at(entry, 2));
         object->put_name_key(checksums::Name{kAnim}, core::at(entry, 3));
         const uint32_t flags = core::at(entry, 4);
-        if (flags >> 30 & 1)
+        if (flags >> kFlagBitHidden & 1)
             object->put_name_key(checksums::Name{kUnnamed}, kIsSkaterMarker);
-        if (flags >> 31 & 1)
+        if (flags >> kFlagBitLast & 1)
             object->put_name_key(checksums::Name{kUnnamed}, kSkaterFlag2);
         objects->set_cell(static_cast<uint32_t>(i), script::Cell::of(object));
     }
@@ -214,7 +225,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
             static_cast<render::RenderModel*>(level_model)
                 ->render(&matrix, false,
                          core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig());
-            std::memcpy(&level->at_point(), &object->at_point(), 16);
+            std::memcpy(&level->at_point(), &object->at_point(), kQuadBytes);
         } else {
             if (fader_of(model)) {
                 fade_model(model_of(component), 1.0f);
@@ -250,9 +261,9 @@ void CinematicTable::update_object_transforms()
             continue;
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
         maths::Mat4 matrix{};
-        quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), j), origin, std::span<float, 16>(matrix.data(), 16));
+        quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), j), origin, std::span<float, kMatrixFloats>(matrix.data(), kMatrixFloats));
         set_matrices(object, matrix.data());
-        std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().cutscene_translations(), j).data(), 16);
+        std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().cutscene_translations(), j).data(), kQuadBytes);
     }
     for (int i = 0; i < object_count_; ++i) {
         const ObjectEntry& entry = core::at(entities_, i);
@@ -275,15 +286,15 @@ void CinematicTable::update_object_transforms()
             position[3] = 1.0f;
             maths::Mat4 joint_mat{};
             static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, &joint_mat);
-            std::array<float, 16> owner_mat{};
-            std::memcpy(owner_mat.data(), &parent->display_matrix(), 64);
-            std::memcpy(std::span(owner_mat).subspan(12, 4).data(), &at, 16);
+            std::array<float, kMatrixFloats> owner_mat{};
+            std::memcpy(owner_mat.data(), &parent->display_matrix(), kMatrixBytes);
+            std::memcpy(std::span(owner_mat).subspan(kTranslationStart, 4).data(), &at, kQuadBytes);
             core::at(owner_mat, 3) = 0.0f;
-            core::at(owner_mat, 7) = 0.0f;
-            core::at(owner_mat, 11) = 0.0f;
+            core::at(owner_mat, kRow1W) = 0.0f;
+            core::at(owner_mat, kRow2W) = 0.0f;
             d3dx::matrix_multiply(joint_mat.data(), joint_mat.data(), owner_mat.data());
             maths::Mat4 matrix{};
-            std::memcpy(matrix.data(), joint_mat.data(), 48);
+            std::memcpy(matrix.data(), joint_mat.data(), kRotationBytes);
             matrix[3][0] = 0.0f;
             matrix[3][1] = 0.0f;
             matrix[3][2] = 0.0f;
@@ -294,14 +305,14 @@ void CinematicTable::update_object_transforms()
             std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
             maths::Mat4 matrix{};
             quat_to_matrix(gfx::quad_at(objects_shared().cutscene_rotations(), static_cast<size_t>(entry.anim_index_)), origin,
-                           std::span<float, 16>(matrix.data(), 16));
+                           std::span<float, kMatrixFloats>(matrix.data(), kMatrixFloats));
             set_matrices(object, matrix.data());
-            std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().cutscene_translations(), static_cast<size_t>(entry.anim_index_)).data(), 16);
+            std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().cutscene_translations(), static_cast<size_t>(entry.anim_index_)).data(), kQuadBytes);
             update_stand_in(object);
         }
         if (script::fetch_int_value(kDebugBoxes)) {
             const std::array<float, 8> box = {{1.0f, 10.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f}};
-            debug_draw_box(&object->display_matrix(), &object->at_point(), box.data(), 0, 1, 0, 0xFF0000C8);
+            debug_draw_box(&object->display_matrix(), &object->at_point(), box.data(), 0, 1, 0, kHashFF0000C8);
         }
     }
 }

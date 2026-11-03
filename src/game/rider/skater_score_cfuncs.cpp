@@ -23,6 +23,8 @@
 namespace commands {
 
 namespace {
+constexpr float kNoHitDistance = 1000000.0f;
+constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 
 constexpr uint32_t kResetAll = 0x81740BB6;     // "reset_all"
 constexpr uint32_t kNetKing = 0x6EF8FDA0;      // "netking"
@@ -122,8 +124,8 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
     script::Struct* results = script->args().get();
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     int team = -1;
-    uint32_t player = 0xFFFFFFFF;
-    float nearest = 1000000.0f;
+    uint32_t player = kAllBitsSet;
+    float nearest = kNoHitDistance;
     int exclude_team = 0;
     params->fetch_int_value(kSkipTeam, &exclude_team, 1);
     float radius = 0.0f;

@@ -126,5 +126,6 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 6>& skeleton_component_member_functions();
+constexpr std::size_t kSkeletonComponentMemberFunctionCount = 6;
+std::array<script::MemberFunctionEntry, kSkeletonComponentMemberFunctionCount>& skeleton_component_member_functions();
 } // namespace objects

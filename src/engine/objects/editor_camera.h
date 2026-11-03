@@ -23,6 +23,11 @@ namespace objects {
 
 class PadInputModule;
 
+constexpr std::size_t kEditorViewModuleFocusOffset = 0x1C;
+constexpr std::size_t kEditorViewModuleCursorOffset = 0x3C;
+constexpr std::size_t kEditorViewModuleZoomOffset = 0x6C;
+constexpr std::size_t kEditorViewModuleLevelYOffset = 0x88;
+constexpr std::size_t kEditorViewModuleShadowHandleOffset = 0x98;
 // The editor camera component (type 0xAC8946E2, vtable 0x0064B2D0, 0x9C bytes; made by 0x004E5940): the
 // create-a-goal / park editor camera. A cursor point is walked over the ground with the left stick (kept on it
 // with collision feelers, never up walls or onto objects whose node scripts are flagged), the camera orbits it
@@ -97,14 +102,15 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(EditorViewModule, focus_) == 0x1C, "m_focus");
-        static_assert(offsetof(EditorViewModule, cursor_) == 0x3C, "m_cursor");
-        static_assert(offsetof(EditorViewModule, zoom_) == 0x6C, "m_zoom");
-        static_assert(offsetof(EditorViewModule, level_y_) == 0x88, "m_height");
-        static_assert(offsetof(EditorViewModule, shadow_handle_) == 0x98, "the shadow's offset");
+        static_assert(offsetof(EditorViewModule, focus_) == kEditorViewModuleFocusOffset, "m_focus");
+        static_assert(offsetof(EditorViewModule, cursor_) == kEditorViewModuleCursorOffset, "m_cursor");
+        static_assert(offsetof(EditorViewModule, zoom_) == kEditorViewModuleZoomOffset, "m_zoom");
+        static_assert(offsetof(EditorViewModule, level_y_) == kEditorViewModuleLevelYOffset, "m_height");
+        static_assert(offsetof(EditorViewModule, shadow_handle_) == kEditorViewModuleShadowHandleOffset, "the shadow's offset");
     }
 };
-static_assert(sizeof(EditorViewModule) == 0x9C, "size");
+constexpr std::size_t kEditorViewModuleBytes = 0x9C;
+static_assert(sizeof(EditorViewModule) == kEditorViewModuleBytes, "size");
 
 // 0x004E4F50: whether the script `name` (or one it calls, by name - with a guard against loops in the list at
 // 0x007CCBE8) is one of the four flagged scripts at 0x0067EFD8; 0x0067EFE8's script and those already seen give

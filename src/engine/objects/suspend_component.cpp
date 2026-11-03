@@ -32,11 +32,18 @@
 #include <bit>
 
 namespace objects {
+namespace {
+constexpr float kNearLodDistance = 50.0f;
+constexpr uint32_t kObjResetNoSuspendCount = 0xA0B7E09B; // Obj_ResetNoSuspendCount
+constexpr uint32_t kSuspend = 0xCE0CA665; // Suspend
+constexpr uint32_t kLOD0DistanceMultiplier = 0xD3D072F9; // LOD0DistanceMultiplier
+constexpr uint32_t kLOD1DistanceMultiplier = 0x0432F2A1; // LOD1DistanceMultiplier
+} // namespace
 
 std::array<script::MemberFunctionEntry, 2>& suspend_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 2> suspend_component_member_functions{{
-        {.callsign_ = 0xA0B7E09B, .owner_kind_ = 0xCE0CA665}, {.callsign_ = 0, .owner_kind_ = 0xCE0CA665}}};
+        {.callsign_ = kObjResetNoSuspendCount, .owner_kind_ = kSuspend}, {.callsign_ = 0, .owner_kind_ = kSuspend}}};
     return suspend_component_member_functions;
 }
 
@@ -138,7 +145,7 @@ void DormancyModule::configure_from_data(script::Struct* params)
         return;
     }
     auto& lod = lod_distances_;
-    core::at(lod, 0) = 50.0f;
+    core::at(lod, 0) = kNearLodDistance;
     core::at(lod, 2) = std::bit_cast<float>(core::at(kNoLodBits, 1));
     core::at(lod, 3) = std::bit_cast<float>(core::at(kNoLodBits, 2));
     params->fetch_float(core::at(kLodDist, 0), &core::at(lod, 0), 0);
@@ -159,8 +166,8 @@ void DormancyModule::configure_from_data(script::Struct* params)
         script::dump_to_log(params, 0);
     if (!(core::at(lod, 2) < core::at(lod, 3)))
         script::dump_to_log(params, 0);
-    core::at(lod, 0) = script::fetch_float(0xD3D072F9) * core::at(lod, 0); // LOD0DistanceMultiplier
-    core::at(lod, 1) = script::fetch_float(0x0432F2A1) * core::at(lod, 1); // LOD1DistanceMultiplier
+    core::at(lod, 0) = script::fetch_float(kLOD0DistanceMultiplier) * core::at(lod, 0); // LOD0DistanceMultiplier
+    core::at(lod, 1) = script::fetch_float(kLOD1DistanceMultiplier) * core::at(lod, 1); // LOD1DistanceMultiplier
     // NOT ORIGINAL - [Graphics] lod_distance_scale (engine/gfx/graphics_options.h): animated and drawn further out.
     const float scale = render::graphics_options::get_pull().lod_distance_scale_;
     core::at(lod, 0) = render::graphics_options::get_scaled(core::at(lod, 0), scale);

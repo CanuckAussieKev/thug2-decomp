@@ -18,6 +18,7 @@
 namespace objects {
 
 namespace {
+constexpr int kMaxTries = 10;
 
 constexpr float kFeelerTop = 400.0f;  // 0x00646288
 constexpr float kFeelerBottom = 6.0f; // 0x00646284
@@ -56,7 +57,7 @@ GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::V
         }
         down.line().start = {.x = down.contact_pos().x, .y = get_sum(down.contact_pos().y, -static_cast<double>(kNudge)),
                             .z = down.contact_pos().z, .w = down.contact_pos().w};
-        if (++tries == 10)
+        if (++tries == kMaxTries)
             return nullptr;
     }
 }

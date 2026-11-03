@@ -1,6 +1,7 @@
 // Cutscenes: starting and ending one (the details' configure_from_data / End), the data's assets from the loaded
 // bundle and its destructor (0x00466620-0x00467707). See cutscene.h.
 
+#include <cstddef>
 #include <memory>
 #include <span>
 #include <cstdint>
@@ -50,15 +51,43 @@
 namespace objects {
 
 namespace {
-// NOT ORIGINAL grouping - the cutscene skin colours the package fills in (the original's globals). Made on first use,
-// never destroyed (skin_colour_tables()).
-struct SkinColourTables {
-    std::array<uint8_t, 80> skin_colour_table_{{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
+constexpr uint32_t kUnloadAnims = 0xCDF2B13E; // unload_anims
+constexpr uint32_t kReloadAnims = 0x9A4BDFF5; // reload_anims
+constexpr uint32_t kUnloadGoals = 0xED064302; // unload_goals
+constexpr uint32_t kReloadGoals = 0xBABF2DC9; // reload_goals
+constexpr uint32_t kCutsceneHideObjects = 0x722D9CA7; // cutscene_hide_objects
+constexpr uint32_t kPreCutscene = 0xE1CE826A; // PreCutscene
+constexpr uint32_t kKillCutscenePanel = 0xE7BC7EFD; // kill_cutscene_panel
+constexpr uint32_t kFlushCutsceneDestroyList = 0x4C0FD1D7; // FlushCutsceneDestroyList
+constexpr uint32_t kKillCutsceneCameraHud = 0xF49A8C9C; // kill_cutscene_camera_hud
+constexpr uint32_t kFlushDeadObjects = 0xDEFF69FF; // FlushDeadObjects
+constexpr uint32_t kCutsceneRestoreSkaterModelLights = 0xABF617EE; // cutscene_restore_skater_model_lights
+constexpr uint32_t kPostCutscene = 0xBCA1791C; // PostCutscene
+constexpr uint32_t kCutsceneUnhideObjects = 0x94D0D528; // cutscene_unhide_objects
+constexpr uint32_t kRestoreSkaterCamera = 0x15674315; // Restore_skater_camera
+constexpr uint32_t kCutsceneKillObjects = 0x7216D8DA; // CutsceneKillObjects
+constexpr uint32_t kIsMale = 0x3F813177; // is_male
+constexpr std::size_t kSkinColourCount = 20;
+constexpr std::size_t kFileNameBytes = 256;
+constexpr float kMillisecondsToSeconds = 0.0010000000474974513f;
+constexpr int kResourceKindImage = 6;
+constexpr int kResourceKindModel = 7;
+constexpr int kTypeIndexBase = 200;
+constexpr int kMinSkinDataBytes = 0x96;
+constexpr std::size_t kColourBytes = 16;
+constexpr std::size_t kSkinColourTableBytes = 80;
+// The table: five rows of four floats, as little-endian bytes.
+constexpr std::array<uint8_t, kSkinColourTableBytes> kSkinColourTableInit{{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
                                 239, 226, 125, 59, 80,  171, 108, 64, 205, 4,   143, 63, 0, 0, 128, 63,
                                 239, 226, 125, 59, 180, 212, 5,   65, 87,  207, 247, 63, 0, 0, 128, 63,
                                 153, 71,  126, 59, 185, 169, 157, 64, 74,  151, 190, 64, 0, 0, 128, 63,
                                 153, 71,  126, 59, 46,  84,  117, 64, 72,  24,  102, 64, 0, 0, 128, 63}};
-    std::array<float, 20> skin_colours_{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+
+// NOT ORIGINAL grouping - the cutscene skin colours the package fills in (the original's globals). Made on first use,
+// never destroyed (skin_colour_tables()).
+struct SkinColourTables {
+    std::array<uint8_t, kSkinColourTableBytes> skin_colour_table_{kSkinColourTableInit};
+    std::array<float, kSkinColourCount> skin_colours_{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                          1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}};
 };
 
@@ -136,7 +165,7 @@ inline void print_cutscene_details(void*) {}
 // 0x00466620
 bool CinematicEntry::read_in(script::Struct* params)
 {
-    std::array<char, 256> file_name = {"none"}; // (from the game's 0x0064797C)
+    std::array<char, kFileNameBytes> file_name = {"none"}; // (from the game's 0x0064797C)
     uint32_t name = 0;
     if (owns_data_) {
         const char* path = nullptr;
@@ -178,27 +207,27 @@ bool CinematicEntry::read_in(script::Struct* params)
                 music = 1;
                 streams = 1;
             }
-            args_->put_int(checksums::Name{0xCDF2B13E}, music);
-            args_->put_int(checksums::Name{0x9A4BDFF5}, streams);
-            args_->put_int(checksums::Name{0xED064302}, 1);
-            args_->put_int(checksums::Name{0xBABF2DC9}, 1);
+            args_->put_int(checksums::Name{kUnloadAnims}, music);
+            args_->put_int(checksums::Name{kReloadAnims}, streams);
+            args_->put_int(checksums::Name{kUnloadGoals}, 1);
+            args_->put_int(checksums::Name{kReloadGoals}, 1);
             args_->append_structure_if_any(settings.get());
-            get_run(0x722D9CA7);
+            get_run(kCutsceneHideObjects);
             gfx::hide_models_for_cutscene();
-            get_run(0xE1CE826A, args_);
+            get_run(kPreCutscene, args_);
             content_ =
                 static_cast<CinematicTable*>(assets->load_asset(file_name.data(), 0, {.checksum = 0, .group = 0}, false, false, false, &skater_, nullptr));
             float start = 0.0f;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
-                auto seconds = static_cast<float>(start * static_cast<double>(0.0010000000474974513f));
+                auto seconds = static_cast<float>(start * static_cast<double>(kMillisecondsToSeconds));
                 audio::pause_music(1);
                 data->set_unknown3474(1);
                 data->set_clock(seconds);
             }
             float loop = 0.0f;
             if (params->fetch_float(kLoopLength, &loop, 0)) {
-                loop = static_cast<float>(loop * static_cast<double>(0.0010000000474974513f));
+                loop = static_cast<float>(loop * static_cast<double>(kMillisecondsToSeconds));
                 CinematicTable* data = content_;
                 data->set_unknown3474(1);
                 data->set_loop_start(data->clock());
@@ -225,8 +254,8 @@ void CinematicEntry::stop()
         print_cutscene_details(this);
         return;
     }
-    get_run(0xE7BC7EFD);
-    get_run(0x4C0FD1D7);
+    get_run(kKillCutscenePanel);
+    get_run(kFlushCutsceneDestroyList);
     render::flexible_particle_manager()->delete_temp_heap();
     if (content_) {
         discard_loaded_item(asset_);
@@ -235,20 +264,20 @@ void CinematicEntry::stop()
     render::clear_scene_light_queue();
     if (end_script_)
         get_run(end_script_);
-    get_run(0xF49A8C9C);
-    get_run(0xDEFF69FF);
+    get_run(kKillCutsceneCameraHud);
+    get_run(kFlushDeadObjects);
     memory::Hub::get_pull()->delete_cutscene_heaps();
     auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
     if (skater) {
         const script::StructPtr flag = script::make_struct();
         flag->put_name_key(checksums::Name{kUnnamed}, kFlagParam);
-        get_run(0xABF617EE, flag.get(), static_cast<Entity*>(skater));
+        get_run(kCutsceneRestoreSkaterModelLights, flag.get(), static_cast<Entity*>(skater));
     }
-    get_run(0xBCA1791C, args_);
+    get_run(kPostCutscene, args_);
     gfx::show_models_after_cutscene();
-    get_run(0x94D0D528);
+    get_run(kCutsceneUnhideObjects);
     print_cutscene_details(this);
-    get_run(0x15674315);
+    get_run(kRestoreSkaterCamera);
 }
 
 // 0x00466C20
@@ -276,8 +305,8 @@ CinematicTable::~CinematicTable()
     if (flag_34b_0_) {
         audio::stop_music();
         if (flag_34b_0_) {
-            get_run(0x7216D8DA);
-            std::array<char, 256> file_name{};
+            get_run(kCutsceneKillObjects);
+            std::array<char, kFileNameBytes> file_name{};
             text::format_to(file_name, "%08x.qb", label_);
             script::unload_qb(checksums::hash_from_text(file_name.data()));
         }
@@ -305,7 +334,7 @@ void CinematicTable::load_from_bundle()
             break;
         case kTypeQb:
             if (flag_34b_0_) {
-                std::array<char, 256> file_name{};
+                std::array<char, kFileNameBytes> file_name{};
                 text::format_to(file_name, "%08x.qb", label_);
                 script::load_qb_data(file_name.data(), std::span<uint8_t>(static_cast<uint8_t*>(data), entry->size), 1, 0, 0);
             }
@@ -342,7 +371,7 @@ void CinematicTable::load_from_bundle()
         }
         case kTypeImage: {
             const uint32_t name = entry->name;
-            load_asset_data(name, 6, 0, data, entry->size, nullptr);
+            load_asset_data(name, kResourceKindImage, 0, data, entry->size, nullptr);
             core::at(assets_, asset_count_) = name;
             ++asset_count_;
             break;
@@ -388,14 +417,14 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
     params.cas_size_ = 0;
     params.has_cas_ = is_model;
     params.flag0 = 0;
-    params.value = entry->type == kTypeSkin ? 0 : index + 200;
+    params.value = entry->type == kTypeSkin ? 0 : index + kTypeIndexBase;
     TextureParams texture_params{};
     texture_params.texture_set_ = params.value;
     void* assets = get_assets();
     texture_params.flag0 = 0;
     texture_params.flag9 = 0;
     texture_params.is_model_ = is_model;
-    bool load = static_cast<int>(entry->size) >= 0x96;
+    bool load = static_cast<int>(entry->size) >= kMinSkinDataBytes;
     if (const auto* colours = static_cast<const uint8_t*>(bundle_ptr_->find_asset(entry->name, kTypeColours, 0))) {
         // the skater's colours from its appearance (part A or B, else the other)
         auto* part1 = static_cast<script::Struct*>(skater_appearance_->get_part(kPartA));
@@ -411,7 +440,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             std::array<float, 4> colour{};
             script::Struct* from = part1->has_entry_named(core::at(kColourNames, k)) ? part1 : part2;
             std::memcpy(std::span(skin_colour_tables().skin_colours_).subspan(4 * (static_cast<size_t>(k) + 1), 4).data(),
-                        read_colour(colour, from, core::at(kColourNames, k)).data(), 16);
+                        read_colour(colour, from, core::at(kColourNames, k)).data(), kColourBytes);
         }
         // Not original - the colours read within their asset (bundle_format.h): a count past it reads none (the
         // original's table ran past the asset).
@@ -443,7 +472,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         gfx::FaceSkin* face = appearance_face(skater_appearance_);
         const int skater_face = face && face->is_sound() ? 1 : 0;
         int skater_male = 0;
-        skater_details_->fetch_int_value(0x3F813177, &skater_male, 1);
+        skater_details_->fetch_int_value(kIsMale, &skater_male, 1);
         load = static_cast<int>(has_face) == skater_face && static_cast<int>(male) == skater_male;
         if (load)
             render::set_screen_clip(&table);
@@ -453,7 +482,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         if (params.cas_data_)
             params.cas_size_ = bundle_ptr_->find_entry(entry->name, kTypeExtra, 1)->size;
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{textures_name}, 3, checksums::Name{0}, texture_data, texture_size, false, true, &texture_params, nullptr);
-        static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{model_name}, 7, checksums::Name{textures_name}, data,
+        static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{model_name}, kResourceKindModel, checksums::Name{textures_name}, data,
                                                                                   entry->size, false, true, &params, nullptr);
         core::at(assets_, asset_count_) = model_name;
         ++asset_count_;

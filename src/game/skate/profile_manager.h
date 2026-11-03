@@ -26,6 +26,7 @@ class ModelLook;
 }
 
 namespace objects {
+constexpr std::size_t kItemSlotCount = 256;
 
 // A skater profile (0x64 bytes: a model appearance - constructor 0x00488EA0, destructor body 0x004890F0 - and its
 // info structure at +0x5C: name, display_name, is_pro, the stats, specials, ...). Its own code is in
@@ -117,7 +118,7 @@ public:
 // global array 0x5004A967.
 struct ChecksumSet {
 private:
-    std::array<uint32_t, 256> items_{};
+    std::array<uint32_t, kItemSlotCount> items_{};
     int num_{0}; // +0x400
 
 public:

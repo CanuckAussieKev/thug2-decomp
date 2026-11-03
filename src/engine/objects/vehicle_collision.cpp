@@ -32,6 +32,14 @@ namespace objects {
 using namespace vehicle;
 
 namespace {
+constexpr int kSourceLineLessThanUberFrig = 0xB10;  // the source lines the original reports its messages from
+constexpr int kSourceLineUberFrig = 0xB26;
+constexpr int kPassMaxMs = 5300;
+constexpr int kPassMinMs = 300;
+constexpr int kDebugWhite = 0xFF;
+constexpr int kMaxPasses = 5;
+constexpr uint32_t kHashFFFF64FF = 0xFFFF64FF; // (text unknown)
+constexpr uint32_t kHashFF000000 = 0xFF000000; // (text unknown)
 
 const float kHalf = 0.5f;                                         // 0x006453BC
 const float kMinusHalf = -0.5f;                                   // 0x0064642C
@@ -150,7 +158,7 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
                                        contact->point.z),
                     .w = static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.w * 72.0f)) +
                                        contact->point.w)};
-                gfx::push_diag_line(&contact->point, &tip, 0xFFFF64FF, 0xFFFF64FF, 1);
+                gfx::push_diag_line(&contact->point, &tip, kHashFFFF64FF, kHashFFFF64FF, 1);
             }
             return true;
         }
@@ -172,7 +180,7 @@ bool DrivableModule::normal_faces_away(const Contact* contact)
                               .y = static_cast<float>(static_cast<double>(n.y) * 48.0f + p.y),
                               .z = static_cast<float>(static_cast<double>(static_cast<float>(n.z * 48.0f)) + p.z),
                               .w = static_cast<float>(static_cast<double>(static_cast<float>(n.w * 48.0f)) + p.w)};
-        gfx::push_diag_line(&p, &tip, 0xFF000000, 0xFF000000, 1);
+        gfx::push_diag_line(&p, &tip, kHashFF000000, kHashFF000000, 1);
     }
     return away;
 }
@@ -189,7 +197,7 @@ void DrivableModule::move_by(const maths::Vec4* move)
     if (feeler.get_hit_shape(false, false)) {
         // Going through something: put just off the surface, the rest of the move reflected, the momentum into it
         // turned back by half again.
-        debug::printf(kDebugFormat, kDebugFile, 0xB10, "less than uber frig"); // "less than uber frig"
+        debug::printf(kDebugFormat, kDebugFile, kSourceLineLessThanUberFrig, "less than uber frig"); // "less than uber frig"
         const maths::Vec4& point = feeler.contact_pos();
         const maths::Vec4& n = feeler.surface_dir();
         at_point_.x = static_cast<float>(static_cast<double>(n.x) + point.x);
@@ -235,7 +243,7 @@ void DrivableModule::move_by(const maths::Vec4* move)
     feeler.line().end = at_point_;
     feeler.line().end.y = static_cast<float>(static_cast<double>(at_point_.y) - kDropTest);
     if (!feeler.get_hit_shape(false, false)) {
-        debug::printf(kDebugFormat, kDebugFile, 0xB26, "uber frig"); // "uber frig"
+        debug::printf(kDebugFormat, kDebugFile, kSourceLineUberFrig, "uber frig"); // "uber frig"
         at_point_ = saved;
     } else {
         light_from_feeler(mesh_instance_, &feeler, true, 1.0f);
@@ -301,14 +309,14 @@ void DrivableModule::update_righting()
     int start = righting_start_;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
             (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(start)) >
-        5300) {
+        kPassMaxMs) {
         righting_ = false;
         return;
     }
     start = righting_start_;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
             (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(start)) <
-        300)
+        kPassMinMs)
         return;
     // After 300 ms, turned towards upright facing the same way.
     maths::Vec4 forward{.x = core::at(basis_frame_.row, 2).x, .y = 0.0f, .z = core::at(basis_frame_.row, 2).z, .w = core::at(basis_frame_.row, 2).w};
@@ -482,7 +490,7 @@ void DrivableModule::collide()
             }
         }
         if (debug_mode_)
-            rect.debug_draw(0xFF, 0xFF, 0xFF, 1);
+            rect.debug_draw(kDebugWhite, kDebugWhite, kDebugWhite, 1);
         feeler.line().start = at_point_;
         feeler.line().end = rect.rect().origin;
         for (int corner = 0; corner < 4; ++corner) {
@@ -525,7 +533,7 @@ void DrivableModule::collide()
                 }
             }
             if (debug_mode_)
-                feeler.debug_draw(0xFF, 0xFF, 0xFF, 1);
+                feeler.debug_draw(kDebugWhite, kDebugWhite, kDebugWhite, 1);
         }
     }
     if (contact_count_ == 0)
@@ -564,7 +572,7 @@ void DrivableModule::collide()
             apply_impulse_at_offset(&push, &r);
         }
         ++pass;
-        if (pass > 5 || separating)
+        if (pass > kMaxPasses || separating)
             break;
     }
 

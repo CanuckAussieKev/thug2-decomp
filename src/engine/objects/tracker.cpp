@@ -48,6 +48,9 @@ memory::PoolPair& script_list_pools()
 }
 
 namespace {
+constexpr int kHashSlots = 8;
+constexpr std::size_t kAutoNameBytes = 64;
+constexpr int kMaxAutoId = 1000000;
 
 // Vtables.
 
@@ -191,7 +194,7 @@ void SignalTrace::add_row(const TraceRow& trace_row)
     const auto how = trace_row.how;
     const auto kind = trace_row.kind;
     if (!names_ptr_) {
-        auto table = new_hash_table(8);
+        auto table = new_hash_table(kHashSlots);
         names_ptr_ = table;
         script::Array* names = script::fetch_list(kEventNames);
         for (int i = 0; i < ints::as_signed(names->extent()); ++i) {
@@ -268,9 +271,9 @@ EventWaitBoard::EventWaitBoard()
     log_.set_layer(0);
     log_.set_added_since_sweep(0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    entity_list_ = new_hash_table(8);
+    entity_list_ = new_hash_table(kHashSlots);
     aliases_ = new_hash_table(4);
-    listeners_ = new_hash_table(8);
+    listeners_ = new_hash_table(kHashSlots);
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     for (Waiter& waiter : waiters_)
         waiter.type = 0;
@@ -302,9 +305,9 @@ uint32_t EventWaitBoard::fetch_distinct_id()
 {
     uint32_t checksum = 0;
     for (bool again = true; again; again = entity_list_->fetch_entry(checksum)) {
-        std::array<char, 64> name{};
+        std::array<char, kAutoNameBytes> name{};
         text::format_to(name, "autoid%d", next_auto_id_++); // "autoid%d"
-        if (next_auto_id_ >= 1000000)
+        if (next_auto_id_ >= kMaxAutoId)
             next_auto_id_ = 0;
         checksum = checksums::hash_from_text(name.data());
     }

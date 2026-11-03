@@ -16,6 +16,10 @@ class Struct;
 
 namespace objects {
 
+constexpr std::size_t kCbBoxComponentBoxMaxOffset = 0x18;
+constexpr std::size_t kCbBoxComponentBoxMinOffset = 0x28;
+constexpr std::size_t kCbBoxComponentShiftOffset = 0x38;
+constexpr std::size_t kCbBoxComponentBytes = 0x4C;
 // The bounding box component (type 0xB87C8E43 "bbox", vtable 0x00645DC4, 0x4C bytes; made by 0x0041ADC0; every
 // composite object gets one, add_base_components): the member functions Obj_ObjectInRadius,
 // Obj_ObjectInRadiusOfNode and Obj_ObjectInRect - whether a skater / ped / car / game object (other than the object
@@ -86,16 +90,23 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(CbBoxComponent, box_max_) == 0x18 && offsetof(CbBoxComponent, box_min_) == 0x28 &&
-                          offsetof(CbBoxComponent, shift_) == 0x38 && sizeof(CbBoxComponent) == 0x4C,
+        static_assert(offsetof(CbBoxComponent, box_max_) == kCbBoxComponentBoxMaxOffset && offsetof(CbBoxComponent, box_min_) == kCbBoxComponentBoxMinOffset &&
+                          offsetof(CbBoxComponent, shift_) == kCbBoxComponentShiftOffset && sizeof(CbBoxComponent) == kCbBoxComponentBytes,
                       "layout must match the original");
     }
 };
-static_assert(offsetof(CbBoxComponent::Rect2, level_y_) == 0x40 && offsetof(CbBoxComponent::Rect2, angle_) == 0x4C &&
-                  offsetof(CbBoxComponent::Rect2, upper_limit_) == 0x50 &&
-                  offsetof(CbBoxComponent::Rect2, shift_) == 0x70 &&
-                  offsetof(CbBoxComponent::Rect2, computed_) == 0x84 &&
-                  offsetof(CbBoxComponent::Rect2, reach_squared_) == 0x88 && sizeof(CbBoxComponent::Rect2) == 0x8C,
+constexpr std::size_t kCbBoxComponentRect2LevelYOffset = 0x40;
+constexpr std::size_t kCbBoxComponentRect2AngleOffset = 0x4C;
+constexpr std::size_t kCbBoxComponentRect2UpperLimitOffset = 0x50;
+constexpr std::size_t kCbBoxComponentRect2ShiftOffset = 0x70;
+constexpr std::size_t kCbBoxComponentRect2ComputedOffset = 0x84;
+constexpr std::size_t kCbBoxComponentRect2ReachSquaredOffset = 0x88;
+constexpr std::size_t kCbBoxComponentRect2Bytes = 0x8C;
+static_assert(offsetof(CbBoxComponent::Rect2, level_y_) == kCbBoxComponentRect2LevelYOffset && offsetof(CbBoxComponent::Rect2, angle_) == kCbBoxComponentRect2AngleOffset &&
+                  offsetof(CbBoxComponent::Rect2, upper_limit_) == kCbBoxComponentRect2UpperLimitOffset &&
+                  offsetof(CbBoxComponent::Rect2, shift_) == kCbBoxComponentRect2ShiftOffset &&
+                  offsetof(CbBoxComponent::Rect2, computed_) == kCbBoxComponentRect2ComputedOffset &&
+                  offsetof(CbBoxComponent::Rect2, reach_squared_) == kCbBoxComponentRect2ReachSquaredOffset && sizeof(CbBoxComponent::Rect2) == kCbBoxComponentRect2Bytes,
               "layout must match the original");
 
 // 0x0041A8B0 (cdecl): the square of a distance that holds the whole box: (the largest of height, dist and width + the

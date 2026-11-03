@@ -28,6 +28,7 @@ class Struct;
 // Vtable: 0 Destroy, 1 the shared empty 0x0051B970, 2 configure_from_data, 11 the shared 0x0042BB20, 12 the shared
 // invoke_method_by_name 0x0051ADC0.
 namespace objects {
+constexpr std::size_t kSkaterStateMemberFunctionCount = 19;
 
 // A flag of the skater's state and the time it last changed (the game clock plus clock_offset()).
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
@@ -201,5 +202,5 @@ void change_moment(SkaterStateHistoryFrame& frame, uint32_t time);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 19>& skater_state_member_functions();
+std::array<script::MemberFunctionEntry, kSkaterStateMemberFunctionCount>& skater_state_member_functions();
 } // namespace objects

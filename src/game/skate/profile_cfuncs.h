@@ -13,6 +13,7 @@ class Script;
 // profiles and their appearance) and the career's goal counts for the menus. The CFunctions are cdecl (params,
 // script) and return whether the script's `if` should be taken.
 namespace commands {
+constexpr std::size_t kSwapSlotCount = 5;
 
 // The swap table (0x007CEDE0): five slots - in use, key, value.
 struct SwapSlot {
@@ -21,7 +22,7 @@ struct SwapSlot {
     uint32_t key;
     uint32_t value;
 };
-std::array<SwapSlot, 5>& swap_table();
+std::array<SwapSlot, kSwapSlotCount>& swap_table();
 
 // 0x005AA930: `a` and `b` swapped in the table of five checksum pairs (0x007CEDE0: in use, key, value): each gets a
 // slot (a free one if it has none - the table being full isn't checked, as in the original), then their values are

@@ -31,6 +31,7 @@
 namespace objects {
 
 namespace {
+constexpr uint32_t kHash3F800000 = 0x3F800000; // (text unknown)
 
 constexpr uint32_t kWalkCamera = 0xC7D37EC2;
 constexpr uint32_t kWalk = 0x726E85AA, kSkaterPhysicsControl = 0xD9151D4D, kCameraLookAround = 0x81C7122D,
@@ -243,7 +244,7 @@ FootView::ZoomOffsets FootView::get_zoomed_offsets()
     float factor = 1.0f;
     uint32_t factor_bits = 0;
     std::memcpy(&factor_bits, &free_look_->factor(), 4);
-    if (free_look_->turning() && factor_bits != 0x3F800000)
+    if (free_look_->turning() && factor_bits != kHash3F800000)
         factor = free_look_->factor();
     const double zoom = (static_cast<double>(factor) - zoom_) * skater_camera_->zoom_ease_rate() + zoom_;
     zoom_ = static_cast<float>(zoom);

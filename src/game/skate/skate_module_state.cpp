@@ -5,6 +5,7 @@
 #include "engine/net/net_lists.h"
 #include <windows.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <memory>
@@ -55,6 +56,14 @@
 namespace modules {
 
 namespace {
+constexpr float kBeepMinTimeLeft = 0.01f;      // no beep this close to the target
+constexpr float kMinBeepStep = 0.2f;           // seconds between beeps, at the least
+constexpr int kStartupPauseMs = 2000;
+constexpr int kClientHeardStampMs = 12000;     // the last-heard time a new connection is given on a client
+constexpr int kServerHeardStampMs = 8000;      // ... on the server
+constexpr int kParkMapMessageBytes = 15000;
+constexpr int kParkRailsMessageBytes = 0x1132;
+constexpr std::size_t kScriptNameBytes = 0x80;
 // NOT ORIGINAL grouping - skate_module_state.cpp's state (the original's globals). Made on first use, never destroyed
 // (skate_module_state_state()).
 struct SkateModuleStateState {
@@ -169,7 +178,7 @@ void Skate::timer_beep(TimerBeep timer_beep_in, const char* script)
     const auto time_left = timer_beep_in.time_left_;
     const auto start_time = timer_beep_in.start_time_;
     const auto rate = timer_beep_in.rate;
-    if (!(time_left > 0.01f) || !(time_left <= start_time)) {
+    if (!(time_left > kBeepMinTimeLeft) || !(time_left <= start_time)) {
         next_beep() = start_time;
         return;
     }
@@ -177,8 +186,8 @@ void Skate::timer_beep(TimerBeep timer_beep_in, const char* script)
         return;
     script::launch_script(script, nullptr, nullptr, false);
     double step = static_cast<double>(next_beep()) / rate;
-    if (step < static_cast<double>(0.2f))
-        step = static_cast<double>(0.2f);
+    if (step < static_cast<double>(kMinBeepStep))
+        step = static_cast<double>(kMinBeepStep);
     next_beep() = static_cast<float>(next_beep() - step);
 }
 
@@ -218,7 +227,7 @@ void Skate::start_callback()
     script::launch_script(kNetworkDriverStartup, nullptr, nullptr, false, nullptr);
     script::launch_script(kInitLoadingBar, nullptr, nullptr, false, nullptr);
     script::launch_script(kStartupLoadingScreen, nullptr, nullptr, false, nullptr);
-    Sleep(2000);
+    Sleep(kStartupPauseMs);
     if (!audio::music_off_requested() || !audio::streams_off())
         audio::prepare_all();
     script::launch_script(kLoadPermSounds, nullptr, nullptr, false, nullptr);
@@ -291,14 +300,14 @@ void Skate::enter_stage(uint32_t level)
             net::ConnSearch search;
             if (net::AppHost* client = net->fetch_patron(i)) {
                 if (net::Conn* conn = client->begin_conn_walk(&search))
-                    conn->stamp_last_heard(12000);
+                    conn->stamp_last_heard(kClientHeardStampMs);
             }
         }
         if (net->get_on_server()) {
             net::ConnSearch search;
             if (net::AppHost* server = net->host()) { // (0x005480C0)
                 for (net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search))
-                    conn->stamp_last_heard(8000);
+                    conn->stamp_last_heard(kServerHeardStampMs);
             }
         } else {
             online::NewPlayerSearch search;
@@ -370,12 +379,12 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
         if (!static_cast<uint8_t>(info->is_own_player()) && level == kLoadSk5EdGameplay) {
             void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
             int handle = info->get_link_handle();
-            server->send_bulk_message(handle, {.msg_id_ = kMsgParkMap, .size = 15000}, map, "level data", kGroupGame, false,
+            server->send_bulk_message(handle, {.msg_id_ = kMsgParkMap, .size = kParkMapMessageBytes}, map, "level data", kGroupGame, false,
                                       true);     // "level data"
             park_editing::RailAuthoring::sole(); // (the rail editor; this first answer unused, as the original)
             void* rails = park_editing::RailAuthoring::sole()->get_packed();
             handle = info->get_link_handle();
-            server->send_bulk_message(handle, {.msg_id_ = kMsgParkRails, .size = 0x1132}, rails, "rail data", kGroupGame, false,
+            server->send_bulk_message(handle, {.msg_id_ = kMsgParkRails, .size = kParkRailsMessageBytes}, rails, "rail data", kGroupGame, false,
                                       true); // "rail data"
         }
         desc.set_content(&message);
@@ -419,7 +428,7 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
     if (!params->read_hash_value(0u, &level, false)) {
         const char* name = nullptr;
         if (params->fetch_text(0u, &name, 1)) {
-            std::array<char, 0x80> script{};
+            std::array<char, kScriptNameBytes> script{};
             text::format_to(script, "load_%s", name); // "load_%s"
             level = checksums::hash_from_text(script.data());
         }

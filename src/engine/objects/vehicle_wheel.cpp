@@ -10,13 +10,39 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 namespace objects {
+namespace {
+constexpr uint32_t kVehicleKick = 0x93B713A6; // Vehicle_Kick
+constexpr uint32_t kVehicleName = 0xE47F1B79; // Vehicle
+constexpr uint32_t kVehicleWake = 0xA80A0D36; // Vehicle_Wake
+constexpr uint32_t kVehicleMoveToRestart = 0x4B0B27DD; // Vehicle_MoveToRestart
+constexpr uint32_t kVehiclePlaceBeforeCamera = 0xC33608E4; // Vehicle_PlaceBeforeCamera
+constexpr uint32_t kVehicleAdjustGravity = 0xDB35AAD8; // Vehicle_AdjustGravity
+constexpr uint32_t kVehicleHandbrakeActive = 0x5008B253; // Vehicle_HandbrakeActive
+constexpr uint32_t kVehicleAllWheelsAreInContact = 0x279602ED; // Vehicle_AllWheelsAreInContact
+constexpr uint32_t kHash4C73526B = 0x4C73526B; // (text unknown)
+constexpr uint32_t kVehicleIsSkaterVisible = 0x81FAAC21; // Vehicle_IsSkaterVisible
+constexpr uint32_t kSpringRate = 0x9E931FDF; // spring_rate
+constexpr uint32_t kDampingRate = 0xAFA960FF; // damping_rate
+constexpr uint32_t kRadius = 0xC48391A5; // Radius
+constexpr uint32_t kMoment = 0xCA73775D; // Moment
+constexpr uint32_t kHashD87D0183 = 0xD87D0183; // (text unknown)
+constexpr uint32_t kStaticFriction = 0xF36B97C8; // static_friction
+constexpr uint32_t kDynamicFriction = 0x674852F6; // dynamic_friction
+constexpr uint32_t kHandbrakeThrottleFriction = 0x52242919; // handbrake_throttle_friction
+constexpr uint32_t kHandbrakeLockedFriction = 0x6D615F67; // handbrake_locked_friction
+constexpr uint32_t kMinStaticGripVelocity = 0x60B2C097; // min_static_grip_velocity
+constexpr uint32_t kMaxStaticGripVelocity = 0xBB0D9370; // max_static_grip_velocity
+constexpr uint32_t kMinDynamicGripVelocity = 0xB71803AD; // min_dynamic_grip_velocity
+constexpr uint32_t kBrakeTorque = 0x3BCCBADC; // brake_torque
+constexpr uint32_t kHandbrakeTorque = 0x9439D144; // handbrake_torque
+} // namespace
 
-std::array<script::MemberFunctionEntry, 10>& vehicle_wheel_member_functions()
+std::array<script::MemberFunctionEntry, kVehicleWheelMemberFunctionCount>& vehicle_wheel_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 10> vehicle_wheel_member_functions{{
-        {.callsign_ = 0x93B713A6, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0xA80A0D36, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x4B0B27DD, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0xC33608E4, .owner_kind_ = 0xE47F1B79},
-        {.callsign_ = 0xDB35AAD8, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x5008B253, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x279602ED, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x4C73526B, .owner_kind_ = 0xE47F1B79},
-        {.callsign_ = 0x81FAAC21, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0, .owner_kind_ = 0xE47F1B79}}};
+    static std::array<script::MemberFunctionEntry, kVehicleWheelMemberFunctionCount> vehicle_wheel_member_functions{{
+        {.callsign_ = kVehicleKick, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleWake, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleMoveToRestart, .owner_kind_ = kVehicleName}, {.callsign_ = kVehiclePlaceBeforeCamera, .owner_kind_ = kVehicleName},
+        {.callsign_ = kVehicleAdjustGravity, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleHandbrakeActive, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleAllWheelsAreInContact, .owner_kind_ = kVehicleName}, {.callsign_ = kHash4C73526B, .owner_kind_ = kVehicleName},
+        {.callsign_ = kVehicleIsSkaterVisible, .owner_kind_ = kVehicleName}, {.callsign_ = 0, .owner_kind_ = kVehicleName}}};
     return vehicle_wheel_member_functions;
 }
 
@@ -79,24 +105,24 @@ void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params)
         else if (choice == kNo)
             wheel->drive = false;
     }
-    params->fetch_float(0x9E931FDF, &wheel->spring_rate_, 0);  // spring_rate
-    params->fetch_float(0xAFA960FF, &wheel->damping_rate_, 0); // damping_rate
-    params->fetch_float(0xC48391A5, &wheel->radius, 0);        // radius
-    if (params->has_entry_named(0xCA73775D)) {                 // moment
+    params->fetch_float(kSpringRate, &wheel->spring_rate_, 0);  // spring_rate
+    params->fetch_float(kDampingRate, &wheel->damping_rate_, 0); // damping_rate
+    params->fetch_float(kRadius, &wheel->radius, 0);        // radius
+    if (params->has_entry_named(kMoment)) {                 // moment
         float& moment = wheel->inv_moment_;
-        params->fetch_float(0xCA73775D, &moment, 0);
+        params->fetch_float(kMoment, &moment, 0);
         moment = kGravity / moment;
     }
-    params->fetch_float(0xD87D0183, &wheel->max_drawn_y_, 0);
-    params->fetch_float(0xF36B97C8, &wheel->static_friction_, 0);          // static_friction
-    params->fetch_float(0x674852F6, &wheel->dynamic_friction_, 0);         // dynamic_friction
-    params->fetch_float(0x52242919, &wheel->parking_grip_powered_, 0);     // handbrake_throttle_friction
-    params->fetch_float(0x6D615F67, &wheel->parking_grip_locked_, 0);      // handbrake_locked_friction
-    read_miles_per_hour(params, 0x60B2C097, wheel->min_static_grip_vel_);  // min_static_grip_velocity
-    read_miles_per_hour(params, 0xBB0D9370, wheel->max_static_grip_vel_);  // max_static_grip_velocity
-    read_miles_per_hour(params, 0xB71803AD, wheel->min_dynamic_grip_vel_); // min_dynamic_grip_velocity
-    read_feet(params, 0x3BCCBADC, wheel->brake_torque_);
-    read_feet(params, 0x9439D144, wheel->handbrake_torque_);
+    params->fetch_float(kHashD87D0183, &wheel->max_drawn_y_, 0);
+    params->fetch_float(kStaticFriction, &wheel->static_friction_, 0);          // static_friction
+    params->fetch_float(kDynamicFriction, &wheel->dynamic_friction_, 0);         // dynamic_friction
+    params->fetch_float(kHandbrakeThrottleFriction, &wheel->parking_grip_powered_, 0);     // handbrake_throttle_friction
+    params->fetch_float(kHandbrakeLockedFriction, &wheel->parking_grip_locked_, 0);      // handbrake_locked_friction
+    read_miles_per_hour(params, kMinStaticGripVelocity, wheel->min_static_grip_vel_);  // min_static_grip_velocity
+    read_miles_per_hour(params, kMaxStaticGripVelocity, wheel->max_static_grip_vel_);  // max_static_grip_velocity
+    read_miles_per_hour(params, kMinDynamicGripVelocity, wheel->min_dynamic_grip_vel_); // min_dynamic_grip_velocity
+    read_feet(params, kBrakeTorque, wheel->brake_torque_);
+    read_feet(params, kHandbrakeTorque, wheel->handbrake_torque_);
 }
 
 } // namespace objects

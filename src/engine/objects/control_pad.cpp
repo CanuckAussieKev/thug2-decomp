@@ -19,6 +19,27 @@
 namespace objects {
 
 namespace {
+constexpr int kStickCentre = 0x80;                 // a stick byte at rest
+constexpr int kStickMax = 0x7F;
+constexpr int kButtonFull = 0xFF;                  // a pressed button's value
+constexpr int kDataUpDir = 6;                      // the pad data's bytes
+constexpr int kDataBtnDown = 7;
+constexpr int kDataLeftSide = 5;
+constexpr int kDataButtonBox = 0xB;
+constexpr int kDataButtonRound = 9;
+constexpr int kDataPosX = 0xA;
+constexpr int kDataButtonWedge = 8;
+constexpr int kDataShoulderLeftA = 0xC;
+constexpr int kDataShoulderRightA = 0xD;
+constexpr int kDataShoulderLeftB = 0xE;
+constexpr int kDataShoulderRightB = 0xF;
+constexpr int kBitStickClickLeft = 0x200;          // the pad's button bits
+constexpr int kBitStickClickRight = 0x400;
+constexpr int kBitChoose = 0x100;
+constexpr int kDataStickStart = 0x12;
+constexpr float kDpadLength = 127.0f;
+constexpr uint32_t kHash3C54C77B = 0x3C54C77B; // (text unknown)
+constexpr uint32_t kHash3A83126F = 0x3A83126F; // (text unknown)
 
 int& stored_clock_offset()
 {
@@ -52,19 +73,19 @@ constexpr float kThreeQuarterPi = float_from_bits(0x4016CBE4);
 // exactly centred is 0. (-0x80 counts as -0x7F.)
 void scale_stick(uint8_t byte, float* out)
 {
-    int value = byte - 0x80;
+    int value = byte - kStickCentre;
     if (value == 0) {
         *out = 0.0f;
         return;
     }
-    if (value == -0x80)
-        value = -0x7F;
+    if (value == -kStickCentre)
+        value = -kStickMax;
     const int moved = value + (value > 0 ? -50 : 50);
-    *out = static_cast<float>(moved * static_cast<double>(float_from_bits(0x3C54C77B)));
+    *out = static_cast<float>(moved * static_cast<double>(float_from_bits(kHash3C54C77B)));
 }
 
 // The button value of a pressure byte: any pressure counts as full.
-int get_full(bool down) { return down ? 0xFF : 0; }
+int get_full(bool down) { return down ? kButtonFull : 0; }
 
 // A lock of the second stick stays while it is set, the stick isn't centred, the stick is in the lock's
 // quarter and the time hasn't passed.
@@ -214,28 +235,28 @@ void PadSnapshot::get_clear()
 void PadSnapshot::tick_frame(const pad_input::Payload* payload)
 {
     const auto& data = payload->incident(); // (the sticks, then a pressure per button)
-    up_dir_.tick_frame(get_full(core::at(data, 6) != 0));
-    btn_down_.tick_frame(get_full(core::at(data, 7) != 0));
-    left_side_.tick_frame(get_full(core::at(data, 5) != 0));
+    up_dir_.tick_frame(get_full(core::at(data, kDataUpDir) != 0));
+    btn_down_.tick_frame(get_full(core::at(data, kDataBtnDown) != 0));
+    left_side_.tick_frame(get_full(core::at(data, kDataLeftSide) != 0));
     right_side_.tick_frame(get_full(core::at(data, 4) != 0));
-    button_box_.tick_frame(get_full(core::at(data, 0xB) != 0));
-    button_round_.tick_frame(get_full(core::at(data, 9) != 0));
-    pos_x_.tick_frame(get_full(core::at(data, 0xA) != 0));
-    button_wedge_.tick_frame(get_full(core::at(data, 8) != 0));
-    shoulder_left_a_.tick_frame(get_full(core::at(data, 0xC) != 0));
-    shoulder_right_a_.tick_frame(get_full(core::at(data, 0xD) != 0));
-    shoulder_left_b_.tick_frame(get_full(core::at(data, 0xE) != 0));
-    shoulder_right_b_.tick_frame(get_full(core::at(data, 0xF) != 0));
+    button_box_.tick_frame(get_full(core::at(data, kDataButtonBox) != 0));
+    button_round_.tick_frame(get_full(core::at(data, kDataButtonRound) != 0));
+    pos_x_.tick_frame(get_full(core::at(data, kDataPosX) != 0));
+    button_wedge_.tick_frame(get_full(core::at(data, kDataButtonWedge) != 0));
+    shoulder_left_a_.tick_frame(get_full(core::at(data, kDataShoulderLeftA) != 0));
+    shoulder_right_a_.tick_frame(get_full(core::at(data, kDataShoulderRightA) != 0));
+    shoulder_left_b_.tick_frame(get_full(core::at(data, kDataShoulderLeftB) != 0));
+    shoulder_right_b_.tick_frame(get_full(core::at(data, kDataShoulderRightB) != 0));
     const uint32_t bits = payload->buttons();
-    stick_click_left_.tick_frame(get_full((bits & 0x200) != 0));
-    stick_click_right_.tick_frame(get_full((bits & 0x400) != 0));
-    button_choose_.tick_frame(get_full((bits & 0x100) != 0));
+    stick_click_left_.tick_frame(get_full((bits & kBitStickClickLeft) != 0));
+    stick_click_right_.tick_frame(get_full((bits & kBitStickClickRight) != 0));
+    button_choose_.tick_frame(get_full((bits & kBitChoose) != 0));
     // (START isn't read here)
 
     for (int i = 0; i < 4; ++i)
         scale_stick(core::at(data, i), &core::at(scaled_stick_, i));
     for (int i = 0; i < 4; ++i)
-        core::at(stick_, i) = static_cast<float>(core::at(data, 0x12 + i) - 0x80);
+        core::at(stick_, i) = static_cast<float>(core::at(data, kDataStickStart + i) - kStickCentre);
 
     double x = core::at(stick_, 0), y = core::at(stick_, 1);
     core::at(polar_, 0).length = static_cast<float>(std::sqrt(x * x + y * y));
@@ -246,7 +267,7 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     const double length = std::sqrt(y * y + x * x);
     core::at(polar_, 1).length = static_cast<float>(length);
     // (compared unrounded, as the original's)
-    if (length > float_from_bits(0x3A83126F)) {
+    if (length > float_from_bits(kHash3A83126F)) {
         core::at(polar_, 1).angle =
             static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 2)), -static_cast<double>(core::at(stick_, 3))));
     } else {
@@ -257,7 +278,7 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
         const uint8_t right = core::at(data, 4) != 0;
         if (up || down || left || right) {
             core::at(polar_, 1).angle = d_pad_angle(up, down, left, right);
-            core::at(polar_, 1).length = 127.0f;
+            core::at(polar_, 1).length = kDpadLength;
         } else {
             core::at(polar_, 1).angle = 0.0f;
             core::at(polar_, 1).length = 0.0f;

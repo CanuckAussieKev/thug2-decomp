@@ -38,6 +38,8 @@
 namespace objects {
 
 namespace {
+constexpr double kHalf = 0.5;
+constexpr float kPivotHeight = 30.0f;
 
 constexpr float kHalfPi = 1.57079637f;             // 0x00645484
 constexpr float kFramesToMs = 16.666666f;          // 0x006460DC (1000 / 60)
@@ -330,9 +332,9 @@ void MeshInstanceModule::apply_brightness(render::ProbeRay* feeler, bool lerp, f
     const double doubled = value + value;
     brightness_ = static_cast<float>(doubled);
     if (lerp)
-        lights_lerp_brightness(lights, static_cast<float>(doubled * 0.5), rate * kLerpRateScale);
+        lights_lerp_brightness(lights, static_cast<float>(doubled * kHalf), rate * kLerpRateScale);
     else
-        lights_set_brightness(lights, static_cast<float>(doubled * 0.5));
+        lights_set_brightness(lights, static_cast<float>(doubled * kHalf));
 }
 
 // 0x00420700
@@ -349,7 +351,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
                                         bool z)
 {
     const float period = duration * kFramesToMs;
-    pivot_ = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 1.0f};
+    pivot_ = {.x = 0.0f, .y = kPivotHeight, .z = 0.0f, .w = 1.0f};
     auto now = static_cast<uint32_t>(frame_clock::game_clock_time());
     uint8_t axes = 0;
     const std::array<bool, 3> flags = {{x, y, z}};

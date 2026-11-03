@@ -29,6 +29,9 @@
 namespace commands {
 
 namespace {
+constexpr std::size_t kVoiceNameBytes = 128;
+constexpr int kDefaultVoiceCount = 10;
+constexpr std::size_t kCustomVoiceBytes = 8;       // "customM" / "customF" with the terminator
 
 using script::Array;
 using script::Struct;
@@ -157,14 +160,14 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
 // unset when the profile's voice isn't in the list). Always true.
 bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
 {
-    std::array<char, 128> voice{};
+    std::array<char, kVoiceNameBytes> voice{};
     core::at(voice, 0) = 0; // (left as the stack had it in the original when the voice is not found)
-    std::array<char, 128> stream{};
-    std::array<char, 128> first_name{};
+    std::array<char, kVoiceNameBytes> stream{};
+    std::array<char, kVoiceNameBytes> first_name{};
     auto* skater = core::down_cast<objects::Rider>(script->entity().get_pull());
     const char* type = nullptr;
     params->fetch_text(kType, &type, 1);
-    int count = 10;
+    int count = kDefaultVoiceCount;
     params->fetch_int_value(kStreamCount, &count, 0);
 
     // the stream numbers 1..count, shuffled
@@ -204,7 +207,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         } else {
             int male = 0;
             params->fetch_int_value(kIsMale, &male, 1);
-            std::memcpy(voice.data(), male == 1 ? "customM" : "customF", 8);
+            std::memcpy(voice.data(), male == 1 ? "customM" : "customF", kCustomVoiceBytes);
         }
     }
 

@@ -56,6 +56,7 @@ class SkaterPhysicsModule;
 } // namespace skater
 
 namespace skater::collision_events {
+constexpr std::size_t kProbeFaceCount = 6;
 
 // Which physics path ran (the order is the priority when several ran: the first wins).
 enum class RouteWay : uint8_t {
@@ -134,7 +135,7 @@ struct Occurrence {
     float ground_min_y_ = 1; // the ground normal's lowest y between the two frames
     int frames = 0;          // frames between the two
     Face face;
-    std::array<Face, 6> probes;           // down at the hit, down beyond, ahead - each as the skater sees, then every face
+    std::array<Face, kProbeFaceCount> probes;           // down at the hit, down beyond, ahead - each as the skater sees, then every face
     std::array<float, 3> probe_dir_ = {}; // the direction of the beyond / ahead probes: the travel before the reversal
     std::string flipped;      // the checkpoints the velocity turned round between ("-": not seen)
     int repeats = 0;          // events left out at this spot since the last line (the rate limit)

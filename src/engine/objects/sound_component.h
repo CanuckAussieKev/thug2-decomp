@@ -15,6 +15,7 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr std::size_t kSoundTypeSlots = 8;
 
 struct EmitterNode;
 struct ProximNode;
@@ -99,7 +100,7 @@ public:
     void set_proxim(ProximNode* value) { proxim_ = value; }
 
 private:
-    std::array<uint32_t, 8> sound_cues_{};  // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
+    std::array<uint32_t, kSoundTypeSlots> sound_cues_{};  // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
     std::array<WaitingSound, 2> waiting_{}; // +0x38
     maths::Vec4 at_point_{};    // +0x98 where it is
     maths::Vec4 last_pos_{};    // +0xA8 where it was a frame ago
