@@ -41,6 +41,45 @@ namespace frontend::level_editor::view {
 
 namespace {
 
+constexpr std::uint32_t kFaceTrigger = 0x40; // a face flag; the others below are the flags get_classify tests
+constexpr std::uint32_t kFaceNoCollide = 0x10;
+constexpr std::uint32_t kFaceVert = 0x08;
+// The surface kinds overlay fill colours (ARGB).
+constexpr std::uint32_t kInvisibleWallColour = 0xB0FF20E0;
+constexpr std::uint32_t kTriggerColour = 0x782080FF;
+constexpr std::uint32_t kNoCollideColour = 0x40A0A0A0;
+constexpr std::uint32_t kWallrideColour = 0x78FFD020;
+constexpr std::uint32_t kVertColour = 0x78FF8020;
+constexpr std::uint32_t kNotSkatableColour = 0x78FF3030;
+constexpr std::uint32_t kSkatableColour = 0x7840E040;
+constexpr std::uint32_t kPlainColour = 0x58D0E8FF;
+constexpr std::uint32_t kRgbMask = 0x00FFFFFF;
+constexpr std::uint32_t kRgbMaskU = 0x00FFFFFFu;
+constexpr int kAlphaShift = 24;
+constexpr std::uint32_t kFadedAlphaMax = 0x30; // the most alpha a faded face keeps
+constexpr std::uint32_t kTriggerFillAlpha = 0x78000000u;
+constexpr std::uint32_t kSelectedWallFill = 0xC8FFA0FFu; // the selected wall, lighter
+constexpr std::uint32_t kSelectedEdge = 0xFFFFFFFFu;
+constexpr std::uint32_t kHoveredEdge = 0xFFFFF060u;
+constexpr std::uint32_t kWallEdge = 0xE0FF60F0u;
+constexpr float kHighlightedEdgeThickness = 1.5f;
+constexpr int kMaxGeometries = 16; // an object geometries looked at
+constexpr int kBoxCornerCount = 8;
+constexpr float kWallPriorityBias = 1e7f; // walls are ordered before faces by this much
+constexpr int kRedShift = 16; // a colour channels
+constexpr int kGreenShift = 8;
+constexpr std::uint32_t kChannelMask = 0xFF;
+constexpr std::uint32_t kAlphaMask = 0xFF000000;
+constexpr float kDashLength = 6.0f;
+constexpr float kDashGap = 5.0f;
+constexpr float kFarthest = 1e30f; // a pick search starts from this distance
+constexpr std::size_t kWallTextSize = 256;
+constexpr std::size_t kMaxCountsShown = 8; // face counts listed in the wall description
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -51,13 +90,13 @@ Surface get_classify(uint32_t face_flags, bool collision_only)
 {
     if (collision_only)
         return Surface::kInvisibleWall;
-    if (face_flags & 0x40)
+    if (face_flags & kFaceTrigger)
         return Surface::kTrigger;
-    if (face_flags & 0x10)
+    if (face_flags & kFaceNoCollide)
         return Surface::kNoCollide;
     if (face_flags & 0x04)
         return Surface::kWallride;
-    if (face_flags & 0x08)
+    if (face_flags & kFaceVert)
         return Surface::kVert;
     if ((face_flags & 0x02) && !(face_flags & 0x01))
         return Surface::kNotSkatable;
@@ -70,21 +109,21 @@ uint32_t surface_colour(Surface surface)
 {
     switch (surface) {
     case Surface::kInvisibleWall:
-        return 0xB0FF20E0;
+        return kInvisibleWallColour;
     case Surface::kTrigger:
-        return 0x782080FF;
+        return kTriggerColour;
     case Surface::kNoCollide:
-        return 0x40A0A0A0;
+        return kNoCollideColour;
     case Surface::kWallride:
-        return 0x78FFD020;
+        return kWallrideColour;
     case Surface::kVert:
-        return 0x78FF8020;
+        return kVertColour;
     case Surface::kNotSkatable:
-        return 0x78FF3030;
+        return kNotSkatableColour;
     case Surface::kSkatable:
-        return 0x7840E040;
+        return kSkatableColour;
     default:
-        return 0x58D0E8FF;
+        return kPlainColour;
     }
 }
 
@@ -173,18 +212,18 @@ void add_dashed(std::vector<ui::Seg>* lines, const ui::Seg& line, float dash, fl
     }
 }
 
-uint32_t get_faded(uint32_t argb) { return (argb & 0x00FFFFFF) | (std::min<uint32_t>(argb >> 24, 0x30) << 24); }
+uint32_t get_faded(uint32_t argb) { return (argb & kRgbMask) | (std::min<uint32_t>(argb >> kAlphaShift, kFadedAlphaMax) << kAlphaShift); }
 
 FaceStyle style_of(const FaceFacts& facts)
 {
     FaceStyle style;
     const bool wall = facts.collision_only_ && !facts.companion;
-    if ((facts.flags & 0x40) && facts.trigger_colour_)
-        style.fill = (facts.trigger_colour_ & 0x00FFFFFFu) | 0x78000000u;
+    if ((facts.flags & kFaceTrigger) && facts.trigger_colour_)
+        style.fill = (facts.trigger_colour_ & kRgbMaskU) | kTriggerFillAlpha;
     else
-        style.fill = surface_colour(get_classify(facts.taken ? facts.flags & ~0x10u : facts.flags, wall));
+        style.fill = surface_colour(get_classify(facts.taken ? facts.flags & ~kFaceNoCollide : facts.flags, wall));
     if (facts.selected)
-        style.fill = 0xC8FFA0FFu; // (the selected wall: lighter)
+        style.fill = kSelectedWallFill; // (the selected wall: lighter)
     else if (facts.hovered)
         style.fill = kHoverWall;
     if (facts.off || facts.taken)
@@ -195,9 +234,9 @@ FaceStyle style_of(const FaceFacts& facts)
         style.edge = kTakenEdge;
         style.dashed = true;
     } else if (wall || facts.selected || facts.hovered) {
-        style.edge = facts.selected ? 0xFFFFFFFFu : facts.hovered ? 0xFFFFF060u : 0xE0FF60F0u;
+        style.edge = facts.selected ? kSelectedEdge : facts.hovered ? kHoveredEdge : kWallEdge;
         style.dashed = facts.off;
-        style.thickness = facts.selected || facts.hovered ? 1.5f : 1.0f;
+        style.thickness = facts.selected || facts.hovered ? kHighlightedEdgeThickness : 1.0f;
     }
     return style;
 }
@@ -416,7 +455,7 @@ bool hide_object(uint32_t id)
     if (!object)
         return false;
     HiddenObjectRec rec = {.id = id, .geoms = {}};
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < kMaxGeometries; ++i) {
         void* geom = object_edit::get_geometry(object, i);
         if (!geom)
             break;
@@ -530,13 +569,13 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
                 return;
             // (wholly behind the camera: left out)
             bool front = false;
-            for (int i = 0; i < 8 && !front; ++i) {
+            for (int i = 0; i < kBoxCornerCount && !front; ++i) {
                 const V3 corner = {.x = (i & 1) ? max.x : min.x, .y = (i & 2) ? max.y : min.y, .z = (i & 4) ? max.z : min.z};
                 front = -get_dot(corner - w->camera, w->frame->back) >= w->near_z_;
             }
             if (!front)
                 return;
-            w->found.push_back({.checksum = checksum, .sector = sector, .tri = tri, .order = wall || checksum == view_stats().wall_ ? distance - 1e7f : distance, .off = off});
+            w->found.push_back({.checksum = checksum, .sector = sector, .tri = tri, .order = wall || checksum == view_stats().wall_ ? distance - kWallPriorityBias : distance, .off = off});
         },
         &walk);
     std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.order < b.order; });
@@ -581,17 +620,17 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         const V3 normal = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(normal, normal));
         const float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(get_dot(normal, light)) / length : 1.0f;
-        auto r = static_cast<uint32_t>(static_cast<float>((argb >> 16) & 0xFF) * shade);
-        auto g = static_cast<uint32_t>(static_cast<float>((argb >> 8) & 0xFF) * shade);
-        auto b = static_cast<uint32_t>(static_cast<float>(argb & 0xFF) * shade);
-        poly.argb = (argb & 0xFF000000) | (r << 16) | (g << 8) | b;
+        auto r = static_cast<uint32_t>(static_cast<float>((argb >> kRedShift) & kChannelMask) * shade);
+        auto g = static_cast<uint32_t>(static_cast<float>((argb >> kGreenShift) & kChannelMask) * shade);
+        auto b = static_cast<uint32_t>(static_cast<float>(argb & kChannelMask) * shade);
+        poly.argb = (argb & kAlphaMask) | (r << kRedShift) | (g << kGreenShift) | b;
         polygons.push_back(poly);
         if (style.edge && lines) {
             for (int k = 0; k < count; ++k) {
                 const int n = (k + 1) % count;
                 const ui::Seg line = {.ax = core::at(poly.x, k), .ay = core::at(poly.y, k), .bx = core::at(poly.x, n), .by = core::at(poly.y, n), .argb = style.edge, .thickness = style.thickness};
                 if (style.dashed)
-                    add_dashed(lines, line, 6.0f, 5.0f);
+                    add_dashed(lines, line, kDashLength, kDashGap);
                 else
                     lines->push_back(line);
             }
@@ -628,7 +667,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
                 view_stats().drawn_.push_back({.checksum = candidate.checksum, .wall = cached->collision_only_, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = core::at(cached->index, f)});
             any = true;
             view_stats().stats_.taken += facts.taken ? 1 : 0;
-            view_stats().stats_.triggers += (facts.flags & 0x40) && facts.trigger_colour_ ? 1 : 0;
+            view_stats().stats_.triggers += (facts.flags & kFaceTrigger) && facts.trigger_colour_ ? 1 : 0;
         }
         if (any) {
             ++view_stats().stats_.sectors;
@@ -688,7 +727,7 @@ Attributes last_stats() { return view_stats().stats_; }
 
 uint32_t pick_wall(V3 origin, V3 unit_dir)
 {
-    float best = 1e30f;
+    float best = kFarthest;
     const Drawn* nearest = nullptr;
     for (const Drawn& d : view_stats().drawn_) {
         float t = 0.0f;
@@ -704,7 +743,7 @@ uint32_t pick_wall(V3 origin, V3 unit_dir)
 
 bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
 {
-    float best = 1e30f;
+    float best = kFarthest;
     const Drawn* nearest = nullptr;
     for (const Drawn& d : view_stats().drawn_) {
         float t = 0.0f;
@@ -746,7 +785,7 @@ std::string describe_wall(uint32_t checksum)
         else
             ++it->second;
     }
-    std::array<char, 256> text{};
+    std::array<char, kWallTextSize> text{};
     text::format_to(
         text,
         "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
@@ -755,11 +794,11 @@ std::string describe_wall(uint32_t checksum)
         tri->bounds().max.x, tri->bounds().max.y, tri->bounds().max.z, tri->bounds().max.x - tri->bounds().min.x,
         tri->bounds().max.y - tri->bounds().min.y, tri->bounds().max.z - tri->bounds().min.z);
     std::string out = text.data();
-    for (size_t i = 0; i < counts.size() && i < 8; ++i) {
+    for (size_t i = 0; i < counts.size() && i < kMaxCountsShown; ++i) {
         text::format_to(text, " 0x%04X x%d", core::at(counts, i).first, core::at(counts, i).second);
         out += text.data();
     }
-    if (counts.size() > 8)
+    if (counts.size() > kMaxCountsShown)
         out += " ...";
     return out;
 }

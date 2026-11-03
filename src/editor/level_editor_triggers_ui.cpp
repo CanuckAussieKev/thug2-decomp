@@ -3,6 +3,7 @@
 // (Triggers::Queue).
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -29,13 +30,40 @@
 namespace frontend::level_editor::triggers {
 
 namespace {
+constexpr std::uint32_t kChannelByteMask = 0xFF;
+constexpr int kRedShift = 16; // a colour channels
+constexpr int kGreenShift = 8;
+constexpr int kAlphaShift = 24;
+constexpr std::size_t kTextBufferSize = 64; // the target, script, text and sound fields
+constexpr float kNewProximRadius = 200.0f; // a new proximity node default size
+constexpr float kNewProximWidth = 400.0f;
+constexpr float kNewProximHeight = 200.0f;
+constexpr float kNewProximDepth = 400.0f;
+constexpr float kRadiusDragStep = 2.0f;
+constexpr float kSizeDragStep = 5.0f;
+constexpr float kMinSize = 10.0f; // a trigger box side limits
+constexpr float kMaxSize = 50000.0f;
+constexpr std::uint32_t kDisabledColour = 0xFFA0A0A0u;
+constexpr float kPaneInset = 8.0f; // the Triggers pane gap from the view right edge and top, at scale 1
+constexpr float kPaneTop = 40.0f;
+constexpr float kPaneWidth = 380.0f;
+constexpr int kSeparatorEvery = 5; // a separator after every fifth list row
+constexpr float kListHeight = 180.0f;
+constexpr int kMaxListed = 400;
+constexpr int kScoreStep = 50;
+constexpr int kScoreStepFast = 500;
+constexpr int kMaxScore = 1000000;
+constexpr ImVec4 kDisabledTextColour{1.0f, 0.75f, 0.4f, 1.0f};
+constexpr ImVec4 kLandedColour{0.25f, 1.0f, 0.4f, 1.0f};
+constexpr ImVec4 kNotLandedColour{1.0f, 0.7f, 0.25f, 1.0f};
+constexpr ImVec4 kNotActiveColour{1.0f, 0.55f, 0.45f, 1.0f};
 
 constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
 
 ImVec4 get_colour(uint32_t argb)
 {
-    return {static_cast<float>((argb >> 16) & 0xFF) / kChannelMax, static_cast<float>((argb >> 8) & 0xFF) / kChannelMax,
-            static_cast<float>(argb & 0xFF) / kChannelMax, static_cast<float>(argb >> 24) / kChannelMax};
+    return {static_cast<float>((argb >> kRedShift) & kChannelByteMask) / kChannelMax, static_cast<float>((argb >> kGreenShift) & kChannelByteMask) / kChannelMax,
+            static_cast<float>(argb & kChannelByteMask) / kChannelMax, static_cast<float>(argb >> kAlphaShift) / kChannelMax};
 }
 
 std::string get_name_of(uint32_t checksum) { return name_for(checksum, script::kept_qb_name(checksum)); }
@@ -134,7 +162,7 @@ bool sound_combo(std::string* sound)
         }
         ImGui::EndCombo();
     }
-    static std::array<char, 64> typed;
+    static std::array<char, kTextBufferSize> typed;
     static bool editing;
     changed |= name_field("Sound Name", sound, typed.data(), sizeof(typed), &editing);
     if (ImGui::IsItemHovered())
@@ -152,8 +180,8 @@ void proxim_section(uint32_t node)
     ProximEdit e = now ? *now : ProximEdit{};
     e.node = node;
     gui::text_disabled("Scripts run on enter and exit");
-    static std::array<char, 64> g_enter_buffer;
-    static std::array<char, 64> g_exit_buffer;
+    static std::array<char, kTextBufferSize> g_enter_buffer;
+    static std::array<char, kTextBufferSize> g_exit_buffer;
     static bool g_enter_editing, g_exit_editing;
     bool changed = false;
     changed |= name_combo("On entering", &e.enter, level_editor_triggers_ui_state().scripts_);
@@ -173,14 +201,14 @@ void proxim_section(uint32_t node)
         e.shape = shape != 0;
         e.box = shape == 2;
         if (e.shape && !e.box && e.radius <= 0.0f)
-            e.radius = 200.0f;
+            e.radius = kNewProximRadius;
         if (e.box && e.size.x <= 0.0f)
-            e.size = {.x = 400.0f, .y = 200.0f, .z = 400.0f};
+            e.size = {.x = kNewProximWidth, .y = kNewProximHeight, .z = kNewProximDepth};
         changed = true;
     }
     if (e.shape && !e.box) {
         float radius = e.radius;
-        if (ImGui::DragFloat("Radius", &radius, 2.0f, kProximMin, kProximMax, "%.0f", ImGuiSliderFlags_AlwaysClamp)) {
+        if (ImGui::DragFloat("Radius", &radius, kRadiusDragStep, kProximMin, kProximMax, "%.0f", ImGuiSliderFlags_AlwaysClamp)) {
             ProximEdit sized = e;
             sized.radius = radius;
             get_queue([sized] { set_proxim(sized, false); });
@@ -189,7 +217,7 @@ void proxim_section(uint32_t node)
             get_queue([] { begin_edit(); });
     } else if (e.shape) {
         std::array<float, 3> size = {{e.size.x, e.size.y, e.size.z}};
-        if (ImGui::DragFloat3("Size##proxim", size.data(), 5.0f, kProximMin, kProximMax, "%.0f",
+        if (ImGui::DragFloat3("Size##proxim", size.data(), kSizeDragStep, kProximMin, kProximMax, "%.0f",
                               ImGuiSliderFlags_AlwaysClamp)) {
             ProximEdit sized = e;
             sized.size = {.x = core::at(size, 0), .y = core::at(size, 1), .z = core::at(size, 2)};
@@ -227,7 +255,7 @@ const LevelTrigger* level_named(uint32_t sector)
 
 void level_trigger_details(const LevelTrigger& l)
 {
-    gui::text_colored(get_colour(l.off ? 0xFFA0A0A0u : kind_colour(l.kind)), "%s", describe_level_trigger(l).c_str());
+    gui::text_colored(get_colour(l.off ? kDisabledColour : kind_colour(l.kind)), "%s", describe_level_trigger(l).c_str());
     gui::text_disabled("Level trigger %s: %d trigger faces%s", nodes::caption(l.sector).c_str(), l.face_count_,
                         l.has_node_ ? "" : " (no node)");
     gui::text_disabled("TriggerScript: %s", l.script ? nodes::caption(l.script).c_str() : "(none)");
@@ -236,7 +264,7 @@ void level_trigger_details(const LevelTrigger& l)
     const uint32_t sector = l.sector;
     const bool switchable = l.wall || l.all_trigger_;
     if (l.off)
-        gui::text_colored(ImVec4(1.0f, 0.75f, 0.4f, 1.0f), "Disabled");
+        gui::text_colored(kDisabledTextColour, "Disabled");
     ImGui::BeginDisabled(!switchable);
     if (ImGui::Button(l.off ? "Switch on" : "Switch off"))
         get_queue([sector, off = !l.off] { turn_off(sector, off); });
@@ -273,9 +301,9 @@ void pane(PaneArea area, PaneState pane_state)
     if (!get_shown())
         return;
     update_lists();
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - 8.0f * scale, view_y + 40.0f * scale), ImGuiCond_FirstUseEver,
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - kPaneInset * scale, view_y + kPaneTop * scale), ImGuiCond_FirstUseEver,
                             ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(380.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Triggers###triggers", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
@@ -322,20 +350,20 @@ void pane(PaneArea area, PaneState pane_state)
     gui::text_disabled("Breakables: select scenery, then Breaks When Hit");
     // The legend.
     for (int k = 0; k < kKinds; ++k) {
-        if (k % 5)
+        if (k % kSeparatorEvery)
             ImGui::SameLine();
         gui::text_colored(get_colour(kind_colour(static_cast<Kind>(k))), "%s", kind_name(static_cast<Kind>(k)));
     }
     ImGui::Separator();
     // The nearest (the editor's, then the level's), a click selects / inspects.
-    if (ImGui::BeginChild("##triggerlist", ImVec2(0.0f, 180.0f * scale), ImGuiChildFlags_Borders)) {
+    if (ImGui::BeginChild("##triggerlist", ImVec2(0.0f, kListHeight * scale), ImGuiChildFlags_Borders)) {
         for (const Added& a : added_triggers()) {
             if (!a.alive)
                 continue;
             std::string text = a.spec.name + "  " + kind_name(a.spec.kind);
             if ((a.spec.kind == Kind::kGapStart || a.spec.kind == Kind::kGapEnd) && !a.spec.text.empty())
                 text += std::string("  - ") + play_test::gap_note(clean_text(a.spec.text)); // (landed in a test run?)
-            ImGui::PushStyleColor(ImGuiCol_Text, get_colour(a.problem ? 0xFFA0A0A0u : kind_colour(a.spec.kind)));
+            ImGui::PushStyleColor(ImGuiCol_Text, get_colour(a.problem ? kDisabledColour : kind_colour(a.spec.kind)));
             const uint32_t name = node_create::name_hash(a.spec.name);
             if (ImGui::Selectable((text + "##a" + a.spec.name).c_str(), false))
                 get_queue([name] { select_node_named(name); });
@@ -343,11 +371,11 @@ void pane(PaneArea area, PaneState pane_state)
         }
         int shown = 0;
         for (const LevelTrigger& l : level_triggers()) {
-            if (++shown > 400)
+            if (++shown > kMaxListed)
                 break;
             const std::string text =
                 nodes::caption(l.sector) + "  " + describe_level_trigger(l) + (l.off ? "  (off)" : "");
-            ImGui::PushStyleColor(ImGuiCol_Text, get_colour(l.off ? 0xFFA0A0A0u : kind_colour(l.kind)));
+            ImGui::PushStyleColor(ImGuiCol_Text, get_colour(l.off ? kDisabledColour : kind_colour(l.kind)));
             const uint32_t sector = l.sector;
             const bool has_node = l.has_node_;
             if (ImGui::Selectable((text + "##l" + std::to_string(l.sector)).c_str(), l.sector == inspected_sector()))
@@ -418,7 +446,7 @@ void inspector_section(int index)
     }
     // The size (one undo step a drag).
     std::array<float, 3> size = {{s.size.x, s.size.y, s.size.z}};
-    if (ImGui::DragFloat3("Size", size.data(), 5.0f, 10.0f, 50000.0f, "%.0f")) {
+    if (ImGui::DragFloat3("Size", size.data(), kSizeDragStep, kMinSize, kMaxSize, "%.0f")) {
         Spec sized = s;
         sized.size = {.x = core::at(size, 0), .y = core::at(size, 1), .z = core::at(size, 2)};
         get_queue([key, sized] { set_spec(key, sized, false); });
@@ -427,9 +455,9 @@ void inspector_section(int index)
         get_queue([] { begin_edit(); });
     if (ImGui::IsItemHovered())
         gui::tooltip("Width, height, depth");
-    static std::array<char, 64> target;
-    static std::array<char, 64> script;
-    static std::array<char, 64> text;
+    static std::array<char, kTextBufferSize> target;
+    static std::array<char, kTextBufferSize> script;
+    static std::array<char, kTextBufferSize> text;
     static bool g_target_editing, g_script_editing, g_text_editing;
     switch (s.kind) {
     case Kind::kKill:
@@ -452,15 +480,15 @@ void inspector_section(int index)
         if (!s.text.empty()) {
             // (validated by skating - level_editor_playtest.h)
             const bool landed = play_test::gap_landed(clean_text(s.text));
-            gui::text_colored(landed ? ImVec4(0.25f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.7f, 0.25f, 1.0f), "%s",
+            gui::text_colored(landed ? kLandedColour : kNotLandedColour, "%s",
                                landed ? "Landed in a test run" : "Not yet landed in a test run");
         }
         changed |= name_field("Name", &s.text, text.data(), sizeof(text), &g_text_editing);
         if (ImGui::IsItemHovered())
             gui::tooltip("Gap name");
         int score = s.score;
-        if (ImGui::InputInt("Score", &score, 50, 500) && score != s.score) {
-            s.score = std::max(0, std::min(1000000, score));
+        if (ImGui::InputInt("Score", &score, kScoreStep, kScoreStepFast) && score != s.score) {
+            s.score = std::max(0, std::min(kMaxScore, score));
             changed = true;
         }
         if (ImGui::TreeNode("Flags")) {
@@ -524,7 +552,7 @@ void inspector_section(int index)
     if (s.replaces)
         gui::text_disabled("Replaces %s", nodes::caption(s.replaces).c_str());
     if (a->problem)
-        gui::text_colored(ImVec4(1.0f, 0.55f, 0.45f, 1.0f), "Not active: %s", a->problem);
+        gui::text_colored(kNotActiveColour, "Not active: %s", a->problem);
     else
         gui::text_colored(get_colour(kind_colour(s.kind)), "Runs %s on enter%s", get_script_name(s).c_str(),
                            s.exit ? " and exit" : "");
