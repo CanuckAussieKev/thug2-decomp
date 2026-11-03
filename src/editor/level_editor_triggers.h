@@ -223,7 +223,7 @@ int partner(const std::vector<Spec>& specs, int index);
 // or an exit script: a script of its own, ed_proxim_<node> = `if Inside { <enter> } else { <exit> }`, where a branch
 // not chosen calls the node's own script (its arguments passed on - `<script> <...>`), if it has one, so the other half
 // keeps working; it is put in the ProximNode's script (+0xA0), the node's structure untouched. Its shape: a sphere
-// (Radius: +0x70 / +0x74) or a box - the game's kProximShapeBox (1: an axis-aligned box in the world, +0x7C - which
+// (Radius: +0x70 / +0x74) or a box - the game's objects::ProximShape::kBox (1: an axis-aligned box in the world, +0x7C - which
 // the game otherwise takes from the sector named like the node), here `size` about the node's place plus `offset`
 // (kept with the node as it moves). Put back (script, shape, radius, box) as the node had them when the edit goes, in a
 // network session and with Reset level. Records (version 2; older readers skip them):

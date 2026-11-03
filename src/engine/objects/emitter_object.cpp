@@ -79,17 +79,18 @@ bool is_within(EmitterNode& node, const maths::Vec4* point)
     const float dy = point->y - node.at_point_.y;
     const float dz = point->z - node.at_point_.z;
     switch (node.form_) {
-    case kEmitterShapeBox:
+    case objects::EmitterShape::kBox:
         return node.box_.contains_point(*point) != 0;
-    case kEmitterShapeSphere: {
+    case objects::EmitterShape::kSphere: {
         // (summed unrounded: z, x, then y)
         double distance = static_cast<double>(dz) * dz + static_cast<double>(dx) * dx;
         distance += static_cast<double>(dy) * dy;
         return distance <= node.reach_sq_;
     }
-    default:
-        return false;
+    case objects::EmitterShape::kOther:
+        break;
     }
+    return false;
 }
 
 // 0x004681A0
@@ -100,13 +101,13 @@ maths::Vec4* nearest_point_on(EmitterNode& node, maths::Vec4* out, const maths::
         return out;
     }
     switch (node.form_) {
-    case kEmitterShapeBox: {
+    case objects::EmitterShape::kBox: {
         maths::Vec4 closest;
         node.box_.get_closest_surface_point(*point, closest);
         *out = closest;
         break;
     }
-    case kEmitterShapeSphere: {
+    case objects::EmitterShape::kSphere: {
         maths::Vec4 direction = *point - node.at_point_;
         direction.make_unit();
         out->x = direction.x * node.radius_ + node.at_point_.x;
@@ -116,7 +117,7 @@ maths::Vec4* nearest_point_on(EmitterNode& node, maths::Vec4* out, const maths::
         out->w = static_cast<float>(static_cast<double>(node.radius_) * direction.w + node.at_point_.w);
         break;
     }
-    default:
+    case objects::EmitterShape::kOther:
         break; // (the original copies its uninitialised locals)
     }
     return out;
@@ -172,21 +173,21 @@ void emitter_add_node(uint32_t name, bool active)
     node->label_ = name;
     node->active_ = active;
     node->sector_ = nullptr;
-    node->form_ = kEmitterShapeSphere;
+    node->form_ = objects::EmitterShape::kSphere;
     script::Struct* params = level_nodes::fetch_vertex(name, true);
     params->read_hash_value(kName, &node->label_, 0);
     stored_emitter_table()->store_entry(node->label_, node);
     uint32_t shape = 0;
     if (params->read_hash_value(kShape, &shape, 0)) {
         if (shape == kHash03F1E5A7)
-            node->form_ = kEmitterShapeOther;
+            node->form_ = objects::EmitterShape::kOther;
         else if (shape == kSphere)
-            node->form_ = kEmitterShapeSphere;
+            node->form_ = objects::EmitterShape::kSphere;
         else
-            node->form_ = shape == kBoundingBox ? kEmitterShapeBox : kEmitterShapeSphere;
+            node->form_ = shape == kBoundingBox ? objects::EmitterShape::kBox : objects::EmitterShape::kSphere;
     }
     node->sector_ = look_up_sector(node->label_);
-    if (node->sector_ && node->form_ == kEmitterShapeBox)
+    if (node->sector_ && node->form_ == objects::EmitterShape::kBox)
         node->box_ = *sector_box(node->sector_);
     level_nodes::fetch_place(params, &node->at_point_);
     params->fetch_float(kRadius, &node->radius_, 0);

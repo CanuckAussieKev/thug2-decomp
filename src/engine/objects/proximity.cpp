@@ -110,20 +110,20 @@ maths::Vec4 into_sector(const ProximNode* node, const maths::Vec4* point, const 
 } // namespace
 
 // 0x0046AAC0
-int proxim_shape_from_checksum(uint32_t checksum)
+ProximShape proxim_shape_from_checksum(uint32_t checksum)
 {
     switch (checksum) {
     case kBoundingBox:
-        return kProximShapeBox;
+        return objects::ProximShape::kBox;
     case kHash03F1E5A7:
-        return kProximShapeSectorBox;
+        return objects::ProximShape::kSectorBox;
     case kCylinder:
-        return kProximShapeNone;
+        return objects::ProximShape::kNone;
     case kGeometry:
-        return kProximShapeSector;
+        return objects::ProximShape::kSector;
     case kSphere: // (the sphere's own name)
     default:
-        return kProximShapeSphere;
+        return objects::ProximShape::kSphere;
     }
 }
 
@@ -226,16 +226,17 @@ void ProximNode::set_sector(void* sector)
     if (!sector)
         return;
     switch (form_) {
-    case kProximShapeBox:
+    case objects::ProximShape::kBox:
         box_ = *sector_box(sector);
         break;
-    case kProximShapeSectorBox:
-    case kProximShapeSector:
+    case objects::ProximShape::kSectorBox:
+    case objects::ProximShape::kSector:
         box_ = *sector_box(sector);
         to_sector_ = *sector_world_matrix(sector_);
         to_sector_.upend();
         break;
-    default:
+    case objects::ProximShape::kSphere:
+    case objects::ProximShape::kNone:
         break;
     }
 }
@@ -248,32 +249,33 @@ bool ProximNode::is_within(const maths::Vec4* point)
     offset.y = point->y - at_point_.y;
     offset.z = point->z - at_point_.z;
     switch (form_) {
-    case kProximShapeSphere: {
+    case objects::ProximShape::kSphere: {
         // (summed unrounded, z first, as the original)
         double distance = static_cast<double>(offset.z) * offset.z + static_cast<double>(offset.y) * offset.y;
         distance += static_cast<double>(offset.x) * offset.x;
         return distance <= reach_sq_;
     }
-    case kProximShapeBox:
+    case objects::ProximShape::kBox:
         return box_.contains_point(*point) != 0;
-    case kProximShapeSectorBox: {
+    case objects::ProximShape::kSectorBox: {
         maths::Vec4 center;
         box_.get_center(center);
         const maths::Vec4 local = into_sector(this, point, center);
         return box_.contains_point(local) != 0;
     }
-    case kProximShapeSector:
+    case objects::ProximShape::kSector:
         return sector_contains(sector_, point, &offset);
-    default:
-        return false;
+    case objects::ProximShape::kNone:
+        break;
     }
+    return false;
 }
 
 // 0x0046AEC0
 maths::Vec4* ProximNode::nearest_point_on(maths::Vec4* out, const maths::Vec4* point)
 {
     switch (form_) {
-    case kProximShapeSphere: {
+    case objects::ProximShape::kSphere: {
         maths::Vec4 direction = *point - at_point_;
         direction.make_unit();
         out->x = direction.x * radius_ + at_point_.x;
@@ -283,14 +285,14 @@ maths::Vec4* ProximNode::nearest_point_on(maths::Vec4* out, const maths::Vec4* p
         out->w = static_cast<float>(static_cast<double>(radius_) * direction.w + at_point_.w);
         return out;
     }
-    case kProximShapeBox: {
+    case objects::ProximShape::kBox: {
         maths::Vec4 closest;
         box_.get_closest_surface_point(*point, closest);
         *out = closest;
         return out;
     }
-    case kProximShapeSectorBox:
-    case kProximShapeSector: {
+    case objects::ProximShape::kSectorBox:
+    case objects::ProximShape::kSector: {
         // into the sector's frame, the box's nearest point, and back out by its world matrix
         maths::Vec4 center;
         box_.get_center(center);
@@ -301,10 +303,10 @@ maths::Vec4* ProximNode::nearest_point_on(maths::Vec4* out, const maths::Vec4* p
         *out = closest * *sector_world_matrix(sector_) + center;
         return out;
     }
-    default:
-        // (the original copies its uninitialised locals)
-        return out;
+    case objects::ProximShape::kNone:
+        break;
     }
+    return out; // (the original copies its uninitialised locals)
 }
 
 // 0x0046B1F0
@@ -319,7 +321,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     node->label() = name;
     node->set_active(active);
     node->assign_sector(nullptr);
-    node->set_form(kProximShapeSphere);
+    node->set_form(objects::ProximShape::kSphere);
     script::Struct* params = level_nodes::fetch_vertex(name, true);
     params->read_hash_value(kName, &node->label(), 0);
     uint32_t shape = 0;

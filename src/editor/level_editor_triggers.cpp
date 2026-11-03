@@ -1568,7 +1568,7 @@ std::vector<ProximEdit>& stored_proxims()
 }
 struct ProximOriginal {
     uint32_t script;
-    int shape;
+    objects::ProximShape shape;
     float radius;
     V3 min, max;
 };
@@ -1661,14 +1661,14 @@ void sync_proxims()
             p->box().min = {.x = o.min.x, .y = o.min.y, .z = o.min.z, .w = 1.0f};
             p->box().max = {.x = o.max.x, .y = o.max.y, .z = o.max.z, .w = 1.0f};
         } else if (e.box) {
-            // (kProximShapeBox: the world's axes; its middle kept at the node's place plus the offset)
+            // (objects::ProximShape::kBox: the world's axes; its middle kept at the node's place plus the offset)
             const V3 centre = V3{.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z} + e.offset;
             const V3 half = e.size * 0.5f;
-            p->set_form(objects::kProximShapeBox);
+            p->set_form(objects::ProximShape::kBox);
             p->box().min = {.x = centre.x - half.x, .y = centre.y - half.y, .z = centre.z - half.z, .w = 1.0f};
             p->box().max = {.x = centre.x + half.x, .y = centre.y + half.y, .z = centre.z + half.z, .w = 1.0f};
         } else {
-            p->set_form(objects::kProximShapeSphere);
+            p->set_form(objects::ProximShape::kSphere);
             p->radius() = e.radius;
             p->set_reach_sq(e.radius * e.radius);
         }
@@ -2589,7 +2589,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             return;
         const uint32_t colour = is_selected ? 0xFFFFB060u : 0xC0F08A3Cu;
         V3 top = at;
-        if (p->form() == objects::kProximShapeSphere && p->radius() > 0.0f) {
+        if (p->form() == objects::ProximShape::kSphere && p->radius() > 0.0f) {
             constexpr int kSides = 32;
             const std::array<std::array<V3, 2>, 3> axes = {{{{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 0, .z = 1}}}, {{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 1, .z = 0}}}, {{{.x = 0, .y = 1, .z = 0}, {.x = 0, .y = 0, .z = 1}}}}};
             for (const auto& plane : axes) {
@@ -2603,7 +2603,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
                 }
             }
             top = at + up * p->radius();
-        } else if (p->form() == objects::kProximShapeBox) {
+        } else if (p->form() == objects::ProximShape::kBox) {
             const V3 min = {.x = p->box().min.x, .y = p->box().min.y, .z = p->box().min.z};
             const V3 max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z};
             const OrientedBox box = {
@@ -2798,13 +2798,13 @@ bool shape_for(uint32_t node, HandleShape* s)
         s->size = e->box ? e->size : V3{.x = e->radius * kDiameterFactor, .y = e->radius * kDiameterFactor, .z = e->radius * kDiameterFactor};
         return true;
     }
-    if (p->form() == objects::kProximShapeSphere) {
+    if (p->form() == objects::ProximShape::kSphere) {
         s->sphere = true;
         s->pos = at;
         s->size = {.x = p->radius() * kDiameterFactor, .y = p->radius() * kDiameterFactor, .z = p->radius() * kDiameterFactor};
         return p->radius() > 0.0f;
     }
-    if (p->form() == objects::kProximShapeBox) {
+    if (p->form() == objects::ProximShape::kBox) {
         const V3 min = {.x = p->box().min.x, .y = p->box().min.y, .z = p->box().min.z};
         const V3 max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z};
         s->pos = (min + max) * kHalf;
