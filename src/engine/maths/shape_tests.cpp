@@ -62,7 +62,7 @@ bool BBox::get_holds(const BBox& other) const
 }
 
 // 0x00404060 (Ghidra's signature database labels this MFC's CRect constructor; it is the same simple code)
-Rect2::Rect2(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
+Rect2::Rect2(const Edges& edges) : edges_(edges) {}
 
 // 0x00403BB0
 Vec4& BBox::get_center(Vec4& out) const
@@ -103,8 +103,10 @@ int BBox::count_axes_containing(const Vec4& point, uint32_t& axes) const
 }
 
 // 0x00403550
-bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
+bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
 {
+    Vec4& hit = *out.hit;
+    Vec4& normal = *out.normal;
     const Vec4& s = line.start;
     const Vec4& e = line.end;
     if (contains_point(s) && contains_point(e))

@@ -37,8 +37,8 @@ uint32_t save_file_checksum(const uint8_t* file, size_t size)
     if (size < 4)
         return 0;
     constexpr std::array<uint8_t, 4> kZero = {};
-    const uint32_t crc = checksums::extend_crc_with_buffer(kZero.data(), 4, 0xFFFFFFFFu);
-    return checksums::extend_crc_with_buffer(std::span(file, size).subspan(4).data(), static_cast<int>(size - 4), crc);
+    const uint32_t crc = checksums::extend_crc_with_buffer(kZero, 0xFFFFFFFFu);
+    return checksums::extend_crc_with_buffer(std::span(file, size).subspan(4), crc);
 }
 
 } // namespace save_cards

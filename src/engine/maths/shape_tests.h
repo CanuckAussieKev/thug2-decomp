@@ -8,10 +8,16 @@ namespace maths {
 
 // Integer rectangle. Field meanings are assumed (left, top, right, bottom) until its users are decompiled.
 struct Rect2 {
-    Rect2(int left, int top, int right, int bottom);
+    struct Edges {
+        int left{};
+        int top{};
+        int right{};
+        int bottom{};
+    };
+    explicit Rect2(const Edges& edges);
 
 private:
-    int left, top, right, bottom;
+    Edges edges_;
 };
 
 // Axis-aligned bounding box.
@@ -40,7 +46,12 @@ public:
     // Where the segment first enters the box through a face, checking +X, -X, +Y, -Y, +Z, -Z in that order.
     // Fills `hit` (w = 1) and the face's outward normal. False if both ends are inside, both are beyond the
     // same face, or the segment misses every face.
-    bool segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const;
+    // (where the hit point and the face's normal go)
+    struct CrossingOut {
+        Vec4* hit{};
+        Vec4* normal{};
+    };
+    [[nodiscard]] bool segment_crossing(const Seg& line, CrossingOut out) const;
     // For a point inside: the nearest point on the surface (moving along one axis; ties go to the earlier
     // axis, and to max over min). For a point outside: the point clamped onto the box, w = 1.
     void get_closest_surface_point(const Vec4& point, Vec4& out) const;

@@ -72,9 +72,9 @@ uint32_t generate_crc_from_buffer(const void* data, int size)
 // 0x00401AF0
 // Ghidra's pseudocode shows this as an empty loop: it misses the third argument (the starting CRC, loaded
 // straight into EAX) and with it the loop body and the return value. The script code chains it over tokens.
-uint32_t extend_crc_with_buffer(const void* data, int size, uint32_t crc)
+uint32_t extend_crc_with_buffer(std::span<const uint8_t> bytes, uint32_t crc)
 {
-    for (const uint8_t byte : std::span(static_cast<const uint8_t*>(data), static_cast<std::size_t>(size)))
+    for (const uint8_t byte : bytes)
         crc = get_step(crc, byte);
     return crc;
 }

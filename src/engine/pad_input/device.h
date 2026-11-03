@@ -26,7 +26,13 @@ public:
     static constexpr uint32_t kAnalog = 4;
 
     // 0x005BD920. Leaves buffer_raw_ unset and reads it (the PS2 version's DMA buffer, aligned to 64 bytes).
-    InputPort(int index, int port, int slot);
+    // (the port's place: its index in the list, its port and its slot)
+    struct Place {
+        int index{};
+        int port{};
+        int slot{};
+    };
+    explicit InputPort(Place place);
     // 0x005BCD00: the list node deleted.
     ~InputPort();
     InputPort(const InputPort&) = delete;

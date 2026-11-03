@@ -104,8 +104,13 @@ private:
 // frame with that controller's data.
 class InputHandler : public tasks::SchedulerTask {
 public:
-    // 0x00406890's task, on `controller`.
-    InputHandler(int priority, int controller) : SchedulerTask(priority), ordinal_(controller) {}
+    // Where a handler runs: its task priority and its controller.
+    struct Seat {
+        int priority{};
+        int controller{};
+    };
+    // 0x00406890's task, on `seat.controller`.
+    explicit InputHandler(Seat seat) : SchedulerTask(seat.priority), ordinal_(seat.controller) {}
 
     // The fields other code reads and sets.
     [[nodiscard]] Payload* control_data() const { return control_data_; }
@@ -128,7 +133,7 @@ public:
     using Code = void (*)(Responder* handler);
 
     Responder(Code code, Owner* owner, int priority, int controller = 0)
-        : InputHandler(priority, controller), code_value_(code), content_(owner)
+        : InputHandler({.priority = priority, .controller = controller}), code_value_(code), content_(owner)
     {}
 
     // 0x00577270 (slot 0 of every Responder<T>): the code, given the handler.

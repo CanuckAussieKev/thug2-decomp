@@ -58,8 +58,11 @@ bool pad_present(int port) { return poll_joystick(port) || has_key_bindings(port
 void set_actuators(int port, int left, int right) { os_layer::set_actuators(port, left, right); }
 
 // 0x005BD920
-InputPort::InputPort(int index, int port, int slot)
+InputPort::InputPort(Place place)
 {
+    const int index = place.index;
+    const int port = place.port;
+    const int slot = place.slot;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     capabilities_ = 0;
     list_link_ = memory::ListNode::create(this);
@@ -781,7 +784,7 @@ Hub::Hub()
     task_ = std::make_unique<tasks::Task<memory::ListNode>>(&process_task, &devs_, 0);
     int index = 0;
     for (int port = 0; port < 2; ++port) {
-        auto device = memory::make_owned<InputPort>(index, port, 0);
+        auto device = memory::make_owned<InputPort>(InputPort::Place{.index = index, .port = port, .slot = 0});
         if (!device)
             continue;
         memory::ListNode* node = device->list_link(); // onto the end of the list

@@ -25,10 +25,16 @@ namespace {
 int kb(int64_t bytes) { return static_cast<int>(bytes / 1024); }
 
 // The process's free address space: the total and the largest free block.
-void address_space(uint64_t& total, uint64_t& largest)
+struct FreeSpace {
+    uint64_t total{};
+    uint64_t largest{};
+};
+
+FreeSpace address_space()
 {
-    total = 0;
-    largest = 0;
+    FreeSpace space;
+    uint64_t& total = space.total;
+    uint64_t& largest = space.largest;
     MEMORY_BASIC_INFORMATION info;
     for (auto* at = static_cast<uint8_t*>(nullptr); VirtualQuery(at, &info, sizeof(info)) == sizeof(info);) {
         if (info.State == MEM_FREE) {
@@ -43,6 +49,7 @@ void address_space(uint64_t& total, uint64_t& largest)
             break;
         at = next;
     }
+    return space;
 }
 
 } // namespace
@@ -67,8 +74,7 @@ void log_memory_use(const char* when)
     }
     PROCESS_MEMORY_COUNTERS counters = {};
     counters.cb = sizeof(counters);
-    uint64_t total = 0, largest = 0;
-    address_space(total, largest);
+    const auto [total, largest] = address_space();
     if (K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) {
         text::format_to(part, "; process: private %d MB (peak %d MB)", static_cast<int>(counters.PagefileUsage >> 20),
                         static_cast<int>(counters.PeakPagefileUsage >> 20));

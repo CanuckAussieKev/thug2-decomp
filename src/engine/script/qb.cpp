@@ -265,7 +265,7 @@ uint32_t calculate_script_checksum(Tokens token)
         const Tokens next = step_over_token(token);
         if (*token != 0x01 && *token != 0x02) {
             const std::span<const uint8_t> bytes = code_between(token, next);
-            checksum = checksums::extend_crc_with_buffer(bytes.data(), static_cast<int>(bytes.size()), checksum);
+            checksum = checksums::extend_crc_with_buffer(bytes, checksum);
         }
         token = next;
     }

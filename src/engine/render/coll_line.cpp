@@ -120,7 +120,7 @@ bool HitMovingBox::collide_with_line(const maths::Seg* line, const maths::Vec4* 
     if (!box_.intersects(around))
         return false;
     maths::Vec4 point{}, normal{};
-    if (!box_.segment_crossing(local, point, normal))
+    if (!box_.segment_crossing(local, {.hit = &point, .normal = &normal}))
         return false;
     const float hx = get_difference(point.x, local.start.x);
     const float hy = get_difference(point.y, local.start.y);

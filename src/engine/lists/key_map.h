@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <span>
 
+#include "engine/core/gathered_call.h"
+
 namespace lists {
 
 // A hash table keyed by 32-bit checksums, storing non-null pointers. It has 2^bits buckets; each bucket is
@@ -21,6 +23,11 @@ public:
         Item* next;
     };
     using HookFn = void (*)(void* value, void* data);
+    // A hook's call: the item's value and the data given to run_hook.
+    struct HookCall {
+        void* value{};
+        void* data{};
+    };
     // A typed hook's value and data types.
     template <typename F>
     struct HookTypes;
@@ -55,12 +62,7 @@ public:
     template <auto Hook>
     void run_hook(typename HookTypes<decltype(Hook)>::Data* data)
     {
-        using Types = HookTypes<decltype(Hook)>;
-        run_hook(
-            [](void* value, void* hook_data) {
-                (void)Hook(static_cast<typename Types::Value*>(value), static_cast<typename Types::Data*>(hook_data));
-            },
-            data);
+        run_hook(&core::gathered<HookCall, &typed_hook<Hook>, void, void*, void*>, data);
     }
 
     // Iteration: set iter_bucket_ = -1 and iter_item_ = null, then each step_iterator() that returns true
@@ -83,6 +85,13 @@ public:
     void set_iter_item(Item* value) { iter_item_ = value; }
 
 private:
+    // run_hook<Hook>'s callback: the call's value and data as Hook's own pointer types (what it returns is dropped).
+    template <auto Hook>
+    static void typed_hook(const HookCall& call)
+    {
+        using Types = HookTypes<decltype(Hook)>;
+        (void)Hook(static_cast<typename Types::Value*>(call.value), static_cast<typename Types::Data*>(call.data));
+    }
     int bits_;
     Item* buckets_;
     int extent_;
