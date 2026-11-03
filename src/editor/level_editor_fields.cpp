@@ -346,11 +346,11 @@ bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
         std::string t = get_trim(text);
         for (char& c : t)
             c = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-        if (t == "1" || t == "on" || t == "true" || t == "yes")
+        if (t == "1" || t == "on" || t == "true" || t == "yes") {
             v.on = true;
-        else if (t == "0" || t == "off" || t == "false" || t == "no")
+        } else if (t == "0" || t == "off" || t == "false" || t == "no") {
             v.on = false;
-        else {
+        } else {
             *error = "on or off";
             return false;
         }

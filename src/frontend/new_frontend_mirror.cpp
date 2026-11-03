@@ -372,11 +372,11 @@ View get_build(const MenuRead& read, const Policy& policy)
                 row.track_at_ = item.slider_at_;
                 std::array<char, kNumberTextSize> number{};
                 bool show = true;
-                if (item.slider_kind_ == 1)
+                if (item.slider_kind_ == 1) {
                     text::format_to(number, "%d", maths::round_non_negative<int>(item.slider_at_ * kDegreesPerTurn));
-                else if (item.slider_kind_ == 2)
+                } else if (item.slider_kind_ == 2) {
                     text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * kSatMax));
-                else if (item.slider_kind_ == 3) {
+                } else if (item.slider_kind_ == 3) {
                     const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
                     text::format_to(
                         number, "%d%%",

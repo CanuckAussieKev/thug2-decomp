@@ -455,13 +455,13 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
                 return fail("waitfor fe <screen> [seconds]");
             command.target = get_lower(::core::at(tokens, 2));
             next = 3;
-        } else if (what == "ready")
+        } else if (what == "ready") {
             command.condition = Condition::kReady;
-        else if (what == "frontend")
+        } else if (what == "frontend") {
             command.condition = Condition::kFrontEnd;
-        else if (what == "ingame")
+        } else if (what == "ingame") {
             command.condition = Condition::kInGame;
-        else if (what == "level" || what == "menu" || what == "focus") {
+        } else if (what == "level" || what == "menu" || what == "focus") {
             command.condition = what == "level"  ? Condition::kStageMap
                                 : what == "menu" ? Condition::kMenu
                                                  : Condition::kFocus;
@@ -1539,14 +1539,20 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         return true;
     }
     case Op::kViewCam:
-        if (command.target == "off")
+        if (command.target == "off") {
             frontend::test_view::unlock_camera();
-        else if (!frontend::test_view::lock_camera(
-                     {.position = {.x = ::core::at(command.numbers, 0), .y = ::core::at(command.numbers, 1), .z = ::core::at(command.numbers, 2)},
-                      .direction = {.x = ::core::at(command.numbers, 3), .y = ::core::at(command.numbers, 4), .z = ::core::at(command.numbers, kDirectionZIndex)},
-                      .drift = command.numbers.size() > kDriftXIndex
-                                   ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, kDriftXIndex), .y = ::core::at(command.numbers, kDriftYIndex), .z = ::core::at(command.numbers, kDriftZIndex)}
-                                   : frontend::test_view::Vec3{.x = 0.0f, .y = 0.0f, .z = 0.0f}})) {
+        } else if (!frontend::test_view::lock_camera(
+                       {.position = {.x = ::core::at(command.numbers, 0),
+                                     .y = ::core::at(command.numbers, 1),
+                                     .z = ::core::at(command.numbers, 2)},
+                        .direction = {.x = ::core::at(command.numbers, 3),
+                                      .y = ::core::at(command.numbers, 4),
+                                      .z = ::core::at(command.numbers, kDirectionZIndex)},
+                        .drift = command.numbers.size() > kDriftXIndex
+                                     ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, kDriftXIndex),
+                                                                 .y = ::core::at(command.numbers, kDriftYIndex),
+                                                                 .z = ::core::at(command.numbers, kDriftZIndex)}
+                                     : frontend::test_view::Vec3{.x = 0.0f, .y = 0.0f, .z = 0.0f}})) {
             get_fail(runner, "the direction has no horizon (straight up / down)", false);
             return true;
         }

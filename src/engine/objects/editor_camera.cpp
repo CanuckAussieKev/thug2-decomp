@@ -286,9 +286,9 @@ void EditorViewModule::build_blob_shadow()
 // 0x004E59D0
 void EditorViewModule::conceal(bool hide)
 {
-    if (!hide)
+    if (!hide) {
         build_blob_shadow();
-    else if (shadow_handle_) {
+    } else if (shadow_handle_) {
         shadow_handle_.reset();
     }
 }

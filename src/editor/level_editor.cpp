@@ -6707,9 +6707,9 @@ void tick_frame()
                 else
                     drag_state().objects_.push_back({.object = hover, .id = hover->ident()});
             } else {
-                if (!is_picked(hover))
+                if (!is_picked(hover)) {
                     select_objects({hover});
-                else if (get_primary() != hover) {
+                } else if (get_primary() != hover) {
                     // (the clicked one first: the camera and the arrows go by it)
                     auto it = std::ranges::find_if(drag_state().objects_, [&](const Picked& p) { return p.object == hover; });
                     std::rotate(drag_state().objects_.begin(), it, it + 1);

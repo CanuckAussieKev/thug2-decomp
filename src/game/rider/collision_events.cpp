@@ -828,8 +828,9 @@ void end_frame(SkaterPhysicsModule* component)
         if (s.frame == last.frame) { // (the same frame again: the newer replaces it)
             collision_events_state().next_ = (collision_events_state().next_ - 1 + kHistory) % kHistory;
             --collision_events_state().sample_total_;
-        } else if (dx * dx + dy * dy + dz * dz > kTeleport * kTeleport || s.frame < last.frame)
+        } else if (dx * dx + dy * dy + dz * dz > kTeleport * kTeleport || s.frame < last.frame) {
             get_reset();
+        }
     }
     core::at(collision_events_state().samples_, collision_events_state().next_) = s;
     collision_events_state().next_ = (collision_events_state().next_ + 1) % kHistory;

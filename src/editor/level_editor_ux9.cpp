@@ -383,9 +383,9 @@ void tick_frame()
     }
     if (level_editor_ux9_state().ground_action_ >= 0 && actions::squeezed(level_editor_ux9_state().ground_action_)) {
         gap_wizard::set_armed(false);
-        if (goal_form().stage_ == Stage::kDisengaged)
+        if (goal_form().stage_ == Stage::kDisengaged) {
             change_stage(Stage::kFirst);
-        else {
+        } else {
             change_stage(Stage::kDisengaged);
             show_message("Ground Tool off");
         }

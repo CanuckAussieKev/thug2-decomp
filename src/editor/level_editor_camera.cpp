@@ -492,8 +492,9 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
         if (!level_editor_camera_state().orbit_.orbiting) {
             *m.left_presses_ = 1;
             *m.left_releases_ = 1; // (the button is up: a press and its release, as a quick click)
-        } else
+        } else {
             *m.left_releases_ = 0;
+        }
         level_editor_camera_state().orbit_.pending = false;
         level_editor_camera_state().orbit_.orbiting = false;
     }

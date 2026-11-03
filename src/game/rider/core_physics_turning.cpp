@@ -106,12 +106,13 @@ void SkaterPhysicsModule::turn_for_rail_jump()
                 static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
         else
             return;
-    } else if (input->pad_primary().left_side().held_down())
+    } else if (input->pad_primary().left_side().held_down()) {
         angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kRadiansPerDegree);
-    else if (input->pad_primary().right_side().held_down())
+    } else if (input->pad_primary().right_side().held_down()) {
         angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
-    else
+    } else {
         return;
+    }
     turn_velocity(entity()->vel(), angle);
     turn_matrices(angle);
 }

@@ -2965,10 +2965,10 @@ void blit()
                 else
                     paint::get_waiting(frame, static_cast<float>(w), static_cast<float>(h), pause, "career");
             }
-            if (menu_mirror().mirror_.get_up())
+            if (menu_mirror().mirror_.get_up()) {
                 paint::restyled(menu_mirror().mirror_, frame, static_cast<float>(w), static_cast<float>(h), &menu_mirror().mirror_hits_,
                                 &menu_mirror().mirror_scroll_, &pause);
-            else {
+            } else {
                 std::vector<paint::Hit> unused;
                 paint::restyled(screen_cover().cover_tracker_, frame, static_cast<float>(w), static_cast<float>(h), &unused,
                                 &screen_cover().cover_scroll_, &pause);

@@ -335,13 +335,14 @@ bool type_key(Typed* typed, char c)
         return true;
     }
     if (c == '\b') {
-        if (!typed->text.empty())
+        if (!typed->text.empty()) {
             typed->text.pop_back();
-        else if (typed->axis >= 0) {
+        } else if (typed->axis >= 0) {
             typed->axis = -1;
             typed->axis_changed_ = true;
-        } else
+        } else {
             return false;
+        }
         return true;
     }
     return false;

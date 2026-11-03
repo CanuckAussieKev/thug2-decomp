@@ -19,6 +19,7 @@ Checks:
   - 'readability-container-size-empty'
   - 'readability-duplicate-include'
   - 'readability-inconsistent-declaration-parameter-name'
+  - 'readability-inconsistent-ifelse-braces'
   - 'readability-non-const-parameter'
   - 'readability-redundant-access-specifiers'
   - 'readability-redundant-control-flow'

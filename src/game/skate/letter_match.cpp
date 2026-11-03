@@ -197,8 +197,9 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
         if (points_target_ > 0) {
             const char* points = text::format_with_separators(points_target_);
             text::format_to(text, "%s %s", script::fetch_text(kTargetScoreText), points); // "%s %s"
-        } else
+        } else {
             text::format_data_to(text, script::fetch_text(kSetScore)); // (the text is the format, as in the original)
+        }
         break;
     case kFinalWord:
         text::format_to(text, "%s", word_.data());
