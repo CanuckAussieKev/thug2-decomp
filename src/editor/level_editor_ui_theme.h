@@ -2,12 +2,16 @@
 
 #include <span>
 
-struct ImFont;
+#include "imgui.h"
 
 // NOT ORIGINAL - the level editor's fonts and style (ours; see level_editor_ui.h): Inter for the UI, JetBrains Mono for
 // numbers and names (level_editor_ui_fonts.h), sized for a UI scale (level_editor_ui_layout.h), and the dark style with
 // the accent colour. Only ImGui's own API: the UI and a headless context build them alike.
 namespace frontend::level_editor::ui_theme {
+
+// Colours the panels share: a button that deletes or turns something off, and a warning's text.
+constexpr ImVec4 kDangerButtonColour{0.62f, 0.22f, 0.30f, 0.85f};
+constexpr ImVec4 kWarningColour{1.0f, 0.78f, 0.45f, 1.0f};
 
 struct Fonts {
     ImFont* ui = nullptr;

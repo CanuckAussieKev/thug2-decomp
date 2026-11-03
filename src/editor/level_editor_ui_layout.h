@@ -4,6 +4,12 @@
 // NOT ORIGINAL - the level editor's UI layout and input routing (ours; see level_editor_ui.h): pure.
 namespace frontend::level_editor::ui_layout {
 
+// Sizes the panels share (at scale 1: the UI scale multiplies them).
+constexpr float kReferenceFontSize = 13.0f;    // the font size the fields' widths are made for
+constexpr float kBothSides = 2.0f;             // a padding counted on both sides
+constexpr float kHelpNameColumnWidth = 90.0f;  // the key help table's columns (the help window and the panel's)
+constexpr float kHelpKeysColumnWidth = 190.0f;
+
 struct Rect2 {
     float x, y, width, height;
 };

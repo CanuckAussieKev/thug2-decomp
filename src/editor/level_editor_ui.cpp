@@ -73,7 +73,6 @@ constexpr std::size_t kLockTitleSize = 48;
 constexpr std::size_t kStatusRightSize = 224; // the status bar's right-hand text
 constexpr std::size_t kBrowserTitleSize = 64;
 constexpr std::size_t kPlaceSearchSize = 64;
-constexpr float kBothSides = 2.0f; // a padding counted on the left and on the right
 constexpr float kPanelInset = 8.0f; // a floating panel's gap from the viewport's corner
 constexpr float kKeyCapRounding = 3.0f; // the key hints' key caps
 constexpr float kKeyHintGap = 4.0f;
@@ -110,8 +109,6 @@ constexpr float kScaleFieldWidth = 110.0f; // one axis of the scale fields
 constexpr float kScaleDragSpeed = 0.005f;
 constexpr float kHelpWidth = 760.0f;
 constexpr float kHelpHeightFraction = 0.85f; // of the display's height
-constexpr float kHelpSectionColumnWidth = 90.0f;
-constexpr float kHelpKeysColumnWidth = 190.0f;
 constexpr float kBrowserWidth = 360.0f;
 constexpr float kBrowserMaxHeight = 760.0f;
 constexpr float kBrowserBottomMargin = 16.0f;
@@ -132,10 +129,8 @@ constexpr ImVec2 kTopCentrePivot{0.5f, 0.0f};
 // Colours.
 constexpr ImVec4 kWallNameColour{1.0f, 0.35f, 0.9f, 1.0f};
 constexpr ImVec4 kWallStateColour{1.0f, 0.55f, 0.3f, 1.0f};
-constexpr ImVec4 kDisableCollisionButtonColour{0.62f, 0.22f, 0.30f, 0.85f};
 constexpr ImVec4 kChipOffColour{0.2f, 0.21f, 0.225f, 1.0f};
 constexpr ImVec4 kMutedTextColour{0.6f, 0.61f, 0.63f, 1.0f};
-constexpr ImVec4 kWarningTextColour{1.0f, 0.78f, 0.45f, 1.0f};
 constexpr ImVec4 kOnlineBackgroundColour{0.18f, 0.37f, 0.6f, 0.35f};
 constexpr ImVec4 kOnlineTextColour{0.56f, 0.71f, 0.92f, 1.0f};
 constexpr ImVec4 kDangerButtonColour{0.29f, 0.14f, 0.13f, 1.0f};
@@ -247,7 +242,7 @@ void key_hint(const char* key, const char* what)
     const float pad_x = 4.0f * level_editor_ui_state().scale_;
     const float pad_y = 1.0f * level_editor_ui_state().scale_;
     ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(pos.x, pos.y - pad_y),
-                                              ImVec2(pos.x + size.x + kBothSides * pad_x, pos.y + size.y + pad_y),
+                                              ImVec2(pos.x + size.x + ui_layout::kBothSides * pad_x, pos.y + size.y + pad_y),
                                               IM_COL32(60, 63, 68, 255), kKeyCapRounding * level_editor_ui_state().scale_);
     ImGui::SetCursorScreenPos(ImVec2(pos.x + pad_x, pos.y));
     ImGui::TextUnformatted(key);
@@ -394,7 +389,7 @@ void view_section(const ShapeMesh& model)
             if (ImGui::IsItemHovered())
                 gui::tooltip("Turn collision back on  (Del)");
         } else {
-            ImGui::PushStyleColor(ImGuiCol_Button, kDisableCollisionButtonColour);
+            ImGui::PushStyleColor(ImGuiCol_Button, ui_theme::kDangerButtonColour);
             if (ImGui::Button("Disable Collision"))
                 get_ask(Request::Kind::kWallCollision, 0);
             ImGui::PopStyleColor();
@@ -493,7 +488,7 @@ void get_toolbar(const ShapeMesh& model)
     const float pad_x = 8.0f * level_editor_ui_state().scale_;
     const float pad_y = std::max(0.0f, (strip.height - ImGui::GetFrameHeight()) * 0.5f);
     ui_strip::Output out;
-    ui_strip::blit(state, {.x = strip.x + pad_x, .y = strip.y + pad_y}, strip.width - kBothSides * pad_x, level_editor_ui_state().scale_, &out);
+    ui_strip::blit(state, {.x = strip.x + pad_x, .y = strip.y + pad_y}, strip.width - ui_layout::kBothSides * pad_x, level_editor_ui_state().scale_, &out);
     ImGui::PopStyleVar();
     if (out.budget_hovered_)
         budget::tooltip();
@@ -818,7 +813,7 @@ void badge(const char* text, ImU32 colour)
     const ImVec2 size = ImGui::CalcTextSize(text);
     const ImVec2 pos = ImGui::GetCursorScreenPos();
     const float pad = kBadgePadding * level_editor_ui_state().scale_;
-    ImGui::GetWindowDrawList()->AddRectFilled(pos, ImVec2(pos.x + size.x + kBothSides * pad, pos.y + size.y), colour,
+    ImGui::GetWindowDrawList()->AddRectFilled(pos, ImVec2(pos.x + size.x + ui_layout::kBothSides * pad, pos.y + size.y), colour,
                                               kBadgeRounding * level_editor_ui_state().scale_);
     ImGui::SetCursorScreenPos(ImVec2(pos.x + pad, pos.y));
     ImGui::TextUnformatted(text);
@@ -856,7 +851,7 @@ void node_section(const ShapeMesh& model, int index)
         ImGui::PushFont(level_editor_ui_state().small_);
         badge("Hidden", IM_COL32(110, 110, 110, 220));
         ImGui::NewLine();
-        gui::text_colored(kWarningTextColour, "%s", "Hidden in game. Revert to show.");
+        gui::text_colored(ui_theme::kWarningColour, "%s", "Hidden in game. Revert to show.");
         ImGui::PopFont();
     }
     // Online: spawns, crowns and flags in a level shared with THUGPRO.
@@ -1016,7 +1011,7 @@ void node_section(const ShapeMesh& model, int index)
         gui::text_disabled("Applies: %s", model.nodes.when_applied_);
         if (model.nodes.moved) {
             ImGui::SameLine();
-            gui::text_colored(kWarningTextColour, "Modified");
+            gui::text_colored(ui_theme::kWarningColour, "Modified");
         }
         ImGui::PopFont();
         if (ImGui::Button("Drop to Ground"))
@@ -1283,7 +1278,7 @@ void status_bar(const ShapeMesh& model)
     const float y = bar.y + std::max(0.0f, (bar.height - ImGui::GetTextLineHeight()) * 0.5f);
     ImGui::PopFont();
     // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
-    ui_strip::status_row(model.message, model.keys, right.data(), bar.x + pad_x, y, bar.width - kBothSides * pad_x, ux8_fonts());
+    ui_strip::status_row(model.message, model.keys, right.data(), bar.x + pad_x, y, bar.width - ui_layout::kBothSides * pad_x, ux8_fonts());
     ImGui::End();
 }
 void get_help(const ShapeMesh& model)
@@ -1339,8 +1334,8 @@ void get_help(const ShapeMesh& model)
         // (the columns' widths set, not fitted: a long key list would otherwise squeeze the explanations to a letter a
         // line - the keys wrap within theirs)
         if (ImGui::BeginTable("##keys", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
-            ImGui::TableSetupColumn("##section", ImGuiTableColumnFlags_WidthFixed, kHelpSectionColumnWidth * level_editor_ui_state().scale_);
-            ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, kHelpKeysColumnWidth * level_editor_ui_state().scale_);
+            ImGui::TableSetupColumn("##section", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpNameColumnWidth * level_editor_ui_state().scale_);
+            ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpKeysColumnWidth * level_editor_ui_state().scale_);
             ImGui::TableSetupColumn("##what", ImGuiTableColumnFlags_WidthStretch);
             // (the view menus' and their modules' rows after the editor's own: level_editor_overlays.h)
             std::vector<Row> rows(std::begin(kRows), std::end(kRows));
@@ -1357,7 +1352,7 @@ void get_help(const ShapeMesh& model)
                 ImGui::TableNextColumn();
                 ImGui::PushFont(level_editor_ui_state().mono_);
                 ImGui::PushTextWrapPos(0.0f);
-                ImGui::PushStyleColor(ImGuiCol_Text, kWarningTextColour);
+                ImGui::PushStyleColor(ImGuiCol_Text, ui_theme::kWarningColour);
                 ImGui::TextUnformatted(row.keys);
                 ImGui::PopStyleColor();
                 ImGui::PopTextWrapPos();

@@ -42,6 +42,8 @@
 #include "engine/core/no_destroy.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/trig.h"
+#include "editor/level_editor_ui_layout.h"
+#include "editor/level_editor_ui_theme.h"
 
 namespace frontend::level_editor::cameras {
 
@@ -58,10 +60,8 @@ constexpr float kFarWeight = 0.25f;
 constexpr uint32_t kLitColour = 0xC0FFF060;     // ARGB: the line to the target of the camera in use
 constexpr uint32_t kUnlitColour = 0x60FF9030;   // ARGB: ... of the others
 constexpr float kFieldWidth = 160.0f;           // the Pitch and Target fields
-constexpr float kReferenceFontSize = 13.0f;     // the font size the field width was laid out for
 constexpr float kPitchDragSpeed = 0.25f;
 constexpr float kTargetDragSpeed = 5.0f;
-constexpr ImVec4 kDeleteButtonColour = ImVec4(0.62f, 0.22f, 0.30f, 0.85f);
 
 
 } // namespace
@@ -687,7 +687,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     yaw_pitch_of(c->angles, {.yaw = &yaw, .pitch = &pitch});
     float pitch_degrees = pitch * kDegreesPerHalfTurn / maths::kPi;
     ImGui::PushFont(mono);
-    ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
+    ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
     if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, kPitchDragSpeed, -kMaxPitchDegrees, kMaxPitchDegrees, "%.1f deg",
                          ImGuiSliderFlags_AlwaysClamp)) {
         const float value = pitch_degrees;
@@ -696,7 +696,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemDeactivated())
         level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
     float distance = c->distance;
-    ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
+    ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
     if (ImGui::DragFloat("Target##camera", &distance, kTargetDragSpeed, kMinDistance, kMaxDistance, "%.0f units",
                          ImGuiSliderFlags_AlwaysClamp)) {
         const float value = distance;
@@ -721,7 +721,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemHovered())
         gui::tooltip("Move the camera to the current view");
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Button, kDeleteButtonColour);
+    ImGui::PushStyleColor(ImGuiCol_Button, ui_theme::kDangerButtonColour);
     if (ImGui::Button("Delete##camera"))
         level_editor_cameras_state().queue_.emplace_back([node] { drop_out(node); });
     ImGui::PopStyleColor();

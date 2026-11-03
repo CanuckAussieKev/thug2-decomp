@@ -33,6 +33,7 @@
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
 #include "editor/level_editor_hud.h"
+#include "editor/level_editor_ui_layout.h"
 
 namespace frontend::level_editor::ux3 {
 
@@ -79,8 +80,6 @@ constexpr float kSnapshotsHeight = 360.0f;
 constexpr std::uint32_t kSnapshotRefreshMilliseconds = 2000;
 constexpr float kSnapshotNameWidth = 200.0f;
 constexpr float kSnapshotButtonsGap = 30.0f;
-constexpr float kHelpCategoryColumnWidth = 90.0f;
-constexpr float kHelpKeysColumnWidth = 190.0f;
 constexpr float kRebindFieldWidth = 220.0f;
 constexpr float kBindingNameColumnWidth = 250.0f;
 constexpr float kResetColumnWidth = 60.0f;
@@ -683,8 +682,8 @@ void help_from_registry()
         unseal(kKeysWindow) = true;
     if (!ImGui::BeginTable("##registry", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg))
         return;
-    ImGui::TableSetupColumn("##category", ImGuiTableColumnFlags_WidthFixed, kHelpCategoryColumnWidth * current_s());
-    ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, kHelpKeysColumnWidth * current_s());
+    ImGui::TableSetupColumn("##category", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpNameColumnWidth * current_s());
+    ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpKeysColumnWidth * current_s());
     ImGui::TableSetupColumn("##what", ImGuiTableColumnFlags_WidthStretch);
     for (const std::string& category : categories) {
         bool first = true;

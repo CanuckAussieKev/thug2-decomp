@@ -14,6 +14,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_ui_layout.h"
+#include "editor/level_editor_ui_theme.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -23,7 +25,6 @@ constexpr std::size_t kTextBufferSize = 128; // a text field
 constexpr float kMultilineLines = 3.2f;       // a multi-line field is this many text lines high
 constexpr float kFieldWidth = 150.0f;         // the narrow fields
 constexpr float kWideFieldWidth = 170.0f;
-constexpr float kReferenceFontSize = 13.0f;   // the font size the field widths were laid out for
 constexpr int kNameFieldLimit = 16;           // characters the name field takes
 constexpr int kPedFieldLimit = 16;
 constexpr int kMessageFieldLimit = 99;        // the description and the win message
@@ -45,7 +46,6 @@ constexpr std::size_t kCheckpointPrefixLength = 11; // "Checkpoint "
 constexpr ImVec4 kCompleteColour = ImVec4(0.55f, 0.85f, 0.55f, 1.0f);
 constexpr ImVec4 kNotPlayedColour = ImVec4(0.95f, 0.65f, 0.35f, 1.0f);
 constexpr ImVec4 kDeletedColour = ImVec4(0.95f, 0.45f, 0.40f, 1.0f);
-constexpr ImVec4 kDangerButtonColour = ImVec4(0.62f, 0.22f, 0.30f, 0.85f);
 constexpr ImVec4 kCompleteTitleColour = ImVec4(0.90f, 0.80f, 0.45f, 1.0f);
 constexpr ImVec4 kIncompleteTitleColour = ImVec4(0.75f, 0.55f, 0.40f, 1.0f);
 
@@ -87,7 +87,7 @@ bool text_field(const char* label, const std::string& key, std::string* value, s
 // A number dragged: `*done` false while it is (the drag is one undo step).
 bool int_field(const char* label, int* value, float speed, int low, int high, const char* format, bool* done)
 {
-    ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
+    ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
     const bool changed = ImGui::DragInt(label, value, speed, low, high, format, ImGuiSliderFlags_AlwaysClamp);
     if (ImGui::IsItemDeactivated())
         *done = true;
@@ -136,7 +136,7 @@ void current_settings(const Goal& goal, ImFont* mono)
     // (goal_update_control: SKATE letters and gap goals keep theirs; the trick goals have none)
     if (!get_trick_type(g.type) && g.type != KindTag::kSkate && g.type != KindTag::kGap) {
         int control = g.walk ? 1 : 0;
-        ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
+        ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         if (ImGui::Combo("Control##goal", &control, "Skate\0Walk\0")) {
             g.walk = control == 1;
             changed = done = true;
@@ -254,7 +254,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         Goal changed = g;
         float height = core::at(changed.points, point).height;
         ImGui::PushFont(mono);
-        ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
+        ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         const bool dragged =
             ImGui::DragFloat("Height##goalpoint", &height, 0.5f, 0.0f, 1000.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
         const bool done = ImGui::IsItemDeactivated();
@@ -304,7 +304,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemHovered())
         gui::tooltip("Copy to the game's Create-a-Goal list");
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Button, kDangerButtonColour);
+    ImGui::PushStyleColor(ImGuiCol_Button, ui_theme::kDangerButtonColour);
     if (ImGui::Button("Delete goal##goal"))
         get_queue([goal_id] { drop_out(goal_id); });
     ImGui::PopStyleColor();
@@ -319,7 +319,7 @@ void list_section(ImFont* mono, ImFont* small_font)
     ImGui::PushFont(small_font);
     gui::text_disabled("Goals for this level, saved with the layout");
     ImGui::PopFont();
-    ImGui::SetNextItemWidth(kWideFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
+    ImGui::SetNextItemWidth(kWideFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
     if (ImGui::BeginCombo("##goaltype", type_title(static_cast<KindTag>(new_type())))) {
         for (int t = 0; t < kTypes; ++t) {
             if (ImGui::Selectable(type_title(static_cast<KindTag>(t)), t == new_type()))

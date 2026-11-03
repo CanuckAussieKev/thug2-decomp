@@ -33,6 +33,7 @@
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
+#include "editor/level_editor_ui_theme.h"
 
 namespace frontend::level_editor::clusters {
 
@@ -44,7 +45,6 @@ constexpr std::size_t kTypedTextSize = 64; // the typed cluster name
 constexpr int kMaxListWalk = 100000; // entities visited at most when walking an object's list
 constexpr std::size_t kLineTextSize = 160;
 constexpr ImVec4 kEditedColour = ImVec4(1.0f, 0.65f, 0.3f, 1.0f);
-constexpr ImVec4 kClearButtonColour = ImVec4(0.62f, 0.22f, 0.30f, 0.85f);
 
 } // namespace
 
@@ -448,7 +448,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
         if (ImGui::SmallButton("Use Name"))
             text::format_to(level_editor_clusters_state().typed_, "%s", get_name_of(cluster).c_str());
     }
-    ImGui::PushStyleColor(ImGuiCol_Button, kClearButtonColour);
+    ImGui::PushStyleColor(ImGuiCol_Button, ui_theme::kDangerButtonColour);
     if (ImGui::Button("Clear Trick Object"))
         level_editor_clusters_state().queue_.emplace_back([pieces] { assign_value(pieces, false, 0); });
     ImGui::PopStyleColor();

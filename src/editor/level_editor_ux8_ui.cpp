@@ -20,6 +20,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_ui_layout.h"
 
 namespace frontend::level_editor::ux8 {
 
@@ -27,7 +28,6 @@ namespace {
 
 constexpr float kHalf = 0.5f; // half
 // The glyphs and hint boxes, at scale 1 unless fractions of the glyph height (s multiplies them).
-constexpr float kBothSides = 2.0f; // a padding counted on the left and right
 constexpr float kMouseGlyphAspect = 0.68f; // the mouse glyph width, as a fraction of its height
 constexpr std::size_t kSetNameLength = 5; // "Set <n>"
 constexpr int kSetIdBase = 100; // keeps the set rows ids apart
@@ -130,7 +130,7 @@ void token_glyph(const std::string& token, const Fonts& fonts)
         const ImVec2 size = ImGui::CalcTextSize(letter.data());
         draw->AddText(ImVec2(pos.x + r - size.x * kHalf, pos.y + r - size.y * kHalf), IM_COL32(255, 255, 255, 255),
                       letter.data());
-        width = kBothSides * r;
+        width = ui_layout::kBothSides * r;
         break;
     }
     default: {
@@ -141,12 +141,12 @@ void token_glyph(const std::string& token, const Fonts& fonts)
         const float pad_x = 4.0f * s;
         const bool pad = g == hints::Glyph::kPadOther;
         draw->AddRectFilled(ImVec2(pos.x, pos.y - 1.0f * s),
-                            ImVec2(pos.x + size.x + kBothSides * pad_x, pos.y + size.y + 1.0f * s),
+                            ImVec2(pos.x + size.x + ui_layout::kBothSides * pad_x, pos.y + size.y + 1.0f * s),
                             pad ? IM_COL32(40, 42, 46, 255) : kCap, (pad ? kPadCapRounding : kKeyCapRounding) * s);
         draw->AddText(ImVec2(pos.x + pad_x, pos.y), kInk, token.c_str());
         if (fonts.mono)
             ImGui::PopFont();
-        width = size.x + kBothSides * pad_x;
+        width = size.x + ui_layout::kBothSides * pad_x;
         break;
     }
     }
@@ -195,7 +195,7 @@ float hint_width(const std::pair<std::string, std::string>& hint, const Fonts& f
     std::vector<std::string> tokens = hints::get_tokens(hint.first);
     for (size_t t = 0; t < tokens.size(); ++t) {
         if (t)
-            width += kBothSides * s + ImGui::CalcTextSize("+").x;
+            width += ui_layout::kBothSides * s + ImGui::CalcTextSize("+").x;
         width += token_width(core::at(tokens, t), fonts);
     }
     if (fonts.small)
@@ -264,13 +264,13 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
     if (pad_owns_cursor() || on_foot()) {
         const float r = 7.0f * s;
         draw->AddCircle(centre, r, IM_COL32(255, 255, 255, 200), 0, kPieLineWidth * s);
-        draw->AddLine(ImVec2(centre.x - kBothSides * r, centre.y), ImVec2(centre.x - r, centre.y),
+        draw->AddLine(ImVec2(centre.x - ui_layout::kBothSides * r, centre.y), ImVec2(centre.x - r, centre.y),
                       IM_COL32(255, 255, 255, 200), kPieLineWidth * s);
-        draw->AddLine(ImVec2(centre.x + r, centre.y), ImVec2(centre.x + kBothSides * r, centre.y),
+        draw->AddLine(ImVec2(centre.x + r, centre.y), ImVec2(centre.x + ui_layout::kBothSides * r, centre.y),
                       IM_COL32(255, 255, 255, 200), kPieLineWidth * s);
-        draw->AddLine(ImVec2(centre.x, centre.y - kBothSides * r), ImVec2(centre.x, centre.y - r),
+        draw->AddLine(ImVec2(centre.x, centre.y - ui_layout::kBothSides * r), ImVec2(centre.x, centre.y - r),
                       IM_COL32(255, 255, 255, 200), kPieLineWidth * s);
-        draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + kBothSides * r),
+        draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + ui_layout::kBothSides * r),
                       IM_COL32(255, 255, 255, 200), kPieLineWidth * s);
     }
     if (on_foot() && fonts.ui) {

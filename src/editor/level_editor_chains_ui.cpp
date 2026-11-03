@@ -14,6 +14,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_ui_theme.h"
 
 namespace frontend::level_editor::ui {
 
@@ -22,7 +23,6 @@ namespace {
 constexpr float kSpeedFixedScale = 10000.0f; // a rail's speed factor in the request's fixed-point (4 decimals)
 constexpr float kSpeedFieldWidth = 110.0f;
 constexpr float kSpeedDragStep = 0.05f; // percent a drag moves the speed field
-constexpr ImVec4 kWaitingColour = ImVec4(1.0f, 0.78f, 0.45f, 1.0f);
 
 constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
 
@@ -90,7 +90,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             get_ask(requests, {.op = chains::kOpUnassign});
         ImGui::EndDisabled();
         if (chain.waiting)
-            gui::text_colored(kWaitingColour, "%s", chain.waiting);
+            gui::text_colored(ui_theme::kWarningColour, "%s", chain.waiting);
         return;
     }
     const char* noun = chain.path ? "path" : chain.ladder ? "ladder" : chain.ledge ? "ledge" : "rail";
@@ -121,7 +121,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         op_button("Delete Ladder", chain.can_delete_, "Delete the ladder  (Del)", "", requests, chains::kOpDelete);
         gui::text_disabled("Turn off Whole Ladder to move the foot or top");
         if (chain.waiting)
-            gui::text_colored(kWaitingColour, "%s", chain.waiting);
+            gui::text_colored(ui_theme::kWarningColour, "%s", chain.waiting);
         return;
     }
     op_button("Insert", chain.can_insert_, "Insert a point after this one  (Insert)", "Last point: use Extend",
@@ -224,7 +224,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         }
     }
     if (chain.waiting)
-        gui::text_colored(kWaitingColour, "%s", chain.waiting);
+        gui::text_colored(ui_theme::kWarningColour, "%s", chain.waiting);
 }
 
 } // namespace frontend::level_editor::ui
