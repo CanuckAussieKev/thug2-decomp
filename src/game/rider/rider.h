@@ -31,6 +31,10 @@ namespace modules {
 class PointTally;
 }
 namespace objects {
+constexpr std::size_t kGivenNameBytes = 0x40;
+constexpr std::size_t kTrickSlotCount = 11;      // the create-a-skater tricks
+constexpr std::size_t kProjectileSlots = 5;
+constexpr std::size_t kStatOverrideCount = 10;
 
 struct RiderIdentity;
 class EntityHub;
@@ -197,12 +201,12 @@ public:
     // The fields other code reads and sets.
     [[nodiscard]] bool goofy() const { return goofy_; }
     [[nodiscard]] bool pro() const { return pro_; }
-    std::array<char, 0x40>& given_name() { return given_name_; }
-    [[nodiscard]] const std::array<char, 0x40>& given_name() const { return given_name_; }
+    std::array<char, kGivenNameBytes>& given_name() { return given_name_; }
+    [[nodiscard]] const std::array<char, kGivenNameBytes>& given_name() const { return given_name_; }
     [[nodiscard]] uint32_t label() const { return label_; }
     bool& always_special() { return always_special_; }
     [[nodiscard]] bool always_special() const { return always_special_; }
-    [[nodiscard]] const std::array<std::unique_ptr<goals::CreateATrick>, 11>& trick_slots() const { return trick_slots_; }
+    [[nodiscard]] const std::array<std::unique_ptr<goals::CreateATrick>, kTrickSlotCount>& trick_slots() const { return trick_slots_; }
     int& cat_num_anims() { return cat_num_anims_; }
     [[nodiscard]] int cat_num_anims() const { return cat_num_anims_; }
     bool& cat_bail_done() { return cat_bail_done_; }
@@ -221,8 +225,8 @@ public:
     [[nodiscard]] int cat_total_z() const { return cat_total_z_; }
     [[nodiscard]] float cat_hold_time() const { return cat_hold_time_; }
     void set_cat_hold_time(float value) { cat_hold_time_ = value; }
-    std::array<Projectile, 5>& projectiles() { return projectiles_; }
-    [[nodiscard]] const std::array<Projectile, 5>& projectiles() const { return projectiles_; }
+    std::array<Projectile, kProjectileSlots>& projectiles() { return projectiles_; }
+    [[nodiscard]] const std::array<Projectile, kProjectileSlots>& projectiles() const { return projectiles_; }
     [[nodiscard]] PadInputModule* pad_input() const { return pad_input_; }
     [[nodiscard]] RiderPointKeeper* score_holder() const { return score_holder_; }
     [[nodiscard]] RiderFrameLog* state_history() const { return state_history_; }
@@ -247,7 +251,7 @@ private:
     bool pro_{};             // +0x111
     std::array<uint8_t, 2> pad112{};
     int male_{};              // +0x114
-    std::array<char, 0x40> given_name_{}; // +0x118
+    std::array<char, kGivenNameBytes> given_name_{}; // +0x118
     uint32_t label_{};        // +0x158
     text::Chars shown_name_; // +0x15C
     bool always_special_{};  // +0x168 (the special meter always full)
@@ -257,7 +261,7 @@ private:
     std::array<uint8_t, 3> pad171{};
     int shadow_fade_{}; // +0x174
     std::array<uint8_t, 4> unknown178_{};
-    std::array<std::unique_ptr<goals::CreateATrick>, 11> trick_slots_; // +0x17C the created tricks
+    std::array<std::unique_ptr<goals::CreateATrick>, kTrickSlotCount> trick_slots_; // +0x17C the created tricks
     // The create-a-trick editor's state (CAT_Set... / CAT_Get..., create_a_trick.cpp).
     int cat_num_anims_{};   // +0x1A8 num_animations_on
     bool cat_bail_done_{};  // +0x1AC bailtimescriptdone
@@ -269,7 +273,7 @@ private:
     int cat_total_y_{};     // +0x1B8
     int cat_total_z_{};     // +0x1BC
 
-    std::array<Projectile, 5> projectiles_{}; // +0x1C0
+    std::array<Projectile, kProjectileSlots> projectiles_{}; // +0x1C0
     memory::ListNode skater_link_{};      // +0x238 its node in the skate module's skater list (data = itself)
     AnimBlenderComponent* anim_blender_;  // +0x24C
     MeshInstanceModule* model_component_; // +0x250
@@ -288,7 +292,7 @@ private:
     RiderBoardPhysics* physics_control_;        // +0x284 SkaterPhysicsControl (0xD9151D4D)
     FootMovement* walk_;                        // +0x288 Walk (0x726E85AA)
     AttributeTracker* stats_;                   // +0x28C SkaterStatsManager (0x4FF8DAC6)
-    std::array<float, 10> stat_overrides_{};                // +0x290
+    std::array<float, kStatOverrideCount> stat_overrides_{};                // +0x290
     int skater_number_;                         // +0x2B8
     int view_slot_;                             // +0x2BC
     int pause_state_{};                         // +0x2C0
