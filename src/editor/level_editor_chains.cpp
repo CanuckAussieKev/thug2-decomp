@@ -729,8 +729,10 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
                                       {.x = kHalf, .y = 0.0f, .z = -kHalf}, {.x = 0.0f, .y = 0.0f, .z = -1.0f},  {.x = -kHalf, .y = 0.0f, .z = -kHalf},
                                       {.x = -1.0f, .y = 0.0f, .z = 0.0f},   {.x = -kHalf, .y = 0.0f, .z = kHalf}}};
     for (const V3& dir : kDirections) {
-        // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
-        for (float t = kStep; t <= reach; t += kStep) {
+        for (int step = 1;; ++step) {
+            const float t = static_cast<float>(step) * kStep;
+            if (!(t <= reach))
+                break;
             const V3 probe = hit + dir * t;
             float ground = 0.0f;
             const bool have = ground_at({.x = probe.x, .y = hit.y + 20.0f, .z = probe.z}, &ground);

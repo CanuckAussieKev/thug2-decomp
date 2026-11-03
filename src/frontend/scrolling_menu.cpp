@@ -211,9 +211,9 @@ void WindowedList::tick_frame()
     if (!(regular_space_ < 0.0f)) {
         // keep the selection in the middle of the shown items when it can be
         const int half = num_items_to_show_ / 2;
+        const int above = (num_items_to_show_ - 1) / 2; // (whole items)
         if (index >= half)
-            // NOLINTNEXTLINE(bugprone-integer-division): as the original
-            before = static_cast<float>(static_cast<double>((num_items_to_show_ - 1) / 2) * regular_space_);
+            before = static_cast<float>(static_cast<double>(above) * regular_space_);
         if (index < count - half)
             after = static_cast<float>(static_cast<double>(half) * regular_space_);
     }

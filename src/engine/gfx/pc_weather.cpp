@@ -197,8 +197,8 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
     const int frames = rain_on() ? rain_frames() : snow_frames();
     const float rate = rain_on() ? rain_rate() : snow_rate();
     float& due = rain_on() ? rain_due_ : snow_due_;
-    // NOLINTNEXTLINE(bugprone-integer-division): as the original
-    auto most = static_cast<float>(kDropSlotCount / frames); // (no more than the slots free up)
+    const int slots_per_frame = kDropSlotCount / frames; // (whole slots: no more than the slots free up)
+    auto most = static_cast<float>(slots_per_frame);
     const double amount = rate > most ? most : rate;
     const float before = due;
     const double total = amount + due;

@@ -191,8 +191,10 @@ void add_dashed(std::vector<ui::Seg>* lines, const ui::Seg& line, float dash, fl
     const float uy = dy / length;
     // (at most 256 dashes an edge: a face seen from very near)
     const float period = std::max(dash + gap, length / 256.0f);
-    // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
-    for (float at = 0.0f; at < length; at += period) {
+    for (int dash_index = 0;; ++dash_index) {
+        const float at = static_cast<float>(dash_index) * period;
+        if (!(at < length))
+            break;
         const float end = std::min(length, at + dash);
         ui::Seg piece = line;
         piece.ax = line.ax + ux * at;

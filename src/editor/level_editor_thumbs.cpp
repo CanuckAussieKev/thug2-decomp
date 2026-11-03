@@ -558,8 +558,8 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     if (follow) {
         auto at = std::ranges::find(shown, model.browser_index_);
         if (at != shown.end()) {
-            // NOLINTNEXTLINE(bugprone-integer-division): whole rows: an integer division meant
-            const float y = static_cast<float>((at - shown.begin()) / columns) * row_height;
+            const auto row = (at - shown.begin()) / columns; // (whole rows)
+            const float y = static_cast<float>(row) * row_height;
             ImGui::SetScrollY(std::max(0.0f, y - ImGui::GetWindowHeight() * kScrollLeadFraction));
         }
     }
