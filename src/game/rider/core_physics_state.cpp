@@ -46,6 +46,11 @@ namespace skater {
 using namespace physics;
 
 namespace {
+constexpr int kLastPoseFlag = 0x17;
+constexpr int kSlideFlag = static_cast<int>(PoseFlag::kSlide);
+constexpr int kFreeRevertLine = 0x293F;             // the source line the original reports a free revert from
+constexpr int kProjectileWaitFrames = 30;
+constexpr uint32_t kTrickButton4Bit = 8;
 
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;    // SkaterCorePhysics (the component type)
 constexpr uint32_t kModel = 0x286A8D26;                // Model (a component)
@@ -110,12 +115,12 @@ void SkaterPhysicsModule::get_reset()
     physics::change_phase(this, 0);
     old_state_ = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
-    for (int flag = 0x17; flag >= 0; --flag) {
+    for (int flag = kLastPoseFlag; flag >= 0; --flag) {
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
-        if (flag == 7)
+        if (flag == kSlideFlag)
             sound_->set_sliding(1);
         set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
-        if (flag == 7)
+        if (flag == kSlideFlag)
             sound_->set_sliding(0);
     }
     set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity())->goofy());
@@ -139,7 +144,7 @@ void SkaterPhysicsModule::get_reset()
     can_brake_ = 1;
     state_->set_lip_straight_up(0);
     rail_node_ = nullptr;
-    if (limits_time_ != -2.0f) // (-2: kept)
+    if (limits_time_ != -kTimerForLevel) // (-2: kept)
         limits_time_ = 0.0f;
     wallplant_time_ = 0;
     last_push_off_ = 0;
@@ -185,7 +190,7 @@ void SkaterPhysicsModule::update_free_revert()
     if (get_since(start) <= wait)
         return;
     --special_friction_index_;
-    debug::printf(kMessageFormat, kSourceFile, 0x293F, kFreeRevertText);
+    debug::printf(kMessageFormat, kSourceFile, kFreeRevertLine, kFreeRevertText);
     if (special_friction_index_)
         special_friction_start_ = get_now();
 }
@@ -225,7 +230,7 @@ void SkaterPhysicsModule::update_projectiles()
         return;
     if (!projectile_button_pressed() || wait)
         return;
-    wait = 30;
+    wait = kProjectileWaitFrames;
     // (0x004FC420: walking.)
     const bool walking = static_cast<objects::RiderBoardPhysics*>(physics_control_)->is_on_foot();
     script::launch_script(walking ? kWalkThrow : kSkateThrow, nullptr, object_of(this), false, nullptr);
@@ -335,7 +340,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
         if (trick3)
             buttons |= 4;
         if (trick4)
-            buttons |= 8;
+            buttons |= kTrickButton4Bit;
         if (thaw_bmx::live_now(this)) {
             // Not original: THAW 0x005CF2F0 - on the bike BikeGrindTrickList by the stick's pitch (when the overlay
             // has it), the over-grind state.

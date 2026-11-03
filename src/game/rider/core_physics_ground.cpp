@@ -26,6 +26,7 @@ using namespace physics;
 void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
 
 namespace {
+constexpr float kVertStep = 6.0f;
 
 // Physics values, stats and script values (names not recovered unless given).
 constexpr uint32_t kSlopeTurnSpeed = 0x62A1FA03;
@@ -292,7 +293,7 @@ void SkaterPhysicsModule::start_vert_air()
     set_timed_flag(this, PoseFlag::kVertAir, 1);
     set_timed_flag(this, PoseFlag::kVertWall, 1);
     set_timed_flag(this, PoseFlag::kSpin, 1);
-    vert_step_ = 6.0f;
+    vert_step_ = kVertStep;
 }
 
 } // namespace skater

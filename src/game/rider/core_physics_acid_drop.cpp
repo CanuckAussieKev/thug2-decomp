@@ -34,6 +34,7 @@ namespace skater {
 using namespace physics;
 
 namespace {
+constexpr float kHalf = 0.5f;
 
 constexpr uint32_t kWalkSearchDistance = 0xE50A9D56; // Physics_Acid_Drop_Walking_On_Ground_Search_Distance
 constexpr uint32_t kPopSpeed = 0x95A79C32;           // Physics_Acid_Drop_Pop_Speed
@@ -163,7 +164,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const auto w = static_cast<float>(sw + base.w);
         feeler.line().start = {.x = x, .y = y + lift, .z = z, .w = w};
         feeler.line().end = {.x = x, .y = static_cast<float>(y - static_cast<double>(kFeelerDepth)), .z = z, .w = w};
-        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & 8) &&
+        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & kFaceVert) &&
             std::fabs(feeler.surface_dir().y) < kMaxWallY) {
             maths::Vec4 flat = {.x = feeler.surface_dir().x, .y = 0.0f, .z = feeler.surface_dir().z, .w = feeler.surface_dir().w};
             normal = feeler.surface_dir();
@@ -243,7 +244,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     float peak = 0.0f;
     if (distance > 0.0f && horizontal > kMinHorizontal) {
         const double ratio = static_cast<double>(distance) / horizontal;
-        peak = static_cast<float>((static_cast<double>(gravity) * ratio * 0.5f + velocity->y) * ratio + position->y);
+        peak = static_cast<float>((static_cast<double>(gravity) * ratio * kHalf + velocity->y) * ratio + position->y);
     } else {
         peak = position->y;
     }
@@ -268,13 +269,13 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     if (!(hit.y < peak))
         return fail();
     // Up the wall from the hit, 24 at a time, for a point the arc reaches with nothing in the way.
-    auto half_distance = static_cast<float>(static_cast<double>(distance) * 0.5f);
+    auto half_distance = static_cast<float>(static_cast<double>(distance) * kHalf);
     for (;;) {
         feeler.line().start = *position;
         auto rise = static_cast<float>(position->y - static_cast<double>(hit.y));
-        auto half = static_cast<float>(fall_time(rise, velocity->y) * 0.5f);
+        auto half = static_cast<float>(fall_time(rise, velocity->y) * kHalf);
         const double scale = static_cast<double>(half_distance) / half;
-        auto y = static_cast<float>(static_cast<double>(half) * half * gravity * 0.5f +
+        auto y = static_cast<float>(static_cast<double>(half) * half * gravity * kHalf +
                                     static_cast<double>(half) * velocity->y + position->y);
         const double along = scale * half;
         auto aw = static_cast<float>(direction.w * along), az = static_cast<float>(direction.z * along),
@@ -586,7 +587,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     drop_duration_ = time < kFlatTarget ? kFlatTarget : time;
     drop_last_matrix_ = start;
     maths::Mat4 halfway;
-    slerp.fetch_mat(halfway, 0.5f);
+    slerp.fetch_mat(halfway, kHalf);
     if (core::at(halfway.row, 1).y < 0.0f) // (the short way round turns upside down: the long way)
         slerp.flip_heading();
 

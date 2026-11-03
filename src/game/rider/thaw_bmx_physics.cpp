@@ -47,6 +47,15 @@
 namespace skater::thaw_bmx {
 
 namespace {
+constexpr int kTurnDegrees = 360;
+constexpr float kHalfTurnDegreesF = 180.0f;
+constexpr float kTurnDegreesF = 360.0f;
+constexpr float kPitchSettleRate = 0.1f;            // a tenth of the way back to upright each frame
+constexpr float kStickThreshold = 125.0f;           // the stick's deflection (of 128) that counts as up or down
+constexpr float kMinAlong = 0.001f;
+constexpr float kMaxVelocitySum = 1e6f;             // a velocity beyond this is taken for garbage
+constexpr double kBrakeStopFactor = 2.0;            // slower than this many frames of braking: stopped
+constexpr float kHalf = 0.5f;
 
 // The core physics component's fields (THUG2's; THAW's offset in the comment).
 // balance, its lean at +0x54)
@@ -427,22 +436,22 @@ float settle_air_pitch(float pitch)
 {
     // THAW 0x005D7CB0: the pitch's whole degrees round a turn (truncated, the sign kept), a tenth of the way back to
     // the nearest upright each frame.
-    auto angle = static_cast<float>(static_cast<int>(pitch) % 360);
+    auto angle = static_cast<float>(static_cast<int>(pitch) % kTurnDegrees);
     if (angle == 0.0f)
         return 0.0f;
     if (angle > 0.0f)
-        return angle > 180.0f ? (360.0f - angle) * 0.1f : angle * -0.1f;
-    return -180.0f > angle ? (-360.0f - angle) * 0.1f : angle * -0.1f;
+        return angle > kHalfTurnDegreesF ? (kTurnDegreesF - angle) * kPitchSettleRate : angle * -kPitchSettleRate;
+    return -kHalfTurnDegreesF > angle ? (-kTurnDegreesF - angle) * kPitchSettleRate : angle * -kPitchSettleRate;
 }
 
 int grind_row(float stick_y)
 {
     if (-1.0f <= stick_y) {
         if (1.0f < stick_y)
-            return 125.0f <= stick_y ? 4 : 3;
+            return kStickThreshold <= stick_y ? 4 : 3;
         return 0;
     }
-    return stick_y <= -125.0f ? 2 : 1;
+    return stick_y <= -kStickThreshold ? 2 : 1;
 }
 
 int grind_column(bool left_side, bool sideways, bool backwards, bool* over_grind)
@@ -506,7 +515,7 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     const maths::Vec4 on_hit = {.x = in.point.x + in.normal.x, .y = in.point.y + in.normal.y, .z = in.point.z + in.normal.z,
                                 .w = in.point.w + in.normal.w};
     if (!in.skatable) {
-        if (along < 0.001f) { // 0x006DBD98
+        if (along < kMinAlong) { // 0x006DBD98
             out.move_wheel_ = true;
             out.wheel = on_hit;
         }
@@ -638,7 +647,7 @@ void end_frame(SkaterPhysicsModule* core)
         const maths::Vec4& v = object->vel();
         if (!s_logged &&
             !(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z) && std::isfinite(v.x) &&
-              std::isfinite(v.y) && std::isfinite(v.z) && std::fabs(v.x) + std::fabs(v.y) + std::fabs(v.z) < 1e6f)) {
+              std::isfinite(v.y) && std::isfinite(v.z) && std::fabs(v.x) + std::fabs(v.y) + std::fabs(v.z) < kMaxVelocitySum)) {
             s_logged = true;
             const BikeState& s = *state_of(core, true);
             get_log("thaw_bmx: not finite - state %d pos %g %g %g vel %g %g %g front %g %g %g rear %g %g %g manual %d",
@@ -788,7 +797,7 @@ void get_brake(SkaterPhysicsModule* core)
     static const auto kNames = std::to_array<uint32_t>({0, kBrakeAcceleration, kFrontBrakeAcceleration, kSkidAcceleration});
     const float slowing = get_frame_length(core) * tuning_float_lookup(core::at(kNames, choice), core);
     maths::Vec4& velocity = object_of(core)->vel();
-    if (length3(velocity) < static_cast<double>(slowing) * 2.0) {
+    if (length3(velocity) < static_cast<double>(slowing) * kBrakeStopFactor) {
         velocity = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return;
     }
@@ -1101,7 +1110,7 @@ void air_rotation(SkaterPhysicsModule* core)
         core->probe_start() = position;
         core->probe_end() = {.x = position.x + up.x * head, .y = position.y + up.y * head, .z = position.z + up.z * head,
                             .w = position.w + up.w * head};
-        if (static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(0x10, 0))
+        if (static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(kProbeIgnoreFlags, 0))
             run_bike_script(core, kForceBailScript);
     }
 }
@@ -1127,7 +1136,7 @@ WheelHit feel_wheel(SkaterPhysicsModule* core, maths::Vec4& wheel, const maths::
                           .w = wheel.w + up.w * above};
     core->probe_end() = {.x = wheel.x + up.x * kWheelFeelDown, .y = wheel.y + up.y * kWheelFeelDown,
                         .z = wheel.z + up.z * kWheelFeelDown, .w = wheel.w + up.w * kWheelFeelDown};
-    if (!static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(0x10, 0))
+    if (!static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(kProbeIgnoreFlags, 0))
         return result;
     const maths::Vec4 point = core->feeler().contact_pos();
     const maths::Vec4 normal = core->feeler().surface_dir();
@@ -1187,7 +1196,7 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
                           .w = position.w + up.w * above};
     core->probe_end() = {.x = position.x + up.x * kWheelFeelDown, .y = position.y + up.y * kWheelFeelDown,
                         .z = position.z + up.z * kWheelFeelDown, .w = position.w + up.w * kWheelFeelDown};
-    main_hit = static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(0x10, 0);
+    main_hit = static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(kProbeIgnoreFlags, 0);
     if (main_hit && tuning_float_lookup(kGroundSnapDown, core) < core->feeler().reach())
         main_hit = false;
     const maths::Vec4 main_point = core->feeler().contact_pos();
@@ -1323,8 +1332,8 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     // On it: midway between the wheels, the ground normal across the wheel base.
     maths::Vec4& position = object->at_point();
     position = {
-        .x = (state.front_wheel_.x + state.rear_wheel_.x) * 0.5f, .y = (state.front_wheel_.y + state.rear_wheel_.y) * 0.5f,
-        .z = (state.front_wheel_.z + state.rear_wheel_.z) * 0.5f, .w = (state.front_wheel_.w + state.rear_wheel_.w) * 0.5f};
+        .x = (state.front_wheel_.x + state.rear_wheel_.x) * kHalf, .y = (state.front_wheel_.y + state.rear_wheel_.y) * kHalf,
+        .z = (state.front_wheel_.z + state.rear_wheel_.z) * kHalf, .w = (state.front_wheel_.w + state.rear_wheel_.w) * kHalf};
     const maths::Vec4 up = bike::wheel_base_up(core::at(object->basis_frame().row, 0), state.front_wheel_, state.rear_wheel_,
                                                core->feeler().surface_dir());
     static_cast<SkaterPhysicsModule*>(core)->turn_to_normal(up); // (THAW's 0x005D0BD0: THUG2's own)

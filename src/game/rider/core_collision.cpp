@@ -22,6 +22,23 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
+constexpr float kSteepDot = 0.8f;
+constexpr float kFloorLeanY = 0.5f;
+constexpr float kStepUpVelocityY = 10.0f;
+constexpr float kUprightY = 0.5f;
+constexpr float kBarelyUpNormalY = 0.01f;
+constexpr float kSnapLimit = 4.0f;
+constexpr double kSnapLimitD = 4.0;
+constexpr float kSnapDrop = 2.0f;
+constexpr double kSnapDropD = 2.0;
+constexpr float kMinSurfaceY = 0.05f;
+constexpr float kCeilingNormalY = 0.1f;
+constexpr float kPushFraction = 0.1f;
+constexpr float kNudge = 0.05f;
+constexpr float kCarryFactor = 2.0f;
+constexpr float kOverlapDivisor = 10.0f;
+constexpr float kDeflectFactor = 0.2f;
+constexpr float kFacingUpLimit = 0.25f;
 
 constexpr uint32_t kForwardHeight = 0xD4205C9B;     // Skater_First_Forward_Collision_Height
 constexpr uint32_t kForwardLength = 0x20102726;     // Skater_First_Forward_Collision_Length
@@ -86,7 +103,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     end.y = raised_y + ahead_y;
     end.z = raised_z + ahead_z;
     end.w = static_cast<float>(raised_w + ahead_w);
-    if (!get_feel(this, 0x10, 0))
+    if (!get_feel(this, kProbeIgnoreFlags, 0))
         return false;
 
     const maths::Vec4 normal = feeler_.surface_dir();
@@ -96,7 +113,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         const maths::Vec4& ground = floor_normal_;
         const double dot = (static_cast<double>(normal.z) * ground.z + static_cast<double>(normal.y) * ground.y) +
                            static_cast<double>(normal.x) * ground.x;
-        if (!(dot < static_cast<double>(0.8f)) || !(normal.y < 0.5f))
+        if (!(dot < static_cast<double>(kSteepDot)) || !(normal.y < kFloorLeanY))
             return false;
     }
 
@@ -111,7 +128,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     p.y = end.y - raise.y;
     p.z = end.z - raise.z;
     p.w = end.w - raise.w;
-    if (step_up(from) && (entity()->vel().y > 10.0f || steep)) {
+    if (step_up(from) && (entity()->vel().y > kStepUpVelocityY || steep)) {
         release_feeler_object(hit);
         return true;
     }
@@ -121,19 +138,19 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     // A ledge: snap up onto it (going up, upright, against a flat-topped wall) - the feeler raised by the snap height,
     // then lowered 2 at a time until it hits (the snap height going down with it, to 4).
     const objects::GameEntity* o = object_of(this);
-    if (core::at(o->basis_frame().row, 1).y > 0.5f && o->vel().y > 0.0f && normal.y < 0.01f) {
+    if (core::at(o->basis_frame().row, 1).y > kUprightY && o->vel().y > 0.0f && normal.y < kBarelyUpNormalY) {
         float snap = tuning_float_lookup(kAirSnapUp, object);
         hit.line().start.y = hit.line().start.y + snap;
         hit.line().end.y = hit.line().end.y + snap;
         if (!hit.get_hit_shape(true, false)) {
-            if (snap > 4.0f) {
+            if (snap > kSnapLimit) {
                 double lower = 0.0;
-                for (bool again = true; again; again = lower > 4.0) {
-                    hit.line().start.y = hit.line().start.y - 2.0f;
-                    hit.line().end.y = hit.line().end.y - 2.0f;
+                for (bool again = true; again; again = lower > kSnapLimitD) {
+                    hit.line().start.y = hit.line().start.y - kSnapDrop;
+                    hit.line().end.y = hit.line().end.y - kSnapDrop;
                     if (hit.get_hit_shape(true, false))
                         break;
-                    lower = static_cast<double>(snap) - 2.0;
+                    lower = static_cast<double>(snap) - kSnapDropD;
                     snap = static_cast<float>(lower);
                 } // (the unrounded value compared)
             }
@@ -183,7 +200,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         done = trigger_took_over(this);
     }
     if (!done) {
-        if (feeler_.surface_dir().y < 0.05f) {
+        if (feeler_.surface_dir().y < kMinSurfaceY) {
             // The bonk's sound: by speed and terrain - on a vehicle its own script.
             if (!on_vehicle_) {
                 const uint8_t terrain = feeler_.hit().terrain;
@@ -199,22 +216,22 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         // The velocity along the wall (keeping its height when the wall isn't facing down), pushed off it by a
         // tenth of the speed.
         float kept_y = 0.0f;
-        if (normal.y > -0.1f) {
+        if (normal.y > -kCeilingNormalY) {
             maths::Vec4& v = entity()->vel();
             kept_y = v.y;
             v.y = 0.0f;
         }
         entity()->vel().flatten_onto_plane(normal);
         maths::Vec4& velocity = entity()->vel();
-        auto push = static_cast<float>(length_of(velocity) * 0.1f);
+        auto push = static_cast<float>(length_of(velocity) * kPushFraction);
         velocity += normal * push;
-        if (normal.y > -0.1f)
+        if (normal.y > -kCeilingNormalY)
             entity()->vel().y = kept_y;
         // (The original clears the facing's y around this copy and puts it back.)
         late_wall_normal_ = normal;
         // The facing turned a little away from the wall; the matrix made square again around it.
         objects::GameEntity* s = object_of(this);
-        core::at(s->basis_frame().row, 2) += 0.05f * normal;
+        core::at(s->basis_frame().row, 2) += kNudge * normal;
         core::at(entity()->basis_frame().row, 2).make_unit();
         s = object_of(this);
         core::at(s->basis_frame().row, 0) = maths::cross_vec(core::at(s->basis_frame().row, 1), core::at(s->basis_frame().row, 2));
@@ -232,7 +249,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
             if (into > 0.0) {
                 const float frame = frame_length_;
                 objects::GameEntity* t = object_of(this);
-                t->at_point() += (carried * frame) * 2.0f;
+                t->at_point() += (carried * frame) * kCarryFactor;
                 entity()->vel() += carried;
             }
         }
@@ -276,7 +293,7 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
     end.y = out_y + start.y;
     end.z = out_z + start.z;
     end.w = out_w + start.w;
-    if (!get_feel(this, 0x10, 0))
+    if (!get_feel(this, kProbeIgnoreFlags, 0))
         return false;
 
     const maths::Vec4 normal = feeler_.surface_dir();
@@ -296,22 +313,22 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
         if (!(depth > 0.0))
             return false;
         into.set_length(overlap);
-        entity()->at_point() -= into / 10.0f;
+        entity()->at_point() -= into / kOverlapDivisor;
         const objects::PadInputModule* input = input_;
         if (state_of(this) != kAir && !input->pad_primary().shoulder_right_a().held_down() &&
             !input->pad_primary().shoulder_left_a().held_down() && !input->pad_primary().left_side().held_down() &&
             !input->pad_primary().right_side().held_down())
-            deflect_from_wall(&normal, &overlap, 0.2f); // (never: the state is the air's)
+            deflect_from_wall(&normal, &overlap, kDeflectFactor); // (never: the state is the air's)
         return false;
     }
     // On the ground: a near-vertical wall puts the skater back where it was (+0x98) ...
     const double facing_up = (static_cast<double>(normal.z) * up.z + static_cast<double>(normal.y) * up.y) +
                              static_cast<double>(normal.x) * up.x;
-    if (!(facing_up < static_cast<double>(0.25f)) || !(facing_up > static_cast<double>(-0.25f)))
+    if (!(facing_up < static_cast<double>(kFacingUpLimit)) || !(facing_up > static_cast<double>(-kFacingUpLimit)))
         return false;
     const maths::Vec4 entry_velocity = entity()->vel(); // (not original: for note_path)
     entity()->at_point() = safe_pos_;
-    deflect_from_wall(&normal, &overlap, 0.2f);
+    deflect_from_wall(&normal, &overlap, kDeflectFactor);
     collision_events::note_path(this, collision_events::RouteWay::kSideWall, entry_velocity); // (not original)
     // ... then, unless there's something between (a feeler from just off the hit out to the length) or a trigger's
     // script takes over, onto the wall: at that feeler's end, lowered by the side height.

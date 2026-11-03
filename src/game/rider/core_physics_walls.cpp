@@ -36,8 +36,6 @@ using namespace physics;
 
 namespace {
 constexpr uint32_t kAllButtons = 0xFFFFFFFFu;
-constexpr uint32_t kProbeIgnoreFlags = 0x10;      // the faces the skater's probes pass through
-constexpr int kFaceFlagWallplantBlocked = 8;
 constexpr float kWallHitSlowdown = 0.5f;          // the speed kept on hitting a wall
 
 constexpr uint32_t kTrickKeyName = 0x7323E97C;           // x (the trick button's name)
@@ -129,7 +127,7 @@ bool SkaterPhysicsModule::vert_wallplant()
         return false;
     if (state_->height_above_ground() < kMinWallplantHeight)
         return false;
-    if (!(feeler_.hit().face_flags_ & kFaceFlagWallplantBlocked) && std::fabs(feeler_.surface_dir().y) > kMaxWallplantTilt)
+    if (!(feeler_.hit().face_flags_ & kFaceVert) && std::fabs(feeler_.surface_dir().y) > kMaxWallplantTilt)
         return false;
     if (!static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(true, false, false))
         return false;

@@ -41,6 +41,29 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kNameBytes = 0x20;
+constexpr int kWrapShift = 16;
+constexpr float kNearbyDistance = 96.0f;
+constexpr int kPlayerSlotCount = 8;
+constexpr int kDrivingBit = 0x80;                   // an object id's high bit: that skater was driving
+constexpr int kObjectIdMask = 0x7F;
+constexpr int kGameGroup = 8;                       // the sequenced group of the game's messages
+constexpr std::size_t kSomeoneBytes = 8;            // the stand-in name with its terminator
+constexpr int kEntriesBack = 19;                    // one back in the ring of states (plus its size, modulo)
+constexpr uint32_t kString0 = 0xA4B08520; // String0
+constexpr uint32_t kOffset = 0xA6F5352F; // Offset
+constexpr uint32_t kDrivingCoefficientBoostFactor = 0x0A49FF23u; // DrivingCoefficientBoostFactor
+constexpr uint32_t kInternetServerCollRadius = 0xF2E35FA3u; // InternetServerCollRadius
+constexpr uint32_t kLanServerCollRadius = 0xECB41860u; // LanServerCollRadius
+constexpr uint32_t kInternetClientCollRadius = 0xDBD6D58Au; // InternetClientCollRadius
+constexpr uint32_t kLanClientCollRadius = 0xC5819249u; // LanClientCollRadius
+constexpr uint32_t kDrivingRadiusBoostFactor = 0xEEF4AFB3u; // DrivingRadiusBoostFactor
+constexpr uint32_t kSkaterCollideBail = 0x915E5E39; // SkaterCollideBail
+constexpr uint32_t kFireBall = 0xD039432Cu; // FireBall
+constexpr uint32_t kProjectile = 0xC304BD92u; // Projectile
+constexpr uint32_t kMadeOtherSkaterBail = 0xA1021AF0; // MadeOtherSkaterBail
+constexpr uint32_t kLoserIsDriving = 0x7FD0663D; // LoserIsDriving
+constexpr uint32_t kWinnerIsDriving = 0x2F679251; // WinnerIsDriving
 
 // Components of the skater this code asks for.
 constexpr uint32_t kSkaterState = 0x43686585;          // SkaterState
@@ -148,7 +171,7 @@ constexpr float kKnockUp = 200.0f;
 constexpr float kTooClose = 0.0001f; // 0x006453D4
 
 // strncpy(name, from, 0x20) (the game's C runtime's 0x006239E0): up to 0x20 characters, the rest zeroed.
-void copy_name(std::array<char, 0x20>& name, const char* from)
+void copy_name(std::array<char, kNameBytes>& name, const char* from)
 {
     size_t i = 0;
     const std::string_view text(from);
@@ -163,9 +186,9 @@ void send_event(GameEntity* skater, uint32_t type, const char* name, uint32_t fl
                 const script::VectorValue* push)
 {
     script::Struct params;
-    params.append_word(0xA4B08520, name); // name
+    params.append_word(kString0, name); // name
     if (push)
-        params.put_vec3(checksums::Name{0xA6F5352F}, *push);
+        params.put_vec3(checksums::Name{kOffset}, *push);
     if (with_flag)
         params.put_name_key(checksums::Name{0u}, flag);
     skater->post_own_event(type, &params);
@@ -179,14 +202,14 @@ void send_event(GameEntity* skater, uint32_t type, const char* name, uint32_t fl
 // 0x00519800
 uint32_t get_time(StateHistoryMessage& message)
 {
-    return static_cast<uint32_t>(message.time_high_) << 16 | message.clock_;
+    return static_cast<uint32_t>(message.time_high_) << kWrapShift | message.clock_;
 }
 
 // 0x00519810
 void change_moment(StateHistoryMessage& message, uint32_t time)
 {
     message.clock_ = static_cast<uint16_t>(time);
-    message.time_high_ = static_cast<uint16_t>(time >> 16);
+    message.time_high_ = static_cast<uint16_t>(time >> kWrapShift);
 }
 
 // --- RiderFrameLog ---
@@ -225,7 +248,7 @@ double RiderFrameLog::get_collision_reach(bool driving)
     const float reach = script::fetch_float(entity()->is_local_skater() ? 0x0D24273Bu : 0x25F78481u);
     if (!driving)
         return reach;
-    return (script::fetch_float(0x0A49FF23u) + 1.0) * reach;
+    return (script::fetch_float(kDrivingCoefficientBoostFactor) + 1.0) * reach;
 }
 
 // 0x0051A080
@@ -233,14 +256,14 @@ double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
 {
     uint32_t name = 0;
     if (entity()->is_local_skater())
-        name = manager_flag4() ? 0xF2E35FA3u : 0xECB41860u;
+        name = manager_flag4() ? kInternetServerCollRadius : kLanServerCollRadius;
     else
-        name = manager_flag4() ? 0xDBD6D58Au : 0xC5819249u;
+        name = manager_flag4() ? kInternetClientCollRadius : kLanClientCollRadius;
     const float radius = script::fetch_float(name);
     float drivers = my_driving ? 1.0f : 0.0f;
     if (their_driving)
         drivers = static_cast<float>(drivers + 1.0);
-    return (script::fetch_float(0xEEF4AFB3u) * static_cast<double>(drivers) + 1.0) * radius;
+    return (script::fetch_float(kDrivingRadiusBoostFactor) * static_cast<double>(drivers) + 1.0) * radius;
 }
 
 // 0x0051A150
@@ -252,7 +275,7 @@ bool RiderFrameLog::is_near_local_skater()
     const double dy = static_cast<double>(pos.y) - local->at_point().y;
     const double dz = static_cast<double>(pos.z) - local->at_point().z;
     const double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
-    return distance < 96.0f; // 0x0064EC40
+    return distance < kNearbyDistance; // 0x0064EC40
 }
 
 // 0x0051A1C0
@@ -282,7 +305,7 @@ void RiderFrameLog::check_for_collisions(int first)
     maths::Seg mine{};
     mine.start = my_pos;
 
-    for (int i = first; i < 8; ++i) {
+    for (int i = first; i < kPlayerSlotCount; ++i) {
         GameEntity* skater = skater_by_index(i);
         if (!skater || skater == entity())
             continue;
@@ -356,7 +379,7 @@ void RiderFrameLog::check_for_collisions(int first)
         if (tell_players) {
             net::NetMessageInfo msg;
             online::RanInto ran_into; // (wire/play_messages.h)
-            ran_into.object_id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident()));
+            ran_into.object_id = static_cast<uint8_t>(their_driving * kDrivingBit | static_cast<uint8_t>(skater->ident()));
             const maths::Vec4 push = my_point - their_point;
             core::at(ran_into.push, 0) = push.x;
             core::at(ran_into.push, 1) = push.y;
@@ -372,9 +395,9 @@ void RiderFrameLog::check_for_collisions(int first)
             msg.set_content(ran_into_bytes.data());
             msg.set_byte_count(sizeof(ran_into_bytes));
             msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-            msg.set_group_id(8);
+            msg.set_group_id(kGameGroup);
             app->put_on_outbox(get_connection(me), &msg);
-            auto ran_into_by = static_cast<uint8_t>(my_driving * 0x80 | static_cast<uint8_t>(entity()->ident()));
+            auto ran_into_by = static_cast<uint8_t>(my_driving * kDrivingBit | static_cast<uint8_t>(entity()->ident()));
             msg.set_ident(kMsgRanIntoAck);
             msg.set_content(&ran_into_by);
             msg.set_byte_count(1);
@@ -403,7 +426,7 @@ void RiderFrameLog::check_for_collisions(int first)
                 msg.set_ident(kMsgTagged);
                 msg.set_byte_count(1);
                 msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-                msg.set_group_id(8);
+                msg.set_group_id(kGameGroup);
                 app->put_on_outbox(get_connection(player), &msg);
             }
         } else if (get_game_type() == kGameTeamTag) {
@@ -428,7 +451,7 @@ void RiderFrameLog::check_for_collisions(int first)
                 }
                 msg.set_ident(same_team ? kMsgTeamTagged : kMsgTeamConverted);
                 msg.set_content(tagged.data());
-                msg.set_group_id(8);
+                msg.set_group_id(kGameGroup);
                 msg.set_queue(net::NetMessageInfo::kLaneOrdered);
                 msg.set_byte_count(2);
                 app->put_on_outbox(get_connection(player), &msg);
@@ -447,8 +470,8 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
         return net::kResultConsumed;
     const bool other_driving = hit.fireball;
     auto* skater = static_cast<GameEntity*>(context->content());
-    std::array<char, 0x20> name = {};
-    std::memcpy(name.data(), kSomeone, 8);
+    std::array<char, kNameBytes> name = {};
+    std::memcpy(name.data(), kSomeone, kSomeoneBytes);
     if (context->type_code() == kMsgHit) {
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id))) {
             GameEntity* other = player_object(player);
@@ -491,11 +514,11 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
                 }
             }
         }
-        send_event(skater, 0x915E5E39, name.data(), other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
+        send_event(skater, kSkaterCollideBail, name.data(), other_driving ? kFireBall : kProjectile, true, nullptr);
     } else if (context->type_code() == kMsgHitAck) {
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id)))
             copy_name(name, get_skater_name(player_object(player)));
-        send_event(skater, 0xA1021AF0, name.data(), other_driving ? 0xD039432Cu : 0xC304BD92u, true, nullptr);
+        send_event(skater, kMadeOtherSkaterBail, name.data(), other_driving ? kFireBall : kProjectile, true, nullptr);
     }
     return net::kResultConsumed;
 }
@@ -520,16 +543,16 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     }
     if (!read)
         return net::kResultPassOn;
-    std::array<char, 0x20> name = {};
-    std::memcpy(name.data(), kSomeone, 8);
+    std::array<char, kNameBytes> name = {};
+    std::memcpy(name.data(), kSomeone, kSomeoneBytes);
     const bool other_driving = (ran_into.object_id >> 7) & 1;
     // (the driving bit cleared in the message itself, as the original: the next local skater's handler sees it so)
-    core::at(std::span<uint8_t>(context->body(), context->body_size()), 0) = static_cast<uint8_t>(ran_into.object_id & 0x7F);
-    online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(ran_into.object_id & 0x7F));
+    core::at(std::span<uint8_t>(context->body(), context->body_size()), 0) = static_cast<uint8_t>(ran_into.object_id & kObjectIdMask);
+    online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(ran_into.object_id & kObjectIdMask));
     if (id == kMsgRanIntoAck) {
         if (player)
             copy_name(name, get_skater_name(player_object(player)));
-        send_event(skater, 0xA1021AF0, name.data(), 0x7FD0663D, other_driving, nullptr);
+        send_event(skater, kMadeOtherSkaterBail, name.data(), kLoserIsDriving, other_driving, nullptr);
         return net::kResultPassOn;
     }
     if (player) {
@@ -575,7 +598,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
         copy_name(name, get_skater_name(player_object(player)));
     }
     const script::VectorValue push = {.x = core::at(ran_into.push, 0), .y = core::at(ran_into.push, 1), .z = core::at(ran_into.push, 2), .w = core::at(ran_into.push, 3)};
-    send_event(skater, 0x915E5E39, name.data(), 0x2F679251, other_driving, &push);
+    send_event(skater, kSkaterCollideBail, name.data(), kWinnerIsDriving, other_driving, &push);
     return net::kResultPassOn;
 }
 
@@ -584,7 +607,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
 namespace objects {
 
 // 0x00569680
-SkaterStateHistoryFrame* RiderFrameLog::fetch_newest_snapshot() { return &core::at(states_, (state_count_ + 19) % kEntries); }
+SkaterStateHistoryFrame* RiderFrameLog::fetch_newest_snapshot() { return &core::at(states_, (state_count_ + kEntriesBack) % kEntries); }
 
 // 0x005696A0
 StateHistoryMessage* RiderFrameLog::get_latest_message() { return &core::at(messages_, message_count_ % kEntries); }

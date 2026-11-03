@@ -31,13 +31,77 @@
 #include "engine/core/checksums.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kStatsManagerReInit = 0x82CE30CE; // StatsManager_ReInit
+constexpr uint32_t kSTATSManager = 0x4FF8DAC6; // STATSManager
+constexpr uint32_t kStatsManagerReset = 0x57879C96; // StatsManager_Reset
+constexpr uint32_t kStatsManagerActivateGoals = 0xEE59073C; // StatsManager_ActivateGoals
+constexpr uint32_t kStatsManagerDeactivateGoals = 0xF1745991; // StatsManager_DeactivateGoals
+constexpr uint32_t kStatsManagerGetGoalStatus = 0x78E7D855; // StatsManager_GetGoalStatus
+constexpr uint32_t kStatsManagerUnlockAmGoals = 0xB341B5A5; // StatsManager_UnlockAmGoals
+constexpr uint32_t kStatsManagerUnlockProGoals = 0xB7FAC894; // StatsManager_UnlockProGoals
+constexpr uint32_t kHash629D29FA = 0x629D29FA; // (text unknown)
+constexpr uint32_t kHashB1652DEC = 0xB1652DEC; // (text unknown)
+constexpr uint32_t kBUMPSTATS = 0xB8688A8Au; // BUMP_STATS
+constexpr uint32_t kStatsGoals = 0x4E46CC28u; // stats_goals
+constexpr uint32_t kGoalType = 0x0FFD7BBEu; // GoalType
+constexpr uint32_t kStattype = 0xC2455018u; // stattype
+constexpr uint32_t kValue = 0xE288A7CBu; // Value
+constexpr uint32_t kValueString = 0xCD021293u; // value_string
+constexpr uint32_t kTextName = 0xC4745838u; // Text
+constexpr uint32_t kComplete = 0xBD982FDCu; // Complete
+constexpr uint32_t kValueTrick = 0xD8A9D3CAu; // value_trick
+constexpr uint32_t kValueTaps = 0x3C2FB496u; // value_taps
+constexpr uint32_t kIsCareer = 0x1DED1EA4; // is_career
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // Load_MainMenu
+constexpr uint32_t kName = 0xA1DC81F9u; // Name
+constexpr uint32_t kCustom = 0x0A7BE964; // Custom
+constexpr uint32_t kStatsMessageBail = 0xD44EA68F; // stats_message_bail
+constexpr uint32_t kGrabTrick = 0xB9AE26D2; // GrabTrick
+constexpr uint32_t kFlipTrick = 0xBA15FC7F; // FlipTrick
+constexpr uint32_t kStatsMessageLand = 0x750BCF49; // stats_message_land
+constexpr uint32_t kFlipSpeed = 0x6DCB497C; // flip_speed
+constexpr uint32_t kFlipIncreaseText = 0x585887CA; // flip_increase_text
+constexpr uint32_t kAirIncreaseText = 0xA523DF6C; // air_increase_text
+constexpr uint32_t kSwitch = 0x9016B4E7; // Switch
+constexpr uint32_t kSwitchIncreaseText = 0x1A6B74EA; // switch_increase_text
+constexpr uint32_t kLipBalance = 0xAE798769; // lip_balance
+constexpr uint32_t kLipIncreaseText = 0x1F1BCDEF; // lip_increase_text
+constexpr uint32_t kOllie = 0x9B65D7B8; // Ollie
+constexpr uint32_t kOllieIncreaseText = 0xA8386951; // ollie_increase_text
+constexpr uint32_t kRun = 0xAF895B3F; // Run
+constexpr uint32_t kRunIncreaseText = 0xA17AC668; // run_increase_text
+constexpr uint32_t kSpinName = 0xEDF5DB70; // Spin
+constexpr uint32_t kSpinIncreaseText = 0xB959CC23; // spin_increase_text
+constexpr uint32_t kManualBalance = 0xB1FC0722; // manual_balance
+constexpr uint32_t kManualIncreaseText = 0x069F2596; // manual_increase_text
+constexpr uint32_t kSpeed = 0xF0D90109; // Speed
+constexpr uint32_t kSpeedIncreaseText = 0x1686EBD3; // speed_increase_text
+constexpr uint32_t kRailBalance = 0xF73A13E3; // rail_balance
+constexpr uint32_t kRailIncreaseText = 0x6E7A996D; // rail_increase_text
+constexpr uint32_t kGotIt = 0x2044BAAFu; // got_it
+constexpr uint32_t kShowStatsMessage = 0x55E516C8; // show_stats_message
+constexpr uint32_t kBeatFirstStatGoal = 0xEF3A4EE5; // beat_first_stat_goal
+constexpr uint32_t kStatPlayWinSound = 0x5A90FB86; // stat_play_win_sound
+constexpr uint32_t kString = 0x61414D56u; // String
+constexpr uint32_t kVstring = 0xC257D69Au; // vstring
+constexpr uint32_t kIndex = 0x7F8C98FEu; // Index
+constexpr uint32_t kScore = 0xCD66C8AEu; // Score
+constexpr uint32_t kShowVertComboMessage = 0x7C9C7232; // show_vert_combo_message
+constexpr uint32_t kHash89B7DBE4 = 0x89B7DBE4; // (text unknown)
+constexpr uint32_t kShowedStatMessageSound = 0x41B03551; // showed_stat_message_sound
+constexpr uint32_t kConsoleUnhide = 0x7EC5F3E0; // console_unhide
+constexpr uint32_t kConsoleHide = 0x3CB06807; // console_hide
+constexpr uint32_t kStatus = 0x84FF9AE3u; // Status
+constexpr uint32_t kHash2D3B766B = 0x2D3B766Bu; // (text unknown)
+} // namespace
 
-std::array<script::MemberFunctionEntry, 10>& stats_manager_member_functions()
+std::array<script::MemberFunctionEntry, kStatsManagerMemberFunctionCount>& stats_manager_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 10> stats_manager_member_functions{{
-        {.callsign_ = 0x82CE30CE, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0x57879C96, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xEE59073C, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xF1745991, .owner_kind_ = 0x4FF8DAC6},
-        {.callsign_ = 0x78E7D855, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xB341B5A5, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xB7FAC894, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0x629D29FA, .owner_kind_ = 0x4FF8DAC6},
-        {.callsign_ = 0xB1652DEC, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0, .owner_kind_ = 0x4FF8DAC6}}};
+    static std::array<script::MemberFunctionEntry, kStatsManagerMemberFunctionCount> stats_manager_member_functions{{
+        {.callsign_ = kStatsManagerReInit, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerReset, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerActivateGoals, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerDeactivateGoals, .owner_kind_ = kSTATSManager},
+        {.callsign_ = kStatsManagerGetGoalStatus, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerUnlockAmGoals, .owner_kind_ = kSTATSManager}, {.callsign_ = kStatsManagerUnlockProGoals, .owner_kind_ = kSTATSManager}, {.callsign_ = kHash629D29FA, .owner_kind_ = kSTATSManager},
+        {.callsign_ = kHashB1652DEC, .owner_kind_ = kSTATSManager}, {.callsign_ = 0, .owner_kind_ = kSTATSManager}}};
     return stats_manager_member_functions;
 }
 
@@ -175,52 +239,52 @@ void AttributeTracker::configure_from_data(script::Struct*)
     difficulty_ = static_cast<goals::GoalManager*>(game_flow())->get_skill_tier(true);
     debug::printf("STATSManager: difficulty ====================== %i\n",
                   difficulty_); // "STATSManager: difficulty ... %i"
-    if (script::fetch_int_value(0xB8688A8Au) == 1)
+    if (script::fetch_int_value(kBUMPSTATS) == 1)
         raise_stats_ = true;
 
-    script::Array* goals = script::fetch_list(0x4E46CC28u);
+    script::Array* goals = script::fetch_list(kStatsGoals);
     const int count = static_cast<int>(goals->extent());
     for (int i = 0; i < count; ++i) {
         auto* source = goals->struct_at(static_cast<uint32_t>(i));
         Goal& goal = core::at(goals_, i);
         uint32_t checksum = 0;
-        if (source->has_entry_named(0x0FFD7BBEu)) {
-            source->read_hash_value(0x0FFD7BBEu, &checksum, 1);
+        if (source->has_entry_named(kGoalType)) {
+            source->read_hash_value(kGoalType, &checksum, 1);
             goal.kind_ = checksum;
         }
-        if (source->has_entry_named(0xC2455018u)) {
-            source->read_hash_value(0xC2455018u, &checksum, 1);
+        if (source->has_entry_named(kStattype)) {
+            source->read_hash_value(kStattype, &checksum, 1);
             goal.attr_key_ = checksum;
         }
         script::Array* by_difficulty = nullptr;
-        if (source->has_entry_named(0xE288A7CBu)) {
+        if (source->has_entry_named(kValue)) {
             by_difficulty = nullptr;
-            source->fetch_list(0xE288A7CBu, &by_difficulty, 1);
+            source->fetch_list(kValue, &by_difficulty, 1);
             goal.aim_point_ = static_cast<int>(by_difficulty->fetch_part(static_cast<uint32_t>(difficulty_)));
         }
-        if (source->has_entry_named(0xCD021293u)) {
+        if (source->has_entry_named(kValueString)) {
             by_difficulty = nullptr;
-            source->fetch_list(0xCD021293u, &by_difficulty, 1);
+            source->fetch_list(kValueString, &by_difficulty, 1);
             goal.text_ = by_difficulty->find_inline_text(static_cast<uint32_t>(difficulty_));
         }
-        if (source->has_entry_named(0xC4745838u)) {
+        if (source->has_entry_named(kTextName)) {
             const char* name = ""; // ""
-            source->fetch_text(0xC4745838u, &name, 1);
+            source->fetch_text(kTextName, &name, 1);
             goal.label_ = name;
         }
-        if (source->has_entry_named(0xBD982FDCu)) {
+        if (source->has_entry_named(kComplete)) {
             int ignored = 0;
-            source->fetch_int_value(0xBD982FDCu, &ignored, 1);
+            source->fetch_int_value(kComplete, &ignored, 1);
             goal.cur_standing_ = 0;
         }
-        if (source->has_entry_named(0xD8A9D3CAu)) {
+        if (source->has_entry_named(kValueTrick)) {
             by_difficulty = nullptr;
-            source->fetch_list(0xD8A9D3CAu, &by_difficulty, 1);
+            source->fetch_list(kValueTrick, &by_difficulty, 1);
             goal.trick_ = by_difficulty->fetch_part(static_cast<uint32_t>(difficulty_));
         }
-        if (source->has_entry_named(0x3C2FB496u)) {
+        if (source->has_entry_named(kValueTaps)) {
             by_difficulty = nullptr;
-            source->fetch_list(0x3C2FB496u, &by_difficulty, 1);
+            source->fetch_list(kValueTaps, &by_difficulty, 1);
             goal.value20_ = by_difficulty->fetch_part(static_cast<uint32_t>(difficulty_));
         }
         goal.met_ = false;
@@ -233,14 +297,14 @@ bool AttributeTracker::is_operative()
     if (!skater_)
         return false;
     void* skate = skate_module();
-    if (!goals::game_mode()->is_true(0x1DED1EA4))
+    if (!goals::game_mode()->is_true(kIsCareer))
         return false;
-    if (!activated_ || static_cast<modules::Skate*>(skate)->level() == 0xE92ECAFE)
+    if (!activated_ || static_cast<modules::Skate*>(skate)->level() == kLoadMainMenu)
         return false;
     // (Without a name the original compares what its slot held: this.)
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    first_profile()->details_params()->read_hash_value(0xA1DC81F9u, &name, 1);
-    return name == 0x0A7BE964;
+    first_profile()->details_params()->read_hash_value(kName, &name, 1);
+    return name == kCustom;
 }
 
 // 0x0051C9D0
@@ -255,7 +319,7 @@ void AttributeTracker::get_reset()
 {
     if (!is_operative())
         return;
-    launch_script(0xD44EA68F);
+    launch_script(kStatsMessageBail);
     for (Goal& goal : goals_)
         if (goal.cur_standing_ == 0 && goal.met_)
             goal.met_ = false;
@@ -279,9 +343,9 @@ void AttributeTracker::total_of(uint32_t name)
 {
     if (!is_operative())
         return;
-    if (name == 0xB9AE26D2)
+    if (name == kGrabTrick)
         ++count_a84_;
-    else if (name == 0xBA15FC7F)
+    else if (name == kFlipTrick)
         ++count_a80_;
 }
 
@@ -297,7 +361,7 @@ void AttributeTracker::announce_met_goals()
         if (goal.cur_standing_ != 0 || !goal.met_)
             continue;
         if (!announced) {
-            launch_script(0x750BCF49);
+            launch_script(kStatsMessageLand);
             announced = true;
         }
         const uint32_t stat = goal.attr_key_;
@@ -305,44 +369,44 @@ void AttributeTracker::announce_met_goals()
         // The stat's name (a global string per stat).
         uint32_t text = 0;
         switch (stat) {
-        case 0x6DCB497C:
-            text = 0x585887CA;
+        case kFlipSpeed:
+            text = kFlipIncreaseText;
             break;
-        case 0x439F4704:
-            text = 0xA523DF6C;
+        case kStateAir:
+            text = kAirIncreaseText;
             break;
-        case 0x9016B4E7:
-            text = 0x1A6B74EA;
+        case kSwitch:
+            text = kSwitchIncreaseText;
             break;
-        case 0xAE798769:
-            text = 0x1F1BCDEF;
+        case kLipBalance:
+            text = kLipIncreaseText;
             break;
-        case 0x9B65D7B8:
-            text = 0xA8386951;
+        case kOllie:
+            text = kOllieIncreaseText;
             break;
-        case 0xAF895B3F:
-            text = 0xA17AC668;
+        case kRun:
+            text = kRunIncreaseText;
             break;
-        case 0xEDF5DB70:
-            text = 0xB959CC23;
+        case kSpinName:
+            text = kSpinIncreaseText;
             break;
-        case 0xB1FC0722:
-            text = 0x069F2596;
+        case kManualBalance:
+            text = kManualIncreaseText;
             break;
-        case 0xF0D90109:
-            text = 0x1686EBD3;
+        case kSpeed:
+            text = kSpeedIncreaseText;
             break;
-        case 0xF73A13E3:
-            text = 0x6E7A996D;
+        case kRailBalance:
+            text = kRailIncreaseText;
             break;
         default:
             text = 0;
             break;
         }
         if (text)
-            params->append_word(0xC4745838u, script::fetch_text(text));
-        params->put_int(checksums::Name{0x2044BAAFu}, 1);
-        launch_script(0x55E516C8, params);
+            params->append_word(kTextName, script::fetch_text(text));
+        params->put_int(checksums::Name{kGotIt}, 1);
+        launch_script(kShowStatsMessage, params);
         if (raise_stats_)
             profile->set_ability_level(stat, profile->fetch_tally(stat) + 1);
     }
@@ -350,10 +414,10 @@ void AttributeTracker::announce_met_goals()
         debug::printf("updating skater stats\n"); // "updating skater stats"
         core::down_cast<Rider>(skater_)->set_stats_from_profile(profile);
         if (!goal_done_ && static_cast<goals::GoalManager*>(game_flow())->may_begin_objective()) {
-            launch_script(0xEF3A4EE5);
+            launch_script(kBeatFirstStatGoal);
             goal_done_ = true;
         }
-        launch_script(0x5A90FB86);
+        launch_script(kStatPlayWinSound);
     }
     script::free_struct(params);
     count_a80_ = 0;
@@ -367,12 +431,12 @@ void AttributeTracker::meet_goal(int index)
         return;
     const script::StructPtr params = script::make_struct();
     Goal& goal = core::at(goals_, index);
-    params->append_word(0x61414D56u, goal.label_);
-    params->put_int(checksums::Name{0xE288A7CBu}, goal.aim_point_);
+    params->append_word(kString, goal.label_);
+    params->put_int(checksums::Name{kValue}, goal.aim_point_);
     if (goal.text_)
-        params->append_word(0xC257D69Au, goal.text_);
-    params->put_int(checksums::Name{0x7F8C98FEu}, index);
-    launch_script(0x55E516C8, params.get());
+        params->append_word(kVstring, goal.text_);
+    params->put_int(checksums::Name{kIndex}, index);
+    launch_script(kShowStatsMessage, params.get());
     goal.met_ = true;
 }
 
@@ -471,8 +535,8 @@ void AttributeTracker::tick_frame()
         case kAirCombo:
             if (air_phase_ == 2 && air_best_ >= goal.aim_point_) {
                 script::StructPtr params = script::make_struct();
-                params->put_int(checksums::Name{0xCD66C8AEu}, air_best_);
-                launch_script(0x7C9C7232, params.get());
+                params->put_int(checksums::Name{kScore}, air_best_);
+                launch_script(kShowVertComboMessage, params.get());
                 params.reset();
                 meets = true;
             }
@@ -502,7 +566,7 @@ void AttributeTracker::tick_frame()
                 meets = true;
             } else if (trick == kManual) {
                 const int manuals = count_tricks(score, trick, 0, 0, 1);
-                meets = manuals + count_tricks(score, 0x89B7DBE4, 0, 0, 1) >= target;
+                meets = manuals + count_tricks(score, kHash89B7DBE4, 0, 0, 1) >= target;
             }
             break;
         }
@@ -536,7 +600,7 @@ void AttributeTracker::tick_frame()
         }
     }
     if (met)
-        launch_script(0x41B03551);
+        launch_script(kShowedStatMessageSound);
     last_state_ = cur_phase_;
     value58_ = 0.0f;
     score_before_combo_ = points_held_;
@@ -571,7 +635,7 @@ void AttributeTracker::check_balance_time(checksums::Name trick_type_name, float
         met = true;
     }
     if (met)
-        launch_script(0x41B03551);
+        launch_script(kShowedStatMessageSound);
 }
 
 // --- member functions ---
@@ -594,7 +658,7 @@ bool AttributeTracker::reset_goals(script::Struct*, script::Script*)
 bool AttributeTracker::activate_goals(script::Struct*, script::Script*)
 {
     activated_ = true;
-    launch_script(0x7EC5F3E0);
+    launch_script(kConsoleUnhide);
     return true;
 }
 
@@ -602,7 +666,7 @@ bool AttributeTracker::activate_goals(script::Struct*, script::Script*)
 bool AttributeTracker::deactivate_goals(script::Struct*, script::Script*)
 {
     activated_ = false;
-    launch_script(0x3CB06807);
+    launch_script(kConsoleHide);
     return true;
 }
 
@@ -611,7 +675,7 @@ bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Sc
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 1);
-    script->args()->put_int(checksums::Name{0x84FF9AE3u}, core::at(goals_, index).cur_standing_);
+    script->args()->put_int(checksums::Name{kStatus}, core::at(goals_, index).cur_standing_);
     return true;
 }
 
@@ -636,7 +700,7 @@ bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
 // 0x0051CB70
 bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(checksums::Name{0x2D3B766Bu}, last_air_combo_score_);
+    script->args()->put_int(checksums::Name{kHash2D3B766B}, last_air_combo_score_);
     return true;
 }
 

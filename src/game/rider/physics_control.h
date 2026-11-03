@@ -23,6 +23,7 @@ class Struct;
 //
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize, 11 the shared 0x0042BB20, 12 invoke_method_by_name.
 namespace objects {
+constexpr std::size_t kPhysicsControlMemberFunctionCount = 11;
 
 class RiderPoseState;
 
@@ -106,5 +107,5 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 11>& physics_control_member_functions();
+std::array<script::MemberFunctionEntry, kPhysicsControlMemberFunctionCount>& physics_control_member_functions();
 } // namespace objects

@@ -23,6 +23,10 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr std::size_t kTrickArrayCount = 10;
+constexpr std::size_t kTrickNameBytes = 0x33;
+constexpr std::size_t kDeferredNameBytes = 0x34;
+constexpr std::size_t kQueueSize = 100;
 
 class AttributeTracker;
 class PadInputModule;
@@ -48,7 +52,7 @@ struct TrickEvent {
 // component's +0x1238 and +0x1280).
 struct PendingTrick {
     int count_;           // +0x00 arrays in use
-    std::array<uint32_t, 10> arrays_; // +0x04 the trick arrays' names
+    std::array<uint32_t, kTrickArrayCount> arrays_; // +0x04 the trick arrays' names
     uint32_t special_;    // +0x2C the special one's
     bool pending_;        // +0x30 a trick waits to start
     std::array<uint8_t, 3> pad31_;
@@ -68,8 +72,8 @@ struct ExtraTricks {
     int duration_;          // +0x04 ms
     uint32_t start_;        // +0x08 the game clock when they were set
     int count_;             // +0x0C arrays in use
-    std::array<uint32_t, 10> arrays_;   // +0x10 the trick arrays' names
-    std::array<uint32_t, 10> masks_;    // +0x38 each one's tricks skipped (bits)
+    std::array<uint32_t, kTrickArrayCount> arrays_;   // +0x10 the trick arrays' names
+    std::array<uint32_t, kTrickArrayCount> masks_;    // +0x38 each one's tricks skipped (bits)
     uint32_t special_;      // +0x60 the special array
     uint32_t special_mask_; // +0x64
 };
@@ -332,7 +336,7 @@ public:
     void set_starting_special(bool value) { starting_special_ = value; }
     // The trick mappings' value for a trick slot (0: none).
     [[nodiscard]] uint32_t mapped_slot(uint32_t slot) const;
-    [[nodiscard]] const std::array<char, 0x33>& trick_name() const { return trick_name_; }
+    [[nodiscard]] const std::array<char, kTrickNameBytes>& trick_name() const { return trick_name_; }
     float& spin_total() { return spin_total_; }
     [[nodiscard]] float spin_total() const { return spin_total_; }
     [[nodiscard]] bool bailed() const { return bailed_; }
@@ -364,18 +368,18 @@ private:
     gsl::owner<script::Struct*> trick_lists_{nullptr}; // +0xA28
     int queue_first_{};           // +0xA2C
     int queue_last_{};            // +0xA30
-    std::array<QueuedTrick, 100> queue_{};    // +0xA34
+    std::array<QueuedTrick, kQueueSize> queue_{};    // +0xA34
     int extra_list_count_{};      // +0x1204
-    std::array<uint32_t, 10> extra_lists_{};  // +0x1208
+    std::array<uint32_t, kTrickArrayCount> extra_lists_{};  // +0x1208
     uint32_t manual_list_{};      // +0x1230
     uint32_t list_used_{};        // +0x1234
     PendingTrick manual_{};       // +0x1238 SetManualTricks' arrays and the manual waiting to start
     PendingTrick grind_{};        // +0x1280 SetExtraGrindTricks' arrays and the grind waiting to start
     ExtraTricks extra_{};         // +0x12C8 SetExtraTricks
     bool bashing_{};              // +0x1330 BashOn
-    std::array<char, 0x33> trick_name_{};     // +0x1331 the trick displayed (SetTrickName)
+    std::array<char, kTrickNameBytes> trick_name_{};     // +0x1331 the trick displayed (SetTrickName)
     int trick_score_{};           // +0x1364 SetTrickScore
-    std::array<char, 0x34> deferred_name_{};  // +0x1368 a deferred trick's name
+    std::array<char, kDeferredNameBytes> deferred_name_{};  // +0x1368 a deferred trick's name
     int deferred_score_{};        // +0x139C
     uint32_t deferred_flags_{};   // +0x13A0
     float spin_total_{};          // +0x13A4 the trick's rotation (degrees)

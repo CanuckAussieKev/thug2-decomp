@@ -22,6 +22,7 @@ struct InboundMsgCtx;
 // empty 0x005BAB90 / 0x005480A0, the base's Suspend and member function entry, invoke_method_by_name 0x0051ADC0 (shared:
 // "not mine").
 namespace objects {
+constexpr std::size_t kWobbleDetailCount = 5;
 
 // One of the history's other messages (0x54 bytes, 20 of them at +0xA70; the newest at +0xA6C % 20): the message's
 // id, its time stamp as two halves, then what the message said (wire/skater_messages.h; filled by
@@ -44,7 +45,7 @@ struct StateHistoryMessage {
     float speed_;             // +0x1C 0x29 / 0x41
     uint32_t name_;           // +0x20 0x29 the animation / 0x3E the geom / 0x77 the item's params structure
     uint32_t bone_;           // +0x24 0x77
-    std::array<float, 5> wobble_details_; // +0x28 0x3C
+    std::array<float, kWobbleDetailCount> wobble_details_; // +0x28 0x3C
     int spin_period_;         // +0x3C 0x76
     int spin_power_;          // +0x40 0x76
     int item_slot_;           // +0x44 0x77 / 0x78

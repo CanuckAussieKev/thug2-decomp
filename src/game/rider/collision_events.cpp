@@ -2,6 +2,7 @@
 // collision_events.h).
 
 #include "game/rider/collision_events.h"
+#include "game/rider/core_physics.h"
 
 #include <windows.h>
 
@@ -47,7 +48,6 @@ constexpr std::size_t kFileTextBytes = 64;
 constexpr int kHighWordShift = 32;
 constexpr double kDegreesPerHalfTurn = 180.0;
 constexpr double kPiDecimal = 3.14159265358979;
-constexpr int kProbeIgnoreFlags = 0x10;           // the faces the skater's probes pass through
 constexpr float kSamePointDistanceSq = 0.25f;     // two hits closer than this (squared, in feet) are one spot
 constexpr float kFloorNormalMinY = 0.5f;          // a face leaning less than this is not a floor
 constexpr float kHalf = 0.5f;
@@ -305,7 +305,7 @@ Face get_probe(const std::array<float, 3>& from, const std::array<float, 3>& to,
     const maths::Vec4 end = {.x = std::get<0>(to), .y = std::get<1>(to), .z = std::get<2>(to), .w = 1.0f};
     render::ProbeRay ray_storage(&start, &end);
     render::ProbeRay* feeler = &ray_storage;
-    feeler->set_excluded({.ignore = static_cast<uint16_t>(everything ? 0 : kProbeIgnoreFlags), .require = 0});
+    feeler->set_excluded({.ignore = static_cast<uint16_t>(everything ? 0 : skater::kProbeIgnoreFlags), .require = 0});
     feeler->get_hit_shape(true, false);
     return face_of(*feeler);
 }

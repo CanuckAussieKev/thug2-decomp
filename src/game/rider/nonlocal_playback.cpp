@@ -36,6 +36,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "game/rider/core_physics.h"
 #include "wire/skater_messages.h"
 
 namespace objects {
@@ -43,7 +44,6 @@ namespace objects {
 namespace {
 constexpr int kMillisecondsPerSecond = 1000;
 constexpr int kCatchUpFrames = 10;                 // how far behind the playback may fall before it jumps ahead
-constexpr int kProbeIgnoreFlags = 0x10;            // the faces the skater's probes pass through
 constexpr float kModelPivotHeight = 30.0f;
 int& nonlocal_lag()
 {
@@ -324,7 +324,7 @@ void RiderRemoteSync::get_extrapolate()
     if (std::sqrt((ez * ez + ey * ey) + ex * ex) > kWallCheckReach)
         return;
     feeler.change_strand(&from, &to);
-    feeler.set_excluded({.ignore = kProbeIgnoreFlags, .require = 0});
+    feeler.set_excluded({.ignore = skater::kProbeIgnoreFlags, .require = 0});
     if (feeler.get_hit_shape(true, false))
         deflect_from_wall(&feeler.surface_dir(), &feeler.contact_pos());
 }

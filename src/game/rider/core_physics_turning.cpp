@@ -33,6 +33,7 @@ namespace skater {
 using namespace physics;
 
 namespace {
+constexpr int kSlowTurnHeldMs = 600;                // held for less than this, the turn rate builds up
 
 constexpr uint32_t kRailJumpAngle = 0x38505EF3;        // Rail_Jump_Angle (degrees)
 constexpr uint32_t kGroundRotation = 0x374E056B;       // Physics_Ground_Rotation
@@ -143,7 +144,7 @@ void SkaterPhysicsModule::turn_on_ground()
         auto full = static_cast<float>(rate);
         if (speed < kSlowGroundTurnSpeed) {
             const int held = time_since_press(button);
-            rate = held < 600 ? static_cast<double>(held) * full * kSlowGroundTurnRate : full;
+            rate = held < kSlowTurnHeldMs ? static_cast<double>(held) * full * kSlowGroundTurnRate : full;
         }
     }
     if (rate == 0.0)
@@ -317,7 +318,7 @@ void SkaterPhysicsModule::recover_in_air()
     feeler.line().end.y = feeler.line().end.y - kRecoverFeelerLength;
     if (!feeler.get_hit_shape(true, false))
         return;
-    if (feeler.hit().face_flags_ & 8)
+    if (feeler.hit().face_flags_ & kFaceVert)
         return;
     if (feeler.surface_dir().y < kRecoverSteepest)
         return;

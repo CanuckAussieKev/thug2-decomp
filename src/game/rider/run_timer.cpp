@@ -31,9 +31,9 @@ constexpr uint32_t kRunTimerGetRunTimerId = 0x81AAA6DD; // RunTimer_GetRunTimerI
 constexpr uint32_t kRunTimerComboStarted = 0x37CC7691; // RunTimer_ComboStarted
 } // namespace
 
-std::array<script::MemberFunctionEntry, 7>& run_timer_member_functions()
+std::array<script::MemberFunctionEntry, kRunTimerMemberFunctionCount>& run_timer_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 7> run_timer_member_functions{{
+    static std::array<script::MemberFunctionEntry, kRunTimerMemberFunctionCount> run_timer_member_functions{{
         {.callsign_ = kRunTimerPause, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = kRunTimerUnpause, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = kRunTimerGetFactorComplete, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = kRunTimerGetRunTimerControllerId, .owner_kind_ = kSkaterRunTimer},
         {.callsign_ = kRunTimerGetRunTimerId, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = kRunTimerComboStarted, .owner_kind_ = kSkaterRunTimer}, {.callsign_ = 0, .owner_kind_ = kSkaterRunTimer}}};
     return run_timer_member_functions;

@@ -20,6 +20,10 @@ namespace skater {
 class SkaterPhysicsModule;
 } // namespace skater
 namespace objects {
+constexpr std::size_t kWalkContactSlots = 8;
+constexpr std::size_t kUnknown18f4Bytes = 0x10;
+constexpr std::size_t kPad1959Bytes = 7;
+constexpr std::size_t kWalkMemberFunctionCount = 19;
 struct GrindPoint;
 struct LadderHit;
 struct RailHit;
@@ -429,8 +433,8 @@ public:
     void set_anim_state(uint32_t value) { anim_state_ = value; }
     [[nodiscard]] float frame_length() const { return frame_length_; }
     [[nodiscard]] bool off_vert() const { return off_vert_; }
-    [[nodiscard]] const std::array<objects::WalkContact, 8>& get_contacts() const { return contacts_; }
-    std::array<objects::WalkContact, 8>& get_contacts() { return contacts_; }
+    [[nodiscard]] const std::array<objects::WalkContact, kWalkContactSlots>& get_contacts() const { return contacts_; }
+    std::array<objects::WalkContact, kWalkContactSlots>& get_contacts() { return contacts_; }
     float& get_speed() { return speed_; }
     [[nodiscard]] float get_speed() const { return speed_; }
     void set_locked_to_heading(bool value) { locked_to_heading_ = value; }
@@ -484,7 +488,7 @@ private:
     bool jump_held_{};                 // +0x9A
     bool off_vert_{};                  // +0x9B began in the air off a vert ramp
     float model_lift_{};               // +0x9C the model's height offset, restored over time
-    std::array<objects::WalkContact, 8> contacts_; // +0xA0
+    std::array<objects::WalkContact, kWalkContactSlots> contacts_; // +0xA0
     int anim_speed_scaling_{};         // +0x700 0 off, 1 Run, 2 HangMove, 3 LadderMove
     float speed_{};                    // +0x704 the move's speed (for the animation's)
     float last_speed_{};               // +0x708
@@ -555,7 +559,7 @@ private:
     float climb_scale_{};            // +0x18DC the shimmy's speed, eased towards the control's
     float ladder_sign_{};            // +0x18E0
     maths::Vec4 transition_start_{}; // +0x18E4 an animated move's start
-    std::array<uint8_t, 0x10> unknown18f4_{};
+    std::array<uint8_t, kUnknown18f4Bytes> unknown18f4_{};
     maths::Vec4 transition_pos_{};          // +0x1904 ... and end (with the climb offset)
     float transition_start_offset_{};       // +0x1914 the height offset at its start
     float transition_display_offset_{};     // +0x1918 ... and end
@@ -566,12 +570,12 @@ private:
     int anim_waiting_{};                    // +0x1944 an animation is playing: the callback waits
     objects::AnimDoneCallback anim_done_{}; // +0x1948 its end's callback
     bool jump_unsteered_{false};            // +0x1958 (cleared each hanging frame)
-    std::array<uint8_t, 7> pad1959_{};
+    std::array<uint8_t, kPad1959Bytes> pad1959_{};
 };
 
 } // namespace objects
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 19>& walk_member_functions();
+std::array<script::MemberFunctionEntry, kWalkMemberFunctionCount>& walk_member_functions();
 } // namespace objects

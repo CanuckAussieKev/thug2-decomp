@@ -45,15 +45,48 @@
 #include "engine/maths/vec4.h"
 
 namespace objects {
+namespace {
+constexpr float kSkidTimeNever = 10000.0f;         // the skid timer parked far past any skid
+constexpr int kLandSettleMs = 150;
+constexpr int kBriefStateMs = 100;
+constexpr uint32_t kWalkGround = 0x893213E5; // Walk_Ground
+constexpr uint32_t kWalkName = 0x726E85AA; // Walk
+constexpr uint32_t kWalkAir = 0x5012082E; // Walk_Air
+constexpr uint32_t kWalkHang = 0x9A3CA853; // Walk_Hang
+constexpr uint32_t kHash19702CA8 = 0x19702CA8; // (text unknown)
+constexpr uint32_t kHash8FE2B013 = 0x8FE2B013; // (text unknown)
+constexpr uint32_t kWalkGetStateTime = 0xCE64576C; // Walk_GetStateTime
+constexpr uint32_t kWalkJump = 0x83E4BD70; // Walk_Jump
+constexpr uint32_t kWalkGetSpeedScale = 0xAF04B983; // Walk_GetSpeedScale
+constexpr uint32_t kWalkScaleAnimSpeed = 0x56112C03; // Walk_ScaleAnimSpeed
+constexpr uint32_t kWalkAnimWaitComplete = 0x9D3EEBE8; // Walk_AnimWaitComplete
+constexpr uint32_t kWalkGetHangInitAnimType = 0xC6CD659E; // Walk_GetHangInitAnimType
+constexpr uint32_t kWalkGetStateDuration = 0x55BF1CD6; // Walk_GetStateDuration
+constexpr uint32_t kWalkGetPreviousState = 0xE9B1CDE8; // Walk_GetPreviousState
+constexpr uint32_t kWalkGetState = 0xAC7B36C8; // Walk_GetState
+constexpr uint32_t kWalkGetHangAngle = 0x7E01B923; // Walk_GetHangAngle
+constexpr uint32_t kHash492EBA50 = 0x492EBA50; // (text unknown)
+constexpr uint32_t kWalkSetForwardControlLock = 0xF8F754EF; // Walk_SetForwardControlLock
+constexpr uint32_t kWalkForceToAirFromHang = 0x8BC2C0EC; // Walk_ForceToAirFromHang
+constexpr uint32_t kInputName = 0x27D7CD28; // Input
+constexpr uint32_t kAnimBlenderName = 0x7149B753; // AnimBlender
+constexpr uint32_t kModelName = 0x286A8D26; // Model
+constexpr uint32_t kTriggerName = 0xE594F0A2; // Trigger
+constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // SkaterPhysicsControl
+constexpr uint32_t kMovableContactName = 0x408D2AA9; // MovableContact
+constexpr uint32_t kSkaterStateName = 0x43686585; // SkaterState
+constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29; // SkaterCorePhysics
+constexpr uint32_t kTaggingControlName = 0x380D909A; // TaggingControl
+} // namespace
 
-std::array<script::MemberFunctionEntry, 19>& walk_member_functions()
+std::array<script::MemberFunctionEntry, kWalkMemberFunctionCount>& walk_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 19> walk_member_functions{{
-        {.callsign_ = 0x893213E5, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x5012082E, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x9A3CA853, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x19702CA8, .owner_kind_ = 0x726E85AA},
-        {.callsign_ = 0x8FE2B013, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xCE64576C, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x83E4BD70, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xAF04B983, .owner_kind_ = 0x726E85AA},
-        {.callsign_ = 0x56112C03, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x9D3EEBE8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xC6CD659E, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x55BF1CD6, .owner_kind_ = 0x726E85AA},
-        {.callsign_ = 0xE9B1CDE8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xAC7B36C8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x7E01B923, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x492EBA50, .owner_kind_ = 0x726E85AA},
-        {.callsign_ = 0xF8F754EF, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x8BC2C0EC, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0, .owner_kind_ = 0x726E85AA}}};
+    static std::array<script::MemberFunctionEntry, kWalkMemberFunctionCount> walk_member_functions{{
+        {.callsign_ = kWalkGround, .owner_kind_ = kWalkName}, {.callsign_ = kWalkAir, .owner_kind_ = kWalkName}, {.callsign_ = kWalkHang, .owner_kind_ = kWalkName}, {.callsign_ = kHash19702CA8, .owner_kind_ = kWalkName},
+        {.callsign_ = kHash8FE2B013, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetStateTime, .owner_kind_ = kWalkName}, {.callsign_ = kWalkJump, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetSpeedScale, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkScaleAnimSpeed, .owner_kind_ = kWalkName}, {.callsign_ = kWalkAnimWaitComplete, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetHangInitAnimType, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetStateDuration, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkGetPreviousState, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetState, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetHangAngle, .owner_kind_ = kWalkName}, {.callsign_ = kHash492EBA50, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkSetForwardControlLock, .owner_kind_ = kWalkName}, {.callsign_ = kWalkForceToAirFromHang, .owner_kind_ = kWalkName}, {.callsign_ = 0, .owner_kind_ = kWalkName}}};
     return walk_member_functions;
 }
 
@@ -143,15 +176,15 @@ void FootMovement::configure_from_data(script::Struct* params)
 // 0x00525FB0
 void FootMovement::seal()
 {
-    find_module(entity(), input_, 0x27D7CD28);           // Input
-    find_module(entity(), anim_blender_, 0x7149B753);    // AnimBlender
-    find_module(entity(), model_, 0x286A8D26);           // Model
-    find_module(entity(), trigger_, 0xE594F0A2);         // Trigger
-    find_module(entity(), physics_control_, 0xD9151D4D); // SkaterPhysicsControl
-    find_module(entity(), ride_, 0x408D2AA9);            // MovableContact
-    find_module(entity(), skater_state_, 0x43686585);    // SkaterState
-    find_module(entity(), core_physics_, 0x5BD63B29);    // SkaterCorePhysics
-    find_module(entity(), tagging_, 0x380D909A);         // TaggingControl
+    find_module(entity(), input_, kInputName);           // Input
+    find_module(entity(), anim_blender_, kAnimBlenderName);    // AnimBlender
+    find_module(entity(), model_, kModelName);           // Model
+    find_module(entity(), trigger_, kTriggerName);         // Trigger
+    find_module(entity(), physics_control_, kSkaterPhysicsControl); // SkaterPhysicsControl
+    find_module(entity(), ride_, kMovableContactName);            // MovableContact
+    find_module(entity(), skater_state_, kSkaterStateName);    // SkaterState
+    find_module(entity(), core_physics_, kSkaterCorePhysics);    // SkaterCorePhysics
+    find_module(entity(), tagging_, kTaggingControlName);         // TaggingControl
 }
 
 // 0x00525E60
@@ -180,7 +213,7 @@ void FootMovement::change_phase(int state)
         off_vert_ = false;
     }
     if (state == 0) {
-        skid_time_ = 10000.0f;
+        skid_time_ = kSkidTimeNever;
         unknown1874_ = true;
     }
     if (state == 4)
@@ -224,7 +257,7 @@ maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
     bool offset = false;
     if (state == 1) {
         const int previous = previous_state_;
-        offset = (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(state_time_)) < 150;
+        offset = (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(state_time_)) < kLandSettleMs;
     } else {
         offset = state > 1 && state <= 4;
     }
@@ -279,7 +312,7 @@ void FootMovement::clamp_skater_speed(uint32_t stop_anim)
 {
     if (state_ != 0)
         return;
-    if (static_cast<uint32_t>(clock_since(state_time_)) < 100) {
+    if (static_cast<uint32_t>(clock_since(state_time_)) < kBriefStateMs) {
         last_speed_ = speed_;
         return;
     }

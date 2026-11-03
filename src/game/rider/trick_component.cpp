@@ -31,11 +31,69 @@
 #include "engine/core/checksums.h"
 
 namespace objects {
+namespace {
+constexpr unsigned kEventSpent = 0x100;            // an event's flag: it has been used
+constexpr unsigned kTypeBitsMask = 0xFE;           // a component's type with the flag bit off
+constexpr int kMaxTrickSlots = 100;
+constexpr uint32_t kPressed = 0xE4AB4785; // Pressed
+constexpr uint32_t kTrickName = 0x270F56E1; // Trick
+constexpr uint32_t kGetCurrentBailEndpose = 0x46D49242; // GetCurrentBailEndpose
+constexpr uint32_t kSetCurrentBailEndpose = 0x1FC98415; // SetCurrentBailEndpose
+constexpr uint32_t kUpLeft = 0xB7231A95; // UpLeft
+constexpr uint32_t kLeft = 0x85981897; // Left
+constexpr uint32_t kRight = 0x4B358AEB; // Right
+constexpr uint32_t kDownRight = 0x786B8B68; // DownRight
+constexpr uint32_t kUpRight = 0xA50950C5; // UpRight
+constexpr uint32_t kHashBC6B118F = 0xBC6B118F; // (text unknown)
+constexpr uint32_t kDownLeft = 0xD8847EFA; // DownLeft
+constexpr uint32_t kDown = 0xE3006FC4; // Down
+constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
+constexpr uint32_t kTriangle = 0x20689278; // Triangle
+constexpr uint32_t kCircle = 0x2B489A86; // Circle
+constexpr uint32_t kSquare = 0x321C9756; // Square
+constexpr uint32_t kHash03749393 = 0x03749393; // (text unknown)
+constexpr uint32_t kHash7473A305 = 0x7473A305; // (text unknown)
+constexpr uint32_t kHash9A7DC229 = 0x9A7DC229; // (text unknown)
+constexpr uint32_t kScr = 0xA6D2D890u; // Scr
+constexpr uint32_t kScripts = 0x22E168C1u; // Scripts
+constexpr uint32_t kTemplate = 0x689FE07Cu; // Template
+constexpr uint32_t kTrickSlot = 0xA92A2280u; // TrickSlot
+constexpr uint32_t kParams = 0x7031F10Cu; // Params
+constexpr uint32_t kName = 0xA1DC81F9u; // Name
+constexpr uint32_t kHash26B0C991 = 0x26B0C991; // (text unknown)
+constexpr uint32_t kHash6BF8A7F4 = 0x6BF8A7F4; // (text unknown)
+constexpr uint32_t kHash7323E97C = 0x7323E97C; // (text unknown)
+constexpr uint32_t kBlack = 0x767A45D7; // Black
+constexpr uint32_t kWhite = 0xBD30325B; // White
+constexpr uint32_t kHashBFB9982B = 0xBFB9982B; // (text unknown)
+constexpr uint32_t kHashF2F1F64E = 0xF2F1F64E; // (text unknown)
+constexpr uint32_t kPress = 0x823B8342; // Press
+constexpr uint32_t kBikePress = 0xCEA9F4B5; // BikePress
+constexpr uint32_t kRelease = 0x61B8FCE2; // Release
+constexpr uint32_t kTap = 0x7FA5CDBB; // Tap
+constexpr uint32_t kInOrder = 0x7D482318; // InOrder
+constexpr uint32_t kPressAndRelease = 0xFFB718BD; // PressAndRelease
+constexpr uint32_t kTapTwiceRelease = 0x2C434C90; // TapTwiceRelease
+constexpr uint32_t kTripleInOrderSloppy = 0xC1AD35C0; // TripleInOrderSloppy
+constexpr uint32_t kTripleInOrderStrict = 0x3FE7C311; // TripleInOrderStrict
+constexpr uint32_t kTripleInOrder = 0xA2E042D7; // TripleInOrder
+constexpr uint32_t kHoldTwoAndPress = 0xF630DAE5; // HoldTwoAndPress
+constexpr uint32_t kReleaseTwo = 0x395EC2D4; // ReleaseTwo
+constexpr uint32_t kReleaseTwoAndPress = 0xAC2B1445; // ReleaseTwoAndPress
+constexpr uint32_t kPressTwoAnyOrder = 0x3F369070; // PressTwoAnyOrder
+constexpr uint32_t kAirTrickLogic = 0x14FE9B7D; // AirTrickLogic
+constexpr uint32_t kPressTwo = 0x3C3028F4; // PressTwo
+constexpr uint32_t kHoldThree = 0xA8123ECF; // HoldThree
+constexpr uint32_t kReleaseAndTap = 0x696E5E66; // ReleaseAndTap
+constexpr uint32_t kExtraGrabTrickLogic = 0xB6258557; // ExtraGrabTrickLogic
+constexpr uint32_t kAltTrigger = 0x68B74085u; // Alt_Trigger
+constexpr uint32_t kDuration = 0x79A07F3Fu; // Duration
+} // namespace
 
 std::array<script::MemberFunctionEntry, 4>& trick_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 4> trick_component_member_functions{{
-        {.callsign_ = 0xE4AB4785, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0x46D49242, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0x1FC98415, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0, .owner_kind_ = 0x270F56E1}}};
+        {.callsign_ = kPressed, .owner_kind_ = kTrickName}, {.callsign_ = kGetCurrentBailEndpose, .owner_kind_ = kTrickName}, {.callsign_ = kSetCurrentBailEndpose, .owner_kind_ = kTrickName}, {.callsign_ = 0, .owner_kind_ = kTrickName}}};
     return trick_component_member_functions;
 }
 
@@ -85,14 +143,14 @@ int compare_no_case(const char* a, const char* b)
 bool is_direction(uint32_t button)
 {
     switch (button) {
-    case 0xB7231A95:
-    case 0x85981897:
-    case 0x4B358AEB:
-    case 0x786B8B68:
-    case 0xA50950C5:
-    case 0xBC6B118F:
-    case 0xD8847EFA:
-    case 0xE3006FC4:
+    case kUpLeft:
+    case kLeft:
+    case kRight:
+    case kDownRight:
+    case kUpRight:
+    case kHashBC6B118F:
+    case kDownLeft:
+    case kDown:
         return true;
     default:
         return false;
@@ -226,7 +284,7 @@ void MoveExecutor::expire_button(checksums::Name button_name, uint32_t ms)
         if (e.button == button) {
             const uint32_t time = e.time;
             if (!(get_now() - time < ms))
-                e.flags = 0xFFFFFFFF;
+                e.flags = kAllBitsSet;
         }
         return true;
     });
@@ -331,7 +389,7 @@ bool MoveExecutor::check_spin_sequence(const std::array<uint32_t, 3>& buttons, b
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (state) {
         case 0:
-            if (!(e.flags & 0x100) && e.type == 1 && e.button == std::get<1>(buttons)) {
+            if (!(e.flags & kEventSpent) && e.type == 1 && e.button == std::get<1>(buttons)) {
                 state = 1;
                 second = index;
                 e.used = true;
@@ -342,7 +400,7 @@ bool MoveExecutor::check_spin_sequence(const std::array<uint32_t, 3>& buttons, b
                 failed = true;
                 return false;
             }
-            if (!(e.flags & 0x100) && e.type == 1 && e.button == std::get<0>(buttons)) {
+            if (!(e.flags & kEventSpent) && e.type == 1 && e.button == std::get<0>(buttons)) {
                 state = 2;
                 e.used = true;
             }
@@ -362,7 +420,7 @@ bool MoveExecutor::check_spin_sequence(const std::array<uint32_t, 3>& buttons, b
     });
     if (!found)
         return false;
-    flag_spent(0x100);
+    flag_spent(kEventSpent);
     set_button_map(buttons);
     return true;
 }
@@ -390,7 +448,7 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
             }
         } else if (state == 0) {
             const uint32_t b = e.button;
-            if ((b == 0x20689278 || b == 0x2B489A86 || b == 0x321C9756) && e.flags == 0 && e.type == 2 && b == button) {
+            if ((b == kTriangle || b == kCircle || b == kSquare) && e.flags == 0 && e.type == 2 && b == button) {
                 first = b;
                 state = 1;
                 e.used = true;
@@ -410,7 +468,7 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
     if (!found)
         return false;
     if (set_map) {
-        flag_spent(0xFFFFFFFF);
+        flag_spent(kAllBitsSet);
         // (the original hands its own three stack arguments over as the map)
         const std::array<uint32_t, 3> map = {{button, twice, set_map}};
         set_button_map(map);
@@ -423,16 +481,16 @@ uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, st
 {
     for (int i = 0; i < count; ++i) {
         uint32_t button = node->value.word();
-        if (button == 0x03749393)
+        if (button == kHash03749393)
             button = core::at(button_map_, 1);
-        else if (button == 0x7473A305)
+        else if (button == kHash7473A305)
             button = core::at(button_map_, 2);
-        else if (button == 0x9A7DC229)
+        else if (button == kHash9A7DC229)
             button = core::at(button_map_, 0);
         core::at(out, i) = button;
         node = node->next;
     }
-    if ((node->type_and_flag_ & 0xFE) == 2)
+    if ((node->type_and_flag_ & kTypeBitsMask) == 2)
         return node->value.word();
     return static_cast<uint32_t>(script::fetch_int_value(node->value.word()));
 }
@@ -476,7 +534,7 @@ void MoveExecutor::queue_trick(checksums::Name list_name, int index, bool flag)
         queue_last_ = 0;
     } else {
         slot = queue_last_ + 1;
-        if (slot >= 100)
+        if (slot >= kMaxTrickSlots)
             slot = 0;
         if (slot == queue_first_)
             return;
@@ -506,13 +564,13 @@ void MoveExecutor::remove_trick_list(uint32_t list)
 bool MoveExecutor::is_trick_entry(script::Struct* trick)
 {
     uint32_t checksum = 0;
-    if (trick->read_hash_value(0xA6D2D890u, &checksum, 0) || trick->read_hash_value(0x22E168C1u, &checksum, 0))
+    if (trick->read_hash_value(kScr, &checksum, 0) || trick->read_hash_value(kScripts, &checksum, 0))
         return true;
     script::Array* array = nullptr;
-    if (trick->fetch_list(0x689FE07Cu, &array, 0))
+    if (trick->fetch_list(kTemplate, &array, 0))
         return true;
     uint32_t name = 0;
-    if (!trick->read_hash_value(0xA92A2280u, &name, 0))
+    if (!trick->read_hash_value(kTrickSlot, &name, 0))
         return false;
     uint32_t structure = 0;
     trick_lists_->read_hash_value(name, &structure, 0);
@@ -526,7 +584,7 @@ bool MoveExecutor::is_trick_entry(script::Struct* trick)
 bool MoveExecutor::trick_named(script::Struct* trick, const char* name)
 {
     uint32_t alias = 0;
-    if (trick->read_hash_value(0xA92A2280u, &alias, 0)) {
+    if (trick->read_hash_value(kTrickSlot, &alias, 0)) {
         uint32_t structure = 0;
         trick_lists_->read_hash_value(alias, &structure, 0);
         if (structure) {
@@ -536,11 +594,11 @@ bool MoveExecutor::trick_named(script::Struct* trick, const char* name)
         }
     }
     script::Struct* params = nullptr;
-    trick->read_sub_struct(0x7031F10Cu, &params, 0);
+    trick->read_sub_struct(kParams, &params, 0);
     if (!params)
         return false;
     const char* trick_name = nullptr;
-    params->fetch_text(0xA1DC81F9u, &trick_name, 0);
+    params->fetch_text(kName, &trick_name, 0);
     return trick_name && compare_no_case(trick_name, name) == 0;
 }
 
@@ -558,58 +616,58 @@ void MoveExecutor::dump_event_buffer()
         case 0x00000000:
             text = "Nothing";
             break;
-        case 0x20689278:
+        case kTriangle:
             text = "Triangle";
             break;
-        case 0x26B0C991:
+        case kHash26B0C991:
             text = "L1";
             break;
-        case 0x2B489A86:
+        case kCircle:
             text = "Circle";
             break;
-        case 0x321C9756:
+        case kSquare:
             text = "Square";
             break;
-        case 0x4B358AEB:
+        case kRight:
             text = "Right";
             break;
-        case 0x6BF8A7F4:
+        case kHash6BF8A7F4:
             text = "R2";
             break;
-        case 0x7323E97C:
+        case kHash7323E97C:
             text = "X";
             break;
-        case 0x767A45D7:
+        case kBlack:
             text = "Black";
             break;
-        case 0x786B8B68:
+        case kDownRight:
             text = "DownRight";
             break;
-        case 0x85981897:
+        case kLeft:
             text = "Left";
             break;
-        case 0xA50950C5:
+        case kUpRight:
             text = "UpRight";
             break;
-        case 0xB7231A95:
+        case kUpLeft:
             text = "UpLeft";
             break;
-        case 0xBC6B118F:
+        case kHashBC6B118F:
             text = "Up";
             break;
-        case 0xBD30325B:
+        case kWhite:
             text = "White";
             break;
-        case 0xBFB9982B:
+        case kHashBFB9982B:
             text = "L2";
             break;
-        case 0xD8847EFA:
+        case kDownLeft:
             text = "DownLeft";
             break;
-        case 0xE3006FC4:
+        case kDown:
             text = "Down";
             break;
-        case 0xF2F1F64E:
+        case kHashF2F1F64E:
             text = "R1";
             break;
         default:
@@ -703,7 +761,7 @@ Scan find_event(MoveExecutor* trick, int type, checksums::Name button_name, Move
 // The d-pad's four directions (ReleaseAndTap looks past them).
 bool is_straight_direction(uint32_t button)
 {
-    return button == 0xBC6B118F || button == 0xE3006FC4 || button == 0x85981897 || button == 0x4B358AEB;
+    return button == kHashBC6B118F || button == kDown || button == kLeft || button == kRight;
 }
 
 } // namespace
@@ -733,7 +791,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
     auto finish = [&](Scan scan) { return scan == Scan::kFound ? succeed() : scan == Scan::kStopped ? false : fail(); };
 
     switch (kind->value.word()) {
-    case 0x823B8342: { // Press: the button pressed (the event gets the flags itself, nothing marked)
+    case kPress: { // Press: the button pressed (the event gets the flags itself, nothing marked)
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
             const float rate = core_physics_->slomo_speed();
@@ -748,7 +806,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         set_button_map(buttons);
         return true;
     }
-    case 0xCEA9F4B5: { // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x470EAB): BikePress - Press
+    case kBikePress: { // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x470EAB): BikePress - Press
         // (the time stretched the same way), but the same right-stick flick not twice: with the button map's first
         // button (the last trick's) this one, only once the right stick has been centred - the press found keeps
         // the flags all the same. Original behaviour: an unknown kind (the default below).
@@ -771,7 +829,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         set_button_map(buttons);
         return true;
     }
-    case 0x61B8FCE2: { // Release: the button released (as Press)
+    case kRelease: { // Release: the button released (as Press)
         const uint32_t ms = read_trigger(node, 1, buttons);
         TrickEvent* e = nullptr;
         const Scan scan = find_event(this, 2, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, e);
@@ -781,7 +839,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         set_button_map(buttons);
         return true;
     }
-    case 0x7FA5CDBB: { // Tap: the button pressed, then released (the button map left alone)
+    case kTap: { // Tap: the button pressed, then released (the button map left alone)
         static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 0}, {.type = 1, .button = 0}});
         const Scan scan = match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 1, buttons), .mask = mask});
         if (scan != Scan::kFound)
@@ -789,27 +847,27 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         flag_spent(mark_flags);
         return true;
     }
-    case 0x7D482318: { // InOrder: the first pressed, then the second
+    case kInOrder: { // InOrder: the first pressed, then the second
         static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 1}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 2, buttons), .mask = mask}));
     }
-    case 0xFFB718BD: { // PressAndRelease: the first pressed, then the second released
+    case kPressAndRelease: { // PressAndRelease: the first pressed, then the second released
         static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 1}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 2, buttons), .mask = mask}));
     }
-    case 0x2C434C90: { // TapTwiceRelease: the first pressed twice, then the second released
+    case kTapTwiceRelease: { // TapTwiceRelease: the first pressed twice, then the second released
         static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 1}, {.type = 1, .button = 0}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 2, buttons), .mask = mask}));
     }
-    case 0xC1AD35C0: { // TripleInOrderSloppy: the first, second and third pressed in turn
+    case kTripleInOrderSloppy: { // TripleInOrderSloppy: the first, second and third pressed in turn
         static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 2}, {.type = 1, .button = 1}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 3, buttons), .mask = mask}));
     }
-    case 0x3FE7C311: { // TripleInOrderStrict: the first tapped, the second tapped, then the third pressed
+    case kTripleInOrderStrict: { // TripleInOrderStrict: the first tapped, the second tapped, then the third pressed
         static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 2}, {.type = 2, .button = 1}, {.type = 1, .button = 1}, {.type = 2, .button = 0}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 3, buttons), .mask = mask}));
     }
-    case 0xA2E042D7: { // TripleInOrder: the first tapped, then the second and third pressed (in either order)
+    case kTripleInOrder: { // TripleInOrder: the first tapped, then the second and third pressed (in either order)
         uint32_t ms = read_trigger(node, 3, buttons);
         int state = 0;
         Scan scan = Scan::kIsOver;
@@ -856,7 +914,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         });
         return finish(scan);
     }
-    case 0xF630DAE5: { // HoldTwoAndPress: the first and second pressed (either order, neither released), then the third
+    case kHoldTwoAndPress: { // HoldTwoAndPress: the first and second pressed (either order, neither released), then the third
         uint32_t ms = read_trigger(node, 3, buttons);
         int state = 0;
         Scan scan = Scan::kIsOver;
@@ -898,7 +956,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         });
         return finish(scan);
     }
-    case 0x395EC2D4: { // ReleaseTwo: both released (either order; scanning back from the newest, a press of the one
+    case kReleaseTwo: { // ReleaseTwo: both released (either order; scanning back from the newest, a press of the one
                        // whose release came first rules it out)
         uint32_t ms = read_trigger(node, 2, buttons);
         bool got0 = false, got1 = false;
@@ -931,7 +989,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         });
         return finish(scan);
     }
-    case 0xAC2B1445: { // ReleaseTwoAndPress: the first and second released and the third pressed (as ReleaseTwo)
+    case kReleaseTwoAndPress: { // ReleaseTwoAndPress: the first and second released and the third pressed (as ReleaseTwo)
         uint32_t ms = read_trigger(node, 3, buttons);
         bool got0 = false, got1 = false, got2 = false;
         Scan scan = Scan::kIsOver;
@@ -968,7 +1026,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         });
         return finish(scan);
     }
-    case 0x3F369070: { // PressTwoAnyOrder: both pressed (either order, no release of either between); never clears
+    case kPressTwoAnyOrder: { // PressTwoAnyOrder: both pressed (either order, no release of either between); never clears
         uint32_t ms = read_trigger(node, 2, buttons);
         bool got0 = false, got1 = false;
         Scan scan = Scan::kStopped;
@@ -999,7 +1057,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         });
         return finish(scan);
     }
-    case 0x14FE9B7D: { // AirTrickLogic: the second held (its newest press marked) and the first pressed - or both pressed
+    case kAirTrickLogic: { // AirTrickLogic: the second held (its newest press marked) and the first pressed - or both pressed
         const uint32_t ms = read_trigger(node, 2, buttons);
         if (is_key_held(core::at(buttons, 1))) {
             for_each_event(this, [&](int, TrickEvent& e) {
@@ -1013,20 +1071,20 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         }
         return find_press_both(core::at(buttons, 0), core::at(buttons, 1), {.ms = ms, .mask = mask}) ? succeed() : fail();
     }
-    case 0x3C3028F4: { // PressTwo: both held, and both pressed
+    case kPressTwo: { // PressTwo: both held, and both pressed
         const uint32_t ms = read_trigger(node, 2, buttons);
         if (!is_key_held(core::at(buttons, 0)) || !is_key_held(core::at(buttons, 1)))
             return fail();
         return find_press_both(core::at(buttons, 0), core::at(buttons, 1), {.ms = ms, .mask = mask}) ? succeed() : fail();
     }
-    case 0xA8123ECF: { // HoldThree: the three (as named, not mapped) held; nothing marked
+    case kHoldThree: { // HoldThree: the three (as named, not mapped) held; nothing marked
         const script::Component* second = node->next;
         const uint32_t a = node->value.word();
         const uint32_t b = second->value.word();
         const uint32_t c = second->next->value.word();
         return is_key_held(a) && is_key_held(b) && is_key_held(c);
     }
-    case 0x696E5E66: { // ReleaseAndTap: the newest three events past the d-pad's four directions: the first released,
+    case kReleaseAndTap: { // ReleaseAndTap: the newest three events past the d-pad's four directions: the first released,
                        // then the second pressed and released
                        const uint32_t ms = read_trigger(node, 2, buttons);
                        std::array<int, 3> found = {{-1, -1, -1}};
@@ -1057,7 +1115,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         oldest.used = true;
         return succeed();
     }
-    case 0xB6258557: { // (name unknown) the button pressed, with no direction pressed but the map's (its last
+    case kExtraGrabTrickLogic: { // (name unknown) the button pressed, with no direction pressed but the map's (its last
                        // direction) - those marked used; the newest press gets the flags
         uint32_t direction = 0;
         for (const uint32_t mapped : button_map_)
@@ -1111,7 +1169,7 @@ void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
             continue;
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alternate = nullptr;
-        trick->read_sub_struct(0x68B74085u, &alternate, 0);
+        trick->read_sub_struct(kAltTrigger, &alternate, 0);
         if (check_trigger(trigger, {.mark_flags_ = 1, .mask = mask}, false) || check_trigger(alternate, {.mark_flags_ = 1, .mask = mask}, false))
             queue_trick(checksums::Name{list}, i, flag);
     }
@@ -1141,7 +1199,7 @@ void MoveExecutor::set_pending_trick(PendingList pending_list, bool flag)
             continue;
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alternate = nullptr;
-        trick->read_sub_struct(0x68B74085u, &alternate, 0);
+        trick->read_sub_struct(kAltTrigger, &alternate, 0);
         if (!check_trigger(trigger, {.mark_flags_ = 4, .mask = mask}, false) && !check_trigger(alternate, {.mark_flags_ = 4, .mask = mask}, false))
             continue;
         manual_.array_ = list;
@@ -1150,7 +1208,7 @@ void MoveExecutor::set_pending_trick(PendingList pending_list, bool flag)
                                          static_cast<uint32_t>(clock_offset()));
         manual_.is_special_ = flag;
         manual_.duration_ = -1;
-        trick->fetch_int_value(0x79A07F3Fu, &manual_.duration_, 0);
+        trick->fetch_int_value(kDuration, &manual_.duration_, 0);
         manual_.pending_ = true;
     }
 }

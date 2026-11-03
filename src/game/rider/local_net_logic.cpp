@@ -4,6 +4,7 @@
 
 #include "game/rider/local_net_logic.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
@@ -39,6 +40,24 @@
 namespace objects {
 
 namespace {
+// The layout of a skater's object update sent to the host (the same one the host reads: see the game's network layer).
+constexpr double kAngleScale = 4096.0;              // angle units to a radian
+constexpr int kTimedFlagCount = 24;
+constexpr unsigned kAngleFieldBase = 8u;            // the three angle fields are the bits from this one up
+constexpr int kFieldState = 0x40;
+constexpr int kFieldValue68 = 0x80;
+constexpr int kFieldValue80 = 0x100;
+constexpr uint32_t kSendEveryFrames = 15;
+constexpr std::size_t kObjectUpdateBytes = 0x400;
+constexpr int kClockBits = 32;
+constexpr int kFieldBits = 9;
+constexpr int kPositionBits = 16;
+constexpr int kFlag74Mask = 0x80;
+constexpr int kValue7cBits = 6;
+constexpr int kValue68Bits = 5;
+constexpr int kValue80Bits = 32;
+constexpr int kMsgObjectUpdates = 0x23;
+constexpr int kObjectUpdateRank = 0x81;
 // NOT ORIGINAL grouping - local_net_logic.cpp's state (the original's globals). Made on first use, never destroyed
 // (local_net_logic_state()).
 struct LocalNetLogicState {
@@ -81,7 +100,7 @@ struct UpdateState {
     uint32_t controls, value_6c_, value80;
 };
 
-int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(static_cast<double>(angle) * 4096.0)); }
+int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(static_cast<double>(angle) * kAngleScale)); }
 
 // (shared by both: the original repeats it in each)
 void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
@@ -97,7 +116,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     out.value80 = rail ? rail->label() : 0;
     // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;
-    for (int k = 0; k < 24; ++k) {
+    for (int k = 0; k < kTimedFlagCount; ++k) {
         if (core::at(core->timed_flags(), k).on)
             controls |= 1u << k;
         else
@@ -129,16 +148,16 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
         const int16_t value = pack_angle(now.angles[k]);
         if (value != core::at(sent_angles_, k) || force) {
             core::at(sent_angles_, k) = value;
-            flags |= 8u << k;
+            flags |= kAngleFieldBase << k;
         }
     }
     if (now.state != sent_state_ || now.flag74 != sent_flag74_ || now.value_7c_ != sent_value_7c_ ||
         now.flag75 != sent_flag75_ || now.flag76 != sent_flag76_ || force)
-        flags |= 0x40;
+        flags |= kFieldState;
     if (now.controls != sent_controls_ || now.value_6c_ != sent_value_6c_ || force)
-        flags |= 0x80;
+        flags |= kFieldValue68;
     if (now.value80 != sent_value80_) // (not forced)
-        flags |= 0x100;
+        flags |= kFieldValue80;
     return flags;
 }
 
@@ -150,7 +169,7 @@ void RiderHostSync::send_update()
     auto* app = core::down_cast<net::Guest>(client_app(core::down_cast<Rider>(entity())->view_slot()));
     ObjectModule* component_6c = entity()->fetch_module(kComponent6c);
     const bool on_server = get_on_server();
-    if (!on_server && static_cast<uint32_t>(app->frame_count()) % 15 != 0) {
+    if (!on_server && static_cast<uint32_t>(app->frame_count()) % kSendEveryFrames != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
         net::ConnSearch search;
         net::Conn* conn = app->begin_conn_walk(&search);
@@ -158,13 +177,13 @@ void RiderHostSync::send_update()
             return;
     }
     last_transmit_at_ = app->clock();
-    std::array<uint8_t, 0x400> buffer{};
-    stream.bind_output_buffer(buffer.data(), 0x400);
+    std::array<uint8_t, kObjectUpdateBytes> buffer{};
+    stream.bind_output_buffer(buffer.data(), kObjectUpdateBytes);
     UpdateState now{};
     read_update_state(this, component_6c, now);
-    stream.write_bits({.value = app->clock(), .count = 32});
+    stream.write_bits({.value = app->clock(), .count = kClockBits});
     const uint32_t flags = fetch_sync_field_mask();
-    stream.write_bits({.value = flags, .count = 9});
+    stream.write_bits({.value = flags, .count = kFieldBits});
     if (on_server) {
         // (a copy of the server's own skater's position, written and never read: the original's static)
         uint32_t& guard = local_net_logic_state().local_net_guard_;
@@ -177,47 +196,47 @@ void RiderHostSync::send_update()
         const int16_t value =
             k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
         if (flags & (1u << k))
-            stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = 16});
+            stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = kPositionBits});
         core::at(sent_pos_, k) = value;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle(now.angles[k]);
-        if (flags & (8u << k))
-            stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = 16});
+        if (flags & (kAngleFieldBase << k))
+            stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = kPositionBits});
         core::at(sent_angles_, k) = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
     auto signed_byte = [](uint8_t value) {
         return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value)));
     };
-    if (flags & 0x40) {
+    if (flags & kFieldState) {
         sent_value_7c_ = now.value_7c_;
         sent_flag75_ = now.flag75;
         sent_state_ = now.state;
         sent_flag74_ = now.flag74;
         sent_flag76_ = now.flag76;
-        stream.write_bits({.value = signed_byte(now.flag74 ? static_cast<uint8_t>(now.state | 0x80) : now.state), .count = 4});
-        stream.write_bits({.value = signed_byte(now.value_7c_), .count = 6});
+        stream.write_bits({.value = signed_byte(now.flag74 ? static_cast<uint8_t>(now.state | kFlag74Mask) : now.state), .count = 4});
+        stream.write_bits({.value = signed_byte(now.value_7c_), .count = kValue7cBits});
         stream.write_bits({.value = signed_byte(now.flag75), .count = 1});
         stream.write_bits({.value = signed_byte(now.flag76), .count = 1});
     }
-    if (flags & 0x80) {
+    if (flags & kFieldValue68) {
         sent_controls_ = now.controls;
         sent_value_6c_ = now.value_6c_;
-        stream.write_bits({.value = now.controls, .count = 5});
+        stream.write_bits({.value = now.controls, .count = kValue68Bits});
         stream.write_bits({.value = now.value_6c_, .count = 3});
     }
-    if (flags & 0x100) {
+    if (flags & kFieldValue80) {
         sent_value80_ = now.value80;
-        stream.write_bits({.value = now.value80, .count = 32});
+        stream.write_bits({.value = now.value80, .count = kValue80Bits});
     }
     stream.drain();
     const int size = stream.get_byte_count();
     desc.set_content(buffer.data());
-    desc.set_ident(0x23);
+    desc.set_ident(kMsgObjectUpdates);
     desc.set_byte_count(static_cast<uint16_t>(size));
     desc.set_singular(true);
-    desc.set_rank(0x81);
+    desc.set_rank(kObjectUpdateRank);
     app->send_to_host(&desc);
 }
 

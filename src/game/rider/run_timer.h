@@ -23,6 +23,8 @@ class Struct;
 // Vtable: 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 10 fetch_diagnostics, 11 the shared 0x0042BB20, 12
 // the shared invoke_method_by_name 0x0051ADC0.
 namespace objects {
+constexpr std::size_t kRunTimerMemberFunctionCount = 7;
+
 
 class FootMovement;
 
@@ -86,5 +88,5 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 7>& run_timer_member_functions();
+std::array<script::MemberFunctionEntry, kRunTimerMemberFunctionCount>& run_timer_member_functions();
 } // namespace objects

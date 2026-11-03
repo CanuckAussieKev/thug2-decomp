@@ -42,6 +42,11 @@ namespace skater {
 using namespace physics;
 
 namespace {
+constexpr int kCounterWrap = 10;
+constexpr float kReflectFactor = 2.0f;              // a velocity bounced off a wall: minus twice its normal part
+constexpr int kHalfTurnDegrees = 180;
+constexpr uint32_t kCircle = 0x2B489A86u; // Circle
+constexpr uint32_t kSquare = 0x321C9756u; // Square
 int& grind_counter()
 {
     static int grind_counter{};
@@ -152,7 +157,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
         feeler.line().end = at;
         feeler.line().end.y = static_cast<float>(at_y - static_cast<double>(kTargetDrop));
         feeler.line().start.y = static_cast<float>(at_y + static_cast<double>(kTargetLift));
-        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & 8) &&
+        if (feeler.get_hit_shape(true, false) && (feeler.hit().face_flags_ & kFaceVert) &&
             !(std::fabs(static_cast<double>(feeler.surface_dir().y)) >= kTargetVertY ||
               std::isnan(feeler.surface_dir().y))) {
             maths::Vec4 flat(feeler.surface_dir().x, 0.0f, feeler.surface_dir().z, feeler.surface_dir().w);
@@ -219,19 +224,19 @@ void SkaterPhysicsModule::update_speed_override()
             auto share =
                 static_cast<float>(static_cast<double>(stat_value(object, kOverrideStat)) * inverse * limits_max_);
             int& counter = grind_counter();
-            counter = (counter + 1) % 10;
+            counter = (counter + 1) % kCounterWrap;
             limits_max_max_ = share;
             // (Every tenth time: a line printed, compiled out - an inlined loop that runs once.)
             while (counter == 0) {
                 debug::printf("Post-Transfer Speed Limit Overrides:  current / standard = %.2f\n",
                               static_cast<double>(inverse) * limits_max_);
-                counter = (counter + 1) % 10;
+                counter = (counter + 1) % kCounterWrap;
             }
             return;
         }
     }
     factor = 1.0f;
-    if (limits_time_ == -2.0f) // (never: it was just set to -1)
+    if (limits_time_ == -kTimerForLevel) // (never: it was just set to -1)
         return;
     limits_time_ = 0.0f;
 }
@@ -304,7 +309,7 @@ bool SkaterPhysicsModule::wall_push_off()
     }
     maths::Vec4& velocity = entity()->vel();
     const float bounce = maths::dot_vec(velocity, wall);
-    velocity -= 2.0f * (bounce * wall);
+    velocity -= kReflectFactor * (bounce * wall);
     const double speed_unrounded = length_unrounded(entity()->vel());
     auto speed = static_cast<float>(speed_unrounded);
     maths::Vec4& v = entity()->vel();
@@ -410,7 +415,7 @@ void SkaterPhysicsModule::check_flip_spin()
         std::array<uint32_t, 3> sequence{}; // (an entry without the two buttons leaves them unset, as the original does)
         spin->read_hash_value(kSpinButton1, &core::at(sequence, 0), 0);
         spin->read_hash_value(kSpinButton2, &core::at(sequence, 1), 0);
-        core::at(sequence, 2) = input->pad_primary().button_round().held_down() ? 0x2B489A86u : 0x321C9756u;
+        core::at(sequence, 2) = input->pad_primary().button_round().held_down() ? kCircle : kSquare;
         if (trick->check_spin_sequence(sequence, flip_spin_started_ != 0)) {
             found = true;
             break;
@@ -428,7 +433,7 @@ void SkaterPhysicsModule::check_flip_spin()
     if (spin->fetch_int_value(kSpinX, &x, 0) && x)
         model->rotate_display(model_rotation_left_, 0.0f, static_cast<float>(x), 0, true, true, false, false);
     if (spin->fetch_int_value(kSpinY, &y, 0) && y) {
-        if (y == 180 || y == -180)
+        if (y == kHalfTurnDegrees || y == -kHalfTurnDegrees)
             model_flipped_ = 1;
         model->rotate_display(model_rotation_left_, 0.0f, static_cast<float>(y), 0, true, false, true, false);
     }
