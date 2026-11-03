@@ -24,14 +24,16 @@ int render_mode() { return render::engine_parts().render_mode(); }
 void begin_world()
 {
     wire() = engine_parts().render_mode() != 0;
-    if (wire())
+    if (wire()) {
         set_render_state(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+    }
 }
 
 void end_world()
 {
-    if (wire())
+    if (wire()) {
         set_render_state(D3DRS_FILLMODE, D3DFILL_SOLID);
+    }
     wire() = false;
 }
 

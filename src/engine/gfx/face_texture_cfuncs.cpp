@@ -95,12 +95,15 @@ uint32_t read_colour(Struct* params, bool* given)
 {
     std::array<int, 4> c = {{kNeutralChannel, kNeutralChannel, kNeutralChannel, kNeutralChannel}};
     bool any = params->fetch_int_value(kColour0, &core::at(c, 0), 0);
-    if (params->fetch_int_value(kColour1, &core::at(c, 1), 0))
+    if (params->fetch_int_value(kColour1, &core::at(c, 1), 0)) {
         any = true;
-    if (params->fetch_int_value(kColour2, &core::at(c, 2), 0))
+    }
+    if (params->fetch_int_value(kColour2, &core::at(c, 2), 0)) {
         any = true;
-    if (params->fetch_int_value(kColour3, &core::at(c, 3), 0))
+    }
+    if (params->fetch_int_value(kColour3, &core::at(c, 3), 0)) {
         any = true;
+    }
     *given = any;
     return pack_colour(core::at(c, 0), core::at(c, 1), core::at(c, 2), core::at(c, 3));
 }
@@ -168,8 +171,9 @@ bool cfunc_offset_texture(script::Struct* params, script::Script* /*script*/)
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0U, &name, 0);
     render::BitmapTexture* texture = find_texture(name);
-    if (!texture)
+    if (!texture) {
         return true;
+    }
     int x = 0;
     int y = 0;
     params->fetch_int_value(kXOffset, &x, 0);
@@ -205,8 +209,9 @@ bool cfunc_push_texture_to_point(script::Struct* params, script::Script* /*scrip
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0U, &name, 0);
     render::BitmapTexture* texture = find_texture(name);
-    if (!texture)
+    if (!texture) {
         return true;
+    }
     int point = 0;
     int axis = 0;
     int amount = 0;
@@ -226,8 +231,9 @@ bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script* /*scrip
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0U, &name, 0);
     render::BitmapTexture* texture = find_texture(name);
-    if (!texture)
+    if (!texture) {
         return true;
+    }
     int r = 0; // (r, g and b uninitialised in the original when missing)
     int g = 0;
     int b = 0;
@@ -260,26 +266,30 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     auto h = static_cast<float>(hue);
     if (!(hue < kHueSectors)) {
         hue -= kHueSectors;
-        while (!(hue < kHueSectors))
+        while (!(hue < kHueSectors)) {
             hue -= kHueSectors;
+        }
         h = static_cast<float>(hue);
     }
     if (hue < 0.0) {
         hue += kHueSectors;
-        while (hue < 0.0)
+        while (hue < 0.0) {
             hue += kHueSectors;
+        }
         h = static_cast<float>(hue);
     }
     auto s = static_cast<float>(static_cast<int>(hsv->fetch_part(1)) * static_cast<double>(kNinetieth));
-    if (!(s > 0.0F))
+    if (!(s > 0.0F)) {
         s = kMinSaturation;
-    else if (s > 1.0F)
+    } else if (s > 1.0F) {
         s = 1.0F;
+    }
     double v = static_cast<int>(hsv->fetch_part(2)) * static_cast<double>(kSixtieth);
-    if (!(v > 0.0))
+    if (!(v > 0.0)) {
         v = kMinSaturation;
-    else if (v > 1.0)
+    } else if (v > 1.0) {
         v = 1.0;
+    }
 
     const int sector = ftol(h);
     const double f = h - static_cast<double>(sector);
@@ -343,8 +353,9 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
     auto b = static_cast<float>(static_cast<int>(rgb_array->fetch_part(2)) * static_cast<double>(kScale));
     float max = r;
     float min = r;
-    if (g < r)
+    if (g < r) {
         min = g;
+    }
     max = std::max(max, g);
     min = std::min(min, b);
     max = std::max(max, b);
@@ -357,23 +368,26 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
         s = 0.0F;
     } else {
         s = static_cast<float>(static_cast<double>(delta) / max);
-        if (s == 0.0F)
+        if (s == 0.0F) {
             hue = 0.0;
-        else if (r == max)
+        } else if (r == max) {
             hue = (static_cast<double>(g) - b) / delta;
-        else if (g == max)
+        } else if (g == max) {
             hue = ((static_cast<double>(b) - r) / delta) + kHueSectorGreenBlue;
-        else if (b == max)
+        } else if (b == max) {
             hue = ((static_cast<double>(r) - g) / delta) + kHueSectorBlueRed;
-        else
+        } else {
             hue = h;
+        }
     }
     hue *= kHueDegreesPerSector;
     h = static_cast<float>(hue);
-    if (hue < 0.0)
+    if (hue < 0.0) {
         h = static_cast<float>(static_cast<double>(h) + kHueFull);
-    if (h > kHueFull)
+    }
+    if (h > kHueFull) {
         h = static_cast<float>(static_cast<double>(h) - kHueFull);
+    }
 
     gsl::owner<Array*> hsv = new_colour_array(rgb_array);
     hsv->set_element(0, static_cast<uint32_t>(ftol(h)));

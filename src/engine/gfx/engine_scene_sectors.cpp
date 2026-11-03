@@ -120,8 +120,9 @@ void for_each_sector(WorldScene* scene, Body body)
     scene->sectors()->set_iter_item(nullptr);
     for (;;) {
         lists::KeyMap* table = scene->sectors();
-        if (!table->step_iterator() || !table->iter_item() || !table->iter_item()->value)
+        if (!table->step_iterator() || !table->iter_item() || !table->iter_item()->value) {
             break;
+        }
         body(static_cast<WorldCell*>(table->iter_item()->value));
     }
 }
@@ -175,8 +176,9 @@ WorldScene::~WorldScene()
     scene_unload_collision(this);
     memory::ListNode::destroy(hidden_sectors_);
     memory::ListNode::destroy(add_scene_sectors_);
-    if (add_data_)
+    if (add_data_) {
         unload_tex_dict(add_data_);
+    }
 }
 
 // 0x0049D1A0 (the third count is added twice under the same name, as the original)
@@ -216,16 +218,20 @@ void WorldScene::insert_sector(WorldCell* sector) { put_sector(this, sector); }
 uint32_t WorldScene::duplicate_scene_sector(WorldCell* sector, WorldScene* scene, int instance, bool flag,
                                             uint32_t name)
 {
-    if (!scene)
+    if (!scene) {
         scene = this;
+    }
     gsl::owner<WorldCell*> clone = sector->replicate(instance, flag, scene);
-    if (!clone)
+    if (!clone) {
         return 0;
-    if (name)
+    }
+    if (name) {
         clone->set_checksum(name);
+    }
     put_sector(scene, clone);
-    if (flag)
+    if (flag) {
         scene->sector_kept_ = true;
+    }
     return clone->checksum();
 }
 
@@ -233,8 +239,9 @@ uint32_t WorldScene::duplicate_scene_sector(WorldCell* sector, WorldScene* scene
 uint32_t WorldScene::clone_sector_named(uint32_t section_id, WorldScene* scene, int instance, bool flag, uint32_t name)
 {
     WorldCell* sector = scene_sector(this, section_id);
-    if (!sector)
+    if (!sector) {
         return 0;
+    }
     return duplicate_scene_sector(sector, scene, instance, flag, name);
 }
 
@@ -278,8 +285,9 @@ bool WorldScene::load_collision_file(const char* name, int flag)
 {
     text::format_to(pip_name_, "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
     auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr));
-    if (!data)
+    if (!data) {
         return false;
+    }
     add_collision_data(data, static_cast<size_t>(packs::get_file_size(pip_name_.data())), flag); // (not original: sized)
     return true;
 }
@@ -287,8 +295,9 @@ bool WorldScene::load_collision_file(const char* name, int flag)
 // 0x0049D780 (the original's four list heads on its stack, and its SEH frame)
 void WorldScene::get_update_super_sectors(memory::ListNode* added)
 {
-    if (!coll_grid_)
+    if (!coll_grid_) {
         return;
+    }
     memory::ListNode to_add{};
     memory::ListNode to_remove{};
     memory::ListNode moved{};
@@ -307,10 +316,11 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
         }
         if (sector->fetch_bits() & (kSectorDelete | kSectorRemoveFromGrid)) {
             append_last(&to_remove, new_node(sector->hit_body()));
-            if (sector->fetch_bits() & kSectorDelete)
+            if (sector->fetch_bits() & kSectorDelete) {
                 append_last(&to_delete, new_node(sector));
-            else
+            } else {
                 sector->clear_flags(kSectorRemoveFromGrid);
+            }
         }
         if (sector->fetch_bits() & kSectorMoved) {
             append_last(&moved, new_node(sector->hit_body()));
@@ -323,8 +333,9 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
             auto* sector = static_cast<WorldCell*>(node->data());
             bool listed = false;
             for (const memory::ListNode* removing = head_of_scene_list(&to_remove); removing && !listed;
-                 removing = get_next_node(removing))
+                 removing = get_next_node(removing)) {
                 listed = removing->data() == sector->hit_body();
+            }
             if (!listed) {
                 append_last(&to_remove, new_node(sector->hit_body()));
                 sector->clear_flags(kSectorRemoveFromGrid);
@@ -353,8 +364,9 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
 // 0x0049E1B0
 bool WorldScene::update_super_sectors_if_marked(memory::ListNode* added)
 {
-    if (!sector_kept_)
+    if (!sector_kept_) {
         return false;
+    }
     get_update_super_sectors(added);
     return true;
 }
@@ -363,13 +375,15 @@ bool WorldScene::update_super_sectors_if_marked(memory::ListNode* added)
 bool WorldScene::load_add_scene(const char* name)
 {
     maths::BBox box;
-    if (!coll_statics_)
+    if (!coll_statics_) {
         return false;
+    }
     text::format_to(add_pip_name_, "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
     // (the base's collision file, not the one just named - as the original)
-    if (auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr)))
+    if (auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr))) {
         scene_load_collision_data(this, data, static_cast<size_t>(packs::get_file_size(pip_name_.data())),
                                   &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
+    }
     if (add_coll_static_count_ > 0) {
         for (int i = 0; i < add_coll_static_count_; ++i) {
             const uint32_t section_id = coll_static_at(add_coll_statics_, add_coll_static_count_, i)->checksum();
@@ -393,8 +407,9 @@ bool WorldScene::load_add_scene(const char* name)
 // 0x0049DDE0
 bool WorldScene::flip_extra_scene()
 {
-    if (!head_of_scene_list(add_scene_sectors_))
+    if (!head_of_scene_list(add_scene_sectors_)) {
         return false;
+    }
     added_ = !added_;
     memory::ListNode* hide = added_ ? hidden_sectors_ : add_scene_sectors_;
     const memory::ListNode* show = added_ ? add_scene_sectors_ : hidden_sectors_;
@@ -424,15 +439,19 @@ bool WorldScene::flip_extra_scene()
 // 0x0049E200 (the added collision's array and file are let go of but not cleared, as the original)
 bool WorldScene::unload_added_scene()
 {
-    if (added_)
+    if (added_) {
         flip_extra_scene();
-    if (!unload_add_scene())
+    }
+    if (!unload_add_scene()) {
         return false;
+    }
     delete[] add_coll_statics_; // (the vector deleting destructor; the pointer kept, as the original)
-    if (add_coll_objects_)
+    if (add_coll_objects_) {
         packs::offload(add_pip_name_.data());
-    if (hidden_sectors_)
+    }
+    if (hidden_sectors_) {
         delete_nodes(hidden_sectors_);
+    }
     if (add_scene_sectors_) {
         for (memory::ListNode* node = head_of_scene_list(add_scene_sectors_); node;) {
             memory::ListNode* next = get_next_node(node);

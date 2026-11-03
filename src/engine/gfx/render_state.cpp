@@ -191,8 +191,9 @@ void change_phase(RenderStateId state, uint32_t value)
         }
         return;
     case RenderStateId::kPhaseAlphaTest:
-        if (value == alpha_test_level())
+        if (value == alpha_test_level()) {
             return;
+        }
         alpha_test_level() = value;
         if (value) {
             render::set_render_state(D3DRS_ALPHAREF, value);
@@ -214,16 +215,19 @@ void change_phase(RenderStateId state, uint32_t value)
         const uint32_t u = value & 0xFFFF;
         if (u != (cached & kLowHalfMask)) {
             DWORD address = 0;
-            if (address_value(u, &address))
+            if (address_value(u, &address)) {
                 set_sampler(sampler, D3DSAMP_ADDRESSU, address);
+            }
             cached = (cached & kHighHalfMask) | u;
         }
         const uint32_t v = value & 0xFFFF0000;
-        if (v == (cached & kHighHalfMask))
+        if (v == (cached & kHighHalfMask)) {
             return;
+        }
         DWORD address = 0;
-        if (address_value(v >> kHalfBits, &address))
+        if (address_value(v >> kHalfBits, &address)) {
             set_sampler(sampler, D3DSAMP_ADDRESSV, address);
+        }
         cached = (cached & kLowHalfMask) | v;
         return;
     }
@@ -337,16 +341,18 @@ void set_texture(int stage, void* texture)
 void choose_blend_mode(uint32_t mode)
 {
     const uint32_t wanted = forced_blend() ? forced_blend() : mode;
-    if (wanted == get_blend_mode())
+    if (wanted == get_blend_mode()) {
         return;
+    }
     const uint32_t kind = wanted & 0xFFFFFF;
     if (kind != (get_blend_mode() & kBlendModeMask)) {
         // Fog goes black under the additive and subtractive modes (1-4).
         if (renderer().fog_active()) {
-            if (kind >= 1 && kind <= 4)
+            if (kind >= 1 && kind <= 4) {
                 render::set_render_state(D3DRS_FOGCOLOR, 0);
-            else
+            } else {
                 set_device_render_state(D3DRS_FOGCOLOR, engine_parts().fog_colour());
+            }
         }
         uint32_t op = 0;
         uint32_t src = 0;
@@ -430,12 +436,14 @@ void choose_blend_mode(uint32_t mode)
                 src = D3DBLEND_ONE;
                 dest = D3DBLEND_INVSRCALPHA;
             } else {
-                if (src == D3DBLEND_BLENDFACTOR)
+                if (src == D3DBLEND_BLENDFACTOR) {
                     src = D3DBLEND_ZERO;
-                if (dest == D3DBLEND_BLENDFACTOR)
+                }
+                if (dest == D3DBLEND_BLENDFACTOR) {
                     dest = D3DBLEND_SRCALPHA;
-                else if (dest == D3DBLEND_INVBLENDFACTOR)
+                } else if (dest == D3DBLEND_INVBLENDFACTOR) {
                     dest = D3DBLEND_INVSRCALPHA;
+                }
             }
         }
         if (op != blend_op()) {
@@ -636,8 +644,9 @@ void reset_render_state()
         0xBF000000, 0xBF5DB3D7, 0, 0, 0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000, 0x3F800000, 0, 0, 0, 0, 0, 0,
         0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
     });
-    for (int i = 0; i < kLightConstantCount; ++i)
+    for (int i = 0; i < kLightConstantCount; ++i) {
         core::at(light_sets().light_constants(), 4 + i) = std::bit_cast<float>(core::at(kLight, i));
+    }
     constexpr auto kAmbient = std::bit_cast<float>(0x3F1624DDU); // the ambient colour (0.586)
     core::at(light_sets().light_constants(), 0) = kAmbient;
     core::at(light_sets().light_constants(), 1) = kAmbient;
@@ -706,8 +715,9 @@ void apply_render_state()
     renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
     renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)
-    if (renderer().antialiasing() || graphics_options::chosen_samples()) // the antialiasing setting
+    if (renderer().antialiasing() || graphics_options::chosen_samples()) { // the antialiasing setting
         renderer().d3d_device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
+    }
 }
 
 } // namespace render

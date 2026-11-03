@@ -36,9 +36,10 @@ void note_image(uint32_t scale, uint32_t width, uint32_t height)
 {
     ++hd_ui_state().images_;
     // (the first one, then every 100th: how many have been loaded)
-    if (hd_ui_state().images_ == 1 || hd_ui_state().images_ % kLogEveryImages == 0)
+    if (hd_ui_state().images_ == 1 || hd_ui_state().images_ % kLogEveryImages == 0) {
         get_log("hd ui: %d upscaled image(s) loaded (this one x%u, %ux%u texels; drawn at %ux%u)", hd_ui_state().images_, scale,
                 width, height, width / scale, height / scale);
+    }
 }
 
 void note_font(const char* name, uint32_t scale, uint32_t width, uint32_t height)

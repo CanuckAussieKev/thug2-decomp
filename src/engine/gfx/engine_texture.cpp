@@ -22,14 +22,16 @@ bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
     std::array<char, kTexturePathSize> path{};
     text::format_to(path, "%s", name);
     if (static_cast<uint8_t>(in_images)) {
-        if (std::string_view(name).starts_with("../"))
+        if (std::string_view(name).starts_with("../")) {
             text::format_to(path, "%s", std::next(name, 3));
-        else
+        } else {
             text::format_to(path, "images/%s", name);
+        }
     }
     int start = static_cast<int>(std::strlen(path.data()));
-    while (start > 0 && core::at(path, start - 1) != '\\' && core::at(path, start - 1) != '/')
+    while (start > 0 && core::at(path, start - 1) != '\\' && core::at(path, start - 1) != '/') {
         --start;
+    }
     checksum_ = checksums::hash_from_text(std::next(path.data(), start));
     return ingest_file(path.data(), in_images, argument);
 }
@@ -55,10 +57,11 @@ bool BitmapTexture::fabricate(uint32_t checksum, uint32_t width, uint32_t height
 // 0x0049F3F0
 void BitmapTexture::pin_resident(bool permanent)
 {
-    if (permanent)
+    if (permanent) {
         flag_bits_ |= kTexturePermanent;
-    else
+    } else {
         flag_bits_ &= ~kTexturePermanent;
+    }
 }
 
 } // namespace render

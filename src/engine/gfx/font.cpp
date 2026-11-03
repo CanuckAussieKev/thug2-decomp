@@ -63,19 +63,23 @@ void debug_font_loaded() {}
 // original: the PUSHed string at 0x0048D8F8 and the MOVed one at 0x0048D983).
 const char* button_font_name()
 {
-    if (glyph_style() == 1)
+    if (glyph_style() == 1) {
         return "ButtonsPs2";
-    if (glyph_style() == 2)
+    }
+    if (glyph_style() == 2) {
         return "ButtonsNgc";
+    }
     return "ButtonsXbox";
 }
 
 const char* meta_button_map_name()
 {
-    if (glyph_style() == 1)
+    if (glyph_style() == 1) {
         return "meta_button_map_ps2";
-    if (glyph_style() == 2)
+    }
+    if (glyph_style() == 2) {
         return "meta_button_map_gamecube";
+    }
     return "meta_button_map_xbox";
 }
 
@@ -85,23 +89,26 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
     if (find_font(checksums::hash_from_text(name))) {
         // Already loaded: just update it (looked up again for each setter, as the original does).
         change_spacings(find_font(checksums::hash_from_text(name)), glyph_gap, blank_gap);
-        if (colors)
+        if (colors) {
             set_color_table(find_font(checksums::hash_from_text(name)), colors);
+        }
         flag_button_font(find_font(checksums::hash_from_text(name)), button_font);
         return;
     }
 
     auto& slots = screen_2d().font_slots();
     int index = 0;
-    while (index < kFontSlots && core::at(slots, index).font)
+    while (index < kFontSlots && core::at(slots, index).font) {
         ++index;
+    }
     if (index < kFontSlots) {
         FontSlot& slot = core::at(slots, index);
         gsl::owner<Typeface*> font = load_font_file(name); // (the slot's)
         slot.font = font;
         change_spacings(slot.font, glyph_gap, blank_gap);
-        if (colors)
+        if (colors) {
             set_color_table(slot.font, colors);
+        }
         flag_button_font(slot.font, button_font);
         // The original copies the name with no length limit, like strcpy.
         text::copy_unbounded(slot.name.data(), name);
@@ -110,11 +117,13 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
     }
     // (With every slot taken nothing is loaded, but the map below still is.)
 
-    if (meta_button_map_loaded())
+    if (meta_button_map_loaded()) {
         return;
+    }
     script::Array* map = script::fetch_list(meta_button_map_name());
-    if (!map)
+    if (!map) {
         return;
+    }
     for (uint32_t i = 0; i < kGlyphAliasCount; ++i) {
         const int digit = i < map->extent() ? static_cast<int>(map->fetch_part(i)) : 0;
         core::at(screen_2d().glyph_alias_table(), i) = static_cast<char>(digit > kLastDecimalDigit ? digit + 'a' - kHexLetterBase : digit + '0');
@@ -128,8 +137,9 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
     const bool button_font = params->has_bare_flag("buttons_font");
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
     params->fetch_text(0U, &name, false);
-    if (button_font)
+    if (button_font) {
         name = button_font_name();
+    }
     debug_font_name(name);
 
     float glyph_gap = 0.0F;
@@ -143,12 +153,14 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
     script::Array* table = nullptr;
     if (params->fetch_list("color_tab", &table, false)) {
         for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->extent()); ++i) {
-            if (i >= kFontColourCount)
+            if (i >= kFontColourCount) {
                 break;
+            }
             auto* color = table->array_at(i);
             uint32_t packed = 0;
-            for (int j = 0; j < ints::as_signed(color->extent()); ++j)
+            for (int j = 0; j < ints::as_signed(color->extent()); ++j) {
                 packed |= (color->fetch_part(j) & kByteMask) << ((kBitsPerByte * j) & kShiftCountMask); // (a 5th byte wraps round, as SHL does)
+            }
             core::at(colors, i) = packed;
         }
     }

@@ -144,8 +144,9 @@ void step_slot(uint32_t& next)
         return;
     }
     uint32_t value = next;
-    if (value & 1)
+    if (value & 1) {
         value ^= kSlotFeedbackMask;
+    }
     next = value >> 1;
 }
 
@@ -192,8 +193,9 @@ void PcWeather::set_snow_blend_mode(uint32_t name, uint32_t fixed_alpha)
 // 0x004CBDB0
 void PcWeather::tick_frame(float /*frame_seconds*/)
 {
-    if (!active())
+    if (!active()) {
         return;
+    }
     const int frames = rain_on() ? rain_frames() : snow_frames();
     const float rate = rain_on() ? rain_rate() : snow_rate();
     float& due = rain_on() ? rain_due_ : snow_due_;
@@ -206,8 +208,9 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
     const int count = ftol(total) - ftol(before);
     for (int i = 0; i < count; ++i) {
         uint8_t& slot = core::at(stage, next);
-        if (slot != kSlotFree)
+        if (slot != kSlotFree) {
             return;
+        }
         slot = static_cast<uint8_t>(kSlotLastFrame - static_cast<uint8_t>(frames));
         core::at(offset_x_, next) = static_cast<uint8_t>(maths::rnd(kSlotOffsetRange));
         core::at(offset_z_, next) = static_cast<uint8_t>(maths::rnd(kSlotOffsetRange));
@@ -219,8 +222,9 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
 // 0x004CD120
 void PcWeather::render()
 {
-    if (!active())
+    if (!active()) {
         return;
+    }
     const float x = camera_x();
     const float z = camera_z();
     if (rain_on()) {
@@ -229,8 +233,9 @@ void PcWeather::render()
     } else {
         render_snow({.x = x, .y = z});
     }
-    if (!drops())
+    if (!drops()) {
         return;
+    }
     for (uint8_t& slot : stage) { // (each falling drop a frame on; one finishing is freed)
         if (slot == kSlotLastFrame) {
             --drops();
@@ -246,16 +251,18 @@ void PcWeather::render_rain(maths::Vec2 centre)
 {
     const auto x = centre.x;
     const auto z = centre.y;
-    if (!drops())
+    if (!drops()) {
         return;
+    }
     const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0F / 128.0F));
     const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0F / 128.0F));
     const int min_x = cell_x - 16;
     const int max_x = cell_x + 16;
     const int min_z = cell_z - 16;
     const int max_z = cell_z + 16;
-    if (max_z < 0 || min_z > depth - 1)
+    if (max_z < 0 || min_z > depth - 1) {
         return;
+    }
     uint32_t top = get_argb(rain_top());
     uint32_t bottom = get_argb(rain_bottom());
     if ((rain_blend_ & kBlendModeMask) == kBlendModeFixBrighten) { // (drawn as mode 9 with the mode's alpha)
@@ -281,11 +288,13 @@ void PcWeather::render_rain(maths::Vec2 centre)
         const double frames_f = rain_frames();
         const double height = rain_height();
         int t = 0;
-        for (int i = kSlotLastFrame - rain_frames(); i < kFrameTableEntries; ++i, ++t)
+        for (int i = kSlotLastFrame - rain_frames(); i < kFrameTableEntries; ++i, ++t) {
             core::at(fall, i) = ftol((height - (t / frames_f * height)) * kHeightFixedScale);
+        }
     }
-    for (int i = 0; i < kFrameTableEntries; ++i)
+    for (int i = 0; i < kFrameTableEntries; ++i) {
         core::at(spread, i) = ftol(static_cast<double>(i) * kRainSpreadWidth * (1.0F / kByteMaxFloat));
+    }
     std::array<float, 0x7F8 + 8> lines{};
     core::Cursor<float> out(lines); // (at the start whenever nothing is used: the original's null stands for it)
     uint32_t used = 0;
@@ -299,8 +308,9 @@ void PcWeather::render_rain(maths::Vec2 centre)
     for (int gz = min_z; gz <= max_z; ++gz) {
         const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
         const WeatherRow& row = core::at(rows, row_index);
-        if (row.first == kEmptyRow)
+        if (row.first == kEmptyRow) {
             continue;
+        }
         int column_x = (min_x << kGridCellShift) + base_x;
         const int row_z = (row_index << 11) + base_z;
         const int cell_row = (row_index & 0xF) << 4;
@@ -312,8 +322,9 @@ void PcWeather::render_rain(maths::Vec2 centre)
             column_x += kGridCellSize;
             for (int k = 0; k < 4; ++k, cell += kCellColumnStride) {
                 const uint8_t at = core::at(stage, cell);
-                if (at == kSlotFree)
+                if (at == kSlotFree) {
                     continue;
+                }
                 auto px = static_cast<float>(core::at(spread, core::at(offset_x_, cell)) + column_x) * kFromFixed16;
                 auto py = static_cast<float>(core::at(fall, at) + ground) * kFromFixed16;
                 auto pz = static_cast<float>(core::at(spread, core::at(offset_z_, cell)) + row_z) * kFromFixed16;
@@ -342,16 +353,18 @@ void PcWeather::render_snow(maths::Vec2 centre)
 {
     const auto x = centre.x;
     const auto z = centre.y;
-    if (!drops())
+    if (!drops()) {
         return;
+    }
     const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0F / 128.0F));
     const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0F / 128.0F));
     const int min_x = cell_x - 16;
     const int max_x = cell_x + 16;
     const int min_z = cell_z - 16;
     const int max_z = cell_z + 16;
-    if (max_z < 0 || min_z > depth - 1)
+    if (max_z < 0 || min_z > depth - 1) {
         return;
+    }
     choose_blend_mode(snow_blend_);
     change_phase(RenderStateId::kPhaseAlphaTest, 0);
     change_phase(RenderStateId::kAddressMode0, 0);
@@ -375,14 +388,17 @@ void PcWeather::render_snow(maths::Vec2 centre)
         const double frames_f = snow_frames();
         const double height = snow_height();
         int t = 0;
-        for (int i = kSlotLastFrame - snow_frames(); i < kFrameTableEntries; ++i, ++t)
+        for (int i = kSlotLastFrame - snow_frames(); i < kFrameTableEntries; ++i, ++t) {
             core::at(fall, i) = static_cast<float>(height - (t / frames_f * height));
+        }
     }
-    for (int i = 0; i < kFrameTableEntries; ++i)
+    for (int i = 0; i < kFrameTableEntries; ++i) {
         core::at(spread, i) = static_cast<float>(static_cast<double>(i) * kSnowSpreadWidth * (1.0F / kByteMaxFloat));
-    for (int i = 0; i < kFrameTableEntries; ++i)
+    }
+    for (int i = 0; i < kFrameTableEntries; ++i) {
         core::at(sway, i) = static_cast<float>(
             std::sin(static_cast<double>(i) * (1.0F / kSwayCycleLength) * maths::kTwoPi) * kSwayAmplitude);
+    }
     const uint32_t colour = get_argb(snow_colour());
     std::array<float, kSnowBatchLimit + 4> points{};
     core::Cursor<float> out(points);
@@ -390,8 +406,9 @@ void PcWeather::render_snow(maths::Vec2 centre)
     for (int gz = min_z; gz <= max_z; ++gz) {
         const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
         const WeatherRow& row = core::at(rows, row_index);
-        if (row.first == kEmptyRow)
+        if (row.first == kEmptyRow) {
             continue;
+        }
         auto column_x = static_cast<float>((static_cast<double>(min_x) * kSnowCellSize) + base_x);
         const int cell_row = (row_index & 0xF) << 4;
         int height_at = row.offset - row.first + min_x;
@@ -403,8 +420,9 @@ void PcWeather::render_snow(maths::Vec2 centre)
             auto ground = static_cast<float>(core::at(heights, core::at(columns, height_at)) >> 4);
             for (int k = 0; k < 4; ++k, cell += kCellColumnStride) {
                 const uint8_t at = core::at(stage, cell);
-                if (at == kSlotFree)
+                if (at == kSlotFree) {
                     continue;
+                }
                 const int zb = core::at(offset_z_, cell);
                 const int xb = core::at(offset_x_, cell);
                 auto px = static_cast<float>(static_cast<double>(core::at(sway, (at + zb) & kByteMask)) + core::at(spread, xb) + column_x);
@@ -490,16 +508,18 @@ void PcWeather::render_splashes(float x, float z)
     uint32_t used = 0;
     for (int i = 0; i < kSplashCount; ++i) {
         const int frames = core::at(splash_frames_, i);
-        if (!frames)
+        if (!frames) {
             continue;
+        }
         const double half = static_cast<double>(splash_size()) * 0.5F;
         auto x0 = static_cast<float>(core::at(splash_x_, i) - half);
         auto x1 = static_cast<float>(half + core::at(splash_x_, i));
         auto z0 = static_cast<float>(core::at(splash_z_, i) - half);
         auto z1 = static_cast<float>(half + core::at(splash_z_, i));
         std::array<uint8_t, 4> c{};
-        for (int k = 0; k < 4; ++k)
+        for (int k = 0; k < 4; ++k) {
             core::at(c, k) = static_cast<uint8_t>(core::at(splash_colour(), k) * frames / splash_life()); // (fading with its frames)
+        }
         const uint32_t colour = static_cast<uint32_t>(core::at(c, 3)) << 24 | static_cast<uint32_t>(core::at(c, 2)) << 16 |
                                 static_cast<uint32_t>(core::at(c, 1)) << 8 | core::at(c, 0);
         const float y = core::at(splash_y_, i);
@@ -527,8 +547,9 @@ void PcWeather::tick_grid()
 {
     set_active(false);
     const CollGrid* grid_of_scene = get_first_coll_grid(); // (the scene's collision's box)
-    if (!grid_of_scene)
+    if (!grid_of_scene) {
         return;
+    }
     const maths::BBox& box = grid_of_scene->box();
     auto cell = [](float value) {
         const int v = ftol(value);
@@ -599,12 +620,15 @@ void PcWeather::tick_grid()
         for (int x = min_x; x <= max_x; ++x) {
             const auto index = static_cast<size_t>((width * r) - min_x + x);
             const auto below = static_cast<size_t>((width * (r + 1)) - min_x + x);
-            if (height_at(index + 1) > height_at(index))
+            if (height_at(index + 1) > height_at(index)) {
                 core::at(grid, index) = core::at(grid, index + 1);
-            if (height_at(below) > height_at(index))
+            }
+            if (height_at(below) > height_at(index)) {
                 core::at(grid, index) = core::at(grid, below);
-            if (height_at(below + 1) > height_at(index))
+            }
+            if (height_at(below + 1) > height_at(index)) {
                 core::at(grid, index) = core::at(grid, below + 1);
+            }
         }
     }
     // The rows' ground spans (one row past the last, as the original) and their height indices.
@@ -617,8 +641,9 @@ void PcWeather::tick_grid()
         bool found = false;
         for (int c = 0; c < width; ++c) {
             const auto cell_index = static_cast<size_t>((width * r) + c);
-            if (cell_index >= grid.size() || height_at(cell_index) == kNoGround)
+            if (cell_index >= grid.size() || height_at(cell_index) == kNoGround) {
                 continue; // (the row past the last: no ground, the original read the heap there)
+            }
             if (!found) {
                 first = static_cast<uint16_t>(c);
                 found = true;
@@ -628,8 +653,9 @@ void PcWeather::tick_grid()
         }
         if (first < last) {
             core::at(rows, r) = {.first = first, .last = last, .offset = static_cast<uint16_t>(offset)};
-            for (int c = first; std::cmp_less_equal(c, last); ++c)
+            for (int c = first; std::cmp_less_equal(c, last); ++c) {
                 core::at(columns, static_cast<uint16_t>(offset++)) = core::at(grid, (width * r) + c);
+            }
         } else {
             core::at(rows, r) = {.first = kEmptyRow, .last = 0, .offset = 0};
         }
@@ -643,10 +669,12 @@ void PcWeather::tick_grid()
     drops() = 0;
     next = kSlotSequenceStart;
     splash_texture_ = nullptr;
-    if (const BitmapTexture* splash = engine_parts().particle_texture_dict()->fetch_skin(kSPLASH))
+    if (const BitmapTexture* splash = engine_parts().particle_texture_dict()->fetch_skin(kSPLASH)) {
         splash_texture_ = image_of(splash);
-    if (const BitmapTexture* snow = engine_parts().particle_texture_dict()->fetch_skin(kSNOW))
+    }
+    if (const BitmapTexture* snow = engine_parts().particle_texture_dict()->fetch_skin(kSNOW)) {
         snow_texture_ = image_of(snow);
+    }
     set_active(true);
     std::memset(splash_frames_.data(), 0, sizeof(splash_frames_));
     next_splash_ = 0;

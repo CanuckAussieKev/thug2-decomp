@@ -120,8 +120,9 @@ TextureSet::~TextureSet()
 // 0x0049F540
 BitmapTexture* TextureSet::fetch_skin(uint32_t checksum)
 {
-    if (!textures_)
+    if (!textures_) {
         return nullptr;
+    }
     return static_cast<BitmapTexture*>(textures_->fetch_entry(checksum, true));
 }
 
@@ -129,8 +130,9 @@ BitmapTexture* TextureSet::fetch_skin(uint32_t checksum)
 BitmapTexture* TextureSet::get_texture_by_name(const char* name)
 {
     const uint32_t checksum = filename_key(name);
-    if (!textures_)
+    if (!textures_) {
         return nullptr;
+    }
     return static_cast<BitmapTexture*>(textures_->fetch_entry(checksum, true));
 }
 
@@ -139,22 +141,27 @@ BitmapTexture* TextureSet::find_texture(const char* name)
 {
     auto find = [this](uint32_t checksum) -> BitmapTexture* {
         for (const int multiplier : key_multipliers()) {
-            if (multiplier <= 0)
+            if (multiplier <= 0) {
                 break;
+            }
             const uint32_t key = static_cast<uint32_t>(multiplier) * checksum;
             BitmapTexture* texture = textures_ ? static_cast<BitmapTexture*>(textures_->fetch_entry(key)) : nullptr;
-            if (texture)
+            if (texture) {
                 return texture;
+            }
         }
         return nullptr;
     };
-    if (BitmapTexture* texture = find(checksums::hash_from_text(name)))
+    if (BitmapTexture* texture = find(checksums::hash_from_text(name))) {
         return texture;
+    }
     std::array<char, kDictPathSize> other{};
     text::format_to(other, "%s", name);
     const size_t length = std::strlen(other.data());
-    if (length > 4 && length - 4 + kAutoSuffixBytes <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
+    if (length > 4 &&
+        length - 4 + kAutoSuffixBytes <= sizeof(other)) { // "_auto32m0.png" and its 0 in place of the last four
         std::memcpy(std::span(other).subspan(length - 4).data(), "_auto32m0.png", kAutoSuffixBytes);
+    }
     return find(checksums::hash_from_text(other.data()));
 }
 
@@ -195,8 +202,9 @@ bool TextureSet::unload_texture(BitmapTexture* texture)
 {
     const uint32_t key = texture->checksum();
     debug_before_unload();
-    if (!destroy_texture(texture))
+    if (!destroy_texture(texture)) {
         return false;
+    }
     textures_->erase_entry(key);
     return true;
 }
@@ -205,17 +213,20 @@ bool TextureSet::unload_texture(BitmapTexture* texture)
 void TextureSet::drop_textures(bool all)
 {
     lists::KeyMap* table = textures_;
-    if (!table)
+    if (!table) {
         return;
+    }
     table->set_iter_bucket(-1);
     table->set_iter_item(nullptr);
-    if (!table->step_iterator() || !table->iter_item())
+    if (!table->step_iterator() || !table->iter_item()) {
         return;
+    }
     auto* texture = static_cast<BitmapTexture*>(table->iter_item()->value);
     while (texture) {
         BitmapTexture* next = nullptr;
-        if (textures_->step_iterator() && textures_->iter_item())
+        if (textures_->step_iterator() && textures_->iter_item()) {
             next = static_cast<BitmapTexture*>(textures_->iter_item()->value);
+        }
         if (all || !(texture->flag_bits() & kTexturePermanent)) {
             const uint32_t key = texture->checksum();
             gsl::owner<BitmapTexture*> owned = memory::owned_element(texture); // (the dictionary's)
@@ -230,8 +241,9 @@ void TextureSet::drop_textures(bool all)
 bool TextureSet::swap_texture(const char* name, BitmapTexture* source)
 {
     BitmapTexture* texture = find_texture(name);
-    if (!texture)
+    if (!texture) {
         return false;
+    }
     return texture->copy_from(source);
 }
 
@@ -241,8 +253,9 @@ bool TextureSet::replace_texture_from_file(TextureFile texture_file)
     const auto* const name = texture_file.name;
     const auto* const file = texture_file.file;
     BitmapTexture* texture = find_texture(name);
-    if (!texture)
+    if (!texture) {
         return false;
+    }
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     memory::push_mem_profile(file);
@@ -252,8 +265,9 @@ bool TextureSet::replace_texture_from_file(TextureFile texture_file)
     const bool replaced = texture->copy_from(loaded);
     const uint32_t key = loaded->checksum();
     debug_before_unload();
-    if (destroy_texture(loaded))
+    if (destroy_texture(loaded)) {
         textures_->erase_entry(key);
+    }
     memory::Hub::get_pull()->leave_heap_scope();
     return replaced;
 }
@@ -343,8 +357,9 @@ TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
 // 0x0049EFD0
 bool unload_tex_dict(TextureSet* dict)
 {
-    if (--dict->share_count() != 0)
+    if (--dict->share_count() != 0) {
         return false;
+    }
     const uint32_t key = dict->checksum();
     loaded_tex_dicts().erase_entry(key);
     gsl::owner<TextureSet*> owned = memory::owned_element(dict); // (the loaded table's)

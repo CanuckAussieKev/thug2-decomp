@@ -57,8 +57,9 @@ uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 {
     gsl::owner<void*> memory = crt::alloc_block(kIdxStoreBytes);
-    if (!memory)
+    if (!memory) {
         return nullptr;
+    }
     return memory::construct_in<IdxStore>(memory, bytes, 0, kIdxStoreKind);
 }
 // The index buffer's Direct3D copy written again from the one in memory.
@@ -66,8 +67,9 @@ void upload_indices(IdxStore* buffer)
 {
     auto* d3d = buffer->buffer();
     void* locked = nullptr;
-    if (FAILED(d3d->Lock(0, 0, &locked, 0)))
+    if (FAILED(d3d->Lock(0, 0, &locked, 0))) {
         return;
+    }
     std::memcpy(locked, buffer->indices(), buffer->size());
     d3d->Unlock();
 }
@@ -86,8 +88,9 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 
 void get_identity(std::span<float, maths::kMatrixFloats> m)
 {
-    for (int i = 0; i < maths::kMatrixFloats; ++i)
+    for (int i = 0; i < maths::kMatrixFloats; ++i) {
         core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
+    }
 }
 
 } // namespace
@@ -146,8 +149,9 @@ void MeshRef::move_to(const maths::Vec4* position)
 // 0x004D6FB0
 void MeshRef::turn_y(int turns)
 {
-    if (turns <= 0)
+    if (turns <= 0) {
         return;
+    }
     if (!transform) {
         transform = static_cast<float*>(memory::alloc(kTransformBytes));
         get_identity(transform_floats());
@@ -231,8 +235,9 @@ MeshRef* MeshRef::replicate(bool share)
         int k = -1; // (each level of detail: the copy's buffer is stored through its slot)
         for (IdxStore*& slot : copy->index_buffers_) {
             ++k;
-            if (!core::at(copy->index_counts_, k))
+            if (!core::at(copy->index_counts_, k)) {
                 continue;
+            }
             gsl::owner<IdxStore*> buffer = new_index_buffer(core::at(copy->index_counts_, k) * 2);
             slot = buffer;
             Expects(buffer != nullptr); // (out of memory: the original copied to address 0)
@@ -281,8 +286,9 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     }
     // (any other type keeps what the allocation held)
     std::memcpy(info->pivot.data(), pivot, kVec4Bytes);
-    if (info->type == 2)
+    if (info->type == 2) {
         std::memcpy(info->axis.data(), axis, kVec4Bytes);
+    }
 
     // The quad's plane from its first triangle.
     VertexBuffer* buffer = core::at(vertex_buffers_, 0);

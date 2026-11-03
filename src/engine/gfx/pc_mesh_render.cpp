@@ -82,13 +82,15 @@ void add_bone(std::span<float, kBlendedFloats> blended, const SkinVertex& v, Bon
     const auto weight = bone_weight.weight;
     std::array<float, 3> other{};
     transform_coord(other.data(), v.position.data(), skin_matrix(bone));
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(blended, k) =
             static_cast<float>((static_cast<double>(core::at(other, k)) * weight) + core::at(blended, k));
+    }
     transform_normal(other.data(), v.normal.data(), skin_matrix(bone));
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(blended, 3 + k) =
             static_cast<float>((static_cast<double>(core::at(other, k)) * weight) + core::at(blended, 3 + k));
+    }
 }
 
 // The vertices skinned with up to `bones` bones each: the first bone's transform, then - unless its weight is
@@ -104,16 +106,19 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
         transform_coord(blended.data(), v->position.data(), skin_matrix(core::at(v->bones, 0)));
         transform_normal(std::span(blended).subspan(3).data(), v->normal.data(), skin_matrix(core::at(v->bones, 0)));
         if (bones > 1 && !(core::at(v->weights, 0) == 1.0F)) {
-            for (float& value : blended)
+            for (float& value : blended) {
                 value = static_cast<float>(static_cast<double>(value) * core::at(v->weights, 0));
+            }
             add_bone(blended, *v, {.bone = core::at(v->bones, 1), .weight = core::at(v->weights, 1)});
-            if (bones > 2 && !(core::at(v->weights, 2) == 0.0F))
+            if (bones > 2 && !(core::at(v->weights, 2) == 0.0F)) {
                 add_bone(blended, *v, {.bone = core::at(v->bones, 2), .weight = core::at(v->weights, 2)});
+            }
         }
         written.set_floats<kBlendedFloats>(i, 0, blended); // the position and normal
         written.set_word(i, kColourOffset, v->color);
-        for (uint32_t k = 0; k < 2 * mesh->unknowna4(); ++k)
+        for (uint32_t k = 0; k < 2 * mesh->unknowna4(); ++k) {
             written.set_value(i, kUvOffset + (4 * k), core::at(v->uv, k));
+        }
     }
 }
 
@@ -137,8 +142,9 @@ void MeshRef::skin_three_bones(uint8_t* out) { get_skin(this, out, 3); }
 // 0x004D5290
 void MeshRef::render()
 {
-    if (engine_parts().suppress_draw() || beyond_clip_distance(this))
+    if (engine_parts().suppress_draw() || beyond_clip_distance(this)) {
         return;
+    }
     if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (distance fog)
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0F);
@@ -150,8 +156,9 @@ void MeshRef::render()
         renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
         renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
     }
-    if (!core::at(index_counts_, 0))
+    if (!core::at(index_counts_, 0)) {
         return;
+    }
     D3DMATRIX world;
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
         renderer().d3d_device()->GetTransform(D3DTS_WORLD, &world);
@@ -164,10 +171,11 @@ void MeshRef::render()
     auto* mat = material_;
     if (renderer().shaders_available()) {
         mat->hand_in();
-        if (!renderer().instance_colour_on() && !(flags_ & 4))
+        if (!renderer().instance_colour_on() && !(flags_ & 4)) {
             set_pixel_shader_with_constants(pixel_shader_, mat->pass_count());
-        else
+        } else {
             set_pixel_shader_colored();
+        }
     } else {
         mat->submit_states();
     }
@@ -175,13 +183,15 @@ void MeshRef::render()
     DWORD z_write = 0;
     if (flags_ & kFlagForceLinear) {
         renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-        if (min_filter != D3DTEXF_LINEAR)
+        if (min_filter != D3DTEXF_LINEAR) {
             renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+        }
     }
     if (flags_ & kFlagKeepZWrite) {
         renderer().d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
-        if (z_write == 1)
+        if (z_write == 1) {
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
+        }
     }
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
     if (per_vertex_data_ &&
@@ -211,8 +221,9 @@ void MeshRef::render()
         }
         vb->get_unlock();
     }
-    if (vertex_buffer_count_ > 1)
+    if (vertex_buffer_count_ > 1) {
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
+    }
     renderer().d3d_device()->SetStreamSource(0, vb->buffer(), vb->arena_offset(), stride_);
     int level = 0;
     if (unknown48_) { // (the levels of detail's distances)
@@ -221,12 +232,16 @@ void MeshRef::render()
         const float distance = view_setup().last_sphere_distance();
         for (; level < kLodLevels; ++level) {
             if (!core::at(index_buffers_, level)) {
-                if (level > 0)
+                if (level > 0) {
                     --level;
+                }
                 break;
             }
-            if (distance < core::at(std::span<const float, kLodLevelCount>(static_cast<const float*>(unknown48_), kLodLevelCount), level))
+            if (distance <
+                core::at(std::span<const float, kLodLevelCount>(static_cast<const float*>(unknown48_), kLodLevelCount),
+                         level)) {
                 break;
+            }
         }
     }
     renderer().d3d_device()->SetIndices(index_buffer_at(this, level)->buffer());
@@ -240,9 +255,10 @@ void MeshRef::render()
             std::array<float, 3> instance{};
             const float* tint = nullptr;
             if (renderer().instance_colour_on()) {
-                for (int k = 0; k < 3; ++k)
+                for (int k = 0; k < 3; ++k) {
                     core::at(instance, k) = static_cast<float>(core::at(renderer().instance_colour(), k) *
                                                                static_cast<double>(1.0F / kByteMax));
+                }
                 tint = instance.data();
             } else if (flags_ & 4) {
                 tint = color_.data();
@@ -253,12 +269,15 @@ void MeshRef::render()
             count_draw(index_count_at(this, level) - 2U);
         }
     }
-    if ((flags_ & kFlagForceLinear) && min_filter != D3DTEXF_LINEAR)
+    if ((flags_ & kFlagForceLinear) && min_filter != D3DTEXF_LINEAR) {
         renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
-    if ((flags_ & kFlagKeepZWrite) && z_write == 1)
+    }
+    if ((flags_ & kFlagKeepZWrite) && z_write == 1) {
         renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
-    if (unknown98 != -1)
+    }
+    if (unknown98 != -1) {
         renderer().d3d_device()->SetTransform(D3DTS_WORLD, &world);
+    }
     toggle_fog(false);
 }
 

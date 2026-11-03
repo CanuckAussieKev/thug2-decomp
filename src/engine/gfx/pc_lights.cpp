@@ -76,8 +76,9 @@ std::span<uint32_t> scene_colors() { return light_sets().world_lighting().colour
 // A colour's r, g, b bytes times `factor` and 1/128 into three floats.
 void send_color(std::span<float, 3> out, uint32_t rgba, float factor)
 {
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(out, k) = static_cast<float>(static_cast<double>((rgba >> (kBitsPerByte * k)) & kByteMask) * factor * kPer128);
+    }
 }
 void send_negated(std::span<float, 3> out, const maths::Vec4& v)
 {
@@ -151,8 +152,9 @@ bool PcModelLights::put_light_aim(int light, const maths::Vec4* direction)
 // 0x004B6180
 const maths::Vec4* PcModelLights::read_light_aim(int light)
 {
-    if (diffuse_light_is_on(light))
+    if (diffuse_light_is_on(light)) {
         return &core::at(directions_of(*this), light);
+    }
     return render::get_light_direction(light);
 }
 
@@ -174,10 +176,11 @@ uint32_t* PcModelLights::read_diffuse_light_tint(uint32_t* out, int light)
 void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius)
 {
     uint32_t color = 0;
-    if (overrides & 1)
+    if (overrides & 1) {
         color = ambient;
-    else
+    } else {
         fetch_ambient_hue(&color);
+    }
     send_color(std::span<float>(ambient_constant()).first<3>(), color, size_factor());
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         if (overrides & (2U << (i & kShiftCountMask))) {
@@ -189,8 +192,9 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
             send_negated(light_direction_constant(i), *render::get_light_direction(static_cast<int>(i)));
         }
     }
-    if (!radius)
+    if (!radius) {
         return;
+    }
     std::array<DynamicLightBase*, kModelLightSlots> dynamic{};
     const uint32_t count = find_dynamic_lights(position, radius, dynamic);
     if (!count) {
@@ -225,8 +229,9 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
             const double factor = (1.0 - falloff) * light->intensity() * kPer255;
             const std::span<float, 3> out = light_color_constant(first_dynamic_ + j);
             const colour::Bytes colour = colour::bytes_of(light->colour()); // (its r, g, b bytes)
-            for (int k = 0; k < 3; ++k)
+            for (int k = 0; k < 3; ++k) {
                 core::at(out, k) = static_cast<float>(core::at(colour, k) * factor);
+            }
         }
     }
 }
@@ -234,10 +239,11 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
 // 0x004B61F0
 void PcModelLights::switch_ambient_light(bool on)
 {
-    if (on)
+    if (on) {
         overrides |= 1;
-    else
+    } else {
         overrides &= ~1U;
+    }
 }
 
 // 0x004B6240
@@ -247,10 +253,11 @@ bool PcModelLights::ambient_light_is_on() { return (overrides & 1) != 0; }
 void PcModelLights::switch_diffuse_light(int light, bool on)
 {
     const uint32_t bit = 2U << (light & 31);
-    if (on)
+    if (on) {
         overrides |= bit;
-    else
+    } else {
         overrides &= ~bit;
+    }
 }
 
 // 0x004B6250
@@ -290,8 +297,9 @@ void update_all_lights()
     update_ambient_light();
     // (lights 0-30 in the original, past the arrays' end for any world with fewer: the constants of lights nobody
     // has are never read, so only the world's own are sent)
-    for (int i = 0; std::cmp_less(i, kLightLoopLimit) && std::cmp_less(i, light_sets().light_count()); ++i)
+    for (int i = 0; std::cmp_less(i, kLightLoopLimit) && std::cmp_less(i, light_sets().light_count()); ++i) {
         update_light_color(i);
+    }
 }
 
 // 0x004B6920

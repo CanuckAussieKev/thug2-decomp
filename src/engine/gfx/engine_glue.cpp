@@ -74,8 +74,9 @@ uint32_t& mem_view_toggle()
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
 uint32_t back_buffer_fill()
 {
-    if (view_setup().fog_setting() && view_setup().distance_clipping())
+    if (view_setup().fog_setting() && view_setup().distance_clipping()) {
         return engine_parts().fog_colour();
+    }
     return renderer().render_camera().background_colour_;
 }
 
@@ -96,8 +97,9 @@ void toggle_mem_view() { mem_view_toggle() ^= 1; }
 // 0x004B2280 (the device 0x007D69E0's BeginScene, vtable slot 41; not while the loading screen is up: 0x00786D04)
 void begin_frame_draw()
 {
-    if (engine_parts().loading_screen_up())
+    if (engine_parts().loading_screen_up()) {
         return;
+    }
     renderer().d3d_device()->BeginScene();
 }
 
@@ -107,8 +109,9 @@ void set_screen_clip(const SkinScaling* settings) { set_skin_scaling(settings); 
 // 0x004B22C0
 void add_debug_shape(int type, std::span<const maths::Vec4> points, uint32_t colour)
 {
-    if (type == 4)
+    if (type == 4) {
         insert_occluder_poly(&core::at(points, 0), &core::at(points, 1), &core::at(points, 2), &core::at(points, 3), colour);
+    }
 }
 
 // 0x004B22F0
@@ -168,11 +171,13 @@ void start_engine()
 // 0x004B2750
 void finish_rendering()
 {
-    if (engine_parts().loading_screen_up())
+    if (engine_parts().loading_screen_up()) {
         return;
+    }
     renderer().d3d_device()->EndScene();
-    if (engine_parts().suppress_draw())
+    if (engine_parts().suppress_draw()) {
         return;
+    }
     renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     renderer().reset_draw_counts(); // the frame's draw counts
     if (core::at(effects_state().pending_screen_shot(), 0)) {
@@ -183,17 +188,20 @@ void finish_rendering()
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (effects_state().screen_blur() != 0) {
-        if (!engine_parts().suppress_draw())
+        if (!engine_parts().suppress_draw()) {
             renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0F, 0);
+        }
         ++effects_state().screen_blur_frames();
         return;
     }
     if (renderer().render_camera().letterbox_active_) {
-        if (!engine_parts().suppress_draw())
+        if (!engine_parts().suppress_draw()) {
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0F, 0);
+        }
     } else if (renderer().render_camera().clear_colour_and_depth_) {
-        if (!engine_parts().suppress_draw())
+        if (!engine_parts().suppress_draw()) {
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0F, 0);
+        }
     } else if (!engine_parts().suppress_draw()) {
         clear_device(0, nullptr, D3DCLEAR_ZBUFFER, renderer().render_camera().background_colour_, 1.0F, 0);
     }

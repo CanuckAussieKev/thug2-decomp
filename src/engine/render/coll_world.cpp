@@ -99,8 +99,9 @@ objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQ
                                   objects::GameEntity* owner)
 {
     hit->owner = get_owner(object);
-    if (collide_with_line(object, line, &query.direction(), hit, &query.box()))
+    if (collide_with_line(object, line, &query.direction(), hit, &query.box())) {
         owner = get_owner(object);
+    }
     hit->owner = nullptr;
     return owner;
 }
@@ -121,13 +122,15 @@ void register_movable(HitMesh* object)
 void unregister_movable(HitMesh* object)
 {
     memory::ListNode* node = collision_state().movables().next();
-    if (node->data() == memory::ListNode::head_marker())
+    if (node->data() == memory::ListNode::head_marker()) {
         return;
+    }
     while (node) {
         memory::ListNode* next = node->next();
         memory::ListNode* following = next->data() == memory::ListNode::head_marker() ? nullptr : next;
-        if (node->data() == object)
+        if (node->data() == object) {
             memory::ListNode::destroy(node);
+        }
         node = following;
     }
 }
@@ -143,14 +146,16 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
         for (int i = 0; i < cache->statics(); ++i) {
             const HitMeshCache::TableRow& entry = core::at(cache->entries(), i);
             if (query.box().intersects(*entry_box(entry)) &&
-                collide_with_line(entry.object, line, &query.direction(), hit, &query.box()))
+                collide_with_line(entry.object, line, &query.direction(), hit, &query.box())) {
                 any = true;
+            }
         }
         return any;
     }
     const std::span<CollGrid* const> grids = grids_along(line);
-    if (grids.empty())
+    if (grids.empty()) {
         return false;
+    }
     const auto& scenes = grid_scenes();
     hit->scene = nullptr;
     for (size_t scene = 0; scene < grids.size(); ++scene) { // (the scene of the grid walked)
@@ -182,23 +187,26 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
 {
     hit->callback = callback;
     objects::GameEntity* owner = nullptr;
-    if (!hit->hit)
+    if (!hit->hit) {
         hit->distance = collision_state().want_farthest() ? kFarthestStart : kNearestStart;
+    }
     LineQuery query(line, cache);
     if (query.use_cache()) {
         const std::span<const HitMeshCache::TableRow> entries =
             std::span<const HitMeshCache::TableRow>(cache->entries()).subspan(static_cast<size_t>(cache->statics()));
         for (int i = 0; i < cache->movables(); ++i) {
-            if (entry_box(core::at(entries, i)) && query.box().intersects(*entry_box(core::at(entries, i))))
+            if (entry_box(core::at(entries, i)) && query.box().intersects(*entry_box(core::at(entries, i)))) {
                 owner = test_movable(core::at(entries, i).object, line, query, hit, owner);
+            }
         }
         return owner;
     }
     for (const memory::ListNode* node = collision_state().movables().next(); node->data() != memory::ListNode::head_marker() && node;
          node = node->next()) {
         auto* object = static_cast<HitMesh*>(node->data());
-        if (object && !(object->flag_bits() & kUnlistedFlags) && may_touch(object, &query.box()))
+        if (object && !(object->flag_bits() & kUnlistedFlags) && may_touch(object, &query.box())) {
             owner = test_movable(object, line, query, hit, owner);
+        }
     }
     return owner;
 }

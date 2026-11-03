@@ -560,8 +560,9 @@ public:
     explicit MapListHolder(MapListNode* l) : list_(l) {}
     ~MapListHolder()
     {
-        if (list_)
+        if (list_) {
             MapListNode::free_node_chain(list_);
+        }
     }
     MapListHolder(const MapListHolder&) = delete;
     MapListHolder& operator=(const MapListHolder&) = delete;
@@ -1243,8 +1244,9 @@ public:
     {
         for (MapListNode* node = abstract_metas_; node; node = node->following()) {
             PieceGroup* meta = node->get_placed_piece();
-            if (meta->name_key() == checksum)
+            if (meta->name_key() == checksum) {
                 return meta;
+            }
         }
         return nullptr;
     }

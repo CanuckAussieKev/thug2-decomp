@@ -79,8 +79,9 @@ PcShatter::~PcShatter()
         own->~MaterialRef(); // (the material's destructor body)
         memory::Hub::dealloc(own);
     }
-    if (positions)
+    if (positions) {
         memory::Hub::dealloc(positions);
+    }
 }
 
 // 0x004B80B0
@@ -109,9 +110,10 @@ namespace {
 // x' = (z m20 + y m10) + x m00 and so on, each rounded to a float (the original's order of operations).
 void get_turn(const maths::Mat4& m, double x, double y, double z, std::span<float, 3> out)
 {
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(out, k) =
             static_cast<float>((z * core::at(m.row, 2)[k]) + (y * core::at(m.row, 1)[k]) + (x * core::at(m.row, 0)[k]));
+    }
 }
 
 int get_rand() { return crt::get_rand(); }                          // (the game's C runtime's)
@@ -184,8 +186,9 @@ void update_shatter(PcShatter* shatter, float step)
     }
     // the normals turned too
     const uint8_t normal_offset = shatter->mesh()->normal_offset();
-    if (!normal_offset)
+    if (!normal_offset) {
         return;
+    }
     for (int i = 0; std::cmp_less(i, shatter->triangle_count()); ++i) {
         const maths::Mat4& m = core::at(shatter->rotation_run(), i);
         for (int v = 0; v < 3; ++v) {
@@ -202,8 +205,9 @@ void update_shatter(PcShatter* shatter, float step)
 void shatter_geom(PcGeom* geom)
 {
     for (MeshRef* const mesh : geom->mesh_run()) {
-        if (core::at(mesh->index_counts(), 0) < 3)
+        if (core::at(mesh->index_counts(), 0) < 3) {
             continue;
+        }
         const uint32_t stride = mesh->stride();
         effects_state().vertex_stack().set_vertex_size(stride); // (the vertex stack's vertex size)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
@@ -247,8 +251,9 @@ void shatter_geom(PcGeom* geom)
             a = b;
             b = c;
         }
-        if (!count)
+        if (!count) {
             continue; // (the buffers left locked, as the original)
+        }
         auto* shatter = memory::make_owned<PcShatter>(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
         const maths::Vec4& direction = effects_state().glass_burst_velocity();
@@ -267,8 +272,9 @@ void shatter_geom(PcGeom* geom)
              static_cast<float>(static_cast<double>(back_w) + 1.0F)}};
         effects_state().shatters().insert(shatter);
         core::Cursor<uint8_t> cursor(std::span<uint8_t>(shatter->vertices(), 3 * static_cast<size_t>(stride) * static_cast<size_t>(count)));
-        while (split_next_triangle(cursor, mesh))
+        while (split_next_triangle(cursor, mesh)) {
             ;
+        }
         const auto piece_count = static_cast<size_t>(cursor.position()) / stride;
         const gpu::VertexView pieces(shatter->vertices(), stride, piece_count);
         int j = 0;
@@ -277,9 +283,10 @@ void shatter_geom(PcGeom* geom)
             const auto q0 = pieces.float3(t);
             const auto q1 = pieces.float3(t + 1);
             const auto q2 = pieces.float3(t + 2);
-            for (int k = 0; k < 3; ++k)
+            for (int k = 0; k < 3; ++k) {
                 centre[k] = static_cast<float>(
                     (static_cast<double>(core::at(q2, k)) + core::at(q1, k) + core::at(q0, k)) * (1.0F / kThird));
+            }
             // a velocity away from the centre at a random speed
             auto pace = static_cast<float>(
                 (get_rand() * static_cast<double>(effects_state().shatter_speed()) * kPerRand * speed) + speed);

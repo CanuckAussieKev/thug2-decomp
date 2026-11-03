@@ -86,8 +86,9 @@ public:
     // original read it). NOT ORIGINAL: past the table, 0 (the original read on into the texture's fields).
     [[nodiscard]] uint32_t get_color(int index) const
     {
-        if (index == 0)
+        if (index == 0) {
             return static_cast<uint16_t>(glyph_gap_) | static_cast<uint32_t>(static_cast<uint16_t>(blank_gap_)) << kBitsPerTwoBytes;
+        }
         return index > 0 && std::cmp_less_equal(index, colors_.size()) ? core::at(colors_, index - 1) : 0;
     }
 

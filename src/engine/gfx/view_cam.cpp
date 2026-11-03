@@ -56,8 +56,9 @@ ViewCam::ViewCam() : h_fov_(render::view_setup().base_fov_angle())
     if (render::view_setup().distance_clipping()) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
         auto distance = static_cast<double>(stored_draw_distance_setting());
-        if (stored_draw_distance_setting() < 0)
+        if (stored_draw_distance_setting() < 0) {
             distance += kCounterWrap;
+        }
         far_clip_ = static_cast<float>(distance * kFarClipScale);
     }
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h).
@@ -85,8 +86,9 @@ void ViewCam::refresh_effective_h_fov()
 // 0x00485B40
 bool ViewCam::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    if (name != kSetHfovRadians)
+    if (name != kSetHfovRadians) {
         return objects::Entity::invoke_method_by_name(name, params, script);
+    }
     // (the original reads the float into the stack slot of `params`: without one, the pointer's bits are the angle)
     float radians = 0.0F;
     std::memcpy(&radians, static_cast<const void*>(&params), 4);

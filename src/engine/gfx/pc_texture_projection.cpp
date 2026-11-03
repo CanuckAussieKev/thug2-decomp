@@ -93,12 +93,15 @@ using Triangle = std::array<ProjectedVertex, 3>;
 // A triangle copied: positions, texture coordinates, then the colours made opaque.
 void copy_triangle(std::span<ProjectedVertex> into, const Triangle& from)
 {
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(into, k).position = core::at(from, k).position;
-    for (int k = 0; k < 3; ++k)
+    }
+    for (int k = 0; k < 3; ++k) {
         core::at(into, k).uv = core::at(from, k).uv;
-    for (int k = 0; k < 3; ++k)
+    }
+    for (int k = 0; k < 3; ++k) {
         core::at(into, k).argb = opaque(core::at(from, k).argb);
+    }
 }
 
 } // namespace
@@ -118,8 +121,9 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
 {
     const uint32_t count = batch_count();
     for (uint32_t i = 0; i < count; ++i) {
-        if (core::at(get_batches(), i).texture() == texture)
+        if (core::at(get_batches(), i).texture() == texture) {
             return &core::at(get_batches(), i);
+        }
     }
     if (count >= kBatchLimit) {
         debug::printf("hmmm\n");
@@ -136,8 +140,9 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
     material->set_two_sided(1);
     material->set_depth_bias(4);
     core::at(material->blend_modes(), 0) = blend_mode_from_name(blend_name);
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(core::at(material->pass_color(), 0), k) = kNeutralPassColour; // its colour
+    }
     core::at(material->address_modes(), 0) = kProjectionAddressModes;
     core::at(material->mip_lod_bias(), 0) = 0;
     material->set_alpha_ref(1);
@@ -174,11 +179,13 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
     ProjectionBatch* batch = nullptr;
     for (void* const sector : core::null_terminated(sectors)) {
         auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle()); // (the sector's geom)
-        if (!geom)
+        if (!geom) {
             continue;
+        }
         for (MeshRef* const mesh : geom->mesh_run()) {
-            if (mesh->flags() & 2)
+            if (mesh->flags() & 2) {
                 continue;
+            }
             uint8_t* vertices = nullptr;
             core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, kLockDiscard);
             const gpu::VertexView mesh_vertices(vertices, mesh->stride(), mesh->vertex_count());
@@ -195,8 +202,9 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 const uint32_t ic = c;
                 a = b;
                 b = c;
-                if (ia == ib || ia == ic || ib == ic)
+                if (ia == ib || ia == ic || ib == ic) {
                     continue;
+                }
                 const std::array<float, 3> a0 = mesh_vertices.float3(ia);
                 const std::array<float, 3> a1 = mesh_vertices.float3(ib);
                 const std::array<float, 3> a2 = mesh_vertices.float3(ic);
@@ -206,17 +214,22 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 transform_coord(t0.data(), a0.data(), &projection());
                 transform_coord(t1.data(), a1.data(), &projection());
                 transform_coord(t2.data(), a2.data(), &projection());
-                if (core::at(t0, 2) < -1.0F && core::at(t1, 2) < -1.0F && core::at(t2, 2) < -1.0F) // (wholly behind)
+                if (core::at(t0, 2) < -1.0F && core::at(t1, 2) < -1.0F && core::at(t2, 2) < -1.0F) { // (wholly behind)
                     continue;
-                if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
+                }
+                if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1),
+                                              core::at(t2, 0), core::at(t2, 1))) {
                     continue;
-                if (!batch) // (null when all ten are taken: the original wrote near null, and so do we)
+                }
+                if (!batch) { // (null when all ten are taken: the original wrote near null, and so do we)
                     batch = get_projection_batch(image_of(bitmap()), blend_mode());
+                }
                 // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
                 uint32_t count = batch->triangle_count();
                 // (a batch left full by the last projection: the original wrote the triangle past its vertices)
-                if ((3 * count) + 2 >= kBatchVertices)
+                if ((3 * count) + 2 >= kBatchVertices) {
                     return; // (the buffers left locked, as for a batch filled by this one)
+                }
                 ProjectedVertex& v0 = core::at(batch->vertices(), 3 * count);
                 ProjectedVertex& v1 = core::at(batch->vertices(), (3 * count) + 1);
                 ProjectedVertex& v2 = core::at(batch->vertices(), (3 * count) + 2);
@@ -261,16 +274,19 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     format->set_color_offset(offsetof(ProjectedVertex, argb)); // (no check: as the original)
                     format->set_uv_offset(offsetof(ProjectedVertex, uv));
                     end = core::Cursor<uint8_t>(std::span<uint8_t>(pieces, kPieceBufferBytes));
-                    while (split_next_triangle(end, format))
+                    while (split_next_triangle(end, format)) {
                         ;
+                    }
                 }
                 // the pieces inside the projection's square, each into the batch's next triangle
                 bool full = false;
                 auto place = [&](const Triangle& piece) {
-                    if (!triangle_overlaps_screen(from_uv(core::at(core::at(piece, 0).uv, 0)), from_uv(core::at(core::at(piece, 0).uv, 1)),
-                                                  from_uv(core::at(core::at(piece, 1).uv, 0)), from_uv(core::at(core::at(piece, 1).uv, 1)),
-                                                  from_uv(core::at(core::at(piece, 2).uv, 0)), from_uv(core::at(core::at(piece, 2).uv, 1))))
+                    if (!triangle_overlaps_screen(
+                            from_uv(core::at(core::at(piece, 0).uv, 0)), from_uv(core::at(core::at(piece, 0).uv, 1)),
+                            from_uv(core::at(core::at(piece, 1).uv, 0)), from_uv(core::at(core::at(piece, 1).uv, 1)),
+                            from_uv(core::at(core::at(piece, 2).uv, 0)), from_uv(core::at(core::at(piece, 2).uv, 1)))) {
                         return;
+                    }
                     copy_triangle(std::span<ProjectedVertex>(batch->vertices()).subspan(3 * static_cast<size_t>(count), 3), piece);
                     ++count;
                     full = (3 * count) + 2 >= kBatchVertices;
@@ -279,15 +295,17 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     // the pieces (made by the splitter as bytes, a projected vertex each)
                     const auto made_count = static_cast<size_t>(end.position()) / sizeof(ProjectedVertex);
                     const gpu::VertexView made(pieces, sizeof(ProjectedVertex), made_count);
-                    for (size_t first = 0; first + 2 < made_count && !full; first += 3)
+                    for (size_t first = 0; first + 2 < made_count && !full; first += 3) {
                         place({{made.value<ProjectedVertex>(first, 0), made.value<ProjectedVertex>(first + 1, 0),
                                 made.value<ProjectedVertex>(first + 2, 0)}});
+                    }
                 } else {
                     place({{v0, v1, v2}});
                 }
                 batch->set_triangle_count(count);
-                if (!full)
+                if (!full) {
                     batch->set_blend_name(blend_mode());
+                }
                 if (fineness()) {
                     if (format) {
                         format->~MeshRef(); // (its destructor body)
@@ -295,8 +313,9 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     }
                     memory::Hub::dealloc(pieces);
                 }
-                if (full)
+                if (full) {
                     return; // (the buffers left locked, as the original)
+                }
             }
             core::at(mesh->index_buffers(), 0)->get_unlock(); // (unlocked)
             core::at(mesh->vertex_buffers(), 0)->get_unlock();
@@ -311,8 +330,9 @@ namespace render {
 // 0x00640D30 (a static initialiser): the ten projection batches (their materials).
 void construct_projection_batches()
 {
-    for (ProjectionBatch& batch : projection_batches())
+    for (ProjectionBatch& batch : projection_batches()) {
         batch.make_new();
+    }
 }
 
 } // namespace render

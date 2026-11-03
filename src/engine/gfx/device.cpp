@@ -145,8 +145,9 @@ void init_direct_3d()
         return;
     }
     D3DDISPLAYMODE mode;
-    if (FAILED(d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &mode)))
+    if (FAILED(d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &mode))) {
         return;
+    }
 
     D3DPRESENT_PARAMETERS& pp = present_parameters();
     pp = D3DPRESENT_PARAMETERS{.SwapEffect = D3DSWAPEFFECT_DISCARD}; // (cleared; its swap effect as set below)
@@ -165,14 +166,16 @@ void init_direct_3d()
     bool multisample = gfx.antialiasing();
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): its sample count, whatever AntiAliasing says.
     graphics_options::choose_multisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, sys::get_windowed());
-    if (graphics_options::chosen_samples())
+    if (graphics_options::chosen_samples()) {
         multisample = true;
+    }
     device_width() = core::at(widths, first);
     device_height() = core::at(heights, first);
     pp.BackBufferWidth = core::at(widths, first);
     pp.BackBufferHeight = core::at(heights, first);
-    if (multisample)
+    if (multisample) {
         pp.MultiSampleType = D3DMULTISAMPLE_2_SAMPLES;
+    }
     pp.PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;
     pp.BackBufferFormat = D3DFMT_X8R8G8B8;
     pp.AutoDepthStencilFormat = D3DFMT_D24X8;
@@ -183,8 +186,9 @@ void init_direct_3d()
     const std::array<std::array<bool, 2>, 4> attempts = {{{true, multisample}, {false, multisample}, {true, false}, {false, false}}};
     bool created = false;
     for (int attempt = 0; attempt < 4 && !created; ++attempt) {
-        if (static_cast<int>(first) >= 4)
+        if (static_cast<int>(first) >= 4) {
             continue;
+        }
         for (unsigned i = first; i < 4; ++i) {
             device_width() = core::at(widths, i);
             device_height() = core::at(heights, i);
@@ -194,8 +198,9 @@ void init_direct_3d()
             }
         }
     }
-    if (!created)
+    if (!created) {
         crt::exit_fatal(0); // the game's exit() (without the static owners' teardown)
+    }
     // Originally from PartyMod Fixes (its NOPs at 0x004D8891): the window is left where it is. The original:
     //   SetWindowPos(Pane(), HWND_TOP, 0, 0, device_width(), device_height(), SWP_NOZORDER);
 
@@ -213,10 +218,12 @@ void init_direct_3d()
     D3DDEVICE_CREATION_PARAMETERS creation;
     device->GetCreationParameters(&creation);
     if (d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, creation.DeviceType, pp.BackBufferFormat, 0, D3DRTYPE_TEXTURE,
-                               D3DFMT_D24S8) == D3D_OK)
+                               D3DFMT_D24S8) == D3D_OK) {
         adapter_info().depth_textures_supported_ = true;
-    for (IDirect3DTexture9*& texture : gfx.screen_textures())
+    }
+    for (IDirect3DTexture9*& texture : gfx.screen_textures()) {
         texture = nullptr;
+    }
     gfx.set_z_buffer_surface(nullptr);
     reset_render_state();
     create_render_targets();
@@ -264,10 +271,11 @@ static_assert(sizeof(D3DADAPTER_IDENTIFIER9) == kD3DADAPTERIDENTIFIER9Bytes, "ze
 BOOL CALLBACK sound_device_found(GUID* /*guid*/, const char* description, const char* /*module*/, void* /*context*/)
 {
     const size_t length = std::strlen(description);
-    if (length > kSoundDeviceNameSize)
+    if (length > kSoundDeviceNameSize) {
         std::memcpy(sound_device_name().data(), description, kSoundDeviceNameCopyBytes); // (strncpy: not terminated, the 200th byte stays)
-    else
+    } else {
         std::memcpy(sound_device_name().data(), description, length + 1);
+    }
     return TRUE; // (all are listed: the last one stays)
 }
 
@@ -302,9 +310,10 @@ HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multis
     // A Radeon 8500 (0x00786AB5)...
     renderer().set_radeon8500(std::strstr(std::data(id.Description), "8500") != nullptr);
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
-    if (std::memcmp(sound_device_name().data(), "Realtek HD Audio rear output", kRearOutputNameBytes) == 0 && id.VendorId == kVendorIdIntel &&
-        id.DeviceId == kDeviceIdRearOutputChipset)
+    if (std::memcmp(sound_device_name().data(), "Realtek HD Audio rear output", kRearOutputNameBytes) == 0 &&
+        id.VendorId == kVendorIdIntel && id.DeviceId == kDeviceIdRearOutputChipset) {
         gfx.set_frequency_setting_allowed(0);
+    }
     return result;
 }
 
@@ -358,15 +367,18 @@ void create_render_targets()
     gfx.set_back_depth(surface);
     renderer().back_buffer()->Release(); // (only the pointers are kept)
     renderer().back_depth()->Release();
-    if (adapter_info().depth_textures_supported_) // depth textures
+    if (adapter_info().depth_textures_supported_) { // depth textures
         gfx.d3d_device()->CreateRenderTarget(kSmallTargetSize, kSmallTargetSize, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
                                          &depth_texture_target(), nullptr);
+    }
     D3DCAPS9 caps;
     gfx.d3d_device()->GetDeviceCaps(&caps);
-    if (caps.PixelShaderVersion >= D3DPS_VERSION(1, 1))
+    if (caps.PixelShaderVersion >= D3DPS_VERSION(1, 1)) {
         renderer().set_shaders_available(true);
-    if (caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET)
+    }
+    if (caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET) {
         gfx.set_stream_offset_supported(true);
+    }
     gfx.set_max_anisotropy(caps.MaxAnisotropy);
     // NOT ORIGINAL - [Graphics] anisotropy and msaa (engine/gfx/graphics_options.h): the anisotropy this device can
     // give, and the multisampled scene surface for the screen copies.
@@ -374,8 +386,9 @@ void create_render_targets()
         graphics_options::get_pull().anisotropy,
         (caps.TextureFilterCaps & kMinAnisotropyFilterCap) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */, caps.MaxAnisotropy);
     graphics_options::create_scene_target();
-    if (caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER)
+    if (caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER) {
         gfx.set_border_addressing_supported(true);
+    }
     gfx.set_blend_factor_supported((caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) && (caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR));
     renderer().set_back_buffer_width(static_cast<int>(pp.BackBufferWidth));
     renderer().set_back_buffer_height(static_cast<int>(pp.BackBufferHeight));
@@ -417,8 +430,9 @@ void show_disc_error()
         timeKillEvent(timer); // (the exe's import)
         gfx.set_loading_bar_timer(0);
     }
-    if (!gfx.draw_device())
+    if (!gfx.draw_device()) {
         init_direct_3d();
+    }
     // "There's a problem with the disc you're using." / "It may be dirty or damaged." in the language
     // (0x007CEFA0: 3 French, 5 German, else English).
     const char* first = nullptr;

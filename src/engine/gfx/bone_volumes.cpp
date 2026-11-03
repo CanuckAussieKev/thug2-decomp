@@ -78,10 +78,11 @@ void world_matrix(maths::Mat4* out, const BoneFrames& bone)
 void parent_world_matrix(maths::Mat4* out, RigData* data, std::span<const maths::Mat4> inverse_binds, int index,
                          const maths::Mat4& parent_pose, const maths::Mat4* world)
 {
-    if (index == 0)
+    if (index == 0) {
         out->reset_to_identity();
-    else
+    } else {
         *out = core::at(inverse_binds, data->fetch_parent_slot(index));
+    }
     out->invert_orthonormal();
     get_multiply(out, out, &parent_pose);
     get_multiply(out, out, world);
@@ -132,8 +133,9 @@ int intersects_segment(BoneVolume& volume, const maths::Seg* segment, float* s)
 // 0x0048B350
 BoneVolumes::BoneVolumes(uint32_t count) : num_(count)
 {
-    if (count)
+    if (count) {
         volumes_ = new_volume_array(num_);
+    }
 }
 
 // 0x0048BEA0
@@ -143,8 +145,9 @@ void BoneVolumes::enrol(uint32_t count)
     num_ = count;
     volumes_ = nullptr;
     users_ = users;
-    if (count)
+    if (count) {
         volumes_ = new_volume_array(num_);
+    }
     get_table().store_entry(count, this);
 }
 
@@ -155,8 +158,9 @@ BoneVolumes* find_bone_volumes(uint32_t count) { return static_cast<BoneVolumes*
 void release_bone_volumes(uint32_t count)
 {
     BoneVolumes* volumes = find_bone_volumes(count);
-    if (--volumes->users() == 0)
+    if (--volumes->users() == 0) {
         get_table().erase_entry(count);
+    }
 }
 
 // 0x0048B430 (no descriptions, or no memory for a volume: a crash, as the original)
@@ -164,17 +168,20 @@ void BoneVolumes::get_fill(RigData* data)
 {
     script::Array* descriptions = script::fetch_list(kBoneDescriptions);
     for (uint32_t i = 1; i < num_; ++i) {
-        if (core::at(volume_run(), i))
+        if (core::at(volume_run(), i)) {
             continue;
+        }
         for (uint32_t j = 0; j < descriptions->extent(); ++j) {
             uint32_t bone = 0;
             descriptions->struct_at(j)->read_hash_value(kBone, &bone, 1);
-            if (bone != core::at(data->names(), i))
+            if (bone != core::at(data->names(), i)) {
                 continue;
+            }
             float radius = kDefaultRadius;
             auto* volume = static_cast<BoneVolume*>(memory::alloc(sizeof(BoneVolume)));
-            if (volume)
+            if (volume) {
                 new (&volume->capsule_) maths::Capsule();
+            }
             core::at(volume_run(), i) = volume;
             descriptions->struct_at(j)->fetch_float(kRadius, &radius, 1);
             core::at(volume_run(), i)->capsule_.radius = radius;
@@ -204,10 +211,13 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         const float radius = volume ? volume->capsule_.radius : 0.0F;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), core::at(parent.row, 3), radius);
         float distance_squared = 0.0F;
-        if (!capsule.intersects_segment(*segment, {.s = nullptr, .t = bone_hit ? &bone_hit->t : nullptr, .squared_gap_ = &distance_squared}))
+        if (!capsule.intersects_segment(
+                *segment, {.s = nullptr, .t = bone_hit ? &bone_hit->t : nullptr, .squared_gap_ = &distance_squared})) {
             return 0;
-        if (bone_hit)
+        }
+        if (bone_hit) {
             bone_hit->distance = static_cast<float>(std::sqrt(static_cast<double>(distance_squared)));
+        }
         return bone;
     }
     float nearest = 0.0F;
@@ -219,17 +229,21 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         maths::Mat4 at{};
         world_matrix(&at, {.inverse_bind_ = &core::at(inverse_binds, i), .pose = &core::at(skeleton->matrices(), i), .world = world});
         core::at(positions, i) = core::at(at.row, 3);
-        if (i == 0)
+        if (i == 0) {
             continue;
+        }
         const maths::Vec4 parent = core::at(positions, data->fetch_parent_slot(i));
         const BoneVolume* volume = core::at(volume_run(), i);
-        if (!volume)
+        if (!volume) {
             continue;
+        }
         double radius = static_cast<double>(largest_scale(bone_state)) * volume->capsule_.radius;
-        if (radius < 0.0 || radius == 0.0) // (NaN goes on)
+        if (radius < 0.0 || radius == 0.0) { // (NaN goes on)
             continue;
-        if (scale > 0.0F)
+        }
+        if (scale > 0.0F) {
             radius *= scale;
+        }
         const maths::Capsule capsule = get_between(core::at(at.row, 3), parent, static_cast<float>(radius + extra_radius));
         float hit_t = 0.0F;
         float distance_squared = 0.0F;
@@ -240,10 +254,12 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
             nearest_t = hit_t;
         }
     }
-    if (bone_hit)
+    if (bone_hit) {
         bone_hit->distance = static_cast<float>(std::sqrt(static_cast<double>(nearest)));
-    if (bone_hit)
+    }
+    if (bone_hit) {
         bone_hit->t = nearest_t;
+    }
     return hit;
 }
 
@@ -261,8 +277,9 @@ bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint3
     pose = *bone_state->parent;
     parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
     float radius = 0.0F;
-    if (const BoneVolume* own = core::at(volume_run(), index))
+    if (const BoneVolume* own = core::at(volume_run(), index)) {
         radius = largest_scale(bone_state) * own->capsule_.radius;
+    }
     *volume = static_cast<float>(capsule_volume(get_between(core::at(at.row, 3), core::at(parent.row, 3), radius)));
     return true;
 }

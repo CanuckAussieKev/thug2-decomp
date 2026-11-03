@@ -68,8 +68,9 @@ bool in_exceptions(uint32_t name)
     script::Array* array = script::fetch_list(kLocalScaleExceptions);
     if (array) {
         for (uint32_t i = 0; i < array->extent(); ++i) {
-            if (array->fetch_part(i) == name)
+            if (array->fetch_part(i) == name) {
                 found = true;
+            }
         }
     }
     return found;
@@ -78,8 +79,9 @@ bool in_exceptions(uint32_t name)
 Joint* find_bone(const Rig* skeleton, uint32_t name)
 {
     for (int i = 0; i < skeleton->bone_total(); ++i) {
-        if (core::at(skeleton->bones(), i).name == name)
+        if (core::at(skeleton->bones(), i).name == name) {
             return &core::at(skeleton->bones(), i);
+        }
     }
     return nullptr;
 }
@@ -88,10 +90,12 @@ Joint* find_bone(const Rig* skeleton, uint32_t name)
 Joint* new_bones(int count)
 {
     auto* memory = static_cast<Joint*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Joint)));
-    if (!memory)
+    if (!memory) {
         return nullptr;
-    for (Joint& bone : std::span<Joint>(memory, static_cast<std::size_t>(count)))
+    }
+    for (Joint& bone : std::span<Joint>(memory, static_cast<std::size_t>(count))) {
         bone = {.name = 0, .parent = nullptr, .flags = 0, .scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F}};
+    }
     return memory;
 }
 
@@ -129,8 +133,9 @@ RigData::~RigData()
 int RigData::fetch_slot_no(uint32_t name)
 {
     for (int i = 0; i < num_; ++i) {
-        if (core::at(names_, i) == name)
+        if (core::at(names_, i) == name) {
             return i;
+        }
     }
     return 0;
 }
@@ -143,8 +148,9 @@ bool RigData::is_descendant(uint32_t bone, uint32_t ancestor)
 {
     while (bone > ancestor) {
         auto parent = static_cast<uint32_t>(fetch_parent_slot(static_cast<int>(bone)));
-        if (parent == ancestor)
+        if (parent == ancestor) {
             return true;
+        }
         bone = parent;
     }
     return false;
@@ -207,15 +213,18 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool /*unused*/)
 // 0x004A3D30
 Rig::Rig(RigData* data)
 {
-    if (data->flag_bits() & 1)
+    if (data->flag_bits() & 1) {
         flag_bits_ = kMirrorData;
+    }
     bone_array_ = new_bones(data->num());
     matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(data->num()) << kMat4ByteShift));
     bone_total_ = data->num();
-    for (int i = 0; i < data->num(); ++i)
+    for (int i = 0; i < data->num(); ++i) {
         set_identity(core::at(matrices(), i));
-    for (int i = 0; i < data->num(); ++i)
+    }
+    for (int i = 0; i < data->num(); ++i) {
         core::at(bones(), i).name = core::at(data->names(), i); // (no check for bones without memory, as the original)
+    }
     link_bones(data);
     payload_ = data;
     max_lod_ = kMaxLod;
@@ -227,10 +236,12 @@ Rig* Rig::construct_copy(const Rig* other)
     bone_total_ = other->payload_->num();
     bone_array_ = new_bones(bone_total_);
     matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(bone_total_) << kMat4ByteShift));
-    for (int i = 0; i < bone_total_; ++i)
+    for (int i = 0; i < bone_total_; ++i) {
         std::memcpy(&core::at(matrices(), i), &core::at(other->matrices(), i), sizeof(maths::Mat4));
-    for (int i = 0; i < other->payload_->num(); ++i)
+    }
+    for (int i = 0; i < other->payload_->num(); ++i) {
         core::at(bones(), i).name = core::at(other->payload_->names(), i);
+    }
     link_bones(other->payload_);
     for (int i = 0; i < bone_total_; ++i) {
         core::at(bones(), i).flags = core::at(other->bones(), i).flags;
@@ -255,8 +266,9 @@ Rig::~Rig()
 int Rig::fetch_bone_slot(uint32_t name) const
 {
     for (int i = 0; i < bone_total_; ++i) {
-        if (core::at(bones(), i).name == name)
+        if (core::at(bones(), i).name == name) {
             return i;
+        }
     }
     return -1;
 }
@@ -265,8 +277,9 @@ int Rig::fetch_bone_slot(uint32_t name) const
 bool Rig::enable_bone(uint32_t name, bool active) const
 {
     Joint* bone = find_bone(this, name);
-    if (!bone)
+    if (!bone) {
         return false;
+    }
     bone->flags = (bone->flags & ~Joint::kInactive) | (active ? 0U : Joint::kInactive);
     return true;
 }
@@ -285,8 +298,9 @@ void Rig::reset_bone_scales() const
 bool Rig::fetch_bone_sizing(uint32_t name, maths::Vec4* scale) const
 {
     const Joint* bone = find_bone(this, name);
-    if (!bone)
+    if (!bone) {
         return false;
+    }
     *scale = bone->scale;
     return true;
 }
@@ -295,15 +309,17 @@ bool Rig::fetch_bone_sizing(uint32_t name, maths::Vec4* scale) const
 bool Rig::change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local) const
 {
     Joint* bone = find_bone(this, name);
-    if (!bone)
+    if (!bone) {
         return false;
+    }
     bone->scale = *scale;
     // (exactly 1 compared as bit patterns)
     auto is_one = [](float value) { return std::bit_cast<uint32_t>(value) == kOneBits; };
     const bool one = is_one(scale->x) && is_one(scale->y) && is_one(scale->z);
     bone->flags &= ~(Joint::kScaled | Joint::kScaledLocal);
-    if (!one)
+    if (!one) {
         bone->flags |= local ? Joint::kScaledLocal : Joint::kScaled;
+    }
     return true;
 }
 
@@ -313,14 +329,17 @@ void Rig::copy_bone_scales(const Rig* other, bool check_list) const
     const RigData* data = other->payload_;
     for (int i = 0; i < data->num(); ++i) {
         const uint32_t name = core::at(data->names(), i);
-        if (!find_bone(this, name))
+        if (!find_bone(this, name)) {
             continue;
+        }
         maths::Vec4 scale{};
-        if (!other->fetch_bone_sizing(name, &scale))
+        if (!other->fetch_bone_sizing(name, &scale)) {
             continue;
+        }
         bool local = true;
-        if (check_list && in_exceptions(name))
+        if (check_list && in_exceptions(name)) {
             local = false;
+        }
         change_bone_sizing(name, &scale, local);
     }
 }
@@ -328,23 +347,28 @@ void Rig::copy_bone_scales(const Rig* other, bool check_list) const
 // 0x004A3570
 bool Rig::apply_bone_scales(script::Struct* params) const
 {
-    if (!params)
+    if (!params) {
         return false;
+    }
     int not_local = 0;
     params->fetch_int_value(kNotLocal, &not_local, 0);
     bool local = not_local == 0; // (once a bone of the exceptions is met, false for the rest - as the original)
     for (int i = 0; i < bone_total_; ++i) {
         script::VectorValue given{};
-        if (!params->fetch_vec(core::at(bones(), i).name, &given, 0))
+        if (!params->fetch_vec(core::at(bones(), i).name, &given, 0)) {
             continue;
+        }
         uint32_t name = core::at(bones(), i).name;
-        if ((flag_bits_ & kMirrorData) && name == kMirroredBone)
+        if ((flag_bits_ & kMirrorData) && name == kMirroredBone) {
             name = kMirroredBoneScale;
-        if (in_exceptions(name))
+        }
+        if (in_exceptions(name)) {
             local = false;
+        }
         maths::Vec4 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
-        if (!fetch_bone_sizing(name, &scale))
+        if (!fetch_bone_sizing(name, &scale)) {
             continue;
+        }
         scale = {.x = given.x * scale.x, .y = given.y * scale.y, .z = given.z * scale.z, .w = 1.0F};
         change_bone_sizing(name, &scale, local);
     }
@@ -379,12 +403,14 @@ void Rig::link_bones(RigData* data) const
 // 0x004A36E0
 bool Rig::read_joint_matrix(uint32_t name, maths::Mat4* out)
 {
-    if (!find_bone(this, name))
+    if (!find_bone(this, name)) {
         return false;
+    }
     maths::Mat4 result = bone_space(this, fetch_bone_slot(name));
     for (int i = 0; i < bone_total_; ++i) {
-        if (core::at(bones(), i).name != kTurnBone)
+        if (core::at(bones(), i).name != kTurnBone) {
             continue;
+        }
         const maths::Vec4 translation = core::at(result.row, 3);
         core::at(result.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         maths::Mat4 turn{};
@@ -400,8 +426,9 @@ bool Rig::read_joint_matrix(uint32_t name, maths::Mat4* out)
 // 0x004A3870
 bool Rig::get_bone_position(uint32_t name, maths::Vec4* out)
 {
-    if (!find_bone(this, name))
+    if (!find_bone(this, name)) {
         return false;
+    }
     const maths::Mat4 result = bone_space(this, fetch_bone_slot(name));
     *out = core::at(result.row, 3);
     return true;
@@ -419,10 +446,11 @@ void Rig::blit(const maths::Mat4* world, uint32_t start_colour, uint32_t end_col
         get_multiply(&bone, &bone, world);
         matrix = *core::at(bones(), i).parent;
         maths::Mat4 parent{};
-        if (i == 0)
+        if (i == 0) {
             set_identity(parent);
-        else
+        } else {
             parent = core::at(inverse_bind, payload_->fetch_parent_slot(i));
+        }
         parent.invert_orthonormal();
         get_multiply(&parent, &parent, &matrix);
         get_multiply(&parent, &parent, world);
@@ -466,15 +494,18 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::
     if (mirror) {
         core::at(m, 0) = -core::at(m, 0);
         if (swap_z) {
-            for (const int i : {5, 6, 8, 12})
+            for (const int i : {5, 6, 8, 12}) {
                 core::at(m, i) = -core::at(m, i);
+            }
         } else {
-            for (const int i : {1, 2, 4, 5, 6})
+            for (const int i : {1, 2, 4, 5, 6}) {
                 core::at(m, i) = -core::at(m, i);
+            }
         }
     } else if (swap_z) {
-        for (const int i : {1, 2, 4, 8, 12})
+        for (const int i : {1, 2, 4, 8, 12}) {
             core::at(m, i) = -core::at(m, i);
+        }
     }
 }
 
@@ -487,8 +518,9 @@ void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* tr
     for (int i = 0; i < bone_total_; ++i) {
         const Joint& bone = core::at(bones(), i);
         maths::Mat4& matrix = core::at(matrices(), i);
-        if (bone.flags & Joint::kInactive)
+        if (bone.flags & Joint::kInactive) {
             continue;
+        }
         if (core::at(payload_->lod_masks(), i) & lod_bit) { // (collapsed into its parent at this LOD)
             matrix = *bone.parent;
             continue;
@@ -501,15 +533,17 @@ void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* tr
                 continue;
             }
         }
-        if (i != 0)
+        if (i != 0) {
             get_multiply(&matrix, &matrix, bone.parent);
+        }
     }
     const std::span<maths::Mat4> inverse_bind = payload_->inverse_binds();
     for (int i = 0; i < bone_total_; ++i) {
         const Joint& bone = core::at(bones(), i);
         maths::Mat4& matrix = core::at(matrices(), i);
-        if (bone.flags & Joint::kInactive)
+        if (bone.flags & Joint::kInactive) {
             continue;
+        }
         bool collapsed = false;
         if (bone.flags & Joint::kScaledLocal) {
             for (int k = 0; k < 4; ++k) {
@@ -522,8 +556,9 @@ void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* tr
                 collapsed = true;
             }
         }
-        if (!collapsed)
+        if (!collapsed) {
             get_multiply(&matrix, &core::at(inverse_bind, i), &matrix);
+        }
         core::at(matrix.row, 0).w = 0.0F;
         core::at(matrix.row, 1).w = 0.0F;
         core::at(matrix.row, 2).w = 0.0F;
@@ -537,26 +572,31 @@ void Rig::tick_frame(const Stance* pose) { tick_frame(pose->rotations.data(), po
 // 0x004A4000
 void Rig::collapse_zero_scaled_bones()
 {
-    if (!(flag_bits_ & kCollapseZeroScaled))
+    if (!(flag_bits_ & kCollapseZeroScaled)) {
         return;
+    }
     int first = 1;
     while (true) {
-        if (first >= bone_total_)
+        if (first >= bone_total_) {
             return;
-        if (!zero_scale(core::at(bones(), first).scale))
+        }
+        if (!zero_scale(core::at(bones(), first).scale)) {
             break;
+        }
         ++first;
     }
     maths::Mat4* root = &core::at(matrices(), 0);
     const maths::Mat4* scaled = &core::at(matrices(), first);
-    if (!scaled) // (the original checks the address)
+    if (!scaled) { // (the original checks the address)
         return;
+    }
     set_collapsed(*root);
     core::at(root->row, 3) = core::at(scaled->row, 3);
     get_bone_position(core::at(bones(), first).name, &core::at(core::at(matrices(), 0).row, 3));
     for (int i = 0; i < bone_total_; ++i) {
-        if (!zero_scale(core::at(bones(), i).scale))
+        if (!zero_scale(core::at(bones(), i).scale)) {
             continue;
+        }
         set_collapsed(core::at(matrices(), i));
         core::at(core::at(matrices(), i).row, 3) = core::at(core::at(matrices(), 0).row, 3);
     }

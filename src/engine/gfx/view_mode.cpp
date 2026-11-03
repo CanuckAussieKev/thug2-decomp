@@ -31,15 +31,17 @@ std::string unlit_shader_source(const std::string& source)
 {
     // The version line first ("ps.1.1"); the constant must be free.
     const size_t version_end = source.find('\n');
-    if (!source.starts_with("ps.") || version_end == std::string::npos)
+    if (!source.starts_with("ps.") || version_end == std::string::npos) {
         return {};
+    }
     auto is_name = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
     const std::string constant = "c" + std::to_string(kUnlitConstant);
     for (size_t at = source.find(constant); at != std::string::npos; at = source.find(constant, at + 1)) {
         const bool before = at == 0 || !is_name(core::at(source, at - 1));
         const bool after = at + constant.size() >= source.size() || !is_name(core::at(source, at + constant.size()));
-        if (before && after)
+        if (before && after) {
             return {};
+        }
     }
     // v0 as a whole operand (not v0.a / v0.w, its alpha): the constant instead. Comments (after ';') are left.
     std::string out;
@@ -48,10 +50,11 @@ std::string unlit_shader_source(const std::string& source)
     bool comment = false;
     for (size_t i = 0; i < source.size(); ++i) {
         const char c = core::at(source, i);
-        if (c == '\n')
+        if (c == '\n') {
             comment = false;
-        else if (c == ';')
+        } else if (c == ';') {
             comment = true;
+        }
         const bool v0 = !comment && c == 'v' && i + 1 < source.size() && core::at(source, i + 1) == '0' &&
                         (i == 0 || !is_name(core::at(source, i - 1))) && (i + 2 >= source.size() || !is_name(core::at(source, i + 2)));
         if (v0) {
@@ -66,8 +69,9 @@ std::string unlit_shader_source(const std::string& source)
         }
         out += c;
     }
-    if (!changed)
+    if (!changed) {
         return source;
+    }
     // The constant's definition right after the version line (ps.1.x: defs before any other instruction).
     out.insert(version_end + 1, "def " + constant + ", 0.5, 0.5, 0.5, 0.5\n");
     return out;
@@ -138,17 +142,20 @@ void* make_twin(void* original, Twin* twin)
     void* errors = nullptr;
     IDirect3DPixelShader9* made = nullptr;
     const long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
-    if (result >= 0 && code && renderer().d3d_device())
+    if (result >= 0 && code && renderer().d3d_device()) {
         renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)), &made);
+    }
     if (!made && !view_mode_state().assemble_failed_logged_) {
         view_mode_state().assemble_failed_logged_ = true;
         get_log("view mode: an unlit twin of a pixel shader couldn't be made (%08lX) - drawn lit:\n%s",
                 static_cast<unsigned long>(result), text.c_str());
     }
-    if (code)
+    if (code) {
         get_release(code);
-    if (errors)
+    }
+    if (errors) {
         get_release(errors);
+    }
     twin->shader = made ? made : original;
     return twin->shader;
 }
@@ -159,15 +166,17 @@ Mode at_hand() { return view_mode_state().mode_; }
 
 void assign_value(Mode mode)
 {
-    if (mode == view_mode_state().mode_ || mode >= Mode::kCount)
+    if (mode == view_mode_state().mode_ || mode >= Mode::kCount) {
         return;
+    }
     // Wireframe: the game's render mode (wireframe.h), put back when the mode goes - unless something else set it.
     if (mode == Mode::kWireframe && engine_parts().render_mode() == 0) {
         engine_parts().set_render_mode(1);
         view_mode_state().set_render_mode_ = true;
     } else if (view_mode_state().mode_ == Mode::kWireframe && view_mode_state().set_render_mode_) {
-        if (engine_parts().render_mode() == 1)
+        if (engine_parts().render_mode() == 1) {
             engine_parts().set_render_mode(0);
+        }
         view_mode_state().set_render_mode_ = false;
     }
     view_mode_state().mode_ = mode;
@@ -177,16 +186,19 @@ void assign_value(Mode mode)
 void begin_world()
 {
     view_mode_state().in_world_ = true;
-    if (view_mode_state().mode_ == Mode::kUnlit)
+    if (view_mode_state().mode_ == Mode::kUnlit) {
         renderer().set_current_pixel_shader(nullptr); // (the next SetPixelShader sends the twin)
-    if (view_mode_state().mode_ == Mode::kCollisionOnly && renderer().d3d_device())
+    }
+    if (view_mode_state().mode_ == Mode::kCollisionOnly && renderer().d3d_device()) {
         renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, kViewModeClearColour, 1.0F, 0);
+    }
 }
 
 void end_world()
 {
-    if (view_mode_state().in_world_ && view_mode_state().mode_ == Mode::kUnlit)
+    if (view_mode_state().in_world_ && view_mode_state().mode_ == Mode::kUnlit) {
         renderer().set_current_pixel_shader(nullptr); // (the 2D gets the originals again)
+    }
     view_mode_state().in_world_ = false;
 }
 
@@ -194,22 +206,26 @@ bool world_hidden() { return view_mode_state().in_world_ && view_mode_state().mo
 
 void* device_shader(void* shader)
 {
-    if (!view_mode_state().in_world_ || view_mode_state().mode_ != Mode::kUnlit || !shader)
+    if (!view_mode_state().in_world_ || view_mode_state().mode_ != Mode::kUnlit || !shader) {
         return shader;
+    }
     auto found = twins().find(shader);
-    if (found == twins().end())
+    if (found == twins().end()) {
         return shader; // (its source wasn't seen: drawn lit)
+    }
     Twin& twin = found->second;
     return twin.tried ? twin.shader : make_twin(shader, &twin);
 }
 
 void note_shader_source(void* shader, const char* source)
 {
-    if (!shader || !source)
+    if (!shader || !source) {
         return;
+    }
     Twin& twin = twins()[shader];
-    if (twin.tried && twin.shader && twin.shader != shader)
+    if (twin.tried && twin.shader && twin.shader != shader) {
         static_cast<IDirect3DPixelShader9*>(twin.shader)->Release();
+    }
     twin = Twin{};
     twin.source = source;
 }
@@ -217,8 +233,9 @@ void note_shader_source(void* shader, const char* source)
 void forget_shaders()
 {
     for (auto& entry : twins()) {
-        if (entry.second.tried && entry.second.shader && entry.second.shader != entry.first)
+        if (entry.second.tried && entry.second.shader && entry.second.shader != entry.first) {
             static_cast<IDirect3DPixelShader9*>(entry.second.shader)->Release();
+        }
     }
     twins().clear();
 }

@@ -72,8 +72,9 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         m->set_unknown18(core::at(record.extra, 1));
     }
     m->set_specular_power(record.specular_power);
-    if (m->specular_power() > 0.0F)
+    if (m->specular_power() > 0.0F) {
         std::memcpy(m->specular().data(), record.specular.data(), sizeof(m->specular()));
+    }
     bool all_half = true;
     for (uint32_t pass = 0; pass < m->pass_count(); ++pass) {
         const scene_format::MaterialPass& in = core::at(record.passes, pass);
@@ -82,13 +83,15 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         const uint32_t half = 0x3F000000;
         const std::array<float, 4>& colour = core::at(m->pass_color(), pass);
         if (all_half && (!core::has_bits(core::at(colour, 0), half) || !core::has_bits(core::at(colour, 1), half) ||
-                         !core::has_bits(core::at(colour, 2), half)))
+                         !core::has_bits(core::at(colour, 2), half))) {
             all_half = false;
+        }
         core::at(m->blend_modes(), pass) = (in.blend_mode & kBlendModeMask) | in.fixed_alpha << kAlphaShift;
         core::at(core::at(m->pass_color(), pass), 3) =
             static_cast<float>(static_cast<double>(in.fixed_alpha) * (1.0F / kAlphaScale)); // the fixed alpha
-        if (pass == 0 && !keep_culling && (core::at(m->blend_modes(), 0) & kBlendModeMask))
+        if (pass == 0 && !keep_culling && (core::at(m->blend_modes(), 0) & kBlendModeMask)) {
             m->set_two_sided(1);
+        }
         core::at(m->address_modes(), pass) = in.address_v << kAddressVShift | in.address_u;
         std::memcpy(core::at(m->reflection_tiling(), pass).data(), in.reflection_tiling.data(), sizeof(in.reflection_tiling));
         core::at(m->unknownc0(), pass) = in.unknown_c0;
@@ -139,13 +142,16 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         const double lod = static_cast<double>(in.mip_lod_bias) + 8.0F;
         auto stored = static_cast<float>(lod);
         std::memcpy(&core::at(m->mip_lod_bias(), pass), &stored, 4);
-        if (lod > 0.0)
+        if (lod > 0.0) {
             core::at(m->mip_lod_bias(), pass) = 0; // (no more than 0)
+        }
     }
-    if (all_half)
+    if (all_half) {
         core::at(m->pass_flags(), 0) |= kPassFlagNoColourChange; // (no pass changes its colour)
-    if (m->specular_power() > 0.0F)
+    }
+    if (m->specular_power() > 0.0F) {
         core::at(m->pass_flags(), 0) |= kPassFlagSpecular;
+    }
     return m;
 }
 
@@ -167,8 +173,9 @@ lists::KeyMap* read_materials(Stream& in, const lists::KeyMap* textures)
             break;
         }
         MaterialRef* m = make_material(record, textures);
-        if (!table->fetch_entry(m->checksum()))
+        if (!table->fetch_entry(m->checksum())) {
             table->store_entry(m->checksum(), m);
+        }
     }
     return table;
 }

@@ -57,12 +57,14 @@ bool UserClipKey::inside_range(float start, float end, bool inclusive)
 {
     const double frame = tick_;
     if (inclusive) {
-        if (start < end)
+        if (start < end) {
             return frame >= start && frame <= end;
+        }
         return frame <= start && frame >= end;
     }
-    if (start < end)
+    if (start < end) {
         return frame >= start && frame < end;
+    }
     return frame <= start && frame > end;
 }
 
@@ -72,8 +74,9 @@ void UserClipKey::change_live(bool active) { armed_ = active; }
 // 0x00486160
 bool UserClipKey::process_if_active(void* object)
 {
-    if (!armed_)
+    if (!armed_) {
         return false;
+    }
     armed_ = false;
     return work_on(object);
 }
@@ -98,10 +101,11 @@ bool CameraFovKey::work_on(void* camera)
 bool ScriptKey::work_on(void* object)
 {
     read_debug_global();
-    if (own_script_ == kScriptA)
+    if (own_script_ == kScriptA) {
         own_script_ = kScriptARedirect;
-    else if (own_script_ == kScriptB)
+    } else if (own_script_ == kScriptB) {
         own_script_ = kScriptBRedirect;
+    }
     script::launch_script(own_script_, nullptr, static_cast<objects::Entity*>(object), false, nullptr);
     return true;
 }
@@ -110,8 +114,9 @@ bool ScriptKey::work_on(void* object)
 bool StructureScriptKey::work_on(void* /*object*/)
 {
     read_debug_global();
-    if (script::Struct* structure = script::read_sub_struct(structure_))
+    if (script::Struct* structure = script::read_sub_struct(structure_)) {
         script::launch_script(kStructureScript, structure, nullptr, false, nullptr);
+    }
     return true;
 }
 
@@ -150,22 +155,26 @@ bool CameraKey::inside_range(float start, float end, bool inclusive)
 {
     const double frame = tick();
     if (start < end) {
-        if (cut_ ? end > frame : frame < static_cast<double>(end) - 1.0)
+        if (cut_ ? end > frame : frame < static_cast<double>(end) - 1.0) {
             return false;
-        if (!(frame >= static_cast<double>(start) - 1.0))
+        }
+        if (!(frame >= static_cast<double>(start) - 1.0)) {
             return false;
+        }
         return inclusive ? frame <= end : frame < end;
     }
-    if (!(frame <= static_cast<double>(start) + 1.0))
+    if (!(frame <= static_cast<double>(start) + 1.0)) {
         return false;
+    }
     return inclusive ? frame >= end : frame > end;
 }
 
 // 0x00486390
 bool CameraKey::work_on(void* object)
 {
-    if (!tick())
+    if (!tick()) {
         return false;
+    }
     read_debug_global();
     auto* camera = static_cast<ViewCam*>(object);
     maths::Vec4* pos = camera->fetch_location();
@@ -213,8 +222,9 @@ bool AnimScriptKey::work_on(void* object)
 gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
 {
     anim_format::CustomKey key;
-    if (!anim_format::read_custom_key(reader, &key))
+    if (!anim_format::read_custom_key(reader, &key)) {
         return nullptr;
+    }
     switch (key.kind) {
     case 1:
         return new CameraFovKey({.frame = key.frame, .degrees = core::at(key.values, 0)});

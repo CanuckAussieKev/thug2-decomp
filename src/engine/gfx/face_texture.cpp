@@ -147,8 +147,9 @@ bool read_point(Struct* params, uint32_t name, std::array<int, 2>& point)
 {
     Array* array = nullptr;
     params->fetch_list(name, &array, 0);
-    if (!array)
+    if (!array) {
         return false;
+    }
     std::get<0>(point) = static_cast<int>(array->fetch_part(0));
     std::get<1>(point) = static_cast<int>(array->fetch_part(1));
     return true;
@@ -179,8 +180,9 @@ void set_face_overlay(render::BitmapTexture* overlay) { face_overlay() = overlay
 bool read_face_points(FaceAnchors* points, Struct* params)
 {
     if (!read_point(params, kLeftEye, points->left_eye_) || !read_point(params, kRightEye, points->right_eye_) ||
-        !read_point(params, kNose, points->nose_slot_) || !read_point(params, kLips, points->mouth_part_))
+        !read_point(params, kNose, points->nose_slot_) || !read_point(params, kLips, points->mouth_part_)) {
         return false;
+    }
     points->has_hsv_ = params->fetch_float(kH, &points->h_, 0);
     points->has_hsv_ = params->fetch_float(kS, &points->s_, 0) && points->has_hsv_;
     points->has_hsv_ = params->fetch_float(kV, &points->v_, 0) && points->has_hsv_;
@@ -222,12 +224,15 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
         core::at(face.right_eye_, 0) = x;
     }
     const int nose_y = core::at(face.nose_slot_, 1);
-    if (core::at(face.left_eye_, 1) > nose_y)
+    if (core::at(face.left_eye_, 1) > nose_y) {
         core::at(face.left_eye_, 1) = nose_y - 1;
-    if (core::at(face.right_eye_, 1) >= nose_y)
+    }
+    if (core::at(face.right_eye_, 1) >= nose_y) {
         core::at(face.right_eye_, 1) = nose_y - 2;
-    if (core::at(face.mouth_part_, 1) <= nose_y)
+    }
+    if (core::at(face.mouth_part_, 1) <= nose_y) {
         core::at(face.mouth_part_, 1) = nose_y + 2;
+    }
 
     const FaceAnchors& model = active_face_anchors();
     const int model_nose_x = core::at(model.nose_slot_, 0);
@@ -249,32 +254,36 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
     const double scale_left =
         static_cast<double>(core::at(face.nose_slot_, 0) + dx) / static_cast<double>(core::at(face.nose_slot_, 0) - core::at(face.left_eye_, 0));
     int amount = ftol((scale_left * (core::at(model.left_eye_, 0) - dx - core::at(face.left_eye_, 0))) + kRoundHalf);
-    if (amount < 0)
+    if (amount < 0) {
         get_stretch(texture, model_nose_x, 0, amount);
-    else
+    } else {
         stack_on(texture, model_nose_x, 0, amount, use_colour, colour);
+    }
     // Right of it
     amount =
         ftol((static_cast<double>(core::at(model.right_eye_, 0) - dx - core::at(face.right_eye_, 0)) * scale_right) +
              kRoundHalf);
-    if (amount >= 0)
+    if (amount >= 0) {
         get_stretch(texture, model_nose_x, 0, amount);
-    else
+    } else {
         stack_on(texture, model_nose_x, 0, amount, use_colour, colour);
+    }
     // Above it
     amount = ftol((static_cast<double>(model_eyes_y - eyes_y) * scale_up) + kRoundHalf);
-    if (amount < 0)
+    if (amount < 0) {
         get_stretch(texture, model_nose_y, 1, amount);
-    else
+    } else {
         stack_on(texture, model_nose_y, 1, amount, use_colour, colour);
+    }
     // Below it
     amount =
         ftol((static_cast<double>(core::at(model.mouth_part_, 1) - dy - core::at(face.mouth_part_, 1)) * scale_down) +
              kRoundHalf);
-    if (amount >= 0)
+    if (amount >= 0) {
         get_stretch(texture, model_nose_y, 1, amount);
-    else
+    } else {
         stack_on(texture, model_nose_y, 1, amount, use_colour, colour);
+    }
     return true;
 }
 
@@ -287,10 +296,12 @@ bool massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* poi
     begin_edit(texture);
     memory::Hub::get_pull()->leave_heap_scope();
     fit_face_texture(texture, points, use_colour, colour);
-    if (points->has_hsv_)
+    if (points->has_hsv_) {
         shift_hsv(texture, points->h_, points->s_, points->v_);
-    if (face_overlay())
+    }
+    if (face_overlay()) {
         draw_over(texture, face_overlay(), generate_palette);
+    }
     end_edit(texture, generate_palette);
     return true;
 }
@@ -345,8 +356,9 @@ std::size_t FaceSkin::read_from(std::span<const uint8_t> buffer)
     // (NOT ORIGINAL: a run too short for the image and the points reads nothing; a name too long for the field is
     // cut to fit - the original read on past the run and wrote past the field)
     constexpr std::size_t kHead = kTexelEdge + sizeof(path_vertices_);
-    if (buffer.size() < kHead)
+    if (buffer.size() < kHead) {
         return 0;
+    }
     core::copy_into(buffer.first(kTexelEdge), std::span<uint8_t>(image_));
     std::memcpy(&path_vertices_, buffer.subspan(kTexelEdge, sizeof(path_vertices_)).data(), sizeof(path_vertices_));
     const std::span<const uint8_t> rest = buffer.subspan(kHead);
@@ -447,8 +459,9 @@ bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Script* /*sc
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0U, &name, 0);
-    if (render::BitmapTexture* texture = gfx::find_texture(name))
+    if (render::BitmapTexture* texture = gfx::find_texture(name)) {
         gfx::set_face_overlay(texture);
+    }
     return true;
 }
 
@@ -458,8 +471,9 @@ bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Script* /*s
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);
     render::BitmapTexture* texture = gfx::find_texture(name);
-    if (texture && gfx::face_overlay())
+    if (texture && gfx::face_overlay()) {
         gfx::draw_over(texture, gfx::face_overlay(), false);
+    }
     return true;
 }
 
@@ -491,8 +505,9 @@ bool cfunc_massage_face_texture(Struct* params, script::Script* /*script*/)
         bool generate_palette = true;
         Struct* points_params = nullptr;
         params->read_sub_struct(gfx::kFacePoints, &points_params, 0);
-        if (params->has_bare_flag(gfx::kNoPaletteGen))
+        if (params->has_bare_flag(gfx::kNoPaletteGen)) {
             generate_palette = false;
+        }
         if (points_params) {
             FaceAnchors points{}; // (the original's isn't cleared)
             gfx::read_face_points(&points, points_params);

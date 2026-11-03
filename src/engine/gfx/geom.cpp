@@ -92,8 +92,9 @@ std::span<MeshRef*> scene_meshes(SceneRef* scene) { return scene->mesh_run(); }
 gsl::owner<Singleton*> new_instance(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones)
 {
     void* memory = memory::alloc(sizeof(Singleton));
-    if (!memory)
+    if (!memory) {
         return nullptr;
+    }
     return memory::construct_in<Singleton>(memory, scene, transform, bone_count, bones);
 }
 // A new UV wibble (0x004D1A60, on 0x30 bytes from the heap).
@@ -106,8 +107,9 @@ gsl::owner<UvOscillator*> new_uv_wibble()
 void get_identity(maths::Mat4* m)
 {
     const std::span<float, 16> f = m->floats();
-    for (int i = 0; i < maths::kMatrixFloats; ++i)
+    for (int i = 0; i < maths::kMatrixFloats; ++i) {
         core::at(f, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
+    }
 }
 
 // A byte colour channel as the float the meshes keep (x87: the integer times the float 1/255, rounded once).
@@ -191,12 +193,14 @@ void PcGeom::append_mesh(MeshRef* mesh)
 // 0x004B5360
 void PcGeom::make_mesh_table(void* vertex_arena)
 {
-    if (meshes_)
+    if (meshes_) {
         return;
+    }
     auto is_head = [](const ListNode* node) { return node->data() == memory::ListNode::head_marker(); };
     uint32_t count = 0;
-    for (ListNode* node = load_list_->next(); !is_head(node) && node; node = node->next())
+    for (ListNode* node = load_list_->next(); !is_head(node) && node; node = node->next()) {
         ++count;
+    }
     mesh_count_ = count;
     if (count) {
         meshes_ = static_cast<MeshRef**>(memory::alloc(4 * count));
@@ -206,8 +210,9 @@ void PcGeom::make_mesh_table(void* vertex_arena)
                 ListNode* next = is_head(node->next()) ? nullptr : node->next();
                 core::at(mesh_run(), i) = static_cast<MeshRef*>(node->data());
                 ListNode::destroy(node); // (0x004B5E50: unlinked, freed)
-                if (vertex_arena)
+                if (vertex_arena) {
                     core::at(mesh_run(), i)->move_into_arena(static_cast<VertexArena*>(vertex_arena));
+                }
                 node = next;
             }
         }
@@ -219,11 +224,13 @@ void PcGeom::make_mesh_table(void* vertex_arena)
 // 0x004B5440
 void PcGeom::free_mesh_table()
 {
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     if (scene_) {
-        if (SceneRef* list = scene_->meshes())
+        if (SceneRef* list = scene_->meshes()) {
             list->detach_meshes(mesh_run());
+        }
     }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         if (MeshRef* mesh = core::at(mesh_run(), i)) {
@@ -239,10 +246,11 @@ void PcGeom::free_mesh_table()
 bool PcGeom::add_to_mesh_list(bool count)
 {
     SceneRef* list = scene_->meshes();
-    if (count)
+    if (count) {
         list->mesh_total(mesh_run());
-    else
+    } else {
         list->append_meshes(mesh_run());
+    }
     return true;
 }
 
@@ -270,8 +278,9 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
     // (no check: a failed allocation writes through null, as the original)
     geom->meshes_ = static_cast<MeshRef**>(memory::alloc(4 * mesh_count_));
     geom->mesh_count_ = mesh_count_;
-    for (uint32_t i = 0; i < geom->mesh_count_; ++i)
+    for (uint32_t i = 0; i < geom->mesh_count_; ++i) {
         core::at(geom->mesh_run(), i) = core::at(mesh_run(), i)->replicate(share);
+    }
     if (!share) {
         geom->change_live(true);
         // into the scene's mesh list: its meshes kept aside, room made for these ones too, all added back
@@ -279,15 +288,17 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
         MeshRef** kept = list->mesh_count() > 0 ? static_cast<MeshRef**>(memory::alloc(4 * list->mesh_count())) : nullptr;
         const std::span<MeshRef*> kept_run(kept, kept ? static_cast<size_t>(list->mesh_count()) : 0);
         geom->scene_ = new_scene;
-        for (int i = 0; i < list->mesh_count(); ++i)
+        for (int i = 0; i < list->mesh_count(); ++i) {
             core::at(kept_run, i) = core::at(list->mesh_run(), i);
+        }
         const int kept_count = list->mesh_count();
         memory::Hub::dealloc(static_cast<void*>(list->meshes()));
         list->set_meshes(nullptr);
         list->mesh_total(mesh_run()); // (this one's)
         list->allocate_mesh_list();
-        for (int i = 0; i < kept_count; ++i)
+        for (int i = 0; i < kept_count; ++i) {
             core::at(list->mesh_run(), i) = core::at(kept_run, i);
+        }
         memory::Hub::dealloc(static_cast<void*>(kept));
         list->append_meshes(geom->mesh_run());
         list->order_meshes();
@@ -316,8 +327,9 @@ gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
     auto count = static_cast<uint32_t>(instance_->scene()->mesh_count());
     geom->meshes_ = count ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
     geom->mesh_count_ = count;
-    for (uint32_t i = 0; i < geom->mesh_count_; ++i)
+    for (uint32_t i = 0; i < geom->mesh_count_; ++i) {
         core::at(geom->mesh_run(), i) = core::at(scene_meshes(instance_->scene()), i)->replicate(share);
+    }
     std::memcpy(&geom->bounds_, &bounds_, sizeof(bounds_));
     SceneRef* list = geom->create_mesh_list();
     // the scene was only for the copy: destroyed without its mesh list
@@ -329,8 +341,9 @@ gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
     const int bone_count = model->bone_total();
     auto* bones = static_cast<maths::Mat4*>(memory::alloc((bone_count + 1) * sizeof(maths::Mat4)));
     const std::span<maths::Mat4> bone_run(bones, static_cast<size_t>(bone_count) + 1);
-    for (int i = 0; i < bone_count; ++i)
+    for (int i = 0; i < bone_count; ++i) {
         get_identity(&core::at(bone_run, i));
+    }
     maths::Mat4 identity{};
     get_identity(&identity);
     gsl::owner<Singleton*> inst = new_instance(list, &identity, bone_count, bones);
@@ -363,11 +376,13 @@ bool PcGeom::plat_init_instance(SubMesh* sub_mesh, RenderModel* model, int /*unu
 // 0x004B45F0
 void PcGeom::clean_instance_strips()
 {
-    if (!instance_ || !instance_->scene())
+    if (!instance_ || !instance_->scene()) {
         return;
+    }
     SceneRef* list = instance_->scene();
-    for (int i = 0; i < list->mesh_count(); ++i)
+    for (int i = 0; i < list->mesh_count(); ++i) {
         core::at(scene_meshes(list), i)->clean_strip();
+    }
 }
 
 // 0x004B48B0
@@ -385,8 +400,9 @@ void PcGeom::change_tint(uint32_t rgba)
         std::memcpy(instance_->color().data(), &rgba, 4);
         return;
     }
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     const float red = channel_to_float(r);
     const float green = channel_to_float(g);
     const float blue = channel_to_float(b);
@@ -405,8 +421,9 @@ uint32_t* PcGeom::plat_get_color(uint32_t* out)
     std::array<uint8_t, 4> color = {{0, 0, 0, 0}};
     MeshRef* mesh = nullptr;
     if (instance_) {
-        if (instance_->scene()->mesh_count() > 0)
+        if (instance_->scene()->mesh_count() > 0) {
             mesh = core::at(scene_meshes(instance_->scene()), 0);
+        }
     } else if (meshes_) {
         mesh = core::at(mesh_run(), 0);
     }
@@ -427,10 +444,12 @@ void PcGeom::wipe_tint()
         instance_->flags() &= ~4U;
         return;
     }
-    if (!meshes_)
+    if (!meshes_) {
         return;
-    for (uint32_t i = 0; i < mesh_count_; ++i)
+    }
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
         core::at(mesh_run(), i)->flags() &= ~4U;
+    }
 }
 
 // 0x004B49C0
@@ -438,17 +457,21 @@ bool PcGeom::change_material_tint(uint32_t checksum, int pass, colour::Packed ti
 {
     const uint32_t rgba = tint.value();
     bool found = false;
-    if (!instance_ || !instance_->scene())
+    if (!instance_ || !instance_->scene()) {
         return false;
+    }
     for (int i = 0; i < instance_->scene()->mesh_count(); ++i) {
         MaterialRef* material = material_of(core::at(scene_meshes(instance_->scene()), i));
-        if (!material)
+        if (!material) {
             continue;
+        }
         const int index = pass_from_checksum(material, checksums::Name{checksum}, pass);
-        if (index < 0 || ints::as_unsigned(index) >= material->pass_count())
+        if (index < 0 || ints::as_unsigned(index) >= material->pass_count()) {
             continue;
-        if (static_cast<int8_t>(core::at(material->pass_flags(), index) & kByteMask) < 0) // (the colour is fixed)
+        }
+        if (static_cast<int8_t>(core::at(material->pass_flags(), index) & kByteMask) < 0) { // (the colour is fixed)
             continue;
+        }
         found = true;
         core::at(core::at(material->pass_color(), index), 0) = channel_to_float(rgba & kByteMask);
         core::at(core::at(material->pass_color(), index), 1) = channel_to_float((rgba >> kByte1Shift) & kByteMask);
@@ -461,10 +484,12 @@ bool PcGeom::change_material_tint(uint32_t checksum, int pass, colour::Packed ti
 void PcGeom::toggle_shown(uint32_t mask)
 {
     visibility = mask;
-    if (!meshes_)
+    if (!meshes_) {
         return;
-    for (uint32_t i = 0; i < mesh_count_; ++i)
+    }
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
         core::at(mesh_run(), i)->set_viewports(static_cast<uint8_t>(mask));
+    }
 }
 
 // 0x004B4120
@@ -478,13 +503,15 @@ void PcGeom::change_live(bool on)
         return;
     }
     active_ = on;
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
-        if (on)
+        if (on) {
             core::at(mesh_run(), i)->flags() |= kMeshActiveFlag;
-        else
+        } else {
             core::at(mesh_run(), i)->flags() &= ~kMeshActiveFlagU;
+        }
     }
 }
 
@@ -521,8 +548,9 @@ void PcGeom::place_at_absolute_point(const maths::Vec4* position)
         core::at(instance_->transform().row, 3) = pos;
         return;
     }
-    for (uint32_t i = 0; i < mesh_count_; ++i)
+    for (uint32_t i = 0; i < mesh_count_; ++i) {
         core::at(mesh_run(), i)->move_to(&pos);
+    }
 }
 
 // 0x004B46A0
@@ -534,16 +562,18 @@ maths::Vec4* PcGeom::get_absolute_point()
         return &pos;
     }
     pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    if (core::at(mesh_run(), 0)) // (no check of the array itself, as the original)
+    if (core::at(mesh_run(), 0)) { // (no check of the array itself, as the original)
         mesh_position(core::at(mesh_run(), 0), &pos);
+    }
     return &pos;
 }
 
 // 0x004B5650
 void PcGeom::change_facing(const maths::Mat4* orientation)
 {
-    if (!instance_)
+    if (!instance_) {
         return;
+    }
     maths::Mat4 m{};
     m = instance_->transform();
     core::at(m.row, 0) = core::at(orientation->row, 0);
@@ -556,10 +586,11 @@ void PcGeom::change_facing(const maths::Mat4* orientation)
 maths::Mat4* PcGeom::fetch_facing()
 {
     maths::Mat4& m = static_orientation();
-    if (instance_)
+    if (instance_) {
         m = instance_->transform();
-    else
+    } else {
         get_identity(&m);
+    }
     core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     return &m;
 }
@@ -567,11 +598,13 @@ maths::Mat4* PcGeom::fetch_facing()
 // 0x004B57C0
 void PcGeom::rotate_y(int turns)
 {
-    if (!turns)
+    if (!turns) {
         return;
+    }
     if (!instance_) {
-        for (uint32_t i = 0; i < mesh_count_; ++i)
+        for (uint32_t i = 0; i < mesh_count_; ++i) {
             core::at(mesh_run(), i)->turn_y(turns);
+        }
         return;
     }
     maths::Mat4 m{};
@@ -589,8 +622,9 @@ void PcGeom::rotate_y(int turns)
 void PcGeom::change_scale(const maths::Vec4* new_scale)
 {
     scale = *new_scale;
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = core::at(mesh_run(), i);
         maths::Vec4 centre = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -630,8 +664,9 @@ bool PcGeom::upload_skinning_palette(const maths::Mat4* transform, std::span<con
 // 0x004B47F0
 void PcGeom::copy_bones(const maths::Mat4* bones, int count)
 {
-    if (instance_)
+    if (instance_) {
         std::memcpy(instance_->bones(), bones, count * sizeof(maths::Mat4));
+    }
 }
 
 // 0x004B4820
@@ -646,8 +681,9 @@ void PcGeom::set_bones(maths::Mat4* bones, int count)
 // 0x004B4840
 bool PcGeom::break_strips(uint32_t mask)
 {
-    if (source)
+    if (source) {
         instance_->scene()->break_strips(mask, source->breaks(), source->break_count());
+    }
     return true;
 }
 
@@ -656,8 +692,9 @@ uint32_t PcGeom::fetch_vertex_tally()
 {
     uint32_t total = 0;
     if (meshes_) {
-        for (uint32_t i = 0; i < mesh_count_; ++i)
+        for (uint32_t i = 0; i < mesh_count_; ++i) {
             total += core::at(mesh_run(), i)->vertex_count();
+        }
     }
     return total;
 }
@@ -665,14 +702,16 @@ uint32_t PcGeom::fetch_vertex_tally()
 // 0x004B4BB0
 void PcGeom::get_vertices(std::span<maths::Vec4> out)
 {
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     size_t out_at = 0;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = core::at(mesh_run(), i);
         const gpu::VertexView vertices(get_lock(get_vertex_buffer(mesh, 0), kReadOnly), mesh->stride(), mesh->vertex_count());
-        for (uint32_t v = 0; v < mesh->vertex_count(); ++v, ++out_at)
+        for (uint32_t v = 0; v < mesh->vertex_count(); ++v, ++out_at) {
             core::at(out, out_at) = vertices.point<maths::Vec4>(v);
+        }
         get_unlock(get_vertex_buffer(mesh, 0));
     }
 }
@@ -680,8 +719,9 @@ void PcGeom::get_vertices(std::span<maths::Vec4> out)
 // 0x004B4C50
 void PcGeom::set_vertices(std::span<const maths::Vec4> in)
 {
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     size_t in_at = 0;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = core::at(mesh_run(), i);
@@ -714,8 +754,9 @@ void PcGeom::set_vertices(std::span<const maths::Vec4> in)
 // 0x004B4160
 void PcGeom::plat_get_render_colors(std::span<uint32_t> out)
 {
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     size_t out_at = 0;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = core::at(mesh_run(), i);
@@ -733,8 +774,9 @@ void PcGeom::plat_get_render_colors(std::span<uint32_t> out)
 // 0x004B4210
 void PcGeom::change_colors(std::span<const uint32_t> in)
 {
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     size_t in_at = 0;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = core::at(mesh_run(), i);
@@ -765,12 +807,14 @@ void PcGeom::set_uv_wibble_params(const UvWibble& uv_wibble)
     const auto v_amp = uv_wibble.v_amp_;
     const auto v_freq = uv_wibble.v_freq_;
     const auto v_phase = uv_wibble.v_phase_;
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         const MaterialRef* material = material_of(core::at(mesh_run(), i));
-        if (!material)
+        if (!material) {
             continue;
+        }
         for (uint32_t p = 0; p < material->pass_count(); ++p) {
             if (UvOscillator* wibble = core::at(material->uv_wibble(), p)) {
                 core::at(wibble->velocity(), 0) = u_vel;
@@ -790,15 +834,18 @@ void PcGeom::set_uv_wibble_params(const UvWibble& uv_wibble)
 // 0x004B4EF0
 void PcGeom::enable_explicit_uv_wibble(int /*unused*/)
 {
-    if (!instance_ || !instance_->scene())
+    if (!instance_ || !instance_->scene()) {
         return;
+    }
     for (int i = 0; i < instance_->scene()->mesh_count(); ++i) {
         MaterialRef* material = material_of(core::at(scene_meshes(instance_->scene()), i));
-        if (!material)
+        if (!material) {
             continue;
+        }
         for (uint32_t p = 0; p < material->pass_count(); ++p) {
-            if (core::at(material->uv_wibble(), p))
+            if (core::at(material->uv_wibble(), p)) {
                 core::at(material->pass_flags(), p) |= kPassUvWibbleFlag;
+            }
         }
     }
 }
@@ -808,12 +855,14 @@ void PcGeom::set_uv_wibble_offsets(maths::Vec2 offsets)
 {
     const auto u = offsets.x;
     const auto v = offsets.y;
-    if (!meshes_)
+    if (!meshes_) {
         return;
+    }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         const MaterialRef* material = material_of(core::at(mesh_run(), i));
-        if (!material)
+        if (!material) {
             continue;
+        }
         for (uint32_t p = 0; p < material->pass_count(); ++p) {
             if (UvOscillator* wibble = core::at(material->uv_wibble(), p)) {
                 core::at(wibble->offset(), 0) = u;
@@ -828,16 +877,19 @@ void PcGeom::set_uv_wibble_offsets(maths::Vec2 offsets)
 // 0x004B4F60
 bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix)
 {
-    if (!instance_ || !instance_->scene())
+    if (!instance_ || !instance_->scene()) {
         return true;
+    }
     for (int i = 0; i < instance_->scene()->mesh_count(); ++i) {
         MeshRef* mesh = core::at(scene_meshes(instance_->scene()), i);
         MaterialRef* material = material_of(mesh);
-        if (!material)
+        if (!material) {
             continue;
+        }
         const int index = pass_from_checksum(material, checksums::Name{checksum}, pass);
-        if (index < 0 || ints::as_unsigned(index) >= material->pass_count())
+        if (index < 0 || ints::as_unsigned(index) >= material->pass_count()) {
             continue;
+        }
         if (!core::at(material->uv_wibble(), index)) {
             gsl::owner<UvOscillator*> wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
             core::at(material->uv_wibble(), index) = wibble;
@@ -846,12 +898,13 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         }
         // the vertex shader for the UV matrix (0x00775B70-78 -> 0x00775B58-60)
         uint32_t& shader = mesh_vertex_shader(mesh);
-        if (shader == core::at(mesh_pass().vertex_shaders(), kUvMatrixShaderSlot))
+        if (shader == core::at(mesh_pass().vertex_shaders(), kUvMatrixShaderSlot)) {
             shader = kVertexShaderUv60;
-        else if (shader == core::at(mesh_pass().vertex_shaders(), 4))
+        } else if (shader == core::at(mesh_pass().vertex_shaders(), 4)) {
             shader = kVertexShaderUv5c;
-        else if (shader == core::at(mesh_pass().vertex_shaders(), 3))
+        } else if (shader == core::at(mesh_pass().vertex_shaders(), 3)) {
             shader = kVertexShaderUv58;
+        }
         UvOscillator* wibble = core::at(material->uv_wibble(), index);
         core::at(wibble->matrix(), 0) = core::at(matrix->row, 0).x;
         core::at(wibble->matrix(), 1) = core::at(matrix->row, 0).y;
@@ -864,16 +917,19 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
 // 0x004B5130
 bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
 {
-    if (!instance_ || !instance_->scene())
+    if (!instance_ || !instance_->scene()) {
         return false;
+    }
     bool made = false;
     for (int i = 0; i < instance_->scene()->mesh_count(); ++i) {
         MaterialRef* material = material_of(core::at(scene_meshes(instance_->scene()), i));
-        if (!material)
+        if (!material) {
             continue;
+        }
         const int index = pass_from_checksum(material, checksums::Name{checksum}, pass);
-        if (index < 0 || ints::as_unsigned(index) >= material->pass_count() || core::at(material->uv_wibble(), index))
+        if (index < 0 || ints::as_unsigned(index) >= material->pass_count() || core::at(material->uv_wibble(), index)) {
             continue;
+        }
         gsl::owner<UvOscillator*> wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
         core::at(material->uv_wibble(), index) = wibble;
         material->set_has_uv_wibble(true);
@@ -886,12 +942,14 @@ bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
 // 0x004B52A0
 void PcGeom::reset_texture_anims()
 {
-    if (instance_ || !meshes_)
+    if (instance_ || !meshes_) {
         return;
+    }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         const MaterialRef* material = material_of(core::at(mesh_run(), i));
-        if (material && material->texture_anim())
+        if (material && material->texture_anim()) {
             relaunch(*(material->texture_anim()));
+        }
     }
 }
 

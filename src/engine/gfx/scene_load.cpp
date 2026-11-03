@@ -103,8 +103,10 @@ template <typename Stream, typename LoadSector>
 gsl::owner<PcScene*> read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool flag_8d, LoadSector load_sector)
 {
     int sectors = scene_format::take<int>(in);
-    if (sectors < 0 || !in.fits(static_cast<uint64_t>(sectors) * kSectorRecordMinBytes)) // (each sector at least its fields)
+    if (sectors < 0 ||
+        !in.fits(static_cast<uint64_t>(sectors) * kSectorRecordMinBytes)) { // (each sector at least its fields)
         sectors = 0;
+    }
     gsl::owner<PcScene*> scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
     for (int i = sectors; i > 0 && in.ok(); --i) {
         gsl::owner<WorldCell*> sector = scene->spawn_sector();
@@ -123,8 +125,9 @@ gsl::owner<PcScene*> read_sectors(Stream& in, SceneRef* list, bool with_super_se
         in.take(hierarchy, nodes * sizeof(HierarchyNode));
         list->set_unknown78(static_cast<uint32_t>(nodes));
     }
-    if (!in.ok())
+    if (!in.ok()) {
         debug::printf("scene damaged: cut short or doesn't fit (%d sectors)\n", sectors);
+    }
     return scene;
 }
 
@@ -133,19 +136,22 @@ gsl::owner<PcScene*> read_sectors(Stream& in, SceneRef* list, bool with_super_se
 HierarchyNode* new_hierarchy(int count)
 {
     void* memory = memory::alloc(count * sizeof(HierarchyNode));
-    if (!memory)
+    if (!memory) {
         return nullptr;
+    }
     auto* nodes = static_cast<HierarchyNode*>(memory);
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         new (&core::at(std::span<HierarchyNode>(nodes, static_cast<size_t>(count)), i)) HierarchyNode;
+    }
     return nodes;
 }
 
 // (the original's delete[]: the nodes' destructor is empty)
 void free_hierarchy(HierarchyNode* nodes)
 {
-    if (nodes)
+    if (nodes) {
         memory::Hub::dealloc(nodes);
+    }
 }
 
 // 0x004B2D30
@@ -175,8 +181,9 @@ gsl::owner<PcScene*> load_scene_from_file(const char* name, const TextureSet* te
 {
     SceneRef* list = new_mesh_list(mesh_flag);
     file::Hdl file = file::unseal(name, "rb");
-    if (!file)
+    if (!file) {
         return nullptr; // (the mesh list isn't freed, as the original)
+    }
     scene_format::FileStream in(file);
     in.skip(scene_format::kHeaderSize); // (the header's three words: not used)
     list->set_materials(load_materials_from_file(in, texture_table(textures)));

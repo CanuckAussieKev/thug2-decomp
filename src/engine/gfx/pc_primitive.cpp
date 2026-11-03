@@ -130,8 +130,9 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
 // 0x004C5A20
 PcPrimitive::~PcPrimitive()
 {
-    if (owns_vertices() == 1 && vertices_)
+    if (owns_vertices() == 1 && vertices_) {
         memory::Hub::dealloc(vertices_);
+    }
     // (then material_'s destructor)
 }
 
@@ -164,12 +165,15 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
     const auto primitive_type = primitive_layout.primitive_type_;
     const auto count = primitive_layout.count;
     vertex_format_ = 2;
-    if (layout_flags & 1)
+    if (layout_flags & 1) {
         vertex_format_ = kFvfColour;
-    if (layout_flags & 2)
+    }
+    if (layout_flags & 2) {
         vertex_format_ |= kFvfTex1;
-    if (layout_flags & 4)
+    }
+    if (layout_flags & 4) {
         vertex_format_ |= kFvfNormal;
+    }
     if (owns_vertices() == 1) {
         int size = 0;
         switch (vertex_format_) {
@@ -206,8 +210,9 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
 // 0x004C5320
 void PcPrimitive::end_setup()
 {
-    if (!(vertex_format_ & kFvfTex1) || core::at(material_.textures(), 0) != nullptr)
+    if (!(vertex_format_ & kFvfTex1) || core::at(material_.textures(), 0) != nullptr) {
         flag_bits() = (flag_bits() & ~2U) | 4;
+    }
 }
 
 // 0x004C5370
@@ -220,8 +225,9 @@ void PcPrimitive::render()
     uint32_t room = 0;
     set_vertex_format(vertex_format_);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), nullptr);
-    if (type_ != 0 && type_ != 2 && type_ != 4)
+    if (type_ != 0 && type_ != 2 && type_ != 4) {
         return;
+    }
     void* out = os_layer::lock_dynamic_vertices(vertex_count_, stride_, &buffer, {.first_vertex_ = &first_vertex, .room = &room});
     std::memcpy(out, vertices_, static_cast<uint32_t>(vertex_count_ * stride_));
     os_layer::unlock_dynamic_vertices(vertex_count_, stride_);
@@ -274,14 +280,17 @@ void PcPrimitive::blit(std::span<const float> positions, std::span<const uint32_
         change_place(i, {.x = core::at(positions, 3 * i),
                          .y = core::at(positions, (3 * i) + 1),
                          .z = core::at(positions, (3 * i) + 2)});
-        if (!colours.empty())
+        if (!colours.empty()) {
             set_vertex_colour(i, colour::Packed{core::at(colours, i)});
-        if (!uvs.empty())
+        }
+        if (!uvs.empty()) {
             set_uv(i, {.x = core::at(uvs, 2 * i), .y = core::at(uvs, (2 * i) + 1)});
-        if (!normals.empty())
+        }
+        if (!normals.empty()) {
             set_normal(i, {.x = core::at(normals, 3 * i),
                            .y = core::at(normals, (3 * i) + 1),
                            .z = core::at(normals, (3 * i) + 2)});
+        }
     }
     render();
 }
@@ -325,12 +334,13 @@ void PcPrimitive::set_vertex_colour(int index, colour::Packed colour_word)
 {
     const uint32_t rgba = colour_word.value();
     const uint32_t bgra = get_swapped(rgba);
-    if (vertex_format_ == kFvfColour)
+    if (vertex_format_ == kFvfColour) {
         vertex_at<VertexColour>(vertex_bytes(), index).colour = bgra;
-    else if (vertex_format_ == kFvfColourUv)
+    } else if (vertex_format_ == kFvfColourUv) {
         vertex_at<VertexColourUv>(vertex_bytes(), index).colour = (bgra & kRgbMask) | kHalfAlphaBits;
-    else if (vertex_format_ == kFvfColourUvNormal)
+    } else if (vertex_format_ == kFvfColourUvNormal) {
         vertex_at<VertexNormalColourUv>(vertex_bytes(), index).colour = bgra;
+    }
 }
 
 // 0x004C5760
@@ -349,18 +359,20 @@ void PcPrimitive::set_uv(int index, maths::Vec2 uv)
 // 0x004C57C0
 void PcPrimitive::choose_u(int index, float u)
 {
-    if (vertex_format_ == kFvfColourUv)
+    if (vertex_format_ == kFvfColourUv) {
         vertex_at<VertexColourUv>(vertex_bytes(), index).u = u;
-    else if (vertex_format_ == kFvfColourUvNormal)
+    } else if (vertex_format_ == kFvfColourUvNormal) {
         vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u = u;
+    }
 }
 // 0x004C5800
 void PcPrimitive::choose_v(int index, float v)
 {
-    if (vertex_format_ == kFvfColourUv)
+    if (vertex_format_ == kFvfColourUv) {
         vertex_at<VertexColourUv>(vertex_bytes(), index).v = v;
-    else if (vertex_format_ == kFvfColourUvNormal)
+    } else if (vertex_format_ == kFvfColourUvNormal) {
         vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v = v;
+    }
 }
 
 // 0x004C5C50
@@ -379,30 +391,37 @@ float PcPrimitive::get_normal_z(int index) { return std::get<2>(vertex_at<Vertex
 // 0x004C5840
 uint32_t PcPrimitive::get_vertex_colour(int index)
 {
-    if (vertex_format_ == kFvfColour)
+    if (vertex_format_ == kFvfColour) {
         return vertex_at<VertexColour>(vertex_bytes(), index).colour;
-    if (vertex_format_ == kFvfColourUv)
+    }
+    if (vertex_format_ == kFvfColourUv) {
         return vertex_at<VertexColourUv>(vertex_bytes(), index).colour;
-    if (vertex_format_ == kFvfColourUvNormal)
+    }
+    if (vertex_format_ == kFvfColourUvNormal) {
         return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).colour;
+    }
     return 0;
 }
 // 0x004C5890
 float PcPrimitive::get_u(int index)
 {
-    if (vertex_format_ == kFvfColourUv)
+    if (vertex_format_ == kFvfColourUv) {
         return vertex_at<VertexColourUv>(vertex_bytes(), index).u;
-    if (vertex_format_ == kFvfColourUvNormal)
+    }
+    if (vertex_format_ == kFvfColourUvNormal) {
         return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u;
+    }
     return 0.0F;
 }
 // 0x004C58D0
 float PcPrimitive::get_v(int index)
 {
-    if (vertex_format_ == kFvfColourUv)
+    if (vertex_format_ == kFvfColourUv) {
         return vertex_at<VertexColourUv>(vertex_bytes(), index).v;
-    if (vertex_format_ == kFvfColourUvNormal)
+    }
+    if (vertex_format_ == kFvfColourUvNormal) {
         return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v;
+    }
     return 0.0F;
 }
 
@@ -421,20 +440,23 @@ void PcPrimitive::get_slide(const maths::Vec4& slide)
 // 0x004C5D80
 void PcPrimitive::translate_x(float x)
 {
-    for (int i = 0; i < vertex_count_; ++i)
+    for (int i = 0; i < vertex_count_; ++i) {
         core::at(position_at(vertex_bytes(), stride_, i), 0) = x + core::at(position_at(vertex_bytes(), stride_, i), 0);
+    }
 }
 // 0x004C5DC0
 void PcPrimitive::translate_y(float y)
 {
-    for (int i = 0; i < vertex_count_; ++i)
+    for (int i = 0; i < vertex_count_; ++i) {
         core::at(position_at(vertex_bytes(), stride_, i), 1) = y + core::at(position_at(vertex_bytes(), stride_, i), 1);
+    }
 }
 // 0x004C5E00
 void PcPrimitive::translate_z(float z)
 {
-    for (int i = 0; i < vertex_count_; ++i)
+    for (int i = 0; i < vertex_count_; ++i) {
         core::at(position_at(vertex_bytes(), stride_, i), 2) = z + core::at(position_at(vertex_bytes(), stride_, i), 2);
+    }
 }
 
 // 0x004C5910
@@ -456,20 +478,22 @@ void PcPrimitive::scroll_uv(maths::Vec2 uv)
 void PcPrimitive::scroll_u(float u)
 {
     for (int i = 0; i < vertex_count_; ++i) {
-        if (vertex_format_ == kFvfColourUv)
+        if (vertex_format_ == kFvfColourUv) {
             vertex_at<VertexColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexColourUv>(vertex_bytes(), i).u;
-        else if (vertex_format_ == kFvfColourUvNormal)
+        } else if (vertex_format_ == kFvfColourUvNormal) {
             vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u;
+        }
     }
 }
 // 0x004C59D0
 void PcPrimitive::scroll_v(float v)
 {
     for (int i = 0; i < vertex_count_; ++i) {
-        if (vertex_format_ == kFvfColourUv)
+        if (vertex_format_ == kFvfColourUv) {
             vertex_at<VertexColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexColourUv>(vertex_bytes(), i).v;
-        else if (vertex_format_ == kFvfColourUvNormal)
+        } else if (vertex_format_ == kFvfColourUvNormal) {
             vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v;
+        }
     }
 }
 
@@ -477,8 +501,9 @@ void PcPrimitive::scroll_v(float v)
 int PcPrimitive::weigh(const Primitive* other_primitive)
 {
     const auto* other = core::down_cast<const PcPrimitive>(other_primitive);
-    if (type_ < other->type_)
+    if (type_ < other->type_) {
         return 1;
+    }
     return type_ <= other->type_ ? 0 : -1;
 }
 

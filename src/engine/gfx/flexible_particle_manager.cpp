@@ -44,8 +44,9 @@ void delete_head(memory::ListNode* head) { memory::ListNode::destroy(head); }
 // The list's systems: the first after the head, the one after `system` - null at the head (its data -1) or a null link.
 EmitterInstance* system_of(memory::ListNode* node)
 {
-    if (node->data() == memory::ListNode::head_marker() || !node)
+    if (node->data() == memory::ListNode::head_marker() || !node) {
         return nullptr;
+    }
     return static_cast<EmitterInstance*>(node->data()); // (its node's data: the system - the original took its address)
 }
 EmitterInstance* first_system(memory::ListNode* head) { return head ? system_of(head->next()) : nullptr; }
@@ -60,8 +61,9 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 FlexibleParticleManager::FlexibleParticleManager()
 {
     int size = script::fetch_int_value(kHeapSizeSymbol);
-    if (!size)
+    if (!size) {
         size = kDefaultHeapSize;
+    }
     zone_ = new memory::MemoryArena(static_cast<uint32_t>(size));
     arena_ = memory::Hub::get_pull()->add_heap(zone_, 1, kHeapName);
     temp_region_ = nullptr;
@@ -78,8 +80,9 @@ FlexibleParticleManager::FlexibleParticleManager()
 // 0x0049AA10
 FlexibleParticleManager::~FlexibleParticleManager()
 {
-    if (systems_ptr_)
+    if (systems_ptr_) {
         delete_head(systems_ptr_);
+    }
     delete_temp_heap();
     memory::Hub::get_pull()->delete_heap(static_cast<memory::MemSource*>(arena_));
     delete zone_;
@@ -88,8 +91,9 @@ FlexibleParticleManager::~FlexibleParticleManager()
 // 0x0049A9D0
 void FlexibleParticleManager::delete_temp_heap()
 {
-    if (!temp_heap_)
+    if (!temp_heap_) {
         return;
+    }
     memory::Hub::get_pull()->delete_heap(static_cast<memory::MemSource*>(temp_heap_));
     delete temp_region_;
     temp_heap_ = nullptr;
@@ -101,8 +105,9 @@ bool FlexibleParticleManager::create_temp_heap(uint32_t size)
 {
     delete_temp_heap();
     temp_region_ = new memory::MemoryArena(size);
-    if (!temp_region_)
+    if (!temp_region_) {
         return false;
+    }
     temp_heap_ = memory::Hub::get_pull()->add_heap(temp_region_, 1, kTempHeapName);
     return temp_heap_ != nullptr;
 }
@@ -128,8 +133,9 @@ int FlexibleParticleManager::compare_distance(const void* a, const void* b)
     const double distance1 =
         ((static_cast<double>(z1) * z1) + (static_cast<double>(y1) * y1)) + (static_cast<double>(x1) * x1);
     const int order = truncate(distance2 - distance1);
-    if (order)
+    if (order) {
         return order;
+    }
     return static_cast<int>(second->rank()) - static_cast<int>(first->rank());
 }
 
@@ -139,24 +145,28 @@ void FlexibleParticleManager::render_systems(bool force)
     std::array<EmitterInstance*, kEmitterSystemSlots> systems = {};
     int count = 0;
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
-        if (system->wants_time())
+        if (system->wants_time()) {
             core::at(systems, count++) = system; // (no bound, as the original)
+        }
     }
-    if (!count)
+    if (!count) {
         return;
+    }
     crt::get_qsort(static_cast<void*>(systems.data()), static_cast<size_t>(count), sizeof(EmitterInstance*),
                    &compare_distance); // (the game's qsort)
     const bool always = force || objects::simulation_halted();
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         core::at(systems, i)->render_if_visible(always);
+    }
 }
 
 // 0x0049AC20
 EmitterInstance* FlexibleParticleManager::find_system(uint32_t name)
 {
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
-        if (system->label() == name)
+        if (system->label() == name) {
             return system;
+        }
     }
     return nullptr;
 }
@@ -171,8 +181,9 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
     gsl::owner<EmitterInstance*> made = create_flexible_particles(checksums::Name{name}, checksums::Name{type}, particle_cap, max_streams, texture,
                                                                   blend_mode, fixed_alpha, segments, unknown, history, model);
     memory::Hub::get_pull()->leave_heap_scope();
-    if (!made)
+    if (!made) {
         return nullptr;
+    }
     if (!(made->flag_bits() & 4U)) { // (not everything allocated)
         delete made;
         return nullptr;
@@ -198,8 +209,9 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
 // 0x0049AD60
 void FlexibleParticleManager::remove_system(EmitterInstance* system)
 {
-    if (!system)
+    if (!system) {
         return;
+    }
     memory::ListNode* node = &system->list_link();
     node->prev()->set_next(node->next());
     node->next()->set_prev(node->prev());
@@ -256,14 +268,17 @@ void FlexibleParticleManager::destroy_non_persistent()
 // 0x0049AE80
 void FlexibleParticleManager::set_colour_scale(std::span<const float, 4> rgba)
 {
-    if (!systems_ptr_)
+    if (!systems_ptr_) {
         return;
-    for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
-        if (system->flag_bits() & kSystemFlagLive)
-            system->set_colour_scale(rgba);
     }
-    for (int i = 0; i < 4; ++i)
+    for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
+        if (system->flag_bits() & kSystemFlagLive) {
+            system->set_colour_scale(rgba);
+        }
+    }
+    for (int i = 0; i < 4; ++i) {
         core::at(colour_scale_, i) = core::at(rgba, i);
+    }
 }
 
 } // namespace render

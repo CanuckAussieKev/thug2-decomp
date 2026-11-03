@@ -39,8 +39,9 @@ CharEffect* new_effects()
     // (the original's array new kept the count before them; the count is fixed)
     auto* effects = static_cast<CharEffect*>(memory::alloc(kCharEffects * sizeof(CharEffect)));
     if (effects) {
-        for (CharEffect& effect : std::span(effects, static_cast<std::size_t>(kCharEffects)))
+        for (CharEffect& effect : std::span(effects, static_cast<std::size_t>(kCharEffects))) {
             memory::construct_in<CharEffect>(&effect);
+        }
     }
     memory::Hub::get_pull()->leave_heap_scope();
     return effects;
@@ -65,8 +66,9 @@ GlyphString::GlyphString(void* window) : screen_region_(window) {}
 // 0x0048D620
 GlyphString::~GlyphString()
 {
-    if (text_buffer_)
+    if (text_buffer_) {
         memory::dealloc(text_buffer_); // (not cleared, as the original)
+    }
     if (effects_) {
         delete_effects(effects_);
         effects_ = nullptr;
@@ -172,8 +174,9 @@ void GlyphString::change_pane(void* window)
 // 0x0048D530
 void GlyphString::change_text(const char* string)
 {
-    if (!text_buffer_)
+    if (!text_buffer_) {
         text_buffer_ = static_cast<char*>(front_end_new(kTextLength));
+    }
     text::copy_unbounded(text_buffer_, string);
     update_settings();
 }
@@ -183,8 +186,9 @@ void GlyphString::set_char_offset(int index, CharOffset offset)
 {
     const auto x = offset.x;
     const auto y = offset.y;
-    if (!effects_)
+    if (!effects_) {
         effects_ = new_effects();
+    }
     core::at(effect_run(), index).set_x(x);
     core::at(effect_run(), index).set_y(y);
     update_settings();
@@ -193,8 +197,9 @@ void GlyphString::set_char_offset(int index, CharOffset offset)
 // 0x0048D360
 void GlyphString::set_char_scale(int index, float x, float y)
 {
-    if (!effects_)
+    if (!effects_) {
         effects_ = new_effects();
+    }
     core::at(effect_run(), index).set_xscale(get_fixed(x));
     core::at(effect_run(), index).set_yscale(get_fixed(y));
     update_settings();
@@ -203,8 +208,9 @@ void GlyphString::set_char_scale(int index, float x, float y)
 // 0x0048D450
 void GlyphString::set_char_rotation(int index, float rotation)
 {
-    if (!effects_)
+    if (!effects_) {
         effects_ = new_effects();
+    }
     core::at(effect_run(), index).set_rotation(get_fixed(rotation));
     update_settings();
 }
@@ -213,8 +219,9 @@ void GlyphString::set_char_rotation(int index, float rotation)
 gsl::owner<GlyphString*> new_text()
 {
     GlyphString* text = screen_2d().free_texts();
-    if (text)
+    if (text) {
         screen_2d().set_free_texts(text->next_free());
+    }
     return text;
 }
 

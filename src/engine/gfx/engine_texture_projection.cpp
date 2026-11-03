@@ -150,10 +150,11 @@ void TextureProjection::configure_from_data(script::Struct* params)
     bitmap_ = engine_parts().particle_texture_dict()->fetch_skin(texture);
     int flag = 0;
     params->fetch_int_value(kEnabled, &flag, 0);
-    if (flag)
+    if (flag) {
         flag_bits_ |= kProjectionFlag1;
-    else
+    } else {
         flag_bits_ &= ~kProjectionFlag1;
+    }
     unknownbc_ = kUnknownBcDefault;
     params->fetch_float(kUnknownBcKey, &unknownbc_, 0);
     view_distance_ = kViewDistanceDefault;
@@ -172,12 +173,13 @@ void TextureProjection::update_matrix()
     maths::Mat4 view{};
     maths::create_look_at_matrix(view, anchor_point_, target, up);
     maths::Mat4 lens{};
-    if (flag_bits_ & kProjectionOrthographic)
+    if (flag_bits_ & kProjectionOrthographic) {
         maths::create_orthographic_matrix(lens, {.width = extent_, .height = extent_, .near_depth_ = kProjectionNearDepth, .far_depth_ = range_});
-    else if (flag_bits_ & kProjectionPerspective)
+    } else if (flag_bits_ & kProjectionPerspective) {
         maths::create_perspective_matrix(lens, {.fov = field_of_view_, .aspect = aspect_, .near_depth_ = kProjectionNearDepth, .far_depth_ = range_});
-    else
+    } else {
         return;
+    }
     // (D3DXMatrixMultiply)
     d3dx::matrix_multiply(&projection_, &view, &lens);
 }
@@ -213,8 +215,9 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
         const double dy = static_cast<double>(anchor_point_.y) - camera->y;
         const double dz = static_cast<double>(anchor_point_.z) - camera->z;
         const double reach = view_distance_;
-        if (!(reach * reach > (dx * dx) + (dz * dz) + (dy * dy)))
+        if (!(reach * reach > (dx * dx) + (dz * dz) + (dy * dy))) {
             return; // (too far, or NaN)
+        }
         // a sphere half the range ahead - along the object-space direction, as the original -, as big as that plus
         // the size
         const double half = static_cast<double>(range_) * 0.5F;
@@ -222,8 +225,9 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
                                     .y = get_f(static_cast<double>(get_f(half * direction_.y)) + anchor_point_.y),
                                     .z = get_f(static_cast<double>(get_f(half * direction_.z)) + anchor_point_.z),
                                     .w = get_f((half * direction_.w) + anchor_point_.w)};
-        if (sphere_out_of_view(&centre, get_f(half + extent_)))
+        if (sphere_out_of_view(&centre, get_f(half + extent_))) {
             return;
+        }
     }
     update_matrix();
     // the line along the range, its box grown by 2.5 sizes
@@ -247,8 +251,9 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
             const maths::BBox* bounds = found->get_world_bounds();
             // (touching: no comparison says apart - NaNs count as touching)
             if (bounds->min.x > reach.max.x || reach.min.x > bounds->max.x || bounds->min.z > reach.max.z ||
-                reach.min.z > bounds->max.z || bounds->min.y > reach.max.y || reach.min.y > bounds->max.y)
+                reach.min.z > bounds->max.z || bounds->min.y > reach.max.y || reach.min.y > bounds->max.y) {
                 continue;
+            }
             void* sector = find_sector(found->checksum());
             core::at(projected_collision(), count) = found;
             core::at(projected_sectors(), count) = sector;

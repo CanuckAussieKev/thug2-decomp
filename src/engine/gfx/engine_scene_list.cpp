@@ -55,14 +55,17 @@ WorldScene* scene_of(const memory::ListNode* node) { return static_cast<WorldSce
 WorldScene* first_scene(bool sky)
 {
     const memory::ListNode* node = head_of_scene_list();
-    if (is_head(node) || !node)
+    if (is_head(node) || !node) {
         return nullptr;
+    }
     for (;;) {
         const memory::ListNode* next = get_next_node(node);
-        if (scene_of(node)->is_sky() == sky)
+        if (scene_of(node)->is_sky() == sky) {
             return scene_of(node);
-        if (!next)
+        }
+        if (!next) {
             return nullptr;
+        }
         node = next;
     }
 }
@@ -128,8 +131,9 @@ bool unload_all_scenes()
             WorldScene* scene = scene_of(node);
             TextureSet* textures = scene->texture_set();
             unload_engine_scene(scene, 1);
-            if (textures)
+            if (textures) {
                 unload_tex_dict(textures);
+            }
             node = next;
         }
     }
@@ -140,8 +144,9 @@ bool unload_all_scenes()
 // 0x0048C870
 void add_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* scene)
 {
-    if (!scene)
+    if (!scene) {
         scene = get_main_scene();
+    }
     add_texture_shadow_caster(texture, model, scene);
 }
 
@@ -154,8 +159,9 @@ void print_coll_statics()
         for (bool again = true; again; again = node) {
             const memory::ListNode* next = get_next_node(node);
             WorldScene* scene = scene_of(node);
-            if (!scene->is_sky())
+            if (!scene->is_sky()) {
                 scene->print_coll_statics();
+            }
             node = next;
         }
     }
@@ -166,12 +172,14 @@ void print_coll_statics()
 CollGrid* get_first_coll_grid()
 {
     const memory::ListNode* node = head_of_scene_list();
-    if (is_head(node) || !node)
+    if (is_head(node) || !node) {
         return nullptr;
+    }
     for (bool again = true; again; again = node) {
         const memory::ListNode* next = get_next_node(node);
-        if (CollGrid* grid = scene_of(node)->coll_grid())
+        if (CollGrid* grid = scene_of(node)->coll_grid()) {
             return grid;
+        }
         node = next;
     }
     return nullptr;
@@ -202,8 +210,9 @@ std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
     box.append_spot(line->end);
     uint32_t count = 0;
     const memory::ListNode* node = head_of_scene_list();
-    if (is_head(node) || !node)
+    if (is_head(node) || !node) {
         return {};
+    }
     for (bool again = true; again; again = node) {
         const memory::ListNode* next = get_next_node(node);
         WorldScene* scene = scene_of(node);
@@ -214,13 +223,15 @@ std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
             !(box.min.y > grid->box().max.y)) {
             core::at(scenes, count) = scene;
             core::at(grids, count) = grid;
-            if (++count >= kMaxGridsAlongLine)
+            if (++count >= kMaxGridsAlongLine) {
                 break;
+            }
         }
         node = next;
     }
-    if (count == 0)
+    if (count == 0) {
         return {};
+    }
     core::at(grids, count) = nullptr;
     core::at(scenes, count) = nullptr;
     return std::span<CollGrid* const>(grids).first(count);
@@ -244,8 +255,9 @@ uint32_t new_sector_name()
                 node = next;
             }
         }
-        if (!used)
+        if (!used) {
             return counter++;
+        }
         ++counter;
     }
 }
@@ -262,15 +274,17 @@ void get_scene_debug_info(script::Struct* info)
 {
     if (get_main_scene()) {
         gsl::owner<script::Struct*> main = script::spawn_param_bag();
-        if (main)
+        if (main) {
             new (main) script::Struct;
+        }
         get_main_scene()->fetch_diagnostics(main);
         info->append_struct_ref(kMainScene, main);
     }
     if (get_sky_scene()) {
         gsl::owner<script::Struct*> sky = script::spawn_param_bag();
-        if (sky)
+        if (sky) {
             new (sky) script::Struct;
+        }
         get_sky_scene()->fetch_diagnostics(sky);
         info->append_struct_ref(kSkyScene, sky);
     }
@@ -322,8 +336,9 @@ WorldScene* add_scene(SceneAddition scene_addition)
     WorldScene* scene = look_up_scene(checksums::hash_from_text(scene_name));
     if (std::strcmp(scene->add_name().data(), file.data()) == 0) {
         scene->unload_added_scene();
-        if (TextureSet* old = find_tex_dict(checksums::hash_from_text(tex_file.data())))
+        if (TextureSet* old = find_tex_dict(checksums::hash_from_text(tex_file.data()))) {
             unload_tex_dict(old);
+        }
     }
     TextureSet* textures = load_tex_dict(tex_file.data(), 1, 0, 0, 0);
     plat_load_add_scene(scene, file.data());
@@ -335,8 +350,9 @@ WorldScene* add_scene(SceneAddition scene_addition)
 bool reload_scene(const char* name)
 {
     WorldScene* scene = look_up_scene(checksums::hash_from_text(name));
-    if (!scene)
+    if (!scene) {
         return false;
+    }
     const bool is_sky = scene->is_sky();
     TextureSet* textures = scene->texture_set();
     unload_engine_scene(scene, 1);

@@ -62,8 +62,9 @@ AnimTimeline::~AnimTimeline() { list_link_.uncouple(); }
 AnimTimeline* AnimTimeline::teardown(uint8_t flags)
 {
     this->~AnimTimeline();
-    if (flags & 1)
+    if (flags & 1) {
         memory::dealloc(this);
+    }
     return this;
 }
 
@@ -103,8 +104,9 @@ void AnimTimeline::get_times(float* start, float* current, float* end) const
 // 0x004813F0
 bool AnimTimeline::is_accomplished() const
 {
-    if (repeat_mode_ != kOnce)
+    if (repeat_mode_ != kOnce) {
         return false;
+    }
     return direction_ == 0 ? ongoing_ == finish_ : ongoing_ == outset_;
 }
 
@@ -115,8 +117,9 @@ double AnimTimeline::next_time()
     float bound = 0.0F;   // the end it reaches
     double time = 0.0;
     complete_ = false;
-    if (repeat_mode_ == kHold)
+    if (repeat_mode_ == kHold) {
         return 0.0;
+    }
     if (direction_ == 0) {
         const double next = (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_) + ongoing_;
         stepped = static_cast<float>(next);
@@ -127,8 +130,9 @@ double AnimTimeline::next_time()
         } else {
             // (wrapped round the end, as many times as it takes - forever on a degenerate range, as the original)
             time = static_cast<double>(stepped) - finish_ + outset_;
-            while (time > finish_)
+            while (time > finish_) {
                 time = time - finish_ + outset_;
+            }
             bound = finish_;
         }
     } else if (direction_ == -1) {
@@ -139,8 +143,9 @@ double AnimTimeline::next_time()
             time = finish_;
         } else {
             time = static_cast<double>(stepped) - outset_ + finish_;
-            while (time < outset_)
+            while (time < outset_) {
                 time = time - outset_ + finish_;
+            }
         }
         bound = outset_;
     }
@@ -198,16 +203,19 @@ void AnimTrack::detach_anim_driver(AnimDriver* controller)
 {
     int i = 0;
     for (;; ++i) {
-        if (i >= controller_count_)
+        if (i >= controller_count_) {
             return;
-        if (core::at(controller_list_, i) == controller)
+        }
+        if (core::at(controller_list_, i) == controller) {
             break;
+        }
     }
     gsl::owner<AnimDriver*> owned = memory::owned_element(core::at(controller_list_, i)); // (the track's)
     delete owned;
     core::at(controller_list_, i) = nullptr;
-    for (; i < controller_count_ - 1; ++i)
+    for (; i < controller_count_ - 1; ++i) {
         core::at(controller_list_, i) = core::at(controller_list_, i + 1);
+    }
     --controller_count_;
 }
 
@@ -230,8 +238,9 @@ bool AnimTrack::is_fading() { return cur_phase_ == AnimTrack::State::kFading; }
 // 0x004819A0
 void AnimTrack::arm_events()
 {
-    for (TimedClipEvent& event : events_)
+    for (TimedClipEvent& event : events_) {
         event.change_live(true);
+    }
 }
 
 // 0x004819D0

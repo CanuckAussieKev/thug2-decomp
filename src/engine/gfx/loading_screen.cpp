@@ -117,8 +117,9 @@ const char* original_of(const char* name)
 // The bar's look over those pictures (the front end's: paper to safety yellow on ink; wider than the original's 140).
 void apply_bar_style(bool select)
 {
-    if (select == select_picture().bar_styled_)
+    if (select == select_picture().bar_styled_) {
         return;
+    }
     if (select) {
         select_picture().saved_bar_width_ = screen_2d().progress_width();
         std::memcpy(core::at(select_picture().saved_colors_, 0).data(), screen_2d().progress_from_color().data(), 4);
@@ -151,8 +152,9 @@ static_assert(sizeof(PictureVertex) == kPictureVertexBytes, "the original's vert
 // 0x004B6CD0
 void draw_loading_screen_picture()
 {
-    if (!screen_2d().loading_screen_picture())
+    if (!screen_2d().loading_screen_picture()) {
         return;
+    }
     get_lock();
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
@@ -228,8 +230,9 @@ void show_progress_bar(float seconds)
     screen_2d().tick_seconds() = kTickSeconds;                                                    // a tick's seconds (0x3CF5C28F)
     screen_2d().total_seconds() = static_cast<float>(static_cast<double>(seconds) * kLoadSecondsScale); // (0x006463C4)
     update_loading_bar_colors();
-    if (!renderer().loading_bar_timer())
+    if (!renderer().loading_bar_timer()) {
         renderer().set_loading_bar_timer(start_timer(kLoadingTimerPeriod, &draw_loading_screen_frame));
+    }
 }
 
 // 0x004B78B0
@@ -247,8 +250,9 @@ void show_loading_screen(const char* name, bool keep, bool black)
             for (const char* suffix : {"_story", "_classic"}) {
                 const size_t length = std::strlen(picked.data());
                 const size_t tail = std::strlen(suffix);
-                if (length > tail && std::string_view(picked.data(), length).ends_with(suffix))
+                if (length > tail && std::string_view(picked.data(), length).ends_with(suffix)) {
                     core::at(picked, length - tail) = '\0';
+                }
             }
             name = picked.data();
         }

@@ -75,8 +75,9 @@ float& loading_bar_seconds()
 // 0x00490770
 void set_loading_bar_time(float seconds)
 {
-    if (seconds <= 0.0F) // (NaN: started)
+    if (seconds <= 0.0F) { // (NaN: started)
         return;
+    }
     loading_bar_seconds() = seconds;
     update_loading_bar_colors();
     show_progress_bar(seconds);

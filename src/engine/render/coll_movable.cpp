@@ -112,8 +112,9 @@ maths::Mat4* MatrixTranspose::transpose_from(const maths::Mat4* source)
         return this;
     }
     for (int r = 0; r < 4; ++r) {
-        for (int c = 0; c < 4; ++c)
+        for (int c = 0; c < 4; ++c) {
             core::at(row, r)[c] = core::at(source->row, c)[r];
+        }
     }
     return this;
 }
@@ -141,16 +142,18 @@ HitMovingBox::HitMovingBox()
 HitMovingBox::HitMovingBox(const HitMovingBox& other)
     : HitMovingMesh(other), box_(other.box_), poly_attr_bits_(other.poly_attr_bits_), surface_type_(other.surface_type_)
 {
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         core::at(unknownca_, i) = core::at(other.unknownca_, i);
+    }
 }
 
 // 0x00412600
 void HitMovingBox::assign_shape_data(TriMeshSource* geometry)
 {
     set_geometry(geometry);
-    if (geometry)
+    if (geometry) {
         assign_checksum(geometry->checksum());
+    }
     Expects(geometry != nullptr);
     box_.min = geometry->bounds().min;
     box_.max = geometry->bounds().max;

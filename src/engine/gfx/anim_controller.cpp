@@ -186,8 +186,9 @@ StandardAnimController::StandardAnimController(AnimTimeline* timeline)
 // 0x004A4590
 StandardAnimController::~StandardAnimController()
 {
-    if (frame_source_)
+    if (frame_source_) {
         release_frame_index(frame_source_, frame_index_);
+    }
     if (blend_source_) {
         free_source(blend_source_);
         blend_source_ = nullptr;
@@ -199,10 +200,11 @@ StandardAnimController::~StandardAnimController()
 bool StandardAnimController::fetch_pose(Stance* pose)
 {
     if (frame_index_ == -1) {
-        if (static_cast<JointClipFrames*>(frame_source_)->cache_slot()) // (in the animation cache)
+        if (static_cast<JointClipFrames*>(frame_source_)->cache_slot()) { // (in the animation cache)
             frame_index_ = frame_index(frame_source_);
-        else
+        } else {
             frame_source_ = source_frame(blend_source_, false);
+        }
     }
     set_bones(blend_source_, skeleton_of(this));
     set_bone_count(blend_source_, skeleton_of(this));
@@ -225,8 +227,9 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
     case kNewSource: {
         uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         params->read_hash_value(kAnim, &anim, 1);
-        if (frame_source_)
+        if (frame_source_) {
             release_frame_index(frame_source_, frame_index_);
+        }
         if (blend_source_) {
             free_source(blend_source_);
             blend_source_ = nullptr;
@@ -256,8 +259,9 @@ void StandardAnimController::tick_frame()
     const float before = timeline_ptr()->ongoing();
     timeline_ptr()->set_ongoing(get_step(timeline_ptr()));
     passed_events(timeline_ptr(), before, timeline_ptr()->ongoing());
-    if (timeline_ptr()->ongoing() < before)
+    if (timeline_ptr()->ongoing() < before) {
         frame_source_ = source_frame(blend_source_, false);
+    }
 }
 
 // --- the weighted controller ---------------------------------------------------------------------------------
@@ -285,8 +289,9 @@ WeightedAnimController::~WeightedAnimController()
 // 0x004A5660
 bool WeightedAnimController::fetch_pose(Stance* pose)
 {
-    if (!frame_source_ || !blend_source_ || weight_ <= 0.0F)
+    if (!frame_source_ || !blend_source_ || weight_ <= 0.0F) {
         return false;
+    }
     frame_source_ = source_frame(blend_source_, false);
     // (the skeleton component's skeleton, +0x18 - read through null without one, as the original)
     auto skeleton = [this] {
@@ -308,18 +313,21 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
     switch (name) {
     case kPlayAnim: {
         uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-        if (!params->read_hash_value(kWeightedAnim, &anim, 0))
+        if (!params->read_hash_value(kWeightedAnim, &anim, 0)) {
             params->read_hash_value(kAnimName, &anim, 1);
+        }
         params->fetch_float(kWeight, &weight_, 0);
         frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
         return 1;
     }
     case kSetWeightedAnim: {
         uint32_t anim = 0;
-        if (!params->read_hash_value(kWeightedAnim, &anim, 0))
+        if (!params->read_hash_value(kWeightedAnim, &anim, 0)) {
             params->read_hash_value(kAnimName, &anim, 0);
-        if (anim)
+        }
+        if (anim) {
             frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
+        }
         params->fetch_float(kWeight, &weight_, 1);
         return 1;
     }
@@ -360,8 +368,9 @@ WobbleDriver::~WobbleDriver()
         free_source(blend_source_);
         blend_source_ = nullptr;
     }
-    if (frame_source_)
+    if (frame_source_) {
         frame_source_ = nullptr;
+    }
 }
 
 // 0x004A5110
@@ -390,10 +399,11 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kSetTarget: {
         float fraction = 0.0F;
         if (params->fetch_float(kFraction, &fraction, 0)) {
-            if (fraction < 0.0F)
+            if (fraction < 0.0F) {
                 fraction = 0.0F;
-            else if (fraction > 1.0F)
+            } else if (fraction > 1.0F) {
                 fraction = 1.0F;
+            }
             const AnimTimeline* t = timeline_ptr();
             aim_point_ =
                 static_cast<float>(((static_cast<double>(t->finish()) - t->outset()) * fraction) + t->outset());
@@ -437,10 +447,12 @@ float WobbleDriver::wobble_time()
         1.0;
     auto a = static_cast<float>(scale * amp_a_);
     auto b = static_cast<float>(scale * amp_b_);
-    if (static_cast<double>(target) - a - b < t->outset())
+    if (static_cast<double>(target) - a - b < t->outset()) {
         target = static_cast<float>(static_cast<double>(b) + a + t->outset());
-    if (static_cast<double>(target) + b + a > t->finish())
+    }
+    if (static_cast<double>(target) + b + a > t->finish()) {
         target = static_cast<float>(static_cast<double>(t->finish()) - a - b);
+    }
 
     double cycles = static_cast<double>(get_clock()) * k1;
     double phase = (cycles - (static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen)) * two_pi();
@@ -458,8 +470,9 @@ void WobbleDriver::tick_frame()
 {
     const float before = timeline_ptr()->ongoing();
     timeline_ptr()->set_ongoing(wobble_time());
-    if (timeline_ptr()->ongoing() < before)
+    if (timeline_ptr()->ongoing() < before) {
         frame_source_ = source_frame(blend_source_, false);
+    }
 }
 
 // --- the pose controller -------------------------------------------------------------------------------------
@@ -467,8 +480,9 @@ void WobbleDriver::tick_frame()
 // 0x004A5730
 StanceDriver::StanceDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    for (maths::QuatRotation& rotation : stance_.rotations)
+    for (maths::QuatRotation& rotation : stance_.rotations) {
         rotation = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
 }
 
 // 0x004A4D20
@@ -504,8 +518,9 @@ PartialClipDriver::~PartialClipDriver()
         partial_->teardown(1);
         partial_ = nullptr;
     }
-    if (frame_source_)
+    if (frame_source_) {
         frame_source_ = nullptr;
+    }
 }
 
 // 0x004A5430
@@ -539,8 +554,9 @@ void PartialClipDriver::configure_from_data(script::Struct* params)
     params->fetch_float(kCurrent, &current, 0);
     // the timeline's PlayAnim (the original's slot 3)
     partial_->play_anim(anim, start, end, loop_type, 0.0F, speed);
-    if (current != 0.0F)
+    if (current != 0.0F) {
         partial_->advance_clock(current);
+    }
     frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
 }
 
@@ -588,8 +604,9 @@ void PartialClipDriver::tick_frame()
 {
     const float before = partial_->ongoing();
     partial_->set_ongoing(get_step(partial_));
-    if (partial_->ongoing() < before)
+    if (partial_->ongoing() < before) {
         frame_source_ = source_frame(blend_source_, false);
+    }
 }
 
 } // namespace gfx

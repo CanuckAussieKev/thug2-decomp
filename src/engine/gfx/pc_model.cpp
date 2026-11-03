@@ -36,8 +36,9 @@ void set_geom_bounding_sphere(void* geom, const maths::Vec4* sphere)
 void PcModel::plat_set_bounding_sphere(const maths::Vec4* sphere)
 {
     const ModelGeomNode* head = geom_ring().head();
-    for (const ModelGeomNode* node = head ? head->next : nullptr; node != head; node = node->next)
+    for (const ModelGeomNode* node = head ? head->next : nullptr; node != head; node = node->next) {
         set_geom_bounding_sphere(geom_of(node), sphere);
+    }
 }
 
 // 0x004BAE30
@@ -59,8 +60,9 @@ maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
         auto dw = static_cast<float>(static_cast<double>(other.w) - sphere.w);
         auto distance = static_cast<float>(std::sqrt((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy) +
                                                      (static_cast<double>(dx) * dx)));
-        if (static_cast<double>(other.w) + distance <= sphere.w)
+        if (static_cast<double>(other.w) + distance <= sphere.w) {
             continue; // (inside the one so far)
+        }
         if (static_cast<double>(sphere.w) + distance <= other.w) {
             sphere = other; // (the one so far inside it)
             continue;

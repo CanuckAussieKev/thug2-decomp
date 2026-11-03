@@ -93,10 +93,12 @@ ViewRegion* current_view_slot(int n)
     const std::span<const int> map = view_setup().mode_map();
     int found = 0;
     for (int i = 0; i < kViewports; ++i) {
-        if (map_entry(map, i) < 0)
+        if (map_entry(map, i) < 0) {
             continue;
-        if (found == n)
+        }
+        if (found == n) {
             return get_viewport(map_entry(map, i));
+        }
         ++found;
     }
     return nullptr;
@@ -158,8 +160,9 @@ float ViewRegion::fetch_width_over_height() const
 // 0x004A0D50
 bool ViewRegion::flag_camera_for_removal(gfx::ViewCam* camera)
 {
-    if (viewer_.get_pull() != camera)
+    if (viewer_.get_pull() != camera) {
         return false;
+    }
     flag_bits_ |= 1;
     return true;
 }
@@ -167,8 +170,9 @@ bool ViewRegion::flag_camera_for_removal(gfx::ViewCam* camera)
 // 0x004A0D70
 void ViewRegion::remove_flagged_camera()
 {
-    if (!(flag_bits_ & 1))
+    if (!(flag_bits_ & 1)) {
         return;
+    }
     delete viewer_.get_pull(); // (its destructor clears the pointer)
     viewer_.get_release();
     viewer_.target_ = nullptr;
@@ -179,8 +183,9 @@ void ViewRegion::remove_flagged_camera()
 void purge_doomed_cameras()
 {
     for (int i = 0; i < kViewports; ++i) {
-        if (get_viewport(i))
+        if (get_viewport(i)) {
             get_viewport(i)->remove_flagged_camera();
+        }
     }
 }
 
@@ -199,8 +204,9 @@ void create_viewports()
 gfx::ViewCam* obtain_active_lens(int view)
 {
     const int index = map_entry(view_setup().mode_map(), view);
-    if (index == -1)
+    if (index == -1) {
         return nullptr;
+    }
     return get_viewport(index)->viewer().get_pull();
 }
 
@@ -208,8 +214,9 @@ gfx::ViewCam* obtain_active_lens(int view)
 void choose_camera(int view, gfx::ViewCam* camera)
 {
     const int index = map_entry(view_setup().mode_map(), view);
-    if (index == -1)
+    if (index == -1) {
         return;
+    }
     ViewRegion* viewport = get_viewport(index);
     viewport->remove_flagged_camera();
     viewport->viewer().assign_value(camera);
@@ -231,8 +238,9 @@ gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
     for (int i = 0; i < count; ++i) {
         // (none: read through null, as the original - a mode's count never exceeds its map)
         gfx::ViewCam* camera = current_view_slot(i)->viewer().get_pull();
-        if (!camera)
+        if (!camera) {
             continue;
+        }
         const maths::Vec4* at = camera->fetch_location();
         const double dx = static_cast<double>(position->x) - at->x;
         const double dy = static_cast<double>(position->y) - at->y;
@@ -243,10 +251,12 @@ gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
             closest = camera;
         }
     }
-    if (!closest)
+    if (!closest) {
         return nullptr;
-    if (distance)
+    }
+    if (distance) {
         *distance = static_cast<float>(std::sqrt(static_cast<double>(best)));
+    }
     return closest;
 }
 
@@ -259,14 +269,16 @@ void set_screen_mode(int mode)
     modules::set_viewport_count(mode_viewport_count(mode));
     for (int i = 0; i < mode_viewport_count(mode); ++i) {
         gfx::ViewCam* camera = current_view_slot(i)->viewer().get_pull(); // (no check, as the original)
-        if (!camera)
+        if (!camera) {
             continue;
+        }
         float angle = 0.0F;
-        if (mode == 1)
+        if (mode == 1) {
             angle = static_cast<float>(static_cast<double>(script::fetch_float("Skater_Cam_Horiz_FOV")) *
                                        gfx::kHalf); // (0.5: split_vertical)
-        else
+        } else {
             angle = script::fetch_float("Skater_Cam_Horiz_FOV");
+        }
         camera->change_h_fov(angle);
     }
 }
@@ -274,24 +286,27 @@ void set_screen_mode(int mode)
 // 0x004A0B70
 void set_screen_field_of_view(float degrees)
 {
-    if (degrees == 0.0F)
+    if (degrees == 0.0F) {
         degrees = view_setup().base_fov_angle();
+    }
     viewport_state().screen_angle_ = degrees;
     // tan(degrees / 2) / tan(default / 2)
     view_setup().set_angle_factor(static_cast<float>(std::tan(static_cast<double>(degrees) * kHalfDegreeRadians) /
                                         std::tan(static_cast<double>(view_setup().base_fov_angle()) * kHalfDegreeRadians)));
     for (int i = 0; i < modules::viewport_count(); ++i) {
         const ViewRegion* viewport = current_view_slot(i);
-        if (viewport && viewport->viewer().get_pull())
+        if (viewport && viewport->viewer().get_pull()) {
             viewport->viewer().get_pull()->refresh_effective_h_fov();
+        }
     }
 }
 
 // 0x004A0EB0
 uint32_t request_occlusion_query(OcclusionRequest* request)
 {
-    if (occlusion_request_count() >= 3)
+    if (occlusion_request_count() >= 3) {
         return 0;
+    }
     uint32_t slot = kOcclusionSlots - 1; // (none free: the last, not marked)
     for (uint32_t i = 0; i < kOcclusionSlots; ++i) {
         if (!core::at(view_setup().occlusion_slots(), i)) {
@@ -322,8 +337,9 @@ void issue_occlusion_queries()
 void pop_occlusion_request()
 {
     auto& requests = view_setup().occlusion_requests();
-    for (int i = 0; i < kOcclusionRequests - 1; ++i)
+    for (int i = 0; i < kOcclusionRequests - 1; ++i) {
         core::at(requests, i) = core::at(requests, i + 1);
+    }
     core::at(requests, kOcclusionRequests - 1).slot = 0;
     --occlusion_request_count();
 }
@@ -332,12 +348,15 @@ void pop_occlusion_request()
 bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script* /*script*/)
 {
     float value = 0.0F;
-    if (params->fetch_float(kScaleNumerator, &value, 0))
+    if (params->fetch_float(kScaleNumerator, &value, 0)) {
         view_setup().set_scale_2d_in_3d_numerator(value);
-    if (params->fetch_float(kMaxScale, &value, 0))
+    }
+    if (params->fetch_float(kMaxScale, &value, 0)) {
         view_setup().set_scale_2d_in_3d_max(value);
-    if (params->fetch_float(kMinScale, &value, 0))
+    }
+    if (params->fetch_float(kMinScale, &value, 0)) {
         view_setup().set_scale_2d_in_3d_min(value);
+    }
     return true;
 }
 

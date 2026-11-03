@@ -109,8 +109,9 @@ void draw_list(const memory::ListNode* head, const std::array<float, 3>& y_axis,
     for (const memory::ListNode* node = head_of_scene_list(head); node;) {
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data())->mesh;
-        if (mesh->flags() & kMeshActiveFlag)
+        if (mesh->flags() & kMeshActiveFlag) {
             draw_billboard_mesh(mesh, y_axis, x_axis, z_axis);
+        }
         node = next;
     }
 }
@@ -122,12 +123,15 @@ int compare_batches(const void* a, const void* b)
 {
     const auto* first = *static_cast<BillboardBatch* const*>(a);
     const auto* second = *static_cast<BillboardBatch* const*>(b);
-    if (!first)
+    if (!first) {
         return second != nullptr;
-    if (!second)
+    }
+    if (!second) {
         return -1;
-    if (sort_depth_of_batch(first) < sort_depth_of_batch(second))
+    }
+    if (sort_depth_of_batch(first) < sort_depth_of_batch(second)) {
         return -1;
+    }
     return sort_depth_of_batch(first) > sort_depth_of_batch(second) ? 1 : 0;
 }
 
@@ -157,8 +161,9 @@ uint32_t primitive_count(PrimitiveRun run)
 void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
                          const std::array<float, 3>& z_axis)
 {
-    if (mesh->stride() < kMinSourceStride || mesh->stride() > kMaxSourceStride)
+    if (mesh->stride() < kMinSourceStride || mesh->stride() > kMaxSourceStride) {
         return;
+    }
     if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (fog: its start a quarter back)
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0F);
@@ -172,10 +177,11 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         toggle_fog(false);
     }
     if (renderer().shaders_available()) {
-        if (mesh->flags() & 4)
+        if (mesh->flags() & 4) {
             mesh->set_pixel_shader_colored();
-        else
+        } else {
             set_pixel_shader(mesh->pixel_shader(), nullptr);
+        }
     }
     D3DVIEWPORT9 viewport;
     renderer().d3d_device()->GetViewport(&viewport);
@@ -234,10 +240,11 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         if (has_table) {
             auto index = static_cast<uint32_t>(int{static_cast<int8_t>(core::at(vertex_bytes_of_mesh, i))});
             uint32_t value = 0;
-            if (index)
+            if (index) {
                 value = core::at(table, index - 1);
-            else
+            } else {
                 std::memcpy(&value, from.rest().first(4).data(), 4);
+            }
             std::memcpy(into.rest().first(4).data(), &value, 4);
             from += 4;
             into += 4;
@@ -264,13 +271,15 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     }
     renderer().d3d_device()->SetFVF(format);
     renderer().d3d_device()->SetStreamSource(0, stream, 0, stream_stride); // (the offset not put back, as the original)
-    if (stream)
+    if (stream) {
         stream->Release();
+    }
     renderer().d3d_device()->SetPixelShader(pixel_shader); // (the shaders not released, as the original)
     renderer().d3d_device()->SetVertexShader(vertex_shader);
     renderer().d3d_device()->SetIndices(indices);
-    if (indices)
+    if (indices) {
         indices->Release();
+    }
     toggle_fog(false);
     (void)viewport;
 }
@@ -279,8 +288,9 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
 BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 {
     for (int i = 0; i < count_; ++i) {
-        if (core::at(batches_, i)->material() == material)
+        if (core::at(batches_, i)->material() == material) {
             return core::at(batches_, i);
+        }
     }
     return nullptr;
 }
@@ -387,8 +397,9 @@ void BillboardBatch::erase_record(MeshRef* mesh)
 {
     for (const memory::ListNode* head : lists_) {
         memory::ListNode* node = head->next();
-        if (is_head(node))
+        if (is_head(node)) {
             continue;
+        }
         while (node) {
             auto* entry = static_cast<BillboardRec*>(node->data());
             memory::ListNode* next = get_next_node(node);
@@ -405,19 +416,23 @@ void BillboardBatch::erase_record(MeshRef* mesh)
 // 0x004CE2D0
 void BillboardBatch::render()
 {
-    if (!material_)
+    if (!material_) {
         return;
-    if (renderer().shaders_available())
+    }
+    if (renderer().shaders_available()) {
         material_->hand_in();
-    else
+    } else {
         material_->submit_states();
+    }
     for (auto& list : lists_) { // (the first shown list's first mesh's pixel shader)
         const memory::ListNode* first = list->next();
-        if (is_head(first) || !first)
+        if (is_head(first) || !first) {
             continue;
+        }
         const memory::ListNode* node = head_of_scene_list(list);
-        if (renderer().shaders_available())
+        if (renderer().shaders_available()) {
             set_pixel_shader(static_cast<BillboardRec*>(node->data())->mesh->pixel_shader(), nullptr);
+        }
         break;
     }
     auto transpose = d3dx::matrix_transpose; // (D3DX)
@@ -511,8 +526,9 @@ void BillboardBatch::render()
 // 0x004CEBE0
 void BillboardSet::append_mesh(MeshRef* mesh)
 {
-    if (!mesh->material() || !core::at(mesh->material()->textures(), 0))
+    if (!mesh->material() || !core::at(mesh->material()->textures(), 0)) {
         return;
+    }
     BillboardBatch* batch = get_find(mesh->material());
     if (!batch) {
         void* memory = memory::alloc(sizeof(BillboardBatch));
@@ -527,19 +543,23 @@ void BillboardSet::append_mesh(MeshRef* mesh)
 // 0x004CE9F0
 void BillboardSet::remove_mesh(MeshRef* mesh)
 {
-    if (!mesh->material())
+    if (!mesh->material()) {
         return;
+    }
     BillboardBatch* batch = get_find(mesh->material());
-    if (!batch)
+    if (!batch) {
         return;
+    }
     batch->erase_record(mesh);
     for (const memory::ListNode* head : batch->lists()) {
-        if (head->prev() != head)
+        if (head->prev() != head) {
             return;
+        }
     }
     for (int i = 0; i < count_; ++i) {
-        if (core::at(batches_, i) != batch)
+        if (core::at(batches_, i) != batch) {
             continue;
+        }
         for (memory::ListNode* head : batch->lists()) {
             memory::ListNode::destroy(head); // (0x004CE9A0)
         }
@@ -556,14 +576,16 @@ void BillboardSet::render(unsigned int which)
 {
     if (which & 1) {
         for (int i = 0; i < count_; ++i) {
-            if (!(core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard))
+            if (!(core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard)) {
                 core::at(batches_, i)->render();
+            }
         }
     }
     if (which & 2) {
         for (int i = 0; i < count_; ++i) {
-            if (core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard)
+            if (core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard) {
                 core::at(batches_, i)->render();
+            }
         }
     }
 }
@@ -583,8 +605,9 @@ void create_window_pool()
 // 0x004CD940
 void mark_billboards_ready()
 {
-    if (!pc_billboards_state().billboards_ready_)
+    if (!pc_billboards_state().billboards_ready_) {
         pc_billboards_state().billboards_ready_ = true;
+    }
 }
 
 // 0x004CD960

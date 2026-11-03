@@ -111,8 +111,9 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     if (movables) {
         entity_.assign_value(farthest ? collide_with_movables_farthest(&line, &hit_, callback, cache)
                                       : collide_with_movables(&line, &hit_, callback, cache));
-        if (entity_)
+        if (entity_) {
             entity_key_ = entity_->ident();
+        }
     }
     reach_ = hit_.distance;
     contact_pos_ = hit_.point;
@@ -134,8 +135,9 @@ int ProbeRay::get_collision_along(const maths::Vec4* start, const maths::Vec4* e
 // 0x00417120 (the original's EAX keeps its upper bytes from before when nothing was hit)
 bool ProbeRay::is_hit_triangle_collision() const
 {
-    if (!hit_.hit)
+    if (!hit_.hit) {
         return true;
+    }
     return hit_.object->is_triangle_hit();
 }
 
@@ -145,8 +147,9 @@ objects::GameEntity* ProbeRay::get_tested_owner() const { return hit_.owner; }
 // 0x00417210
 bool ProbeRay::hit_object_alive()
 {
-    if (entity_)
+    if (entity_) {
         return true;
+    }
     if (entity_key_ != 0) {
         entity_key_ = 0;
         hit_.object_checksum_ = 0;
@@ -161,8 +164,9 @@ objects::GameEntity* ProbeRay::get_hit_object() { return entity_.get_pull(); }
 // precision)
 double ProbeRay::get_hit_vertex_value() const
 {
-    if (!hit_.hit)
+    if (!hit_.hit) {
         return kNoHitValue;
+    }
     const HitMesh* object = hit_.object;
     const TriMeshSource* geometry = object->geometry();
     const maths::Vec4& at = hit_.point;

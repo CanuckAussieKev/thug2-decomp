@@ -22,8 +22,9 @@ float get_store(double value) { return static_cast<float>(value); }
 float through_x87(float value)
 {
     auto bits = std::bit_cast<uint32_t>(value);
-    if ((bits & kExponentMask) == kExponentMask && (bits & kMantissaMask))
+    if ((bits & kExponentMask) == kExponentMask && (bits & kMantissaMask)) {
         bits |= kQuietNanBit;
+    }
     return std::bit_cast<float>(bits);
 }
 
@@ -32,8 +33,9 @@ float through_x87(float value)
 double get_lowest(float square, float linear, float start)
 {
     double t = 0.0;
-    if (square > 0.0F)
+    if (square > 0.0F) {
         t = static_cast<double>(linear) / square * -kNegativeHalf;
+    }
     return (((static_cast<double>(square) * t) + linear) * t) + start;
 }
 
@@ -95,12 +97,15 @@ maths::Vec4* quadratic_lowest(maths::Vec4* out, const QuadraticPoints* points)
 maths::Vec4* min_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
 {
     maths::Vec4 result = *a;
-    if (b->x < a->x)
+    if (b->x < a->x) {
         result.x = b->x;
-    if (b->y < a->y)
+    }
+    if (b->y < a->y) {
         result.y = b->y;
-    if (b->z < a->z)
+    }
+    if (b->z < a->z) {
         result.z = b->z;
+    }
     result.w = through_x87(b->w < a->w ? b->w : a->w);
     *out = result;
     return out;
@@ -110,12 +115,15 @@ maths::Vec4* min_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec
 maths::Vec4* max_vector(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
 {
     maths::Vec4 result = *a;
-    if (b->x > a->x)
+    if (b->x > a->x) {
         result.x = b->x;
-    if (b->y > a->y)
+    }
+    if (b->y > a->y) {
         result.y = b->y;
-    if (b->z > a->z)
+    }
+    if (b->z > a->z) {
         result.z = b->z;
+    }
     result.w = through_x87(b->w > a->w ? b->w : a->w);
     *out = result;
     return out;

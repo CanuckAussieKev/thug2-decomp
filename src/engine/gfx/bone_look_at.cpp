@@ -85,16 +85,18 @@ int bone_from_params(BoneLookAt* look_at, Struct* params, BoneChoice* choice)
     int index = 0;
     *all = false;
     *by_id = false;
-    if (params->fetch_int_value(kIndex, &index, 0))
+    if (params->fetch_int_value(kIndex, &index, 0)) {
         return index;
+    }
     index = 0;
     uint32_t id = 0;
     if (params->read_hash_value(kId, &id, 0)) {
         *by_id = true;
         return look_at->find_bone(id);
     }
-    if (params->has_entry_named(kAll))
+    if (params->has_entry_named(kAll)) {
         *all = true;
+    }
     return 0;
 }
 
@@ -196,11 +198,13 @@ BoneLookAt::BoneLookAt(AnimTimeline* owner, void* object) : AnimDriver(owner)
 void BoneLookAt::tick_frame()
 {
     for (Bone& bone : bones_) {
-        if (bone.fixed_pos_)
+        if (bone.fixed_pos_) {
             continue;
+        }
         auto* object = core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(bone.aim_point_));
-        if (!object)
+        if (!object) {
             continue;
+        }
         bone.look_goal_.z = bone.shift_.z + object->at_point().z;
         bone.look_goal_.w = bone.shift_.w + object->at_point().w;
         bone.look_goal_.x = bone.shift_.x + object->at_point().x;
@@ -217,12 +221,14 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
     auto* skeleton =
         component ? (core::down_cast<objects::BoneRigModule>(component)->bone_rig()) : nullptr;
     for (Bone& bone : bones_) {
-        if (bone.bone_ == kNoBone)
+        if (bone.bone_ == kNoBone) {
             continue;
+        }
         Expects(skeleton != nullptr);
         const int index = skeleton->fetch_bone_slot(bone.bone_);
-        if (index == -1)
+        if (index == -1) {
             continue;
+        }
         const maths::Vec4& pos = object->at_point();
         const maths::Vec4& at = core::at(object->basis_frame().row, 2);
         // The direction to the target, and the turn from the object's own
@@ -248,8 +254,9 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
             if (which <= 2) {
                 const volatile int divisor = axis_code; // (0 divides by zero: the original's)
                 int sign = axis_code / divisor;
-                if (axis_code < 0)
+                if (axis_code < 0) {
                     sign = -sign;
+                }
                 const double quarter = sign * static_cast<double>(kQuarterTurn);
                 const double s = std::sin(quarter);
                 const double c = std::cos(quarter);
@@ -278,18 +285,24 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
             angles.z = bone.weight_ * clamped.z;
             angles.w = bone.weight_ * clamped.w;
         } else {
-            if (angles.x < bone.lower_limit_.x)
+            if (angles.x < bone.lower_limit_.x) {
                 angles.x = 0.0F;
-            if (angles.y < bone.lower_limit_.y)
+            }
+            if (angles.y < bone.lower_limit_.y) {
                 angles.y = 0.0F;
-            if (angles.z < bone.lower_limit_.z)
+            }
+            if (angles.z < bone.lower_limit_.z) {
                 angles.z = 0.0F;
-            if (angles.x > bone.upper_limit_.x)
+            }
+            if (angles.x > bone.upper_limit_.x) {
                 angles.x = 0.0F;
-            if (angles.y > bone.upper_limit_.y)
+            }
+            if (angles.y > bone.upper_limit_.y) {
                 angles.y = 0.0F;
-            if (angles.z > bone.upper_limit_.z)
+            }
+            if (angles.z > bone.upper_limit_.z) {
                 angles.z = 0.0F;
+            }
         }
         // Applied to the pose's rotation, eased from the last turn when it's far from it
         maths::QuatRotation rotation{};
@@ -316,15 +329,17 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
 void BoneLookAt::configure(bool all, int index, Struct* params)
 {
     if (params->has_entry_named(kOnFlag)) {
-        if (all)
+        if (all) {
             activate_all();
-        else
+        } else {
             core::at(bones_, index).active_ = true;
+        }
     } else if (params->has_entry_named(kOffFlag)) {
-        if (all)
+        if (all) {
             deactivate_all();
-        else
+        } else {
             core::at(bones_, index).active_ = false;
+        }
     }
     Bone& bone = core::at(bones_, index);
     params->read_hash_value(kBone, &bone.bone_, 0);
@@ -332,26 +347,30 @@ void BoneLookAt::configure(bool all, int index, Struct* params)
         bone.fixed_pos_ = false;
         bone.shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
-    if (params->fetch_vec(kAimPointHash, &bone.look_goal_, 0))
+    if (params->fetch_vec(kAimPointHash, &bone.look_goal_, 0)) {
         bone.fixed_pos_ = true;
-    if (params->fetch_vec(kOffset, &bone.shift_, 0))
+    }
+    if (params->fetch_vec(kOffset, &bone.shift_, 0)) {
         bone.fixed_pos_ = false;
+    }
     params->fetch_int_value(kAxis, &bone.pivot_dir_, 0);
     params->fetch_float(kWeight, &bone.weight_, 0);
     maths::Vec4 limit;
     if (params->fetch_vec(kMinAngles, &limit, 0)) {
         limit.degree_to_radian_conv();
-        if (all)
+        if (all) {
             set_all_min(&limit);
-        else
+        } else {
             bone.lower_limit_ = limit;
+        }
     }
     if (params->fetch_vec(kMaxAngles, &limit, 0)) {
         limit.degree_to_radian_conv();
-        if (all)
+        if (all) {
             set_all_max(&limit);
-        else
+        } else {
             bone.upper_limit_ = limit;
+        }
     }
     bone.clamp_ = !params->has_bare_flag(kNoClamp);
 }
@@ -366,27 +385,31 @@ void BoneLookAt::configure_from_data(Struct* params)
 // 0x00488B40
 int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Script* /*script*/)
 {
-    if (name != kOn && name != kIsOn && name != kOff && name != kSettings)
+    if (name != kOn && name != kIsOn && name != kOff && name != kSettings) {
         return 2;
+    }
     BoneChoice choice{.all = false, .by_id_ = false};
     const int index = bone_from_params(this, params, &choice);
     const bool all = choice.all;
     if (name == kOn) {
-        if (all)
+        if (all) {
             activate_all();
-        else
+        } else {
             core::at(bones_, index).active_ = true;
+        }
         return 1;
     }
     if (name == kOff) {
-        if (all)
+        if (all) {
             deactivate_all();
-        else
+        } else {
             core::at(bones_, index).active_ = false;
+        }
         return 1;
     }
-    if (name == kIsOn)
+    if (name == kIsOn) {
         return all ? (all_active() ? 1 : 0) : (core::at(bones_, index).active_ ? 1 : 0);
+    }
     configure(all, index, params);
     return 1;
 }
@@ -395,8 +418,9 @@ int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Scr
 int BoneLookAt::find_bone(uint32_t bone)
 {
     for (int i = 0; i < 4; ++i) {
-        if (core::at(bones_, i).bone_ == bone)
+        if (core::at(bones_, i).bone_ == bone) {
             return i;
+        }
     }
     return -1;
 }
@@ -405,8 +429,9 @@ int BoneLookAt::find_bone(uint32_t bone)
 bool BoneLookAt::all_active()
 {
     for (const Bone& bone : bones_) {
-        if (bone.bone_ != kNoBone && !bone.active_)
+        if (bone.bone_ != kNoBone && !bone.active_) {
             return false;
+        }
     }
     return true;
 }
@@ -415,8 +440,9 @@ bool BoneLookAt::all_active()
 void BoneLookAt::activate_all()
 {
     for (Bone& bone : bones_) {
-        if (bone.bone_ != kNoBone)
+        if (bone.bone_ != kNoBone) {
             bone.active_ = true;
+        }
     }
 }
 
@@ -424,8 +450,9 @@ void BoneLookAt::activate_all()
 void BoneLookAt::deactivate_all()
 {
     for (Bone& bone : bones_) {
-        if (bone.bone_ != kNoBone)
+        if (bone.bone_ != kNoBone) {
             bone.active_ = false;
+        }
     }
 }
 
@@ -433,8 +460,9 @@ void BoneLookAt::deactivate_all()
 void BoneLookAt::set_all_min(const maths::Vec4* min)
 {
     for (Bone& bone : bones_) {
-        if (bone.bone_ != kNoBone)
+        if (bone.bone_ != kNoBone) {
             bone.lower_limit_ = *min;
+        }
     }
 }
 
@@ -442,8 +470,9 @@ void BoneLookAt::set_all_min(const maths::Vec4* min)
 void BoneLookAt::set_all_max(const maths::Vec4* max)
 {
     for (Bone& bone : bones_) {
-        if (bone.bone_ != kNoBone)
+        if (bone.bone_ != kNoBone) {
             bone.upper_limit_ = *max;
+        }
     }
 }
 

@@ -90,8 +90,9 @@ void QuadSprite::draw()
     }
     float scale_x = xscale;
     float scale_y = yscale;
-    if (scale_x == 0.0F || scale_y == 0.0F)
+    if (scale_x == 0.0F || scale_y == 0.0F) {
         return;
+    }
     if (scale_x < 0.0F) {
         scale_x = -scale_x;
         u0 = u1;
@@ -121,8 +122,9 @@ void QuadSprite::draw()
     auto bottom = static_cast<float>((static_cast<double>(height) * scale_y) + top);
 
     const uint32_t argb = (color_ & 0xFF00FF00) | ((color_ & 0xFF) << 16) | ((color_ >> 16) & 0xFF);
-    if (!(argb & kAlphaMask))
+    if (!(argb & kAlphaMask)) {
         return;
+    }
 
     const bool front_end_widescreen = get_front_end_widescreen();
     auto screen_right = static_cast<float>(renderer().back_buffer_width());
@@ -149,19 +151,23 @@ void QuadSprite::draw()
             y1 = renderer().back_buffer_height();
         } else {
             // (an edge exactly at 0 isn't moved by the offset - the original's)
-            if (y0 != 0.0F)
+            if (y0 != 0.0F) {
                 y0 = static_cast<float>((static_cast<double>(renderer().display_factor_y()) * y0) +
                                         renderer().screen_offset_y());
-            if (y1 != 0.0)
+            }
+            if (y1 != 0.0) {
                 y1 = (y1 * renderer().display_factor_y()) + renderer().screen_offset_y();
+            }
         }
         if (front_end_widescreen) {
             // (only sprites overlapping the layout: one lying wholly outside it - parked off-screen, or the end
             // strip of a band - keeps its place instead of becoming a strip at the screen's edge)
-            if (layout_x0 <= 0.0F && layout_x1 > 0.0F)
+            if (layout_x0 <= 0.0F && layout_x1 > 0.0F) {
                 x0 = 0.0F;
-            if (layout_x1 >= kLayoutWidth && layout_x0 < kLayoutWidth)
+            }
+            if (layout_x1 >= kLayoutWidth && layout_x0 < kLayoutWidth) {
                 x1 = screen_right;
+            }
         }
         core::at(vertices, 0).x = core::at(vertices, 1).x = x0;
         core::at(vertices, 2).x = core::at(vertices, 3).x = x1;
@@ -173,8 +179,9 @@ void QuadSprite::draw()
                                            {.x = right, .y = top, .z = 0.0F, .w = 0.0F},
                                            {.x = right, .y = bottom, .z = 0.0F, .w = 0.0F}}};
         // (in the original's order: top left, top right, bottom left, bottom right)
-        for (const int i : {0, 2, 1, 3})
+        for (const int i : {0, 2, 1, 3}) {
             spin_around_z(core::at(corners, i), rotation);
+        }
         // Still (nearly) upright or on its side: within 0.01 radians of a multiple of 90 degrees. (The menus' bottom
         // band is turned by pi + 0.001, so its corners don't line up exactly.)
         const double quarter_turns = static_cast<double>(rotation) / 1.5707963267948966;
@@ -195,15 +202,21 @@ void QuadSprite::draw()
             // (a turned sprite's own left corners can be on the right); each side reaching past its layout edge
             // goes to the screen's edge, as for upright sprites.
             std::array<int, 4> order = {{0, 1, 2, 3}};
-            for (int a = 0; a < 4; ++a)
-                for (int b = a + 1; b < 4; ++b)
-                    if (core::at(layout_x, core::at(order, b)) < core::at(layout_x, core::at(order, a)))
+            for (int a = 0; a < 4; ++a) {
+                for (int b = a + 1; b < 4; ++b) {
+                    if (core::at(layout_x, core::at(order, b)) < core::at(layout_x, core::at(order, a))) {
                         std::swap(core::at(order, a), core::at(order, b));
+                    }
+                }
+            }
             // (again only when the sprite overlaps the layout)
-            if (core::at(layout_x, core::at(order, 0)) <= 0.0 && core::at(layout_x, core::at(order, 3)) > 0.0)
+            if (core::at(layout_x, core::at(order, 0)) <= 0.0 && core::at(layout_x, core::at(order, 3)) > 0.0) {
                 core::at(vertices, core::at(order, 0)).x = core::at(vertices, core::at(order, 1)).x = 0.0F;
-            if (core::at(layout_x, core::at(order, 3)) >= kLayoutWidth && core::at(layout_x, core::at(order, 0)) < kLayoutWidth)
+            }
+            if (core::at(layout_x, core::at(order, 3)) >= kLayoutWidth &&
+                core::at(layout_x, core::at(order, 0)) < kLayoutWidth) {
                 core::at(vertices, core::at(order, 2)).x = core::at(vertices, core::at(order, 3)).x = screen_right;
+            }
         }
     }
     // Diagnostic: thug2-decomp.ini [features] debug_sprites=1 logs, in the front end, each sprite (once per position)
@@ -222,8 +235,9 @@ void QuadSprite::draw()
         const uint32_t key = (static_cast<uint32_t>(x * 16.0F) * 2654435761U) ^ static_cast<uint32_t>(y * 16.0F) ^
                              static_cast<uint32_t>(width) << 20;
         bool seen = false;
-        for (int i = 0; i < tally; ++i)
+        for (int i = 0; i < tally; ++i) {
             seen |= core::at(s_seen, i) == key;
+        }
         if (!seen && tally < kSeenLimit && (reach_left <= 0.0 || reach_right >= kLayoutWidth)) {
             core::at(s_seen, tally++) = key;
             get_log("sprite: pos %.2f,%.2f size %ux%u scale %.3f,%.3f hot %.2f,%.2f rot %.5f flip %u%u -> screen x "

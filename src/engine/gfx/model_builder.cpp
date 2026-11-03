@@ -219,13 +219,15 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         clear_all_geoms();
         return true;
     case kModelApplyBoneScale: {
-        if (!params->has_entry_named(kBoneScaling))
+        if (!params->has_entry_named(kBoneScaling)) {
             return true;
+        }
         uint32_t cast_part = 0;
-        if (built_appearance()->get_part(kSkaterMHead))
+        if (built_appearance()->get_part(kSkaterMHead)) {
             params->read_hash_value(kMaleCasPart, &cast_part, 0);
-        else if (built_appearance()->get_part(kSkaterFHead))
+        } else if (built_appearance()->get_part(kSkaterFHead)) {
             params->read_hash_value(kFemaleCasPart, &cast_part, 0);
+        }
         uint32_t part = name;
         params->read_hash_value(kPart, &part, 1);
         apply_bone_sizing(part, cast_part);
@@ -250,8 +252,9 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         }
         maths::Vec4 scale = built_model()->size_factor();
         maths::Vec4 factor = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
-        if (!fetch_magnification(&factor, body_shape))
+        if (!fetch_magnification(&factor, body_shape)) {
             return true;
+        }
         scale.x = factor.x * scale.x;
         scale.y = factor.y * scale.y;
         scale.z = factor.z * scale.z;
@@ -267,8 +270,9 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
     }
     case kAppearanceAllowScalingCheat: {
         script::Struct* body = built_appearance()->get_part_option(kBody);
-        if (!body)
+        if (!body) {
             return true;
+        }
         return !body->has_bare_flag(kAllowsScalingCheat);
     }
     case kModelHideGeom: {
@@ -284,8 +288,9 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         return true;
     case kModelApplyFaceTexture: {
         FaceSkin* face = built_appearance()->face_skin();
-        if (!face || !face_texture_is_valid(face) || !built_model())
+        if (!face || !face_texture_is_valid(face) || !built_model()) {
             return true;
+        }
         const char* source = nullptr; // (asserted; the original's slot held the method's name)
         params->fetch_text(kSrc, &source, 1);
         uint32_t in = kAll;
@@ -328,10 +333,12 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
             return true;
         }
         script::Struct* head = built_appearance()->get_part_option(kSkaterMHead);
-        if (head && params->has_bare_flag(kIsBigheadCheat))
+        if (head && params->has_bare_flag(kIsBigheadCheat)) {
             head->read_sub_struct(kBigheadScaleInfo, &body_shape, 0);
-        if (!built_skeleton())
+        }
+        if (!built_skeleton()) {
             return true;
+        }
         return built_skeleton()->apply_bone_scales(body_shape);
     }
     case kModelResetScale:
@@ -353,8 +360,9 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
 bool ModelAssembler::add_geom(uint32_t part) const
 {
     script::Struct* option = built_appearance()->get_part_option(part);
-    if (!option)
+    if (!option) {
         return true;
+    }
     int multicolor = 0;
     option->fetch_int_value(kMulticolor, &multicolor, 0);
     auto add = [&](const char* mesh) {
@@ -369,8 +377,9 @@ bool ModelAssembler::add_geom(uint32_t part) const
         }
     }
     for (const uint32_t name : kMeshes) {
-        if (option->fetch_text(name, &mesh, 0))
+        if (option->fetch_text(name, &mesh, 0)) {
             add(mesh);
+        }
     }
     return true;
 }
@@ -395,17 +404,20 @@ bool ModelAssembler::blend_tint_over(script::Struct* params)
     uint32_t part = 0;
     params->read_hash_value(kPart, &part, 1);
     script::Struct* slot = built_appearance()->get_part(part);
-    if (!slot)
+    if (!slot) {
         return true;
+    }
     uint32_t descriptor_id = 0;
     slot->read_hash_value(kDescId, &descriptor_id, 0);
-    if (descriptor_id == kPaperBag || descriptor_id == kBigfoot)
+    if (descriptor_id == kPaperBag || descriptor_id == kBigfoot) {
         return false;
+    }
     int use_default = 0;
-    if (!slot->has_entry_named(kUseDefaultHsv))
+    if (!slot->has_entry_named(kUseDefaultHsv)) {
         use_default = 1;
-    else
+    } else {
         slot->fetch_int_value(kUseDefaultHsv, &use_default, 0);
+    }
     if (use_default) {
         int h = 0;
         int s = 0;
@@ -422,8 +434,9 @@ bool ModelAssembler::blend_tint_over(script::Struct* params)
     int h = 0;
     int s = 0;
     int v = 0;
-    if (!slot->fetch_int_value(kH, &h, 0) || !slot->fetch_int_value(kS, &s, 0) || !slot->fetch_int_value(kV, &v, 0))
+    if (!slot->fetch_int_value(kH, &h, 0) || !slot->fetch_int_value(kS, &s, 0) || !slot->fetch_int_value(kV, &v, 0)) {
         return true;
+    }
     built_model()->set_color_from_script(params, static_cast<float>(h), get_percent(s), get_percent(v));
     return true;
 }
@@ -441,13 +454,15 @@ bool ModelAssembler::swap_texture(uint32_t part)
 {
     bool result = false;
     script::Struct* option = built_appearance()->get_part_option(part);
-    if (!option)
+    if (!option) {
         return false;
+    }
     const char* with = nullptr;
     for (const std::array<uint32_t, 3>& names : kReplacements) {
         const char* source = nullptr;
-        if (!option->fetch_text(core::at(names, 0), &source, 0))
+        if (!option->fetch_text(core::at(names, 0), &source, 0)) {
             continue;
+        }
         option->fetch_text(core::at(names, 1), &with, 1);
         uint32_t in = part;
         option->read_hash_value(core::at(names, 2), &in, 0);
@@ -484,8 +499,9 @@ bool ModelAssembler::propagate_head_color()
         hands_part = kSkaterFHands;
         lower_legs_part = kSkaterFLowerLegs;
         head = built_appearance()->get_part(head_part);
-        if (!head)
+        if (!head) {
             return false;
+        }
     }
     int h = 0;
     int s = 0;
@@ -502,24 +518,29 @@ bool ModelAssembler::propagate_head_color()
     if (male) {
         if (script::Struct* torso = built_appearance()->get_part(kBareTorso)) {
             torso->read_hash_value(kDescId, &descriptor_id, 1);
-            if (descriptor_id != kNone)
+            if (descriptor_id != kNone) {
                 add_colour(torso, h, s, v);
+            }
         }
     }
     if (script::Struct* hands = built_appearance()->get_part(hands_part)) {
         hands->read_hash_value(kDescId, &descriptor_id, 1);
-        if (descriptor_id == kHands)
+        if (descriptor_id == kHands) {
             add_colour(hands, h, s, v);
+        }
     }
-    if (script::Struct* lower_legs = built_appearance()->get_part(lower_legs_part))
+    if (script::Struct* lower_legs = built_appearance()->get_part(lower_legs_part)) {
         add_colour(lower_legs, h, s, v);
+    }
     script::Struct* shoes = built_appearance()->get_part_option(kShoes);
     if (shoes && shoes->has_bare_flag(kBareFeet)) {
-        if (script::Struct* slot = built_appearance()->get_part(kShoes))
+        if (script::Struct* slot = built_appearance()->get_part(kShoes)) {
             add_colour(slot, h, s, v);
+        }
     }
-    if (script::Struct* body = built_appearance()->get_part(kBody))
+    if (script::Struct* body = built_appearance()->get_part(kBody)) {
         add_colour(body, h, s, v);
+    }
     return true;
 }
 
@@ -535,8 +556,9 @@ bool ModelAssembler::restore_scale()
 {
     const maths::Vec4 one = {.x = 1.0F, .y = 1.0F, .z = 1.0F, .w = 1.0F};
     built_model()->change_scale(&one);
-    if (!built_skeleton())
+    if (!built_skeleton()) {
         return false;
+    }
     built_skeleton()->reset_bone_scales();
     return true;
 }
@@ -545,8 +567,9 @@ bool ModelAssembler::restore_scale()
 bool ModelAssembler::apply_body_shape()
 {
     script::Struct* body_shape = nullptr;
-    if (!built_appearance()->structure().read_sub_struct(kBodyShape, &body_shape, 0))
+    if (!built_appearance()->structure().read_sub_struct(kBodyShape, &body_shape, 0)) {
         return false;
+    }
     return built_skeleton()->apply_bone_scales(body_shape);
 }
 
@@ -555,27 +578,33 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
 {
     script::Struct* slot = built_appearance()->get_part(part);
     if (!slot) {
-        if (!cast_part)
+        if (!cast_part) {
             return false;
+        }
         // (no option: a crash, as the original)
         built_appearance()->get_part_option(cast_part)->read_sub_struct(part, &slot, 0);
-        if (!slot)
+        if (!slot) {
             return false;
+        }
     }
-    if (!slot->has_entry_named(kKeepStockScale))
+    if (!slot->has_entry_named(kKeepStockScale)) {
         return false;
+    }
     int use_default = 0;
     slot->fetch_int_value(kKeepStockScale, &use_default, 0);
-    if (use_default)
+    if (use_default) {
         return false;
+    }
     int x = 0;
     int y = 0;
     int z = 0;
-    if (!slot->fetch_int_value(kX, &x, 0) || !slot->fetch_int_value(kY, &y, 0) || !slot->fetch_int_value(kZ, &z, 0))
+    if (!slot->fetch_int_value(kX, &x, 0) || !slot->fetch_int_value(kY, &y, 0) || !slot->fetch_int_value(kZ, &z, 0)) {
         return false;
+    }
     script::Array* bones = script::fetch_list(part);
-    if (!bones)
+    if (!bones) {
         return false;
+    }
     maths::Vec4 scale;
     scale.w = 1.0F;
     for (uint32_t i = 0; i < bones->extent(); ++i) {
@@ -587,8 +616,9 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
         scale.z = static_cast<float>(static_cast<double>(z) * kPercent * scale.z);
         if (script::Array* nonlocal = script::fetch_list(kNonlocalBones)) {
             for (uint32_t j = 0; j < nonlocal->extent(); ++j) {
-                if (nonlocal->fetch_part(j) == bone)
+                if (nonlocal->fetch_part(j) == bone) {
                     local = false;
+                }
             }
         }
         built_skeleton()->change_bone_sizing(bone, &scale, local);
@@ -611,12 +641,14 @@ bool ModelAssembler::apply_object_scale()
         return true;
     }
     script::Struct* slot = built_appearance()->get_part(kObjectScaling);
-    if (!slot || !slot->has_entry_named(kKeepStockScale))
+    if (!slot || !slot->has_entry_named(kKeepStockScale)) {
         return false;
+    }
     int use_default = 0;
     slot->fetch_int_value(kKeepStockScale, &use_default, 0);
-    if (use_default)
+    if (use_default) {
         return false;
+    }
     int x = 0;
     int y = 0;
     int z = 0;
@@ -631,12 +663,14 @@ bool ModelAssembler::apply_object_scale()
 bool ModelAssembler::set_created_texture(uint32_t part)
 {
     script::Struct* option = built_appearance()->get_part_option(part);
-    if (!option)
+    if (!option) {
         return false;
+    }
     uint32_t descriptor_id = 0; // (asserted: the original's is garbage when missing)
     option->read_hash_value(kDescId, &descriptor_id, 1);
-    if (descriptor_id != kCreatedGraphic)
+    if (descriptor_id != kCreatedGraphic) {
         return false;
+    }
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
     uint32_t in = 0;
     uint32_t with = 0;
@@ -657,8 +691,9 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     texture->get_border(black);          // (0x0048DED0)
     texture->get_zoom(x_scale, y_scale); // (0x0048DEB0)
     int rotate = 0;
-    if (option->fetch_int_value(kRotate, &rotate, 0))
+    if (option->fetch_int_value(kRotate, &rotate, 0)) {
         texture->spin_by(kQuarterTurn, {.x = -1.0F, .y = -1.0F}); // (0x0049F360)
+    }
     render::BitmapTexture* base = nullptr;
     bool deck = false;
     int is_deck = 0;
@@ -676,8 +711,9 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     const char* logo = nullptr;
     option->fetch_text(kLogoTexture, &logo, 1);
     const bool result = built_model()->replace_texture_with(in, logo, with);
-    if (deck)
+    if (deck) {
         render::engine_parts().game_texture_dict()->unload_texture(base);
+    }
     render::engine_parts().game_texture_dict()->unload_texture(texture);
     workspace->end_edit(); // (0x0048E4C0)
     memory::Hub::get_pull()->leave_heap_scope();
@@ -689,14 +725,17 @@ bool ModelAssembler::choose_uv_shift(checksums::Name part_name, uint32_t materia
 {
     const uint32_t part = part_name.value();
     script::Struct* slot = built_appearance()->get_part(part);
-    if (!slot)
+    if (!slot) {
         return true;
-    if (!slot->has_entry_named(kUseDefaultUv))
+    }
+    if (!slot->has_entry_named(kUseDefaultUv)) {
         return false;
+    }
     int use_default = static_cast<int>(part); // (the original's stack slot: the part)
     slot->fetch_int_value(kUseDefaultUv, &use_default, 0);
-    if (use_default)
+    if (use_default) {
         return false;
+    }
     float u = 0.0F;
     float v = 0.0F;
     float scale = 0.0F;
@@ -729,8 +768,9 @@ bool ModelAssembler::launch_script(checksums::Name part_name, uint32_t target)
 {
     const uint32_t part = part_name.value();
     script::Struct* option = built_appearance()->get_part_option(part);
-    if (!option)
+    if (!option) {
         return true;
+    }
     auto* held = static_cast<script::ParamScript*>(memory::alloc(sizeof(script::ParamScript)));
     if (held) {
         held->own_name_hash_ = 0;

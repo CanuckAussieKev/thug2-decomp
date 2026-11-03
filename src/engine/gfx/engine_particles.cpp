@@ -18,8 +18,9 @@ namespace {
 float through_x87(float value)
 {
     auto bits = std::bit_cast<uint32_t>(value);
-    if ((bits & kExponentMask) == kExponentMask && (bits & kMantissaMask))
+    if ((bits & kExponentMask) == kExponentMask && (bits & kMantissaMask)) {
         bits |= kQuietNanBit;
+    }
     return std::bit_cast<float>(bits);
 }
 
@@ -28,15 +29,17 @@ float through_x87(float value)
 // 0x00494E00
 void Sparkle::render(bool advance)
 {
-    if (!args_.hidden() && !args_.held_back())
+    if (!args_.hidden() && !args_.held_back()) {
         draw(advance);
+    }
 }
 
 // 0x00494E20
 void Sparkle::tick_frame()
 {
-    if (!args_.hidden() && !args_.held_back())
+    if (!args_.hidden() && !args_.held_back()) {
         update();
+    }
 }
 
 // 0x00494E40
@@ -52,8 +55,9 @@ void Sparkle::get_release()
 // 0x00494E70
 void Sparkle::conceal(bool hide)
 {
-    if (args_.hidden() == hide)
+    if (args_.hidden() == hide) {
         return;
+    }
     args_.set_hidden(hide);
     on_visibility_changed(hide);
 }

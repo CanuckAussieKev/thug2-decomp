@@ -195,11 +195,13 @@ Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths
     : transform_(*matrix), bones_(bone_matrices), bone_count_(count), scene_(list), next_(instances())
 {
     instances() = this;
-    if (bones_ && bones_on_device(scene_) <= 0)
+    if (bones_ && bones_on_device(scene_) <= 0) {
         return;
+    }
     for (const MeshRef* mesh : scene_->mesh_run()) {
-        if (!(mesh->fvf() & kMeshLit) || (mesh_traits(mesh) & kMeshNotLit))
+        if (!(mesh->fvf() & kMeshLit) || (mesh_traits(mesh) & kMeshNotLit)) {
             return;
+        }
     }
     flags_ |= 2;
 }
@@ -253,8 +255,9 @@ void Singleton::render(uint32_t draw_bits)
                 renderer().set_instance_colour(color_);
             }
             draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
-            if (flags_ & 4)
+            if (flags_ & 4) {
                 renderer().set_instance_colour_on(0);
+            }
         }
         renderer().set_skipped_passes(renderer().skipped_passes() & ~kSkippedPassBit);
         renderer().set_vertex_format_locked(0);
@@ -285,10 +288,11 @@ void Singleton::render(uint32_t draw_bits)
                 set_world_transform(world.data());
                 renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world.data()));
                 for (MeshRef* mesh : scene_->mesh_run()) {
-                    if (static_cast<int8_t>(mesh->bone()) == bone) // (its bone)
+                    if (static_cast<int8_t>(mesh->bone()) == bone) { // (its bone)
                         mesh_flags_ref(mesh) |= kMeshShown;
-                    else
+                    } else {
                         mesh_flags_ref(mesh) &= ~kMeshShown;
+                    }
                 }
                 draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
             }
@@ -304,8 +308,9 @@ void Singleton::render(uint32_t draw_bits)
 void draw_one_instance(Singleton* instance, uint32_t flags)
 {
     set_last_bones(nullptr);
-    if (!instance->active())
+    if (!instance->active()) {
         return;
+    }
     set_world_transform((instance->transform()).data());
     const maths::Vec4 sphere = sphere_of(instance->scene()->centre(), instance->scene()->radius());
     const maths::Vec4* centre = &sphere;
@@ -334,22 +339,27 @@ void draw_instance_batch(BatchPass batch_pass)
     set_last_bones(nullptr);
     if (instances()) {
         for (Singleton* instance = instances(); instance; instance = instance->next()) {
-            if (!instance->active() || !(instance->viewports() & mask))
+            if (!instance->active() || !(instance->viewports() & mask)) {
                 continue;
+            }
             const SceneRef* list = instance->scene();
             if (!((flags & kRenderOpaque) && list->mesh_count() > list->transparent_count()) &&
-                !((flags & kRenderTransparent) && list->transparent_count() > 0))
+                !((flags & kRenderTransparent) && list->transparent_count() > 0)) {
                 continue;
+            }
             const maths::Vec4& position = *get_position(instance);
-            for (int k = 0; k < 4; ++k)
+            for (int k = 0; k < 4; ++k) {
                 core::at(culling, maths::kMatTx + k) = position[k];
+            }
             set_world_transform(culling.data());
             float radius = instance->scene()->radius();
-            if (instance->bones() && bones_on_device(instance->scene()) == 0 && radius < kSkinnedMinRadius)
+            if (instance->bones() && bones_on_device(instance->scene()) == 0 && radius < kSkinnedMinRadius) {
                 radius = kSkinnedMinRadius; // (a skinned model's sphere at least this big)
+            }
             const maths::Vec4 sphere = sphere_of(instance->scene()->centre(), instance->scene()->radius());
-            if (!sphere_occluded(&sphere, {.radius = radius, .weight = 1}))
+            if (!sphere_occluded(&sphere, {.radius = radius, .weight = 1})) {
                 core::at(get_visible(), count++) = instance;
+            }
         }
         if (count > 0) {
             crt::get_qsort(static_cast<void*>(get_visible().data()), static_cast<uint32_t>(count), 4,
@@ -362,10 +372,12 @@ void draw_instance_batch(BatchPass batch_pass)
             int i = 0;
             for (; i < count; ++i) {
                 Singleton* instance = core::at(get_visible(), i);
-                if (!skinned_by_shader(instance))
+                if (!skinned_by_shader(instance)) {
                     break;
-                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinA)))
+                }
+                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinA))) {
                     instance->render(flags);
+                }
             }
             clear_flag_786e_b4();
             const std::array<float, 3> camera = {{core::at(renderer().render_camera().position, 0), core::at(renderer().render_camera().position, 1), core::at(renderer().render_camera().position, 2)}};
@@ -378,8 +390,9 @@ void draw_instance_batch(BatchPass batch_pass)
                 const double dy = static_cast<double>(position.y) - core::at(camera, 1);
                 const double dz = static_cast<double>(position.z) - core::at(camera, 2);
                 renderer().set_near_camera(!((dz * dz) + (dy * dy) + (dx * dx) > near_squared)); // near the camera
-                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinB)))
+                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinB))) {
                     instance->render(flags);
+                }
             }
             renderer().set_near_camera(true);
             change_phase(kStateLighting, 0);
@@ -398,30 +411,37 @@ int compare_instances(const void* a, const void* b)
     const Singleton* first = *static_cast<Singleton* const*>(a);
     const Singleton* second = *static_cast<Singleton* const*>(b);
     if (skinned_by_shader(first)) {
-        if (!skinned_by_shader(second))
+        if (!skinned_by_shader(second)) {
             return -1;
-        if (first->bones() != second->bones())
+        }
+        if (first->bones() != second->bones()) {
             return second->bones() < first->bones() ? 1 : -1;
+        }
         const int x = first->scene()->transparent_count();
         const int y = second->scene()->transparent_count();
         return x == y ? 0 : x > y ? 1 : -1;
     }
-    if (skinned_by_shader(second))
+    if (skinned_by_shader(second)) {
         return 1;
+    }
     const int x = first->scene()->transparent_count();
     const int y = second->scene()->transparent_count();
-    if (x != y)
+    if (x != y) {
         return x > y ? 1 : -1;
-    if (x <= 0)
+    }
+    if (x <= 0) {
         return 0;
+    }
     const MaterialRef* m1 = core::at(first->scene()->mesh_run(), first->scene()->first_transparent())->material();
     const MaterialRef* m2 = core::at(second->scene()->mesh_run(), second->scene()->first_transparent())->material();
-    if (!m1 || !m2)
+    if (!m1 || !m2) {
         return 0;
+    }
     const float k1 = m1->sort_key();
     const float k2 = m2->sort_key();
-    if (k1 > k2)
+    if (k1 > k2) {
         return 1;
+    }
     return k1 < k2 ? -1 : 0;
 }
 

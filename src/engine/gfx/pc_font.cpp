@@ -49,16 +49,18 @@ void PcFont::change_spacings(Spacings spacings)
     const auto glyph_gap = spacings.glyph_gap_;
     const auto blank_gap = spacings.blank_gap_;
     font_->set_glyph_gap(static_cast<int16_t>(glyph_gap));
-    if (blank_gap > 0)
+    if (blank_gap > 0) {
         font_->set_blank_gap(static_cast<int16_t>(blank_gap));
+    }
 }
 
 // 0x004B3C30
 void PcFont::change_colors(const uint32_t* colors)
 {
     const std::span<const uint32_t, 16> given(colors, 16);
-    for (int i = 0; i < kFontColourCount; ++i)
+    for (int i = 0; i < kFontColourCount; ++i) {
         core::at(font_->colors(), i) = core::at(given, i);
+    }
 }
 
 // 0x004B3CB0
@@ -111,8 +113,9 @@ void PcText::update_hidden() { text->change_concealed(invisible()); }
 void PcText::update_settings()
 {
     text->set_text(text_buffer());
-    if (typeface())
+    if (typeface()) {
         text->set_font(core::down_cast<PcFont>(typeface())->font());
+    }
     text->set_pivot_x(pivot_x());
     text->set_pivot_y(pivot_y());
     text->set_effects(effects());
@@ -129,10 +132,11 @@ void PcText::update_settings()
 void PcText::update_priority()
 {
     text->change_rank(rank());
-    if (z_enabled())
+    if (z_enabled()) {
         text->set_z(static_cast<float>(static_cast<double>(std::bit_cast<uint32_t>(layer())) * (1.0 / kLayerScale)));
-    else
+    } else {
         text->set_z(0.0F);
+    }
 }
 
 // 0x004B3FD0

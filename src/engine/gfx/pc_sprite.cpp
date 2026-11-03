@@ -52,8 +52,9 @@ void PcSprite::update_settings()
 // 0x004C70C0
 void PcSprite::update_priority()
 {
-    if (sprite)
+    if (sprite) {
         sprite->change_rank(rank());
+    }
 }
 
 } // namespace render

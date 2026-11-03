@@ -123,15 +123,17 @@ std::vector<ShadowCornerPoint>& shadow_vertices()
 }
 std::span<ProjectedVertex> get_projected(uint32_t count)
 {
-    if (projected_vertices().size() < count)
+    if (projected_vertices().size() < count) {
         projected_vertices().resize(count);
+    }
     return projected_vertices();
 }
 std::span<ProjectedVertex> get_projected() { return projected_vertices(); }
 std::span<ShadowCornerPoint> shadow_triangles(uint32_t vertices)
 {
-    if (shadow_vertices().size() < vertices)
+    if (shadow_vertices().size() < vertices) {
         shadow_vertices().resize(vertices);
+    }
     return shadow_vertices();
 }
 std::span<ShadowCornerPoint> shadow_triangles() { return shadow_vertices(); }
@@ -168,8 +170,9 @@ void draw_scene_mesh(void* mesh) { static_cast<MeshRef*>(mesh)->render(); }
 
 void get_identity(std::span<float, maths::kMatrixFloats> m)
 {
-    for (int i = 0; i < maths::kMatrixFloats; ++i)
+    for (int i = 0; i < maths::kMatrixFloats; ++i) {
         core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
+    }
 }
 
 // The caster drawing into `key` (the table's own inlined lookup), or null.
@@ -212,14 +215,16 @@ int clip_shadow_triangles(std::span<const uint16_t> indices)
         const ProjectedVertex& v0 = core::at(get_projected(), core::at(corner, 0));
         const ProjectedVertex& v1 = core::at(get_projected(), core::at(corner, 1));
         const ProjectedVertex& v2 = core::at(get_projected(), core::at(corner, 2));
-        if (v0.clip & v1.clip & v2.clip)
+        if (v0.clip & v1.clip & v2.clip) {
             continue; // all outside the same side
+        }
         const double facing = ((static_cast<double>(core::at(v2.projected, 1)) - core::at(v1.projected, 1)) *
                                (static_cast<double>(core::at(v1.projected, 0)) - core::at(v0.projected, 0))) -
                               ((static_cast<double>(core::at(v2.projected, 0)) - core::at(v1.projected, 0)) *
                                (static_cast<double>(core::at(v1.projected, 1)) - core::at(v0.projected, 1)));
-        if (facing > kFacingLimit)
+        if (facing > kFacingLimit) {
             continue;
+        }
         for (const ProjectedVertex* v : {&v0, &v1, &v2}) {
             std::memcpy(out->position.data(), v->position.data(), sizeof(out->position));
             out->u = core::at(v->projected, 0);
@@ -266,15 +271,19 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
     change_phase(RenderStateId::kZWrite, 0);
     change_phase(RenderStateId::kZTest, 1);
     change_phase(RenderStateId::kPhaseAlphaTest, 0);
-    if (!two_sided_stencil())
+    if (!two_sided_stencil()) {
         renderer().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
+    }
     const auto* list = static_cast<const SceneRef*>(scene);
     for (MeshRef* const mesh : list->mesh_run()) {
         const uint32_t flags = mesh->flags();
-        if (!(flags & kSceneFlagCastsShadow) || !(flags & kSceneFlagShadowed))
+        if (!(flags & kSceneFlagCastsShadow) || !(flags & kSceneFlagShadowed)) {
             continue;
-        if (const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius()); !sphere_in_view(&sphere, mesh->radius()))
+        }
+        if (const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius());
+            !sphere_in_view(&sphere, mesh->radius())) {
             continue;
+        }
         if (!two_sided_stencil()) {
             // One side's faces, then the other's.
             change_phase(RenderStateId::kCullMode, D3DCULL_CW);
@@ -297,8 +306,9 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
 // 0x004DBBD0
 void render_shadow_textures()
 {
-    if (engine_parts().suppress_draw())
+    if (engine_parts().suppress_draw()) {
         return;
+    }
     std::array<float, maths::kMatrixFloats> saved_view{};
     std::array<float, maths::kMatrixFloats> saved_projection{};
     std::memcpy(saved_view.data(), view_matrix_data(), sizeof(saved_view));
@@ -313,8 +323,9 @@ void render_shadow_textures()
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
     for (ShadowCaster* caster : shadow_casters()) {
-        if (!caster->model)
+        if (!caster->model) {
             continue;
+        }
         renderer().d3d_device()->SetRenderTarget(0, caster->target->surface);
         renderer().d3d_device()->SetDepthStencilSurface(nullptr);
         renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
@@ -329,8 +340,9 @@ void render_shadow_textures()
             for (int i = 0; i < count; ++i) {
                 // (the geom's instance: drawn when active, its mesh list flagged as a shadow meanwhile)
                 Singleton* instance = static_cast<PcGeom*>(get_mesh(model, i))->instance();
-                if (!instance->active())
+                if (!instance->active()) {
                     continue;
+                }
                 instance->scene()->flags() |= kSceneFlagDrawnAsShadow; // (drawn as a shadow)
                 draw_mesh(instance, kShadowDrawMode);
                 instance->scene()->flags() &= ~kSceneFlagDrawnAsShadowU;
@@ -340,8 +352,9 @@ void render_shadow_textures()
         draw_model(caster->model);
         // NOT ORIGINAL (ours: set_shadow_companion) - a model drawn into this caster's shadow as well.
         if (shadow_companion()) {
-            if (void* companion = shadow_companion()(caster->model))
+            if (void* companion = shadow_companion()(caster->model)) {
                 draw_model(companion);
+            }
         }
     }
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
@@ -356,17 +369,20 @@ void render_shadow_textures()
     renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kWhiteColour);
     renderer().d3d_device()->SetRenderTarget(0, render_target);
     renderer().d3d_device()->SetDepthStencilSurface(depth);
-    if (render_target)
+    if (render_target) {
         render_target->Release();
-    if (depth)
+    }
+    if (depth) {
         depth->Release();
+    }
 }
 
 // 0x004DBF50
 void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
 {
-    if (engine_parts().suppress_draw())
+    if (engine_parts().suppress_draw()) {
         return;
+    }
     DWORD saved_min_filter = 0;
     renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &saved_min_filter);
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
@@ -404,8 +420,9 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         set_texture(1, nullptr);
         set_texture(0, caster->target->texture);
         change_phase(RenderStateId::kAddressMode0, kBorderBothWays); // border
-        if (renderer().border_addressing_supported())
+        if (renderer().border_addressing_supported()) {
             renderer().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+        }
         renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         renderer().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(projection_matrix_data()));
@@ -420,10 +437,13 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
             renderer().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, kShadowDepthBiasBits);
         }
         for (const MeshRef* const mesh : meshes) {
-            if (mesh->flags() & 2)
+            if (mesh->flags() & 2) {
                 continue;
-            if (const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius()); !sphere_in_view(&sphere, mesh->radius()))
+            }
+            if (const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius());
+                !sphere_in_view(&sphere, mesh->radius())) {
                 continue;
+            }
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
             project_shadow_vertices(std::span<const float>(mesh->positions(), 3 * static_cast<size_t>(mesh->position_count())), to_texture.data());
             const int triangles = clip_shadow_triangles(std::span<const uint16_t>(mesh->triangles(), 3 * static_cast<size_t>(mesh->triangle_count())));
@@ -459,8 +479,9 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
 void remove_shadow_caster(const TextureRef* key)
 {
     ShadowCaster* caster = find_caster(key);
-    if (!caster)
+    if (!caster) {
         return;
+    }
     shadow_casters().erase(caster);
     memory::Hub::dealloc(caster);
 }
@@ -469,8 +490,9 @@ void remove_shadow_caster(const TextureRef* key)
 void aim_shadow_caster(const TextureRef* key, std::span<const float, 3> position, std::span<const float, 3> target)
 {
     ShadowCaster* caster = find_caster(key);
-    if (!caster)
+    if (!caster) {
         return;
+    }
     // Up is y, or z when looking straight up or down.
     std::array<float, 3> up = {{0.0F, 1.0F, 0.0F}};
     if (core::at(position, 0) == core::at(target, 0) && core::at(position, 2) == core::at(target, 2)) {

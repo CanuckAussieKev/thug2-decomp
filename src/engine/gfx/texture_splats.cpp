@@ -123,8 +123,9 @@ int oldest_slot(const TextureSplats& splats, uint32_t count)
     int oldest = 0;
     int most = core::at(splats.correction_steps_, 0) - static_cast<int>(core::at(splats.alive, 0));
     for (uint32_t i = 0; i < count; ++i) {
-        if (!core::at(splats.alive, i))
+        if (!core::at(splats.alive, i)) {
             return static_cast<int>(i);
+        }
         const int age = core::at(splats.correction_steps_, i) - static_cast<int>(core::at(splats.alive, i));
         if (age > most) {
             most = age;
@@ -153,11 +154,13 @@ void light_texture_splats(TextureSplats* splats)
         colors = base;
         const auto& at = core::at(triangle, 0).position;
         std::array<maths::Vec4, 3> points{};
-        for (auto& point : points)
+        for (auto& point : points) {
             point = {.x = core::at(at, 0), .y = core::at(at, 1), .z = core::at(at, 2), .w = 0.0F};
+        }
         light_vertex_colours(base, colors, points, nullptr, 3);
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 3; ++k) {
             core::at(triangle, k).argb = to_argb(core::at(colors, k));
+        }
     }
 }
 
@@ -181,8 +184,9 @@ void kill_texture_splats_in_box(const maths::BBox* box)
         for (int i = 0; i < kSplatCount; ++i) {
             const auto& p = core::at(core::at(splats->vertices, i), 0).position;
             if (core::at(p, 0) >= box->min.x && core::at(p, 1) >= box->min.y && core::at(p, 2) >= box->min.z &&
-                core::at(p, 0) <= box->max.x && core::at(p, 1) <= box->max.y && core::at(p, 2) <= box->max.z)
+                core::at(p, 0) <= box->max.x && core::at(p, 1) <= box->max.y && core::at(p, 2) <= box->max.z) {
                 core::at(splats->alive, i) = 0;
+            }
         }
     });
 }
@@ -196,8 +200,9 @@ void draw_texture_splats()
     renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     effects_state().splat_sets().for_each([](TextureSplats* splats) {
-        if (splats->last < 0)
+        if (splats->last < 0) {
             return;
+        }
         for (int j = 0; j <= splats->last; ++j) {
             double factor = 1.0;
             if (!(0.0F == core::at(splats->correction_a_, j) - core::at(splats->correction_b_, j))) {
@@ -242,12 +247,14 @@ bool segments_intersect(const Segment2& a, const Segment2& b)
     auto denominator = static_cast<float>((aby * dcx) - (dcy * abx));
     const double other = (static_cast<double>(cay) * abx) - (static_cast<double>(cax) * aby);
     if (denominator > 0.0F) {
-        if (along < 0.0F || along > denominator)
+        if (along < 0.0F || along > denominator) {
             return false;
+        }
         return !(other < 0.0 || other > denominator);
     }
-    if (along > 0.0F || along < denominator)
+    if (along > 0.0F || along < denominator) {
         return false;
+    }
     return !(other > 0.0 || other < denominator);
 }
 
@@ -255,8 +262,9 @@ bool segments_intersect(const Segment2& a, const Segment2& b)
 bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, float y2)
 {
     if ((x0 < -1.0F && x1 < -1.0F && x2 < -1.0F) || (x0 > 1.0F && x1 > 1.0F && x2 > 1.0F) ||
-        (y0 < -1.0F && y1 < -1.0F && y2 < -1.0F) || (y0 > 1.0F && y1 > 1.0F && y2 > 1.0F))
+        (y0 < -1.0F && y1 < -1.0F && y2 < -1.0F) || (y0 > 1.0F && y1 > 1.0F && y2 > 1.0F)) {
         return false;
+    }
     // the square's edges against the triangle's
     const std::array<std::array<float, 2>, 4> corners = {{{-1.0F, -1.0F}, {1.0F, -1.0F}, {1.0F, 1.0F}, {-1.0F, 1.0F}}};
     for (int i = 0; i < 4; ++i) {
@@ -265,14 +273,16 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
         const Segment2 edge{.from = {.x = core::at(a, 0), .y = core::at(a, 1)}, .to = {.x = core::at(b, 0), .y = core::at(b, 1)}};
         if (segments_intersect({.from = {.x = x0, .y = y0}, .to = {.x = x1, .y = y1}}, edge) ||
             segments_intersect({.from = {.x = x1, .y = y1}, .to = {.x = x2, .y = y2}}, edge) ||
-            segments_intersect({.from = {.x = x2, .y = y2}, .to = {.x = x0, .y = y0}}, edge))
+            segments_intersect({.from = {.x = x2, .y = y2}, .to = {.x = x0, .y = y0}}, edge)) {
             return true;
+        }
     }
     // a vertex inside the square
     const std::array<std::array<float, 2>, 3> vertices = {{{x0, y0}, {x1, y1}, {x2, y2}}};
     for (const auto& v : vertices) {
-        if (core::at(v, 0) >= -1.0F && core::at(v, 0) <= 1.0F && core::at(v, 1) >= -1.0F && core::at(v, 1) <= 1.0F)
+        if (core::at(v, 0) >= -1.0F && core::at(v, 0) <= 1.0F && core::at(v, 1) >= -1.0F && core::at(v, 1) <= 1.0F) {
             return true;
+        }
     }
     // a corner inside the triangle: on the inner side of each edge (as the original rounds)
     const double e0 = static_cast<double>(x2) - x1;
@@ -283,8 +293,9 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
     for (const auto& corner : corners) {
         double px = static_cast<double>(core::at(corner, 0)) - x1;
         double py = static_cast<double>(core::at(corner, 1)) - y1;
-        if (!(((py * e0f) - (f0f * px)) * side0 >= 0.0))
+        if (!(((py * e0f) - (f0f * px)) * side0 >= 0.0)) {
             continue;
+        }
         px = static_cast<double>(core::at(corner, 0)) - x2;
         py = static_cast<double>(core::at(corner, 1)) - y2;
         const double e1 = static_cast<double>(x0) - x2;
@@ -293,8 +304,9 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
         auto f1f = static_cast<float>(f1);
         auto g1 = static_cast<float>(static_cast<double>(x1) - x2);
         auto h1 = static_cast<float>(static_cast<double>(y1) - y2);
-        if (!(((py * e1) - (f1f * px)) * ((static_cast<double>(h1) * e1f) - (f1 * g1)) >= 0.0))
+        if (!(((py * e1) - (f1f * px)) * ((static_cast<double>(h1) * e1f) - (f1 * g1)) >= 0.0)) {
             continue;
+        }
         px = static_cast<double>(core::at(corner, 0)) - x0;
         py = static_cast<double>(core::at(corner, 1)) - y0;
         const double e2 = static_cast<double>(x1) - x0;
@@ -303,8 +315,9 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
         auto f2f = static_cast<float>(f2);
         auto g2 = static_cast<float>(static_cast<double>(x2) - x0);
         auto h2 = static_cast<float>(static_cast<double>(y2) - y0);
-        if (((py * e2) - (f2f * px)) * ((static_cast<double>(h2) * e2f) - (f2 * g2)) >= 0.0)
+        if (((py * e2) - (f2f * px)) * ((static_cast<double>(h2) * e2f) - (f2 * g2)) >= 0.0) {
             return true;
+        }
     }
     return false;
 }
@@ -312,8 +325,9 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
 // 0x004B8220
 bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
 {
-    if (!effects_state().vertex_stack().used())
+    if (!effects_state().vertex_stack().used()) {
         return false;
+    }
     const std::span<uint8_t> v2 = texture_splats_state().splat_vertex2_; // (the three popped, last pushed first)
     const std::span<uint8_t> v1 = texture_splats_state().splat_vertex1_;
     const std::span<uint8_t> v0 = texture_splats_state().splat_vertex0_;
@@ -358,10 +372,12 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
                     static_cast<float>((static_cast<double>(azf) * kHalf) + core::at(p0, 2)));
     std::array<float, 3> q12{};
     std::array<float, 3> q20{};
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(q12, k) = midpoint(core::at(p1, k), core::at(p2, k));
-    for (int k = 0; k < 3; ++k)
+    }
+    for (int k = 0; k < 3; ++k) {
         core::at(q20, k) = midpoint(core::at(p2, k), core::at(p0, k));
+    }
     gpu::VertexWriter(m12.data(), size, 1).set_floats(0, 0, q12);
     gpu::VertexWriter(m20.data(), size, 1).set_floats(0, 0, q20);
     if (const uint8_t c = format->color_offset()) {
@@ -387,8 +403,9 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
         gpu::VertexWriter(m12.data(), size, 1).set_floats(0, t, uv12);
         gpu::VertexWriter(m20.data(), size, 1).set_floats(0, t, uv20);
     }
-    for (const std::span<uint8_t> v : {v0, m01, m20, m01, v1, m12, m01, m12, m20, m20, m12, v2})
+    for (const std::span<uint8_t> v : {v0, m01, m20, m01, v1, m12, m01, m12, m20, m20, m12, v2}) {
         push_vertex(v.data());
+    }
     return true;
 }
 
@@ -428,8 +445,9 @@ ProjectedVertex piece_at(const gpu::VertexView& pieces, size_t index)
 TextureSplats* get_texture_splats(TextureImage* texture)
 {
     if (TextureSplats* splats = effects_state().splat_sets().find_if(
-            [texture](const TextureSplats* set) { return core::at(set->material->textures(), 0) == texture; }))
+            [texture](const TextureSplats* set) { return core::at(set->material->textures(), 0) == texture; })) {
         return splats;
+    }
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* material = memory ? memory::construct_in<MaterialRef>(memory) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
@@ -442,8 +460,9 @@ TextureSplats* get_texture_splats(TextureImage* texture)
     material->set_two_sided(1);
     material->set_depth_bias(kSplatDepthBias);
     core::at(material->blend_modes(), 0) = kBlendModeAlpha; // its blend mode
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(core::at(material->pass_color(), 0), k) = kHalfF; // its colour
+    }
     core::at(material->address_modes(), 0) = kBorderBothWays;
     core::at(material->mip_lod_bias(), 0) = 0;
     material->set_alpha_ref(1);
@@ -509,9 +528,10 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
     } else {
         if (std::fabs(core::at(direction, 1)) > kVerticalDirectionThreshold) {
             double a = params->angle();
-            if (0.0F == params->angle())
+            if (0.0F == params->angle()) {
                 a = get_rand() * static_cast<double>(std::bit_cast<float>(kTwoPiBits)) *
                     std::bit_cast<float>(kPerRandBits); // (2 pi, 1 / 32767)
+            }
             up[0] = static_cast<float>(std::sin(a));
             up[1] = 0.0F;
             up[2] = static_cast<float>(std::cos(a));
@@ -530,11 +550,13 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
     int slot = 0;
     for (void* const sector : core::null_terminated(sectors)) {
         auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle()); // (the sector's geom)
-        if (!geom)
+        if (!geom) {
             continue;
+        }
         for (MeshRef* const mesh : geom->mesh_run()) {
-            if (mesh->flags() & 2)
+            if (mesh->flags() & 2) {
                 continue;
+            }
             uint8_t* vertices = nullptr;
             core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, kLockReadOnly);
             const gpu::VertexView mesh_vertices(vertices, mesh->stride(), mesh->vertex_count());
@@ -551,8 +573,9 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                 const uint32_t ic = c;
                 a = b;
                 b = c;
-                if (ia == ib || ia == ic || ib == ic)
+                if (ia == ib || ia == ic || ib == ic) {
                     continue;
+                }
                 const std::array<float, 3> a0 = mesh_vertices.float3(ia);
                 const std::array<float, 3> a1 = mesh_vertices.float3(ib);
                 const std::array<float, 3> a2 = mesh_vertices.float3(ic);
@@ -563,12 +586,16 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                 transform_coord(t1.data(), a1.data(), &combined);
                 transform_coord(t2.data(), a2.data(), &combined);
                 if ((core::at(t0, 2) < -1.0F && core::at(t1, 2) < -1.0F && core::at(t2, 2) < -1.0F) ||
-                    (core::at(t0, 2) > 1.0F && core::at(t1, 2) > 1.0F && core::at(t2, 2) > 1.0F))
+                    (core::at(t0, 2) > 1.0F && core::at(t1, 2) > 1.0F && core::at(t2, 2) > 1.0F)) {
                     continue;
-                if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
+                }
+                if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1),
+                                              core::at(t2, 0), core::at(t2, 1))) {
                     continue;
-                if (!splats)
+                }
+                if (!splats) {
                     splats = get_texture_splats(image_of(params->texture()));
+                }
                 slot = oldest_triangle(splats);
                 auto& triangle = core::at(splats->vertices, slot);
                 ProjectedVertex& v0 = core::at(triangle, 0);
@@ -596,8 +623,9 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                                           (static_cast<double>(core::at(normal, 1)) * core::at(direction, 1)) +
                                           (static_cast<double>(core::at(normal, 0)) * core::at(direction, 0));
                     const double absolute = std::fabs(facing);
-                    if (absolute < cone || absolute == cone)
+                    if (absolute < cone || absolute == cone) {
                         continue;
+                    }
                 }
                 core::at(splats->alive, slot) = params->lifetime() < 0.0F || std::isnan(params->lifetime())
                                                     ? kIntMax
@@ -616,9 +644,10 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     core::at(core::at(splats->uvs, (3 * slot) + k), 1) = core::at(core::at(triangle, k).uv, 1);
                 }
                 const std::array<uint32_t, 3> index = {{ia, ib, ic}};
-                for (int k = 0; k < 3; ++k)
+                for (int k = 0; k < 3; ++k) {
                     core::at(triangle, k).argb =
                         splat_color(mesh_vertices.word(core::at(index, k), mesh->color_offset()));
+                }
                 // how fine to split it: a 128th of its cross product's square
                 {
                     const auto& p0 = v0.position;
@@ -649,8 +678,9 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                 format->set_color_offset(offsetof(ProjectedVertex, argb)); // (no check: as the original)
                 format->set_uv_offset(offsetof(ProjectedVertex, uv));
                 core::Cursor<uint8_t> cursor(std::span<uint8_t>(pieces, kPieceBufferBytes));
-                while (split_next_triangle(cursor, format))
+                while (split_next_triangle(cursor, format)) {
                     ;
+                }
                 // the pieces inside the projection, each into a triangle of the set
                 bool kept = false;
                 const auto piece_count = static_cast<size_t>(cursor.position()) / sizeof(ProjectedVertex);
@@ -664,8 +694,9 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                         return static_cast<float>(value + value - 1.0F);
                     };
                     if (!triangle_overlaps_screen(twice(0, 0), twice(0, 1), twice(1, 0), twice(1, 1), twice(2, 0),
-                                                  twice(2, 1)))
+                                                  twice(2, 1))) {
                         continue;
+                    }
                     kept = true;
                     core::at(splats->alive, slot) = get_milliseconds(params->lifetime());
                     core::at(splats->correction_steps_, slot) = get_milliseconds(params->lifetime());
@@ -678,8 +709,9 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                         core::at(core::at(splats->uvs, (3 * slot) + k), 0) = core::at(core::at(into, k).uv, 0);
                         core::at(core::at(splats->uvs, (3 * slot) + k), 1) = core::at(core::at(into, k).uv, 1);
                     }
-                    for (int k = 0; k < 3; ++k)
+                    for (int k = 0; k < 3; ++k) {
                         core::at(into, k).argb = splat_color(core::at(piece, k).argb);
+                    }
                     // the base colours: grey from each vertex colour's first byte (its blue)
                     for (int k = 0; k < 3; ++k) {
                         const auto grey = static_cast<uint8_t>(core::at(into, k).argb & 0xFF);

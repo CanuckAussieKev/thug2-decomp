@@ -56,8 +56,9 @@ T* local_static(T& box, uint32_t& guard)
 // 0x0048E130
 Geom::~Geom()
 {
-    if (render_colours_)
+    if (render_colours_) {
         memory::Hub::dealloc(render_colours_);
+    }
 }
 
 // 0x0048DD80
@@ -66,8 +67,9 @@ Geom* Geom::replicate(int instance, WorldScene* scene)
     Geom* clone = plat_replicate(instance, scene); // (the whole word passed on)
     if (clone) {
         clone->clone_kind_ = static_cast<uint8_t>(instance) ? 1 : 2;
-        if (hit_triangles_)
+        if (hit_triangles_) {
             clone->hit_triangles_ = hit_triangles_;
+        }
         clone->render_colours_ = nullptr;
     }
     return clone;

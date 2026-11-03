@@ -112,8 +112,9 @@ void TriMeshSource::write_stored_vertex(int index, const maths::Vec4* position) 
 // 0x00414F90
 void TriMeshSource::get_stored_vertex_array(std::span<maths::Vec4> out) const
 {
-    for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
+    for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
         core::at(out, i) = read_stored_vertex(i);
+    }
 }
 
 // 0x00415C10
@@ -122,10 +123,12 @@ void TriMeshSource::choose_raw_verts(std::span<const maths::Vec4> positions)
     maths::BBox* box = &bounds_;
     box->min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0F};
     box->max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0F};
-    for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
+    for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
         box->append_spot(core::at(positions, i));
-    for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
+    }
+    for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
         write_stored_vertex(i, &core::at(positions, i));
+    }
 }
 
 // 0x00414D80 (one of the edge's z kept unrounded for the normal's x, as the original's x87 code does)
@@ -164,8 +167,9 @@ TriMeshSource* TriMeshSource::copy_from(const TriMeshSource* other)
 // 0x00416BF0 (a failed allocation of the copy itself crashes, as in the original; so does a missing tree)
 TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) const
 {
-    if (need_vertices && num_vertices_ == 0)
+    if (need_vertices && num_vertices_ == 0) {
         return nullptr;
+    }
     void* memory = memory::alloc(sizeof(TriMeshSource));
     TriMeshSource* copy = memory ? static_cast<TriMeshSource*>(memory)->copy_from(this) : nullptr;
     const uint32_t vertex_size = num_vertices_ * (compressed_ ? 6U : 12U);
@@ -173,8 +177,9 @@ TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) co
     copy->vertices_ = memory::alloc(vertex_size);
     const uint32_t face_size = tri_count_ * (small_faces_ ? 8U : 10U);
     copy->faces_ = static_cast<uint8_t*>(memory::alloc(face_size));
-    if (!copy->vertices_ || !copy->faces_)
+    if (!copy->vertices_ || !copy->faces_) {
         return nullptr;
+    }
     std::memcpy(copy->vertices_, vertices_, vertex_size);
     std::memcpy(copy->faces_, faces_, face_size);
     if (vertex_bytes_) {
@@ -188,24 +193,30 @@ TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) co
 // 0x00416970
 void TriMeshSource::destruct()
 {
-    if (vertices_)
+    if (vertices_) {
         memory::Hub::dealloc(vertices_);
-    if (vertex_bytes_)
+    }
+    if (vertex_bytes_) {
         memory::Hub::dealloc(vertex_bytes_);
-    if (faces_)
+    }
+    if (faces_) {
         memory::Hub::dealloc(faces_);
+    }
     delete_bsp();
 }
 
 // 0x00416080 (the nodes' destructor - 0x005480A0, run by delete[] for each - is empty)
 bool TriMeshSource::delete_bsp()
 {
-    if (!bsp_)
+    if (!bsp_) {
         return false;
-    if (uint16_t* faces = bsp_->first_face_list())
+    }
+    if (uint16_t* faces = bsp_->first_face_list()) {
         memory::Hub::dealloc(faces);
-    if (bsp_)
+    }
+    if (bsp_) {
         free_tree_nodes(bsp_);
+    }
     bsp_ = nullptr;
     return true;
 }
@@ -214,11 +225,13 @@ HitTreeNode* new_tree_nodes(int count)
 {
     // (the count's block is a node: one node more than asked for)
     auto* raw = static_cast<HitTreeNode*>(memory::alloc(sizeof(HitTreeNode) * (count + 1)));
-    if (!raw)
+    if (!raw) {
         return nullptr;
+    }
     const std::span<HitTreeNode> block(raw, static_cast<size_t>(count) + 1);
-    for (HitTreeNode& node : block)
+    for (HitTreeNode& node : block) {
         memory::construct_in<HitTreeNode>(&node);
+    }
     core::at(block, 0).set_axis_tag(count);
     return &core::at(block, 1);
 }
@@ -229,8 +242,9 @@ void free_tree_nodes(HitTreeNode* first) { memory::Hub::dealloc(std::prev(first)
 // 0x00416400
 void TriMeshSource::get_slide(const maths::Vec4* delta)
 {
-    if (bsp_)
+    if (bsp_) {
         bsp_->get_slide(delta);
+    }
     if (!compressed_) {
         const std::span<float> v = float_vertices();
         for (size_t k = 0; k < v.size(); k += 3) {
@@ -260,8 +274,9 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
 {
     const maths::Vec4 back{.x = -centre->x, .y = -centre->y, .z = -centre->z, .w = -centre->w};
     get_slide(&back);
-    if (bsp_)
+    if (bsp_) {
         bsp_->rotate_y(centre, quarter_turns, false);
+    }
     maths::Vec4* positions = nullptr;
     std::span<maths::Vec4> position_run;
     if (compressed_) {
@@ -294,8 +309,9 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     box->append_spot(min);
     box->append_spot(max);
     if (positions) {
-        for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
+        for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
             write_stored_vertex(i, &core::at(position_run, i));
+        }
         memory::Hub::dealloc(positions);
     }
     get_slide(centre);
@@ -307,8 +323,9 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
 {
     const maths::Vec4 back{.x = -centre->x, .y = -centre->y, .z = -centre->z, .w = -centre->w};
     get_slide(&back);
-    if (bsp_)
+    if (bsp_) {
         bsp_->scale_tool(centre, scale, false);
+    }
     maths::Vec4* positions = nullptr;
     std::span<maths::Vec4> position_run;
     if (compressed_) {
@@ -334,8 +351,9 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
     bounds_.min = {.x = bounds_.min.x * scale->x, .y = bounds_.min.y * scale->y, .z = bounds_.min.z * scale->z, .w = bounds_.min.w};
     bounds_.max = {.x = bounds_.max.x * scale->x, .y = bounds_.max.y * scale->y, .z = bounds_.max.z * scale->z, .w = bounds_.max.w};
     if (positions) {
-        for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
+        for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
             write_stored_vertex(i, &core::at(position_run, i));
+        }
         memory::Hub::dealloc(positions);
     }
     get_slide(centre);
@@ -347,8 +365,9 @@ bool TriMeshSource::set_up_all_faces()
 {
     auto& table = all_faces();
     if (core::at(table, 0) != 0) {
-        for (int i = 0; i < kAllFaceTableEntries; ++i)
+        for (int i = 0; i < kAllFaceTableEntries; ++i) {
             core::at(table, i) = static_cast<uint16_t>(i);
+        }
     }
     return bsp_ != nullptr;
 }
@@ -377,8 +396,9 @@ void TriMeshSource::add_occlusion_polys()
                     }
                 }
             }
-            if (matches != 2)
+            if (matches != 2) {
                 continue;
+            }
             // both normals ((v1 - v0) x (v2 - v0)), rounded where the original's x87 code stores them
             const maths::Vec4 a = read_stored_vertex(static_cast<int>(face_vertex(i, 0)));
             const maths::Vec4 b = read_stored_vertex(static_cast<int>(face_vertex(i, 1)));
@@ -427,8 +447,9 @@ void TriMeshSource::add_occlusion_polys()
             }
             if (!(std::fabs(n2x - unit1x) <= kSameDirection) ||
                 !(std::fabs(static_cast<double>(n2y) - n1y) <= kSameDirection) ||
-                !(std::fabs(static_cast<double>(n2z) - n1z) <= kSameDirection))
+                !(std::fabs(static_cast<double>(n2z) - n1z) <= kSameDirection)) {
                 continue;
+            }
             // the quad: face i's corners with face j's other corner between the two shared ones
             int extra = -1;
             for (int m = 0; m < 3; ++m) {
@@ -464,16 +485,18 @@ void TriMeshSource::add_occlusion_polys()
 // 0x00416320
 std::span<const uint16_t> TriMeshSource::get_faces_in_box(const maths::BBox* box, std::span<uint16_t> buffer)
 {
-    if (!bsp_)
+    if (!bsp_) {
         return std::span<const uint16_t>(all_faces()).first(static_cast<size_t>(tri_count_));
+    }
     face_walk().face_buffer_ = buffer;
     face_walk().face_count_ = 0;
     gather_faces(bsp_, box);
     std::span<const uint16_t> result;
-    if (face_walk().face_count_ < 0)
+    if (face_walk().face_count_ < 0) {
         result = std::span<const uint16_t>(all_faces()).first(static_cast<size_t>(tri_count_));
-    else
+    } else {
         result = std::span<const uint16_t>(face_walk().face_buffer_).first(static_cast<size_t>(face_walk().face_count_));
+    }
     face_walk().face_buffer_ = {};
     return result;
 }
@@ -485,10 +508,12 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
     while (!node->is_end_node()) {
         const int axis = node->get_axis();
         auto split = static_cast<float>(node->get_split() * static_cast<double>(kSixteenth));
-        if (get_component(&box->min, axis) < split)
+        if (get_component(&box->min, axis) < split) {
             gather_faces(node->less_child(), box);
-        if (!(get_component(&box->max, axis) >= split) || face_walk().face_count_ < 0)
+        }
+        if (!(get_component(&box->max, axis) >= split) || face_walk().face_count_ < 0) {
             return;
+        }
         node = node->greater_child();
     }
     const uint32_t n = node->leaf_face_count();
@@ -505,11 +530,13 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
 // 0x004163B0
 bool TriMeshSource::is_point_behind_faces(const maths::Vec4* point, int unused)
 {
-    if (!bsp_)
+    if (!bsp_) {
         return false;
+    }
     face_walk().face_count_ = 0;
-    if (!count_faces_behind(bsp_, point, unused))
+    if (!count_faces_behind(bsp_, point, unused)) {
         return false;
+    }
     return std::cmp_equal(face_walk().face_count_, tri_count_);
 }
 
@@ -518,8 +545,9 @@ bool TriMeshSource::is_point_behind_faces(const maths::Vec4* point, int unused)
 bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec4* point, int unused)
 {
     if (!node->is_end_node()) {
-        if (!(node->get_split() * static_cast<double>(kSixteenth) > get_component(point, node->get_axis())))
+        if (!(node->get_split() * static_cast<double>(kSixteenth) > get_component(point, node->get_axis()))) {
             return true;
+        }
         return count_faces_behind(node->less_child(), point, unused);
     }
     const uint32_t n = node->leaf_face_count();
@@ -531,8 +559,9 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
         const double dy = static_cast<double>(point->y) - corner.y;
         const double dz = static_cast<double>(point->z) - corner.z;
         const double distance = ((normal.z * dz) + (dy * normal.y)) + (static_cast<double>(dx) * normal.x);
-        if (distance > 0.0)
+        if (distance > 0.0) {
             break;
+        }
         ++face_walk().face_count_;
     }
     return true;
@@ -544,8 +573,9 @@ HitTreeNode::HitTreeNode() = default;
 // 0x00415C90
 int HitTreeNode::tally_nodes() const
 {
-    if (is_end_node())
+    if (is_end_node()) {
         return 1;
+    }
     const int greater = greater_child()->tally_nodes();
     return greater + less_child()->tally_nodes() + 1;
 }
@@ -553,8 +583,9 @@ int HitTreeNode::tally_nodes() const
 // 0x00415CE0
 int HitTreeNode::count_faces() const
 {
-    if (is_end_node())
+    if (is_end_node()) {
         return leaf_face_count();
+    }
     const int greater = greater_child()->count_faces();
     return less_child()->count_faces() + greater;
 }
@@ -562,8 +593,9 @@ int HitTreeNode::count_faces() const
 // 0x00415D30
 uint16_t* HitTreeNode::first_face_list() const
 {
-    if (is_end_node())
+    if (is_end_node()) {
         return get_leaf_faces();
+    }
     uint16_t* less = less_child()->first_face_list();
     uint16_t* greater = greater_child()->first_face_list();
     return less < greater ? less : greater;
@@ -599,16 +631,18 @@ void HitTreeNode::rotate_y(const maths::Vec4* centre, int quarter_turns, bool mo
             };
             switch (quarter_turns) {
             case 1:
-                if (axis == 0)
+                if (axis == 0) {
                     negate();
+                }
                 axis_tag_ = (axis_tag_ & ~3) | swapped;
                 break;
             case 2:
                 negate();
                 break;
             case 3:
-                if (axis == 2)
+                if (axis == 2) {
                     negate();
+                }
                 axis_tag_ = (axis_tag_ & ~3) | swapped;
                 break;
             default:
@@ -618,8 +652,9 @@ void HitTreeNode::rotate_y(const maths::Vec4* centre, int quarter_turns, bool mo
         less_child()->rotate_y(centre, quarter_turns, false);
         greater_child()->rotate_y(centre, quarter_turns, false);
     }
-    if (move_to_centre)
+    if (move_to_centre) {
         get_slide(centre);
+    }
 }
 
 // 0x00415F30
@@ -635,8 +670,9 @@ void HitTreeNode::scale_tool(const maths::Vec4* centre, const maths::Vec4* scale
         less_child()->scale_tool(centre, scale, false);
         greater_child()->scale_tool(centre, scale, false);
     }
-    if (move_to_centre)
+    if (move_to_centre) {
         get_slide(centre);
+    }
 }
 
 // 0x00416A10 (a failed allocation crashes, as in the original)
@@ -644,8 +680,9 @@ HitTreeNode* HitTreeNode::replicate(int /*unused*/) const
 {
     const int nodes = tally_nodes();
     const int faces = count_faces();
-    if (nodes <= 0)
+    if (nodes <= 0) {
         return nullptr;
+    }
     const uint16_t* old_faces = first_face_list();
     // new HitTreeNode[nodes]
     HitTreeNode* copy = new_tree_nodes(nodes);

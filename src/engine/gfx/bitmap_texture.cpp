@@ -51,8 +51,9 @@ TextureRef::TextureRef()
     node->previous = nullptr;
     node->next = head;
     foremost() = node;
-    if (head)
+    if (head) {
         head->previous = node;
+    }
 }
 
 // 0x004E0500
@@ -96,8 +97,9 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
         const auto target_pitch = static_cast<size_t>(target_rect.Pitch);
         const std::span<const uint8_t> from8(static_cast<const uint8_t*>(source_rect.pBits), size_t{rows} * source_pitch);
         const std::span<uint8_t> to(static_cast<uint8_t*>(target_rect.pBits), size_t{rows} * target_pitch);
-        for (size_t row = 0; row < rows; ++row)
+        for (size_t row = 0; row < rows; ++row) {
             std::memcpy(to.subspan(row * target_pitch).data(), from8.subspan(row * source_pitch).data(), row_bytes);
+        }
         get_d3d(source)->UnlockRect(level);
         get_d3d(this)->UnlockRect(level);
     }
@@ -109,17 +111,21 @@ void TextureRef::unlist()
 {
     Elem* node = foremost();
     for (; node; node = node->next) {
-        if (node->texture == this)
+        if (node->texture == this) {
             break;
+        }
     }
-    if (!node)
+    if (!node) {
         return;
-    if (node->previous)
+    }
+    if (node->previous) {
         node->previous->next = node->next;
-    else
+    } else {
         foremost() = node->next;
-    if (node->next)
+    }
+    if (node->next) {
         node->next->previous = node->previous;
+    }
     memory::Hub::dealloc(node);
 }
 
@@ -127,13 +133,15 @@ void TextureRef::unlist()
 TextureRef::~TextureRef()
 {
     unlist();
-    if (surface)
+    if (surface) {
         surface->Release();
+    }
     if (texture) {
         get_d3d(this)->Release();
         for (int stage = 0; stage < 4; ++stage) {
-            if (cached_texture(stage) == texture)
+            if (cached_texture(stage) == texture) {
                 set_texture(stage, nullptr);
+            }
         }
     }
 }
@@ -148,8 +156,9 @@ void TextureRef::assign_value(int stage)
 void* TextureRef::get_lock() const
 {
     D3DLOCKED_RECT rect;
-    if (get_d3d(this)->LockRect(0, &rect, nullptr, 0) != D3D_OK)
+    if (get_d3d(this)->LockRect(0, &rect, nullptr, 0) != D3D_OK) {
         return nullptr;
+    }
     return rect.pBits;
 }
 
@@ -164,15 +173,17 @@ bool TextureRef::create_render_target(maths::PixelSize size, uint8_t new_depth, 
 {
     const auto new_width = size.width;
     const auto new_height = size.height;
-    if (texture)
+    if (texture) {
         get_d3d(this)->Release();
+    }
     const HRESULT result =
         renderer().d3d_device()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
                                     &texture, nullptr);
     get_d3d(this)->GetSurfaceLevel(0, &surface);
     render_target_ = true;
-    if (result != D3D_OK)
+    if (result != D3D_OK) {
         return false;
+    }
     image_width_ = static_cast<uint16_t>(new_width);
     width = static_cast<uint16_t>(new_width);
     image_height_ = static_cast<uint16_t>(new_height);
@@ -188,16 +199,19 @@ bool TextureRef::create_render_target(maths::PixelSize size, uint8_t new_depth, 
 // 0x004E0320
 void release_render_target_textures()
 {
-    for (DWORD stage = 0; stage < kSamplerStageCount; ++stage)
+    for (DWORD stage = 0; stage < kSamplerStageCount; ++stage) {
         renderer().d3d_device()->SetTexture(stage, nullptr); // (the cache isn't told)
+    }
     for (const Elem* node = foremost(); node; node = node->next) {
         TextureRef* t = node->texture;
-        if (!t->texture || !t->render_target_)
+        if (!t->texture || !t->render_target_) {
             continue;
+        }
         get_d3d(t)->Release();
         t->texture = nullptr;
-        if (t->surface)
+        if (t->surface) {
             t->surface->Release();
+        }
         t->surface = nullptr;
     }
 }
@@ -207,12 +221,14 @@ void restore_render_target_textures()
 {
     for (const Elem* node = foremost(); node; node = node->next) {
         TextureRef* t = node->texture;
-        if (t->texture || !t->render_target_)
+        if (t->texture || !t->render_target_) {
             continue;
+        }
         renderer().d3d_device()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
                                     &t->texture, nullptr);
-        if (t->texture)
+        if (t->texture) {
             get_d3d(t)->GetSurfaceLevel(0, &t->surface);
+        }
     }
 }
 

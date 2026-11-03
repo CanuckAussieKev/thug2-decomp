@@ -49,8 +49,9 @@ void set_corner_colour(PcPrimitive* primitive, int corner, const std::array<uint
 // Four corners turned by the polygon's matrix and moved to its position.
 void place_corners(SpawnedPoly* poly, std::array<maths::Vec4, 4>& corners)
 {
-    for (maths::Vec4& corner : corners)
+    for (maths::Vec4& corner : corners) {
         corner.multiply_by(poly->matrix());
+    }
     for (maths::Vec4& corner : corners) {
         corner.x = static_cast<float>(static_cast<double>(corner.x) + poly->pos().x);
         corner.y = static_cast<float>(static_cast<double>(corner.y) + poly->pos().y);
@@ -121,8 +122,9 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     const std::array<std::array<float, 2>, 4> uvs = {{{0.0F, 0.0F}, {1.0F, 0.0F}, {1.0F, 1.0F}, {0.0F, 1.0F}}};
     for (int i = 0; i < 4; ++i) {
         set_corner_colour(poly->primitive(), i, core::at(poly->colours(), i));
-        if (layout & 2)
+        if (layout & 2) {
             poly->primitive()->set_uv(i, {.x = core::at(core::at(uvs, i), 0), .y = core::at(core::at(uvs, i), 1)});
+        }
         set_corner(poly->primitive(), i, core::at(corners, i));
     }
     poly->primitive()->set_unknown14((poly->flags() >> 1) & 1);
@@ -135,8 +137,9 @@ void update_spawned_polys()
 {
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     effects_state().spawned_polys().for_each([elapsed](SpawnedPoly* poly) {
-        if (poly->flags() & 1)
+        if (poly->flags() & 1) {
             return;
+        }
         const double age = static_cast<double>(elapsed) + poly->age();
         poly->set_age(static_cast<float>(age));
         if (age >= poly->lifetime()) {
@@ -158,23 +161,27 @@ void update_spawned_polys()
                 core::at(core::at(poly->colours(), c), k) = static_cast<uint8_t>(core::at(core::at(poly->start_colours(), c), k) + change);
             }
         }
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < 2; ++i) {
             core::at(poly->dims(), i) = static_cast<float>(
                 ((static_cast<double>(core::at(poly->end_dims(), i)) - core::at(poly->start_dims(), i)) * t) +
                 core::at(poly->start_dims(), i));
-        for (int c = 0; c < 4; ++c)
+        }
+        for (int c = 0; c < 4; ++c) {
             set_corner_colour(poly->primitive(), c, core::at(poly->colours(), c));
+        }
         // Where the corners go, by the justification: right / bottom of the position, centred, or left / top.
         float x_offset = 0.0F;
-        if (poly->align_h() > 0.0F)
+        if (poly->align_h() > 0.0F) {
             x_offset = core::at(poly->dims(), 0);
-        else if (poly->align_h() == 0.0F)
+        } else if (poly->align_h() == 0.0F) {
             x_offset = static_cast<float>(core::at(poly->dims(), 0) * kHalf);
+        }
         double y_offset = 0.0;
-        if (poly->align_v() > 0.0F)
+        if (poly->align_v() > 0.0F) {
             y_offset = core::at(poly->dims(), 1);
-        else if (poly->align_v() == 0.0F)
+        } else if (poly->align_v() == 0.0F) {
             y_offset = core::at(poly->dims(), 1) * kHalf;
+        }
         const float left = -x_offset;
         auto top = static_cast<float>(-y_offset);
         auto right = static_cast<float>(static_cast<double>(left) + core::at(poly->dims(), 0));
@@ -184,8 +191,9 @@ void update_spawned_polys()
                                                {.x = right, .y = bottom, .z = 0.0F, .w = 0.0F},
                                                {.x = left, .y = bottom, .z = 0.0F, .w = 0.0F}}};
         place_corners(poly, corners);
-        for (int c = 0; c < 4; ++c)
+        for (int c = 0; c < 4; ++c) {
             set_corner(poly->primitive(), c, core::at(corners, c));
+        }
     });
 }
 

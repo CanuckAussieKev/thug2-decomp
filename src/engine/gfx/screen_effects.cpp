@@ -50,18 +50,22 @@ bool ScreenEffects::set_bloom_params(script::Struct* params, int /*unused*/)
     int on = -1;
     int alpha1 = -1;
     int alpha2 = -1;
-    if (params->fetch_int_value(kOn, &on, 0))
+    if (params->fetch_int_value(kOn, &on, 0)) {
         set_bloom(on);
+    }
     params->fetch_int_value(kBloomAlpha1, &alpha1, 0);
     params->fetch_int_value(kBloomAlpha2, &alpha2, 0);
-    if (alpha1 != -1 || alpha2 != -1)
+    if (alpha1 != -1 || alpha2 != -1) {
         set_bloom_alphas(alpha1, alpha2);
+    }
     script::Array* array = nullptr;
-    if (params->fetch_list(kColour, &array, 0))
+    if (params->fetch_list(kColour, &array, 0)) {
         set_bloom_colour(array_colour(array));
+    }
     array = nullptr;
-    if (params->fetch_list(kBloomCutOff, &array, 0))
+    if (params->fetch_list(kBloomCutOff, &array, 0)) {
         set_bloom_cut_off(array_colour(array));
+    }
     return true;
 }
 
@@ -70,25 +74,32 @@ bool ScreenEffects::set_bloom_params(script::Struct* params, int /*unused*/)
 bool ScreenEffects::set_dof_params(script::Struct* params, script::Script* /*script*/)
 {
     int on = 0;
-    if (params->fetch_int_value(kOn, &on, 0))
+    if (params->fetch_int_value(kOn, &on, 0)) {
         set_dof_on(on);
+    }
     float a = 0.0F;
-    if (params->fetch_float(kDofFloatA, &a, 0))
+    if (params->fetch_float(kDofFloatA, &a, 0)) {
         set_dof_value_a(a);
+    }
     float b = 0.0F;
-    if (params->fetch_float(kDofFloatB, &b, 0))
+    if (params->fetch_float(kDofFloatB, &b, 0)) {
         set_dof_value_b(a); // (the first float's: the original passes the wrong variable)
+    }
     float c = 0.0F;
-    if (params->fetch_float(kColour, &c, 0))
+    if (params->fetch_float(kColour, &c, 0)) {
         set_dof_value_c(c);
+    }
     float d = 0.0F;
-    if (params->fetch_float(kDofFloatD, &d, 0))
+    if (params->fetch_float(kDofFloatD, &d, 0)) {
         set_dof_value_d(d);
+    }
     script::Array* array = nullptr;
-    if (params->fetch_list(kDofColourA, &array, 0))
+    if (params->fetch_list(kDofColourA, &array, 0)) {
         set_dof_colour_a(array_colour(array));
-    if (params->fetch_list(kDofColourB, &array, 0))
+    }
+    if (params->fetch_list(kDofColourB, &array, 0)) {
         set_dof_colour_b(array_colour(array));
+    }
     return true;
 }
 

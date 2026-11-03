@@ -14,8 +14,9 @@ namespace render {
 // 0x0048CF50
 void* get_anim_data(uint32_t checksum, int unused)
 {
-    if (!checksum)
+    if (!checksum) {
         return nullptr;
+    }
     return assets::asset_manager()->get_asset_data(checksum, unused);
 }
 
@@ -26,8 +27,9 @@ void* FrameSource::operator new(std::size_t size) noexcept
 }
 void FrameSource::operator delete(void* source)
 {
-    if (source)
+    if (source) {
         objects::anim_source_free(source);
+    }
 }
 
 // 0x0048CF70: FrameSource() (frame_source.h: every member zero)
@@ -36,8 +38,9 @@ void FrameSource::operator delete(void* source)
 void* FrameSource::set_done(bool done)
 {
     resume_ = done;
-    if (done)
+    if (done) {
         return nullptr;
+    }
     return get_anim_data(anim_, 1);
 }
 

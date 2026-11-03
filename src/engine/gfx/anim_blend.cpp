@@ -71,8 +71,9 @@ void blend_bones(Stance& to, Stance& from, BoneBlend bone_blend, bool mark_copie
             }
         } else if (core::at(from.valid, k)) {
             copy4(core::at(to.rotations, k).data(), core::at(from.rotations, k).data());
-            if (mark_copied)
+            if (mark_copied) {
                 core::at(to.valid, k) = 1;
+            }
             copy4(core::at(to.translations, k).data(), core::at(from.translations, k).data());
         }
     }
@@ -91,8 +92,9 @@ std::span<float, 4> interpolate_rotation(std::span<float, 4> out, std::span<cons
     dot += g(2) * f(2);
     dot += g(1) * f(1);
     if (dot < 0.0) {
-        for (float& component : to)
+        for (float& component : to) {
             component = -component;
+        }
     }
     const double x = ((g(0) - f(0)) * t) + f(0);
     const double y = ((g(1) - f(1)) * t) + f(1);
@@ -117,19 +119,22 @@ void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Sta
 {
     core::at(weights, 0) = 1.0F;
     double others = 0.0;
-    for (int k = 1; k < count; ++k)
+    for (int k = 1; k < count; ++k) {
         others += core::at(weights, k);
+    }
     core::at(weights, 0) = static_cast<float>(1.0F - others);
     // from the top down: each pose taken into the next lower one with a weight
     float taken = 0.0F;
     for (int i = count - 1; i > 0; --i) {
         const float weight = core::at(weights, i);
-        if (weight == 0.0F) // (NaN goes on)
+        if (weight == 0.0F) { // (NaN goes on)
             continue;
+        }
         const double above = static_cast<double>(weight) + taken;
         int j = i - 1;
-        while (!(core::at(weights, j) > 0.0F) && !std::isnan(core::at(weights, j)) && j > 0)
+        while (!(core::at(weights, j) > 0.0F) && !std::isnan(core::at(weights, j)) && j > 0) {
             --j;
+        }
         const double below = core::at(weights, j);
         taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
         auto t = static_cast<float>(1.0F - (below / (below + above)));
@@ -137,8 +142,9 @@ void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Sta
     }
     // The mixed pose (the original copied `bones` poses' worth from the first on, reading past the poses; never
     // reached - the only caller mixes in place).
-    if (&out != &core::at(poses, 0))
+    if (&out != &core::at(poses, 0)) {
         out = core::at(poses, 0);
+    }
 }
 
 // 0x0047D8F0
@@ -148,15 +154,17 @@ void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::s
     const uint32_t id = anim.value();
     double others = 0.0;
     for (int k = 1; k < count; ++k) {
-        if (core::at(weights, k) != 0.0F && core::at(ids, k) == id) // (NaN counts)
+        if (core::at(weights, k) != 0.0F && core::at(ids, k) == id) { // (NaN counts)
             others += core::at(weights, k);
+        }
     }
     core::at(weights, 0) = static_cast<float>(1.0F - others);
     float taken = 0.0F;
     for (int i = count - 1; i > 0; --i) {
         const float weight = core::at(weights, i);
-        if (!(weight >= kMinWeight) || core::at(ids, i) != id)
+        if (!(weight >= kMinWeight) || core::at(ids, i) != id) {
             continue;
+        }
         const double above = static_cast<double>(weight) + taken;
         // the next pose down with a weight and the id (the first: any weight). The original's search had no end:
         // with no pose of the id at or below the first it read the words before the arrays and blended into the
@@ -165,19 +173,22 @@ void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::s
         int j = i - 1;
         for (; j >= 0; --j) {
             const bool weighted = core::at(weights, j) > kMinWeight || std::isnan(core::at(weights, j));
-            if ((weighted || j <= 0) && core::at(ids, j) == id)
+            if ((weighted || j <= 0) && core::at(ids, j) == id) {
                 break;
+            }
         }
-        if (j < 0)
+        if (j < 0) {
             continue;
+        }
         const double below = core::at(weights, j);
         taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
         auto t = static_cast<float>(1.0F - (below / (below + above)));
         blend_bones(core::at(poses, j), core::at(poses, i), {.bones = bones, .t = t}, true);
     }
     // (as mix_poses: the original copied `bones` poses' worth; never reached)
-    if (&out != &core::at(poses, 0))
+    if (&out != &core::at(poses, 0)) {
         out = core::at(poses, 0);
+    }
 }
 
 namespace {
@@ -243,8 +254,9 @@ bool BlendChannel::has_value(uint32_t offset) const
 // 0x0047D660
 void BlendChannel::clear_flag()
 {
-    if (script::Struct* params = owner_ptr_->tag_table())
+    if (script::Struct* params = owner_ptr_->tag_table()) {
         params->erase_module(kAnimTags);
+    }
 }
 
 } // namespace gfx

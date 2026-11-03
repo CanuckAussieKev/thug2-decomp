@@ -119,8 +119,9 @@ bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere,
 bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_motion, const CollSphere* sphere,
                             const maths::Vec4* motion, float* t, float /*limit*/, int* count, std::span<maths::Vec4, 2> point)
 {
-    if (segment_crosses_sphere(edge, sphere, count, point, 0))
+    if (segment_crosses_sphere(edge, sphere, count, point, 0)) {
         return true;
+    }
     const maths::Capsule capsule(*edge, sphere->radius);
     const maths::Vec4& centre = sphere->centre;
     // the centre's path relative to the edge
@@ -132,8 +133,9 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
                 .w = get_difference(motion->w, edge_motion->w) + centre.w};
     float s = 0.0F;
     float u = 0.0F;
-    if (!capsule.intersects_segment(path, {.s = &s, .t = &u, .squared_gap_ = nullptr}))
+    if (!capsule.intersects_segment(path, {.s = &s, .t = &u, .squared_gap_ = nullptr})) {
         return false;
+    }
     if (within01(s)) {
         *count = within01(u) ? 2 : 1;
     } else if (within01(u)) {
@@ -141,8 +143,9 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
         s = u;
     }
     *t = s;
-    if (*count == 2 && u < s)
+    if (*count == 2 && u < s) {
         *t = u;
+    }
     // the centre then, the edge then, and the edge's point nearest the centre
     const float time = *t;
     const double ax = (static_cast<double>(time) * motion->x) + centre.x;
@@ -200,16 +203,18 @@ bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* spher
     const double uz_exact = static_cast<double>(motion->z) - edge_motion->z;
     auto uz = static_cast<float>(uz_exact);
     const double towards = ((uz_exact * mz) + (uy * my)) + (static_cast<double>(ux) * mx);
-    if (towards <= 0.0)
+    if (towards <= 0.0) {
         return false; // (moving away from the corner)
+    }
     const maths::Vec4& c = *edge_cross;
     const double k1 = ((static_cast<double>(c.z) * corner->z) + (static_cast<double>(c.x) * corner->x)) +
                       (static_cast<double>(c.y) * corner->y);
     const double k2 = ((static_cast<double>(centre.z) * c.z) + (static_cast<double>(c.y) * centre.y)) +
                       (static_cast<double>(c.x) * centre.x);
     double k3 = ((uy * c.y) + (static_cast<double>(uz) * c.z)) + (static_cast<double>(ux) * c.x);
-    if (k3 == 0.0)
+    if (k3 == 0.0) {
         k3 = kTiny;
+    }
     const double s = (k1 - k2) / k3;
     // where the path crosses the edge's plane
     const double px = (static_cast<double>(ux) * s) + centre.x;
@@ -222,30 +227,33 @@ bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* spher
     maths::Seg line;
     if (!(n2 >= n1)) { // (NaN too)
         // the edge arriving at the corner
-        if (*corner == *v0)
+        if (*corner == *v0) {
             line.start = *v2;
-        else if (*corner == *v1)
+        } else if (*corner == *v1) {
             line.start = *v0;
-        else if (*corner == *v2)
+        } else if (*corner == *v2) {
             line.start = *v1;
-        else
+        } else {
             line.start = *corner; // (the original leaves it unset)
+        }
         line.end = *corner;
     } else {
         // the edge leaving it
         line.start = *corner;
-        if (*corner == *v0)
+        if (*corner == *v0) {
             line.end = *v1;
-        else if (*corner == *v1)
+        } else if (*corner == *v1) {
             line.end = *v2;
-        else if (*corner == *v2)
+        } else if (*corner == *v2) {
             line.end = *v0;
-        else
+        } else {
             line.end = *corner; // (the original leaves it unset)
+        }
     }
     std::array<maths::Vec4, 2> touched{};
-    if (!swept_sphere_hits_edge(&line, edge_motion, sphere, motion, t, limit, count, touched))
+    if (!swept_sphere_hits_edge(&line, edge_motion, sphere, motion, t, limit, count, touched)) {
         return false;
+    }
     *point = core::at(touched, 0);
     return true;
 }
@@ -270,8 +278,9 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
     const double nz_exact = (e2y * e1x) - (e1y * e2x);
     *normal = {.x = nx, .y = ny, .z = static_cast<float>(nz_exact), .w = 0.0F};
     const double length2 = ((nz_exact * nz_exact) + (static_cast<double>(ny) * ny)) + (static_cast<double>(nx) * nx);
-    if (length2 <= 0.0)
+    if (length2 <= 0.0) {
         return false;
+    }
     const maths::Vec4& n = *normal;
     auto centre_along =
         static_cast<float>(((static_cast<double>(n.z) * centre.z) + (static_cast<double>(n.x) * centre.x)) +
@@ -312,8 +321,9 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
         const maths::Seg line = get_segment(a, b);
         int touched = 0;
         std::array<maths::Vec4, 2> hit{};
-        if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit))
+        if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit)) {
             return false;
+        }
         *point = core::at(hit, 0);
         return true;
     };
@@ -340,18 +350,24 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
             const maths::Capsule path(centre, *motion, sphere->radius);
             return path.contains_point(*point, nullptr);
         }
-        if (in01 && in12)
+        if (in01 && in12) {
             return edge(*v2, *v0);
-        if (in01 && in20)
+        }
+        if (in01 && in20) {
             return edge(*v1, *v2);
-        if (in01)
+        }
+        if (in01) {
             return corner(v2, &c20, &e20);
-        if (in12 && in20)
+        }
+        if (in12 && in20) {
             return edge(*v0, *v1);
-        if (in12)
+        }
+        if (in12) {
             return corner(v0, &c01, &e01);
-        if (in20)
+        }
+        if (in20) {
             return corner(v1, &c12, &e12);
+        }
         return false;
     }
 
@@ -360,8 +376,9 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
     const bool above = centre_along > plane_along;
     const double approach = ((static_cast<double>(move.x) * n.x) + (static_cast<double>(move.z) * n.z)) +
                             (static_cast<double>(move.y) * n.y);
-    if (above ? !(approach < 0.0) && approach == approach : !(approach > 0.0) && approach == approach)
+    if (above ? !(approach < 0.0) && approach == approach : !(approach > 0.0) && approach == approach) {
         return false;
+    }
     const maths::Vec4 front = centre - sphere->radius * *normal;
     const double plane_at =
         ((static_cast<double>(v0->z) * n.z) + (static_cast<double>(n.y) * v0->y)) + (static_cast<double>(n.x) * v0->x);
@@ -380,30 +397,38 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
     const bool in12 = inside12(along_of(c12));
     const bool in20 = inside20(along_of(c20));
     auto corner_line = [&](const maths::Vec4* at) {
-        if (!line_hits_sphere(*at, zero, *sphere, *motion, t, limit))
+        if (!line_hits_sphere(*at, zero, *sphere, *motion, t, limit)) {
             return false;
+        }
         *point = *at + *t * zero;
         return true;
     };
     if (in01 && in12 && in20) {
-        if (time > limit)
+        if (time > limit) {
             return false;
+        }
         *t = time;
         *point = meet + time * zero;
         return true;
     }
-    if (in01 && in12)
+    if (in01 && in12) {
         return edge(*v2, *v0);
-    if (in01 && in20)
+    }
+    if (in01 && in20) {
         return edge(*v1, *v2);
-    if (in01)
+    }
+    if (in01) {
         return corner_line(v2);
-    if (in12 && in20)
+    }
+    if (in12 && in20) {
         return edge(*v0, *v1);
-    if (in12)
+    }
+    if (in12) {
         return corner_line(v0);
-    if (in20)
+    }
+    if (in20) {
         return corner_line(v1);
+    }
     return false;
 }
 
@@ -422,14 +447,16 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
     auto ny = static_cast<float>((e1z * e2x) - (e2z * e1x));
     const double nz_exact = (e2y * e1x) - (e1y * e2x);
     *normal = {.x = nx, .y = ny, .z = static_cast<float>(nz_exact), .w = 0.0F};
-    if (((nz_exact * nz_exact) + (static_cast<double>(ny) * ny)) + (static_cast<double>(nx) * nx) <= 0.0)
+    if (((nz_exact * nz_exact) + (static_cast<double>(ny) * ny)) + (static_cast<double>(nx) * nx) <= 0.0) {
         return false;
+    }
     const maths::Vec4& c = sphere->centre;
     const double dx = static_cast<double>(v0->x) - c.x;
     const double dy = static_cast<double>(v0->y) - c.y;
     const double dz = static_cast<double>(v0->z) - c.z;
-    if (((dy * normal->y) + (dx * normal->x)) + (dz * normal->z) >= 0.0)
+    if (((dy * normal->y) + (dx * normal->x)) + (dz * normal->z) >= 0.0) {
         return false; // (behind the face)
+    }
     normal->make_unit();
     float s = 0.0F;
     float u = 0.0F;
@@ -468,8 +495,9 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
         const uint32_t face = core::at(faces, i);
         const FaceFlag flags =
             geometry->face_flags(static_cast<int>(face));
-        if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_))
+        if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_)) {
             continue;
+        }
         maths::Vec4 v0{};
         maths::Vec4 v1{};
         maths::Vec4 v2{};
@@ -483,20 +511,24 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
             hits->sweep == 0.0F
                 ? sphere_hits_triangle(sphere, &v0, &v1, &v2, {.point = &point, .normal = &normal})
                 : swept_sphere_hits_triangle(sphere, &v0, &v1, &v2, &t, hits->sweep, &hits->direction, &point, &normal);
-        if (!hit)
+        if (!hit) {
             continue;
-        if (hits->count == SphereHits::kMost)
+        }
+        if (hits->count == SphereHits::kMost) {
             return true;
+        }
         SphereHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
         entry.face_flag40_ = trigger_marker(flags);
         entry.checksum = checksum_;
         entry.point = point;
-        if (hits->sweep > 0.0F)
+        if (hits->sweep > 0.0F) {
             entry.t = t;
+        }
         ++hits->count;
-        if (hits->mode == 2)
+        if (hits->mode == 2) {
             return true;
+        }
     }
     return hits->count > 0;
 }
@@ -523,8 +555,9 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
     const bool use_cache = cache && cache->box().get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(sphere);
-        if (!grid)
+        if (!grid) {
             return false;
+        }
         grid->objects_in_box(&box); // (the answer isn't used)
     }
     maths::BBox grown;
@@ -540,20 +573,23 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
     if (use_cache) {
         for (int i = 0; i < cache->statics(); ++i) {
             const HitMeshCache::TableRow& entry = core::at(cache->entries(), i);
-            if (grown.intersects(*entry.bounds))
+            if (grown.intersects(*entry.bounds)) {
                 collide_with_sphere(entry.object, sphere, &grown, hits);
+            }
         }
         return hits->count > 0;
     }
     const maths::Seg diagonal = get_segment(grown.min, grown.max);
     const std::span<CollGrid* const> grids = grids_along(&diagonal);
-    if (grids.empty())
+    if (grids.empty()) {
         return false;
+    }
     for (CollGrid* const grid : grids) {
         int count = 0;
         for (HitMesh* const object : grid->objects_along_line(&diagonal, &count)) {
-            if (object->inside_bounds(&grown))
+            if (object->inside_bounds(&grown)) {
                 collide_with_sphere(object, sphere, &grown, hits);
+            }
         }
     }
     return hits->count > 0;

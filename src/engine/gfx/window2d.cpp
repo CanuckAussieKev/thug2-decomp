@@ -45,8 +45,9 @@ ScreenWindow* allocate_window_2d(maths::PixelPoint at, maths::PixelSize size)
     const auto x = at.x;
     const auto y = at.y;
     ScreenWindow* window = screen_2d().free_windows();
-    if (window)
+    if (window) {
         screen_2d().set_free_windows(window->following());
+    }
     Expects(window != nullptr);
     window->set_pos_x(x);
     window->set_y(y);

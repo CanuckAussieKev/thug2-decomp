@@ -76,8 +76,9 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
 {
     const bool better = collision_state().want_farthest() ? !(distance < hit->distance) : distance <= hit->distance;
     CollisionHit saved;
-    if (!better)
+    if (!better) {
         copy_from(saved, *hit);
+    }
     bool taken = false;
     const FaceFlag flags = object->get_triangle_attrs(static_cast<int>(face.face));
     if (!core::any(flags & hit->ignore_flags_) && !core::any(~flags & hit->require_flags_)) {
@@ -101,8 +102,9 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
         hit->point.z = static_cast<float>((static_cast<double>(dz) * distance) + line.start.z);
         hit->point.x = static_cast<float>(static_cast<double>(px) + line.start.x);
         hit->point.y = static_cast<float>(static_cast<double>(py) + line.start.y);
-        if (hit->callback)
+        if (hit->callback) {
             hit->callback(hit);
+        }
         taken = true;
     }
     if (!better) {
@@ -120,12 +122,14 @@ bool HitMovingBox::collide_with_line(const maths::Seg* line, const maths::Vec4* 
     segment_to_local(line, &local);
     maths::BBox around(local.start);
     around.append_spot(local.end);
-    if (!box_.intersects(around))
+    if (!box_.intersects(around)) {
         return false;
+    }
     maths::Vec4 point{};
     maths::Vec4 normal{};
-    if (!box_.segment_crossing(local, {.hit = &point, .normal = &normal}))
+    if (!box_.segment_crossing(local, {.hit = &point, .normal = &normal})) {
         return false;
+    }
     const float hx = get_difference(point.x, local.start.x);
     const float hy = get_difference(point.y, local.start.y);
     const float hz = get_difference(point.z, local.start.z);
@@ -176,8 +180,9 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
     const double rz = cz - pz;
     const uint32_t threshold = get_threshold(
         std::sqrt(((rz * rz) + (static_cast<double>(ry) * ry)) + (static_cast<double>(rx) * rx)), geometry);
-    if (threshold > kMaxHitThreshold)
+    if (threshold > kMaxHitThreshold) {
         return false;
+    }
 
     std::array<uint16_t, kFaceQueryBufferSize> buffer{};
     const std::span<const uint16_t> faces = geometry->get_faces_in_box(line_box, buffer);
@@ -187,15 +192,17 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         geometry = this->geometry();
         const uint32_t face = core::at(faces, i);
         const uint8_t rejection = geometry->small_faces() ? geometry->face_table().small_rejection(static_cast<int>(face)) : core::at(std::span<const uint8_t>(octets_, geometry->tri_count()), face);
-        if (threshold > rejection)
+        if (threshold > rejection) {
             continue;
+        }
         maths::Vec4 v0{};
         maths::Vec4 v1{};
         maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
         float t = 0.0F;
-        if (!ray_hits_triangle(line->start, *direction, v0, v1, v2, &t))
+        if (!ray_hits_triangle(line->start, *direction, v0, v1, v2, &t)) {
             continue;
+        }
         // the normal (v1 - v0) x (v2 - v0), rounded where the original stores
         const double e0x = static_cast<double>(v1.x) - v0.x;
         const float e0y = get_difference(v1.y, v0.y);
@@ -212,8 +219,9 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         face_hit.point = v0;
         face_hit.face = face;
         face_hit.normal.make_unit();
-        if (report_hit(*line, this, face_hit, t, hit))
+        if (report_hit(*line, this, face_hit, t, hit)) {
             any = true;
+        }
     }
     return any;
 }
@@ -240,8 +248,9 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
         maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
         float t = 0.0F;
-        if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t))
+        if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t)) {
             continue;
+        }
         const double e0x = static_cast<double>(v1.x) - v0.x;
         const double e0y = static_cast<double>(v1.y) - v0.y;
         const double e0z = static_cast<double>(v1.z) - v0.z;
@@ -279,8 +288,9 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
                                                     (static_cast<double>(nz) * core::at(r, 2).z)) +
                                                    (static_cast<double>(ny) * core::at(r, 1).z)),
                            .w = 0.0F};
-        if (report_hit(*line, this, face_hit, t, hit))
+        if (report_hit(*line, this, face_hit, t, hit)) {
             any = true;
+        }
     }
     return any;
 }
@@ -311,8 +321,9 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
         const double ry = cy - py;
         const double rz = static_cast<double>(cz) - pz;
         threshold = get_threshold(std::sqrt(((static_cast<double>(rx) * rx) + (rz * rz)) + (ry * ry)), geometry);
-        if (threshold > kMaxHitThreshold)
+        if (threshold > kMaxHitThreshold) {
             return false;
+        }
     }
     std::array<uint16_t, kFaceQueryBufferSize> buffer{};
     const std::span<const uint16_t> faces = geometry->get_faces_in_box(&around, buffer);
@@ -321,15 +332,17 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = this->geometry();
         const uint32_t face = core::at(faces, i);
-        if (geometry->small_faces() && threshold > geometry->face_table().small_rejection(static_cast<int>(face)))
+        if (geometry->small_faces() && threshold > geometry->face_table().small_rejection(static_cast<int>(face))) {
             continue;
+        }
         maths::Vec4 v0{};
         maths::Vec4 v1{};
         maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
         float t = 0.0F;
-        if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t))
+        if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t)) {
             continue;
+        }
         const double e0x = static_cast<double>(v1.x) - v0.x;
         const double e0y = static_cast<double>(v1.y) - v0.y;
         const double e0z = static_cast<double>(v1.z) - v0.z;
@@ -375,8 +388,9 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
             .z = static_cast<float>(((unit_x * core::at(r, 0).z) + (static_cast<double>(nz) * core::at(r, 2).z)) +
                                     (static_cast<double>(ny) * core::at(r, 1).z)),
             .w = 0.0F};
-        if (report_hit(*line, this, face_hit, t, hit))
+        if (report_hit(*line, this, face_hit, t, hit)) {
             any = true;
+        }
     }
     return any;
 }

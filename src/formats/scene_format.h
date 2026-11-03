@@ -68,8 +68,9 @@ public:
 
     bool take(void* out, size_t bytes)
     {
-        if (in_.bytes(out, bytes))
+        if (in_.bytes(out, bytes)) {
             return true;
+        }
         std::memset(out, 0, bytes);
         return false;
     }
@@ -142,8 +143,9 @@ bool read_material(Stream& in, Material* m)
     m->checksum = take<uint32_t>(in);
     m->name_hash = take<uint32_t>(in);
     m->pass_count = take<uint32_t>(in);
-    if (!in.ok() || m->pass_count > kMaxPasses)
+    if (!in.ok() || m->pass_count > kMaxPasses) {
         return false;
+    }
     m->alpha_ref = take<uint32_t>(in);
     m->sort_flag = take<uint8_t>(in);
     m->sort_key = take<float>(in);
@@ -151,11 +153,13 @@ bool read_material(Stream& in, Material* m)
     m->two_sided = take<uint8_t>(in);
     m->depth_bias = take<int>(in);
     m->has_extra = take<uint8_t>(in) != 0;
-    if (m->has_extra)
+    if (m->has_extra) {
         in.take(m->extra.data(), sizeof(m->extra));
+    }
     m->specular_power = take<float>(in);
-    if (m->specular_power > 0.0F)
+    if (m->specular_power > 0.0F) {
         in.take(m->specular.data(), sizeof(m->specular));
+    }
     for (uint32_t index = 0; index < m->pass_count && in.ok(); ++index) {
         MaterialPass& pass = core::at(m->passes, index);
         pass.texture = take<uint32_t>(in);
@@ -168,18 +172,21 @@ bool read_material(Stream& in, Material* m)
         pass.address_v = take<uint32_t>(in);
         in.take(pass.reflection_tiling.data(), sizeof(pass.reflection_tiling));
         pass.unknown_c0 = take<uint32_t>(in);
-        if (pass.flags & kPassUvWibble)
+        if (pass.flags & kPassUvWibble) {
             in.take(pass.uv_wibble.data(), sizeof(pass.uv_wibble));
+        }
         if (index == 0 && (pass.flags & kPassColorAnims)) {
             auto anims = take<uint32_t>(in);
-            if (!in.fits(uint64_t{anims} * kColorAnimMinBytes)) // (each at least its key count and phase)
+            if (!in.fits(uint64_t{anims} * kColorAnimMinBytes)) { // (each at least its key count and phase)
                 return false;
+            }
             m->color_anims.resize(anims);
             for (ColorAnimTrack& track : m->color_anims) {
                 track.key_count = take<uint32_t>(in);
                 track.phase = take<int>(in);
-                if (!in.fits(uint64_t{track.key_count} * kColorKeySize))
+                if (!in.fits(uint64_t{track.key_count} * kColorKeySize)) {
                     return false;
+                }
                 track.keys.resize(track.key_count * kColorKeySize);
                 in.take(track.keys.data(), track.keys.size());
             }
@@ -189,15 +196,18 @@ bool read_material(Stream& in, Material* m)
             take<uint32_t>(in);
             pass.texture_loops = take<int>(in);
             pass.texture_phase = take<uint32_t>(in);
-            if (pass.texture_key_count < 0 || !in.fits(static_cast<uint64_t>(pass.texture_key_count) * kTextureKeyBytes))
+            if (pass.texture_key_count < 0 ||
+                !in.fits(static_cast<uint64_t>(pass.texture_key_count) * kTextureKeyBytes)) {
                 return false;
+            }
             pass.texture_keys.resize(static_cast<size_t>(pass.texture_key_count));
             for (TextureFrame& key : pass.texture_keys) {
                 key.time = take<int>(in);
                 key.texture = take<uint32_t>(in);
             }
-            if (!pass.texture_keys.empty())
+            if (!pass.texture_keys.empty()) {
                 pass.texture = core::at(pass.texture_keys, 0).texture;
+            }
         }
         if (!pass.texture) {
             in.skip(kSkippedPassBytes);
@@ -265,8 +275,9 @@ bool read_sector_mesh(Stream& in, SectorMesh* mesh)
     mesh->index_lists = take<uint32_t>(in);
     for (uint32_t list = 0; list < mesh->index_lists && in.ok(); ++list) {
         auto count = take<uint32_t>(in);
-        if (!in.fits(uint64_t{count} * 2))
+        if (!in.fits(uint64_t{count} * 2)) {
             return false;
+        }
         in.skip(count * 2U);
     }
     return in.ok();
@@ -300,38 +311,45 @@ bool read_mesh_body(Stream& in, MeshBody* body)
         auto count = take<uint16_t>(in);
         core::at(body->index_counts, i) = count;
         core::at(body->indices, i).clear();
-        if (!count)
+        if (!count) {
             continue;
-        if (!in.fits(count * 2U))
+        }
+        if (!in.fits(count * 2U)) {
             return false;
+        }
         core::at(body->indices, i).resize(count);
         in.take(core::at(body->indices, i).data(), count * 2U);
     }
     body->stride = take<uint8_t>(in);
     body->vertex_count = take<uint16_t>(in);
     body->vertex_buffer_count = take<uint8_t>(in);
-    if (!in.ok() || body->vertex_buffer_count > kMaxVertexBuffers)
+    if (!in.ok() || body->vertex_buffer_count > kMaxVertexBuffers) {
         return false;
+    }
     body->vertices.clear();
     body->scaled.clear();
     for (uint32_t v = 0; v < body->vertex_buffer_count; ++v) {
         auto scaled = take<uint8_t>(in);
         auto size = take<uint32_t>(in);
-        if (!in.fits(size))
+        if (!in.fits(size)) {
             return false;
+        }
         if (v == 0) {
             body->vertices.resize(size);
             in.take(body->vertices.data(), size);
         } else {
             in.skip(size);
         }
-        if (!scaled)
+        if (!scaled) {
             continue;
+        }
         const int count = take<int>(in);
-        if (count < 0 || !in.fits(static_cast<uint64_t>(count) * kScaledVertexSize))
+        if (count < 0 || !in.fits(static_cast<uint64_t>(count) * kScaledVertexSize)) {
             return false;
-        if (count && (static_cast<uint64_t>(count - 1) * body->stride) + kPositionBytes > size)
+        }
+        if (count && (static_cast<uint64_t>(count - 1) * body->stride) + kPositionBytes > size) {
             return false;
+        }
         if (v == 0) {
             body->scaled.resize(static_cast<size_t>(count) * kScaledVertexSize);
             in.take(body->scaled.data(), body->scaled.size());
@@ -345,16 +363,18 @@ bool read_mesh_body(Stream& in, MeshBody* body)
     body->has_vertex_bytes = take<uint8_t>(in) != 0;
     body->vertex_bytes.clear();
     if (body->has_vertex_bytes) {
-        if (!in.fits(body->vertex_count))
+        if (!in.fits(body->vertex_count)) {
             return false;
+        }
         body->vertex_bytes.resize(body->vertex_count);
         in.take(body->vertex_bytes.data(), body->vertex_bytes.size());
     }
     body->level_count = take<int>(in);
     body->levels.clear();
     if (body->level_count > 1) {
-        if (!in.fits(static_cast<uint64_t>(body->level_count) * 4))
+        if (!in.fits(static_cast<uint64_t>(body->level_count) * 4)) {
             return false;
+        }
         body->levels.resize(static_cast<size_t>(body->level_count));
         in.take(body->levels.data(), body->levels.size() * 4);
     }
@@ -362,8 +382,9 @@ bool read_mesh_body(Stream& in, MeshBody* body)
     if (body->shader == 1) {
         take<uint32_t>(in);
         auto size = take<uint32_t>(in);
-        if (!in.skip(size))
+        if (!in.skip(size)) {
             return false;
+        }
     }
     return in.ok();
 }
@@ -396,11 +417,13 @@ bool read_skin(Stream& in, Skin* skin)
 {
     *skin = Skin{};
     skin->version = take<uint32_t>(in);
-    if (skin->version >= 2)
+    if (skin->version >= 2) {
         skin->bone_count = take<uint32_t>(in);
+    }
     skin->break_count = take<uint32_t>(in);
-    if (!in.fits(uint64_t{skin->break_count} * kStripBreakSize))
+    if (!in.fits(uint64_t{skin->break_count} * kStripBreakSize)) {
         return false;
+    }
     skin->breaks.resize(skin->break_count * kStripBreakSize);
     in.take(skin->breaks.data(), skin->breaks.size());
     return in.ok();
@@ -421,8 +444,9 @@ bool walk_scene(Stream& in, SceneCounts* counts)
     auto materials = take<uint32_t>(in);
     Material material;
     for (uint32_t i = 0; i < materials; ++i) {
-        if (!read_material(in, &material))
+        if (!read_material(in, &material)) {
             return false;
+        }
         ++counts->materials;
     }
     auto sectors = take<uint32_t>(in);
@@ -430,24 +454,29 @@ bool walk_scene(Stream& in, SceneCounts* counts)
     SectorMesh mesh;
     MeshBody body;
     for (uint32_t i = 0; i < sectors; ++i) {
-        if (!read_sector(in, &sector))
+        if (!read_sector(in, &sector)) {
             return false;
+        }
         for (uint32_t j = 0; j < sector.mesh_count; ++j) {
-            if (!read_sector_mesh(in, &mesh) || !read_mesh_body(in, &body))
+            if (!read_sector_mesh(in, &mesh) || !read_mesh_body(in, &body)) {
                 return false;
+            }
             ++counts->meshes;
-            for (const uint16_t count : body.index_counts)
+            for (const uint16_t count : body.index_counts) {
                 counts->indices += count;
+            }
             counts->vertex_bytes += body.vertices.size();
         }
         ++counts->sectors;
     }
     const int nodes = take<int>(in);
-    if (!in.ok())
+    if (!in.ok()) {
         return false;
+    }
     if (nodes > 0) {
-        if (!in.fits(static_cast<uint64_t>(nodes) * kHierarchyNodeSize))
+        if (!in.fits(static_cast<uint64_t>(nodes) * kHierarchyNodeSize)) {
             return false;
+        }
         in.skip(static_cast<size_t>(nodes) * kHierarchyNodeSize);
         counts->hierarchy = static_cast<uint32_t>(nodes);
     }

@@ -120,12 +120,14 @@ void find_keys(std::span<const uint8_t> run, KeyRun key_run, float time, int (*k
             return;
         }
         const double t0 = keyframe_time(key);
-        if (!(t0 <= time))
+        if (!(t0 <= time)) {
             continue;
+        }
         const uint8_t* after = &core::at(run, at + kShortKeyBytes);
         const double t1 = keyframe_time(after);
-        if (!(t1 >= time))
+        if (!(t1 >= time)) {
             continue;
+        }
         from = key;
         to = after;
         fraction = static_cast<float>((time - t0) / (t1 - t0));
@@ -149,8 +151,9 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
     const std::span<const uint32_t> bone_masks = mask_bit && mask->bone_masks() ? std::span<const uint32_t>(mask->bone_masks(), static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
     for (int i = 0; i < bone_count_; ++i) {
         bool skip = mask_bit ? (core::at(bone_masks, i) & mask_bit) != 0 : false;
-        if (flag_bits_ & kBoneBits)
+        if (flag_bits_ & kBoneBits) {
             skip = !(core::at(partial_bone_run(), 1 + (i / kPartialMaskBits)) & (1U << (i % kPartialMaskBits)));
+        }
         if (!skip) {
             maths::QuatRotation& rotation = core::at(rotations, i);
             if (core::at(rot_sizes, i)) {
@@ -209,8 +212,9 @@ bool JointClipFrames::apply_additive_if_compressed(std::span<maths::QuatRotation
                                                    std::span<maths::Vec4> translations, void* unused, float weight,
                                                    const FrameSource* mask) const
 {
-    if (!(flag_bits_ & kCompressed))
+    if (!(flag_bits_ & kCompressed)) {
         return false;
+    }
     return apply_additive(rotations, translations, unused, weight, mask);
 }
 
@@ -218,8 +222,9 @@ bool JointClipFrames::apply_additive_if_compressed(std::span<maths::QuatRotation
 void JointClipFrames::build_cache(int format)
 {
     if (caches_built() >= kCachesPerFrame) {
-        if (frame_clock::fetch_retrace_count() == last_cache_vblank())
+        if (frame_clock::fetch_retrace_count() == last_cache_vblank()) {
             return;
+        }
         caches_built() = 0;
         last_cache_vblank() = frame_clock::fetch_retrace_count();
     } else if (frame_clock::fetch_retrace_count() != last_cache_vblank()) {
@@ -230,14 +235,16 @@ void JointClipFrames::build_cache(int format)
     const uint32_t size = manager->fetch_record_bytes(bone_count_, {.rotation = static_cast<int>(quat_key_count_), .translation = static_cast<int>(trans_key_count_)}, format);
     const int priority = static_cast<int16_t>(static_cast<int16_t>(bits_ << 7) >> 8);
     if (manager->num() == kMaxCachedClips || ClipStore::heap_available() < size) {
-        if (manager->free_oldest({.max_users_ = static_cast<uint32_t>(priority), .size = size}))
+        if (manager->free_oldest({.max_users_ = static_cast<uint32_t>(priority), .size = size})) {
             cache_slot_ = nullptr;
+        }
     }
     AnimCacheEntry* entry =
         manager->add_row(this, static_cast<int16_t>(bone_count_),
                          static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
-    if (!entry)
+    if (!entry) {
         return;
+    }
     std::array<uint16_t, kMaxBones>& rot_offsets = entry->rotation_offsets();
     std::array<uint16_t, kMaxBones>& trans_offsets = entry->translation_offsets();
     const uint32_t rot_size = entry->get_rotation_key_size();
@@ -273,8 +280,9 @@ void JointClipFrames::build_cache(int format)
                 ++bone;
                 core::at(rot_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
             }
-            if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
+            if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones)) {
                 break;
+            }
         }
         cursor = decode_rotation(cursor, key.data(), flag_bits_, own_key_table());
         std::span<const uint8_t> source = key;
@@ -287,13 +295,15 @@ void JointClipFrames::build_cache(int format)
         }
         core::copy_into(source.first(rot_size), rot_data.subspan(static_cast<uint16_t>(offset), rot_size));
         offset += rot_size;
-        if (cursor != end)
+        if (cursor != end) {
             continue;
+        }
         end = cursor + size_after(sizes, bone);
         ++bone;
         core::at(rot_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
-        if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
+        if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones)) {
             break;
+        }
     }
 
     // The translations
@@ -310,8 +320,9 @@ void JointClipFrames::build_cache(int format)
                 ++bone;
                 core::at(trans_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
             }
-            if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
+            if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones)) {
                 break;
+            }
         }
         cursor = decode_translation(cursor, translation.data(), flag_bits_);
         std::span<const uint8_t> source = translation;
@@ -328,13 +339,15 @@ void JointClipFrames::build_cache(int format)
         }
         core::copy_into(source.first(trans_size), trans_data.subspan(static_cast<uint16_t>(offset), trans_size));
         offset += trans_size;
-        if (cursor != end)
+        if (cursor != end) {
             continue;
+        }
         end = cursor + size_after(sizes, bone);
         ++bone;
         core::at(trans_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
-        if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
+        if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones)) {
             break;
+        }
     }
 
     cache_slot_ = entry;
@@ -361,14 +374,17 @@ bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool /*unused*
     flag_bits_ = words.u32();
     duration_ = words.f32();
     bool loaded = false;
-    if (!valid)
+    if (!valid) {
         flag_bits_ &= ~(kCompressedB | kCompressed | kCacheOnLoad); // (nothing to read or cache)
-    if (flag_bits_ & kCompressedB)
+    }
+    if (flag_bits_ & kCompressedB) {
         loaded = set_up_float_keys(header, layout);
-    else if (flag_bits_ & kCompressed)
+    } else if (flag_bits_ & kCompressed) {
         loaded = set_up_compressed(header, layout);
-    if (flag_bits_ & kCacheOnLoad)
+    }
+    if (flag_bits_ & kCacheOnLoad) {
         build_cache(cache_format(cache_manager()));
+    }
     return loaded;
 }
 
@@ -378,8 +394,9 @@ bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::
 {
     const uint32_t flags = flag_bits_;
     if (flags & kCompressed) {
-        if (!(flags & kNoAutoCache) && !cache_slot_)
+        if (!(flags & kNoAutoCache) && !cache_slot_) {
             build_cache(cache_format(cache_manager()));
+        }
         return fetch_pose(rotations, translations, arg2, time, arg4,
                           static_cast<FrameSource*>(arg5));
     }

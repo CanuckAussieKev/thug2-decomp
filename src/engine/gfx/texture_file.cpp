@@ -81,8 +81,9 @@ void get_finish(TextureRef* texture)
 // sprites hasn't room for them (the first one made memory::alloc fail and the read end the game).
 gsl::owner<void*> new_texel_buffer(uint32_t size, [[maybe_unused]] const ImageHeader& header)
 {
-    if (hd_ui::image_scale(header.unknown14) != 1)
+    if (hd_ui::image_scale(header.unknown14) != 1) {
         return crt::alloc_block(size);
+    }
     return memory::alloc(size);
 }
 void free_texel_buffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
@@ -99,8 +100,9 @@ void free_texel_buffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
 void apply_hd_scale(TextureRef* texture, const ImageHeader& header)
 {
     const uint32_t scale = hd_ui::image_scale(header.unknown14);
-    if (scale == 1)
+    if (scale == 1) {
         return;
+    }
     hd_ui::note_image(scale, texture->width, texture->height);
     texture->width = static_cast<uint16_t>(texture->width / scale);
     texture->height = static_cast<uint16_t>(texture->height / scale);
@@ -123,8 +125,9 @@ uint32_t hd_dxt_size(const ImageHeader& header) { return header.width * header.h
 // palette within 0x400 bytes.
 bool fits_its_texture(const ImageHeader& header, bool palettized, uint32_t palette_size, bool plain)
 {
-    if (palettized && palette_size > image_format::kPaletteCapacity)
+    if (palettized && palette_size > image_format::kPaletteCapacity) {
         return false;
+    }
     return !plain || static_cast<uint32_t>(header.image_width) * header.image_height <= header.width * header.height;
 }
 
@@ -134,8 +137,9 @@ bool fits_its_texture(const ImageHeader& header, bool palettized, uint32_t palet
 gsl::owner<TextureRef*> read_texture_file(const char* name)
 {
     file::Hdl file = file::unseal(name, "rb");
-    if (!file)
+    if (!file) {
         return nullptr;
+    }
     std::array<uint8_t, image_format::kHeaderSize> header_bytes = {};
     file::get_take_in(header_bytes.data(), image_format::kHeaderSize, 1, file);
     util::ByteReader header_reader(header_bytes.data(), sizeof(header_bytes));
@@ -168,8 +172,9 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
     gsl::owner<TextureRef*> texture = alloc_pc_texture();
     texture->palette = nullptr;
     std::array<uint8_t, image_format::kPaletteCapacity> palette{};
-    if (palettized)
+    if (palettized) {
         file::get_take_in(palette.data(), static_cast<int>(header.palette_size), 1, file);
+    }
     renderer().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                                 (&texture->texture), nullptr);
     set_sizes(texture, header, plain);
@@ -189,8 +194,9 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
             texels = palettized ? (indices = memory::alloc(size)) : locked.pBits;
             unswizzle(texels, buffer, header.width, header.height, bits >> 3);
         }
-        if (palettized)
+        if (palettized) {
             expand_palette(locked.pBits, texels, size, palette.data());
+        }
         free_texel_buffer(buffer, header);
         memory::Hub::dealloc(indices);
     }
@@ -207,17 +213,20 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
     // texels cut short are filled with zeros, an image that doesn't fit its texture is refused).
     util::ByteReader reader(data, data_size);
     ImageHeader header;
-    if (!image_format::read_image_header(reader, &header))
+    if (!image_format::read_image_header(reader, &header)) {
         return nullptr;
+    }
     if (is_hd_dxt(header)) { // (not original - hd_ui.h)
-        if (reader.remaining() < hd_dxt_size(header))
+        if (reader.remaining() < hd_dxt_size(header)) {
             return nullptr;
+        }
         gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
         renderer().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                     (&hd->texture), nullptr);
-        if (!hd->texture)
+        if (!hd->texture) {
             return nullptr;
+        }
         set_sizes(hd, header, false);
         D3DLOCKED_RECT locked;
         hd->texture->LockRect(0, &locked, nullptr, 0);
@@ -232,17 +241,20 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
     const bool plain = image_format::stored_plain(header, true);
     // (the memory loader's palette is always 0x400 bytes)
     if (!fits_its_texture(header, palettized, image_format::kPaletteCapacity, plain) ||
-        (palettized && reader.remaining() < image_format::kPaletteCapacity))
+        (palettized && reader.remaining() < image_format::kPaletteCapacity)) {
         return nullptr;
+    }
     gsl::owner<TextureRef*> texture = alloc_pc_texture();
     texture->palette = nullptr;
     std::array<uint8_t, image_format::kPaletteCapacity> palette{};
-    if (palettized)
+    if (palettized) {
         reader.bytes(palette.data(), image_format::kPaletteCapacity);
+    }
     renderer().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                                 (&texture->texture), nullptr);
-    if (!texture->texture)
+    if (!texture->texture) {
         return nullptr; // (the texture object stays made and listed)
+    }
     set_sizes(texture, header, plain);
     const uint32_t bytes_per_pixel = bits >> 3;
     const uint32_t size = image_format::texel_size(header, plain);
@@ -267,8 +279,9 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
             texels = palettized ? (indices = memory::alloc(size)) : locked.pBits;
             unswizzle(texels, buffer, header.width, header.height, bytes_per_pixel);
         }
-        if (palettized)
+        if (palettized) {
             expand_palette(locked.pBits, texels, size, palette.data());
+        }
         free_texel_buffer(buffer, header);
         memory::Hub::dealloc(indices);
     }

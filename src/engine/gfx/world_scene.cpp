@@ -78,8 +78,9 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
     } else if (with_super_sectors) {
         description->put_name_key(checksums::Name{0U}, kEnableSuperSectors);
     }
-    if (is_net)
+    if (is_net) {
         description->put_name_key(checksums::Name{0U}, kIsNet);
+    }
 
     load_scene_file(name, tex_dict, with_super_sectors, is_sky, is_dictionary, is_net);
     debug::printf("... done\n");

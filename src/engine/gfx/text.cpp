@@ -151,8 +151,9 @@ void TypefaceData::read_string_param(const char* text, maths::Size* size)
         while (*p == '\\' && !done) {
             ++p;
             const char tag = *p;
-            if (tag == '\\')
+            if (tag == '\\') {
                 break; // "\\": the second backslash is a character
+            }
             switch (tag) {
             case 'S':
             case 's':
@@ -172,8 +173,9 @@ void TypefaceData::read_string_param(const char* text, maths::Size* size)
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
                     const auto& name_map = map_;
-                    for (const char name : std::string_view(button_key_name(button)))
+                    for (const char name : std::string_view(button_key_name(button))) {
                         total += this->glyph(core::at(name_map, static_cast<signed char>(name))).w + glyph_gap_;
+                    }
                     counted = false; // not the digit
                 }
                 done = true;
@@ -192,16 +194,18 @@ void TypefaceData::read_string_param(const char* text, maths::Size* size)
                 break; // the letter is a character (the table's '\\' case can't be reached)
             }
         }
-        if (*p == '\0')
+        if (*p == '\0') {
             break;
+        }
         if (counted) {
             int w = 0;
-            if (glyph)
+            if (glyph) {
                 w = glyph->w;
-            else if (*p == ' ')
+            } else if (*p == ' ') {
                 w = blank_gap_;
-            else
+            } else {
                 w = font->glyph(core::at(font->map_, static_cast<uint8_t>(*p))).w;
+            }
             total += w + glyph_gap_;
         }
         ++p;
@@ -278,8 +282,9 @@ void GlyphRun::draw()
     auto pivot_screen_y = static_cast<float>(((static_cast<double>(pivot_y_) + y_) * scale_y) + offset_y);
     auto glyph_gap = static_cast<float>(font->glyph_gap() * static_cast<double>(xscale));
     auto blank_gap = static_cast<float>(font->blank_gap() * static_cast<double>(xscale));
-    if (xscale == 0.0F || yscale == 0.0F) // (0x0066D520)
+    if (xscale == 0.0F || yscale == 0.0F) { // (0x0066D520)
         return;
+    }
     const float cos_a = std::cos(angle);
     const float sin_a = std::sin(angle);
     uint32_t vertex_color = get_vertex_color(color);
@@ -335,8 +340,9 @@ void GlyphRun::draw()
                     open_sketch();
                     v = next_quad();
                     drawn = false; // not the digit
-                    for (const char name : std::string_view(button_key_name(button)))
+                    for (const char name : std::string_view(button_key_name(button))) {
                         draw_key_char(name, &pos_x, pos_y);
+                    }
                 }
                 done = true;
                 break;
@@ -352,8 +358,9 @@ void GlyphRun::draw()
                 break; // the letter is drawn
             }
         }
-        if (*p == '\0')
+        if (*p == '\0') {
             return;
+        }
         if (drawn) {
             if (*p == ' ' && !glyph) {
                 pos_x = static_cast<float>(((static_cast<double>(blank_gap) + glyph_gap) * scale_x) + pos_x);
@@ -361,8 +368,9 @@ void GlyphRun::draw()
                 effect += sizeof(TextEffect);
                 continue;
             }
-            if (!glyph)
+            if (!glyph) {
                 glyph = &char_font->glyph(core::at(char_font->map(), static_cast<uint8_t>(*p)));
+            }
             auto top = static_cast<float>(
                 (static_cast<double>(char_font->base() - glyph->baseline) * yscale * scale_y) + pos_y);
             const TextEffect* e =
@@ -506,8 +514,9 @@ void GlyphRun::close_sketch()
         quad_indices_made() = true;
     }
     const int count = static_cast<int>(get_vertex_count());
-    if (count <= 0)
+    if (count <= 0) {
         return;
+    }
     const TypefaceData* texture_font = get_texture_font() ? get_texture_font() : font;
     set_pixel_shader(nullptr, nullptr); // (no pixel shader)
     set_texture_stage_state(0, 1, kTextureOpModulate2x);   // colour: texture x diffuse, doubled
@@ -580,8 +589,9 @@ TypefaceData* TypefaceData::read_in(const char* name)
     const std::span<const uint8_t> palette_bytes = hd_scale != 1 ? std::span<const uint8_t>() : page_bytes.subspan(size, font_format::kPaletteSize);
 
     auto* font = static_cast<TypefaceData*>(memory::alloc(sizeof(TypefaceData)));
-    if (font)
+    if (font) {
         std::memset(font, 0, sizeof(TypefaceData));
+    }
     Expects(font != nullptr);
     font->format = header.format;
     font->height_ = header.height;
@@ -601,8 +611,9 @@ TypefaceData* TypefaceData::read_in(const char* name)
                 core::at(font->map_, code & kByteMask) = static_cast<uint8_t>(i);
             } else {
                 const int special = 0xFF - (code & 0xFF);
-                if (special < font_format::kSpecialGlyphs)
+                if (special < font_format::kSpecialGlyphs) {
                     core::at(font->special_map_, special) = static_cast<uint8_t>(i);
+                }
             }
         }
     } else if (font->format == 2) {
@@ -611,17 +622,20 @@ TypefaceData* TypefaceData::read_in(const char* name)
             font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
             const auto& codes = core::at(entries, i).codes;
             core::at(font->map_, core::at(codes, 0)) = static_cast<uint8_t>(i);
-            for (int c = 1; c < 4 && core::at(codes, c) != kUnusedCode; ++c)
+            for (int c = 1; c < 4 && core::at(codes, c) != kUnusedCode; ++c) {
                 core::at(font->map_, core::at(codes, c)) = static_cast<uint8_t>(i);
+            }
         }
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
     if (core::at(font->special_map_, kSpecialGlyphSlot)) {
         for (int c = 0; c < render::kGlyphMapEntries; ++c) {
-            if (!core::at(font->map_, c) && c != 'A' && c != 'a')
+            if (!core::at(font->map_, c) && c != 'A' && c != 'a') {
                 core::at(font->map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
-            if (c < kSpecialGlyphSlot && !core::at(font->special_map_, c))
+            }
+            if (c < kSpecialGlyphSlot && !core::at(font->special_map_, c)) {
                 core::at(font->special_map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
+            }
         }
     }
 
@@ -629,14 +643,16 @@ TypefaceData* TypefaceData::read_in(const char* name)
     // (0x80 and over: opaque), and the pixels written through it (the rows packed: the pitch isn't used).
     const uint32_t width = page.width;
     const uint32_t height = page.height;
-    if (hd_scale != 1)
+    if (hd_scale != 1) {
         hd_ui::note_font(name, hd_scale, width, height);
+    }
     IDirect3DTexture9* texture = nullptr;
     const HRESULT created =
         renderer().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     font->texture_ = texture;
-    if (created != D3D_OK)
+    if (created != D3D_OK) {
         return nullptr;
+    }
     // (not original - both buffers owned: the original left them allocated when the texture couldn't be locked)
     memory::HeapPtr<uint8_t> indices;
     memory::HeapPtr<uint32_t> game_pixels;
@@ -665,8 +681,9 @@ TypefaceData* TypefaceData::read_in(const char* name)
         os_layer::expand_palette(pixels, indices.get(), static_cast<int>(size), palette.data());
     }
     D3DLOCKED_RECT locked;
-    if (texture->LockRect(0, &locked, nullptr, 0) != D3D_OK)
+    if (texture->LockRect(0, &locked, nullptr, 0) != D3D_OK) {
         return nullptr;
+    }
     std::memcpy(locked.pBits, pixels, size * 4);
     texture->UnlockRect(0);
     indices.reset();

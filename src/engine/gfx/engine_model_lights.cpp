@@ -118,13 +118,15 @@ bool ModelLights::move_brightness(BrightnessStep brightness_step)
     if (brightness_ < target) {
         const double moved = static_cast<double>(step) + brightness_; // (compared before it's rounded)
         brightness_ = static_cast<float>(moved);
-        if (moved > target)
+        if (moved > target) {
             brightness_ = target;
+        }
     } else if (brightness_ > target) {
         const double moved = static_cast<double>(brightness_) - step;
         brightness_ = static_cast<float>(moved);
-        if (moved < target)
+        if (moved < target) {
             brightness_ = target;
+        }
     }
     get_update_brightness();
     return true;

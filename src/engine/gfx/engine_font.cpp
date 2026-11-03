@@ -40,8 +40,9 @@ void unload_font(const char* name)
     auto& slots = screen_2d().font_slots();
     int index = 0;
     while (std::strcmp(core::at(slots, index).name.data(), name) != 0) {
-        if (++index >= kFontSlots)
+        if (++index >= kFontSlots) {
             return;
+        }
     }
     const uint32_t key = checksums::hash_from_text(name);
     screen_2d().font_table().erase_entry(key);

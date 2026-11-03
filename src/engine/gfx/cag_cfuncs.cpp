@@ -131,10 +131,12 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
         info->fetch_int_value(kFlipH, &flip_h, 1);
         int flip_v = 0;
         info->fetch_int_value(kFlipV, &flip_v, 1);
-        if (flip_h)
+        if (flip_h) {
             workspace->get_mirror();
-        if (flip_v)
+        }
+        if (flip_v) {
             render::BitmapTexture::flip_vertically();
+        }
         float rot = 0.0F;
         info->fetch_float(kRot, &rot, 1);
         auto radians = static_cast<float>(static_cast<double>(rot) * kDegreeToRadianRatio); // pi / 180
@@ -156,21 +158,24 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
         auto r = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
         const uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
         workspace->modulate(colour, false);
-        if (a < kOpaqueAlpha)
+        if (a < kOpaqueAlpha) {
             translucent = true;
+        }
         int layer = 0;
         info->fetch_int_value(kLayerId, &layer, 1);
-        if (last_layer != layer)
+        if (last_layer != layer) {
             last_layer = layer; // (kept, never used)
+        }
         workspace->write_back(1, static_cast<void*>(nullptr));
         tag->get_overlay(workspace, 1);
     }
 
     tag->get_border(0U);
-    if (!translucent && tag->get_depth() == kPaletteDepthBits)
+    if (!translucent && tag->get_depth() == kPaletteDepthBits) {
         tag->write_back(0, static_cast<void*>(palette.data()));
-    else
+    } else {
         tag->write_back(1, static_cast<void*>(nullptr));
+    }
     static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())->unload_texture(workspace);
 
     int player = 0;
@@ -200,8 +205,9 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script* /*script*/
     modules::Skate::fetch_account(static_cast<Struct*>(nullptr));
     auto* tagging = core::down_cast<objects::TaggingComponent>(skater->fetch_module(objects::TaggingComponent::kType));
     void* graffiti = tagging->graffiti(); // (0x00553E90, a getter folded with others)
-    if (graffiti)
+    if (graffiti) {
         find_texture(render::engine_parts().particle_texture_dict(), kCustomTag)->copy_from(static_cast<render::BitmapTexture*>(graffiti));
+    }
     return true;
 }
 
@@ -248,10 +254,12 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
         y = static_cast<float>(static_cast<double>(maths::fast_sin(radians)) * magnitude);
         x = static_cast<float>(static_cast<double>(maths::fast_cos(radians)) * magnitude);
     }
-    if (negate_x)
+    if (negate_x) {
         x = x * -1.0F;
-    if (negate_y)
+    }
+    if (negate_y) {
         y = y * -1.0F;
+    }
     script->args()->push_float(checksums::Name{kX}, x);
     script->args()->push_float(checksums::Name{kY}, y);
     return true;
@@ -265,27 +273,32 @@ bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script* /*scr
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);
     auto* profile = modules::Skate::fetch_account(player);
-    if (!profile)
+    if (!profile) {
         return true;
+    }
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's
     // own component of that name)
     auto part_of = [&](uint32_t name) { return profile->appearance()->get_part_option(name); };
     Struct* head = part_of(kSkaterMHead);
     if (!head) {
         head = part_of(kSkaterFHead);
-        if (!head)
+        if (!head) {
             return false;
+        }
     }
     std::array<void*, 4> has{};
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         core::at(has, i) = profile->appearance()->get_part(core::at(kHeadBoneGroups, i));
+    }
     Struct* appearance = &profile->appearance()->structure();
     for (int i = 0; i < 4; ++i) {
-        if (core::at(has, i))
+        if (core::at(has, i)) {
             continue;
+        }
         Struct* group = nullptr;
-        if (head->read_sub_struct(core::at(kHeadBoneGroups, i), &group, 0))
+        if (head->read_sub_struct(core::at(kHeadBoneGroups, i), &group, 0)) {
             appearance->put_sub_struct(core::at(kHeadBoneGroups, i), group);
+        }
     }
     return true;
 }

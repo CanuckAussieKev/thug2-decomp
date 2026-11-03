@@ -69,8 +69,9 @@ SparkleConfig::SparkleConfig()
         core::at(box_, i) =
             maths::Vec4{.x = kBoxDefaultHalfSize, .y = kBoxDefaultHalfSize, .z = kBoxDefaultHalfSize, .w = 0.0F};
         core::at(offset_pos_, i) = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-        for (int k = 0; k < 4; ++k)
+        for (int k = 0; k < 4; ++k) {
             core::at(core::at(shade_, i), k) = kNeutralShade;
+        }
     }
     colour_use_mid_ = false;
     texture_ = 0;
@@ -83,8 +84,9 @@ SparkleConfig::SparkleConfig()
     colour_mid_percent_ = kMidPercentDefault;
     blend_mode_ = kFixadd;
     unknown13c_ = 1;
-    for (float& scale : colour_scale_)
+    for (float& scale : colour_scale_) {
         scale = 1.0F;
+    }
     unknown14c_ = 0;
     hidden_ = false;
     held_back_ = false;
@@ -220,8 +222,9 @@ void Sparkle::change_colour(const Rgba* rgba)
         return;
     }
     if (args_.flag158()) {
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             core::at(args_.colour_scale(), i) = static_cast<float>(core::at(*rgba, i)) * kByteToUnit;
+        }
         on_colour_changed();
     }
 }
@@ -230,8 +233,9 @@ void Sparkle::change_colour(const Rgba* rgba)
 void Sparkle::set_colour_scale(std::span<const float, 4> rgba)
 {
     if (args_.flag158()) {
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             core::at(args_.colour_scale(), i) = core::at(rgba, i);
+        }
         on_colour_changed();
     }
 }
@@ -240,8 +244,9 @@ void Sparkle::set_colour_scale(std::span<const float, 4> rgba)
 void Sparkle::set_emit_script(checksums::Name script_name, uint32_t object_id)
 {
     const uint32_t script = script_name.value();
-    if (args_.emit_script())
+    if (args_.emit_script()) {
         script::stop_scripts_by_tag(args_.emit_script());
+    }
     args_.set_emit_script(script);
     args_.set_entity_key(object_id);
     gsl::owner<script::Struct*> params = script::new_struct();
@@ -259,15 +264,17 @@ void Sparkle::set_emit_script(checksums::Name script_name, uint32_t object_id)
 EffectsDirector::EffectsDirector()
 {
     systems_.make();
-    for (float& c : shade_)
+    for (float& c : shade_) {
         c = 1.0F;
+    }
 }
 
 // 0x004967D0
 EffectsDirector::~EffectsDirector()
 {
-    for (int pass = 0; pass < 2; ++pass)
+    for (int pass = 0; pass < 2; ++pass) {
         systems_.erase(systems_.first(), systems_.head());
+    }
     memory::dealloc(systems_.head());
 }
 
@@ -278,8 +285,9 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
     if (particle) {
         particle->prepare_all(params);
         if (particle->args().flag158()) {
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < 4; ++i) {
                 core::at(particle->args().colour_scale(), i) = core::at(shade_, i);
+            }
             particle->set_colour_scale(shade_);
         }
         systems_.push_back(particle);
@@ -295,12 +303,14 @@ void EffectsDirector::retire_particle(Sparkle* particle)
         particle->args().set_emit_script(0);
     }
     auto* node = systems_.first();
-    if (node == systems_.head())
+    if (node == systems_.head()) {
         return;
+    }
     while (node->value->args().label() != particle->args().label()) {
         node = node->next;
-        if (node == systems_.head())
+        if (node == systems_.head()) {
             return;
+        }
     }
     gsl::owner<Sparkle*> found = memory::adopt<Sparkle*>(node->value);
     found->get_release();
@@ -316,29 +326,31 @@ void EffectsDirector::retire_particle(Sparkle* particle)
 // 0x00496640
 void EffectsDirector::draw_particles()
 {
-    if (!systems_.size())
+    if (!systems_.size()) {
         return;
-    for (const auto* node = systems_.first(); node != systems_.head();
-         node = node->next)
+    }
+    for (const auto* node = systems_.first(); node != systems_.head(); node = node->next) {
         node->value->render(!objects::simulation_halted());
+    }
 }
 
 // 0x00496680
 void EffectsDirector::tick_particles()
 {
-    for (const auto* node = systems_.first(); node != systems_.head();
-         node = node->next)
+    for (const auto* node = systems_.first(); node != systems_.head(); node = node->next) {
         node->value->tick_frame();
+    }
 }
 
 // 0x004966B0
 void EffectsDirector::change_colour(std::span<const float, 4> rgba)
 {
-    for (const auto* node = systems_.first(); node != systems_.head();
-         node = node->next)
+    for (const auto* node = systems_.first(); node != systems_.head(); node = node->next) {
         node->value->set_colour_scale(rgba);
-    for (int i = 0; i < 4; ++i)
+    }
+    for (int i = 0; i < 4; ++i) {
         core::at(shade_, i) = core::at(rgba, i);
+    }
 }
 
 // 0x00496700

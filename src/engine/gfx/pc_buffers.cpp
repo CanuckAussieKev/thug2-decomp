@@ -47,8 +47,9 @@ void MeshRef::set_vertex_buffer(int index, VertexBuffer* vb) { core::at(vertex_b
 void MeshRef::move_into_arena(VertexArena* arena)
 {
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
-    if (vb->buffer())
+    if (vb->buffer()) {
         return; // (the original adds 0x1F & ~0x1F - nothing - to the arena's offset)
+    }
     vb->set_buffer(arena->buffer);
     vb->set_arena_offset(arena->used);
     const std::span<uint8_t> locked(static_cast<uint8_t*>(arena->data), arena->size); // (the buffer, locked)
@@ -76,8 +77,9 @@ void MeshRef::set_pixel_shader_colored()
         b = static_cast<double>(core::at(color_, 2)) + core::at(color_, 2);
     }
     for (uint32_t pass = 0; pass < material_->pass_count(); ++pass) {
-        if (core::at(material_->pass_flags(), pass) & kPassFlagKeepColour) // (the colour isn't to be changed)
+        if (core::at(material_->pass_flags(), pass) & kPassFlagKeepColour) { // (the colour isn't to be changed)
             continue;
+        }
         renderer().scale_pass_colour(pass, {.r = r, .g = g, .b = b});
     }
     renderer().set_pixel_shader_changed(1); // (the constants changed)
@@ -123,8 +125,9 @@ void* pixel_shader_from_index(uint32_t index)
                                        kPixelShader928,
                                        kPixelShader924,
                                        kPixelShader920}};
-    if (index > kLastPixelShaderIndex)
+    if (index > kLastPixelShaderIndex) {
         return nullptr; // (NOT ORIGINAL: none - the original returned the index itself as the shader)
+    }
     return core::at(kShaders, index) >= 0 ? core::at(pixel_shaders(), core::at(kShaders, index)) : nullptr;
 }
 

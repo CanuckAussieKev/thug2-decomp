@@ -98,8 +98,9 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, Mater
     const auto blend_checksum = names.blend;
     // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
     TextureImage* texture = nullptr;
-    if (const BitmapTexture* entry = find_texture(texture_checksum))
+    if (const BitmapTexture* entry = find_texture(texture_checksum)) {
         texture = image_of(entry);
+    }
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
     Expects(m != nullptr);

@@ -75,8 +75,9 @@ void skin_collision_file_name(char* out, const char* name)
 {
     text::copy_unbounded(out, name); // (no length limit, as the original)
     char* extension = std::strstr(out, ".");
-    if (!extension)
+    if (!extension) {
         extension = std::next(out, static_cast<std::ptrdiff_t>(std::strlen(out)));
+    }
     std::memcpy(extension, ".col.", kColExtensionBytes);
     text::append_unbounded(out, platform_suffix());
 }

@@ -52,8 +52,9 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 
 int confine(int value, int size)
 {
-    if (value < 0)
+    if (value < 0) {
         return 0;
+    }
     return value >= size ? size - 1 : value;
 }
 
@@ -68,8 +69,9 @@ memory::ListNode* masked(memory::ListNode* node) { return is_head(node) ? nullpt
 int len_of(memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next(); !is_head(node) && node; node = node->next())
+    for (const memory::ListNode* node = head->next(); !is_head(node) && node; node = node->next()) {
         ++count;
+    }
     return count;
 }
 
@@ -97,8 +99,9 @@ public:
         } else {
             for (int i = 0; i < cell_->count(); ++i) {
                 if (core::at(cell_->object_run(), i) == object) {
-                    for (int j = i + 1; j < cell_->count(); ++j)
+                    for (int j = i + 1; j < cell_->count(); ++j) {
                         core::at(cell_->object_run(), j - 1) = core::at(cell_->object_run(), j);
+                    }
                     core::at(cell_->object_run(), cell_->count() - 1) = nullptr;
                     break;
                 }
@@ -124,8 +127,9 @@ public:
     bool get_lists(HitMesh* object) const
     {
         for (int i = 0; i < cell_->count(); ++i) {
-            if (core::at(cell_->object_run(), i) == object)
+            if (core::at(cell_->object_run(), i) == object) {
                 return true;
+            }
         }
         return false;
     }
@@ -137,12 +141,14 @@ public:
         const uint32_t size = static_cast<uint32_t>(count) * 4;
         if (delta_ < 0) {
             if (!cell_->objects() ||
-                !memory::Hub::get_pull()->trim_block_end(size, static_cast<void*>(cell_->objects()), nullptr))
+                !memory::Hub::get_pull()->trim_block_end(size, static_cast<void*>(cell_->objects()), nullptr)) {
                 cell_->set_objects(static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell_->objects()), size)));
+            }
         } else if (delta_ > 0) {
             if (!cell_->objects() ||
-                !memory::Hub::get_pull()->extend_block_upward(size, static_cast<void*>(cell_->objects()), nullptr))
+                !memory::Hub::get_pull()->extend_block_upward(size, static_cast<void*>(cell_->objects()), nullptr)) {
                 cell_->set_objects(static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell_->objects()), size)));
+            }
             int at = cell_->count();
             const std::span<HitMesh*> block(cell_->objects(), static_cast<size_t>(count));
             if (!is_head(pending_->next())) {
@@ -171,10 +177,12 @@ CollGridCell::CollGridCell() = default;
 // 0x00418410
 CollGridCell::~CollGridCell()
 {
-    if (unknown28)
+    if (unknown28) {
         memory::Hub::dealloc(unknown28);
-    if (objects_)
+    }
+    if (objects_) {
         memory::free_malloc(static_cast<void*>(objects_));
+    }
 }
 
 // 0x00418440 (the corners are kept in double precision from one cell to the next and rounded where stored)
@@ -238,26 +246,31 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
         const double inverse_depth = 1.0 / cell_depth_;
         z0 = truncate((static_cast<double>(box->min.z) - box_.min.z) * inverse_depth);
         z1 = truncate((static_cast<double>(box->max.z) - box_.min.z) * inverse_depth);
-        if (x1 >= kSize)
+        if (x1 >= kSize) {
             x1 = kSize - 1;
-        if (z1 >= kSize)
+        }
+        if (z1 >= kSize) {
             z1 = kSize - 1;
+        }
         return cells;
     };
     // how many each cell gets
     for (StaticCollider& object : statics) {
-        if (object.geometry()->tri_count() == 0)
+        if (object.geometry()->tri_count() == 0) {
             continue;
+        }
         const auto [x0, x1, z0, z1] = cells_of(&object);
         for (int x = x0; x <= x1; ++x) {
-            for (int z = z0; z <= z1; ++z)
+            for (int z = z0; z <= z1; ++z) {
                 ++core::at(core::at(cells_, x), z).count();
+            }
         }
     }
     for (auto& column : cells_) {
         for (CollGridCell& cell : column) {
-            if (cell.count() > 0)
+            if (cell.count() > 0) {
                 cell.set_objects(static_cast<HitMesh**>(memory::alloc_block(static_cast<uint32_t>(cell.count()) * 4)));
+            }
         }
     }
     // how many each cell has so far (a scratch block on the top-down heap)
@@ -267,12 +280,14 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
     memory::leave_heap_scope();
     const std::span<int> filled(filled_block, static_cast<size_t>(kSize) * kSize);
     for (StaticCollider& object : statics) {
-        if (object.geometry()->tri_count() == 0)
+        if (object.geometry()->tri_count() == 0) {
             continue;
+        }
         const auto [x0, x1, z0, z1] = cells_of(&object);
         for (int x = x0; x <= x1; ++x) {
-            for (int z = z0; z <= z1; ++z)
+            for (int z = z0; z <= z1; ++z) {
                 core::at(core::at(core::at(cells_, x), z).object_run(), core::at(filled, (x * kSize) + z)++) = &object;
+            }
         }
     }
     memory::Hub::dealloc(filled_block);
@@ -294,24 +309,27 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
             const memory::ListNode* node = masked(removed->next());
             for (int i = 0; i < removed_count; ++i, node = masked(node->next())) {
                 auto* object = static_cast<HitMesh*>(node->data());
-                if (cell->box().intersects(*cuboid(object)))
+                if (cell->box().intersects(*cuboid(object))) {
                     update.take_out(object);
+                }
             }
             node = masked(added->next());
             for (int i = 0; i < added_count; ++i, node = masked(node->next())) {
                 auto* object = static_cast<HitMesh*>(node->data());
-                if (cell->box().intersects(*cuboid(object)))
+                if (cell->box().intersects(*cuboid(object))) {
                     update.put_in(object);
+                }
             }
             node = masked(moved->next());
             for (int i = 0; i < moved_count; ++i, node = masked(node->next())) {
                 auto* object = static_cast<HitMesh*>(node->data());
                 const bool listed = update.get_lists(object);
                 if (cell->box().intersects(*cuboid(object)) != listed) {
-                    if (listed)
+                    if (listed) {
                         update.take_out(object);
-                    else
+                    } else {
                         update.put_in(object);
+                    }
                 }
             }
             memory::leave_heap_scope();
@@ -322,8 +340,9 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
     for (auto& column : cells_) {
         for (CollGridCell& cell : column) {
             HitMesh** old = cell.objects();
-            if (!old)
+            if (!old) {
                 continue;
+            }
             if (cell.count() != 0) {
                 const uint32_t size = static_cast<uint32_t>(cell.count()) * 4;
                 cell.set_objects(static_cast<HitMesh**>(memory::alloc_block(size)));
@@ -422,8 +441,9 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
     if (x0 == x1 && z0 == z1) {
         const CollGridCell& cell = core::at(core::at(cells_, x0), z0);
         for (int i = 0; i < cell.count(); ++i) {
-            if (listable(core::at(cell.object_run(), i)))
+            if (listable(core::at(cell.object_run(), i))) {
                 core::at(grid_query().found_, found++) = core::at(cell.object_run(), i);
+            }
         }
     } else {
         const uint8_t stamp = ++grid_query().stamp_;
@@ -441,8 +461,9 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
         }
     }
     core::at(grid_query().found_, found) = nullptr;
-    if (count)
+    if (count) {
         *count = found;
+    }
     return std::span<HitMesh* const>(grid_query().found_).first(static_cast<size_t>(found));
 }
 

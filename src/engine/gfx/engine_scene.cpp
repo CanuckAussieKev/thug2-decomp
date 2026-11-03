@@ -62,8 +62,9 @@ void copy_string(std::span<char> to, const char* from)
     std::size_t i = 0;
     for (core::CStringCursor at(from);; ++at, ++i) {
         core::at(to, i) = *at;
-        if (!*at)
+        if (!*at) {
             break;
+        }
     }
 }
 
@@ -75,8 +76,9 @@ void for_each_sector(lists::KeyMap* table, Body body)
     table->set_iter_item(nullptr);
     while (table->step_iterator()) {
         const lists::KeyMap::Item* item = table->iter_item();
-        if (!item || !item->value)
+        if (!item || !item->value) {
             break;
+        }
         body(item->value);
     }
 }
@@ -137,8 +139,9 @@ WorldCell* WorldScene::look_up_sector(uint32_t name)
     const lists::KeyMap* table = sectors_;
     const lists::KeyMap::Item* item = &core::at(table->bucket_run(), name & ((1U << table->bits()) - 1));
     for (; item; item = item->next) {
-        if (item->key == name && item->value)
+        if (item->key == name && item->value) {
             return static_cast<WorldCell*>(item->value);
+        }
     }
     return nullptr;
 }
@@ -215,8 +218,9 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, gsl
 // 0x0049CE60
 bool WorldScene::init_collision_grid(const maths::BBox* box)
 {
-    if (!builds_collision_grid_)
+    if (!builds_collision_grid_) {
         return false;
+    }
     collision_box_ = *box;
     void* block = memory::alloc(sizeof(CollGrid));
     CollGrid* grid = block ? memory::construct_in<CollGrid>(block) : nullptr; // (its box and cells constructed)
@@ -248,8 +252,9 @@ bool WorldScene::unload_collision()
 // 0x0049D030
 void WorldScene::delete_marked_sectors()
 {
-    if (!coll_grid_)
+    if (!coll_grid_) {
         return;
+    }
     for_each_sector(sectors_, [](void* sector) {
         if (sector_attribute_bits(sector) & kSectorBitMarked) {
             reset_sector_bits(sector, kSectorBitProtected);
@@ -277,8 +282,9 @@ void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int /*u
         const maths::Vec4& high = bounds->max;
         // (each "not past it": NaN counts as touching)
         if (!(min_x > high.x) && !(low.x > max_x) && !(min_z > high.z) && !(low.z > max_z) && !(min_y > high.y) &&
-            !(low.y > max_y))
+            !(low.y > max_y)) {
             enable_sector(sector, on);
+        }
     });
 }
 

@@ -80,8 +80,9 @@ constexpr size_t kRingLines = 64;
 template <typename... Args>
 void get_note(text::FormatFor<Args...> format, Args... args)
 {
-    if (!live_now())
+    if (!live_now()) {
         return;
+    }
     std::array<char, kLineWidth> line{};
     text::format_to(line, format, args...);
     note_text(line.data());

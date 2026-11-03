@@ -172,8 +172,9 @@ void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alp
     const float y = at.y;
     const float width = size.width;
     const float height = size.height;
-    if (!texture)
+    if (!texture) {
         return;
+    }
     choose_blend_mode(0);
     change_phase(RenderStateId::kAddressMode0, kClampBothWays); // (clamp)
     set_vertex_format(kScreenVertexFormat);
@@ -209,9 +210,10 @@ void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alp
     core::at(vertices, 3) = core::at(vertices, 1);
     core::at(vertices, 3).y = core::at(vertices, 2).y;
     core::at(vertices, 3).v = 1.0F;
-    if (renderer().d3d_device()->TestCooperativeLevel() == D3D_OK) // the device isn't lost
+    if (renderer().d3d_device()->TestCooperativeLevel() == D3D_OK) { // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
         draw_movie_quad(renderer().d3d_device(), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
+    }
     set_texture_stage_state(0, 1, 4); // colour: modulate back
 }
 
@@ -277,8 +279,9 @@ void* begin_movie(uint32_t width, uint32_t height)
     // one level, no usage
     const HRESULT result =
         renderer().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
-    if (FAILED(result))
+    if (FAILED(result)) {
         return nullptr;
+    }
     engine_parts().set_movie_playing(true);
     return texture;
 }
@@ -292,8 +295,9 @@ void end_movie(void* texture)
     set_sampler_state(0, kMinFilter, get_saved_min_filter());
     set_renderer_sampler(RenderStateId::kZWrite, 1);
     set_renderer_sampler(RenderStateId::kZTest, 1);
-    if (texture)
+    if (texture) {
         static_cast<IDirect3DTexture9*>(texture)->Release();
+    }
     set_texture(0, nullptr);                                                   // (the original also passes 0, unused)
 }
 
@@ -336,8 +340,9 @@ constexpr uint32_t kCross = 0x0040;
 // 0x0044FDC0
 void play_movie_file(const char* name)
 {
-    if (!bink::use_direct_sound(audio::get_sound_device()))
+    if (!bink::use_direct_sound(audio::get_sound_device())) {
         debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+    }
     create_sound_manager();
     const float music = current_music_volume();
     const float effects = sound_volume();
@@ -393,8 +398,9 @@ void play_movie_file(const char* name)
                 }
                 continue;
             }
-            if (engine_parts().quit_requested())
+            if (engine_parts().quit_requested()) {
                 break;
+            }
             if (engine_parts().device_lost()) {
                 frame_loop::Hub::reset_device_if_lost(); // (through the jump at 0x0044F250)
                 if (engine_parts().device_lost()) {
@@ -408,8 +414,9 @@ void play_movie_file(const char* name)
                 }
                 bink::pause(engine_parts().current_movie(), 0);
             }
-            if (bink::wait(engine_parts().current_movie()))
+            if (bink::wait(engine_parts().current_movie())) {
                 continue;
+            }
             Bink* bink = engine_parts().current_movie();
             bink::do_frame(bink);
             auto* d3d_texture = static_cast<IDirect3DTexture9*>(texture);
@@ -419,29 +426,35 @@ void play_movie_file(const char* name)
                 d3d_texture->UnlockRect(0);
             }
             draw_movie(engine_parts().current_movie(), texture);
-            if (engine_parts().current_movie()->frame_num_ >= engine_parts().current_movie()->frames - 1)
+            if (engine_parts().current_movie()->frame_num_ >= engine_parts().current_movie()->frames - 1) {
                 break;
+            }
             ++frames;
-            if (frames % 2 == 0)
+            if (frames % 2 == 0) {
                 os_layer::process_window_events();
+            }
             // PartyMod NOPs the original's "if (frames % 5 != 0) continue;" (0x00450121): the pads are read
             // every frame, so skipping reacts at once.
             input->poll_pads();
             bool skip = false;
             for (int port = 0; port < 4 && !skip; ++port) {
                 const sio::InputPort* device = input->get_pad_at_slot(port);
-                if (!device)
+                if (!device) {
                     continue;
+                }
                 const auto& data = device->control_data();
-                if (core::at(data, 2) << kBitsPerByte & kStart)
+                if (core::at(data, 2) << kBitsPerByte & kStart) {
                     core::at(seen_up, port) |= kStart;
-                else if (core::at(seen_up, port) & kStart)
+                } else if (core::at(seen_up, port) & kStart) {
                     skip = true;
-                if (!skip && button_pressed_again(data, &core::at(seen_up, port), kCross))
+                }
+                if (!skip && button_pressed_again(data, &core::at(seen_up, port), kCross)) {
                     skip = true;
+                }
             }
-            if (skip)
+            if (skip) {
                 break;
+            }
         }
         sio::release_manager();
     }
@@ -463,14 +476,16 @@ bool is_intro_movie(const char* name)
     const std::string_view base = slash == std::string_view::npos ? full : full.substr(slash + 1);
     for (const char* intro : {"ATVI", "Beenox_Shift", "Dolby_Digital", "Intel_intro", "NSlogo", "intro", "introf"}) {
         const std::string_view wanted(intro);
-        if (base.size() < wanted.size())
+        if (base.size() < wanted.size()) {
             continue;
+        }
         const std::string_view rest = base.substr(wanted.size());
         const bool same_name = std::ranges::equal(base.substr(0, wanted.size()), wanted, [](char a, char b) {
             return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
         });
-        if (same_name && (rest.empty() || rest.starts_with('.')))
+        if (same_name && (rest.empty() || rest.starts_with('.'))) {
             return true;
+        }
     }
     return false;
 }
@@ -497,8 +512,9 @@ bool& skip_intro_movies()
 bool play_movie(script::Struct* params, script::Script* script)
 {
     const char* name = nullptr;
-    if (!params->fetch_text(0U, &name, 1))
+    if (!params->fetch_text(0U, &name, 1)) {
         return false;
+    }
     if (skip_intro_movies() && (is_intro_movie(name) || from_start_up_script(script))) {
         get_log("skipping intro movie %s (thug2-decomp.ini [features] skip_intro_movies)", name);
         return true;

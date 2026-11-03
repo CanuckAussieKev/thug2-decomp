@@ -86,14 +86,16 @@ void* first_sector(lists::KeyMap* table)
 {
     table->set_iter_bucket(-1);
     table->set_iter_item(nullptr);
-    if (!table->step_iterator() || !table->iter_item())
+    if (!table->step_iterator() || !table->iter_item()) {
         return nullptr;
+    }
     return table->iter_item()->value;
 }
 void* next_sector(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item())
+    if (!table->step_iterator() || !table->iter_item()) {
         return nullptr;
+    }
     return table->iter_item()->value;
 }
 
@@ -104,8 +106,9 @@ void* next_sector(lists::KeyMap* table)
 // 0x004C6530
 void PcSector::plat_set_shatter(bool on)
 {
-    if (on && geom_handle())
+    if (on && geom_handle()) {
         engine::shatter_geom(geom_handle());
+    }
 }
 
 // 0x004C65C0
@@ -160,8 +163,9 @@ void PcScene::post_load(void* arena_word)
         arena->data = nullptr;
     }
     meshes_->allocate_mesh_list();
-    for (sector = first_sector(table); sector; sector = next_sector(table))
+    for (sector = first_sector(table); sector; sector = next_sector(table)) {
         geometry_of(sector)->add_to_mesh_list(false);
+    }
     meshes_->order_meshes();
 }
 
@@ -218,8 +222,9 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
         mesh->make_billboard(static_cast<int>(billboard_type), pivot, axis);
         billboard_pool().append_mesh(mesh);
     }
-    if (sector->flags() & kSectorFlagSetsMeshFlag)
+    if (sector->flags() & kSectorFlagSetsMeshFlag) {
         mesh->flags() |= kMeshFlagFromSector;
+    }
     geom->append_mesh(mesh);
     mesh->set_bone(light_group); // (the bone slot)
     make_grass(geom, mesh);
@@ -228,9 +233,10 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
 uint32_t count_loaded_meshes(const PcGeom* geom)
 {
     uint32_t count = 0;
-    for (const memory::ListNode* node = geom->load_list()->next(); node->data() != memory::ListNode::head_marker() && node;
-         node = node->next())
+    for (const memory::ListNode* node = geom->load_list()->next();
+         node->data() != memory::ListNode::head_marker() && node; node = node->next()) {
         ++count;
+    }
     return count;
 }
 
@@ -278,10 +284,12 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
         std::memcpy(centre.data(), fields.centre.data(), sizeof(fields.centre));
         std::memcpy(&min, fields.min.data(), sizeof(fields.min));
         std::memcpy(&max, fields.max.data(), sizeof(fields.max));
-        if (fields.flags & kFieldFlagMeshFlag2)
+        if (fields.flags & kFieldFlagMeshFlag2) {
             mesh->flags() |= 2;
-        if (fields.flags & kFieldFlagCarried)
+        }
+        if (fields.flags & kFieldFlagCarried) {
             mesh->flags() |= kMeshFlagCarried;
+        }
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
         mesh->set_load_index(static_cast<uint16_t>(i));
         if (!load_body(mesh, fields.material, geometry->scene()->meshes())) {

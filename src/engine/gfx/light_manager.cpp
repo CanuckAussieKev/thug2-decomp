@@ -208,25 +208,28 @@ float fetch_ambient_scale(bool low) { return low ? light_sets().world_lighting()
 // 0x0048E9D0 (both branches read the low ranges, as the original)
 float fetch_diffuse_scale(int light, bool low)
 {
-    if (low)
+    if (low) {
         return core::at(light_sets().world_lighting().light_low_, light);
+    }
     return core::at(light_sets().world_lighting().light_low_, light);
 }
 
 // 0x0048EA00
 void push_world_lights()
 {
-    if (++stack_top() < kSavedLightLevels)
+    if (++stack_top() < kSavedLightLevels) {
         core::at(pile_up(), stack_top()) = light_sets().world_lighting();
-    else
+    } else {
         --stack_top();
+    }
 }
 
 // 0x0048EA40
 bool pop_world_lights()
 {
-    if (stack_top() < 0)
+    if (stack_top() < 0) {
         return false;
+    }
     light_sets().world_lighting() = core::at(pile_up(), stack_top());
     --stack_top();
     compiled_out();
@@ -242,17 +245,20 @@ bool set_world_brightness(float target)
     if (brightness < target) {
         const double moved = static_cast<double>(brightness) + kStep; // (compared before it's rounded)
         brightness = static_cast<float>(moved);
-        if (moved > target)
+        if (moved > target) {
             brightness = target;
+        }
     } else if (brightness > target) {
         const double moved = static_cast<double>(brightness) - kStep;
         brightness = static_cast<float>(moved);
-        if (moved < target)
+        if (moved < target) {
             brightness = target;
+        }
     }
     light_sets().set_ambient_intensity(get_scaled(brightness, light_sets().world_lighting().ambient_low_, light_sets().world_lighting().ambient_high_));
-    if (light_sets().ambient_intensity() < min_intensity())
+    if (light_sets().ambient_intensity() < min_intensity()) {
         light_sets().set_ambient_intensity(min_intensity());
+    }
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         float& intensity = core::at(light_sets().intensities(), i);
         intensity = get_scaled(brightness, core::at(light_sets().world_lighting().light_low_, i), core::at(light_sets().world_lighting().light_high_, i));
@@ -279,8 +285,9 @@ DynamicLightBase** find_dynamic_light(uint32_t owner)
 {
     for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
         const DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i);
-        if (light && light->owner() == owner)
+        if (light && light->owner() == owner) {
             return &core::at(light_sets().dynamic_lights(), i);
+        }
     }
     return nullptr;
 }
@@ -293,15 +300,17 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
     uint32_t count = 0;
     for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
         DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i); // (not checked for null, as the original)
-        if (!(light->intensity() > 0.0F) || !light->owner())
+        if (!(light->intensity() > 0.0F) || !light->owner()) {
             continue;
+        }
         const double dx = static_cast<double>(position->x) - core::at(light->pos(), 0);
         const double dy = static_cast<double>(position->y) - core::at(light->pos(), 1);
         const double dz = static_cast<double>(position->z) - core::at(light->pos(), 2);
         const double distance_squared = (dz * dz) + (dy * dy) + (dx * dx);
         const double radius = light->radius();
-        if (distance_squared > radius * radius) // (NaN: within reach)
+        if (distance_squared > radius * radius) { // (NaN: within reach)
             continue;
+        }
         auto distance = static_cast<float>(std::sqrt(static_cast<double>(static_cast<float>(distance_squared))));
         const double falloff = call_falloff(light, distance);
         if (count == 0) {
@@ -311,8 +320,9 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
             count = 1;
             continue;
         }
-        if (count >= max && !(falloff < core::at(falloffs, count - 1))) // (full: only below the last; NaN: not)
+        if (count >= max && !(falloff < core::at(falloffs, count - 1))) { // (full: only below the last; NaN: not)
             continue;
+        }
         // The original's walk: inserted before the first it's greater than; each one it isn't greater than appends it
         // at the end (while there's room) - the end moving on with it.
         for (uint32_t j = 0; j < count; ++j) {
@@ -330,8 +340,9 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
                 core::at(falloffs, j) = static_cast<float>(falloff);
                 core::at(indexes, j) = i;
                 core::at(out, j) = light;
-                if (count < max)
+                if (count < max) {
                     ++count;
+                }
                 break;
             }
             if (count < max) {
@@ -348,11 +359,13 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
 // 0x0048F160
 DynamicLightBase* create_dynamic_light(int type)
 {
-    if (type != 1)
+    if (type != 1) {
         return nullptr;
+    }
     auto* light = static_cast<DynamicLightBase*>(memory::alloc_zeroed(sizeof(DynamicLightBase)));
-    if (!light)
+    if (!light) {
         return nullptr;
+    }
     light->set_unknown2c(false);
     light->set_type(1);
     light->set_radius(kDefaultLightRadius);
@@ -370,11 +383,13 @@ DynamicLightBase* new_dynamic_light(int type)
             core::at(light_sets().dynamic_lights(), i) = create_dynamic_light(type);
             return core::at(light_sets().dynamic_lights(), i);
         }
-        if (!light->owner())
+        if (!light->owner()) {
             return core::at(light_sets().dynamic_lights(), i);
+        }
     }
-    if (count >= kMaxDynamicLights || core::at(light_sets().dynamic_lights(), count))
+    if (count >= kMaxDynamicLights || core::at(light_sets().dynamic_lights(), count)) {
         return nullptr;
+    }
     light_sets().dynamic_light_count() = count + 1;
     core::at(light_sets().dynamic_lights(), count) = create_dynamic_light(type);
     return core::at(light_sets().dynamic_lights(), count);
@@ -399,8 +414,9 @@ void set_world_lights_ambient() { light_sets().world_lighting().ambient = kDefau
 // 0x00640B90 (a static initialiser): the four saved light sets.
 void construct_world_light_stack()
 {
-    for (LightingState& lights : pile_up())
+    for (LightingState& lights : pile_up()) {
         lights.make_new();
+    }
 }
 
 } // namespace render

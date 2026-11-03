@@ -67,28 +67,32 @@ void named_time(Struct* params, checksums::Name key, TimeRange time_range, float
     const auto duration = time_range.duration;
     const uint32_t name = key.value();
     uint32_t which = 0;
-    if (!params->read_hash_value(name, &which, 0))
+    if (!params->read_hash_value(name, &which, 0)) {
         return;
-    if (which == kMiddle)
+    }
+    if (which == kMiddle) {
         *time = duration * kHalf;
-    else if (which == kCurrent)
+    } else if (which == kCurrent) {
         *time = current;
-    else if (which == kStart)
+    } else if (which == kStart) {
         *time = 0.0F;
-    else if (which == kEnd)
+    } else if (which == kEnd) {
         *time = duration;
+    }
 }
 
 // A time given as a number: seconds, or frames (whole ones, at 60 a second).
 void number_time(Struct* params, uint32_t name, float* time)
 {
     float value = 0.0F;
-    if (!params->fetch_float(name, &value, 0))
+    if (!params->fetch_float(name, &value, 0)) {
         return;
-    if (params->has_bare_flag(kSeconds))
+    }
+    if (params->has_bare_flag(kSeconds)) {
         *time = value;
-    else
+    } else {
         *time = static_cast<float>(ftol(value) * static_cast<double>(kSixtieth));
+    }
 }
 
 // A model component's object's id and its model.
@@ -115,8 +119,9 @@ bool get_anim_loop_type(int* loop_type, Struct* params)
         *loop_type = 2;
         return true;
     }
-    if (params->has_bare_flag(kWobble))
+    if (params->has_bare_flag(kWobble)) {
         *loop_type = 3;
+    }
     return true;
 }
 
@@ -150,10 +155,11 @@ text::Chars make_model_path(const char* name, const char* extension)
 // 0x00487A70
 void make_model_file_name(const char* name, const char* extension, char* out)
 {
-    if (std::strstr(name, "/") || std::strstr(name, "\\"))
+    if (std::strstr(name, "/") || std::strstr(name, "\\")) {
         crt::get_sprintf(out, "models\\%s", name);
-    else
+    } else {
         crt::get_sprintf(out, "models\\%s\\%s%s", name, name, extension);
+    }
 }
 
 // 0x00487AD0
@@ -175,8 +181,9 @@ bool scale_from_args(maths::Vec4* scale, Struct* params)
             scale->w = 1.0F;
             return true;
         }
-        if (params->fetch_vec(kScale, scale, 0))
+        if (params->fetch_vec(kScale, scale, 0)) {
             return true;
+        }
     }
     const bool x = params->fetch_float(kX, &scale->x, 0);
     const bool y = params->fetch_float(kY, &scale->y, 0);
@@ -195,13 +202,16 @@ void conceal(HiddenModels& models)
     int count = 0;
     for (auto* component = first(); component;
          component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type())) {
-        if (hideable(component))
+        if (hideable(component)) {
             ++count;
+        }
     }
-    if (!count)
+    if (!count) {
         return;
-    if (!memory::manager_ready_flag())
+    }
+    if (!memory::manager_ready_flag()) {
         memory::ensure_manager();
+    }
     models.ids_ptr_ = static_cast<uint32_t*>(memory::Hub::get_pull()->carve(count * 4, 1, nullptr));
     models.num_ = 0;
     const std::span<uint32_t> ids(models.ids_ptr_, static_cast<size_t>(count));

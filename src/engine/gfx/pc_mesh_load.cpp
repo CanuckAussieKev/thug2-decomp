@@ -143,8 +143,9 @@ std::array<float, 3> scaled_position(const ScaledVertex& v)
 // The vertex formats a scene file's type numbers name (0x00775B64-78; 0: none; past 6: the number itself).
 uint32_t vertex_format(uint32_t type)
 {
-    if (type > kShaderTypeLimit)
+    if (type > kShaderTypeLimit) {
         return type;
+    }
     // (type t is the table's word 6 - t)
     return type ? core::at(mesh_pass().vertex_shaders(), kShaderTypeLimit - type) : 0;
 }
@@ -158,8 +159,9 @@ void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertic
     for (size_t i = 0; i < count; ++i) {
         ScaledVertex v{};
         std::memcpy(&v, std::span(records).subspan(i * scene_format::kScaledVertexSize, sizeof(v)).data(), sizeof(v));
-        if (skin_scaling_on())
+        if (skin_scaling_on()) {
             out.set_floats<3>(i, 0, scaled_position(v));
+        }
     }
 }
 
@@ -181,8 +183,9 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
         core::at(mesh->index_counts(), i) = core::at(body.index_counts, i);
         const uint16_t count = core::at(body.index_counts, i);
-        if (!count)
+        if (!count) {
             continue;
+        }
         gsl::owner<void*> memory = alloc_block(sizeof(IdxStore));
         IdxStore* ib = memory ? memory::construct_in<IdxStore>(memory, count * 2U, 0, D3DFMT_INDEX16) : nullptr;
         core::at(mesh->index_buffers(), i) = ib;
@@ -192,8 +195,9 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     mesh->set_stride(body.stride);
     mesh->set_vertex_count(body.vertex_count);
     mesh->set_vertex_buffer_count(body.vertex_buffer_count);
-    if (!body.scaled.empty())
+    if (!body.scaled.empty()) {
         apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride());
+    }
     mesh->set_fvf(vertex_format(core::at(body.vertex_types, 0)));
     mesh->set_second_fvf(vertex_format(core::at(body.vertex_types, 1)));
     mesh->set_normal_offset(core::at(body.offsets, 0));
@@ -208,16 +212,18 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         arena = nullptr; // (written each frame: a buffer of its own)
         mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
     }
-    if (dynamic)
+    if (dynamic) {
         mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
+    }
     if (body.level_count > 1) {
         mesh->set_unknown48(memory::alloc(static_cast<uint32_t>(body.level_count) * 4));
         std::memcpy(mesh->unknown48(), body.levels.data(), body.levels.size() * 4);
     }
     auto* material = static_cast<MaterialRef*>(scene->find_material(material_checksum));
     mesh->set_material(material);
-    if (material && (core::at(material->pass_flags(), 0) & kPassFlagCopiedToMesh))
+    if (material && (core::at(material->pass_flags(), 0) & kPassFlagCopiedToMesh)) {
         mesh->flags() |= kMeshFlagCopiedFromPass;
+    }
     mesh->set_vertex_buffer_count(1);
     // Not original - the vertices the mesh draws (or, without a vertex format, unpacks) within its buffer: a count
     // past them is cut to what is there (the original read past the buffer).
@@ -225,8 +231,9 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     const uint32_t vertex_bytes = mesh->fvf() ? mesh->stride() : 0x20 + (sets * 8);
     if (!scene_format::vertices_fit(body, vertex_bytes)) {
         uint32_t fit = 0;
-        if (body.vertices.size() >= vertex_bytes)
+        if (body.vertices.size() >= vertex_bytes) {
             fit = mesh->stride() ? static_cast<uint32_t>((body.vertices.size() - vertex_bytes) / mesh->stride()) + 1 : 0;
+        }
         debug::printf("scene mesh damaged: %u vertices, %u fit their buffer\n", mesh->vertex_count(), fit);
         mesh->set_vertex_count(static_cast<uint16_t>(fit));
     }
@@ -244,8 +251,9 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     if (body.shader == 1) {
         mesh->pixel_shader() = nullptr; // (the chunk skipped)
-        if (renderer().shaders_available())
+        if (renderer().shaders_available()) {
             material_pixel_shader(material, &mesh->pixel_shader());
+        }
     } else {
         mesh->pixel_shader() = pixel_shader_from_index(body.shader);
     }
@@ -274,8 +282,9 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
     for (int i = 0; std::cmp_less(i, vertex_count_); ++i) {
         const auto n = static_cast<size_t>(i);
         out.set_floats<3>(n, 0, in.float3(n, 0)); // the position
-        if (suspect && i == kTraceVertex)
+        if (suspect && i == kTraceVertex) {
             debug::printf("euh");
+        }
         const uint32_t normal = in.word(n, 0x18);
         const uint32_t z = normal >> 22;
         out.set_floats<3>(n, kOutNormalOffset,
@@ -284,11 +293,13 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
                            static_cast<float>(static_cast<int>(z & kSignBit10 ? z - kRange10 : z) *
                                               static_cast<double>(kUnpackZScale))});
         out.set_word(n, kOutColourOffset, in.word(n, kInColourOffset)); // the colour
-        for (uint32_t set = 0; set < sets; ++set)
+        for (uint32_t set = 0; set < sets; ++set) {
             out.set_floats<2>(n, kOutUvOffset + (kUvSetStride * set), in.float2(n, kInUvOffset + (kUvSetStride * set)));
-        for (size_t k = 0; k < 4; ++k)
+        }
+        for (size_t k = 0; k < 4; ++k) {
             out.set_value(n, kOutBoneValuesOffset + k,
                           static_cast<uint8_t>(in.value<int16_t>(n, kInBoneValuesOffset + (2 * k)) / 3));
+        }
         const uint32_t weights = in.word(n, 0xC);
         const uint32_t w = weights >> 22;
         const double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(kUnpackZScale);
@@ -296,10 +307,12 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
         out.set_floats<3>(n, kOutWeightsOffset,
                           {static_cast<float>(unpack11(weights) * static_cast<double>(kUnpack11Scale)), second,
                            static_cast<float>(third)});
-        if (bones < 2 && !(second == 0.0F))
+        if (bones < 2 && !(second == 0.0F)) {
             bones = 2;
-        if (bones < 3 && !(third == 0.0))
+        }
+        if (bones < 3 && !(third == 0.0)) {
             bones = 3;
+        }
     }
     unknowna4_ = sets;
     unknowna8_ = bones;
@@ -308,8 +321,9 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
     buffer_flags_ |= 1;
     gsl::owner<VertexBuffer*> made = new_vertex_buffer(stride_ * vertex_count_, buffer_usage_, buffer_flags_); // (the mesh's)
     core::at(vertex_buffers_, 0) = made;
-    if (arena)
+    if (arena) {
         arena->size += ((stride_ * vertex_count_) + kAlignMask) & ~kAlignMask;
+    }
 }
 
 // 0x004D5CC0
@@ -329,8 +343,9 @@ bool MeshRef::ingest_from_file(scene_format::FileStream& in, uint32_t material_c
 // 0x004D6530
 void MeshRef::build_collision()
 {
-    if (position_count_ || !core::at(index_counts_, 0))
+    if (position_count_ || !core::at(index_counts_, 0)) {
         return;
+    }
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
     const gpu::VertexView vertices(vb->data(), stride_, vertex_count_); // (locked read-only, inline)
     vb->set_lock_offset(0);
@@ -339,8 +354,9 @@ void MeshRef::build_collision()
     position_count_ = vertex_count_;
     positions_ = static_cast<float*>(alloc_block(vertex_count_ * kPositionBytesU));
     const std::span<float> position_run(positions_, 3U * vertex_count_);
-    for (uint32_t i = 0; i < vertex_count_; ++i)
+    for (uint32_t i = 0; i < vertex_count_; ++i) {
         std::ranges::copy(vertices.float3(i), position_run.subspan(3U * i, 3).begin());
+    }
     core::at(vertex_buffers_, 0)->get_unlock();
     const std::span<uint16_t> strip = core::at(index_buffers_, 0)->index_run();
     auto* found_block = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2U) * kTriangleIndexBytes));
@@ -350,8 +366,9 @@ void MeshRef::build_collision()
         const uint16_t a = core::at(strip, k);
         const uint16_t b = core::at(strip, k + 1);
         const uint16_t c = core::at(strip, k + 2);
-        if (a == b || b == c || c == a)
+        if (a == b || b == c || c == a) {
             continue;
+        }
         const std::span<uint16_t> out = found.subspan(3U * count, 3);
         if (k & 1) { // (every other triangle of a strip winds the other way)
             core::at(out, 0) = b;

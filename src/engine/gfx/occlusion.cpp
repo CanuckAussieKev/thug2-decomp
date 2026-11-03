@@ -129,12 +129,14 @@ void set_plane(std::array<float, 4>& plane, std::span<const float> origin, std::
 // plane and inside the four side planes.
 bool inside_frustum(const std::array<float, 4>& view, float radius)
 {
-    if (static_cast<double>(radius) - core::at(view, 2) < near_plane_depth())
+    if (static_cast<double>(radius) - core::at(view, 2) < near_plane_depth()) {
         return false;
+    }
     const double a = static_cast<double>(side_cos()) * core::at(view, 2);
     const double b = static_cast<double>(side_sin()) * core::at(view, 0);
-    if (a - b > radius || radius < a + b)
+    if (a - b > radius || radius < a + b) {
         return false;
+    }
     const double c = static_cast<double>(vertical_cos()) * core::at(view, 2);
     const double d = static_cast<double>(vertical_sin()) * core::at(view, 1);
     return !(d + c > radius || radius < c - d);
@@ -148,20 +150,25 @@ int compare_occluders(const void* a, const void* b)
     // (qsort hands out const pointers; the occluders are the array's own)
     Occluder* first = mutable_within(occluder_array().data(), static_cast<const Occluder*>(a));
     Occluder* second = mutable_within(occluder_array().data(), static_cast<const Occluder*>(b));
-    if (!first->poly->enabled)
+    if (!first->poly->enabled) {
         core::at(first->hidden, 0) = 0;
-    if (!second->poly->enabled)
+    }
+    if (!second->poly->enabled) {
         core::at(second->hidden, 0) = 0;
+    }
     const int first_hidden0 = core::at(first->hidden, 0);
     const int second_hidden0 = core::at(second->hidden, 0);
-    if (!first->poly->enabled)
+    if (!first->poly->enabled) {
         core::at(first->hidden, 1) = 0;
-    if (!second->poly->enabled)
+    }
+    if (!second->poly->enabled) {
         core::at(second->hidden, 1) = 0;
+    }
     const int first_sum = first_hidden0 + core::at(first->hidden, 1);
     const int second_sum = second_hidden0 + core::at(second->hidden, 1);
-    if (first_sum < second_sum)
+    if (first_sum < second_sum) {
         return 1;
+    }
     return first_sum <= second_sum ? 0 : -1;
 }
 
@@ -169,8 +176,9 @@ int compare_occluders(const void* a, const void* b)
 void sort_occluders()
 {
     const uint32_t count = occluder_count();
-    if (count == 0)
+    if (count == 0) {
         return;
+    }
     get_qsort(occluder_array().data(), count, sizeof(Occluder), &compare_occluders);
     for (int i = static_cast<int>(occluder_count()) - 1; i >= 0; --i) {
         Occluder& occluder = core::at(occluder_array(), i);
@@ -188,8 +196,9 @@ void sort_occluders()
 void activate_occluder_poly(uint32_t checksum, bool enabled)
 {
     for (uint32_t i = 0; i < poly_count(); ++i) {
-        if (core::at(polys(), i).checksum == checksum)
+        if (core::at(polys(), i).checksum == checksum) {
             core::at(polys(), i).enabled = enabled;
+        }
     }
 }
 
@@ -205,8 +214,9 @@ void clear_occluder_polys()
 void add_occluders()
 {
     const uint32_t count = poly_count();
-    if (count == 0)
+    if (count == 0) {
         return;
+    }
     uint32_t next = next_poly();
     uint32_t occluders = occluder_count();
     uint32_t added = 0;
@@ -223,10 +233,12 @@ void add_occluders()
             ++added; // (counted even when there's no room)
         }
         ++looked;
-        if (next >= count)
+        if (next >= count) {
             next = 0;
-        if (looked >= count || added >= 4)
+        }
+        if (looked >= count || added >= 4) {
             break;
+        }
     }
     occluder_count() = occluders;
     next_poly() = next;
@@ -312,8 +324,9 @@ bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test)
 {
     const auto radius = sphere_test.radius;
     const auto weight = sphere_test.weight;
-    if (occlusion_off()) // (NOT ORIGINAL: the level editor's switch)
+    if (occlusion_off()) { // (NOT ORIGINAL: the level editor's switch)
         return false;
+    }
     double x = centre->x;
     double y = centre->y;
     double z = centre->z;
@@ -330,8 +343,9 @@ bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test)
             const std::array<float, 4>& p = core::at(occluder.planes, plane);
             const double distance =
                 (((z * core::at(p, 2)) + (x * core::at(p, 0))) + (y * core::at(p, 1))) - core::at(p, 3);
-            if (distance >= limit) // (not a number counts as behind)
+            if (distance >= limit) { // (not a number counts as behind)
                 break;
+            }
         }
         if (plane == kFrustumPlanes) {
             core::at(occluder.hidden, tick_cycle()) += weight;
@@ -369,8 +383,9 @@ bool sphere_in_view(const maths::Vec4* centre, float radius)
 // 0x004DB6D0
 bool beyond_clip_distance(const void* bounds)
 {
-    if (!view_setup().distance_clipping())
+    if (!view_setup().distance_clipping()) {
         return false;
+    }
     const std::span<const float, 5> sphere(static_cast<const float*>(bounds), 5);
     const float radius = core::at(sphere, 4);
     std::array<float, 3> centre = {{core::at(sphere, 1), core::at(sphere, 2), core::at(sphere, 3)}};

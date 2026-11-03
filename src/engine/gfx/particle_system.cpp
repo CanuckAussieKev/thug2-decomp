@@ -88,13 +88,16 @@ bool new_colours(EmitterInstance* system, int count)
     const std::array<std::span<uint32_t>*, 3> colours = {{&system->start_colour(), &system->mid_colour(), &system->end_colour()}};
     for (std::span<uint32_t>* const colour : colours) {
         auto* words = static_cast<uint32_t*>(carve(static_cast<unsigned int>(count) * sizeof(uint32_t)));
-        if (!words)
+        if (!words) {
             return false;
+        }
         *colour = std::span<uint32_t>(words, static_cast<std::size_t>(count));
     }
-    for (int i = 0; i < count; ++i)
-        for (const std::span<uint32_t>* const colour : colours)
+    for (int i = 0; i < count; ++i) {
+        for (const std::span<uint32_t>* const colour : colours) {
             core::at(*colour, i) = kNeutralColour; // (each byte 0x80)
+        }
+    }
     return true;
 }
 
@@ -110,11 +113,13 @@ bool construct_parts(EmitterInstance* system, checksums::Name system_name, PartS
     system->set_max_particles(particle_cap);
     system->set_particle_count(0);
     system->particle_list() = new_particles(particle_cap);
-    if (system->particle_list().empty())
+    if (system->particle_list().empty()) {
         return false;
+    }
     auto* positions = static_cast<float*>(positions_zeroed ? allocate_zeroed(positions_size) : carve(positions_size));
-    if (!positions)
+    if (!positions) {
         return false;
+    }
     system->position_array() = std::span<float>(positions, positions_size / sizeof(float));
     return new_colours(system, colours);
 }
@@ -170,14 +175,16 @@ void EmitterInstance::get_reset()
     core::at(orientation_turn_, 1) = 0.0F;
     core::at(orientation_turn_, 2) = 0.0F;
     rank_ = 0;
-    for (float& size : extent_)
+    for (float& size : extent_) {
         size = kDefaultSize;
+    }
     core::at(age_left_, 0) = kDefaultAge;
     core::at(age_left_, 1) = kDefaultAge;
     core::at(speed_, 1) = kDefaultSpeed;
     flag_bits_ &= ~1U;
-    for (float& scale : colour_scale_)
+    for (float& scale : colour_scale_) {
         scale = 1.0F;
+    }
     moving_ = false;
     end_colour_set_ = false;
     flag_bits_ |= 1U;
@@ -200,24 +207,31 @@ void EmitterInstance::get_reset()
 // 0x00498690
 EmitterInstance::~EmitterInstance()
 {
-    if (emit_script_ptr_)
+    if (emit_script_ptr_) {
         script::Script::destroy(emit_script_ptr_);
-    if (tick_script_)
+    }
+    if (tick_script_) {
         script::Script::destroy(tick_script_);
+    }
     if (script::Struct* params = script_args_) {
         params->get_clear();
         script::delete_struct(params);
     }
-    if (!start_colour_.empty())
+    if (!start_colour_.empty()) {
         memory::dealloc(start_colour_.data());
-    if (!mid_colour_.empty())
+    }
+    if (!mid_colour_.empty()) {
         memory::dealloc(mid_colour_.data());
-    if (!end_colour_.empty())
+    }
+    if (!end_colour_.empty()) {
         memory::dealloc(end_colour_.data());
-    if (!position_array_.empty())
+    }
+    if (!position_array_.empty()) {
         memory::dealloc(position_array_.data());
-    if (!particle_list_.empty())
+    }
+    if (!particle_list_.empty()) {
         delete_particles(particle_list_);
+    }
     // the particle manager lets go of it
     render::FlexibleParticleManager::remove_system(this);
     list_link_.uncouple(); // (0x00496D10)
@@ -331,20 +345,24 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
 // 0x00496B40
 int EmitterInstance::lod_particle_count(int count) const
 {
-    if (lod_near_ >= lod_far_ || modules::viewport_count() > 1) // (NaN distances go on)
+    if (lod_near_ >= lod_far_ || modules::viewport_count() > 1) { // (NaN distances go on)
         return count;
+    }
     gfx::ViewCam* camera = viewport_camera(0);
-    if (!camera)
+    if (!camera) {
         return count;
+    }
     const maths::Vec4* eye = camera->fetch_location();
     const double dx = static_cast<double>(at_point_.x) - eye->x;
     const double dy = static_cast<double>(at_point_.y) - eye->y;
     const double dz = static_cast<double>(at_point_.z) - eye->z;
     auto distance = static_cast<float>((dz * dz) + (dy * dy) + (dx * dx));
-    if (distance < lod_near_)
+    if (distance < lod_near_) {
         return count;
-    if (distance > lod_far_)
+    }
+    if (distance > lod_far_) {
         return lod_min_particles_;
+    }
     const double t = (static_cast<double>(lod_far_) - distance) / (static_cast<double>(lod_far_) - lod_near_);
     const int lod = truncate((t * (max_particles_ - lod_min_particles_)) + lod_min_particles_);
     return count < lod ? count : lod;
@@ -368,8 +386,9 @@ void EmitterInstance::update_bounds()
 void EmitterInstance::set_colour_scale(std::span<const float, 4> rgba)
 {
     if (flag_bits_ & kFlagWantsTime) {
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             core::at(colour_scale_, i) = core::at(rgba, i);
+        }
     }
 }
 
@@ -377,8 +396,9 @@ void EmitterInstance::set_colour_scale(std::span<const float, 4> rgba)
 void EmitterInstance::run_emit_script()
 {
     if (emit_script_ptr_ && emit_script_ptr_->tick_frame() == script::ScriptOutcome::kFinished) {
-        if (script::Script* script = emit_script_ptr_)
+        if (script::Script* script = emit_script_ptr_) {
             script::Script::destroy(script);
+        }
         emit_script_ptr_ = nullptr;
     }
 }
@@ -399,15 +419,18 @@ namespace {
 void bind_script(EmitterInstance* system, script::Script*& slot, uint32_t script, script::Struct* params, void* object)
 {
     if (!script) {
-        if (script::Script* old = slot)
+        if (script::Script* old = slot) {
             script::Script::destroy(old);
+        }
         slot = nullptr;
         return;
     }
-    if (!slot)
+    if (!slot) {
         slot = script::Script::create();
-    if (!system->script_args())
+    }
+    if (!system->script_args()) {
         system->set_script_args(script::new_struct());
+    }
     system->script_args()->append_structure_if_any(params);
     slot->bind_script(script, system->script_args(), static_cast<objects::Entity*>(object));
 }
@@ -429,10 +452,11 @@ void EmitterInstance::set_update_script(uint32_t script, script::Struct* params,
 // 0x00497A70
 void EmitterInstance::set_wants_time(uint8_t on)
 {
-    if (on)
+    if (on) {
         flag_bits_ |= kFlagWantsTimeU;
-    else
+    } else {
         flag_bits_ &= ~kFlagWantsTimeU;
+    }
     wants_time_ = on != 0;
 }
 

@@ -50,8 +50,9 @@ bool pass_blend_mode(WeatherSystem* weather, script::Struct* params,
                      void (WeatherSystem::*set_blend_mode)(uint32_t, uint32_t))
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(0U, &name, 0))
+    if (!params->read_hash_value(0U, &name, 0)) {
         return false;
+    }
     int fixed_alpha = kDefaultFixedAlpha;
     params->fetch_int_value(0U, &fixed_alpha, 0);
     (weather->*set_blend_mode)(name, static_cast<uint32_t>(fixed_alpha));

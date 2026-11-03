@@ -86,8 +86,9 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     get_clear(this);
     maths::Seg line(box.min, box.max);
     const std::span<CollGrid* const> lists = grid_lists_along(&line);
-    if (lists.empty())
+    if (lists.empty()) {
         return;
+    }
     box_ = box;
     // The box the objects are tested against: grown by half a unit each way.
     maths::BBox grown;
@@ -95,8 +96,9 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     grown.append_spot({.x = box.min.x - kQueryBoxMargin, .y = box.min.y - kQueryBoxMargin, .z = box.min.z - kQueryBoxMargin, .w = box.min.w});
     for (CollGrid* const list : lists) {
         for (HitMesh* const object : objects_along(list, &line)) {
-            if (!object->inside_bounds(&grown))
+            if (!object->inside_bounds(&grown)) {
                 continue;
+            }
             core::at(entries_, num_).bounds = object->get_world_bounds();
             core::at(entries_, num_).object = object;
             ++num_;
@@ -106,8 +108,9 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     for (const memory::ListNode* node = first_movable(); node->data() != memory::ListNode::head_marker() && node;
          node = node->next()) {
         auto* object = static_cast<HitMesh*>(node->data());
-        if (!object || (object->flag_bits() & kUnlistedFlags) || !object->inside_bounds(&grown))
+        if (!object || (object->flag_bits() & kUnlistedFlags) || !object->inside_bounds(&grown)) {
             continue;
+        }
         core::at(entries_, num_).bounds = object->get_local_bounds();
         core::at(entries_, num_).object = object;
         ++num_;
@@ -119,10 +122,12 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
 void HitMeshCache::remove_static(HitMesh* object)
 {
     for (int i = 0; i < statics_; ++i) {
-        if (core::at(entries_, i).object != object)
+        if (core::at(entries_, i).object != object) {
             continue;
-        for (int k = i + 1; k < num_; ++k)
+        }
+        for (int k = i + 1; k < num_; ++k) {
             core::at(entries_, k - 1) = core::at(entries_, k);
+        }
         --statics_;
         --num_;
         return;
@@ -133,8 +138,9 @@ void HitMeshCache::remove_static(HitMesh* object)
 void HitMeshCache::remove_movable(HitMesh* object)
 {
     for (int i = statics_; i < num_; ++i) {
-        if (core::at(entries_, i).object != object)
+        if (core::at(entries_, i).object != object) {
             continue;
+        }
         --num_;
         core::at(entries_, i) = core::at(entries_, num_);
         --movables_;
@@ -169,8 +175,9 @@ void unregister_coll_cache(HitMeshCache* cache)
 void remove_movable_from_caches(HitMesh* object)
 {
     for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
-        if (caches_in_use() & (1U << i))
+        if (caches_in_use() & (1U << i)) {
             core::at(caches(), i)->remove_movable(object);
+        }
     }
 }
 

@@ -107,10 +107,12 @@ ModelLook::~ModelLook()
 bool ModelLook::get_reset()
 {
     structure_.get_clear();
-    if (face_skin_)
+    if (face_skin_) {
         set_face_texture_valid(face_skin_, false);
-    if (script::Struct* defaults = script::read_sub_struct(kAppearanceInitStructure))
+    }
+    if (script::Struct* defaults = script::read_sub_struct(kAppearanceInitStructure)) {
         structure_.append_structure_if_any(defaults);
+    }
     has_face_texture_ = false;
     return true;
 }
@@ -119,14 +121,17 @@ bool ModelLook::get_reset()
 bool ModelLook::read_in(script::Struct* appearance, bool resolve)
 {
     structure_.get_clear();
-    if (face_skin_)
+    if (face_skin_) {
         set_face_texture_valid(face_skin_, false);
-    if (script::Struct* defaults = script::read_sub_struct(kAppearanceInitStructure))
+    }
+    if (script::Struct* defaults = script::read_sub_struct(kAppearanceInitStructure)) {
         structure_.append_structure_if_any(defaults);
+    }
     has_face_texture_ = false;
     appearance->inline_into(&structure_, 0);
-    if (resolve)
+    if (resolve) {
         resolve_random_parts();
+    }
     return true;
 }
 
@@ -140,16 +145,18 @@ void ModelLook::resolve_random_parts()
     script::Component* next = nullptr;
     for (script::Component* component = structure_.step_to_entry(nullptr); component; component = next) {
         next = structure_.step_to_entry(component);
-        if (value_kind(*component) != script::QbValueKind::kStruct)
+        if (value_kind(*component) != script::QbValueKind::kStruct) {
             continue;
+        }
         const uint32_t part = component->name;
         script::Struct* option = nullptr;
         if (component->value.structure()->has_bare_flag(kRandomizedDescId)) {
             option = random_cas_option(part, random_set);
         } else {
             int index = 0;
-            if (!component->value.structure()->fetch_int_value(kShuffleIndex, &index, 0))
+            if (!component->value.structure()->fetch_int_value(kShuffleIndex, &index, 0)) {
                 continue;
+            }
             option = cas_option_at(part, index, random_set);
         }
         option->read_hash_value(kRandomSet, &random_set, 0);
@@ -163,16 +170,18 @@ void ModelLook::resolve_random_parts()
 // 0x00488FD0
 void remove_tattoos(script::Struct* appearance)
 {
-    for (const uint32_t tattoo : kTattoos)
+    for (const uint32_t tattoo : kTattoos) {
         appearance->erase_module(tattoo);
+    }
 }
 
 // 0x00489050
 script::Struct* ModelLook::get_part_option(uint32_t part)
 {
     script::Struct* slot = nullptr;
-    if (!structure_.read_sub_struct(part, &slot, 0))
+    if (!structure_.read_sub_struct(part, &slot, 0)) {
         return nullptr;
+    }
     uint32_t descriptor_id = 0;
     slot->read_hash_value(kDescId, &descriptor_id, 0);
     return customise_choice(part, descriptor_id, false);
@@ -234,8 +243,9 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
         script::Struct* slot = get_part(part);
-        if (!slot)
+        if (!slot) {
             return false;
+        }
         script->args()->append_structure_if_any(slot);
         return true;
     }
@@ -256,8 +266,9 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kFlag, &flag, 1);
         script::Struct* option = get_part_option(part);
-        if (!option)
+        if (!option) {
             return false;
+        }
         return option->has_bare_flag(flag);
     }
     case kSetChecksum: {
@@ -317,10 +328,11 @@ int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
     }
     copy.reset();
     uint8_t& end = core::at(std::span<uint8_t>(buffer, size_t{bytes} + 1), bytes);
-    if (no_face_texture)
+    if (no_face_texture) {
         end = 0;
-    else
+    } else {
         end = (face_skin_ && face_texture_is_valid(face_skin_)) || has_face_texture_;
+    }
     return static_cast<int>(bytes) + 1;
 }
 

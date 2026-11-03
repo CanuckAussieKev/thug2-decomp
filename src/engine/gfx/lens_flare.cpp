@@ -158,8 +158,9 @@ using Prim = render::PcPrimitive;
 void blit_quad(Prim* quad, const std::array<float, kQuadCornerFloats>& corners, const std::array<colour::Bytes, 4>& colors, const std::array<float, kQuadUvFloats>& uvs)
 {
     std::array<uint32_t, 4> packed{};
-    for (size_t i = 0; i < packed.size(); ++i)
+    for (size_t i = 0; i < packed.size(); ++i) {
         core::at(packed, i) = colour::packed_of(core::at(colors, i));
+    }
     quad->draw_if_ready(corners, packed, uvs, {});
 }
 // A render state for the primitives (0x0049C700).
@@ -191,8 +192,9 @@ maths::Vec4 screen_centre() { return {.x = render::kLayoutCentreX, .y = render::
 void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
 {
     for (int corner = 0; corner < 4; ++corner) {
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             core::at(core::at(colors, corner), i) = static_cast<uint8_t>(get_truncated(get_color()[i] * scale));
+        }
     }
 }
 
@@ -201,38 +203,48 @@ void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
 // 0x00442680
 float clamp_to_range(float value, float min, float max)
 {
-    if (value < min)
+    if (value < min) {
         return min;
-    if (value > max)
+    }
+    if (value > max) {
         return max;
+    }
     return value;
 }
 
 // 0x004426D0
 void set_sun(const Settings* settings, uint32_t mask)
 {
-    if (mask & kTheta)
+    if (mask & kTheta) {
         get_theta() = settings->theta;
-    if (mask & kPhi)
+    }
+    if (mask & kPhi) {
         get_phi() = settings->phi;
-    if (mask & kRadius)
+    }
+    if (mask & kRadius) {
         get_radius() = settings->radius;
-    if (mask & kSize)
+    }
+    if (mask & kSize) {
         get_size() = settings->size;
-    if (mask & kColor)
+    }
+    if (mask & kColor) {
         get_color() = settings->color;
-    if (mask & kShown)
+    }
+    if (mask & kShown) {
         get_shown() = settings->shown;
+    }
     if (mask & kTexture) {
-        if (lens_flare_state().flare_sun_texture_)
+        if (lens_flare_state().flare_sun_texture_) {
             delete_texture(memory::owned_element(lens_flare_state().flare_sun_texture_));
+        }
         lens_flare_state().flare_sun_texture_ = nullptr;
         lens_flare_state().flare_sun_texture_ = find_texture(settings->texture);
     }
     if (mask & kCoronaTexture) {
         // (the sun's texture is the one deleted, as the original)
-        if (get_corona_texture() && lens_flare_state().flare_sun_texture_)
+        if (get_corona_texture() && lens_flare_state().flare_sun_texture_) {
             delete_texture(memory::owned_element(lens_flare_state().flare_sun_texture_));
+        }
         get_corona_texture() = find_texture(settings->corona_texture_);
     }
 }
@@ -392,8 +404,9 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     facing[0] = -(*camera->fetch_mat())[0];
     facing[2] = maths::cross_vec((*camera->fetch_mat())[1], facing[0]);
     facing[1] = maths::cross_vec(facing[2], facing[0]);
-    if (lens_flare_state().flare_sun_texture_)
+    if (lens_flare_state().flare_sun_texture_) {
         quad->set_texture(lens_flare_state().flare_sun_texture_, 0, 0);
+    }
     const float size = camera->unknownb4() * get_size(); // (0x004426B0 reads the factor)
     const float half = size / 2.0F;
     std::array<maths::Vec4, 4> quad_corners = {{
@@ -402,8 +415,9 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
         {.x = half, .y = half, .z = 0.0F, .w = 1.0F},
         {.x = -half, .y = half, .z = 0.0F, .w = 1.0F},
     }};
-    for (maths::Vec4& corner : quad_corners)
+    for (maths::Vec4& corner : quad_corners) {
         transform_in_place(&corner, &facing);
+    }
     for (maths::Vec4& corner : quad_corners) {
         corner.x += position->x;
         corner.y += position->y;
@@ -427,8 +441,9 @@ void show_flare(const maths::Vec4* sun, float time)
     const maths::Vec4 centre = screen_centre();
     frontend::ElementPtr container;
     frontend::UiTree::fetch_part(&container, kContainer, 0);
-    if (container.is_null())
+    if (container.is_null()) {
         script::launch_script(kCreateLensFlare, nullptr, nullptr, false, nullptr);
+    }
     if (!script::fetch_int_value(kDoUpdateLensFlare)) {
         container.get_release();
         return;
@@ -495,8 +510,9 @@ void render(gfx::ViewCam* camera)
     request.data = 0;
     add_query(&request);
     uint32_t visible = 0;
-    if (get_query())
+    if (get_query()) {
         visible = query_result(get_query());
+    }
     if (visible == 0) { // (no query, or the sun not seen)
         // not seen: the corona fades out over SunBurst_Out seconds, the lens flare maybe hidden
         const uint32_t unseen = get_since(visible_time());
@@ -511,8 +527,9 @@ void render(gfx::ViewCam* camera)
             std::array<float, kQuadCornerFloats> corona_corners = {};
             const std::array<float, 8> corona_uvs = {{0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F}};
             build_sun_quad(camera, &corona, &sun_pos, corona_corners);
-            if (get_corona_texture())
+            if (get_corona_texture()) {
                 corona.set_texture(get_corona_texture(), 0, 0);
+            }
             set_prim_state(1, 2);
             set_prim_state(4, 0);
             blit_quad(&corona, corona_corners, colors, corona_uvs);
@@ -520,8 +537,9 @@ void render(gfx::ViewCam* camera)
         if (!flare_hidden()) {
             gsl::owner<Struct*> params = new_params();
             params->put_vec3(checksums::Name{kSunPos}, get_value(screen));
-            if (!(static_cast<double>(morph_out_time()) * kMillisecondsPerSecond < static_cast<double>(unseen)))
+            if (!(static_cast<double>(morph_out_time()) * kMillisecondsPerSecond < static_cast<double>(unseen))) {
                 params->push_float(checksums::Name{kMorphTime}, morph_out_time());
+            }
             script::launch_script(kMaybeHideLensFlare, params, nullptr, false, nullptr);
             script::free_struct(params);
         }
@@ -533,14 +551,16 @@ void render(gfx::ViewCam* camera)
             clamp_to_range(static_cast<float>(static_cast<double>(visible) / 50000.0F), 0.0F, 1.0F);
         (void)brightness; // (worked out, not used)
         corner_colors(colors, kHalf);
-        if (get_corona_texture())
+        if (get_corona_texture()) {
             sun.set_texture(get_corona_texture(), 0, 0);
+        }
         sun.set_blend_mode(kAdd);
         blit_quad(&sun, corners, colors, uvs);
-        if (static_cast<double>(morph_in_time()) * kMillisecondsPerSecond < static_cast<double>(unseen))
+        if (static_cast<double>(morph_in_time()) * kMillisecondsPerSecond < static_cast<double>(unseen)) {
             show_flare(&screen, 0.0F);
-        else
+        } else {
             show_flare(&screen, morph_in_time());
+        }
     }
 }
 

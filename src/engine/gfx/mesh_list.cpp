@@ -59,8 +59,9 @@ void release_index_buffer(void* buffer) { static_cast<IdxStore*>(buffer)->teardo
 gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 {
     gsl::owner<void*> memory = crt::alloc_block(kIndexStoreBytes); // (the renderer's operator new: a jump to the C runtime's malloc)
-    if (!memory)
+    if (!memory) {
         return nullptr;
+    }
     return memory::construct_in<IdxStore>(memory, bytes, 0, kIndexStoreUsage);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
@@ -91,8 +92,9 @@ void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const v
 // Iterate a hash table's values: the first (or next), null at the end.
 void* next_value(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item())
+    if (!table->step_iterator() || !table->iter_item()) {
         return nullptr;
+    }
     return table->iter_item()->value;
 }
 void* get_first_value(lists::KeyMap* table)
@@ -113,20 +115,25 @@ int compare_meshes(const void* a, const void* b)
     const MaterialRef* material_b = material_of(mesh_b);
     const float key_a = material_a->sort_key();
     const float key_b = material_b->sort_key();
-    if (!(key_a == key_b)) // (also not a number)
+    if (!(key_a == key_b)) { // (also not a number)
         return key_a > key_b ? 1 : -1;
-    if (material_a->sort_flag() != material_b->sort_flag())
+    }
+    if (material_a->sort_flag() != material_b->sort_flag()) {
         return material_a->sort_flag() != 0 ? 1 : -1;
-    if (material_a == material_b)
+    }
+    if (material_a == material_b) {
         return 0;
+    }
     const bool flag_a = (core::at(material_a->pass_flags(), 0) & 0x10) != 0;
     const bool flag_b = (core::at(material_b->pass_flags(), 0) & 0x10) != 0;
-    if (flag_a != flag_b)
+    if (flag_a != flag_b) {
         return flag_a ? 1 : -1;
+    }
     // (then by pixel shader, as the original: its address; then by the material's address)
     constexpr std::less<const void*> kBefore{};
-    if (mesh_a->pixel_shader() != mesh_b->pixel_shader())
+    if (mesh_a->pixel_shader() != mesh_b->pixel_shader()) {
         return kBefore(mesh_b->pixel_shader(), mesh_a->pixel_shader()) ? 1 : -1;
+    }
     return kBefore(material_b, material_a) ? 1 : -1;
 }
 
@@ -145,18 +152,21 @@ void SceneRef::destroy_body()
         memory::Hub::dealloc(table);
     }
     for (MeshRef* const mesh : mesh_run()) {
-        if (!mesh)
+        if (!mesh) {
             continue;
+        }
         if (void* buffer = get_vertex_buffer(mesh, 0)) {
             release_vertex_buffer(buffer);
             set_vertex_buffer(mesh, 0, nullptr);
         }
     }
-    if (meshes_)
+    if (meshes_) {
         memory::Hub::dealloc(static_cast<void*>(meshes_));
+    }
     free_hierarchy(hierarchy_);
-    if (arena_buffer_)
+    if (arena_buffer_) {
         arena_buffer_->Release();
+    }
 }
 
 // 0x004DE340
@@ -177,8 +187,9 @@ void SceneRef::update_sphere()
 // 0x004DE3E0
 void SceneRef::allocate_mesh_list()
 {
-    if (mesh_count_ > 0)
+    if (mesh_count_ > 0) {
         meshes_ = static_cast<MeshRef**>(memory::alloc(mesh_count_ * 4));
+    }
 }
 
 // 0x004DDDF0
@@ -186,16 +197,18 @@ void SceneRef::mesh_total(std::span<MeshRef* const> list)
 {
     for (const MeshRef* const mesh : list) {
         ++mesh_count_;
-        if (get_transparent(material_of(mesh)))
+        if (get_transparent(material_of(mesh))) {
             ++transparent_count_;
+        }
     }
 }
 
 // 0x004DDE20
 void SceneRef::append_meshes(std::span<MeshRef* const> list)
 {
-    for (MeshRef* const mesh : list)
+    for (MeshRef* const mesh : list) {
         core::at(mesh_run(), filled++) = mesh;
+    }
 }
 
 void SceneRef::recount()
@@ -206,8 +219,9 @@ void SceneRef::recount()
     flagged_count_ = 0;
     for (int i = 0; i < mesh_count_; ++i) {
         const MaterialRef* material = material_of(core::at(mesh_run(), i));
-        if (!get_transparent(material))
+        if (!get_transparent(material)) {
             continue;
+        }
         ++transparent_count_;
         first_transparent_ = std::min(first_transparent_, i);
         if (material->sort_flag()) {
@@ -234,14 +248,17 @@ void SceneRef::detach_meshes(std::span<MeshRef* const> list)
     while (removed > 0) {
         const int n = mesh_count_;
         int j = 0;
-        while (j < mesh_count_ && core::at(mesh_run(), j))
+        while (j < mesh_count_ && core::at(mesh_run(), j)) {
             ++j;
-        if (j >= mesh_count_)
+        }
+        if (j >= mesh_count_) {
             continue;
-        if (j < n - 1)
+        }
+        if (j < n - 1) {
             std::memmove(static_cast<void*>(mesh_run().subspan(static_cast<size_t>(j)).data()),
                          static_cast<const void*>(mesh_run().subspan(static_cast<size_t>(j) + 1).data()),
                          (n - j - 1) * sizeof(MeshRef*));
+        }
         --removed;
         --mesh_count_;
         --filled;
@@ -260,8 +277,9 @@ void SceneRef::order_meshes()
 MeshRef* SceneRef::find_mesh(uint32_t index) const
 {
     for (MeshRef* const mesh : mesh_run()) {
-        if (load_index(mesh) == index)
+        if (load_index(mesh) == index) {
             return mesh;
+        }
     }
     return nullptr;
 }
@@ -269,11 +287,13 @@ MeshRef* SceneRef::find_mesh(uint32_t index) const
 // 0x004DE420
 void* SceneRef::find_material(uint32_t checksum) const
 {
-    if (!materials_)
+    if (!materials_) {
         return nullptr;
+    }
     for (void* material = get_first_value(materials_); material; material = next_value(materials_)) {
-        if (*static_cast<uint32_t*>(material) == checksum)
+        if (*static_cast<uint32_t*>(material) == checksum) {
             return material;
+        }
     }
     return nullptr;
 }
@@ -281,17 +301,20 @@ void* SceneRef::find_material(uint32_t checksum) const
 // 0x004DE060
 void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t count) const
 {
-    if (count == 0 || mask == 0)
+    if (count == 0 || mask == 0) {
         return;
+    }
     // Breaks found per mesh load index. (The original's table has 64 entries; a larger index overruns it.)
     std::array<int, kStripBreakSlots> breaks = {};
     for (const StripBreak& record : std::span<const StripBreak>(records, count)) {
-        if (!(record.mask & mask))
+        if (!(record.mask & mask)) {
             continue;
+        }
         const uint32_t mesh_index = record.mesh_and_index_ >> 16;
         MeshRef* mesh = find_mesh(mesh_index);
-        if (!mesh)
+        if (!mesh) {
             continue;
+        }
         const uint32_t a = record.mesh_and_index_ & 0xFFFF;
         const uint32_t b = record.indices & 0xFFFF;
         const uint32_t c = record.indices >> 16;
@@ -302,8 +325,9 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         for (i += 2; i < get_index_count(mesh); ++i) {
             const uint32_t third = core::at(indices, i) & 0x7FFF;
             if (first == a && second == c && third == b) {
-                if (mesh_index < kStripBreakLimit)
+                if (mesh_index < kStripBreakLimit) {
                     ++core::at(breaks, mesh_index);
+                }
                 core::at(indices, i - 1) |= kIndexRepeatBit;
                 break;
             }
@@ -314,8 +338,9 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
     }
     for (MeshRef* const mesh : mesh_run()) {
         const uint32_t index = load_index(mesh);
-        if (index >= kStripBreakLimit || core::at(breaks, index) <= 0)
+        if (index >= kStripBreakLimit || core::at(breaks, index) <= 0) {
             continue;
+        }
         const std::span<const uint16_t> indices(lock_indices(index_buffer_of(mesh)), get_index_count(mesh));
         uint32_t n = 0;
         for (uint32_t i = 0; i < get_index_count(mesh); ++i) {

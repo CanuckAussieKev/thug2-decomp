@@ -77,8 +77,9 @@ int query_result(uint32_t query, uint32_t* pixels)
 Glow* next_glow()
 {
     lists::KeyMap& table = glows();
-    if (!table.step_iterator() || !table.iter_item())
+    if (!table.step_iterator() || !table.iter_item()) {
         return nullptr;
+    }
     return static_cast<Glow*>(table.iter_item()->value);
 }
 
@@ -99,8 +100,9 @@ void set_quad(const Glow* glow, const std::array<float, 3>& u, const std::array<
         coordinate(core::at(q, 2), i) = static_cast<float>((up + across) + core::at(glow->position, i));
         coordinate(core::at(q, 3), i) = static_cast<float>((across + core::at(glow->position, i)) - up);
     }
-    for (GlowVertex& corner : q)
+    for (GlowVertex& corner : q) {
         corner.colour = colour;
+    }
 }
 
 } // namespace
@@ -128,8 +130,9 @@ void update_glows(bool queries)
         const double length = std::sqrt(((w2 * w2) + (w1 * w1)) + (w0 * w0));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
-            for (float& component : *w)
+            for (float& component : *w) {
                 component = static_cast<float>(component * inverse);
+            }
         }
     }
     lists::KeyMap& table = glows();
@@ -148,8 +151,9 @@ void update_glows(bool queries)
         renderer().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
         for (; glow; glow = next_glow()) {
-            if (glow->query_count_ >= 3)
+            if (glow->query_count_ >= 3) {
                 continue;
+            }
             uint32_t query = 0;
             for (; query < kGlowQueryLimit; ++query) {
                 if (!core::at(queries_in_use(), query)) {
@@ -157,11 +161,13 @@ void update_glows(bool queries)
                     break;
                 }
             }
-            if (query == kGlowQueryLimit)
+            if (query == kGlowQueryLimit) {
                 query = kLastGlowQuery; // (none free: the last, not marked)
+            }
             core::at(glow->queries, glow->query_count_++) = query;
-            if (query > 0)
+            if (query > 0) {
                 set_quad(glow, u, v, glow->query_size_, colour::Packed{kWhiteGlow});
+            }
         }
         renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
         renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
@@ -190,13 +196,15 @@ void update_glows(bool queries)
                 seen = glow->pixels != 0;
             }
         }
-        if (seen)
+        if (seen) {
             glow->size =
                 static_cast<float>(((static_cast<double>(glow->max_size_) - glow->size) * glow->rate) + glow->size);
-        else
+        } else {
             glow->size = static_cast<float>(glow->size - (static_cast<double>(glow->rate) * glow->size));
-        if (glow->size > 0.0F)
+        }
+        if (glow->size > 0.0F) {
             set_quad(glow, u, v, glow->size, colour::Packed{kFadedGlow});
+        }
     }
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);

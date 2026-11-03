@@ -76,8 +76,9 @@ HitMesh* StaticCollider::replicate(int argument)
 {
     const bool instance = static_cast<uint8_t>(argument) != 0;
     TriMeshSource* geometry = instance ? this->geometry() : clone_geometry(this->geometry(), 0, 1);
-    if (!geometry)
+    if (!geometry) {
         return nullptr;
+    }
     gsl::owner<CollStaticInstance*> copy_instance = nullptr;
     gsl::owner<StaticCollider*> copy = nullptr;
     HitMesh* made = nullptr;
@@ -224,8 +225,9 @@ maths::BBox* CollStaticInstance::get_world_bounds() { return &world_box_; }
 void CollStaticInstance::scale_about(const maths::Vec4* position, const maths::Vec4* scale)
 {
     const maths::Vec4& at = core::at(basis_frame().row, 3);
-    if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z))
+    if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z)) {
         return;
+    }
     const maths::Vec4 scaled{.x = scale->x * size_factor().x, .y = scale->y * size_factor().y, .z = scale->z * size_factor().z,
                              .w = scale->w * size_factor().w};
     change_scale(&scaled);
@@ -264,15 +266,17 @@ gsl::owner<HitMovingTriangles*> HitMovingTriangles::replicate(int argument)
 void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
 {
     set_geometry(geometry);
-    if (geometry)
+    if (geometry) {
         assign_checksum(geometry->checksum());
+    }
     radius_ = 0.0F;
     for (int i = 0; std::cmp_less(i, geometry->num_vertices()); ++i) {
         const maths::Vec4 v = this->geometry()->read_stored_vertex(i);
         const double length = std::sqrt(((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y)) +
                                         (static_cast<double>(v.z) * v.z));
-        if (length > radius_)
+        if (length > radius_) {
             radius_ = static_cast<float>(length);
+        }
         geometry = this->geometry();
     }
     box_dirty_ = true;
@@ -371,8 +375,9 @@ gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_ar
             made = new HitMovingTriangles(geometry_array);
         } else if (count > 1) {
             gsl::owner<render::HitMeshGroup*> multi{memory::make_owned_value<HitMeshGroup>()};
-            for (int i = 0; i < count; ++i)
+            for (int i = 0; i < count; ++i) {
                 multi->attach_child(new HitMovingTriangles(&core::at(geometries, i)));
+            }
             made = multi;
         } else {
             return nullptr;

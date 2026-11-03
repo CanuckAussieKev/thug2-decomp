@@ -110,17 +110,19 @@ float PcViewport::project_to_screen(const maths::Vec4* point, maths::Vec2* at, i
     }
     *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0F) * kHalf * kLayoutWidth);
     *y = static_cast<float>((1.0F - static_cast<double>(core::at(clip, 1))) * kHalf * kElementLayoutHeight);
-    if (!(core::at(clip, 2) < 1.0F))
+    if (!(core::at(clip, 2) < 1.0F)) {
         return -1.0F;
+    }
     const float most = view_setup().scale_2d_in_3d_max();
     const float least = view_setup().scale_2d_in_3d_min();
     double factor = core::at(view, 2) == 0.0F
                         ? most
                         : -1.0F / static_cast<double>(core::at(view, 2)) * view_setup().scale_2d_in_3d_numerator();
-    if (factor > most)
+    if (factor > most) {
         factor = most;
-    else if (factor < least)
+    } else if (factor < least) {
         factor = least;
+    }
     *depth = static_cast<int>(static_cast<double>(core::at(clip, 2)) * kDepthScale);
     return static_cast<float>(factor);
 }
@@ -128,13 +130,15 @@ float PcViewport::project_to_screen(const maths::Vec4* point, maths::Vec2* at, i
 // 0x004CBC00
 uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_t query)
 {
-    if (renderer().radeon8500() || !query)
+    if (renderer().radeon8500() || !query) {
         return 0;
+    }
     change_phase(RenderStateId::kZWrite, 0);
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    for (QueryPointVertex& vertex : pc_viewport_state().query_point_strip_)
+    for (QueryPointVertex& vertex : pc_viewport_state().query_point_strip_) {
         vertex = {.x = point->x, .y = point->y, .z = point->z, .colour = kWhiteVertex};
+    }
     renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_point_strip_.data(), sizeof(QueryPointVertex));
     end_query_draw(query);
     return query;
@@ -149,8 +153,9 @@ uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
     const auto y0 = box.y0;
     const auto x1 = box.x1;
     const auto y1 = box.y1;
-    if (renderer().radeon8500() || !query)
+    if (renderer().radeon8500() || !query) {
         return 0;
+    }
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     change_phase(RenderStateId::kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
@@ -167,8 +172,9 @@ uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
 // 0x004CBD40
 uint32_t occlusion_pixels()
 {
-    if (renderer().radeon8500())
+    if (renderer().radeon8500()) {
         return 0;
+    }
     DWORD pixels = 0;
     const HRESULT result = os_layer::get_occlusion_result(core::at(view_setup().occlusion_requests(), 0).slot, &pixels);
     if (result == S_OK) {

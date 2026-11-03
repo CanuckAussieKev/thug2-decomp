@@ -82,37 +82,46 @@ const char* get_file_name(const char* path)
 std::string size_text(long long bytes)
 {
     std::array<char, kSizeTextChars> text{};
-    if (bytes < kKilobyteBytes)
+    if (bytes < kKilobyteBytes) {
         text::format_to(text, "%lld B", bytes);
-    else if (bytes < kKilobyteBytesLL * kKilobyteBytes)
+    } else if (bytes < kKilobyteBytesLL * kKilobyteBytes) {
         text::format_to(text, "%.1f KB", static_cast<double>(bytes) / kKilobyteBytesD);
-    else
+    } else {
         text::format_to(text, "%.1f MB", static_cast<double>(bytes) / (kKilobyteBytesD * kKilobyteBytesD));
+    }
     return text.data();
 }
 
 bool interesting_command(const char* name)
 {
-    if (!name)
+    if (!name) {
         return false;
-    for (const char* prefix : {"Load", "Create", "Parse", "Init", "Preload", "Spawn"})
-        if (_strnicmp(name, prefix, std::strlen(prefix)) == 0)
+    }
+    for (const char* prefix : {"Load", "Create", "Parse", "Init", "Preload", "Spawn"}) {
+        if (_strnicmp(name, prefix, std::strlen(prefix)) == 0) {
             return true;
+        }
+    }
     // (Add* is mostly AddParams / AddFlag-style bookkeeping: only the loading ones)
-    for (const char* exact : {"AddScene", "AddCollision", "AddSoundBanks", "AddMusicTrack", "AddStream"})
-        if (_stricmp(name, exact) == 0)
+    for (const char* exact : {"AddScene", "AddCollision", "AddSoundBanks", "AddMusicTrack", "AddStream"}) {
+        if (_stricmp(name, exact) == 0) {
             return true;
+        }
+    }
     return false;
 }
 
 bool interesting_log_line(const char* line)
 {
-    if (!line || !*line)
+    if (!line || !*line) {
         return false;
+    }
     // (the data overlay's files are already there as opened; the rest is bookkeeping)
-    for (const char* prefix : {"data overlay:", "replaced 0x", "shadow checks:", "self-test", "  "})
-        if (std::strncmp(line, prefix, std::strlen(prefix)) == 0)
+    for (const char* prefix : {"data overlay:", "replaced 0x", "shadow checks:", "self-test", "  "}) {
+        if (std::strncmp(line, prefix, std::strlen(prefix)) == 0) {
             return false;
+        }
+    }
     return true;
 }
 
@@ -141,10 +150,11 @@ std::vector<std::string> Ring::final_one(size_t n) const
     for (size_t i = shown; i > 0; --i) {
         const Seg& line = core::at(lines, (count - i) % kRingLines);
         std::array<char, kLineWidth + kLineSlack> text{};
-        if (line.repeat > 1)
+        if (line.repeat > 1) {
             text::format_to(text, "[%6.1f] %s (x%u)", line.time, line.text.data(), line.repeat);
-        else
+        } else {
             text::format_to(text, "[%6.1f] %s", line.time, line.text.data());
+        }
         out.emplace_back(text.data());
     }
     return out;
@@ -228,8 +238,9 @@ void build_font()
 {
     console_font().font_tried_ = true;
     IDirect3DDevice9* device = render::renderer().d3d_device();
-    if (!device)
+    if (!device) {
         return;
+    }
     const float pixels = std::clamp(
         std::round(static_cast<float>(render::renderer().back_buffer_height()) * 15.0F / 720.0F), 12.0F, 30.0F);
     ImFontAtlas atlas;
@@ -255,8 +266,9 @@ void build_font()
         return;
     }
     D3DLOCKED_RECT locked;
-    if (FAILED(texture->LockRect(0, &locked, nullptr, 0)))
+    if (FAILED(texture->LockRect(0, &locked, nullptr, 0))) {
         return;
+    }
     const std::span<uint8_t> bits(static_cast<uint8_t*>(locked.pBits),
                                   static_cast<size_t>(locked.Pitch) * static_cast<size_t>(height));
     const std::span<const unsigned char> rgba_pixels(rgba, static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
@@ -272,8 +284,9 @@ void build_font()
     texture->UnlockRect(0);
     for (int c = kFirstPrintable; c < kPrintableEnd; ++c) {
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(c));
-        if (!glyph)
+        if (!glyph) {
             continue;
+        }
         core::at(console_font().glyphs_, c) = {.x0 = glyph->X0, .y0 = glyph->Y0, .x1 = glyph->X1, .y1 = glyph->Y1,       .u0 = glyph->U0,
                        .v0 = glyph->V0, .u1 = glyph->U1, .v1 = glyph->V1, .advance = glyph->AdvanceX, .visible = glyph->Visible != 0};
     }
@@ -386,9 +399,10 @@ void get_layout(double now)
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.
     const float bar_left = ((width - static_cast<float>(progress_bar_pixels())) * 0.5F) - (width * 5.0F / 640.0F);
     float panel_width = std::min(width * kPanelWidthShare, bar_left - (kBothSides * margin));
-    if (panel_width < kMinPanelColumns * console_font().advance_)
+    if (panel_width < kMinPanelColumns * console_font().advance_) {
         panel_width = std::min(width - (kBothSides * margin),
                                kFallbackPanelColumns * console_font().advance_); // (no room beside the bar: over it)
+    }
     const size_t columns = static_cast<size_t>(std::max(1.0F, (panel_width - (2.0F * pad)) / console_font().advance_));
     const float panel_height =
         (2.0F * pad) + (console_font().line_height_ * static_cast<float>(kShownLines + 1)) + (pad * 0.5F);
@@ -405,21 +419,23 @@ void get_layout(double now)
     std::array<char, kLeftTextChars> left{};
     std::array<char, kRightTextChars> right{};
     text::format_to(left, "LOADING %.1f s", now - started);
-    if (stalled)
+    if (stalled) {
         text::format_to(right, "NO ACTIVITY - last %.1f s ago", idle);
-    else
+    } else {
         text::format_to(right, "last activity %.1f s ago", idle);
+    }
     float y = y0 + pad;
     draw_text({.x = x0 + pad, .y = y}, left.data(), columns, colour::Packed{kTextColour});
     const size_t right_length = std::strlen(right.data());
     const size_t left_length = std::strlen(left.data());
-    if (left_length + 2 + right_length <= columns)
+    if (left_length + 2 + right_length <= columns) {
         draw_text({.x = x1 - pad - (static_cast<float>(right_length) * console_font().advance_), .y = y}, right.data(),
                   columns, colour::Packed{stalled ? kRightStalledColour : kRightColour});
-    else
+    } else {
         draw_text({.x = x0 + pad + (static_cast<float>(left_length + 2) * console_font().advance_), .y = y},
                   right.data(), columns - std::min(columns, left_length + 2),
                   colour::Packed{stalled ? kRightStalledColour : kRightColour});
+    }
     y += console_font().line_height_ + (pad * kHalf);
     for (size_t i = 0; i < lines.size(); ++i) {
         const bool newest = i + 1 == lines.size();
@@ -450,20 +466,24 @@ void CALLBACK screen_tick(UINT /*unused*/, UINT /*unused*/, DWORD_PTR /*unused*/
 {
     // Only while the loading bar's own timer isn't running (it draws the panel then), a loading screen is up, it
     // isn't a frozen frame, and no movie is shown.
-    if (!loading_console_state().active_ || !console_timer().timer_draws_ || render::renderer().loading_bar_timer() != 0 || !load_screen_shown() || render::engine_parts().current_movie())
+    if (!loading_console_state().active_ || !console_timer().timer_draws_ ||
+        render::renderer().loading_bar_timer() != 0 || !load_screen_shown() || render::engine_parts().current_movie()) {
         return;
+    }
     const bool blank = console_timer().blank_;
-    if (!blank && !screen_picture())
+    if (!blank && !screen_picture()) {
         return;
+    }
     WaitForSingleObject(screen_mutex(), INFINITE);
     IDirect3DDevice9* device = render::renderer().d3d_device();
     if (device && load_screen_shown() && render::renderer().loading_bar_timer() == 0 && loading_console_state().active_) {
         device->BeginScene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
-        if (blank)
+        if (blank) {
             device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
-        else
+        } else {
             render::draw_loading_screen_picture(); // the picture, full screen
+        }
         draw_panel();
         device->EndScene();
         device->Present(nullptr, nullptr, nullptr, nullptr);
@@ -473,8 +493,9 @@ void CALLBACK screen_tick(UINT /*unused*/, UINT /*unused*/, DWORD_PTR /*unused*/
 
 void on_log_line(const char* line)
 {
-    if (loading_console_state().active_)
+    if (loading_console_state().active_) {
         note_log_line(line);
+    }
 }
 
 } // namespace
@@ -489,10 +510,12 @@ bool live_now() { return loading_console_state().active_; }
 
 void screen_shown(bool freeze, bool blank)
 {
-    if (!is_switched_on())
+    if (!is_switched_on()) {
         return;
-    if (!console_font().font_tried_)
+    }
+    if (!console_font().font_tried_) {
         build_font();
+    }
     if (!loading_console_state().active_) {
         const double now = get_now();
         AcquireSRWLockExclusive(&loading_console_state().lock_);
@@ -504,22 +527,25 @@ void screen_shown(bool freeze, bool blank)
         set_log_listener(&on_log_line);
         loading_console_state().active_ = true;
     }
-    if (freeze)
+    if (freeze) {
         get_note("loading screen (frozen frame)");
-    else if (blank)
+    } else if (blank) {
         get_note("loading screen (blank)");
-    else
+    } else {
         get_note("loading screen");
+    }
     console_timer().blank_ = blank;
     console_timer().timer_draws_ = !freeze;
-    if (!freeze && !console_timer().timer_)
+    if (!freeze && !console_timer().timer_) {
         console_timer().timer_ = timeSetEvent(kTimerPeriodMilliseconds, kTimerResolutionMilliseconds, &screen_tick, 0, TIME_PERIODIC);
+    }
 }
 
 void screen_hidden()
 {
-    if (!loading_console_state().active_)
+    if (!loading_console_state().active_) {
         return;
+    }
     loading_console_state().active_ = false;
     console_timer().timer_draws_ = false;
     if (console_timer().timer_) {
@@ -532,45 +558,55 @@ void screen_hidden()
 
 void note_text(const char* text)
 {
-    if (!loading_console_state().active_)
+    if (!loading_console_state().active_) {
         return;
+    }
     add_line(text);
 }
 
 void note_file(const char* what, const char* path, long long size)
 {
-    if (!loading_console_state().active_ || !path)
+    if (!loading_console_state().active_ || !path) {
         return;
-    if (size >= 0)
+    }
+    if (size >= 0) {
         get_note("%s %s  %s", what, get_file_name(path), size_text(size).c_str());
-    else
+    } else {
         get_note("%s %s", what, get_file_name(path));
+    }
 }
 
 void note_script_call(uint32_t name, bool cfunction, script::Struct* params)
 {
-    if (!loading_console_state().active_)
+    if (!loading_console_state().active_) {
         return;
+    }
     const char* text = script::look_up_hash_name(name);
     if (cfunction) {
-        if (!interesting_command(text))
+        if (!interesting_command(text)) {
             return;
+        }
         // what it's given: a file or scene name, else a name checksum
         const char* what = nullptr;
         if (params) {
-            if (!params->fetch_text(0U, &what, 0))
-                for (const char* key : {"scene", "file", "name", "filename", "level", "type"})
-                    if (params->fetch_text(key, &what, 0))
+            if (!params->fetch_text(0U, &what, 0)) {
+                for (const char* key : {"scene", "file", "name", "filename", "level", "type"}) {
+                    if (params->fetch_text(key, &what, 0)) {
                         break;
+                    }
+                }
+            }
             uint32_t checksum = 0;
             if (!what && (params->read_hash_value(0U, &checksum, 0) || params->read_hash_value("name", &checksum, 0) ||
-                          params->read_hash_value("type", &checksum, 0)))
+                          params->read_hash_value("type", &checksum, 0))) {
                 what = script::look_up_hash_name(checksum);
+            }
         }
-        if (what && *what)
+        if (what && *what) {
             get_note("%s %s", text, get_file_name(what));
-        else
+        } else {
             get_note("%s", text);
+        }
     } else if (text) {
         get_note("script %s", text);
     }
@@ -580,14 +616,16 @@ void note_script_call(uint32_t name, bool cfunction, script::Struct* params)
 
 void note_log_line(const char* line)
 {
-    if (!loading_console_state().active_ || !interesting_log_line(line))
+    if (!loading_console_state().active_ || !interesting_log_line(line)) {
         return;
+    }
     std::array<char, kLineWidth> text{};
     strncpy_s(text.data(), text.size(), line, _TRUNCATE);
     // (a log line can come from any thread, also while a crash is being logged: never wait for the lock)
     const double now = get_now();
-    if (!TryAcquireSRWLockExclusive(&loading_console_state().lock_))
+    if (!TryAcquireSRWLockExclusive(&loading_console_state().lock_)) {
         return;
+    }
     loading_console_state().ring_.append_one(text.data(), now - loading_console_state().start_);
     loading_console_state().last_activity_ = now;
     ReleaseSRWLockExclusive(&loading_console_state().lock_);
@@ -595,20 +633,25 @@ void note_log_line(const char* line)
 
 void draw_panel()
 {
-    if (!loading_console_state().active_ || !console_font().texture_)
+    if (!loading_console_state().active_ || !console_font().texture_) {
         return;
+    }
     IDirect3DDevice9* device = render::renderer().d3d_device();
-    if (!device)
+    if (!device) {
         return;
+    }
     const double now = get_now();
-    if (console_vertices().laid_out_ < 0.0 || now - console_vertices().laid_out_ >= kLayoutSeconds)
+    if (console_vertices().laid_out_ < 0.0 || now - console_vertices().laid_out_ >= kLayoutSeconds) {
         get_layout(now);
-    if (console_vertices().vertices_.empty())
+    }
+    if (console_vertices().vertices_.empty()) {
         return;
+    }
     // The device's state saved and put back after (the renderer's cached state stays true).
     IDirect3DStateBlock9* saved = nullptr;
-    if (FAILED(device->CreateStateBlock(D3DSBT_ALL, &saved)))
+    if (FAILED(device->CreateStateBlock(D3DSBT_ALL, &saved))) {
         return;
+    }
     device->SetPixelShader(nullptr);
     device->SetVertexShader(nullptr);
     device->SetFVF(render::kScreenVertexFormat);

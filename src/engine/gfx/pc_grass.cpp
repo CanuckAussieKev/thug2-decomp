@@ -130,8 +130,9 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 {
     TextureSet* dictionary = get_sky_scene()->texture_set(); // the sky's
     const BitmapTexture* entry = look_up_texture(dictionary, kGrassTexture);
-    if (!entry)
+    if (!entry) {
         return false;
+    }
     pc_grass_state().grass_texture1_ = *image_of(entry); // (a copy of the record, as the original)
     if ((mesh->stride() - mesh->uv_offset()) / kUvSetBytes == 1) { // (one texture coordinate set: room made for a second)
         gsl::owner<VertexBuffer*> wider = new_vertex_buffer((mesh->stride() + kUvSetBytesU) * mesh->vertex_count(), 0, 0);
@@ -141,8 +142,9 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
         wider->get_lock(0, 0, &to, 0);
         const std::span<const uint8_t> source_vertices(from, size_t{mesh->vertex_count()} * mesh->stride());
         const std::span<uint8_t> wide_vertices(to, size_t{mesh->vertex_count()} * (mesh->stride() + 8));
-        for (size_t i = 0; i < mesh->vertex_count(); ++i)
+        for (size_t i = 0; i < mesh->vertex_count(); ++i) {
             std::memcpy(wide_vertices.subspan(i * (mesh->stride() + kUvSetBytes)).data(), source_vertices.subspan(i * mesh->stride()).data(), mesh->stride());
+        }
         mesh->fetch_vertex_store(0)->teardown();
         mesh->set_buffer_usage(0);
         mesh->set_vertex_buffer(0, wider);
@@ -172,13 +174,16 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 bool make_grass(PcGeom* geom, MeshRef* mesh)
 {
     MaterialRef* m = mesh->material();
-    if (!m)
+    if (!m) {
         return false;
-    if (core::at(m->pass_flags(), 0) & kAnimatedGrass)
+    }
+    if (core::at(m->pass_flags(), 0) & kAnimatedGrass) {
         return make_animated_grass(geom, mesh);
+    }
     int layers = static_cast<int>(m->unknown18());
-    if (!layers)
+    if (!layers) {
         return false;
+    }
     layers = std::min(layers, kMaxLayers);
     auto step = static_cast<float>(std::bit_cast<float>(m->unknown14()) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {

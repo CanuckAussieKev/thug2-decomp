@@ -76,8 +76,9 @@ void set_target(IDirect3DTexture9* texture, IDirect3DSurface9* depth)
 {
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): a full-size screen copy drawn through the
     // multisampled scene surface.
-    if (graphics_options::set_scene_target(texture))
+    if (graphics_options::set_scene_target(texture)) {
         return;
+    }
     IDirect3DSurface9* surface = nullptr;
     texture->GetSurfaceLevel(0, &surface);
     renderer().d3d_device()->SetRenderTarget(0, surface);
@@ -134,8 +135,9 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
         auto half_x = static_cast<float>(kHalf / as_unsigned(target_desc.Width));
         auto half_y = static_cast<float>(kHalf / as_unsigned(target_desc.Height));
         set_texture(0, source);
-        if (shader)
+        if (shader) {
             set_pixel_shader(get_shader(kPixelShader950), nullptr);
+        }
         set_vertex_format(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
         auto right = static_cast<float>(static_cast<double>(du) + 1.0);
         auto u0 = static_cast<float>(static_cast<double>(half_x) + du);
@@ -177,12 +179,14 @@ void begin_screen_effects()
             renderer().d3d_device()->SetDepthStencilSurface(renderer().z_buffer_surface());
         }
     } else {
-        if (!effects_state().bloom_on() || !renderer().shaders_available()) // no bloom (or no pixel shaders)
+        if (!effects_state().bloom_on() || !renderer().shaders_available()) { // no bloom (or no pixel shaders)
             return;
+        }
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
-        if (!graphics_options::set_scene_target(current_screen_copy()))
+        if (!graphics_options::set_scene_target(current_screen_copy())) {
             set_render_target_and_depth({.surface = surface, .depth = renderer().z_buffer_surface()});
+        }
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
     const uint32_t colour = (view_setup().fog_setting() && view_setup().distance_clipping()) ? engine_parts().fog_colour() : renderer().render_camera().background_colour_;
@@ -194,8 +198,9 @@ void begin_screen_effects()
 // 0x004DE980
 void copy_screen_quarter()
 {
-    if (!effects_state().screen_copy_in_use())
+    if (!effects_state().screen_copy_in_use()) {
         return;
+    }
     IDirect3DTexture9* source = current_screen_copy();
     IDirect3DTexture9* quarter = screen_copy(2);
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the frame so far resolved into the copy first.
@@ -218,8 +223,9 @@ void copy_screen_quarter()
 // 0x004DEB70
 void get_bloom()
 {
-    if (!renderer().shaders_available())
+    if (!renderer().shaders_available()) {
         return;
+    }
     change_phase(RenderStateId::kZWrite, 0);
     change_phase(RenderStateId::kZTest, 0);
     change_phase(RenderStateId::kAlphaTest, 0);
@@ -240,25 +246,30 @@ void get_bloom()
     change_phase(RenderStateId::kAlphaBlend, 1);
     D3DSURFACE_DESC unused;
     b->GetLevelDesc(0, &unused);
-    for (int tap = 0; tap < 4; ++tap)
+    for (int tap = 0; tap < 4; ++tap) {
         draw_screen_quad(tap > 0, b, a, {.x = 0.0F, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
+    }
     b = screen_copy(4);
     a = screen_copy(3);
-    for (int tap = 0; tap < 4; ++tap)
+    for (int tap = 0; tap < 4; ++tap) {
         draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0F}, tap_colour(tap_weight(tap)), true);
+    }
     draw_screen_quad(0, screen_copy(kScreenCopyBlurA), screen_copy(3), {.x = 0.0F, .y = 0.0F}, kNeutralColour, true);
     b = screen_copy(kScreenCopyBlurB);
     a = screen_copy(kScreenCopyBlurA);
     b->GetLevelDesc(0, &unused);
-    for (int tap = 0; tap < 4; ++tap)
+    for (int tap = 0; tap < 4; ++tap) {
         draw_screen_quad(tap > 0, b, a, {.x = 0.0F, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
+    }
     b = screen_copy(kScreenCopyBlurB);
     a = screen_copy(kScreenCopyBlurA);
-    for (int tap = 0; tap < 4; ++tap)
+    for (int tap = 0; tap < 4; ++tap) {
         draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0F}, tap_colour(tap_weight(tap)), true);
+    }
     set_target(current_screen_copy(), renderer().z_buffer_surface());
-    if (!kBlurSecondPass)
+    if (!kBlurSecondPass) {
         return;
+    }
     // Both blurred copies added over the frame.
     change_phase(RenderStateId::kZWrite, 0);
     change_phase(RenderStateId::kZTest, 0);
@@ -312,8 +323,9 @@ void get_bloom()
     change_phase(RenderStateId::kAlphaBlend, 1);
     change_phase(RenderStateId::kZWrite, 1);
     change_phase(RenderStateId::kZTest, 1);
-    for (int stage = 0; stage < 4; ++stage)
+    for (int stage = 0; stage < 4; ++stage) {
         set_texture(stage, nullptr);
+    }
     set_pixel_shader(nullptr, nullptr);
 }
 

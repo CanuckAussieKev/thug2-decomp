@@ -72,11 +72,13 @@ bool RenderModel::choose_rig(gfx::Rig* skeleton)
 // 0x00492E10
 bool RenderModel::set_display_mode(int mode)
 {
-    if (mode == display_mode_)
+    if (mode == display_mode_) {
         return false;
+    }
     const bool allowed = allows_display_mode(mode);
-    if (allowed)
+    if (allowed) {
         display_mode_ = mode;
+    }
     return allowed;
 }
 
@@ -90,8 +92,9 @@ maths::Mat4* RenderModel::fetch_skinning_palette() { return skin_palette_; }
 void RenderModel::upload_skinning_palette(maths::Mat4* matrices)
 {
     skin_palette_ = matrices;
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         set_geom_bones(get_geom(node), skin_palette_, bone_total_);
+    }
 }
 
 // 0x00492E60
@@ -133,18 +136,21 @@ maths::Vec4* RenderModel::fetch_bound_sphere(maths::Vec4* out)
 // 0x00492F90
 void RenderModel::set_bone_volumes(gfx::BoneVolumes* volumes)
 {
-    if (!geom_ring_.size())
+    if (!geom_ring_.size()) {
         return;
+    }
     ModelGeom* first = first_entry(this);
-    if (first && !first->bone_volumes_)
+    if (first && !first->bone_volumes_) {
         first->bone_volumes_ = volumes;
+    }
 }
 
 // 0x00492FC0
 gfx::BoneVolumes* RenderModel::get_bone_volumes()
 {
-    if (!geom_ring_.size())
+    if (!geom_ring_.size()) {
         return nullptr;
+    }
     const ModelGeom* first = first_entry(this);
     return first ? first->bone_volumes_ : nullptr;
 }
@@ -152,16 +158,18 @@ gfx::BoneVolumes* RenderModel::get_bone_volumes()
 // 0x00492FF0
 uint32_t RenderModel::get_asset_bone_count()
 {
-    if (num_asset_geoms_ != 1)
+    if (num_asset_geoms_ != 1) {
         return 0;
+    }
     return scene_b8(assets::asset_manager()->get_asset_data(first_entry(this)->asset_name_, 1));
 }
 
 // 0x00493040
 HierarchyNode* RenderModel::get_asset_hierarchy()
 {
-    if (num_asset_geoms_ != 1)
+    if (num_asset_geoms_ != 1) {
         return nullptr;
+    }
     return scene_b4(assets::asset_manager()->get_asset_data(first_entry(this)->asset_name_, 1));
 }
 
@@ -173,8 +181,9 @@ std::span<HierarchyNode> RenderModel::asset_hierarchy_run()
 // 0x00493410
 bool RenderModel::copy_bones(gfx::Rig* skeleton)
 {
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         copy_geom_bones(get_geom(node), skeleton_bones(skeleton), skeleton_bone_count(skeleton));
+    }
     return true;
 }
 
@@ -187,8 +196,10 @@ uint32_t RenderModel::get_strip_break_flags()
         if (entry->scene) {
             flags |= entry->scene->bone_count();
         } else if (entry->asset_name_) {
-            if (const auto* mesh = static_cast<const PcMesh*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1)))
+            if (const auto* mesh =
+                    static_cast<const PcMesh*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1))) {
                 flags |= mesh->bone_count();
+            }
         }
     }
     return flags;
@@ -197,23 +208,26 @@ uint32_t RenderModel::get_strip_break_flags()
 // 0x00493B90
 void RenderModel::break_strips(uint32_t mask)
 {
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         break_geom_strips(get_geom(node), mask);
+    }
 }
 
 // 0x00494700
 void RenderModel::clean_instance_strips()
 {
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         clean_geom_instance_strips(get_geom(node));
+    }
 }
 
 // 0x00494B30
 bool RenderModel::break_own_strips()
 {
     const uint32_t mask = get_strip_break_flags();
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         break_geom_strips(get_geom(node), mask);
+    }
     return true;
 }
 
@@ -222,8 +236,9 @@ bool RenderModel::create_lights()
 {
     memory::let_go(lights_ptr_); // (any it had isn't freed, as the original)
     lights_ptr_ = memory::take_unique<ModelLights>(new_lights());
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         set_geom_lights(get_geom(node), lights_ptr_.get());
+    }
     return true;
 }
 
@@ -231,19 +246,22 @@ bool RenderModel::create_lights()
 bool RenderModel::destroy_lights()
 {
     memory::destroy_then_clear(lights_ptr_);
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         set_geom_lights(get_geom(node), nullptr);
+    }
     return true;
 }
 
 // 0x00493C60
 bool RenderModel::change_live(uint8_t active)
 {
-    if ((flag_bits_ & kModelHidden) && active)
+    if ((flag_bits_ & kModelHidden) && active) {
         return false;
+    }
     if (((flag_bits_ >> 1) & 1) != active) {
-        for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+        for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
             set_geom_active(get_geom(node), active);
+        }
         flag_bits_ = set_flag(flag_bits_, kModelEnabledBit, active & 1);
     }
     return true;
@@ -260,8 +278,9 @@ bool RenderModel::conceal(uint8_t hide)
 Geom* RenderModel::get_geom_by_name(uint32_t name)
 {
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
-        if (name == table_row(node)->name)
+        if (name == table_row(node)->name) {
             return get_geom(node);
+        }
     }
     return nullptr;
 }
@@ -271,8 +290,9 @@ Geom* RenderModel::fetch_geom(int index)
 {
     int i = 0;
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++i) {
-        if (index == i)
+        if (index == i) {
             return get_geom(node);
+        }
     }
     return nullptr;
 }
@@ -282,8 +302,9 @@ uint32_t RenderModel::fetch_part_label(int index)
 {
     int i = 0;
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++i) {
-        if (index == i)
+        if (index == i) {
             return table_row(node)->name;
+        }
     }
     return 0;
 }
@@ -293,8 +314,9 @@ TextureSet* RenderModel::get_geom_textures(int index)
 {
     int i = 0;
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++i) {
-        if (index == i)
+        if (index == i) {
             return table_row(node)->textures;
+        }
     }
     return nullptr;
 }
@@ -317,8 +339,9 @@ bool RenderModel::clear_geom_color(uint32_t name)
 bool RenderModel::choose_uv_shift(uint32_t material, int pass, float u, float v)
 {
     bool any = false;
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         any |= get_geom(node)->set_material_uv_wibble_offsets(material, pass, u, v);
+    }
     return any;
 }
 
@@ -326,8 +349,9 @@ bool RenderModel::choose_uv_shift(uint32_t material, int pass, float u, float v)
 bool RenderModel::choose_uv_matrix(uint32_t material, int pass, const maths::Mat4* matrix)
 {
     bool any = false;
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         any |= get_geom(node)->choose_uv_matrix(material, pass, matrix);
+    }
     return any;
 }
 
@@ -335,8 +359,9 @@ bool RenderModel::choose_uv_matrix(uint32_t material, int pass, const maths::Mat
 bool RenderModel::create_uv_anim_params(uint32_t material, int pass)
 {
     bool any = false;
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         any |= get_geom(node)->create_uv_anim_params(material, pass);
+    }
     return any;
 }
 
@@ -348,10 +373,11 @@ bool RenderModel::conceal_mesh(uint32_t name, bool hide)
     int index = 0;
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++index) {
         if (name == table_row(node)->name || all) {
-            if (hide)
+            if (hide) {
                 visible_geoms_ &= ~geom_bit(index);
-            else
+            } else {
                 visible_geoms_ |= geom_bit(index);
+            }
             any = true;
         }
     }
@@ -364,8 +390,9 @@ bool RenderModel::is_part_concealed(uint32_t name)
     bool hidden = true;
     int index = 0;
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++index) {
-        if (name == table_row(node)->name && (visible_geoms_ & geom_bit(index)))
+        if (name == table_row(node)->name && (visible_geoms_ & geom_bit(index))) {
             hidden = false;
+        }
     }
     return hidden;
 }
@@ -375,8 +402,9 @@ bool RenderModel::change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     const uint32_t rgba =
         r | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         set_geom_color(get_geom(node), rgba);
+    }
     return true;
 }
 
@@ -384,16 +412,18 @@ bool RenderModel::change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 uint32_t RenderModel::fetch_shown()
 {
     uint32_t mask = 0;
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         mask |= get_geom_visibility(get_geom(node));
+    }
     return mask;
 }
 
 // 0x00494970
 bool RenderModel::toggle_shown(uint32_t mask)
 {
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         set_geom_visibility(get_geom(node), mask);
+    }
     return true;
 }
 
@@ -401,8 +431,9 @@ bool RenderModel::toggle_shown(uint32_t mask)
 void RenderModel::activate_shadow(uint8_t on)
 {
     flag_bits_ = set_flag(flag_bits_, kModelShadow, on & 1);
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         set_geom_shadow(get_geom(node), on);
+    }
 }
 
 } // namespace render

@@ -78,8 +78,9 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     const double length_squared =
         ((static_cast<double>(hit.normal.x) * hit.normal.x) + (static_cast<double>(hit.normal.y) * hit.normal.y)) +
         (static_cast<double>(hit.normal.z) * hit.normal.z);
-    if (length_squared <= 0.0)
+    if (length_squared <= 0.0) {
         return;
+    }
     hit.face_flag40_ = trigger_marker(face_flags);
     hit.checksum = checksum;
     core::at(hit.ends, 0).point = core::at(points, 0);
@@ -136,8 +137,9 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
         const uint32_t face = core::at(faces, i);
         const FaceFlag flags =
             geometry->face_flags(static_cast<int>(face));
-        if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_))
+        if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_)) {
             continue;
+        }
         maths::Vec4 v0{};
         maths::Vec4 v1{};
         maths::Vec4 v2{};
@@ -146,10 +148,12 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
         std::array<maths::Vec4, 2> points{};
         std::array<int, 2> kinds{};
-        if (!rect_hits_triangle(*rect, v0, v1, v2, points, kinds))
+        if (!rect_hits_triangle(*rect, v0, v1, v2, points, kinds)) {
             continue;
-        if (hits->count == RectHits::kMost)
+        }
+        if (hits->count == RectHits::kMost) {
             return true;
+        }
         add_rect_hit(hits, v0, v1, v2, points, kinds, flags, checksums::Name{object->checksum()}, placed);
     }
     return hits->count > 0;
@@ -213,8 +217,9 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     const bool use_cache = cache && cache->box().get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(rect);
-        if (!grid)
+        if (!grid) {
             return false;
+        }
         grid->objects_in_box(&box); // (the answer isn't used)
     }
     maths::BBox grown;
@@ -230,8 +235,9 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     if (use_cache) {
         for (int i = 0; i < cache->statics(); ++i) {
             const HitMeshCache::TableRow& entry = core::at(cache->entries(), i);
-            if (grown.intersects(*entry.bounds))
+            if (grown.intersects(*entry.bounds)) {
                 collide_with_rect(entry.object, rect, &grown, hits);
+            }
         }
         return hits->count > 0;
     }
@@ -241,13 +247,15 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     diagonal.end = {.x = static_cast<float>((static_cast<double>(a.x) + o.x) + b.x), .y = (a.y + o.y) + b.y, .z = (a.z + o.z) + b.z,
                     .w = (a.w + o.w) + b.w};
     const std::span<CollGrid* const> grids = grids_along(&diagonal);
-    if (grids.empty())
+    if (grids.empty()) {
         return false;
+    }
     for (CollGrid* const grid : grids) {
         int count = 0;
         for (HitMesh* const object : grid->objects_along_line(&diagonal, &count)) {
-            if (object->inside_bounds(&grown))
+            if (object->inside_bounds(&grown)) {
                 collide_with_rect(object, rect, &grown, hits);
+            }
         }
     }
     return hits->count > 0;
@@ -295,16 +303,18 @@ void CollScaled::rect_to_local(const CollRect* rect, CollRect* out) const
 void HitMesh::set_checksum(uint32_t checksum)
 {
     checksum_ = checksum;
-    if (geometry_)
+    if (geometry_) {
         geometry_->set_checksum(checksum);
+    }
 }
 
 // 0x00410BC0
 uint8_t* StaticCollider::take_buffer(uint8_t* block, const TriMeshSource* geometry)
 {
     unknown14_ = static_cast<int>(geometry->unknown3c());
-    if (geometry->small_faces())
+    if (geometry->small_faces()) {
         return block;
+    }
     octets_ = block;
     return std::span<uint8_t>(block, geometry->tri_count()).subspan(geometry->tri_count()).data();
 }
@@ -349,8 +359,9 @@ void BoxProbe::join_hits()
     }
     // duplicates of a later hit (the same ends, either way round, the normals within 0.99) dropped
     for (int j = count - 1; j > 0; --j) {
-        if (core::at(used, j))
+        if (core::at(used, j)) {
             continue;
+        }
         const RectHit& later = core::at(hits, j);
         for (int k = j - 1; k >= 0; --k) {
             const RectHit& earlier = core::at(hits, k);
@@ -359,8 +370,9 @@ void BoxProbe::join_hits()
                               (same_point(core::at(later.ends, 0).point, core::at(earlier.ends, 1).point) &&
                                same_point(core::at(later.ends, 1).point, core::at(earlier.ends, 0).point));
             if (same && dot3(earlier.normal.z, earlier.normal.y, earlier.normal.x, later.normal.z, later.normal.y,
-                             later.normal.x) > kParallel)
+                             later.normal.x) > kParallel) {
                 core::at(used, k) = true;
+            }
         }
     }
     // each hit left, extended by the earlier ones it lines up with
@@ -368,18 +380,23 @@ void BoxProbe::join_hits()
     for (int j = count - 1; j >= 0; --j) {
         RectHit joined{};
         copy_from(joined, &core::at(hits, j));
-        if (core::at(used, j))
+        if (core::at(used, j)) {
             continue;
+        }
         for (int k = j - 1; k >= 0; --k) {
-            if (core::at(used, k))
+            if (core::at(used, k)) {
                 continue;
+            }
             const RectHit& other = core::at(hits, k);
             if (dot3(joined.normal.z, joined.normal.x, joined.normal.y, other.normal.z, other.normal.x,
-                     other.normal.y) < kParallel)
+                     other.normal.y) < kParallel) {
                 continue;
-            if (std::fabs(dot3(core::at(direction, j).x, core::at(direction, j).z, core::at(direction, k).y, core::at(direction, k).x, core::at(direction, k).z,
-                               core::at(direction, j).y)) < kParallel)
+            }
+            if (std::fabs(dot3(core::at(direction, j).x, core::at(direction, j).z, core::at(direction, k).y,
+                               core::at(direction, k).x, core::at(direction, k).z, core::at(direction, j).y)) <
+                kParallel) {
                 continue;
+            }
             const RectHitEnd& near0 = core::at(other.ends, 0);
             const RectHitEnd& close_a = core::at(other.ends, 1);
             const maths::Vec4& start = core::at(joined.ends, 0).point;

@@ -210,8 +210,9 @@ void camera_axes(std::span<float, 3> r, std::span<float, 3> u)
                                         (static_cast<double>(core::at(w, 1)) * core::at(w, 1)));
         if (length > 0.0F) {
             const double inverse = 1.0F / length;
-            for (int i = 0; i < 3; ++i)
+            for (int i = 0; i < 3; ++i) {
                 core::at(w, i) = static_cast<float>(core::at(w, i) * inverse);
+            }
         }
     }
 }
@@ -239,8 +240,9 @@ void get_skip(ParticleBurst& burst, int particles)
     random_c() = c;
     int steps = particles * 4;
     if (steps > 0) {
-        for (; steps; --steps)
+        for (; steps; --steps) {
             random_step(a, b, c);
+        }
         random_c() = c;
         random_b() = b;
         random_a() = a;
@@ -271,16 +273,18 @@ void PcParticleSystem::initialise()
     material->set_pass_count(1);       // (a pass)
     material->set_alpha_ref(1);
     material->set_two_sided(1);
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(core::at(material->pass_color(), 0), k) = kParticleGrey;
+    }
     core::at(core::at(material->pass_color(), 0), 3) =
         static_cast<float>(static_cast<double>(args().alpha_cut_off()) * (1.0F / kAlphaCutOffScale));
     core::at(material->address_modes(), 0) = kClampBothWays;
     core::at(material->unknownc0(), 0) = kClampBothWays;
     core::at(material->blend_modes(), 0) = blend_mode_from_name(args().blend_mode());
     core::at(material->textures(), 0) = nullptr;
-    if (const BitmapTexture* found = find_texture(args().texture()))
+    if (const BitmapTexture* found = find_texture(args().texture())) {
         core::at(material->textures(), 0) = image_of(found);
+    }
 
     // The spread: the boxes and their radii.
     std::array<float, 4> start = {{core::at(args().box(), 0).x, core::at(args().box(), 0).y, core::at(args().box(), 0).z, core::at(args().radius(), 0)}};
@@ -327,8 +331,9 @@ void PcParticleSystem::update_path()
 // 0x004BC240
 void PcParticleSystem::update()
 {
-    if (args().local_positions())
+    if (args().local_positions()) {
         update_path();
+    }
 }
 
 // 0x004BB0B0
@@ -337,8 +342,9 @@ bool PcParticleSystem::is_emitting() { return live > 0; }
 // 0x004BCE10
 void PcParticleSystem::free_resources()
 {
-    if (bursts)
+    if (bursts) {
         memory::Hub::dealloc(bursts);
+    }
     if (MaterialRef* own = material) {
         destroy_material(own);
         memory::Hub::dealloc(own);
@@ -365,8 +371,9 @@ void PcParticleSystem::draw(bool advance)
     } else {
         emitting = false;
     }
-    if (live == 0)
+    if (live == 0) {
         return;
+    }
     if (advance) {
         ParticleBurst* burst = oldest;
         for (int i = 0; i < live; ++i) {
@@ -374,8 +381,9 @@ void PcParticleSystem::draw(bool advance)
             burst = get_next(this, burst);
         }
     }
-    if (emitting)
+    if (emitting) {
         newest->count = truncate((static_cast<double>(newest->age) * newest->rate) + 1.0F);
+    }
     ParticleBurst* first = oldest;
     if (first->age > args().lifetime()) {
         const int gone = truncate(((static_cast<double>(first->age) - args().lifetime()) * first->rate) + 1.0F);
@@ -383,8 +391,9 @@ void PcParticleSystem::draw(bool advance)
         if (oldest->count <= 0 && (live != 1 || !emitting)) {
             --live;
             oldest = get_next(this, oldest);
-            if (live == 0)
+            if (live == 0) {
                 return;
+            }
         } else {
             ParticleBurst* burst = oldest;
             burst->age = static_cast<float>(burst->age - (static_cast<double>(gone) * burst->period));
@@ -395,8 +404,9 @@ void PcParticleSystem::draw(bool advance)
         const maths::Vec4 centre = {.x = bound_ball().x, .y = bound_ball().y, .z = bound_ball().z, .w = 0.0F};
         const bool visible = args().cull_outside() ? sphere_outside_view(&centre, bound_ball().w) != 0
                                                  : sphere_in_view(&centre, bound_ball().w);
-        if (!visible)
+        if (!visible) {
             return;
+        }
     }
 
     set_material_states(material);
@@ -407,16 +417,19 @@ void PcParticleSystem::draw(bool advance)
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), nullptr);
     std::array<std::array<float, 4>, 3> colour_table{};
-    for (int i = 0; i < 3; ++i)
-        for (int k = 0; k < 4; ++k)
+    for (int i = 0; i < 3; ++i) {
+        for (int k = 0; k < 4; ++k) {
             core::at(core::at(colour_table, i), k) = static_cast<float>(
                 static_cast<double>(core::at(core::at(args().shade(), i), k)) * (1.0F / kByteMaxFloat));
+        }
+    }
 
     const std::span<ParticleBurst> ring = burst_ring();
     auto place = static_cast<std::size_t>(oldest - ring.data());
     for (int b = 0; b < live; ++b, ++place) {
-        if (place == ring.size())
+        if (place == ring.size()) {
             place = 0;
+        }
         const ParticleBurst* burst = &core::at(ring, place);
         auto colour_mid = static_cast<float>(static_cast<double>(args().colour_mid_percent()) * kPercentToFraction * args().lifetime());
         float age = burst->age;
@@ -553,8 +566,9 @@ void PcParticleSystem::draw(bool advance)
                     t = t - burst->period;
                     ++quads;
                     ++index;
-                    if (quads >= room - 1 || index >= burst->count)
+                    if (quads >= room - 1 || index >= burst->count) {
                         break;
+                    }
                 }
                 age = static_cast<float>(t);
             }

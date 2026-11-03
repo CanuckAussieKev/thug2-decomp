@@ -309,8 +309,9 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
     splats->last = -1;
     for (int i = 0; i < kSplatSlotCount; ++i) {
         int left = static_cast<int>(core::at(splats->alive, i));
-        if (left < 0)
+        if (left < 0) {
             continue;
+        }
         left -= elapsed;
         core::at(splats->alive, i) = static_cast<uint32_t>(left);
         if (left <= 0) {
@@ -321,8 +322,9 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             ++living;
         }
     }
-    if (living < kSplatSlotCount - engine_effects_state().splat_reserve_)
+    if (living < kSplatSlotCount - engine_effects_state().splat_reserve_) {
         return;
+    }
     // Nearly full: the triangle furthest through its life (of those with a time and a lifetime; the first one's
     // difference the bar to reach, whatever it is - the last of equals wins).
     int furthest = -1;
@@ -336,14 +338,16 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             }
         }
     }
-    if (furthest < 0)
+    if (furthest < 0) {
         return;
+    }
     // Every triangle with the same time and lifetime (as that one has now) fades: its base colours' and its
     // vertices' alphas; once all six are 0 it's dead.
     for (int i = 0; i < kSplatSlotCount; ++i) {
         if (core::at(splats->alive, i) != core::at(splats->alive, furthest) ||
-            core::at(splats->correction_steps_, i) != core::at(splats->correction_steps_, furthest))
+            core::at(splats->correction_steps_, i) != core::at(splats->correction_steps_, furthest)) {
             continue;
+        }
         const int fade = kSplatFade;
         auto& base = core::at(splats->base_colors_, i);
         auto& triangle = core::at(splats->vertices, i);
@@ -360,16 +364,18 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
                 *colour = (*colour & kRgbMask) | (static_cast<uint32_t>(faded <= 0 ? 0 : faded) << kAlphaShift);
             }
         }
-        if (gone == kSplatColourCount)
+        if (gone == kSplatColourCount) {
             core::at(splats->alive, i) = 0;
+        }
     }
 }
 
 // 0x00491F70
 void age_all_texture_splats()
 {
-    if (objects::simulation_halted())
+    if (objects::simulation_halted()) {
         return;
+    }
     const int elapsed = frame_milliseconds();
     effects_state().splat_sets().for_each([elapsed](TextureSplats* splats) { age_texture_splats(splats, elapsed); });
 }
@@ -396,8 +402,9 @@ void kill_texture_splats_in_box(const maths::BBox* box)
     recent_splats().for_each([box](RecentSplat* recent) {
         const maths::Vec4& at = recent->pos;
         if (at.x >= box->min.x && at.y >= box->min.y && at.z >= box->min.z && at.x <= box->max.x &&
-            at.y <= box->max.y && at.z <= box->max.z)
+            at.y <= box->max.y && at.z <= box->max.z) {
             recent->time = 0; // (the original stored 0.0f: the same bits)
+        }
     });
     render::kill_texture_splats_in_box(box);
 }
@@ -434,8 +441,9 @@ bool create_texture_splat_at(const SplatSettings& settings)
         // A recent position of the same id near enough: the splat is made from it. Old ones go.
         const uint32_t now = frame_clock::get_time();
         recent_splats().for_each([&](RecentSplat* candidate) {
-            if (recent)
+            if (recent) {
                 return; // (the walk stopped at the one found)
+            }
             if (now < candidate->time || now - candidate->time > kRecentSplatMilliseconds) {
                 recent_splats().erase(candidate);
                 memory::Hub::dealloc(candidate);
@@ -443,8 +451,9 @@ bool create_texture_splat_at(const SplatSettings& settings)
                 const double dx = static_cast<double>(from->x) - candidate->pos.x;
                 const double dy = static_cast<double>(from->y) - candidate->pos.y;
                 const double dz = static_cast<double>(from->z) - candidate->pos.z;
-                if ((dz * dz) + (dy * dy) + (dx * dx) < kRecentSplatDistanceSquared)
+                if ((dz * dz) + (dy * dy) + (dx * dx) < kRecentSplatDistanceSquared) {
                     recent = candidate;
+                }
             }
         });
         if (!recent) {
@@ -475,8 +484,9 @@ bool create_texture_splat_at(const SplatSettings& settings)
                .z = static_cast<float>(static_cast<double>(line_box.max.z) + size),
                .w = 1.0F};
     const auto grids = get_coll_grids_on_line(&line);
-    if (grids.empty())
+    if (grids.empty()) {
         return false;
+    }
     auto& sectors = fog_and_shatter().line_sectors_;
     auto& objects = fog_and_shatter().line_objects_;
     int count = 0;
@@ -493,8 +503,9 @@ bool create_texture_splat_at(const SplatSettings& settings)
             }
         }
     }
-    if (count <= 0)
+    if (count <= 0) {
         return false;
+    }
     core::at(sectors, count) = nullptr;
     core::at(objects, count) = nullptr;
     bool made = false;
@@ -533,8 +544,9 @@ bool create_texture_splat_at(const SplatSettings& settings)
 // 0x00492000
 void update_shatters()
 {
-    if (objects::simulation_halted())
+    if (objects::simulation_halted()) {
         return;
+    }
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     effects_state().shatters().for_each([elapsed](PcShatter* shatter) {
         const double left = static_cast<double>(shatter->lifetime()) - elapsed;
@@ -609,8 +621,9 @@ void update_flashes()
 void draw_flashes(int viewport, uint32_t pass)
 {
     flashes().for_each([viewport, pass](const Flash* flash) {
-        if (flash->viewport == viewport && !((flash->flags ^ pass) & 1))
+        if (flash->viewport == viewport && !((flash->flags ^ pass) & 1)) {
             draw_flash(flash);
+        }
     });
 }
 

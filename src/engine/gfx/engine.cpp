@@ -68,8 +68,9 @@ memory::ListNode* next_scene(memory::ListNode* node) { return node->next()->data
 memory::ListNode* first_scene()
 {
     memory::ListNode* first = engine_parts().scene_list().next();
-    if (first->data() == kNoScene || !first)
+    if (first->data() == kNoScene || !first) {
         return nullptr;
+    }
     return first;
 }
 WorldScene* scene_of(memory::ListNode* node) { return static_cast<WorldScene*>(node->data()); }
@@ -152,8 +153,9 @@ void render_frame()
     weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
     imposter_manager()->tick_frame();
     update_after_imposters();
-    if (!engine_parts().suppress_draw())
+    if (!engine_parts().suppress_draw()) {
         draw_world();
+    }
 }
 
 // 0x0048C0A0
@@ -166,8 +168,9 @@ void toggle_render_mode()
 {
     auto& parts = engine_parts();
     parts.set_render_mode(parts.render_mode() + 1);
-    if (parts.render_mode() == 4)
+    if (parts.render_mode() == 4) {
         parts.set_render_mode(0);
+    }
 }
 
 // 0x0048C0F0
@@ -193,10 +196,12 @@ bool split_skin_name(const char* name, std::span<char> base)
     text::copy_into(base, name);
     char* skin = std::strstr(base.data(), ".skin");
     const bool found = skin != nullptr;
-    if (found)
+    if (found) {
         *skin = '\0';
-    if (char* model = std::strstr(base.data(), ".mdl"))
+    }
+    if (char* model = std::strstr(base.data(), ".mdl")) {
         *model = '\0';
+    }
     return found;
 }
 
@@ -236,8 +241,9 @@ gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures,
 // 0x0048C490
 int sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius)
 {
-    if (modules::viewport_count() > 1)
+    if (modules::viewport_count() > 1) {
         return 0;
+    }
     return sphere_visible(centre, radius);
 }
 
@@ -246,8 +252,9 @@ WorldCell* look_up_sector(uint32_t checksum)
 {
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
-        if (WorldCell* sector = scene_of(node)->look_up_sector(checksum))
+        if (WorldCell* sector = scene_of(node)->look_up_sector(checksum)) {
             return sector;
+        }
         node = next;
     }
     return nullptr;
@@ -260,8 +267,9 @@ void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded,
     text::format_to(file, kSceneFileFormat, name, name, "", platform_suffix());
     scene->set_checksum(checksums::hash_from_text(name));
     scene->set_texture_set(static_cast<TextureSet*>(textures));
-    if (!loaded)
+    if (!loaded) {
         scene->finish_load(file.data(), arena);
+    }
     memory::push_mem_profile("Asset Overhead");
     memory::ListNode* node = memory::ListNode::create(scene);
     // at the end of the list (no memory: a crash, as the original)
@@ -288,8 +296,9 @@ bool unload_scene(WorldScene* scene, int /*flags*/)
 {
     debug_before_delete();
     scene->unload_added_scene();
-    if (!render::unload_scene(scene)) // (the platform's: the original passes `flags` on too - unused)
+    if (!render::unload_scene(scene)) { // (the platform's: the original passes `flags` on too - unused)
         return false;
+    }
     gsl::owner<WorldScene*> owned = memory::owned_element(scene); // (the engine's scene list's)
     delete owned;
     for (memory::ListNode* node = first_scene(); node;) {
@@ -308,8 +317,9 @@ WorldScene* find_scene(uint32_t checksum)
 {
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
-        if (scene_of(node)->checksum() == checksum)
+        if (scene_of(node)->checksum() == checksum) {
             return scene_of(node);
+        }
         node = next;
     }
     return nullptr;

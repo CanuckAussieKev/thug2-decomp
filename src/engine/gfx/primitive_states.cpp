@@ -58,10 +58,12 @@ long set_render_target_and_depth(RenderTargets targets)
     auto* const surface = targets.surface;
     auto* const depth = targets.depth;
     long result = 0;
-    if (renderer().d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)) != 0)
+    if (renderer().d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)) != 0) {
         result = D3DERR_INVALIDCALL;
-    if (renderer().d3d_device()->SetDepthStencilSurface(static_cast<IDirect3DSurface9*>(depth)) != 0)
+    }
+    if (renderer().d3d_device()->SetDepthStencilSurface(static_cast<IDirect3DSurface9*>(depth)) != 0) {
         return D3DERR_INVALIDCALL;
+    }
     return result;
 }
 

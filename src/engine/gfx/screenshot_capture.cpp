@@ -69,47 +69,55 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
         return false;
     };
     HRESULT hr = device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back);
-    if (FAILED(hr) || !back)
+    if (FAILED(hr) || !back) {
         return fail("no back buffer", hr);
+    }
     D3DSURFACE_DESC desc{.Type = D3DRTYPE_SURFACE}; // (filled by GetDesc)
     back->GetDesc(&desc);
     const sys::screenshot::PixelFormat format = get_map(desc.Format);
-    if (format == sys::screenshot::PixelFormat::kUnknown)
+    if (format == sys::screenshot::PixelFormat::kUnknown) {
         return fail("the back buffer's format isn't one we read", static_cast<HRESULT>(desc.Format));
+    }
     IDirect3DSurface9* source = back;
     if (desc.MultiSampleType != D3DMULTISAMPLE_NONE) {
         // (multisampled - [Graphics] AntiAliasing: resolved into a plain render target first)
         hr = device->CreateRenderTarget(desc.Width, desc.Height, desc.Format, D3DMULTISAMPLE_NONE, 0, FALSE, &resolved,
                                         nullptr);
-        if (FAILED(hr))
+        if (FAILED(hr)) {
             return fail("CreateRenderTarget failed", hr);
+        }
         hr = device->StretchRect(back, nullptr, resolved, nullptr, D3DTEXF_NONE);
-        if (FAILED(hr))
+        if (FAILED(hr)) {
             return fail("StretchRect failed", hr);
+        }
         source = resolved;
     }
     hr = device->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &system, nullptr);
-    if (FAILED(hr))
+    if (FAILED(hr)) {
         return fail("CreateOffscreenPlainSurface failed", hr);
+    }
     hr = device->GetRenderTargetData(source, system);
-    if (FAILED(hr))
+    if (FAILED(hr)) {
         return fail("GetRenderTargetData failed", hr);
+    }
     D3DLOCKED_RECT locked = {};
     hr = system->LockRect(&locked, nullptr, D3DLOCK_READONLY);
-    if (FAILED(hr))
+    if (FAILED(hr)) {
         return fail("LockRect failed", hr);
+    }
     const int row_bytes = static_cast<int>(desc.Width) * sys::screenshot::get_bytes_per_pixel(format);
     out->width = static_cast<int>(desc.Width);
     out->height = static_cast<int>(desc.Height);
     out->pitch = row_bytes;
     out->format = format;
     out->bytes.resize(static_cast<size_t>(row_bytes) * desc.Height);
-    for (UINT y = 0; y < desc.Height; ++y)
+    for (UINT y = 0; y < desc.Height; ++y) {
         std::memcpy(std::span<uint8_t>(out->bytes).subspan(static_cast<size_t>(row_bytes) * y).data(),
                     std::span<const uint8_t>(static_cast<const uint8_t*>(locked.pBits), static_cast<size_t>(locked.Pitch) * desc.Height)
                         .subspan(static_cast<size_t>(locked.Pitch) * y)
                         .data(),
                     row_bytes);
+    }
     system->UnlockRect();
     get_release(system);
     get_release(resolved);

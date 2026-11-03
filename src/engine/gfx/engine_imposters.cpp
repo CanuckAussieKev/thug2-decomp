@@ -17,8 +17,9 @@ namespace {
 // The table's iteration, inlined in the original: the first / next value (null at the end).
 ImposterGroup* next_group(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item())
+    if (!table->step_iterator() || !table->iter_item()) {
         return nullptr;
+    }
     return static_cast<ImposterGroup*>(table->iter_item()->value);
 }
 ImposterGroup* first_group(lists::KeyMap* table)
@@ -65,8 +66,9 @@ void ImposterManager::tick_frame()
             }
         } else if (done < max_per_frame_) {
             ++group->frame_count();
-            if (group->update_imposter())
+            if (group->update_imposter()) {
                 ++done;
+            }
         }
     }
 }
@@ -76,8 +78,9 @@ void ImposterManager::render()
 {
     set_primitive_states();
     for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
-        if (group->has_imposter())
+        if (group->has_imposter()) {
             group->draw_imposter();
+        }
     }
     reset_primitive_states();
 }

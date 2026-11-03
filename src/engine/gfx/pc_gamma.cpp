@@ -44,8 +44,9 @@ std::array<uint16_t, kRampEntries>& get_ramp() { return pc_gamma_state().gamma_r
 // A value kept within 0-1 (a NaN kept, as the original's tests let it through).
 float clamp01(float value)
 {
-    if (value < 0.0F)
+    if (value < 0.0F) {
         return 0.0F;
+    }
     return value > 1.0F ? 1.0F : value;
 }
 
@@ -63,13 +64,15 @@ std::array<float, 3> get_device_gamma()
 void build_gamma_ramp()
 {
     std::array<float, 3> exponent{};
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(exponent, k) = static_cast<float>(1.0F / static_cast<double>(core::at(gammas(), k)));
+    }
     for (int i = 0; i < kRampChannelSize; ++i) {
         auto level = static_cast<float>(i) * (1.0F / kRampLevels);
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 3; ++k) {
             core::at(get_ramp(), (kRampChannelSize * k) + i) = static_cast<uint16_t>(
                 static_cast<int>(std::pow(static_cast<double>(level), core::at(exponent, k)) * kRampMax));
+        }
     }
 }
 

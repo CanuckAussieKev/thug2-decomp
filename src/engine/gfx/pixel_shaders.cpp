@@ -132,10 +132,11 @@ struct ShaderText {
 // "+mul_x2 r1.a, v0.a, t<pass>.a" (saturated in blend mode 5): the vertex alpha times the pass's texture alpha.
 void append_alpha_modulate(ShaderText& text, bool saturate, uint32_t pass)
 {
-    if (saturate)
+    if (saturate) {
         text.append_one("+mul_x2_sat r1.a, v0.a, t%d.a\n", pass);
-    else
+    } else {
         text.append_one("+mul_x2 r1.a, v0.a, t%d.a\n", pass);
+    }
 }
 
 } // namespace
@@ -144,11 +145,13 @@ void append_alpha_modulate(ShaderText& text, bool saturate, uint32_t pass)
 void compile_pixel_shaders()
 {
     bool& done = pixel_shaders_state().pixel_shaders_made_;
-    if (done)
+    if (done) {
         return;
+    }
     done = true;
-    for (int slot = kPixelShader920; slot < kPixelShaderCount; ++slot)
+    for (int slot = kPixelShader920; slot < kPixelShaderCount; ++slot) {
         hdl(slot) = nullptr;
+    }
     if (!renderer().shaders_available()) {
         // No pixel shaders: stand-ins the fixed-function stages tell apart (the original's numbers 1-10; here the
         // addresses of markers of their own - only compared, never given to the device).
@@ -156,8 +159,9 @@ void compile_pixel_shaders()
                                                               kPixelShader958, kPixelShader954, kPixelShader950,
                                                               kPixelShader94c, kPixelShader930, kPixelShader92c,
                                                               kPixelShader944});
-        for (size_t i = 0; i < kStandIns.size(); ++i)
+        for (size_t i = 0; i < kStandIns.size(); ++i) {
             hdl(core::at(kStandIns, i)) = &core::at(pixel_shaders_state().shader_stand_ins_, i);
+        }
     } else {
         void* shader = nullptr;
         void* errors = nullptr;
@@ -180,10 +184,12 @@ void compile_pixel_shaders()
             hdl(f.handle) = made;
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(f.handle), f.source);
-            if (shader)
+            if (shader) {
                 get_release(shader);
-            if (errors)
+            }
+            if (errors) {
                 get_release(errors);
+            }
         }
     }
     // (the shadow casters' table was made here: lists::ObjectSet, made with the program)
@@ -201,28 +207,32 @@ void* generated_pixel_shader(const void* material)
     }
     // The key: the pass count less one, each pass's mode (5 bits from bit 2), the passes and the flags at the top.
     uint32_t key = passes - 1;
-    for (uint32_t pass = 0; pass < passes; ++pass)
+    for (uint32_t pass = 0; pass < passes; ++pass) {
         key |= core::at(modes, pass) << (2 + (kModeBitsPerPass * pass));
+    }
     const uint32_t alpha_flags = pass_alpha_flags(material);
     key |= ((present * kPresentMultiplier) | alpha_flags) << kKeyPassShift;
     // In the cache? (the first item with the key and a shader)
     lists::KeyMap& cache = get_cache();
     for (const lists::KeyMap::Item* item = &core::at(cache.bucket_run(), key & ((1U << cache.bits()) - 1)); item;
          item = item->next) {
-        if (item->key == key && item->value)
+        if (item->key == key && item->value) {
             return item->value;
+        }
     }
 
     ShaderText text;
     text.append_one("ps.1.1\n");
-    for (uint32_t pass = 0; pass < passes; ++pass)
+    for (uint32_t pass = 0; pass < passes; ++pass) {
         text.append_one("tex t%d\n", pass);
+    }
     // The first pass into r0.
     if (present & 1) {
-        if (!(alpha_flags & 1))
+        if (!(alpha_flags & 1)) {
             text.append_one("mul_x2 r0.a, v0.a, t0.a\n");
-        else
+        } else {
             text.append_one("mov r0.a, t0.a\n");
+        }
         text.append_one("+mul_x2 r0.rgb, c0, t0\n");
     } else if (!(alpha_flags & 1)) {
         text.append_one("mul_x2 r0.a, v0.a, t0.a\n");
@@ -243,15 +253,17 @@ void* generated_pixel_shader(const void* material)
         if (present & bit) {
             text.append_one("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
             if (!brighten) {
-                if (!(alpha_flags & bit))
+                if (!(alpha_flags & bit)) {
                     append_alpha_modulate(text, mode == kBlendModeAlpha, pass);
-                else
+                } else {
                     text.append_one("+mov r1.a, t%d\n", pass);
+                }
             }
         } else if (!(alpha_flags & bit)) {
             text.append_one("mov r1.rgb, t%d\n", pass);
-            if (!brighten)
+            if (!brighten) {
                 append_alpha_modulate(text, mode == kBlendModeAlpha, pass);
+            }
         } else {
             reg = pass; // the texture itself
         }
@@ -306,16 +318,20 @@ void* generated_pixel_shader(const void* material)
     void* shader = nullptr;
     void* errors = nullptr;
     IDirect3DPixelShader9* handle = nullptr;
-    if (assemble_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &shader, &errors) != 0)
+    if (assemble_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &shader, &errors) !=
+        0) {
         buffer_pointer(errors); // (the error text, not shown)
+    }
     renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer.data());
     cache.store_entry(key, handle);
-    if (shader)
+    if (shader) {
         get_release(shader);
-    if (errors)
+    }
+    if (errors) {
         get_release(errors);
+    }
     return handle;
 }
 
@@ -331,10 +347,11 @@ void material_pixel_shader(const void* material, void** shader)
         return;
     }
     const uint32_t alpha_flags = pass_alpha_flags(material);
-    if (get_blend_mode(material, 0) == kBlendModeBrighten)
+    if (get_blend_mode(material, 0) == kBlendModeBrighten) {
         *shader = hdl(alpha_flags ? kPixelShader940 : kPixelShader944);
-    else
+    } else {
         *shader = hdl(alpha_flags ? kPixelShader960 : kPixelShader964);
+    }
 }
 
 } // namespace render

@@ -35,8 +35,9 @@ memory::ListNode* get_first(memory::ListNode* head)
 template <typename F>
 void for_each_child(memory::ListNode* head, F f)
 {
-    for (const memory::ListNode* node = head->next(); node->data() != kHeadData && node; node = node->next())
+    for (const memory::ListNode* node = head->next(); node->data() != kHeadData && node; node = node->next()) {
         f(static_cast<HitMesh*>(node->data()));
+    }
 }
 
 } // namespace
@@ -45,8 +46,9 @@ void for_each_child(memory::ListNode* head, F f)
 void HitMesh::assign_shape_data(TriMeshSource* geometry)
 {
     geometry_ = geometry;
-    if (geometry)
+    if (geometry) {
         checksum_ = geometry->checksum();
+    }
 }
 
 // 0x00413390 (the base's part of every deleting destructor)
@@ -95,8 +97,9 @@ gsl::owner<HitMeshGroup*> HitMeshGroup::replicate(int argument)
     copy->sub_nodes_ = new_head();
     for_each_child(sub_nodes_, [&](HitMesh* child) {
         auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
-        if (node)
+        if (node) {
             node->make_node(child->replicate(argument));
+        }
         memory::ListNode* head = copy->sub_nodes_;
         Expects(node != nullptr);
         node->set_prev(head->prev());
@@ -180,8 +183,9 @@ bool HitMeshGroup::collide_with_line(const maths::Seg* line, const maths::Vec4* 
 {
     bool any = false;
     for_each_child(sub_nodes_, [&](HitMesh* child) {
-        if (child->collide_with_line(line, direction, hit, line_box) || any)
+        if (child->collide_with_line(line, direction, hit, line_box) || any) {
             any = true;
+        }
     });
     return any;
 }

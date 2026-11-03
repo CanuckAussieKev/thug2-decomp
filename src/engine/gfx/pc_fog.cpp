@@ -23,11 +23,13 @@ constexpr int kFogConstantBlue = 18;
 // 0x004B8E40
 void toggle_fog(bool on)
 {
-    if ((renderer().fog_active() != 0) == on)
+    if ((renderer().fog_active() != 0) == on) {
         return;
+    }
     renderer().set_fog_active(on);
-    if (!engine_parts().loading_screen_up())
+    if (!engine_parts().loading_screen_up()) {
         renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
+    }
 }
 
 // 0x004B8E80
@@ -51,15 +53,17 @@ void set_fog_color(uint32_t rgba)
     const uint32_t a = rgba >> 24;
     if (a && !renderer().fog_active()) {
         renderer().set_fog_active(1);
-        if (!engine_parts().loading_screen_up())
+        if (!engine_parts().loading_screen_up()) {
             renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, 1);
+        }
     }
     // the density (alpha / 128, 0-1) for the pixel shaders' fog constant (0x00786F0C)
     double density = static_cast<double>(a) * (1.0 / kFogDensityScale);
-    if (!(density < 1.0))
+    if (!(density < 1.0)) {
         density = 1.0;
-    else if (!(density > 0.0))
+    } else if (!(density > 0.0)) {
         density = 0.0;
+    }
     renderer().set_ps_constant(kFogConstantRed, static_cast<float>(density));
     renderer().set_ps_constant(kFogConstantGreen, static_cast<float>(density));
     renderer().set_ps_constant(kFogConstantBlue, static_cast<float>(density));

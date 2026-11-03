@@ -106,8 +106,9 @@ MeshRef::MeshRef()
 // 0x004D4CA0
 long MeshRef::apply_vertex_colors()
 {
-    if (!per_vertex_bytes_)
+    if (!per_vertex_bytes_) {
         return 0;
+    }
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
     vb->set_lock_size(vb->size());
     vb->set_lock_offset(0);
@@ -117,8 +118,9 @@ long MeshRef::apply_vertex_colors()
     const std::span<const uint8_t> per_vertex(per_vertex_bytes_, vertex_count_);
     for (uint32_t i = 0; i < vertex_count_; ++i) {
         const int index = int{static_cast<int8_t>(core::at(per_vertex, i))};
-        if (index)
+        if (index) {
             vertices.set_word(i, color_offset_, core::at(colors, index - 1)); // (the vertex's colour word)
+        }
     }
     return core::at(vertex_buffers_, current_vertex_buffer_)->get_unlock();
 }
@@ -193,12 +195,14 @@ void MeshRef::change_bound_sphere(std::span<const float, 3> centre_in, float rad
 // 0x004D5C30
 void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexArena* arena)
 {
-    if (arena)
+    if (arena) {
         buffer_flags_ |= 4; // (a share of the arena's buffer)
+    }
     gsl::owner<VertexBuffer*> made = new_vertex_buffer(bytes, buffer_usage_, buffer_flags_); // (the mesh's)
     core::at(vertex_buffers_, 0) = made;
-    if (arena)
+    if (arena) {
         arena->size += (bytes + kArenaAlignSlack) & ~kArenaAlignMask;
+    }
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
     uint8_t* data = vb->data(); // (locked whole, inline)
     vb->set_lock_offset(0);
@@ -215,8 +219,9 @@ void release_buffers()
     renderer().d3d_device()->SetIndices(nullptr);
     for (const BufferNode* node = vertex_buffer_list(); node; node = node->next) {
         auto* vb = static_cast<VertexBuffer*>(node->buffer);
-        if (!vb)
+        if (!vb) {
             continue;
+        }
         IDirect3DVertexBuffer9* buffer = vb->buffer();
         if (buffer) {
             buffer->Release();
@@ -226,17 +231,21 @@ void release_buffers()
     }
     for (memory::ListNode* node = first_scene_node_bytes(); node;) {
         memory::ListNode* next = next_scene_node(node);
-        if (SceneRef* meshes = scene_meshes(node))
-            if (IDirect3DVertexBuffer9* arena = arena_buffer(meshes))
+        if (SceneRef* meshes = scene_meshes(node)) {
+            if (IDirect3DVertexBuffer9* arena = arena_buffer(meshes)) {
                 arena->Release();
+            }
+        }
         node = next;
     }
     for (const BufferNode* node = index_buffer_list(); node; node = node->next) {
         auto* ib = static_cast<IdxStore*>(node->buffer);
-        if (!ib)
+        if (!ib) {
             continue;
-        if (ib->buffer())
+        }
+        if (ib->buffer()) {
             ib->buffer()->Release();
+        }
         ib->buffer() = nullptr;
     }
 }
@@ -253,19 +262,23 @@ void recreate_buffers()
                                              &arena_buffer(meshes), nullptr);
             for (const BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);
-                if (vb && vb->buffer() == old)
+                if (vb && vb->buffer() == old) {
                     vb->set_buffer(arena_buffer(meshes)); // (the shares moved to the new arena buffer)
+                }
             }
         }
         node = next;
     }
-    for (const BufferNode* node = vertex_buffer_list(); node; node = node->next)
-        if (node->buffer)
+    for (const BufferNode* node = vertex_buffer_list(); node; node = node->next) {
+        if (node->buffer) {
             static_cast<VertexBuffer*>(node->buffer)->recreate();
+        }
+    }
     for (const BufferNode* node = index_buffer_list(); node; node = node->next) {
         auto* ib = static_cast<IdxStore*>(node->buffer);
-        if (!ib)
+        if (!ib) {
             continue;
+        }
         renderer().d3d_device()->CreateIndexBuffer(ib->size(), ib->usage() | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format()),
                                         D3DPOOL_DEFAULT, &ib->buffer(),
                                         nullptr);
@@ -280,14 +293,17 @@ void recreate_buffers()
 // 0x004D69E0
 MeshRef::~MeshRef()
 {
-    if (flags_ & kMeshFlagBillboard)
+    if (flags_ & kMeshFlagBillboard) {
         billboard_pool().remove_mesh(this);
-    if (transform)
+    }
+    if (transform) {
         memory::Hub::dealloc(transform);
+    }
     if (!(flags_ & 1)) { // (its own buffers, not another mesh's)
         for (IdxStore*& ib : index_buffers_) {
-            if (ib)
+            if (ib) {
                 ib->teardown();
+            }
             ib = nullptr;
         }
         if (per_vertex_bytes_) {
@@ -307,18 +323,21 @@ MeshRef::~MeshRef()
         UINT offset = 0;
         UINT stream_stride = 0;
         renderer().d3d_device()->GetStreamSource(0, &stream, &offset, &stream_stride);
-        if (stream)
+        if (stream) {
             stream->Release(); // (only compared with below)
+        }
         for (uint32_t i = 0; i < vertex_buffer_count_; ++i) {
             if (core::at(vertex_buffers_, i)) {
-                if (stream == core::at(vertex_buffers_, i)->buffer())
+                if (stream == core::at(vertex_buffers_, i)->buffer()) {
                     renderer().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
+                }
                 core::at(vertex_buffers_, i)->teardown();
                 core::at(vertex_buffers_, i) = nullptr;
             }
             if (core::at(extra_buffers_, i)) {
-                if (stream == core::at(extra_buffers_, i)->buffer())
+                if (stream == core::at(extra_buffers_, i)->buffer()) {
                     renderer().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
+                }
                 core::at(extra_buffers_, i)->teardown(); // (left pointing at it: cleared with the rest below)
             }
         }
@@ -327,10 +346,12 @@ MeshRef::~MeshRef()
             last_buffer_ = nullptr;
         }
     }
-    if (triangles_)
+    if (triangles_) {
         dealloc(memory::owned_element(triangles_));
-    if (positions_)
+    }
+    if (positions_) {
         dealloc(memory::owned_element(positions_));
+    }
     raw::zero_object(this);
 }
 

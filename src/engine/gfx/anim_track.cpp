@@ -94,8 +94,9 @@ AnimTrack::~AnimTrack()
 AnimTrack* AnimTrack::teardown_track(uint8_t flags)
 {
     this->~AnimTrack();
-    if (flags & 1)
+    if (flags & 1) {
         operator delete(this);
+    }
     return this;
 }
 
@@ -106,11 +107,13 @@ void AnimTrack::insert_controller(AnimDriver* controller, int priority)
     const int count = controller_count_;
     int at = 0;
     if (count > 0) {
-        while (at < controller_count_ && priority <= core::at(controller_list_, at)->rank())
+        while (at < controller_count_ && priority <= core::at(controller_list_, at)->rank()) {
             ++at;
+        }
         if (at < controller_count_) {
-            for (int i = count; i > at; --i)
+            for (int i = count; i > at; --i) {
                 core::at(controller_list_, i) = core::at(controller_list_, i - 1);
+            }
         }
     }
     core::at(controller_list_, at) = controller;
@@ -121,8 +124,9 @@ void AnimTrack::insert_controller(AnimDriver* controller, int priority)
 AnimDriver* AnimTrack::find_controller(uint32_t id)
 {
     for (int i = 0; i < controller_count_; ++i) {
-        if (core::at(controller_list_, i)->ident() == id)
+        if (core::at(controller_list_, i)->ident() == id) {
             return core::at(controller_list_, i);
+        }
     }
     return nullptr;
 }
@@ -138,22 +142,26 @@ void AnimTrack::tick_track()
         step *= fade_rate_;
         const double left = static_cast<double>(fade_left_) - step;
         fade_left_ = static_cast<float>(left);
-        if (left <= 0.0 || left * fade_scale_ < 0.0)
+        if (left <= 0.0 || left * fade_scale_ < 0.0) {
             cur_phase_ = AnimTrack::State::kOff;
+        }
     }
     if (cur_phase_ == AnimTrack::State::kPlaying || cur_phase_ == AnimTrack::State::kFading) {
-        for (int i = 0; i < controller_count_; ++i)
+        for (int i = 0; i < controller_count_; ++i) {
             core::at(controller_list_, i)->tick_frame();
+        }
     }
 }
 
 // 0x00481B40
 bool AnimTrack::start_fade(float period)
 {
-    if (period == 0.0F)
+    if (period == 0.0F) {
         cur_phase_ = AnimTrack::State::kOff;
-    if (cur_phase_ != AnimTrack::State::kPlaying)
+    }
+    if (cur_phase_ != AnimTrack::State::kPlaying) {
         return false;
+    }
     cur_phase_ = AnimTrack::State::kFading;
     fade_left_ = period;
     return true;
@@ -183,17 +191,21 @@ void AnimTrack::delete_events()
 void AnimTrack::load_events(uint32_t anim)
 {
     objects::ObjectModule* component = owner_object_->fetch_module(kAnimBlender);
-    if (!component)
+    if (!component) {
         return;
+    }
     const uint32_t table_name = core::down_cast<objects::AnimBlenderComponent>(component)->get_first_channel58();
-    if (!table_name)
+    if (!table_name) {
         return;
+    }
     Struct* table = script::read_sub_struct(table_name);
-    if (!table)
+    if (!table) {
         return;
+    }
     script::Array* list = nullptr;
-    if (!table->fetch_list(anim, &list, 0))
+    if (!table->fetch_list(anim, &list, 0)) {
         return;
+    }
     const uint32_t count = list->extent();
     events_ = std::vector<TimedClipEvent>(count);
     for (uint32_t i = 0; i < count; ++i) {
@@ -216,8 +228,9 @@ void AnimTrack::load_events(uint32_t anim)
 // 0x00481E10
 void AnimTrack::fire_events(float from, float to)
 {
-    if (!events_on_ || cur_phase_ != AnimTrack::State::kPlaying)
+    if (!events_on_ || cur_phase_ != AnimTrack::State::kPlaying) {
         return;
+    }
     // (frames: compared unrounded, passed on as floats)
     const double first = static_cast<double>(from) * 60.0;
     const double last = static_cast<double>(to) * 60.0;
@@ -230,8 +243,9 @@ void AnimTrack::fire_events(float from, float to)
     }
     for (TimedClipEvent& event : events_) {
         arm_event(&event, true);
-        if (event.inside_range(first_frame, last_frame, false))
+        if (event.inside_range(first_frame, last_frame, false)) {
             fire_event(&event, owner_object_);
+        }
     }
 }
 
@@ -287,8 +301,9 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
     if (name == kRemoveAnimController) {
         uint32_t id = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         params->read_hash_value(kId, &id, 1);
-        if (AnimDriver* controller = find_controller(id))
+        if (AnimDriver* controller = find_controller(id)) {
             detach_anim_driver(controller);
+        }
     } else if (name == kNewAnim) {
         uint32_t anim = 0; // (the original's is left as it was found on the stack when missing - an assert)
         params->read_hash_value(kAnim, &anim, 1);
@@ -313,8 +328,9 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
     }
     for (int i = 0; i < controller_count_; ++i) {
         const int result = core::at(controller_list_, i)->invoke_method_by_name(name, params, script);
-        if (result != kNotMine)
+        if (result != kNotMine) {
             return result;
+        }
     }
     return kNotMine;
 }
@@ -365,8 +381,9 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
 
     settings = script::new_struct();
     settings->push_float(checksums::Name{kFraction}, 0.0F);
-    for (int i = 0; i < controller_count_; ++i)
+    for (int i = 0; i < controller_count_; ++i) {
         core::at(controller_list_, i)->invoke_method_by_name(kSetTarget, settings, nullptr);
+    }
     script::free_struct(settings);
 
     settings = script::new_struct();
@@ -378,8 +395,9 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
     settings->push_float(checksums::Name{kSpeed}, speed);
     settings->put_name_key(checksums::Name{kWeightedAnim}, weighted_anim);
     settings->push_float(checksums::Name{kWeight}, weight);
-    for (int i = 0; i < controller_count_; ++i)
+    for (int i = 0; i < controller_count_; ++i) {
         core::at(controller_list_, i)->invoke_method_by_name(kPlayAnim, settings, nullptr);
+    }
     script::free_struct(settings);
 }
 

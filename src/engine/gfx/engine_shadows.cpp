@@ -164,22 +164,25 @@ void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matr
                                .y = static_cast<float>(static_cast<double>(dy) + position->y),
                                .z = static_cast<float>(static_cast<double>(dz) + position->z),
                                .w = static_cast<float>((offset * normal.w) + position->w)};
-    if (mesh_instance_)
+    if (mesh_instance_) {
         mesh_instance_->render(&placed, true, nullptr);
+    }
 }
 
 // 0x004A1880
 void BlobShadow::hide()
 {
-    if (mesh_instance_)
+    if (mesh_instance_) {
         mesh_instance_->change_live(0);
+    }
 }
 
 // 0x004A1890
 void BlobShadow::show()
 {
-    if (mesh_instance_)
+    if (mesh_instance_) {
         mesh_instance_->change_live(1);
+    }
 }
 
 // 0x004A1F80
@@ -247,8 +250,9 @@ ShadowEdges* find_shadow_edges(const TriMeshSource* key)
 void release_shadow_edges(const TriMeshSource* key)
 {
     ShadowEdges* edges = find_shadow_edges(key);
-    if (!edges || --edges->users != 0)
+    if (!edges || --edges->users != 0) {
         return;
+    }
     if (edges->edges) {
         memory::Hub::dealloc(edges->edges);
         edges->edges = nullptr;

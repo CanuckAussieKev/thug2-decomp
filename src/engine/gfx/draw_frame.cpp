@@ -190,8 +190,9 @@ void draw_2d_with_black_bars()
     };
     draw_2d(); // the 2D pass
     // (widescreen_menus: in the front end the 3D scene fills the sides, so no bars over it.)
-    if (get_front_end_widescreen())
+    if (get_front_end_widescreen()) {
         return;
+    }
 
     const auto back_buffer_width = static_cast<uint32_t>(gfx.back_buffer_width());
     const auto back_buffer_height = static_cast<uint32_t>(gfx.back_buffer_height());
@@ -227,8 +228,9 @@ void draw_2d_with_black_bars()
              .v = 0.0F},
         }};
         draw_primitive_up(kTriangleFan /* D3DPT_TRIANGLEFAN */, 2, bar.data(), sizeof(BarVertex));
-        for (BarVertex& corner : bar)
+        for (BarVertex& corner : bar) {
             corner.x += static_cast<float>(width + bar_width);
+        }
         draw_primitive_up(kTriangleFan, 2, bar.data(), sizeof(BarVertex));
     } else if (back_buffer_aspect < desired_aspect_ratio()) {
         // bars top and bottom
@@ -260,8 +262,9 @@ void draw_2d_with_black_bars()
              .v = 0.0F},
         }};
         draw_primitive_up(kTriangleFan, 2, bar.data(), sizeof(BarVertex));
-        for (BarVertex& corner : bar)
+        for (BarVertex& corner : bar) {
             corner.y += static_cast<float>(height + bar_height);
+        }
         draw_primitive_up(kTriangleFan, 2, bar.data(), sizeof(BarVertex));
     }
 }
@@ -310,9 +313,10 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     // Skatopia). The original: camera.farZ = 32000.0f;
     camera.far_z_ = kFarZ;
     camera.angle = angle;
-    if (view_setup().distance_clipping()) // distance clipping (setting 0x007D6444: 100-595)
+    if (view_setup().distance_clipping()) { // distance clipping (setting 0x007D6444: 100-595)
         camera.far_z_ =
             static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::draw_distance_setting())) * kDrawDistanceUnit);
+    }
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
     camera.far_z_ = graphics_options::get_scaled(camera.far_z_, graphics_options::get_pull().draw_distance_scale_);
@@ -378,8 +382,9 @@ static_assert(sizeof(ScreenVertex) == kScreenVertexBytes, "the draw's stride");
 // 0x004DF390
 void draw_screen_blur()
 {
-    if (!effects_state().screen_copy_in_use()) // blur available
+    if (!effects_state().screen_copy_in_use()) { // blur available
         return;
+    }
     change_fog(false);
     set_render_state(kDepthBiasState, 0);
     set_render_state(kLightingState, 0);
@@ -389,14 +394,17 @@ void draw_screen_blur()
     std::array<uint32_t, 4> mag_filter{};
     for (int i = 0; i < 4; ++i) {
         core::at(min_filter, i) = get_sampler_state(i, kSamplerMinFilter); // D3DSAMP_MINFILTER
-        if (core::at(min_filter, i) != 2)                  // D3DTEXF_LINEAR
+        if (core::at(min_filter, i) != 2) {                                // D3DTEXF_LINEAR
             set_sampler_state(i, kSamplerMinFilter, 2);
+        }
         core::at(mag_filter, i) = get_sampler_state(i, kSamplerMagFilter); // D3DSAMP_MAGFILTER
-        if (core::at(mag_filter, i) != 2)
+        if (core::at(mag_filter, i) != 2) {
             set_sampler_state(i, kSamplerMagFilter, 2);
+        }
     }
-    if (effects_state().bloom_on())
+    if (effects_state().bloom_on()) {
         get_bloom();
+    }
     set_render_state(RenderStateId::kAddressMode0, kClampBothWays);
     set_render_state(RenderStateId::kZWrite, 0);
     set_render_state(RenderStateId::kZTest, 0);
@@ -453,8 +461,9 @@ void draw_screen_blur()
     if (amount) {
         choose_blend_mode(effects_state().screen_blur_frames() > 2 ? kBlendModeAlpha : 0);
         color = amount << kAlphaShift | kNeutralRgb;
-        for (ScreenVertex& v : quad)
+        for (ScreenVertex& v : quad) {
             v.color = color;
+        }
     } else {
         choose_blend_mode(0);
     }
@@ -513,8 +522,9 @@ template <typename F>
 void for_each_scene(F fn)
 {
     auto* node = (engine_parts().scene_list().next());
-    if (is_end(node) || !node) // (sic: the original reads the node before testing it)
+    if (is_end(node) || !node) { // (sic: the original reads the node before testing it)
         return;
+    }
     while (node) {
         SceneNode* next = is_end(node->next()) ? nullptr : node->next();
         fn(scene_of(node));
@@ -562,8 +572,9 @@ void draw_viewport(int index)
 {
     const ViewRegion* view = fetch_current_view(index);
     void* camera = view->viewer().get_pull();
-    if (!camera)
+    if (!camera) {
         return;
+    }
     // Not original - the level editor (editor/level_editor.h): while it runs, the first viewport's camera is put
     // where the editor flies.
     // Original behaviour: the camera is drawn where the game put it.
@@ -618,16 +629,18 @@ void draw_viewport(int index)
         sys::screenshot::note_view(index, at, forward);
     }
     for_each_scene([&](PcScene* scene) {
-        if (scene->is_sky())
+        if (scene->is_sky()) {
             return;
+        }
         collect_occluders(viewer_location(camera), index);
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
         SceneRef* group = scene->meshes();
         if (!(group->flags() & kSceneCollisionBuiltFlag)) {
             group->flags() |= kSceneCollisionBuiltFlag;
-            for (MeshRef* mesh : group->mesh_run())
+            for (MeshRef* mesh : group->mesh_run()) {
                 mesh->build_collision();
+            }
         }
         draw_scene_group(scene, kMainScenePasses, index);
     });
@@ -657,11 +670,13 @@ void draw_viewport(int index)
     set_render_state(RenderStateId::kZWrite, 0);
     set_render_state(RenderStateId::kZTest, 1);
     for_each_scene([&](PcScene* scene) {
-        if (!scene->is_sky())
+        if (!scene->is_sky()) {
             return;
+        }
         // (with distance clipping and fog both on, there's no sky)
-        if (view_setup().distance_clipping() && view_setup().fog_setting())
+        if (view_setup().distance_clipping() && view_setup().fog_setting()) {
             return;
+        }
         const uint32_t min_filter = get_sampler_state(0, 6);
         const uint32_t mip_filter = get_sampler_state(0, 7);
         set_sampler_state(0, kSamplerMinFilter, 2); // linear
@@ -672,8 +687,9 @@ void draw_viewport(int index)
     });
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZWrite, 0);
-    if (renderer().radeon8500())
+    if (renderer().radeon8500()) {
         sun::render(static_cast<gfx::ViewCam*>(camera));
+    }
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZTest, 1);
     renderer().set_fog_begin_distance(saved_fog_start);
@@ -694,8 +710,9 @@ void draw_viewport(int index)
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZTest, 1);
     for_each_scene([&](PcScene* scene) {
-        if (!scene->is_sky())
+        if (!scene->is_sky()) {
             draw_scene_group(scene, kSkyFreeScenePasses, index);
+        }
     });
     set_pass(kOcclusionPass);
     issue_occlusion_queries();
@@ -706,8 +723,9 @@ void draw_viewport(int index)
     set_render_state(RenderStateId::kZWrite, 1);
     engine::draw_shatters();
     set_render_state(RenderStateId::kZWrite, 0);
-    if (!renderer().radeon8500())
+    if (!renderer().radeon8500()) {
         sun::render(static_cast<gfx::ViewCam*>(camera));
+    }
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZTest, 1);
     render_primitives();
@@ -738,8 +756,9 @@ void draw_world()
         // Original behaviour: the render mode (0x006FA734) isn't read.
         wireframe::begin_world();
         view_mode::begin_world(); // (not original either: the editor's view modes - engine/gfx/view_mode.h)
-        for (int i = 0; i < count; ++i)
+        for (int i = 0; i < count; ++i) {
             draw_viewport(i);
+        }
         view_mode::end_world();
         wireframe::end_world();
 

@@ -48,15 +48,17 @@ uint32_t& primitive_states() { return engine_primitive_state().primitive_states_
 // 0x0049C660
 Primitive::Primitive(int own) : owns_vertices_(own)
 {
-    if (own == 1)
+    if (own == 1) {
         link_primitive(this);
+    }
 }
 
 // 0x0049C6A0
 Primitive::~Primitive()
 {
-    if (owns_vertices_ == 1)
+    if (owns_vertices_ == 1) {
         unlink_primitive(this);
+    }
 }
 
 // 0x0049C6C0
@@ -69,16 +71,18 @@ void Primitive::get_ready()
 // 0x0049C6D0
 void Primitive::render_if_ready()
 {
-    if (ready_)
+    if (ready_) {
         render();
+    }
 }
 
 // 0x0049C6E0
 void Primitive::draw_if_ready(std::span<const float> positions, std::span<const uint32_t> colours, std::span<const float> uvs,
                               std::span<const float> normals)
 {
-    if (ready_)
+    if (ready_) {
         blit(positions, colours, uvs, normals);
+    }
 }
 
 // --- the virtuals' bodies (0x0049C390-0x0049C640) ---
@@ -188,8 +192,9 @@ void unlink_primitive(Primitive* primitive)
         *list = before->following();
         return;
     }
-    while (before && before->following() && before->following() != primitive)
+    while (before && before->following() && before->following() != primitive) {
         before = before->following();
+    }
     Expects(before != nullptr);
     before->following() = before->following()->following(); // (not found: through null, as the original)
 }
@@ -204,19 +209,22 @@ void render_primitives()
         if (*at) {
             for (;;) {
                 const int order = primitive->weigh(*at);
-                if (order < 0)
+                if (order < 0) {
                     break;
+                }
                 at = &(*at)->following();
-                if (!*at)
+                if (!*at) {
                     break;
+                }
             }
         }
         primitive->following() = *at;
         *at = primitive;
     }
     for (Primitive* primitive = drawn_primitives(); primitive; primitive = primitive->following()) {
-        if (primitive->ready())
+        if (primitive->ready()) {
             primitive->render_if_ready();
+        }
     }
 }
 

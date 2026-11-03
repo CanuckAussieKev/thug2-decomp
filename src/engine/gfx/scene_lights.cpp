@@ -101,8 +101,9 @@ script::Struct*& queue_params() { return scene_lights_state().queue_params_; }
 // The table's iteration, inlined in the original: the first / next value (null at the end).
 void* next_value(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item())
+    if (!table->step_iterator() || !table->iter_item()) {
         return nullptr;
+    }
     return table->iter_item()->value;
 }
 void* get_first_value(lists::KeyMap* table)
@@ -116,8 +117,9 @@ LevelLamp* find_scene_light(uint32_t name)
 {
     auto& lamps = light_sets();
     for (int i = 0; i < lamps.scene_light_count(); ++i) {
-        if (core::at(lamps.level_lamps(), i).label() == name)
+        if (core::at(lamps.level_lamps(), i).label() == name) {
             return &core::at(lamps.level_lamps(), i);
+        }
     }
     return nullptr;
 }
@@ -142,8 +144,9 @@ public:
     {
         auto d2 = static_cast<float>(distance_squared);
         const double radius = light.radius();
-        if (!(d2 < radius * radius))
+        if (!(d2 < radius * radius)) {
             return;
+        }
         const double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength();
         const colour::Bytes colour = colour::bytes_of(light.shade());
         r += core::at(colour, 0) * f;
@@ -198,12 +201,14 @@ LevelLamp* LevelLamp::make_new()
 // 0x0048F1A0
 void LevelLamp::set_reach(float radius)
 {
-    if (radius == radius_) // (NaN: set)
+    if (radius == radius_) { // (NaN: set)
         return;
+    }
     radius_ = radius;
     DynamicLightBase* const* slot = find_dynamic_light(label_);
-    if (!slot)
+    if (!slot) {
         return;
+    }
     (*slot)->set_radius(radius);
     (*slot)->set_inverse_radius(radius == 0.0F ? kNoRadiusInverse : static_cast<float>(1.0 / radius));
 }
@@ -222,15 +227,18 @@ void LevelLamp::find_sectors(script::Array* excluded)
 {
     sectors_->clear();
     const WorldScene* scene = get_main_scene();
-    if (!scene)
+    if (!scene) {
         return;
+    }
     lists::KeyMap* sectors = scene->sectors();
-    if (!sectors)
+    if (!sectors) {
         return;
+    }
     for (auto* sector = static_cast<WorldCell*>(get_first_value(sectors)); sector;
          sector = static_cast<WorldCell*>(next_value(sectors))) {
-        if (sector->light_group() == kNolevellights || sector->light_group() == kIndoor || !sector->geom_handle())
+        if (sector->light_group() == kNolevellights || sector->light_group() == kIndoor || !sector->geom_handle()) {
             continue;
+        }
         const maths::BBox* box = sector->fetch_bounds();
         // The box's centre (x and y rounded to floats, z not), its half-diagonal, the distance to the light (its z
         // offset squared against itself rounded to a float).
@@ -245,8 +253,9 @@ void LevelLamp::find_sectors(script::Array* excluded)
         const double dz = cz - at_point_.z;
         auto distance = static_cast<float>(std::sqrt((dz * static_cast<float>(dz)) + (dy * dy) + (dx * dx)));
         const double half = std::sqrt((hz * hz) + (hy * hy) + (hx * hx));
-        if (!(half + radius_ > distance))
+        if (!(half + radius_ > distance)) {
             continue;
+        }
         const uint32_t count = excluded ? excluded->extent() : 0;
         bool skip = false;
         for (uint32_t i = 0; i < count; ++i) {
@@ -255,8 +264,9 @@ void LevelLamp::find_sectors(script::Array* excluded)
                 break;
             }
         }
-        if (skip)
+        if (skip) {
             continue;
+        }
         sectors_->insert(sector);
     }
 }
@@ -266,21 +276,24 @@ void apply_scene_lights_to_sector(WorldCell* sector)
 {
     auto& lamps = light_sets();
     Geom* geom = geom_of(sector);
-    if (!geom)
+    if (!geom) {
         return;
+    }
     std::array<int, kMaxLightsChosenSize> lights{};
     int found = 0;
     for (int i = 0; i < lamps.scene_light_count(); ++i) {
         LevelLamp& light = core::at(lamps.level_lamps(), i);
         if (light.strength() > 0.0F && light.touches_sector(sector)) {
             core::at(lights, found) = i;
-            if (++found >= kMaxLightsChosen)
+            if (++found >= kMaxLightsChosen) {
                 break;
+            }
         }
     }
     auto count = static_cast<int>(get_vertex_count(geom));
-    if (count <= 0)
+    if (count <= 0) {
         return;
+    }
     if (found == 0) { // its own colours back
         auto* colours_block = static_cast<uint32_t*>(memory::alloc(count * 4));
         const std::span<uint32_t> colours(colours_block, static_cast<size_t>(count));
@@ -301,8 +314,9 @@ void apply_scene_lights_to_sector(WorldCell* sector)
             const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, l));
             sums.append_one(light, offset_squared_zxy(core::at(vertices, v), light.at_point()));
         }
-        if (sums.lit())
+        if (sums.lit()) {
             core::at(colours, v) = sums.get_apply(core::at(colours, v));
+        }
     }
     set_colours(geom, colours);
     memory::dealloc(vertices_block);
@@ -326,12 +340,14 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
             const double dz = static_cast<double>(first.z) - light.at_point().z;
             facing = (dz * normal->z) + (dy * normal->y) + (dx * normal->x) <= 0.0; // (NaN: not)
         }
-        if (!(light.strength() > 0.0F))
+        if (!(light.strength() > 0.0F)) {
             continue;
+        }
         const double rr = static_cast<double>(light.radius()) * light.radius();
         const double d2 = offset_squared_zyx(core::at(positions, 0), light.at_point());
-        if (!(rr >= d2) || !facing)
+        if (!(rr >= d2) || !facing) {
             continue;
+        }
         core::at(lights, found++) = i;
     }
     if (found == 0) {
@@ -344,22 +360,26 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
             const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, l));
             sums.append_one(light, offset_squared_zyx(core::at(positions, v), light.at_point()));
         }
-        if (sums.lit())
+        if (sums.lit()) {
             core::at(out, v) = sums.get_apply(core::at(in, v));
+        }
     }
 }
 
 // 0x0048FC00
 void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 {
-    if (!name)
+    if (!name) {
         return;
+    }
     const LevelLamp* light = find_scene_light(name);
-    if (!light || !light->sectors())
+    if (!light || !light->sectors()) {
         return;
+    }
     light->sectors()->for_each([](WorldCell* sector) {
-        if (sector->geom_handle())
+        if (sector->geom_handle()) {
             apply_scene_lights_to_sector(sector);
+        }
     });
 }
 
@@ -392,8 +412,9 @@ void delete_scene_light(uint32_t name)
 void delete_all_scene_lights()
 {
     auto& lamps = light_sets();
-    for (int i = 0; i < lamps.scene_light_count(); ++i)
+    for (int i = 0; i < lamps.scene_light_count(); ++i) {
         core::at(lamps.level_lamps(), i).clear_sectors();
+    }
     lamps.scene_light_count() = 0;
 }
 
@@ -421,8 +442,9 @@ void queue_scene_lights(std::span<const uint32_t> nodes, int frames, script::Str
     const auto count = static_cast<int>(nodes.size());
     clear_scene_light_queue();
     gsl::owner<script::Struct*> copy = script::spawn_param_bag();
-    if (copy)
+    if (copy) {
         new (copy) script::Struct;
+    }
     queue_params() = copy;
     Expects(copy != nullptr);
     copy->append_structure_if_any(params);
@@ -438,8 +460,9 @@ void queue_scene_lights(std::span<const uint32_t> nodes, int frames, script::Str
 // 0x004904E0
 void update_scene_light_queue()
 {
-    if (!queued_nodes() || objects::simulation_halted()) // (paused)
+    if (!queued_nodes() || objects::simulation_halted()) { // (paused)
         return;
+    }
     if (queue_frame() > queue_frames()) {
         clear_scene_light_queue();
         return;
@@ -466,8 +489,9 @@ void update_scene_light(uint32_t name, script::Struct* params)
             value = static_cast<float>(value * static_cast<double>(kPercent));
             if (value != light->strength()) { // (NaN: set)
                 light->set_strength(value);
-                if (DynamicLightBase* const* slot = find_dynamic_light(light->label()))
+                if (DynamicLightBase* const* slot = find_dynamic_light(light->label())) {
                     (*slot)->set_intensity(value);
+                }
             }
         }
         if (params->fetch_float(kOuterRadius, &value, 0)) {
@@ -480,21 +504,24 @@ void update_scene_light(uint32_t name, script::Struct* params)
             const uint32_t colour = static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
                                     static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000U;
             light->set_shade(colour);
-            if (DynamicLightBase* const* slot = find_dynamic_light(light->label()))
+            if (DynamicLightBase* const* slot = find_dynamic_light(light->label())) {
                 (*slot)->set_colour(colour);
+            }
         }
         apply_scene_light(scene, name);
         return;
     }
     DynamicLightBase** slot = find_dynamic_light(name);
-    if (!slot)
+    if (!slot) {
         return;
+    }
     if (params->fetch_float(kAmountKey, &value, 0)) {
         value = static_cast<float>(value * static_cast<double>(kPercent));
         (*slot)->set_intensity(value);
     }
-    if (params->fetch_float(kOuterRadius, &value, 0))
+    if (params->fetch_float(kOuterRadius, &value, 0)) {
         (*slot)->set_reach(value);
+    }
     if (params->fetch_int_value(kRED, &red, 0)) {
         params->fetch_int_value(kGreen, &green, 1);
         params->fetch_int_value(kBlue, &blue, 1);
@@ -511,24 +538,28 @@ LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, LampLight
     const auto colour = lamp_light.colour;
     const auto radius = lamp_light.radius;
     auto& lamps = light_sets();
-    if (lamps.scene_light_count() >= kMaxSceneLights)
+    if (lamps.scene_light_count() >= kMaxSceneLights) {
         return nullptr;
+    }
     const double intensity = brightness * static_cast<double>(kPercent);
     LevelLamp* light = &core::at(lamps.level_lamps(), lamps.scene_light_count()++);
     light->set_label(name);
     light->at_point() = *pos;
     if (light->strength() != intensity) { // (the slot's old value; NaN: set)
         light->set_strength(static_cast<float>(intensity));
-        if (DynamicLightBase* const* slot = find_dynamic_light(name))
+        if (DynamicLightBase* const* slot = find_dynamic_light(name)) {
             (*slot)->set_intensity(static_cast<float>(intensity));
+        }
     }
     light->set_shade(colour);
-    if (DynamicLightBase* const* slot = find_dynamic_light(light->label()))
+    if (DynamicLightBase* const* slot = find_dynamic_light(light->label())) {
         (*slot)->set_colour(colour);
+    }
     light->set_reach(radius);
     light->find_sectors(excluded);
-    if (brightness > 0.0F)
+    if (brightness > 0.0F) {
         apply_scene_light(get_main_scene(), name);
+    }
     return light;
 }
 
@@ -584,8 +615,9 @@ namespace render {
 // 0x00640BC0 (a static initialiser): the 150 scene lights (each with its table of sectors).
 void construct_scene_lights()
 {
-    for (LevelLamp& light : light_sets().level_lamps())
+    for (LevelLamp& light : light_sets().level_lamps()) {
         light.make_new();
+    }
 }
 
 } // namespace render

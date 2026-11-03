@@ -26,8 +26,9 @@ public:
         const int read = file::get_take_in(out, static_cast<int>(bytes), 1, file_);
         if (read != ints::as_signed(bytes)) {
             ok_ = false;
-            if (read >= 0 && ints::as_unsigned(read) < bytes)
+            if (read >= 0 && ints::as_unsigned(read) < bytes) {
                 std::memset(std::span<uint8_t>(static_cast<uint8_t*>(out), bytes).subspan(static_cast<size_t>(read)).data(), 0, bytes - static_cast<size_t>(read));
+            }
             return false;
         }
         position_ += bytes;

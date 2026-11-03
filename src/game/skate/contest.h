@@ -115,11 +115,12 @@ public:
 // one little-endian word - what the original reached past the scores; any other index ends the game.
 [[nodiscard]] inline int get_word(const Contest::Leader& leader, int index)
 {
-    if (index == Contest::kRuns)
+    if (index == Contest::kRuns) {
         return static_cast<int>(static_cast<uint32_t>(leader.unknown1c) |
                                 (static_cast<uint32_t>(core::at(leader.pad1d, 0)) << kByteShift1) |
                                 (static_cast<uint32_t>(core::at(leader.pad1d, 1)) << kByteShift2) |
                                 (static_cast<uint32_t>(core::at(leader.pad1d, 2)) << kByteShift3));
+    }
     return core::at(leader.scores, index);
 }
 // best_two of the four words from the scores on (the debug output's: unknown1c and its padding the fourth).

@@ -63,10 +63,12 @@ public:
     ShadowSilhouetteEdge& add(int index)
     {
         const auto i = static_cast<size_t>(index);
-        if (i < room_.size())
+        if (i < room_.size()) {
             return core::at(room_, i);
-        if (beyond_.size() <= i - room_.size())
+        }
+        if (beyond_.size() <= i - room_.size()) {
             beyond_.resize(i - room_.size() + 1);
+        }
         return core::at(beyond_, i - room_.size());
     }
 
@@ -95,8 +97,9 @@ void add_edge(EdgeStore& store, int& count, uint16_t from, uint16_t to, const ma
         core::at(edge.corners, 3).normal = normal;
         break;
     }
-    if (i != count)
+    if (i != count) {
         return;
+    }
     ShadowSilhouetteEdge& edge = store.add(count++);
     for (int k = 0; k < 4; ++k) {
         core::at(edge.corners, k).vertex = k < 2 ? from : to;
@@ -110,8 +113,9 @@ void add_edge(EdgeStore& store, int& count, uint16_t from, uint16_t to, const ma
 // 0x004A22F0
 void ShadowVolume::change_mesh(RenderModel* /*unused*/, const SubMesh* asset_data)
 {
-    if (asset_data)
+    if (asset_data) {
         model_key_ = asset_data->hit_shape();
+    }
     edges_ = find_shadow_edges(model_key_);
     if (edges_) {
         ++edges_->users;
@@ -144,8 +148,9 @@ void ShadowVolume::change_mesh(RenderModel* /*unused*/, const SubMesh* asset_dat
         const std::span<const TriMeshSource> mesh_run(meshes, static_cast<size_t>(get_mesh_count(asset_data)));
         for (int m = 0; m < get_mesh_count(asset_data); ++m) {
             const TriMeshSource& mesh = core::at(mesh_run, m);
-            if (get_skipped(mesh))
+            if (get_skipped(mesh)) {
                 continue;
+            }
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
             for (int f = 0; std::cmp_less(f, mesh.tri_count()); ++f) {
                 const auto a = static_cast<uint16_t>(mesh.face_vertex(f, 0));

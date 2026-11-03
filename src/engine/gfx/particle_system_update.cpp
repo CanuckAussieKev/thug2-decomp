@@ -128,8 +128,9 @@ const std::array<uint32_t, 4> kStartChannels = {{0x043FD725, 0x69E233CE, 0x1988C
 maths::Vec4 get_vector_or_xyz(script::Struct* params, uint32_t name)
 {
     script::VectorValue v{};
-    if (params->fetch_vec(name, &v, 0))
+    if (params->fetch_vec(name, &v, 0)) {
         return {.x = v.x, .y = v.y, .z = v.z, .w = 0.0F};
+    }
     maths::Vec4 xyz{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     params->fetch_float(kX, &xyz.x, 0);
     params->fetch_float(kY, &xyz.y, 0);
@@ -157,8 +158,9 @@ void set_sizes(EmitterInstance* system, FlexibleParticle& p)
 // 0x00496FE0
 void EmitterInstance::get_emit(int count)
 {
-    if (fading_out_)
+    if (fading_out_) {
         return;
+    }
     const int first = particle_count_;
     const int total = count + first;
     particle_count_ = total > max_particles_ ? max_particles_ : total;
@@ -249,13 +251,15 @@ void EmitterInstance::get_emit(int count)
                 pos_z = new_z;
             }
         }
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 3; ++k) {
             core::at(p.force, k) = core::at(force_, k);
+        }
         set_sizes(this, p);
         p.age = 0.0F;
         p.lifetime = static_cast<float>(random_between(core::at(age_left_, 0), core::at(age_left_, 1)));
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 3; ++k) {
             core::at(p.velocity, k) = core::at(velocity, k);
+        }
         for (int step = 0; step < get_num_vertex_lists(); ++step) {
             const std::span<float, 3> pos = position_of(this, i, step);
             if (emitter_independent_) {
@@ -330,8 +334,9 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         }
         if (first < get_num_colours() && last < get_num_colours()) {
             for (int i = first; i < last + 1; ++i) {
-                if (i >= get_num_colours())
+                if (i >= get_num_colours()) {
                     continue;
+                }
                 colour::Bytes end = colour::bytes_of(core::at(end_colour_, i));
                 colour::Bytes mid = colour::bytes_of(core::at(mid_colour_, i));
                 colour::Bytes start = colour::bytes_of(core::at(start_colour_, i));
@@ -343,17 +348,19 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
                     }
                 }
                 for (int k = 0; k < 4; ++k) {
-                    if (params->fetch_int_value(core::at(kMidChannels, k), &value, 0))
+                    if (params->fetch_int_value(core::at(kMidChannels, k), &value, 0)) {
                         core::at(mid, k) = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
                                                   : static_cast<uint8_t>(value);
+                    }
                 }
                 for (int k = 0; k < 4; ++k) { // (the end too, unless it was given)
                     if (params->fetch_int_value(core::at(kStartChannels, k), &value, 0)) {
                         const uint8_t byte = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
                                                     : static_cast<uint8_t>(value);
                         core::at(start, k) = byte;
-                        if (!end_colour_set_)
+                        if (!end_colour_set_) {
                             core::at(end, k) = byte;
+                        }
                     }
                 }
                 core::at(end_colour_, i) = colour::packed_of(end);
@@ -412,8 +419,9 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
     }
     case kSetEmitTarget: {
         const maths::Vec4 target = get_vector_or_xyz(params, kTarget);
-        if (!(target.x == 0.0F) || !(target.y == 1.0F) || !(target.z == 0.0F)) // (up is the default; NaN isn't)
+        if (!(target.x == 0.0F) || !(target.y == 1.0F) || !(target.z == 0.0F)) { // (up is the default; NaN isn't)
             set_emit_target(target);
+        }
         break;
     }
     case kSetLife: {
@@ -508,8 +516,9 @@ void EmitterInstance::tick_frame(float time, bool skip)
         delete this;
         return;
     }
-    if (skip || !unknown12f_)
+    if (skip || !unknown12f_) {
         return;
+    }
     run_emit_script();
     update_bounds();
     unknown130_ = true;
@@ -537,19 +546,23 @@ void EmitterInstance::tick_frame(float time, bool skip)
             get_emit(count);
         }
     }
-    if (tick_script_)
+    if (tick_script_) {
         tick_script_->tick_frame();
-    if (!moving_ || time == 0.0F)
+    }
+    if (!moving_ || time == 0.0F) {
         return;
-    if (update_brightness_)
+    }
+    if (update_brightness_) {
         update_ground_brightness(false);
+    }
     auto dt = static_cast<float>(static_cast<double>(view_setup().frame_time_scale()) * time);
     for (int i = 0; i < particle_count_; ++i) {
         FlexibleParticle& p = core::at(particle_list_, i);
         p.age = static_cast<float>(static_cast<double>(time) + p.age);
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 3; ++k) {
             core::at(p.velocity, k) =
                 static_cast<float>((static_cast<double>(dt) * core::at(p.force, k)) + core::at(p.velocity, k));
+        }
         for (int step = get_num_vertex_lists() - 1; step > 0; --step) { // the history moves on a step
             const std::span<const float, 3> from = position_of(this, i, step - 1);
             const std::span<float, 3> to = position_of(this, i, step);
@@ -558,9 +571,10 @@ void EmitterInstance::tick_frame(float time, bool skip)
             core::at(to, 2) = core::at(from, 2);
         }
         const std::span<float, 3> pos = position_of(this, i, 0);
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 3; ++k) {
             core::at(pos, k) =
                 static_cast<float>((static_cast<double>(dt) * core::at(p.velocity, k)) + core::at(pos, k));
+        }
     }
     for (int i = 0; i < particle_count_; ++i) { // the expired
         if (core::at(particle_list_, i).age > core::at(particle_list_, i).lifetime) {
@@ -593,10 +607,11 @@ uint32_t* ModelParticles::lerp_colour(uint32_t* out, const colour::Bytes& from, 
     const uint8_t a = lerp(3);
     const double red = static_cast<double>(core::at(colour_scale(), 0)) * brightness();
     auto clamp = [](double value) {
-        if (value < 0.0)
+        if (value < 0.0) {
             value = 0.0;
-        else if (value > kByteMax)
+        } else if (value > kByteMax) {
             value = kByteMax;
+        }
         return static_cast<uint8_t>(truncate(value));
     };
     std::array<uint8_t, 4> bytes = {{clamp(red * r), clamp(green * g), clamp(static_cast<double>(b) * blue), a}};

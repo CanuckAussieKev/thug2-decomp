@@ -63,8 +63,9 @@ uint32_t get_back_buffer_height() { return static_cast<uint32_t>(renderer().back
 uint8_t current_level()
 {
     const modules::Skate* skate = modules::Skate::sole();
-    if (!skate)
+    if (!skate) {
         return 0;
+    }
     return static_cast<uint8_t>(skate->career()->level()); // (its low byte, as the original reads it)
 }
 
@@ -73,8 +74,9 @@ float desired_aspect_ratio()
     // (the window's size as unsigned numbers)
     auto width = static_cast<uint32_t>(sys::get_window_width());
     auto height = static_cast<uint32_t>(sys::get_window_height());
-    if (current_level() == 0)
+    if (current_level() == 0) {
         return kAspectWidth / kAspectHeight;
+    }
     return static_cast<float>(width) / static_cast<float>(height);
 }
 
@@ -88,8 +90,9 @@ bool get_front_end_widescreen() { return widescreen_menus() && current_level() =
 
 float desired_3d_aspect_ratio()
 {
-    if (!get_front_end_widescreen())
+    if (!get_front_end_widescreen()) {
         return desired_aspect_ratio();
+    }
     auto width = static_cast<uint32_t>(sys::get_window_width());
     auto height = static_cast<uint32_t>(sys::get_window_height());
     return static_cast<float>(width) / static_cast<float>(height);
@@ -117,8 +120,9 @@ float fetch_fov_ratio()
     // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
     const float factor = aspect > 4.0F / 3.0F ? aspect / (4.0F / 3.0F) : 1.0F;
     view_ratio_slot() = aspect;
-    if (view_setup().angle_factor() != 1.0F)
+    if (view_setup().angle_factor() != 1.0F) {
         return view_setup().angle_factor();
+    }
     return factor;
 }
 
@@ -130,8 +134,9 @@ void set_screen_blur(uint32_t amount)
         effects_state().screen_blur() = 0;
         return;
     }
-    if (blur_available())
+    if (blur_available()) {
         effects_state().screen_blur() = amount;
+    }
 }
 
 // 0x004B2440. The original squashes the 3D view vertically to 3/4 of the screen, centred, and back:

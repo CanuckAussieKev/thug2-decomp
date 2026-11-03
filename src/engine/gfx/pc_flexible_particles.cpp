@@ -114,10 +114,11 @@ static_assert(sizeof(QuadVertex) == kQuadVertexBytes, "layout must match the ori
 
 uint8_t clamped_byte(double value)
 {
-    if (value < 0.0F)
+    if (value < 0.0F) {
         value = 0.0F;
-    else if (value > kByteMax)
+    } else if (value > kByteMax) {
         value = kByteMax;
+    }
     return static_cast<uint8_t>(truncate(value));
 }
 
@@ -148,12 +149,14 @@ uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const colour
 // The rate's particles for this frame (1/60 s) emitted through the engine's 0x00496FE0, the fraction kept.
 void emit_for_frame(EmitterInstance& system, float& accumulator)
 {
-    if (!(system.emit_rate() > 0.0F))
+    if (!(system.emit_rate() > 0.0F)) {
         return;
+    }
     const double owed = (static_cast<double>(system.emit_rate()) * (1.0F / 60.0F)) + accumulator; // (0x006463B8)
     accumulator = static_cast<float>(owed);
-    if (owed < 1.0F || owed != owed)
+    if (owed < 1.0F || owed != owed) {
         return;
+    }
     system.get_emit(truncate(owed));
     accumulator = static_cast<float>(accumulator - static_cast<double>(truncate(accumulator)));
 }
@@ -218,8 +221,9 @@ void aligned_axes(const EmitterInstance& system, maths::Vec4& r, maths::Vec4& u)
     double p = 0.0F;
     double q = 1.0F; // (up: y - or x when alignTo is y itself)
     const double dot = (az * 0.0F) + (ax * 0.0F) + ay;
-    if (1.0F == dot)
+    if (1.0F == dot) {
         p = 1.0F, q = 0.0F;
+    }
     r.x = static_cast<float>((ay * 0.0F) - (az * q));
     r.y = static_cast<float>((az * p) - (ax * 0.0F));
     r.z = static_cast<float>((q * ax) - (ay * p));
@@ -282,9 +286,11 @@ gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_na
         {.type = 0xDEDFC057, .construct = &make_plain<PcNewFlatParticles>},                // newflat
     });
     const EmitterType* chosen = &core::at(kTypes, kDefaultTypeIndex); // (any other type: newflat)
-    for (const EmitterType& t : kTypes)
-        if (t.type == type)
+    for (const EmitterType& t : kTypes) {
+        if (t.type == type) {
             chosen = &t;
+        }
+    }
     const ConstructArgs args{.name = name, .particle_cap_ = particle_cap, .texture = texture, .blend_mode_ = blend_mode, .fixed_alpha_ = fixed_alpha, .segments = segments, .unknown = unknown, .history = history, .model = model};
     return chosen->construct(args); // (zeroed memory on the current heap, with the assert flag: the system's new)
 }
@@ -393,19 +399,22 @@ void PcNewFlatParticles::render()
                                  .v = 1.0F};
                     vertex += 4;
                     ++quads;
-                    if (quads >= room - 4)
+                    if (quads >= room - 4) {
                         break;
+                    }
                     ++particle;
                     ++index;
                     place += 3;
-                    if (index >= particle_count())
+                    if (index >= particle_count()) {
                         break;
+                    }
                 }
             }
             remaining -= static_cast<int>(quads);
             os_layer::unlock_dynamic_vertices(quads * 4, sizeof(QuadVertex));
-            if (quads >= room - 4)
+            if (quads >= room - 4) {
                 break; // (full: the original stops here, undrawn)
+            }
             renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
             renderer().d3d_device()->SetIndices(quad_index_buffer());
             renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
@@ -453,8 +462,9 @@ void get_across(std::span<const float, 3> p0, std::span<const float, 3> p1, doub
     core::at(n, 1) = static_cast<float>((a * dz) - (c * dx));
     double z = (b * dx) - (a * dy);
     core::at(n, 2) = static_cast<float>(z);
-    if (first)
+    if (first) {
         z = core::at(n, 2);
+    }
     const double length = std::sqrt((static_cast<double>(core::at(n, 0)) * core::at(n, 0)) + (z * z) +
                                     (static_cast<double>(core::at(n, 1)) * core::at(n, 1)));
     if (length > 0.0F) {
@@ -485,8 +495,9 @@ PcFlatRibbonParticles::~PcFlatRibbonParticles() { free_material(material); }
 // 0x004BDDD0
 void PcFlatRibbonParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
@@ -570,21 +581,25 @@ void PcFlatRibbonParticles::render()
                     previous_colour = colour;
                     triangles += 2;
                     vertices += 4;
-                    if (vertices >= room - 4)
+                    if (vertices >= room - 4) {
                         break;
+                    }
                 }
-                if (vertices >= room - 4)
+                if (vertices >= room - 4) {
                     break;
+                }
                 ++index;
                 ++particle;
-                if (index >= particle_count())
+                if (index >= particle_count()) {
                     break;
+                }
             }
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(TrailVertex));
-        if (vertices >= room - 4)
+        if (vertices >= room - 4) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
         renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
@@ -666,18 +681,21 @@ void PcFlatRibbonParticles::render()
                 vertex += 4;
                 vertices += 4;
                 triangles += 2;
-                if (vertices >= room - 4)
+                if (vertices >= room - 4) {
                     break;
+                }
                 ++index;
                 ++particle;
-                if (index >= particle_count())
+                if (index >= particle_count()) {
                     break;
+                }
             }
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(QuadVertex));
-        if (vertices >= room - 4)
+        if (vertices >= room - 4) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
         renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
@@ -706,8 +724,9 @@ PcGlowParticles::~PcGlowParticles() { free_material(material); }
 // 0x004BEE50
 void PcGlowParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     maths::Vec4 r;
     maths::Vec4 u;
     camera_axes(r, u);
@@ -749,8 +768,9 @@ void PcGlowParticles::render()
             // The centre's, the edge's and the outer ring's colours (each its own of the three colour arrays').
             const ColourSpan span = colour_span(*this, life);
             std::array<uint32_t, 3> colours{};
-            for (int k = 0; k < 3; ++k)
+            for (int k = 0; k < 3; ++k) {
                 core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
+            }
             const double w = glow_width();
 
             // The rings' points at angle 0: outer (r sin, u cos, times the width), inner.
@@ -849,8 +869,9 @@ PcLineParticles::~PcLineParticles() { free_material(material); }
 // 0x004C0B30
 void PcLineParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
@@ -872,22 +893,25 @@ void PcLineParticles::render()
             place_of(this, max_particles() + index, p1);
             const ColourSpan span = colour_span(*this, life);
             std::array<uint32_t, 2> colours{};
-            for (int k = 0; k < 2; ++k)
+            for (int k = 0; k < 2; ++k) {
                 core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
+            }
             vertex[0] = {.x = core::at(p0, 0), .y = core::at(p0, 1), .z = core::at(p0, 2), .colour = core::at(colours, 0)};
             vertex[1] = {.x = core::at(p1, 0), .y = core::at(p1, 1), .z = core::at(p1, 2), .colour = core::at(colours, 1)};
             vertex += 2;
             vertices += 2;
             ++lines;
-            if (vertices >= room - 2)
+            if (vertices >= room - 2) {
                 break;
+            }
             ++index;
             ++particle;
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(TrailVertex));
-        if (vertices >= room - 2)
+        if (vertices >= room - 2) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         renderer().d3d_device()->DrawPrimitive(D3DPT_LINELIST, first_vertex, lines);
         renderer().count_draw(lines);
@@ -913,8 +937,9 @@ PcRibbonParticles::~PcRibbonParticles() { free_material(material); }
 // 0x004C0FF0
 void PcRibbonParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
@@ -990,8 +1015,9 @@ void PcRibbonParticles::render()
                  static_cast<float>(static_cast<double>(f2) + core::at(t, 2))}}};
             const ColourSpan span = colour_span(*this, life);
             std::array<uint32_t, 2> colours{};
-            for (int k = 0; k < 2; ++k)
+            for (int k = 0; k < 2; ++k) {
                 core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
+            }
             static constexpr std::array<std::array<float, 2>, 4> kUv = {{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
             for (int k = 0; k < 4; ++k) {
                 const uint32_t colour = core::at(colours, k / 2);
@@ -1008,8 +1034,9 @@ void PcRibbonParticles::render()
             }
             vertices += 4;
             triangles += 2;
-            if (vertices >= room - 4)
+            if (vertices >= room - 4) {
                 break;
+            }
             head += 3;
             tail += 3;
             ++index;
@@ -1017,8 +1044,9 @@ void PcRibbonParticles::render()
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, stride);
-        if (vertices >= room - 4)
+        if (vertices >= room - 4) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, stride);
         renderer().d3d_device()->SetIndices(quad_index_buffer());
         renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
@@ -1039,8 +1067,9 @@ uint32_t PcRibbonTrailParticles::head_colour(uint32_t from, uint32_t to, float t
         return static_cast<uint8_t>(core::at(f, k) + truncate(static_cast<double>(core::at(g, k) - core::at(f, k)) * t));
     };
     std::array<uint8_t, 4> bytes = {{lerp(2), lerp(1), lerp(0), lerp(3)}};
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(bytes, k) = static_cast<uint8_t>(truncate(static_cast<double>(core::at(bytes, k)) * brightness()));
+    }
     uint32_t colour = 0;
     std::memcpy(&colour, bytes.data(), 4);
     return colour;
@@ -1063,8 +1092,9 @@ PcRibbonTrailParticles::~PcRibbonTrailParticles() { free_material(material); }
 // 0x004C1860
 void PcRibbonTrailParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
@@ -1100,8 +1130,9 @@ void PcRibbonTrailParticles::render()
                                                 (static_cast<double>(core::at(n, 0)) * core::at(n, 0)));
                 if (length > 0.0F) {
                     const double inverse = 1.0F / length;
-                    for (float& f : n)
+                    for (float& f : n) {
                         f = static_cast<float>(f * inverse);
+                    }
                 }
             }
             auto w = static_cast<float>(
@@ -1163,18 +1194,21 @@ void PcRibbonTrailParticles::render()
                 std::memcpy(previous_minus.data(), minus.data(), sizeof(minus));
                 triangles += 2;
                 vertices += 4;
-                if (vertices >= room - 4)
+                if (vertices >= room - 4) {
                     break;
+                }
             }
-            if (vertices >= room - 4)
+            if (vertices >= room - 4) {
                 break;
+            }
             ++index;
             ++particle;
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(TrailVertex));
-        if (vertices >= room - 4)
+        if (vertices >= room - 4) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
         renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
@@ -1202,14 +1236,16 @@ PcShadedParticles::~PcShadedParticles() { free_material(material); }
 // 0x004C22D0
 void PcShadedParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     maths::Vec4 r;
     maths::Vec4 u;
-    if (aligned())
+    if (aligned()) {
         aligned_axes(*this, r, u);
-    else
+    } else {
         camera_axes(r, u);
+    }
     set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(material->shader(), nullptr);
@@ -1252,8 +1288,9 @@ void PcShadedParticles::render()
                 // The corners' colours (each its own of the colour arrays').
                 const ColourSpan span = colour_span(*this, life);
                 std::array<uint32_t, 4> colours{};
-                for (int k = 0; k < 4; ++k)
+                for (int k = 0; k < 4; ++k) {
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
+                }
                 // The texture: all of it, or (UseRandomUVQuadrants) a quarter by the particle's index.
                 float u0 = 0.0F;
                 float v0 = 0.0F;
@@ -1316,19 +1353,22 @@ void PcShadedParticles::render()
                 vertex += 4;
                 vertices += 4;
                 triangles += 2;
-                if (vertices >= room - 4)
+                if (vertices >= room - 4) {
                     break;
+                }
                 ++index;
                 ++particle;
                 place += 3;
-                if (index >= particle_count())
+                if (index >= particle_count()) {
                     break;
+                }
             }
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(QuadVertex));
-        if (vertices >= room - 4)
+        if (vertices >= room - 4) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
         renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
@@ -1356,14 +1396,16 @@ PcSmoothParticles::~PcSmoothParticles() { free_material(material); }
 // 0x004C2C70
 void PcSmoothParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     maths::Vec4 r;
     maths::Vec4 u;
-    if (aligned())
+    if (aligned()) {
         aligned_axes(*this, r, u);
-    else
+    } else {
         camera_axes(r, u);
+    }
     set_material(material->material());
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(default_pixel_shader(), nullptr);
@@ -1424,8 +1466,9 @@ void PcSmoothParticles::render()
             // The centre's colour and the edge's.
             const ColourSpan span = colour_span(*this, life);
             std::array<uint32_t, 2> colours{};
-            for (int i = 0; i < 2; ++i)
+            for (int i = 0; i < 2; ++i) {
                 core::at(colours, i) = get_colour(*this, span.from[i], span.to[i], span.t);
+            }
             for (int corner = 0; corner < 4; ++corner) {
                 const int next = (corner + 1) % 4;
                 vertex[0] = {.x = core::at(p, 0),
@@ -1440,16 +1483,18 @@ void PcSmoothParticles::render()
             }
             vertices += kSmoothParticleVertices;
             triangles += 4;
-            if (vertices >= room - kSmoothParticleVertices)
+            if (vertices >= room - kSmoothParticleVertices) {
                 break;
+            }
             ++particle;
             ++index;
             place += 3;
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(QuadVertex));
-        if (vertices >= room - kSmoothParticleVertices)
+        if (vertices >= room - kSmoothParticleVertices) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
         renderer().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, triangles);
         renderer().count_draw(triangles);
@@ -1478,8 +1523,9 @@ int PcSmoothRibbonParticles::get_num_vertex_lists() { return segments; }
 // 0x004C3690
 void PcSmoothRibbonParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
@@ -1549,8 +1595,9 @@ void PcSmoothRibbonParticles::render()
                                             static_cast<float>(n2w + core::at(t, 2))}};
                 const ColourSpan span = colour_span(*this, life);
                 std::array<uint32_t, 4> colours{};
-                for (int k = 0; k < 4; ++k)
+                for (int k = 0; k < 4; ++k) {
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
+                }
                 // Two quads along the middle: to the plus side and to the minus side.
                 vertex[0] = {.x = core::at(h, 0), .y = core::at(h, 1), .z = core::at(h, 2), .colour = core::at(colours, 0)};
                 vertex[1] = {.x = core::at(t, 0), .y = core::at(t, 1), .z = core::at(t, 2), .colour = core::at(colours, 3)};
@@ -1563,20 +1610,23 @@ void PcSmoothRibbonParticles::render()
                 vertex += kSmoothRibbonVertices;
                 vertices += kSmoothRibbonVertices;
                 triangles += 4;
-                if (vertices >= room - kSmoothRibbonVertices)
+                if (vertices >= room - kSmoothRibbonVertices) {
                     break;
+                }
                 ++particle;
                 ++index;
                 head += 3;
                 tail += 3;
-                if (index >= particle_count())
+                if (index >= particle_count()) {
                     break;
+                }
             }
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(TrailVertex));
-        if (vertices >= room - kSmoothRibbonVertices)
+        if (vertices >= room - kSmoothRibbonVertices) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
         renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
@@ -1605,8 +1655,9 @@ PcSmoothStarParticles::~PcSmoothStarParticles() { free_material(material); }
 // 0x004C3EC0
 void PcSmoothStarParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     maths::Vec4 r;
     maths::Vec4 u;
     camera_axes(r, u);
@@ -1653,8 +1704,9 @@ void PcSmoothStarParticles::render()
                 // The centre's, the points' and the edge's colours.
                 const ColourSpan span = colour_span(*this, life);
                 std::array<uint32_t, 3> colours{};
-                for (int k = 0; k < 3; ++k)
+                for (int k = 0; k < 3; ++k) {
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
+                }
                 const double w = star_extent();
                 // The outer point at angle 0 (the previous one for the first segment).
                 std::array<float, 3> outer{};
@@ -1743,22 +1795,26 @@ void PcSmoothStarParticles::render()
                     std::memcpy(outer.data(), next.data(), sizeof(next));
                     vertices += kSmoothStarVertices;
                     triangles += 4;
-                    if (vertices >= room - kSmoothStarVertices)
+                    if (vertices >= room - kSmoothStarVertices) {
                         break;
+                    }
                 }
-                if (vertices >= room - kSmoothStarVertices)
+                if (vertices >= room - kSmoothStarVertices) {
                     break;
+                }
                 ++index;
                 ++particle;
                 place += 3;
-                if (index >= particle_count())
+                if (index >= particle_count()) {
                     break;
+                }
             }
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(TrailVertex));
-        if (vertices >= room - kSmoothStarVertices)
+        if (vertices >= room - kSmoothStarVertices) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
         renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
@@ -1787,8 +1843,9 @@ PcStarParticles::~PcStarParticles() { free_material(material); }
 // 0x004C4A00
 void PcStarParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     maths::Vec4 r;
     maths::Vec4 u;
     camera_axes(r, u);
@@ -1834,8 +1891,9 @@ void PcStarParticles::render()
                                      static_cast<float>(u.z * up_size)}};
                 const ColourSpan span = colour_span(*this, life);
                 std::array<uint32_t, 3> colours{};
-                for (int k = 0; k < 3; ++k)
+                for (int k = 0; k < 3; ++k) {
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
+                }
                 const double w = star_extent();
                 // The outer point at angle 0 (the previous one for the first segment).
                 std::array<float, 3> outer{};
@@ -1898,22 +1956,26 @@ void PcStarParticles::render()
                     std::memcpy(outer.data(), next.data(), sizeof(next));
                     vertices += 4;
                     triangles += 2;
-                    if (vertices >= room - 4)
+                    if (vertices >= room - 4) {
                         break;
+                    }
                 }
-                if (vertices >= room - 4)
+                if (vertices >= room - 4) {
                     break;
+                }
                 ++index;
                 ++particle;
                 place += 3;
-                if (index >= particle_count())
+                if (index >= particle_count()) {
                     break;
+                }
             }
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(TrailVertex));
-        if (vertices >= room - 4)
+        if (vertices >= room - 4) {
             break;
+        }
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
         renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
@@ -1960,8 +2022,9 @@ PcGlowRibbonTrailParticles::~PcGlowRibbonTrailParticles() { free_material(materi
 // 0x004BF7F0
 void PcGlowRibbonTrailParticles::render()
 {
-    if (particle_count() <= 0)
+    if (particle_count() <= 0) {
         return;
+    }
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
@@ -2120,8 +2183,9 @@ void PcGlowRibbonTrailParticles::render()
                 }
             }
             std::array<uint32_t, 3> glow{};
-            for (int k = 0; k < 3; ++k)
+            for (int k = 0; k < 3; ++k) {
                 core::at(glow, k) = fine_colour(glow_from[k], glow_to[k], t);
+            }
             std::array<float, 3> outer{};
             std::array<float, 3> inner{};
             {

@@ -46,8 +46,9 @@ bool read_breaks(PcMesh* mesh, Stream& in)
         debug::printf("skin damaged: %u strip breaks, cut short\n", skin.break_count);
         return false;
     }
-    if (skin.version >= 2)
+    if (skin.version >= 2) {
         mesh->set_bone_count(skin.bone_count);
+    }
     mesh->set_break_count(skin.break_count);
     if (mesh->break_count()) {
         mesh->set_breaks(new_breaks(mesh->break_count()));
@@ -69,10 +70,12 @@ int compare_strip_breaks(const void* a, const void* b)
 {
     const uint32_t x = static_cast<const StripBreak*>(a)->mesh_and_index_;
     const uint32_t y = static_cast<const StripBreak*>(b)->mesh_and_index_;
-    if ((x >> kHalfShift) != (y >> kHalfShift))
+    if ((x >> kHalfShift) != (y >> kHalfShift)) {
         return (x >> kHalfShift) > (y >> kHalfShift) ? 1 : -1;
-    if ((x & kHalfMask) > (y & kHalfMask))
+    }
+    if ((x & kHalfMask) > (y & kHalfMask)) {
         return 1;
+    }
     return (x & kHalfMask) < (y & kHalfMask) ? -1 : 0;
 }
 
@@ -93,18 +96,21 @@ PcMesh::PcMesh(const char* name)
 // 0x004B7E30
 PcMesh::~PcMesh()
 {
-    if (breaks_)
+    if (breaks_) {
         memory::Hub::dealloc(breaks_);
-    if (scene_)
+    }
+    if (scene_) {
         engine::unload_scene(scene_, 1); // (the engine's UnloadScene)
+    }
 }
 
 // 0x004B7B50
 bool PcMesh::load_skin_file(const char* name)
 {
     file::Hdl file = file::unseal(name, "rb");
-    if (!file)
+    if (!file) {
         return false; // Not original - no file (the original read through null)
+    }
     scene_format::FileStream in(file);
     const bool found = read_breaks(this, in);
     file::shut(file);
@@ -121,8 +127,9 @@ bool PcMesh::load_skin_from_memory(const uint8_t* data, size_t size)
 // 0x004B7EB0
 void PcMesh::load_skin(const uint8_t* data, size_t size)
 {
-    if (data)
+    if (data) {
         load_skin_from_memory(data, size);
+    }
 }
 
 // 0x004B7ED0

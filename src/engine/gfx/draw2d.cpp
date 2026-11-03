@@ -39,8 +39,9 @@ void OverlayDraw::splice()
         return;
     }
     OverlayDraw* at = head;
-    while (at->next_ && !(priority <= at->next_->priority))
+    while (at->next_ && !(priority <= at->next_->priority)) {
         at = at->next_;
+    }
     next_ = at->next_;
     at->next_ = this;
 }
@@ -53,8 +54,9 @@ void OverlayDraw::drop_out()
         foremost() = next_;
         return;
     }
-    if (!at)
+    if (!at) {
         return;
+    }
     for (; at->next_; at = at->next_) {
         if (at->next_ == this) {
             at->next_ = next_;
@@ -66,8 +68,9 @@ void OverlayDraw::drop_out()
 // 0x004DFA70
 OverlayDraw::OverlayDraw(float new_priority, bool new_hidden) : hidden_(new_hidden), priority(new_priority)
 {
-    if (!new_hidden)
+    if (!new_hidden) {
         splice();
+    }
 }
 
 // 0x004DFAA0
@@ -76,8 +79,9 @@ OverlayDraw::~OverlayDraw() { drop_out(); }
 // 0x004DFAE0
 void OverlayDraw::change_rank(float new_priority)
 {
-    if (priority == new_priority)
+    if (priority == new_priority) {
         return;
+    }
     priority = new_priority;
     if (!hidden_) {
         drop_out();
@@ -89,10 +93,12 @@ void OverlayDraw::change_rank(float new_priority)
 void OverlayDraw::set_z(float new_z)
 {
     z_ = new_z;
-    if (!(new_z > 0.0F))
+    if (!(new_z > 0.0F)) {
         return;
-    if (priority == 0.0F)
+    }
+    if (priority == 0.0F) {
         return;
+    }
     priority = 0.0F;
     if (!hidden_) {
         drop_out();
@@ -103,13 +109,15 @@ void OverlayDraw::set_z(float new_z)
 // 0x004DFB70
 void OverlayDraw::change_concealed(uint8_t new_hidden)
 {
-    if (hidden_ == new_hidden)
+    if (hidden_ == new_hidden) {
         return;
+    }
     hidden_ = new_hidden;
-    if (new_hidden)
+    if (new_hidden) {
         drop_out();
-    else
+    } else {
         splice();
+    }
 }
 
 // 0x004DFB90
@@ -126,13 +134,15 @@ void draw_2d()
     change_phase(RenderStateId::kZTest, z_test_next_frame());
     uint32_t z_test = 0;
     for (OverlayDraw* item = foremost(); item; item = item->next()) {
-        if (item->hidden())
+        if (item->hidden()) {
             continue;
+        }
         item->open_sketch();
         item->draw();
         item->close_sketch();
-        if (!z_test && item->z() > 0.0F)
+        if (!z_test && item->z() > 0.0F) {
             z_test = 1;
+        }
     }
     z_test_next_frame() = z_test;
 }

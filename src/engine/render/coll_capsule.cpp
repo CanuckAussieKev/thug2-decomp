@@ -43,8 +43,9 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     normal->x = nx;
     normal->y = ny;
     normal->z = static_cast<float>(nz);
-    if (((nz * nz) + (static_cast<double>(ny) * ny)) + (static_cast<double>(nx) * nx) <= 0.0)
+    if (((nz * nz) + (static_cast<double>(ny) * ny)) + (static_cast<double>(nx) * nx) <= 0.0) {
         return false;
+    }
     normal->make_unit();
 
     float s = 0.0F;
@@ -90,8 +91,9 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     const double facing =
         ((static_cast<double>(offset->y) * normal->y) + (static_cast<double>(normal->x) * offset->x)) +
         (static_cast<double>(offset->z) * normal->z);
-    if (facing >= 0.0)
+    if (facing >= 0.0) {
         return false;
+    }
     const double radius = capsule->radius;
     return distance <= radius * radius;
 }
@@ -107,34 +109,40 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
         const uint32_t face = core::at(faces, i);
         const FaceFlag flags =
             geometry->face_flags(static_cast<int>(face));
-        if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_))
+        if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_)) {
             continue;
+        }
         maths::Vec4 v0{};
         maths::Vec4 v1{};
         maths::Vec4 v2{};
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
-        if (!(hits->sweep == 0.0F)) // (a moving capsule isn't tested)
+        if (!(hits->sweep == 0.0F)) { // (a moving capsule isn't tested)
             continue;
+        }
         maths::Vec4 point{};
         maths::Vec4 normal{};
         maths::Vec4 offset{};
-        if (!capsule_hits_triangle(capsule, &v0, &v1, &v2, &point, &normal, &offset))
+        if (!capsule_hits_triangle(capsule, &v0, &v1, &v2, &point, &normal, &offset)) {
             continue;
-        if (hits->count == CapsuleHits::kMost)
+        }
+        if (hits->count == CapsuleHits::kMost) {
             return true;
+        }
         CapsuleHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
         entry.offset = offset;
         entry.face_flag40_ = trigger_marker(flags);
         entry.checksum = checksum_;
         entry.point = point;
-        if (hits->sweep > 0.0F) // (never here: the sweep is 0)
+        if (hits->sweep > 0.0F) { // (never here: the sweep is 0)
             entry.t = 0.0F;
+        }
         ++hits->count;
-        if (hits->mode == 2)
+        if (hits->mode == 2) {
             return true;
+        }
     }
     return hits->count > 0;
 }
