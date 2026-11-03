@@ -40,45 +40,45 @@ public:
     // alone if it has one; else each of mesh, mesh1 ... mesh4 it has.
     bool add_geom(uint32_t part);
     // 0x0048A9C0 (slot 10): the slot `part` taken out of the appearance.
-    bool remove_part(uint32_t part);
+    static bool remove_part(uint32_t part);
     // 0x00489800 (slot 11): the model's geom `geom` hidden or shown.
-    bool conceal_mesh(uint32_t geom, bool hide);
+    static bool conceal_mesh(uint32_t geom, bool hide);
     // 0x00489A50 (slot 12): the colour of the geom of the slot `params` names (part): its own h / s / v, or the part's
     // defaults (then false; none: the colour cleared, false). PaperBag and bigfoot parts aren't coloured (false).
-    bool blend_tint_over(script::Struct* params);
+    static bool blend_tint_over(script::Struct* params);
     // 0x0048B030 (slot 13): unless the slot `part` keeps its default UVs (no use_default_uv, or non-zero: false), the
     // material's pass gets a UV matrix: turned about the middle by uv_rot, scaled by uv_scale %, moved by uv_u / uv_v %.
-    bool choose_uv_shift(checksums::Name part_name, uint32_t material, int pass);
+    static bool choose_uv_shift(checksums::Name part_name, uint32_t material, int pass);
     // 0x00489C30 (slot 14): the material's pass given UV matrix parameters.
-    bool create_uv_anim_params(uint32_t material, int pass);
+    static bool create_uv_anim_params(uint32_t material, int pass);
     // 0x00489C50 (slot 15): the part's texture replacements (replace / with / in, then 1-6). The last one's result
     // (false: none, or no part).
-    bool swap_texture(uint32_t part);
+    static bool swap_texture(uint32_t part);
     // 0x0048ADD0 (slot 16): a part that is a CreatedGraphic: its temporary texture drawn into the cag_workspace
     // texture (scaled, turned, over the deck's base texture), which replaces the model's logo texture. The
     // replacement's result (false: no such part).
-    bool set_created_texture(uint32_t part);
+    static bool set_created_texture(uint32_t part);
     // 0x00489A30 / 0x00489A40 (slots 17 / 18): the model's geoms cleared / their own strips broken. True.
-    bool clear_all_geoms();
-    bool detach_polys();
+    static bool clear_all_geoms();
+    static bool detach_polys();
     // 0x0048A9E0 (slot 19): the model's scale 1 and the skeleton's bone scales reset (false: no skeleton).
-    bool restore_scale();
+    static bool restore_scale();
     // 0x0048AA30 (slot 20): the appearance's body_shape applied to the skeleton's bones (false: none).
-    bool apply_body_shape();
+    static bool apply_body_shape();
     // 0x0048AA70 (slot 21): the slot `part`'s (or else `cast_part`'s option's) x / y / z % scale applied to each bone in
     // the global array `part` (local, unless the bone is in nonlocal_bones). Always false.
-    bool apply_bone_sizing(uint32_t part, uint32_t cast_part);
+    static bool apply_bone_sizing(uint32_t part, uint32_t cast_part);
     // 0x0048AC40 (slot 22): the model's scale from the appearance's body type, else its body_shape, else the
     // object_scaling slot's x / y / z %. Whether it was set (true with an incomplete object_scaling too).
-    bool apply_object_scale();
+    static bool apply_object_scale();
     // 0x0048A220 (slot 23): the model's instance strips cleaned. True.
-    bool seal();
+    static bool seal();
     // 0x00489F10 (slot 24): the head's colour (its own, else its part's defaults) given to the torso (unless None,
     // men only), the hands (only the Hands part), the lower legs, the shoes (bare feet only) and the body. False
     // without a head.
-    bool propagate_head_color();
+    static bool propagate_head_color();
     // 0x0048B200 (slot 25): the script `target` held in the part's option run on the appearance until it ends. True.
-    bool launch_script(checksums::Name part_name, uint32_t target);
+    static bool launch_script(checksums::Name part_name, uint32_t target);
 
 private:
     bool via_asset_store_; // +0x4C

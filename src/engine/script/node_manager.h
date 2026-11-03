@@ -76,7 +76,7 @@ public:
     script::Struct* fetch_vertex(uint32_t name, bool assert);
     // 0x0045D480 (`this` isn't used): each node's links= array (indices into `nodes`) becomes the names of those
     // nodes (GetNodeName), as a checksum array.
-    void resolve_links(script::Array* nodes);
+    static void resolve_links(script::Array* nodes);
     // 0x0045D120 / 0x0045D150: the last node array's nodes / name (none: null / 0).
     script::Array* get_last_node_array();
     uint32_t get_last_node_array_name();

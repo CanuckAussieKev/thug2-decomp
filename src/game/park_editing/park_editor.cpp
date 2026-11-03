@@ -640,7 +640,8 @@ void ParkBuilderMode::tick_frame()
 // 0x0058F640
 void ParkBuilderMode::update_menu_stick()
 {
-    modules::FrontEnd* front_end = modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
+    const modules::FrontEnd* front_end =
+        modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
     front_end->set_analog_stick_active_for_menus(!(cur_phase_ == kStateEdit && !(flag_bits_ & kFlagPaused)));
     modules::release_front_end();
 }

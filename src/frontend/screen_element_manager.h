@@ -67,7 +67,7 @@ public:
     // --- elements ---
     // 0x004AAE20: the object with the id (any object: the tracker's lookup) as a smart pointer into `out`;
     // `this` and `assert` aren't used.
-    ElementPtr* fetch_part(ElementPtr* out, uint32_t id, int assert);
+    static ElementPtr* fetch_part(ElementPtr* out, uint32_t id, int assert);
     // 0x004ACB70 (screen_element_cfuncs.cpp): a new element of `type` (none for an unknown type) on the heap
     // `params` names (none given: the front end's; Default: the current one), with the id, registered, its
     // properties and morph from `params`, a pad-event priority if given; into `out`.
@@ -84,7 +84,7 @@ public:
     // flag cleared first); else just the element (out of the tree, unregistered, deleted).
     void dismantle_part(uint32_t id, bool recurse, bool keep, script::Script* script);
     // 0x004AB130: the child of `parent` with the tag_local_id `local_id` (null: none) into `out`.
-    ElementPtr* find_by_local_id(ElementPtr* out, const ElementPtr* parent, uint32_t local_id);
+    static ElementPtr* find_by_local_id(ElementPtr* out, const ElementPtr* parent, uint32_t local_id);
     // 0x004AC120: an element id from `params`' `name`: a structure (an unnamed id or index - an index of the
     // element found so far - then its `child` resolved within it), an id (a local id within the element found
     // so far, an alias, or itself), or an index. False if none.

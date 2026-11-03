@@ -244,7 +244,7 @@ bool cfunc_can_change_devices(script::Struct*, script::Script*) { return stubs::
 // viewer_gateway; else none. The net manager's answer.
 bool cfunc_load_network_drivers(script::Struct*, script::Script*)
 {
-    net::Hub* net = net::net_core();
+    const net::Hub* net = net::net_core();
     const char* use = script::fetch_text("use_deci2");
     if (!use || !*use)
         return net->load_network_drivers(nullptr, nullptr, nullptr);

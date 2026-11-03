@@ -148,7 +148,7 @@ public:
     // 0x00561290
     void set_rider_number(int16_t id);
     // 0x005612A0: `text` into `out` with each space as "\_" (`this` unused).
-    void escape_spaces(std::span<char> out, const char* text);
+    static void escape_spaces(std::span<char> out, const char* text);
     // 0x005612D0: special_bar_colors and special_bar_interpolator_rate.
     void set_special_bar_colors();
     // 0x00561360 (cdecl): the trick `trick`'s name checksum after `taps` - 1 of its ExtraTricks.
@@ -221,10 +221,10 @@ public:
     void trim_log();
     // 0x00562B20 / 0x00562C10 / 0x00562D00 / 0x005638A0: trick_text_countdown / _landed / _bail / _pulse with the
     // skater number's container, trick text and score pot ids.
-    void move_caption_timer(int skater);
-    void move_caption_landed(int skater);
-    void move_caption_wipeout(int skater);
-    void move_caption_pulse(int skater);
+    static void move_caption_timer(int skater);
+    static void move_caption_landed(int skater);
+    static void move_caption_wipeout(int skater);
+    static void move_caption_pulse(int skater);
     // 0x00562DF0: the special on, its meter full.
     void fill_special();
     // 0x005633B0: the combo's tricks that aren't gaps.

@@ -308,7 +308,7 @@ bool cfunc_adjust_texture_region(Struct* params, Script*)
 {
     uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
-    render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
+    const render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
         int x = 0;
         int y = 0;
@@ -353,7 +353,7 @@ bool cfunc_adjust_texture_brightness(Struct* params, Script*)
 {
     uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
-    render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
+    const render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
         float brightness = 1.0f;
         int value = 0;

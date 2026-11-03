@@ -75,7 +75,7 @@ public:
     bool get_jump(script::Struct* params, script::Script* script);
     // 0x004E36F0 [0xD2AA4D2D]: reads dist (asserting it's there); always false (a debug box is worked out and
     // dropped).
-    bool debug_box(script::Struct* params, script::Script* script);
+    static bool debug_box(script::Struct* params, script::Script* script);
     // 0x004E3EC0 [0x41226942]: one frame of the jump: along the slerp by the frame's time over the animation's
     // duration; the object placed and turned there (its orientation's fourth row 0, 0, 0, 1). True.
     bool step_jump(script::Struct* params, script::Script* script);

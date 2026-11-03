@@ -154,7 +154,7 @@ public:
     void clear_event_handler(uint32_t type);
     // 0x00460960: the flag bits `params` names: its unnamed array of names (each one's global integer is a bit
     // number), else 1 << its unnamed integer, else 0. (`this` and `script` aren't used.)
-    uint32_t get_flag_mask(script::Struct* params, script::Script* script);
+    static uint32_t get_flag_mask(script::Struct* params, script::Script* script);
 
     // --- the member functions scripts call on the object (the table at 0x00683550) ---
     bool obj_leave_script(script::Struct* params, script::Script* script);        // 0x00460840 (0xB3C262EC)
@@ -405,7 +405,7 @@ public:
     // --- the member functions scripts call (the table at 0x00683268, component type 0x0ADA4E74) ---
     // (Names in brackets are the checksums of names not recovered; the C++ names say what they do.)
     bool obj_get_position(script::Struct* params, script::Script* script);           // 0x0045DBC0
-    bool obj_print_details(script::Struct* params, script::Script* script);          // 0x0045D7F0
+    static bool obj_print_details(script::Struct* params, script::Script* script);   // 0x0045D7F0
     bool obj_create_component(script::Struct* params, script::Script* script);       // 0x0045D810 [0x406998A5]
     bool obj_component_exists(script::Struct* params, script::Script* script);       // 0x0045DBF0 [0x2BFFEAA3]
     bool obj_set_position(script::Struct* params, script::Script* script);           // 0x0045D830

@@ -51,7 +51,7 @@ struct TextureRef : TextureImage {
     // The palette's entries (ARGB) the texture editing reads and changes for an image of 8 bits or less: none - no
     // PC texture keeps its palette (the second texture is never set: palette_owner is always null, and the original
     // read the entries through it, from null). An empty span: a read of one stops the game with a report.
-    [[nodiscard]] std::span<uint32_t> palette_entries() const { return {}; }
+    [[nodiscard]] static std::span<uint32_t> palette_entries() { return {}; }
     // 0x004E0700: make it a width x height A8R8G8B8 render target (`depth` kept). Returns whether it was made.
     bool create_render_target(maths::PixelSize size, uint8_t depth, int unused);
 };

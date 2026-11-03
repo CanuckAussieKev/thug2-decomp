@@ -82,15 +82,15 @@ class SaveCard {
 public:
     // Open (mode 1 read, 2 write, 3 both - existing files; 4 write a new file; 6 write, created if needed).
     FileLoad* unseal(const char* name, int mode, int unused);
-    bool remove_file(const char* name);
+    static bool remove_file(const char* name);
     // The name as the card uses it (a copy in a shared buffer).
-    const char* convert_filename(const char* name);
+    static const char* convert_filename(const char* name);
     // Free space, in 16 KB blocks (0 without a card).
     int get_free_blocks();
     // Add every file matching `pattern` in Save\ to `list` (a list head), with its date and size.
     bool list_save_files(const char* pattern, memory::ListNode* list);
     // (shared with other classes: always true)
-    bool always_true(int unused);
+    static bool always_true(int unused);
 
     // The fields other code reads and sets.
     [[nodiscard]] int fault() const { return fault_; }

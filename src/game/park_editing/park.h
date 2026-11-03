@@ -992,7 +992,7 @@ public:
     void write_rail_nodes(script::Array* nodes, int* index);
     void write_restart_nodes(script::Array* nodes, int* index);
     // 0x00592740: the name of the next LevelGeometry node from `*index` on (0 at the end); `*index` past it
-    uint32_t next_geometry_node(script::Array* nodes, int* index);
+    static uint32_t next_geometry_node(script::Array* nodes, int* index);
     // 0x005927D0: the next unused rail node of the piece `geometry` (after the node named `previous`, or a first
     // one: one with no links, else a linked one - `*is_loop` set); its name (0 if none)
     uint32_t find_following_rail_node(script::Array* nodes, checksums::Name geometry_name, uint32_t previous, RailNodeInfo* info,
@@ -1034,7 +1034,7 @@ public:
     // 0x00591E00: the lights' count, ambient and falloff colours and the cursor's ambience
     void configure_lighting(int count, const ParkLighting& lighting);
     // 0x00591E60: the restart slots (first to last) a restart type uses (unknown types: left as they were)
-    void fetch_spawn_slots(int type, int* first, int* last);
+    static void fetch_spawn_slots(int type, int* first, int* last);
     // 0x00591F50: whether a slot of `type`'s is free (or holds one put down automatically)
     bool has_free_restart_slot(int type);
     // 0x00591FE0: forget the restart points put down automatically; 0x00591FC0: all of them
@@ -1045,7 +1045,7 @@ public:
     // 0x00592090: the super sectors brought up to date (when allowed: 0x0067F398)
     void rebuild_collision();
     // 0x005920D0: the shell's two boxes: everything, and the park's bounds (`unused`: the callers' argument)
-    void update_bounds(uint32_t unused);
+    static void update_bounds(uint32_t unused);
     // 0x00592290: the gaps' trigger pieces (ParkTile::kGap) shown or hidden
     void set_pieces_highlighted(int on);
     // 0x005922D0: the restart points' pieces drawn and collided with, or neither
@@ -1208,7 +1208,7 @@ public:
     };
 
     // 0x00595250: header fields of a compressed map.
-    void get_map_info(const ParkMap* map, MapInfoOut info);
+    static void get_map_info(const ParkMap* map, MapInfoOut info);
     // 0x005952B0: undo the marked floor changes (clamping every height to -16..15)
     void restore_floor_heights();
     // 0x00595300: which restart piece (1 to 8) has this name; 0 if none.
@@ -1220,8 +1220,8 @@ public:
     // 0x005959D0: the highest floor in `area`; `is_flat` (if given) says whether it's all one height
     int get_ground_level(CellBox area, bool* uniform);
     // 0x00595A90: the world position of `area`'s corner (w = 1), and its size (if given)
-    maths::Vec4 cell_to_world_pos(const CellBox& area, maths::Vec4* dimensions);
-    maths::Vec4* grid_dims_to_world(maths::Vec4* out, CellBox* area, maths::Vec4* size)
+    static maths::Vec4 cell_to_world_pos(const CellBox& area, maths::Vec4* dimensions);
+    static maths::Vec4* grid_dims_to_world(maths::Vec4* out, CellBox* area, maths::Vec4* size)
     {
         *out = cell_to_world_pos(*area, size);
         return out;
@@ -1256,9 +1256,9 @@ public:
     // 0x005958B0: is a placed piece (not the inner shell) not wholly inside `area` (x and z)?
     bool has_pieces_outside(CellBox area);
     // 0x00595DF0: add `meta` to the front of `list` unless it's in it already
-    void add_meta_to_list(PieceGroup* meta, MapListNode** list);
+    static void add_meta_to_list(PieceGroup* meta, MapListNode** list);
     // 0x00595E80: unlink `meta` from `list`
-    void remove_meta_from_list(PieceGroup* meta, MapListNode** list);
+    static void remove_meta_from_list(PieceGroup* meta, MapListNode** list);
     // 0x00595EE0: list `meta` in the cell lists under it
     void add_meta_to_cells(PieceGroup* meta);
     // 0x00595FC0: take `meta` out of the cell lists under it

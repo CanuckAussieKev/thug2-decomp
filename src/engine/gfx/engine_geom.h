@@ -122,13 +122,13 @@ public:
     virtual void reset_texture_anims() {}                                                  // [48] (do_nothing)
 
     // The slots the same in both tables (the base's bodies, or shared stubs).
-    uint32_t plat_get_checksum();                                                  // [5] 0x0048DAB0: 0
-    uint32_t* plat_get_material_color(uint32_t* out, uint32_t checksum, int pass); // [10] 0x0048E070: 0
-    void plat_set_transform(const maths::Mat4* transform);                         // [23] 0x0048DBE0
-    maths::Mat4* plat_get_transform();                                             // [24] 0x0048E1F0: a static matrix
-    bool set_shadow(bool) { return true; }              // [32] (SaveCard::always_true, folded)
-    uint32_t plat_get_num_render_base_polys();          // [34] 0x0048DC90: 0 (not a Ghidra function)
-    uint32_t get_diagnostic_count() { return 0; }       // [35] (return_zero; the scene's statistics count it)
+    static uint32_t plat_get_checksum();                                                  // [5] 0x0048DAB0: 0
+    static uint32_t* plat_get_material_color(uint32_t* out, uint32_t checksum, int pass); // [10] 0x0048E070: 0
+    static void plat_set_transform(const maths::Mat4* transform);                         // [23] 0x0048DBE0
+    static maths::Mat4* plat_get_transform();            // [24] 0x0048E1F0: a static matrix
+    static bool set_shadow(bool) { return true; }        // [32] (SaveCard::always_true, folded)
+    static uint32_t plat_get_num_render_base_polys();    // [34] 0x0048DC90: 0 (not a Ghidra function)
+    static uint32_t get_diagnostic_count() { return 0; } // [35] (return_zero; the scene's statistics count it)
     void play_vc_wibble_from_keyframe(int, int, int) {} // [41] (ignores its three arguments)
     void start_texture_anims(bool) {}                   // [49] (ignores its argument)
     void stop_texture_anims() {}                        // [50] (do_nothing)

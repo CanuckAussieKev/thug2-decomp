@@ -48,7 +48,7 @@ public:
     memory::ListNode* fetch_object_set() { return &entities_; }
 
     // 0x004619F0: the object with the id `id` (the tracker's 0x00462120; `this` isn't used).
-    Entity* look_up_entity(uint32_t id);
+    static Entity* look_up_entity(uint32_t id);
     // 0x00461CC0: `callback(object, data)` once for each object of the list, also when the callback adds or
     // removes objects (the walk starts again from the front, skipping the objects it has done - each walk in
     // progress has a bit of its own in walking_ and in every object's visited_mask_).

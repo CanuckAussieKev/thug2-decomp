@@ -102,30 +102,30 @@ public:
     // rebuilt from it (or the level changed to load_sk5ed again if the shell size isn't `shell_size`).
     void apply_map(const ParkMap* map, int shell_size);
     // The park manager's own, for the rest of the game (`this` isn't used):
-    void export_to_struct(script::Struct* params);                         // 0x0058D600
-    void decode_from_struct(script::Struct* params, bool apply_to_editor); // 0x0058D620
-    void get_map_info(const ParkMap* map, ParkLayout::MapInfoOut info);                           // 0x0058D640
-    void write_compressed_map_if_built();                                 // 0x0058D680
-    ParkMap* get_packed_park_data(bool flag_clean);                 // 0x0058D690
-    void set_packed_park_data(const ParkMap* map, bool flag_dirty); // 0x0058D6B0
-    void set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty);    // NOT ORIGINAL: from a received map
+    static void export_to_struct(script::Struct* params);                         // 0x0058D600
+    static void decode_from_struct(script::Struct* params, bool apply_to_editor); // 0x0058D620
+    static void get_map_info(const ParkMap* map, ParkLayout::MapInfoOut info);    // 0x0058D640
+    static void write_compressed_map_if_built();                                  // 0x0058D680
+    static ParkMap* get_packed_park_data(bool flag_clean);                        // 0x0058D690
+    static void set_packed_park_data(const ParkMap* map, bool flag_dirty);        // 0x0058D6B0
+    static void set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty);     // NOT ORIGINAL: from a received map
     // 0x0058D6D0: whether the main heap has room for `count` * `size` floor pieces (park_editing::main_heap_has_room).
-    bool main_heap_has_room(int count, int size);
+    static bool main_heap_has_room(int count, int size);
     // 0x0058D6F0: the cursor's position.
-    maths::Vec4* get_cursor_pos();
+    static maths::Vec4* get_cursor_pos();
     // 0x0058D700
     void set_daylight_script(uint32_t script);
     static uint32_t get_shell_checksum(); // 0x0058D710
     static const char* get_park_name();   // 0x0058D720
     // 0x0058DCB0: the editor's look on (or off): the generator's pieces (0x00591CF0 with 0), the highlights and
     // the restart flags shown; the trick text paused and the goal points hidden (or the other way round).
-    void show_editor_view(bool on);
+    static void show_editor_view(bool on);
     // 0x0058DD70: the camera: the rail editor's while placing rails, else parked_cam.
     static void switch_camera();
     // 0x0058DDC0: the park is at its memory limit (the largest figure at 1 or more).
-    int is_park_full();
+    static int is_park_full();
     // 0x0058DDE0: the piece menu shows the cursor's set again and the scripts are told the mode.
-    void refresh_piece_menu();
+    static void refresh_piece_menu();
     // 0x0058DEC0: whether `pos` (x and z) lies inside the park more than `margin` from its edges.
     static bool is_inside_park(maths::Vec4 pos, float margin);
     // 0x0058DF80: the generator's restart point search (0x00592A10).

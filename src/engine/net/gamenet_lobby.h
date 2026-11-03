@@ -117,13 +117,13 @@ public:
     // --- gamenet_lobby_menus.cpp: the lobby's menus and chat (`this` unused) ---
     // 0x00540900: a buddy-list menu item for `player` (make_text_sub_menu_item: its nick, lobby_add_buddy with its
     // profile / nick / net_name).
-    void add_buddy_menu_item(LobbyPlayer* player);
+    static void add_buddy_menu_item(LobbyPlayer* player);
     // 0x00540FB0: a regions menu item for `room` ("<name> - <players>/<most>", "(net_lobby_full)" when full;
     // choose_selected_lobby with `index` - not focusable when full or out of the room's rating range).
-    void add_room_menu_item(LobbyRoom* room, int index);
+    static void add_room_menu_item(LobbyRoom* room, int index);
     // 0x005411E0: the lobby's player list item for `player`: its nick, rank (rating x 0.000285 x 10, at most 10), id,
     // and what choosing it does (add as a buddy - with a prompt for each reason it can't) and its colour.
-    void add_player_list_item(LobbyPlayer* player);
+    static void add_player_list_item(LobbyPlayer* player);
     // 0x00540B60 (the peer's room message callback): "<nick>: <message>" to the console (create_console_message).
     static void room_message_callback(void* peer, int room_type, const char* nick, const char* message,
                                       int message_type, void* param);

@@ -104,14 +104,14 @@ public:
     virtual void plat_set_bounding_sphere(const maths::Vec4*) {}
 
     // (slot 1, 0x005BC7F0) the platform told the skeleton's bone count: true.
-    bool allot_bones(int) { return true; }
+    static bool allot_bones(int) { return true; }
     // (slot 2, 0x0049F4A0) a flag for the geoms' bone matrices: 0.
-    int get_bone_flag(int) { return 0; }
+    static int get_bone_flag(int) { return 0; }
     // (slot 3, 0x005BC7F0) whether the platform agrees to a display mode: true.
-    bool allows_display_mode(int) { return true; }
+    static bool allows_display_mode(int) { return true; }
     // (slots 10 / 11, 0x005B9760) before / after its textures are replaced: true.
-    bool begin_texture_swap() { return true; }
-    bool end_texture_swap() { return true; }
+    static bool begin_texture_swap() { return true; }
+    static bool end_texture_swap() { return true; }
 
     // 0x00492DD0: the skeleton's bones taken once (their count, the platform told - virtual [1] -, the matrices).
     // Always true.

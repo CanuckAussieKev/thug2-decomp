@@ -100,8 +100,8 @@ public:
     void load_list_44b_66a_9f(script::Struct* params);
     // 0x005801B0: the chapter arrays (CHAPTER_STATUS, CHAPTER_INTROS_VIEWED, CHAPTER_OUTTROS_VIEWED) added to `save`.
     // 0x00580210: copied back from `save`.
-    void write_chapter_info(script::Struct* save);
-    void read_chapter_info(script::Struct* save);
+    static void write_chapter_info(script::Struct* save);
+    static void read_chapter_info(script::Struct* save);
     // 0x005802C0: 0x0042BD60 with this and `value`.
     void set_42b_d60(float value);
     // 0x00580830: moved to a random restart (0-7, through the skate module; up to 20 tries for one other than the

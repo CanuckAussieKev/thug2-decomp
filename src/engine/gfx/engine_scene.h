@@ -142,8 +142,8 @@ public:
     // vertices - (-100, -100, -100) - (100, 100, 100) when none has. True.
     // (Not original: `size` - the file's bytes - bounds its reader;
     // a damaged file is refused: no objects.)
-    bool load_collision_data(uint8_t* data, size_t size, int* count, gsl::owner<StaticCollider*>* statics, uint8_t** objects,
-                             maths::BBox* box, int unused);
+    static bool load_collision_data(uint8_t* data, size_t size, int* count, gsl::owner<StaticCollider*>* statics,
+                                    uint8_t** objects, maths::BBox* box, int unused);
     // 0x0049CE60: with collision, `box` kept and the collision grid made over it. Whether there's collision.
     bool init_collision_grid(const maths::BBox* box);
     // 0x0049CFB0: the grid, the static collision objects and the collision file let go of. True.

@@ -17,6 +17,7 @@ Checks:
   - 'readability-avoid-return-with-void-value'
   - 'readability-container-contains'
   - 'readability-container-size-empty'
+  - 'readability-convert-member-functions-to-static'
   - 'readability-duplicate-include'
   - 'readability-inconsistent-declaration-parameter-name'
   - 'readability-inconsistent-ifelse-braces'

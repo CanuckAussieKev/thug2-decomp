@@ -111,7 +111,7 @@ public:
     void start_callback() override;
     // 0x00577740: with ResetCameraToViewerObject set, the camera object viewer_cam put back: identity orientation,
     // at ViewerObjPos (`params`) raised by (0, 35, 100) - (0, 35, 100) itself without one. Returns true.
-    bool place_camera(script::Struct* params);
+    static bool place_camera(script::Struct* params);
     // 0x00576DC0 / 0x00577230: the handlers, tasks and net handler deleted, the singleton cleared.
     ~Viewer() override;
     // 0x00576D70: the viewer object deleted, the handlers and tasks off their lists, the net handler's node off its

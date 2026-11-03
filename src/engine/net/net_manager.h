@@ -121,7 +121,7 @@ public:
     uint32_t get_local_address();
     // 0x00454910: this machine's address as text ("localhost"'s host name looked up), "<Unknown>" if even
     // localhost can't be. (Doesn't use the manager.)
-    const char* fetch_own_address();
+    static const char* fetch_own_address();
     // 0x00454960
     int get_net_link_kind() { return connection_type_; }
     // 0x00454970 (shown by the TestNetSetup script command: 2-7 are set-up errors)
@@ -134,9 +134,9 @@ public:
     void set_dialup_status(int state) { dialup_phase_ = state; }
     // 0x004549C0: (a console's network drivers, set up with the viewer's address - the LoadNetworkDrivers
     // script command: nothing to load on the PC) true.
-    bool load_network_drivers(const char* ip, const char* subnet_mask, const char* gateway);
+    static bool load_network_drivers(const char* ip, const char* subnet_mask, const char* gateway);
     // 0x00454CB0: the app's receive, send, process and metrics tasks into the main loop's logic tasks.
-    void add_app_tasks(AppHost* app);
+    static void add_app_tasks(AppHost* app);
     // 0x00454DE0: the dial-up number in use ("" for connection type 3).
     const char* get_dialup_number();
 

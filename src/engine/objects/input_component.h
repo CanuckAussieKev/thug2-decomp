@@ -72,7 +72,7 @@ public:
     // 0x0041EF20: in a network game, whether something on screen takes the input: the screen element
     // controller_unplugged_dialog_anchor, or root_window with menu_state = on in its tags, or keyboard_anchor. False
     // outside network games.
-    bool is_input_blocked();
+    static bool is_input_blocked();
     // 0x0041ECA0: the last frame's events kept; this frame's from the 17 buttons (read_button_state).
     void update_events(std::span<const uint8_t> data);
     // A button's bit and the masks of the pads where it went down and up.

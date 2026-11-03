@@ -112,7 +112,7 @@ public:
     uint32_t get_goals_mode();                  // 0x005532D0 goals
     uint32_t get_team_graffiti_mode();          // 0x00553300 team_graffiti_mode
     // 0x00553330: a net mode's name as its single player one (nettrickattack -> trickattack...).
-    uint32_t remap_online_name_key(uint32_t name);
+    static uint32_t remap_online_name_key(uint32_t name);
     // 0x005533B0 / 0x00553400: the mode's goal's time left (ms; none: 0) / set (seconds).
     int get_goal_time_left();
     void set_goal_time_left(int seconds);

@@ -75,7 +75,7 @@ public:
     bool get_sound_extent(void* camera, maths::Vec4* out);
     // 0x00432F70 (`this` unused): the props' pitch and volume moved towards their targets (+0x18 / +0x1C) by their
     // steps (+0x20 / +0x24) a 60th of a second.
-    void update_props(sound::PlaybackProps* props);
+    static void update_props(sound::PlaybackProps* props);
     // 0x00433480: each waiting sound eased (update_props) and, once its time comes, played if the nearest camera is
     // within its dropoff (1020 when 0) + 240 - forced, then faded in to its volume - else looked at again later
     // (sooner the nearer it is).

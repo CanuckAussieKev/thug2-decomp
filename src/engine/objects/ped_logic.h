@@ -141,7 +141,7 @@ public:
 
     // --- the path (ped_logic_path.cpp) ---
     // 0x004ED0E0: a chance by the node's weight `weight_name` (asserted): above 0.99 always, else weight in 1000.
-    bool get_chance(script::Struct* node, uint32_t weight_name);
+    static bool get_chance(script::Struct* node, uint32_t weight_name);
     // 0x004ED8A0: the node after the next one, among the next one's links: not back the way it came (unless it's the
     // only link and isn't a vert grab), Class Waypoint and Type PedAI, not a stop action's link unless coming from one,
     // turning at least ped_min_inner_path_angle - a Normal priority one at random (or a Low one by
@@ -176,7 +176,7 @@ public:
 
     // 0x004ED080: whether the node named `node` has a vert SkateAction (Vert_Grab, Vert_Lip, Vert_Grind, 0xDA0723DA,
     // Vert_Flip, Vert_Jump). There must be such a node: the original reads through a null otherwise.
-    bool is_vert_node(uint32_t node);
+    static bool is_vert_node(uint32_t node);
 
     // --- the movement (ped_logic_move.cpp) ---
     // 0x004ECFF0: the lasting bias decayed: each quarter times the script float 0x98CD0C8C, set to 0 when the product

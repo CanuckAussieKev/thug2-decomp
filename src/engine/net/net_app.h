@@ -175,7 +175,7 @@ struct AppHost {
 
     // 0x00456910: `data` scrambled into `out`: a 16-bit checksum (the CRC's halves added), then each byte XORed
     // with the checksum's low byte. *out_length = length + 2.
-    void encrypt(const uint8_t* data, uint8_t* out, int length, int* out_length);
+    static void encrypt(const uint8_t* data, uint8_t* out, int length, int* out_length);
     // 0x00456CC0: a received packet into `out`: false if it's shorter than 3 bytes or (secure) its checksum is
     // wrong; secure packets lose their checksum (`length` - 2 bytes copied).
     bool decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out);
@@ -201,12 +201,13 @@ struct AppHost {
     // send now).
     bool is_send_due(Conn* conn);
     // 0x00456B40: the two connections know each other as aliases (the same player's server and client ends).
-    void link_duplicate_conns(Conn* first, Conn* second);
+    static void link_duplicate_conns(Conn* first, Conn* second);
     // 0x00456BA0: bind the socket to `port` on any address (if it's taken: report, and take any free port), and
     // note the address it got. (`address` isn't used.) False (reported) on failure.
     bool get_bind(uint32_t address, uint16_t port);
     // 0x00456D90: a new SeqQueuedMsg (null if out of memory).
-    gsl::owner<SeqQueuedMsg*> new_queued_msg(wire::MessageId id, uint16_t length, const void* data, wire::MessageGroup group, uint8_t compression);
+    static gsl::owner<SeqQueuedMsg*> new_queued_msg(wire::MessageId id, uint16_t length, const void* data,
+                                                    wire::MessageGroup group, uint8_t compression);
     // 0x00456E20: a datagram to ip:port (scrambled first if secure). True if sent or it would block.
     bool transmit_to(net::Address address, const uint8_t* data, int length, int flags);
     // 0x00456F10: a packet on the connected socket (scrambled first if secure). False if not connected or
@@ -220,9 +221,9 @@ struct AppHost {
     // 0x00457280: a message (id, 16-bit length, data) as one datagram to ip:port.
     bool deliver_to(AppHost::BulkHead head, const void* data, net::Address address, int flags);
     // 0x00457300: `conn` taken out of the connection list and deleted.
-    void sever_link(Conn* conn);
+    static void sever_link(Conn* conn);
     // 0x004573D0: the next connection of a search of the connection list (null at the end).
-    Conn* step_conn_walk(ConnSearch* search);
+    static Conn* step_conn_walk(ConnSearch* search);
     // 0x00457400: `conn`'s address added to the banned list.
     void block_connection(Conn* conn);
     // 0x00457490 (slot 5 of every app's table; the client's and the server's 0x0045B820 is a jump to it): the
@@ -248,7 +249,7 @@ struct AppHost {
 
     // 0x00457C80: the messages with id `id` taken out of one of `conn`'s queues (0 normal, 1 important,
     // 2 sequenced), a PendingMsg deleted when its last link goes.
-    void free_messages(Conn* conn, QueueMessages queue_messages);
+    static void free_messages(Conn* conn, QueueMessages queue_messages);
 
     // 0x00457EB0: queue `desc` for `handle`'s connection, for every ready one (0xFF), or every one but
     // handle & 0x7F (handle with 0x80 set).

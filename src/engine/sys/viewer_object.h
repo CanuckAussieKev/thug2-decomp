@@ -76,7 +76,7 @@ public:
     // with no rotation; viewerobj_add_components, Finalize, viewerobj_init_model; the idle animation played.
     void read_in(script::Struct* params);
     // 0x005897B0: shut down - the script kill_viewer_object_panel run. (The object isn't used.)
-    void power_down();
+    static void power_down();
     // 0x005897D0: animation `anim` played from the start (to its own length, looping, blend 0.3, speed 1), if the object
     // has an animation component that knows it.
     void play_animation(uint32_t anim);

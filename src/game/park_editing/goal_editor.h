@@ -448,7 +448,7 @@ public:
     // 0x004E8CF0 [NukeAllGoals]: the park's goals (the flag 0x98439808) or the others cleared. True.
     bool nuke_all_goals(script::Struct* params, script::Script* script);
     // 0x004E8D30 [GetMaxGoalsPerLevel]: 0x8BC2E0DB = 10. True.
-    bool get_max_goals_per_level(script::Struct* params, script::Script* script);
+    static bool get_max_goals_per_level(script::Struct* params, script::Script* script);
     // 0x004E8D50 [SetGoalScore]: the goal made current, its score (the unnamed integer). True.
     bool set_goal_score(script::Struct* params, script::Script* script);
     // 0x004E8DB0 [SetGoalTimeLimit]: the goal made current, its time limit (the unnamed integer). True.

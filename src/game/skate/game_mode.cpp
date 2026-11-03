@@ -595,7 +595,7 @@ bool MatchRules::clock_halts_at_zero()
 // 0x005535A0
 void MatchRules::set_num_teams(int teams)
 {
-    online::Hub* net = online::online_hub();
+    const online::Hub* net = online::online_hub();
     args_.put_int(checksums::Name{kNumTeams}, teams);
     uint32_t name = 0;
     args_.read_hash_value(kName, &name, 0);

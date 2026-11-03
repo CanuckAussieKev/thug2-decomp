@@ -210,7 +210,7 @@ MaterialRef::MaterialRef()
 // 0x004D2BD0
 MaterialRef::~MaterialRef()
 {
-    memory::Hub* heap = memory::Hub::get_pull();
+    const memory::Hub* heap = memory::Hub::get_pull();
     if (color_anims_) {
         for (const ColorAnim& anim : color_anim_run())
             heap->dealloc(anim.keys);

@@ -281,7 +281,7 @@ MeshRef::~MeshRef()
 {
     if (flags_ & kMeshFlagBillboard)
         billboard_pool().remove_mesh(this);
-    memory::Hub* heap = memory::Hub::get_pull();
+    const memory::Hub* heap = memory::Hub::get_pull();
     if (transform)
         heap->dealloc(transform);
     if (!(flags_ & 1)) { // (its own buffers, not another mesh's)

@@ -365,7 +365,7 @@ void read_stick(SDL_GameController* controller, PadStick stick, StickOut stick_o
 // fetch_part 0x004AAE20 - it returns a smart pointer, released by its destructor).
 uint8_t in_park_editor()
 {
-    frontend::UiTree* manager = frontend::UiTree::sole();
+    const frontend::UiTree* manager = frontend::UiTree::sole();
     if (!manager)
         return 0;
     frontend::ElementPtr element;

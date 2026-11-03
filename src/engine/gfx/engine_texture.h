@@ -92,16 +92,16 @@ public:
     virtual bool get_overlay(BitmapTexture*, int) { return false; } // [41]
 
     // The slots the same stub in both tables (the PC has none of these).
-    bool flip_vertically() { return false; }                                // [14] (FlipTexture's vert)
-    bool adjust_region(int, int, int, int, int, int, int) { return false; } // [20] (AdjustTextureRegion)
-    bool adjust_brightness(float, bool) { return false; }                   // [23] (AdjustTextureBrightness)
-    void* get_pixels() { return nullptr; }                                  // [25]
-    uint32_t get_pixels_size() { return 0; }                                // [26]
-    void* get_palette() { return nullptr; }                                 // [27]
-    uint32_t get_palette_size() { return 0; }                               // [28]
+    static bool flip_vertically() { return false; }                                // [14] (FlipTexture's vert)
+    static bool adjust_region(int, int, int, int, int, int, int) { return false; } // [20] (AdjustTextureRegion)
+    static bool adjust_brightness(float, bool) { return false; }                   // [23] (AdjustTextureBrightness)
+    static void* get_pixels() { return nullptr; }                                  // [25]
+    static uint32_t get_pixels_size() { return 0; }                                // [26]
+    static void* get_palette() { return nullptr; }                                 // [27]
+    static uint32_t get_palette_size() { return 0; }                               // [28]
     void set_palette(const void*, int) {}                                   // [29]
-    bool set_pixels(const void*) { return false; }                          // [30]
-    bool release_pixels() { return false; }                                 // [32]
+    static bool set_pixels(const void*) { return false; }                   // [30]
+    static bool release_pixels() { return false; }                          // [32]
 
     // The fields other code reads and sets.
     [[nodiscard]] uint32_t checksum() const { return checksum_; }

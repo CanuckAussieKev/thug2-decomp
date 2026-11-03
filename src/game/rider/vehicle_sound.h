@@ -77,7 +77,7 @@ public:
     // 0x0051B3E0: the skid sound: its level follows the speed while braking; silent: stopped.
     void update_skid();
     // 0x0051B3B0: reads a setting (0x71B4B9FE) and the clock, and does nothing with them.
-    void update_unused();
+    static void update_unused();
 
     // --- script member functions (the table at 0x00684648) ---
     // 0x0051B7C0 SetSkaterVehicleSounds: the settings named by the unnamed checksum (if any) read again, the engine

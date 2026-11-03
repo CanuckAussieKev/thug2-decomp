@@ -95,10 +95,10 @@ struct WadStream {
 
     // Linker-folded stubs on PC: 0x005BA1D0 (the thread's update: 0), 0x005BAB90 (the volume), 0x0048DCD0
     // (volume and pan), 0x005B9760 (ready to be freed: true).
-    int tick_frame() { return 0; }
+    static int tick_frame() { return 0; }
     void change_loudness(float) {}
     void set_volume_and_pan(float, float) {}
-    bool ready_to_free() { return true; }
+    static bool ready_to_free() { return true; }
     // The destructor: empty (a call to 0x005480A0).
     void destruct() {}
 
@@ -180,8 +180,8 @@ struct BinkStream {
     int tick_frame();
     // 0x005B9760 (linker-folded `return true`): whether it may be freed now (else it's asked to stop), and
     // whether its preload is far enough to start.
-    bool ready_to_free() { return true; }
-    bool prefetch_complete() { return true; }
+    static bool ready_to_free() { return true; }
+    static bool prefetch_complete() { return true; }
     // 0x00452C00 (bink_stream_files.cpp): the fields cleared (slots -1); unknown19_ and plays_ from the arguments;
     // async_ctl_ the next free stream buffer (0x004535E0).
     BinkStream(bool unknown19, int plays);

@@ -179,7 +179,7 @@ bool cfunc_add_sound_banks(Struct* params, Script*)
 {
     Array* banks = nullptr; // (uninitialised in the original: only read when found)
     if (params->fetch_list(0u, &banks, 0)) {
-        sound::AudioMixer* manager = audio_mixer_handle();
+        const sound::AudioMixer* manager = audio_mixer_handle();
         for (uint32_t i = 0; i < banks->extent(); ++i)
             manager->stop_group(static_cast<int>(banks->fetch_part(i) << kGroupShift));
     }
@@ -242,7 +242,7 @@ bool cfunc_set_global_pitch_modulation(Struct* params, Script*)
 {
     float pitch = 1.0f;
     params->fetch_float(0u, &pitch, 0);
-    sound::AudioMixer* manager = audio_mixer_handle();
+    const sound::AudioMixer* manager = audio_mixer_handle();
     const bool a = params->has_bare_flag(kPitchFlagA);
     const bool b = params->has_bare_flag(kPitchFlagB);
     manager->set_pitch(pitch, b, a);

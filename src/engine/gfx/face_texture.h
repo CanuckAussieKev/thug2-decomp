@@ -99,7 +99,7 @@ public:
     // 0x00487530
     uint8_t* get_image();
     // 0x00487540: kTexelEdge.
-    int fetch_skin_resolution();
+    static int fetch_skin_resolution();
     // 0x00487550: a copy of the points in `out`. Returns out.
     FaceAnchors* get_points(FaceAnchors* out);
     // 0x00487570

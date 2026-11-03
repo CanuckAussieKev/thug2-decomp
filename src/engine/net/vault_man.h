@@ -192,7 +192,7 @@ public:
 
     // 0x0054A910 (thiscall; the manager's object is used, not `this`): download `request`'s file on a thread
     // (download_thread); the task joins the logic tasks.
-    void download(const DownloadRequest* request);
+    static void download(const DownloadRequest* request);
     // 0x0054B370: fetch the list at `url` (sprintf'd into url_) on a thread (list_thread) with the list scripts.
     void start_list(const char* url);
     // 0x0054B400: the items of `category` (transfer 2).

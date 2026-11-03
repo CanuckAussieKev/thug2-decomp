@@ -42,7 +42,7 @@ public:
     // a pro or for an unknown difficulty level.
     bool get_voice_clip_key(uint32_t* out, int index, bool success, const char* suffix, bool no_cam_anim);
     // 0x0055F170: the player's first name into `out`. (`size` isn't read.)
-    void get_skater_given_name(std::span<char> out);
+    static void get_skater_given_name(std::span<char> out);
     // 0x0055F1B0: the last stream stopped (and its object's goal_play_stream scripts).
     void cut_previous_voice_line();
     // 0x0055F210: the goal's current stream (0xDC14D454) dropped and stopped.

@@ -505,7 +505,7 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
 // 0x0058C780
 bool Clipboard::show_at(BuildPointer* cursor)
 {
-    ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
+    const ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
     if (!editor->main_heap_has_room(hi_cell_x_ - lo_cell_x_ + 1, hi_cell_z_ - lo_cell_z_ + 1)) {
         ParkBuilderMode::get_release();
         return false;

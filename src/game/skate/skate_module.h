@@ -113,13 +113,13 @@ public:
     // back. 0x00565790: a skater removed (its bail board; a client's left script; the local player's created tricks
     // and stat goals kept) and deleted.
     gsl::owner<objects::Rider*> spawn_skater_entity(objects::RiderIdentity* profile, bool local, uint32_t id, int viewport);
-    void drop_skater_from_roster(objects::Rider* skater);
+    static void drop_skater_from_roster(objects::Rider* skater);
     // 0x00565FF0: the first skater heap no skater uses (from 0 for a local skater, 1 for another).
     int find_free_rider_heap(bool local);
     // 0x00564C60: a skater hidden or shown (`this` unused).
-    void conceal_skater(objects::Rider* skater, bool hide);
+    static void conceal_skater(objects::Rider* skater, bool hide);
     // 0x00565BF0: a skater's shadow made again (detailed for a local skater outside split screen).
-    void set_skater_shadow(objects::Rider* skater);
+    static void set_skater_shadow(objects::Rider* skater);
     // 0x00567090: each local skater's (and its camera's) input bound to its player's controller.
     void bind_controllers();
     // 0x00566100: the restart point for skater `skaterId` (by game mode: the team's, HORSE's, the multiplayer start
@@ -181,7 +181,7 @@ public:
 
     // --- small (skate_module_state.cpp) ---
     // 0x00564CA0: the timer's beeps (`script`) speeding up as `timeLeft` runs down from `startTime`.
-    void timer_beep(TimerBeep timer_beep_in, const char* script);
+    static void timer_beep(TimerBeep timer_beep_in, const char* script);
     // 0x00564D50 / 0x00564D60 / 0x00564D80 / 0x00564D90 / 0x00564DA0
     void set_unknown370(int value);
     void advance_match_flow();
@@ -189,11 +189,11 @@ public:
     goals::GoalManager* get_objective_board();
     void scan_pad_connections();
     // 0x00564F60: the voices' volumes on a pause.
-    void get_freeze(bool paused);
+    static void get_freeze(bool paused);
     // 0x00564F80: the profile `params`' integer `skater` names (none, or no params: the current one). 0x00564FC0:
     // profile `index`.
-    objects::RiderIdentity* fetch_account(script::Struct* params);
-    objects::RiderIdentity* fetch_account(int index);
+    static objects::RiderIdentity* fetch_account(script::Struct* params);
+    static objects::RiderIdentity* fetch_account(int index);
     // 0x005656C0: the career's gap checklist of the level.
     void* fetch_gap_list();
     // 0x005656D0: in a net game, out of the main menu. 0x00565700: in a net mode, or the main menu / CAS asked for.

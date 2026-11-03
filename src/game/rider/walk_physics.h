@@ -298,7 +298,7 @@ public:
     double hang_height_offset();
     // 0x0043DC60: the hang's critical point above the origin: hang_critical_point_vert_offset - hang_vert_origin_offset
     // * max_cas_scaling (unrounded).
-    double critical_point_up();
+    static double critical_point_up();
     // The animation-end callbacks: 0x0043DB00 (pulled up onto a ledge: walking again, the feeler's hit given to the
     // triggers and the movable contact), 0x0043DB90 (dropped from a hang: in the air, its facing kept), 0x0043DCF0
     // (dropped onto a rail: hanging - the offset, the rail script, tagging allowed again).
@@ -308,7 +308,7 @@ public:
     // 0x0043DDD0: whether a hanging skater's side is clear: `feeler` from the critical point (`hang`: the point and
     // the direction out from the wall, +0x10) moved out along `side` (hang_obstruction_feeler_side), then up by
     // hang_obstruction_feeler_up - and back the other way. True if neither hits.
-    bool side_clear(render::ProbeRay* feeler, const RailHit& hang, const maths::Vec4* side);
+    static bool side_clear(render::ProbeRay* feeler, const RailHit& hang, const maths::Vec4* side);
     // 0x0043DFC0: hanging on the rail +0x1764 / +0x1768 `distance` from its start (`fromEnd`: its end), facing away
     // from it - the side `direction` says; turning round more than 60 degrees flushes the walk camera (+0x1760). The hang
     // offset (+0x71C) from the new facing.
@@ -391,8 +391,8 @@ public:
     // ladder_bottom_offset_up above the bottom, ladder_climb_offset out, nothing in the way to 6 behind that.
     // 0x004413E0 (find_ladder_on_line's): grabbed where the line meets it (`on_ladder`, `along` it), between the two
     // offsets, nothing in the way from the skater; the skater core's flag +0xA0 of +0x1528 set.
-    bool check_ladder_top(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
-                          LadderHit* record);
+    static bool check_ladder_top(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
+                                 LadderHit* record);
     bool check_ladder_bottom(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
                              LadderHit* record);
     bool check_ladder_line(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,

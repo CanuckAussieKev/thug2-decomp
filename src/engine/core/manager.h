@@ -52,7 +52,7 @@ public:
     void* allocate_zeroed(uint32_t size, int halt_if_exhausted, MemSource* heap);
     void* extend_block_upward(uint32_t size, void* block, MemSource* heap);
     void* trim_block_end(uint32_t size, void* block, MemSource* heap);
-    void dealloc(void* block);
+    static void dealloc(void* block);
     // The current heap's largest possible allocation.
     uint32_t obtainable();
 

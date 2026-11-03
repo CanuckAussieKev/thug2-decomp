@@ -92,7 +92,7 @@ public:
     // 0x0041B9E0 [0xA2331896]: the body shown when the unnamed integer isn't 0 (none: hidden). 1.
     int show_body(script::Struct* params, script::Script* script);
     // 0x0041BA20 [0xC9F0DB4B]: nothing. 1.
-    int do_nothing(script::Struct* params, script::Script* script);
+    static int do_nothing(script::Struct* params, script::Script* script);
 
 private:
     float wheel_spin_{0.0f};   // +0x18 degrees, 0-360

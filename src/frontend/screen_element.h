@@ -167,9 +167,9 @@ public:
     bool read_position_param(script::Struct* params, maths::Vec2* at);
     // 0x004A8DC0: a justification from the array `name` (two names: left/top -1, right/bottom 1, else 0; or two
     // floats; `out` left as it was for an array of anything else). False without the array.
-    bool read_alignment_param(script::Struct* params, uint32_t name, maths::Vec2* out);
+    static bool read_alignment_param(script::Struct* params, uint32_t name, maths::Vec2* out);
     // 0x004A8E90: an rgba from the array `name` (bytes, lowest first). False without the array.
-    bool read_colour_param(script::Struct* params, uint32_t name, uint32_t* rgba);
+    static bool read_colour_param(script::Struct* params, uint32_t name, uint32_t* rgba);
 
     // The fields other code reads and sets.
     objects::SharedRef<UiWidget>& container() { return container_; }

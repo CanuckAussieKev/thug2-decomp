@@ -103,7 +103,7 @@ public:
     // 0x00407A80: `asset` out of the circular list `*head` (false if it isn't in it).
     static bool remove_from_list(Resource** head, Resource* asset);
     // 0x004079C0: the type of a file name's extension (0 if none matches; thiscall, the manager unused).
-    ResourceKind get_type_from_extension(const char* name);
+    static ResourceKind get_type_from_extension(const char* name);
 
     // The fields other code reads and sets.
     [[nodiscard]] int unknown18() const { return unknown18_; }

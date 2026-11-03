@@ -161,7 +161,7 @@ public:
     };
 
     ObjectEntry* find_entry(uint32_t name);
-    void copy_skeleton(ObjectEntry& from, ObjectEntry& to);
+    static void copy_skeleton(ObjectEntry& from, ObjectEntry& to);
     void apply_skater_look(ObjectEntry& entry);
     // 0x004656E0: the cutscene's clock (from the frame counter when 0x0C00425A is set, a fixed step when +0x3474,
     // else the vblanks); with +0x34B0, past the camera animation's end the next camera / object animation parts
@@ -169,7 +169,7 @@ public:
     void update_time();
     // 0x00465AB0: a cutscene object's model shown; a stand-in fades out the level object it replaces and moves it
     // along. The sound component (0x208353AC) gets the object's matrix.
-    void update_stand_in(GameEntity* object);
+    static void update_stand_in(GameEntity* object);
     // 0x00465C00: the object animation applied: the level's animated objects, then the cutscene's (children hang
     // from their parents' bone 0x5A0E0860).
     void update_object_transforms();

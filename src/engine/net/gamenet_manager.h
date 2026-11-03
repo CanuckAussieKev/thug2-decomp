@@ -233,7 +233,7 @@ public:
     // 0x00533360: the buffer at +0xFDF8 (its size in *size, +0xFDFC).
     void* get_pending_data(uint32_t* size);
     // 0x00533380: the goal editor has created goals (0x004E7E50 with 0).
-    bool has_created_goals();
+    static bool has_created_goals();
     // 0x005333A0: the goal editor's goals for `level` written into the goals message (+0x1D8: the level, then the
     // goals - at most 6000 bytes); +0x1948 its size, +0x194C the level.
     void prepare_created_goals(uint32_t level);
@@ -251,7 +251,7 @@ public:
     // 0x00533FA0: the client's side (flags bit 1).
     int is_client_side();
     // 0x00533FB0: Kill_Team_Flags, then (with teams) create_team_flags {num_teams = n}.
-    void build_team_flag_set(int num_teams);
+    static void build_team_flag_set(int num_teams);
     // 0x00534090 / 0x005341B0: the network preference num_players / num_observers set to `count` - its ui_string
     // ("<n> <netmenu_str_players>"; for observers "no observers", "1 observer", "<n> observers") and checksum
     // (num_<n>). The parameters are never freed (a leak the original has).
@@ -283,8 +283,8 @@ public:
 
     // 0x00534F50 / 0x00534FC0: in the global array `list` (structures), the `name` string / the integer `field` of
     // the entry whose checksum is `choice` (the last such; null / 0 if none).
-    const char* get_choice_name(ChoiceOf choice_of);
-    int get_choice_integer(Hub::ChoiceOf choice_of, uint32_t field);
+    static const char* get_choice_name(ChoiceOf choice_of);
+    static int get_choice_integer(Hub::ChoiceOf choice_of, uint32_t field);
     // 0x005359F0: the starting points (the eight words at +0x48): a random order of 0 ... n-1 plus a random offset
     // (0-255) - n 8 in a network game, else the game mode's max_players, or 2 (offset 0) when the park editor's +0x40
     // isn't `off` and the mode isn't horse; the crown's (+0x68) random 0-9.
@@ -295,7 +295,7 @@ public:
     void toggle_scores();
     // 0x00535D00: whether the game keeps a score: modes accumulating score or tracking the best combo, firefight, goal
     // attack, CTF, scavenger hunt - but not elimiskate (unless the net firefight / elimiskate modes).
-    bool keeps_score();
+    static bool keeps_score();
     // 0x00535D90: script_flag_bits_ (a signed byte, widened).
     void set_preset_option_bits(char flags);
 
@@ -357,7 +357,7 @@ public:
     JoinerRecord* begin_joiner_walk(NewPlayerSearch* search);
     // The next joining player through `search` (null at the end). No address of its own: the original calls the lists'
     // generic next, folded at 0x004573D0 (NetLink::AppHost::step_conn_walk), with the manager as its unused `this`.
-    JoinerRecord* step_joiner_walk(NewPlayerSearch* search);
+    static JoinerRecord* step_joiner_walk(NewPlayerSearch* search);
     // 0x005370A0: the joining player whose object id (+0x10, a signed byte) is `id`.
     JoinerRecord* fetch_incoming_player_by_obj(uint16_t id);
     // 0x00537140: ready to play (cleared_to_start_) or not; when it changes, every skater of the skate module (+0x28's
@@ -467,7 +467,7 @@ public:
     // client's handlers deleted and its task removed.
     void stop_server_list();
     // 0x005456B0: destroy_server_menu_children and add_no_servers_found_message (with refocus).
-    void show_no_servers_found(bool refocus);
+    static void show_no_servers_found(bool refocus);
     // 0x00546010: no server chosen (+0x8B) / 0x00546070: the servers in the menu (+0x8A).
     void clear_chosen_servers();
     int num_servers_in_menu();

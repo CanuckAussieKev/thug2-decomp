@@ -451,7 +451,7 @@ public:
     static void publish_method_table();
     // 0x004FBEA0 (`this` isn't used): an air time from `params` - the unnamed float, in milliseconds; with seconds /
     // second times 1000, with frames / frame times 16 - truncated to an integer.
-    int air_time_threshold(script::Struct* params);
+    static int air_time_threshold(script::Struct* params);
     // Bytes of the component set or read: CanBrakeOff / CanBrakeOn (+0x311 0 / 1), can_kick_on / CanKickOff (+0x310 0 /
     // 1: kicking forbidden), ForceAutoKickOn / ForceAutoKickOff / AutoKickIsOff (+0x2D9), SkaterVehicleOn / Off /
     // IsSkaterOnVehicle (+0x2ED), Canspin (+0x370 0), BailOn / Bailoff / BailIsOn (+0x371), BadLedge (+0x249),

@@ -688,7 +688,7 @@ objects::EmitterNode* get_emitter(uint32_t name)
 
 void stop_playing(Playing* p)
 {
-    if (sound::AudioMixer* m = audio_mixer_handle(); m && p->id && !sound::no_sound())
+    if (const sound::AudioMixer* m = audio_mixer_handle(); m && p->id && !sound::no_sound())
         m->stop_sound(p->id);
     p->id = 0;
 }

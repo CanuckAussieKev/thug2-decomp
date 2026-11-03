@@ -56,7 +56,7 @@ public:
                                      uint32_t blend_mode, int fixed_alpha, int segments, float unknown, int history,
                                      bool perm, bool use_level_colour, const char* model);
     // 0x0049AD60: `system` taken out of the list (null: nothing).
-    void remove_system(EmitterInstance* system);
+    static void remove_system(EmitterInstance* system);
     // 0x0049AD90: the system named `name` destroyed (if there's one).
     void destroy_system_now(uint32_t name);
     // 0x0049ADB0: the system named `name` left to die (no more emission; destroyed once empty).

@@ -128,12 +128,12 @@ public:
     // 0x0054EF80: the button-event pairs from the `xbox` array of `params` (see the top of this file).
     void update_button_event_mappings(script::Struct* params);
     // 0x0054F380: once a frame (front_end_tick): whether a menu / the keyboard is up, the music, the spawned scripts.
-    void tick_frame(bool game_paused);
+    static void tick_frame(bool game_paused);
     // 0x0054F600: the `index`-th pad event of the pressed buttons, else pad_start for Start, else (controller 0,
     // the on-screen keyboard up) Escape / Enter / Space as pad_back / pad_start / pad_choose. 0 if none.
     uint32_t grab_control_event(const PadRead& read, int index);
     // 0x0054F900
-    void set_analog_stick_active_for_menus(bool active);
+    static void set_analog_stick_active_for_menus(bool active);
     // 0x0054F960: pauses or unpauses the game (controllers' motors, scripts, skaters, the object updates...).
     void get_pause_game(bool pause);
     // 0x0054FD00: each handler moved to the handler list of the controller device_server_map_ names.

@@ -42,11 +42,11 @@ public:
     // down to 6 over it hits a movable object that's still there, and nothing is in the way back up from the point
     // to just over the hit (else the feeler starts again just under that hit; 9 tries). The hit point into `hit`;
     // null when there's none.
-    GameEntity* find_contact(const maths::Vec4* point, maths::Vec4* hit);
+    static GameEntity* find_contact(const maths::Vec4* point, maths::Vec4* hit);
     // 0x00427B30: the object under `pos` (null: none). Nothing under `next`: `pos` = `next`. Else, nothing two
     // frames of the object's velocity ahead of `pos`: `pos` = that point; else `pos` = the hit under it, a unit
     // up.
-    GameEntity* find_contact_ahead(maths::Vec4* pos, const maths::Vec4* next);
+    static GameEntity* find_contact_ahead(maths::Vec4* pos, const maths::Vec4* next);
     // 0x00427A00: the contact point in the world (relative to the last object ridden, by its orientation and
     // position; none: as kept); returns `out` (callers read it).
     maths::Vec4* get_contact_point(maths::Vec4* out);

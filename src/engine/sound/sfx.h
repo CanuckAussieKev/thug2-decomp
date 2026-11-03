@@ -189,17 +189,18 @@ public:
     // 0x0047B160: the voices set up, nothing playing.
     AudioMixer();
     // 0x0047AD80: the slot of the playing sound `id` - by unique id, else by name (-1 if neither is playing).
-    int get_playing_index(uint32_t id);
+    static int get_playing_index(uint32_t id);
     // 0x0047AE20: a positional sound for `object` (nothing at 128).
-    void add_positional_sound(uint32_t unique_id, checksums::Name sound_name, objects::AudioEmitterModule* object);
+    static void add_positional_sound(uint32_t unique_id, checksums::Name sound_name,
+                                     objects::AudioEmitterModule* object);
     // 0x0047AE90: (a group's sounds stopped - empty in this build).
-    void stop_group(int group);
+    static void stop_group(int group);
     // 0x0047AEA0: the permanent waves loaded for `group` (load type 2) dropped from the table.
-    void unload_group(int group);
+    static void unload_group(int group);
     // 0x0047AF10: unload_group for every group (there are none in this build).
-    void unload_all_groups();
+    static void unload_all_groups();
     // 0x0047AF40: `props` from the wave's defaults and the play parameters `params` (null: defaults).
-    void init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, const SoundParams* params);
+    static void init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, const SoundParams* params);
     // 0x0047B340: whether sounds are paused (the game's two pause flags) - unless +0 is set.
     bool is_frozen();
     // How a sound is loaded: its flags, its load type and its group.
@@ -218,48 +219,48 @@ public:
 
     // 0x0047B360: `path` loaded into the level (`loadType` 0) or the permanent table; false if it's loaded
     // already, the table is full (256) or the file can't be read.
-    bool ingest_sound(const char* path, SoundLoad sound_load, SoundLevels levels);
+    static bool ingest_sound(const char* path, SoundLoad sound_load, SoundLevels levels);
     // 0x0047B480: the wave's volume (and the game's 50 %) applied to `volume`, its pitch to `pitch`.
-    void adjust_volume_and_pitch(VolumeRef* volume, float* pitch, SoundWaveSlot* entry);
+    static void adjust_volume_and_pitch(VolumeRef* volume, float* pitch, SoundWaveSlot* entry);
     // 0x0047B4E0: the sound `id` stopped (false if it isn't playing).
-    bool stop_sound(uint32_t id);
+    static bool stop_sound(uint32_t id);
     // 0x0047B520: the volume and pitch of the playing sound `id`.
-    bool set_sound_params(uint32_t id, VolumeRef* volume, float pitch);
+    static bool set_sound_params(uint32_t id, VolumeRef* volume, float pitch);
     // 0x0047B5D0: the main volume (0x0067DA38; below 0.1 % silent) for the voices and the user soundtrack.
-    void change_master_loudness(float volume);
+    static void change_master_loudness(float volume);
     // 0x0047B650: the sfx pitch (0x0067DA3C; 1 % or less: 0.01).
-    void set_pitch(float pitch, int unused1, int unused2);
+    static void set_pitch(float pitch, int unused1, int unused2);
     // 0x0047B6B0: (debug output, compiled out).
-    void print_sounds(int a, int b, int c);
+    static void print_sounds(int a, int b, int c);
     // 0x0047B6F0: whether the sound `uniqueId` is playing (its slot in `index`, if given).
-    bool is_sound_playing(uint32_t unique_id, int* index);
+    static bool is_sound_playing(uint32_t unique_id, int* index);
     // 0x0047B760: the sound's dropoff distance (the default if it has none or isn't loaded).
-    float get_dropoff_distance(uint32_t checksum);
+    static float get_dropoff_distance(uint32_t checksum);
     // 0x0047B7C0: SetSoundParams by unique id with the sound's own volume and pitch percentages.
-    bool set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, float pitch);
+    static bool set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, float pitch);
     // 0x0047B1B0: everything dropped (the positional list, the permanent waves); the default dropoff back to 1020.
-    void sweep_up();
+    static void sweep_up();
     // 0x0047B210: the default dropoff distance.
-    void set_default_dropoff(float dropoff);
+    static void set_default_dropoff(float dropoff);
     // 0x0047B240: every voice stopped, the positional list emptied.
-    void stop_all_sounds();
+    static void stop_all_sounds();
     // 0x0047B2A0: every playing voice set silent (0x0047D390).
-    void update_voice_volumes();
+    static void update_voice_volumes();
     // 0x0047B2C0: the wave table entry for `checksum` (level ones first).
-    SoundWaveSlot* fetch_wave_slot(uint32_t checksum);
+    static SoundWaveSlot* fetch_wave_slot(uint32_t checksum);
 
     // --- 0x0047B8E0-0x0047C6BB ---
     // 0x0047B8E0: `pitch` shifted by the sound's motion relative to the camera (Doppler): `position` now,
     // `previous` a frame ago, over `frame_seconds` (nothing when it moved more than 360 units a 60th).
-    void doppler_shift(float* pitch, const maths::Vec4* position, const maths::Vec4* previous, float frame_seconds,
-                       void* camera);
+    static void doppler_shift(float* pitch, const maths::Vec4* position, const maths::Vec4* previous,
+                              float frame_seconds, void* camera);
     // 0x0047BA00: the props of the positional sound of `object` with that unique id (or, `by_checksum`, name), if
     // it's playing.
-    PlaybackProps* get_positional_props(objects::AudioEmitterModule* object, uint32_t id, bool by_checksum);
+    static PlaybackProps* get_positional_props(objects::AudioEmitterModule* object, uint32_t id, bool by_checksum);
     // 0x0047BAB0: whether `id` isn't the unique id of a playing or positional sound.
-    bool is_unique_id_free(uint32_t id);
+    static bool is_unique_id_free(uint32_t id);
     // 0x0047BB20: `id`, or the next free one after it.
-    uint32_t fetch_distinct_id(uint32_t id);
+    static uint32_t fetch_distinct_id(uint32_t id);
     // 0x0047BB50 / 0x0047BC30: the positional sounds of `object` (with that name, unless 0) stopped and dropped.
     void stop_object_sounds(objects::AudioEmitterModule* object);
     void halt_object_sound(objects::AudioEmitterModule* object, uint32_t checksum);
@@ -271,8 +272,8 @@ public:
 
     // 0x0047BD20: the sound `checksum` played at `volume` / `pitch` (the unique id `uniqueId`, else the name;
     // made free); `params` its play parameters. Returns the unique id (0: not played).
-    uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pitch_id, const SoundParams* params,
-                        int unused);
+    static uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pitch_id, const SoundParams* params,
+                               int unused);
     // A sound's dropoff distance and its falloff curve.
     struct Falloff {
         float dropoff{};

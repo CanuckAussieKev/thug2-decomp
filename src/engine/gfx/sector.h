@@ -52,7 +52,7 @@ public:
     virtual void plat_set_shatter(bool on);
     virtual gsl::owner<WorldCell*> plat_clone(int instance, void* scene);
     // 0x0049E8D0 ("STUB: PlatGetShatter").
-    bool plat_get_shatter();
+    static bool plat_get_shatter();
 
     // 0x0049EAD0: a clone - the platform's new sector with a new name (0x0048CA80), these flags and kSectorClone,
     // the turn, a clone of the geometry (for `scene`) and of the collision (named as the clone, out of the grid,

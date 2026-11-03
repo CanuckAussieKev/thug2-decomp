@@ -532,7 +532,7 @@ bool cfunc_is_park_full(script::Struct*, script::Script*)
 // 0x0058ED00
 bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct*, script::Script*)
 {
-    ParkBuilderMode* editor = get_editor();
+    const ParkBuilderMode* editor = get_editor();
     get_cursor()->switch_to_clipboard();
     editor->refresh_piece_menu();
     objects::get_tracker()->launch_event(kParkedMenuUp, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0f);

@@ -88,7 +88,7 @@ public:
     // 0x0044F3C0: `module` onto the end of the list.
     void enrol_unit(PartUnit* module);
     // 0x0044F3E0: `module` out of the list (doesn't use the manager).
-    void remove_module(PartUnit* module);
+    static void remove_module(PartUnit* module);
     // 0x0044F310: unless it's locked, `module` is started (restarted if running) when the task next runs.
     void launch_module(PartUnit* module);
     // 0x0044F530: every running module that isn't locked stopped now (its command dropped).

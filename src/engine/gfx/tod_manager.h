@@ -181,10 +181,10 @@ public:
     // [overwrite_current_state={...}] [sky].
     void change_args(script::Struct* params);
     // 0x00571A00: the parameters in `structure` read into `out` (missing ones are left as they are).
-    void parse_params(script::Struct* structure, TodParams* out);
+    static void parse_params(script::Struct* structure, TodParams* out);
     // 0x00571340: `a` blended towards `b` by `t` (integers truncated). Fields +0x14..+0x24 and fog_on aren't set
     // by the original (stack garbage): here they're a's.
-    TodParams get_lerp(TodParams a, TodParams b, float t);
+    static TodParams get_lerp(TodParams a, TodParams b, float t);
     // 0x00571E00: system `index`'s parameters now (blended while transitioning); -1: the first non-sky system.
     TodParams get_tod_params(int index);
     // 0x00571140: the current level colour (0x00BBGGRR) of the first non-sky system (GameObjects::CreateFromStructure
@@ -197,10 +197,10 @@ public:
     void update_sun();
     // 0x005727F0 (0x00572821 is the part after its first test): colour the scenes (`start_percent`..`end_percent` of
     // their sectors), the level scene and (for the outdoor group or no group) the models; or only the sky scene.
-    void apply_color(uint32_t color, uint32_t sky_color, bool sky, uint32_t light_group, uint32_t reset_light_group,
-                     bool part_only, int start_percent, int end_percent);
+    static void apply_color(uint32_t color, uint32_t sky_color, bool sky, uint32_t light_group,
+                            uint32_t reset_light_group, bool part_only, int start_percent, int end_percent);
     // 0x00573500: bloom on (the parameters) or off.
-    void set_bloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color);
+    static void set_bloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color);
     // 0x00572320: fog on (with the current fog colour and distance) or off.
     void set_fog_active(bool on);
 
@@ -212,7 +212,7 @@ public:
     // 0x00572BD0: the dead-objects table emptied (level clean-up).
     void clear_dead_objects();
     // 0x005732D0: SetSceneColor's colouring: color=, [sky=], light_group=, reset_light_group= ...
-    void set_scene_color(script::Struct* params);
+    static void set_scene_color(script::Struct* params);
     // 0x00573BE0: TODManager_ResetLevelLights [state_name=]: the lights set from the current parameters (no name)
     // or from the named state's.
     void reset_level_lights(uint32_t state_name);
