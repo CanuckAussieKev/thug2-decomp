@@ -175,10 +175,10 @@ objects::GrindRailHub* get_rails()
 // NOT ORIGINAL grouping - level_editor_grind_preview.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_grind_preview_state()).
 struct LevelEditorGrindPreviewState {
-    std::string describe_{};
+    std::string describe_;
     // (the terrain's name, asked once per rail shown)
     uint32_t terrain_for_{};
-    std::string terrain_{};
+    std::string terrain_;
 };
 
 LevelEditorGrindPreviewState& level_editor_grind_preview_state()

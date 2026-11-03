@@ -379,7 +379,7 @@ struct Drawn {
 // NOT ORIGINAL grouping - what was drawn, the stats and the wall (were globals). Made on first use, never destroyed
 // (view_stats()).
 struct ViewStats {
-    std::vector<Drawn> drawn_{};
+    std::vector<Drawn> drawn_;
     Attributes stats_{};
     uint32_t wall_{};
 };
@@ -404,8 +404,8 @@ struct HiddenObjectRec {
 // NOT ORIGINAL grouping - the hidden sectors and the records concealed (were globals). Made on first use, never
 // destroyed (hidden_sectors()).
 struct HiddenSectors {
-    std::vector<HiddenSectorRec> hidden_sectors_{};
-    std::vector<HiddenObjectRec> concealed_records_{};
+    std::vector<HiddenSectorRec> hidden_sectors_;
+    std::vector<HiddenObjectRec> concealed_records_;
 };
 
 HiddenSectors& hidden_sectors()

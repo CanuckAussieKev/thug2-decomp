@@ -157,7 +157,7 @@ struct LevelEditorUiState {
     float mouse_y_ = -1.0f;
     uint32_t ui_buttons_{};
     uint32_t editor_buttons_{};
-    std::vector<Request> requests_{};
+    std::vector<Request> requests_;
     bool offer_closed_{};
     std::array<char, kSearchTextSize> outliner_search_{};
     bool changed_only_{}; // (the Outliner's "Changed only")

@@ -1073,7 +1073,7 @@ struct Segment {
 // NOT ORIGINAL grouping - the segments and the nodes and rails they were made from (were globals). Made on first use,
 // never destroyed (segments()).
 struct Segments {
-    std::vector<Segment> segments_{};
+    std::vector<Segment> segments_;
     uint32_t segments_nodes_ = ~0u;
     uint32_t segments_rails_ = ~0u;
 };

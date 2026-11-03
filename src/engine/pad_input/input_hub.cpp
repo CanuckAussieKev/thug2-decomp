@@ -36,7 +36,7 @@ namespace {
 // NOT ORIGINAL grouping - the input manager's owner and references, each device index's buttons this frame (down,
 // pressed, released). Made on first use, never destroyed (input_hub_state()).
 struct InputHubState {
-    memory::HeapUnique<pad_input::Hub> input_manager_{};
+    memory::HeapUnique<pad_input::Hub> input_manager_;
     unsigned int input_manager_references_{};
     // Each device index's buttons this frame: down, pressed, released (two of each).
     std::array<uint32_t, 2> device_makes_{};

@@ -64,8 +64,8 @@ void stop_timer(UINT timer) { timeKillEvent(timer); }
 // NOT ORIGINAL grouping - loading_screen.cpp's state (the original's globals). Made on first use, never destroyed
 // (loading_screen_state()).
 struct LoadingScreenState {
-    std::unique_ptr<render::BillboardQuad> loading_screen_sprite_{}; // (nothing in this build sets it)
-    std::string picture_name_{}; // the picture loaded
+    std::unique_ptr<render::BillboardQuad> loading_screen_sprite_; // (nothing in this build sets it)
+    std::string picture_name_; // the picture loaded
 };
 
 LoadingScreenState& loading_screen_state()

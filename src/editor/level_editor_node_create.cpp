@@ -540,8 +540,8 @@ constexpr uint32_t kAngles = 0x9D2D0915; // angles
 // (level_editor_node_create_state()).
 struct LevelEditorNodeCreateState {
     // The overlay: its specs (names, classes...; places are the structures') and structures, in array order.
-    LinkChain list_{};
-    std::vector<script::Struct*> structs_{};
+    LinkChain list_;
+    std::vector<script::Struct*> structs_;
     script::Array* array_{};
     bool registered_{};
     uint32_t level_array_{}; // (the array the overlay was added after: it leaves with it)

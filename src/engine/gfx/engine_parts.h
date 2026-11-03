@@ -52,16 +52,16 @@ public:
 private:
     // The engine's managers, the render mode and the scenes' list (engine.cpp).
     bool suppress_draw_{}; // rendering skipped (frames not drawn or shown)
-    std::unique_ptr<FlexibleParticleManager> flexible_particle_manager_{};
-    memory::HeapUnique<ImposterManager> imposter_manager_{};
+    std::unique_ptr<FlexibleParticleManager> flexible_particle_manager_;
+    memory::HeapUnique<ImposterManager> imposter_manager_;
     int render_mode_{};
     // The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
     memory::ListNode scene_list_{};
 
     // The loading screen switch, the weather, the screen effects and the fog colour (engine_glue.cpp).
     bool loading_screen_up_{}; // the loading screen is up: it draws and presents on its own
-    std::unique_ptr<WeatherSystem> weather_{};
-    std::unique_ptr<ScreenEffects> screen_effects_{};
+    std::unique_ptr<WeatherSystem> weather_;
+    std::unique_ptr<ScreenEffects> screen_effects_;
     uint32_t fog_colour_{};
 
     // The collision scenes (engine_scene_list.cpp).

@@ -55,7 +55,7 @@ struct SuspendComponentState {
     int suspend_frame_count_{};
     int suspend_interleave2_count_{};
     int suspend_interleave4_count_{};
-    memory::HeapUnique<SuspendTaskHolder> suspend_task_holder_{};
+    memory::HeapUnique<SuspendTaskHolder> suspend_task_holder_;
 };
 
 SuspendComponentState& suspend_component_state()

@@ -147,8 +147,8 @@ void fold(size_t depth);
 bool take_back();
 // What an action made: objects and sectors (checksums).
 struct MadeThings {
-    std::span<const uint32_t> objects{};
-    std::span<const uint32_t> sectors{};
+    std::span<const uint32_t> objects;
+    std::span<const uint32_t> sectors;
 };
 
 // Copies made (objects' ids - Objects' copies -, sectors' checksums): one undo step that takes them away.

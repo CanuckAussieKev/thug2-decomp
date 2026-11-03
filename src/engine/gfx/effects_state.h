@@ -68,7 +68,7 @@ private:
     lists::ObjectSet<PcShatter> shatters_{};
 
     // The texture splats' vertices (texture_splats.cpp).
-    VertexStack vertex_stack_{};
+    VertexStack vertex_stack_;
     float split_area_limit_{kSplitAreaLimit};
 
     // The shadow volumes and edges (engine_shadow_edges.cpp).

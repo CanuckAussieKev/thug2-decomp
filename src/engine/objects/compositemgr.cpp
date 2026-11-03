@@ -119,7 +119,7 @@ struct CompositemgrState {
     int coim_a_{};
     int coim_b_{};
     int coim_c_{};
-    std::unique_ptr<memory::Zone> coim_region_{};
+    std::unique_ptr<memory::Zone> coim_region_;
     memory::Arena* coim_heap_{};
     // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
     std::array<ObjectModule*, objects::EntityHub::kMaxComponentTypes> component_list_{};

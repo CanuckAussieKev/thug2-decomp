@@ -613,7 +613,7 @@ struct DragState {
     Picked hover_{};
     // The selected objects (the first is the one the camera and the arrows go by); or the selected scenery
     // (Scenery::Selection) - never both.
-    std::vector<Picked> objects_{};
+    std::vector<Picked> objects_;
     // The scene sector under the cursor (its checksum; 0: none).
     uint32_t hover_sector_{};
     // Dragging: free (the plane / the view's terms) or along one axis (an arrow).
@@ -720,7 +720,7 @@ struct PickCycle {
     uint32_t reset_asked_at_{};
     // Rails (level_editor_node_edit.h): a rail node moves with its whole rail (L toggles: one point).
     bool move_entire_rail_ = true;
-    std::vector<nodes::Pickable> pickables_{};
+    std::vector<nodes::Pickable> pickables_;
     ui::Overlay overlay_{};
     int hud_taken_down_{}; // (the UI runs: frames the HUD's screen elements have been taken down)
 };
@@ -1194,8 +1194,8 @@ struct UndoStep {
 // NOT ORIGINAL grouping - the undo and redo steps and the pending one (were globals). Made on first use, never
 // destroyed (undo_steps()).
 struct UndoSteps {
-    std::vector<UndoStep> undo_{};
-    std::vector<UndoStep> redo_{};
+    std::vector<UndoStep> undo_;
+    std::vector<UndoStep> redo_;
     uint64_t undo_serial_{};
     UndoStep pending_{};
     bool has_pending_{};

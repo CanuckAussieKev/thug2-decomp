@@ -100,7 +100,7 @@ struct BigSlot {
 // NOT ORIGINAL grouping - the big node arrays: their slots, the walk and its owner (the original's globals). Made on
 // first use, never destroyed (big_node_arrays()).
 struct BigNodeArrays {
-    std::vector<BigSlot> big_slots_{};
+    std::vector<BigSlot> big_slots_;
     BigSlot big_walk_ = {.element_list_ = 0, .list_link_ = -1};
     const NodeManager* big_owner_{};
 };

@@ -1032,10 +1032,10 @@ std::map<uint32_t, TerrainSet>& terrains_state()
 // (level_editor_chains_state()).
 struct LevelEditorChainsState {
     // The rail manager's node arrays replaced by rebuild_rails (freed with the level).
-    std::vector<void*> retired_{};
+    std::vector<void*> retired_;
     objects::GrindPoint* built_{}; // (the node array rebuild_rails made last)
     // Objects to make again from their nodes (their path changed) once the game has removed them.
-    std::vector<uint32_t> remake_{};
+    std::vector<uint32_t> remake_;
     // Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and from which node.
     Blit draw_ = Blit::kNone;
     uint32_t draw_last_{};

@@ -232,7 +232,7 @@ constexpr uint32_t kAngles = 0x9D2D0915; // angles
 // NOT ORIGINAL grouping - level_editor_nodes.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_nodes_state()).
 struct LevelEditorNodesState {
-    std::vector<Elem> nodes_{};
+    std::vector<Elem> nodes_;
     std::array<int, kFamilies> counts_{};
 };
 
@@ -257,7 +257,7 @@ struct ArraySignature {
 // NOT ORIGINAL grouping - the nodes' signature, the crowns and spawns walked and the generation (were globals). Made on
 // first use, never destroyed (node_walk()).
 struct NodeWalk {
-    std::vector<ArraySignature> signature_{};
+    std::vector<ArraySignature> signature_;
     int walked_crowns_{};
     int walked_spawns_{};
     uint32_t generation_{};

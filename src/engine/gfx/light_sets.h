@@ -42,7 +42,7 @@ private:
     std::array<DynamicLightBase*, kDynamicLightSlots> dynamic_lights_{};
 
     // The light manager's intensities and the lighting the models are drawn with (light_manager.cpp).
-    std::span<float> intensities_{};
+    std::span<float> intensities_;
     uint32_t model_light_count_{};
     float ambient_intensity_{1.0f};
     LightingState active_lighting_{.ambient = 0, .directions = {}, .colours = {}, .ambient_low_ = kDefaultAmbientLow, .ambient_high_ = 0.0f, .light_low_ = {}, .light_high_ = {}};

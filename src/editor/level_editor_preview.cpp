@@ -115,8 +115,8 @@ struct LevelEditorPreviewState {
     uint32_t id_{};
     Orbit orbit_{};
     bool have_time_{};
-    std::chrono::steady_clock::time_point last_frame_{};
-    std::chrono::steady_clock::time_point last_drag_{};
+    std::chrono::steady_clock::time_point last_frame_;
+    std::chrono::steady_clock::time_point last_drag_;
     bool failed_logged_{};
 };
 

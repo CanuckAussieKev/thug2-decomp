@@ -354,8 +354,8 @@ constexpr float kHalf = 0.5f; // half
 // NOT ORIGINAL grouping - level_editor_checks.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_checks_state()).
 struct LevelEditorChecksState {
-    std::vector<Issue> issues_{}; // the last check's
-    std::vector<Issue> layout_issues_{}; // the loaded layout's unresolved records
+    std::vector<Issue> issues_; // the last check's
+    std::vector<Issue> layout_issues_; // the loaded layout's unresolved records
     int changes_ = -1;
     uint32_t generation_ = 0;
     int loads_ = -1;
@@ -367,7 +367,7 @@ struct LevelEditorChecksState {
     bool tab_pending_ = false;
     bool show_own_ = false;
     bool show_ignored_ = false;
-    std::vector<std::function<void()>> queue_{};
+    std::vector<std::function<void()>> queue_;
 };
 
 LevelEditorChecksState& level_editor_checks_state()

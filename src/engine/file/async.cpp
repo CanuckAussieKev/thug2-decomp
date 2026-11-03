@@ -57,7 +57,7 @@ struct AsyncState {
     int pending_reads_{};
     bool io_completed_{};
     int current_list_{};
-    std::unique_ptr<AsyncLoaderModule> loader_module_{};
+    std::unique_ptr<AsyncLoaderModule> loader_module_;
     uint32_t loader_module_refs_{};
     bool use_overlapped_io_{};
     std::array<std::array<PendingCallback, kMaxHandles>, 2> pending_callbacks_{};

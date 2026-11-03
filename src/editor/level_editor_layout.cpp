@@ -706,7 +706,7 @@ struct LayoutSave {
     // The autosave: the text made by the last Snapshot and where it goes (plain memory the crash hook can write without
     // allocating: `ready` is false while they change), whether it has been written since, whether this run wrote (or
     // restored) this level's autosave, and whether an older one is being offered (nothing written over it meanwhile).
-    std::string snapshot_{};
+    std::string snapshot_;
     std::array<char, MAX_PATH> snapshot_path_{};
     std::array<char, MAX_PATH> snapshot_folder_{};
     volatile bool snapshot_ready_{};

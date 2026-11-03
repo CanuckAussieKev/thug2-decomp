@@ -36,7 +36,7 @@ namespace {
 struct ModelBuilderState {
     render::RenderModel* built_model_{};
     Rig* built_skeleton_{};
-    std::unique_ptr<ModelLook> built_appearance_{};
+    std::unique_ptr<ModelLook> built_appearance_;
 };
 
 ModelBuilderState& model_builder_state()

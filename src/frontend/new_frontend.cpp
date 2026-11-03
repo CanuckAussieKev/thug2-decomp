@@ -340,12 +340,12 @@ struct NewFrontendState {
     bool catalogue_ok_ = false;
     SavedState saved_{};
     uint32_t last_load_ = 0;
-    std::vector<SDL_Event> events_{};
-    std::vector<paint::Hit> hits_{};
+    std::vector<SDL_Event> events_;
+    std::vector<paint::Hit> hits_;
     bool guard_ = false; // (the game's input held back until the keys that chose are let go)
     float guard_time_ = 0.0f;
     int buttons_down_ = 0;
-    std::string skater_name_{};
+    std::string skater_name_;
 };
 
 NewFrontendState& new_frontend_state()
@@ -384,7 +384,7 @@ constexpr float kRepeatDelay = 0.35f, kRepeatEvery = 0.09f;
 // NOT ORIGINAL grouping - the menus' last tick and whether this frame ticked (were globals). Made on first use, never
 // destroyed (menu_tick()).
 struct MenuTick {
-    std::chrono::steady_clock::time_point last_tick_{};
+    std::chrono::steady_clock::time_point last_tick_;
     bool ticked_ = false;
 };
 
@@ -405,9 +405,9 @@ struct EditSession {
     int edit_frames_ = 0;
     int edit_presses_ = 0;
     // The options' state: what the ini said at start-up (a Restart option changed since is "pending").
-    std::vector<std::string> start_values_{};
-    std::vector<bool> restart_pending_{};
-    std::string options_note_{};
+    std::vector<std::string> start_values_;
+    std::vector<bool> restart_pending_;
+    std::string options_note_;
 };
 
 EditSession& edit_session()
@@ -1537,13 +1537,13 @@ std::string pad_button_label_for(mirror::ButtonTag button_tag)
 // globals). Made on first use, never destroyed (menu_mirror()).
 struct MenuMirror {
     mirror::Tracker mirror_{};
-    std::vector<paint::Hit> mirror_hits_{};
-    std::vector<SDL_Event> mirror_events_{};
+    std::vector<paint::Hit> mirror_hits_;
+    std::vector<SDL_Event> mirror_events_;
     float mirror_scroll_ = 0.0f;
     // Set while the original's screens are those of a hand-off left to them entirely: the create modes' editors (CAS,
     // CAT, CAG, the park editor, graphics) and online - nothing restyled until ours is up again.
     const char* left_original_ = nullptr;
-    std::string mirror_logged_{};
+    std::string mirror_logged_;
 };
 
 MenuMirror& menu_mirror()

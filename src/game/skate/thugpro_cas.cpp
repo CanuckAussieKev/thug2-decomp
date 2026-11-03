@@ -70,10 +70,10 @@ constexpr auto kFiles = std::to_array<const char*>({
 // NOT ORIGINAL grouping - thugpro_cas.cpp's state (the original's globals). Made on first use, never destroyed
 // (thugpro_cas_state()).
 struct ThugproCasState {
-    std::string data_{}; // THUGPRO's data folder, ending in '\'
+    std::string data_; // THUGPRO's data folder, ending in '\'
     // What file_path serves: their_files() once the load is done (made once and kept for the game's life; published
     // through served_ - the file system's threads read it).
-    std::unique_ptr<const std::set<std::string>> served_files_{};
+    std::unique_ptr<const std::set<std::string>> served_files_;
     std::atomic<const std::set<std::string>*> served_{nullptr};
 };
 

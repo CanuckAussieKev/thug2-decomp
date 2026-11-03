@@ -227,10 +227,10 @@ CellCache& cells_state()
 struct LevelEditorThumbsState {
     uint32_t generation_{}; // (the atlas's: a new one - every cell to draw again)
     uint64_t frame_ = 1;
-    std::vector<uint64_t> wanted_{}; // (the grid's entries shown last frame, in order)
-    std::string level_{}; // (the lists' level)
-    std::vector<std::string> recent_{};
-    std::vector<std::string> favourites_{};
+    std::vector<uint64_t> wanted_; // (the grid's entries shown last frame, in order)
+    std::string level_; // (the lists' level)
+    std::vector<std::string> recent_;
+    std::vector<std::string> favourites_;
     bool grid_read_{};
     bool grid_ = true;
     int list_mode_{}; // (0 all, 1 recent, 2 favourites)

@@ -113,8 +113,8 @@ namespace {
 // NOT ORIGINAL grouping - skate_module_skaters.cpp's state (the original's globals). Made on first use, never destroyed
 // (skate_module_skaters_state()).
 struct SkateModuleSkatersState {
-    script::StructPtr cat_info_{};
-    script::StructPtr stat_target_info_{};
+    script::StructPtr cat_info_;
+    script::StructPtr stat_target_info_;
 };
 
 SkateModuleSkatersState& skate_module_skaters_state()

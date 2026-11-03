@@ -602,8 +602,8 @@ struct Snapshot {
 struct Simulation {
     bool simulating_{};
     bool keep_simulation_{};
-    std::vector<Snapshot> snapshots_{};
-    std::vector<uint32_t> touched_before_{};
+    std::vector<Snapshot> snapshots_;
+    std::vector<uint32_t> touched_before_;
     bool handler_registered_{};
     uint32_t sim_started_{};
 };

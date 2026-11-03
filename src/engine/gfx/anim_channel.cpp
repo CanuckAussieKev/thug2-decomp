@@ -146,9 +146,9 @@ namespace {
 
 // NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (blend_scratch()).
 struct BlendScratch {
-    std::span<Stance> blend_buffer_{};
-    std::span<float> blend_weights_{};
-    std::span<uint32_t> blend_sets_{};
+    std::span<Stance> blend_buffer_;
+    std::span<float> blend_weights_;
+    std::span<uint32_t> blend_sets_;
 };
 
 BlendScratch& blend_scratch()
@@ -196,7 +196,7 @@ struct AnimChannelState {
     uint8_t last_wobble_target_{kNoWobbleValue};
     uint8_t last_wobble_details_{kNoWobbleValue};
     int8_t last_loop_type_{-1};
-    std::span<Stance> poses_{};
+    std::span<Stance> poses_;
     int max_blends_{};
     int subsets_{};
 };

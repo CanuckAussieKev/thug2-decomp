@@ -45,7 +45,7 @@ constexpr int kPerPlayerHeapPad = 0x8EF1C;        // the main heap's extra bytes
 // (park_memory_state()).
 struct ParkMemoryState {
     MemoryStats park_memory_stats_{};
-    std::unique_ptr<memory::Zone> park_region_{}; // 0x007CE684 (power_down deletes it)
+    std::unique_ptr<memory::Zone> park_region_; // 0x007CE684 (power_down deletes it)
     int park_memory_unknown_7c_e_68c_{};
     int dma_pieces_{};
     bool counts_dirty_{};

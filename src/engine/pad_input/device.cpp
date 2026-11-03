@@ -347,7 +347,7 @@ namespace {
 
 // NOT ORIGINAL grouping - the input devices' manager. Made on first use, never destroyed (device_manager_state()).
 struct DeviceManagerState {
-    std::unique_ptr<Hub> manager_{};
+    std::unique_ptr<Hub> manager_;
 };
 
 DeviceManagerState& device_manager_state()

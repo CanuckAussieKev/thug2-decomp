@@ -53,11 +53,11 @@ private:
 
     // (entity_hub.cpp)
     uint32_t tracker_references_{};
-    std::unique_ptr<objects::EventWaitBoard> tracker_{};
+    std::unique_ptr<objects::EventWaitBoard> tracker_;
 
     // (rigidbody_component.cpp)
     std::array<float, kPusherCount> rigid_body_pusher_reach_{};
-    std::optional<render::HitMeshCache> rigid_body_cache_{};
+    std::optional<render::HitMeshCache> rigid_body_cache_;
     std::array<BodyDynamicsModule::Contact, kContactCount> rigid_body_contacts_{};
     std::array<maths::Vec4, kContactCount> rigid_body_world_contact_points_{};
     std::array<maths::Vec4, kContactCount> rigid_body_world_sphere_centers_{};

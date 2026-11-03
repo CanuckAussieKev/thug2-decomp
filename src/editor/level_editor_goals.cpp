@@ -706,9 +706,9 @@ using Function = bool (*)(script::Struct*, script::Script*);
 // NOT ORIGINAL grouping - level_editor_goals.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_goals_state()).
 struct LevelEditorGoalsState {
-    std::vector<Goal> goals_{}; // (their points' places: as their nodes had them when last read)
-    std::vector<int> in_play_{}; // the play indexes in the goal manager now
-    std::vector<std::function<void()>> queue_{};
+    std::vector<Goal> goals_; // (their points' places: as their nodes had them when last read)
+    std::vector<int> in_play_; // the play indexes in the goal manager now
+    std::vector<std::function<void()>> queue_;
     bool dragging_{}; // a field being dragged: one undo step
     int select_ = -1; // a node to select (Nodes::All() index)
 };

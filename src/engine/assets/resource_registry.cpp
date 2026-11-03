@@ -35,9 +35,9 @@ constexpr size_t kUnloadBatchSize = 100;                 // the most assets one 
 // NOT ORIGINAL grouping - the asset manager and the main loop manager (their owners) and the asset manager's
 // references. Made on first use, never destroyed (registry_state()).
 struct RegistryState {
-    std::unique_ptr<assets::ResourceRegistry> asset_manager_{};
+    std::unique_ptr<assets::ResourceRegistry> asset_manager_;
     int ass_man_references_{};
-    memory::HeapUnique<frame_loop::Hub> main_loop_manager_{};
+    memory::HeapUnique<frame_loop::Hub> main_loop_manager_;
 };
 
 RegistryState& registry_state()

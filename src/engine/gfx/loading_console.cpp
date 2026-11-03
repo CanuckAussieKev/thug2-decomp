@@ -295,7 +295,7 @@ constexpr double kStallSeconds = 10.0;
 // NOT ORIGINAL grouping - the console's vertices and how many are laid out (were globals). Made on first use, never
 // destroyed (console_vertices()).
 struct ConsoleVertices {
-    std::vector<Vertex> vertices_{}; // (used with the loading screen's lock held)
+    std::vector<Vertex> vertices_; // (used with the loading screen's lock held)
     double laid_out_ = -1.0;
 };
 

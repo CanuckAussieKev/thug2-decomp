@@ -261,7 +261,7 @@ struct LevelEditorLevelPropsState {
     // (map4) The level structure's ed_ambient / ed_fog (a bake's - or the edited copy's, written for its load).
     Props level_{};
     bool filter_set_{};
-    std::vector<std::string> skies_{};
+    std::vector<std::string> skies_;
     bool skies_made_{};
 };
 
@@ -297,7 +297,7 @@ struct Kept {
 // (props_written()).
 struct PropsWritten {
     script::Struct* written_{};
-    std::vector<Kept> kept_{};
+    std::vector<Kept> kept_;
 };
 
 PropsWritten& props_written()

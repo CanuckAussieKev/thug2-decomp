@@ -23,7 +23,7 @@ public:
     [[nodiscard]] const memory::HeapUnique<Hub>& net_core() const { return net_core_; }
 
 private:
-    memory::HeapUnique<Hub> net_core_{};
+    memory::HeapUnique<Hub> net_core_;
 };
 NetManagerAppsShared& net_manager_apps_shared();
 

@@ -358,10 +358,10 @@ std::map<uint32_t, Track>& tracks_state()
 // NOT ORIGINAL grouping - level_editor_scenery.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_scenery_state()).
 struct LevelEditorSceneryState {
-    std::vector<uint32_t> selection_{};
+    std::vector<uint32_t> selection_;
     V3 pivot_{};
     float half_extent_y_{}; // (the selection's bottom is this far below the pivot - quarter turns keep it)
-    std::vector<render::WorldScene*> dirty_scenes_{};
+    std::vector<render::WorldScene*> dirty_scenes_;
 };
 
 LevelEditorSceneryState& level_editor_scenery_state()
@@ -572,8 +572,8 @@ std::map<uint32_t, RailTrack>& rail_tracks()
 // NOT ORIGINAL grouping - the scenery's rails and the ones dropped (were globals). Made on first use, never destroyed
 // (scenery_rails()).
 struct SceneryRails {
-    std::vector<uint32_t> rails_{}; // (the selection's rail nodes, by name)
-    std::vector<uint32_t> dropped_rails_{}; // (Ctrl+click / the Inspector's x: not carried until another group is selected)
+    std::vector<uint32_t> rails_; // (the selection's rail nodes, by name)
+    std::vector<uint32_t> dropped_rails_; // (Ctrl+click / the Inspector's x: not carried until another group is selected)
 };
 
 SceneryRails& scenery_rails()
@@ -909,7 +909,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
 struct SceneryHover {
     // The hovered sector's group (what a click would select), kept while the same sector is hovered.
     uint32_t hover_group_of_{};
-    std::vector<uint32_t> hover_group_{};
+    std::vector<uint32_t> hover_group_;
 };
 
 SceneryHover& scenery_hover()

@@ -639,8 +639,8 @@ std::vector<ActStep>& get_registry()
 struct LevelEditorActionsState {
     // The keymap's frame: the keys down last frame, the actions fired this frame, those triggered for the next.
     std::array<uint8_t, SDL_NUM_SCANCODES> was_{};
-    std::vector<bool> fired_{};
-    std::vector<bool> triggered_{};
+    std::vector<bool> fired_;
+    std::vector<bool> triggered_;
     int capture_ = -1;
     int capture_slot_ = 0;
 };

@@ -112,8 +112,8 @@ std::string get_token(const Edit& edit, const NameLookup& names);
 bool is_field_key(const std::string& key);
 // A field's key and its value, as text.
 struct Token {
-    std::string_view key{};
-    std::string_view value{};
+    std::string_view key;
+    std::string_view value;
 };
 
 bool read_token(Token token, Edit* edit);

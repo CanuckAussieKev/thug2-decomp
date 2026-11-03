@@ -93,7 +93,7 @@ public:
 
 private:
     float lasts_for_{};                 // +0x18 the jump animation's
-    maths::ArcRotationBlender slerp_{}; // +0x1C from where it was to where it lands
+    maths::ArcRotationBlender slerp_; // +0x1C from where it was to where it lands
     float progress_{};                  // +0xB4 along the slerp
     maths::Vec4 herd_point_{};          // +0xB8
     maths::Vec4 aim_point_{};           // +0xC8

@@ -57,7 +57,7 @@ struct ManagerState {
     std::array<uint32_t, (sizeof(Zone) + 3) / 4> main_region_storage_{};
     std::array<uint32_t, (sizeof(Arena) + 3) / 4> top_down_storage_{};
     std::array<uint32_t, (sizeof(Arena) + 3) / 4> bottom_up_storage_{};
-    std::span<uint8_t> heap_block_{}; // the block the main region is in (the original kept its start, end and limit)
+    std::span<uint8_t> heap_block_; // the block the main region is in (the original kept its start, end and limit)
     uintptr_t data_end_{};
     uintptr_t data_start_{};
     uintptr_t text_seg_base_{};

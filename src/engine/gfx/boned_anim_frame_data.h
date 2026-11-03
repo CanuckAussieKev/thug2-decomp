@@ -115,8 +115,8 @@ public:
     bool set_up_float_keys(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout);
     // Where a pose is written: its rotations and its translations.
     struct PoseOut {
-        std::span<float> rotations{};
-        std::span<float> translations{};
+        std::span<float> rotations;
+        std::span<float> translations;
     };
 
     // 0x004844C0: each bone's rotation and translation at `time` (seconds) from float keys (a key list's last key

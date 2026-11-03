@@ -130,8 +130,8 @@ void current_heading(const char* text)
 
 // A floating window's position and size.
 struct FloatingPlace {
-    ImVec2 pos{};
-    ImVec2 size{};
+    ImVec2 pos;
+    ImVec2 size;
 };
 
 // A window over the view, placed the first time (then where the user leaves it this session).
@@ -407,7 +407,7 @@ void keys_window()
 // (snapshots()).
 struct Snapshots {
     std::array<char, kSnapshotNameSize> snapshot_name_{};
-    std::vector<std::string> snapshots_{};
+    std::vector<std::string> snapshots_;
     uint32_t snapshots_at_{};
     bool snapshots_stale_ = true;
 };
@@ -642,7 +642,7 @@ struct SharedEdit {
 // NOT ORIGINAL grouping - the shared view and whether it is on (were globals). Made on first use, never destroyed
 // (shared_view()).
 struct SharedView {
-    std::vector<SharedEdit> shared_{};
+    std::vector<SharedEdit> shared_;
     ImGuiID shared_active_{};
 };
 

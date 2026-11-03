@@ -243,12 +243,12 @@ namespace {
 // NOT ORIGINAL grouping - level_editor_notes.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_notes_state()).
 struct LevelEditorNotesState {
-    std::vector<Note> notes_{};
-    std::string selected_{}; // (the note whose window is open; "" none)
+    std::vector<Note> notes_;
+    std::string selected_; // (the note whose window is open; "" none)
     std::array<char, kMaxText + 1> edit_text_{}; // (the window's text while typed)
-    std::string edit_for_{}; // (the note the text buffer holds)
-    std::vector<Note> before_{}; // (the notes as they were when a field was taken: its undo step)
-    std::vector<std::function<void()>> queue_{};
+    std::string edit_for_; // (the note the text buffer holds)
+    std::vector<Note> before_; // (the notes as they were when a field was taken: its undo step)
+    std::vector<std::function<void()>> queue_;
 };
 
 LevelEditorNotesState& level_editor_notes_state()

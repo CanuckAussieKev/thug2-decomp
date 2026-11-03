@@ -80,14 +80,14 @@ uint32_t node_class_hash(script::Struct* node)
 // NOT ORIGINAL grouping - level_editor_objects.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_objects_state()).
 struct LevelEditorObjectsState {
-    std::vector<DupFrom> copies_{};
+    std::vector<DupFrom> copies_;
     // The copies' nodes: a node array of ours (level_editor_copy_nodes) in the node manager, so the game finds a copy's
     // node by its name as it does any object's - creating a LevelObject runs scripts that look it up (SetObjectColor's
     // node command, 0x005A3E80, reads the node unchecked: without one the game crashed). The array is made again with
     // every node added (a script array of one keeps its element in place of the pointer - Resize mishandles that) and
     // only the new node is hashed (the others keep their places). Taken out and freed when a level loads.
     script::Array* copy_nodes_{};
-    std::vector<script::Struct*> copy_node_list_{};
+    std::vector<script::Struct*> copy_node_list_;
 };
 
 LevelEditorObjectsState& level_editor_objects_state()
@@ -153,8 +153,8 @@ void forget_copy_nodes()
 // NOT ORIGINAL grouping - the objects touched, their origins and the copy counter (were globals). Made on first use,
 // never destroyed (object_copies()).
 struct ObjectCopies {
-    std::vector<uint32_t> touched_{};
-    std::vector<State> origins_{};
+    std::vector<uint32_t> touched_;
+    std::vector<State> origins_;
     int copy_counter_{};
 };
 

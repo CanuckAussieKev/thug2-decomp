@@ -91,7 +91,7 @@ private:
     std::array<uint8_t, 4> progress_edge_color_{{kDefaultProgressEdge, kDefaultProgressEdge, kDefaultProgressEdge, kDefaultProgressAlpha}};
 
     // The loading screen's picture (loading_screen.cpp).
-    std::unique_ptr<render::BitmapTexture> loading_screen_picture_{};
+    std::unique_ptr<render::BitmapTexture> loading_screen_picture_;
 };
 
 // The 2D layer's state (made on first use, never destroyed).

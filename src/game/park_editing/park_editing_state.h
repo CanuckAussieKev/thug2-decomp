@@ -45,7 +45,7 @@ private:
     bool rail_editor_flag_{true};
 
     // (park_io.cpp)
-    std::unique_ptr<park_editing::ParkBuilderMode> park_editor_{};
+    std::unique_ptr<park_editing::ParkBuilderMode> park_editor_;
 };
 
 // The state (made on first use, never destroyed).

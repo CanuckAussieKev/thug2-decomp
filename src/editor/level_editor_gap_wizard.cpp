@@ -197,7 +197,7 @@ struct LevelEditorGapWizardState {
     std::array<char, kGapNameSize> name_ = {"My Gap"};
     int score_ = 250;
     int type_{};
-    std::vector<std::function<void()>> queue_{};
+    std::vector<std::function<void()>> queue_;
 };
 
 LevelEditorGapWizardState& level_editor_gap_wizard_state()

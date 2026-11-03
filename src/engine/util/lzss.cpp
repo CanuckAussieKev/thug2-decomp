@@ -28,10 +28,10 @@ constexpr int kOffsetHighNibbleMask = 0xF0; // the match offset's bits 8-11 sit 
 // NOT ORIGINAL grouping - the compressor's search tree, window, match and counts while it runs. Made on first use,
 // never destroyed (lzss_state()).
 struct LzssState {
-    std::span<int> tree_parent_{};
-    std::span<int> tree_right_{};
-    std::span<int> tree_left_{};
-    std::span<uint8_t> window_{};
+    std::span<int> tree_parent_;
+    std::span<int> tree_right_;
+    std::span<int> tree_left_;
+    std::span<uint8_t> window_;
     int longest_run_{};
     int dict_hit_offset_{};
     uint32_t bytes_in_{};

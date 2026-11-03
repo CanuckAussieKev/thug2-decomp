@@ -85,8 +85,8 @@ struct GoalForm {
     V3 hover_{};
     V3 first_{};
     uint32_t floor_{}; // (the piece the first corner was clicked on: the material by default)
-    std::string form_message_{};
-    std::vector<std::function<void()>> queue_{};
+    std::string form_message_;
+    std::vector<std::function<void()>> queue_;
 };
 
 GoalForm& goal_form()

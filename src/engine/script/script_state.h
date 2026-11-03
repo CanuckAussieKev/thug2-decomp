@@ -49,7 +49,7 @@ public:
 private:
     // (cache.cpp)
     memory::PoolPair cache_entry_pools_{};
-    std::unique_ptr<script::ScriptStore> script_store_{};
+    std::unique_ptr<script::ScriptStore> script_store_;
 
     // (debug_cfuncs.cpp)
     std::array<uint32_t, kLevelQbFileCount> level_qb_files_{};

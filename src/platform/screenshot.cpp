@@ -91,7 +91,7 @@ constexpr uint32_t kMessageMs = 2000;
 struct ScreenshotState {
     int key_{};
     std::atomic<bool> requested_{false};
-    std::string event_note_{}; // (request_event_shot's: the next picture is an event's)
+    std::string event_note_; // (request_event_shot's: the next picture is an event's)
 };
 
 ScreenshotState& screenshot_state()
@@ -129,9 +129,9 @@ struct Job {
 // NOT ORIGINAL grouping - the picture being written and the message shown about it (were globals). Made on first use,
 // never destroyed (screenshot_job()).
 struct ScreenshotJob {
-    std::shared_ptr<Job> job_{};
+    std::shared_ptr<Job> job_;
     // The message for the player, held while a loading screen is up (for up to 10 s).
-    std::string message_{};
+    std::string message_;
     uint32_t message_since_{};
     float message_y_ = 40.0f; // (show_notice's lower, clear of the score: 100)
 };
@@ -203,9 +203,9 @@ std::string file_time(const char* path)
 
 // A screenshot's picture, its folder and when it was taken.
 struct ShotFiles {
-    std::string_view png{};
-    std::string_view folder{};
-    std::string_view taken{};
+    std::string_view png;
+    std::string_view folder;
+    std::string_view taken;
 };
 
 // Everything the sidecar says, read on the main thread (every field safe when it isn't there).

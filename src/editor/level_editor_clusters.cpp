@@ -134,8 +134,8 @@ std::map<uint32_t, Membership>& level_state()
 // NOT ORIGINAL grouping - level_editor_clusters.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_clusters_state()).
 struct LevelEditorClustersState {
-    std::vector<std::function<void()>> queue_{};
-    std::vector<void*> detached_{}; // (list nodes taken out of their clusters: kept until the level goes)
+    std::vector<std::function<void()>> queue_;
+    std::vector<void*> detached_; // (list nodes taken out of their clusters: kept until the level goes)
     // The Inspector's typed cluster name.
     std::array<char, kTypedTextSize> typed_{};
 };

@@ -215,10 +215,10 @@ constexpr size_t kMostSelected = 8192;
 // (level_editor_faces_state()).
 struct LevelEditorFacesState {
     bool picking_{};
-    std::vector<FaceKey> selection_{};
+    std::vector<FaceKey> selection_;
     bool have_hover_{};
     FaceKey hover_{};
-    std::vector<std::function<void()>> queue_{};
+    std::vector<std::function<void()>> queue_;
 };
 
 LevelEditorFacesState& level_editor_faces_state()

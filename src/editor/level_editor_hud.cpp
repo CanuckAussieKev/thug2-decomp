@@ -49,7 +49,7 @@ std::map<std::string, std::string>& shown()
 // NOT ORIGINAL grouping - level_editor_hud.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_hud_state()).
 struct LevelEditorHudState {
-    std::string message_{};
+    std::string message_;
     uint32_t message_until_{};
     bool panel_{};
     bool elements_ = true; // (false while the UI shows the editor)
@@ -67,8 +67,8 @@ LevelEditorHudState& level_editor_hud_state()
 
 // A caption's element id and its full text.
 struct Caption {
-    std::string_view id{};
-    std::string_view full{};
+    std::string_view id;
+    std::string_view full;
 };
 
 void change_caption(Caption caption)

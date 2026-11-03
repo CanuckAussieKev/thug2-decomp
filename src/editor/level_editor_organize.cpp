@@ -425,7 +425,7 @@ namespace {
 // (level_editor_organize_state()).
 struct LevelEditorOrganizeState {
     State state_{};
-    std::vector<uint32_t> hidden_gizmos_{}; // (the eye on a node: its gizmo hidden while editing - never saved)
+    std::vector<uint32_t> hidden_gizmos_; // (the eye on a node: its gizmo hidden while editing - never saved)
 };
 
 LevelEditorOrganizeState& level_editor_organize_state()

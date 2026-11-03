@@ -500,7 +500,7 @@ struct LevelEditorEntitiesState {
     State undo_before_{};
     bool have_undo_{};
     bool ui_active_{}; // (one of the Inspector's fields is being dragged: the undo step waits)
-    std::vector<std::function<void()>> queue_{};
+    std::vector<std::function<void()>> queue_;
     int level_loads_ = -1;
     bool scanned_{};
 };
@@ -518,7 +518,7 @@ struct Playing {
 // NOT ORIGINAL grouping - the entities playing and the next slow tick (were globals). Made on first use, never
 // destroyed (entity_playback()).
 struct EntityPlayback {
-    std::vector<Playing> playing_{};
+    std::vector<Playing> playing_;
     double next_slow_tick_{};
 };
 
@@ -962,11 +962,11 @@ struct Source {
 // NOT ORIGINAL grouping - the entity palette, its sources and models and their generations (were globals). Made on
 // first use, never destroyed (entity_palette()).
 struct EntityPalette {
-    std::vector<PaletteEntry> palette_{};
-    std::vector<Source> sources_{};
+    std::vector<PaletteEntry> palette_;
+    std::vector<Source> sources_;
     uint32_t palette_generation_ = 0xFFFFFFFF;
     // Loaded models (the model= of every object the level has made), for the model swap.
-    std::vector<std::string> models_{};
+    std::vector<std::string> models_;
     uint32_t models_generation_ = 0xFFFFFFFF;
 };
 

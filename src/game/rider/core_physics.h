@@ -931,7 +931,7 @@ private:
     int rail_adjust_{};                      // +0x3A8 change_rail_adjust (ms)
     float speed_override_{};                 // +0x3AC the speed override's factor (1: off)
     maths::Mat4 drop_matrix_{};              // +0x3B0 the acid drop's orientation
-    maths::ArcRotationBlender drop_slerp_{}; // +0x3F0 to it
+    maths::ArcRotationBlender drop_slerp_; // +0x3F0 to it
     float drop_time_{};                      // +0x488 the time into the drop
     float drop_duration_{};                  // +0x48C
     maths::Vec4 drop_heading_{};             // +0x490

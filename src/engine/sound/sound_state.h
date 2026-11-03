@@ -39,7 +39,7 @@ private:
     std::array<SoundWaveSlot, kWaveSlotCount> permanent_waves_{};
     std::array<SoundWaveSlot, kWaveSlotCount> level_waves_{};
     std::array<PlayingSound, kPlayingSoundCount> playing_sounds_{};
-    memory::HeapUnique<AudioMixer> audio_mixer_{};
+    memory::HeapUnique<AudioMixer> audio_mixer_;
     PositionalSound* positional_head_{};
     int permanent_count_{};
     int level_count_{};

@@ -207,7 +207,7 @@ struct SdlInputState {
     PadBinds pad_{};
     bool using_keyboard_ = true;
     // The open controllers (removed ones shift the rest down).
-    std::vector<SDL_GameController*> controllers_{};
+    std::vector<SDL_GameController*> controllers_;
     uint8_t seats_in_use_ = 0;
     std::array<PlayerSlot, kMaxPlayers> players_ = {{{.controller = nullptr, .locked_out_ = 0}, {.controller = nullptr, .locked_out_ = 0}}};
     uint8_t in_menu_ = 0;

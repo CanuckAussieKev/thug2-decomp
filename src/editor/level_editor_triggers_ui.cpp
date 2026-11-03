@@ -69,9 +69,9 @@ std::string get_name_of(uint32_t checksum) { return name_for(checksum, script::k
 // (level_editor_triggers_ui_state()).
 struct LevelEditorTriggersUiState {
     // The level's restarts (names), and the scripts its nodes' TriggerScripts name - made again when the nodes change.
-    std::vector<std::string> restarts_{}; // (map4: the editor's camera nodes)
-    std::vector<std::string> scripts_{};
-    std::vector<std::string> cameras_{};
+    std::vector<std::string> restarts_; // (map4: the editor's camera nodes)
+    std::vector<std::string> scripts_;
+    std::vector<std::string> cameras_;
     uint32_t lists_generation_ = 0xFFFFFFFF;
 };
 

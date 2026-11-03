@@ -1085,14 +1085,14 @@ constexpr int kMaxLevelDrawn = 300, kMaxLabels = 48, kMaxFacesKept = 64;
 // (level_editor_triggers_state()).
 struct LevelEditorTriggersState {
     // The editor's triggers (alive or not: a deleted one's spec is kept for its undo), what Tick saw of them.
-    std::vector<Spec> specs_{};
-    std::vector<Added> added_{};
+    std::vector<Spec> specs_;
+    std::vector<Added> added_;
     // The level's triggers (scanned when the editor starts in a level); those switched off / on here (their walls' states
     // go in the undo steps); those switched off while an editable copy stands in for them (on again when it goes).
-    std::vector<LevelTrigger> level_{};
+    std::vector<LevelTrigger> level_;
     bool scanned_{};
-    std::vector<uint32_t> switched_{};
-    std::vector<uint32_t> turned_off_{};
+    std::vector<uint32_t> switched_;
+    std::vector<uint32_t> turned_off_;
     uint32_t select_wall_{};
     uint32_t level_array_{};
     uint32_t inspected_{};
@@ -1114,18 +1114,18 @@ struct Cuboid {
 // NOT ORIGINAL grouping - the trigger boxes, the checklist, the gaps, the undo step, the view (were globals). Made on
 // first use, never destroyed (trigger_edit()).
 struct TriggerEdit {
-    std::vector<Cuboid> boxes_{};
+    std::vector<Cuboid> boxes_;
     // The scripts last defined, the gaps the editor put in the checklist (their names and scores) and the checklist.
-    std::vector<uint8_t> defined_{};
-    std::vector<std::pair<std::string, int>> gaps_added_{};
+    std::vector<uint8_t> defined_;
+    std::vector<std::pair<std::string, int>> gaps_added_;
     goals::GapTally* checklist_{};
-    std::vector<std::string> level_gap_names_{};
+    std::vector<std::string> level_gap_names_;
     bool level_gaps_read_{};
     // Undo, selection, the UI's actions.
     bool has_undo_{};
     State undo_before_{};
     int select_ = -1;
-    std::vector<std::function<void()>> actions_{};
+    std::vector<std::function<void()>> actions_;
     bool shown_{};
     bool setting_read_{};
     V3 camera_ = {};
@@ -2707,7 +2707,7 @@ struct DrawnHandle {
 // NOT ORIGINAL grouping - the handles drawn and the one hovered (were globals). Made on first use, never destroyed
 // (trigger_handles()).
 struct TriggerHandles {
-    std::vector<DrawnHandle> drawn_handles_{};
+    std::vector<DrawnHandle> drawn_handles_;
     int hover_handle_ = -1;
 };
 

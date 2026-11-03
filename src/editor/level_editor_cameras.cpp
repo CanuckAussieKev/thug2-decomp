@@ -220,7 +220,7 @@ std::map<std::string, float>& distances_state()
 // NOT ORIGINAL grouping - level_editor_cameras.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_cameras_state()).
 struct LevelEditorCamerasState {
-    std::vector<std::function<void()>> queue_{};
+    std::vector<std::function<void()>> queue_;
     // A field being dragged (pitch / distance): the cameras before its first change (one undo step).
     bool dragging_{};
 };

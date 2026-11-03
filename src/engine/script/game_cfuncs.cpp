@@ -144,7 +144,7 @@ namespace {
 // (game_cfuncs_state()).
 constexpr size_t kPasswordStarsSize = 32;
 struct GameCfuncsState {
-    std::unique_ptr<tasks::Task<void>> second_controller_check_{};
+    std::unique_ptr<tasks::Task<void>> second_controller_check_;
     int view_mode_cfunc_{};
     std::array<char, kPasswordStarsSize> password_stars_{};
 };

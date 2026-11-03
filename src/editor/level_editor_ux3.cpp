@@ -37,12 +37,12 @@ constexpr uint32_t kHistoryRefreshDelay = 1000; // milliseconds after the last c
 // NOT ORIGINAL grouping - level_editor_ux3.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_ux3_state()).
 struct LevelEditorUx3State {
-    std::vector<std::function<void()>> tasks_{};
+    std::vector<std::function<void()>> tasks_;
     std::array<bool, kWindowCount> open_{};
     bool similar_menu_{};
     bool group_name_{};
     Settings settings_{};
-    std::vector<ChangeRow> changes_{};
+    std::vector<ChangeRow> changes_;
     uint32_t changes_at_{};
     size_t history_key_ = static_cast<size_t>(-1);
     bool refresh_asked_ = true;

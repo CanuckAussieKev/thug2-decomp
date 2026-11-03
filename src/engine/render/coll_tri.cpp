@@ -37,7 +37,7 @@ constexpr float kSixteen = 16.0f;
 struct FaceWalk {
     // The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
     std::array<uint16_t, kAllFaceTableSize> all_faces_{{kFaceTableUnset}};
-    std::span<uint16_t> face_buffer_{};
+    std::span<uint16_t> face_buffer_;
     int face_count_{};
 };
 
