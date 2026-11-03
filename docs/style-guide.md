@@ -76,7 +76,7 @@ keep the namespaces their headers had). The layers and their rules: docs/archite
 `.clang-tidy` enables the Guidelines' checks (`cppcoreguidelines-*`) with `bugprone-*`, `misc-*`, `modernize-*`,
 `performance-*` and the naming check, and switches off by name, each with its reason, the ones that conflict with
 what the code is: a decompilation that keeps the original's data layouts, constants, formatting and pointer-walking
-loops (magic numbers, pointer arithmetic, C arrays in layouts, non-const globals, printf
+loops (pointer arithmetic, C arrays in layouts, non-const globals, printf
 formatting, trailing return types and a few more). Everything else runs with zero warnings; the places that can't
 keep a check carry a `NOLINT` with their reason:
 
@@ -243,6 +243,9 @@ keep a check carry a `NOLINT` with their reason:
   handed out: the getter is a view (`static_cast<T*>(owner_)`) and the class deletes it itself
   (`delete_observer_task()`). The original's `offsetof` checks of private members are in the class's private
   `static void check_layout()` (a base's members in the base's own check).
+- **Named constants**: a number that means something has a name, defined once by its owner - a file's in its unnamed
+  namespace, a subsystem's in that subsystem's header, a value two layers share in the lower one (no central constants
+  file). Which header holds which kind: [constants.md](constants.md).
 - File-local names live in **unnamed namespaces**; **`[[nodiscard]]`** marks results not to drop, and `(void)` the
   ones dropped on purpose; **enums** take the smallest type their values need, except where a value comes from
   outside as an int (the pad bindings' ini numbers); `std::numbers` only where a literal is exactly the constant
