@@ -8,6 +8,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
+#include "game/rider/skater_state.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
 
@@ -994,7 +995,7 @@ private:
     uint32_t time_aloft();
     bool feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise);
     // (core_physics_acid_drop.cpp)
-    bool walking_state(int state);
+    bool walking_state(objects::RiderPoseState::PhysicsMode state);
     double fall_time(float height, float upward);
     bool find_transfer_target(maths::Vec4* look, maths::Vec4* normal, bool* hip,
                           VertTarget* target, bool* object_hit);

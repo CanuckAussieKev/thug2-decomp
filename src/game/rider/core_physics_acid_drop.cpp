@@ -66,7 +66,7 @@ constexpr float kRise = 24.0f;            // 0x00645EE8
 } // namespace
 
 // The walking component's state (+0x1530's +0x2C): walking on the ground (its +0x118 clear and +0x1C == `state`).
-bool SkaterPhysicsModule::walking_state(int state)
+bool SkaterPhysicsModule::walking_state(objects::RiderPoseState::PhysicsMode state)
 {
     const auto* pose = physics_control_->pose();
     return !pose->in_vehicle() && pose->physics_mode() == state;
@@ -97,7 +97,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     if (thaw_bmx::live_now(this)) {
         // Not original: THAW 0x005D1890 - on the bike along its facing (the other way with the stick pulled back).
         thaw_bmx::acid_drop_direction(this, &direction);
-    } else if (walking_state(0)) {
+    } else if (walking_state(objects::RiderPoseState::PhysicsMode::kSkating)) {
         const double x = velocity->x;
         const double z = velocity->z;
         const double length = std::sqrt(x * x + z * z);
@@ -113,7 +113,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     if (position->y > last_position->y)
         base.y = position->y;
     float reach = kSearchReach, lift = 0.0f;
-    if (walking_state(1)) {
+    if (walking_state(objects::RiderPoseState::PhysicsMode::kWalking)) {
         if (!static_cast<uint32_t>(walk_->get_state())) {
             reach = script::fetch_float(kWalkSearchDistance);
             lift = kWalkLift;
@@ -173,7 +173,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
             flat.make_unit();
             const double facing = static_cast<double>(flat.z) * direction.z +
                                   static_cast<double>(flat.y) * direction.y + static_cast<double>(flat.x) * direction.x;
-            const bool walking_in = walking_state(1) && walk_->get_state() == 1;
+            const bool walking_in = walking_state(objects::RiderPoseState::PhysicsMode::kWalking) && walk_->get_state() == 1;
             if ((walking_in && facing <= kWalkFacing) || facing >= kFacing) {
                 found = true;
                 break;
@@ -209,13 +209,13 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     direction = {.x = static_cast<float>(static_cast<double>(inverse_float) * dx),
                  .y = static_cast<float>(static_cast<double>(inverse_float) * 0.0f),
                  .z = static_cast<float>(static_cast<double>(inverse_float) * dz), .w = static_cast<float>(dw * inverse)};
-    if (walking_state(1)) {
+    if (walking_state(objects::RiderPoseState::PhysicsMode::kWalking)) {
         velocity->project_onto(direction);
         velocity->y = saved.y;
     }
     horizontal = static_cast<float>(
         std::sqrt(static_cast<double>(velocity->z) * velocity->z + static_cast<double>(velocity->x) * velocity->x));
-    if (walking_state(1)) {
+    if (walking_state(objects::RiderPoseState::PhysicsMode::kWalking)) {
         // (walking: at least the walk's speed - 0x0043DAA0)
         auto least = static_cast<float>(walk_->run_speed());
         if (horizontal < least) {
@@ -233,7 +233,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const float upward = velocity->y;
         velocity->y = upward > least ? upward : least;
     }
-    if (!walking_state(1) || static_cast<uint32_t>(walk_->get_state())) {
+    if (!walking_state(objects::RiderPoseState::PhysicsMode::kWalking) || static_cast<uint32_t>(walk_->get_state())) {
         // At most twice that.
         const double most = static_cast<double>(tuning_float_lookup(kPopSpeed, object)) * 2.0;
         const float upward = velocity->y;
@@ -250,7 +250,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     } else {
         peak = position->y;
     }
-    if (walking_state(1) && velocity->y > 0.0f && position->y < hit.y) {
+    if (walking_state(objects::RiderPoseState::PhysicsMode::kWalking) && velocity->y > 0.0f && position->y < hit.y) {
         const double upward = velocity->y;
         const double top = upward * upward / (static_cast<double>(gravity) * -2.0f) + position->y;
         const double to_wall = std::fabs(static_cast<double>(distance)) / horizontal;

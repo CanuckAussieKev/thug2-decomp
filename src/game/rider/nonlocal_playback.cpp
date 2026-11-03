@@ -233,7 +233,7 @@ void RiderRemoteSync::interpolate()
     state->change_phase(to->state);
     pose_->set_in_trick_move(to->flag74 != 0);
     state->set_surface_kind(to->value_7c_);
-    state->set_physics_mode(to->flag75 != 0);
+    state->set_physics_mode(to->flag75 != 0 ? objects::RiderPoseState::PhysicsMode::kWalking : objects::RiderPoseState::PhysicsMode::kSkating);
     pose_->set_in_vehicle(to->flag76 != 0);
     core::down_cast<RiderSessionEnd>(run_over_)->set_flag_bits(to->value_6c_); // (0x00407A70)
     // The timed flags (each a bool and the time it last changed) from the state's bits.

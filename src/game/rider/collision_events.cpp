@@ -801,7 +801,7 @@ void end_frame(SkaterPhysicsModule* component)
     Sample s = {};
     s.frame = frame_loop::frames_run();
     s.state = component->state()->cur_phase();
-    s.physics = component->state()->physics_mode();
+    s.physics = static_cast<int>(component->state()->physics_mode());
     s.trick = component->state()->in_trick_move() != 0;
     const objects::RiderTeeterMoves* balance = component->balance();
     s.balance = balance ? balance->trick() : 0;

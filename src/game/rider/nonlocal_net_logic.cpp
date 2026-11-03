@@ -443,7 +443,7 @@ void RiderRemoteSync::tick_frame()
 
     // The looping sound: on while skating, its speed and state.
     auto* sound = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound));
-    if (pose_->physics_mode() != 0) {
+    if (pose_->physics_mode() != objects::RiderPoseState::PhysicsMode::kSkating) {
         if (sound->on()) {
             sound->hold_off(true);
             sound->set_on(0);

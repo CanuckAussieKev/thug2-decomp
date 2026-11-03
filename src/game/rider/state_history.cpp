@@ -490,7 +490,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             skater->vel().y = kKnockUp;
             ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
             const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(control)->pose();
-            if (!state->in_vehicle() && state->physics_mode() == 0)
+            if (!state->in_vehicle() && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating)
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
                 knock_down_walking(skater->fetch_module(kWalk), other);
@@ -581,7 +581,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             skater->vel().w = static_cast<float>(wk * kKnockScale);
             skater->vel().y = kKnockUp;
             const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(control)->pose();
-            if (!state->in_vehicle() && state->physics_mode() == 0 &&
+            if (!state->in_vehicle() && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating &&
                 !core::down_cast<RiderBoardPhysics>(control)->force_walk())
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else

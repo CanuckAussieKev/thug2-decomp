@@ -167,7 +167,7 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
         script::Struct* tags = entity()->tag_table();
         const RiderPoseState* state = physics_control_->pose();
         script::Struct* anim_tags = nullptr;
-        if (tags && !state->in_vehicle() && !state->physics_mode() && tags->read_sub_struct(kAnimTags, &anim_tags, 0) &&
+        if (tags && !state->in_vehicle() && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating && tags->read_sub_struct(kAnimTags, &anim_tags, 0) &&
             anim_tags->has_bare_flag(kWalkToSkateTransition)) {
             hold_off(false);
             on_ = 1;

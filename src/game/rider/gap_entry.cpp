@@ -232,7 +232,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         set(physics->wheels_in_contact() != 0 ? kGapGround : kGapAir);
         return;
     }
-    if (state->physics_mode() != 0) {
+    if (state->physics_mode() != objects::RiderPoseState::PhysicsMode::kSkating) {
         // Walking: the walk component's state.
         *cancel = kGapWalking;
         *require |= kGapWalking << kRequireShift;

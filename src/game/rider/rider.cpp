@@ -713,7 +713,7 @@ void Rider::update_shadow_light()
     // In the air (or not on the ground): fade towards straight down; else back.
     bool fading = false;
     const RiderBoardPhysics* control = physics_control_;
-    if (control && !control->pose()->in_vehicle() && !static_cast<uint32_t>(control->pose()->physics_mode()))
+    if (control && !control->pose()->in_vehicle() && control->pose()->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating)
         fading = core_physics_->state()->cur_phase() == 0;
     else if (!walk_)
         fading = true;
@@ -1299,7 +1299,7 @@ void Rider::launch_projectile()
     // From a wrist (the right one, or the left by its stance and whether it's walking).
     const RiderPoseState* walking = physics_control_->pose();
     const bool flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on != 0;
-    const bool walk = !walking->in_vehicle() && walking->physics_mode() == 1;
+    const bool walk = !walking->in_vehicle() && walking->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking;
     const uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
     maths::Vec4 bone, rotated;
     core::down_cast<BoneRigModule>(fetch_module(kSkeleton2))->get_local_bone_position(wrist, &bone);
@@ -1512,7 +1512,7 @@ void Rider::reset_components()
 void Rider::relaunch(uint32_t a, uint32_t b)
 {
     const RiderPoseState* walking = physics_control_->pose();
-    if (!walking->in_vehicle() && walking->physics_mode() == 1) {
+    if (!walking->in_vehicle() && walking->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking) {
         // Walking: back to skating first.
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;

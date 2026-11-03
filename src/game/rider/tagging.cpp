@@ -421,7 +421,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 bool TaggingControlComponent::try_tagging()
 {
     const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity()->fetch_module(kSkaterPhysicsControl))->pose();
-    if (state->in_vehicle() || state->physics_mode() != 1 || blocked_)
+    if (state->in_vehicle() || state->physics_mode() != objects::RiderPoseState::PhysicsMode::kWalking || blocked_)
         return false;
     if (cooldown_ > 0.0f) {
         cooldown_ = static_cast<float>(cooldown_ - 1.0);

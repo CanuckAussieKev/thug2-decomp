@@ -97,7 +97,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     out.state = static_cast<uint8_t>(core->cur_phase());
     out.value_7c_ = core->surface_type();
     out.flag74 = core->in_trick_move();
-    out.flag75 = core->physics_mode() == 1 ? 1 : 0;
+    out.flag75 = core->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking ? 1 : 0;
     out.flag76 = core->in_vehicle();
     const objects::GrindPoint* rail = self->board()->rail_node();
     out.value80 = rail ? rail->label() : 0;

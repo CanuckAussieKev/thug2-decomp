@@ -950,7 +950,7 @@ void trace_frame()
     if (skater) {
         auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kStateModuleKey));
         const int where = state ? state->cur_phase() : -1;
-        const int physics = state ? state->physics_mode() : -1;
+        const int physics = state ? static_cast<int>(state->physics_mode()) : -1;
         const int bailing = state ? state->is_on(objects::PoseFlag::kBailing) : -1;
         const int trick = state ? state->in_trick_move() : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)

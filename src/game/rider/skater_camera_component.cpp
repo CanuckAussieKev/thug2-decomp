@@ -84,7 +84,7 @@ bool RiderChaseView::get_look_down()
     if (!rider_ref_)
         return false;
     const objects::RiderPoseState* state = state_ref_;
-    if (state->physics_mode())
+    if (state->physics_mode() != objects::RiderPoseState::PhysicsMode::kSkating)
         return false;
     if (state->cur_phase() == 3 || vert_air(state))
         return true;

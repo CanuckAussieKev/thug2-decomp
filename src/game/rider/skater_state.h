@@ -78,9 +78,7 @@ public:
     static constexpr int kRail = 4;
     static constexpr int kWallplant = 5;
     // The physics running it (+0x1C).
-    using PhysicsMode = uint8_t;
-    static constexpr int kSkating = 0;
-    static constexpr int kWalking = 1;
+    enum class PhysicsMode : int8_t { kUnset = -1, kSkating = 0, kWalking = 1 };
 
     // 0x00519740 (registered by register_component_types): a new one (0 if out of memory), no powerups.
     static gsl::owner<ObjectModule*> fabricate();
@@ -100,7 +98,7 @@ public:
     // 0x00519660 / 0x00519680 / 0x005196A0: the state / the physics mode / the terrain; when it changes the skater
     // gets OnSkaterStateChange / OnSkaterPhysicsStateChange / OnSkaterTerrainChange.
     void change_phase(int state);
-    void set_physics_mode(int mode);
+    void set_physics_mode(PhysicsMode mode);
     void set_surface_kind(uint8_t terrain);
     // 0x00519470: the powerups dropped (called by a script command).
     void clear_powerups();
@@ -138,8 +136,8 @@ public:
 
     // The fields other code reads and sets.
     [[nodiscard]] int cur_phase() const { return cur_phase_; }
-    [[nodiscard]] int physics_mode() const { return physics_mode_; }
-    void assign_physics_mode(int value) { physics_mode_ = value; }
+    [[nodiscard]] PhysicsMode physics_mode() const { return physics_mode_; }
+    void assign_physics_mode(PhysicsMode value) { physics_mode_ = value; }
     [[nodiscard]] const std::array<TimedFlag, kPoseFlagCount>& timed_flags() const { return timed_flags_; }
     [[nodiscard]] uint8_t in_trick_move() const { return in_trick_move_; }
     void set_in_trick_move(uint8_t value) { in_trick_move_ = value; }
@@ -159,7 +157,8 @@ public:
 
 private:
     int cur_phase_{};                         // +0x18 State
-    int physics_mode_{};                      // +0x1C PhysicsMode (-1 until the physics control component sets it)
+    PhysicsMode physics_mode_{};              // +0x1C (-1 until the physics control component sets it; the original's int)
+    std::array<uint8_t, 3> unknown1d_{};
     std::array<TimedFlag, kPoseFlagCount> timed_flags_{}; // +0x20 (PoseFlag; kBailing is +0x70)
     uint8_t in_trick_move_{};                 // +0xE0
     uint8_t surface_type_{};                  // +0xE1
