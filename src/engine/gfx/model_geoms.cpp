@@ -35,11 +35,11 @@
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/maths.h"
 
 namespace render {
 
 constexpr double kByteMaxDouble = 255.0;
-constexpr double kHalfDouble = 0.5;
 constexpr float kHalfFloat = 0.5f;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
@@ -123,8 +123,7 @@ uint32_t texture_hash(void* texture) { return static_cast<BitmapTexture*>(textur
 // A colour channel (0-1) as a byte: x * 255 + 0.5, truncated (the original's x87 and _ftol).
 uint32_t color_byte(float value)
 {
-    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-    return static_cast<uint8_t>(static_cast<int64_t>(static_cast<double>(value) * kByteMaxDouble + kHalfDouble));
+    return static_cast<uint8_t>(maths::round_non_negative<int64_t>(static_cast<double>(value) * kByteMaxDouble));
 }
 uint32_t rgba_from_hsv(float h, float s, float v)
 {

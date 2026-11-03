@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+#include <concepts>
 #include <span>
 
 namespace maths {
@@ -10,6 +12,16 @@ constexpr float kInchesPerFoot = 12.0f;
 // (2^32) brings a negative 32-bit count back to the unsigned value it stands for.
 constexpr double kExactDoubleLimit = 9.2e18;
 constexpr double kUnsignedWrap = 4294967296.0;
+
+// `value` plus a half, its fraction dropped (truncated toward zero, as a conversion to an integer does): the nearest
+// whole number, halves up, for a value that is never negative. The same arithmetic as converting `value + 0.5` (in
+// `value`'s own type): the sum is truncated by std::trunc first, so the conversion itself drops nothing.
+template <std::integral Int, std::floating_point Float>
+[[nodiscard]] Int round_non_negative(Float value)
+{
+    constexpr Float kHalf = 0.5;
+    return static_cast<Int>(std::trunc(value + kHalf));
+}
 
 // Limits `value` to [min, max]. The max limit is applied first, so if min > max the result is min.
 float confine(float value, float min, float max);

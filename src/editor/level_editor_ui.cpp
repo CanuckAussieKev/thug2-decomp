@@ -57,13 +57,13 @@
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
 #include "engine/core/checksums.h"
+#include "engine/maths/maths.h"
 
 namespace frontend::level_editor::ui {
 
 namespace {
 
 constexpr float kHalf = 0.5f; // half
-constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
 // Layout, at scale 1 unless said (the UI scale multiplies them): the Outliner, Inspector, status bar, help, browser and dialogs.
 constexpr std::size_t kSearchTextSize = 96; // a search field's text
 constexpr std::size_t kRowTagSize = 48; // an Outliner row's tag
@@ -1668,8 +1668,7 @@ bool underway() { return level_editor_ui_state().running_; }
 int preview_pixels()
 {
     const float scale = level_editor_ui_state().scale_ > 0.0f ? level_editor_ui_state().scale_ : 1.0f;
-    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-    return std::clamp(static_cast<int>(kPreviewBasePixels * scale + kRoundHalf), kPreviewMinPixels, kPreviewMaxPixels);
+    return std::clamp(maths::round_non_negative<int>(kPreviewBasePixels * scale), kPreviewMinPixels, kPreviewMaxPixels);
 }
 
 bool kickoff()

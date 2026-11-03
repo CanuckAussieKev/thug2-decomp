@@ -32,6 +32,7 @@
 #include "engine/maths/rect.h"
 #include "engine/maths/vec2.h"
 #include "engine/maths/trig.h"
+#include "engine/maths/maths.h"
 
 namespace frontend::new_frontend::paint {
 
@@ -52,7 +53,6 @@ constexpr float kLabelTextSize = 13.0f;
 constexpr float kNameTextSize = 28.0f;
 constexpr float kNoteTextSize = 12.0f;        // text sizes in design pixels
 constexpr float kPanelHintsBottom = 692.0f;  // the baseline of the hint bar under a panel
-constexpr float kRoundHalf = 0.5f;               // added before truncating: round to the nearest
 constexpr float kRowRight = 1240.0f;             // where a row ends and its hit box with it
 constexpr float kRowTiltDegrees = 3.0f;          // the tilt a row starts its entrance at
 constexpr float kStatTextSize = 16.0f;
@@ -316,8 +316,7 @@ uint32_t get_mix(uint32_t a, uint32_t b, float t)
     uint32_t out = 0;
     for (int shift = 0; shift < kBitsPerWord; shift += kBitsPerByte) {
         auto x = static_cast<float>((a >> shift) & kByteMask), y = static_cast<float>((b >> shift) & kByteMask);
-        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-        out |= static_cast<uint32_t>(x + (y - x) * t + kRoundHalf) << shift;
+        out |= maths::round_non_negative<uint32_t>(x + (y - x) * t) << shift;
     }
     return out;
 }
@@ -1791,10 +1790,8 @@ ImU32 skater_col(float hue, float sat, float val)
 {
     std::array<float, 3> rgb{};
     mirror::skater_colour({.hue = hue, .sat = sat, .val = val}, rgb);
-    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-    return IM_COL32(static_cast<int>(core::at(rgb, 0) * kChannelMax + kRoundHalf), static_cast<int>(core::at(rgb, 1) * kChannelMax + kRoundHalf),
-                    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    static_cast<int>(core::at(rgb, 2) * kChannelMax + kRoundHalf), 255);
+    return IM_COL32(maths::round_non_negative<int>(core::at(rgb, 0) * kChannelMax), maths::round_non_negative<int>(core::at(rgb, 1) * kChannelMax),
+                    maths::round_non_negative<int>(core::at(rgb, 2) * kChannelMax), 255);
 }
 
 void colour_track(Ctx& c, const mirror::View& v, const mirror::Row& r, bool selected, Band band, float y_mid)
@@ -1931,10 +1928,8 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         Style d = mono12(kMuted, false);
         d.css = kNoteTextSize;
         std::array<char, kSwatchNumbersBuffer> numbers{};
-        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-        text::format_to(numbers, "H %d  S %d  V %d", static_cast<int>(v.hue + kRoundHalf),
-                        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                        static_cast<int>(v.sat + kRoundHalf), static_cast<int>(v.val + kRoundHalf));
+        text::format_to(numbers, "H %d  S %d  V %d", maths::round_non_negative<int>(v.hue),
+                        maths::round_non_negative<int>(v.sat), maths::round_non_negative<int>(v.val));
         draw_text(c.dl, d, c.f, {.x = c.f.get_x(left + kSwatchNumbersX), .y = datum(d, c.f, c.f.get_y(swatch_top + kSwatchNumbersDrop), kTextLineHeight)}, numbers.data());
         bottom = swatch_top - kSwatchGap;
     }

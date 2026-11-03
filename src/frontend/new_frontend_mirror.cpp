@@ -17,6 +17,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/maths/maths.h"
 
 namespace frontend::new_frontend::mirror {
 
@@ -27,7 +28,6 @@ constexpr std::size_t kMaxViewLines = 12;      // the lines a menu view keeps
 constexpr int kDefaultSliderTrack = 5;
 constexpr std::size_t kNumberTextSize = 24;
 constexpr float kDegreesPerTurn = 360.0f;
-constexpr float kRoundHalf = 0.5f;             // added before truncating: round to the nearest
 constexpr float kMaxHue = 359.0f;
 constexpr float kBrightenFactor = 2.0f;
 
@@ -373,21 +373,17 @@ View get_build(const MenuRead& read, const Policy& policy)
                 std::array<char, kNumberTextSize> number{};
                 bool show = true;
                 if (item.slider_kind_ == 1)
-                    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    text::format_to(number, "%d", static_cast<int>(item.slider_at_ * kDegreesPerTurn + kRoundHalf));
+                    text::format_to(number, "%d", maths::round_non_negative<int>(item.slider_at_ * kDegreesPerTurn));
                 else if (item.slider_kind_ == 2)
-                    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    text::format_to(number, "%d%%", static_cast<int>(item.slider_at_ * kSatMax + kRoundHalf));
+                    text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * kSatMax));
                 else if (item.slider_kind_ == 3) {
                     const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
                     text::format_to(
                         number, "%d%%",
-                        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                        static_cast<int>(low + item.slider_at_ * (kValMax - low) + kRoundHalf));
+                        maths::round_non_negative<int>(low + item.slider_at_ * (kValMax - low)));
                 } else {
                     show = ints::as_signed(i) == read.selected_index_;
-                    // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    text::format_to(number, "%d%%", static_cast<int>(item.slider_at_ * 100.0f + kRoundHalf));
+                    text::format_to(number, "%d%%", maths::round_non_negative<int>(item.slider_at_ * 100.0f));
                 }
                 if (show)
                     row.value += (row.value.empty() ? "" : "  ") + std::string(number.data());

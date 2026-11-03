@@ -57,6 +57,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/maths.h"
 
 namespace frontend::level_editor {
 
@@ -65,7 +66,6 @@ namespace {
 constexpr float kMinVerticalOverlap = 5.0f; // a piece must reach this far above the bounds floor to touch them
 constexpr int kColourBits = 32; // a packed colour: four 8-bit channels
 constexpr int kBitsPerChannel = 8;
-constexpr double kRoundHalfDouble = 0.5; // added before truncating: round to the nearest
 constexpr int kMaxNodeGuard = 256; // a scene list longer than this is taken as broken
 constexpr int kMaxSectorTableBits = 20; // the largest sector table walked
 constexpr int kSectorFlagMovable = 0x40; // a sector flag; a sector that has it gets kSectorFlagMoved after a move (as WorldCell::place_at_absolute_point does)
@@ -202,8 +202,7 @@ uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
     for (int shift = 0; shift < kColourBits; shift += kBitsPerChannel) {
         const double a = (low >> shift) & 0xFF;
         const double b = (high >> shift) & 0xFF;
-        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-        colour |= static_cast<uint32_t>(a + (b - a) * mix + kRoundHalfDouble) << shift;
+        colour |= maths::round_non_negative<uint32_t>(a + (b - a) * mix) << shift;
     }
     return colour;
 }

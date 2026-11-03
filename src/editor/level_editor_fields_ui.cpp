@@ -24,13 +24,13 @@
 #include "engine/core/no_destroy.h"
 #include "editor/level_editor_ui_layout.h"
 #include "editor/level_editor_ui_theme.h"
+#include "engine/maths/maths.h"
 
 namespace frontend::level_editor::ui {
 
 namespace {
 
 constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
-constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
 
 constexpr std::size_t kScratchSize = 512;        // a field's text buffer
 constexpr std::size_t kHeaderTextSize = 64;
@@ -532,8 +532,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         if (ImGui::ColorEdit3("##ambientcolour", colour.data(), ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
-                // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                core::at(props.ambient, i) = level_props::get_channel(static_cast<int>(core::at(colour, i) * kChannelMax + kRoundHalf));
+                core::at(props.ambient, i) = level_props::get_channel(maths::round_non_negative<int>(core::at(colour, i) * kChannelMax));
             send_props(requests, props, false);
         }
         if (ImGui::IsItemDeactivatedAfterEdit())
@@ -563,8 +562,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
                               ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB |
                                   ImGuiColorEditFlags_AlphaBar)) {
             for (int i = 0; i < 4; ++i)
-                // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                core::at(props.fog, i) = level_props::get_channel(static_cast<int>(core::at(fog_colour, i) * kChannelMax + kRoundHalf));
+                core::at(props.fog, i) = level_props::get_channel(maths::round_non_negative<int>(core::at(fog_colour, i) * kChannelMax));
             changed = true;
         }
         bool done = ImGui::IsItemDeactivatedAfterEdit();

@@ -48,6 +48,7 @@
 #include "engine/core/packed_colour.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_obj.h"
+#include "engine/maths/maths.h"
 
 namespace frontend::level_editor::ground {
 
@@ -66,7 +67,6 @@ constexpr uint32_t kSharedMeshFlags = 0x11; // mesh flags of a shared mesh
 constexpr float kFloorTolerance = 30.0f;    // a face this close in height to the tile's top counts as its floor
 constexpr uint32_t kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
-constexpr double kRoundHalfDouble = 0.5;    // added before truncating: round to the nearest
 constexpr double kTinyScale = 1e-4;         // a texture or world extent smaller than this has no scale
 constexpr float kTileHeightMargin = 40.0f;  // tiles further than this above or below the ground are not inside it
 constexpr float kGroundFaceReach = 30.0f;
@@ -537,8 +537,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
         }
         uint32_t colour = 0;
         for (int k = 0; k < 4; ++k)
-            // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-            colour |= static_cast<uint32_t>(core::at(sum, k) / mesh->vertex_count() + kRoundHalfDouble) << (kBitsPerByte * k);
+            colour |= maths::round_non_negative<uint32_t>(core::at(sum, k) / mesh->vertex_count()) << (kBitsPerByte * k);
         spec->colour = colour;
     }
     const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
