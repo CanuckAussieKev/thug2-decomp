@@ -50,10 +50,18 @@ bool within(uint64_t offset, uint64_t length, uint64_t section)
     return offset <= section && length <= section - offset;
 }
 
+// A collision tree's node and its sector's face count.
+struct TreeNode {
+    uint32_t node{};
+    uint32_t face_count_{};
+};
+
 // A subtree: its nodes within the node section, its leaves' face lists within theirs and their faces the object's.
-bool check_tree(std::span<const uint8_t> nodes, std::span<const uint8_t> lists, uint32_t node, uint32_t face_count,
+bool check_tree(std::span<const uint8_t> nodes, std::span<const uint8_t> lists, TreeNode tree_node,
                 int depth, uint32_t* visits)
 {
+    const auto node = tree_node.node;
+    const auto face_count = tree_node.face_count_;
     if (depth > 64 || ++*visits > nodes.size() / 8 || !within(node, 8, nodes.size()))
         return false;
     util::ByteReader reader(nodes.subspan(node, 8));
@@ -72,8 +80,8 @@ bool check_tree(std::span<const uint8_t> nodes, std::span<const uint8_t> lists, 
         return true;
     }
     const uint32_t children = link & ~3u;
-    return check_tree(nodes, lists, children, face_count, depth + 1, visits) &&
-           check_tree(nodes, lists, children + 8, face_count, depth + 1, visits);
+    return check_tree(nodes, lists, {.node = children, .face_count_ = face_count}, depth + 1, visits) &&
+           check_tree(nodes, lists, {.node = children + 8, .face_count_ = face_count}, depth + 1, visits);
 }
 
 } // namespace
@@ -137,7 +145,7 @@ bool check_collision_objects(std::span<const uint8_t> file, const CollisionHeade
             !within(object.vertex_bytes, object.vertex_count, header.vertex_byte_count) ||
             !within(object.faces, static_cast<uint64_t>(object.face_count) * (object.small_faces ? 8 : 10),
                     face_section) ||
-            !check_tree(nodes, lists, object.tree, object.face_count, 0, &visits))
+            !check_tree(nodes, lists, {.node = object.tree, .face_count_ = object.face_count}, 0, &visits))
             return false;
     }
     return true;
@@ -160,10 +168,20 @@ void add_base(std::span<uint8_t> bytes, size_t offset, uintptr_t base)
     set_word_at(bytes, offset, word_at(bytes, offset) + static_cast<uint32_t>(base));
 }
 
+// A collision tree's node and the bases its offsets are moved by (nodes, faces).
+struct TreeBases {
+    size_t node{};
+    uint32_t node_base_{};
+    uint32_t face_base_{};
+};
+
 // 0x00416000 (render::HitTreeNode's, cdecl). `nodes`: the node section; `node`: a node's offset in it. The children's
 // offsets are the links' (the flag bits off) before they are made addresses.
-void relocate_tree(std::span<uint8_t> nodes, size_t node, uint32_t node_base, uint32_t face_base)
+void relocate_tree(std::span<uint8_t> nodes, TreeBases bases)
 {
+    const auto node = bases.node;
+    const auto node_base = bases.node_base_;
+    const auto face_base = bases.face_base_;
     const uint32_t tag = word_at(nodes, node);
     const uint32_t link = word_at(nodes, node + 4);
     if ((tag & 3) == 3) {
@@ -174,8 +192,8 @@ void relocate_tree(std::span<uint8_t> nodes, size_t node, uint32_t node_base, ui
     set_word_at(nodes, node + 4, moved);
     const size_t children = link & ~3u;
     const bool swapped = (moved & 1) != 0;
-    relocate_tree(nodes, children + (swapped ? 8 : 0), node_base, face_base);
-    relocate_tree(nodes, children + (swapped ? 0 : 8), node_base, face_base);
+    relocate_tree(nodes, {.node = children + (swapped ? 8 : 0), .node_base_ = node_base, .face_base_ = face_base});
+    relocate_tree(nodes, {.node = children + (swapped ? 0 : 8), .node_base_ = node_base, .face_base_ = face_base});
 }
 
 } // namespace
@@ -191,8 +209,7 @@ void relocate_object(std::span<uint8_t> file, int index, const CollisionLayout& 
     add_base(record, 0x38, layout.vertex_bytes);
     add_base(record, 0x0C, layout.faces);
     add_base(record, 0x34, layout.nodes);
-    relocate_tree(file.subspan(layout.nodes - start, layout.face_lists - layout.nodes), tree,
-                  static_cast<uint32_t>(layout.nodes), static_cast<uint32_t>(layout.face_lists));
+    relocate_tree(file.subspan(layout.nodes - start, layout.face_lists - layout.nodes), {.node = tree, .node_base_ = static_cast<uint32_t>(layout.nodes), .face_base_ = static_cast<uint32_t>(layout.face_lists)});
 }
 
 uint8_t& FaceTable::byte(int face, int offset) const

@@ -305,9 +305,11 @@ uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pi
 }
 
 // 0x0047BE10
-bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, float dropoff, int falloff,
+bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, Falloff falloff_in,
                                 void* camera, void* extent)
 {
+    auto dropoff = falloff_in.dropoff;
+    const auto falloff = falloff_in.falloff;
     if (no_sound())
         return true;
     volume->change_muted();
@@ -411,7 +413,7 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* par
         const float dropoff = params->dropoff != 0.0f ? params->dropoff : entry->dropoff;
         const int falloff = params->falloff;
         maths::Vec4 heard{};
-        fetch_loudness(&volume, object_sound_position(object, &heard, camera), dropoff, falloff, camera, extent);
+        fetch_loudness(&volume, object_sound_position(object, &heard, camera), {.dropoff = dropoff, .falloff = falloff}, camera, extent);
     } else {
         volume.change_muted();
     }
@@ -471,7 +473,7 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
             maths::Vec4 previous{};
             doppler_shift(&pitch, &here, object_sound_previous(object, &previous, camera), frame_seconds, camera);
         }
-        fetch_loudness(&volume, &here, dropoff, static_cast<int>(props->falloff), camera, extent);
+        fetch_loudness(&volume, &here, {.dropoff = dropoff, .falloff = static_cast<int>(props->falloff)}, camera, extent);
     }
     get_report_missing();
     return set_sound_params_scaled(sound->unique_id_, &volume, pitch);

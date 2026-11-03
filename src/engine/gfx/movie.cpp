@@ -207,7 +207,7 @@ namespace {
 
 void video_set_loudness(Bink* bink, uint32_t track, int volume)
 {
-    bink::set_volume(bink, track, sound::output_bink_volume(volume));
+    bink::set_volume(bink, {.track = track, .volume = sound::output_bink_volume(volume)});
 } // (NOT ORIGINAL: mute_audio)
 
 // The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
@@ -403,8 +403,7 @@ void play_movie_file(const char* name)
             auto* d3d_texture = static_cast<IDirect3DTexture9*>(texture);
             D3DLOCKED_RECT locked;
             if (SUCCEEDED(d3d_texture->LockRect(0, &locked, nullptr, 0))) {
-                bink::copy_to_buffer(bink, locked.pBits, locked.Pitch, bink->height, 0, 0,
-                                 kMovieSurfaceType | 0x80000000); // the surface type, copy all
+                bink::copy_to_buffer(bink, locked.pBits, {.pitch = locked.Pitch, .height = bink->height, .x = 0, .y = 0, .flags = kMovieSurfaceType | 0x80000000}); // the surface type, copy all
                 d3d_texture->UnlockRect(0);
             }
             draw_movie(engine_parts().current_movie(), texture);

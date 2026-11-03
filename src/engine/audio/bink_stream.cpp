@@ -26,7 +26,7 @@ namespace {
 using render::Bink;
 void video_set_loudness(Bink* bink, uint32_t track, int volume)
 {
-    bink::set_volume(bink, track, sound::output_bink_volume(volume));
+    bink::set_volume(bink, {.track = track, .volume = sound::output_bink_volume(volume)});
 } // (NOT ORIGINAL: mute_audio)
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // video_open: use the I/O buffer size set (bink_set_io_size)
@@ -130,7 +130,7 @@ void BinkStream::set_volume_and_pan(float left, float right)
     }
     if (bink_) {
         video_set_loudness(bink_, 0, level);
-        bink::set_pan(bink_, 0, pan);
+        bink::set_pan(bink_, {.track = 0, .pan = pan});
     }
     silent_ = level == 0;
 }
@@ -165,7 +165,7 @@ int BinkStream::tick_frame()
                 bink_ = bink::open(from_where_.data(), from_handle_ ? kBinkFileHandle : kBinkIoSize);
                 if (bink_) {
                     bink::set_video_on_off(bink_, 0);
-                    bink::go_to(bink_, resume_frame_, 1);
+                    bink::go_to(bink_, {.frame = resume_frame_, .flags = 1});
                     change_loudness(loudness_);
                 }
             }

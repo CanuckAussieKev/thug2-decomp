@@ -701,7 +701,7 @@ void update_sounds()
         if (emitter->form_ != objects::kEmitterShapeOther)
             nearest_point_on(*emitter, &heard, &listener);
         sound::VolumeRef volume;
-        if (!m->fetch_loudness(&volume, &heard, wave->dropoff, 0, camera, nullptr)) {
+        if (!m->fetch_loudness(&volume, &heard, {.dropoff = wave->dropoff, .falloff = 0}, camera, nullptr)) {
             stop_playing(&*p); // (out of range)
             continue;
         }

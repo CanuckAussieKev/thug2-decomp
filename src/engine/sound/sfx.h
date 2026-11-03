@@ -197,10 +197,16 @@ public:
         int group{};
     };
 
+    // A sound's dropoff, pitch and volume.
+    struct SoundLevels {
+        float dropoff{};
+        float pitch{};
+        float volume{};
+    };
+
     // 0x0047B360: `path` loaded into the level (`loadType` 0) or the permanent table; false if it's loaded
     // already, the table is full (256) or the file can't be read.
-    bool ingest_sound(const char* path, SoundLoad sound_load, float dropoff, float pitch,
-                      float volume);
+    bool ingest_sound(const char* path, SoundLoad sound_load, SoundLevels levels);
     // 0x0047B480: the wave's volume (and the game's 50 %) applied to `volume`, its pitch to `pitch`.
     void adjust_volume_and_pitch(VolumeRef* volume, float* pitch, SoundWaveSlot* entry);
     // 0x0047B4E0: the sound `id` stopped (false if it isn't playing).
@@ -255,10 +261,16 @@ public:
     // made free); `params` its play parameters. Returns the unique id (0: not played).
     uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pitch_id, const SoundParams* params,
                         int unused);
+    // A sound's dropoff distance and its falloff curve.
+    struct Falloff {
+        float dropoff{};
+        int falloff{};
+    };
+
     // 0x0047BE10: `volume` for a sound at `position` heard from `camera` (the nearest if null): a level by the
     // distance over `dropoff` (falloff 0 smooth, 1 linear, 2 squared, 3 root), 3D. False when it's out of range
     // (5 % past the dropoff); true otherwise, or when paused (then silent).
-    bool fetch_loudness(VolumeRef* volume, const maths::Vec4* position, float dropoff, int falloff, void* camera,
+    bool fetch_loudness(VolumeRef* volume, const maths::Vec4* position, Falloff falloff_in, void* camera,
                         void* extent);
     // 0x0047C140: the sound played on `object` (positional unless `not_positional`); a silent looping one is kept
     // by the object to start later (unless `force`, which plays it anyway). Returns the unique id.

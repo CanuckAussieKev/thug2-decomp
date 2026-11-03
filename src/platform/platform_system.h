@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <span>
+#include "engine/maths/rect.h"
 
 // The Win32 platform layer's system side (0x005F5740-0x005F5AF0): finding the game's CD, the game window (PartyMod's
 // SDL window replaces it: platform/sdl_window.h), DirectSound, and two decoders - the sound files' 4-bit ADPCM and
@@ -18,7 +19,7 @@ char find_cd_drive(const char* volume);
 // none if 0), titled `title`. Windowed: a captioned window whose inside is width x height, at (x, y) (-1: centred
 // on the screen). Full screen: a topmost popup over the whole screen. The cursor hidden. Returns the window (also
 // kept at 0x007D6A28).
-HWND create_game_window(const char* class_name, const char* title, int x, int y, int width, int height,
+HWND create_game_window(const char* class_name, const char* title, maths::PixelPoint at, maths::PixelSize size,
                         WNDPROC window_proc, HINSTANCE instance, int icon, bool full_screen);
 
 // 0x005F59D0 / 0x005F5A00 (cdecl): DirectSound (priority level, for `window`) made / released.
@@ -29,8 +30,15 @@ void release_direct_sound();
 // moves the step index first, then adds +-(step x magnitude / 4 + step / 8), within 16 bits.
 void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in);
 
+// A texture's width, height and bytes per texel.
+struct TexelLayout {
+    int width{};
+    int height{};
+    uint32_t bytes_per_texel_{};
+};
+
 // 0x005F5AF0 (cdecl): width x height texels of `bytes_per_texel` from swizzled order (the bits of x and y
 // interleaved, x's first) into rows. Returns out.
-void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, int width, int height, uint32_t bytes_per_texel);
+void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, TexelLayout layout);
 
 } // namespace os_layer

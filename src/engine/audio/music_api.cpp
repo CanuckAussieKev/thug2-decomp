@@ -344,7 +344,7 @@ bool update_stream_volume(int slot)
                 extent_or_null = &extent;
             maths::Vec4 position{};
             const maths::Vec4* where = component->get_stream_position(&position, object);
-            manager->fetch_loudness(&volume, where, stream->dropoff, stream->falloff_curve_,
+            manager->fetch_loudness(&volume, where, {.dropoff = stream->dropoff, .falloff = stream->falloff_curve_},
                                     object, extent_or_null);
         } else {
             volume.change_muted();

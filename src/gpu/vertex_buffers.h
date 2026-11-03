@@ -41,7 +41,12 @@ public:
 
     // 0x004D3FF0: construct - a buffer of its own (without flag 4: CreateVertexBuffer, default pool), the copy (but
     // with flag 1), on the list.
-    VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags);
+    // A vertex buffer's D3D usage flags and its own flags.
+    struct BufferFlags {
+        uint32_t usage_flags_{};
+        uint32_t buffer_flags_{};
+    };
+    VertexBuffer(uint32_t bytes, BufferFlags creation);
     // 0x004D3BE0: taken off the list (its node freed).
     void unlist();
     // 0x004D4090: locked - *out the copy at `offset` (or, with D3DLOCK_DISCARD, the card's buffer itself: its Lock's

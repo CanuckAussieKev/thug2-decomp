@@ -127,7 +127,7 @@ void MeshRef::fetch_place(maths::Vec4* out) const
 gsl::owner<VertexBuffer*> new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 {
     gsl::owner<void*> memory = alloc_block(sizeof(VertexBuffer));
-    return memory ? memory::construct_in<VertexBuffer>(memory, bytes, usage, flags) : nullptr;
+    return memory ? memory::construct_in<VertexBuffer>(memory, bytes, VertexBuffer::BufferFlags{.usage_flags_ = usage, .buffer_flags_ = flags}) : nullptr;
 }
 
 // 0x004D57D0

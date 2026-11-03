@@ -21,10 +21,22 @@
 namespace gpu {
 
 namespace detail {
+// One field of one vertex: the vertex's stride and index, the field's offset and size.
+struct VertexField {
+    size_t stride{};
+    size_t index{};
+    size_t offset{};
+    size_t size{};
+};
+
 // The `size` bytes at `offset` in vertex `index` of `bytes`, checked.
 template <typename Byte>
-std::span<Byte> vertex_bytes(std::span<Byte> bytes, size_t stride, size_t index, size_t offset, size_t size)
+std::span<Byte> vertex_bytes(std::span<Byte> bytes, VertexField field)
 {
+    const auto stride = field.stride;
+    const auto index = field.index;
+    const auto offset = field.offset;
+    const auto size = field.size;
     const size_t start = (index * stride) + offset;
     Expects(start <= bytes.size() && size <= bytes.size() - start);
     return bytes.subspan(start, size);
@@ -62,7 +74,7 @@ public:
     // Vertex `index`'s bytes (`stride` of them).
     [[nodiscard]] std::span<const uint8_t> vertex_bytes(size_t index) const
     {
-        return detail::vertex_bytes(bytes_, stride_, index, 0, stride_);
+        return detail::vertex_bytes(bytes_, {.stride = stride_, .index = index, .offset = 0, .size = stride_});
     }
     // The value of type T (a plain number or record) at `offset` in vertex `index`.
     template <typename T>
@@ -77,7 +89,7 @@ public:
 private:
     [[nodiscard]] const uint8_t* at(size_t index, size_t offset, size_t size) const
     {
-        return detail::vertex_bytes(bytes_, stride_, index, offset, size).data();
+        return detail::vertex_bytes(bytes_, {.stride = stride_, .index = index, .offset = offset, .size = size}).data();
     }
 
     std::span<const uint8_t> bytes_;
@@ -125,7 +137,7 @@ public:
 private:
     [[nodiscard]] uint8_t* at(size_t index, size_t offset, size_t size) const
     {
-        return detail::vertex_bytes(bytes_, stride_, index, offset, size).data();
+        return detail::vertex_bytes(bytes_, {.stride = stride_, .index = index, .offset = offset, .size = size}).data();
     }
 
     std::span<uint8_t> bytes_;
@@ -138,11 +150,11 @@ private:
 template <typename V>
 V& record_at(std::span<uint8_t> vertices, size_t index)
 {
-    return *raw::as<V>(detail::vertex_bytes(vertices, sizeof(V), index, 0, sizeof(V)).data());
+    return *raw::as<V>(detail::vertex_bytes(vertices, {.stride = sizeof(V), .index = index, .offset = 0, .size = sizeof(V)}).data());
 }
 inline std::span<float, 3> position_at(std::span<uint8_t> vertices, size_t stride, size_t index)
 {
-    return std::span<float, 3>(raw::as<float>(detail::vertex_bytes(vertices, stride, index, 0, 3 * sizeof(float)).data()), 3);
+    return std::span<float, 3>(raw::as<float>(detail::vertex_bytes(vertices, {.stride = stride, .index = index, .offset = 0, .size = 3 * sizeof(float)}).data()), 3);
 }
 
 } // namespace gpu

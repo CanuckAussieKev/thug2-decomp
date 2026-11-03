@@ -356,9 +356,11 @@ bool AudioMixer::is_frozen()
 }
 
 // 0x0047B360
-bool AudioMixer::ingest_sound(const char* path, SoundLoad sound_load, float dropoff, float pitch,
-                              float volume)
+bool AudioMixer::ingest_sound(const char* path, SoundLoad sound_load, SoundLevels levels)
 {
+    const auto dropoff = levels.dropoff;
+    const auto pitch = levels.pitch;
+    const auto volume = levels.volume;
     const auto flags = sound_load.flags;
     const auto load_type = sound_load.load_type_;
     const auto group = sound_load.group;

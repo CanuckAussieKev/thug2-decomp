@@ -15,6 +15,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/maths/rect.h"
 
 namespace os_layer {
 
@@ -91,9 +92,13 @@ char find_cd_drive(const char* volume)
 }
 
 // 0x005F5860
-HWND create_game_window(const char* class_name, const char* title, int x, int y, int width, int height,
+HWND create_game_window(const char* class_name, const char* title, maths::PixelPoint at, maths::PixelSize size,
                         WNDPROC window_proc, HINSTANCE instance, int icon, bool full_screen)
 {
+    const auto width = size.width;
+    const auto height = size.height;
+    auto x = at.x;
+    auto y = at.y;
     WNDCLASSEXA window_class{};
     window_class.cbSize = sizeof(window_class);
     window_class.style = CS_CLASSDC;
@@ -184,8 +189,11 @@ void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in)
 }
 
 // 0x005F5AF0
-void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, int width, int height, uint32_t bytes_per_texel)
+void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, TexelLayout layout)
 {
+    const auto width = layout.width;
+    const auto height = layout.height;
+    const auto bytes_per_texel = layout.bytes_per_texel_;
     auto count = static_cast<uint32_t>(width * height);
     size_t from = 0; // (the next texel in `in`)
     for (uint32_t i = 0; i < count; ++i) {

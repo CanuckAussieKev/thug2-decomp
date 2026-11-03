@@ -91,8 +91,10 @@ buffer_lists::Node* buffer_lists::vertex_buffers() { return vertex_buffers_state
 buffer_lists::Node* buffer_lists::index_buffers() { return vertex_buffers_state().index_buffer_list_; }
 
 // 0x004D3FF0
-VertexBuffer::VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags)
+VertexBuffer::VertexBuffer(uint32_t bytes, BufferFlags creation)
 {
+    const auto usage_flags = creation.usage_flags_;
+    const auto buffer_flags = creation.buffer_flags_;
     if (!(buffer_flags & kShared))
         renderer().d3d_device()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);

@@ -89,7 +89,7 @@ bool cfunc_load_sound(Struct* params, Script*)
         flags = 1;
     else if (params->has_bare_flag(kNoReverb))
         flags = 2;
-    audio_mixer_handle()->ingest_sound(file, {.flags = flags, .load_type_ = load_type, .group = bank}, dropoff, pitch, volume);
+    audio_mixer_handle()->ingest_sound(file, {.flags = flags, .load_type_ = load_type, .group = bank}, {.dropoff = dropoff, .pitch = pitch, .volume = volume});
     return true;
 }
 

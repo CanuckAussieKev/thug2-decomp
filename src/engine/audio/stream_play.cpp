@@ -214,7 +214,7 @@ void sync_music_to_time(float seconds)
     if (static_cast<int>(off) < 0)
         off = 0u - off;
     if (static_cast<int>(off) > 5)
-        bink::go_to(bink, static_cast<uint32_t>(frame), 1);
+        bink::go_to(bink, {.frame = static_cast<uint32_t>(frame), .flags = 1});
     ReleaseMutex(stream_lock());
 }
 

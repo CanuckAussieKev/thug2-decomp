@@ -250,7 +250,7 @@ void ParkLayout::write_compressed_map()
     map.set_version(kParkMapVersion);
     map.set_shell_size(static_cast<uint16_t>(shell_size_));
     map.set_reserved_0a(0);
-    map.set_area(build_area_.x, build_area_.z, build_area_.w, build_area_.l);
+    map.set_area({.x = build_area_.x, .z = build_area_.z, .width = build_area_.w, .length = build_area_.l});
     map.set_theme(editor_value78());
     map.set_max_players(generator_max_players(builder_));
     text::copy_unbounded(map.name().data(), park_name_.data());
@@ -443,7 +443,7 @@ void ParkLayout::clear_compressed_map()
     map.set_version(kParkMapVersion);
     map.set_shell_size(static_cast<uint16_t>(shell_size_));
     map.set_reserved_0a(0);
-    map.set_area(build_area_.x, build_area_.z, build_area_.w, build_area_.l);
+    map.set_area({.x = build_area_.x, .z = build_area_.z, .width = build_area_.w, .length = build_area_.l});
     map.set_theme(static_cast<void*>(park_editing_state().park_editor().get()) ? editor_value78() : 0);
     map.set_max_players(2);
     std::memcpy(map.name().data(), "Unnamed park", 13); // "Unnamed park"

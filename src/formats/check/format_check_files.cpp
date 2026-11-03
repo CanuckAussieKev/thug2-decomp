@@ -87,9 +87,17 @@ uint32_t word_at(std::span<const uint8_t> bytes, size_t offset)
            static_cast<uint32_t>(core::at(bytes, offset + 3)) << 24;
 }
 
+// A window of bytes: its offset and its length.
+struct Window {
+    size_t offset{};
+    size_t length{};
+};
+
 // The `length` bytes at `offset`, or as many as there are.
-std::span<const uint8_t> window_at(std::span<const uint8_t> bytes, size_t offset, size_t length)
+std::span<const uint8_t> window_at(std::span<const uint8_t> bytes, Window window)
 {
+    const auto offset = window.offset;
+    const auto length = window.length;
     const std::span<const uint8_t> rest = bytes.subspan(offset);
     return rest.first(std::min(length, rest.size()));
 }
@@ -334,7 +342,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
         const bundle_format::Entry& entry = core::at(table, static_cast<size_t>(i));
         if (entry.type != 0x2CD4107Du)
             continue;
-        util::ByteReader colours(window_at(bytes, entry.offset, entry.size));
+        util::ByteReader colours(window_at(bytes, {.offset = entry.offset, .length = entry.size}));
         bundle_format::SkinColours read;
         check(bundle_format::read_skin_colours(colours, &read) &&
                   read.count == ints::as_signed(word_at(bytes, entry.offset + 4)) &&
@@ -342,7 +350,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
               name + ": entry " + std::to_string(i) + "'s skin colours");
         skin_colour_tables() += 1;
         util::ByteReader cut_colours(
-            window_at(bytes, entry.offset, static_cast<size_t>(8 + read.count * bundle_format::kSkinColourSize - 1)));
+            window_at(bytes, {.offset = entry.offset, .length = static_cast<size_t>(8 + read.count * bundle_format::kSkinColourSize - 1)}));
         check(!bundle_format::read_skin_colours(cut_colours, &read), name + ": skin colours cut short");
     }
     // cut short: refused
@@ -910,14 +918,14 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
         const uint32_t chunk = word_at(bytes, at + 4);
         at += 8;
         if (id == wave_format::kFormatId) {
-            const std::span<const uint8_t> field = window_at(bytes, at, chunk < sizeof(format) ? chunk : sizeof(format));
+            const std::span<const uint8_t> field = window_at(bytes, {.offset = at, .length = chunk < sizeof(format) ? chunk : sizeof(format)});
             std::memcpy(format.data(), field.data(), field.size());
         } else if (id == wave_format::kDataId) {
             samples = bytes.subspan(at).data();
             sample_bytes = chunk;
         } else if (id == wave_format::kSamplerId) {
             std::array<uint32_t, 9> sampler = {};
-            const std::span<const uint8_t> field = window_at(bytes, at, chunk < 0x24 ? chunk : 0x24);
+            const std::span<const uint8_t> field = window_at(bytes, {.offset = at, .length = chunk < 0x24 ? chunk : 0x24});
             std::memcpy(sampler.data(), field.data(), field.size());
             if (core::at(sampler, 7) > 0)
                 looping = true;

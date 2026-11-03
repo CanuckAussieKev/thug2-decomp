@@ -99,7 +99,7 @@ bool sound_off_requested(sound::AudioMixer* manager) { return manager->is_frozen
 bool loudness_from_position(sound::AudioMixer* manager, Loudness* volume, const maths::Vec4* position, float dropoff,
                             int falloff_curve, void* emitter, maths::Vec4* emitter_direction)
 {
-    return manager->fetch_loudness(volume, position, dropoff, falloff_curve, emitter, emitter_direction);
+    return manager->fetch_loudness(volume, position, {.dropoff = dropoff, .falloff = falloff_curve}, emitter, emitter_direction);
 }
 // The emitter nearest to a position (0x004A09E0, not rewritten yet; its distance through the second argument),
 // and the stream component's position for it and its emitter's extent.

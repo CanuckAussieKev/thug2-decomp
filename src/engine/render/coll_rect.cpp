@@ -21,6 +21,7 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace render {
 
@@ -52,9 +53,10 @@ bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox*
 // (v2 - v0) normalised (an entry is only counted when it has one), its flag 0x40 and the object's checksum, and each
 // end's triangle edge. For an instance (`placed`) the points are scaled and placed, the normals turned back.
 void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                  std::span<const maths::Vec4, 2> points, std::span<const int, 2> kinds, uint16_t face_flags, uint32_t checksum,
+                  std::span<const maths::Vec4, 2> points, std::span<const int, 2> kinds, uint16_t face_flags, checksums::Name sector,
                   const CollScaled* placed)
 {
+    const uint32_t checksum = sector.value();
     RectHit& hit = core::at(hits->hits, hits->count);
     const double e2x = static_cast<double>(v2.x) - v0.x;
     const double e2y = static_cast<double>(v2.y) - v0.y;
@@ -138,7 +140,7 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
             continue;
         if (hits->count == RectHits::kMost)
             return true;
-        add_rect_hit(hits, v0, v1, v2, points, kinds, flags, object->checksum(), placed);
+        add_rect_hit(hits, v0, v1, v2, points, kinds, flags, checksums::Name{object->checksum()}, placed);
     }
     return hits->count > 0;
 }

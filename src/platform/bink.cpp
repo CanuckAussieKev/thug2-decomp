@@ -32,20 +32,26 @@ void do_frame(Movie* movie) { export_of<int(__stdcall*)(Movie*)>("_BinkDoFrame@4
 
 void next_frame(Movie* movie) { export_of<void(__stdcall*)(Movie*)>("_BinkNextFrame@4")(movie); }
 
-void go_to(Movie* movie, uint32_t frame, int flags)
+void go_to(Movie* movie, FrameJump jump)
 {
+    const auto frame = jump.frame;
+    const auto flags = jump.flags;
     export_of<void(__stdcall*)(Movie*, uint32_t, int)>("_BinkGoto@12")(movie, frame, flags);
 }
 
 void pause(Movie* movie, int pause) { export_of<int(__stdcall*)(Movie*, int)>("_BinkPause@8")(movie, pause); }
 
-void set_pan(Movie* movie, uint32_t track, int pan)
+void set_pan(Movie* movie, TrackPan track_pan)
 {
+    const auto track = track_pan.track;
+    const auto pan = track_pan.pan;
     export_of<void(__stdcall*)(Movie*, uint32_t, int)>("_BinkSetPan@12")(movie, track, pan);
 }
 
-void set_volume(Movie* movie, uint32_t track, int volume)
+void set_volume(Movie* movie, TrackVolume track_volume)
 {
+    const auto track = track_volume.track;
+    const auto volume = track_volume.volume;
     export_of<void(__stdcall*)(Movie*, uint32_t, int)>("_BinkSetVolume@12")(movie, track, volume);
 }
 
@@ -61,8 +67,13 @@ void set_sound_on_off(Movie* movie, int on)
     export_of<int(__stdcall*)(Movie*, int)>("_BinkSetSoundOnOff@8")(movie, on);
 }
 
-void copy_to_buffer(Movie* movie, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
+void copy_to_buffer(Movie* movie, void* bits, FrameCopy frame_copy)
 {
+    const auto pitch = frame_copy.pitch;
+    const auto height = frame_copy.height;
+    const auto x = frame_copy.x;
+    const auto y = frame_copy.y;
+    const auto flags = frame_copy.flags;
     export_of<int(__stdcall*)(Movie*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>("_BinkCopyToBuffer@28")(
         movie, bits, pitch, height, x, y, flags);
 }

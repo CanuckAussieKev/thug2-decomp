@@ -129,8 +129,12 @@ void park_map_from_words(std::span<uint8_t, kParkMapBytes> map, std::span<const 
     writer.fill(0, writer.remaining());
 }
 
-void ParkMap::set_area(uint8_t x, uint8_t z, uint8_t width, uint8_t length)
+void ParkMap::set_area(MapArea area)
 {
+    const auto x = area.x;
+    const auto z = area.z;
+    const auto width = area.width;
+    const auto length = area.length;
     core::at(bytes_, 0x0C) = x;
     core::at(bytes_, 0x0D) = z;
     core::at(bytes_, 0x0E) = width;
@@ -163,13 +167,17 @@ uint32_t ParkMap::word_at(size_t offset) const
     util::ByteReader reader(std::span<const uint8_t>(bytes_).subspan(offset, 4));
     return reader.u32();
 }
-void ParkMap::put_half(size_t offset, uint16_t value)
+void ParkMap::put_half(HalfAt half)
 {
+    const auto offset = half.offset;
+    const auto value = half.value;
     util::ByteWriter writer(std::span<uint8_t>(bytes_).subspan(offset, 2));
     writer.u16(value);
 }
-void ParkMap::put_word(size_t offset, uint32_t value)
+void ParkMap::put_word(WordAt word)
 {
+    const auto offset = word.offset;
+    const auto value = word.value;
     util::ByteWriter writer(std::span<uint8_t>(bytes_).subspan(offset, 4));
     writer.u32(value);
 }

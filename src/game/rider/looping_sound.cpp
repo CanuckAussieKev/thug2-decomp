@@ -239,7 +239,7 @@ void RiderRollingAudio::tick_frame()
     sound::AudioMixer* sfx = audio_mixer_handle();
     if (entity()->at_point() != last_pos_) {
         const float dropoff = sfx->get_dropoff_distance(sound_name_key(&sound_));
-        sfx->fetch_loudness(&volume, &entity()->at_point(), dropoff, 0, nullptr, nullptr);
+        sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = dropoff, .falloff = 0}, nullptr, nullptr);
     } else {
         sfx->stop_sound(sound_id_);
         sound_id_ = 0;

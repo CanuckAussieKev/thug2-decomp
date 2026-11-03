@@ -58,6 +58,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec4.h"
 
 namespace sys::screenshot {
 
@@ -182,10 +183,19 @@ std::string file_time(const char* path)
     return text.data();
 }
 
+// A screenshot's picture, its folder and when it was taken.
+struct ShotFiles {
+    std::string_view png{};
+    std::string_view folder{};
+    std::string_view taken{};
+};
+
 // Everything the sidecar says, read on the main thread (every field safe when it isn't there).
-std::vector<Section> gather_sections(const TickCycle& frame, const std::string& png, const std::string& folder,
-                                     const std::string& taken)
+std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
 {
+    const std::string png(files.png);
+    const std::string folder(files.folder);
+    const std::string taken(files.taken);
     std::vector<Section> sections;
     std::array<char, 256> text{};
 
@@ -436,7 +446,7 @@ void get_take()
     job->folder = folder;
     job->png = png;
     job->txt = sidecar_name(png);
-    std::vector<Section> sections = gather_sections(frame, png, folder, taken.data());
+    std::vector<Section> sections = gather_sections(frame, {.png = png, .folder = folder, .taken = taken.data()});
     sections.front().fields.push_back({.key = "mouse", .value = mouse});
     if (!screenshot_state().event_note_.empty()) {
         job->note = screenshot_state().event_note_;
@@ -521,7 +531,7 @@ void take_series_frame()
         std::array<char, 64> taken{};
         text::format_to(taken, "%04d-%02d-%02d %02d:%02d:%02d", local.tm_year + 1900, local.tm_mon + 1, local.tm_mday,
                         local.tm_hour, local.tm_min, local.tm_sec);
-        std::vector<Section> sections = gather_sections(frame, series_frame_name(1), series->folder, taken.data());
+        std::vector<Section> sections = gather_sections(frame, {.png = series_frame_name(1), .folder = series->folder, .taken = taken.data()});
         sections.front().title = "series";
         sections.front().fields.push_back(
             {.key = "frames", .value = std::to_string(series->total) + " (frame_0001.png on, one a rendered frame)"});

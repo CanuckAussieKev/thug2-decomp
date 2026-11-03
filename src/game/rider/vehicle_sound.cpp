@@ -233,7 +233,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity()->at_point(), sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
+    sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = sfx->get_dropoff_distance(engine_sound_name_), .falloff = 0}, nullptr,
                         nullptr);
     const float loudest = get_setting(settings_, 0x288B029D);
     const float quiet = get_setting(settings_, 0xB8F81277);
@@ -265,7 +265,7 @@ void SkaterVehicleSoundComponent::update_skid()
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity()->at_point(), sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
+    sfx->fetch_loudness(&volume, &entity()->at_point(), {.dropoff = sfx->get_dropoff_distance(skid_sound_name_), .falloff = 0}, nullptr, nullptr);
     const float loudest = get_setting(settings_, 0x42EA5746);
     const float quiet = get_setting(settings_, 0x43E6CDF2);
     volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));

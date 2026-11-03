@@ -105,28 +105,36 @@ public:
     [[nodiscard]] std::span<const uint8_t, kParkMapBytes> bytes() const { return bytes_; }
 
     [[nodiscard]] uint32_t checksum() const { return word_at(0x00); }
-    void set_checksum(uint32_t checksum) { put_word(0x00, checksum); }
+    void set_checksum(uint32_t checksum) { put_word({.offset = 0x00, .value = checksum}); }
     [[nodiscard]] uint16_t extent() const { return half_at(0x04); }
-    void set_extent(uint16_t extent) { put_half(0x04, extent); }
+    void set_extent(uint16_t extent) { put_half({.offset = 0x04, .value = extent}); }
     [[nodiscard]] uint16_t version() const { return half_at(0x06); }
-    void set_version(uint16_t version) { put_half(0x06, version); }
+    void set_version(uint16_t version) { put_half({.offset = 0x06, .value = version}); }
     [[nodiscard]] uint16_t shell_size() const { return half_at(0x08); }
-    void set_shell_size(uint16_t size) { put_half(0x08, size); }
-    void set_reserved_0a(uint16_t value) { put_half(0x0A, value); }
+    void set_shell_size(uint16_t size) { put_half({.offset = 0x08, .value = size}); }
+    void set_reserved_0a(uint16_t value) { put_half({.offset = 0x0A, .value = value}); }
     // The build area: x, z, width, length.
     [[nodiscard]] uint8_t area_x() const { return core::at(bytes_, 0x0C); }
     [[nodiscard]] uint8_t area_z() const { return core::at(bytes_, 0x0D); }
     [[nodiscard]] uint8_t area_width() const { return core::at(bytes_, 0x0E); }
     [[nodiscard]] uint8_t area_length() const { return core::at(bytes_, 0x0F); }
-    void set_area(uint8_t x, uint8_t z, uint8_t width, uint8_t length);
+    // A park's area in cells: its corner (x, z), its width and its length.
+    struct MapArea {
+        uint8_t x{};
+        uint8_t z{};
+        uint8_t width{};
+        uint8_t length{};
+    };
+
+    void set_area(MapArea area);
     [[nodiscard]] uint16_t piece_count() const { return half_at(0x10); }
-    void set_piece_count(uint16_t count) { put_half(0x10, count); }
+    void set_piece_count(uint16_t count) { put_half({.offset = 0x10, .value = count}); }
     [[nodiscard]] uint16_t gap_count() const { return half_at(0x12); }
-    void set_gap_count(uint16_t count) { put_half(0x12, count); }
+    void set_gap_count(uint16_t count) { put_half({.offset = 0x12, .value = count}); }
     [[nodiscard]] uint8_t max_players() const { return core::at(bytes_, 0x14); }
     void set_max_players(uint8_t players) { core::at(bytes_, 0x14) = players; }
     [[nodiscard]] uint32_t theme() const { return word_at(0x18); }
-    void set_theme(uint32_t theme) { put_word(0x18, theme); }
+    void set_theme(uint32_t theme) { put_word({.offset = 0x18, .value = theme}); }
     // The park's name in place (0x40 characters, terminated within them when it is shorter).
     [[nodiscard]] std::span<char, 0x40> name();
     [[nodiscard]] std::span<const char, 0x40> name() const;
@@ -137,8 +145,20 @@ public:
 private:
     [[nodiscard]] uint16_t half_at(size_t offset) const;
     [[nodiscard]] uint32_t word_at(size_t offset) const;
-    void put_half(size_t offset, uint16_t value);
-    void put_word(size_t offset, uint32_t value);
+    // A 16-bit value and where it is written.
+    struct HalfAt {
+        size_t offset{};
+        uint16_t value{};
+    };
+
+    void put_half(HalfAt half);
+    // A 32-bit value and where it is written.
+    struct WordAt {
+        size_t offset{};
+        uint32_t value{};
+    };
+
+    void put_word(WordAt word);
 
     std::array<uint8_t, kParkMapBytes> bytes_{};
 };

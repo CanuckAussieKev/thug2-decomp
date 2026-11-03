@@ -347,7 +347,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
 
     // Originally from PartyMod Fixes: the SDL window (thug2-decomp.ini's size, windowed or not; the handle into 0x007D6A28) in place of
     //     char title[26] = <the title>;
-    //     create_game_window(<the title> as the class name, title, 100, 100, 640, 480, get_window_proc 0x004E16B0,
+    //     create_game_window(<the title> as the class name, title, 100, {.width = 100, .height = 640}, 480, get_window_proc 0x004E16B0,
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
     create_sdl_window();
     os_layer::process_window_events();
