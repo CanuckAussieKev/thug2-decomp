@@ -136,7 +136,7 @@ public:
     // 0x00581580: its display name (online: the player's).
     const char* fetch_shown_name();
     // 0x005815C0: moved to the node named `node` (no node: only the orientation reset).
-    void glide_to_node(uint32_t node);
+    void glide_to_node(uint32_t name);
     // 0x00581760 / 0x005817F0: paused (the displays off, a script, the pad's vibration, the sounds) / unpaused.
     void get_freeze();
     void unpause();

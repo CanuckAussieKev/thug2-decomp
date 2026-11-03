@@ -67,7 +67,7 @@ enum class SpawnPointKind : uint8_t {
     kGeneric = 128,
 };
 constexpr bool enable_flag_operators(SpawnPointKind) { return true; }
-SpawnPointKind restart_type_bit(uint32_t kind_hash);
+SpawnPointKind restart_type_bit(uint32_t type);
 // A team colour named in a node's name or type (_Red, _Blue, _Green, _Yellow; ARGB), 0 if none.
 uint32_t team_colour(const char* text);
 // A spawn's gizmo colour: its team's (CTF / team restarts), else by type - multiplayer blue, player 1 green, player 2

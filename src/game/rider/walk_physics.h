@@ -323,7 +323,7 @@ public:
         GrindPoint* start;
         GrindPoint* end;
     };
-    bool next_hang_rail(float* t, GrindPoint* start, GrindPoint* end, HangSegment* next);
+    bool next_hang_rail(float* t, GrindPoint* start, GrindPoint* end, HangSegment* onto);
     // 0x0043E530: a pull-up onto the ledge above the hang: the ground near `target` (find_stand_position; failing that, 12 to
     // one side, then 12 to the other - `target` moved), seven feelers round it (none may hit) and one from behind the
     // skater up past the pull_up_obstruction_height (neither may hit). Then the animated move (PullUpFromHang) towards
@@ -354,7 +354,7 @@ public:
     // blocked (from the hang point: lowered by hang_vert_origin_offset, out by hang_horiz_origin_offset), and a
     // feeler from the position to the critical point clear - or, on the ground, up by hop_obstruction_feeler_up
     // and over from there.
-    bool hang_clear(render::ProbeRay* feeler, const maths::Vec4* point, RailHit* rail);
+    bool hang_clear(render::ProbeRay* feeler, const maths::Vec4* point, RailHit* record);
     // 0x00440130: shimmying `move` along the hang (left for more than 0): unless blocked (shimmy_blocked; the Hang
     // animation), on along the rail - past an end onto the next rail (next_hang_rail; face_hang_rail the rest of the
     // way) or stopped there; HangMoveLeft / HangMoveRight. A feeler from the old critical point to the new one: if
@@ -367,7 +367,7 @@ public:
     // facing, how far along, out and up from the rail, and the animation (SWING, or WALL when a feeler out from the
     // hang point hits).
     bool check_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* on_rail,
-                    const maths::Vec4* on_line, float along, RailHit* result, bool away);
+                    const maths::Vec4* on_line, float along, RailHit* record, bool away);
     // 0x00440BF0 (state 2): hanging, each frame: carried by what it rides on (else the ride let go); with the control
     // pushed forward a pull-up (twice: pull_up_offset_forward ahead, then half that); turned round: let go (in the
     // air, SkaterExitHang); else shimmied by the control's sideways part (hang_move_speed, eased by

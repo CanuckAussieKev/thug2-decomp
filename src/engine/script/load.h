@@ -20,7 +20,7 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums:
                                        const char* filename);
 // Define everything in the .qb file `data` (old format; its bytes). With `use_qb_names`, the file's checksum names go
 // in the .qb name table; with `temporary`, every change is undone by process_pending_symbols.
-void read_qb_file(const char* filename, std::span<const uint8_t> data, int unused, bool use_qb_names, bool temporary);
+void read_qb_file(const char* filename, std::span<const uint8_t> file, int unused, bool use_qb_names, bool temporary);
 // Restart the scripts running (or calling) a script that was just (re)defined.
 void restart_changed_scripts();
 // Whether `script` is running `name` or has it on its call stack.

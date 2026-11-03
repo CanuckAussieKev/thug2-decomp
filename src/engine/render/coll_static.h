@@ -48,7 +48,7 @@ public:
     // 0x004139A0 (slot 12; not a function in Ghidra): an instance (a CollStaticInstance sharing the geometry) or
     // a copy (with a copy of the geometry - 0x00416BF0 - and of the buffer, on the bottom-up heap), by the low byte
     // of `instance`. Null if the geometry couldn't be copied.
-    HitMesh* replicate(int instance) override;
+    HitMesh* replicate(int argument) override;
     // 0x00410C20 (slot 5): the geometry moved by the difference (0x00416400).
     void place_at_absolute_point(const maths::Vec4* position) override;
     // (slot 6: the shared "ignore one argument")
@@ -243,7 +243,7 @@ inline bool is_static_collider(const void* object)
 // 0x00414990 (cdecl): a movable collision object made from `count` geometries (consecutive in memory): type 1 a box
 // around them all, type 4 a movable triangle object (several: a multi-object of them); null for other types or
 // no geometry. `owner` is set (set_owner) and the object registered with it (0x004177B0).
-gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, objects::GameEntity* owner);
+gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_array, int count, objects::GameEntity* owner);
 
 // 0x00414D60: the geometry's debug rendering (compiled out: returns).
 void draw_geometry_diagnostic(const TriMeshSource* geometry, const maths::Mat4* transform, int a, int b, int c);

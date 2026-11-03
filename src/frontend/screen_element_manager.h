@@ -71,7 +71,7 @@ public:
     // 0x004ACB70 (screen_element_cfuncs.cpp): a new element of `type` (none for an unknown type) on the heap
     // `params` names (none given: the front end's; Default: the current one), with the id, registered, its
     // properties and morph from `params`, a pad-event priority if given; into `out`.
-    ElementPtr* spawn_part(ElementPtr* out, checksums::Name type, uint32_t id, script::Struct* params);
+    ElementPtr* spawn_part(ElementPtr* out, checksums::Name kind, uint32_t id, script::Struct* params);
     // 0x004AB730: the root (the element `id`).
     void change_root(uint32_t id);
     // 0x004ABBE0: `child` under `parent` (UiWidget::change_owner; the third argument is passed on): a root
@@ -130,7 +130,7 @@ private:
     bool has_top_precedence(uint32_t id);
     // 0x004AC570: the element `id` takes a priority slot (a free one, else the lowest if it's at least as high);
     // the new top is shown, the others hidden. False if no slot.
-    bool push_priority(checksums::Name id, uint32_t priority);
+    bool push_priority(checksums::Name name, uint32_t priority);
     // 0x004AB5D0: elements gone leave their slots; the top one is shown.
     void update_priorities();
 

@@ -139,8 +139,8 @@ void server_list_task(tasks::Task<Hub>* task);
 // the manager's buffer (+0x99F4, 25600 bytes cleared first), news_callback when done. 0x00545620: the message of the
 // day (state 9): GameSpy's usage report (ptTrackUsage, which asks motd.<domain>/motd/motd.asp: product 10368,
 // version "1.0"; the unique_id preference is read but not passed, as the original). Both note the request (+0xFE00) and the time (+0xFE04). 0.
-unsigned long __stdcall news_thread(void* manager);
-unsigned long __stdcall motd_thread(void* manager);
+unsigned long __stdcall news_thread(void* argument);
+unsigned long __stdcall motd_thread(void* argument);
 // 0x00545490 (GHTTP's completion callback, `param` the... not used: the manager is the singleton): a failed
 // download is state 11; else the data XOR 0x6D, its checksum (the first word, over the size in the second word -
 // 0x00401B30) checked (wrong: state 11), the text noted (+0xFDF4) with what follows it (+0xFDF8 / +0xFDFC), the

@@ -465,7 +465,7 @@ public:
     ParkTile* get_piece(uint32_t index) override;
     // 0x00590ED0: `piece` (a placed piece) added at the cells `pos` (x y z), turned `rot`; the piece's position set to
     // its centre there
-    void insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor) override;
+    void insert_tile(ParkPiece* placed, CellBox* pos, int rot, bool sets_floor) override;
     PiecePlace* get_descriptor(int index) override { return &slots_.at(index); }
     void commission(int count) override;
     // Descriptor `index`, with its placed piece.
@@ -976,7 +976,7 @@ public:
     void load_pieces(PieceLoad piece_load);
     // 0x00592A10: the point of the placed pieces' rails nearest to `position` (and the squared distance); false if
     // none is nearer than 1e8 squared units
-    bool find_nearest_rail_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared);
+    bool find_nearest_rail_point(const maths::Vec4* position, maths::Vec4* nearest, float* distance_squared);
     // 0x00592AB0: the node array's sizes: [0] nodes, [1] rail points, [2] rail segments, [3] / [4] memory
     // estimates, [5] rail points again
     void get_node_counts(std::span<int, kNodeCountEntries> counts);
@@ -1196,7 +1196,7 @@ public:
     // 0x005951E0
     MapListNode* get_cell_chain(int x, int z);
     // 0x00595210: piece set `index`; `menu_index` gets how many sets before it are shown.
-    PieceFamily* get_piece_family(int index, int* menu_index);
+    PieceFamily* get_piece_family(int index, int* used_before);
     // Where a park map's figures go: its gaps, meta pieces, theme, a word, width and length.
     struct MapInfoOut {
         int* num_gaps_{};
@@ -1218,9 +1218,9 @@ public:
     // 0x00595990: is there memory for the park grown or shrunk to `area` (w x l)?
     bool can_resize_to(CellBox area);
     // 0x005959D0: the highest floor in `area`; `is_flat` (if given) says whether it's all one height
-    int get_ground_level(CellBox area, bool* is_flat);
+    int get_ground_level(CellBox area, bool* uniform);
     // 0x00595A90: the world position of `area`'s corner (w = 1), and its size (if given)
-    maths::Vec4 cell_to_world_pos(const CellBox& area, maths::Vec4* size);
+    maths::Vec4 cell_to_world_pos(const CellBox& area, maths::Vec4* dimensions);
     maths::Vec4* grid_dims_to_world(maths::Vec4* out, CellBox* area, maths::Vec4* size)
     {
         *out = cell_to_world_pos(*area, size);
@@ -1252,7 +1252,7 @@ public:
     // --- park_lists.cpp: the map of metapieces ---
     // 0x00595670: a new concrete metapiece (on the park heap) made from the palette's `source`, its pieces made by
     // the generator with `flags`; added to the list of concrete metapieces
-    PieceGroup* make_placed_piece(PieceGroup* source, uint32_t flags);
+    PieceGroup* make_placed_piece(PieceGroup* abstract_meta, uint32_t flags);
     // 0x005958B0: is a placed piece (not the inner shell) not wholly inside `area` (x and z)?
     bool has_pieces_outside(CellBox area);
     // 0x00595DF0: add `meta` to the front of `list` unless it's in it already
@@ -1267,11 +1267,11 @@ public:
     // pieces would touch with its corner at `area`); `skip_inner_shell` (its low byte; the whole value is passed on to
     // PieceGroup::intersects) leaves out risers and counts only real
     // pieces' cells. A new list the caller frees.
-    MapListNode* get_intersecting_metas(CellBox area, int rot, PieceGroup* shape, uint32_t skip_inner_shell);
+    MapListNode* get_intersecting_metas(CellBox area, int rot, PieceGroup* meta, uint32_t skip_inner_shell);
     // 0x00597A00: every metapiece with a piece in a cell of `area` (a new list the caller frees)
     MapListNode* collect_pieces_in_region(CellBox area);
     // 0x00597AC0: the gap at the metapiece in cell `pos` (made 1x1x1), and which of its ends (`half`)
-    GapDetails* get_gap_info(CellBox* pos, int* half);
+    GapDetails* get_gap_info(CellBox* cell, int* half);
     // 0x005983D0: whether a metapiece over `area` (at any height) has kFloorLocked
     bool has_floor_locked_meta(CellBox area);
     // The risers' bottom row and their height.
@@ -1283,7 +1283,7 @@ public:
     // 0x005984A0: change the floor cells of `area` (from height `y`: up or down a step, or to `target`; `mode` 1:
     // to the target, 2: up / exactly, 4: every height counts), marking them; the metapieces on it go on `list` and
     // their own areas change with them. False if a cell would leave -16..15.
-    bool build_riser_list(CellBox area, RiserSpan riser_span, uint32_t mode, MapListNode** list);
+    bool build_riser_list(CellBox area, RiserSpan riser_span, uint32_t flags, MapListNode** list);
     // 0x00598150: `meta` placed (or taken away): raise the floor under its real pieces to their tops (or lower it
     // to their bottoms where nothing's left above) and mark (or clear) the levels they fill
     void set_meta_in_cells(PieceGroup* meta, int add);
@@ -1305,9 +1305,9 @@ public:
     // 0x005975A0
     void write_compressed_map_if_built();
     // 0x005975B0: the park into `params` (Park_editor_map, Park_editor_goals, the rails, MaxPlayers)
-    void export_to_struct(script::Struct* params);
+    void export_to_struct(script::Struct* out);
     // 0x00597720
-    void set_shell_size(int size);
+    void set_shell_size(int theme);
     // 0x005987A0: an empty park in the compressed map
     void clear_compressed_map();
     // 0x00597BD0: a gap made from `gap` (the gap manager makes its triggers)
@@ -1507,7 +1507,7 @@ public:
         area_highlighted_ = false;
     }
     // 0x00597110: the selected area (one level high; all zero without a selection)
-    void get_marquee_bounds(CellBox* out);
+    void get_marquee_bounds(CellBox* area);
     // 0x00597190: delete the oldest clipboard (the last in the list)
     void remove_oldest_clipboard();
     // 0x005971E0: keep the cursor (or the paste) within the park

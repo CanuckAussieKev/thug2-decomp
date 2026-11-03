@@ -88,7 +88,7 @@ std::string get_name_text(uint32_t checksum, const NameLookup& names);
 std::string record_name(uint32_t checksum, const NameLookup& names);
 // A typed name: "#XXXXXXXX" or "0xXXXXXXXX" (8 hex digits), or an identifier (letters, digits, _; not starting with a
 // digit) - its checksum. False: empty or anything else.
-bool parse_name(const std::string& text, uint32_t* checksum);
+bool parse_name(const std::string& typed, uint32_t* checksum);
 // The script checksum of a name (CRC-32 of its lower case, not inverted - Checksums::hash_from_text's).
 uint32_t hash_of_name(const std::string& name);
 

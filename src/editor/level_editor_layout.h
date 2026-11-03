@@ -251,7 +251,7 @@ void on_scene_loaded(const char* name, bool is_net);
 void tick();
 // (phase 6) The node manager added a node array (level_nodes::set_node_array_added_hook): the edited copy's level array
 // gets its layout's field edits now, before the level's objects are made from it (level_editor_fields.h).
-void on_node_array_added(uint32_t name);
+void on_node_array_added(uint32_t array);
 // The edited copy's level properties: whether this level's saved layout names one (`props`) - for the level select.
 bool saved_props(uint32_t scene, level_props::Props* props);
 

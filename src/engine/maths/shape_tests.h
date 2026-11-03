@@ -67,7 +67,7 @@ public:
     Capsule();
     // From a start point and the offset to the end point.
     Capsule(const Vec4& start, const Vec4& offset, float radius);
-    Capsule(const Seg& line, float radius);
+    Capsule(const Seg& segment, float radius);
 
     // Sphere volume plus the cylinder along the segment.
     [[nodiscard]] float get_loudness() const;

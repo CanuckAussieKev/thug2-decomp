@@ -105,7 +105,7 @@ void before_screen_layout();
 // item), focus <screen>/<item> (selects only), back, press <up|down|left|right|confirm|back|resume|prevtab|nexttab>.
 // The result ("ok", "error: ...", "refused: ...") with *done true; "" and *done false while select / focus waits
 // (then automation_result until it isn't ""). The Online screen's Play online is refused (never online).
-std::string automation_command(const std::string& args, bool* done);
+std::string automation_command(const std::string& line, bool* done);
 std::string automation_result();
 void automation_cancel();
 // Whether the screen `name` (Screen names: main, career, story, ... pause) is shown and not moving.

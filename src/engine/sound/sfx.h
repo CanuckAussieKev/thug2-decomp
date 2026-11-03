@@ -342,7 +342,7 @@ void free_permanent_waves();
 // 0x0047CC70: data\sounds\`path`.snd loaded into a new PcWave for the entry whose `wave` is `slot`.
 bool load_wave(const char* path, uint32_t checksum, SoundWaveSlot* entry, int load_type, int unused);
 // 0x0047CD70: the voice's volume, pan and frequency (3D: the buffer's position, the listener's orientation).
-void apply_voice_settings(int voice, VolumeRef* volume, float pitch);
+void apply_voice_settings(int index, VolumeRef* volume, float pitch);
 // 0x0047D130: the wave (the entry's `wave` at `slot`) played on a free voice; the voice, or -1.
 int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch);
 // 0x0047D390: every playing voice set silent.

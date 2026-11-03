@@ -344,7 +344,7 @@ public:
 
     // Add `component` at the end, replacing any component of the same name and compatible type (integers and
     // floats replace each other; a bare name only replaces the same name).
-    void attach_module(Component* component);
+    void attach_module(Component* added);
     void append_word(uint32_t name, const char* value);
     void append_word(const char* name, const char* value);
     void append_inline_text(uint32_t name, const char* value);

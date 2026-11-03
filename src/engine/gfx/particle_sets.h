@@ -237,8 +237,8 @@ public:
     // 0x00494E70 (not a Ghidra function): hidden or shown - on_visibility_changed when it changes.
     void conceal(bool hide);
     // 0x00494E90 / 0x00494EA0: the rate and the lifetime set.
-    void set_rate(float rate);
-    void set_lifespan(float lifetime);
+    void set_rate(float value);
+    void set_lifespan(float value);
     // 0x00494EB0: size `which` (start, mid, end) set.
     void change_extent(int which, float size);
     // 0x00494EC0 / 0x00494EE0 / 0x00494EF0: colour `which`, the brightness and the colour mid percentage set - then

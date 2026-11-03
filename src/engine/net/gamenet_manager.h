@@ -474,7 +474,7 @@ public:
     // 0x005460D0: `server` added to the server list menu (the first one clears the "none found" message):
     // server_list_menu_add_item with its name, mode, id (internet: its SBServer; LAN: itself), the menu's
     // scripts and their parameters. (`index` isn't used.)
-    void show_server_in_menu(void* server, int index);
+    void show_server_in_menu(void* item, int index);
     // 0x005462F0: every server (waiting and listed) deleted; in LAN mode 0x00534D50.
     void empty_server_listing();
     // 0x00546400: whether a server named `name` (case ignored) at `ip` is listed or waiting.
@@ -533,7 +533,7 @@ public:
     static int on_turned_away_msg(net::InboundMsgCtx* context);
     // 0x00536530: GameSpy's answer to a CD-key check (gcd_authenticate_user's callback; `instance` the
     // connection's {app, manager, connection}, freed here): join proceed, or refused (reason 8).
-    static void client_authorized(int game_id, int local_id, int authenticated, char* error, void* instance);
+    static void client_authorized(int game_id, int local_id, int authenticated, char* error, void* data);
 
     // --- The players and the observer's camera (gamenet_players.cpp; players are PlayerRecord, not rewritten yet) ---
 
@@ -618,7 +618,7 @@ public:
     // 0x00536890 (the observer's input handler's code, given the handler - Detail::SpectatorInputSink): the next
     // player asked for (spectate_request_ 1) on a press of the controller's button 0x40 (+0x20 of its place in the
     // input manager) - unless the root window's menu_state tag is on.
-    static void observer_input(pad_input::Responder<Hub>* handler);
+    static void observer_input(pad_input::Responder<Hub>* input);
     // 0x0053BF00 (+0xF4, auto-serve): 2 s after the host mode was set, in the lobby with two players or more and 5 s
     // after the lobby began: LoadPendingPlayers and StartNetworkGame, once (awaiting_start_).
     static void auto_serve_task(tasks::Task<Hub>* task);

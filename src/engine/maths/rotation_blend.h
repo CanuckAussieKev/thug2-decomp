@@ -11,11 +11,11 @@ class ArcRotationBlender {
 public:
     // Nothing set (an owner made in zeroed memory leaves it so until it sets the matrices).
     ArcRotationBlender() = default;
-    ArcRotationBlender(const Mat4& start, const Mat4& end);
+    ArcRotationBlender(const Mat4& from, const Mat4& to);
 
     // Store both matrices and compute the relative rotation. Returns the "small rotation" flag (the original
     // leaves it in EAX).
-    int set_matrices(const Mat4& start, const Mat4& end);
+    int set_matrices(const Mat4& from, const Mat4& to);
 
     // Go the other way round: negate the axis and use 2*pi - angle.
     void flip_heading();

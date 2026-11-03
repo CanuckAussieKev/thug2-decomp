@@ -25,7 +25,7 @@ const char* get_name_of(uint32_t checksum);
 std::string caption(uint32_t checksum);
 
 // The model's box where it is (false: no model that follows the object - not pickable).
-bool model_box(objects::GameEntity* object, OrientedBox* box);
+bool model_box(objects::GameEntity* object, OrientedBox* out);
 // The object under the ray (nearest box hit within `max_t` along the normalised ray: `t`).
 // Locked objects (level_editor_picking.h) are passed.
 objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* t);

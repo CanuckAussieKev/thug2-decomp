@@ -197,7 +197,7 @@ struct SkaterStateHistoryFrame {
 // 0x005197D0 / 0x005197E0: the frame's time (time the low 16 bits, wraps the high).
 uint32_t get_time(SkaterStateHistoryFrame& frame);
 
-void change_moment(SkaterStateHistoryFrame& frame, uint32_t time);
+void change_moment(SkaterStateHistoryFrame& frame, uint32_t stamp);
 
 } // namespace objects
 

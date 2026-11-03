@@ -73,7 +73,7 @@ public:
     // 0x004D1030: construct over `scene` (its mesh list) with a copy of `transform` and the bones (not copied);
     // active, on the instances' list (0x007825C0). Lit (2) when the bones are not drawn by the vertex shader and
     // every mesh asks for lighting (+0x38 bit 0x10) and has no flag 0x20000.
-    Singleton(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones);
+    Singleton(SceneRef* list, const maths::Mat4* matrix, int bone_count, maths::Mat4* bone_matrices);
     // 0x004D10C0: the destructor's body - its mesh list and bones freed when it owns them (1), off the list.
     ~Singleton();
     Singleton(const Singleton&) = delete;
@@ -82,7 +82,7 @@ public:
     // the scene's +0x78 not positive: the bones in 0x007825B0 / B4, the instance in B8, the lights set once per
     // set of bones), one draw per bone (up to 58: each mesh shown, 0x40, when its +0x1F is that bone; the bone
     // times the transform as the world), or once with its transform; lit with its model's lights or the scene's.
-    void render(uint32_t flags);
+    void render(uint32_t draw_bits);
 private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
@@ -150,7 +150,7 @@ public:
     // 0x004B58C0 (vtable slot 2): a copy - its meshes cloned (sharing buffers with `share`, the low byte of
     // `instance`), else, without `share`, into `scene`'s mesh list instead of these ones, which stay; with `share` an
     // instance of its own over a new mesh list.
-    gsl::owner<Geom*> plat_replicate(int instance, WorldScene* scene) override;
+    gsl::owner<Geom*> plat_replicate(int instance, WorldScene* into) override;
     // 0x004B5B80 (slot 1): a copy of an instance - its own scene and mesh list, the meshes cloned (sharing with the
     // low byte of `instance`), a new instance with bones for each of `model`'s (+8).
     gsl::owner<Geom*> clone_instance(int instance, RenderModel* model) override;
@@ -171,7 +171,7 @@ public:
     void toggle_shown(uint32_t mask) override;
     uint32_t fetch_shown() override;
     // 0x004B4630 (vtable slot 13) / 0x004B4690 (vtable slot 14): active (the meshes' flag 0x40), the instance's if any.
-    void change_live(bool active) override;
+    void change_live(bool on) override;
     bool is_operative() override;
     // (vtable slot 15, folded with RankingsManager::get_personal_stats) its box as loaded.
     maths::BBox* fetch_bounds() override { return &bounds_; }

@@ -215,7 +215,7 @@ public:
     void build_collision();
     // 0x004D3FC0 / 0x004D3FD0: a vertex buffer (0-2).
     VertexBuffer* fetch_vertex_store(int index);
-    void set_vertex_buffer(int index, VertexBuffer* buffer);
+    void set_vertex_buffer(int index, VertexBuffer* vb);
     // 0x004D3E50: its first vertex buffer moved into the arena (a share at the next free offset, 32-byte aligned;
     // the arena's buffer gains a reference) unless it has a buffer of its own already.
     void move_into_arena(VertexArena* arena);

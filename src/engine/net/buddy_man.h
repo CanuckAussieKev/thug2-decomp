@@ -163,7 +163,7 @@ public:
     static void buddy_task(tasks::Task<FriendsManager>* task);
     // 0x0054A3D0 (thread, stdcall): gpConnectNewUser for nick "proskater" with the profile_email / profile_password
     // preferences. Returns 0.
-    static unsigned long __stdcall create_profile_thread(void* man);
+    static unsigned long __stdcall create_profile_thread(void* parameter);
 
     // A buddy request the presence SDK reports (its callback's arguments, in order).
     struct BuddyRequest {

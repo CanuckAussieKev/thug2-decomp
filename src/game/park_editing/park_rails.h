@@ -129,7 +129,7 @@ public:
     // 0x0058AFF0: no rails, no pools (the last rail isn't cleared).
     ParkRailSet();
     // 0x0058B010: `rail` on the end.
-    void add_rail(ParkRailString* rail);
+    void add_rail(ParkRailString* string);
     // 0x0058B070: the points of all its rails.
     [[nodiscard]] int rail_point_total() const;
     // 0x0058B090: the `index`th (from 0) of its rails named `name`, or null.
@@ -149,7 +149,7 @@ public:
     ParkRailPoint* append_rail_vertex();
     ParkRailString* get_new_rail();
     // 0x0058B5B0: `rail` (null is fine; not in the set) given back to its pool.
-    void free_rail(ParkRailString* rail);
+    void free_rail(ParkRailString* string);
     // 0x0058B700: every rail (and its points) given back; empty.
     void get_clear();
 private:

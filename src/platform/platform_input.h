@@ -148,7 +148,7 @@ constexpr int kPadDefaultKeys = 3;
 
 // 0x005F5BC0 (cdecl): the pad state for `port` (1 or 2) from the keyboard, the joystick and the mouse (each read
 // for this frame first): nothing held for a port without a joystick, keys or mouse controls. Returns 0.
-int read_pad(int port, sio::PadSnapshot* state);
+int read_pad(int port, sio::PadSnapshot* pad);
 // 0x005F6610 / 0x005F6620 / 0x005F6630 (cdecl): the pad mode; what Enter and Escape are in the default keys (a
 // pressure button 0-7, or the button 0x10 / 0x20).
 void set_pad_mode(int mode);

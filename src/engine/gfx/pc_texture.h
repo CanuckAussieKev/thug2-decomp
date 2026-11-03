@@ -59,7 +59,7 @@ public:
     // 0x004C8830 (slot 3): a new texture of the size (one level per the device: the levels' 0), P8 for up to 8 bits a
     // pixel, X1R5G5B5 for 16, X8R8G8B8 for 32 (and below 8); the old one's Direct3D texture released. The texture's
     // size from the level's. True.
-    bool create_image(checksums::Name checksum, ImageFormat image_format, int unused1,
+    bool create_image(checksums::Name texture_name, ImageFormat image_format, int unused1,
                       int unused2) override;
     // 0x004C86A0 (slot 4): its Direct3D texture made again as a copy of `source`'s (a PC texture), every level (exit()
     // if it can't be made). True.

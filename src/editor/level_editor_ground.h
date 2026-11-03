@@ -145,7 +145,7 @@ void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, col
 // The record (after "ground ") and back (false: a bad or repeated key, a missing rect / base / height / material, an
 // unknown kind; `known`: the material's name, if any).
 std::string link_record(const Spec& spec, const char* material_name);
-bool read_record(const std::string& text, Spec* spec);
+bool read_record(const std::string& text, Spec* out);
 // "ed_ground" and the lowest two-digit number not taken.
 std::string fresh_name(const std::vector<Spec>& specs);
 char ramp_letter(Ramp ramp);
@@ -170,7 +170,7 @@ const Spec* get_find(const std::string& name);
 void kickoff();
 void halt();
 // A piece made / changed (`spec.name` new or one of the pieces) - or refused (`why`): one undo step. Removed likewise.
-bool place_in(const Spec& spec, std::string* why);
+bool place_in(const Spec& in, std::string* why);
 void drop_out(const std::string& name);
 // Everything as `specs` says (undo, a layout put in place): made, changed, removed. How many are in place.
 int apply_to_each(const std::vector<Spec>& specs, std::string* message);
@@ -178,9 +178,9 @@ int apply_to_each(const std::vector<Spec>& specs, std::string* message);
 bool find_pit_tiles(Spec* spec, std::string* why);
 // The donor chosen for a material (`sector`: the floor clicked, else the selection; 0: any) - its colour, uv scale and
 // terrain read into `spec`. False (`why`) when no level piece can lend its material.
-bool choose_material(uint32_t sector, Spec* spec, std::string* why);
+bool choose_material(uint32_t wanted, Spec* spec, std::string* why);
 // Why a sector can't lend its material (null: it can).
-const char* why_not_donor(uint32_t sector);
+const char* why_not_donor(uint32_t checksum);
 
 // The layout's records (Layout::add_extension).
 std::vector<std::string> capture_records();

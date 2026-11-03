@@ -247,7 +247,7 @@ State at_hand();
 // `state` put in place (from the current one): points added / removed / moved / relinked, level links rewritten or put
 // back, points dropped or shown, terrains set or put back; the rail manager built again; objects whose path changed
 // made again. False: not in a level.
-bool change_phase(const State& state);
+bool change_phase(const State& target);
 // A new level: forgotten (the last level's links put back if its node array is still the one loaded).
 void forget_level();
 // Once a frame (on or off): objects waiting to be made again.

@@ -118,6 +118,6 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
 // original), given the element's model corners in its own frame (scaled, before the camera's orientation), its
 // place in the camera's frame and the tangent of half the camera's horizontal angle: the factor its horizontal
 // scale is multiplied by, 1 when unchanged. See model_widget.cpp.
-float widescreen_stretch(const maths::Vec4* corners, int count, const maths::Vec4& place, double tan_half_angle);
+float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths::Vec4& place, double tan_half_angle);
 
 } // namespace frontend

@@ -51,7 +51,7 @@ public:
     void unlist();
     // 0x004D4090: locked - *out the copy at `offset` (or, with D3DLOCK_DISCARD, the card's buffer itself: its Lock's
     // result returned; else 0).
-    long get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint32_t lock_flags);
+    long get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint32_t flags_for_lock);
     // 0x004D40E0: unlocked - the copy (from its start) written into the locked part of the card's buffer (shared
     // ones at their arena offset), or the card's buffer unlocked after a discarding lock; nothing after a read-only
     // one or for a share without a buffer.

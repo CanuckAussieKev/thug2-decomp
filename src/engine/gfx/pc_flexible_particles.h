@@ -71,7 +71,7 @@ public:
 
     // 0x004BDC80
     PcFlatRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                          int segments, float width, int history);
+                          int segment_count, float width, int history);
     // 0x004BDD60 (0x004BECD0 the scalar deleting destructor; 0x004BDC70 through the node): the material freed, then the engine's.
     ~PcFlatRibbonParticles() override;
     // 0x004BDDD0 (vtable slot 1): the ribbons (untextured), then the heads (the default pixel shader); a draw that
@@ -95,7 +95,7 @@ public:
 
     // 0x004BED10
     PcGlowParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                    int segments, float unknown);
+                    int segment_count, float unknown);
     // 0x004BEDE0 (0x004BF6E0 the scalar deleting destructor; 0x004BED00 through the node): the material freed, then the engine's.
     ~PcGlowParticles() override;
     // 0x004BEE50 (vtable slot 1): drawn. The original's triangle count is a quarter of the triangles it writes (words /
@@ -120,7 +120,7 @@ public:
 
     // 0x004BF720
     PcGlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                               int segments, float unknown, int history);
+                               int segment_count, float unknown, int history);
     // 0x004C0940 (0x004C09B0 the scalar deleting destructor; 0x004BF710 through the node): the material freed, then the engine's.
     ~PcGlowRibbonTrailParticles() override;
     // 0x004BF7F0 (vtable slot 1): drawn. No emission.
@@ -143,7 +143,7 @@ public:
 
     // 0x004C09F0
     PcLineParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                    int segments, float unknown);
+                    int segment_count, float unknown);
     // 0x004C0AC0 (0x004C0E70 the scalar deleting destructor; 0x004C09E0 through the node): the material freed, then the engine's.
     ~PcLineParticles() override;
     // 0x004C0B30 (vtable slot 1): drawn as a line list (no index buffer); a draw that fills the buffer to within two
@@ -166,7 +166,7 @@ public:
 
     // 0x004C0EB0
     PcRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                      int segments, float unknown, int history);
+                      int segment_count, float unknown, int history);
     // 0x004C0F80 (0x004C16E0 the scalar deleting destructor; 0x004C0EA0 through the node): the material freed, then the engine's.
     ~PcRibbonParticles() override;
     // 0x004C0FF0 (vtable slot 1): drawn. No emission.
@@ -188,7 +188,7 @@ public:
 
     // 0x004C1720
     PcRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                           int segments, float unknown, int history);
+                           int segment_count, float unknown, int history);
     // 0x004C17F0 (0x004C2160 the scalar deleting destructor; 0x004C1710 through the node): the material freed, then the engine's.
     ~PcRibbonTrailParticles() override;
     // 0x004C1860 (vtable slot 1): drawn. No emission.
@@ -230,7 +230,7 @@ public:
 
     // 0x004C2B30
     PcSmoothParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                      int segments, float unknown);
+                      int segment_count, float unknown);
     // 0x004C2C00 (0x004C3500 the scalar deleting destructor; 0x004C2B20 through the node): the material freed, then the engine's.
     ~PcSmoothParticles() override;
     // 0x004C2C70 (vtable slot 1): drawn (DrawPrimitive, no index buffer; a draw that fills the buffer to within twelve
@@ -252,7 +252,7 @@ public:
 
     // 0x004C3550
     PcSmoothRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                            int segments, float unknown, int history);
+                            int segment_count, float unknown, int history);
     // 0x004C3620 (0x004C3D40 the scalar deleting destructor; 0x004C3540 through the node): the material freed, then the engine's.
     ~PcSmoothRibbonParticles() override;
     // 0x004C3690 (vtable slot 1): drawn. No emission.
@@ -276,7 +276,7 @@ public:
 
     // 0x004C3D80
     PcSmoothStarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                          int segments, float unknown);
+                          int segment_count, float unknown);
     // 0x004C3E50 (0x004C4880 the scalar deleting destructor; 0x004C3D70 through the node): the material freed, then the engine's.
     ~PcSmoothStarParticles() override;
     // 0x004C3EC0 (vtable slot 1): drawn. No emission.
@@ -297,7 +297,7 @@ public:
 
     // 0x004C48C0
     PcStarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                    int segments, float unknown);
+                    int segment_count, float unknown);
     // 0x004C4990 (0x004C5200 the scalar deleting destructor; 0x004C48B0 through the node): the material freed, then the engine's.
     ~PcStarParticles() override;
     // 0x004C4A00 (vtable slot 1): drawn. No emission.

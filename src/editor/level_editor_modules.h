@@ -156,7 +156,7 @@ void push_made(MadeThings made);
 // The selection's state now as an undo step (before a change made by the caller).
 void push_snapshot();
 // Copies of objects removed (as Delete removes them): one undo step that makes them again.
-void remove_copies(const std::vector<uint32_t>& objects);
+void remove_copies(const std::vector<uint32_t>& ids);
 // The scenery's collision lookups brought up to date after the caller moved it (no undo step).
 void get_settle();
 // A node's field: the node, the field's key and its kind.

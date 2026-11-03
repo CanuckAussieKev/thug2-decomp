@@ -210,7 +210,7 @@ struct Placed {
 };
 // The record's text after "trigger " and back (false: not a record this reads - a bad value, a repeated key, no place).
 std::string link_record(const Placed& placed);
-bool read_record(const std::string& text, Placed* placed);
+bool read_record(const std::string& line, Placed* placed);
 
 // The other end of a gap: the index in `specs` of a trigger with the same GapID and the other end's kind (-1: none).
 int partner(const std::vector<Spec>& specs, int index);
@@ -240,7 +240,7 @@ bool same_proxim(const ProximEdit& a, const ProximEdit& b);
 // Whether it changes anything (a script or a shape).
 bool proxim_edited(const ProximEdit& edit);
 std::string proxim_record(const ProximEdit& edit, const char* known); // (after "proxim "; `known`: the node's name)
-bool read_proxim_record(const std::string& text, ProximEdit* edit);
+bool read_proxim_record(const std::string& line, ProximEdit* edit);
 // "ed_proxim_" and the node's checksum in 8 hex digits.
 std::string proxim_script_name(uint32_t node);
 // A proximity trigger's scripts: on enter, on exit and its own.
@@ -341,7 +341,7 @@ struct PaneState {
 // The UI (level_editor_triggers_ui.cpp, ImGui): the Triggers window (T) and the Inspector's section for a trigger
 // node (`node`: Nodes::All() index).
 void pane(PaneArea area, PaneState pane_state);
-void inspector_section(int node);
+void inspector_section(int index);
 // What the UI asks for, done in the next Tick (the UI draws after the editor's update).
 void get_queue(std::function<void()> action);
 // The UI's actions (queued): a trigger added where the view looks - a kill zone (water: SK3_KillSkater_Water) back at
@@ -368,7 +368,7 @@ void make_editable(uint32_t sector);
 void select_partner(const std::string& name);
 void select_node_named(uint32_t name);
 // A level trigger described ("Kill zone (water) -> TRG_Restart01").
-std::string describe_level_trigger(const LevelTrigger& trigger);
+std::string describe_level_trigger(const LevelTrigger& l);
 
 // Undo: the whole trigger state (the editor's triggers - their specs and nodes - and the level triggers turned off).
 struct State {

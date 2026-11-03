@@ -132,10 +132,10 @@ bool gizmo_pickable(uint32_t name);
 bool selection_locked(bool say);
 
 // Groups.
-void make_group(const std::string& name); // of the selection
+void make_group(const std::string& wanted); // of the selection
 void select_group(int index);
 void delete_group(int index);
-void rename_group(int index, const std::string& name);
+void rename_group(int index, const std::string& wanted);
 void add_to_group(int index); // the selection added
 bool in_group(const std::string& group, const nodes::Elem& node);
 

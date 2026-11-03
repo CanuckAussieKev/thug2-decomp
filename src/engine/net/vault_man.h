@@ -208,13 +208,13 @@ public:
     // list, or the download / upload's done / fail scripts.
     static void vault_task(tasks::Task<VaultMan>* task);
     // 0x0054A7B0 (thread, stdcall): ghttpGetEx of url_ into a new 100000-byte buffer.
-    static unsigned long __stdcall list_thread(void* vault);
+    static unsigned long __stdcall list_thread(void* param);
     // 0x0054A860 (thread, stdcall): ghttpGetEx of `url` (goastrdup'd by Download, freed here) into a buffer of
     // buffer_size_, with the request's callback.
     static unsigned long __stdcall download_thread(void* url);
     // 0x0054AAC0 (thread, stdcall): the upload: the item's data structure written to a buffer and posted with the
     // type's fields, the description, the network id and the file name to thugonline.com/cgi-bin/upload2.pl.
-    static unsigned long __stdcall upload_thread(void* vault);
+    static unsigned long __stdcall upload_thread(void* param);
 
     // ghttp's callbacks (cdecl; param: this).
     // 0x0054A660: the progress (percent of a known total size) and the time of the last news.
@@ -224,7 +224,7 @@ public:
     static int on_transfer_done(void* request, int result, char* buffer, int64_t buffer_length, VaultMan* vault);
     // 0x0054A6B0 (DownloadFile's): a file downloaded: loaded by type (0x005A8EB0 with the type's script), or the
     // failure kept. Returns 1.
-    static int on_file_downloaded(void* request, int result, char* buffer, int64_t buffer_length, VaultMan* vault);
+    static int on_file_downloaded(void* request, int result, char* buffer, int64_t received, VaultMan* vault);
 
     // The fields other code reads and sets.
     std::unique_ptr<tasks::SchedulerTask>& task() { return task_; }

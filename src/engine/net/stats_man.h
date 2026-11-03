@@ -235,14 +235,14 @@ public:
     void read_skill_ratings(char* text);
     // 0x0054D910: a top-score list "Level:<level>\n" then "score:rating:name\n" lines, into top list `list`
     // (`titled`: its first line is the title).
-    void parse_top_list(int list, char* text, bool titled);
+    void parse_top_list(int index, char* text, bool titled);
 
     // 0x0054D4A0: the task: the login's 10 s (and the persistent storage's answers'), the login's result, the
     // reports once a minute while a game is reported.
     static void stats_task(tasks::Task<RankingsManager>* task);
     // 0x0054CAC0 (thread, stdcall): the stats SDK's game name and secret key (the online identity's - see
     // online_identity.h) and InitStatsConnection; state 2 (connected) or 3 (failed). Returns 0.
-    static unsigned long __stdcall log_in_thread(void* stats);
+    static unsigned long __stdcall log_in_thread(void* param);
     // Persistent data the SDK read (its callback's arguments, in order).
     struct PersistReply {
         int local_id_{};
@@ -261,7 +261,7 @@ public:
     static void on_personal_stats(const PersistReply& reply);
     // 0x0054DB20 (ghttp's completed callback of the top stats' download; param: the VaultMan): the file parsed into
     // its top list. Returns 1.
-    static int on_top_stats(void* request, int result, char* buffer, int64_t buffer_length, void* vault);
+    static int on_top_stats(void* request, int result, char* buffer, int64_t buffer_length, void* param);
     // 0x0054D2F0 (stdcall): the name of level `level` from the level list 0xB8D3EEEC (null if none).
     static const char* get_level_name(uint32_t level);
     // 0x0054CA10 (stdcall): the SDK's GenerateAuth (0x00600640) for `challenge` and `password`.

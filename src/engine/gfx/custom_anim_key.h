@@ -137,7 +137,7 @@ public:
     bool inside_range(float start, float end, bool inclusive) override;
     // 0x00486390: the camera put there (none at frame 0: false) - and left active, so it's put there again each
     // time. True.
-    bool work_on(void* camera) override;
+    bool work_on(void* object) override;
 
 private:
     maths::QuatRotation orientation_turn_{}; // +0x0C
