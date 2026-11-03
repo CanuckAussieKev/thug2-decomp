@@ -20,14 +20,12 @@ namespace objects {
 class Entity;
 
 // The node's shape (its Shape checksum, 0x22CF0027).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum ProximShape : uint8_t {
-    kProximShapeSphere = 0,    // within Radius of the node
-    kProximShapeBox = 1,       // the sector's box (axis-aligned, in the world)
-    kProximShapeSectorBox = 2, // the sector's box, in the sector's own frame
-    kProximShapeNone = 3,      // (never inside)
-    kProximShapeSector = 4,    // the sector's collision
-};
+using ProximShape = uint8_t;
+constexpr int kProximShapeSphere = 0;    // within Radius of the node
+constexpr int kProximShapeBox = 1;       // the sector's box (axis-aligned, in the world)
+constexpr int kProximShapeSectorBox = 2; // the sector's box, in the sector's own frame
+constexpr int kProximShapeNone = 3;      // (never inside)
+constexpr int kProximShapeSector = 4;    // the sector's collision
 
 constexpr std::size_t kProximNodeToSectorOffset = 0x14;
 constexpr std::size_t kProximNodeActiveOffset = 0x54;

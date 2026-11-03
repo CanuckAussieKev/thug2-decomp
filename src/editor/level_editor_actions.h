@@ -100,108 +100,105 @@ struct ActStep {
 };
 
 // The editor's own actions, in the built-in table's order (an action's index is its Id).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum IdentNo : uint8_t {
-    kHelp,
-    kPalette,
-    kBrowser,
-    kPlace,
-    kHistory,
-    kChanges,
-    kKeys,
-    kSnapshots,
-    kUndo,
-    kRedo,
-    kSave,
-    kDuplicate,
-    kRestoreAutosave,
-    kDiscardAutosave,
-    kDelete,
-    kHome,
-    kResetLevel,
-    kDeselect,
-    kLock,
-    kCopy,
-    kPaste,
-    kCopyProps,
-    kPasteTransform,
-    kPasteFields,
-    kBoxSelect,
-    kSelectSimilar,
-    kSelectFamily,
-    kInvertSelection,
-    kSelectAll,
-    kMakeGroup,
-    kTurnLeft,
-    kTurnRight,
-    kScaleDown,
-    kScaleUp,
-    kDrop,
-    kForward,
-    kBack,
-    kLeft,
-    kRight,
-    kFlyUp,
-    kFlyDown,
-    kNudgeUp,
-    kNudgeDown,
-    kFaster,
-    kSlower,
-    kCollision,
-    kFaces,
-    kTriggers,
-    kOcclusion,
-    kHide,
-    kIsolate,
-    kShowAll,
-    kCameraNode,
-    kLogCamera,
-    kChainInsert,
-    kChainExtend,
-    kChainLink,
-    kChainUnlink,
-    kChainFinish,
-    // (UX1: play from here, the camera's tools, the preferences - level_editor_play.h, level_editor_camera.h,
-    // level_editor_prefs.h)
-    kPlay,
-    kPreferences,
-    kFrameSelection,
-    kBookmark1,
-    kBookmarkStore1 = kBookmark1 + 9,
-    kViewTop = kBookmarkStore1 + 9,
-    kViewBottom,
-    kCamFrontView,
-    kViewBack,
-    kPanRightAction,
-    kPanLeftAction,
-    kViewOrtho,
-    // (UX2: the transform tools - level_editor_transform.h; the arrows nudge with wasd_flies=0)
-    kToolMove,
-    kToolRotate,
-    kToolScale,
-    kToolCycle,
-    kToolSpace,
-    kModalTransform,
-    kRepeatDuplicate,
-    kNudgeForward,
-    kNudgeBack,
-    kNudgeLeft,
-    kNudgeRight,
-    // (UX4 / UX5: the view modes, jump arcs, the ruler - level_editor_overlays.h, level_editor_arcs.h,
-    // level_editor_ruler.h; the Problems window - level_editor_checks.h)
-    kViewModeLit,
-    kViewModeUnlit,
-    kViewModeWireframe,
-    kViewModeCollision,
-    kJumpArcs,
-    kRuler,
-    kRulerClear,
-    kProblems,
-    // (UX6: Simulate and the Trail window - level_editor_playtest.h)
-    kSimulate,
-    kTrailWindow,
-    kBuiltinCount
-};
+constexpr int kHelp = 0;
+constexpr int kPalette = 1;
+constexpr int kBrowser = 2;
+constexpr int kPlace = 3;
+constexpr int kHistory = 4;
+constexpr int kChanges = 5;
+constexpr int kKeys = 6;
+constexpr int kSnapshots = 7;
+constexpr int kUndo = 8;
+constexpr int kRedo = 9;
+constexpr int kSave = 10;
+constexpr int kDuplicate = 11;
+constexpr int kRestoreAutosave = 12;
+constexpr int kDiscardAutosave = 13;
+constexpr int kDelete = 14;
+constexpr int kHome = 15;
+constexpr int kResetLevel = 16;
+constexpr int kDeselect = 17;
+constexpr int kLock = 18;
+constexpr int kCopy = 19;
+constexpr int kPaste = 20;
+constexpr int kCopyProps = 21;
+constexpr int kPasteTransform = 22;
+constexpr int kPasteFields = 23;
+constexpr int kBoxSelect = 24;
+constexpr int kSelectSimilar = 25;
+constexpr int kSelectFamily = 26;
+constexpr int kInvertSelection = 27;
+constexpr int kSelectAll = 28;
+constexpr int kMakeGroup = 29;
+constexpr int kTurnLeft = 30;
+constexpr int kTurnRight = 31;
+constexpr int kScaleDown = 32;
+constexpr int kScaleUp = 33;
+constexpr int kDrop = 34;
+constexpr int kForward = 35;
+constexpr int kBack = 36;
+constexpr int kLeft = 37;
+constexpr int kRight = 38;
+constexpr int kFlyUp = 39;
+constexpr int kFlyDown = 40;
+constexpr int kNudgeUp = 41;
+constexpr int kNudgeDown = 42;
+constexpr int kFaster = 43;
+constexpr int kSlower = 44;
+constexpr int kCollision = 45;
+constexpr int kFaces = 46;
+constexpr int kTriggers = 47;
+constexpr int kOcclusion = 48;
+constexpr int kHide = 49;
+constexpr int kIsolate = 50;
+constexpr int kShowAll = 51;
+constexpr int kCameraNode = 52;
+constexpr int kLogCamera = 53;
+constexpr int kChainInsert = 54;
+constexpr int kChainExtend = 55;
+constexpr int kChainLink = 56;
+constexpr int kChainUnlink = 57;
+constexpr int kChainFinish = 58;
+// (UX1: play from here, the camera's tools, the preferences - level_editor_play.h, level_editor_camera.h,
+// level_editor_prefs.h)
+constexpr int kPlay = 59;
+constexpr int kPreferences = 60;
+constexpr int kFrameSelection = 61;
+constexpr int kBookmark1 = 62;
+constexpr int kBookmarkStore1 = kBookmark1 + 9;
+constexpr int kViewTop = kBookmarkStore1 + 9;
+constexpr int kViewBottom = kViewTop + 1;
+constexpr int kCamFrontView = kViewBottom + 1;
+constexpr int kViewBack = kCamFrontView + 1;
+constexpr int kPanRightAction = kViewBack + 1;
+constexpr int kPanLeftAction = kPanRightAction + 1;
+constexpr int kViewOrtho = kPanLeftAction + 1;
+// (UX2: the transform tools - level_editor_transform.h; the arrows nudge with wasd_flies=0)
+constexpr int kToolMove = kViewOrtho + 1;
+constexpr int kToolRotate = kToolMove + 1;
+constexpr int kToolScale = kToolRotate + 1;
+constexpr int kToolCycle = kToolScale + 1;
+constexpr int kToolSpace = kToolCycle + 1;
+constexpr int kModalTransform = kToolSpace + 1;
+constexpr int kRepeatDuplicate = kModalTransform + 1;
+constexpr int kNudgeForward = kRepeatDuplicate + 1;
+constexpr int kNudgeBack = kNudgeForward + 1;
+constexpr int kNudgeLeft = kNudgeBack + 1;
+constexpr int kNudgeRight = kNudgeLeft + 1;
+// (UX4 / UX5: the view modes, jump arcs, the ruler - level_editor_overlays.h, level_editor_arcs.h,
+// level_editor_ruler.h; the Problems window - level_editor_checks.h)
+constexpr int kViewModeLit = kNudgeRight + 1;
+constexpr int kViewModeUnlit = kViewModeLit + 1;
+constexpr int kViewModeWireframe = kViewModeUnlit + 1;
+constexpr int kViewModeCollision = kViewModeWireframe + 1;
+constexpr int kJumpArcs = kViewModeCollision + 1;
+constexpr int kRuler = kJumpArcs + 1;
+constexpr int kRulerClear = kRuler + 1;
+constexpr int kProblems = kRulerClear + 1;
+// (UX6: Simulate and the Trail window - level_editor_playtest.h)
+constexpr int kSimulate = kProblems + 1;
+constexpr int kTrailWindow = kSimulate + 1;
+constexpr int kBuiltinCount = kTrailWindow + 1;
 
 // The registry, built-ins first (made on first use; their keys read from the ini once - load_keys).
 const std::vector<ActStep>& get_all();

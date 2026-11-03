@@ -8,16 +8,13 @@
 namespace render {
 
 // Render flags (draw_scene's `flags`).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-enum DrawOptionBits : uint8_t {
-    kRenderOpaque = 0x1,      // the meshes before the first transparent one
-    kRenderTransparent = 0x2, // the rest: transparent, then the flagged ones sorted by depth, then the others
-    kRenderOcclusion = 0x4,   // skip meshes hidden by an occluder
-    kRenderNoCulling = 0x8,   // no view / viewport tests
-    kRenderNearFirst = 0x10,  // opaque meshes with the depth value up to 600 first, the others after
-    kDrawStencilOnly = 0x20,  // only the stencil shadow volumes
-    kRenderStats = 0x40,      // count the pass (0x00775B80)
-};
+constexpr int kRenderOpaque = 0x1;      // the meshes before the first transparent one
+constexpr int kRenderTransparent = 0x2; // the rest: transparent, then the flagged ones sorted by depth, then the others
+constexpr int kRenderOcclusion = 0x4;   // skip meshes hidden by an occluder
+constexpr int kRenderNoCulling = 0x8;   // no view / viewport tests
+constexpr int kRenderNearFirst = 0x10;  // opaque meshes with the depth value up to 600 first, the others after
+constexpr int kDrawStencilOnly = 0x20;  // only the stencil shadow volumes
+constexpr int kRenderStats = 0x40;      // count the pass (0x00775B80)
 
 // Which of a scene's meshes are drawn (the pass flags) and into which viewport.
 struct ScenePass {

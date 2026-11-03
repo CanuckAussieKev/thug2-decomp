@@ -388,17 +388,15 @@ bool stall_steep_rail(SkaterPhysicsModule* core);
 // - its check_trigger has BikePress (0x470EAB): Press, but not the same right-stick flick twice - when the button map's
 //   first button (the last trick's) is this one, only after the right stick has been back in the middle (0x4723D0:
 //   none of its eight directions down).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum StickButtonIndex : uint8_t {
-    kLeftUp,
-    kLeftDown,
-    kLeftLeft,
-    kLeftRight,
-    kRightUp,
-    kRightDown,
-    kRightLeft,
-    kRightRight
-};
+using StickButtonIndex = uint8_t;
+constexpr int kLeftUp = 0;
+constexpr int kLeftDown = 1;
+constexpr int kLeftLeft = 2;
+constexpr int kLeftRight = 3;
+constexpr int kRightUp = 4;
+constexpr int kRightDown = 5;
+constexpr int kRightLeft = 6;
+constexpr int kRightRight = 7;
 // The eight directions (a bit each, 1 << StickButtonIndex) from a pad's data: its bytes 0-3, the tolerance-centred
 // right x, y and left x, y (0x80 the middle).
 uint32_t stick_directions(std::span<const uint8_t> data);

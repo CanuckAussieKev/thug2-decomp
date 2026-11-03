@@ -22,31 +22,27 @@ class AsyncFileHandle;
 namespace assets {
 
 // The asset types (each file extension maps to one, 0x0067C650).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum ResourceKind : uint8_t {
-    kBinary = 1,         // .BIN
-    kScene = 2,          // .SCN, .GEOM
-    kResTexDict = 3,     // .TEX
-    kSceneCollision = 4, // .COL
-    kAnimation = 5,      // .SKA, .FAM
-    kSkeleton = 6,       // .SKE
-    kSkinnedModel = 7,   // .MDL, .SKIN
-    kSkinCollision = 8,
-    kCutscene = 9,        // .CUT
-    kNodeArray = 10,      // .QB
-    kOwnedNodeArray = 11, // a node array that the node manager's owner (made by LoadAsset with this type)
-};
+using ResourceKind = uint8_t;
+constexpr int kBinary = 1;         // .BIN
+constexpr int kScene = 2;          // .SCN, .GEOM
+constexpr int kResTexDict = 3;     // .TEX
+constexpr int kSceneCollision = 4; // .COL
+constexpr int kAnimation = 5;      // .SKA, .FAM
+constexpr int kSkeleton = 6;       // .SKE
+constexpr int kSkinnedModel = 7;   // .MDL, .SKIN
+constexpr int kSkinCollision = 8;
+constexpr int kCutscene = 9;        // .CUT
+constexpr int kNodeArray = 10;      // .QB
+constexpr int kOwnedNodeArray = 11; // a node array that the node manager's owner (made by LoadAsset with this type)
 
 // The load states (+0x08).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum AssetState : uint8_t {
-    kUnloaded = 0,
-    kLoading = 1, // the file is being read
-    kRead = 2,    // the file is read (the async read's callback)
-    kProcessing = 3,
-    kLoaded = 4,
-    kAborted = 5,
-};
+using AssetState = uint8_t;
+constexpr int kUnloaded = 0;
+constexpr int kLoading = 1; // the file is being read
+constexpr int kRead = 2;    // the file is read (the async read's callback)
+constexpr int kProcessing = 3;
+constexpr int kLoaded = 4;
+constexpr int kAborted = 5;
 
 class Resource;
 // Called when an asset the manager loaded asynchronously is ready: (the asset, its file's size, the two values).

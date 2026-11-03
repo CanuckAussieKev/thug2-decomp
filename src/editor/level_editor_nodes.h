@@ -55,17 +55,15 @@ enum class Shape : uint8_t { kPoint, kChain, kLoudness, kNone };
 Shape shape_of(Family family);
 
 // A restart's restart_types as bits.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum SpawnPointKind : uint8_t {
-    kPlayer1 = 1,
-    kPlayer2 = 2,
-    kMultiplayer = 4,
-    kHorse = 8,
-    kCtf = 16,
-    kTeam = 32,
-    kKing = 64,
-    kGeneric = 128,
-};
+using SpawnPointKind = uint8_t;
+constexpr int kPlayer1 = 1;
+constexpr int kPlayer2 = 2;
+constexpr int kMultiplayer = 4;
+constexpr int kHorse = 8;
+constexpr int kCtf = 16;
+constexpr int kTeam = 32;
+constexpr int kKing = 64;
+constexpr int kGeneric = 128;
 uint32_t restart_type_bit(uint32_t kind_hash);
 // A team colour named in a node's name or type (_Red, _Blue, _Green, _Yellow; ARGB), 0 if none.
 uint32_t team_colour(const char* text);

@@ -27,20 +27,19 @@ namespace frontend::level_editor::overlays {
 constexpr float kLabelOffsetX = 6.0f; // a label's default offset from its point
 constexpr float kLabelOffsetY = 8.0f; // (up)
 
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-enum Bit : uint16_t {
-    kLabels = 1u << 0,        // texts over the view (gizmo labels, trigger names, the feature map's numbers)
-    kLegend = 1u << 1,        // the collision's legend (bottom left)
-    kFeatureMap = 1u << 2,    // speed-ups' chevrons, boosts, proximity shapes, breakables (Triggers::add_extras)
-    kGrid = 1u << 3,          // a 100-unit grid on the ground below the camera (or the selection)
-    kCarryHints = 1u << 4,    // what a scenery move carries, outlined while it moves
-    kOutlinerMarks = 1u << 5, // the Outliner rows' change letters (M, A, H...)
-    kJumpArcs = 1u << 6,      // Y: the selected scenery's lips and the flight arcs off them
-    kGrindPreview = 1u << 7,  // the rail under the cursor: direction, segments, terrain, speed-ups, connections
-    kRuler = 1u << 8,         // M: the ruler's measurement
-    kSkateability =
-        1u << 9, // (UX9) Alt+K: surfaces coloured by what a skater can do on them (level_editor_skate_view.h)
-};
+using Bit = uint16_t;
+constexpr int kLabels = 1u << 0;     // texts over the view (gizmo labels, trigger names, the feature map's numbers)
+constexpr int kLegend = 1u << 1;     // the collision's legend (bottom left)
+constexpr int kFeatureMap = 1u << 2; // speed-ups' chevrons, boosts, proximity shapes, breakables (Triggers::add_extras)
+constexpr int kGrid = 1u << 3;       // a 100-unit grid on the ground below the camera (or the selection)
+constexpr int kCarryHints = 1u << 4; // what a scenery move carries, outlined while it moves
+constexpr int kOutlinerMarks = 1u << 5; // the Outliner rows' change letters (M, A, H...)
+constexpr int kJumpArcs = 1u << 6;      // Y: the selected scenery's lips and the flight arcs off them
+constexpr int kGrindPreview =
+    1u << 7;                    // the rail under the cursor: direction, segments, terrain, speed-ups, connections
+constexpr int kRuler = 1u << 8; // M: the ruler's measurement
+constexpr int kSkateability =
+    1u << 9; // (UX9) Alt+K: surfaces coloured by what a skater can do on them (level_editor_skate_view.h)
 constexpr uint32_t kAllBits = (1u << 10) - 1;
 constexpr uint32_t kDefaultBits = kAllBits & ~(kGrid | kJumpArcs | kSkateability);
 struct BitInfo {

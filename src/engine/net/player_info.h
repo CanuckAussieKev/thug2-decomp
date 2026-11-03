@@ -27,24 +27,23 @@ class SchedulerTask;
 namespace online {
 
 // The player's flags (PlayerRecord::flag_bits_).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-enum PlayerFlag : uint32_t {
-    kPlayerLocal = 0x1,      // this machine's player
-    kPlayerJustJoined = 0x2, // (with join_time_) still settling in - see IsVulnerable
-    kPlayerObserver = 0x4,
-    kPlayerPendingObserver = 0x8, // joined to watch: not yet in the observers
-    kPlayerFullyIn = 0x20,        // in the game (set_finished_joining)
-    kPlayerToldGameState = 0x40,
-    kPlayerKing = 0x80, // has the crown (king of the hill)
-    kPlayerReady = 0x100,
-    kPlayerServer = 0x200,        // the host's own player
-    kPlayerCarryingFlag0 = 0x800, // carries team 0's flag (0x800 << team: the four teams' flags)
-    kPlayerCarryingFlags = 0x7800,
-    kPlayerCaptureBlocked = 0x8000, // restarted in a flag or crown game: may not capture until it drops what it carries
-    kPlayerSurveying = 0x10000,  // (the byte at +0x1D2, bit 0) watching from the surveyor camera
-    kPlayerEliminated = 0x20000, // out of the game (firefight), the time in eliminated_time_
-    kPlayerRejoining = 0x10, // (a pending player added back)
-};
+using PlayerFlag = uint32_t;
+constexpr uint32_t kPlayerLocal = 0x1;      // this machine's player
+constexpr uint32_t kPlayerJustJoined = 0x2; // (with join_time_) still settling in - see IsVulnerable
+constexpr uint32_t kPlayerObserver = 0x4;
+constexpr uint32_t kPlayerPendingObserver = 0x8; // joined to watch: not yet in the observers
+constexpr uint32_t kPlayerFullyIn = 0x20;        // in the game (set_finished_joining)
+constexpr uint32_t kPlayerToldGameState = 0x40;
+constexpr uint32_t kPlayerKing = 0x80; // has the crown (king of the hill)
+constexpr uint32_t kPlayerReady = 0x100;
+constexpr uint32_t kPlayerServer = 0x200;        // the host's own player
+constexpr uint32_t kPlayerCarryingFlag0 = 0x800; // carries team 0's flag (0x800 << team: the four teams' flags)
+constexpr uint32_t kPlayerCarryingFlags = 0x7800;
+constexpr uint32_t kPlayerCaptureBlocked =
+    0x8000; // restarted in a flag or crown game: may not capture until it drops what it carries
+constexpr uint32_t kPlayerSurveying = 0x10000;  // (the byte at +0x1D2, bit 0) watching from the surveyor camera
+constexpr uint32_t kPlayerEliminated = 0x20000; // out of the game (firefight), the time in eliminated_time_
+constexpr uint32_t kPlayerRejoining = 0x10;     // (a pending player added back)
 
 // The player slots of a network game: at most this many players, skater object ids 0 to 7 (the rider slots of
 // the skate module, the per-skater records a player keeps).

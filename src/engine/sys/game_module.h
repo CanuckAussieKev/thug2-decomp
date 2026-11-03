@@ -28,10 +28,14 @@ public:
     static void* operator new(std::size_t size) noexcept { return memory::HeapObject::operator new(size); }
     static void operator delete(void* memory) { memory::HeapObject::operator delete(memory); }
 
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : uint8_t { kStopped = 0, kRunning = 1 };
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-    enum OrderCode : uint8_t { kNone = 0, kStart = 1, kStop = 2, kRestart = 3 };
+    using State = uint8_t;
+    static constexpr int kStopped = 0;
+    static constexpr int kRunning = 1;
+    using OrderCode = uint8_t;
+    static constexpr int kNone = 0;
+    static constexpr int kStart = 1;
+    static constexpr int kStop = 2;
+    static constexpr int kRestart = 3;
 
     // 0x0044F7E0: stopped, unlocked, with a list node of its own (none if out of memory).
     PartUnit();

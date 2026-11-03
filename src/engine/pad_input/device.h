@@ -72,8 +72,11 @@ constexpr int kHardPressThreshold = 0x80;
 class InputPort : public memory::HeapObject {
 public:
     // The states Process steps through while a pad is found.
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : uint8_t { kIdle = 0, kDetect = 1, kReady = 2, kSettle = 5 };
+    using State = uint8_t;
+    static constexpr int kIdle = 0;
+    static constexpr int kDetect = 1;
+    static constexpr int kReady = 2;
+    static constexpr int kSettle = 5;
     // Capability bits.
     static constexpr uint32_t kHasActuators = 2;
     static constexpr uint32_t kAnalog = 4;

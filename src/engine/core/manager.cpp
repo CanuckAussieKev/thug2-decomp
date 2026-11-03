@@ -212,30 +212,27 @@ bool Hub::release_labeled_zone(uint32_t name, int /*unused*/)
 namespace {
 
 // The standard heaps' name checksums.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum HeapName : uint32_t {
-    kTopDownHeap = 0x8FDB68AF,
-    kBottomUpHeap = 0x0C7800B0,
-    kFrontEndHeap = 0x62F3A0F3,
-    kScriptHeap = 0x0FA33D9B,
-    kNetworkHeap = 0xE3551D2E,
-    kNetMiscHeap = 0x96D29D93,
-    kInternetTopDownHeap = 0xFCD5166B,
-    kInternetBottomUpHeap = 0x90020867,
-    kCutsceneTopDown = 0x25D71469,
-    kCutsceneBottomUp = 0x7ED56B49,
-    kDebugHeap = 0x70CB0238,
-    kSkater0 = 0xC3909393,
-    kSkater1 = 0xB497A305,
-    kSkater2 = 0x2D9EF2BF,
-    kSkater3 = 0x5A99C229,
-    kSkaterGeom0 = 0x572A9F4C,
-    kSkaterGeom1 = 0x202DAFDA,
-    kSkaterGeom2 = 0xB924FE60,
-    kSkaterGeom3 = 0xCE23CEF6,
-    kSkaterInfo = 0x08682D24,
-    kThemeHeap = 0x17ECB880,
-};
+constexpr uint32_t kTopDownHeap = 0x8FDB68AF;
+constexpr uint32_t kBottomUpHeap = 0x0C7800B0;
+constexpr uint32_t kFrontEndHeap = 0x62F3A0F3;
+constexpr uint32_t kScriptHeap = 0x0FA33D9B;
+constexpr uint32_t kNetworkHeap = 0xE3551D2E;
+constexpr uint32_t kNetMiscHeap = 0x96D29D93;
+constexpr uint32_t kInternetTopDownHeap = 0xFCD5166B;
+constexpr uint32_t kInternetBottomUpHeap = 0x90020867;
+constexpr uint32_t kCutsceneTopDown = 0x25D71469;
+constexpr uint32_t kCutsceneBottomUp = 0x7ED56B49;
+constexpr uint32_t kDebugHeap = 0x70CB0238;
+constexpr uint32_t kSkater0 = 0xC3909393;
+constexpr uint32_t kSkater1 = 0xB497A305;
+constexpr uint32_t kSkater2 = 0x2D9EF2BF;
+constexpr uint32_t kSkater3 = 0x5A99C229;
+constexpr uint32_t kSkaterGeom0 = 0x572A9F4C;
+constexpr uint32_t kSkaterGeom1 = 0x202DAFDA;
+constexpr uint32_t kSkaterGeom2 = 0xB924FE60;
+constexpr uint32_t kSkaterGeom3 = 0xCE23CEF6;
+constexpr uint32_t kSkaterInfo = 0x08682D24;
+constexpr uint32_t kThemeHeap = 0x17ECB880;
 
 } // namespace
 

@@ -8,28 +8,25 @@
 
 namespace render {
 
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum PixelShaderSlot : uint8_t {
-    kPixelShader920,
-    kPixelShader924, // (grass)
-    kPixelShader928,
-    kPixelShader92c,
-    kPixelShader930,
-    kPixelShader934,
-    kPixelShader938,
-    kPixelShader93c,
-    kPixelShader940, // constant alpha x texture alpha
-    kPixelShader944, // vertex alpha x texture alpha
-    kPixelShader948, // the bloom cut-off
-    kPixelShader94c, // vertex colour alone
-    kPixelShader950, // texture x vertex colour x2, texture alpha
-    kPixelShader954, // the factor alone
-    kPixelShader958,
-    kPixelShader95c, // vertex colour x2 x the factor, vertex alpha
-    kPixelShader960, // texture x constant alpha
-    kPixelShader964, // the default: texture x vertex colour x4
-    kPixelShaderCount,
-};
+constexpr int kPixelShader920 = 0;
+constexpr int kPixelShader924 = 1; // (grass)
+constexpr int kPixelShader928 = 2;
+constexpr int kPixelShader92c = 3;
+constexpr int kPixelShader930 = 4;
+constexpr int kPixelShader934 = 5;
+constexpr int kPixelShader938 = 6;
+constexpr int kPixelShader93c = 7;
+constexpr int kPixelShader940 = 8;  // constant alpha x texture alpha
+constexpr int kPixelShader944 = 9;  // vertex alpha x texture alpha
+constexpr int kPixelShader948 = 10; // the bloom cut-off
+constexpr int kPixelShader94c = 11; // vertex colour alone
+constexpr int kPixelShader950 = 12; // texture x vertex colour x2, texture alpha
+constexpr int kPixelShader954 = 13; // the factor alone
+constexpr int kPixelShader958 = 14;
+constexpr int kPixelShader95c = 15; // vertex colour x2 x the factor, vertex alpha
+constexpr int kPixelShader960 = 16; // texture x constant alpha
+constexpr int kPixelShader964 = 17; // the default: texture x vertex colour x4
+constexpr int kPixelShaderCount = 18;
 
 const std::array<void*, kPixelShaderCount>& pixel_shaders();
 

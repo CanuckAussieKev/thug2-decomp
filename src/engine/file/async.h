@@ -32,8 +32,12 @@ constexpr size_t kPayloadBytesOffset = 0x2C;
 constexpr size_t kInFlightOpsOffset = 0x38;
 constexpr size_t kLoaderModuleBytes = 0x18;
 // Operations, also the events passed to callbacks.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum AsyncOperation : uint8_t { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };
+using AsyncOperation = uint8_t;
+constexpr int kAsyncIdle = 0;
+constexpr int kAsyncOpen = 1;
+constexpr int kOpReadFile = 3;
+constexpr int kAsyncClose = 6;
+constexpr int kAsyncCancel = 7;
 
 class AsyncFileHandle : public memory::HeapObject {
 public:

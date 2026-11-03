@@ -56,8 +56,10 @@ constexpr float kMaxUvScale = 4096.0f; // the largest
 // --- the pure parts (tools/game/ground_pieces.ts is their port) -------------------------------------------------------
 
 enum class Ramp : uint8_t { kNone, kKicker, kQuarter };
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum Flank : uint8_t { kMinusX, kPlusX, kMinusZ, kPlusZ };
+constexpr int kMinusX = 0;
+constexpr int kPlusX = 1;
+constexpr int kMinusZ = 2;
+constexpr int kPlusZ = 3;
 
 struct Spec {
     std::string name; // ed_ground01 (the sector's name)

@@ -43,13 +43,11 @@ constexpr std::size_t kAnimCacheEntryBytes = 0x168;
 
 // One cached animation (0x168 bytes).
 struct AnimCacheEntry {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-    enum Flags : uint16_t {
-        kUserMask = 0x1FFF, // how many play it
-        kKeep = 0x2000,     // never given back as the oldest
-        kBusy = 0x4000,     // Release waits (forever) while it's set
-        kReleasing = 0x8000,
-    };
+    using Flags = uint16_t;
+    static constexpr int kUserMask = 0x1FFF; // how many play it
+    static constexpr int kKeep = 0x2000;     // never given back as the oldest
+    static constexpr int kBusy = 0x4000;     // Release waits (forever) while it's set
+    static constexpr int kReleasing = 0x8000;
 
     // The constructor (inlined into 0x004809F0): empty, the flags' 0xA000 bits kept.
     AnimCacheEntry();

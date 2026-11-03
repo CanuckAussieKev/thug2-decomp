@@ -652,6 +652,8 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
             node->append_array_ref(key, array);
             break;
         }
+        default:
+            break;
         }
     }
     return node;

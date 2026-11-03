@@ -128,30 +128,30 @@ struct KeyBinds {
 
 // SDL_GameControllerButton, plus the two triggers.
 // (an int: holds the ini's number as read, any value kept as given)
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class, performance-enum-size): indexes into tables and arrays; the ini's int
-enum PadButton : int {
-    kUnbound = -1,
-    kButtonA = SDL_CONTROLLER_BUTTON_A,
-    kButtonB = SDL_CONTROLLER_BUTTON_B,
-    kButtonX = SDL_CONTROLLER_BUTTON_X,
-    kButtonY = SDL_CONTROLLER_BUTTON_Y,
-    kButtonBack = SDL_CONTROLLER_BUTTON_BACK,
-    kButtonStart = SDL_CONTROLLER_BUTTON_START,
-    kButtonLeftStick = SDL_CONTROLLER_BUTTON_LEFTSTICK,
-    kButtonRightStick = SDL_CONTROLLER_BUTTON_RIGHTSTICK,
-    kButtonLeftShoulder = SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
-    kButtonRightShoulder = SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
-    kDpadUp = SDL_CONTROLLER_BUTTON_DPAD_UP,
-    kDpadDown = SDL_CONTROLLER_BUTTON_DPAD_DOWN,
-    kDpadLeft = SDL_CONTROLLER_BUTTON_DPAD_LEFT,
-    kDpadRight = SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
-    kRightTrigger = 21,
-    kLeftTrigger = 22,
-};
+using PadButton = int;
+constexpr int kUnbound = -1;
+constexpr int kButtonA = SDL_CONTROLLER_BUTTON_A;
+constexpr int kButtonB = SDL_CONTROLLER_BUTTON_B;
+constexpr int kButtonX = SDL_CONTROLLER_BUTTON_X;
+constexpr int kButtonY = SDL_CONTROLLER_BUTTON_Y;
+constexpr int kButtonBack = SDL_CONTROLLER_BUTTON_BACK;
+constexpr int kButtonStart = SDL_CONTROLLER_BUTTON_START;
+constexpr int kButtonLeftStick = SDL_CONTROLLER_BUTTON_LEFTSTICK;
+constexpr int kButtonRightStick = SDL_CONTROLLER_BUTTON_RIGHTSTICK;
+constexpr int kButtonLeftShoulder = SDL_CONTROLLER_BUTTON_LEFTSHOULDER;
+constexpr int kButtonRightShoulder = SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
+constexpr int kDpadUp = SDL_CONTROLLER_BUTTON_DPAD_UP;
+constexpr int kDpadDown = SDL_CONTROLLER_BUTTON_DPAD_DOWN;
+constexpr int kDpadLeft = SDL_CONTROLLER_BUTTON_DPAD_LEFT;
+constexpr int kDpadRight = SDL_CONTROLLER_BUTTON_DPAD_RIGHT;
+constexpr int kRightTrigger = 21;
+constexpr int kLeftTrigger = 22;
 
 // (an int: holds the ini's number as read, any value kept as given)
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class, performance-enum-size): indexes into tables and arrays; the ini's int
-enum PadStick : int { kStickUnbound = -1, kStickLeft = 0, kStickRight = 1 };
+using PadStick = int;
+constexpr int kStickUnbound = -1;
+constexpr int kStickLeft = 0;
+constexpr int kStickRight = 1;
 
 struct PadBinds {
     PadButton menu;

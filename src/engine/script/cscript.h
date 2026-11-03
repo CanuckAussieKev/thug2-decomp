@@ -37,29 +37,25 @@ namespace script {
 class Script;
 
 // What Update returns.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum ScriptOutcome : uint8_t {
-    kScriptOutcomeFinished = 0,  // no code left (the script has ended or was never set)
-    kScriptOutcomeBlocked = 1,   // waiting with kSuspendOnBlock or kWaitTypeRealTimer
-    kScriptOutcomeSuspended = 2, // any other wait
-    // (3 and 4 are never returned by this build)
-    kScriptOutcomeEndedByInterrupt = 5, // an interrupt (Interrupt / OnExitRun script) returned
-};
+using ScriptOutcome = uint8_t;
+constexpr int kScriptOutcomeFinished = 0;  // no code left (the script has ended or was never set)
+constexpr int kScriptOutcomeBlocked = 1;   // waiting with kSuspendOnBlock or kWaitTypeRealTimer
+constexpr int kScriptOutcomeSuspended = 2; // any other wait
+// (3 and 4 are never returned by this build)
+constexpr int kScriptOutcomeEndedByInterrupt = 5; // an interrupt (Interrupt / OnExitRun script) returned
 
 // suspend_reason_: what the script waits for before its next statement (checked by update_wait, 0x00473050).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum BlockReason : uint8_t {
-    kSuspendOnNothing = 0,
-    kSuspendOnCount = 1,    // suspend_frames_left_ more Updates (Wait n frames: 0x00472BD0)
-    kSuspendOnTimer = 2,    // suspend_clock_ seconds of slomo frame time (Wait n seconds: 0x00472C10)
-    kSuspendOnBlock = 3,    // until unblocked - by an event of type suspend_arg_ (Block: 0x00472FD0) or by hand
-    kWaitTypeRealTimer = 4, // suspend_clock_ ms of the game clock since suspend_arg_ (0x00473310)
-    // 5-10: waiting on blocking_module_, which is asked every Update (its vtable +0x18) - the object waits
-    // (move, anim, jump, stop, rotate, stream finished...; set by set_wait_on_component 0x004739A0).
-    kWaitTypeObjectFirst = 5,
-    kWaitTypeObjectLast = 10,
-    kSuspendOnFrame = 11, // like COUNTER, but at 0 only one such script per frame goes on (0x006F352C)
-};
+using BlockReason = uint8_t;
+constexpr int kSuspendOnNothing = 0;
+constexpr int kSuspendOnCount = 1; // suspend_frames_left_ more Updates (Wait n frames: 0x00472BD0)
+constexpr int kSuspendOnTimer = 2; // suspend_clock_ seconds of slomo frame time (Wait n seconds: 0x00472C10)
+constexpr int kSuspendOnBlock = 3; // until unblocked - by an event of type suspend_arg_ (Block: 0x00472FD0) or by hand
+constexpr int kWaitTypeRealTimer = 4; // suspend_clock_ ms of the game clock since suspend_arg_ (0x00473310)
+// 5-10: waiting on blocking_module_, which is asked every Update (its vtable +0x18) - the object waits
+// (move, anim, jump, stop, rotate, stream finished...; set by set_wait_on_component 0x004739A0).
+constexpr int kWaitTypeObjectFirst = 5;
+constexpr int kWaitTypeObjectLast = 10;
+constexpr int kSuspendOnFrame = 11; // like COUNTER, but at 0 only one such script per frame goes on (0x006F352C)
 
 constexpr size_t kRepeatFrameBytes = 0x10;
 constexpr size_t kRepeatFrameArgsSeenOffset = 0x8;

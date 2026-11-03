@@ -59,8 +59,10 @@ struct KeyComboSet {
     uint8_t tap_total_;        // +0x3
 };
 
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum EditedGoalPointKind : uint8_t { kPointPro = 1, kPointStart = 2, kPointObject = 3, kPointCheckpoint = 4 };
+constexpr int kPointPro = 1;
+constexpr int kPointStart = 2;
+constexpr int kPointObject = 3;
+constexpr int kPointCheckpoint = 4;
 
 // The goal types (their names' checksums).
 constexpr uint32_t kGoalTypeSkate = 0x54166ACD, kGoalTypeCombo = 0x4EC3CFB5, kGoalTypeRace = 0x25904450,

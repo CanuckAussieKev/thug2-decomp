@@ -70,11 +70,17 @@ public:
     RiderPoseState(const RiderPoseState&) = delete;
     RiderPoseState& operator=(const RiderPoseState&) = delete;
     // The skater's state (+0x18).
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : uint8_t { kGround = 0, kAir = 1, kWall = 2, kLip = 3, kRail = 4, kWallplant = 5 };
+    using State = uint8_t;
+    static constexpr int kGround = 0;
+    static constexpr int kAir = 1;
+    static constexpr int kWall = 2;
+    static constexpr int kLip = 3;
+    static constexpr int kRail = 4;
+    static constexpr int kWallplant = 5;
     // The physics running it (+0x1C).
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum PhysicsMode : uint8_t { kSkating = 0, kWalking = 1 };
+    using PhysicsMode = uint8_t;
+    static constexpr int kSkating = 0;
+    static constexpr int kWalking = 1;
 
     // 0x00519740 (registered by register_component_types): a new one (0 if out of memory), no powerups.
     static gsl::owner<ObjectModule*> fabricate();

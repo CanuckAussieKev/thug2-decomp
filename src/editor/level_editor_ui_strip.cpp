@@ -274,19 +274,17 @@ std::string show_all_text(const State& s)
 }
 
 // The controls, in the order they sit; their slots, and how each is drawn.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum ItemId : uint8_t {
-    kMode,
-    kTools,
-    kSpace,
-    kSnapGrid,
-    kPickItem,
-    kShowAllItem,
-    kStopItem,
-    kLevel,
-    kBudgetItem,
-    kProblemsItem
-};
+using ItemId = uint8_t;
+constexpr int kMode = 0;
+constexpr int kTools = 1;
+constexpr int kSpace = 2;
+constexpr int kSnapGrid = 3;
+constexpr int kPickItem = 4;
+constexpr int kShowAllItem = 5;
+constexpr int kStopItem = 6;
+constexpr int kLevel = 7;
+constexpr int kBudgetItem = 8;
+constexpr int kProblemsItem = 9;
 
 struct Item {
     ItemId id;
@@ -459,6 +457,8 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         get_note("Problems");
         break;
     }
+    default:
+        break;
     }
 }
 

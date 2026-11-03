@@ -24,12 +24,10 @@ namespace objects {
 constexpr std::size_t kUnknown14Bytes = 0x10;
 constexpr std::size_t kPathRingSize = 64;
 
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum EmitterShape : uint8_t {
-    kEmitterShapeBox = 0,    // the sector's box (Shape 0xE460ABDE)
-    kEmitterShapeOther = 1,  // (Shape 0x03F1E5A7: never inside, no nearest point)
-    kEmitterShapeSphere = 2, // (the default, and Shape 0xAA069978)
-};
+using EmitterShape = uint8_t;
+constexpr int kEmitterShapeBox = 0;    // the sector's box (Shape 0xE460ABDE)
+constexpr int kEmitterShapeOther = 1;  // (Shape 0x03F1E5A7: never inside, no nearest point)
+constexpr int kEmitterShapeSphere = 2; // (the default, and Shape 0xAA069978)
 
 struct EmitterNode {
 

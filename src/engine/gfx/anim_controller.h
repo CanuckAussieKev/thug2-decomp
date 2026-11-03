@@ -34,8 +34,11 @@ class Rig;
 // animation's, the movies'), an AnimTrack in the blend channels' lists - so the slots are plain methods (AnimTrack
 // has its own get_reset / tick_frame / teardown).
 struct AnimTimeline {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum RepeatMode : uint8_t { kOnce = 0, kCycle = 1, kPingPong = 2, kHold = 3 };
+    using RepeatMode = uint8_t;
+    static constexpr int kOnce = 0;
+    static constexpr int kCycle = 1;
+    static constexpr int kPingPong = 2;
+    static constexpr int kHold = 3;
 
     // 0x00481650: an empty timeline, unlinked (once, forwards, no animation: 0xF60C9090).
     AnimTimeline();

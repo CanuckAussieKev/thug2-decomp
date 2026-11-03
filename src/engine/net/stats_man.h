@@ -190,16 +190,14 @@ constexpr size_t kRankingsManagerTopListsSize = 5;
 class RankingsManager {
 public:
     // cur_phase_.
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : uint8_t {
-        kNone = 0,
-        kLoggingIn = 1, // the login thread runs
-        kAuthDone = 2,  // (the thread's answer: the task makes it 4)
-        kLoginFailed = 3,
-        kReady = 4,
-        kGettingStats = 5, // RetrievePersonalStats: waiting for the 15 answers
-        kReporting = 6,    // a game being reported
-    };
+    using State = uint8_t;
+    static constexpr int kNone = 0;
+    static constexpr int kLoggingIn = 1; // the login thread runs
+    static constexpr int kAuthDone = 2;  // (the thread's answer: the task makes it 4)
+    static constexpr int kLoginFailed = 3;
+    static constexpr int kReady = 4;
+    static constexpr int kGettingStats = 5; // RetrievePersonalStats: waiting for the 15 answers
+    static constexpr int kReporting = 6;    // a game being reported
 
     // 0x0054DBD0: no stats, five empty top lists, the task (stats_task) on the network heap; the top stats are
     // needed.

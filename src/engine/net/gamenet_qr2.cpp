@@ -48,24 +48,21 @@ namespace {
 constexpr size_t kFallbackMapNameBytes = 128;
 
 // qr2's keys (the SDK's standard numbering).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum Qr2Key : uint8_t {
-    kKeyHostname = 1,
-    kKeyGamename = 2,
-    kKeyGamever = 3,
-    kKeyHostport = 4,
-    kKeyMapname = 5,
-    kKeyGametype = 6,
-    kKeyNumplayers = 8,
-    kKeyNumteams = 9,
-    kKeyMaxplayers = 10,
-    kKeyGamemode = 11,
-    kKeyPassword = 19,
-    kKeyGroupid = 20,
-    kKeyForPlayer = 21, // player_
-    kKeyPing = 24,      // ping_
-    kKeyTeam = 25,      // team_
-};
+constexpr int kKeyHostname = 1;
+constexpr int kKeyGamename = 2;
+constexpr int kKeyGamever = 3;
+constexpr int kKeyHostport = 4;
+constexpr int kKeyMapname = 5;
+constexpr int kKeyGametype = 6;
+constexpr int kKeyNumplayers = 8;
+constexpr int kKeyNumteams = 9;
+constexpr int kKeyMaxplayers = 10;
+constexpr int kKeyGamemode = 11;
+constexpr int kKeyPassword = 19;
+constexpr int kKeyGroupid = 20;
+constexpr int kKeyForPlayer = 21; // player_
+constexpr int kKeyPing = 24;      // ping_
+constexpr int kKeyTeam = 25;      // team_
 constexpr int kKeyTypePlayer = 1;
 constexpr int kKeyTypeTeam = 2;
 

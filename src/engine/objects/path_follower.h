@@ -18,14 +18,11 @@ class GameEntity;
 
 class PathFollower : public memory::HeapObject {
 public:
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum FollowPhase : uint8_t {
-        kStateStart = 0,    // the segment set up on the next update
-        kStateStraight = 1, // along the segment
-        kStateArc = 2,      // round the corner on the arc
-        kStateBlend = 3,    // into the next segment, the heading blended (no arc)
-        kStateDone = 4,     // at the end of the path
-    };
+    static constexpr int kStateStart = 0;        // the segment set up on the next update
+    static constexpr int kStateStraight = 1;     // along the segment
+    static constexpr int kStateArc = 2;          // round the corner on the arc
+    static constexpr int kStateBlend = 3;        // into the next segment, the heading blended (no arc)
+    static constexpr int kStateDone = 4;         // at the end of the path
     static constexpr uint32_t kFlagCorner = 1;   // the corner is cut (cut_ short of the node)
     static constexpr uint32_t kFlagLastNode = 2; // the node has no links: the path ends there
     static constexpr uint32_t kFlagTellNode =

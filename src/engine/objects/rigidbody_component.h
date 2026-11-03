@@ -76,8 +76,10 @@ public:
         std::array<uint8_t, 3> pad11;
     };
 
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : uint8_t { kStateAsleep = 0, kStateAwake = 1, kStateDisabled = 2 };
+    using State = uint8_t;
+    static constexpr int kStateAsleep = 0;
+    static constexpr int kStateAwake = 1;
+    static constexpr int kStateDisabled = 2;
     // flag_bits_ (+0xF4)
     static constexpr uint32_t kFlagDieUponSettling = 0x1;
     static constexpr uint32_t kFlagNoPlayerCollision = 0x2;

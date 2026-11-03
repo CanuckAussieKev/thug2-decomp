@@ -43,24 +43,22 @@ constexpr uint32_t kFvfTex4 = 0x400u;
 struct MaterialRef;
 
 // The renderer's own render state numbering (change_phase's `state`).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-enum RenderStateId : uint8_t {
-    kZWrite = 1,         // bool
-    kZTest = 2,          // bool: less-equal, else always
-    kPhaseAlphaTest = 3, // 0 = alpha test off, else on with this reference
-    kAddressMode0 = 4,   // 4-7: a sampler's addressing, U in the low 16 bits and V in the high: 0 wrap,
-                         // 1 clamp, 2 border (clamp without border support)
-    kMipLodBias0 = 8,    // 8-11: a sampler's mip level bias (float bits)
-    kCullMode = 0x10,    // D3DCULL
-    kAlphaBlend = 0x11,  // bool
-    kAlphaTest = 0x12,   // bool
-    kSpecular = 0x13,    // bool (and the local viewer with it)
-    kFog = 0x14,         // bool
-    kDepthBias = 0x15,   // in units of the factor at 0x0064AAA4
-    kLighting = 0x16,    // bool
-    kFilter0 = 0x20,     // 0x20-0x23: a sampler's filters, bit 0 minification linear, bit 16 magnification
-    kLocalViewer = 0x24, // bool
-};
+using RenderStateId = uint8_t;
+constexpr int kZWrite = 1;         // bool
+constexpr int kZTest = 2;          // bool: less-equal, else always
+constexpr int kPhaseAlphaTest = 3; // 0 = alpha test off, else on with this reference
+constexpr int kAddressMode0 = 4;   // 4-7: a sampler's addressing, U in the low 16 bits and V in the high: 0 wrap,
+// 1 clamp, 2 border (clamp without border support)
+constexpr int kMipLodBias0 = 8;    // 8-11: a sampler's mip level bias (float bits)
+constexpr int kCullMode = 0x10;    // D3DCULL
+constexpr int kAlphaBlend = 0x11;  // bool
+constexpr int kAlphaTest = 0x12;   // bool
+constexpr int kSpecular = 0x13;    // bool (and the local viewer with it)
+constexpr int kFog = 0x14;         // bool
+constexpr int kDepthBias = 0x15;   // in units of the factor at 0x0064AAA4
+constexpr int kLighting = 0x16;    // bool
+constexpr int kFilter0 = 0x20;     // 0x20-0x23: a sampler's filters, bit 0 minification linear, bit 16 magnification
+constexpr int kLocalViewer = 0x24; // bool
 
 // 0x004DAB60: set one of the renderer's states (RenderStateId) on the device, if it isn't already.
 void change_phase(RenderStateId state, uint32_t value);

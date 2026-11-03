@@ -18,15 +18,13 @@ struct AppHost;
 struct Conn;
 
 // What a handler returns.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum HandlerResult : uint8_t {
-    kResultFailed = 0,   // stop: the rest of the packet is dropped
-    kResultPassOn = 1,   // on to the next handler
-    kResultStop = 2,     // stop: the rest of the packet is dropped
-    kResultMsgFreed = 3, // stop: the connection is gone (nothing of it may be touched)
-    kResultConsumed = 4, // no more handlers for this message; the packet goes on
-    kHandlerKeep = 5,    // no more handlers; a streamed message's buffers are kept
-};
+using HandlerResult = uint8_t;
+constexpr int kResultFailed = 0;   // stop: the rest of the packet is dropped
+constexpr int kResultPassOn = 1;   // on to the next handler
+constexpr int kResultStop = 2;     // stop: the rest of the packet is dropped
+constexpr int kResultMsgFreed = 3; // stop: the connection is gone (nothing of it may be touched)
+constexpr int kResultConsumed = 4; // no more handlers for this message; the packet goes on
+constexpr int kHandlerKeep = 5;    // no more handlers; a streamed message's buffers are kept
 
 // Packet flags (InboundMsgCtx::wire_options_; a handler gets a message when its flags include them all).
 constexpr uint32_t kPacketForeign = 0x1;          // from an address that isn't a connection

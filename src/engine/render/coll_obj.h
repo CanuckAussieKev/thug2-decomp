@@ -60,11 +60,9 @@ constexpr std::size_t kHitMeshBytes = 0x10;
 // Allocated from the current heap (the scene's static objects with an array new: the count before them).
 class HitMesh : public memory::HeapObject {
 public:
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-    enum Flags : uint16_t {
-        kOwnsGeometry = 0x8000, // the geometry is deleted with the object (unless kSharedGeometry)
-        kSharedGeometry = 0x4000,
-    };
+    using Flags = uint16_t;
+    static constexpr int kOwnsGeometry = 0x8000; // the geometry is deleted with the object (unless kSharedGeometry)
+    static constexpr int kSharedGeometry = 0x4000;
 
     static void* operator new[](std::size_t size) noexcept { return memory::alloc(static_cast<unsigned int>(size)); }
     static void operator delete[](void* memory) { memory::dealloc(memory); }

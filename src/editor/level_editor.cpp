@@ -3456,7 +3456,7 @@ void run_chain_op(int op, uint32_t arg)
     const chains::State before = chains::at_hand();
     std::string message;
     uint32_t select = 0;
-    chains::apply_op(static_cast<chains::Op>(op), target, arg, &message, &select);
+    chains::apply_op(static_cast<chains::ChainOp>(op), target, arg, &message, &select);
     if (select == target && !drag_state().node_selected_)
         select = 0; // (a ped / car stays selected as the object)
     after_chain_change(before, select, message);

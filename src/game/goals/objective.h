@@ -48,25 +48,21 @@ struct GoalEdge {
 class Objective : public memory::HeapObject {
 public:
     // +0x6C (flag_bits_)
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-    enum Flags : uint8_t {
-        kFlagInitialized = 0x01,  // Init / Uninitialize
-        kFlagSeen = 0x02,         // the player has started it (hasSeen)
-        kFlagWon = 0x04,          // beaten (out of the goal attack / lobby net games)
-        kFlagWonInNetGame = 0x08, // beaten in a goal attack / net lobby game
-        kFlagSelected = 0x10,     // chosen for a net game
-        kFlagLocked = 0x20,       // locked until another goal unlocks it (unlocked_by_another, pro_goal)
-        kFlagDeactivateOnExpire = 0x40,
-        kFlagEndOfRunStarted = 0x80, // the skater's end of run started by the goal (has_run_out)
-    };
+    using Flags = uint8_t;
+    static constexpr int kFlagInitialized = 0x01;  // Init / Uninitialize
+    static constexpr int kFlagSeen = 0x02;         // the player has started it (hasSeen)
+    static constexpr int kFlagWon = 0x04;          // beaten (out of the goal attack / lobby net games)
+    static constexpr int kFlagWonInNetGame = 0x08; // beaten in a goal attack / net lobby game
+    static constexpr int kFlagSelected = 0x10;     // chosen for a net game
+    static constexpr int kFlagLocked = 0x20; // locked until another goal unlocks it (unlocked_by_another, pro_goal)
+    static constexpr int kFlagDeactivateOnExpire = 0x40;
+    static constexpr int kFlagEndOfRunStarted = 0x80; // the skater's end of run started by the goal (has_run_out)
     // +0x6D (cur_phase_)
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : uint8_t {
-        kStateActive = 0x01,
-        kState02 = 0x02, // (read by 0x005543E0, never set in this range)
-        kStatePaused = 0x04,
-        kStateNoTimeLimit = 0x10,
-    };
+    using State = uint8_t;
+    static constexpr int kStateActive = 0x01;
+    static constexpr int kState02 = 0x02; // (read by 0x005543E0, never set in this range)
+    static constexpr int kStatePaused = 0x04;
+    static constexpr int kStateNoTimeLimit = 0x10;
 
     // The fields other code reads and sets.
     [[nodiscard]] ObjectiveNpc* ped() const { return static_cast<ObjectiveNpc*>(ped_); } // (a view: it stays the owner's)

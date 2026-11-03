@@ -888,16 +888,14 @@ constexpr std::size_t kRestartPointKindTagOffset = 0x1C;
 constexpr std::size_t kRestartPointByteSize = 0x24;
 // A restart point of the park generator (0x24 bytes).
 struct RestartPoint {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-    enum KindTag : uint8_t {
-        kFree = 0,
-        kPlayer1 = 1,
-        kPlayer2 = 2,
-        kHorse = 3,
-        kCrownRestart = 4,
-        kRedFlag = 5, // 5-8 the CTF flags: red, green, blue, yellow
-        kYellowFlag = 8,
-    };
+    using KindTag = uint8_t;
+    static constexpr int kFree = 0;
+    static constexpr int kPlayer1 = 1;
+    static constexpr int kPlayer2 = 2;
+    static constexpr int kHorse = 3;
+    static constexpr int kCrownRestart = 4;
+    static constexpr int kRedFlag = 5; // 5-8 the CTF flags: red, green, blue, yellow
+    static constexpr int kYellowFlag = 8;
     maths::Vec4 at_point_; // +0x00
     int quarter_turns_;    // +0x10
     CellBox edit_span_;    // +0x14
@@ -1471,16 +1469,14 @@ constexpr std::size_t kBuildPointerGapOffset = 0x70;
 constexpr std::size_t kBuildPointerByteSize = 200;
 class BuildPointer {
 public:
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Mode : uint8_t {
-        kModeNone = 0,
-        kModeRegular = 1,
-        kModeGap = 2,           // "gap_regular": the gap tool
-        kModeGapAdjust = 3,     // "gap_adjust": over a gap's piece
-        kModeAreaSelect = 4,    // selecting an area to copy
-        kModePaste = 5,         // pasting the clipboard
-        kModeRailPlacement = 6, // "rail_placement"
-    };
+    using Mode = uint8_t;
+    static constexpr int kModeNone = 0;
+    static constexpr int kModeRegular = 1;
+    static constexpr int kModeGap = 2;           // "gap_regular": the gap tool
+    static constexpr int kModeGapAdjust = 3;     // "gap_adjust": over a gap's piece
+    static constexpr int kModeAreaSelect = 4;    // selecting an area to copy
+    static constexpr int kModePaste = 5;         // pasting the clipboard
+    static constexpr int kModeRailPlacement = 6; // "rail_placement"
 
     // The one instance.
     static BuildPointer*& sole();

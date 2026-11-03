@@ -268,26 +268,24 @@ std::vector<uint32_t> chain_of(uint32_t name);
 
 // The editing operations (the Inspector, keys): each builds the new state and puts it in place. `message` says what
 // happened (or why not); `select`: the node to select after (0: as it was).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): passed in the panels' requests' integer value
-enum Op : uint8_t {
-    kOpInsert = 1,  // a point put halfway to the next one
-    kOpDelete,      // the point deleted, its neighbours linked
-    kOpUnlink,      // its link to the next removed
-    kOpTerrain,     // `arg`: the terrain's checksum - for the whole rail
-    kOpExtend,      // drawing goes on from this end (draw_at)
-    kOpLinkArm,     // the next node clicked is linked to this end (Picked)
-    kOpAssignArm,   // (a ped / car) the next waypoint clicked becomes its path's start (Picked)
-    kOpUnassign,    // (a ped / car) no path
-    kOpCancel,      // drawing / an armed pick stopped
-    kOpTurn,        // (a ladder) turned `arg` 15-degree notches (a signed int), the whole ladder
-    kOpFacingHome,  // (a ladder) facing as the level has it
-    kOpTrickObject, // (a drawn rail) `arg` 1: a trick object (its cluster), 0: not - the whole rail
-    kOpGrindFlat,   // (a rail) `arg` 1: grindable on flat ground, 0: as the game decides - the whole rail
-    kOpSpeed,       // (a rail point) `arg`: its speed-up's rate in 1/10000ths (0: none) - its segment
-    kOpSpeedRail,   // (a rail point) the same for every point of its rail but the last
-    kOpHang,        // (a ledge) `arg` 0 / kHangLeft / kHangRight - the whole ledge
-};
-bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select);
+using ChainOp = uint8_t;
+constexpr int kOpInsert = 1;       // a point put halfway to the next one
+constexpr int kOpDelete = 2;       // the point deleted, its neighbours linked
+constexpr int kOpUnlink = 3;       // its link to the next removed
+constexpr int kOpTerrain = 4;      // `arg`: the terrain's checksum - for the whole rail
+constexpr int kOpExtend = 5;       // drawing goes on from this end (draw_at)
+constexpr int kOpLinkArm = 6;      // the next node clicked is linked to this end (Picked)
+constexpr int kOpAssignArm = 7;    // (a ped / car) the next waypoint clicked becomes its path's start (Picked)
+constexpr int kOpUnassign = 8;     // (a ped / car) no path
+constexpr int kOpCancel = 9;       // drawing / an armed pick stopped
+constexpr int kOpTurn = 10;        // (a ladder) turned `arg` 15-degree notches (a signed int), the whole ladder
+constexpr int kOpFacingHome = 11;  // (a ladder) facing as the level has it
+constexpr int kOpTrickObject = 12; // (a drawn rail) `arg` 1: a trick object (its cluster), 0: not - the whole rail
+constexpr int kOpGrindFlat = 13; // (a rail) `arg` 1: grindable on flat ground, 0: as the game decides - the whole rail
+constexpr int kOpSpeed = 14;     // (a rail point) `arg`: its speed-up's rate in 1/10000ths (0: none) - its segment
+constexpr int kOpSpeedRail = 15; // (a rail point) the same for every point of its rail but the last
+constexpr int kOpHang = 16;      // (a ledge) `arg` 0 / kHangLeft / kHangRight - the whole ledge
+bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select);
 // Drawing new chains (the Place palette's Rail / Path / Ladder, or Extend): each click a point linked on from the
 // last; a ladder: its foot on a wall, then its top.
 enum class Blit : uint8_t { kNone, kRail, kRouteWay, kLadder, kLedge };

@@ -47,17 +47,15 @@ public:
     static constexpr int kMaxGears = 6;
 
     // The wheels' grip states (Wheel::state).
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum WheelState : uint8_t {
-        kWheelOnGround = 0, // touching, grip not worked out yet this step
-        kWheelInAir = 1,
-        kWheelStaticSlow = 2,      // static friction below min_static_grip_velocity (scaled down to 0)
-        kWheelStatic = 3,          // static friction
-        kWheelStaticToDynamic = 4, // between max_static_grip_velocity and min_dynamic_grip_velocity
-        kWheelDynamic = 5,         // dynamic friction
-        kWheelHandbrakeThrottle = 6,
-        kWheelHandbrakeLocked = 7,
-    };
+    using WheelState = uint8_t;
+    static constexpr int kWheelOnGround = 0; // touching, grip not worked out yet this step
+    static constexpr int kWheelInAir = 1;
+    static constexpr int kWheelStaticSlow = 2;      // static friction below min_static_grip_velocity (scaled down to 0)
+    static constexpr int kWheelStatic = 3;          // static friction
+    static constexpr int kWheelStaticToDynamic = 4; // between max_static_grip_velocity and min_dynamic_grip_velocity
+    static constexpr int kWheelDynamic = 5;         // dynamic friction
+    static constexpr int kWheelHandbrakeThrottle = 6;
+    static constexpr int kWheelHandbrakeLocked = 7;
 
     // A wheel (0x1C8 bytes; the array at wheels_, made by configure_from_data; its parameters read by 0x00434F20).
     struct Wheel {

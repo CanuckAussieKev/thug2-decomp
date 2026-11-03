@@ -64,15 +64,13 @@ struct BrowserItem {
 };
 
 // The Outliner's markers: what the editor has done to a row's node, its object or its scenery.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): bit flags, or-ed together
-enum Mark : uint8_t {
-    kMarkMoved = 1,         // moved / turned / scaled (scenery, objects, nodes, rail points, walls)
-    kMarkAdded = 2,         // added by the editor (a node of the overlay)
-    kMarkHidden = 4,        // hidden in the level (scenery's Delete, a level's node hidden) - saved
-    kMarkViewHidden = 8,    // hidden while editing only (H / Isolate - never saved)
-    kMarkClickThrough = 16, // locked (clicks pass it)
-    kMarkCollisionOff = 32, // its collision switched off (level_editor_walls.h)
-};
+using Mark = uint8_t;
+constexpr int kMarkMoved = 1;         // moved / turned / scaled (scenery, objects, nodes, rail points, walls)
+constexpr int kMarkAdded = 2;         // added by the editor (a node of the overlay)
+constexpr int kMarkHidden = 4;        // hidden in the level (scenery's Delete, a level's node hidden) - saved
+constexpr int kMarkViewHidden = 8;    // hidden while editing only (H / Isolate - never saved)
+constexpr int kMarkClickThrough = 16; // locked (clicks pass it)
+constexpr int kMarkCollisionOff = 32; // its collision switched off (level_editor_walls.h)
 constexpr int kMaxMarkers = 6;
 // A mark's letter on the row, its colour (ARGB) and what it means (the tooltip / legend); `bit` 0..kMaxMarkers-1.
 char mark_letter(int bit);

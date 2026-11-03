@@ -52,13 +52,11 @@ public:
     ParkBuilderMode(const ParkBuilderMode&) = delete;
     ParkBuilderMode& operator=(const ParkBuilderMode&) = delete;
     // cur_phase_
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : uint32_t {
-        kStateOff = 0xD443A2BC,         // off
-        kStateEdit = 0x7ECA21E5,        // edit
-        kStateTestPlay = 0xA40F0B8A,    // test_play
-        kStateRegularPlay = 0xCD3682C1, // regular_play
-    };
+    using State = uint32_t;
+    static constexpr uint32_t kStateOff = 0xD443A2BC;         // off
+    static constexpr uint32_t kStateEdit = 0x7ECA21E5;        // edit
+    static constexpr uint32_t kStateTestPlay = 0xA40F0B8A;    // test_play
+    static constexpr uint32_t kStateRegularPlay = 0xCD3682C1; // regular_play
     // flag_bits_
     static constexpr uint32_t kFlagPaused = 0x2;
     // actions_: what the controls asked for this frame (the input handler's buttons, the menu events).

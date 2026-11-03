@@ -141,8 +141,10 @@ double joystick_stick_value(const DIJOYSTATE2* state, int negative, int positive
 
 // The keyboard's part of the pad read (set_pad_mode): 0 the mouse, the joystick and the port's keys; 1 the default
 // keys for port 0, the port's keys for the others; 2 no keys; 3 the default keys. The mouse only counts in mode 0.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum PadMode : uint8_t { kPadKeyBindings = 0, kPadDefaultKeysPort0 = 1, kPadNoKeys = 2, kPadDefaultKeys = 3 };
+constexpr int kPadKeyBindings = 0;
+constexpr int kPadDefaultKeysPort0 = 1;
+constexpr int kPadNoKeys = 2;
+constexpr int kPadDefaultKeys = 3;
 
 // 0x005F5BC0 (cdecl): the pad state for `port` (1 or 2) from the keyboard, the joystick and the mouse (each read
 // for this frame first): nothing held for a port without a joystick, keys or mouse controls. Returns 0.

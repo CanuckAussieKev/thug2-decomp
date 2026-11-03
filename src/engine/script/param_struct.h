@@ -25,25 +25,23 @@ struct Vector;
 struct ParamScript;
 
 // The types of components and symbols.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum QbValueKind : uint8_t {
-    kQbvalNone = 0,
-    kQbvalInteger = 1,
-    kQbvalFloat = 2,
-    kQbvalString = 3,
-    kQbvalInlineText = 4,
-    kQbvalPair = 5,
-    kQbvalVector = 6,
-    kQbvalScriptBody = 7,
-    kQbvalNativeFunc = 8,
-    kQbvalNativeMethod = 9,
-    kQbvalStruct = 10,
-    kQbvalArray = 12,
-    kQbvalName = 13,
-    // A component referring to a structure / array it doesn't own (made by duplicate_component when asked to).
-    kQbvalStructRef = 20,
-    kEsymboltypeArraypointer = 21,
-};
+using QbValueKind = uint8_t;
+constexpr int kQbvalNone = 0;
+constexpr int kQbvalInteger = 1;
+constexpr int kQbvalFloat = 2;
+constexpr int kQbvalString = 3;
+constexpr int kQbvalInlineText = 4;
+constexpr int kQbvalPair = 5;
+constexpr int kQbvalVector = 6;
+constexpr int kQbvalScriptBody = 7;
+constexpr int kQbvalNativeFunc = 8;
+constexpr int kQbvalNativeMethod = 9;
+constexpr int kQbvalStruct = 10;
+constexpr int kQbvalArray = 12;
+constexpr int kQbvalName = 13;
+// A component referring to a structure / array it doesn't own (made by duplicate_component when asked to).
+constexpr int kQbvalStructRef = 20;
+constexpr int kEsymboltypeArraypointer = 21;
 
 // A component of this kind holds a structure handed over in its word (the elements of an array of it aren't read).
 constexpr uint32_t kQbvalStructHandedOver = 11;

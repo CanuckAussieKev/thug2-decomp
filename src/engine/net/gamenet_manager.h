@@ -58,34 +58,31 @@ struct JoinerRecord;
 // (the join messages: wire/gamenet_messages.h - ConnectInfo, JoinRequestBlock, ProceedInfo)
 
 // Join refused (message 71, 10 bytes): the reason; with kRefusedCdKey, the host's CD-key challenge after it.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum JoinRefusedReason : int8_t {
-    kRefusedFull = 0,
-    kRefusedPassword = 1,
-    kRefusedVersion = 2,
-    kRefusedInProgress = 3,
-    kRefusedBanned = 4,
-    kRefusedFullObservers = 5,
-    kRefusedRankLow = 6,  // the host's "rank greater than" test
-    kRefusedRankHigh = 7, // its "rank less than" test
-    kRefusedCdKey = 8,    // (and the challenge: the client answers with a new connection request)
-};
+using JoinRefusedReason = int8_t;
+constexpr int kRefusedFull = 0;
+constexpr int kRefusedPassword = 1;
+constexpr int kRefusedVersion = 2;
+constexpr int kRefusedInProgress = 3;
+constexpr int kRefusedBanned = 4;
+constexpr int kRefusedFullObservers = 5;
+constexpr int kRefusedRankLow = 6;  // the host's "rank greater than" test
+constexpr int kRefusedRankHigh = 7; // its "rank less than" test
+constexpr int kRefusedCdKey = 8;    // (and the challenge: the client answers with a new connection request)
 constexpr uint16_t kJoinRefusedSize = 10;
 
 // The join's state (join_phase_, 0x005331F0 / 0x00533200).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-enum EntryPhase : uint8_t {
-    kJoinStateConnecting = 1,
-    kJoinStateJoining = 2,
-    kJoinStateJoiningWithPassword = 3,
-    kJoinStateTryingPassword = 4,
-    kJoinStateCdKey = 5,   // answered the host's CD-key challenge
-    kJoinStateJoined = 6,  // the host let the player in
-    kJoinStateEntered = 7, // the network game's script has run
-    kJoinStateOver = 8,    // the join is over
-    kJoinStateRefused = 9, // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
-    kJoinStateCancelled = 10,
-};
+using EntryPhase = uint8_t;
+constexpr int kJoinStateConnecting = 1;
+constexpr int kJoinStateJoining = 2;
+constexpr int kJoinStateJoiningWithPassword = 3;
+constexpr int kJoinStateTryingPassword = 4;
+constexpr int kJoinStateCdKey = 5;   // answered the host's CD-key challenge
+constexpr int kJoinStateJoined = 6;  // the host let the player in
+constexpr int kJoinStateEntered = 7; // the network game's script has run
+constexpr int kJoinStateOver = 8;    // the join is over
+constexpr int kJoinStateRefused =
+    9; // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
+constexpr int kJoinStateCancelled = 10;
 
 // A walk over the players (Hub::begin_player_walk / step_player_walk) and over the joining players
 // (begin_joiner_walk / step_joiner_walk): the current node. The original's searches (lists::Hunt<PlayerRecord> /

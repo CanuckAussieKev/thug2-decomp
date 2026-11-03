@@ -1040,7 +1040,7 @@ struct LevelEditorChainsState {
     // Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and from which node.
     Blit draw_ = Blit::kNone;
     uint32_t draw_last_{};
-    Op pick_ = kOpCancel;
+    ChainOp pick_ = kOpCancel;
     uint32_t pick_from_{};
     // Drawing a ladder: its foot (once the first click found a wall) and its heading.
     bool ladder_have_foot_{};
@@ -2121,7 +2121,7 @@ void set_facing(State* state, uint32_t name, float facing)
 }
 
 // The operations on a ladder (its two points - or a level's climbing chain - together).
-bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std::string* message, uint32_t* select)
+bool ladder_op(ChainOp op, uint32_t name, const nodes::Elem& node, uint32_t arg, std::string* message, uint32_t* select)
 {
     if (node.hidden) {
         *message = "Deleted";
@@ -2205,7 +2205,7 @@ std::vector<uint32_t> chain_of(uint32_t name)
     return {name};
 }
 
-bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select)
+bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select)
 {
     *select = 0;
     message->clear();
@@ -2725,7 +2725,7 @@ bool wants_pick() { return level_editor_chains_state().pick_ == kOpLinkArm || le
 bool get_picked(uint32_t name, std::string* message, uint32_t* select)
 {
     *select = 0;
-    const Op pick = level_editor_chains_state().pick_;
+    const ChainOp pick = level_editor_chains_state().pick_;
     level_editor_chains_state().pick_ = kOpCancel;
     const uint32_t from = level_editor_chains_state().pick_from_;
     if (pick == kOpLinkArm) {

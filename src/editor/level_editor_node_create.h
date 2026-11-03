@@ -49,8 +49,16 @@ const char* get_team_name(Team team); // "Red"...
 // One component of a node: a flag (no key), a name, a string, an integer, a float, a vector, an array of names or of
 // integers.
 struct Prop {
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-    enum KindTag : uint8_t { kFlag, kName, kString, kInteger, kFloat, kVector, kNames, kIntegers } type;
+    using KindTag = uint8_t;
+    static constexpr int kFlag = 0;
+    static constexpr int kName = 1;
+    static constexpr int kString = 2;
+    static constexpr int kInteger = 3;
+    static constexpr int kFloat = 4;
+    static constexpr int kVector = 5;
+    static constexpr int kNames = 6;
+    static constexpr int kIntegers = 7;
+    KindTag type;
     std::string key;
     std::string text;              // kFlag, kName, kString
     std::array<float, 3> value = {};           // kFloat (value[0]), kVector

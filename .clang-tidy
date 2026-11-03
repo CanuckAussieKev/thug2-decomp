@@ -73,6 +73,10 @@ CheckOptions:
   # begin / end, start / finish, from / to), a copy's ends (src / dst, source / destination) and a comparison's
   # operands (a / b, lhs / rhs). NamePrefixSuffixSilenceDissimilarityTreshold stays 1: 2 and 3 were measured and
   # silence nothing more over src/.
+  # A script value's kind, a render state's id and an editor chain operation: small integer types (the values the
+  # script format, the original's state table and the editor's requests hold) whose parameters sit next to a name or
+  # a value; the type's name says which is which. The other suffixes are the check's defaults.
+  bugprone-easily-swappable-parameters.IgnoredParameterTypeSuffixes: 'bool;Bool;_Bool;it;It;iterator;Iterator;inputit;InputIt;forwardit;ForwardIt;bidirit;BidirIt;constiterator;const_iterator;Const_Iterator;Constiterator;ConstIterator;RandomIt;randomit;random_iterator;ReverseIt;reverse_iterator;reverse_const_iterator;ConstReverseIterator;Const_Reverse_Iterator;const_reverse_iterator;Constreverseiterator;constreverseiterator;QbValueKind;RenderStateId;ChainOp'
   bugprone-easily-swappable-parameters.IgnoredParameterNames: '"";iterator;Iterator;begin;Begin;end;End;first;First;last;Last;lhs;LHS;rhs;RHS;min;max;from;to;src;dst;source;destination;a;b;low;high;start;finish'
   # The rule of five, as the Guidelines' C.21 allows it: a defaulted destructor alone, and classes that only copy
   # (their copies stand in for moves).

@@ -45,8 +45,10 @@ constexpr uint32_t kIsHidden = 0x27EB9B9D;      // is_hidden
 
 // The players' options: the skate module's table at +0x394 (8 bytes a player: vibration, auto kick, spin taps), set
 // through 0x00567C30 / 0x00567C00 / 0x00567BD0 (player, on).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum Option : uint8_t { kVibration = 0, kAutoKick = 1, kSpinTaps = 2 };
+using Option = uint8_t;
+constexpr int kVibration = 0;
+constexpr int kAutoKick = 1;
+constexpr int kSpinTaps = 2;
 // The player a command names (its unnamed integer; 0).
 int player_of(script::Struct* params)
 {
@@ -72,6 +74,8 @@ bool set_option(script::Struct* params, Option option, bool on)
         break;
     case kSpinTaps:
         skate->set_turn_tap_count(player, on); // 0x00567BD0
+        break;
+    default:
         break;
     }
     return true;

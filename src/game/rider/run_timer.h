@@ -32,8 +32,11 @@ class RiderRunClock final : public ObjectModule {
 public:
     RiderRunClock(const RiderRunClock&) = delete;
     RiderRunClock& operator=(const RiderRunClock&) = delete;
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum State : uint8_t { kClockIdle = 0, kClockTicking = 1, kActivePaused = 2, kActiveTimeUp = 3 };
+    using State = uint8_t;
+    static constexpr int kClockIdle = 0;
+    static constexpr int kClockTicking = 1;
+    static constexpr int kActivePaused = 2;
+    static constexpr int kActiveTimeUp = 3;
 
     // 0x005185D0 (registered by register_component_types): a new one (0 if out of memory). Nothing else is set.
     static gsl::owner<ObjectModule*> fabricate();

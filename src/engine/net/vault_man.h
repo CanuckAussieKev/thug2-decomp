@@ -174,16 +174,14 @@ constexpr size_t kVaultManUrlSize = 0x80;
 class VaultMan {
 public:
     // What transfer_ is doing.
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-    enum Transfer : uint8_t {
-        kNone = 0,
-        kCategories = 1, // the directory list (dir_list.txt of the folder)
-        kItems = 2,      // a category's items
-        kDownload = 3,   // a file (Download)
-        kUpload = 4,
-        kUploads = 5,   // the uploads list (uploads.txt; profile 0x011B0C16 only)
-        kDownload6 = 6, // (treated as a download; never set in this range)
-    };
+    using Transfer = uint8_t;
+    static constexpr int kNone = 0;
+    static constexpr int kCategories = 1; // the directory list (dir_list.txt of the folder)
+    static constexpr int kItems = 2;      // a category's items
+    static constexpr int kDownload = 3;   // a file (Download)
+    static constexpr int kUpload = 4;
+    static constexpr int kUploads = 5;   // the uploads list (uploads.txt; profile 0x011B0C16 only)
+    static constexpr int kDownload6 = 6; // (treated as a download; never set in this range)
 
     // 0x0054C1D0: no categories, the task (vault_task, not in a list), the semaphore (1 of 10).
     VaultMan();

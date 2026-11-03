@@ -25,21 +25,19 @@ bool greater_than(Component* a, Component* b);
 void copy_array_element_to_component(Array* array, uint32_t index, Component* to, int reference);
 
 // The operators (the token values the parser gives them).
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum Operator : uint8_t {
-    kOperatorNone = 0,
-    kOperatorArrayElement = 5, // a[i]
-    kOperatorEquals = 7,
-    kOperatorDot = 8, // dot product, or a structure's member
-    kOperatorMinus = 10,
-    kOperatorAdd = 11,
-    kOperatorDivide = 12,
-    kOperatorMultiply = 13, // also the cross product of vectors
-    kOperatorLessThan = 18,
-    kOperatorGreaterThan = 20,
-    kOperatorOr = 50,
-    kOperatorAnd = 51,
-};
+using Operator = uint8_t;
+constexpr int kOperatorNone = 0;
+constexpr int kOperatorArrayElement = 5; // a[i]
+constexpr int kOperatorEquals = 7;
+constexpr int kOperatorDot = 8; // dot product, or a structure's member
+constexpr int kOperatorMinus = 10;
+constexpr int kOperatorAdd = 11;
+constexpr int kOperatorDivide = 12;
+constexpr int kOperatorMultiply = 13; // also the cross product of vectors
+constexpr int kOperatorLessThan = 18;
+constexpr int kOperatorGreaterThan = 20;
+constexpr int kOperatorOr = 50;
+constexpr int kOperatorAnd = 51;
 
 constexpr size_t kValueResolverValueTopOffset = 0x140;
 constexpr size_t kValueResolverOperatorsOffset = 0x144;

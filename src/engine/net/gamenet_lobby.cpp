@@ -31,27 +31,24 @@ using namespace detail;
 namespace {
 
 // qr2's keys (the SDK's standard numbering) and THUG2's own.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): values fixed by a file, a script, the wire or the SDK, used as integers
-enum PeerKey : uint8_t {
-    kKeyHostname = 1,
-    kKeyGamename = 2,
-    kKeyHostport = 4,
-    kKeyMapname = 5,
-    kKeyGametype = 6,
-    kKeyNumplayers = 8,
-    kKeyMaxplayers = 10,
-    kKeyGamemode = 11,
-    kKeyTeamplay = 12,
-    kKeyPassword = 19,
-    kKeyForPlayer = 21,
-    kKeyObservers = 51,
-    kKeyMaxObservers = 52,
-    kKeySkillLevel = 53,
-    kKeyInProgress = 54,
-    kKeyHostMode = 55,
-    kKeyLoggedIn = 56,
-    kKeyPlayerRating = 57,
-};
+constexpr int kKeyHostname = 1;
+constexpr int kKeyGamename = 2;
+constexpr int kKeyHostport = 4;
+constexpr int kKeyMapname = 5;
+constexpr int kKeyGametype = 6;
+constexpr int kKeyNumplayers = 8;
+constexpr int kKeyMaxplayers = 10;
+constexpr int kKeyGamemode = 11;
+constexpr int kKeyTeamplay = 12;
+constexpr int kKeyPassword = 19;
+constexpr int kKeyForPlayer = 21;
+constexpr int kKeyObservers = 51;
+constexpr int kKeyMaxObservers = 52;
+constexpr int kKeySkillLevel = 53;
+constexpr int kKeyInProgress = 54;
+constexpr int kKeyHostMode = 55;
+constexpr int kKeyLoggedIn = 56;
+constexpr int kKeyPlayerRating = 57;
 constexpr int kKeyTypeServer = 0;
 constexpr int kKeyTypePlayer = 1;
 constexpr int kServerKeyCount = 16;

@@ -185,8 +185,9 @@ static_assert(sizeof(ListNode) == kListNodeBytes, "a list node is four words");
 
 class MemSource {
 public:
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
-    enum Direction : int8_t { kGrowUp = 1, kGrowDown = -1 };
+    using Direction = int8_t;
+    static constexpr int kGrowUp = 1;
+    static constexpr int kGrowDown = -1;
 
     // A context: an entry in the allocator's stack; heaps keep a free list in each.
     struct CtxInfo {

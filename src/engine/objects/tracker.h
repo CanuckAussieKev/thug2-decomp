@@ -87,15 +87,15 @@ public:
 class SignalTrace {
 public:
     // What an entry records.
-    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind : uint8_t {
-        kLaunched = 0, // an event was launched (`script`: whether from a script with a name); the depth goes up
-        kHandled = 1,  // it was handled (`script` the handler's name, `how` how: 2 WaitForEvent, 3 by nobody); down
-        kRead = 2,     // (0x00462B40)
-        kFrame = 3,    // a frame went by (consecutive frames count up in the entry's type field)
-        kObjectAdded = 4,
-        kObjectRemoved = 5,
-    };
+    using Kind = uint8_t;
+    static constexpr int kLaunched =
+        0; // an event was launched (`script`: whether from a script with a name); the depth goes up
+    static constexpr int kHandled =
+        1; // it was handled (`script` the handler's name, `how` how: 2 WaitForEvent, 3 by nobody); down
+    static constexpr int kRead = 2;  // (0x00462B40)
+    static constexpr int kFrame = 3; // a frame went by (consecutive frames count up in the entry's type field)
+    static constexpr int kObjectAdded = 4;
+    static constexpr int kObjectRemoved = 5;
     struct TableRow {
         uint32_t type; // the event type (FRAME: the number of frames)
         uint32_t target;
