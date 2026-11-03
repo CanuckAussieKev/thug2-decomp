@@ -145,7 +145,8 @@ struct PieceSlot : PiecePlace {
 };
 using PlacedSlot = PieceSlot<ParkTile*>;
 using NamedSlot = PieceSlot<uint32_t>;
-static_assert(sizeof(NamedSlot) == 12 && sizeof(PlacedSlot) == sizeof(PiecePlace) + sizeof(ParkTile*),
+constexpr std::size_t kNamedSlotByteSize = 12;
+static_assert(sizeof(NamedSlot) == kNamedSlotByteSize && sizeof(PlacedSlot) == sizeof(PiecePlace) + sizeof(ParkTile*),
               "a descriptor is the original's size: the park heap's use is the player's memory meter");
 
 // A metapiece's descriptors: the first two inside it, the others in an array from the current heap (the park heap
