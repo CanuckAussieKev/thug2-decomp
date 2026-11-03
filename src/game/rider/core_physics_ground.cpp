@@ -23,8 +23,6 @@ namespace skater {
 
 using namespace physics;
 
-void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
-
 namespace {
 constexpr float kVertStep = 6.0f;
 

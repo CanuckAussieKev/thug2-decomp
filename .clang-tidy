@@ -18,6 +18,7 @@ Checks:
   - 'readability-duplicate-include'
   - 'readability-redundant-access-specifiers'
   - 'readability-redundant-control-flow'
+  - 'readability-redundant-declaration'
   - 'readability-redundant-string-cstr'
   - 'readability-redundant-typename'
   - 'readability-static-definition-in-anonymous-namespace'
