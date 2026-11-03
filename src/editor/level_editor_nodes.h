@@ -18,6 +18,8 @@ class Struct;
 // turned by level_editor_node_edit.h (phase 2 of the plan).
 namespace frontend::level_editor::nodes {
 
+constexpr std::uint32_t kDefaultNodeColour = 0xFFC0C0C0; // light grey, opaque
+
 // The families, as the Outliner groups them and the chips filter them.
 enum class Family : uint8_t {
     kSpawn,    // Restart
@@ -81,7 +83,7 @@ struct Elem {
     V3 pos = {}, angles = {};
     V3 forward = {.x = 0.0f, .y = 0.0f, .z = 1.0f};           // its heading (the matrix the game makes of its angles: its at row)
     std::vector<int> links;                    // linked nodes (indices into All())
-    uint32_t colour = 0xFFC0C0C0;              // ARGB
+    uint32_t colour = kDefaultNodeColour;              // ARGB
     int order = -1;                            // crowns: the index among the crowns; spawns: among the restarts
     float radius = 0.0f, inner_radius_ = 0.0f; // a light's outer / inner radius, a proximity node's radius
     uint32_t restart_types_ = 0;

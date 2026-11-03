@@ -83,7 +83,6 @@ constexpr std::size_t kSavedFileNameLength = 12; // "XXXXXXXX.txt"
 constexpr int kSceneNameDigits = 8; // the scene checksum's hex digits in a file name
 constexpr int kHighWordShift = 32; // bits of the file time's low word
 constexpr int kTemporarySuffixRoom = 8; // room after the path for ".tmp"
-constexpr std::size_t kRotationFloats = 9; // a 3 x 3 rotation's floats
 constexpr std::size_t kSummarySize = 360; // the layout-applied summary line
 constexpr std::size_t kRefusalTextSize = 256; // the "refused" message text
 constexpr float kRefusalPositionX = 320.0f; // where that message sits (640 x 448 screen units)

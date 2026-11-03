@@ -22,11 +22,13 @@ struct FrontEnd;
 // The play key in play is the editor's only key outside it; [features] level_editor=0 turns it off with the editor.
 namespace frontend::level_editor::perform {
 
+constexpr float kDefaultWalkSpeed = 800.0f;
+
 // What the editor was showing when play from here left it (the editor fills it in: level_editor.cpp).
 struct Resume {
     V3 pos = {};
     float yaw = 0.0f, pitch = 0.0f;
-    float speed = 800.0f;
+    float speed = kDefaultWalkSpeed;
     std::vector<uint32_t> objects; // the selected objects' ids
     std::vector<uint32_t> sectors; // the selected scenery
     uint32_t node = 0;             // a node selected by itself (its name; 0: none)

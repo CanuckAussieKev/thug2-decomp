@@ -4,6 +4,7 @@
 #include "editor/level_editor_overlays.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -26,12 +27,29 @@
 
 namespace frontend::level_editor::overlays {
 
+namespace {
+
+constexpr float kMaxGridLines = 200.0f; // a grid of more lines than this per side isn't drawn
+constexpr long kMajorLineEvery = 5; // every fifth grid line is a major line
+constexpr float kNearPlaneMargin = 0.01f; // lines are clipped this far in front of the near plane
+constexpr float kCircleThickness = 1.5f;
+constexpr float kFarAway = 1e30f; // a position that is never close to a real one
+constexpr float kGridRefreshDistance = 25.0f; // the grid's ground is found again when the origin moves this far
+constexpr std::uint32_t kGridMajorColour = 0x70E0E8F0u;
+constexpr std::uint32_t kGridMinorColour = 0x38C0C8D0u;
+constexpr float kGridMajorThickness = 1.25f;
+constexpr std::size_t kBoxCorners = 8;
+constexpr float kCarriedThickness = 1.25f;
+constexpr float kCarriedDotRadius = 5.0f;
+
+} // namespace
+
 // --- the pieces -------------------------------------------------------------------------------------------------
 
 std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing)
 {
     std::vector<GridLine> lines;
-    if (!(spacing > 0.0f) || !(radius > 0.0f) || radius / spacing > 200.0f)
+    if (!(spacing > 0.0f) || !(radius > 0.0f) || radius / spacing > kMaxGridLines)
         return lines;
     // (the lines on multiples of the spacing, within the square round the centre)
     const std::array<long, 2> first = {{static_cast<long>(std::ceil((centre.x - radius) / spacing)),
@@ -40,11 +58,11 @@ std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing
                           static_cast<long>(std::floor((centre.z + radius) / spacing))}};
     for (long i = core::at(first, 0); i <= core::at(last, 0); ++i) {
         const float x = static_cast<float>(i) * spacing;
-        lines.push_back({.a = {.x = x, .y = y, .z = centre.z - radius}, .b = {.x = x, .y = y, .z = centre.z + radius}, .major = i % 5 == 0});
+        lines.push_back({.a = {.x = x, .y = y, .z = centre.z - radius}, .b = {.x = x, .y = y, .z = centre.z + radius}, .major = i % kMajorLineEvery == 0});
     }
     for (long i = core::at(first, 1); i <= core::at(last, 1); ++i) {
         const float z = static_cast<float>(i) * spacing;
-        lines.push_back({.a = {.x = centre.x - radius, .y = y, .z = z}, .b = {.x = centre.x + radius, .y = y, .z = z}, .major = i % 5 == 0});
+        lines.push_back({.a = {.x = centre.x - radius, .y = y, .z = z}, .b = {.x = centre.x + radius, .y = y, .z = z}, .major = i % kMajorLineEvery == 0});
     }
     return lines;
 }
@@ -165,7 +183,7 @@ bool Painter::get_pixel(V3 p, float* x, float* y) const
 
 bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
 {
-    if (!clip_to_near(camera_, frame_, near_z_ + 0.01f, &a, &b))
+    if (!clip_to_near(camera_, frame_, near_z_ + kNearPlaneMargin, &a, &b))
         return false;
     float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
     if (!get_pixel(a, &ax, &ay) || !get_pixel(b, &bx, &by))
@@ -178,7 +196,7 @@ void Painter::get_dot(V3 p, float radius, uint32_t argb, bool filled) const
 {
     float x = 0.0f, y = 0.0f;
     if (get_pixel(p, &x, &y))
-        overlay_->circles.push_back({.x = x, .y = y, .radius = radius, .argb = argb, .filled = filled, .thickness = 1.5f});
+        overlay_->circles.push_back({.x = x, .y = y, .radius = radius, .argb = argb, .filled = filled, .thickness = kCircleThickness});
 }
 
 void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
@@ -237,20 +255,20 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
 {
     if (get_shown(kGrid)) {
         // (on the ground below the selection, else below the camera; the ground found again only when it moved)
-        static V3 g_last_from = {.x = 1e30f, .y = 0.0f, .z = 0.0f};
+        static V3 g_last_from = {.x = kFarAway, .y = 0.0f, .z = 0.0f};
         static float g_ground_y = 0.0f;
         static bool g_have_ground = false;
         const V3 from = have_selection ? selection_base + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f} : painter.camera();
         const V3 d = from - g_last_from;
-        if (get_dot(d, d) > 25.0f * 25.0f) {
+        if (get_dot(d, d) > kGridRefreshDistance * kGridRefreshDistance) {
             g_last_from = from;
             g_have_ground = get_ground_y(from, &g_ground_y);
         }
         if (g_have_ground) {
             const V3 centre = {.x = std::round(from.x / 100.0f) * 100.0f, .y = g_ground_y, .z = std::round(from.z / 100.0f) * 100.0f};
             for (const GridLine& line : grid_lines(centre, g_ground_y + 0.5f, 1500.0f, 100.0f))
-                (void)painter.get_seg(line.a, line.b, line.major ? 0x70E0E8F0u : 0x38C0C8D0u,
-                                      line.major ? 1.25f : 1.0f);
+                (void)painter.get_seg(line.a, line.b, line.major ? kGridMajorColour : kGridMinorColour,
+                                      line.major ? kGridMajorThickness : 1.0f);
         }
     }
     if (get_shown(kCarryHints) && moving) {
@@ -260,19 +278,19 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
             OrientedBox box{};
             if (!object || (object->object_flags() & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
                 continue;
-            std::array<V3, 8> corners{};
+            std::array<V3, kBoxCorners> corners{};
             box_corners(box.origin, box.axes, box.min, box.max, corners);
             static const std::array<std::array<int, 2>, 12> kEdges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
             for (const auto& e : kEdges)
-                (void)painter.get_seg(core::at(corners, core::at(e, 0)), core::at(corners, core::at(e, 1)), kCarried, 1.25f);
+                (void)painter.get_seg(core::at(corners, core::at(e, 0)), core::at(corners, core::at(e, 1)), kCarried, kCarriedThickness);
         }
         const std::vector<nodes::Elem>& all = nodes::get_all();
         for (const uint32_t name : carry::carried_nodes()) {
             const int index = nodes::get_find(name);
             if (index < 0 || !core::at(all, index).has_pos_)
                 continue;
-            painter.get_dot(core::at(all, index).pos, 5.0f, kCarried, false);
+            painter.get_dot(core::at(all, index).pos, kCarriedDotRadius, kCarried, false);
         }
     }
 }

@@ -3,6 +3,7 @@
 
 #include "editor/level_editor_organize.h"
 
+#include <cstddef>
 #include <windows.h>
 
 #include <algorithm>
@@ -46,6 +47,20 @@ namespace frontend::level_editor::organize {
 
 namespace {
 
+constexpr std::size_t kHexTextSize = 16; // an 8-digit hex id
+constexpr std::size_t kHexDigits = 8;
+constexpr int kHexBase = 16;
+constexpr std::size_t kMemberTextLength = 10; // "<o|s|n>:<8 hex digits>"
+constexpr std::size_t kMaxGroupNameLength = 40; // the longest group name accepted
+constexpr int kFirstPrintableChar = 0x20;
+constexpr int kDeleteChar = 0x7F;
+constexpr float kSizeTolerance = 0.5f; // two boxes this close in every axis count as the same size
+constexpr std::size_t kMaxSetNameLength = 32; // the longest saved selection name
+constexpr std::size_t kBoxCorners = 8; // an oriented box's corners
+constexpr std::size_t kBoxStatusSize = 160; // the box select's status line
+constexpr float kFarthest = 1e30f; // the nearest-node search starts from this distance
+constexpr float kBoxDragThreshold = 6.0f; // pixels the mouse moves before a click becomes a box drag
+
 std::string get_lower(std::string text)
 {
     for (char& c : text)
@@ -55,20 +70,20 @@ std::string get_lower(std::string text)
 
 std::string hex_text(uint32_t value)
 {
-    std::array<char, 16> text{};
+    std::array<char, kHexTextSize> text{};
     text::format_to(text, "%08X", value);
     return text.data();
 }
 
 bool parse_hex8(const std::string& text, uint32_t* value)
 {
-    if (text.size() != 8)
+    if (text.size() != kHexDigits)
         return false;
     for (const char c : text) {
         if (!std::isxdigit(static_cast<unsigned char>(c)))
             return false;
     }
-    *value = static_cast<uint32_t>(std::strtoul(text.c_str(), nullptr, 16));
+    *value = static_cast<uint32_t>(std::strtoul(text.c_str(), nullptr, kHexBase));
     return true;
 }
 
@@ -138,7 +153,7 @@ bool read_record(const std::string& line, State* state)
             std::string item;
             while (std::getline(list, item, ',')) {
                 Member m;
-                if (item.size() != 10 || core::at(item, 1) != ':' || (core::at(item, 0) != 'o' && core::at(item, 0) != 's' && core::at(item, 0) != 'n') ||
+                if (item.size() != kMemberTextLength || core::at(item, 1) != ':' || (core::at(item, 0) != 'o' && core::at(item, 0) != 's' && core::at(item, 0) != 'n') ||
                     !parse_hex8(item.substr(2), &m.id))
                     return false;
                 m.kind = core::at(item, 0);
@@ -180,10 +195,10 @@ bool clean_name(const std::string& text, std::string* out)
     if (a == std::string::npos)
         return false;
     const std::string name = text.substr(a, b - a + 1);
-    if (name.size() > 40)
+    if (name.size() > kMaxGroupNameLength)
         return false;
     for (const char c : name) {
-        if (static_cast<unsigned char>(c) < 0x20 || c == 0x7F)
+        if (static_cast<unsigned char>(c) < kFirstPrintableChar || c == kDeleteChar)
             return false;
     }
     *out = name;
@@ -363,8 +378,8 @@ bool alike(const Thing& a, const Thing& b, Similar by)
                 return false;
             if (a.source && a.source == b.source)
                 return true;
-            return std::fabs(a.size.x - b.size.x) <= 0.5f && std::fabs(a.size.y - b.size.y) <= 0.5f &&
-                   std::fabs(a.size.z - b.size.z) <= 0.5f;
+            return std::fabs(a.size.x - b.size.x) <= kSizeTolerance && std::fabs(a.size.y - b.size.y) <= kSizeTolerance &&
+                   std::fabs(a.size.z - b.size.z) <= kSizeTolerance;
         }
         return !a.model.empty() && get_lower(a.model) == get_lower(b.model);
     case Similar::kClass:
@@ -379,7 +394,7 @@ bool alike(const Thing& a, const Thing& b, Similar by)
 
 bool valid_snapshot_name(const std::string& name)
 {
-    if (name.empty() || name.size() > 32 || get_lower(name) == "autosave")
+    if (name.empty() || name.size() > kMaxSetNameLength || get_lower(name) == "autosave")
         return false;
     for (const char c : name) {
         if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-')
@@ -501,7 +516,7 @@ std::vector<uint32_t> selectable_sectors()
 // A thing's screen box from a placed box's corners (false: a corner behind the camera when `whole`, none in front).
 bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
 {
-    std::array<V3, 8> corners{};
+    std::array<V3, kBoxCorners> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
     bool any = false;
     Rect2 r = {.x0 = 0, .y0 = 0, .x1 = 0, .y1 = 0};
@@ -885,7 +900,7 @@ void apply_box()
     const SelectionIds now = current_selection();
     SelectionIds next;
     const char* how = crossing ? "crossing" : "inside";
-    std::array<char, 160> text{};
+    std::array<char, kBoxStatusSize> text{};
     if (!objects.empty() || (op == 2 && !now.objects.empty())) {
         next.objects = combine(now.objects, objects, op);
         text::format_to(text, "Box (%s): %d objects - %d selected", how, static_cast<int>(objects.size()),
@@ -897,7 +912,7 @@ void apply_box()
     } else {
         // (no objects or scenery: the point node nearest the box's middle - nodes select one at a time)
         uint32_t best = 0;
-        float best_d = 1e30f;
+        float best_d = kFarthest;
         int in_box = 0;
         if (filter & picking::kNodes) {
             const float cx = (box.x0 + box.x1) * 0.5f;
@@ -940,7 +955,7 @@ void box_track(bool down, float x, float y)
     if (down) {
         box_drag().x1 = x;
         box_drag().y1 = y;
-        if (!box_drag().active && std::fabs(x - box_drag().x0) + std::fabs(y - box_drag().y0) >= 6.0f)
+        if (!box_drag().active && std::fabs(x - box_drag().x0) + std::fabs(y - box_drag().y0) >= kBoxDragThreshold)
             box_drag().active = true;
         return;
     }

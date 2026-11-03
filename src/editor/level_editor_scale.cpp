@@ -43,6 +43,22 @@
 
 namespace frontend::level_editor::scale_tool {
 
+namespace {
+
+constexpr double kNoUpperBound = 1e30; // starts the allowed-scale range's upper end out of reach
+constexpr std::size_t kScaleTextSize = 48; // the "1.00x" style description
+constexpr uint32_t kFvfShaderHandleLimit = 0x10000; // at or above this an FVF is a shader handle
+constexpr uint32_t kMinVertexStride = 24; // position and normal
+constexpr int kPositionBytes = 12; // a position: three floats
+constexpr std::size_t kScaleFieldSize = 64; // " scale=..." with room
+constexpr std::size_t kScalePrefixLength = 6; // "scale="
+constexpr int kMaxTreeDepth = 256; // a guard against a broken hit tree
+constexpr uint32_t kCompressedVertexBytes = 6u; // a compressed vertex's bytes
+constexpr uint32_t kPlainVertexBytes = 12u;
+constexpr uint32_t kMeshCountLimit = 4096; // meshes accepted per original
+
+} // namespace
+
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 void scale_about(Placement* placement, V3 pivot, V3 factor)
@@ -78,7 +94,7 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
             core::at(out, a) = 1.0;
             continue;
         }
-        double low = 0.0, high = 1e30;
+        double low = 0.0, high = kNoUpperBound;
         for (size_t i = 0; i < scales.size(); ++i) {
             const double scale = get_axis(core::at(scales, i), a) > 0.0f ? get_axis(core::at(scales, i), a) : 1.0;
             const double limit = i < limits.size() ? std::min<double>(get_axis(core::at(limits, i), a), kMax) : kMax;
@@ -141,7 +157,7 @@ int nearest_axis(std::span<const V3, 3> axes, int world_axis)
 
 std::string describe(V3 scale)
 {
-    std::array<char, 48> text{};
+    std::array<char, kScaleTextSize> text{};
     if (is_uniform_scale(scale))
         text::format_to(text, "%.2fx", scale.x);
     else
@@ -204,16 +220,16 @@ int surface_nudge(uint32_t fvf, uint32_t stride)
 {
     constexpr uint32_t kPositionMask = 0x400E, kXyz = 0x002, kNormal = 0x010;
     // (an FVF's texture coordinate size bits are 0 for the scene's 2D coordinates: a larger value is a shader handle)
-    if (fvf >= 0x10000 || (fvf & kPositionMask) != kXyz || !(fvf & kNormal) || stride < 24)
+    if (fvf >= kFvfShaderHandleLimit || (fvf & kPositionMask) != kXyz || !(fvf & kNormal) || stride < kMinVertexStride)
         return -1;
-    return 12;
+    return kPositionBytes;
 }
 
 std::string get_token(V3 scale)
 {
     if (is_unit_scale(scale))
         return "";
-    std::array<char, 64> text{};
+    std::array<char, kScaleFieldSize> text{};
     if (is_uniform_scale(scale))
         text::format_to(text, " scale=%.9g", scale.x);
     else
@@ -223,10 +239,10 @@ std::string get_token(V3 scale)
 
 bool read_token(const std::string& field, V3* scale)
 {
-    if (!field.starts_with("scale=") || field.size() == 6)
+    if (!field.starts_with("scale=") || field.size() == kScalePrefixLength)
         return false;
     std::array<float, 3> values{};
-    const char* at = std::next(field.c_str(), 6);
+    const char* at = std::next(field.c_str(), kScalePrefixLength);
     // (one number, or exactly three separated by commas)
     for (int count = 0;;) {
         char* end = nullptr;
@@ -254,7 +270,7 @@ namespace {
 void split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::Elem>* out, int depth)
 {
     // (iterative down the greater side, as the game's own walks; a guard against a broken tree)
-    while (node && !node->is_end_node() && depth < 256) {
+    while (node && !node->is_end_node() && depth < kMaxTreeDepth) {
         out->push_back({.node = node, .split = node->axis_tag(), .link = node->chain_link()});
         split_nodes(node->less_child(), out, depth + 1);
         node = node->greater_child();
@@ -264,7 +280,7 @@ void split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::Elem>* ou
 
 uint32_t get_vertex_bytes(const render::TriMeshSource* data)
 {
-    return data->num_vertices() * (data->compressed() ? 6u : 12u);
+    return data->num_vertices() * (data->compressed() ? kCompressedVertexBytes : kPlainVertexBytes);
 }
 
 } // namespace
@@ -403,12 +419,12 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
     original->mesh_count_ = geom->mesh_count();
     original->quarters = quarters;
     original->position = position;
-    if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > 4096)
+    if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > kMeshCountLimit)
         return nullptr;
     const std::span<render::MeshRef*> mesh_run(original->mesh_list_, original->mesh_count_);
     for (uint32_t i = 0; i < original->mesh_count_; ++i) {
         render::MeshRef* mesh = core::at(mesh_run, i);
-        if (!mesh || mesh->stride() < 12 || mesh->vertex_buffer_count() > 3)
+        if (!mesh || mesh->stride() < kPositionBytes || mesh->vertex_buffer_count() > 3)
             return nullptr;
         MeshCopy copy = {.mesh = mesh,
                          .vertex_count_ = mesh->vertex_count(),
@@ -432,9 +448,9 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
             const std::span<const uint8_t> vertex_run(buffer->data(), size_t{mesh->vertex_count()} * mesh->stride());
             for (uint32_t v = 0; v < mesh->vertex_count(); ++v) {
                 const std::span<const uint8_t> vertex = vertex_run.subspan(size_t{v} * mesh->stride(), mesh->stride());
-                std::memcpy(&core::at(positions, 3u * v), vertex.data(), 12);
+                std::memcpy(&core::at(positions, 3u * v), vertex.data(), kPositionBytes);
                 if (copy.normal_offset_ >= 0)
-                    std::memcpy(&core::at(normals, 3u * v), vertex.subspan(static_cast<size_t>(copy.normal_offset_)).data(), 12);
+                    std::memcpy(&core::at(normals, 3u * v), vertex.subspan(static_cast<size_t>(copy.normal_offset_)).data(), kPositionBytes);
             }
             copy.buffers.emplace_back(buffer);
             copy.data.push_back(buffer->data());

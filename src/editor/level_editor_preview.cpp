@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -40,6 +41,22 @@ namespace frontend::level_editor::preview {
 
 namespace {
 
+constexpr float kZoomStep = 1.2f; // the orbit's zoom change per wheel step
+constexpr float kTinySine = 1e-4f; // below this the framing angle is too narrow to divide by
+constexpr float kTinySineReciprocal = 1e4f; // and the distance is capped to this multiple
+constexpr int kNotCulledFlag = 8; // draw_one_instance's flag: not culled
+constexpr uint32_t kMeshScanLimit = 4096; // meshes drawn per geometry
+constexpr uint32_t kMeshDrawnFlag = 0x40; // the mesh flag a drawn mesh has
+constexpr uint32_t kMeshSkipFlags = 0x210; // the mesh flags that keep a mesh out of the preview
+constexpr int kMaxGeometries = 16; // an object's geometries looked at
+constexpr double kLongestFrameSeconds = 0.1; // the orbit's turn uses at most this much of a frame
+constexpr float kBoundsPadding = 4.0f; // added around the object's bounds
+constexpr std::size_t kSizeTextSize = 96; // the "w x h x d" line
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -58,7 +75,7 @@ void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel)
 
 void get_wheel(Orbit* orbit, float steps)
 {
-    orbit->zoom = std::clamp(orbit->zoom * std::pow(1.2f, steps), kMinZoom, kMaxZoom);
+    orbit->zoom = std::clamp(orbit->zoom * std::pow(kZoomStep, steps), kMinZoom, kMaxZoom);
 }
 
 float fit_distance(FitAt fit_at)
@@ -67,7 +84,7 @@ float fit_distance(FitAt fit_at)
     const auto half_angle = fit_at.half_angle_;
     const auto margin = fit_at.margin;
     const float s = std::sin(half_angle);
-    return s > 1e-4f ? radius * margin / s : radius * margin * 1e4f;
+    return s > kTinySine ? radius * margin / s : radius * margin * kTinySineReciprocal;
 }
 
 void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius)
@@ -115,7 +132,7 @@ LevelEditorPreviewState& level_editor_preview_state()
 void set_material(render::MaterialRef* material) { material->hand_in(); }
 void draw_mesh(render::MeshRef* mesh) { mesh->render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
-void draw_instance(render::Singleton* instance) { render::draw_one_instance(instance, 8); }
+void draw_instance(render::Singleton* instance) { render::draw_one_instance(instance, kNotCulledFlag); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
 void update_frustum() { render::billboard_pool().setup_axes(); }
 
@@ -128,12 +145,12 @@ void draw_meshes(render::PcGeom* geom)
         return;
     const render::MaterialRef* current = nullptr;
     for (int pass = 0; pass < 2; ++pass) {
-        for (uint32_t i = 0; i < count && i < 4096; ++i) {
+        for (uint32_t i = 0; i < count && i < kMeshScanLimit; ++i) {
             render::MeshRef* mesh = core::at(meshes, i);
             if (!mesh)
                 continue;
             const uint32_t flags = mesh->flags();
-            if (!(flags & 0x40) || (flags & 0x210))
+            if (!(flags & kMeshDrawnFlag) || (flags & kMeshSkipFlags))
                 continue;
             render::MaterialRef* material = mesh->material();
             const bool transparent = material && (core::at(material->pass_flags(), 0) & 0x40);
@@ -177,7 +194,7 @@ void draw_subject(Kind kind, uint32_t id)
         return;
     }
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    for (int i = 0; object && i < 16; ++i) {
+    for (int i = 0; object && i < kMaxGeometries; ++i) {
         auto* geom = static_cast<render::PcGeom*>(object_edit::get_geometry(object, i));
         if (!geom)
             break;
@@ -220,7 +237,7 @@ uint64_t render(int size)
         return 0;
     // The slow turn (paused for a while after a drag).
     if (std::chrono::duration<double>(now - level_editor_preview_state().last_drag_).count() > kTurnWait)
-        level_editor_preview_state().orbit_.yaw += kTurnSpeed * static_cast<float>(std::min(elapsed, 0.1));
+        level_editor_preview_state().orbit_.yaw += kTurnSpeed * static_cast<float>(std::min(elapsed, kLongestFrameSeconds));
 
     OrientedBox box{};
     if (!subject_box(&box))
@@ -245,7 +262,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     bounds_of(box, &min, &max);
     V3 centre{};
     float radius = 0.0f;
-    sphere_of(min, max, 4.0f, &centre, &radius);
+    sphere_of(min, max, kBoundsPadding, &centre, &radius);
     const Lens lens = lens_for({.angle_degrees_ = kAngle, .aspect = kSquareAspect});
     const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
     const Eye eye = orbit_eye(centre, fit_distance({.radius = radius, .half_angle_ = half_angle, .margin = kMargin}) / orbit.zoom, orbit);
@@ -292,7 +309,7 @@ void tick_cycle(ui::ShapeMesh* model)
     view.name = object_edit::caption(id);
     OrientedBox box{};
     if (subject_box(&box)) {
-        std::array<char, 96> size{};
+        std::array<char, kSizeTextSize> size{};
         text::format_to(size, "%.0f x %.0f x %.0f  (x by y by z)", box.max.x - box.min.x, box.max.y - box.min.y,
                         box.max.z - box.min.z);
         view.size = size.data();

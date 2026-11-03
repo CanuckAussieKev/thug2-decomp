@@ -26,16 +26,23 @@ struct ImFont;
 //   tips_seen=0            the first-run tips were dismissed (the help's "Show tips" shows them again)
 namespace frontend::level_editor::prefs {
 
+constexpr int kDefaultFlySpeed = 800; // units a second
+constexpr int kDefaultLookPercent = 100; // mouse look sensitivity
+constexpr int kDefaultGizmoPercent = 100; // gizmo size
+constexpr int kDefaultAutosaveSeconds = 60;
+constexpr int kDefaultMoveSnap = 25; // units
+constexpr int kDefaultTurnSnap = 15; // degrees
+
 struct Values {
-    int fly_speed_ = 800;
+    int fly_speed_ = kDefaultFlySpeed;
     int fly_accel_ms_ = 0;
-    int look_pct_ = 100;
+    int look_pct_ = kDefaultLookPercent;
     bool invert_y_ = false;
-    int gizmo_pct_ = 100;
+    int gizmo_pct_ = kDefaultGizmoPercent;
     int ui_scale_pct_ = 0;
-    int autosave_seconds_ = 60;
-    int snap_move_ = 25;
-    int snap_turn_ = 15;
+    int autosave_seconds_ = kDefaultAutosaveSeconds;
+    int snap_move_ = kDefaultMoveSnap;
+    int snap_turn_ = kDefaultTurnSnap;
     int accent = 0;
     bool wasd_flies_ = false;
     bool speed_by_selection_ = false;

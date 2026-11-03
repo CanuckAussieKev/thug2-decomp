@@ -24,6 +24,8 @@ struct ImFont;
 //     o:<object id> in hex, comma separated). The chips All / Recent / Favourites choose what the palette lists.
 namespace frontend::level_editor::thumbs {
 
+constexpr int kTabShift = 32; // the tab number sits in the key's high word
+
 constexpr int kAtlasPixels = 2048;
 constexpr int kCellPixels = 128;
 constexpr int kCells = (kAtlasPixels / kCellPixels) * (kAtlasPixels / kCellPixels);
@@ -57,7 +59,7 @@ public:
     int get_take(CellUse cell_use);
     void get_clear();
 };
-inline uint64_t get_key(int tab, uint32_t id) { return (static_cast<uint64_t>(tab + 1) << 32) | id; }
+inline uint64_t get_key(int tab, uint32_t id) { return (static_cast<uint64_t>(tab + 1) << kTabShift) | id; }
 // A cell's place in the atlas (pixels) and its uv rectangle.
 void cell_rect(int cell, CornerOut corner);
 void cell_uv(int cell, UvOut uv);
