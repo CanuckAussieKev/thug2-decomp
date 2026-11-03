@@ -235,8 +235,8 @@ bool get_override(const Props& edited, const Props& level, gfx::TodParams* param
 
 void read_override_keys(script::Struct* level, Props* out)
 {
-    static const uint32_t kAmbient = checksums::hash_from_text("ed_ambient"),
-                          kFog = checksums::hash_from_text("ed_fog");
+    static const uint32_t kAmbient = checksums::hash_from_text("ed_ambient");
+    static const uint32_t kFog = checksums::hash_from_text("ed_fog");
     auto read = [&](uint32_t key, std::span<int> values, uint32_t count) {
         script::Array* array = nullptr;
         if (!level || !level->fetch_list(key, &array, 0) || !array || array->kind_tag() != script::QbValueKind::kInteger ||
@@ -437,8 +437,8 @@ const std::vector<std::string>& skies()
         return level_editor_level_props_state().skies_;
     level_editor_level_props_state().skies_made_ = true;
     level_editor_level_props_state().skies_.clear();
-    static const uint32_t kSky = checksums::hash_from_text("sky"),
-                          kLoadScript = checksums::hash_from_text("load_script");
+    static const uint32_t kSky = checksums::hash_from_text("sky");
+    static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
         const char* sky = nullptr;
         uint32_t load = 0;
@@ -490,7 +490,8 @@ void restore_structure()
 
 void on_edited_copy_up(const Props& props)
 {
-    static const uint32_t kClass = checksums::hash_from_text("Class"), kRestart = checksums::hash_from_text("Restart");
+    static const uint32_t kClass = checksums::hash_from_text("Class");
+    static const uint32_t kRestart = checksums::hash_from_text("Restart");
     script::Struct* node =
         props.start && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(props.start, false) : nullptr;
     uint32_t cls = 0;

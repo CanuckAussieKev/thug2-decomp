@@ -211,7 +211,8 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script*)
     maths::Vec4& start = probe_start_;
     maths::Vec4& end = probe_end_;
     // A feeler 20 up and down, a little to the side (Right: the other way).
-    float origin_coord_x = 0.0f, origin_coord_y = 0.0f;
+    float origin_coord_x = 0.0f;
+    float origin_coord_y = 0.0f;
     if (right) {
         origin_coord_x = static_cast<float>(position.x - x);
         origin_coord_y = position.y - y;
@@ -473,8 +474,9 @@ void SkaterPhysicsModule::check_side_feelers()
     for (uint32_t side = 0; side < 4; ++side) {
         const maths::Vec4& row = side < 2 ? core::at(entity()->basis_frame().row, 0) : core::at(entity()->basis_frame().row, 2);
         const double reach = side_reach_;
-        auto x = static_cast<float>(reach * row.x), y = static_cast<float>(reach * row.y),
-             z = static_cast<float>(reach * row.z);
+        auto x = static_cast<float>(reach * row.x);
+        auto y = static_cast<float>(reach * row.y);
+        auto z = static_cast<float>(reach * row.z);
         const double w = reach * row.w; // (left unrounded)
         maths::Vec4 end;
         if (side % 2 == 0) {

@@ -111,7 +111,8 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
         const char c = i < text.size() ? core::at(text, i) : '\0';
         core::at(path, i) = c == '/' ? '\\' : c;
     }
-    DWORD access = 0, disposition = 0;
+    DWORD access = 0;
+    DWORD disposition = 0;
     switch (mode) {
     case 1:
         access = GENERIC_READ;
@@ -164,7 +165,8 @@ int SaveCard::get_free_blocks() const
 {
     if (!present_)
         return 0;
-    ULARGE_INTEGER available, total;
+    ULARGE_INTEGER available;
+    ULARGE_INTEGER total;
     if (!GetDiskFreeSpaceExA(nullptr, &available, &total, nullptr))
         return 0;
     return static_cast<int>((available.LowPart >> kBlockShift) + (available.HighPart << kHighPartBlockShift));

@@ -458,7 +458,9 @@ void update_scene_light(uint32_t name, script::Struct* params)
     WorldScene* scene = get_main_scene();
     LevelLamp* light = find_scene_light(name);
     float value = 0.0f;
-    int red = 0, green = 0, blue = 0; // (the original leaves green and blue unset when they're missing)
+    int red = 0;
+    int green = 0;
+    int blue = 0; // (the original leaves green and blue unset when they're missing)
     if (light) {
         if (params->fetch_float(kAmountKey, &value, 0)) {
             value = static_cast<float>(value * static_cast<double>(kPercent));

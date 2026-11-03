@@ -114,7 +114,8 @@ std::optional<CameraRows> camera_rows(Vec3 direction)
 void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
 {
     const double h = static_cast<double>(heading_degrees) * std::numbers::pi / 180.0;
-    auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
+    auto s = static_cast<float>(std::sin(h));
+    auto c = static_cast<float>(std::cos(h));
     *at = {.x = s, .y = 0.0f, .z = c};
     *up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
     *right = perpendicular(*up, *at); // (cos, 0, -sin): heading 0 gives the identity
@@ -136,7 +137,9 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     const bool grounded = ground_below(position, &ground);
     if (grounded)
         position.y = ground;
-    Vec3 right{}, up{}, at{};
+    Vec3 right{};
+    Vec3 up{};
+    Vec3 at{};
     standing_rows(heading_degrees, &right, &up, &at);
     // (the skater's own custom restart kept and put back: only the restart's code is borrowed)
     const maths::Vec4 saved_pos = skater->custom_restart_pos();

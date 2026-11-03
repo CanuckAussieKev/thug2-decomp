@@ -282,7 +282,8 @@ bool cfunc_edit_player_appearance(script::Struct* params, script::Script*)
 // parameters. Always false.
 bool cfunc_get_actual_cas_option_struct(script::Struct* params, script::Script* script)
 {
-    uint32_t part = 0, descriptor_id = 0; // (uninitialised in the original when missing)
+    uint32_t part = 0;
+    uint32_t descriptor_id = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);
     params->read_hash_value(kDescId, &descriptor_id, 1);
     script::Struct* option = objects::find_cas_option({.part = part, .descriptor_id_ = descriptor_id}, true);
@@ -341,7 +342,9 @@ bool cfunc_set_player_appearance_color(script::Struct* params, script::Script*)
     params->read_hash_value(kPart, &part, 1);
     script::Struct* slot = appearance_part(profile, part);
     if (slot) {
-        float h = 0.0f, s = 0.0f, v = 0.0f;
+        float h = 0.0f;
+        float s = 0.0f;
+        float v = 0.0f;
         int use_default = 0;
         params->fetch_float(kH, &h, 1);
         params->fetch_float(kS, &s, 1);
@@ -390,7 +393,10 @@ bool cfunc_set_player_appearance_uv(script::Struct* params, script::Script*)
     params->read_hash_value(kPart, &part, 1);
     script::Struct* slot = appearance_part(profile, part);
     if (slot) {
-        float u = 0.0f, v = 0.0f, scale = 0.0f, rotation = 0.0f;
+        float u = 0.0f;
+        float v = 0.0f;
+        float scale = 0.0f;
+        float rotation = 0.0f;
         int use_default = 0;
         params->fetch_float(kUvU, &u, 1);
         params->fetch_float(kUvV, &v, 1);

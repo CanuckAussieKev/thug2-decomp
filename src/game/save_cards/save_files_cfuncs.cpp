@@ -451,7 +451,9 @@ void mark_corrupt(Struct* entry, uint32_t text)
 // 0x005A8F70
 bool get_mem_card_directory_listing(Struct* params, Script* script)
 {
-    constexpr uint32_t kDirectoryListing = 0xD8580FB5, kFilesLimitReached = 0x4EEC27B5, kTotalFiles = 0x56B7A7F6;
+    constexpr uint32_t kDirectoryListing = 0xD8580FB5;
+    constexpr uint32_t kFilesLimitReached = 0x4EEC27B5;
+    constexpr uint32_t kTotalFiles = 0x56B7A7F6;
     script->args().get()->erase_module(kDirectoryListing);
     script->args().get()->erase_module(kFilesLimitReached);
     script->args().get()->erase_module(kTotalFiles);
@@ -511,7 +513,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         else
             text::format_to(path, "Save/%s", file->label().data());
         entry->append_word(kActualFileName, path.data()); // actual_file_name
-        constexpr uint32_t kDamagedFile = 0x2C7CD632, kNgcDamagedFile = 0xFD4AA64E;
+        constexpr uint32_t kDamagedFile = 0x2C7CD632;
+        constexpr uint32_t kNgcDamagedFile = 0xFD4AA64E;
         FileLoad* opened = card->unseal(path.data(), 1, 0);
         if (!opened) {
             mark_corrupt(entry, kDamagedFile);

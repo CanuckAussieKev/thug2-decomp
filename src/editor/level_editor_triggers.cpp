@@ -166,7 +166,8 @@ bool same_text(const std::string& a, const std::string& b)
     if (a.size() != b.size())
         return false;
     for (size_t i = 0; i < a.size(); ++i) {
-        char x = core::at(a, i), y = core::at(b, i);
+        char x = core::at(a, i);
+        char y = core::at(b, i);
         if (x >= 'A' && x <= 'Z')
             x = static_cast<char>(x - 'A' + 'a');
         if (y >= 'A' && y <= 'Z')
@@ -806,9 +807,20 @@ bool read_record(const std::string& line, Placed* placed)
     std::string word;
     if (!(in >> s.name >> word) || !valid_name(s.name) || !kind_from_word(word, &s.kind) || s.kind == Kind::kOther)
         return false;
-    bool have_pos = false, have_yaw = false, have_size = false, have_target = false, have_water = false,
-         have_script = false, have_gap = false, have_flags = false, have_score = false, have_replaces = false,
-         have_exit = false, have_strength = false, have_sound = false, have_seconds = false;
+    bool have_pos = false;
+    bool have_yaw = false;
+    bool have_size = false;
+    bool have_target = false;
+    bool have_water = false;
+    bool have_script = false;
+    bool have_gap = false;
+    bool have_flags = false;
+    bool have_score = false;
+    bool have_replaces = false;
+    bool have_exit = false;
+    bool have_strength = false;
+    bool have_sound = false;
+    bool have_seconds = false;
     s.score = kDefaultGapScore;
     auto once = [](bool* seen) {
         if (*seen)
@@ -953,8 +965,12 @@ bool read_proxim_record(const std::string& line, ProximEdit* edit)
     if (!(in >> word) || word.size() != kHexNameDigits || word.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
         return false;
     edit->node = static_cast<uint32_t>(std::strtoul(word.c_str(), nullptr, kHexBase));
-    bool have_enter = false, have_exit = false, have_shape = false, have_radius = false, have_size = false,
-         have_offset = false;
+    bool have_enter = false;
+    bool have_exit = false;
+    bool have_shape = false;
+    bool have_radius = false;
+    bool have_size = false;
+    bool have_offset = false;
     auto once = [](bool* seen) {
         if (*seen)
             return false;
@@ -1153,7 +1169,8 @@ bool node_place(const std::string& name, V3* pos, float* yaw)
         level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(hash_of_name(name), false) : nullptr;
     if (!node)
         return false;
-    maths::Vec4 p = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}, a = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    maths::Vec4 p = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 a = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     level_nodes::fetch_place(node, &p);
     level_nodes::read_turn_angles(node, &a);
     *pos = {.x = p.x, .y = p.y, .z = p.z};
@@ -1550,7 +1567,8 @@ bool break_place(const Spec& spec, BreakPlace place)
     OrientedBox box{};
     if (!piece || !scenery::cuboid(piece, &box))
         return false;
-    V3 min{}, max{};
+    V3 min{};
+    V3 max{};
     bounds_of(box, &min, &max);
     *pos = (min + max) * kHalf;
     *size = clamp_size((max - min) + V3{.x = kBreakBoxGrowth, .y = kBreakBoxGrowth, .z = kBreakBoxGrowth});
@@ -1685,7 +1703,8 @@ void get_sync()
             a.calls = calls_of(checksum_of(spec.script));
         if (spec.kind == Kind::kBreak && a.alive) {
             // (its box is its piece's, wherever the piece is now; none while the piece is gone)
-            V3 pos{}, size{};
+            V3 pos{};
+            V3 size{};
             if (break_place(spec, {.pos = &pos, .size = &size})) {
                 a.pos = pos;
                 a.yaw = 0.0f;
@@ -2118,7 +2137,8 @@ void append_script()
 
 void register_gap_entry()
 {
-    Placed start, end;
+    Placed start;
+    Placed end;
     const std::string gap = fresh_gap();
     start.spec.name = node_create::fresh_name("ed_trigger", name_taken);
     start.spec.kind = Kind::kGapStart;
@@ -2329,7 +2349,8 @@ struct Painter {
 
     bool get_to_pixel(V3 p, float* x, float* y) const
     {
-        float nx = 0.0f, ny = 0.0f;
+        float nx = 0.0f;
+        float ny = 0.0f;
         if (!cast_onto(camera, *frame, *lens, p, near_z_, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -2339,7 +2360,10 @@ struct Painter {
     {
         if (!clip_to_near(camera, *frame, near_z_ + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (get_to_pixel(a, &ax, &ay) && get_to_pixel(b, &bx, &by))
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     }
@@ -2358,10 +2382,15 @@ struct Painter {
     void get_arrow(V3 a, V3 b, uint32_t argb) const
     {
         get_seg(a, b, argb, kOverlayLineThickness);
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (!get_to_pixel(a, &ax, &ay) || !get_to_pixel(b, &bx, &by))
             return;
-        float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
+        float dx = bx - ax;
+        float dy = by - ay;
+        float const length = std::sqrt(dx * dx + dy * dy);
         if (length < kMinArrowLength)
             return;
         dx /= length;
@@ -2453,7 +2482,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
         if (labels >= kMaxLabels)
             return;
-        float x = 0.0f, y = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
         if (paint.get_to_pixel(at, &x, &y)) {
             texts->push_back({.x = x, .y = y, .argb = argb, .text = text});
             ++labels;
@@ -2538,14 +2568,16 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
     const auto selected_node = extras_pick.selected_node_;
     Painter paint = {.camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z, .lines = lines};
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
-        float x = 0.0f, y = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
         if (paint.get_to_pixel(at, &x, &y))
             texts->push_back({.x = x, .y = y, .argb = argb, .text = text});
     };
     const V3 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
     // Rail speed-ups: chevrons along each segment pointing uphill (where they speed the skater up), 60 apart.
     for (const chains::SpeedSegment& s : chains::speed_segments(camera, 3000.0f)) {
-        V3 a = s.a, b = s.b;
+        V3 a = s.a;
+        V3 b = s.b;
         if (b.y < a.y)
             std::swap(a, b);
         const V3 d = b - a;
@@ -2821,7 +2853,10 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
         return;
     for (int h = 0; h < kHandleCount; ++h) {
         const V3 p = handle_point(shape.pos, shape.yaw, shape.size, h);
-        float nx = 0.0f, ny = 0.0f, x = 0.0f, y = 0.0f;
+        float nx = 0.0f;
+        float ny = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
         if (!cast_onto(last_view().camera, last_view().frame, last_view().lens, p, last_view().near_z_, &nx, &ny))
             continue;
         ndc_to_pixel(last_view().viewport, nx, ny, &x, &y);
@@ -2835,7 +2870,8 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
 
 int handle_at(maths::Vec2 at, float radius)
 {
-    const float x = at.x, y = at.y;
+    const float x = at.x;
+    const float y = at.y;
     int best = -1;
     float best_distance = radius;
     for (const DrawnHandle& d : trigger_handles().drawn_handles_) {
@@ -2889,7 +2925,8 @@ void rescale(V3 origin, V3 dir, bool snap)
     const float size0 = axis == 0 ? resize_drag().size0.x : axis == 1 ? resize_drag().size0.y : resize_drag().size0.z;
     if (snap)
         along = snap_to_grid(size0 + along, kResizeSnapGrid) - size0;
-    V3 pos{}, size{};
+    V3 pos{};
+    V3 size{};
     resize_face(resize_drag().pos0, resize_drag().yaw, resize_drag().size0, {.handle = resize_drag().handle, .along = along}, {.new_pos_ = &pos, .new_size_ = &size});
     if (resize_drag().proxim) {
         // (a proximity node: a sphere's radius grows by what the face moved, about its middle; a box as a trigger's -
@@ -2959,7 +2996,8 @@ void fire_on_leaving(objects::Entity* skater, uint32_t node)
         return;
     if (modules::Skate::should_be_absent(s))
         return;
-    static const uint32_t kOnlineFlag = get_checksums("NetEnabled"), kPermanent = get_checksums("Permanent");
+    static const uint32_t kOnlineFlag = get_checksums("NetEnabled");
+    static const uint32_t kPermanent = get_checksums("Permanent");
     skater->start_script_task(script, static_cast<int>(node), s->has_bare_flag(kOnlineFlag),
                               s->has_bare_flag(kPermanent), nullptr);
     if (debug_enabled())
@@ -3082,7 +3120,8 @@ std::vector<Placed> capture_added()
         p.spec = spec;
         if (!node_alive(spec.name) || !node_place(spec.name, &p.pos, &p.yaw))
             continue;
-        V3 pos{}, size{};
+        V3 pos{};
+        V3 size{};
         if (spec.kind == Kind::kBreak && break_place(spec, {.pos = &pos, .size = &size})) {
             // (a breakable's box is its piece's where it is now - what the bake makes)
             p.pos = pos;

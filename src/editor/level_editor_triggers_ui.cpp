@@ -179,7 +179,8 @@ void proxim_section(uint32_t node)
     gui::text_disabled("Scripts run on enter and exit");
     static std::array<char, kTextBufferSize> g_enter_buffer;
     static std::array<char, kTextBufferSize> g_exit_buffer;
-    static bool g_enter_editing, g_exit_editing;
+    static bool g_enter_editing;
+    static bool g_exit_editing;
     bool changed = false;
     changed |= name_combo("On entering", &e.enter, level_editor_triggers_ui_state().scripts_);
     changed |= name_field("Or by name##enter", &e.enter, g_enter_buffer.data(), sizeof(g_enter_buffer), &g_enter_editing);
@@ -455,7 +456,9 @@ void inspector_section(int index)
     static std::array<char, kTextBufferSize> target;
     static std::array<char, kTextBufferSize> script;
     static std::array<char, kTextBufferSize> text;
-    static bool g_target_editing, g_script_editing, g_text_editing;
+    static bool g_target_editing;
+    static bool g_script_editing;
+    static bool g_text_editing;
     switch (s.kind) {
     case Kind::kKill:
         changed |= name_combo("Restart", &s.target, level_editor_triggers_ui_state().restarts_);

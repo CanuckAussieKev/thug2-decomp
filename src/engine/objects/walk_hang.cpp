@@ -194,7 +194,8 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
         maths::Mat4 to_local{};
         object_matrix_of(component, &to_local);
         to_local.upend();
-        maths::Vec4 local_start{}, local_end{};
+        maths::Vec4 local_start{};
+        maths::Vec4 local_end{};
         to_local.xform(local_start, *start);
         to_local.xform(local_end, *end);
         get_rails_of(walk) = rail_manager_of(component);
@@ -443,7 +444,8 @@ bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const RailHit& 
 void objects::FootMovement::face_hang_rail(float distance, bool from_end, const maths::Vec4* direction)
 {
     objects::GrindRailHub* rails = get_rails_of(this);
-    maths::Vec4 a{}, b{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
     rails->get_absolute_pos(&a, hang_next_node_);
     rails->get_absolute_pos(&b, hang_node_);
     const maths::Vec4 d = {.x = b.x - a.x, .y = b.y - a.y, .z = b.z - a.z, .w = b.w - a.w};
@@ -488,7 +490,8 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
 {
     objects::GrindRailHub* rails = get_rails_of(this);
     auto grabbable = [rails](objects::GrindPoint* from, objects::GrindPoint* to) {
-        maths::Vec4 a{}, b{};
+        maths::Vec4 a{};
+        maths::Vec4 b{};
         rails->get_absolute_pos(&b, to);
         rails->get_absolute_pos(&a, from);
         return objects::rail_clear(a, b);
@@ -520,7 +523,8 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
     }
     // a joining rail: does it run on the same way?
     const bool same_way = objects::nodes_together(joining, end) || objects::nodes_together(joining->succ(), start);
-    maths::Vec4 a{}, b{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
     rails->get_absolute_pos(&a, start);
     rails->get_absolute_pos(&b, end);
     maths::Vec4 here = {.x = b.x - a.x, .y = b.y - a.y, .z = b.z - a.z, .w = b.w - a.w};
@@ -530,7 +534,9 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
     rails->get_absolute_pos(&b, joined_next);
     maths::Vec4 there = {.x = b.x - a.x, .y = b.y - a.y, .z = b.z - a.z, .w = b.w - a.w};
     there.make_unit();
-    double tx = there.x, ty = there.y, tz = there.z;
+    double tx = there.x;
+    double ty = there.y;
+    double tz = there.z;
     if (!same_way) {
         tx *= -1.0f;
         ty *= -1.0f;
@@ -736,7 +742,8 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
         const objects::GrindPoint* next_end = onto_rail.end;
         if (onto_next) {
             const float sign = along > 0.5f ? -1.0f : 1.0f;
-            maths::Vec4 a{}, b{};
+            maths::Vec4 a{};
+            maths::Vec4 b{};
             get_rails_of(this)->get_absolute_pos(&a, next_end);
             get_rails_of(this)->get_absolute_pos(&b, next_start);
             const double dw = static_cast<double>(b.w) - a.w;
@@ -816,7 +823,9 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
 void objects::FootMovement::place_on_hang()
 {
     GrindRailHub* rails = get_rails_of(this);
-    maths::Vec4 a{}, b{}, point{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
+    maths::Vec4 point{};
     const maths::Vec4* end_pos = rails->get_absolute_pos(&a, hang_next_node_);
     const maths::Vec4* start_pos = rails->get_absolute_pos(&b, hang_node_);
     maths::Vec4& pos = pos_;
@@ -871,7 +880,8 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     rail->point = *point;
     const GrindPoint* node = rail->node;
     const maths::Vec4 side = {.x = -rail->facing.z, .y = 0.0f, .z = rail->facing.x, .w = 1.0f};
-    maths::Vec4 a{}, b{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
     const maths::Vec4* next_pos = get_rails_of(this)->get_absolute_pos(&a, node->succ());
     const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&b, rail->node);
     const maths::Vec4 segment = {.x = node_pos->x - next_pos->x, .y = node_pos->y - next_pos->y, .z = node_pos->z - next_pos->z,
@@ -931,7 +941,8 @@ void objects::FootMovement::shimmy(float move)
     const maths::Vec4 old_facing = facing;
 
     const maths::Vec4 side = {.x = -facing.z, .y = 0.0f, .z = facing.x, .w = 1.0f};
-    maths::Vec4 a{}, b{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
     const maths::Vec4* end_pos = get_rails_of(this)->get_absolute_pos(&a, end);
     const maths::Vec4* start_pos = get_rails_of(this)->get_absolute_pos(&b, start);
     const maths::Vec4 segment = {.x = start_pos->x - end_pos->x, .y = start_pos->y - end_pos->y, .z = start_pos->z - end_pos->z,
@@ -1204,7 +1215,8 @@ void objects::FootMovement::end_onto_ladder_bottom()
 {
     GrindPoint* node = hang_node_;
     const GrindPoint* other = ladder_other_end(node);
-    maths::Vec4 a{}, b{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
     const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
     const maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
     const float dx = other_pos->x - node_pos->x;
@@ -1223,7 +1235,8 @@ void objects::FootMovement::end_onto_ladder_top()
 {
     GrindPoint* node = hang_node_;
     const GrindPoint* other = ladder_other_end(node);
-    maths::Vec4 a{}, b{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
     const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
     const maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
     const double dx = static_cast<double>(other_pos->x) - node_pos->x;
@@ -1501,7 +1514,8 @@ void objects::FootMovement::climb_ladder()
     auto move = static_cast<float>(move_speed * frame_length_);
     GrindPoint* node = hang_node_;
     const GrindPoint* other = ladder_other_end(node);
-    maths::Vec4 a{}, b{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
     const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
     const maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
     const maths::Vec4 d = {.x = other_pos->x - node_pos->x, .y = other_pos->y - node_pos->y, .z = other_pos->z - node_pos->z,

@@ -181,7 +181,9 @@ std::string write_record(const LinkRecord& record)
 bool read_record(std::istringstream& in, LinkRecord* record)
 {
     *record = LinkRecord{};
-    std::string kind, source, members;
+    std::string kind;
+    std::string source;
+    std::string members;
     if (!(in >> kind >> source >> members))
         return false;
     if (kind != "sector" && kind != "object")

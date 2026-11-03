@@ -195,7 +195,8 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         const int index = skeleton->fetch_bone_slot(bone);
         const Joint* bone_state = skeleton->get_bone(index);
         maths::Mat4 pose = core::at(skeleton->matrices(), index);
-        maths::Mat4 at{}, parent{};
+        maths::Mat4 at{};
+        maths::Mat4 parent{};
         world_matrix(&at, {.inverse_bind_ = &core::at(inverse_binds, index), .pose = &pose, .world = world});
         pose = *bone_state->parent;
         parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
@@ -230,7 +231,8 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         if (scale > 0.0f)
             radius *= scale;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), parent, static_cast<float>(radius + extra_radius));
-        float hit_t = 0.0f, distance_squared = 0.0f;
+        float hit_t = 0.0f;
+        float distance_squared = 0.0f;
         if (capsule.intersects_segment(*segment, {.s = nullptr, .t = &hit_t, .squared_gap_ = &distance_squared}) &&
             (!hit || distance_squared < nearest)) {
             hit = bone_state->name;
@@ -253,7 +255,8 @@ bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint3
     const int index = skeleton->fetch_bone_slot(bone);
     const Joint* bone_state = skeleton->get_bone(index);
     maths::Mat4 pose = core::at(skeleton->matrices(), index);
-    maths::Mat4 at{}, parent{};
+    maths::Mat4 at{};
+    maths::Mat4 parent{};
     world_matrix(&at, {.inverse_bind_ = &core::at(inverse_binds, index), .pose = &pose, .world = world});
     pose = *bone_state->parent;
     parent_world_matrix(&parent, data, inverse_binds, index, pose, world);

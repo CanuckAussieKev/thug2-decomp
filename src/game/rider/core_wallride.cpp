@@ -139,7 +139,8 @@ void SkaterPhysicsModule::step_wall_ride()
 
     // Up the wall: the wall's level tangent (normalised) crossed with its normal.
     const maths::Vec4& wall = wall_normal_;
-    double tangent_z = wall.z, tangent_x = -static_cast<double>(wall.x);
+    double tangent_z = wall.z;
+    double tangent_x = -static_cast<double>(wall.x);
     float tangent_y = 0.0f;
     const double tangent_length = std::sqrt(tangent_z * tangent_z + tangent_x * tangent_x);
     if (tangent_length > 0.0) {

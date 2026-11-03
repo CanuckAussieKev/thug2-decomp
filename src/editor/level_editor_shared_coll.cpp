@@ -226,7 +226,8 @@ void Companion::change_tri_flags(int face, render::FaceFlag flags)
 void Companion::update_box()
 {
     // (as the loaded geometries keep it: w = 1 - Translate moves w by the delta's 0)
-    V3 lo = base_.empty() ? V3{.x = 0, .y = 0, .z = 0} : get_vertex(0), hi = lo;
+    V3 lo = base_.empty() ? V3{.x = 0, .y = 0, .z = 0} : get_vertex(0);
+    V3 hi = lo;
     for (size_t i = 1; i < base_.size(); ++i) {
         const V3 v = get_vertex(static_cast<int>(i));
         lo = {.x = std::min(lo.x, v.x), .y = std::min(lo.y, v.y), .z = std::min(lo.z, v.z)};
@@ -422,7 +423,8 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
     std::vector<FaceCopy> faces;
     render::WorldCell* sector = scenery::sector_of(checksum);
     render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
-    V3 min{}, max{};
+    V3 min{};
+    V3 max{};
     if (!geom || scenery::get_see_through(checksum) || !current_bounds(checksums::Name{checksum}, kNear, &min, &max))
         return faces;
     const auto& named_objects = get_named_objects();
@@ -445,7 +447,8 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             render::PcGeom* geom = geom_of(sector);
             if (other == c->self || !geom || scenery::is_clone(other) || scenery::get_see_through(other))
                 return;
-            V3 lo{}, hi{};
+            V3 lo{};
+            V3 hi{};
             if (!current_bounds(checksums::Name{other}, kNear, &lo, &hi))
                 return;
             if (lo.x > c->max.x || hi.x < c->min.x || lo.y > c->max.y || hi.y < c->min.y || lo.z > c->max.z ||
@@ -535,7 +538,9 @@ void tick_grid(void* grid, const std::vector<render::HitMesh*>& added, const std
 {
     if (!grid || (added.empty() && removed.empty() && moved.empty()))
         return;
-    GridList added_list(added), removed_list(removed), moved_list(moved);
+    GridList added_list(added);
+    GridList removed_list(removed);
+    GridList moved_list(moved);
     memory::enter_heap_scope(memory::top_down_heap());
     static_cast<render::CollGrid*>(grid)->tick_frame(&added_list.head(), &removed_list.head(), &moved_list.head());
     memory::leave_heap_scope();
@@ -657,7 +662,8 @@ void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t c
 
 void finalise(render::WorldScene* scene)
 {
-    std::vector<render::HitMesh*> added, moved;
+    std::vector<render::HitMesh*> added;
+    std::vector<render::HitMesh*> moved;
     void* grid = nullptr;
     for (auto it = entries().begin(); it != entries().end();) {
         auto next = std::next(it);
@@ -680,7 +686,8 @@ void finalise(render::WorldScene* scene)
 
 int total_of(int* faces)
 {
-    int pieces = 0, total = 0;
+    int pieces = 0;
+    int total = 0;
     for (const auto& entry : entries()) {
         if (entry.second.companion) {
             ++pieces;

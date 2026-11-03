@@ -434,7 +434,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         break;
     }
     case 1: {
-        float height = kBoxHeight, depth = kBoxDepth;
+        float height = kBoxHeight;
+        float depth = kBoxDepth;
         params->fetch_float(kHeight, &height, 0); // height
         params->fetch_float(kDepth, &depth, 0);  // depth
         height = height * kHalf;
@@ -443,7 +444,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         break;
     }
     case 2: {
-        float radius = kCylinderRadius, height = kCylinderHeight;
+        float radius = kCylinderRadius;
+        float height = kCylinderHeight;
         int edges = kCylinderEdges;
         params->fetch_float(kRadius, &radius, 0); // radius
         float bottom_radius = radius;
@@ -597,7 +599,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     auto r = [this](int row, int c) {
         return static_cast<double>(core::at(basis_frame_.row, row)[c]);
     };
-    const double ox = model_offset_.x, oy = model_offset_.y, oz = model_offset_.z;
+    const double ox = model_offset_.x;
+    const double oy = model_offset_.y;
+    const double oz = model_offset_.z;
     const double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);
     const double ty = (r(2, 1) * oz + r(1, 1) * oy) + r(0, 1) * ox;
     auto tz = static_cast<float>((r(2, 2) * oz + r(1, 2) * oy) + r(0, 2) * ox);

@@ -93,7 +93,8 @@ int get_combined(const std::vector<bool>& offs)
 {
     if (offs.empty())
         return -1;
-    bool any_off = false, any_on = false;
+    bool any_off = false;
+    bool any_on = false;
     for (const bool off : offs)
         (off ? any_off : any_on) = true;
     return any_off && any_on ? 2 : any_off ? 0 : 1;
@@ -234,14 +235,16 @@ bool cuboid(uint32_t checksum, V3* min, V3* max)
 
 V3 get_pivot(uint32_t checksum)
 {
-    V3 min = {}, max = {};
+    V3 min = {};
+    V3 max = {};
     cuboid(checksum, &min, &max);
     return (min + max) * kHalf;
 }
 
 float get_bottom(uint32_t checksum)
 {
-    V3 min = {}, max = {};
+    V3 min = {};
+    V3 max = {};
     cuboid(checksum, &min, &max);
     return min.y;
 }

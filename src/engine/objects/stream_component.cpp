@@ -118,8 +118,12 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
         room = room || !stream;
     if (!room)
         return false;
-    float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
-    int priority = kDefaultPriority, loops = 0, falloff = 0;
+    float volume = 100.0f;
+    float pitch = 100.0f;
+    float dropoff = 0.0f;
+    int priority = kDefaultPriority;
+    int loops = 0;
+    int falloff = 0;
     uint32_t id = 0;
     params->fetch_float(kVol, &volume, 0);       // vol
     params->fetch_float(kPitch, &pitch, 0);        // pitch

@@ -235,7 +235,8 @@ void load_pre(const char* name)
     pre_format::PatchHeader patch_header;
     bool patched = false;
     uint8_t* block = nullptr;
-    unsigned int file_size = 0, allocated = 0;
+    unsigned int file_size = 0;
+    unsigned int allocated = 0;
     size_t archive_size = 0; // (not original: the archive's bytes in the block, the bound for its reader)
     bool loaded = false;
     const char letter = game_config::get_language() == 3 ? 'f' : game_config::get_language() == 5 ? 'd' : '\0';

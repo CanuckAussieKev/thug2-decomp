@@ -151,7 +151,9 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
         if ((node->flag_bits() & objects::kRailFlagLadder) || !(node->flag_bits() & objects::kRailFlagActive) ||
             !node->succ())
             continue;
-        maths::Vec4 a, b, at;
+        maths::Vec4 a;
+        maths::Vec4 b;
+        maths::Vec4 at;
         rails->get_absolute_pos(&a, node);
         rails->get_absolute_pos(&b, node->succ());
         float score = 0.0f;
@@ -255,8 +257,10 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
 {
     const maths::Seg line(start, end);
     const maths::Seg rail(a, b);
-    maths::Vec4 on_line, on_rail;
-    float s = 0.0f, t = 0.0f;
+    maths::Vec4 on_line;
+    maths::Vec4 on_rail;
+    float s = 0.0f;
+    float t = 0.0f;
     if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true)) {
         // (along the line, or a rail of no length: the rail's point nearest the line's start)
         const maths::Vec4 along = b - a;
@@ -593,13 +597,15 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
 
 int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* params, script::Script*)
 {
-    static const uint32_t kDisplayPitch = name_hash("DisplayPitchGreaterThan"),
-                          kLandedFromTap = name_hash("LandedFromTireTap"), kInTireTap = name_hash("InTireTap"),
-                          kPitchingForward = name_hash("PitchingForward"),
-                          kPitchingBackward = name_hash("PitchingBackward"),
-                          kShouldStall = name_hash("ShouldRunStallScript"),
-                          kClearStall = name_hash("ClearStallScriptFlag"),
-                          kExitStallBoost = name_hash("ExitStallBoost"), kOnStall = name_hash("OnStall");
+    static const uint32_t kDisplayPitch = name_hash("DisplayPitchGreaterThan");
+    static const uint32_t kLandedFromTap = name_hash("LandedFromTireTap");
+    static const uint32_t kInTireTap = name_hash("InTireTap");
+    static const uint32_t kPitchingForward = name_hash("PitchingForward");
+    static const uint32_t kPitchingBackward = name_hash("PitchingBackward");
+    static const uint32_t kShouldStall = name_hash("ShouldRunStallScript");
+    static const uint32_t kClearStall = name_hash("ClearStallScriptFlag");
+    static const uint32_t kExitStallBoost = name_hash("ExitStallBoost");
+    static const uint32_t kOnStall = name_hash("OnStall");
     if (name == kDisplayPitch) {
         // 0x005CA490: the model's display up (the model component's matrix: THUG2's model draws
         // with the display matrix) against the GROUND normal (+0x68 - phase 4 took THAW's +0x68 for the display

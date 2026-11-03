@@ -308,7 +308,8 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
     at = maths::Vec4{.x = core::at(emit_target_, 0), .y = core::at(emit_target_, 1), .z = core::at(emit_target_, 2), .w = 1.0f};
     at.make_unit();
     // across: up x the target (along x when the target is nearly up); then the second row across both (x87, 53 bits)
-    double up = 1.0, along = 0.0;
+    double up = 1.0;
+    double along = 0.0;
     if (std::fabs(at.y) > kNearlyUp) {
         up = 0.0;
         along = 1.0;

@@ -132,9 +132,12 @@ void DynamicLightComponent::tick_frame()
     // The life's fraction.
     const auto* life = wait_and_die_;
     double t = as_unsigned(life->elapsed()) / as_unsigned(life->lifespan());
-    uint32_t from_color = start_color_, to_color = end_color_;
-    float from_radius = start_radius_, to_radius = end_radius_;
-    float from_intensity = start_intensity_, to_intensity = end_intensity_;
+    uint32_t from_color = start_color_;
+    uint32_t to_color = end_color_;
+    float from_radius = start_radius_;
+    float to_radius = end_radius_;
+    float from_intensity = start_intensity_;
+    float to_intensity = end_intensity_;
     auto middle_bits = std::bit_cast<uint32_t>(middle_time_);
     if (middle_bits != kNoMiddle) {
         if (t <= middle_time_) {

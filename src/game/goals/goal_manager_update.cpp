@@ -81,7 +81,8 @@ void GoalManager::update_time_display()
         if (!goal->shows_clock())
             continue;
         const int time = goal->get_seconds_remaining();
-        int minutes = 0, seconds = 0;
+        int minutes = 0;
+        int seconds = 0;
         if (time > 0) {
             minutes = time / kMillisecondsPerMinute;
             seconds = (time - minutes * kMillisecondsPerMinute) / kMillisecondsPerSecond;
@@ -137,7 +138,8 @@ void GoalManager::append_objective_list_entries()
     ordered->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kName);
     unordered->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kName);
     // The goals with a place in the list first, then the others.
-    int num_ordered = 0, num_unordered = 0;
+    int num_ordered = 0;
+    int num_unordered = 0;
     for (int i = 0; i < count; ++i) {
         uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);

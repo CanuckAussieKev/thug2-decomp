@@ -550,7 +550,8 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     }
     const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
     if (indices && indices->indices() && core::at(mesh->index_counts(), 0) >= 3) {
-        double world = 0.0, texture = 0.0;
+        double world = 0.0;
+        double texture = 0.0;
         const std::span<const uint16_t> index_run(indices->indices(), core::at(mesh->index_counts(), 0));
         for (uint32_t i = 0; i + 1 < core::at(mesh->index_counts(), 0); ++i) {
             const uint16_t a = core::at(index_run, i);

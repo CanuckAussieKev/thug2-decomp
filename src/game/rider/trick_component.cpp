@@ -126,7 +126,8 @@ uint32_t get_now() { return frame_clock::get_time(); }
 int compare_no_case(const char* a, const char* b)
 {
     for (core::CStringCursor at_a(a), at_b(b);; ++at_a, ++at_b) {
-        int x = static_cast<unsigned char>(*at_a), y = static_cast<unsigned char>(*at_b);
+        int x = static_cast<unsigned char>(*at_a);
+        int y = static_cast<unsigned char>(*at_b);
         if (x >= 'A' && x <= 'Z')
             x += 'a' - 'A';
         if (y >= 'A' && y <= 'Z')
@@ -315,7 +316,10 @@ bool MoveExecutor::find_press_both(uint32_t first, uint32_t second, MoveExecutor
 {
     const auto ms = press_window.ms;
     const auto mask = press_window.mask;
-    bool got_first = false, got_second = false, any = false, found = false;
+    bool got_first = false;
+    bool got_second = false;
+    bool any = false;
+    bool found = false;
     for_each_event(this, [&](int, TrickEvent& e) {
         const uint32_t time = e.time;
         if (get_now() - time >= ms)
@@ -377,8 +381,10 @@ void MoveExecutor::hold_off_button(int index, float until)
 // 0x0051F9B0
 bool MoveExecutor::check_spin_sequence(const std::array<uint32_t, 3>& buttons, bool any)
 {
-    int state = 0, second = 0;
-    bool found = false, failed = false;
+    int state = 0;
+    int second = 0;
+    bool found = false;
+    bool failed = false;
     for_each_event(this, [&](int index, TrickEvent& e) {
         const uint32_t time = e.time;
         if (get_now() - time >= kSecond) {
@@ -959,7 +965,8 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
     case kReleaseTwo: { // ReleaseTwo: both released (either order; scanning back from the newest, a press of the one
                        // whose release came first rules it out)
         uint32_t ms = read_trigger(node, 2, buttons);
-        bool got0 = false, got1 = false;
+        bool got0 = false;
+        bool got1 = false;
         Scan scan = Scan::kIsOver;
         for_each_event(this, [&](int, TrickEvent& e) {
             const uint32_t time = e.time;
@@ -991,7 +998,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
     }
     case kReleaseTwoAndPress: { // ReleaseTwoAndPress: the first and second released and the third pressed (as ReleaseTwo)
         uint32_t ms = read_trigger(node, 3, buttons);
-        bool got0 = false, got1 = false, got2 = false;
+        bool got0 = false;
+        bool got1 = false;
+        bool got2 = false;
         Scan scan = Scan::kIsOver;
         for_each_event(this, [&](int, TrickEvent& e) {
             const uint32_t time = e.time;
@@ -1028,7 +1037,8 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
     }
     case kPressTwoAnyOrder: { // PressTwoAnyOrder: both pressed (either order, no release of either between); never clears
         uint32_t ms = read_trigger(node, 2, buttons);
-        bool got0 = false, got1 = false;
+        bool got0 = false;
+        bool got1 = false;
         Scan scan = Scan::kStopped;
         for_each_event(this, [&](int, TrickEvent& e) {
             const uint32_t time = e.time;

@@ -492,7 +492,9 @@ void load_once()
                 our_keys().insert(path_key(path));
         }
     }
-    int added = 0, lists = 0, skipped = 0;
+    int added = 0;
+    int lists = 0;
+    int skipped = 0;
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(manager->script_heap());
     for (const Target& target : targets) {

@@ -121,12 +121,14 @@ void BuildPointer::get_marquee_bounds(CellBox* area) const
         area->assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
         return;
     }
-    uint8_t low_x = area_start_.x, high_x = area_last_.x;
+    uint8_t low_x = area_start_.x;
+    uint8_t high_x = area_last_.x;
     if (high_x < low_x) {
         low_x = area_last_.x;
         high_x = area_start_.x;
     }
-    uint8_t low_z = area_start_.z, high_z = area_last_.z;
+    uint8_t low_z = area_start_.z;
+    uint8_t high_z = area_last_.z;
     if (high_z < low_z) {
         low_z = area_last_.z;
         high_z = area_start_.z;

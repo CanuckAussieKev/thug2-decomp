@@ -246,7 +246,8 @@ void turn_by_stick(double angle, Xz* xz)
 {
     const double sine = static_cast<float>(std::sin(angle));
     const double cosine = std::cos(angle);
-    const double old_x = xz->x, old_z = xz->z;
+    const double old_x = xz->x;
+    const double old_z = xz->z;
     xz->x = static_cast<float>(old_z * sine + cosine * old_x);
     xz->z = static_cast<float>(old_z * cosine - sine * old_x);
 }
@@ -270,8 +271,10 @@ Fov refresh_fov(const FovIn& in)
     const float factor = in.factor;
     const float divisor = in.divisor;
     const float default_angle = in.base;
-    const float to_half_radians = std::bit_cast<float>(0x3C0EFA35u), to_degrees = std::bit_cast<float>(0x42E52EE0u),
-                half = 0.5f, to_radians = std::bit_cast<float>(0x3C8EFA35u);
+    const auto to_half_radians = std::bit_cast<float>(0x3C0EFA35u);
+    const auto to_degrees = std::bit_cast<float>(0x42E52EE0u);
+    const float half = 0.5f;
+    const auto to_radians = std::bit_cast<float>(0x3C8EFA35u);
     const auto half_angle = static_cast<float>(static_cast<double>(h_fov) * to_half_radians);
     const double angle = std::atan(factor * (std::tan(static_cast<double>(half_angle)) / divisor)) * to_degrees;
     const auto tan_adjusted = static_cast<float>(std::tan(angle * to_half_radians));
@@ -309,9 +312,15 @@ struct Skin {
 void skin(const Skin& v, float* out_floats)
 {
     const std::span<float, 3> out(out_floats, 3);
-    const float ax = core::at(v.p, 0) + core::at(v.e0, 0) * core::at(v.a, 0), ay = core::at(v.p, 1) + core::at(v.e0, 2) * core::at(v.a, 1), az = core::at(v.p, 2) + core::at(v.e0, 1) * core::at(v.a, 2);
-    const float bx = core::at(v.q, 0) + core::at(v.e1, 0) * core::at(v.b, 0), by = core::at(v.q, 1) + core::at(v.e1, 2) * core::at(v.b, 1), bz = core::at(v.q, 2) + core::at(v.e1, 1) * core::at(v.b, 2);
-    const float cx = core::at(v.r, 0) + core::at(v.e2, 0) * core::at(v.c, 0), cy = core::at(v.r, 1) + core::at(v.e2, 2) * core::at(v.c, 1), cz = core::at(v.r, 2) + core::at(v.e2, 1) * core::at(v.c, 2);
+    const float ax = core::at(v.p, 0) + core::at(v.e0, 0) * core::at(v.a, 0);
+    const float ay = core::at(v.p, 1) + core::at(v.e0, 2) * core::at(v.a, 1);
+    const float az = core::at(v.p, 2) + core::at(v.e0, 1) * core::at(v.a, 2);
+    const float bx = core::at(v.q, 0) + core::at(v.e1, 0) * core::at(v.b, 0);
+    const float by = core::at(v.q, 1) + core::at(v.e1, 2) * core::at(v.b, 1);
+    const float bz = core::at(v.q, 2) + core::at(v.e1, 1) * core::at(v.b, 2);
+    const float cx = core::at(v.r, 0) + core::at(v.e2, 0) * core::at(v.c, 0);
+    const float cy = core::at(v.r, 1) + core::at(v.e2, 2) * core::at(v.c, 1);
+    const float cz = core::at(v.r, 2) + core::at(v.e2, 1) * core::at(v.c, 2);
     core::at(out, 0) = ax * core::at(v.s, 0) + bx * core::at(v.s, 1) + cx * core::at(v.s, 2);
     core::at(out, 1) = ay * core::at(v.s, 0) + by * core::at(v.s, 1) + cy * core::at(v.s, 2);
     core::at(out, 2) = az * core::at(v.s, 0) + bz * core::at(v.s, 1) + cz * core::at(v.s, 2);
@@ -627,10 +636,12 @@ float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
     const double value = in.value;
     const float limit = in.limit;
     AsmFloat angle = 0.0f;
-    AsmDouble inv = 0.0, neg_inv = 0.0;
+    AsmDouble inv = 0.0;
+    AsmDouble neg_inv = 0.0;
     AsmWord16 status = 0;
     const void* function = asin_x87;
-    const float one = 1.0f, minus_one = -1.0f;
+    const float one = 1.0f;
+    const float minus_one = -1.0f;
     __asm {
         fld value
         call function
@@ -656,7 +667,8 @@ float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
 }
 void spin_by(double angle, double a, double b, double* rotated_a, double* rotated_b)
 {
-    AsmDouble ra = 0.0, rb = 0.0;
+    AsmDouble ra = 0.0;
+    AsmDouble rb = 0.0;
     __asm {
         fld angle
         fld st(0)
@@ -972,7 +984,9 @@ Xz turn_flat(double angle, Xz at)
 {
     const float x = at.x;
     const float z = at.z;
-    AsmFloat cosine = 0.0f, rx = 0.0f, rz = 0.0f;
+    AsmFloat cosine = 0.0f;
+    AsmFloat rx = 0.0f;
+    AsmFloat rz = 0.0f;
     __asm {
         fld angle
         fld st(0)
@@ -1030,15 +1044,18 @@ Fov refresh_fov(const FovIn& in)
     const float factor = in.factor;
     const float divisor = in.divisor;
     const float default_angle = in.base;
-    const float to_half_radians = std::bit_cast<float>(0x3C0EFA35u), to_degrees = std::bit_cast<float>(0x42E52EE0u),
-                half = 0.5f, to_radians = std::bit_cast<float>(0x3C8EFA35u);
+    const auto to_half_radians = std::bit_cast<float>(0x3C0EFA35u);
+    const auto to_degrees = std::bit_cast<float>(0x42E52EE0u);
+    const float half = 0.5f;
+    const auto to_radians = std::bit_cast<float>(0x3C8EFA35u);
     AsmFloat half_angle = 0.0f;
     __asm {
         fld h_fov
         fmul to_half_radians
         fstp half_angle
     }
-    AsmFloat adjusted = 0.0f, tan_adjusted = 0.0f;
+    AsmFloat adjusted = 0.0f;
+    AsmFloat tan_adjusted = 0.0f;
     __asm {
         fld factor
         fld half_angle
@@ -1108,15 +1125,47 @@ void versine_sine(float angle, double* out_t, float* out_s)
 void skin_memory(const fresh::Skin& v, float* out_floats)
 {
     const std::span<float, 3> out(out_floats, 3);
-    AsmFloat e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1), e1_8 = core::at(v.e1, 2);
-    AsmFloat e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2);
-    AsmFloat a_x = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), b_x = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2);
-    AsmFloat c_x = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2);
-    AsmFloat px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2);
-    AsmFloat rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2);
-    AsmFloat s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
-    AsmFloat t0 = 0.0f, t1 = 0.0f, v2 = 0.0f, w1 = 0.0f, w2 = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
-          out_y = 0.0f, out_z = 0.0f;
+    AsmFloat e0_0 = core::at(v.e0, 0);
+    AsmFloat e0_4 = core::at(v.e0, 1);
+    AsmFloat e0_8 = core::at(v.e0, 2);
+    AsmFloat e1_0 = core::at(v.e1, 0);
+    AsmFloat e1_4 = core::at(v.e1, 1);
+    AsmFloat e1_8 = core::at(v.e1, 2);
+    AsmFloat e2_0 = core::at(v.e2, 0);
+    AsmFloat e2_4 = core::at(v.e2, 1);
+    AsmFloat e2_8 = core::at(v.e2, 2);
+    AsmFloat a_x = core::at(v.a, 0);
+    AsmFloat ay = core::at(v.a, 1);
+    AsmFloat az = core::at(v.a, 2);
+    AsmFloat b_x = core::at(v.b, 0);
+    AsmFloat by = core::at(v.b, 1);
+    AsmFloat bz = core::at(v.b, 2);
+    AsmFloat c_x = core::at(v.c, 0);
+    AsmFloat cy = core::at(v.c, 1);
+    AsmFloat cz = core::at(v.c, 2);
+    AsmFloat px = core::at(v.p, 0);
+    AsmFloat py = core::at(v.p, 1);
+    AsmFloat pz = core::at(v.p, 2);
+    AsmFloat qx = core::at(v.q, 0);
+    AsmFloat qy = core::at(v.q, 1);
+    AsmFloat qz = core::at(v.q, 2);
+    AsmFloat rx = core::at(v.r, 0);
+    AsmFloat ry = core::at(v.r, 1);
+    AsmFloat rz = core::at(v.r, 2);
+    AsmFloat s0 = core::at(v.s, 0);
+    AsmFloat s1 = core::at(v.s, 1);
+    AsmFloat s2 = core::at(v.s, 2);
+    AsmFloat t0 = 0.0f;
+    AsmFloat t1 = 0.0f;
+    AsmFloat v2 = 0.0f;
+    AsmFloat w1 = 0.0f;
+    AsmFloat w2 = 0.0f;
+    AsmFloat x1 = 0.0f;
+    AsmFloat y1 = 0.0f;
+    AsmFloat z1 = 0.0f;
+    AsmFloat out_x = 0.0f;
+    AsmFloat out_y = 0.0f;
+    AsmFloat out_z = 0.0f;
     __asm {
         fld e0_0
         fld e0_8
@@ -1225,16 +1274,56 @@ void skin_memory(const fresh::Skin& v, float* out_floats)
 void skin_file(const fresh::Skin& v, float* out_floats)
 {
     const std::span<float, 3> out(out_floats, 3);
-    AsmFloat e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e0_c = core::at(v.e0, 3), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1),
-          e1_8 = core::at(v.e1, 2), e1_c = core::at(v.e1, 3);
-    AsmFloat e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2), e2_c = core::at(v.e2, 3);
-    AsmFloat a_x = core::at(v.a, 0), ay = core::at(v.a, 1), az = core::at(v.a, 2), aw = core::at(v.a, 3), b_x = core::at(v.b, 0), by = core::at(v.b, 1), bz = core::at(v.b, 2), bw = core::at(v.b, 3);
-    AsmFloat c_x = core::at(v.c, 0), cy = core::at(v.c, 1), cz = core::at(v.c, 2), cw = core::at(v.c, 3);
-    AsmFloat px = core::at(v.p, 0), py = core::at(v.p, 1), pz = core::at(v.p, 2), pw = core::at(v.p, 3), qx = core::at(v.q, 0), qy = core::at(v.q, 1), qz = core::at(v.q, 2), qw = core::at(v.q, 3);
-    AsmFloat rx = core::at(v.r, 0), ry = core::at(v.r, 1), rz = core::at(v.r, 2), rw = core::at(v.r, 3);
-    AsmFloat s0 = core::at(v.s, 0), s1 = core::at(v.s, 1), s2 = core::at(v.s, 2);
-    AsmFloat cyw = 0.0f, czw = 0.0f, bzw = 0.0f, ayw = 0.0f, azw = 0.0f, x1 = 0.0f, y1 = 0.0f, z1 = 0.0f, out_x = 0.0f,
-          out_y = 0.0f, out_z = 0.0f;
+    AsmFloat e0_0 = core::at(v.e0, 0);
+    AsmFloat e0_4 = core::at(v.e0, 1);
+    AsmFloat e0_8 = core::at(v.e0, 2);
+    AsmFloat e0_c = core::at(v.e0, 3);
+    AsmFloat e1_0 = core::at(v.e1, 0);
+    AsmFloat e1_4 = core::at(v.e1, 1);
+    AsmFloat e1_8 = core::at(v.e1, 2);
+    AsmFloat e1_c = core::at(v.e1, 3);
+    AsmFloat e2_0 = core::at(v.e2, 0);
+    AsmFloat e2_4 = core::at(v.e2, 1);
+    AsmFloat e2_8 = core::at(v.e2, 2);
+    AsmFloat e2_c = core::at(v.e2, 3);
+    AsmFloat a_x = core::at(v.a, 0);
+    AsmFloat ay = core::at(v.a, 1);
+    AsmFloat az = core::at(v.a, 2);
+    AsmFloat aw = core::at(v.a, 3);
+    AsmFloat b_x = core::at(v.b, 0);
+    AsmFloat by = core::at(v.b, 1);
+    AsmFloat bz = core::at(v.b, 2);
+    AsmFloat bw = core::at(v.b, 3);
+    AsmFloat c_x = core::at(v.c, 0);
+    AsmFloat cy = core::at(v.c, 1);
+    AsmFloat cz = core::at(v.c, 2);
+    AsmFloat cw = core::at(v.c, 3);
+    AsmFloat px = core::at(v.p, 0);
+    AsmFloat py = core::at(v.p, 1);
+    AsmFloat pz = core::at(v.p, 2);
+    AsmFloat pw = core::at(v.p, 3);
+    AsmFloat qx = core::at(v.q, 0);
+    AsmFloat qy = core::at(v.q, 1);
+    AsmFloat qz = core::at(v.q, 2);
+    AsmFloat qw = core::at(v.q, 3);
+    AsmFloat rx = core::at(v.r, 0);
+    AsmFloat ry = core::at(v.r, 1);
+    AsmFloat rz = core::at(v.r, 2);
+    AsmFloat rw = core::at(v.r, 3);
+    AsmFloat s0 = core::at(v.s, 0);
+    AsmFloat s1 = core::at(v.s, 1);
+    AsmFloat s2 = core::at(v.s, 2);
+    AsmFloat cyw = 0.0f;
+    AsmFloat czw = 0.0f;
+    AsmFloat bzw = 0.0f;
+    AsmFloat ayw = 0.0f;
+    AsmFloat azw = 0.0f;
+    AsmFloat x1 = 0.0f;
+    AsmFloat y1 = 0.0f;
+    AsmFloat z1 = 0.0f;
+    AsmFloat out_x = 0.0f;
+    AsmFloat out_y = 0.0f;
+    AsmFloat out_z = 0.0f;
     __asm {
         fld e0_0
         fld e0_8
@@ -1372,7 +1461,8 @@ uint64_t ulps(double a, double b)
 {
     if (std::isnan(a) || std::isnan(b))
         return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
-    int64_t ia = 0, ib = 0;
+    int64_t ia = 0;
+    int64_t ib = 0;
     std::memcpy(&ia, &a, kDoubleBytes);
     std::memcpy(&ib, &b, kDoubleBytes);
     if (ia < 0)
@@ -1386,7 +1476,8 @@ uint64_t ulps(float a, float b)
 {
     if (std::isnan(a) || std::isnan(b))
         return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
-    int32_t ia = 0, ib = 0;
+    int32_t ia = 0;
+    int32_t ib = 0;
     std::memcpy(&ia, &a, 4);
     std::memcpy(&ib, &b, 4);
     if (ia < 0)
@@ -1465,24 +1556,57 @@ void run(int count, std::mt19937_64& random)
     std::uniform_int_distribution<uint32_t> milliseconds(0, UINT32_MAX);
     std::uniform_int_distribution<uint64_t> vblanks(0, UINT64_MAX >> kVblankHeadroomBits);
 
-    Tally t_sin("sin", 'd'), t_cos("cos", 'd'), t_tan("tan", 'd'), t_atan("atan", 'd'), t_atan2("atan2", 'd'),
-        t_sqrt("sqrt", 'd'), t_log10("log10", 'd'), t_ln("ln", 'd'), t_asin("asin (C runtime)", 'd'),
-        t_acos("acos (C runtime)", 'd'), t_sin_f("sin -> float", 'f'), t_cos_f("cos -> float", 'f'),
-        t_atan2_f("atan2 -> float", 'f'), t_sin_wide("sin, |angle| < 1e4", 'd'), t_sin_times("sin * factor", 'd'),
-        t_sin_product("sin * sin", 'd'), t_cot("cot", 'd'), t_atan2_diff("atan2 - atan2", 'd'), t_acos_f("acos_f", 'f'),
-        t_acos_f_above("acos_f's comparison", 'b'), t_nac("neg_asin_cos", 'f'),
-        t_nac_above("neg_asin_cos's comparison", 'b'), t_nac_inv("neg_asin_cos 1 / cos", 'd'), t_spin("spin_by", 'd'),
-        t_cos_above("cos_above", 'b'), t_sin_at_least("sin_at_least", 'b'), t_tan_times("tan_times", 'f'),
-        t_atan2_qt("atan2_less_quarter_turn", 'f'), t_blend("blend_key_colors (steps)", 'u'),
-        t_wibble_time("wibble_time", 'f'), t_wibble("wibble_offset", 'f'),
-        t_wibble_wrap("wibble_offset modulo 16", 'b'), t_vblank("vblank_seconds", 'f'), t_probe("probe_tip", 'f'),
-        t_turn_move("turn_move", 'f'), t_turn_y("turn_about_y", 'f'), t_stick("turn_by_stick", 'f'),
-        t_flat("turn_flat", 'f'), t_asin_deg("asin_degrees", 'f'), t_acos_deg("acos_degrees", 'f'),
-        t_fov("view camera fov", 'f'), t_factor("viewport angle factor", 'f'), t_versine("1 - cos, sin (mat4)", 'f'),
-        t_skin_m("skinned position (memory)", 'f'), t_skin_f("skinned position (file)", 'f');
+    Tally t_sin("sin", 'd');
+    Tally t_cos("cos", 'd');
+    Tally t_tan("tan", 'd');
+    Tally t_atan("atan", 'd');
+    Tally t_atan2("atan2", 'd');
+    Tally t_sqrt("sqrt", 'd');
+    Tally t_log10("log10", 'd');
+    Tally t_ln("ln", 'd');
+    Tally t_asin("asin (C runtime)", 'd');
+    Tally t_acos("acos (C runtime)", 'd');
+    Tally t_sin_f("sin -> float", 'f');
+    Tally t_cos_f("cos -> float", 'f');
+    Tally t_atan2_f("atan2 -> float", 'f');
+    Tally t_sin_wide("sin, |angle| < 1e4", 'd');
+    Tally t_sin_times("sin * factor", 'd');
+    Tally t_sin_product("sin * sin", 'd');
+    Tally t_cot("cot", 'd');
+    Tally t_atan2_diff("atan2 - atan2", 'd');
+    Tally t_acos_f("acos_f", 'f');
+    Tally t_acos_f_above("acos_f's comparison", 'b');
+    Tally t_nac("neg_asin_cos", 'f');
+    Tally t_nac_above("neg_asin_cos's comparison", 'b');
+    Tally t_nac_inv("neg_asin_cos 1 / cos", 'd');
+    Tally t_spin("spin_by", 'd');
+    Tally t_cos_above("cos_above", 'b');
+    Tally t_sin_at_least("sin_at_least", 'b');
+    Tally t_tan_times("tan_times", 'f');
+    Tally t_atan2_qt("atan2_less_quarter_turn", 'f');
+    Tally t_blend("blend_key_colors (steps)", 'u');
+    Tally t_wibble_time("wibble_time", 'f');
+    Tally t_wibble("wibble_offset", 'f');
+    Tally t_wibble_wrap("wibble_offset modulo 16", 'b');
+    Tally t_vblank("vblank_seconds", 'f');
+    Tally t_probe("probe_tip", 'f');
+    Tally t_turn_move("turn_move", 'f');
+    Tally t_turn_y("turn_about_y", 'f');
+    Tally t_stick("turn_by_stick", 'f');
+    Tally t_flat("turn_flat", 'f');
+    Tally t_asin_deg("asin_degrees", 'f');
+    Tally t_acos_deg("acos_degrees", 'f');
+    Tally t_fov("view camera fov", 'f');
+    Tally t_factor("viewport angle factor", 'f');
+    Tally t_versine("1 - cos, sin (mat4)", 'f');
+    Tally t_skin_m("skinned position (memory)", 'f');
+    Tally t_skin_f("skinned position (file)", 'f');
 
     for (int i = 0; i < count; ++i) {
-        const double a = angle(random), b = angle(random), u = unit(random), w = wide(random);
+        const double a = angle(random);
+        const double b = angle(random);
+        const double u = unit(random);
+        const double w = wide(random);
         compare(t_sin, fresh::sin(a), ref::sin(a), a);
         compare(t_cos, fresh::cos(a), ref::cos(a), a);
         compare(t_tan, fresh::tan(a), ref::tan(a), a);
@@ -1503,7 +1627,8 @@ void run(int count, std::mt19937_64& random)
         compare(t_cot, fresh::cot(a), ref::cot(a), a);
         const AtanPair pair{.left = {.y = a, .x = w}, .right = {.y = b, .x = u}};
         compare(t_atan2_diff, fresh::atan2_difference(pair), ref::atan2_difference(pair), a);
-        bool above_fresh = false, above_ref = false;
+        bool above_fresh = false;
+        bool above_ref = false;
         const auto limit = static_cast<float>(weight(random) * 3.0f);
         compare(t_acos_f, fresh::acos_f({.value = u, .limit = limit}, &above_fresh), ref::acos_f({.value = u, .limit = limit}, &above_ref), u);
         compare_bool(t_acos_f_above, above_fresh, above_ref, u);
@@ -1515,8 +1640,12 @@ void run(int count, std::mt19937_64& random)
         compare_bool(t_nac_above, above_fresh, above_ref, s);
         compare(t_nac_inv, inv_fresh.inverse, inv_ref.inverse, s);
         compare(t_nac_inv, inv_fresh.negative, inv_ref.negative, s);
-        double ra_fresh = 0.0, rb_fresh = 0.0, ra_ref = 0.0, rb_ref = 0.0;
-        const double ca = coordinate(random), cb = coordinate(random);
+        double ra_fresh = 0.0;
+        double rb_fresh = 0.0;
+        double ra_ref = 0.0;
+        double rb_ref = 0.0;
+        const double ca = coordinate(random);
+        const double cb = coordinate(random);
         fresh::spin_by(a, ca, cb, &ra_fresh, &rb_fresh);
         ref::spin_by(a, ca, cb, &ra_ref, &rb_ref);
         compare(t_spin, ra_fresh, ra_ref, a);
@@ -1524,9 +1653,11 @@ void run(int count, std::mt19937_64& random)
         const auto cosine_limit = static_cast<float>(u);
         compare_bool(t_cos_above, fresh::cos_above({.angle = a, .value = cosine_limit}), ref::cos_above({.angle = a, .value = cosine_limit}), a);
         compare_bool(t_sin_at_least, fresh::sin_at_least({.angle = a, .value = cosine_limit}), ref::sin_at_least({.angle = a, .value = cosine_limit}), a);
-        const float fa = static_cast<float>(a * 0.2), fb = small(random);
+        const auto fa = static_cast<float>(a * 0.2);
+        const float fb = small(random);
         compare(t_tan_times, fresh::tan_times({.angle = fa, .value = fb}), ref::tan_times({.angle = fa, .value = fb}), fa);
-        const float y = coordinate(random), x = coordinate(random);
+        const float y = coordinate(random);
+        const float x = coordinate(random);
         compare(t_atan2_qt, fresh::atan2_less_quarter_turn({.y = y, .x = x}), ref::atan2_less_quarter_turn({.y = y, .x = x}), y);
         std::array<uint8_t, 4> from{};
         std::array<uint8_t, 4> to{};
@@ -1534,11 +1665,12 @@ void run(int count, std::mt19937_64& random)
             core::at(from, k) = static_cast<uint8_t>(byte(random));
             core::at(to, k) = static_cast<uint8_t>(byte(random));
         }
-        const int den = key_time(random) + 1, num = key_time(random) % den;
+        const int den = key_time(random) + 1;
+        const int num = key_time(random) % den;
         {
             // (the largest step any of the four channels differs by)
-            const uint32_t c_fresh = fresh::blend_key_colors({.num = num, .den = den}, from, to),
-                           c_ref = ref::blend_key_colors({.num = num, .den = den}, from, to);
+            const uint32_t c_fresh = fresh::blend_key_colors({.num = num, .den = den}, from, to);
+            const uint32_t c_ref = ref::blend_key_colors({.num = num, .den = den}, from, to);
             uint64_t steps = 0;
             for (int k = 0; k < 4; ++k) {
                 const int d =
@@ -1549,14 +1681,18 @@ void run(int count, std::mt19937_64& random)
         }
         const uint32_t ms = milliseconds(random);
         compare(t_wibble_time, fresh::wibble_time(ms), ref::wibble_time(ms), ms);
-        const float t = fresh::wibble_time(ms % 3600000u), frequency = small(random), phase = small(random),
-                    amplitude = small(random), velocity = small(random);
+        const float t = fresh::wibble_time(ms % 3600000u);
+        const float frequency = small(random);
+        const float phase = small(random);
+        const float amplitude = small(random);
+        const float velocity = small(random);
         const bool store_first = (i & 1) != 0;
         const Wibble wibble{.t = t, .frequency = frequency, .phase = phase, .amplitude = amplitude, .velocity = velocity};
         compare(t_wibble, fresh::wibble_offset(wibble, store_first), ref::wibble_offset(wibble, store_first), t);
         {
             // (the offset is a texture coordinate that wraps every 16: the difference modulo 16)
-            const float w_fresh = fresh::wibble_offset(wibble, store_first), w_ref = ref::wibble_offset(wibble, store_first);
+            const float w_fresh = fresh::wibble_offset(wibble, store_first);
+            const float w_ref = ref::wibble_offset(wibble, store_first);
             double d = std::fmod(std::fabs(static_cast<double>(w_fresh) - w_ref), kTextureWrap);
             d = std::min(d, kTextureWrap - d);
             t_wibble_wrap.add({.distance = d != 0.0, .difference = d, .input = t});
@@ -1593,8 +1729,10 @@ void run(int count, std::mt19937_64& random)
                 ref::asin_degrees(u, store_first, kRadiansToDegrees), u);
         const auto fu = static_cast<float>(u);
         compare(t_acos_deg, fresh::acos_degrees({.value = fu, .scale = kRadiansToDegrees}), ref::acos_degrees({.value = fu, .scale = kRadiansToDegrees}), fu);
-        const float h_fov = fov(random), default_angle = fov(random), factor = weight(random) + 0.5f,
-                    divisor = weight(random) + 0.5f;
+        const float h_fov = fov(random);
+        const float default_angle = fov(random);
+        const float factor = weight(random) + 0.5f;
+        const float divisor = weight(random) + 0.5f;
         const FovIn fov_in{.angle = h_fov, .factor = factor, .divisor = divisor, .base = default_angle};
         const Fov fov_fresh = fresh::refresh_fov(fov_in);
         const Fov fov_ref = ref::refresh_fov(fov_in);
@@ -1602,8 +1740,10 @@ void run(int count, std::mt19937_64& random)
         compare(t_fov, fov_fresh.ratio, fov_ref.ratio, h_fov);
         const FactorIn factor_in{.degrees = h_fov, .base = default_angle, .scale = 0.008726646f};
         compare(t_factor, fresh::angle_factor(factor_in), ref::angle_factor(factor_in), h_fov);
-        double vt_fresh = 0.0, vt_ref = 0.0;
-        float vs_fresh = 0.0f, vs_ref = 0.0f;
+        double vt_fresh = 0.0;
+        double vt_ref = 0.0;
+        float vs_fresh = 0.0f;
+        float vs_ref = 0.0f;
         fresh::versine_sine(fa, &vt_fresh, &vs_fresh);
         ref::versine_sine(fa, &vt_ref, &vs_ref);
         compare(t_versine, static_cast<float>(vt_fresh), static_cast<float>(vt_ref), fa);

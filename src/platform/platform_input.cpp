@@ -503,7 +503,8 @@ void load_registry_options(const char* key)
     HKEY options = nullptr;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, key, 0, KEY_QUERY_VALUE, &options) != ERROR_SUCCESS)
         return;
-    DWORD type = 0, value = 0;
+    DWORD type = 0;
+    DWORD value = 0;
     // (The size starts at 1, so the first read - "distance" - always fails, setting it to 4: "distance" is
     // read again after "options".)
     DWORD size = 1;

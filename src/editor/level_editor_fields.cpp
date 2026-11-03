@@ -509,7 +509,8 @@ bool decode_value(const std::string& text, Value* value)
         return false;
     const std::string type = text.substr(0, colon);
     const std::string body = text.substr(colon + 1);
-    std::string error, plain;
+    std::string error;
+    std::string plain;
     // (lists are comma-separated in records; Parse takes commas)
     if (type == "i")
         return parse(Kind::kInteger, body, value, &error);
@@ -1008,7 +1009,8 @@ std::vector<Row> rows_of(const nodes::Elem& node)
     const NameLookup names = get_name_of;
     for (const uint32_t key : order) {
         const TableRow* effective = nullptr;
-        bool any_included = false, any_own = false;
+        bool any_included = false;
+        bool any_own = false;
         for (const TableRow& e : entries) {
             if (e.key != key)
                 continue;

@@ -158,7 +158,8 @@ void RiderRemoteSync::settle_onto_floor()
     const maths::Vec4& pos = skater->at_point();
     // From Physics_Ground_Snap_Up above (the product unrounded) to 200 below (rounded first).
     const double snap_up = get_physics(skater, kGroundSnapUp);
-    maths::Vec4 start, end;
+    maths::Vec4 start;
+    maths::Vec4 end;
     start.x = static_cast<float>(snap_up * up.x + pos.x);
     start.y = static_cast<float>(snap_up * up.y + pos.y);
     start.z = static_cast<float>(snap_up * up.z + pos.z);

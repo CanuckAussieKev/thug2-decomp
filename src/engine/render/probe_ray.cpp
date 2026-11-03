@@ -179,9 +179,10 @@ double ProbeRay::get_hit_vertex_value() const
     const maths::Vec4 hit_point{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const maths::Seg from_corner(core::at(corner, 0), hit_point);
     const maths::Seg opposite(core::at(corner, 1), core::at(corner, 2));
-    maths::Vec4 on_line{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f},
-        on_edge{}; // (the original's are left unset when the lines are parallel)
-    float s = 0.0f, t = 0.0f;
+    maths::Vec4 on_line{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    maths::Vec4 on_edge{}; // (the original's are left unset when the lines are parallel)
+    float s = 0.0f;
+    float t = 0.0f;
     maths::closest_points_between_lines(from_corner, opposite, on_line, on_edge, s, t, false);
     // Where a difference's x, y and z go.
     struct DeltaOut {
@@ -197,7 +198,9 @@ double ProbeRay::get_hit_vertex_value() const
         *y = static_cast<double>(a.y) - b.y;
         *z = static_cast<double>(a.z) - b.z;
     };
-    double x = 0.0, y = 0.0, z = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
     minus(on_line, core::at(corner, 1), {.x = &x, .y = &y, .z = &z});
     const auto along_edge_squared = static_cast<float>(get_length_squared(x, y, z));
     minus(core::at(corner, 2), core::at(corner, 1), {.x = &x, .y = &y, .z = &z});

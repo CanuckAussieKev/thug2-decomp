@@ -371,14 +371,16 @@ bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max
     }
     const std::array<double, 3> lo = {{min.x, min.y, min.z}};
     const std::array<double, 3> hi = {{max.x, max.y, max.z}};
-    double enter = -kFarDistanceDouble, leave = kFarDistanceDouble;
+    double enter = -kFarDistanceDouble;
+    double leave = kFarDistanceDouble;
     for (int i = 0; i < 3; ++i) {
         if (std::fabs(core::at(d, i)) < kParallelEpsilon) {
             if (core::at(o, i) < core::at(lo, i) || core::at(o, i) > core::at(hi, i))
                 return false;
             continue;
         }
-        double t0 = (core::at(lo, i) - core::at(o, i)) / core::at(d, i), t1 = (core::at(hi, i) - core::at(o, i)) / core::at(d, i);
+        double t0 = (core::at(lo, i) - core::at(o, i)) / core::at(d, i);
+        double t1 = (core::at(hi, i) - core::at(o, i)) / core::at(d, i);
         if (t0 > t1)
             std::swap(t0, t1);
         enter = std::max(enter, t0);
@@ -456,7 +458,12 @@ bool closest_on_axis(Ray axis, Ray line, float* s)
 
 float distance_to_segment(maths::Vec2 point, maths::Vec2 a, maths::Vec2 b)
 {
-    const float x = point.x, y = point.y, ax = a.x, ay = a.y, bx = b.x, by = b.y;
+    const float x = point.x;
+    const float y = point.y;
+    const float ax = a.x;
+    const float ay = a.y;
+    const float bx = b.x;
+    const float by = b.y;
     const double dx = bx - ax;
     const double dy = by - ay;
     const double length = dx * dx + dy * dy;
@@ -1035,12 +1042,14 @@ void place_selection(V3 pos)
 V3 selection_centre()
 {
     const std::vector<objects::GameEntity*> objects = selected_objects();
-    V3 min = {}, max = {};
+    V3 min = {};
+    V3 max = {};
     bool have = false;
     OrientedBox box{};
     if (!objects.empty()) {
         for (objects::GameEntity* object : objects) {
-            V3 a{}, b{};
+            V3 a{};
+            V3 b{};
             if (object_edit::model_box(object, &box))
                 bounds_of(box, &a, &b);
             else
@@ -1053,7 +1062,8 @@ V3 selection_centre()
     if (picked_node_index() >= 0 || wall_only())
         return selection_pos();
     for (const uint32_t checksum : scenery::get_selection()) {
-        V3 a{}, b{};
+        V3 a{};
+        V3 b{};
         if (scenery::cuboid(checksum, &box)) {
             bounds_of(box, &a, &b);
             grow_box(&min, &max, have, a, b);
@@ -1557,7 +1567,8 @@ void get_restore(UndoStep& step)
         node_create::set_order(step.order);
         break;
     case UndoStep::Kind::kLevel: {
-        std::string message, before;
+        std::string message;
+        std::string before;
         drag_state().objects_.clear();
         scenery::clear_selection();
         drag_state().node_selected_ = false;
@@ -1775,7 +1786,8 @@ float arrow_length()
 // A world point in back-buffer pixels (false: behind the camera).
 bool get_to_pixel(const TickCycle& frame, V3 point, float* px, float* py)
 {
-    float nx = 0.0f, ny = 0.0f;
+    float nx = 0.0f;
+    float ny = 0.0f;
     if (!cast_onto(level_editor_state().pos_, frame, level_editor_state().lens_, point, kNearZ, &nx, &ny))
         return false;
     ndc_to_pixel(level_editor_state().viewport_, nx, ny, px, py);
@@ -1990,7 +2002,13 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
             drag_state().rot_last_ = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * t);
             return;
         }
-        float px = 0.0f, py = 0.0f, ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f, r = arrow_length();
+        float px = 0.0f;
+        float py = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
+        float const r = arrow_length();
         if (!get_to_pixel(frame, drag_state().transform_pivot_, &px, &py))
             return;
         drag_state().rot_last_ = std::atan2(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py);
@@ -2005,7 +2023,8 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
     if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
         closest_on_axis({.origin = drag_state().transform_pivot_, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &drag_state().scale_s0_);
     } else {
-        float px = 0.0f, py = 0.0f;
+        float px = 0.0f;
+        float py = 0.0f;
         if (get_to_pixel(frame, drag_state().transform_pivot_, &px, &py))
             drag_state().scale_s0_ = std::hypot(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py);
     }
@@ -2013,13 +2032,16 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
 
 void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
-    float typed = 0.0f, target = 0.0f;
+    float typed = 0.0f;
+    float target = 0.0f;
     if (xform::typed_value(drag_state().typed_, &typed)) {
         target = typed * maths::kPi / kDegreesPerHalfTurn;
     } else {
         float angle = 0.0f;
         bool have = false;
-        float t = 0.0f, px = 0.0f, py = 0.0f;
+        float t = 0.0f;
+        float px = 0.0f;
+        float py = 0.0f;
         if (drag_state().rot_by_plane_) {
             if (ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, &t) && t < kMaxPickDistance) {
                 angle = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * t);
@@ -2043,13 +2065,16 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
     const int axis = drag_state().typed_.axis >= 0 ? drag_state().typed_.axis : drag_state().axis_ >= 0 && drag_state().axis_ < 3 ? drag_state().axis_ : -1;
-    float factor = 1.0f, typed = 0.0f;
+    float factor = 1.0f;
+    float typed = 0.0f;
     if (xform::typed_value(drag_state().typed_, &typed)) {
         if (typed <= 0.0f)
             return;
         factor = typed;
     } else {
-        float s = 0.0f, px = 0.0f, py = 0.0f;
+        float s = 0.0f;
+        float px = 0.0f;
+        float py = 0.0f;
         if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
             if (!closest_on_axis({.origin = drag_state().transform_pivot_, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &s))
                 return;
@@ -2435,7 +2460,10 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
 {
     if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
         return;
-    float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+    float ax = 0.0f;
+    float ay = 0.0f;
+    float bx = 0.0f;
+    float by = 0.0f;
     if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
         return;
     const float dx = bx - ax;
@@ -2463,10 +2491,15 @@ void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std
 void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
 {
     add_line(from, to, frame, color, out, 3);
-    float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+    float ax = 0.0f;
+    float ay = 0.0f;
+    float bx = 0.0f;
+    float by = 0.0f;
     if (!get_to_pixel(frame, from, &ax, &ay) || !get_to_pixel(frame, to, &bx, &by))
         return;
-    float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
+    float dx = bx - ax;
+    float dy = by - ay;
+    float const length = std::sqrt(dx * dx + dy * dy);
     if (length < 1.0f)
         return;
     dx /= length;
@@ -2506,7 +2539,10 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     auto world_line = [&](V3 a, V3 b, uint32_t c, float t) {
         if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (get_to_pixel(frame, a, &ax, &ay) && get_to_pixel(frame, b, &bx, &by))
             line(ax, ay, bx, by, c, t);
     };
@@ -2521,7 +2557,9 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             previous = next;
         }
     };
-    const V3 x_axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f}, y_axis = {.x = 0.0f, .y = 1.0f, .z = 0.0f}, z_axis = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
+    const V3 x_axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f};
+    const V3 y_axis = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+    const V3 z_axis = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
     const float left = static_cast<float>(core::at(level_editor_state().viewport_, 0)) - 40.0f;
     const float top = static_cast<float>(core::at(level_editor_state().viewport_, 1)) - 40.0f;
     const float right = static_cast<float>(core::at(level_editor_state().viewport_, 0) + core::at(level_editor_state().viewport_, 2)) + 40.0f;
@@ -2547,10 +2585,14 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 if (!is_selected && !is_hovered && distance > kChainCutoff &&
                     view_cam::apparent(std::sqrt(get_dot(e, e))) > kChainCutoff)
                     continue;
-                V3 a = n.pos, b = m.pos;
+                V3 a = n.pos;
+                V3 b = m.pos;
                 if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
                     continue;
-                float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+                float ax = 0.0f;
+                float ay = 0.0f;
+                float bx = 0.0f;
+                float by = 0.0f;
                 if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
                     continue;
                 if ((ax < left && bx < left) || (ax > right && bx > right) || (ay < top && by < top) ||
@@ -2569,7 +2611,9 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 }
                 if (n.family == nodes::Family::kRouteWay) {
                     // (the way it goes: an arrowhead at the middle)
-                    float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
+                    float dx = bx - ax;
+                    float dy = by - ay;
+                    float const length = std::sqrt(dx * dx + dy * dy);
                     if (length > kRouteArrowMinLength * k) {
                         dx /= length;
                         dy /= length;
@@ -2586,7 +2630,8 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                                        .depth_a_ = -get_dot(a - level_editor_state().pos_, frame.back), .depth_b_ = -get_dot(b - level_editor_state().pos_, frame.back)});
             }
             if (is_selected || is_hovered) {
-                float px = 0.0f, py = 0.0f;
+                float px = 0.0f;
+                float py = 0.0f;
                 if (get_to_pixel(frame, n.pos, &px, &py)) {
                     o.circles.push_back({.x = px, .y = py, .radius = kPickDotRadius * k, .argb = is_selected ? kSelectedGizmo : kHoverGizmo, .filled = true, .thickness = 1.0f});
                     o.texts.push_back({.x = px + kLabelOffset * k, .y = py - kLabelOffset * k, .argb = kLabelColour, .text = nodes::caption(n.name)});
@@ -2595,7 +2640,8 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             if (n.family == nodes::Family::kRail && (distance < kRailPointRange || is_selected)) {
                 // (a rail's points, near: a dot each, picked before its segments - a point moves by itself or with
                 // its whole rail)
-                float px = 0.0f, py = 0.0f;
+                float px = 0.0f;
+                float py = 0.0f;
                 const V3 front = n.pos - level_editor_state().pos_;
                 if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, n.pos, &px, &py) && px >= left &&
                     px <= right && py >= top && py <= bottom) {
@@ -2610,7 +2656,8 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             n.family == nodes::Family::kObject || n.family == nodes::Family::kParticle ? 2500.0f : 6000.0f;
         if (!is_selected && !is_hovered && distance > cutoff)
             continue;
-        float px = 0.0f, py = 0.0f;
+        float px = 0.0f;
+        float py = 0.0f;
         if (!get_to_pixel(frame, n.pos, &px, &py) || px < left || px > right || py < top || py > bottom)
             continue;
         const float depth = -get_dot(d, frame.back);
@@ -2622,10 +2669,13 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             // A disc and its heading (an arrow along the ground).
             const float length = std::max(30.0f, std::min(200.0f, depth * 0.08f));
             const V3 tip = n.pos + n.forward * length;
-            float tx = 0.0f, ty = 0.0f;
+            float tx = 0.0f;
+            float ty = 0.0f;
             if (get_to_pixel(frame, tip, &tx, &ty)) {
                 line(px, py, tx, ty, c, kSpawnArrowWidth);
-                float dx = tx - px, dy = ty - py, l = std::sqrt(dx * dx + dy * dy);
+                float dx = tx - px;
+                float dy = ty - py;
+                float const l = std::sqrt(dx * dx + dy * dy);
                 if (l > kMinArrowPixels) {
                     dx /= l;
                     dy /= l;
@@ -3515,7 +3565,8 @@ void field_request(const ui::Request& request)
     if (request.kind == ui::Request::Kind::kFieldHome) {
         const std::vector<uint32_t> keys = request.id ? std::vector<uint32_t>{request.id} : fields::touched_keys(node);
         for (const uint32_t key : keys) {
-            fields::Own before, origin;
+            fields::Own before;
+            fields::Own origin;
             if (fields::get_capture(node, key, &before) && fields::get_origin(node, key, &origin)) {
                 step.fields.push_back({.node = node, .key = key, .own = before});
                 fields::place_in(node, key, origin);
@@ -3968,7 +4019,8 @@ std::unordered_map<uint32_t, uint8_t> change_marks()
         auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
         if (!origin || !object)
             continue;
-        const maths::Vec4 &a = core::at(origin->matrix.row, 2), &b = core::at(object->basis_frame().row, 2);
+        const maths::Vec4& a = core::at(origin->matrix.row, 2);
+        const maths::Vec4& b = core::at(object->basis_frame().row, 2);
         if (origin->pos.x != object->at_point().x || origin->pos.y != object->at_point().y ||
             origin->pos.z != object->at_point().z || a.x != b.x || a.z != b.z)
             mark(id, ui::kMarkMoved);
@@ -4152,7 +4204,8 @@ ui::ShapeMesh assemble_model()
                 if (node_create::name_hash(spec.name) == n.name)
                     name = spec.name;
             }
-            node_create::LinkChain up = list, down = list;
+            node_create::LinkChain up = list;
+            node_create::LinkChain down = list;
             model.nodes.crown_up_ = node_create::move_crown(&up, name, -1);
             model.nodes.crown_down_ = node_create::move_crown(&down, name, 1);
         }
@@ -4312,7 +4365,8 @@ void show_browser()
 // a roof: the roof) - none: 600 units ahead, on the ground below that if any.
 V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame)
 {
-    V3 hit{}, ground{};
+    V3 hit{};
+    V3 ground{};
     const V3 ray = have_ray ? make_unit(dir) : frame.back * -1.0f;
     if (get_cast(level_editor_state().pos_, level_editor_state().pos_ + ray * kMaxPickDistance, &hit)) {
         const V3 back = hit - ray * 5.0f + V3{.x = 0.0f, .y = 5.0f, .z = 0.0f};
@@ -4434,10 +4488,12 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         select_objects(made);
     } else if (scenery::has_selection()) {
         OrientedBox box{};
-        V3 min = {}, max = {};
+        V3 min = {};
+        V3 max = {};
         bool have = false;
         for (const uint32_t checksum : scenery::get_selection()) {
-            V3 a{}, b{};
+            V3 a{};
+            V3 b{};
             if (scenery::cuboid(checksum, &box)) {
                 bounds_of(box, &a, &b);
                 grow_box(&min, &max, have, a, b);
@@ -4782,7 +4838,8 @@ bool cycle_holds(float x, float y, bool shift, bool everything)
 // A plain click: the cycle's entry it takes (the hover's), or a new cycle from everything under the cursor now.
 void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
 {
-    const float x = at.x, y = at.y;
+    const float x = at.x;
+    const float y = at.y;
     if (!plain) {
         pick_cycle().cycle_.have = false;
         return;
@@ -4790,12 +4847,14 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
     if (pick_cycle().hover_cycle_ >= 0) {
         pick_cycle().cycle_.index = pick_cycle().hover_cycle_;
     } else {
-        std::vector<picking::Layered> objects, scenery;
+        std::vector<picking::Layered> objects;
+        std::vector<picking::Layered> scenery;
         for (const auto& hit : object_edit::pick_all(level_editor_state().pos_, dir, kMaxPickDistance))
             objects.push_back({.id = hit.first->ident(), .t = hit.second, .passed = false});
         scenery::Hit first;
         std::vector<scenery::Layer> layers;
         scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
+        scenery.reserve(layers.size());
         for (const scenery::Layer& layer : layers)
             scenery.push_back({.id = layer.checksum, .t = layer.t, .passed = layer.passed});
         pick_cycle().cycle_ = Cycle{};
@@ -4838,7 +4897,8 @@ bool drop_under_cursor(V3 dir)
     scenery::Hit first;
     std::vector<scenery::Layer> layers;
     scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
-    std::vector<bool> passed, selected;
+    std::vector<bool> passed;
+    std::vector<bool> selected;
     for (const scenery::Layer& layer : layers) {
         passed.push_back(layer.passed);
         selected.push_back(scenery::get_selected(layer.checksum));
@@ -4868,7 +4928,8 @@ std::vector<picking::Lock> selection_locks()
 // and from clicks) and deselected; I or / (Isolate): everything else hidden, the selection kept. Never saved.
 void view_hide(bool isolate)
 {
-    std::vector<uint32_t> sectors, objects;
+    std::vector<uint32_t> sectors;
+    std::vector<uint32_t> objects;
     for (const picking::Lock& piece : selection_locks())
         (piece.kind == picking::kObjects ? objects : sectors).push_back(piece.id);
     if (sectors.empty() && objects.empty()) {
@@ -5170,7 +5231,8 @@ void focus_browser_item()
     const uint32_t id = core::at(stored_browser().items, stored_browser().index).id;
     OrientedBox box{};
     if (stored_browser().tab == 0 && scenery::cuboid(id, &box)) {
-        V3 a{}, b{};
+        V3 a{};
+        V3 b{};
         bounds_of(box, &a, &b);
         get_look_at((a + b) * kHalf, std::max(kMinLookDistance, std::sqrt(get_dot(b - a, b - a)) * kLookMargin));
     } else if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id))) {
@@ -5189,7 +5251,8 @@ void go_to_selection()
         if (object_edit::model_box(object, &box))
             distance = std::max(kMinBoxLookDistance, std::sqrt(get_dot(box.max - box.min, box.max - box.min)) * kLookMargin);
     } else if (!scenery::get_selection().empty() && scenery::cuboid(scenery::get_selection().front(), &box)) {
-        V3 a{}, b{};
+        V3 a{};
+        V3 b{};
         bounds_of(box, &a, &b);
         distance = std::max(kMinLookDistance, std::sqrt(get_dot(b - a, b - a)) * kLookMargin);
     }
@@ -5209,12 +5272,14 @@ float selection_radius()
             return std::max(kMinFrameRadius, kHalf * std::sqrt(get_dot(size, size)));
         }
     } else if (!scenery::get_selection().empty()) {
-        V3 lo = {}, hi = {};
+        V3 lo = {};
+        V3 hi = {};
         bool have = false;
         for (const uint32_t sector : scenery::get_selection()) {
             if (!scenery::cuboid(sector, &box))
                 continue;
-            V3 a{}, b{};
+            V3 a{};
+            V3 b{};
             bounds_of(box, &a, &b);
             grow_box(&lo, &hi, have, a, b);
             have = true;
@@ -5622,12 +5687,14 @@ void drill_through(int steps, maths::Vec2 point, V3 dir)
     if (cycle_holds(x, y, false, false)) {
         shown = (pick_cycle().cycle_.index + 1) % static_cast<int>(pick_cycle().cycle_.order.size());
     } else {
-        std::vector<picking::Layered> objects, scenery;
+        std::vector<picking::Layered> objects;
+        std::vector<picking::Layered> scenery;
         for (const auto& hit : object_edit::pick_all(level_editor_state().pos_, dir, kMaxPickDistance))
             objects.push_back({.id = hit.first->ident(), .t = hit.second, .passed = false});
         scenery::Hit first;
         std::vector<scenery::Layer> layers;
         scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
+        scenery.reserve(layers.size());
         for (const scenery::Layer& layer : layers)
             scenery.push_back({.id = layer.checksum, .t = layer.t, .passed = layer.passed});
         pick_cycle().cycle_ = Cycle{};
@@ -5836,7 +5903,8 @@ void tick_frame()
         input.left = input.left || pad.a_down_;
         input.left_presses_ += pad.a_presses_;
         input.left_releases_ += pad.a_releases_;
-        float cx = 0.0f, cy = 0.0f;
+        float cx = 0.0f;
+        float cy = 0.0f;
         pad_cursor = ux8::get_pad_cursor(pad, input.rel_x_ != 0.0f || input.rel_y_ != 0.0f, {.x = &cx, .y = &cy}) && !input.right;
         if (pad_cursor) {
             input.x = cx;
@@ -5934,8 +6002,14 @@ void tick_frame()
         }
     }
 
-    static bool g_enter_key, g_focus_key, g_left_key, g_right_key;
-    static uint32_t g_up_since, g_down_since, g_page_up_since, g_page_down_since;
+    static bool g_enter_key;
+    static bool g_focus_key;
+    static bool g_left_key;
+    static bool g_right_key;
+    static uint32_t g_up_since;
+    static uint32_t g_down_since;
+    static uint32_t g_page_up_since;
+    static uint32_t g_page_down_since;
     const bool no_change = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_ || triggers::resizing();
     // (the history, changes, search, selection tools and clipboards - level_editor_ux3.h)
     ux3::tick_frame();
@@ -6202,14 +6276,16 @@ void tick_frame()
     // The mouse ray (once the view has been drawn): the cursor in back-buffer pixels too (the arrows).
     bool have_ray = false;
     V3 dir = frame.back * -1.0f;
-    float back_x = 0.0f, back_y = 0.0f;
+    float back_x = 0.0f;
+    float back_y = 0.0f;
     if (level_editor_state().have_view_ && !input.right && input.window_width_ > 0 && input.window_height_ > 0 &&
         (ui::mouse_to_editor() || pad_cursor)) {
         const mouse_menus::ScreenMapping mapping =
             mouse_menus::current_mapping({.width = input.window_width_, .height = input.window_height_});
         back_x = static_cast<float>(static_cast<double>(input.x) * mapping.back_buffer_width_ / input.window_width_);
         back_y = static_cast<float>(static_cast<double>(input.y) * mapping.back_buffer_height_ / input.window_height_);
-        float nx = 0.0f, ny = 0.0f;
+        float nx = 0.0f;
+        float ny = 0.0f;
         if (pixel_to_ndc(level_editor_state().viewport_, back_x, back_y, &nx, &ny)) {
             dir = ray_direction(frame, level_editor_state().lens_, nx, ny);
             have_ray = true;
@@ -6270,7 +6346,9 @@ void tick_frame()
         // Up/Down) down/up - and the camera follows it.
         const V3 forward = make_unit({.x = -frame.back.x, .y = 0.0f, .z = -frame.back.z});
         const V3 right = make_unit({.x = frame.right.x, .y = 0.0f, .z = frame.right.z});
-        int f = 0, r = 0, u = 0;
+        int f = 0;
+        int r = 0;
+        int u = 0;
         if (xform::fly_always()) {
             // ([editor] wasd_flies=1: the fly keys nudge it as well as the arrows - Space aside, it cycles the tool)
             f = (actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kNudgeForward) ? 1
@@ -6965,7 +7043,9 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
     out.emplace_back("changes", text.data());
     // (UX5) the problem checker's last count (the level's own and ignored ones left out) and the notes
     {
-        int errors = 0, warnings = 0, infos = 0;
+        int errors = 0;
+        int warnings = 0;
+        int infos = 0;
         checks::shown_counts(&errors, &warnings, &infos);
         text::format_to(text, "%d errors, %d warnings, %d notes; %u layout records unresolved; %u note pins", errors,
                         warnings, infos, static_cast<unsigned>(checks::layout_issues().size()),
@@ -7115,7 +7195,8 @@ bool project_to_back(V3 point, float* x, float* y)
 {
     if (!level_editor_state().active_ || !level_editor_state().have_view_)
         return false;
-    float nx = 0.0f, ny = 0.0f;
+    float nx = 0.0f;
+    float ny = 0.0f;
     if (!cast_onto(level_editor_state().pos_, frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_), level_editor_state().lens_, point, kNearZ, &nx, &ny))
         return false;
     ndc_to_pixel(level_editor_state().viewport_, nx, ny, x, y);

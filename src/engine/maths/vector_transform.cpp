@@ -10,7 +10,10 @@ namespace maths {
 // then x / y in the order below)
 Vec4& Vec4::multiply_by(const Mat4& matrix)
 {
-    const double vx = x, vy = y, vz = z, vw = w;
+    const double vx = x;
+    const double vy = y;
+    const double vz = z;
+    const double vw = w;
     const auto& m = matrix.row;
     x = static_cast<float>(((vw * core::at(m, 3).x + vz * core::at(m, 2).x) + vy * core::at(m, 1).x) + vx * core::at(m, 0).x);
     y = static_cast<float>(((vw * core::at(m, 3).y + vz * core::at(m, 2).y) + vx * core::at(m, 0).y) + vy * core::at(m, 1).y);

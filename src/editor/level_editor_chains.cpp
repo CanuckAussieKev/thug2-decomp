@@ -95,7 +95,8 @@ bool same_text(const std::string& a, const char* b)
         return false;
     const std::string_view wanted(b);
     for (size_t i = 0; i < a.size(); ++i) {
-        char x = core::at(a, i), y = core::at(wanted, i);
+        char x = core::at(a, i);
+        char y = core::at(wanted, i);
         if (x >= 'A' && x <= 'Z')
             x = static_cast<char>(x - 'A' + 'a');
         if (y >= 'A' && y <= 'Z')
@@ -720,7 +721,8 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
     *snapped = false;
     if (normal.y < kMinFlatNormalY)
         return hit;
-    constexpr float kStep = 4.0f, kDrop = 8.0f;
+    constexpr float kStep = 4.0f;
+    constexpr float kDrop = 8.0f;
     float best = reach + 1.0f;
     V3 best_at = hit;
     constexpr float kHalf = 0.70710678f;
@@ -2072,7 +2074,8 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
         if (!added && family == nodes::Family::kRail) {
             // (a level rail's point: its cluster when it's a trick object, as the level registers it)
             script::Struct* node = look_up_node_params(from);
-            static const uint32_t kTrickObject = name_hash("TrickObject"), kCluster = name_hash("Cluster");
+            static const uint32_t kTrickObject = name_hash("TrickObject");
+            static const uint32_t kCluster = name_hash("Cluster");
             if (node && node->has_entry_named(kTrickObject)) {
                 p.cluster = from;
                 node->read_hash_value(kCluster, &p.cluster, 0);
@@ -2563,7 +2566,8 @@ bool add_rail(const std::vector<V3>& points, uint32_t cluster, std::string* mess
     level_editor_chains_state().draw_ = Blit::kNone; // (append_rail_vertex: a plain rail, whatever is being drawn)
     State state = at_hand();
     Graph graph = graph_of(nodes::Family::kRail);
-    uint32_t last = 0, first = 0;
+    uint32_t last = 0;
+    uint32_t first = 0;
     for (const V3 at : points) {
         Point p = append_rail_vertex(nodes::Family::kRail, last, at, state);
         const uint32_t made = name_hash(p.name);
@@ -2614,7 +2618,8 @@ bool cast_ray(V3 from, V3 to, SurfaceOut surface, uint32_t* sector = nullptr)
 // The ground's height below a point (within 70).
 bool ground_below(V3 at, float* ground_y)
 {
-    V3 h{}, n{};
+    V3 h{};
+    V3 n{};
     if (!cast_ray(at, {.x = at.x, .y = at.y - kDropProbeDepth, .z = at.z}, {.point = &h, .normal = &n}))
         return false;
     *ground_y = h.y;
@@ -2629,7 +2634,8 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     if (level_editor_chains_state().draw_ != Blit::kLadder || !in_level())
         return false;
     if (!level_editor_chains_state().ladder_have_foot_) {
-        V3 hit{}, normal{};
+        V3 hit{};
+        V3 normal{};
         if (!cast_ray(from, from + dir * max_t, {.point = &hit, .normal = &normal})) {
             *message = "Click on a wall";
             return false;
@@ -2676,7 +2682,8 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
 bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* end)
 {
     *end = 0;
-    V3 hit{}, normal{};
+    V3 hit{};
+    V3 normal{};
     if (!cast_ray(from, from + dir * max_t, {.point = &hit, .normal = &normal}, &level_editor_chains_state().snap_sector_))
         return false;
     *point = hit;
@@ -2685,7 +2692,8 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
         *point = snap_to_edge(
             hit, normal, kEdgeSnapReach,
             [](V3 at, float* ground_y) {
-                V3 h{}, n{};
+                V3 h{};
+                V3 n{};
                 if (!cast_ray(at, {.x = at.x, .y = at.y - kEdgeProbeDepth, .z = at.z}, {.point = &h, .normal = &n}))
                     return false;
                 *ground_y = h.y;
@@ -2833,7 +2841,8 @@ View view_of(uint32_t name)
                     view.hang = p.hang;
             }
         } else if (script::Struct* params = look_up_node_params(name)) {
-            static const uint32_t kLeft = name_hash("HangLeft"), kRight = name_hash("HangRight");
+            static const uint32_t kLeft = name_hash("HangLeft");
+            static const uint32_t kRight = name_hash("HangRight");
             view.hang = params->has_bare_flag(kLeft) ? kHangLeft : params->has_bare_flag(kRight) ? kHangRight : 0;
         }
     }
@@ -2864,7 +2873,8 @@ View view_of(uint32_t name)
             view.grind_flat_ = extras != extras_state().end() && extras->second.grind_flat_;
         } else {
             view.trick_object_ = node.trick_object_;
-            static const uint32_t kCluster = name_hash("Cluster"), kFlag = name_hash("ed_grind_flat");
+            static const uint32_t kCluster = name_hash("Cluster");
+            static const uint32_t kFlag = name_hash("ed_grind_flat");
             script::Struct* params = look_up_node_params(name);
             uint32_t cluster = name;
             if (params)

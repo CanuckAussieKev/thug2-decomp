@@ -61,7 +61,8 @@ Measure measure_of(V3 a, V3 b)
 
 int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Vec2 at, float radius)
 {
-    const float x = at.x, y = at.y;
+    const float x = at.x;
+    const float y = at.y;
     int best = -1;
     float best_d2 = radius * radius;
     for (size_t i = 0; i < pixels.size(); ++i) {
@@ -183,7 +184,10 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
     std::vector<std::pair<float, float>> pixels;
     std::vector<V3> shown;
     for (const V3 c : corners) {
-        float nx = 0.0f, ny = 0.0f, px = 0.0f, py = 0.0f;
+        float nx = 0.0f;
+        float ny = 0.0f;
+        float px = 0.0f;
+        float py = 0.0f;
         if (!cast_onto(view.pos, frame, view.lens, c, view.near_z_, &nx, &ny))
             continue;
         ndc_to_pixel(view.viewport, nx, ny, &px, &py);
@@ -215,7 +219,9 @@ void add_overlay(const overlays::Painter& painter)
 {
     if (!overlays::get_shown(overlays::kRuler))
         return;
-    constexpr uint32_t kRuler = 0xFFFFE040, kGap = 0xC040C0FF, kRise = 0xC0FF8040;
+    constexpr uint32_t kRuler = 0xFFFFE040;
+    constexpr uint32_t kGap = 0xC040C0FF;
+    constexpr uint32_t kRise = 0xC0FF8040;
     auto end = [&](V3 p, bool snapped) {
         painter.get_dot(p, snapped ? kSnappedDotRadius : kFreeDotRadius, kRuler, !snapped);
         if (snapped)

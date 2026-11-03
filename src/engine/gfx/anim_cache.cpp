@@ -379,7 +379,8 @@ uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, AnimCacheEntry::KeyCoun
 {
     const auto rotation_keys = key_counts.rotation;
     const auto translation_keys = key_counts.translation;
-    uint8_t rotation = 0, translation = 0;
+    uint8_t rotation = 0;
+    uint8_t translation = 0;
     key_sizes(type, rotation, translation);
     const uint32_t size = rotation * rotation_keys + translation * translation_keys;
     return (size / granularity_ + 1) * granularity_;

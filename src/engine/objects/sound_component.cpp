@@ -247,7 +247,9 @@ void AudioEmitterModule::update_waiting_sounds()
 void AudioEmitterModule::emit_sound(script::Struct* params)
 {
     uint32_t sound = 0;
-    float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
+    float volume = 100.0f;
+    float pitch = 100.0f;
+    float dropoff = 0.0f;
     uint32_t emitter = 0;
     bool keep_placement = false;
     int falloff = 0;
@@ -255,7 +257,11 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
     params->fetch_float(kVol, &volume, 0); // vol
     params->fetch_float(kPitch, &pitch, 0);  // pitch
     if (params->has_entry_named(kPercentName)) {   // Percent: between the min and max
-        float min_volume = 0.0f, max_volume = 100.0f, min_pitch = 100.0f, max_pitch = 100.0f, percent = 0.0f;
+        float min_volume = 0.0f;
+        float max_volume = 100.0f;
+        float min_pitch = 100.0f;
+        float max_pitch = 100.0f;
+        float percent = 0.0f;
         params->fetch_float(kMaxVol, &max_volume, 0); // maxVol
         params->fetch_float(kMinVol, &min_volume, 0); // floor_loudness_
         params->fetch_float(kMaxPitch, &max_pitch, 0);  // maxPitch
@@ -294,7 +300,8 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
 // 0x00432FF0
 void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*script*/)
 {
-    float loudness_percent = 100.0f, pitch_percent = 100.0f;
+    float loudness_percent = 100.0f;
+    float pitch_percent = 100.0f;
     // (read into the parameters' own argument slot: none, the pointer's value)
     uint32_t sound = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(0u, &sound, 0);

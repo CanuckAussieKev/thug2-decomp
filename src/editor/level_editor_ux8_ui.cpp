@@ -295,13 +295,15 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
     draw->AddCircle(c, pie::kDeadzone * s, IM_COL32(255, 255, 255, 90), 0, kPieLineWidth * s);
     // (the pointing line)
     if (pie.hovered >= 0) {
-        float dx = 0.0f, dy = 0.0f;
+        float dx = 0.0f;
+        float dy = 0.0f;
         nav::slice_direction(pie.hovered, n, &dx, &dy);
         draw->AddLine(c, ImVec2(c.x + dx * pie::kDeadzone * s, c.y + dy * pie::kDeadzone * s), kLit, kPieSpokeWidth * s);
     }
     for (int i = 0; i < n; ++i) {
         const pie::Item& item = core::at(pie.items, i);
-        float dx = 0.0f, dy = 0.0f;
+        float dx = 0.0f;
+        float dy = 0.0f;
         nav::slice_direction(i, n, &dx, &dy);
         const ImVec2 at(c.x + dx * radius, c.y + dy * radius);
         const bool enabled = !item.enabled || item.enabled();

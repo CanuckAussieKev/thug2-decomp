@@ -190,7 +190,9 @@ float ObstacleDodgeModule::side_away_from_skater()
     // The skater's heading (its at row) flat and normalised; across it (x up), as the original's cross product
     // with (0, 1, 0) - the zero terms multiplied out.
     const maths::Vec4& at = core::at(skater->basis_frame().row, 2);
-    double x = at.x, z = at.z, y = 0.0;
+    double x = at.x;
+    double z = at.z;
+    double y = 0.0;
     auto length = static_cast<float>(std::sqrt(z * z + x * x));
     if (length > 0.0f) {
         const double exact_inverse = 1.0 / length; // (x by the unrounded inverse, z and y by the rounded one)

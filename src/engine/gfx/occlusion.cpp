@@ -104,7 +104,8 @@ void set_plane(std::array<float, 4>& plane, std::span<const float> origin, std::
     const double zz = static_cast<double>(nz) * nz;
     const double length = std::sqrt(length_order == LengthOrder::kXzy ? (xx + zz) + yy : (zz + yy) + xx);
     double x = nx;
-    float y = ny, z = nz;
+    float y = ny;
+    float z = nz;
     if (length > 0.0) {
         const double inverse = 1.0 / static_cast<float>(length);
         auto inverse_float = static_cast<float>(inverse);
@@ -310,7 +311,9 @@ bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test)
     const auto weight = sphere_test.weight;
     if (occlusion_off()) // (NOT ORIGINAL: the level editor's switch)
         return false;
-    double x = centre->x, y = centre->y, z = centre->z;
+    double x = centre->x;
+    double y = centre->y;
+    double z = centre->z;
     if (const auto world = world_transform(); !world.empty()) {
         x = static_cast<double>(core::at(world, maths::kMatTx)) + centre->x;
         y = static_cast<double>(core::at(world, maths::kMatTy)) + centre->y;

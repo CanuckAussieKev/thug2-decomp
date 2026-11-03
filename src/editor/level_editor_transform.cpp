@@ -270,16 +270,21 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
 
 int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, float grab)
 {
-    const float x = at.x, y = at.y;
+    const float x = at.x;
+    const float y = at.y;
     int best = -1;
     float best_distance = grab;
     // (Scale's centre cube wins near the pivot: it sits where the three axes start)
-    float px = 0.0f, py = 0.0f;
+    float px = 0.0f;
+    float py = 0.0f;
     if (gizmo.mode == Mode::kScale && project(gizmo.pivot, &px, &py) &&
         (x - px) * (x - px) + (y - py) * (y - py) <= grab * grab * kGrabSlackSquared)
         return kCentre;
     for (const Segment& s : gizmo_segments(gizmo)) {
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by))
             continue;
         const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
@@ -397,7 +402,8 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
 {
     if (memory.kind == Kind::kNone || kind != memory.kind || selected.empty())
         return false;
-    std::vector<uint32_t> a = memory.made, b = selected;
+    std::vector<uint32_t> a = memory.made;
+    std::vector<uint32_t> b = selected;
     std::ranges::sort(a);
     std::ranges::sort(b);
     if (a != b)

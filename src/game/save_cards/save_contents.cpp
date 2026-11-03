@@ -226,7 +226,8 @@ void read_save_header(Struct* global, Script* script)
     objects::profile_roster()->read_pros(pros);
     get_career()->decode_from_struct(global);
 
-    constexpr uint32_t kLastLevelLoadScript = 0xE3335D2F, kLastGameMode = 0x2CC06F5E;
+    constexpr uint32_t kLastLevelLoadScript = 0xE3335D2F;
+    constexpr uint32_t kLastGameMode = 0x2CC06F5E;
     Struct* career = nullptr;
     global->read_sub_struct(kCareer, &career, 0); // career
     uint32_t last_level = 0;

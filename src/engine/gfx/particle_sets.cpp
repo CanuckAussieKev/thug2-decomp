@@ -157,7 +157,9 @@ void Sparkle::update_bounds()
             current_round((core::at(s, i) + static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, i), 2)))) + core::at(hr, i));
         core::at(hi, i).w = current_round(static_cast<double>(current_round(core::at(s, i) + (static_cast<double>(core::at(hr, i)) + core::at(s, i)))) + core::at(hr, i));
     }
-    maths::Vec4 low{}, high{}, curve{};
+    maths::Vec4 low{};
+    maths::Vec4 high{};
+    maths::Vec4 curve{};
     low = *min_of(&core::at(lo, 0), &core::at(lo, 2), &curve);
     high = *max_of(&core::at(hi, 0), &core::at(hi, 2), &curve);
     if (p.use_mid()) { // (the paths go through the mid: their extremes on the way)

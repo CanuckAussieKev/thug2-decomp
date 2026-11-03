@@ -122,7 +122,8 @@ bool HitMovingBox::collide_with_line(const maths::Seg* line, const maths::Vec4* 
     around.append_spot(local.end);
     if (!box_.intersects(around))
         return false;
-    maths::Vec4 point{}, normal{};
+    maths::Vec4 point{};
+    maths::Vec4 normal{};
     if (!box_.segment_crossing(local, {.hit = &point, .normal = &normal}))
         return false;
     const float hx = get_difference(point.x, local.start.x);
@@ -151,7 +152,8 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
                                        const maths::BBox* line_box)
 {
     // the line's distance from the geometry's minimum corner, for the rejection test
-    double ux = direction->x, uy = direction->y;
+    double ux = direction->x;
+    double uy = direction->y;
     float uz = direction->z;
     const double length = std::sqrt((static_cast<double>(uz) * uz + uy * uy) + ux * ux);
     if (length > 0.0) {
@@ -187,7 +189,9 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         const uint8_t rejection = geometry->small_faces() ? geometry->face_table().small_rejection(static_cast<int>(face)) : core::at(std::span<const uint8_t>(octets_, geometry->tri_count()), face);
         if (threshold > rejection)
             continue;
-        maths::Vec4 v0{}, v1{}, v2{};
+        maths::Vec4 v0{};
+        maths::Vec4 v1{};
+        maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
         float t = 0.0f;
         if (!ray_hits_triangle(line->start, *direction, v0, v1, v2, &t))
@@ -230,7 +234,9 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = this->geometry();
         const uint32_t face = core::at(faces, i);
-        maths::Vec4 v0{}, v1{}, v2{};
+        maths::Vec4 v0{};
+        maths::Vec4 v1{};
+        maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
         float t = 0.0f;
         if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t))
@@ -313,7 +319,9 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
         const uint32_t face = core::at(faces, i);
         if (geometry->small_faces() && threshold > geometry->face_table().small_rejection(static_cast<int>(face)))
             continue;
-        maths::Vec4 v0{}, v1{}, v2{};
+        maths::Vec4 v0{};
+        maths::Vec4 v1{};
+        maths::Vec4 v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
         float t = 0.0f;
         if (!ray_hits_triangle(local.start, way, v0, v1, v2, &t))

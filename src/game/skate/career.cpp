@@ -411,7 +411,8 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
             goals::GapTally* checklist = core::at(gaps_, level);
             checklist->get_clear();
             auto* entry = gap_levels->struct_at(level);
-            int saved_level = 0, built = 0;
+            int saved_level = 0;
+            int built = 0;
             entry->fetch_int_value(kGapLevel, &saved_level, 1);
             entry->fetch_int_value(kGapsBuilt, &built, 1);
             if (!built)
@@ -422,13 +423,15 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
             for (int i = 0; i < count; ++i) {
                 auto* gap = list->struct_at(i);
                 const char* name = nullptr;
-                int got = 0, score = 0;
+                int got = 0;
+                int score = 0;
                 gap->fetch_text(kGapName, &name, 0);
                 gap->fetch_int_value(kGapCount, &got, 0);
                 gap->fetch_int_value(kGapScore, &score, 0);
                 checklist->register_gap_entry(name, {.count = got, .score = score});
                 if (got) {
-                    script::VectorValue pos{}, dir{};
+                    script::VectorValue pos{};
+                    script::VectorValue dir{};
                     gap->fetch_vec(kGapPos, &pos, 0);
                     gap->fetch_vec(kGapDir, &dir, 0);
                     checklist->set_gap_positions(name, {.pos = {.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w}, .dir = {.x = dir.x, .y = dir.y, .z = dir.z, .w = dir.w}});
@@ -532,7 +535,8 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                 gap->append_word(kGapName, checklist->get_gap_title(i));
                 gap->put_int(checksums::Name{kGapCount}, checklist->count_gaps_found(i));
                 gap->put_int(checksums::Name{kGapScore}, checklist->get_gap_points(i));
-                maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}, dir = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+                maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+                maths::Vec4 dir = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 if (checklist->count_gaps_found(i))
                     checklist->get_gap_positions(i, {.pos = &pos, .dir = &dir});
                 gap->put_vec3(checksums::Name{kGapPos}, {.x = pos.x, .y = pos.y, .z = pos.z});

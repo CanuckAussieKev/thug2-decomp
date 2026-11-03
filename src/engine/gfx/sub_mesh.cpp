@@ -319,7 +319,9 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
 
     // The billboard's axes: row 0 across, row 1 up, the normal.
     std::array<float, 3> r0 = {{e1x, 0.0f, p2[2]}}; // (another type: the original reads what's on its stack - row 0's y unknown)
-    float r1x = nx, r1y = ny, r1z = nz;
+    float r1x = nx;
+    float r1y = ny;
+    float r1z = nz;
     switch (billboard_->type) {
     case 0:
     case 1:

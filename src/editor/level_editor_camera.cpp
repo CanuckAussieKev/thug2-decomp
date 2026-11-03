@@ -223,8 +223,14 @@ bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> ma
     if (!std::getline(in, line) || !line.starts_with("thug2-decomp camera bookmarks "))
         return false;
     while (std::getline(in, line)) {
-        int n = 0, view = 0;
-        float x = 0.0f, y = 0.0f, z = 0.0f, yaw = 0.0f, pitch = 0.0f, equivalent = 0.0f;
+        int n = 0;
+        int view = 0;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        float yaw = 0.0f;
+        float pitch = 0.0f;
+        float equivalent = 0.0f;
         text::FieldReader fields(line); // "%d %f %f %f %f %f %d %f"
         if (!(fields.read(n) && fields.read(x) && fields.read(y) && fields.read(z) && fields.read(yaw) &&
               fields.read(pitch) && fields.read(view) && fields.read(equivalent)))
@@ -622,7 +628,8 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         const V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : stored_ortho().pivot) : look_point(rig);
         const V3 d = pivot - *rig.pos;
         const float equivalent = ortho() ? stored_ortho().equivalent : std::clamp(std::sqrt(get_dot(d, d)), 200.0f, 20000.0f);
-        float yaw = 0.0f, pitch = 0.0f;
+        float yaw = 0.0f;
+        float pitch = 0.0f;
         axis_yaw_pitch(view, {.yaw = &yaw, .pitch = &pitch});
         enter_ortho(rig, view, yaw, pitch, pivot, equivalent);
     }

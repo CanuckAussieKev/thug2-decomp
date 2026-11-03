@@ -54,7 +54,8 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
     int best = -1;
     float best_d = 0.0f;
     for (size_t i = 0; i < points.size(); ++i) {
-        float px = 0.0f, py = 0.0f;
+        float px = 0.0f;
+        float py = 0.0f;
         if (!project(core::at(points, i), &px, &py))
             continue;
         const float dd = (px - x) * (px - x) + (py - y) * (py - y);

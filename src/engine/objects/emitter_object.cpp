@@ -254,7 +254,11 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     double remaining = reach_;
     maths::Vec4 previous = aim_point_;
     int index = head_;
-    float dx = 0.0f, dy = 0.0f, dz = 0.0f, dw = 0.0f, length = 0.0f;
+    float dx = 0.0f;
+    float dy = 0.0f;
+    float dz = 0.0f;
+    float dw = 0.0f;
+    float length = 0.0f;
     for (;;) {
         const maths::Vec4& point = core::at(path_vertices_, index);
         dx = static_cast<float>(static_cast<double>(point.x) - previous.x);

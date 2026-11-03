@@ -216,7 +216,8 @@ void PcPrimitive::render()
     core::at(material_.blend_modes(), 0) = blend_mode_from_name(blend_mode());
     material_.hand_in(); // (its set-up)
     IDirect3DVertexBuffer9* buffer = nullptr;
-    uint32_t first_vertex = 0, room = 0;
+    uint32_t first_vertex = 0;
+    uint32_t room = 0;
     set_vertex_format(vertex_format_);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), nullptr);
     if (type_ != 0 && type_ != 2 && type_ != 4)

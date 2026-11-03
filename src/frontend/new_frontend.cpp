@@ -1034,11 +1034,14 @@ bool has_visible_sprite(const UiWidget* element, int* budget)
 // focused item are its pad_left / pad_right handlers. So the marker's x is the value.
 void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* budget)
 {
-    static const uint32_t kCheckbox = name_hash("checkbox"), kCheckmark = name_hash("checkmark");
-    static const uint32_t kLeft = name_hash("left_arrow"), kRight = name_hash("right_arrow");
+    static const uint32_t kCheckbox = name_hash("checkbox");
+    static const uint32_t kCheckmark = name_hash("checkmark");
+    static const uint32_t kLeft = name_hash("left_arrow");
+    static const uint32_t kRight = name_hash("right_arrow");
     static const uint32_t kUp = name_hash("up_arrow");
     static const uint32_t kHueArrow = name_hash("hue_up_arrow");
-    static const uint32_t kStar = name_hash("star"), kCircle = name_hash("circle");
+    static const uint32_t kStar = name_hash("star");
+    static const uint32_t kCircle = name_hash("circle");
     static const auto kColourArrows = std::to_array<uint32_t>({name_hash("hue_up_arrow"), name_hash("saturation_up_arrow"),
                                              name_hash("value_up_arrow"), name_hash("alpha_up_arrow")});
     for (const UiWidget* e = element; e && --*budget > 0; e = get_next(e)) {
@@ -1050,7 +1053,8 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 // (colormenu_nowrap_arrow_left / right -53 .. 80 for the colour menus' markers, scalingmenu_arrow_left /
                 // right -49 .. 76 for the scaling ones)
                 const uint32_t id = id_of_element(e);
-                float left = -kScaleArrowLeft, right = kScaleArrowRight;
+                float left = -kScaleArrowLeft;
+                float right = kScaleArrowRight;
                 for (const uint32_t colour : kColourArrows)
                     if (id == colour) {
                         left = -kColourArrowLeft;
@@ -1279,7 +1283,8 @@ mirror::MenuRead read_stats(UiWidget* active)
     const UiWidget* editing = game_screens::get_find(name_hash("change_stat_sub_anchor"));
     read.stats_editing_ = editing != nullptr;
     const UiWidget* editing_row = editing ? editing->container().get_pull() : nullptr;
-    static const uint32_t kColumn1 = name_hash("sub_vmenu"), kColumn2 = name_hash("sub_vmenu2");
+    static const uint32_t kColumn1 = name_hash("sub_vmenu");
+    static const uint32_t kColumn2 = name_hash("sub_vmenu2");
     std::vector<const UiWidget*> menus;
     if (has_stat_rows(active) && id_of_element(active) != kColumn1 && id_of_element(active) != kColumn2) {
         menus.push_back(active);
@@ -1430,7 +1435,8 @@ UiWidget* keyboard_of(UiWidget* menu)
     UiWidget* parent = menu->container().get_pull();
     if (!parent || type_of(parent) != v_menu_type())
         return nullptr;
-    int rows = 0, singles = 0;
+    int rows = 0;
+    int singles = 0;
     for (const UiWidget* row = first_child(parent); row; row = get_next(row)) {
         if (type_of(row) != h_menu_type())
             continue;
@@ -1650,7 +1656,8 @@ mirror::View mirror_now()
         return {};
     // A create mode's editor chosen on the restyled CREATE-A-MODES (its item selected when that menu went): its menus
     // are left as they are - until the main menu or CREATE-A-MODES is back.
-    static uint32_t s_last_menu = 0, s_last_item = 0;
+    static uint32_t s_last_menu = 0;
+    static uint32_t s_last_item = 0;
     static const char* const kEditor = "a create mode's editor";
     const uint32_t menu_id = id_of_element(menu);
     const bool create_modes = game_screens::get_find(name_hash("menu_cas")) != nullptr;
@@ -1808,7 +1815,8 @@ void mirror_mouse(modules::FrontEnd* front_end)
     events.swap(menu_mirror().mirror_events_);
     if (!menu_mirror().mirror_.get_up())
         return;
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     if (SDL_Window* window = sys::sdl_window())
         SDL_GetWindowSize(window, &w, &h);
     TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(h));
@@ -2196,7 +2204,8 @@ void press_direction(modules::FrontEnd* front_end, Intake input)
 
 void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
 {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     if (SDL_Window* window = sys::sdl_window())
         SDL_GetWindowSize(window, &w, &h);
     TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(h));
@@ -2880,7 +2889,8 @@ bool cfunc_item(script::Struct* params, script::Script*)
 // `back` spawned (its menu went: the skate shop's).
 bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
 {
-    uint32_t screen = 0, back = 0;
+    uint32_t screen = 0;
+    uint32_t back = 0;
     if (!is_switched_on() || !params || !params->read_hash_value(name_hash("screen"), &screen, 0))
         return false;
     params->read_hash_value(name_hash("back"), &back, 0);
@@ -2920,7 +2930,8 @@ void blit()
     ImGuiContext* previous = nullptr;
     if (!begin_context(&previous))
         return;
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     ui_backend::window_size(&w, &h);
     if (w > 0 && h > 0) {
         const TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(h));

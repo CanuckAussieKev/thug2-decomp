@@ -220,7 +220,8 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         } else if (keyword == "set") {
             e.id = words.empty() ? 0 : id_of(core::at(words, 0));
             const std::string name = name_of(e.id, words.empty() ? "?" : core::at(words, 0));
-            bool pos = false, angles = false;
+            bool pos = false;
+            bool angles = false;
             int fields = 0;
             for (size_t i = 1; i < words.size(); ++i) {
                 pos = pos || core::at(words, i).starts_with("pos=");

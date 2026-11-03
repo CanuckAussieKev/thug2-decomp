@@ -224,7 +224,8 @@ void take_baseline()
         region_use(manager->script_region().get(), &size, &base().script);
     }
     for (int i = 0; i < kPoolCount; ++i) {
-        int used = 0, count = 0;
+        int used = 0;
+        int count = 0;
         core::at(base().pools, i) = pool_use(core::at(kPools, i).pair(), {.used = &used, .count = &count}) ? used : 0;
     }
     base().taken = true;
@@ -250,8 +251,11 @@ std::vector<Meter> get_meters()
     if (nodes.empty())
         return meters;
     // Counted as the game counts them now, and as the level has them (no added node; hidden ones counted).
-    int crowns_shipped = 0, restarts_shipped = 0, added_nodes = 0;
-    static const uint32_t kRestart = checksums::hash_from_text("Restart"), kCrown = checksums::hash_from_text("Crown");
+    int crowns_shipped = 0;
+    int restarts_shipped = 0;
+    int added_nodes = 0;
+    static const uint32_t kRestart = checksums::hash_from_text("Restart");
+    static const uint32_t kCrown = checksums::hash_from_text("Crown");
     for (const nodes::Elem& n : nodes) {
         if (n.added) {
             ++added_nodes;
@@ -305,7 +309,8 @@ std::vector<Meter> get_meters()
     count("Scenery copies", {.used = static_cast<double>(scenery::get_clones().size()), .limit = static_cast<double>(0), .added = static_cast<double>(scenery::get_clones().size())}, "CScene::CloneSector 0x0049DF30 (meshes in main memory)");
     count("Object copies", {.used = static_cast<double>(object_edit::get_copies().size()), .limit = static_cast<double>(0), .added = static_cast<double>(object_edit::get_copies().size())}, "objects made from copies of their nodes");
     for (int i = 0; i < kPoolCount; ++i) {
-        int used = 0, total = 0;
+        int used = 0;
+        int total = 0;
         if (!pool_use(core::at(kPools, i).pair(), {.used = &used, .count = &total}))
             continue;
         Meter m;
@@ -318,7 +323,8 @@ std::vector<Meter> get_meters()
         meters.push_back(m);
     }
     if (const memory::Hub* manager = memory::Hub::get_pull()) {
-        double size = 0.0, used = 0.0;
+        double size = 0.0;
+        double used = 0.0;
         if (region_use(manager->script_region().get(), &size, &used)) {
             Meter m;
             m.name = "Script heap";

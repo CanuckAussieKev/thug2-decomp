@@ -256,7 +256,8 @@ void PcWeather::render_rain(maths::Vec2 centre)
     const int max_z = cell_z + 16;
     if (max_z < 0 || min_z > depth - 1)
         return;
-    uint32_t top = get_argb(rain_top()), bottom = get_argb(rain_bottom());
+    uint32_t top = get_argb(rain_top());
+    uint32_t bottom = get_argb(rain_bottom());
     if ((rain_blend_ & kBlendModeMask) == kBlendModeFixBrighten) { // (drawn as mode 9 with the mode's alpha)
         choose_blend_mode(kBlendModeBrighten);
         const uint32_t alpha = rain_blend_ & 0xFF000000;
@@ -489,8 +490,10 @@ void PcWeather::render_splashes(float x, float z)
         if (!frames)
             continue;
         const double half = static_cast<double>(splash_size()) * 0.5f;
-        auto x0 = static_cast<float>(core::at(splash_x_, i) - half), x1 = static_cast<float>(half + core::at(splash_x_, i));
-        auto z0 = static_cast<float>(core::at(splash_z_, i) - half), z1 = static_cast<float>(half + core::at(splash_z_, i));
+        auto x0 = static_cast<float>(core::at(splash_x_, i) - half);
+        auto x1 = static_cast<float>(half + core::at(splash_x_, i));
+        auto z0 = static_cast<float>(core::at(splash_z_, i) - half);
+        auto z1 = static_cast<float>(half + core::at(splash_z_, i));
         std::array<uint8_t, 4> c{};
         for (int k = 0; k < 4; ++k)
             core::at(c, k) = static_cast<uint8_t>(core::at(splash_colour(), k) * frames / splash_life()); // (fading with its frames)
@@ -528,8 +531,10 @@ void PcWeather::tick_grid()
         const int v = ftol(value);
         return v / kCellSize; // (towards zero, as the original's shift with its correction)
     };
-    int min_x = cell(box.min.x) - 1, max_x = cell(box.max.x) + 1;
-    int min_z = cell(box.min.z) - 1, max_z = cell(box.max.z) + 1;
+    int min_x = cell(box.min.x) - 1;
+    int max_x = cell(box.max.x) + 1;
+    int min_z = cell(box.min.z) - 1;
+    int max_z = cell(box.max.z) + 1;
     if (max_x - min_x > kMaxSpanX) {
         const int trim = (max_x - min_x - 350) / 2;
         min_x += trim;
@@ -604,7 +609,8 @@ void PcWeather::tick_grid()
     columns = pc_weather_state().weather_columns_;
     uint32_t offset = 0;
     for (int r = 0; r <= depth; ++r) {
-        uint16_t first = 0, last = static_cast<uint16_t>(width - 1);
+        uint16_t first = 0;
+        auto last = static_cast<uint16_t>(width - 1);
         bool found = false;
         for (int c = 0; c < width; ++c) {
             const auto cell_index = static_cast<size_t>(width * r + c);

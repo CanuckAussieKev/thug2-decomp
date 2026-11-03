@@ -136,7 +136,9 @@ bool is_record(const std::string& keyword)
 bool read_record(const std::string& line, State* state)
 {
     std::istringstream in(line);
-    std::string keyword, a, b;
+    std::string keyword;
+    std::string a;
+    std::string b;
     if (!(in >> keyword) || !is_record(keyword) || !(in >> a))
         return false;
     if (keyword == "group") {
@@ -174,7 +176,8 @@ bool read_record(const std::string& line, State* state)
     if (!parse_hex8(a, &id))
         return false;
     if (keyword == "label") {
-        std::string text, clean;
+        std::string text;
+        std::string clean;
         if (!(in >> b) || !fields::unescape(b, &text) || !clean_name(text, &clean))
             return false;
         set_label(state, id, clean);
@@ -264,7 +267,8 @@ Filter parse_filter(const std::string& search)
 {
     Filter filter;
     std::istringstream in(search);
-    std::string word, rest;
+    std::string word;
+    std::string rest;
     while (in >> word) {
         const size_t colon = word.find(':');
         if (colon != std::string::npos && colon > 0) {
@@ -517,7 +521,8 @@ bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
     bool any = false;
     Rect2 r = {.x0 = 0, .y0 = 0, .x1 = 0, .y1 = 0};
     for (const V3& c : corners) {
-        float x = 0.0f, y = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
         if (!project_to_back(c, &x, &y)) {
             if (whole)
                 return false;
@@ -875,7 +880,8 @@ void apply_box()
     const bool crossing = crossing_drag(box_drag().x0, box_drag().x1);
     const int op = (box_drag().mods & actions::kShift) ? 1 : (box_drag().mods & actions::kCtrl) ? 2 : 0;
     const uint32_t filter = pick_filter_now();
-    std::vector<uint32_t> objects, sectors;
+    std::vector<uint32_t> objects;
+    std::vector<uint32_t> sectors;
     if (filter & picking::kObjects) {
         for (const uint32_t id : selectable_objects()) {
             OrientedBox ob{};
@@ -918,7 +924,8 @@ void apply_box()
                     n.family == nodes::Family::kScenery || nodes::shape_of(n.family) == nodes::Shape::kNone ||
                     gizmo_hidden(n.name) || !gizmo_pickable(n.name))
                     continue;
-                float x = 0.0f, y = 0.0f;
+                float x = 0.0f;
+                float y = 0.0f;
                 if (!project_to_back(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1)
                     continue;
                 ++in_box;
@@ -1004,7 +1011,8 @@ void select_similar(Similar by)
         const nodes::Elem& n = core::at(nodes::get_all(), index);
         int count = 0;
         for (const nodes::Elem& m : nodes::get_all()) {
-            Thing a, b;
+            Thing a;
+            Thing b;
             a.family = n.family, a.cls = n.cls, a.type = n.type;
             b.family = m.family, b.cls = m.cls, b.type = m.type;
             count += alike(a, b, by == Similar::kMesh ? Similar::kKindTag : by) ? 1 : 0;

@@ -392,7 +392,9 @@ void create_render_targets()
 // 0x004D7B60
 void load_gamma()
 {
-    float red = kFlashChannel, green = kFlashChannel, blue = kFlashChannel;
+    float red = kFlashChannel;
+    float green = kFlashChannel;
+    float blue = kFlashChannel;
     HKEY key = nullptr;
     if (RegOpenKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0, KEY_READ,
                       &key) == ERROR_SUCCESS) {

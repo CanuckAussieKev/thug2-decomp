@@ -463,7 +463,8 @@ bool TaggingControlComponent::try_tagging()
         dz = static_cast<float>(s * heading.x + c * heading.z);
     };
     for (int i = 0; i < kTagRayCount; ++i) {
-        float dx = 0.0f, dz = 0.0f;
+        float dx = 0.0f;
+        float dz = 0.0f;
         direction(i, dx, dz);
         feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = render::kNoFaceFlags});
         const float back_z = dz * kInch;
@@ -497,7 +498,8 @@ bool TaggingControlComponent::try_tagging()
             nearest = i;
         }
     }
-    float dx = 0.0f, dz = 0.0f;
+    float dx = 0.0f;
+    float dz = 0.0f;
     direction(nearest, dx, dz);
     auto distance = static_cast<float>(nearest_distance);
     const float back_z = dz * kInch;

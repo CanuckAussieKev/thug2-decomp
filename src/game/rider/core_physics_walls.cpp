@@ -181,17 +181,18 @@ void SkaterPhysicsModule::lean_push_off_wall()
     const maths::Vec4& position = entity()->at_point();
     maths::Vec4& start = probe_start_;
     maths::Vec4& end = probe_end_;
-    auto hx = static_cast<float>(height * up.x), hy = static_cast<float>(height * up.y),
-         hz = static_cast<float>(height * up.z);
+    auto hx = static_cast<float>(height * up.x);
+    auto hy = static_cast<float>(height * up.y);
+    auto hz = static_cast<float>(height * up.z);
     const double hw = height * up.w;
     start.z = hz + position.z;
     start.w = static_cast<float>(hw + position.w);
     start.x = hx + position.x;
     start.y = hy + position.y;
     const maths::Vec4& side = core::at(entity()->basis_frame().row, 0);
-    auto ry = static_cast<float>(static_cast<double>(reach) * side.y),
-         rz = static_cast<float>(static_cast<double>(reach) * side.z),
-         rw = static_cast<float>(static_cast<double>(reach) * side.w);
+    auto ry = static_cast<float>(static_cast<double>(reach) * side.y);
+    auto rz = static_cast<float>(static_cast<double>(reach) * side.z);
+    auto rw = static_cast<float>(static_cast<double>(reach) * side.w);
     end.z = rz + start.z;
     end.w = rw + start.w;
     end.x = static_cast<float>(static_cast<double>(reach) * side.x + start.x);
@@ -231,7 +232,8 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     const maths::Vec4& up = core::at(object->basis_frame().row, 1);
     const double x = reach * up.x;
     const double y = reach * up.y;
-    auto z = static_cast<float>(reach * up.z), w = static_cast<float>(reach * up.w);
+    auto z = static_cast<float>(reach * up.z);
+    auto w = static_cast<float>(reach * up.w);
     maths::Vec4& start = probe_start_;
     maths::Vec4& end = probe_end_;
     start = object->at_point();
@@ -331,8 +333,9 @@ void SkaterPhysicsModule::check_wall_ahead()
     start.y = lift.y + last.y;
     const double length = tuning_float_lookup(kForwardLength, object);
     const maths::Vec4& now = entity()->at_point();
-    auto ax = static_cast<float>(move.x * length), ay = static_cast<float>(move.y * length),
-         az = static_cast<float>(move.z * length);
+    auto ax = static_cast<float>(move.x * length);
+    auto ay = static_cast<float>(move.y * length);
+    auto az = static_cast<float>(move.z * length);
     const double aw = length * move.w;
     const double x = static_cast<double>(lift.x) + now.x; // (left unrounded)
     const float y = lift.y + now.y;
@@ -457,8 +460,9 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     start.w = lift.w + start.w;
     const double length = tuning_float_lookup(kForwardLength, object);
     const maths::Vec4& now = entity()->at_point();
-    auto ax = static_cast<float>(heading.x * length), ay = static_cast<float>(heading.y * length),
-         az = static_cast<float>(heading.z * length);
+    auto ax = static_cast<float>(heading.x * length);
+    auto ay = static_cast<float>(heading.y * length);
+    auto az = static_cast<float>(heading.z * length);
     const double aw = length * heading.w;
     const double bx = static_cast<double>(lift.x) + now.x;
     const double by = static_cast<double>(lift.y) + now.y;

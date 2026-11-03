@@ -109,7 +109,11 @@ void RiderChaseView::change_regime(CameraRegime camera_regime)
     script::Struct* params = script::read_sub_struct(modes->fetch_part(static_cast<uint32_t>(mode)));
     mode_sel_ = mode;
     lip_trick_tilt_ = 0.0f;
-    float fov = 0.0f, behind = 0.0f, above = 0.0f, tilt = 0.0f, offset = 0.0f;
+    float fov = 0.0f;
+    float behind = 0.0f;
+    float above = 0.0f;
+    float tilt = 0.0f;
+    float offset = 0.0f;
     params->fetch_float(kHorizFov, &fov, 0);
     params->fetch_float(kBehind, &behind, 0);
     params->fetch_float(kAbove, &above, 0);

@@ -59,8 +59,9 @@ Layout compute(maths::Size window, float scale, bool outliner_open, bool inspect
     Layout layout = {};
     // The menu bar (the font and its frame padding: 14 + 2 x 4 at scale 1) over the tool strip (its buttons, 14 + 2 x 3,
     // with 4 above and below).
-    float menu = std::round(kMenuBarHeight * scale), strip = std::round(kToolStripHeight * scale),
-          status = std::round(kStatusBarHeight * scale);
+    float menu = std::round(kMenuBarHeight * scale);
+    float strip = std::round(kToolStripHeight * scale);
+    float status = std::round(kStatusBarHeight * scale);
     menu = std::min(menu, height * kMenuBarMaxFraction);
     strip = std::min(strip, height * kToolStripMaxFraction);
     status = std::min(status, height * kStatusBarMaxFraction);
@@ -72,7 +73,8 @@ Layout compute(maths::Size window, float scale, bool outliner_open, bool inspect
     layout.strip = {.x = 0.0f, .y = menu, .width = width, .height = strip};
     layout.status = {.x = 0.0f, .y = height - status, .width = width, .height = status};
     // The side panels: 280 / 320 at scale 1, narrowed to 180 each so the viewport keeps 40% of the width.
-    float left = outliner_open ? kOutlinerWidth * scale : 0.0f, right = inspector_open ? kInspectorWidth * scale : 0.0f;
+    float left = outliner_open ? kOutlinerWidth * scale : 0.0f;
+    float right = inspector_open ? kInspectorWidth * scale : 0.0f;
     const float room = width * 0.6f;
     if (left + right > room) {
         const float minimum = 180.0f * scale;

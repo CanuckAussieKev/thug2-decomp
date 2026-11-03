@@ -578,8 +578,10 @@ bool UiTree::has_top_precedence(uint32_t id)
 bool UiTree::push_priority(checksums::Name name, uint32_t priority)
 {
     const uint32_t id = name.value();
-    uint32_t lowest = 0, highest = 0;
-    int slot = -1, highest_slot = -1;
+    uint32_t lowest = 0;
+    uint32_t highest = 0;
+    int slot = -1;
+    int highest_slot = -1;
     bool free = false;
     for (int i = 0; i < kPriorities; ++i) {
         const PriorityEntry& entry = core::at(priorities_, i);

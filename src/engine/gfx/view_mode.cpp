@@ -44,7 +44,8 @@ std::string unlit_shader_source(const std::string& source)
     // v0 as a whole operand (not v0.a / v0.w, its alpha): the constant instead. Comments (after ';') are left.
     std::string out;
     out.reserve(source.size() + kShaderSourceSlack);
-    bool changed = false, comment = false;
+    bool changed = false;
+    bool comment = false;
     for (size_t i = 0; i < source.size(); ++i) {
         const char c = core::at(source, i);
         if (c == '\n')

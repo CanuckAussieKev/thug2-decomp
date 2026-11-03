@@ -141,7 +141,8 @@ std::string write_records(const std::vector<SectorFaces>& sectors)
 bool read_record(std::istringstream& in, SectorFaces* out)
 {
     SectorFaces s;
-    std::string checksum, list;
+    std::string checksum;
+    std::string list;
     if (!(in >> checksum >> list) || checksum.size() != kChecksumDigits)
         return false;
     uint32_t value = 0;
@@ -542,7 +543,8 @@ std::vector<SectorFaces> get_changed()
 
 int get_apply(const std::vector<SectorFaces>& sectors)
 {
-    int count = 0, missing = 0;
+    int count = 0;
+    int missing = 0;
     for (const SectorFaces& s : sectors) {
         for (const auto& face : s.faces) {
             if (emit_out({.checksum = s.checksum, .face = face.first}, face.second))
@@ -598,10 +600,16 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         if (!get_corners(key, p))
             return;
         for (int k = 0; k < 3; ++k) {
-            V3 a = core::at(p, k), b = core::at(p, (k + 1) % 3);
+            V3 a = core::at(p, k);
+            V3 b = core::at(p, (k + 1) % 3);
             if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b))
                 continue;
-            float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f, nx = 0.0f, ny = 0.0f;
+            float ax = 0.0f;
+            float ay = 0.0f;
+            float bx = 0.0f;
+            float by = 0.0f;
+            float nx = 0.0f;
+            float ny = 0.0f;
             if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
                 continue;
             ndc_to_pixel(viewport, nx, ny, &ax, &ay);

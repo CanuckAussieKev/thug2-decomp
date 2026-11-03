@@ -550,11 +550,13 @@ float Rider::fetch_tally(int index)
 // 0x005805B0
 float Rider::get_scaled_value(script::Struct* params)
 {
-    script::Pair range, switch_range;
+    script::Pair range;
+    script::Pair switch_range;
     params->fetch_pair(0u, &range, false);
     int stat_index = 0;
     const double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
-    const float low = range.x(), high = range.y();
+    const float low = range.x();
+    const float high = range.y();
     auto result = static_cast<float>((static_cast<double>(high) - low) * stat * kStatToFraction + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
     const bool goofy = core::down_cast<Rider>(core_physics_->entity())->goofy_;
@@ -872,8 +874,10 @@ void Rider::show_board_element(uint32_t type)
     if (!params)
         return;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
-    uint32_t model_swap = 0, model_swap2 = 0;
-    float width = 0.0f, height = 0.0f;
+    uint32_t model_swap = 0;
+    uint32_t model_swap2 = 0;
+    float width = 0.0f;
+    float height = 0.0f;
     const char* texture = nullptr;
     params->read_hash_value(kIn, &model_swap, 1);
     params->fetch_float(kXScale, &width, 1);
@@ -1293,7 +1297,9 @@ void Rider::write_list_44b_66a_9f(script::Struct* save)
 void Rider::launch_projectile()
 {
     // Its flat heading.
-    float heading_x = core::at(basis_frame().row, 2).x, heading_y = 0.0f, heading_z = core::at(basis_frame().row, 2).z;
+    float heading_x = core::at(basis_frame().row, 2).x;
+    float heading_y = 0.0f;
+    float heading_z = core::at(basis_frame().row, 2).z;
     float best = kNoHitDistance;
     const GameEntity* target = nullptr;
     const double length =
@@ -1309,7 +1315,8 @@ void Rider::launch_projectile()
     const bool flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on != 0;
     const bool walk = !walking->in_vehicle() && walking->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking;
     const uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
-    maths::Vec4 bone, rotated;
+    maths::Vec4 bone;
+    maths::Vec4 rotated;
     core::down_cast<BoneRigModule>(fetch_module(kSkeleton2))->get_local_bone_position(wrist, &bone);
     const maths::Vec4* turned = &basis_frame().rotate_vector(rotated, bone);
     const maths::Vec4 origin = {.x = static_cast<float>(static_cast<double>(turned->x) + at_point().x),
@@ -1318,7 +1325,8 @@ void Rider::launch_projectile()
                                 .w = static_cast<float>(static_cast<double>(turned->w) + at_point().w)};
     // The nearest projectile target (projectileproximity) ahead within the targeting distance and angle; a ped
     // that's been shot is left out, and a ped is aimed at a bone it chooses.
-    float to_target_x = 0.0f, to_target_z = 0.0f;
+    float to_target_x = 0.0f;
+    float to_target_z = 0.0f;
     maths::Vec4 aim = {};
     for (const ObjectModule* component = object_hub_slot()->find_first_module_of_kind(kProjectileproximity); component;
          component = component->next_of_type()) {

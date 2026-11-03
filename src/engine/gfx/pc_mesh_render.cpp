@@ -168,7 +168,8 @@ void MeshRef::render()
     } else {
         mat->submit_states();
     }
-    DWORD min_filter = 0, z_write = 0;
+    DWORD min_filter = 0;
+    DWORD z_write = 0;
     if (flags_ & kFlagForceLinear) {
         renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
         if (min_filter != D3DTEXF_LINEAR)

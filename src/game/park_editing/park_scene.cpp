@@ -223,7 +223,8 @@ bool ParkAssembler::plant_restart_point(maths::Vec4* position, int rot, CellBox*
     const auto type = restart_kind.type;
     const auto automatic = restart_kind.automatic;
     const auto keep_placed = restart_kind.keep_placed_;
-    int first = 0, last = 0;
+    int first = 0;
+    int last = 0;
     spawn_slot_array(this, type, &first, &last);
     maths::Vec4 pos = *position;
     CellBox cells = *area;
@@ -255,7 +256,8 @@ bool ParkAssembler::plant_restart_point(maths::Vec4* position, int rot, CellBox*
 
 int ParkAssembler::count_restarts(int type)
 {
-    int first = 0, last = 0;
+    int first = 0;
+    int last = 0;
     spawn_slot_array(this, type, &first, &last);
     int count = 0;
     for (int i = first; i <= last; ++i) {
@@ -269,7 +271,8 @@ bool ParkAssembler::needs_restarts(int type, int count) { return count_restarts(
 
 void ParkAssembler::unplant_restart_point(CellBox* area, int player)
 {
-    int first = 0, last = 0;
+    int first = 0;
+    int last = 0;
     spawn_slot_array(this, player, &first, &last);
     for (int i = first; i <= last; ++i) {
         RestartPoint& restart = core::at(restarts_, i);

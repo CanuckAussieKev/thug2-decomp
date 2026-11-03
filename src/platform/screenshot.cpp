@@ -223,7 +223,8 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     shot.fields.push_back({.key = "taken", .value = taken});
     text::format_to(text, "%d x %d (%s)", frame.width, frame.height, format_name(frame.format));
     shot.fields.push_back({.key = "image", .value = text.data()});
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     if (SDL_Window* window = sys::sdl_window())
         SDL_GetWindowSize(window, &w, &h);
     if (w > 0 && h > 0) {
@@ -340,9 +341,12 @@ void tick_message()
 
 void emit_out(const std::shared_ptr<Job>& job)
 {
-    LARGE_INTEGER start, end, frequency;
+    LARGE_INTEGER start;
+    LARGE_INTEGER end;
+    LARGE_INTEGER frequency;
     QueryPerformanceCounter(&start);
-    std::vector<uint8_t> rgb, png;
+    std::vector<uint8_t> rgb;
+    std::vector<uint8_t> png;
     const bool read = to_rgb(job->frame, &rgb);
     if (read)
         mark_cursor(&rgb, job->frame.width, job->frame.height, job->mouse_x_, job->mouse_y_,
@@ -446,7 +450,10 @@ void get_take()
     auto job = std::make_shared<Job>();
     // The mouse, in the image's pixels (the window may be scaled to the back buffer): marked on the picture and noted.
     std::string mouse;
-    int mx = 0, my = 0, w = 0, h = 0;
+    int mx = 0;
+    int my = 0;
+    int w = 0;
+    int h = 0;
     SDL_Window* window = sys::sdl_window();
     if (window && (SDL_GetMouseFocus() == window)) {
         SDL_GetMouseState(&mx, &my);
@@ -510,7 +517,8 @@ bool write_new_file(const std::string& path, const void* data, size_t size)
 
 void write_series_frame(const std::shared_ptr<Series>& series, const TickCycle& frame, int number)
 {
-    std::vector<uint8_t> rgb, png;
+    std::vector<uint8_t> rgb;
+    std::vector<uint8_t> png;
     std::string error;
     const std::string path = series->folder + series_frame_name(number);
     if (!to_rgb(frame, &rgb))
@@ -603,7 +611,8 @@ void handle_event(SDL_Event* event)
 // Whether Windows' Snipping Tool takes the Print Screen key (its setting; Windows 11 turns it on by default).
 bool get_snipping_takes_print_screen()
 {
-    DWORD value = 0, size = sizeof(value);
+    DWORD value = 0;
+    DWORD size = sizeof(value);
     return RegGetValueA(HKEY_CURRENT_USER, "Control Panel\\Keyboard", "PrintScreenKeyForSnippingEnabled",
                         RRF_RT_REG_DWORD, nullptr, &value, &size) == ERROR_SUCCESS &&
            value != 0;

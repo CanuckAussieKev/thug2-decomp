@@ -134,7 +134,8 @@ Fit get_fit(std::span<const float, 4> p0, std::span<const float, 4> p1, std::spa
         fit.bw = static_cast<float>(static_cast<double>(w2) * inverse);
         return fit;
     }
-    auto dx2f = static_cast<float>(dx2), dy2f = static_cast<float>(dy2);
+    auto dx2f = static_cast<float>(dx2);
+    auto dy2f = static_cast<float>(dy2);
     auto mid2 = static_cast<float>(static_cast<double>(mid) * mid);
     auto dx2_mid2 = static_cast<float>(dx2 * mid2);
     const double dy2_mid2 = dy2 * mid2;
@@ -144,7 +145,8 @@ Fit get_fit(std::span<const float, 4> p0, std::span<const float, 4> p1, std::spa
     const double dy1 = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
     auto z1 = static_cast<float>(static_cast<double>(core::at(p1, 2)) - core::at(p0, 2));
     auto w1 = static_cast<float>(static_cast<double>(core::at(p1, 3)) - core::at(p0, 3));
-    auto dx1f = static_cast<float>(dx1), dy1f = static_cast<float>(dy1);
+    auto dx1f = static_cast<float>(dx1);
+    auto dy1f = static_cast<float>(dy1);
     auto end2 = static_cast<float>(static_cast<double>(end) * end);
     auto dx1_end2 = static_cast<float>(dx1 * end2);
     const double dy1_end2 = dy1 * end2;
@@ -228,7 +230,9 @@ static_assert(sizeof(ParticleVertex) == kParticleVertexBytes, "layout must match
 // 0x004BB040
 void get_skip(ParticleBurst& burst, int particles)
 {
-    uint32_t a = core::at(burst.seed, 0), b = core::at(burst.seed, 1), c = core::at(burst.seed, 2);
+    uint32_t a = core::at(burst.seed, 0);
+    uint32_t b = core::at(burst.seed, 1);
+    uint32_t c = core::at(burst.seed, 2);
     random_a() = a;
     random_b() = b;
     random_c() = c;
@@ -419,7 +423,8 @@ void PcParticleSystem::draw(bool advance)
         int index = 0;
         while (remaining != 0) {
             IDirect3DVertexBuffer9* buffer = nullptr;
-            uint32_t first_vertex = 0, room = 0;
+            uint32_t first_vertex = 0;
+            uint32_t room = 0;
             auto* locked = static_cast<ParticleVertex*>(
                 os_layer::lock_dynamic_vertices(remaining * 4, sizeof(ParticleVertex), &buffer, {.first_vertex_ = &first_vertex, .room = &room}));
             core::Cursor<ParticleVertex> vertex(std::span<ParticleVertex>(locked, room));
@@ -430,7 +435,9 @@ void PcParticleSystem::draw(bool advance)
                 double t = age;
                 for (;;) {
                     auto t2 = static_cast<float>(t * t);
-                    uint32_t a = random_a(), bb = random_b(), c = random_c();
+                    uint32_t a = random_a();
+                    uint32_t bb = random_b();
+                    uint32_t c = random_c();
                     random_step(a, bb, c);
                     const double s1 = random_scale(a);
                     random_step(a, bb, c);
@@ -503,9 +510,11 @@ void PcParticleSystem::draw(bool advance)
 
                     // The quad: (centre - r - ... ) corners, its texture 0..1.
                     const double across_x = core::at(r, 0) * size;
-                    auto across_y = static_cast<float>(core::at(r, 1) * size), across_z = static_cast<float>(core::at(r, 2) * size);
-                    auto up_x = static_cast<float>(core::at(u, 0) * size), up_y = static_cast<float>(core::at(u, 1) * size),
-                         up_z = static_cast<float>(core::at(u, 2) * size);
+                    auto across_y = static_cast<float>(core::at(r, 1) * size);
+                    auto across_z = static_cast<float>(core::at(r, 2) * size);
+                    auto up_x = static_cast<float>(core::at(u, 0) * size);
+                    auto up_y = static_cast<float>(core::at(u, 1) * size);
+                    auto up_z = static_cast<float>(core::at(u, 2) * size);
                     auto left_x = static_cast<float>(centre_x - across_x);
                     auto left_y = static_cast<float>(static_cast<double>(centre_y) - across_y);
                     auto left_z = static_cast<float>(static_cast<double>(centre_z) - across_z);

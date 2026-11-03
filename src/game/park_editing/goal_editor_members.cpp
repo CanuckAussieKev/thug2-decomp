@@ -92,7 +92,9 @@ bool ObjectiveAuthoring::edited_goal_got_gap(script::Struct* params, script::Scr
 bool ObjectiveAuthoring::add_key_combo_set(script::Struct* params, script::Script* /*script*/)
 {
     if (EditedGoal* goal = get_goal_from_params(params)) {
-        int set = 0, spin = 0, taps = 0;
+        int set = 0;
+        int spin = 0;
+        int taps = 0;
         params->fetch_int_value(kSetIndex, &set, 0);
         params->fetch_int_value(kSpin, &spin, 0);
         params->fetch_int_value(kNumTaps, &taps, 0);
@@ -356,7 +358,8 @@ bool ObjectiveAuthoring::refresh_goal_cursor_position(script::Struct* /*params*/
     if (!active_node_)
         return true;
     maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    float height = 0.0f, angle = 0.0f;
+    float height = 0.0f;
+    float angle = 0.0f;
     active_node_->get_current_point(&pos, {.height = &height, .angle = &angle});
     script::Struct cursor;
     cursor.put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y + height, .z = pos.z});

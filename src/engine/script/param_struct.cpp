@@ -1613,8 +1613,10 @@ bool components_equal(Component* a, Component* b)
             }
         }
     };
-    QbValueKind type_a = QbValueKind::kNone, type_b = QbValueKind::kNone;
-    Cell value_a, value_b;
+    QbValueKind type_a = QbValueKind::kNone;
+    QbValueKind type_b = QbValueKind::kNone;
+    Cell value_a;
+    Cell value_b;
     resolve(a, &type_a, &value_a);
     resolve(b, &type_b, &value_b);
     auto as_float = [](Cell value) { return static_cast<double>(value.real()); };

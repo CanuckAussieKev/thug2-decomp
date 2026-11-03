@@ -391,7 +391,9 @@ void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, fl
         get_trans(b, out, floats);
         return;
     }
-    maths::Vec4 from{}, to{}, result{};
+    maths::Vec4 from{};
+    maths::Vec4 to{};
+    maths::Vec4 result{};
     get_trans(a, std::span<float, 4>(from.data(), 4), floats);
     get_trans(b, std::span<float, 4>(to.data(), 4), floats);
     const maths::Vec4* lerped = walk::get_lerp(&result, &from, &to, t);
@@ -429,7 +431,9 @@ void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const S
         get_short_trans(b, out);
         return;
     }
-    maths::Vec4 from{}, to{}, result{};
+    maths::Vec4 from{};
+    maths::Vec4 to{};
+    maths::Vec4 result{};
     get_short_trans(a, std::span<float, 4>(from.data(), 4));
     get_short_trans(b, std::span<float, 4>(to.data(), 4));
     const maths::Vec4* lerped = walk::get_lerp(&result, &from, &to, t);
@@ -1012,7 +1016,8 @@ bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void*, float time,
     size_t quat_keys = 0;
     size_t trans_keys = 0;
     for (int bone = 0; bone < bone_count_; ++bone) {
-        int quat_count = 0, trans_count = 0;
+        int quat_count = 0;
+        int trans_count = 0;
         if (flag_bits_ & kFlagWideKeyCounts) {
             quat_count = anim_format::wide_key_count(key_count_run(), 2 * bone);
             trans_count = anim_format::wide_key_count(key_count_run(), 2 * bone + 1);
@@ -1146,7 +1151,8 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     KeyCursor at(quat_run, static_cast<std::ptrdiff_t>(quat_data));
                     if (source && source->resume() && core::at(source->quat_at(), bone))
                         at = KeyCursor(quat_run, core::at(source->quat_at(), bone) - quat_run.data());
-                    ShortKey a{}, b{};
+                    ShortKey a{};
+                    ShortKey b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)
@@ -1210,7 +1216,8 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     KeyCursor at(trans_run, static_cast<std::ptrdiff_t>(trans_data));
                     if (source && source->resume() && core::at(source->trans_at(), bone))
                         at = KeyCursor(trans_run, core::at(source->trans_at(), bone) - trans_run.data());
-                    ShortKey a{}, b{};
+                    ShortKey a{};
+                    ShortKey b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)

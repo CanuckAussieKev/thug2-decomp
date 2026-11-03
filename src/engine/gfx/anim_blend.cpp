@@ -191,12 +191,18 @@ std::array<uint32_t, 4>& loop_type_checksums()
 // 0x0047D580
 void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
 {
-    constexpr uint32_t kAnim = 0x98549BA4, kSpeed = 0xF0D90109, kRepeatMode = 0x6B888E80;
-    constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;
+    constexpr uint32_t kAnim = 0x98549BA4;
+    constexpr uint32_t kSpeed = 0xF0D90109;
+    constexpr uint32_t kRepeatMode = 0x6B888E80;
+    constexpr uint32_t kStartTime = 0xD16B61E6;
+    constexpr uint32_t kCurrentTime = 0xD4FC8176;
+    constexpr uint32_t kEndTime = 0xAB81BB3D;
     info->put_name_key(checksums::Name{kAnim}, timeline->anim());
     info->push_float(checksums::Name{kSpeed}, timeline->speed());
     info->put_name_key(checksums::Name{kRepeatMode}, core::at((loop_type_checksums()), timeline->repeat_mode()));
-    float start = 0.0f, current = 0.0f, end = 0.0f;
+    float start = 0.0f;
+    float current = 0.0f;
+    float end = 0.0f;
     timeline->get_times(&start, &current, &end);
     info->push_float(checksums::Name{kStartTime}, start);
     info->push_float(checksums::Name{kCurrentTime}, current);

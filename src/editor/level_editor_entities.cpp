@@ -111,7 +111,11 @@ V3 pin_anchor_point(const std::vector<V3>& places)
 {
     if (places.empty())
         return {.x = 0.0f, .y = 0.0f, .z = 0.0f};
-    float min_x = core::at(places, 0).x, max_x = core::at(places, 0).x, min_z = core::at(places, 0).z, max_z = core::at(places, 0).z, min_y = core::at(places, 0).y;
+    float min_x = core::at(places, 0).x;
+    float max_x = core::at(places, 0).x;
+    float min_z = core::at(places, 0).z;
+    float max_z = core::at(places, 0).z;
+    float min_y = core::at(places, 0).y;
     for (const V3& p : places) {
         min_x = std::min(min_x, p.x);
         max_x = std::max(max_x, p.x);
@@ -124,7 +128,8 @@ V3 pin_anchor_point(const std::vector<V3>& places)
 
 V3 turn_box_extents(V3 extents, float turn)
 {
-    double c = std::fabs(std::cos(static_cast<double>(turn))), s = std::fabs(std::sin(static_cast<double>(turn)));
+    double c = std::fabs(std::cos(static_cast<double>(turn)));
+    double s = std::fabs(std::sin(static_cast<double>(turn)));
     // (a quarter turn exactly: x and z swapped - cos(pi/2) in floats isn't 0)
     if (c < kTinyAngle)
         c = 0.0;
@@ -209,7 +214,8 @@ bool same_state(const State& a, const State& b)
             return false;
     }
     for (size_t i = 0; i < a.emitters.size(); ++i) {
-        const EmitterSound &x = core::at(a.emitters, i), &y = core::at(b.emitters, i);
+        const EmitterSound& x = core::at(a.emitters, i);
+        const EmitterSound& y = core::at(b.emitters, i);
         if (x.name != y.name || x.sound != y.sound || x.volume != y.volume || x.radius != y.radius)
             return false;
     }
@@ -922,7 +928,8 @@ float current_heading(const objects::GameEntity* object)
 void preview_place(float distance)
 {
     objects::GameEntity* object = live_object(entity_preview().preview_.id);
-    V3 pos{}, dir{};
+    V3 pos{};
+    V3 dir{};
     if (!object || !path_sample(entity_preview().preview_.points, entity_preview().preview_.closed, distance, {.origin = &pos, .dir = &dir}))
         return;
     object_edit::get_place(object, pos);
@@ -991,7 +998,9 @@ void build_palette()
         return;
     std::set<std::string> types;
     std::map<std::string, std::vector<uint32_t>> sets;
-    std::vector<std::pair<std::string, Source>> peds, cars, particles;
+    std::vector<std::pair<std::string, Source>> peds;
+    std::vector<std::pair<std::string, Source>> cars;
+    std::vector<std::pair<std::string, Source>> particles;
     for (const nodes::Elem& n : nodes::get_all()) {
         script::Struct* s = nodes::struct_of(n);
         if (!s || !n.name || n.hidden || node_create::is_added(n.name) || object_edit::is_copy(n.name))
@@ -1000,7 +1009,8 @@ void build_palette()
         if (cls == kPedestrian || cls == kVehicle) {
             if (!live_object(n.name)) // (only types the level has made: their assets are loaded)
                 continue;
-            uint32_t type = 0, profile = 0;
+            uint32_t type = 0;
+            uint32_t profile = 0;
             s->read_hash_value(k_type(), &type, 0);
             s->read_hash_value(k_profile(), &profile, 0);
             const std::string model = model_of(s);
@@ -1017,7 +1027,8 @@ void build_palette()
         } else if ((cls == kLevelObject || cls == kGameObject) && s->has_bare_flag(k_bouncy()) && live_object(n.name)) {
             sets[set_stem(nodes::caption(n.name))].push_back(n.name);
         } else if (cls == kParticleObject) {
-            uint32_t type = 0, texture = 0;
+            uint32_t type = 0;
+            uint32_t texture = 0;
             s->read_hash_value(k_type(), &type, 0);
             s->read_hash_value(k_texture(), &texture, 0);
             if (!types.insert(type_key(cls, type, texture, "")).second)
@@ -1197,7 +1208,8 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
     script::Struct* node = look_up_node_params(name);
     if (!node)
         return;
-    static const uint32_t kMid = get_key("MidPosition"), kEnd = get_key("EndPosition");
+    static const uint32_t kMid = get_key("MidPosition");
+    static const uint32_t kEnd = get_key("EndPosition");
     static const std::array<uint32_t, 3> kBoxes = {{get_key("BoxDimsStart"), get_key("BoxDimsMid"), get_key("BoxDimsEnd")}};
     auto it = particle_at().find(name);
     if (it == particle_at().end()) {
@@ -1346,7 +1358,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     auto to_pixel = [&](V3 p, float* x, float* y) {
-        float nx = 0.0f, ny = 0.0f;
+        float nx = 0.0f;
+        float ny = 0.0f;
         if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1355,7 +1368,10 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera, frame, near_z, &a, &b))
             return;
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (to_pixel(a, &ax, &ay) && to_pixel(b, &bx, &by))
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
@@ -1395,7 +1411,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             }
         }
         line(n->pos, n->pos + at * kGhostFacingLength, kGhost, kGhostFacingWidth);
-        float x = 0.0f, y = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
         if (d < kLabelRange && to_pixel(n->pos + up * kLabelRise, &x, &y))
             texts->push_back({.x = x, .y = y, .argb = kGhost, .text = nodes::caption(n->name) + " (uncreated)"});
     }

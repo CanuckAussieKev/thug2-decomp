@@ -343,7 +343,8 @@ void GlyphRun::draw()
                 static_cast<float>(static_cast<double>(char_font->base() - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
                 effects ? &core::at(effect_records, effect / static_cast<int>(sizeof(TextEffect))) : nullptr;
-            float right = 0.0f, bottom = 0.0f;
+            float right = 0.0f;
+            float bottom = 0.0f;
             if (e) {
                 const int w = ftol(e->xscale() * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
                 right = static_cast<float>(static_cast<double>(w) + e->x() + pos_x);

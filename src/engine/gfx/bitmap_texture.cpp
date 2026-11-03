@@ -88,7 +88,8 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
             rows = (rows + 3) >> 2;
             row_bytes = level_desc.Format == D3DFMT_DXT1 ? level_desc.Width * kDxt1BlockBytes : level_desc.Width << 4;
         }
-        D3DLOCKED_RECT source_rect, target_rect;
+        D3DLOCKED_RECT source_rect;
+        D3DLOCKED_RECT target_rect;
         get_d3d(source)->LockRect(level, &source_rect, nullptr, 0);
         get_d3d(this)->LockRect(level, &target_rect, nullptr, 0);
         const auto source_pitch = static_cast<size_t>(source_rect.Pitch);

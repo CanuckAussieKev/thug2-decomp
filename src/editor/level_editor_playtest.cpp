@@ -383,7 +383,8 @@ bool parse(const std::string& text, LevelTrails* trails)
             if (line.size() > 4)
                 out.landed().insert(line.substr(4));
         } else if (line.starts_with("run ")) {
-            int number = 0, visible = 1;
+            int number = 0;
+            int visible = 1;
             float seconds = 0.0f;
             text::FieldReader fields(std::string_view(line).substr(4)); // "%d %f %d", the last one optional
             if (!(fields.read(number) && fields.read(seconds)) || number <= 0)
@@ -408,7 +409,8 @@ bool parse(const std::string& text, LevelTrails* trails)
         } else if (line.starts_with("e ") && run) {
             std::istringstream fields(line.substr(2));
             Occurrence e;
-            std::string kind, status;
+            std::string kind;
+            std::string status;
             if (!(fields >> kind >> e.pos.x >> e.pos.y >> e.pos.z >> e.value >> status))
                 continue;
             if (kind == "gap")
@@ -841,7 +843,8 @@ void simulate_event(SDL_Event* event)
         const platform::KeyState keys = platform::keyboard_keys();
         const bool ctrl = (event->key.keysym.mod & KMOD_CTRL) != 0;
         const bool alt = (event->key.keysym.mod & KMOD_ALT) != 0;
-        int x = 0, y = 0;
+        int x = 0;
+        int y = 0;
         const bool right = (SDL_GetMouseState(&x, &y) & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
         const bool fly_keys_safe = right || !xform::fly_always();
         (void)keys;
@@ -891,7 +894,9 @@ void stop_simulation(const char* why)
     simulation().simulating_ = false;
     if (modules::FrontEnd* front_end = modules::front_end_instance().get())
         front_end->get_pause_game(true);
-    int restored = 0, gone = 0, kept = 0;
+    int restored = 0;
+    int gone = 0;
+    int kept = 0;
     if (!simulation().keep_simulation_) {
         const std::vector<uint32_t>& touched = object_edit::get_touched();
         for (const Snapshot& s : simulation().snapshots_) {
@@ -1012,7 +1017,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         return;
     const std::vector<Run>& runs = it->second.runs();
     auto to_screen = [&](V3 p, float* x, float* y) {
-        float nx = 0.0f, ny = 0.0f;
+        float nx = 0.0f;
+        float ny = 0.0f;
         if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1021,11 +1027,15 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera, frame, near_z + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (to_screen(a, &ax, &ay) && to_screen(b, &bx, &by))
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
-    constexpr float kFar = 20000.0f, kLabelFar = 5000.0f;
+    constexpr float kFar = 20000.0f;
+    constexpr float kLabelFar = 5000.0f;
     size_t budget = kLineBudget;
     const int newest = runs.empty() ? 0 : runs.back().number;
     for (const Run& run : runs) {
@@ -1050,7 +1060,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         if (!run.samples_.empty()) {
             const V3 s = run.samples_.front().pos;
             const V3 d = s - camera;
-            float x = 0.0f, y = 0.0f;
+            float x = 0.0f;
+            float y = 0.0f;
             if (get_dot(d, d) < kLabelFar * kLabelFar && to_screen(s, &x, &y)) {
                 circles->push_back({.x = x, .y = y, .radius = kRunMarkerRadius, .argb = kRunMarkerColour, .filled = false, .thickness = kRunMarkerThickness});
                 texts->push_back({.x = x + kRunLabelOffsetX, .y = y - kRunLabelOffsetY, .argb = kRunMarkerColour, .text = "Run " + std::to_string(run.number)});
@@ -1062,7 +1073,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             const float distance2 = get_dot(d, d);
             if (distance2 > kFar * kFar)
                 continue;
-            float x = 0.0f, y = 0.0f;
+            float x = 0.0f;
+            float y = 0.0f;
             if (e.kind == EventKind::kBail) {
                 constexpr float kS = 30.0f;
                 line(e.pos + V3{.x = -kS, .y = 0.0f, .z = -kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = kS}, kBailColour, kBailLineThickness);

@@ -207,7 +207,8 @@ void RiderGapTracker::seal()
 void RiderGapTracker::tick_frame()
 {
     ++tick_;
-    uint32_t cancel = 0, require = 0;
+    uint32_t cancel = 0;
+    uint32_t require = 0;
     fetch_gap_condition_masks(&cancel, &require);
     scan_for_gaps({.cancel = cancel, .require = require});
 }
@@ -445,7 +446,8 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     const bool driving_matters = state_of(physics_control_)->in_vehicle() && (gap_option_labels(gap) & kGapDriving);
     if (!driving_matters && park_editing::ParkBuilderMode::sole()->editor_state() == kOff)
         return;
-    uint32_t cancel = 0, require = 0;
+    uint32_t cancel = 0;
+    uint32_t require = 0;
     fetch_gap_condition_masks(&cancel, &require);
     scan_for_gaps({.cancel = cancel, .require = require});
 }

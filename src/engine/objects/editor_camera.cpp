@@ -439,7 +439,10 @@ void EditorViewModule::tick_frame()
     lean_angle_ = std::max(lean_angle_, min_tilt_);
 
     // The zoom and height buttons by controller type.
-    bool zoom_in = false, zoom_out = false, raise = false, lower = false;
+    bool zoom_in = false;
+    bool zoom_out = false;
+    bool raise = false;
+    bool lower = false;
     const int controller = game_config::hardware();
     const uint32_t buttons = input_ptr_->events();
     if (controller == 4 || controller == kControllerPs2Pad) {
@@ -566,13 +569,17 @@ void EditorViewModule::tick_frame()
     auto a2 = static_cast<float>(ahead * forward_.z);
     auto a3 = static_cast<float>(ahead * forward_.y);
     const double a4 = ahead * forward_.x;
-    auto b1 = static_cast<float>(a1 * speed), b2 = static_cast<float>(a2 * speed), b3 = static_cast<float>(a3 * speed);
+    auto b1 = static_cast<float>(a1 * speed);
+    auto b2 = static_cast<float>(a2 * speed);
+    auto b3 = static_cast<float>(a3 * speed);
     auto b4 = static_cast<float>(a4 * speed);
     const double c1 = static_cast<double>(side) * right_side_.w;
     const double c2 = static_cast<double>(side) * right_side_.z;
     const float c3 = side * right_side_.y;
     const float c4 = side * right_side_.x;
-    auto d1 = static_cast<float>(c1 * speed), d2 = static_cast<float>(c2 * speed), d3 = static_cast<float>(c3 * speed);
+    auto d1 = static_cast<float>(c1 * speed);
+    auto d2 = static_cast<float>(c2 * speed);
+    auto d3 = static_cast<float>(c3 * speed);
     const double x0 = speed * c4;
     const maths::Vec4 previous = cursor_;
     cursor_.x = static_cast<float>((x0 + b4) + cursor_.x);

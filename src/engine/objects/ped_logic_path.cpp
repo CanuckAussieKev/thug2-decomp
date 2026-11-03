@@ -175,7 +175,8 @@ void PedestrianBrainModule::choose_node_after()
             core::at(normals, i) = i;
             core::at(lows, i) = i;
         }
-        int low_count = 0, normal_count = 0;
+        int low_count = 0;
+        int normal_count = 0;
         const int min_angle = script::fetch_int_value(kMinInnerPathAngle);
         float best_angle = 0.0f;
         int best = 0;
@@ -184,7 +185,8 @@ void PedestrianBrainModule::choose_node_after()
             if (link == list_link_)
                 continue;
             script::Struct* linked = level_nodes::fetch_vertex(link, true);
-            uint32_t link_class = 0, link_type = 0;
+            uint32_t link_class = 0;
+            uint32_t link_type = 0;
             linked->read_hash_value(kClass, &link_class, 0);
             linked->read_hash_value(kTypeName, &link_type, 0);
             if (link_class != kWaypoint || link_type != kPedAi)
@@ -297,15 +299,18 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         jump_time = static_cast<float>(down + up);
         const maths::Vec4& direction = across.make_unit();
         const double speed_across = std::sqrt(static_cast<double>(across_sqr)) / jump_time;
-        auto ax = static_cast<float>(speed_across * direction.x), ay = static_cast<float>(speed_across * direction.y),
-             az = static_cast<float>(speed_across * direction.z);
+        auto ax = static_cast<float>(speed_across * direction.x);
+        auto ay = static_cast<float>(speed_across * direction.y);
+        auto az = static_cast<float>(speed_across * direction.z);
         const double aw = speed_across * direction.w;
         const auto up_x = static_cast<float>(static_cast<double>(up_speed) * 0.0f);
         const float up_z = up_x;
         const double vx = static_cast<double>(up_x) + ax;
         const double vy = static_cast<double>(up_speed) + ay;
         const double vz = static_cast<double>(up_z) + az;
-        auto vel_x = static_cast<float>(vx), vel_y = static_cast<float>(vy), vel_z = static_cast<float>(vz);
+        auto vel_x = static_cast<float>(vx);
+        auto vel_y = static_cast<float>(vy);
+        auto vel_z = static_cast<float>(vz);
         maths::Vec4 heading = {.x = vel_x, .y = vel_y, .z = vel_z, .w = static_cast<float>(up_speed + aw)};
         heading.make_unit();
         out->put_vec3(checksums::Name{kHeading}, script::VectorValue{.x = heading.x, .y = heading.y, .z = heading.z, .w = heading.w});
@@ -384,7 +389,8 @@ void PedestrianBrainModule::lip_trick_update()
     double sx = static_cast<double>(zero) - up_z;
     double sy = static_cast<double>(up_z) * 0.0f - static_cast<double>(up_x) * 0.0f;
     double sz = static_cast<double>(up_x) - zero;
-    auto side_x = static_cast<float>(sx), side_z = static_cast<float>(sz);
+    auto side_x = static_cast<float>(sx);
+    auto side_z = static_cast<float>(sz);
     const double length = std::sqrt((sz * sz + sy * sy) + sx * sx);
     if (length > 0.0) {
         const double inverse = 1.0 / length;
@@ -682,8 +688,10 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
     peds_ = PathManager::sole()->add_to_extra_group(entity(), next_node_);
     get_motion(entity())->motion_flags() |= kMotionFlagPathStep;
     // Facing along the way to the first waypoint.
-    float dx = next_node_pos_.x - node_pos_.x, dy = next_node_pos_.y - node_pos_.y, dz = next_node_pos_.z - node_pos_.z,
-          dw = next_node_pos_.w - node_pos_.w;
+    float dx = next_node_pos_.x - node_pos_.x;
+    float dy = next_node_pos_.y - node_pos_.y;
+    float dz = next_node_pos_.z - node_pos_.z;
+    float const dw = next_node_pos_.w - node_pos_.w;
     const double length =
         std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
     if (length > 0.0) {
@@ -718,8 +726,10 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     float gravity = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_float(kGravity, &gravity, 1);
     const maths::Vec4& at = entity()->at_point();
-    float dx = next_node_pos_.x - at.x, dy = next_node_pos_.y - at.y, dz = next_node_pos_.z - at.z,
-          dw = next_node_pos_.w - at.w;
+    float dx = next_node_pos_.x - at.x;
+    float dy = next_node_pos_.y - at.y;
+    float dz = next_node_pos_.z - at.z;
+    float const dw = next_node_pos_.w - at.w;
     const double rise = std::sqrt(static_cast<double>(height) / gravity * kMinusTwo);
     auto time = static_cast<float>(rise + rise);
     auto up_speed = static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo));
@@ -733,18 +743,22 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
         dz = static_cast<float>(dz * inverse);
     }
     const double speed_across = across / time;
-    auto ax = static_cast<float>(speed_across * dx), ay = static_cast<float>(speed_across * dy),
-         az = static_cast<float>(speed_across * dz), aw = static_cast<float>(speed_across * dw);
+    auto ax = static_cast<float>(speed_across * dx);
+    auto ay = static_cast<float>(speed_across * dy);
+    auto az = static_cast<float>(speed_across * dz);
+    auto aw = static_cast<float>(speed_across * dw);
     auto up_x = static_cast<float>(static_cast<double>(up_speed) * 0.0f);
     const double sx = static_cast<double>(up_x) + ax;
     const double sy_exact = static_cast<double>(up_speed) + ay;
     const double sz_exact = static_cast<double>(up_x) + az;
-    auto sy = static_cast<float>(sy_exact), sz = static_cast<float>(sz_exact);
+    auto sy = static_cast<float>(sy_exact);
+    auto sz = static_cast<float>(sz_exact);
     // (the speed from the sums as they are; the heading from the stored y and z)
     auto speed = static_cast<float>(std::sqrt((sz_exact * sz_exact + sy_exact * sy_exact) + sx * sx));
     auto sw = static_cast<float>(static_cast<double>(up_speed) + aw);
     const double length = std::sqrt((static_cast<double>(sz) * sz + static_cast<double>(sy) * sy) + sx * sx);
-    double hx = sx, hy = sy;
+    double hx = sx;
+    double hy = sy;
     float hz = sz;
     if (length > 0.0) {
         const double inverse = 1.0 / length;

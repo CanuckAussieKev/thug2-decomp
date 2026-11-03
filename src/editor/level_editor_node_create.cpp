@@ -65,7 +65,8 @@ bool same_text(const std::string& a, const char* b)
         return false;
     const std::string_view b_text(b);
     for (size_t i = 0; i < a.size(); ++i) {
-        char x = core::at(a, i), y = core::at(b_text, i);
+        char x = core::at(a, i);
+        char y = core::at(b_text, i);
         if (x >= 'A' && x <= 'Z')
             x = static_cast<char>(x - 'A' + 'a');
         if (y >= 'A' && y <= 'Z')
@@ -782,7 +783,8 @@ void kill_live(const Spec& spec)
 Spec with_place(const Spec& spec, script::Struct* node)
 {
     Spec s = spec;
-    maths::Vec4 pos, angles;
+    maths::Vec4 pos;
+    maths::Vec4 angles;
     level_nodes::fetch_place(node, &pos);
     level_nodes::read_turn_angles(node, &angles);
     s.pos = {.x = pos.x, .y = pos.y, .z = pos.z};
@@ -854,7 +856,8 @@ bool name_taken(const std::string& name)
 Counts counts_now()
 {
     Counts counts;
-    static const uint32_t kRestart = name_hash("Restart"), kCrown = name_hash("Crown");
+    static const uint32_t kRestart = name_hash("Restart");
+    static const uint32_t kCrown = name_hash("Crown");
     for (const nodes::Elem& node : nodes::get_all()) {
         if (node.hidden)
             continue;
@@ -1122,13 +1125,15 @@ bool conceal(uint32_t name, bool hide)
     if (!node)
         return false;
     auto it = std::ranges::find_if(stored_hidden(), [&](const HiddenNode& h) { return h.name == name; });
-    static const uint32_t kLight = name_hash("LevelLight"), kProxim = name_hash("ProximNode"),
-                          kEmitter = name_hash("EmitterObject");
+    static const uint32_t kLight = name_hash("LevelLight");
+    static const uint32_t kProxim = name_hash("ProximNode");
+    static const uint32_t kEmitter = name_hash("EmitterObject");
     if (hide) {
         if (it != stored_hidden().end())
             return true;
         HiddenNode h = {.name = name, .node = node, .proxim_active_ = false, .emitter_active_ = false};
-        uint32_t cls = 0, type = 0;
+        uint32_t cls = 0;
+        uint32_t type = 0;
         node->read_hash_value(kClass, &cls, 0);
         node->read_hash_value(kType, &type, 0);
         if (cls == nodes::hidden_marker())
@@ -1163,7 +1168,8 @@ bool conceal(uint32_t name, bool hide)
             return true;
         const HiddenNode h = *it;
         stored_hidden().erase(it);
-        uint32_t cls = 0, type = 0;
+        uint32_t cls = 0;
+        uint32_t type = 0;
         node->read_hash_value(nodes::hidden_class_key(), &cls, 0);
         node->read_hash_value(nodes::hidden_type_key(), &type, 0);
         node->erase_module(nodes::hidden_class_key());

@@ -64,7 +64,8 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     plan.x.assign(n, 0.0f);
     auto needed = [&](bool overflow) {
         float total = 0.0f;
-        bool first_left = true, first_right = true;
+        bool first_left = true;
+        bool first_right = true;
         for (size_t i = 0; i < n; ++i) {
             if (!core::at(plan.shown, i))
                 continue;
@@ -293,7 +294,8 @@ struct Item {
 
 std::vector<Item> get_items(const State& s, float scale)
 {
-    const float inner = 2.0f * scale, group = 10.0f * scale;
+    const float inner = 2.0f * scale;
+    const float group = 10.0f * scale;
     std::vector<Item> items;
     auto add = [&](ItemId id, float width, bool right, int priority) {
         items.push_back({.id = id, .slot = {.width = width, .gap = group, .right = right, .priority = priority}});

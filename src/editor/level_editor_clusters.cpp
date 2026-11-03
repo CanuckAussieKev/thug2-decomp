@@ -98,7 +98,9 @@ bool read_hex8(const std::string& word, uint32_t* out)
 
 bool read_record(std::istringstream& in, Membership* out)
 {
-    std::string sector, cluster, more;
+    std::string sector;
+    std::string cluster;
+    std::string more;
     Membership m;
     if (!(in >> sector >> cluster) || !read_hex8(sector, &m.sector) || !m.sector || (in >> more))
         return false;

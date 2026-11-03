@@ -204,7 +204,8 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
         if (!(axes & (1 << axis)))
             continue;
         float best = reach;
-        float correction = 0.0f, at = 0.0f;
+        float correction = 0.0f;
+        float at = 0.0f;
         int found = -1;
         // A snap candidate: its correction, the face it lands on and the box it is of.
         struct Candidate {
@@ -263,7 +264,8 @@ float box_segment_distance(const Aabb& box, V3 a, V3 b, V3* nearest)
         return std::sqrt(get_dot(d, d));
     };
     // (the distance from a convex box along a line is convex: a ternary search finds its least)
-    float lo = 0.0f, hi = 1.0f;
+    float lo = 0.0f;
+    float hi = 1.0f;
     for (int i = 0; i < kSearchSteps; ++i) {
         const float m1 = lo + (hi - lo) / 3.0f;
         const float m2 = hi - (hi - lo) / 3.0f;
@@ -438,7 +440,10 @@ int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, fl
     float best_d = grab;
     for (size_t r = 0; r < runs.size(); ++r) {
         for (size_t i = 1; i < core::at(runs, r).points.size(); ++i) {
-            float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+            float ax = 0.0f;
+            float ay = 0.0f;
+            float bx = 0.0f;
+            float by = 0.0f;
             if (!project(core::at(core::at(runs, r).points, i - 1), &ax, &ay) || !project(core::at(core::at(runs, r).points, i), &bx, &by))
                 continue;
             const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
@@ -659,7 +664,8 @@ bool sectors_bounds(const std::vector<uint32_t>& sectors, Aabb* out)
     bool have = false;
     OrientedBox box{};
     for (const uint32_t s : sectors) {
-        V3 a{}, b{};
+        V3 a{};
+        V3 b{};
         if (!scenery::cuboid(s, &box))
             continue;
         bounds_of(box, &a, &b);
@@ -748,7 +754,8 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
 {
     const std::string model = model_of(source);
     std::vector<object_edit::State> copies; // (object copies: replaced by copies of the source where they were)
-    std::vector<uint32_t> copy_ids, swapped;
+    std::vector<uint32_t> copy_ids;
+    std::vector<uint32_t> swapped;
     for (const uint32_t id : selection.ids) {
         objects::GameEntity* object = live_object(id);
         if (!object || id == source)
@@ -991,7 +998,8 @@ const std::vector<Run>& edge_runs()
 bool pixel_of(const ViewNow& view, V3 p, float* x, float* y)
 {
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
-    float nx = 0.0f, ny = 0.0f;
+    float nx = 0.0f;
+    float ny = 0.0f;
     if (!cast_onto(view.pos, frame, view.lens, p, view.near_z_, &nx, &ny))
         return false;
     ndc_to_pixel(view.viewport, nx, ny, x, y);
@@ -1021,7 +1029,8 @@ void set_edge_picking(bool on)
 
 bool edge_click(maths::Vec2 at)
 {
-    const float x = at.x, y = at.y;
+    const float x = at.x;
+    const float y = at.y;
     if (!stored_edge_picking())
         return false;
     ViewNow view{};
@@ -1126,7 +1135,8 @@ bool selection_box(const edit::Selected& selection, Aabb* box, V3* size)
             objects::GameEntity* object = live_object(id);
             if (!object || !object_edit::model_box(object, &oriented))
                 continue;
-            V3 a{}, b{};
+            V3 a{};
+            V3 b{};
             bounds_of(oriented, &a, &b);
             if (!have && selection.ids.size() == 1)
                 *size = box_size(oriented);
@@ -1275,7 +1285,8 @@ struct Painter {
     ui::Overlay* overlay{};
     bool get_pixel(V3 p, float* x, float* y) const
     {
-        float nx = 0.0f, ny = 0.0f;
+        float nx = 0.0f;
+        float ny = 0.0f;
         if (!cast_onto(camera, frame, lens, p, near_z_, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1285,7 +1296,10 @@ struct Painter {
     {
         if (!clip_to_near(camera, frame, near_z_ + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (get_pixel(a, &ax, &ay) && get_pixel(b, &bx, &by))
             overlay->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     }
@@ -1357,7 +1371,8 @@ void get_marker(const Painter& p, V3 at, MarkerLook marker_look)
 // The surface's normal under the cursor (false: none).
 bool surface_normal(V3* normal)
 {
-    V3 origin{}, dir{};
+    V3 origin{};
+    V3 dir{};
     if (!edit::get_ray({.origin = &origin, .dir = &dir}))
         return false;
     snap::SurfaceHit hit;
@@ -1391,7 +1406,8 @@ void add_ghost(const Painter& p)
 {
     if (!at_hand().ghost || edit::get_dragging())
         return;
-    V3 origin{}, dir{};
+    V3 origin{};
+    V3 dir{};
     if (!edit::get_ray({.origin = &origin, .dir = &dir}))
         return;
     int tab = 0;
@@ -1399,7 +1415,8 @@ void add_ghost(const Painter& p)
     uint32_t colour = 0;
     const int armed = edit::place_armed(&colour);
     const V3 at = edit::cursor_point();
-    constexpr uint32_t kLine = 0xD080E0FF, kFill = 0x2880E0FF;
+    constexpr uint32_t kLine = 0xD080E0FF;
+    constexpr uint32_t kFill = 0x2880E0FF;
     if (armed >= 0) {
         get_marker(p, at, {.yaw = edit::get_yaw(), .colour = colour ? colour : kMarkerColour});
         return;
@@ -1438,12 +1455,14 @@ void add_readout(const Painter& p)
     const bool have_box = selection_box(selection, &box, &r.size);
     const V3 moved = edit::get_pos() - arrange_drag().drag_from_;
     r.moved = std::sqrt(get_dot(moved, moved));
-    V3 base{}, ground{};
+    V3 base{};
+    V3 ground{};
     if (edit::ground_mark({.base = &base, .ground = &ground})) {
         r.have_ground_ = true;
         r.above = base.y - ground.y;
     }
-    V3 nearest = {}, from = {};
+    V3 nearest = {};
+    V3 from = {};
     if (have_box) {
         float best = kNearestReach;
         for (const Segment& s : current_segments()) {
@@ -1494,10 +1513,10 @@ void add_contacts(const Painter& p)
         const Aabb& m = stored_snap().moving;
         const int u = c.axis == 0 ? 1 : 0;
         const int v = c.axis == 2 ? 1 : 2;
-        float u0 = std::max(get_component(o.min, u), get_component(m.min, u)),
-              u1 = std::min(get_component(o.max, u), get_component(m.max, u));
-        float v0 = std::max(get_component(o.min, v), get_component(m.min, v)),
-              v1 = std::min(get_component(o.max, v), get_component(m.max, v));
+        float u0 = std::max(get_component(o.min, u), get_component(m.min, u));
+        float u1 = std::min(get_component(o.max, u), get_component(m.max, u));
+        float v0 = std::max(get_component(o.min, v), get_component(m.min, v));
+        float v1 = std::min(get_component(o.max, v), get_component(m.max, v));
         if (u1 < u0) // (beside it, not over it: the neighbour's whole face)
             u0 = get_component(o.min, u), u1 = get_component(o.max, u);
         if (v1 < v0)
@@ -1531,7 +1550,8 @@ void add_edges(const Painter& p)
         if (lit) {
             std::array<char, kEdgeTextSize> text{};
             text::format_to(text, "rail here: %.0f long", core::at(runs, r).length);
-            float px = 0.0f, py = 0.0f;
+            float px = 0.0f;
+            float py = 0.0f;
             if (p.get_pixel(core::at(runs, r).points.front(), &px, &py))
                 p.draw_label(px + kEdgeLabelOffsetX, py - kEdgeLabelRise, kLitEdgeColour, text.data());
         }

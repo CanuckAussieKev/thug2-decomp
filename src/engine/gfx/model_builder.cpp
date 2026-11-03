@@ -206,7 +206,8 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
 {
     switch (name) {
     case kGeomSetUvOffset: {
-        uint32_t part = 0, material = name;
+        uint32_t part = 0;
+        uint32_t material = name;
         int pass = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kMaterial, &material, 1);
@@ -310,7 +311,8 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         return true;
     }
     case kModelRunScript: {
-        uint32_t part = name, target = 0;
+        uint32_t part = name;
+        uint32_t target = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kTarget, &target, 1);
         launch_script(checksums::Name{part}, target);
@@ -405,7 +407,9 @@ bool ModelAssembler::blend_tint_over(script::Struct* params)
     else
         slot->fetch_int_value(kUseDefaultHsv, &use_default, 0);
     if (use_default) {
-        int h = 0, s = 0, v = 0;
+        int h = 0;
+        int s = 0;
+        int v = 0;
         script::Struct* option = built_appearance()->get_part_option(part);
         if (option && option->fetch_int_value(kDefaultH, &h, 0) && option->fetch_int_value(kDefaultS, &s, 0) &&
             option->fetch_int_value(kDefaultV, &v, 0)) {
@@ -415,7 +419,9 @@ bool ModelAssembler::blend_tint_over(script::Struct* params)
         }
         return false;
     }
-    int h = 0, s = 0, v = 0;
+    int h = 0;
+    int s = 0;
+    int v = 0;
     if (!slot->fetch_int_value(kH, &h, 0) || !slot->fetch_int_value(kS, &s, 0) || !slot->fetch_int_value(kV, &v, 0))
         return true;
     built_model()->set_color_from_script(params, static_cast<float>(h), get_percent(s), get_percent(v));
@@ -468,7 +474,9 @@ bool ModelAssembler::detach_polys()
 bool ModelAssembler::propagate_head_color()
 {
     bool male = true;
-    uint32_t head_part = kSkaterMHead, hands_part = kSkaterMHands, lower_legs_part = kSkaterMLowerLegs;
+    uint32_t head_part = kSkaterMHead;
+    uint32_t hands_part = kSkaterMHands;
+    uint32_t lower_legs_part = kSkaterMLowerLegs;
     script::Struct* head = built_appearance()->get_part(head_part);
     if (!head) {
         head_part = kSkaterFHead;
@@ -479,7 +487,9 @@ bool ModelAssembler::propagate_head_color()
         if (!head)
             return false;
     }
-    int h = 0, s = 0, v = 0;
+    int h = 0;
+    int s = 0;
+    int v = 0;
     if (head->fetch_int_value(kH, &h, 0)) {
         head->fetch_int_value(kS, &s, 0);
         head->fetch_int_value(kV, &v, 0);
@@ -558,7 +568,9 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
     slot->fetch_int_value(kKeepStockScale, &use_default, 0);
     if (use_default)
         return false;
-    int x = 0, y = 0, z = 0;
+    int x = 0;
+    int y = 0;
+    int z = 0;
     if (!slot->fetch_int_value(kX, &x, 0) || !slot->fetch_int_value(kY, &y, 0) || !slot->fetch_int_value(kZ, &z, 0))
         return false;
     script::Array* bones = script::fetch_list(part);
@@ -605,7 +617,9 @@ bool ModelAssembler::apply_object_scale()
     slot->fetch_int_value(kKeepStockScale, &use_default, 0);
     if (use_default)
         return false;
-    int x = 0, y = 0, z = 0;
+    int x = 0;
+    int y = 0;
+    int z = 0;
     if (slot->fetch_int_value(kX, &x, 0) && slot->fetch_int_value(kY, &y, 0) && slot->fetch_int_value(kZ, &z, 0)) {
         const maths::Vec4 object_scale = {.x = get_percent(x), .y = get_percent(y), .z = get_percent(z), .w = 1.0f};
         built_model()->change_scale(&object_scale);
@@ -624,8 +638,10 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     if (descriptor_id != kCreatedGraphic)
         return false;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
-    uint32_t in = 0, with = 0;
-    float x_scale = 0.0f, y_scale = 0.0f;
+    uint32_t in = 0;
+    uint32_t with = 0;
+    float x_scale = 0.0f;
+    float y_scale = 0.0f;
     const char* temporary = nullptr;
     option->read_hash_value(kIn, &in, 1);
     option->fetch_float(kXScale, &x_scale, 1);
@@ -681,7 +697,10 @@ bool ModelAssembler::choose_uv_shift(checksums::Name part_name, uint32_t materia
     slot->fetch_int_value(kUseDefaultUv, &use_default, 0);
     if (use_default)
         return false;
-    float u = 0.0f, v = 0.0f, scale = 0.0f, rotation = 0.0f;
+    float u = 0.0f;
+    float v = 0.0f;
+    float scale = 0.0f;
+    float rotation = 0.0f;
     slot->fetch_float(kUvU, &u, 1);
     slot->fetch_float(kUvV, &v, 1);
     slot->fetch_float(kUvScale, &scale, 1);

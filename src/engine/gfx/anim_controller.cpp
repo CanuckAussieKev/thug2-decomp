@@ -400,7 +400,11 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kSetWobbleDetails: {
-        float amp_a = 0.0f, amp_b = 0.0f, k1 = 0.0f, k2 = 0.0f, spaz = 0.0f;
+        float amp_a = 0.0f;
+        float amp_b = 0.0f;
+        float k1 = 0.0f;
+        float k2 = 0.0f;
+        float spaz = 0.0f;
         if (params->fetch_float(kWobbleAmpA, &amp_a, 0) && params->fetch_float(kSwayAmpSecond, &amp_b, 0) &&
             params->fetch_float(kWobbleK1, &k1, 0) && params->fetch_float(kWobbleK2, &k2, 0) &&
             params->fetch_float(kSpazFactor, &spaz, 0)) {
@@ -519,7 +523,9 @@ void PartialClipDriver::configure_from_data(script::Struct* params)
     base_init(this, params);
     uint32_t anim = 0;
     params->read_hash_value(kAnimName, &anim, 1);
-    float start = 0.0f, end = 0.0f, current = 0.0f;
+    float start = 0.0f;
+    float end = 0.0f;
+    float current = 0.0f;
     objects::ObjectModule* blender = object_of(this)->fetch_module(kAnimBlender);
     // (the blender's fetch_value: the anim set's entry for the animation - its length)
     const float duration = core::down_cast<objects::AnimBlenderComponent>(blender)->fetch_value(anim);

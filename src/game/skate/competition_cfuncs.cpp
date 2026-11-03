@@ -134,8 +134,13 @@ bool cfunc_apply_split_screen_options(script::Struct*, script::Script*)
 bool cfunc_start_competition(script::Struct* params, script::Script*)
 {
     // (uninitialised in the original when missing)
-    float gold = 0.0f, silver = 0.0f, bronze = 0.0f, gold_score = 0.0f, silver_score = 0.0f, bronze_score = 0.0f,
-          bail = 0.0f;
+    float gold = 0.0f;
+    float silver = 0.0f;
+    float bronze = 0.0f;
+    float gold_score = 0.0f;
+    float silver_score = 0.0f;
+    float bronze_score = 0.0f;
+    float bail = 0.0f;
     params->fetch_float("gold", &gold, 0);
     params->fetch_float("silver", &silver, 0);
     params->fetch_float("bronze", &bronze, 0);
@@ -232,7 +237,8 @@ bool cfunc_switch_horse_players(script::Struct*, script::Script*)
 // horse skater with the parameters, the string as text and the id.
 bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Script*)
 {
-    uint32_t which = 0, id = 0;
+    uint32_t which = 0;
+    uint32_t id = 0;
     params->read_hash_value(kWhichString, &which, 1);
     params->read_hash_value(kId, &id, 1);
     alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};

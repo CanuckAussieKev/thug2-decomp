@@ -326,7 +326,8 @@ int AnimBlenderComponent::blend_channel(uint32_t, script::Struct* params, script
             channel = as_channel(next);
         }
     }
-    float a = 0.0f, b = 0.0f;
+    float a = 0.0f;
+    float b = 0.0f;
     params->fetch_float(kBlendWeight, &a, 1);
     params->fetch_float(kBlendDuration, &b, 0);
     channel->blend_to({.target = a, .period = b});
@@ -598,7 +599,9 @@ void AnimBlenderComponent::get_times(float* start, float* current, float* end)
     const Channel* channel = masked(lanes_.next());
     if (!channel)
         return;
-    float s = 0.0f, c = 0.0f, e = 0.0f;
+    float s = 0.0f;
+    float c = 0.0f;
+    float e = 0.0f;
     memory::ListNode* timeline = channel->timelines().next();
     if (!is_over(timeline))
         static_cast<gfx::AnimTimeline*>(timeline->data())->get_times(&s, &c, &e);

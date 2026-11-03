@@ -186,14 +186,18 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             move.make_unit();
             const double height = tuning_float_lookup(kForwardHeight, o);
             const maths::Vec4& up = core::at(o->basis_frame().row, 1);
-            auto hw = static_cast<float>(height * up.w), hz = static_cast<float>(height * up.z),
-                 hy = static_cast<float>(height * up.y), hx = static_cast<float>(height * up.x);
+            auto hw = static_cast<float>(height * up.w);
+            auto hz = static_cast<float>(height * up.z);
+            auto hy = static_cast<float>(height * up.y);
+            auto hx = static_cast<float>(height * up.x);
             const maths::Vec4& last = entity()->old_pos();
             maths::Vec4& start = probe_start_;
             start = {.x = hx + last.x, .y = hy + last.y, .z = hz + last.z, .w = hw + last.w};
             const double length = tuning_float_lookup(kForwardLength, object_of(this));
-            auto lw = static_cast<float>(move.w * length), lz = static_cast<float>(move.z * length),
-                 ly = static_cast<float>(move.y * length), lx = static_cast<float>(length * move.x);
+            auto lw = static_cast<float>(move.w * length);
+            auto lz = static_cast<float>(move.z * length);
+            auto ly = static_cast<float>(move.y * length);
+            auto lx = static_cast<float>(length * move.x);
             const maths::Vec4& now = entity()->at_point();
             const double w = static_cast<double>(hw) + now.w; // (left unrounded)
             const float z = hz + now.z;

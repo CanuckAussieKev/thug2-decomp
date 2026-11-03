@@ -569,7 +569,10 @@ void SkaterPhysicsModule::do_air_physics()
             const maths::Vec4& position = object->at_point();
             maths::Vec4& start = probe_start_;
             maths::Vec4& end = probe_end_;
-            float x = up.x + position.x, y = up.y + position.y, z = up.z + position.z, w = up.w + position.w;
+            float x = up.x + position.x;
+            float y = up.y + position.y;
+            float z = up.z + position.z;
+            float w = up.w + position.w;
             start.z = z, start.w = w, start.x = x, start.y = y;
             const float ey = up.y * -23.0f;
             const float ez = up.z * -23.0f;

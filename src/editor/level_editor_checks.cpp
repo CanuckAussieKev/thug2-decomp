@@ -252,8 +252,10 @@ std::string record_key(const std::string& line)
 {
     const std::string text = line.substr(0, line.find('#'));
     std::istringstream in(text);
-    std::string word, key;
-    int words = 0, want = 2;
+    std::string word;
+    std::string key;
+    int words = 0;
+    int want = 2;
     while (words < want && in >> word) {
         if (words == 0) {
             if (word == "lock" || word == "order")
@@ -412,7 +414,8 @@ bool scenery_changed_near(V3 point, float margin)
         OrientedBox box{};
         if (!scenery::cuboid(piece, &box))
             continue;
-        V3 min{}, max{};
+        V3 min{};
+        V3 max{};
         bounds_of(box, &min, &max);
         if (point.x >= min.x - margin && point.x <= max.x + margin && point.y >= min.y - margin &&
             point.y <= max.y + margin && point.z >= min.z - margin && point.z <= max.z + margin)
@@ -465,7 +468,8 @@ uint32_t world_signature()
         mix(&w.placement.offset, sizeof(w.placement.offset));
         mix(&w.off, sizeof(w.off));
     }
-    size_t clones = scenery::get_clones().size(), faces = faces::get_changed().size();
+    size_t clones = scenery::get_clones().size();
+    size_t faces = faces::get_changed().size();
     uint32_t shared = shared_collision::get_generation();
     mix(&clones, sizeof(clones));
     mix(&faces, sizeof(faces));
@@ -600,7 +604,8 @@ void check_collision(std::vector<Issue>* out)
         issue.sector = s.checksum;
         OrientedBox box{};
         if (scenery::cuboid(s.checksum, &box)) {
-            V3 min{}, max{};
+            V3 min{};
+            V3 max{};
             bounds_of(box, &min, &max);
             issue.has_pos_ = true;
             issue.pos = (min + max) * kHalf;
@@ -653,7 +658,8 @@ void check_limits(std::vector<Issue>* out)
 
 void check_triggers(std::vector<Issue>* out, uint32_t world)
 {
-    static const uint32_t kTriggerScript = get_checksums("TriggerScript"), kProximNode = get_checksums("ProximNode");
+    static const uint32_t kTriggerScript = get_checksums("TriggerScript");
+    static const uint32_t kProximNode = get_checksums("ProximNode");
     // The editor's trigger volumes.
     const std::vector<triggers::Added>& added = triggers::added_triggers();
     std::vector<triggers::Spec> specs;
@@ -685,7 +691,8 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
             }
         }
         // Gaps: an end for each start, a start for each end (the editor's or a level trigger's with the GapID).
-        bool start = a.spec.kind == triggers::Kind::kGapStart, end = a.spec.kind == triggers::Kind::kGapEnd;
+        bool start = a.spec.kind == triggers::Kind::kGapStart;
+        bool const end = a.spec.kind == triggers::Kind::kGapEnd;
         if ((start || end) && triggers::partner(specs, static_cast<int>(i)) < 0) {
             uint32_t gap = triggers::checksum_of(a.spec.gap);
             const bool found = std::ranges::any_of(level, [&](const triggers::LevelTrigger& t) {
@@ -962,7 +969,8 @@ namespace {
 std::string line_of(const layout::FileLoad& one)
 {
     std::istringstream in(layout::emit_out(one));
-    std::string line, out;
+    std::string line;
+    std::string out;
     int number = 0;
     while (std::getline(in, line)) {
         if (++number <= 1 || line.starts_with("scene") || line.empty())
@@ -1283,7 +1291,8 @@ void problems_tab(float scale, ImFont* mono)
     if (ImGui::Button("Check now"))
         level_editor_checks_state().queue_.emplace_back([] { level_editor_checks_state().due_ = get_seconds(); });
     ImGui::SameLine();
-    int own = 0, ignored = 0;
+    int own = 0;
+    int ignored = 0;
     for (const Issue& issue : level_editor_checks_state().issues_) {
         own += issue.level_own_;
         ignored += ignored_state().contains(issue.key);
@@ -1393,7 +1402,9 @@ void pane(PaneArea area, float scale, ImFont* mono)
         return;
     }
     if (ImGui::BeginTabBar("##problemTabs")) {
-        int errors = 0, warnings = 0, infos = 0;
+        int errors = 0;
+        int warnings = 0;
+        int infos = 0;
         shown_counts(&errors, &warnings, &infos);
         std::array<char, kLabelTextSize> label{};
         text::format_to(label, "Problems (%d)###problemsTab", errors + warnings + infos);

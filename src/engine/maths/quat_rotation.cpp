@@ -122,7 +122,8 @@ QuatRotation* QuatRotation::from_matrix(const Mat4& m)
     int i = get_at(m, 1, 1) > get_at(m, 0, 0) ? 1 : 0;
     if (get_at(m, 2, 2) > get_at(m, i, i))
         i = 2;
-    const int j = (i + 1) % 3, k = (j + 1) % 3;
+    const int j = (i + 1) % 3;
+    const int k = (j + 1) % 3;
     const double s = std::sqrt((get_at(m, i, i) - (get_at(m, k, k) + get_at(m, j, j))) + 1.0);
     const std::array<float*, 3> q = {{&x, &y, &z}};
     *core::at(q, i) = static_cast<float>(kHalfAngleScale * s);

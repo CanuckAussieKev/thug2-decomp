@@ -527,7 +527,8 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     auto into = static_cast<float>(static_cast<double>(direction.z) * in.normal.z +
                                    static_cast<double>(direction.y) * in.normal.y +
                                    static_cast<double>(direction.x) * in.normal.x);
-    maths::Vec4 in_hit = direction, in_ground = direction;
+    maths::Vec4 in_hit = direction;
+    maths::Vec4 in_ground = direction;
     in_hit.align_to_plane(in.normal);
     in_ground.align_to_plane(in.ground_normal_);
     auto turn =
@@ -1016,7 +1017,8 @@ void air_rotation(SkaterPhysicsModule* core)
     objects::GameEntity* object = object_of(core);
     objects::PadSnapshot* pad = &core->input()->pad_primary();
     // The stick (a diagonal normalised).
-    float sx = stick_scaled(core, 0), sy = stick_scaled(core, 1);
+    float sx = stick_scaled(core, 0);
+    float sy = stick_scaled(core, 1);
     if (sx != 0.0f && sy != 0.0f) {
         const double length = std::sqrt(static_cast<double>(sx) * sx + static_cast<double>(sy) * sy);
         sx = static_cast<float>(sx / length);
@@ -1308,7 +1310,8 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
         return WheelGround::kWheelsNotUsed;
     }
     set_wheel_points(state, object->at_point(), core::at(object->basis_frame().row, 2));
-    WheelHit front, rear;
+    WheelHit front;
+    WheelHit rear;
     bool main_hit = false;
     snap_wheels(core, state, front, rear, main_hit);
     // (THAW's flag +0x40, vert under a wheel; THAW also sets its +0x58 from face flag 0x100 - THUG2's equivalent isn't

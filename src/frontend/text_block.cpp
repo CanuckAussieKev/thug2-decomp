@@ -230,7 +230,8 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         memory::Hub::get_pull()->leave_heap_scope();
         manager->enrol_subject(line);
         {
-            ElementPtr child, self;
+            ElementPtr child;
+            ElementPtr self;
             child.assign_value(line);
             self.assign_value(this);
             manager->change_owner(&self, &child, 1);

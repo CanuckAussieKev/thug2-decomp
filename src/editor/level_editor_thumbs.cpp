@@ -128,7 +128,8 @@ void cell_uv(int cell, UvOut uv)
     auto* const v0 = uv.y0;
     auto* const u1 = uv.x1;
     auto* const v1 = uv.y1;
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     cell_rect(cell, {.x = &x, .y = &y});
     constexpr auto kSize = static_cast<float>(kAtlasPixels);
     *u0 = static_cast<float>(x) / kSize;
@@ -308,7 +309,8 @@ void tick_cycle(const ui::ShapeMesh& model)
         auto failed = failed_state().find(key);
         if (failed != failed_state().end() && level_editor_thumbs_state().frame_ - failed->second < kRetryDelayFrames)
             continue;
-        int x = 0, y = 0;
+        int x = 0;
+        int y = 0;
         cell_rect(cell, {.x = &x, .y = &y});
         if (!ui_backend::begin_atlas_cell(kAtlasPixels, x, y, kCellPixels, colour::Packed{kBackground}))
             return; // (no atlas: logged once by the backend)
@@ -377,7 +379,8 @@ bool get_matches(const std::string& text, const char* filter)
     if (!filter || !*filter)
         return true;
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
-    std::string a = text, b = filter;
+    std::string a = text;
+    std::string b = filter;
     std::ranges::transform(a, a.begin(), lower);
     std::ranges::transform(b, b.begin(), lower);
     return a.find(b) != std::string::npos;
@@ -595,7 +598,10 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 const int c = cells_state().get_take({.key = key, .frame = level_editor_thumbs_state().frame_});
                 wanted.push_back(key);
                 if (c >= 0 && texture && core::at(cells_state().drawn(), c)) {
-                    float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;
+                    float u0 = 0.0f;
+                    float v0 = 0.0f;
+                    float u1 = 0.0f;
+                    float v1 = 0.0f;
                     cell_uv(c, {.x0 = &u0, .y0 = &v0, .x1 = &u1, .y1 = &v1});
                     draw->AddImage(static_cast<ImTextureID>(texture), a, b, ImVec2(u0, v0), ImVec2(u1, v1));
                 } else {

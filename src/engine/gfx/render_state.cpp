@@ -348,7 +348,9 @@ void choose_blend_mode(uint32_t mode)
             else
                 set_device_render_state(D3DRS_FOGCOLOR, engine_parts().fog_colour());
         }
-        uint32_t op = 0, src = 0, dest = 0;
+        uint32_t op = 0;
+        uint32_t src = 0;
+        uint32_t dest = 0;
         switch (kind) {
         case 0:
         case kBlendModeVertexTexAlpha:

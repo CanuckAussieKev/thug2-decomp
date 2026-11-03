@@ -297,7 +297,10 @@ bool DrivableModule::is_kicked() const { return kick_time_ > 0.0f; }
 void DrivableModule::kick_randomly_along(const maths::Vec4* along)
 {
     // The direction flattened (y 0) and made unit (w kept), and its sideways (-z, 0, x).
-    float dx = along->x, dy = 0.0f, dz = along->z, dw = along->w;
+    float dx = along->x;
+    float dy = 0.0f;
+    float dz = along->z;
+    float const dw = along->w;
     const double length = std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dx) * dx);
     if (length > 0.0) {
         const double scale = 1.0 / length;
@@ -340,7 +343,8 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
 
     // Into the momenta: the push times the mass, the spin times the first moment of inertia (for every axis).
     const double mass = 1.0 / inv_mass_;
-    auto mom_y = static_cast<float>(push_y * mass), mom_z = static_cast<float>(push_z * mass);
+    auto mom_y = static_cast<float>(push_y * mass);
+    auto mom_z = static_cast<float>(push_z * mass);
     auto mom_w = static_cast<float>(push_w * mass);
     linear_momentum_.x = static_cast<float>(push_x * mass + linear_momentum_.x);
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
@@ -376,20 +380,24 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script*)
     awake_ = 1;
     still_frames_ = 0;
     // (Without linear or angular the original uses whatever was on its stack.)
-    maths::Vec4 linear, angular, turned;
+    maths::Vec4 linear;
+    maths::Vec4 angular;
+    maths::Vec4 turned;
     params->fetch_vec("linear", &linear, 0);
     params->fetch_vec("angular", &angular, 0);
     linear = basis_frame_.rotate_vector(turned, linear);
     angular = basis_frame_.rotate_vector(turned, angular);
     const double mass = 1.0 / inv_mass_;
-    auto mom_y = static_cast<float>(linear.y * mass), mom_z = static_cast<float>(linear.z * mass);
+    auto mom_y = static_cast<float>(linear.y * mass);
+    auto mom_z = static_cast<float>(linear.z * mass);
     auto mom_w = static_cast<float>(linear.w * mass);
     linear_momentum_.x = static_cast<float>(linear.x * mass + linear_momentum_.x);
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
     const double moment = 1.0 / core::at(inv_moments_, 0);
-    auto spin_about_y = static_cast<float>(angular.y * moment), turn_z = static_cast<float>(angular.z * moment);
+    auto spin_about_y = static_cast<float>(angular.y * moment);
+    auto turn_z = static_cast<float>(angular.z * moment);
     auto rot_w = static_cast<float>(angular.w * moment);
     rotmom_.x = static_cast<float>(angular.x * moment + rotmom_.x);
     rotmom_.y = static_cast<float>(static_cast<double>(spin_about_y) + rotmom_.y);
@@ -729,7 +737,9 @@ void DrivableModule::seal()
     skater_bone_ = {.x = -core::at(bone.row, 3).x, .y = core::at(bone.row, 3).z, .z = -core::at(bone.row, 3).y, .w = 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).
-    int fixed = -1, left = -1, right = -1;
+    int fixed = -1;
+    int left = -1;
+    int right = -1;
     for (int i = 3; i >= 0; --i) {
         switch (core::at(wheels_, i).steering_side_) {
         case 0:
@@ -780,7 +790,8 @@ void DrivableModule::seal()
     else
         anim_blender_ptr_ = rider_ref_->fetch_module(kAnimBlender);
     // Everything made relative to the wheels' centre (x, z) and the colliders' lowest point.
-    double sum_x = 0.0, sum_z = 0.0;
+    double sum_x = 0.0;
+    double sum_z = 0.0;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         sum_x += core::at(wheels_, i).offset.x;
         sum_z += core::at(wheels_, i).offset.z;
@@ -993,7 +1004,8 @@ void DrivableModule::debug_draw()
             break;
         }
         for (int spoke = kLastSpoke; spoke >= 0; --spoke) {
-            maths::Vec4 a, b;
+            maths::Vec4 a;
+            maths::Vec4 b;
             for (const bool outer : {true, false}) {
                 get_wheel_rim_point(&a, &wheel, spoke, outer);
                 get_wheel_rim_point(&b, &wheel, spoke + 1, outer);
@@ -1024,7 +1036,8 @@ void DrivableModule::debug_draw()
 // 0x0043AA90 (not a Ghidra function)
 void DrivableModule::glide_to_node(script::Struct* node)
 {
-    maths::Vec4 pos, angles;
+    maths::Vec4 pos;
+    maths::Vec4 angles;
     level_nodes::fetch_place(node, &pos);
     level_nodes::read_turn_angles(node, &angles);
     maths::Mat4 matrix;

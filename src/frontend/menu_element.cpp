@@ -179,7 +179,8 @@ void MenuBase::get_step(int direction)
 // 0x004A7B80
 void MenuBase::arrange()
 {
-    float total = 0.0f, largest = 0.0f;
+    float total = 0.0f;
+    float largest = 0.0f;
     const bool regular = regular_space_ > regular_space_minimum();
     {
         ElementPtr item;
@@ -194,7 +195,8 @@ void MenuBase::arrange()
             }
         } else {
             for (; item; item.assign_value(item->following().get_pull())) {
-                double across = 0.0, along = 0.0;
+                double across = 0.0;
+                double along = 0.0;
                 if (vertical_) {
                     across = static_cast<double>(item->span()) * margin_factor_;
                     along = item->level_y();

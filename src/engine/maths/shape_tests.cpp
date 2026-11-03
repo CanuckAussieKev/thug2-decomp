@@ -125,7 +125,9 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     if (s.z < min.z && e.z < min.z)
         return false;
 
-    float dx = e.x - s.x, dy = e.y - s.y, dz = e.z - s.z;
+    float dx = e.x - s.x;
+    float dy = e.y - s.y;
+    float dz = e.z - s.z;
     if (dx == 0.0f)
         dx = kParallelRayStep;
     if (dy == 0.0f)
@@ -141,7 +143,8 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
 
     if (max.x < s.x && e.x < max.x && dx < 0.0f) {
         const double k = (1.0 / dx) * (static_cast<double>(max.x) - s.x);
-        auto y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
+        auto y = static_cast<float>(k * dy + s.y);
+        auto z = static_cast<float>(k * dz + s.z);
         if (inside_y_z(y, z)) {
             hit = {.x = max.x, .y = y, .z = z, .w = 1.0f};
             normal = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
@@ -150,7 +153,8 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     }
     if (s.x < min.x && min.x < e.x && dx > 0.0f) {
         const double k = (1.0 / dx) * (static_cast<double>(min.x) - s.x);
-        auto y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
+        auto y = static_cast<float>(k * dy + s.y);
+        auto z = static_cast<float>(k * dz + s.z);
         if (inside_y_z(y, z)) {
             hit = {.x = min.x, .y = y, .z = z, .w = 1.0f};
             normal = {.x = -1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
@@ -159,7 +163,8 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     }
     if (max.y < s.y && e.y < max.y && dy < 0.0f) {
         const double k = (1.0 / dy) * (static_cast<double>(max.y) - s.y);
-        auto x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
+        auto x = static_cast<float>(k * dx + s.x);
+        auto z = static_cast<float>(k * dz + s.z);
         if (inside_x_z(x, z)) {
             hit = {.x = x, .y = max.y, .z = z, .w = 1.0f};
             normal = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
@@ -168,7 +173,8 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     }
     if (s.y < min.y && min.y < e.y && dy > 0.0f) {
         const double k = (1.0 / dy) * (static_cast<double>(min.y) - s.y);
-        auto x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
+        auto x = static_cast<float>(k * dx + s.x);
+        auto z = static_cast<float>(k * dz + s.z);
         if (inside_x_z(x, z)) {
             hit = {.x = x, .y = min.y, .z = z, .w = 1.0f};
             normal = {.x = 0.0f, .y = -1.0f, .z = 0.0f, .w = 0.0f};
@@ -177,7 +183,8 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     }
     if (max.z < s.z && e.z < max.z && dz < 0.0f) {
         const double k = (1.0 / dz) * (static_cast<double>(max.z) - s.z);
-        auto x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
+        auto x = static_cast<float>(k * dx + s.x);
+        auto y = static_cast<float>(k * dy + s.y);
         if (inside_x_y(x, y)) {
             hit = {.x = x, .y = y, .z = max.z, .w = 1.0f};
             normal = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
@@ -186,7 +193,8 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     }
     if (s.z < min.z && e.z > min.z && dz > 0.0f) {
         const double k = (1.0 / dz) * (static_cast<double>(min.z) - s.z);
-        auto x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
+        auto x = static_cast<float>(k * dx + s.x);
+        auto y = static_cast<float>(k * dy + s.y);
         if (inside_x_y(x, y)) {
             hit = {.x = x, .y = y, .z = min.z, .w = 1.0f};
             normal = {.x = 0.0f, .y = 0.0f, .z = -1.0f, .w = 0.0f};
@@ -202,13 +210,15 @@ void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
     uint32_t axes = 0;
     if (count_axes_containing(point, axes) == 3) {
         // Inside: move along whichever axis reaches a face soonest.
-        float best_value = 0.0f, best_distance = 0.0f; // always set on the first pass (axis 0)
+        float best_value = 0.0f;
+        float best_distance = 0.0f; // always set on the first pass (axis 0)
         int winning_axis = 0;
         for (int axis = 0; axis < 3; ++axis) {
             const float p = point[axis];
             const float lo = min[axis];
             const float hi = max[axis];
-            float value = hi, distance = hi - p;
+            float value = hi;
+            float distance = hi - p;
             if (!(distance <= p - lo)) {
                 value = lo;
                 distance = p - lo;
@@ -302,9 +312,15 @@ float Seg::distance_sqr_to_point(const Vec4& point, Vec4* offset) const
 // The branch order follows the original exactly (it matters for which edge wins at region boundaries).
 double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) const
 {
-    const float dx = start.x - other.start.x, dy = start.y - other.start.y, dz = start.z - other.start.z;
-    const float d0x = end.x - start.x, d0y = end.y - start.y, d0z = end.z - start.z;
-    const float d1x = other.end.x - other.start.x, d1y = other.end.y - other.start.y, d1z = other.end.z - other.start.z;
+    const float dx = start.x - other.start.x;
+    const float dy = start.y - other.start.y;
+    const float dz = start.z - other.start.z;
+    const float d0x = end.x - start.x;
+    const float d0y = end.y - start.y;
+    const float d0z = end.z - start.z;
+    const float d1x = other.end.x - other.start.x;
+    const float d1y = other.end.y - other.start.y;
+    const float d1z = other.end.z - other.start.z;
 
     const float a00 = d0y * d0y + d0z * d0z + d0x * d0x;
     const float a01 = -d0y * d1y + -d0z * d1z + -d0x * d1x;
@@ -314,7 +330,9 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
     const float det = std::fabs(a11 * a00 - a01 * a01);
     auto compute_b1 = [&] { return -dy * d1y + -dz * d1z + -dx * d1x; };
 
-    float s = 0.0f, t = 0.0f, sqr = c;
+    float s = 0.0f;
+    float t = 0.0f;
+    float sqr = c;
 
     // Minimise along one edge of the unit square.
     auto edge_s0 = [&](float b1) { // s = 0, t free

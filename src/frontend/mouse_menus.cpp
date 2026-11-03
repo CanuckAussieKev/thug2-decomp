@@ -992,7 +992,8 @@ void tick_frame(modules::FrontEnd* front_end)
         menus = false;
     if (debug_enabled()) {
         // (debug_mouse: each change of whether the mouse drives the menus, with what decided it)
-        static int s_last_menus = -1, s_last_paused = -1;
+        static int s_last_menus = -1;
+        static int s_last_paused = -1;
         if (static_cast<int>(menus) != s_last_menus || static_cast<int>(front_end->is_halted()) != s_last_paused) {
             s_last_menus = menus;
             s_last_paused = front_end->is_halted();
@@ -1015,7 +1016,8 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!input.used)
         return;
 
-    float x = 0.0f, y = 0.0f;
+    float x = 0.0f;
+    float y = 0.0f;
     if (!window_to_layout(current_mapping({.width = input.window_width_, .height = input.window_height_}), input.x, input.y, &x, &y))
         return;
     if (input.moved)

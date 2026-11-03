@@ -605,7 +605,8 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
     check(same, name + ": as read in place");
     // every parent and mirror is one of the bones (the game looks them up: 0 when not found)
     for (int i = 0; i < count; ++i) {
-        bool parent = i == 0 || core::at(skeleton->parents, i) == 0, mirror = core::at(skeleton->mirrors, i) == 0;
+        bool parent = i == 0 || core::at(skeleton->parents, i) == 0;
+        bool mirror = core::at(skeleton->mirrors, i) == 0;
         for (int j = 0; j < count; ++j) {
             parent = parent || core::at(skeleton->names, j) == core::at(skeleton->parents, i);
             mirror = mirror || core::at(skeleton->names, j) == core::at(skeleton->mirrors, i);
@@ -784,7 +785,8 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
     scene_format::SectorMesh mesh;
     scene_format::MeshBody body;
     uint32_t meshes = 0;
-    uint64_t indices = 0, vertex_bytes = 0;
+    uint64_t indices = 0;
+    uint64_t vertex_bytes = 0;
     for (uint32_t i = 0; i < sectors; ++i) {
         if (!scene_format::read_sector(in, &sector)) {
             check(false, name + ": sector " + std::to_string(i));

@@ -241,7 +241,8 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
 {
     const auto origin = ray.origin;
     const auto unit_dir = ray.dir;
-    const float x = at.x, y = at.y;
+    const float x = at.x;
+    const float y = at.y;
     const objects::GrindRailHub* rails = get_rails();
     if (!rails)
         return false;
@@ -254,7 +255,10 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
             continue;
         const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
         const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by))
             continue;
         const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
@@ -308,7 +312,8 @@ void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb
 
 void get_make()
 {
-    triggers::Placed start, end;
+    triggers::Placed start;
+    triggers::Placed end;
     const Gate a = gate_for(core::at(level_editor_gap_wizard_state().spots_, 0), core::at(level_editor_gap_wizard_state().spots_, 1).point);
     const Gate b = gate_for(core::at(level_editor_gap_wizard_state().spots_, 1), core::at(level_editor_gap_wizard_state().spots_, 0).point);
     // (a box is the same turned half round: the end's gate facing back to the start lies across the same line)
@@ -376,7 +381,9 @@ void add_overlay(const overlays::Painter& painter)
 {
     if (!get_armed())
         return;
-    constexpr uint32_t kStart = 0xFF62E26A, kEnd = 0xFFF2D24A, kHover = 0xC0FFFFFF;
+    constexpr uint32_t kStart = 0xFF62E26A;
+    constexpr uint32_t kEnd = 0xFFF2D24A;
+    constexpr uint32_t kHover = 0xC0FFFFFF;
     if (level_editor_gap_wizard_state().picked_ >= 1) {
         const V3 other = level_editor_gap_wizard_state().picked_ >= 2  ? core::at(level_editor_gap_wizard_state().spots_, 1).point
                          : level_editor_gap_wizard_state().have_hover_ ? level_editor_gap_wizard_state().hover_.point

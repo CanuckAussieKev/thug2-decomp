@@ -113,8 +113,10 @@ HWND create_game_window(const char* class_name, const char* title, maths::PixelP
         window_class.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(icon & 0xFFFF));
     window_class.lpszClassName = class_name;
     RegisterClassExA(&window_class);
-    DWORD ex_style = 0, style = 0;
-    int frame_width = 0, frame_height = 0;
+    DWORD ex_style = 0;
+    DWORD style = 0;
+    int frame_width = 0;
+    int frame_height = 0;
     if (!full_screen) {
         // The frame around a width x height inside; centred when x / y are -1.
         style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
@@ -170,7 +172,8 @@ void release_direct_sound()
 // 0x005F5A20
 void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in)
 {
-    int sample = 0, index = 0;
+    int sample = 0;
+    int index = 0;
     size_t read = 0;
     for (size_t i = 0; i < out.size(); ++i) {
         const int nibble = (i & 1) ? core::at(in, read++) >> 4 : core::at(in, read) & 0xF;
@@ -203,8 +206,13 @@ void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, TexelLayout 
     size_t from = 0; // (the next texel in `in`)
     for (uint32_t i = 0; i < count; ++i) {
         // The index's bits dealt out to x and y in turn (x first) while each has bits left.
-        auto x_bits = static_cast<uint32_t>(width >> 1), y_bits = static_cast<uint32_t>(height >> 1);
-        uint32_t bit = 1, x_bit = 1, y_bit = 1, x = 0, y = 0;
+        auto x_bits = static_cast<uint32_t>(width >> 1);
+        auto y_bits = static_cast<uint32_t>(height >> 1);
+        uint32_t bit = 1;
+        uint32_t x_bit = 1;
+        uint32_t y_bit = 1;
+        uint32_t x = 0;
+        uint32_t y = 0;
         while (x_bits || y_bits) {
             if (x_bits) {
                 x_bits >>= 1;

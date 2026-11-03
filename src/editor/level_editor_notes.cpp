@@ -168,7 +168,9 @@ bool read_record(std::istringstream& in, Note* out)
         return false;
     std::string rest;
     std::getline(in, rest);
-    bool pos = false, colour = false, text = false;
+    bool pos = false;
+    bool colour = false;
+    bool text = false;
     size_t at = 0;
     while (true) {
         at = rest.find_first_not_of(' ', at);
@@ -319,7 +321,8 @@ bool get_matches(const std::string& text, const char* filter)
 {
     if (!filter || !*filter)
         return true;
-    std::string a = text, b = filter;
+    std::string a = text;
+    std::string b = filter;
     auto lower = [](std::string* s) {
         for (char& c : *s)
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -376,8 +379,14 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         const float distance = std::sqrt(get_dot(note.pos - camera_pos, note.pos - camera_pos));
         const float height = std::max(40.0f, std::min(400.0f, distance * 0.06f));
         const V3 top = note.pos + V3{.x = 0.0f, .y = height, .z = 0.0f};
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
-        float px = 0.0f, py = 0.0f, tx = 0.0f, ty = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
+        float px = 0.0f;
+        float py = 0.0f;
+        float tx = 0.0f;
+        float ty = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, note.pos, near_z, &ax, &ay) ||
             !cast_onto(camera_pos, frame, lens, top, near_z, &bx, &by))
             continue;

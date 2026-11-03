@@ -198,7 +198,8 @@ ImU32 get_colour(uint32_t argb)
 // The fonts and the style for the window's size (made again when its scale changes: the font texture with them).
 void update_scale()
 {
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     ui_backend::window_size(&width, &height);
     float scale = ui_layout::scale_for(width, height);
     if (const int pct = prefs::get_pull().ui_scale_pct_;
@@ -270,7 +271,8 @@ bool get_matches(const std::string& text, const char* filter)
     if (!*filter)
         return true;
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
-    std::string a = text, b = filter;
+    std::string a = text;
+    std::string b = filter;
     std::ranges::transform(a, a.begin(), lower);
     std::ranges::transform(b, b.begin(), lower);
     return a.find(b) != std::string::npos;
@@ -1394,7 +1396,9 @@ void browser_preview(const ShapeMesh& model)
                       ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
     }
     const ImGuiIO& io = ImGui::GetIO();
-    float dx = 0.0f, dy = 0.0f, wheel = 0.0f;
+    float dx = 0.0f;
+    float dy = 0.0f;
+    float wheel = 0.0f;
     if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)) {
         dx = io.MouseDelta.x;
         dy = io.MouseDelta.y;
@@ -1803,7 +1807,8 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     const ImGuiIO& io = ImGui::GetIO();
     level_editor_ui_state().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, level_editor_ui_state().scale_, true, true);
     // The lines and gizmos under the panels (back buffer pixels to the window's).
-    int back_width = 0, back_height = 0;
+    int back_width = 0;
+    int back_height = 0;
     ui_backend::back_buffer_size({.width = &back_width, .height = &back_height});
     const float sx = back_width > 0 ? io.DisplaySize.x / static_cast<float>(back_width) : 1.0f;
     const float sy = back_height > 0 ? io.DisplaySize.y / static_cast<float>(back_height) : 1.0f;

@@ -759,7 +759,8 @@ void poll_keyboard(InputPort* device)
     // BMX is ridden (game/rider/thaw_bmx.h half_stick_key): its grind pick reads how far the stick is pushed.
     // Original behaviour: the Feeble binding is read but unused - the movement keys always give 0 / 255.
     const bool half = down(sdl_input_state().keys_.feeble) && skater::thaw_bmx::half_stick_key();
-    const uint8_t low = half ? 64 : 0, high = half ? 192 : 255;
+    const uint8_t low = half ? 64 : 0;
+    const uint8_t high = half ? 192 : 255;
     if (down(sdl_input_state().keys_.left) && !down(sdl_input_state().keys_.right))
         core::at(data, kControlLeftStickX) = low;
     if (down(sdl_input_state().keys_.right) && !down(sdl_input_state().keys_.left))

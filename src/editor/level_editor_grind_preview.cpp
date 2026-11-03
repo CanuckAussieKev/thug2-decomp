@@ -224,7 +224,9 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     const Rail rail = rail_of(graph, start);
     const bool active = (core::at(rails->node_run(), start).flag_bits() & objects::kRailFlagActive) != 0;
     // The segments with their direction; the points; the ends; branches.
-    constexpr uint32_t kSegment = 0xF0FFFFFF, kChevron = 0xFF40E0FF, kInactive = 0xA0909090;
+    constexpr uint32_t kSegment = 0xF0FFFFFF;
+    constexpr uint32_t kChevron = 0xFF40E0FF;
+    constexpr uint32_t kInactive = 0xA0909090;
     const uint32_t segment_colour = active ? kSegment : kInactive;
     for (const auto& link : rail.links) {
         const V3 a = core::at(positions, link.first);

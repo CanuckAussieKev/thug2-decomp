@@ -276,7 +276,8 @@ void get_bloom()
         const double half_x = 0.5 / as_unsigned(desc.Width);
         const double half_y = 0.5 / as_unsigned(desc.Height);
         const uint32_t alpha = pass ? effects_state().bloom_alpha_second() : effects_state().bloom_alpha_first();
-        auto half_x_float = static_cast<float>(half_x), half_y_float = static_cast<float>(half_y);
+        auto half_x_float = static_cast<float>(half_x);
+        auto half_y_float = static_cast<float>(half_y);
         auto width = static_cast<float>(renderer().back_buffer_width());
         auto height = static_cast<float>(renderer().back_buffer_height());
         const uint32_t colour = alpha << 24 | 0x808080;

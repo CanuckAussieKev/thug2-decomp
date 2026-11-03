@@ -141,7 +141,8 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
     for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
         if (skip_node(node))
             continue;
-        uint32_t node_class = 0, type = 0;
+        uint32_t node_class = 0;
+        uint32_t type = 0;
         node->read_hash_value(kClass, &node_class, 0);
         node->read_hash_value(kType, &type, 0);
         if (!is_multiplayer()) {

@@ -773,7 +773,9 @@ bool join_buddy(script::Struct* params, script::Script*)
     Hub* manager = net_game_state().online_hub();
     const bool observe = params->has_bare_flag("observe");
     const char* location = nullptr;
-    int ip = 0, private_ip = 0, port = 0;
+    int ip = 0;
+    int private_ip = 0;
+    int port = 0;
     params->fetch_text("location", &location, 1);
     params->fetch_int_value("join_ip", &ip, 1);
     params->fetch_int_value("join_private_ip", &private_ip, 1);

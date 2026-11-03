@@ -267,7 +267,8 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         // The rest: along the velocity (x, y the unrounded unit vector, z rounded), the step's length, scaled by
         // what's left of it.
         const maths::Vec4& v = entity()->vel();
-        double vx = v.x, vy = v.y;
+        double vx = v.x;
+        double vy = v.y;
         float vz = v.z;
         const float vw = v.w;
         const double length = std::sqrt((static_cast<double>(vz) * vz + vy * vy) + vx * vx);

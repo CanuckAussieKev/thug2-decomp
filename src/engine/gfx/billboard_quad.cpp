@@ -77,7 +77,10 @@ int64_t get_truncated(double value) { return static_cast<int64_t>(value); }
 // or on their side (the bottom band is turned by 180 degrees).
 void QuadSprite::draw()
 {
-    float u0 = 0.0f, v_top = 1.0f, u1 = 0.0f, v_bottom = 0.0f;
+    float u0 = 0.0f;
+    float v_top = 1.0f;
+    float u1 = 0.0f;
+    float v_bottom = 0.0f;
     if (texture) {
         u1 = static_cast<float>(static_cast<double>(texture->image_width_) / texture->width);
         v_bottom = static_cast<float>(1.0 - static_cast<double>(texture->image_height_) / texture->height);
@@ -85,7 +88,8 @@ void QuadSprite::draw()
         u1 = 1.0f;
         v_bottom = 0.0f;
     }
-    float scale_x = xscale, scale_y = yscale;
+    float scale_x = xscale;
+    float scale_y = yscale;
     if (scale_x == 0.0f || scale_y == 0.0f)
         return;
     if (scale_x < 0.0f) {
@@ -203,7 +207,8 @@ void QuadSprite::draw()
     // that reaches past the 4:3 layout's left or right edge, with the screen x it gets.
     static const bool kDebugSprites = config_int("features", "debug_sprites", 0) != 0;
     if (kDebugSprites && front_end_widescreen) {
-        double reach_left = left + x, reach_right = static_cast<double>(right) + x;
+        double reach_left = left + x;
+        double reach_right = static_cast<double>(right) + x;
         if (rotation != 0.0f) {
             reach_left = std::fabs(static_cast<double>(left)) + std::fabs(static_cast<double>(right));
             reach_right = x + reach_left; // (rotated: anything whose extent could cross an edge)

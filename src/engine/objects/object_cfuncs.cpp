@@ -140,7 +140,9 @@ bool cfunc_append_node_params(script::Struct* params, script::Script*)
 bool cfunc_init_coim(script::Struct* params, script::Script*)
 {
     float factor = 0.0f;
-    int size = 0, b = 0, a = 0;
+    int size = 0;
+    int b = 0;
+    int a = 0;
     params->fetch_int_value(kSize, &size, 1);
     params->fetch_int_value(kCoimB0847d54, &b, 1);
     params->fetch_int_value(kCoimBb9a31b5, &a, 1);
@@ -206,7 +208,8 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
 // function called on every component of that type.
 bool cfunc_run_script_on_component_type(script::Struct* params, script::Script* script)
 {
-    uint32_t type = 0, target = 0;
+    uint32_t type = 0;
+    uint32_t target = 0;
     params->read_hash_value(kComponent, &type, 1);
     params->read_hash_value(kTarget, &target, 1);
     script::Struct* target_params = nullptr;
@@ -287,7 +290,8 @@ bool cfunc_get_trigger_node_name(script::Struct*, script::Script* script)
 // if it has no object yet, is given this one). False if there is no such object.
 bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
 {
-    uint32_t id = 0, name = 0;
+    uint32_t id = 0;
+    uint32_t name = 0;
     params->read_hash_value(kId, &id, 1);
     params->read_hash_value(0u, &name, 1);
     script::Struct* script_params = nullptr;
@@ -358,7 +362,9 @@ bool cfunc_orient(script::Struct* params, script::Script*)
 // check that the object exists.)
 bool cfunc_set_event_handler_on_object(script::Struct* params, script::Script*)
 {
-    uint32_t event_type = 0, handler = 0, group = kDefaultGroup;
+    uint32_t event_type = 0;
+    uint32_t handler = 0;
+    uint32_t group = kDefaultGroup;
     params->read_hash_value(kEx, &event_type, 1);
     params->read_hash_value(kScr, &handler, 1);
     params->read_hash_value(kGroup, &group, 0);

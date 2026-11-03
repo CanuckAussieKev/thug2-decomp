@@ -146,7 +146,8 @@ gsl::owner<VertexBuffer*> new_vertex_buffer(uint32_t bytes, uint32_t usage, uint
 void MeshRef::clean_strip()
 {
     const std::span<uint16_t> strip = core::at(index_buffers_, 0)->index_run();
-    uint32_t a = core::at(strip, 0), b = core::at(strip, 1);
+    uint32_t a = core::at(strip, 0);
+    uint32_t b = core::at(strip, 1);
     uint32_t run = 0; // degenerate triangles in a row
     for (uint32_t i = 2; i < core::at(index_counts_, 0); ++i) {
         const uint32_t c = core::at(strip, i);
@@ -304,7 +305,8 @@ MeshRef::~MeshRef()
         }
         dealloc(memory::owned_element(per_vertex_data_));
         IDirect3DVertexBuffer9* stream = nullptr;
-        UINT offset = 0, stream_stride = 0;
+        UINT offset = 0;
+        UINT stream_stride = 0;
         renderer().d3d_device()->GetStreamSource(0, &stream, &offset, &stream_stride);
         if (stream)
             stream->Release(); // (only compared with below)

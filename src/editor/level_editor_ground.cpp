@@ -175,7 +175,8 @@ public:
         const float ax = std::fabs(n.x);
         const float ay = std::fabs(n.y);
         const float az = std::fabs(n.z);
-        float u = 0.0f, v = 0.0f;
+        float u = 0.0f;
+        float v = 0.0f;
         if (ay >= ax && ay >= az)
             u = p.x, v = p.z;
         else if (ax >= az)
@@ -284,7 +285,9 @@ Mesh get_build(const Spec& spec)
         const float bottom = s.base - kSink;
         b.get_quad({.x = s.x0, .y = top, .z = s.z0}, {.x = s.x1, .y = top, .z = s.z0}, {.x = s.x1, .y = top, .z = s.z1}, {.x = s.x0, .y = top, .z = s.z1}, get_up(), kFlagDeck);
         for (int side = 0; side < 4; ++side) {
-            V3 out{}, e0{}, e1{};
+            V3 out{};
+            V3 e0{};
+            V3 e1{};
             side_frame(s, side, &out, &e0, &e1);
             if (core::at(s.ramps, side) == Ramp::kNone)
                 b.get_quad(get_at(e0, bottom), get_at(e1, bottom), get_at(e1, top), get_at(e0, top), out, kFlagWall);
@@ -296,7 +299,9 @@ Mesh get_build(const Spec& spec)
         b.get_quad({.x = s.x0, .y = floor, .z = s.z0}, {.x = s.x1, .y = floor, .z = s.z0}, {.x = s.x1, .y = floor, .z = s.z1}, {.x = s.x0, .y = floor, .z = s.z1}, get_up(),
                    kFlagDeck);
         for (int side = 0; side < 4; ++side) {
-            V3 out{}, e0{}, e1{};
+            V3 out{};
+            V3 e0{};
+            V3 e1{};
             side_frame(s, side, &out, &e0, &e1);
             const V3 in = out * -1.0f;
             if (core::at(s.ramps, side) == Ramp::kNone)
@@ -345,7 +350,9 @@ std::vector<std::array<uint16_t, 3>> strip_triangles(const std::vector<uint16_t>
 {
     std::vector<std::array<uint16_t, 3>> triangles;
     for (size_t i = 0; i + 2 < strip.size(); ++i) {
-        uint16_t a = core::at(strip, i), b = core::at(strip, i + 1), c = core::at(strip, i + 2);
+        uint16_t a = core::at(strip, i);
+        uint16_t b = core::at(strip, i + 1);
+        uint16_t const c = core::at(strip, i + 2);
         if (a == b || b == c || a == c)
             continue;
         if (i % 2)
@@ -512,8 +519,16 @@ bool read_record(const std::string& text, Spec* out)
         s.lower = true;
     else
         return false;
-    bool have_rect = false, have_base = false, have_height = false, have_material = false, have_ramps = false,
-         have_length = false, have_uv = false, have_colour = false, have_terrain = false, have_hides = false;
+    bool have_rect = false;
+    bool have_base = false;
+    bool have_height = false;
+    bool have_material = false;
+    bool have_ramps = false;
+    bool have_length = false;
+    bool have_uv = false;
+    bool have_colour = false;
+    bool have_terrain = false;
+    bool have_hides = false;
     auto once = [](bool* seen) {
         if (*seen)
             return false;

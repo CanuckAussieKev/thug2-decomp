@@ -258,7 +258,8 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     for (int i = 0; i < 4; ++i)
         core::at(stick_, i) = static_cast<float>(core::at(data, kDataStickStart + i) - kStickCentre);
 
-    double x = core::at(stick_, 0), y = core::at(stick_, 1);
+    double x = core::at(stick_, 0);
+    double y = core::at(stick_, 1);
     core::at(polar_, 0).length = static_cast<float>(std::sqrt(x * x + y * y));
     core::at(polar_, 0).angle = static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 0)), -static_cast<double>(core::at(stick_, 1))));
 

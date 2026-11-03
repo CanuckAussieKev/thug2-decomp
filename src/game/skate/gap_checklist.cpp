@@ -249,7 +249,8 @@ void GapTally::get_reset()
 // 0x00578DD0
 bool GapTally::get_gap_totals(script::Struct* /*params*/, script::Script* script)
 {
-    int total = 0, collected = 0;
+    int total = 0;
+    int collected = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         ++total;
         if (gap->num())

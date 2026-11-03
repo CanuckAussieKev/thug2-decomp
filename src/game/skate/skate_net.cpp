@@ -771,8 +771,14 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         const uint32_t fields = stream.read_bits(online::kObjectUpdateFieldBits);
         std::array<int16_t, 3> pos = {};
         std::array<float, 3> angles = {};
-        uint8_t state = 0, flag74 = 0, value_7c = 0, flag75 = 0, flag76 = 0;
-        uint32_t value68 = 0, value_6c = 0, value80 = 0;
+        uint8_t state = 0;
+        uint8_t flag74 = 0;
+        uint8_t value_7c = 0;
+        uint8_t flag75 = 0;
+        uint8_t flag76 = 0;
+        uint32_t value68 = 0;
+        uint32_t value_6c = 0;
+        uint32_t value80 = 0;
         for (int k = 0; k < 3; ++k) {
             if (fields & (1u << k))
                 core::at(pos, k) = static_cast<int16_t>(stream.read_signed_bits(online::kObjectUpdatePoseBits));
@@ -1020,8 +1026,14 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     const StateEntry* prev = nullptr;
     std::array<int16_t, 3> pos = {};
     std::array<float, 3> angles = {};
-    uint8_t state = 0, flag74 = 0, value_7c = 0, flag75 = 0, flag76 = 0;
-    uint32_t value68 = 0, value_6c = 0, value80 = 0;
+    uint8_t state = 0;
+    uint8_t flag74 = 0;
+    uint8_t value_7c = 0;
+    uint8_t flag75 = 0;
+    uint8_t flag76 = 0;
+    uint32_t value68 = 0;
+    uint32_t value_6c = 0;
+    uint32_t value80 = 0;
     if (history->state_count() > 0) {
         prev = &core::at(history->states(), (history->state_count() + kEntriesBack) % objects::RiderFrameLog::kEntries);
         value68 = prev->value68;

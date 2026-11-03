@@ -187,7 +187,8 @@ void get_panel(float x, float y, float ui_scale)
         return;
     }
     ImGui::BeginDisabled(!adjustable);
-    bool live = false, done = false;
+    bool live = false;
+    bool done = false;
     auto track = [&](bool changed) {
         live = live || changed;
         done = done || ImGui::IsItemDeactivatedAfterEdit();

@@ -303,10 +303,14 @@ void add_overlay(const overlays::Painter& painter)
                 continue;
             Polygon poly = {};
             poly.count = count;
-            bool left = true, right = true, below = true, above = true;
+            bool left = true;
+            bool right = true;
+            bool below = true;
+            bool above = true;
             float depth = 0.0f;
             for (int k = 0; k < count; ++k) {
-                float nx = 0.0f, ny = 0.0f;
+                float nx = 0.0f;
+                float ny = 0.0f;
                 cast_onto(painter.camera(), painter.frame(), painter.lens(), core::at(clipped, k), painter.near_z() * kHalf, &nx, &ny);
                 left = left && nx < -1.0f, right = right && nx > 1.0f, below = below && ny < -1.0f;
                 above = above && ny > 1.0f;

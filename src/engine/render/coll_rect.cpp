@@ -136,7 +136,9 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
             geometry->face_flags(static_cast<int>(face));
         if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_))
             continue;
-        maths::Vec4 v0{}, v1{}, v2{};
+        maths::Vec4 v0{};
+        maths::Vec4 v1{};
+        maths::Vec4 v2{};
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);

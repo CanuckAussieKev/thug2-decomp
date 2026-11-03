@@ -436,7 +436,8 @@ void add_overlay(const overlays::Painter& painter)
 {
     skate_view::add_overlay(painter);
     gap_wizard::add_overlay(painter);
-    constexpr uint32_t kRect = 0xFFFFE070, kPreview = 0xE0FFE070;
+    constexpr uint32_t kRect = 0xFFFFE070;
+    constexpr uint32_t kPreview = 0xE0FFE070;
     if (goal_form().stage_ == Stage::kSecond) {
         const V3 b = goal_form().have_hover_ ? goal_form().hover_ : goal_form().first_;
         const float y = goal_form().first_.y + 2.0f;

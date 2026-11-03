@@ -288,7 +288,9 @@ void BodyDynamicsModule::integrate(float dt)
     for (int i = contact_count_; i != 0;) {
         --i;
         const maths::Vec4& c = core::at(contact_run(), i);
-        const double x = c.x, y = c.y, z = c.z;
+        const double x = c.x;
+        const double y = c.y;
+        const double z = c.z;
         core::at(world_contact_points(), i) = {.x = get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + get_at(t, 0, 0) * x),
                                      .y = get_narrow((get_at(t, 0, 1) * x + get_at(t, 2, 1) * z) + y * get_at(t, 1, 1)),
                                      .z = get_narrow((get_at(t, 2, 2) * z + y * get_at(t, 1, 2)) + get_at(t, 0, 2) * x),
@@ -297,7 +299,9 @@ void BodyDynamicsModule::integrate(float dt)
     for (int i = sphere_count_; i != 0;) {
         --i;
         const maths::Vec4& c = core::at(sphere_run(), i).center;
-        const double x = c.x, y = c.y, z = c.z;
+        const double x = c.x;
+        const double y = c.y;
+        const double z = c.z;
         core::at(world_sphere_centers(), i) = {.x = get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + x * get_at(t, 0, 0)),
                                      .y = get_narrow((x * get_at(t, 0, 1) + get_at(t, 2, 1) * z) + y * get_at(t, 1, 1)),
                                      .z = get_narrow((get_at(t, 2, 2) * z + x * get_at(t, 0, 2)) + y * get_at(t, 1, 2)),
@@ -308,7 +312,9 @@ void BodyDynamicsModule::integrate(float dt)
         if (!core::at(spring_run(), i).active)
             continue;
         const maths::Vec4& c = core::at(spring_run(), i).point;
-        const double x = c.x, y = c.y, z = c.z;
+        const double x = c.x;
+        const double y = c.y;
+        const double z = c.z;
         core::at(world_spring_points(), i) = {.x = get_narrow((get_at(t, 2, 0) * z + get_at(t, 1, 0) * y) + x * get_at(t, 0, 0)),
                                     .y = get_narrow((get_at(t, 2, 1) * z + get_at(t, 1, 1) * y) + get_at(t, 0, 1) * x),
                                     .z = get_narrow((get_at(t, 2, 2) * z + get_at(t, 1, 2) * y) + get_at(t, 0, 2) * x), .w = c.w};
@@ -346,7 +352,8 @@ void BodyDynamicsModule::resolve_contacts()
 {
     const std::span<Contact> contacts = get_contacts();
     // The velocities before the impulses (friction works from these).
-    maths::Vec4 vel0 = vel_, first_turn = rot_vel_;
+    maths::Vec4 vel0 = vel_;
+    maths::Vec4 first_turn = rot_vel_;
     float fastest = 0.0f; // the fastest approach
 
     // Impulses along the normals until nothing approaches.

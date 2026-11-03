@@ -313,7 +313,8 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
 {
     const V3 min = to_v3(tri->bounds().min);
     const V3 max = to_v3(tri->bounds().max);
-    V3 first = {}, last = {};
+    V3 first = {};
+    V3 last = {};
     if (tri->vertices() && tri->num_vertices()) {
         first = to_v3(tri->read_stored_vertex(0));
         last = to_v3(tri->read_stored_vertex(tri->num_vertices() - 1));
@@ -590,10 +591,14 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             return false;
         Polygon poly = {};
         poly.count = count;
-        bool left = true, right = true, below = true, above = true;
+        bool left = true;
+        bool right = true;
+        bool below = true;
+        bool above = true;
         float depth = 0.0f;
         for (int k = 0; k < count; ++k) {
-            float nx = 0.0f, ny = 0.0f;
+            float nx = 0.0f;
+            float ny = 0.0f;
             if (!cast_onto(camera_pos, frame, lens, core::at(clipped, k), near_z * kHalf, &nx, &ny)) {
                 nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
             }

@@ -597,7 +597,9 @@ bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
         object->vel().w = direction.w * speed;
         return true;
     }
-    float x = 0.0f, y = 0.0f, z = 0.0f;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
     params->fetch_float(kVelX, &x, 1);
     params->fetch_float(kVelY, &y, 1);
     params->fetch_float(kVelZ, &z, 1);

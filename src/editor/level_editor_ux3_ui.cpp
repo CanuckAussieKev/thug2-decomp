@@ -272,7 +272,8 @@ void history_window()
         ImGui::End();
         return;
     }
-    std::vector<EditorUndoRecord> undo = undo_history(), redo = redo_history();
+    std::vector<EditorUndoRecord> undo = undo_history();
+    std::vector<EditorUndoRecord> redo = redo_history();
     gui::text_disabled("%d undo, %d redo", static_cast<int>(undo.size()), static_cast<int>(redo.size()));
     ImGui::Separator();
     ImGui::BeginChild("##steps");
@@ -1019,7 +1020,8 @@ void inspector_section(const ui::ShapeMesh& model)
             row.key == fields::key_links())
             continue;
         const std::string text = fields::get_format(row.value, fields::get_name_of);
-        bool all = true, mixed = false;
+        bool all = true;
+        bool mixed = false;
         for (size_t n = 1; n < rows.size() && all; ++n) {
             auto it =
                 std::find_if(core::at(rows, n).begin(), core::at(rows, n).end(), [&](const fields::Row& r) { return r.key == row.key; });

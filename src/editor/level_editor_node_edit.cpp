@@ -329,7 +329,8 @@ bool get_take_in(uint32_t name, Values* values)
     script::Struct* node = struct_named(name);
     if (!node)
         return false;
-    maths::Vec4 pos, angles;
+    maths::Vec4 pos;
+    maths::Vec4 angles;
     level_nodes::fetch_place(node, &pos);
     level_nodes::read_turn_angles(node, &angles);
     values->pos = {.x = pos.x, .y = pos.y, .z = pos.z};

@@ -188,7 +188,9 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     maths::Mat4 m{};
     m = object->display_matrix();
     const maths::Vec4& pos = object->at_point();
-    double ox = shift_.x, oy = shift_.y, oz = shift_.z;
+    double ox = shift_.x;
+    double oy = shift_.y;
+    double const oz = shift_.z;
     // the position: the object's plus the offset through its matrix (x kept at 53 bits but for the third row's
     // term; y, z, w rounded at each step; w's third term unrounded)
     double x = static_cast<double>(core::at(m.row, 0).x) * ox + pos.x;

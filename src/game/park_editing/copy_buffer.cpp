@@ -101,7 +101,8 @@ void destroy_preview(ClipboardEntry* entry)
 void ClipboardEntry::fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centre_z, BuildPointer* cursor)
 {
     CellBox size = CellBox::get_make(0, 0, 0, 0, 0, 0);
-    uint8_t width = 1, length = 1;
+    uint8_t width = 1;
+    uint8_t length = 1;
     if (piece_group_) {
         size = piece_group_->cell_footprint();
         width = size.w;
@@ -288,7 +289,8 @@ void Clipboard::fetch_extent(BuildPointer* cursor, CellBox* area) const
 {
     const int left = lo_cell_x_ - static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const int near = lo_cell_z_ - static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
-    int dx = 0, dz = 0;
+    int dx = 0;
+    int dz = 0;
     switch (cursor->quarter_turns()) {
     case 0:
         area->l = edit_span_.l;

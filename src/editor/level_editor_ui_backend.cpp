@@ -148,7 +148,8 @@ void render()
     if (!context_ready() || !data || !data->Valid)
         return;
     // Window pixels -> back buffer pixels (the same unless the window shows a back buffer of another size).
-    int back_width = 0, back_height = 0;
+    int back_width = 0;
+    int back_height = 0;
     back_buffer_size({.width = &back_width, .height = &back_height});
     if (back_width <= 0 || back_height <= 0 || data->DisplaySize.x <= 0.0f || data->DisplaySize.y <= 0.0f)
         return;

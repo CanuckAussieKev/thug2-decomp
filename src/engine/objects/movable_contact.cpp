@@ -65,7 +65,8 @@ GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::V
 // 0x00427B30
 GameEntity* MovingSurfaceModule::find_contact_ahead(maths::Vec4* pos, const maths::Vec4* next)
 {
-    maths::Vec4 hit, other;
+    maths::Vec4 hit;
+    maths::Vec4 other;
     GameEntity* object = find_contact(pos, &hit);
     if (!object)
         return nullptr;

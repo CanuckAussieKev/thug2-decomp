@@ -175,7 +175,8 @@ bool is_integer(const std::string& text)
 bool is_float(const std::string& text)
 {
     const size_t start = ::core::at(text, 0) == '-' ? 1 : 0;
-    bool digits = false, point = false;
+    bool digits = false;
+    bool point = false;
     for (size_t i = start; i < text.size(); ++i) {
         if (std::isdigit(static_cast<unsigned char>(::core::at(text, i))))
             digits = true;
@@ -218,7 +219,8 @@ bool read_numbers(const std::vector<std::string>& tokens, size_t first, std::vec
 bool tokenize(const std::string& line, std::vector<std::string>* tokens, std::string* error)
 {
     std::string token;
-    bool quoted = false, any = false;
+    bool quoted = false;
+    bool any = false;
     for (const char c : line) {
         if (quoted) {
             token += c;
@@ -1042,7 +1044,10 @@ uint64_t file_time_value(const FILETIME& time)
 
 uint64_t process_start()
 {
-    FILETIME created, exited, kernel, user;
+    FILETIME created;
+    FILETIME exited;
+    FILETIME kernel;
+    FILETIME user;
     if (!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user))
         return 0;
     return file_time_value(created);
@@ -1231,7 +1236,8 @@ bool menus_ignore_pad(modules::FrontEnd* front_end)
         return false;
     if (menu_input_blocked(front_end))
         return true;
-    std::vector<UiWidget*> focused, selected;
+    std::vector<UiWidget*> focused;
+    std::vector<UiWidget*> selected;
     focused_elements(&focused, &selected);
     bool any_menu = false;
     for (UiWidget* element : focused) {
@@ -1250,7 +1256,8 @@ std::string press_refusal(const Button& button)
 {
     if (!button_chooses(button))
         return {};
-    std::vector<UiWidget*> focused, selected;
+    std::vector<UiWidget*> focused;
+    std::vector<UiWidget*> selected;
     focused_elements(&focused, &selected);
     for (auto* list : {&selected, &focused}) {
         for (const UiWidget* element : *list) {
@@ -1379,7 +1386,8 @@ bool condition_holds(const OrderCode& command)
     }
     case Condition::kFocus: {
         const uint32_t id = id_checksum(command.target);
-        std::vector<UiWidget*> focused, selected;
+        std::vector<UiWidget*> focused;
+        std::vector<UiWidget*> selected;
         focused_elements(&focused, &selected);
         for (const UiWidget* element : focused)
             if (ident_no(element) == id)
@@ -1744,7 +1752,8 @@ void write_status(Runner& runner)
     if (_strnicmp(status.level.c_str(), "load_", begin_level::kLoadPrefixLength) == 0)
         status.level.erase(0, begin_level::kLoadPrefixLength);
     status.game_mode_ = active_ruleset_label();
-    std::vector<UiWidget*> focused, selected;
+    std::vector<UiWidget*> focused;
+    std::vector<UiWidget*> selected;
     focused_elements(&focused, &selected);
     for (const UiWidget* element : focused)
         status.focus.push_back(get_name_of(ident_no(element)));

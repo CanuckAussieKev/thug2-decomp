@@ -275,17 +275,27 @@ void set_wheel_points(BikeState& state, const maths::Vec4& position, const maths
 int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Struct* params, script::Script* script)
 {
     // (the names THAW's members have; ThawBmxLoadAssets is ours)
-    static const uint32_t kOn = name_hash("SkaterOnBike"), kOff = name_hash("SkaterOffBike"),
-                          kIsOn = name_hash("IsSkaterOnBike"), kOverGrind = name_hash("BikeIsInOverGrind"),
-                          kGetAngle = name_hash("GetBikeManualAngle"), kResetAngle = name_hash("ResetBikeManualAngle"),
-                          kInManual = name_hash("BikeInManual"), kInXup = name_hash("BikeInXup"),
-                          kEnterXup = name_hash("BikeEnterXup"), kExitXup = name_hash("BikeExitXup"),
-                          kInTireTap = name_hash("BikeInTireTap"), kEnterSkid = name_hash("BikeEnterSkid"),
-                          kExitSkid = name_hash("BikeExitSkid"), kInSkid = name_hash("bikeinskid"),
-                          kCanSkid = name_hash("BikeCanSkid"), kExitTireTap = name_hash("BikeExitTireTap"),
-                          kExitEndo = name_hash("exitbikeendo"), kLoad = name_hash("ThawBmxLoadAssets"),
-                          kEnterWheelie = name_hash("EnterWheelieFromAir"), kManualAngle = name_hash("manual_angle"),
-                          kNose = name_hash("nose");
+    static const uint32_t kOn = name_hash("SkaterOnBike");
+    static const uint32_t kOff = name_hash("SkaterOffBike");
+    static const uint32_t kIsOn = name_hash("IsSkaterOnBike");
+    static const uint32_t kOverGrind = name_hash("BikeIsInOverGrind");
+    static const uint32_t kGetAngle = name_hash("GetBikeManualAngle");
+    static const uint32_t kResetAngle = name_hash("ResetBikeManualAngle");
+    static const uint32_t kInManual = name_hash("BikeInManual");
+    static const uint32_t kInXup = name_hash("BikeInXup");
+    static const uint32_t kEnterXup = name_hash("BikeEnterXup");
+    static const uint32_t kExitXup = name_hash("BikeExitXup");
+    static const uint32_t kInTireTap = name_hash("BikeInTireTap");
+    static const uint32_t kEnterSkid = name_hash("BikeEnterSkid");
+    static const uint32_t kExitSkid = name_hash("BikeExitSkid");
+    static const uint32_t kInSkid = name_hash("bikeinskid");
+    static const uint32_t kCanSkid = name_hash("BikeCanSkid");
+    static const uint32_t kExitTireTap = name_hash("BikeExitTireTap");
+    static const uint32_t kExitEndo = name_hash("exitbikeendo");
+    static const uint32_t kLoad = name_hash("ThawBmxLoadAssets");
+    static const uint32_t kEnterWheelie = name_hash("EnterWheelieFromAir");
+    static const uint32_t kManualAngle = name_hash("manual_angle");
+    static const uint32_t kNose = name_hash("nose");
     auto nose = [&](bool set) {
         if (set && script && script->args())
             script->args()->put_int(checksums::Name{kNose}, 1);
@@ -296,7 +306,8 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
         return load_assets() ? 1 : 0;
     if (name == kEnterWheelie) // (THAW 0x005CA3B0: phase 3, thaw_bmx_physics.cpp)
         return enter_wheelie_from_air(core, params);
-    static const uint32_t kSteerAnim = name_hash("ThawBmxSteerAnim"), kOffFlag = name_hash("off");
+    static const uint32_t kSteerAnim = name_hash("ThawBmxSteerAnim");
+    static const uint32_t kOffFlag = name_hash("off");
     if (name == kSteerAnim) { // (ours: `on` / `off`)
         set_steer_anim(core, !(params && params->has_bare_flag(kOffFlag)));
         return 1;

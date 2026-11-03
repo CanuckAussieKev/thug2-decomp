@@ -435,7 +435,8 @@ const char* profile_voice()
 // 0x004F2040
 bool PedestrianBrainModule::ped_set_logic_state(script::Struct* params, script::Script*)
 {
-    uint32_t state = 0, table = 0;
+    uint32_t state = 0;
+    uint32_t table = 0;
     params->read_hash_value(0u, &state, 1);
     if (state == cur_phase_)
         return true;

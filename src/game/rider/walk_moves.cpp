@@ -1402,7 +1402,9 @@ bool FootMovement::update_contacts()
     const double length = std::sqrt((x * x + static_cast<double>(z) * z) + static_cast<double>(y) * y);
     auto length_rounded = static_cast<float>(length);
     double new_x = 0.0;
-    float new_y = 0.0f, new_z = 0.0f, new_w = 0.0f;
+    float new_y = 0.0f;
+    float new_z = 0.0f;
+    float new_w = 0.0f;
     if (length <= kStillLength) {
         new_x = 0.0;
         new_y = 0.0f;

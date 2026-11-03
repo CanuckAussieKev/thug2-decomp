@@ -333,7 +333,8 @@ Pad read_pad()
         if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)))
             now |= 1u << b;
     }
-    uint32_t pressed = now & ~pad_was(), released = pad_was() & ~now;
+    uint32_t pressed = now & ~pad_was();
+    uint32_t const released = pad_was() & ~now;
     pad_was() = now;
     auto down = [&](SDL_GameControllerButton b) { return (now >> b & 1u) != 0; };
     auto press = [&](SDL_GameControllerButton b) { return (pressed >> b & 1u) != 0; };
@@ -499,7 +500,8 @@ void tick_frame(TickCycle& f)
                             (get_held(f.keys, kFlyDown) || get_held(f.keys, kFlyUp) || get_held(f.keys, kForward) ||
                              get_held(f.keys, kBack) || get_held(f.keys, kLeft) || get_held(f.keys, kRight));
         if (!flying) {
-            float x = f.mouse_x_, y = f.mouse_y_;
+            float x = f.mouse_x_;
+            float y = f.mouse_y_;
             if (pad_open && pie_menu().have_view_centre_) {
                 x = pie_menu().view_x_;
                 y = pie_menu().view_y_;
@@ -514,7 +516,8 @@ void tick_frame(TickCycle& f)
     if (!pie_menu().pie_.open)
         return;
     // Pointing: the mouse (or the left stick) from the centre.
-    float dx = f.mouse_x_ - pie_menu().pie_.x, dy = f.mouse_y_ - pie_menu().pie_.y;
+    float dx = f.mouse_x_ - pie_menu().pie_.x;
+    float dy = f.mouse_y_ - pie_menu().pie_.y;
     if (pie_menu().pie_.pad_button_ || (f.pad.active && (f.pad.move_x_ != 0 || f.pad.move_y_ != 0))) {
         dx = f.pad.move_x_ * 100.0f;
         dy = -f.pad.move_y_ * 100.0f;

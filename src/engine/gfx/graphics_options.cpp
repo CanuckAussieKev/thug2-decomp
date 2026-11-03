@@ -64,7 +64,8 @@ bool get_supported(int samples, void* context)
 {
     auto* q = static_cast<SupportQuery*>(context);
     auto type = static_cast<D3DMULTISAMPLE_TYPE>(samples);
-    DWORD colour_levels = 0, depth_levels = 0;
+    DWORD colour_levels = 0;
+    DWORD depth_levels = 0;
     if (FAILED(q->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, q->colour, q->windowed, type,
                                                   &colour_levels)) ||
         FAILED(q->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, q->depth, q->windowed, type,

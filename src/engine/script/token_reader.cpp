@@ -404,7 +404,9 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
     }
     case QbToken::kVector: {
         change_species(out, QbValueKind::kVector);
-        uint32_t x = fetch_word32(p), y = fetch_word32(token + kTokenWithWordBytes), z = fetch_word32(token + kTokenWithPairBytes);
+        uint32_t x = fetch_word32(p);
+        uint32_t y = fetch_word32(token + kTokenWithWordBytes);
+        uint32_t z = fetch_word32(token + kTokenWithPairBytes);
         Vector* vector = alloc_script_vector();
         vector = vector ? new (vector) script::Vector : nullptr;
         out->value.set_vector(vector);
@@ -415,7 +417,8 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
     }
     case QbToken::kPair: {
         change_species(out, QbValueKind::kPair);
-        uint32_t x = fetch_word32(p), y = fetch_word32(token + kTokenWithWordBytes);
+        uint32_t x = fetch_word32(p);
+        uint32_t y = fetch_word32(token + kTokenWithWordBytes);
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
         out->value.set_pair(pair);
@@ -816,7 +819,9 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
             } else if (t == QbToken::kVector) {
                 Vector* vector = alloc_script_vector();
                 vector = vector ? new (vector) script::Vector : nullptr;
-                uint32_t x = fetch_word32(p), y = fetch_word32(p + 4), z = fetch_word32(p + kVectorZOffset);
+                uint32_t x = fetch_word32(p);
+                uint32_t y = fetch_word32(p + 4);
+                uint32_t z = fetch_word32(p + kVectorZOffset);
                 std::memcpy(&vector->x(), &x, 4);
                 std::memcpy(&vector->y(), &y, 4);
                 std::memcpy(&vector->z(), &z, 4);
@@ -831,7 +836,8 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
             } else if (t == QbToken::kPair) {
                 Pair* pair = new_pair();
                 pair = pair ? new (pair) script::Pair : nullptr;
-                uint32_t x = fetch_word32(p), y = fetch_word32(p + 4);
+                uint32_t x = fetch_word32(p);
+                uint32_t y = fetch_word32(p + 4);
                 std::memcpy(&pair->x(), &x, 4);
                 std::memcpy(&pair->y(), &y, 4);
                 p += kPairPayloadBytes;

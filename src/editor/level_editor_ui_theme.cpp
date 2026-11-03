@@ -88,7 +88,8 @@ void apply_style(float scale, std::span<const float, 3> accent_rgb)
     style.ScrollbarSize = kScrollbarSize;
     // A dark neutral with the accent.
     const std::span<ImVec4, ImGuiCol_COUNT> c(style.Colors);
-    const ImVec4 accent = accent_at(1.0f), accent_soft = accent_at(0.55f);
+    const ImVec4 accent = accent_at(1.0f);
+    const ImVec4 accent_soft = accent_at(0.55f);
     core::at(c, ImGuiCol_WindowBg) = kWindowBgColour;
     core::at(c, ImGuiCol_ChildBg) = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     core::at(c, ImGuiCol_PopupBg) = kPopupBgColour;

@@ -490,7 +490,8 @@ bool FootMovement::try_grind()
             core::down_cast<GrindPathLinkModule>(component)->update_rail_matrix(&world);
             maths::Mat4 inverse = world;
             inverse.upend();
-            maths::Vec4 local_old{}, rel_pos{};
+            maths::Vec4 local_old{};
+            maths::Vec4 rel_pos{};
             inverse.xform(local_old, old_pos);
             inverse.xform(rel_pos, pos);
             found = rails_of(component)->find_grind_rail(&local_old, &rel_pos, &point, &node, nullptr, {.min_alignment_ = kOne, .side = 0});

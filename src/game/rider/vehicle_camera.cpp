@@ -180,7 +180,8 @@ void CarView::apply_to_camera()
 void CarView::update_orientation()
 {
     const double heading = free_look_->heading();
-    double rotated_x = 0.0, rotated_z = 0.0;
+    double rotated_x = 0.0;
+    double rotated_z = 0.0;
     maths::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
     auto right = static_cast<float>(rotated_z);
     auto forward = static_cast<float>(rotated_x);
@@ -239,7 +240,8 @@ void CarView::tick_frame()
     double step = frame_clock::get_slomo_frame_seconds() * lerp_ * angle;
     step = std::min<double>(step, angle);
     const double turn = (left ? 1.0f : -1.0f) * step;
-    double x = 0.0, z = 0.0;
+    double x = 0.0;
+    double z = 0.0;
     maths::spin_by(turn, direction_.x, direction_.z, &x, &z);
     direction_.x = static_cast<float>(x);
     direction_.z = static_cast<float>(z);

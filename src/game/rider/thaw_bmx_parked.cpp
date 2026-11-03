@@ -158,7 +158,8 @@ objects::GameEntity* object_of(script::Struct* params)
 void place_skater(objects::Rider* skater, Point pos, float heading)
 {
     const double h = static_cast<double>(heading) * std::numbers::pi / 180.0;
-    auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
+    auto s = static_cast<float>(std::sin(h));
+    auto c = static_cast<float>(std::cos(h));
     for (maths::Mat4* m : {&skater->basis_frame(), &skater->display_matrix()}) {
         core::at(m->row, 0) = {.x = c, .y = 0.0f, .z = -s, .w = 0.0f};
         core::at(m->row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
@@ -275,7 +276,8 @@ void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Poin
     const auto heading = heading_reach.heading;
     const auto distance = heading_reach.distance;
     const double h = static_cast<double>(heading) * std::numbers::pi / 180.0;
-    auto ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h));  // (at)
+    auto ax = static_cast<float>(std::sin(h));
+    auto az = static_cast<float>(std::cos(h)); // (at)
     const float rx = az;
     const float rz = -ax; // (right: up x at)
     core::at(out, 0) = {.x = pos.x + rx * distance, .y = pos.y, .z = pos.z + rz * distance};

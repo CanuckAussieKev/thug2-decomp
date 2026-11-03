@@ -249,7 +249,9 @@ Tokens skip_newline_tokens(Tokens token)
 // 0x0046FB30
 Tokens skip_to_end_of_statement(Tokens token)
 {
-    int braces = 0, brackets = 0, parentheses = 0;
+    int braces = 0;
+    int brackets = 0;
+    int parentheses = 0;
     for (;;) {
         const QbToken t = as_token(*token);
         if (t == QbToken::kStructStart)
@@ -519,7 +521,9 @@ void log_script_pool_use(const char* when)
                            {.name = "CScript", .pair = &script_pools()}});
     std::string line;
     for (const Named& p : pools) {
-        int used = 0, peak = 0, count = 0;
+        int used = 0;
+        int peak = 0;
+        int count = 0;
         for (const memory::SlabBank* pool : p.pair->pools()) {
             if (!pool)
                 continue;

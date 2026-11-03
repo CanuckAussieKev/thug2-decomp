@@ -205,7 +205,12 @@ void ModelWidget::attach_model(Struct* params, maths::Vec4 offset)
 void ModelWidget::scale_to_screen_dims()
 {
     // (left uninitialised by the original when the first slot is empty)
-    float min_x = 0, min_y = 0, min_z = 0, max_x = 0, max_y = 0, max_z = 0;
+    float min_x = 0;
+    float min_y = 0;
+    float min_z = 0;
+    float max_x = 0;
+    float max_y = 0;
+    float max_z = 0;
     for (int i = 0; i < model_total_; ++i) {
         const ShapeMesh& model = core::at(models_, i);
         if (!model.object)
@@ -459,7 +464,8 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
     if (!render::get_front_end_widescreen() || count <= 0 || !(tan_half_angle > 0.0))
         return 1.0f;
     const double layout_half_width = (4.0 / 3.0) / render::desired_3d_aspect_ratio(); // the 4:3 area, in half-widths
-    double leftmost = 0.0, rightmost = 0.0;
+    double leftmost = 0.0;
+    double rightmost = 0.0;
     for (int i = 0; i < count; ++i) {
         const double depth = -(static_cast<double>(core::at(corners, i).z) + place.z);
         if (!(depth > 0.0))
@@ -475,8 +481,10 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
         return 1.0f;
     // Stretched by k about the place, a corner is at place.x + k * x: the left edge is reached as soon as one
     // corner left of the place reaches it, the right likewise; both are needed.
-    double need_left = 0.0, need_right = 0.0;
-    bool left = false, right = false;
+    double need_left = 0.0;
+    double need_right = 0.0;
+    bool left = false;
+    bool right = false;
     for (int i = 0; i < count; ++i) {
         const double x = core::at(corners, i).x;
         const double edge = -(static_cast<double>(core::at(corners, i).z) + place.z) * tan_half_angle; // the half-width there

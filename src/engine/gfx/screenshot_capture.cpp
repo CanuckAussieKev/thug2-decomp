@@ -56,7 +56,9 @@ void get_release(T*& p)
 // The copy, with the scene ended around it (StretchRect / GetRenderTargetData outside a scene, as Direct3D wants).
 bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::string* error)
 {
-    IDirect3DSurface9 *back = nullptr, *resolved = nullptr, *system = nullptr;
+    IDirect3DSurface9* back = nullptr;
+    IDirect3DSurface9* resolved = nullptr;
+    IDirect3DSurface9* system = nullptr;
     auto fail = [&](const char* why, HRESULT hr) {
         std::array<char, kCaptureTextSize> text{};
         text::format_to(text, "%s (0x%08lX)", why, static_cast<unsigned long>(hr));

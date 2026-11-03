@@ -121,7 +121,8 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
     edges_ = static_cast<ShadowEdges*>(memory::alloc_zeroed(sizeof(ShadowEdges))); // (not checked, as the original)
     const TriMeshSource* meshes = model_key_;
     // (with a key but no asset data, read through null - as the original)
-    int faces = 0, vertices = 0;
+    int faces = 0;
+    int vertices = 0;
     if (model_key_) {
         const std::span<const TriMeshSource> mesh_run(meshes, static_cast<size_t>(get_mesh_count(asset_data)));
         for (const TriMeshSource& mesh : mesh_run) {

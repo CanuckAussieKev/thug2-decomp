@@ -309,7 +309,8 @@ bool graft(std::string* message)
     const std::string text = clip ? clip : "";
     if (clip)
         SDL_free(clip);
-    layout::FileLoad fragment, now;
+    layout::FileLoad fragment;
+    layout::FileLoad now;
     int line = 0;
     // (the comment line first, then the layout's header: Read skips comments)
     if (!is_clip_text(text) || !layout::get_take_in(text.substr(text.find('\n') + 1), &fragment, &line)) {

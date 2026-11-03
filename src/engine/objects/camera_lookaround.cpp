@@ -156,7 +156,10 @@ void FreeLookModule::tick_frame()
 int FreeLookModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == kTurnTo) {
-        float heading = 0.0f, tilt = 0.0f, time = 0.0f, factor = 1.0f;
+        float heading = 0.0f;
+        float tilt = 0.0f;
+        float time = 0.0f;
+        float factor = 1.0f;
         params->fetch_float(kHeading, &heading, 1);
         params->fetch_float(kTilt, &tilt, 1);
         params->fetch_float(kTime, &time, 1);

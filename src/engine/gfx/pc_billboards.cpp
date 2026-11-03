@@ -175,7 +175,8 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     D3DVIEWPORT9 viewport;
     renderer().d3d_device()->GetViewport(&viewport);
     IDirect3DVertexBuffer9* stream = nullptr;
-    UINT offset = 0, stream_stride = 0;
+    UINT offset = 0;
+    UINT stream_stride = 0;
     renderer().d3d_device()->GetStreamSource(0, &stream, &offset, &stream_stride);
     IDirect3DPixelShader9* pixel_shader = nullptr;
     renderer().d3d_device()->GetPixelShader(&pixel_shader);
@@ -203,7 +204,9 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     }
     const std::span<const uint8_t> vertex_bytes_of_mesh(mesh->per_vertex_bytes(), mesh->per_vertex_bytes() ? mesh->vertex_count() : 0);
     for (uint32_t i = 0; i < mesh->vertex_count(); ++i) {
-        float x = 0.0f, y = 0.0f, z = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
         std::memcpy(&x, from.rest().first(4).data(), 4);
         std::memcpy(&y, from.rest().subspan(4, 4).data(), 4);
         std::memcpy(&z, from.rest().subspan(kZOffset, 4).data(), 4);
@@ -324,7 +327,8 @@ void BillboardSet::setup_axes()
     core::at(up_, 1) = static_cast<float>(uy);
     // the forward and right along the ground
     auto flatten = [](const std::array<float, 4>& from, std::array<float, 4>& out) {
-        double fx = core::at(from, 0), fz = core::at(from, 2);
+        double fx = core::at(from, 0);
+        double fz = core::at(from, 2);
         float y = 0.0f;
         const double length = std::sqrt(fz * fz + fx * fx);
         if (length > 0.0f) {

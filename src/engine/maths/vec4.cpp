@@ -329,7 +329,9 @@ double clamped_cosine(double dot)
 // float; the result is returned unrounded in ST0)
 double read_turn_angle(const Vec4& a, const Vec4& b)
 {
-    double ax = a.x, ay = a.y, az = a.z;
+    double ax = a.x;
+    double ay = a.y;
+    double az = a.z;
     double length = std::sqrt((az * az + ax * ax) + ay * ay);
     if (length > 0.0) {
         const double scale = 1.0 / length;
@@ -337,7 +339,9 @@ double read_turn_angle(const Vec4& a, const Vec4& b)
         ay *= scale;
         az *= scale;
     }
-    double bx = b.x, by = b.y, bz = b.z;
+    double bx = b.x;
+    double by = b.y;
+    double bz = b.z;
     length = std::sqrt((bz * bz + by * by) + bx * bx);
     if (length > 0.0) {
         const double scale = 1.0 / length;
@@ -372,7 +376,9 @@ double get_turn_around_axis(const Vec4& a, const Vec4& b, const Vec4& axis)
         from.y = static_cast<float>(from.y * scale);
         from.z = static_cast<float>(from.z * scale);
     }
-    double tx = to.x, ty = to.y, tz = to.z;
+    double tx = to.x;
+    double ty = to.y;
+    double tz = to.z;
     length = std::sqrt((tz * tz + ty * ty) + tx * tx);
     if (length > 0.0) {
         const double scale = 1.0 / length;

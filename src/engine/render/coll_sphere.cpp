@@ -129,7 +129,8 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
                 .y = get_difference(motion->y, edge_motion->y) + centre.y,
                 .z = get_difference(motion->z, edge_motion->z) + centre.z,
                 .w = get_difference(motion->w, edge_motion->w) + centre.w};
-    float s = 0.0f, u = 0.0f;
+    float s = 0.0f;
+    float u = 0.0f;
     if (!capsule.intersects_segment(path, {.s = &s, .t = &u, .squared_gap_ = nullptr}))
         return false;
     if (within01(s)) {
@@ -251,7 +252,9 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
                                 maths::Vec4* point, maths::Vec4* normal)
 {
     const maths::Vec4& centre = sphere->centre;
-    maths::Vec4 e01 = get_minus(*v1, *v0), e12 = get_minus(*v2, *v1), e20 = get_minus(*v0, *v2);
+    maths::Vec4 e01 = get_minus(*v1, *v0);
+    maths::Vec4 e12 = get_minus(*v2, *v1);
+    maths::Vec4 e20 = get_minus(*v0, *v2);
     const double e2x = static_cast<double>(v2->x) - v0->x;
     const double e2y = static_cast<double>(v2->y) - v0->y;
     const double e2z = static_cast<double>(v2->z) - v0->z;
@@ -279,7 +282,9 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
                            .y = static_cast<float>(static_cast<double>(e.x) * n.z - static_cast<double>(e.z) * n.x),
                            .z = static_cast<float>(static_cast<double>(e.y) * n.x - static_cast<double>(e.x) * n.y), .w = 0.0f};
     };
-    maths::Vec4 c01 = across(e01), c12 = across(e12), c20 = across(e20);
+    maths::Vec4 c01 = across(e01);
+    maths::Vec4 c12 = across(e12);
+    maths::Vec4 c20 = across(e20);
     normal->make_unit();
     // which side of each edge `p` is (inside: at or behind the edge's line)
     auto inside01 = [&](double along) {
@@ -321,7 +326,8 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
         const bool in20 = inside20((static_cast<double>(c20.z) * centre.z + static_cast<double>(c20.x) * centre.x) +
                                    static_cast<double>(c20.y) * centre.y);
         if (in01 && in12 && in20) {
-            float s = 0.0f, u = 0.0f;
+            float s = 0.0f;
+            float u = 0.0f;
             point_triangle_distance_squared(centre, *v0, *v1, *v2, {.out = &s, .t_out_ = &u});
             const maths::Vec4 across2 = u * (*v2 - *v0);
             *point = (*v0 + s * (*v1 - *v0)) + across2;
@@ -417,7 +423,8 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
     if ((dy * normal->y + dx * normal->x) + dz * normal->z >= 0.0)
         return false; // (behind the face)
     normal->make_unit();
-    float s = 0.0f, u = 0.0f;
+    float s = 0.0f;
+    float u = 0.0f;
     const double distance2 = point_triangle_distance_squared(c, *v0, *v1, *v2, {.out = &s, .t_out_ = &u});
     // v0 + s (v1 - v0) + u (v2 - v0), rounded as the original
     const double f2x = static_cast<double>(v2->x) - v0->x;
@@ -455,11 +462,14 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
             geometry->face_flags(static_cast<int>(face));
         if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_))
             continue;
-        maths::Vec4 v0{}, v1{}, v2{};
+        maths::Vec4 v0{};
+        maths::Vec4 v1{};
+        maths::Vec4 v2{};
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
-        maths::Vec4 point{}, normal{};
+        maths::Vec4 point{};
+        maths::Vec4 normal{};
         float t = 0.0f;
         const bool hit = hits->sweep == 0.0f ? sphere_hits_triangle(sphere, &v0, &v1, &v2, {.point = &point, .normal = &normal})
                                              : swept_sphere_hits_triangle(sphere, &v0, &v1, &v2, &t, hits->sweep,

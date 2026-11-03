@@ -123,7 +123,8 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         bool use;
     };
     std::vector<DetailsOf> info(faces.size());
-    float up_area = 0.0f, down_area = 0.0f;
+    float up_area = 0.0f;
+    float down_area = 0.0f;
     for (size_t i = 0; i < faces.size(); ++i) {
         const Face& f = core::at(faces, i);
         const V3 n = perpendicular(f.b - f.a, f.c - f.a);
@@ -185,7 +186,8 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
     for (const GroupSet& g : groups) {
         if (std::cmp_greater_equal(lips.size(), max_lips))
             break;
-        float top = -kFarDistance, bottom = kFarDistance;
+        float top = -kFarDistance;
+        float bottom = kFarDistance;
         for (const int i : g.faces) {
             for (const V3 p : {core::at(faces, i).a, core::at(faces, i).b, core::at(faces, i).c}) {
                 top = std::max(top, p.y);
@@ -201,7 +203,9 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         // The top faces' tangent (by area) and the edge's vertices.
         constexpr float kTop = 1.5f;
         V3 tangent = {};
-        float min = kFarDistance, max = -kFarDistance, u_sum = 0.0f;
+        float min = kFarDistance;
+        float max = -kFarDistance;
+        float u_sum = 0.0f;
         int count = 0;
         bool vert_flag = false;
         for (const int i : g.faces) {
@@ -294,14 +298,16 @@ Flight get_fly(V3 start, V3 velocity, FlightSteps steps, const Cast& cast)
     Flight flight;
     flight.points.push_back(start);
     flight.apex = start;
-    V3 p = start, v = velocity;
+    V3 p = start;
+    V3 v = velocity;
     float t = 0.0f;
     while (t < max_time) {
         // (as do_air_physics: position += v t + (0, g, 0) t^2 / 2, then v.y += g t)
         const V3 next = p + v * dt + V3{.x = 0.0f, .y = 0.5f * gravity * dt * dt, .z = 0.0f};
         v.y += gravity * dt;
         t += dt;
-        V3 hit{}, normal{};
+        V3 hit{};
+        V3 normal{};
         if (t > skip && cast && cast(p, next, &hit, &normal)) {
             flight.points.push_back(hit);
             flight.landed = true;
@@ -486,7 +492,8 @@ std::vector<V3> boxes_of(const std::vector<uint32_t>& sectors)
     for (const uint32_t s : sectors) {
         OrientedBox box{};
         if (scenery::cuboid(s, &box)) {
-            V3 min{}, max{};
+            V3 min{};
+            V3 max{};
             bounds_of(box, &min, &max);
             boxes.push_back(min);
             boxes.push_back(max);

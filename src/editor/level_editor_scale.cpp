@@ -94,7 +94,8 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
             core::at(out, a) = 1.0;
             continue;
         }
-        double low = 0.0, high = kNoUpperBound;
+        double low = 0.0;
+        double high = kNoUpperBound;
         for (size_t i = 0; i < scales.size(); ++i) {
             const double scale = get_axis(core::at(scales, i), a) > 0.0f ? get_axis(core::at(scales, i), a) : 1.0;
             const double limit = i < limits.size() ? std::min<double>(get_axis(core::at(limits, i), a), kMax) : kMax;
@@ -218,7 +219,9 @@ void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original,
 
 int surface_nudge(uint32_t fvf, uint32_t stride)
 {
-    constexpr uint32_t kPositionMask = 0x400E, kXyz = 0x002, kNormal = 0x010;
+    constexpr uint32_t kPositionMask = 0x400E;
+    constexpr uint32_t kXyz = 0x002;
+    constexpr uint32_t kNormal = 0x010;
     // (an FVF's texture coordinate size bits are 0 for the scene's 2D coordinates: a larger value is a shader handle)
     if (fvf >= kFvfShaderHandleLimit || (fvf & kPositionMask) != kXyz || !(fvf & kNormal) || stride < kMinVertexStride)
         return -1;

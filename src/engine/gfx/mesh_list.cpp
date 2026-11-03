@@ -297,7 +297,8 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         const uint32_t c = record.indices >> 16;
         const std::span<uint16_t> indices(lock_indices(index_buffer_of(mesh)), get_index_count(mesh));
         uint32_t i = record.strip_index_;
-        uint32_t first = core::at(indices, i) & kIndexMask, second = core::at(indices, i + 1) & kIndexMask;
+        uint32_t first = core::at(indices, i) & kIndexMask;
+        uint32_t second = core::at(indices, i + 1) & kIndexMask;
         for (i += 2; i < get_index_count(mesh); ++i) {
             const uint32_t third = core::at(indices, i) & 0x7FFF;
             if (first == a && second == c && third == b) {

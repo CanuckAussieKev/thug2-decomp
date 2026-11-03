@@ -443,7 +443,8 @@ View get_build(const MenuRead& read, const Policy& policy)
     if (front_end_menu(read.menu_id_) && !(policy.editor && read.menu_id_ == name_hash("main_menu"))) {
         // A front end menu: every item with words in the game's order, in our words where the style table has the
         // item (its art, the line under the list, a note); the menu's title ours for the ones we know.
-        static const uint32_t kMainMenu = name_hash("main_vmenu"), kCareerMenu = name_hash("newfe_career_vmenu");
+        static const uint32_t kMainMenu = name_hash("main_vmenu");
+        static const uint32_t kCareerMenu = name_hash("newfe_career_vmenu");
         const std::string title = clean_text(read.title);
         const std::string upper = get_upper(title);
         const bool classic = upper.find("CLASSIC") != std::string::npos;
@@ -623,7 +624,9 @@ void skater_colour(const Hsv& colour, std::span<float, 3> rgb)
     const float hue = colour.hue;
     const float s = colour.sat * 0.01f;
     const float v = colour.val * 0.01f;
-    float r = v, g = v, b = v;
+    float r = v;
+    float g = v;
+    float b = v;
     if (s != 0.0f) {
         const float sector = hue * (1.0f / 60.0f);
         const int i = static_cast<int>(sector);

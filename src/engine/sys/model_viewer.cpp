@@ -422,7 +422,9 @@ bool Viewer::place_camera(script::Struct* params)
     core::at(identity.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     camera->basis_frame() = identity;
     script::VectorValue at{};
-    float x = 0.0f, y = 0.0f, z = 0.0f;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
     if (params->fetch_vec("ViewerObjPos", &at, 0)) {
         x = at.x;
         y = static_cast<float>(static_cast<double>(at.y) + kDefaultViewHeight);

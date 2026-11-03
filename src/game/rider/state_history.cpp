@@ -334,7 +334,8 @@ void RiderFrameLog::check_for_collisions(int first)
         theirs.end = theirs.start + their_dir * static_cast<float>(their_history->get_collision_reach(their_driving));
 
         // Where they meet: the segments' closest points, else the first of the four pairs of ends close enough.
-        maths::Vec4 my_point{}, their_point{};
+        maths::Vec4 my_point{};
+        maths::Vec4 their_point{};
         float scratch = 0.0f;
         if (maths::closest_points_between_lines(mine, theirs, my_point, their_point, scratch, scratch, true)) {
             if (!(length_of(my_point - their_point) < radius))
@@ -472,7 +473,10 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             const float dz = get_difference(skater->at_point().z, other->at_point().z);
             const float dw = get_difference(skater->at_point().w, other->at_point().w);
             const double length = std::sqrt((dx * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz);
-            double x = 1.0, y = 0.0, z = 1.0, w = 1.0;
+            double x = 1.0;
+            double y = 0.0;
+            double z = 1.0;
+            double w = 1.0;
             if (!(length < kTooClose)) {
                 auto inverse = static_cast<float>(1.0 / length);
                 x = dx * inverse;
@@ -480,8 +484,10 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
                 z = static_cast<double>(inverse) * dz;
                 w = static_cast<double>(inverse) * dw;
             }
-            auto wk = static_cast<float>(w * kKnockBack), zk = static_cast<float>(z * kKnockBack);
-            auto yk = static_cast<float>(y * kKnockBack), xk = static_cast<float>(x * kKnockBack);
+            auto wk = static_cast<float>(w * kKnockBack);
+            auto zk = static_cast<float>(z * kKnockBack);
+            auto yk = static_cast<float>(y * kKnockBack);
+            auto xk = static_cast<float>(x * kKnockBack);
             skater->vel().x = xk * kKnockScale;
             skater->vel().y = yk * kKnockScale;
             skater->vel().z = zk * kKnockScale;
@@ -556,7 +562,8 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             std::array<float, 4> away = {{get_difference(skater->at_point().x, other->at_point().x), static_cast<float>(dy),
                              static_cast<float>(dz), static_cast<float>(dw)}};
             const double length = std::sqrt((static_cast<double>(core::at(away, 0)) * core::at(away, 0) + dy * dy) + dz * dz);
-            double w = 0.0, z = 0.0;
+            double w = 0.0;
+            double z = 0.0;
             if (!(length < kTooClose)) {
                 // (0x00423650: each component times 1 / the length rounded to a float)
                 const double inverse = 1.0 / static_cast<float>(length);

@@ -91,7 +91,8 @@ Checklist get_take_in(goals::GapTally* checklist)
         gap.score = checklist->get_gap_points(i);
         gap.count = checklist->count_gaps_found(i);
         if (gap.count) {
-            maths::Vec4 pos{}, dir{};
+            maths::Vec4 pos{};
+            maths::Vec4 dir{};
             checklist->get_gap_positions(i, {.pos = &pos, .dir = &dir});
             const std::array<float, 4> p = {{pos.x, pos.y, pos.z, pos.w}};
             const std::array<float, 4> d = {{dir.x, dir.y, dir.z, dir.w}};
@@ -140,7 +141,8 @@ void career_replaced()
 
 bool save_view(goals::GapTally* checklist, Checklist* out)
 {
-    std::vector<std::string> editor_gaps, level_gaps;
+    std::vector<std::string> editor_gaps;
+    std::vector<std::string> level_gaps;
     const bool editor = triggers::get_editor_gaps(checklist, &editor_gaps, &level_gaps);
     const bool baseline = level_editor_career_state().on_ && checklist && checklist == level_editor_career_state().of_;
     if (!baseline && !editor)

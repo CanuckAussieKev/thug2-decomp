@@ -352,7 +352,8 @@ void MaterialRef::hand_in()
                 core::at(m, kUvScaleV) = 1.0f;
                 core::at(m, maths::kMatYw) = 0;
             }
-            DWORD transform_flags = 0, coordinates = 0;
+            DWORD transform_flags = 0;
+            DWORD coordinates = 0;
             renderer().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
             renderer().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXCOORDINDEX, &coordinates);
             if (transform_flags)
@@ -406,7 +407,8 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
                 renderer().d3d_device()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix.data()));
             } else {
-                DWORD transform_flags = 0, coordinates = 0;
+                DWORD transform_flags = 0;
+                DWORD coordinates = 0;
                 renderer().d3d_device()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
                 renderer().d3d_device()->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &coordinates);
                 if (transform_flags)

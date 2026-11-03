@@ -379,8 +379,9 @@ void PedestrianBrainModule::keep_to_path()
     if (length_sqr != 0.0) {
         const double t = (ex * dx + ez * dz) / length_sqr;
         const double along_x = dx * t;
-        auto along_y = static_cast<float>(t * 0.0f), along_z = static_cast<float>(dz * t),
-             along_w = static_cast<float>(dw * t);
+        auto along_y = static_cast<float>(t * 0.0f);
+        auto along_z = static_cast<float>(dz * t);
+        auto along_w = static_cast<float>(dw * t);
         closest = {.x = static_cast<float>(along_x + from.x), .y = static_cast<float>(static_cast<double>(along_y) + from.y),
                    .z = static_cast<float>(static_cast<double>(along_z) + from.z),
                    .w = static_cast<float>(static_cast<double>(along_w) + from.w)};
@@ -611,9 +612,9 @@ void PedestrianBrainModule::stick_to_ground_ped()
     const maths::Vec4& up = core::at(m.row, 1);
     const maths::Vec4& pos = entity()->at_point();
     const float above = stick_above_;
-    auto ux = static_cast<float>(static_cast<double>(up.x) * above),
-         uy = static_cast<float>(static_cast<double>(up.y) * above),
-         uz = static_cast<float>(static_cast<double>(up.z) * above);
+    auto ux = static_cast<float>(static_cast<double>(up.x) * above);
+    auto uy = static_cast<float>(static_cast<double>(up.y) * above);
+    auto uz = static_cast<float>(static_cast<double>(up.z) * above);
     const double uw = static_cast<double>(above) * up.w;
     const maths::Vec4 start = {.x = static_cast<float>(static_cast<double>(ux) + pos.x),
                                .y = static_cast<float>(static_cast<double>(uy) + pos.y),
@@ -621,8 +622,8 @@ void PedestrianBrainModule::stick_to_ground_ped()
     const float below = stick_below_;
     const float nz = -up.z;
     const float nw = -up.w;
-    auto dx = static_cast<float>(-static_cast<double>(up.x) * below),
-         dy = static_cast<float>(-static_cast<double>(up.y) * below);
+    auto dx = static_cast<float>(-static_cast<double>(up.x) * below);
+    auto dy = static_cast<float>(-static_cast<double>(up.y) * below);
     const double dz = static_cast<double>(nz) * below;
     auto dw = static_cast<float>(static_cast<double>(nw) * below);
     const maths::Vec4 end = {.x = static_cast<float>(static_cast<double>(dx) + pos.x),
@@ -753,7 +754,8 @@ int PedestrianBrainModule::probe_ahead(maths::Vec4 direction, float range, maths
             continue;
         const double distance = std::sqrt(distance_sqr);
         auto distance_f = static_cast<float>(distance);
-        double nx = dx, nz = dz;
+        double nx = dx;
+        double nz = dz;
         float ny = dy;
         if (distance > 0.0) {
             const double inverse = 1.0 / distance_f;
@@ -834,7 +836,9 @@ void PedestrianBrainModule::skater_move_update()
     if ((flag_bits_ & kPedFlagMoving) || airborne) {
         // Reaching the next waypoint (in the air, or for a vert node, in 3D).
         const maths::Vec4& at = entity()->at_point();
-        double dx = 0.0, dy = 0.0, dz = 0.0;
+        double dx = 0.0;
+        double dy = 0.0;
+        double dz = 0.0;
         if ((flag_bits_ & kPedFlagVertNext) || airborne) {
             dx = static_cast<double>(at.x) - next_node_pos_.x;
             dy = static_cast<float>(static_cast<double>(at.y) - next_node_pos_.y);
@@ -873,8 +877,8 @@ void PedestrianBrainModule::skater_move_update()
             maths::Vec4 to = {.x = next_node_pos_.x - old.x, .y = next_node_pos_.y - old.y, .z = next_node_pos_.z - old.z,
                               .w = next_node_pos_.w - old.w};
             const maths::Vec4& dir = to.make_unit();
-            auto z = static_cast<float>(static_cast<double>(step) * dir.z),
-                 w = static_cast<float>(static_cast<double>(step) * dir.w);
+            auto z = static_cast<float>(static_cast<double>(step) * dir.z);
+            auto w = static_cast<float>(static_cast<double>(step) * dir.w);
             const maths::Vec4 moved = {.x = static_cast<float>(static_cast<double>(step) * dir.x + old.x),
                                        .y = static_cast<float>(static_cast<double>(step) * dir.y + old.y),
                                        .z = static_cast<float>(static_cast<double>(z) + old.z),
@@ -956,8 +960,8 @@ void PedestrianBrainModule::bail_move_update()
         maths::Vec4 to = {.x = next_node_pos_.x - old.x, .y = next_node_pos_.y - old.y, .z = next_node_pos_.z - old.z,
                           .w = next_node_pos_.w - old.w};
         const maths::Vec4& dir = to.make_unit();
-        auto z = static_cast<float>(static_cast<double>(step) * dir.z),
-             w = static_cast<float>(static_cast<double>(step) * dir.w);
+        auto z = static_cast<float>(static_cast<double>(step) * dir.z);
+        auto w = static_cast<float>(static_cast<double>(step) * dir.w);
         const maths::Vec4 moved = {.x = static_cast<float>(static_cast<double>(step) * dir.x + old.x),
                                    .y = static_cast<float>(static_cast<double>(step) * dir.y + old.y),
                                    .z = static_cast<float>(static_cast<double>(z) + old.z),
@@ -1090,18 +1094,19 @@ void PedestrianBrainModule::blocker_update()
     const maths::Vec4& at = skater->at_point();
     maths::Vec4 end;
     maths::Vec4 on_path;
-    float s = 0.0f, t = 0.0f;
+    float s = 0.0f;
+    float t = 0.0f;
     if (!(speed_sqr < kFastSkaterSqr) && not_approaching) {
-        auto ex = static_cast<float>(static_cast<double>(vel.x) * kLookAhead),
-             ey = static_cast<float>(static_cast<double>(vel.y) * kLookAhead),
-             ez = static_cast<float>(static_cast<double>(vel.z) * kLookAhead);
+        auto ex = static_cast<float>(static_cast<double>(vel.x) * kLookAhead);
+        auto ey = static_cast<float>(static_cast<double>(vel.y) * kLookAhead);
+        auto ez = static_cast<float>(static_cast<double>(vel.z) * kLookAhead);
         const double ew = static_cast<double>(vel.w) * kLookAhead;
         end = {.x = static_cast<float>(static_cast<double>(ex) + at.x), .y = static_cast<float>(static_cast<double>(ey) + at.y),
                .z = static_cast<float>(static_cast<double>(ez) + at.z), .w = static_cast<float>(ew + at.w)};
     } else {
-        auto ex = static_cast<float>(static_cast<double>(across.x) * -kLookAhead),
-             ey = static_cast<float>(static_cast<double>(across.y) * -kLookAhead),
-             ez = static_cast<float>(static_cast<double>(across.z) * -kLookAhead);
+        auto ex = static_cast<float>(static_cast<double>(across.x) * -kLookAhead);
+        auto ey = static_cast<float>(static_cast<double>(across.y) * -kLookAhead);
+        auto ez = static_cast<float>(static_cast<double>(across.z) * -kLookAhead);
         const double ew = static_cast<double>(across.w) * -kLookAhead;
         end = {.x = static_cast<float>(static_cast<double>(ex) + at.x), .y = static_cast<float>(static_cast<double>(ey) + at.y),
                .z = static_cast<float>(static_cast<double>(ez) + at.z), .w = static_cast<float>(ew + at.w)};

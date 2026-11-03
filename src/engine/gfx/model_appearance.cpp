@@ -203,7 +203,9 @@ void ModelLook::set_part(checksums::Name part_name, uint32_t descriptor_id, scri
     params->fetch_int_value(kUseDefaultHsv, &use_default_hsv, 0);
     if (!use_default_hsv) {
         // (asserted; missing, 0 - the original's h was what its stack slot held, `params` itself, s / v garbage)
-        int h = 0, s = 0, v = 0;
+        int h = 0;
+        int s = 0;
+        int v = 0;
         params->fetch_int_value(kH, &h, 1);
         params->fetch_int_value(kS, &s, 1);
         params->fetch_int_value(kV, &v, 1);
@@ -221,7 +223,8 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
 {
     switch (name) {
     case kSetPart: {
-        uint32_t part = 0, descriptor_id = 0;
+        uint32_t part = 0;
+        uint32_t descriptor_id = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kDescId, &descriptor_id, 1);
         set_part(checksums::Name{part}, descriptor_id, params);
@@ -248,7 +251,8 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         return get_part_option(part) != nullptr;
     }
     case kPartGotFlag: {
-        uint32_t part = 0, flag = 0;
+        uint32_t part = 0;
+        uint32_t flag = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kFlag, &flag, 1);
         script::Struct* option = get_part_option(part);
@@ -257,7 +261,8 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         return option->has_bare_flag(flag);
     }
     case kSetChecksum: {
-        uint32_t field = 0, value = 0;
+        uint32_t field = 0;
+        uint32_t value = 0;
         params->read_hash_value(kField, &field, 1);
         params->read_hash_value(kValue, &value, 1);
         structure_.put_name_key(checksums::Name{field}, value);

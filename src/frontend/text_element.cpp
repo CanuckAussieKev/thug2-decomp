@@ -354,7 +354,8 @@ void LabelWidget::set_text_rotation(float degrees, bool now)
     auto half_x = static_cast<float>(static_cast<double>(width) * summed().scale_x_ * get_half());
     auto half_y = static_cast<float>(static_cast<double>(height) * summed().scale_y_ * get_half());
     for (int i = 0; i < num_; ++i) {
-        float x = half_x, y = half_y;
+        float x = half_x;
+        float y = half_y;
         if (inner_align_h_ < get_zero())
             x = 0.0f;
         else if (inner_align_h_ > get_zero())

@@ -33,7 +33,8 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     const double e2x = static_cast<double>(v2->x) - v0->x;
     const double e2y = static_cast<double>(v2->y) - v0->y;
     const double e2z = static_cast<double>(v2->z) - v0->z;
-    const float e1x = get_difference(v1->x, v0->x), e1y = get_difference(v1->y, v0->y);
+    const float e1x = get_difference(v1->x, v0->x);
+    const float e1y = get_difference(v1->y, v0->y);
     const double e1z = static_cast<double>(v1->z) - v0->z;
     const auto nx = static_cast<float>(e1y * e2z - e1z * e2y);
     const auto ny = static_cast<float>(e1z * e2x - e2z * e1x);
@@ -46,7 +47,9 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
         return false;
     normal->make_unit();
 
-    float s = 0.0f, t = 0.0f, along = 0.0f;
+    float s = 0.0f;
+    float t = 0.0f;
+    float along = 0.0f;
     const double distance = segment_triangle_distance_squared(capsule->line, *normal, *v0, *v1, *v2, {.out = &s, .t_out_ = &t, .along_out_ = &along});
 
     // The face's nearest point: v0 + s e1 + t e2.
@@ -105,13 +108,17 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
             geometry->face_flags(static_cast<int>(face));
         if (core::any(flags & hits->ignore_flags_) || core::any(~flags & hits->require_flags_))
             continue;
-        maths::Vec4 v0{}, v1{}, v2{};
+        maths::Vec4 v0{};
+        maths::Vec4 v1{};
+        maths::Vec4 v2{};
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
         if (!(hits->sweep == 0.0f)) // (a moving capsule isn't tested)
             continue;
-        maths::Vec4 point{}, normal{}, offset{};
+        maths::Vec4 point{};
+        maths::Vec4 normal{};
+        maths::Vec4 offset{};
         if (!capsule_hits_triangle(capsule, &v0, &v1, &v2, &point, &normal, &offset))
             continue;
         if (hits->count == CapsuleHits::kMost)

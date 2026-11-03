@@ -217,7 +217,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         }
         break;
     case kObjSetLightAmbientColor: {
-        int r = 0, g = 0, b = 0; // (unset when not given)
+        int r = 0;
+        int g = 0;
+        int b = 0; // (unset when not given)
         params->fetch_int_value(kR, &r, 0);
         params->fetch_int_value(kG, &g, 0);
         params->fetch_int_value(kB, &b, 0);
@@ -233,7 +235,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         enable_ambient(model_lights(mesh_instance_.get()), false);
         break;
     case kObjSetLightDiffuseColor: {
-        int index = 0, r = 0, g = 0, b = 0; // (unset when not given)
+        int index = 0;
+        int r = 0;
+        int g = 0;
+        int b = 0; // (unset when not given)
         params->fetch_int_value(kIndex, &index, 0);
         params->fetch_int_value(kR, &r, 0);
         params->fetch_int_value(kG, &g, 0);
@@ -257,7 +262,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         if (params->fetch_vec(kDirection, &direction, 0)) {
             direction.w = 0.0f;
         } else {
-            float heading = 0.0f, pitch = 0.0f;
+            float heading = 0.0f;
+            float pitch = 0.0f;
             if (params->fetch_float(kHeading, &heading, 0) && params->fetch_float(kPitch, &pitch, 0)) {
                 direction.rotate_about_x(pitch * kRadiansPerDegree);
                 direction.rotate_about_y(heading * kRadiansPerDegree);
@@ -375,7 +381,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjSetUvOffset: {
         uint32_t material = 0; // (unset when not given)
         params->read_hash_value(kMaterial, &material, 0);
-        float u = 0.0f, v = 0.0f; // (unset when not given)
+        float u = 0.0f;
+        float v = 0.0f; // (unset when not given)
         params->fetch_float(kU, &u, 0);
         params->fetch_float(kV, &v, 0);
         int pass = 0;
@@ -390,7 +397,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kPass, &pass, 0);
         maths::Mat4 uv;
         uv.reset_to_identity();
-        float u_scale = 1.0f, v_scale = 1.0f;
+        float u_scale = 1.0f;
+        float v_scale = 1.0f;
         const bool scaled = params->fetch_float(kUScale, &u_scale, 0);
         if (params->fetch_float(kVScale, &v_scale, 0) || scaled) {
             core::at(uv.row, 0).x *= u_scale;
@@ -399,7 +407,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         float rot = 0.0f;
         if (params->fetch_float(kRot, &rot, 0))
             uv.spin_around_z(rot * kRadiansPerDegree);
-        float u_off = 0.0f, v_off = 0.0f;
+        float u_off = 0.0f;
+        float v_off = 0.0f;
         const bool offset = params->fetch_float(kUOff, &u_off, 0);
         if (params->fetch_float(kVOff, &v_off, 0) || offset) {
             core::at(uv.row, 3).x = u_off;
@@ -414,7 +423,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjSetColor:
         if (mesh_instance_) {
-            int h = 0, s = 0, v = 0;
+            int h = 0;
+            int s = 0;
+            int v = 0;
             if (params->fetch_int_value(kH, &h, false) && params->fetch_int_value(kS, &s, false) &&
                 params->fetch_int_value(kV, &v, false)) {
                 mesh_instance_->set_geom_color_hsv(checksums::Name{kAll}, static_cast<float>(h),
@@ -425,7 +436,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjSetColorRgb:
         if (mesh_instance_) {
-            int r = 0, g = 0, b = 0;
+            int r = 0;
+            int g = 0;
+            int b = 0;
             if (params->fetch_int_value(kR, &r, false) && params->fetch_int_value(kG, &g, false) &&
                 params->fetch_int_value(kB, &b, false))
                 mesh_instance_->change_tint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b),

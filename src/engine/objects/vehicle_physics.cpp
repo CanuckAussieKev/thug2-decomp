@@ -192,8 +192,10 @@ void DrivableModule::update_steering()
     auto display = static_cast<float>(
         (static_cast<double>(steering_) - previous) * (static_cast<double>(step_length_) * kSteeringRate) + previous);
     display_steering_ = display;
-    float inner = 0.0f, display_inner = 0.0f;
-    double outer = 0.0, display_outer = 0.0;
+    float inner = 0.0f;
+    float display_inner = 0.0f;
+    double outer = 0.0;
+    double display_outer = 0.0;
     steering_angles(this, steering_, &inner, &outer);
     steering_angles(this, display, &display_inner, &display_outer);
     for (int i = wheel_count_ - 1; i >= 0; --i) {
@@ -328,7 +330,8 @@ void DrivableModule::apply_tyre_forces()
             continue;
         // The friction against the slip's direction.
         double dir_x = slip.x;
-        float dir_y = slip.y, dir_z = slip.z;
+        float dir_y = slip.y;
+        float dir_z = slip.z;
         if (speed_rounded > 0.0f) {
             const double inverse = 1.0 / speed_rounded;
             auto inverse_rounded = static_cast<float>(inverse);
@@ -739,7 +742,8 @@ void DrivableModule::read_controls()
     handbrake_ = input.shoulder_right_a().held_down() != 0 && !handbrake_disabled_;
     // The brake button: braking while moving forward, else reversing; with Exitable, the other button too, which
     // also brakes while moving backwards and tells the object it has stopped (0xCBAA3476).
-    bool pressed = false, other = false;
+    bool pressed = false;
+    bool other = false;
     if (input.button_box().held_down()) {
         pressed = true;
     } else if (can_dismount_ && input.button_wedge().held_down()) {

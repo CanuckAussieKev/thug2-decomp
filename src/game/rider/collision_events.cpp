@@ -400,7 +400,8 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     for (int j = 0; std::cmp_less(j, geometry->tri_count()); ++j) {
         if (j == face.index)
             continue;
-        bool has_a = false, has_b = false;
+        bool has_a = false;
+        bool has_b = false;
         for (int m = 0; m < 3; ++m) {
             const uint32_t v = geometry->face_vertex(j, m);
             has_a = has_a || same(v, a);
@@ -519,7 +520,8 @@ void get_emit(int before)
             // the skater and put it back where the frame began (the core's +0x98) going the other way - the "uber
             // frig", as the walking code calls its own (walk_collision.cpp update_ground_below). Its down feeler is
             // the core's own: its line is still there at the next frame's start.
-            float sum = 0.0f, size = 0.0f;
+            float sum = 0.0f;
+            float size = 0.0f;
             for (int k = 0; k < 3; ++k) {
                 sum += (core::at(mark.vel, k) + core::at(previous->vel, k)) * (core::at(mark.vel, k) + core::at(previous->vel, k));
                 size += core::at(previous->vel, k) * core::at(previous->vel, k);
@@ -709,7 +711,8 @@ int find_reversal(std::span<const Motion> frames)
             core::at(dir_old, 0) * core::at(dir_now, 0) + core::at(dir_old, 1) * core::at(dir_now, 1) >= kOpposed)
             continue;
         // A sudden change between, no rail / lip / wall, not long in the air.
-        bool sudden = false, refused = false;
+        bool sudden = false;
+        bool refused = false;
         int air = 0;
         for (int j = i + 1; j < count; ++j) {
             const Motion& s = core::at(frames, j);

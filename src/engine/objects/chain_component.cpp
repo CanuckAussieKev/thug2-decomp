@@ -362,7 +362,9 @@ void ChainComponent::tick_frame()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     const maths::Vec4 velocity = entity()->vel();
-    maths::Vec4 plane_point{}, axis_from{}, axis_to{};
+    maths::Vec4 plane_point{};
+    maths::Vec4 axis_from{};
+    maths::Vec4 axis_to{};
     joint_world_point(bone_rig_, plane_bone_, &plane_point);
     joint_world_point(bone_rig_, axis_from_bone_, &axis_from);
     joint_world_point(bone_rig_, axis_to_bone_, &axis_to);
@@ -571,7 +573,8 @@ void ChainComponent::tick_frame()
                 const float dx = get_rounded(static_cast<double>(cur.x) - px);
                 const float dy = get_rounded(static_cast<double>(cur.y) - py);
                 const float dz = get_rounded(static_cast<double>(cur.z) - pz);
-                float ux = dx, uy = dy;
+                float ux = dx;
+                float uy = dy;
                 double uz = dz;
                 const double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dz) * dz) +
                                                 static_cast<double>(dy) * dy);

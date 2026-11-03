@@ -278,7 +278,8 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     const maths::BBox* bounds = geometry ? geometry->fetch_bounds() : nullptr;
 
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
-    V3 min = {.x = -kStandInHalfWidth, .y = 0.0f, .z = -kStandInHalfWidth}, max = {.x = kStandInHalfWidth, .y = kStandInHeight, .z = kStandInHalfWidth};
+    V3 min = {.x = -kStandInHalfWidth, .y = 0.0f, .z = -kStandInHalfWidth};
+    V3 max = {.x = kStandInHalfWidth, .y = kStandInHeight, .z = kStandInHalfWidth};
     if (bounds && bounds->min.x <= bounds->max.x && bounds->min.y <= bounds->max.y && bounds->min.z <= bounds->max.z) {
         min = {.x = bounds->min.x, .y = bounds->min.y, .z = bounds->min.z};
         max = {.x = bounds->max.x, .y = bounds->max.y, .z = bounds->max.z};
@@ -510,8 +511,8 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
     copy->put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
     if (node_class_hash(node) == kParticleObject) {
         // (a particle system's emitter has world places besides its pos=: moved with it - level_editor_entities.h)
-        static const uint32_t kMid = checksums::hash_from_text("MidPosition"),
-                              kEnd = checksums::hash_from_text("EndPosition");
+        static const uint32_t kMid = checksums::hash_from_text("MidPosition");
+        static const uint32_t kEnd = checksums::hash_from_text("EndPosition");
         maths::Vec4 from;
         level_nodes::fetch_place(node, &from);
         for (const uint32_t key : {kMid, kEnd}) {

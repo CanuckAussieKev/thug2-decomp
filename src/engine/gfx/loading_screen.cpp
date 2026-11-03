@@ -173,7 +173,10 @@ void draw_loading_screen_picture()
     auto height = static_cast<float>(renderer().back_buffer_height());
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
     // evenly - where the original's are stretched)
-    float u0 = 0.0f, u1 = 1.0f, v0 = 0.0f, v1 = 1.0f;
+    float u0 = 0.0f;
+    float u1 = 1.0f;
+    float v0 = 0.0f;
+    float v1 = 1.0f;
     if (select_picture().select_picture_ && width > 0.0f && height > 0.0f) {
         const float aspect = width / height;
         if (aspect < kSelectAspect) {

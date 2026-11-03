@@ -243,7 +243,8 @@ std::string ini_set(const std::string& text, const IniKey& at, const std::string
     const std::string eol =
         text.find("\r\n") != std::string::npos || text.find('\n') == std::string::npos ? "\r\n" : "\n";
     const std::vector<Seg> lines = get_lines(text);
-    bool in_section = false, found = false;
+    bool in_section = false;
+    bool found = false;
     size_t insert_at = std::string::npos; // after the section's last line that isn't blank
     for (const Seg& l : lines) {
         const std::string line = text.substr(l.start, l.end - l.start);

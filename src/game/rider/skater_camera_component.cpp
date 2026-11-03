@@ -281,7 +281,11 @@ void RiderChaseView::configure_from_data(script::Struct* params)
 int RiderChaseView::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
 {
     if (name == kShake) {
-        float duration = 0.0f, vert_amp = 0.0f, horiz_amp = 0.0f, vert_vel = 0.0f, horiz_vel = 0.0f;
+        float duration = 0.0f;
+        float vert_amp = 0.0f;
+        float horiz_amp = 0.0f;
+        float vert_vel = 0.0f;
+        float horiz_vel = 0.0f;
         params->fetch_float(kDuration, &duration, 0);
         params->fetch_float(kVertAmp, &vert_amp, 0);
         params->fetch_float(kHorizAmp, &horiz_amp, 0);

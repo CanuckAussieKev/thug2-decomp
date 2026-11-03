@@ -159,8 +159,14 @@ void CinematicTable::add_objects(script::Struct* params)
     for (uint32_t i = 0; i < objects->extent(); ++i) {
         script::Struct* object = objects->struct_at(i);
         gsl::owner<script::Struct*> params2 = make_struct();
-        uint32_t name = 0, kind = 0, model = 0, skeleton = 0, anim = 0;
-        bool is_skater = false, is_skater2 = false, special = false;
+        uint32_t name = 0;
+        uint32_t kind = 0;
+        uint32_t model = 0;
+        uint32_t skeleton = 0;
+        uint32_t anim = 0;
+        bool is_skater = false;
+        bool is_skater2 = false;
+        bool special = false;
         uint32_t model_file = 0;
         if (version >= 2) {
             object->read_hash_value(kName, &name, 1);
@@ -385,7 +391,9 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     }
     void* model = model_of(component);
     int use_other = 1;
-    uint32_t hue_name = kH, saturation_name = kS, value_name = kV;
+    uint32_t hue_name = kH;
+    uint32_t saturation_name = kS;
+    uint32_t value_name = kV;
     part->fetch_int_value(kUseDefaultHsv, &use_other, 0);
     if (use_other) {
         part = static_cast<script::Struct*>(appearance_part(skater_appearance_, part_name));
@@ -393,7 +401,9 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
         saturation_name = kDefaultS;
         value_name = kDefaultV;
     }
-    int hue = 0, saturation = 0, value = 0;
+    int hue = 0;
+    int saturation = 0;
+    int value = 0;
     if (!part->fetch_int_value(hue_name, &hue, 0) || !part->fetch_int_value(saturation_name, &saturation, 0) ||
         !part->fetch_int_value(value_name, &value, 0))
         return;

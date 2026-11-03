@@ -327,7 +327,8 @@ bool get_same(const Goal& a, const Goal& b)
         a.to_win_ != b.to_win_ || a.points.size() != b.points.size())
         return false;
     for (size_t i = 0; i < a.points.size(); ++i) {
-        const Point &p = core::at(a.points, i), &q = core::at(b.points, i);
+        const Point& p = core::at(a.points, i);
+        const Point& q = core::at(b.points, i);
         if (p.pos.x != q.pos.x || p.pos.y != q.pos.y || p.pos.z != q.pos.z || p.heading != q.heading ||
             p.height != q.height)
             return false;
@@ -1154,7 +1155,8 @@ std::vector<Goal> get_all()
 
 bool is_goal_point(uint32_t node)
 {
-    int goal = 0, point = 0;
+    int goal = 0;
+    int point = 0;
     return point_of(node, {.goal = &goal, .point = &point});
 }
 
@@ -1450,7 +1452,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     const auto near_z = overlay_pick.near_z_;
     const auto selected = overlay_pick.selected;
     auto project = [&](V3 p, float* x, float* y) {
-        float nx = 0.0f, ny = 0.0f;
+        float nx = 0.0f;
+        float ny = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, p, near_z, &nx, &ny))
             return false;
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1459,7 +1462,10 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b))
             return;
-        float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
+        float ax = 0.0f;
+        float ay = 0.0f;
+        float bx = 0.0f;
+        float by = 0.0f;
         if (project(a, &ax, &ay) && project(b, &bx, &by))
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
@@ -1480,7 +1486,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             // (its heading: a short arrow on the ground)
             const V3 ahead = {.x = std::sin(p.heading) * 40.0f, .y = 0.0f, .z = std::cos(p.heading) * 40.0f};
             line(p.pos, p.pos + ahead, colour, lit ? kLitWidth : kUnlitWidth);
-            float x = 0.0f, y = 0.0f;
+            float x = 0.0f;
+            float y = 0.0f;
             if (get_dot(d, d) < kLabelReach * kLabelReach && project(top + V3{.x = 0.0f, .y = kLabelRise, .z = 0.0f}, &x, &y)) {
                 std::string label = point_label(g.type, static_cast<int>(k));
                 if (k == 0)

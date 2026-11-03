@@ -220,7 +220,12 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
             *z = *z * inverse;
         }
     };
-    double x1 = 0.0, y1 = 0.0, z1 = 0.0, x2 = 0.0, y2 = 0.0, z2 = 0.0;
+    double x1 = 0.0;
+    double y1 = 0.0;
+    double z1 = 0.0;
+    double x2 = 0.0;
+    double y2 = 0.0;
+    double z2 = 0.0;
     direction(a, b, {.x = &x1, .y = &y1, .z = &z1});
     direction(b, c, {.x = &x2, .y = &y2, .z = &z2});
     auto dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
@@ -275,7 +280,9 @@ bool rail_segment_valid(const Vec4* a, const Vec4* b)
 void orient_rail_vertices(const Vec4* direction, const Vec4* translation, std::span<Vec4> vertices, std::span<const int> indices)
 {
     const Vec4 origin = core::at(vertices, core::at(indices, 0));
-    float x = direction->x, y = direction->y, z = direction->z;
+    float x = direction->x;
+    float y = direction->y;
+    float z = direction->z;
     const double length =
         std::sqrt((static_cast<double>(z) * z + static_cast<double>(y) * y) + static_cast<double>(x) * x);
     if (length > 0.0) {
@@ -445,14 +452,17 @@ void EditedRailPoint::draw_segment(const Vec4* origin, const Vec4* position, flo
             static_cast<float>((static_cast<double>(here.z) * before.z + static_cast<double>(here.y) * before.y) +
                                static_cast<double>(here.x) * before.x);
         const bool join = !(std::cos(static_cast<double>(script::fetch_float(kMaxJoinAngle)) * kAngleScaleToRad) > dot);
-        Vec4 c, b, a;
+        Vec4 c;
+        Vec4 b;
+        Vec4 a;
         transform_rail_point(&c, &next_next->at_point_, origin, position, angle);
         transform_rail_point(&b, &next->at_point_, origin, position, angle);
         transform_rail_point(&a, &at_point_, origin, position, angle);
         stretch_rail_sector(kRailSource, &b, &c, &a, segment_, join ? next->segment_ : nullptr, true);
         return;
     }
-    Vec4 b, a;
+    Vec4 b;
+    Vec4 a;
     transform_rail_point(&b, &next->at_point_, origin, position, angle);
     transform_rail_point(&a, &at_point_, origin, position, angle);
     // (the original passes an unset local as the previous point: unread without a previous sector)
@@ -471,7 +481,8 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
     auto* vertices_block = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(count) << 4));
     const std::span<Vec4> vertices(vertices_block, static_cast<size_t>(count));
     get_vertices(geometry, vertices_block);
-    float low = kFar, high = -kFar;
+    float low = kFar;
+    float high = -kFar;
     for (int i = 0; i < count; ++i) {
         const float y = core::at(vertices, i).y;
         low = std::min(low, y);

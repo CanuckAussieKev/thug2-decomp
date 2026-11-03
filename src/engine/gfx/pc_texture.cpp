@@ -328,20 +328,23 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
         crt::exit_fatal(0); // (the game's exit(), without the static owners' teardown)
     for (DWORD level = 0; level < levels; ++level) {
         static_cast<IDirect3DTexture9*>(from->texture)->GetLevelDesc(level, &desc);
-        uint32_t row_bytes = 0, rows = desc.Height;
+        uint32_t row_bytes = 0;
+        uint32_t rows = desc.Height;
         if (desc.Format == D3DFMT_A8R8G8B8 || desc.Format == D3DFMT_X8R8G8B8) {
             row_bytes = desc.Width << 2;
         } else { // (blocks of 4 rows; the row's bytes as the original works them out)
             rows = (rows + 3) >> 2;
             row_bytes = desc.Format == D3DFMT_DXT1 ? desc.Width << 3 : desc.Width << 4;
         }
-        D3DLOCKED_RECT from_rect, into_rect;
+        D3DLOCKED_RECT from_rect;
+        D3DLOCKED_RECT into_rect;
         static_cast<IDirect3DTexture9*>(from->texture)->LockRect(level, &from_rect, nullptr, 0);
         (*into)->LockRect(level, &into_rect, nullptr, 0);
         const std::span<uint8_t> write(static_cast<uint8_t*>(into_rect.pBits), static_cast<size_t>(into_rect.Pitch) * rows);
         const std::span<const uint8_t> read(static_cast<const uint8_t*>(from_rect.pBits),
                                             static_cast<size_t>(from_rect.Pitch) * rows);
-        size_t write_at = 0, read_at = 0;
+        size_t write_at = 0;
+        size_t read_at = 0;
         for (uint32_t row = rows; row; --row) {
             core::copy_into(read.subspan(read_at, row_bytes), write.subspan(write_at));
             write_at += into_rect.Pitch;
@@ -713,7 +716,8 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
     int row_y = ftol(static_cast<double>(origin_coord_y) * kSubpixelScale);
     core::Cursor<uint32_t> out(rotated);
     for (uint32_t row = height; row; --row, row_x += yx_step, row_y += yy_step) {
-        int x = row_x, y = row_y;
+        int x = row_x;
+        int y = row_y;
         for (uint32_t column = width; column; --column, x += xx_step, y += xy_step) {
             const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
             const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
@@ -740,7 +744,12 @@ bool PcTexture::get_stretch(Stretch stretch)
     if (at + amount <= 0)
         amount = 1 - at;
     auto end = static_cast<uint32_t>(at + amount);
-    uint16_t read_x = 0, read_y = 0, read_width = 0, read_height = 0, new_width = 0, new_height = 0;
+    uint16_t read_x = 0;
+    uint16_t read_y = 0;
+    uint16_t read_width = 0;
+    uint16_t read_height = 0;
+    uint16_t new_width = 0;
+    uint16_t new_height = 0;
     int offset = 0;
     if (!vertical) { // (the part left of the column stretched by -amount, or the part from it by amount)
         if (end >= width)
@@ -885,7 +894,12 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
 {
     const int width = fetch_breadth();
     const int height = fetch_tallness();
-    int from_x = 0, into_x = 0, part_width = 0, from_y = 0, into_y = 0, part_height = 0;
+    int from_x = 0;
+    int into_x = 0;
+    int part_width = 0;
+    int from_y = 0;
+    int into_y = 0;
+    int part_height = 0;
     if (dx >= 0) {
         from_x = 0;
         into_x = dx;
@@ -965,8 +979,14 @@ bool PcTexture::squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colou
     if (at + amount <= 0)
         amount = 1 - at;
     const int end = at + amount;
-    uint16_t read_x = 0, read_y = 0, into_x = 0, into_y = 0, read_width = 0, read_height = 0, new_width = 0,
-             new_height = 0;
+    uint16_t read_x = 0;
+    uint16_t read_y = 0;
+    uint16_t into_x = 0;
+    uint16_t into_y = 0;
+    uint16_t read_width = 0;
+    uint16_t read_height = 0;
+    uint16_t new_width = 0;
+    uint16_t new_height = 0;
     if (!vertical) {
         if (end >= ints::as_signed(width))
             amount = static_cast<int>(width) - at - 1;
@@ -1106,7 +1126,8 @@ namespace {
 // count (1-12), in the heap the old table was in (the old one freed).
 lists::KeyMap* remake_table(lists::KeyMap* table, uint32_t count)
 {
-    uint32_t size = 2, bits = 1;
+    uint32_t size = 2;
+    uint32_t bits = 1;
     const uint32_t wanted = count * 2;
     if (wanted > size) {
         for (bool again = true; again; again = wanted > size) {

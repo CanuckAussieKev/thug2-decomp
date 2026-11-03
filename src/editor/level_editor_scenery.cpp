@@ -420,7 +420,8 @@ bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
         *box = placed_box(it->second.min0, it->second.max0, it->second.placement);
         return true;
     }
-    V3 min{}, max{};
+    V3 min{};
+    V3 max{};
     if (!geom_box(geom, &min, &max))
         return false;
     *box = placed_box(min, max, {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}});
@@ -645,7 +646,8 @@ void apply_rails(const std::vector<uint32_t>& names)
         RailNode* node = &core::at(nodes, i);
         if (!is_moved(node) && !is_moved(node->succ()))
             continue;
-        V3 min{}, max{};
+        V3 min{};
+        V3 max{};
         segment_box(rail_pos(node), node->succ() ? rail_pos(node->succ()) : rail_pos(node), &min, &max);
         node->lower_limit() = {.x = min.x, .y = min.y, .z = min.z, .w = 1.0f};
         node->upper_limit() = {.x = max.x, .y = max.y, .z = max.z, .w = 1.0f};
@@ -654,7 +656,8 @@ void apply_rails(const std::vector<uint32_t>& names)
 
 void compute_pivot()
 {
-    V3 min = {}, max = {};
+    V3 min = {};
+    V3 max = {};
     bool have = false;
     // (its shadows left out while it has anything else: a shadow lies wider than its caster, on the floor below)
     const bool casters =
@@ -665,7 +668,8 @@ void compute_pivot()
         OrientedBox box{};
         if (!cuboid(checksum, &box))
             continue;
-        V3 a{}, b{};
+        V3 a{};
+        V3 b{};
         bounds_of(box, &a, &b);
         grow_box(&min, &max, have, a, b);
         have = true;
@@ -692,7 +696,8 @@ void select_rails()
         if (const uint32_t cluster = cluster_of(checksum))
             clusters.push_back(cluster);
         OrientedBox box{};
-        V3 min{}, max{};
+        V3 min{};
+        V3 max{};
         if (!shadow_of().contains(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             bounds_of(box, &min, &max);
             boxes.emplace_back(min - V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth}, max + V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth});
@@ -766,7 +771,8 @@ std::vector<uint32_t> group_of(uint32_t checksum)
     std::vector<Piece> pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
     for_each_sector(scene, [&](uint32_t other, render::WorldCell* sector) {
         render::PcGeom* geom = geom_of(sector);
-        V3 min{}, max{};
+        V3 min{};
+        V3 max{};
         if (!plain_geom(geom) || !geom->active() || !geom_box(geom, &min, &max) ||
             !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement))
             return;
@@ -796,7 +802,8 @@ std::vector<uint32_t> group_of(uint32_t checksum)
     }
     if (group.empty())
         return group;
-    V3 group_min = {}, group_max = {};
+    V3 group_min = {};
+    V3 group_max = {};
     bool have = false;
     for (const Piece& piece : pieces) {
         if (piece.in) {
@@ -1041,7 +1048,8 @@ bool get_passed(uint32_t checksum, V3 camera)
     if (!plain_geom(geom))
         return false;
     OrientedBox box{};
-    V3 min{}, max{};
+    V3 min{};
+    V3 max{};
     if (current_box(checksum, geom, &box)) {
         bounds_of(box, &min, &max);
         if (picking::is_structure(min, max, camera, geom_level_share(checksum, geom)))
@@ -1094,7 +1102,8 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
             float t = 0.0f;
             bool inside = false;
             {
-                V3 min{}, max{};
+                V3 min{};
+                V3 max{};
                 bounds_of(box, &min, &max);
                 inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
                          origin.z >= min.z && origin.z <= max.z;
@@ -1390,7 +1399,8 @@ int selection_quarters()
 V3 scale_selection(V3 factor, bool uniform)
 {
     const V3 unchanged = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
-    std::vector<V3> scales, limits; // (along the world's axes)
+    std::vector<V3> scales;
+    std::vector<V3> limits; // (along the world's axes)
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
         if (Track* track = track_of(checksum)) {
             if (!track->original) // (kept now, as apply_track would: a piece that can't be copied stops the lot)
@@ -1673,7 +1683,8 @@ uint32_t get_duplicate(uint32_t source)
     if (!sector || why_not_movable(source))
         return 0;
     OrientedBox box{};
-    V3 min{}, max{};
+    V3 min{};
+    V3 max{};
     if (!cuboid(source, &box))
         return 0;
     bounds_of(box, &min, &max);
@@ -1960,7 +1971,11 @@ void log_census()
             break;
     }
     for_each_scene([](render::WorldScene* scene) {
-        int sectors = 0, with_geometry = 0, with_collision = 0, movable = 0, see_through = 0;
+        int sectors = 0;
+        int with_geometry = 0;
+        int with_collision = 0;
+        int movable = 0;
+        int see_through = 0;
         for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
             ++sectors;
             with_geometry += geom_of(sector) ? 1 : 0;

@@ -276,27 +276,31 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
     const double e0 = static_cast<double>(x2) - x1;
     const double f0 = static_cast<double>(y2) - y1;
     auto side0 = static_cast<float>((static_cast<double>(y0) - y1) * e0 - f0 * (static_cast<double>(x0) - x1));
-    auto e0f = static_cast<float>(e0), f0f = static_cast<float>(f0);
+    auto e0f = static_cast<float>(e0);
+    auto f0f = static_cast<float>(f0);
     for (const auto& corner : corners) {
-        double px = static_cast<double>(core::at(corner, 0)) - x1, py = static_cast<double>(core::at(corner, 1)) - y1;
+        double px = static_cast<double>(core::at(corner, 0)) - x1;
+        double py = static_cast<double>(core::at(corner, 1)) - y1;
         if (!((py * e0f - f0f * px) * side0 >= 0.0))
             continue;
         px = static_cast<double>(core::at(corner, 0)) - x2;
         py = static_cast<double>(core::at(corner, 1)) - y2;
         const double e1 = static_cast<double>(x0) - x2;
         const double f1 = static_cast<double>(y0) - y2;
-        auto e1f = static_cast<float>(e1), f1f = static_cast<float>(f1);
-        auto g1 = static_cast<float>(static_cast<double>(x1) - x2),
-             h1 = static_cast<float>(static_cast<double>(y1) - y2);
+        auto e1f = static_cast<float>(e1);
+        auto f1f = static_cast<float>(f1);
+        auto g1 = static_cast<float>(static_cast<double>(x1) - x2);
+        auto h1 = static_cast<float>(static_cast<double>(y1) - y2);
         if (!((py * e1 - f1f * px) * (static_cast<double>(h1) * e1f - f1 * g1) >= 0.0))
             continue;
         px = static_cast<double>(core::at(corner, 0)) - x0;
         py = static_cast<double>(core::at(corner, 1)) - y0;
         const double e2 = static_cast<double>(x1) - x0;
         const double f2 = static_cast<double>(y1) - y0;
-        auto e2f = static_cast<float>(e2), f2f = static_cast<float>(f2);
-        auto g2 = static_cast<float>(static_cast<double>(x2) - x0),
-             h2 = static_cast<float>(static_cast<double>(y2) - y0);
+        auto e2f = static_cast<float>(e2);
+        auto f2f = static_cast<float>(f2);
+        auto g2 = static_cast<float>(static_cast<double>(x2) - x0);
+        auto h2 = static_cast<float>(static_cast<double>(y2) - y0);
         if ((py * e2 - f2f * px) * (static_cast<double>(h2) * e2f - f2 * g2) >= 0.0)
             return true;
     }
@@ -322,7 +326,8 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
     const double ax = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
     const double ay = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
     const double az = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
-    auto ayf = static_cast<float>(ay), azf = static_cast<float>(az);
+    auto ayf = static_cast<float>(ay);
+    auto azf = static_cast<float>(az);
     auto bxf = static_cast<float>(static_cast<double>(core::at(p2, 0)) - core::at(p0, 0));
     auto byf = static_cast<float>(static_cast<double>(core::at(p2, 1)) - core::at(p0, 1));
     const double bz = static_cast<double>(core::at(p2, 2)) - core::at(p0, 2);
@@ -475,7 +480,9 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
     maths::Vec4 up{};
-    maths::Mat4 view{}, projection{}, combined{};
+    maths::Mat4 view{};
+    maths::Mat4 projection{};
+    maths::Mat4 combined{};
     if (params->up()) {
         const std::span<const float, 3> from(params->up(), 3);
         const double az = static_cast<double>(core::at(start, 2)) - core::at(from, 2);
@@ -532,7 +539,8 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
             core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, kLockReadOnly);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));
             // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
-            uint32_t a = !indices.empty() ? core::at(indices, 0) : 0u, b = indices.size() > 1 ? core::at(indices, 1) : 0u;
+            uint32_t a = !indices.empty() ? core::at(indices, 0) : 0u;
+            uint32_t b = indices.size() > 1 ? core::at(indices, 1) : 0u;
             for (uint32_t strip = 2; strip < core::at(mesh->index_counts(), 0); ++strip) {
                 const uint32_t c = core::at(indices, strip);
                 const uint32_t ia = a;

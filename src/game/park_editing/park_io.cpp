@@ -388,8 +388,11 @@ void ParkLayout::set_up_lights()
     script::Array* themes = script::fetch_list("Ed_Light_Info"); // (the original doesn't assert)
     auto* theme = themes->array_at(0);
     auto* info = theme->struct_at(0);
-    float ambient_const = 0.0f, falloff_const = 0.0f, cursor_ambience = 0.0f;
-    script::VectorValue ambient{}, falloff{};
+    float ambient_const = 0.0f;
+    float falloff_const = 0.0f;
+    float cursor_ambience = 0.0f;
+    script::VectorValue ambient{};
+    script::VectorValue falloff{};
     script::Array* positions = nullptr;
     info->fetch_float("ambient_const", &ambient_const, 1);
     info->fetch_vec("ambient_rgb", &ambient, 1);
@@ -518,7 +521,8 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         pos = meta->cell_footprint();
         const CellBox d = meta->cell_footprint();
         const float length = gap->fetch_magnitude(half);
-        const double w = cell_size_x(), l = cell_size_z();
+        const double w = cell_size_x();
+        const double l = cell_size_z();
         const double y = static_cast<double>(d.y) * cell_size_y();
         int along_x = 0;
         float x = at.x;

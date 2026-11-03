@@ -65,7 +65,8 @@ void turn_by_stick(double angle, maths::Vec4* facing)
     float* z = &facing->z;
     const double sine = static_cast<float>(std::sin(angle));
     const double cosine = std::cos(angle);
-    const double old_x = *x, old_z = *z;
+    const double old_x = *x;
+    const double old_z = *z;
     *x = static_cast<float>(old_z * sine + cosine * old_x);
     *z = static_cast<float>(old_z * cosine - sine * old_x);
 }
@@ -302,7 +303,8 @@ void FootView::tick_frame()
                                              static_cast<double>(skater_facing.z) * facing.z +
                                              static_cast<double>(skater_facing.y) * facing.y);
             if (!(std::cos(static_cast<double>(get_param(kLockAngle)) * kDegrees) > cosine)) {
-                float full = 0.0f, least = 0.0f;
+                float full = 0.0f;
+                float least = 0.0f;
                 if (!walk_->using_dpad()) {
                     full = get_param(kFullSlerpSpeed);
                     least = get_param(kMinSlerpSpeed);
@@ -416,7 +418,9 @@ void FootView::tick_frame()
     const double up_y = static_cast<double>(skater_up.y) * height;
     const double up_z = static_cast<double>(skater_up.z) * height;
     const double up_w = static_cast<double>(skater_up.w) * height;
-    auto up_xf = static_cast<float>(up_x), up_zf = static_cast<float>(up_z), up_wf = static_cast<float>(up_w);
+    auto up_xf = static_cast<float>(up_x);
+    auto up_zf = static_cast<float>(up_z);
+    auto up_wf = static_cast<float>(up_w);
     const maths::Vec4& look_at = core::at(matrix.row, 2);
     const double back_x = static_cast<double>(distance) * look_at.x;
     const double back_y = static_cast<double>(distance) * look_at.y;

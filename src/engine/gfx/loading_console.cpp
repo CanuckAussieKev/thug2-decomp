@@ -240,7 +240,8 @@ void build_font()
     const frontend::level_editor::ui_fonts::CompressedFont mono = frontend::level_editor::ui_fonts::get_mono();
     ImFont* font = atlas.AddFontFromMemoryCompressedTTF(mono.data, mono.size, pixels, &config, kRanges.data());
     unsigned char* rgba = nullptr;
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     if (!font || !atlas.Build()) {
         get_log("loading console: the font couldn't be made - no panel");
         return;
@@ -307,8 +308,34 @@ ConsoleVertices& console_vertices()
 
 void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 {
-    const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = console_font().white_u_, .v = console_font().white_v_}, b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = console_font().white_u_, .v = console_font().white_v_},
-        c{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = console_font().white_u_, .v = console_font().white_v_}, d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = console_font().white_u_, .v = console_font().white_v_};
+    const Vertex a{.x = x0,
+                   .y = y0,
+                   .z = 0.0f,
+                   .rhw = 1.0f,
+                   .color = color,
+                   .u = console_font().white_u_,
+                   .v = console_font().white_v_};
+    const Vertex b{.x = x1,
+                   .y = y0,
+                   .z = 0.0f,
+                   .rhw = 1.0f,
+                   .color = color,
+                   .u = console_font().white_u_,
+                   .v = console_font().white_v_};
+    const Vertex c{.x = x0,
+                   .y = y1,
+                   .z = 0.0f,
+                   .rhw = 1.0f,
+                   .color = color,
+                   .u = console_font().white_u_,
+                   .v = console_font().white_v_};
+    const Vertex d{.x = x1,
+                   .y = y1,
+                   .z = 0.0f,
+                   .rhw = 1.0f,
+                   .color = color,
+                   .u = console_font().white_u_,
+                   .v = console_font().white_v_};
     console_vertices().vertices_.insert(console_vertices().vertices_.end(), {a, b, c, b, d, c});
 }
 
@@ -327,9 +354,10 @@ void draw_text(maths::Vec2 pen, const char* text, size_t columns, colour::Packed
             const float y0 = y + glyph.y0 - 0.5f;
             const float x1 = x + glyph.x1 - 0.5f;
             const float y1 = y + glyph.y1 - 0.5f;
-            const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v0},
-                b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v0}, cc{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v1},
-                d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v1};
+            const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v0};
+            const Vertex b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v0};
+            const Vertex cc{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v1};
+            const Vertex d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v1};
             console_vertices().vertices_.insert(console_vertices().vertices_.end(), {a, b, cc, b, d, cc});
         }
         x += console_font().advance_;
@@ -341,14 +369,16 @@ void get_layout(double now)
     console_vertices().laid_out_ = now;
     console_vertices().vertices_.clear();
     std::vector<std::string> lines;
-    double started = 0.0, last = 0.0;
+    double started = 0.0;
+    double last = 0.0;
     AcquireSRWLockShared(&loading_console_state().lock_);
     lines = loading_console_state().ring_.final_one(kShownLines);
     started = loading_console_state().start_;
     last = loading_console_state().last_activity_;
     ReleaseSRWLockShared(&loading_console_state().lock_);
 
-    auto width = static_cast<float>(render::renderer().back_buffer_width()), height = static_cast<float>(render::renderer().back_buffer_height());
+    auto width = static_cast<float>(render::renderer().back_buffer_width());
+    auto height = static_cast<float>(render::renderer().back_buffer_height());
     const float margin = std::max(8.0f, std::round(height * 0.02f));
     const float pad = std::round(console_font().line_height_ * 0.4f);
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.

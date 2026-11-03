@@ -430,7 +430,9 @@ void SkaterPhysicsModule::check_flip_spin()
     flip_spin_started_ = 1;
     auto* model =
         core::down_cast<objects::MeshInstanceModule>(get_composite(object_of(this))->fetch_module(kModelModuleName));
-    int x = 0, y = 0, z = 0;
+    int x = 0;
+    int y = 0;
+    int z = 0;
     if (spin->fetch_int_value(kSpinX, &x, 0) && x)
         model->rotate_display(model_rotation_left_, 0.0f, static_cast<float>(x), 0, true, true, false, false);
     if (spin->fetch_int_value(kSpinY, &y, 0) && y) {

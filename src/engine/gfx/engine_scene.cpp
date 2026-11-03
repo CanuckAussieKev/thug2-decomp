@@ -265,8 +265,12 @@ void WorldScene::delete_marked_sectors()
 void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int)
 {
     const std::span<const maths::Vec4, 2> corners(box, 2);
-    float min_x = corners.front().x, min_y = corners.front().y, min_z = corners.front().z;
-    float max_x = corners.back().x, max_y = corners.back().y, max_z = corners.back().z;
+    float min_x = corners.front().x;
+    float min_y = corners.front().y;
+    float min_z = corners.front().z;
+    float max_x = corners.back().x;
+    float max_y = corners.back().y;
+    float max_z = corners.back().z;
     for_each_sector(sectors_, [&](void* sector) {
         const maths::BBox* bounds = sector_box(sector);
         const maths::Vec4& low = bounds->min;

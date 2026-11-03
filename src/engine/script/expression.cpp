@@ -215,8 +215,10 @@ bool get_less(QbValueKind type_a, Cell a, QbValueKind type_b, Cell b)
 // 0x00479410 (a member of the first component in the game)
 bool less_than(Component* a, Component* b)
 {
-    QbValueKind type_a = QbValueKind::kNone, type_b = QbValueKind::kNone;
-    Cell value_a, value_b;
+    QbValueKind type_a = QbValueKind::kNone;
+    QbValueKind type_b = QbValueKind::kNone;
+    Cell value_a;
+    Cell value_b;
     resolved_value(a, &type_a, &value_a);
     resolved_value(b, &type_b, &value_b);
     return get_less(type_a, value_a, type_b, value_b);
@@ -225,8 +227,10 @@ bool less_than(Component* a, Component* b)
 // 0x004795A0
 bool greater_than(Component* a, Component* b)
 {
-    QbValueKind type_a = QbValueKind::kNone, type_b = QbValueKind::kNone;
-    Cell value_a, value_b;
+    QbValueKind type_a = QbValueKind::kNone;
+    QbValueKind type_b = QbValueKind::kNone;
+    Cell value_a;
+    Cell value_b;
     resolved_value(a, &type_a, &value_a);
     resolved_value(b, &type_b, &value_b);
     // (the same cases, decided by a's type)

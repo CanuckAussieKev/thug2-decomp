@@ -345,7 +345,8 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     auto* node = rail_node_;
     const objects::GrindPoint* next = node->succ();
     auto* manager = rail_manager_;
-    maths::Vec4 from, to;
+    maths::Vec4 from;
+    maths::Vec4 to;
     const maths::Vec4* a = manager->get_absolute_pos(&from, node);
     const maths::Vec4* b = rail_manager_->get_absolute_pos(&to, next);
     maths::Vec4 direction = {.x = b->x - a->x, .y = b->y - a->y, .z = b->z - a->z, .w = b->w - a->w};
@@ -599,7 +600,8 @@ void SkaterPhysicsModule::try_grind(bool always)
         inverse.upend();
         last.w = 1.0f;
         now.w = 1.0f;
-        maths::Vec4 local_last, local_now;
+        maths::Vec4 local_last;
+        maths::Vec4 local_now;
         inverse.xform(local_last, last);
         inverse.xform(local_now, now);
         if (object_rails->find_grind_rail(&local_last, &local_now, &point, &node, nullptr, {.min_alignment_ = min_alignment, .side = 0})) {

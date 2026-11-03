@@ -281,8 +281,14 @@ bool cfunc_set_uv_wibble_params(Struct* params, Script*)
     uint32_t name = 0; // (these are uninitialised in the original)
     params->read_hash_value("sector", &name, 0);
     render::WorldCell* sector = look_up_sector(name);
-    float u_vel = 0.0f, u_amp = 0.0f, u_freq = 0.0f, u_phase = 0.0f;
-    float v_vel = 0.0f, v_amp = 0.0f, v_freq = 0.0f, v_phase = 0.0f;
+    float u_vel = 0.0f;
+    float u_amp = 0.0f;
+    float u_freq = 0.0f;
+    float u_phase = 0.0f;
+    float v_vel = 0.0f;
+    float v_amp = 0.0f;
+    float v_freq = 0.0f;
+    float v_phase = 0.0f;
     params->fetch_float("u_vel", &u_vel, 0);
     params->fetch_float("u_amp", &u_amp, 0);
     params->fetch_float("u_freq", &u_freq, 0);

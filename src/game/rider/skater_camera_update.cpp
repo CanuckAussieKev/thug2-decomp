@@ -228,7 +228,10 @@ void RiderChaseView::tick_frame()
                     facing += s->drop_velocity();
                 }
                 facing.make_unit();
-                double ux = 0.0, uy = 0.0, uz = 0.0, uw = 0.0;
+                double ux = 0.0;
+                double uy = 0.0;
+                double uz = 0.0;
+                double uw = 0.0;
                 double k = 0.0;
                 if (physics_state == 1) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
@@ -443,7 +446,8 @@ void RiderChaseView::tick_frame()
     // Where: the target, behind along the view and above along the up; looking at it from above the skater.
     maths::Vec4 target{};
     fetch_goal(&target, instant);
-    float height = 0.0f, distance = 0.0f;
+    float height = 0.0f;
+    float distance = 0.0f;
     if (instant) {
         const float rate = zoom_ease_rate_;
         zoom_ease_rate_ = 1.0f;

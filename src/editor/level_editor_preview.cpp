@@ -256,7 +256,8 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     OrientedBox box{};
     if (!box_of(kind, id, &box))
         return false;
-    V3 min{}, max{};
+    V3 min{};
+    V3 max{};
     bounds_of(box, &min, &max);
     V3 centre{};
     float radius = 0.0f;

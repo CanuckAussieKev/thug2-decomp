@@ -145,7 +145,10 @@ bool cfunc_apply(script::Struct* params, script::Script*)
     script::Struct* saved = goal_manager ? goal_manager->goal_data() : nullptr;
     if (!career || !saved)
         return false;
-    int goal_count = 0, classic_count = 0, gap_levels = 0, gap_count = 0;
+    int goal_count = 0;
+    int classic_count = 0;
+    int gap_levels = 0;
+    int gap_count = 0;
     for (uint32_t i = 0; i < levels->extent(); ++i) {
         auto* level = levels->struct_at(i);
         int number = -1;
@@ -153,7 +156,8 @@ bool cfunc_apply(script::Struct* params, script::Script*)
             number >= objects::RiderStoryProgress::kLevels)
             continue;
         // The story's points and potential, as deposit_money (0x005845C0) and set_level_amount (0x005845F0) change them.
-        int points = 0, total = 0;
+        int points = 0;
+        int total = 0;
         if (level->fetch_int_value(name_hash("points"), &points, 0)) {
             level->fetch_int_value(name_hash("total"), &total, 0);
             career->set_lifetime_funds(static_cast<uint16_t>(career->lifetime_funds() + (points - core::at(career->funds(), number))));

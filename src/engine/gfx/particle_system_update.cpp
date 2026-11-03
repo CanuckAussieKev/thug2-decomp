@@ -180,16 +180,21 @@ void EmitterInstance::get_emit(int count)
             continue;
         }
         // the direction: a point on the disc of the spread about the third row
-        float a = random_signed(), b = random_signed(), c = random_signed();
+        float a = random_signed();
+        float b = random_signed();
+        float c = random_signed();
         const double spread = static_cast<double>(angle_spread_) * 0.25f * maths::kPi;
         const double x = a * spread;
         const double y = spread * b;
         const double z = 1.0 - (x * x + y * y);
-        auto zx = static_cast<float>(core::at(m.row, 2).x * z), zy = static_cast<float>(core::at(m.row, 2).y * z),
-             zz = static_cast<float>(core::at(m.row, 2).z * z);
-        auto yx = static_cast<float>(core::at(m.row, 1).x * y), yy = static_cast<float>(core::at(m.row, 1).y * y),
-             yz = static_cast<float>(core::at(m.row, 1).z * y);
-        auto xx = static_cast<float>(core::at(m.row, 0).x * x), xy = static_cast<float>(core::at(m.row, 0).y * x);
+        auto zx = static_cast<float>(core::at(m.row, 2).x * z);
+        auto zy = static_cast<float>(core::at(m.row, 2).y * z);
+        auto zz = static_cast<float>(core::at(m.row, 2).z * z);
+        auto yx = static_cast<float>(core::at(m.row, 1).x * y);
+        auto yy = static_cast<float>(core::at(m.row, 1).y * y);
+        auto yz = static_cast<float>(core::at(m.row, 1).z * y);
+        auto xx = static_cast<float>(core::at(m.row, 0).x * x);
+        auto xy = static_cast<float>(core::at(m.row, 0).y * x);
         const double xz = x * core::at(m.row, 0).z;
         auto sum_y = static_cast<float>(static_cast<double>(xy) + yy);
         auto sum_z = static_cast<float>(xz + yz);
@@ -213,9 +218,11 @@ void EmitterInstance::get_emit(int count)
         const double ax = static_cast<double>(a) * core::at(emit_range_, 0);
         const double by = static_cast<double>(b) * core::at(emit_range_, 1);
         const double cz = static_cast<double>(c) * core::at(emit_range_, 2);
-        auto czx = static_cast<float>(core::at(m.row, 2).x * cz), czy = static_cast<float>(core::at(m.row, 2).y * cz),
-             czz = static_cast<float>(core::at(m.row, 2).z * cz);
-        auto byx = static_cast<float>(core::at(m.row, 1).x * by), byy = static_cast<float>(core::at(m.row, 1).y * by);
+        auto czx = static_cast<float>(core::at(m.row, 2).x * cz);
+        auto czy = static_cast<float>(core::at(m.row, 2).y * cz);
+        auto czz = static_cast<float>(core::at(m.row, 2).z * cz);
+        auto byx = static_cast<float>(core::at(m.row, 1).x * by);
+        auto byy = static_cast<float>(core::at(m.row, 1).y * by);
         const double byz = by * core::at(m.row, 1).z;
         auto axz = static_cast<float>(core::at(m.row, 0).z * ax);
         auto px = static_cast<float>(core::at(m.row, 0).x * ax + byx);
@@ -233,7 +240,8 @@ void EmitterInstance::get_emit(int count)
             if (!(length == 0.0)) {
                 const double r = static_cast<double>(get_rand()) * kRandomUnit;
                 const double u = (r + r - 1.0 + 1.0) * 0.5;
-                auto fx = static_cast<float>(dx * u), fy = static_cast<float>(dy * u);
+                auto fx = static_cast<float>(dx * u);
+                auto fy = static_cast<float>(dy * u);
                 const double fz = u * dz;
                 auto new_z = static_cast<float>(fz + pos_z);
                 pos_x = static_cast<float>(static_cast<double>(fx) + pos_x);
@@ -311,7 +319,9 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         break;
     }
     case kSetColor: {
-        int first = 0, last = 0, value = 0;
+        int first = 0;
+        int last = 0;
+        int value = 0;
         if (params->fetch_int_value(kCorner, &value, 0)) {
             first = last = value;
         } else {
@@ -439,7 +449,8 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
     case kSetLodParams: {
         int min_particles = 0;
         params->fetch_int_value(kMinParticles, &min_particles, 0); // (the bool-assert getter, 0x00476CB0)
-        float near = 0.0f, far = 0.0f;
+        float near = 0.0f;
+        float far = 0.0f;
         params->fetch_float(kLodDist1, &near, 0);
         params->fetch_float(kLodDist2, &far, 0);
         lod_min_particles_ = min_particles;

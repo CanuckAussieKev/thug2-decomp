@@ -113,7 +113,8 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     maths::Vec4 base = *last_position;
     if (position->y > last_position->y)
         base.y = position->y;
-    float reach = kSearchReach, lift = 0.0f;
+    float reach = kSearchReach;
+    float lift = 0.0f;
     if (walking_state(objects::RiderPoseState::PhysicsMode::kWalking)) {
         if (!static_cast<uint32_t>(walk_->get_state())) {
             reach = script::fetch_float(kWalkSearchDistance);
@@ -151,9 +152,12 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     // Feelers straight down, further and further ahead, for a vert wall facing away (or, walking up to one, towards).
     maths::Vec4 saved{};
     bool found = false;
-    maths::Vec4 hit{}, normal{};
+    maths::Vec4 hit{};
+    maths::Vec4 normal{};
     bool alive = false;
-    float hit_height = 0.0f, distance = 0.0f, horizontal = 0.0f;
+    float hit_height = 0.0f;
+    float distance = 0.0f;
+    float horizontal = 0.0f;
     float step = kFirstStep;
     bool searching = kFirstStep < reach;
     while (searching) {
@@ -281,8 +285,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         auto y = static_cast<float>(static_cast<double>(half) * half * gravity * kHalf +
                                     static_cast<double>(half) * velocity->y + position->y);
         const double along = scale * half;
-        auto aw = static_cast<float>(direction.w * along), az = static_cast<float>(direction.z * along),
-             ay = static_cast<float>(direction.y * along);
+        auto aw = static_cast<float>(direction.w * along);
+        auto az = static_cast<float>(direction.z * along);
+        auto ay = static_cast<float>(direction.y * along);
         const double ax = along * direction.x;
         maths::Vec4& end = feeler.line().end;
         end = {.x = static_cast<float>(ax + position->x), .y = static_cast<float>(static_cast<double>(ay) + y), .z = position->z + az,
@@ -462,7 +467,8 @@ bool SkaterPhysicsModule::try_spine_transfer()
     maths::Vec4 target = *quat->spin_by(&turned, down);
 
     // A feeler straight down from half a unit that way: the wall the skater is on.
-    bool hip = false, object_hit = false;
+    bool hip = false;
+    bool object_hit = false;
     render::ProbeRay feeler;
     const maths::Vec4& position = object->at_point();
     const maths::Vec4 ahead = {.x = target.x * kAhead, .y = target.y * kAhead, .z = target.z * kAhead, .w = target.w * kAhead};

@@ -211,7 +211,8 @@ void shatter_geom(PcGeom* geom)
         const std::span<const uint16_t> indices(lock_indices(core::at(mesh->index_buffers(), 0)), core::at(mesh->index_counts(), 0));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
         int count = 0;
-        uint32_t a = core::at(indices, 0), b = core::at(indices, 1);
+        uint32_t a = core::at(indices, 0);
+        uint32_t b = core::at(indices, 1);
         for (uint32_t k = 2; k < core::at(mesh->index_counts(), 0); ++k) {
             const uint32_t c = core::at(indices, k);
             if (a != b && a != c && b != c) {

@@ -189,7 +189,8 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle)
 {
     // As the original's x87 code, rounding where it stores: the axis made unit (x and y kept in double, z rounded
     // to float), 1 - cos from the FPU's full-precision cosine, the sine rounded to float, the products as below.
-    double x = axis.x, y = axis.y;
+    double x = axis.x;
+    double y = axis.y;
     float z = axis.z;
     const double length = std::sqrt((static_cast<double>(z) * z + y * y) + x * x);
     if (length > 0.0) {
@@ -350,7 +351,9 @@ void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
 
     // Near 180 degrees the differences above vanish: rebuild the axis from the largest diagonal element.
     // (Compared as in the original, so NaNs choose the same case.)
-    const float m00 = core::at(row, 0).x, m11 = core::at(row, 1).y, m22 = core::at(row, 2).z;
+    const float m00 = core::at(row, 0).x;
+    const float m11 = core::at(row, 1).y;
+    const float m22 = core::at(row, 2).z;
     const Vec4 y_largest{.x = core::at(row, 1).x + core::at(row, 0).y, .y = m11 + 1.0f + m11 + 1.0f, .z = core::at(row, 1).z + core::at(row, 2).y, .w = 1.0f};
     const Vec4 x_largest{.x = m00 + 1.0f + m00 + 1.0f, .y = core::at(row, 1).x + core::at(row, 0).y, .z = core::at(row, 0).z + core::at(row, 2).x, .w = 1.0f};
     const Vec4 z_largest{.x = core::at(row, 0).z + core::at(row, 2).x, .y = core::at(row, 1).z + core::at(row, 2).y, .z = m22 + 1.0f + m22 + 1.0f, .w = 1.0f};
@@ -476,7 +479,9 @@ Mat4& build_axis_angle_matrix(Mat4& m, AxisAngle axis_angle)
 // 0x00404F50
 Mat4& create_look_at_matrix(Mat4& m, const Vec4& eye, const Vec4& target, const Vec4& up)
 {
-    float fx = target.x - eye.x, fy = target.y - eye.y, fz = target.z - eye.z;
+    float fx = target.x - eye.x;
+    float fy = target.y - eye.y;
+    float fz = target.z - eye.z;
     const float length = std::sqrt(fy * fy + fx * fx + fz * fz);
     if (length > 0.0f) {
         const float scale = 1.0f / length;
@@ -643,7 +648,9 @@ Mat4& Mat4::get_adjugate(const Mat4& source)
 // 0x00416DF0 (the dot products summed in double precision)
 Mat4& Mat4::invert_orthonormal()
 {
-    const double tx = core::at(row, 3).x, ty = core::at(row, 3).y, tz = core::at(row, 3).z;
+    const double tx = core::at(row, 3).x;
+    const double ty = core::at(row, 3).y;
+    const double tz = core::at(row, 3).z;
     core::at(row, 3).x = static_cast<float>(-((ty * core::at(row, 0).y + tz * core::at(row, 0).z) + tx * core::at(row, 0).x));
     core::at(row, 3).y = static_cast<float>(-((tz * core::at(row, 1).z + ty * core::at(row, 1).y) + tx * core::at(row, 1).x));
     core::at(row, 3).z = static_cast<float>(-((tz * core::at(row, 2).z + ty * core::at(row, 2).y) + tx * core::at(row, 2).x));
@@ -681,7 +688,8 @@ Vec4& Mat4::get_euler_angles(Vec4& out) const
     const float y = maths::neg_asin_cos({.value = sin_y, .limit = 0.005f}, &above, &inverses);
     const double inverse = inverses.inverse;
     const double neg_inverse = inverses.negative;
-    float x = 0.0f, z = 0.0f;
+    float x = 0.0f;
+    float z = 0.0f;
     if (above) {
         auto inv = static_cast<float>(inverse);
         auto neg_inv = static_cast<float>(neg_inverse);

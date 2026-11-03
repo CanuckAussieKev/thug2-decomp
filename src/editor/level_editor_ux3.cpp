@@ -285,13 +285,15 @@ void revert(const ChangeRow& row)
     const std::string record = row.record;
     const std::string summary = row.entry.summary;
     get_queue([record, summary] {
-        std::string text, message;
+        std::string text;
+        std::string message;
         if (!layout::capture_text(&text)) {
             get_say("No level loaded");
             return;
         }
         // (the record as it is now: the line the list showed, found again)
-        int line = -1, n = 0;
+        int line = -1;
+        int n = 0;
         for (size_t start = 0; start <= text.size() && line < 0; ++n) {
             const size_t end = text.find('\n', start);
             const std::string one = text.substr(start, end == std::string::npos ? std::string::npos : end - start);

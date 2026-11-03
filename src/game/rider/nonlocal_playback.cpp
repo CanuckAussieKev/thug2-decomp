@@ -258,7 +258,8 @@ void RiderRemoteSync::get_extrapolate()
     const float dz = play_pos_.z - last_play_pos_.z;
     const float dy = play_pos_.y - last_play_pos_.y;
     const float dx = play_pos_.x - last_play_pos_.x;
-    float dir_x = dx, dir_z = dz;
+    float dir_x = dx;
+    float dir_z = dz;
     // How well the move lines up with this machine's skater's (0 to 1; 0 without one).
     double alignment = 0.0;
     const online::PlayerRecord* local = net->get_own_player();
@@ -280,7 +281,9 @@ void RiderRemoteSync::get_extrapolate()
     ++updates_;
 
     // The averages over the updates kept.
-    double speeds = 0.0, lags = 0.0, alignments = 0.0;
+    double speeds = 0.0;
+    double lags = 0.0;
+    double alignments = 0.0;
     int n = 0;
     for (; n < updates_ && n < kHistory; ++n) {
         speeds += core::at(speeds_, n);
@@ -338,7 +341,10 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     if (!next)
         return nullptr;
     GameEntity* skater = entity();
-    maths::Vec4 a{}, b{}, p1{}, p2{};
+    maths::Vec4 a{};
+    maths::Vec4 b{};
+    maths::Vec4 p1{};
+    maths::Vec4 p2{};
     rails->get_absolute_pos(&a, node);
     rails->get_absolute_pos(&b, next);
     const double sx = static_cast<double>(b.x) - a.x;
@@ -372,7 +378,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     if (!beyond || !(beyond->flag_bits() & kRailActive)) {
         stopped = true;
     } else {
-        maths::Vec4 here{}, there{};
+        maths::Vec4 here{};
+        maths::Vec4 there{};
         if (sign > 0.0f) {
             rails->get_absolute_pos(&p1, next);
             rails->get_absolute_pos(&p2, node);
@@ -416,7 +423,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
         if (!beyond || !((sign > 0.0f ? next : beyond)->flag_bits() & kRailActive))
             return nullptr;
         if (sign > 0.0f) {
-            maths::Vec4 to{}, from{};
+            maths::Vec4 to{};
+            maths::Vec4 from{};
             rails->get_absolute_pos(&to, beyond);
             rails->get_absolute_pos(&from, next);
             if (!rail_clear(from, to) || stopped)
@@ -425,7 +433,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
             skater->at_point() = p1;
             node = next;
         } else {
-            maths::Vec4 to{}, from{};
+            maths::Vec4 to{};
+            maths::Vec4 from{};
             rails->get_absolute_pos(&to, beyond);
             rails->get_absolute_pos(&from, node);
             if (!rail_clear(from, to) || stopped)
@@ -507,7 +516,8 @@ void RiderRemoteSync::extrapolate_on_rail()
     core::at(lags_, slot) = lag;
     core::at(alignments_, slot) = static_cast<float>(alignment);
     ++updates_;
-    double lags = 0.0, alignments = 0.0;
+    double lags = 0.0;
+    double alignments = 0.0;
     int n = 0;
     for (; n < updates_ && n < kHistory; ++n) {
         lags += core::at(lags_, n);

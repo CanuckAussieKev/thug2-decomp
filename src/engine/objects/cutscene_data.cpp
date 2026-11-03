@@ -173,7 +173,9 @@ std::span<float, 4> read_colour(std::span<float, 4> out, script::Struct* params,
         int none = 1;
         colour->fetch_int_value(kNoColour, &none, 0);
         if (none == 0) {
-            int red = 0, green = 0, blue = 0; // (asserted: the original's are uninitialised)
+            int red = 0;
+            int green = 0;
+            int blue = 0; // (asserted: the original's are uninitialised)
             colour->fetch_int_value(kRed, &red, 1);
             colour->fetch_int_value(kGreen, &green, 1);
             colour->fetch_int_value(kBlue, &blue, 1);

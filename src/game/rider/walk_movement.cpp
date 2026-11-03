@@ -273,7 +273,8 @@ void FootMovement::update_control()
     float angle = core::at(pad->polar(), 1).angle;
     if (walk_parameter(kForwardTolerance) * static_cast<double>(kRadiansPerDegree) > std::fabs(angle))
         angle = 0.0f;
-    double turned_z = 0.0, turned_x = 0.0;
+    double turned_z = 0.0;
+    double turned_x = 0.0;
     maths::spin_by(angle, forward_z, forward_x, &turned_z, &turned_x);
     maths::Vec4& control = stick_heading_;
     control.x = static_cast<float>(turned_x);
@@ -455,9 +456,11 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
             if (blocked_) {
                 turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
             } else {
-                double turned_x = 0.0, turned_z = 0.0;
+                double turned_x = 0.0;
+                double turned_z = 0.0;
                 maths::spin_by(left ? turn : -turn, facing.x, facing.z, &turned_x, &turned_z);
-                auto ahead_x = static_cast<float>(turned_x), ahead_z = static_cast<float>(turned_z);
+                auto ahead_x = static_cast<float>(turned_x);
+                auto ahead_z = static_cast<float>(turned_z);
                 render::ProbeRay feeler;
                 maths::Vec4& start = feeler.line().start;
                 start = pos_;
@@ -470,7 +473,8 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                 if (feeler.get_hit_shape(false, false))
                     turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
             }
-            double new_x = 0.0, new_z = 0.0;
+            double new_x = 0.0;
+            double new_z = 0.0;
             maths::spin_by(left ? turn : -turn, facing.x, facing.z, &new_x, &new_z);
             facing.z = static_cast<float>(new_z);
             facing.x = static_cast<float>(new_x);

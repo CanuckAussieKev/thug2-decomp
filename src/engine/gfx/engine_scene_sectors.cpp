@@ -183,7 +183,11 @@ WorldScene::~WorldScene()
 void WorldScene::fetch_diagnostics(script::Struct* info)
 {
     info->append_word(kFileName, label_.data());
-    int sectors = 0, count70 = 0, slot33 = 0, slot33_again = 0, count_c_6f_0 = 0;
+    int sectors = 0;
+    int count70 = 0;
+    int slot33 = 0;
+    int slot33_again = 0;
+    int count_c_6f_0 = 0;
     if (sectors_) {
         for_each_sector(this, [&](WorldCell* sector) {
             ++sectors;
@@ -285,7 +289,10 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
 {
     if (!coll_grid_)
         return;
-    memory::ListNode to_add{}, to_remove{}, moved{}, to_delete{}; // (collision objects; sectors)
+    memory::ListNode to_add{};
+    memory::ListNode to_remove{};
+    memory::ListNode moved{};
+    memory::ListNode to_delete{}; // (collision objects; sectors)
     setup_list_sentinel(&to_add);
     setup_list_sentinel(&to_remove);
     setup_list_sentinel(&moved);

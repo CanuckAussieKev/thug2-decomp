@@ -390,7 +390,8 @@ bool cfunc_get_gamma_values(Struct*, Script* script)
 bool cfunc_get_dynamic_light_modulation_factor(Struct* params, Script* script)
 {
     int directional = 0;
-    float low = 0.0f, high = 0.0f;
+    float low = 0.0f;
+    float high = 0.0f;
     if (params->has_bare_flag(kAmbient)) {
         low = render::fetch_ambient_scale(true);
         high = render::fetch_ambient_scale(false);
@@ -440,7 +441,10 @@ bool cfunc_set_fog_distance(Struct* params, Script*)
 // clipping is on, the clear colour used with it (0x0078733C, 0xAARRGGBB) instead - and false.
 bool cfunc_set_fog_color(Struct* params, Script*)
 {
-    int r = kFogChannelDefault, g = kFogChannelDefault, b = kFogChannelDefault, a = kFogAlphaDefault;
+    int r = kFogChannelDefault;
+    int g = kFogChannelDefault;
+    int b = kFogChannelDefault;
+    int a = kFogAlphaDefault;
     params->fetch_int_value("r", &r, 0);
     params->fetch_int_value("g", &g, 0);
     params->fetch_int_value("b", &b, 0);
@@ -474,7 +478,9 @@ bool cfunc_set_wireframe_mode(Struct* params, Script*)
 // 0x00446FA0: SetLightAmbientColor r g b (alpha 128, 0x0048E8F0). Returns what that returns (its AL).
 bool cfunc_set_light_ambient_color(Struct* params, Script*)
 {
-    int r = 0, g = 0, b = 0; // (uninitialised in the original)
+    int r = 0;
+    int g = 0;
+    int b = 0; // (uninitialised in the original)
     params->fetch_int_value("r", &r, 0);
     params->fetch_int_value("g", &g, 0);
     params->fetch_int_value("b", &b, 0);
@@ -497,7 +503,10 @@ bool cfunc_get_light_direction(Struct* params, Script* script)
 // 0x004470A0: SetLightDiffuseColor index=<n> R G B (alpha 128, 0x0048E930). Returns what that returns (its AL).
 bool cfunc_set_light_diffuse_color(Struct* params, Script*)
 {
-    int index = 0, r = 0, g = 0, b = 0; // (uninitialised in the original)
+    int index = 0;
+    int r = 0;
+    int g = 0;
+    int b = 0; // (uninitialised in the original)
     params->fetch_int_value(kIndex, &index, 0);
     params->fetch_int_value(kUpperR, &r, 0);
     params->fetch_int_value(kUpperG, &g, 0);

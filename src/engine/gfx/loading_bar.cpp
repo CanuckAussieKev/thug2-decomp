@@ -153,8 +153,10 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     const int frame_right = ftol((screen_2d().gradient_width() + frame_left) + x_scale * kFloatTen); // 10
     const int top = ftol(y_scale * static_cast<double>(kFloat420));                       // 420
     const int bottom = ftol(top + y_scale * static_cast<double>(kFloatTwenty));          // 20
-    auto top_f = static_cast<float>(top), bottom_f = static_cast<float>(bottom);
-    auto frame_left_f = static_cast<float>(frame_left), frame_right_f = static_cast<float>(frame_right);
+    auto top_f = static_cast<float>(top);
+    auto bottom_f = static_cast<float>(bottom);
+    auto frame_left_f = static_cast<float>(frame_left);
+    auto frame_right_f = static_cast<float>(frame_right);
 
     set_texture(0, nullptr);
     renderer().d3d_device()->SetRenderState(D3DRS_ZENABLE, FALSE);

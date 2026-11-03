@@ -342,7 +342,8 @@ void DrivableModule::align_in_air()
         return;
     if (kick_time_ > 0.0f)
         return;
-    double vx = vel_.x, vz = vel_.z;
+    double vx = vel_.x;
+    double vz = vel_.z;
     const double align = align_speed_;
     const bool slow = align * align > vx * vx + vz * vz;
     if (slow && !align_when_slow_)
@@ -393,13 +394,16 @@ void DrivableModule::integrate()
 {
     // The accelerations.
     const double inv_mass = inv_mass_;
-    auto accel_x = static_cast<float>(inv_mass * force_.x), accel_y = static_cast<float>(inv_mass * force_.y);
-    auto accel_z = static_cast<float>(inv_mass * force_.z), accel_w = static_cast<float>(inv_mass * force_.w);
+    auto accel_x = static_cast<float>(inv_mass * force_.x);
+    auto accel_y = static_cast<float>(inv_mass * force_.y);
+    auto accel_z = static_cast<float>(inv_mass * force_.z);
+    auto accel_w = static_cast<float>(inv_mass * force_.w);
     maths::Vec4 spin_accel{};
     inv_inertia_.rotate_vector(spin_accel, twist_force_);
     // The momentum.
     double dt = step_length_;
-    auto dy = static_cast<float>(dt * force_.y), dz = static_cast<float>(dt * force_.z);
+    auto dy = static_cast<float>(dt * force_.y);
+    auto dz = static_cast<float>(dt * force_.z);
     auto dw = static_cast<float>(dt * force_.w);
     linear_momentum_.x = static_cast<float>(dt * force_.x + linear_momentum_.x);
     linear_momentum_.y = static_cast<float>(static_cast<double>(dy) + linear_momentum_.y);
@@ -408,7 +412,8 @@ void DrivableModule::integrate()
     // The move: (velocity + half the acceleration over the step) over the step.
     const float timestep = step_length_;
     double half = static_cast<double>(step_length_) * kHalf;
-    auto hy = static_cast<float>(accel_y * half), hz = static_cast<float>(accel_z * half);
+    auto hy = static_cast<float>(accel_y * half);
+    auto hz = static_cast<float>(accel_z * half);
     auto hw = static_cast<float>(accel_w * half);
     const double vx = accel_x * half + vel_.x;
     const double vy = static_cast<double>(hy) + vel_.y;
@@ -539,7 +544,9 @@ void DrivableModule::collide()
         return;
     for (int n = contact_count_ - 1; n >= 0; --n)
         core::at(contacts, n).impulse = 0.0f;
-    maths::Vec4 mom = linear_momentum_, rotmom = rotmom_, vel = vel_;
+    maths::Vec4 mom = linear_momentum_;
+    maths::Vec4 rotmom = rotmom_;
+    maths::Vec4 vel = vel_;
     maths::Vec4 rotvel = rotvel_;
 
     // Impulses at the contacts closing in (with restitution), up to six passes until none is.

@@ -486,7 +486,8 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
         } else if (kind == "node") {
             ok = read_node(in, &file->added.emplace_back());
         } else if (kind == "order") {
-            std::string what, name;
+            std::string what;
+            std::string name;
             ok = static_cast<bool>(in >> what);
             if (ok && what == "crown") { // (an order of something else: a later version's - skipped)
                 file->crown_order_.clear();
@@ -954,7 +955,8 @@ std::string get_apply(const FileLoad& file)
     }
     scenery::apply_states(clones, {});
     scenery::apply_states(file.sectors, file.rails);
-    int objects = 0, copies = 0;
+    int objects = 0;
+    int copies = 0;
     for (const ObjectRecord& record : file.objects) {
         if (object_edit::get_restore(state_of(record.id, record.pos, record.rows, record.scale))) {
             object_edit::touch(record.id);
@@ -1233,7 +1235,8 @@ bool autosave_offered()
     if (render::current_level() == 0 || !scene || layout_save().autosave_ours_ || get_refused())
         return false;
     const uint32_t name = scenery::world_scene_key(scene);
-    uint64_t autosave_time = 0, saved_time = 0;
+    uint64_t autosave_time = 0;
+    uint64_t saved_time = 0;
     const bool have_autosave = write_time(autosave_path_for(name), &autosave_time);
     const bool have_saved = write_time(path_for(name), &saved_time);
     layout_save().offer_pending_ = autosave_newer(have_autosave, autosave_time, have_saved, saved_time);
@@ -1330,9 +1333,10 @@ struct LevelInfo {
 };
 std::unordered_map<uint32_t, LevelInfo> levels_by_load()
 {
-    static const uint32_t kLoadScript = checksums::hash_from_text("load_script"),
-                          kLevel = checksums::hash_from_text("level"), kName = checksums::hash_from_text("name"),
-                          kQb = checksums::hash_from_text("qb");
+    static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
+    static const uint32_t kLevel = checksums::hash_from_text("level");
+    static const uint32_t kName = checksums::hash_from_text("name");
+    static const uint32_t kQb = checksums::hash_from_text("qb");
     std::unordered_map<uint32_t, LevelInfo> levels;
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
         if (e->type() != script::QbValueKind::kStruct || !e->value().structure())
@@ -1512,11 +1516,13 @@ bool network_active()
 ModeFlags current_mode()
 {
     // (gamemode.qb's property names; is_career and is_classic as IsCareerMode 0x005AEFC0 / the goal win 0x005576D0 ask)
-    static const uint32_t kIsFreeskate = 0x337E7779, kIsSingleSession = checksums::hash_from_text("is_singlesession"),
-                          kIsCareer = 0x1DED1EA4, kIsClassic = 0x5A2C589A,
-                          kIsCreateGoals = checksums::hash_from_text("is_creategoals"),
-                          kIsParkEditor = checksums::hash_from_text("is_parkeditor"),
-                          kIsNet = checksums::hash_from_text("is_net");
+    static const uint32_t kIsFreeskate = 0x337E7779;
+    static const uint32_t kIsSingleSession = checksums::hash_from_text("is_singlesession");
+    static const uint32_t kIsCareer = 0x1DED1EA4;
+    static const uint32_t kIsClassic = 0x5A2C589A;
+    static const uint32_t kIsCreateGoals = checksums::hash_from_text("is_creategoals");
+    static const uint32_t kIsParkEditor = checksums::hash_from_text("is_parkeditor");
+    static const uint32_t kIsNet = checksums::hash_from_text("is_net");
     ModeFlags flags;
     goals::MatchRules* mode = goals::game_mode();
     if (!mode)
@@ -1578,7 +1584,8 @@ std::string level_title()
     if (layout_save().edited_copy_ && !level_props::at_hand().name.empty())
         return level_props::at_hand().name;
     // (the symbols walked once a level: the toolbar asks every frame)
-    static uint32_t g_cached_load = 0, g_cached_scene = 0;
+    static uint32_t g_cached_load = 0;
+    static uint32_t g_cached_scene = 0;
     static std::string cached;
     const uint32_t load = current_load();
     const uint32_t scene = scenery::world_scene_key(scenery::main_scene());
@@ -1682,8 +1689,8 @@ bool put_back(const std::string& before, std::string* message)
 
 bool cfunc_pick_level(script::Struct* params, script::Script*)
 {
-    static const uint32_t kLevel = checksums::hash_from_text("level"),
-                          kEditedLayout = checksums::hash_from_text("edited_layout");
+    static const uint32_t kLevel = checksums::hash_from_text("level");
+    static const uint32_t kEditedLayout = checksums::hash_from_text("edited_layout");
     uint32_t load = 0;
     if (params)
         params->read_hash_value(kLevel, &load, 0);
@@ -1723,9 +1730,10 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
     std::vector<uint32_t> saved = saved_scenes();
     if (saved.empty())
         return false;
-    static const uint32_t kLevel = checksums::hash_from_text("level"), kText = checksums::hash_from_text("text"),
-                          kEditedLayout = checksums::hash_from_text("edited_layout"),
-                          kSignLabel = checksums::hash_from_text("sign_label");
+    static const uint32_t kLevel = checksums::hash_from_text("level");
+    static const uint32_t kText = checksums::hash_from_text("text");
+    static const uint32_t kEditedLayout = checksums::hash_from_text("edited_layout");
+    static const uint32_t kSignLabel = checksums::hash_from_text("sign_label");
     static const auto kLists = std::to_array<const char*>({"level_select_menu_level_info",       "level_select_menu_thug1_level_info",
                                          "level_select_menu_thps4_level_info", "level_select_menu_thps3_level_info",
                                          "level_select_menu_thaw_level_info",  "level_select_menu_misc_level_info"});

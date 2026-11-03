@@ -86,16 +86,23 @@ Family get_classify(NodeClass node_class)
 {
     const auto cls = node_class.cls;
     const auto type = node_class.type;
-    static const uint32_t kRestart = name_hash("Restart"), kGenericNode = name_hash("GenericNode"),
-                          kGameObject = name_hash("GameObject"), kRailNode = name_hash("RailNode"),
-                          kClimbingNode = name_hash("ClimbingNode"), kWaypoint = name_hash("Waypoint"),
-                          kLevelObject = name_hash("LevelObject"), kPedestrian = name_hash("Pedestrian"),
-                          kVehicle = name_hash("Vehicle"), kLevelGeometry = name_hash("LevelGeometry"),
-                          kLevelLight = name_hash("LevelLight"), kEmitterObject = name_hash("EmitterObject"),
-                          kParticleObject = name_hash("ParticleObject"), kProximNode = name_hash("ProximNode"),
-                          kCrown = name_hash("Crown"),
-                          kEditorTrigger =
-                              name_hash("ed_trigger"); // (level_editor_triggers.h: a trigger volume's node)
+    static const uint32_t kRestart = name_hash("Restart");
+    static const uint32_t kGenericNode = name_hash("GenericNode");
+    static const uint32_t kGameObject = name_hash("GameObject");
+    static const uint32_t kRailNode = name_hash("RailNode");
+    static const uint32_t kClimbingNode = name_hash("ClimbingNode");
+    static const uint32_t kWaypoint = name_hash("Waypoint");
+    static const uint32_t kLevelObject = name_hash("LevelObject");
+    static const uint32_t kPedestrian = name_hash("Pedestrian");
+    static const uint32_t kVehicle = name_hash("Vehicle");
+    static const uint32_t kLevelGeometry = name_hash("LevelGeometry");
+    static const uint32_t kLevelLight = name_hash("LevelLight");
+    static const uint32_t kEmitterObject = name_hash("EmitterObject");
+    static const uint32_t kParticleObject = name_hash("ParticleObject");
+    static const uint32_t kProximNode = name_hash("ProximNode");
+    static const uint32_t kCrown = name_hash("Crown");
+    static const uint32_t kEditorTrigger =
+        name_hash("ed_trigger"); // (level_editor_triggers.h: a trigger volume's node)
     static const auto kFlags = std::to_array<uint32_t>({name_hash("Flag_Red"),        name_hash("Flag_Blue"),
                                       name_hash("Flag_Green"),      name_hash("Flag_Yellow"),
                                       name_hash("Flag_Red_Base"),   name_hash("Flag_Blue_Base"),
@@ -313,11 +320,16 @@ void get_scan()
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (!manager)
         return;
-    static const uint32_t kRestartTypes = name_hash("restart_types"), kColor = name_hash("Color"),
-                          kOuterRadius = name_hash("OuterRadius"), kInnerRadius = name_hash("InnerRadius"),
-                          kRadius = name_hash("Radius"), kSurfaceKindKey = name_hash("TerrainType"),
-                          kTrickObject = name_hash("TrickObject"), kTriggerScript = name_hash("TriggerScript");
-    int crowns = 0, restarts = 0;
+    static const uint32_t kRestartTypes = name_hash("restart_types");
+    static const uint32_t kColor = name_hash("Color");
+    static const uint32_t kOuterRadius = name_hash("OuterRadius");
+    static const uint32_t kInnerRadius = name_hash("InnerRadius");
+    static const uint32_t kRadius = name_hash("Radius");
+    static const uint32_t kSurfaceKindKey = name_hash("TerrainType");
+    static const uint32_t kTrickObject = name_hash("TrickObject");
+    static const uint32_t kTriggerScript = name_hash("TriggerScript");
+    int crowns = 0;
+    int restarts = 0;
     ++node_walk().generation_;
     for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
         script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
@@ -380,8 +392,9 @@ void get_scan()
             case Family::kLadder: {
                 s->read_hash_value(kSurfaceKindKey, &node.terrain, 0);
                 node.trick_object_ = s->has_bare_flag(kTrickObject);
-                static const uint32_t kMetal = name_hash("Metal"), kWood = name_hash("Wood"),
-                                      kConcrete = name_hash("Concrete");
+                static const uint32_t kMetal = name_hash("Metal");
+                static const uint32_t kWood = name_hash("Wood");
+                static const uint32_t kConcrete = name_hash("Concrete");
                 node.colour = node.family == Family::kLadder ? kLadderColour
                               : node.type == kMetal          ? kMetalRailColour
                               : node.type == kWood           ? kWoodRailColour
@@ -728,7 +741,8 @@ bool level_is_shared(const char** game)
         {.list = "level_select_menu_thug1_level_info", .game = "THUG1"}, {.list = "level_select_menu_thaw_level_info", .game = "THAW"},
         {.list = "level_select_menu_misc_level_info", .game = nullptr}, // (skate shops, tutorials: the entry's game_tag names the game)
     });
-    static const uint32_t kLevel = name_hash("level"), kGameTag = name_hash("game_tag");
+    static const uint32_t kLevel = name_hash("level");
+    static const uint32_t kGameTag = name_hash("game_tag");
     for (const auto& entry : kLists) {
         script::Array* levels = script::fetch_list(entry.list);
         if (!levels || levels->kind_tag() != script::QbValueKind::kStruct)
@@ -751,9 +765,11 @@ bool level_is_shared(const char** game)
 
 int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float radius, const Occluder& occluder)
 {
-    const float x = at.x, y = at.y;
+    const float x = at.x;
+    const float y = at.y;
     int best = -1;
-    float best_distance = 0.0f, best_depth = 0.0f;
+    float best_distance = 0.0f;
+    float best_depth = 0.0f;
     bool best_point = false;
     for (const Pickable& p : pickables) {
         const float d = p.segment ? distance_to_segment(at, {.x = p.ax, .y = p.ay}, {.x = p.bx, .y = p.by})

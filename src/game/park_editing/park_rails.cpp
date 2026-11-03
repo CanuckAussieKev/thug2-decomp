@@ -112,7 +112,8 @@ void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* 
         ParkRailPoint* point = point_group_->append_rail_vertex(); // (not null-checked: as the original)
         std::memcpy(point, from, offsetof(ParkRailPoint, following_));
         // Turned about y: what's added to the offset's x and z.
-        float x = 0.0f, z = 0.0f;
+        float x = 0.0f;
+        float z = 0.0f;
         switch (rot) {
         case 1:
             x = from->at_point_.z;

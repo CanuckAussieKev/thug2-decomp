@@ -199,7 +199,8 @@ void WindowedList::tick_frame()
     if (!menu_)
         return;
     int index = 0;
-    float before = 0.0f, after = 0.0f; // the window's margins before / after the selected item
+    float before = 0.0f;
+    float after = 0.0f; // the window's margins before / after the selected item
     ElementPtr selected;
     if (chosen_item_id_)
         selected.assign_value(menu_->find_child_with_id(chosen_item_id_, &index));

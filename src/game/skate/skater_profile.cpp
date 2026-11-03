@@ -271,7 +271,8 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     specials->fetch_list(0u, &slots, 1);
     if (index < 0 || index >= ints::as_signed(slots->extent()))
         return false;
-    uint32_t name = trick->trick(), keys = trick->keys();
+    uint32_t name = trick->trick();
+    uint32_t keys = trick->keys();
     if (trick->is_vacant())
         name = keys = kEmptyTrick;
     auto* slot = slots->struct_at(static_cast<uint32_t>(index));

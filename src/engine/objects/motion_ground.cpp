@@ -186,7 +186,11 @@ bool KinematicsModule::stick_to_ground()
         *start = {.x = x, .y = static_cast<float>(static_cast<double>(ground_above_) * maths::kInchesPerFoot + y), .z = z, .w = w};
         *end = {.x = x, .y = static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * maths::kInchesPerFoot), .z = z, .w = w};
     };
-    maths::Vec4 start, end, back_right, back_left, front;
+    maths::Vec4 start;
+    maths::Vec4 end;
+    maths::Vec4 back_right;
+    maths::Vec4 back_left;
+    maths::Vec4 front;
     move(ahead, -1.0);
     move(side, 1.0);
     line(&start, &end);

@@ -82,7 +82,9 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     const double dz = static_cast<double>(pos.z) - target->z;
     const float dy = pos.y - target->y;
     const float dx = pos.x - target->x;
-    float dir_x = dx, dir_y = dy, dir_z = static_cast<float>(dz);
+    float dir_x = dx;
+    float dir_y = dy;
+    auto dir_z = static_cast<float>(dz);
     const double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + dz * dz);
     if (length > 0.0) {
         const double inverse = 1.0 / length;

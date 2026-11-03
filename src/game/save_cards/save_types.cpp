@@ -375,8 +375,10 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
     constexpr uint32_t kNumEditedGoals = 0xE1EC606F; // "num_edited_goals"
     constexpr uint32_t kMaxPlayers = 0xB7E39B53;     // "MaxPlayers"
     constexpr uint32_t kName = 0xA1DC81F9;           // "name"
-    constexpr uint32_t kTotalGoalsComplete = 0x959DCF6E, kTotalGoalsPossible = 0xA95F9E73;
-    constexpr uint32_t kTotalScore = 0x0E145E9C, kTotalScorePotential = 0x851B0904;
+    constexpr uint32_t kTotalGoalsComplete = 0x959DCF6E;
+    constexpr uint32_t kTotalGoalsPossible = 0xA95F9E73;
+    constexpr uint32_t kTotalScore = 0x0E145E9C;
+    constexpr uint32_t kTotalScorePotential = 0x851B0904;
     constexpr uint32_t kIsMale = 0x3F813177; // "is_male"
     const char* const empty = "";            // ""
     park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();

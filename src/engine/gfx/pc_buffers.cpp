@@ -63,7 +63,9 @@ void MeshRef::set_pixel_shader_colored()
     const uint32_t bytes = material_->pass_count() << 4; // 16 a pass
     auto& saved = saved_pixel_shader_constants();
     std::memcpy(saved.data(), renderer().ps_constants().data(), bytes);
-    double r = 0.0, g = 0.0, b = 0.0;
+    double r = 0.0;
+    double g = 0.0;
+    double b = 0.0;
     if (renderer().instance_colour_on()) {
         r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0f / kColourScale);
         g = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0f / kColourScale);

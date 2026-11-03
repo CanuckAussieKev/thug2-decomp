@@ -434,7 +434,9 @@ void BlendChannel::update_blend()
     if (!owner->own_script()->is_blocked(false)) {
         stop = true;
     } else {
-        float start = 0.0f, current = 0.0f, end = 0.0f;
+        float start = 0.0f;
+        float current = 0.0f;
+        float end = 0.0f;
         objects::get_channel_times(this, &start, &current, &end);
         // (forwards: the time reached; backwards - or a range of none - reached the other way; NaN: never)
         if (start <= end && current >= wait_time_)
@@ -767,7 +769,9 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         return;
     }
     if (keep_ratio) {
-        float start = 0.0f, current = 0.0f, end = 0.0f;
+        float start = 0.0f;
+        float current = 0.0f;
+        float end = 0.0f;
         get_first(this)->get_times(&start, &current, &end);
         auto ratio = static_cast<float>(speed / (static_cast<double>(end) - start));
         for (memory::ListNode* node = timelines_.next(); !is_head(node) && node; node = node->next()) {
@@ -967,7 +971,8 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     bool sync = true;
     double fraction = 0.0;
     if (params->has_bare_flag(kSyncToPreviousAnim)) { // SyncToPreviousAnim: as far through as the playing one
-        float current = 0.0f, ends = 0.0f;
+        float current = 0.0f;
+        float ends = 0.0f;
         objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
         params->fetch_float(kEffectivePreviousAnimDuration, &playing_length, 0); // (read and not used here)
@@ -979,7 +984,8 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         else
             fraction = through;
     } else if (params->has_bare_flag(kSyncToReversePreviousAnim)) { // as far from the end as the playing one
-        float current = 0.0f, ends = 0.0f;
+        float current = 0.0f;
+        float ends = 0.0f;
         objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
         params->fetch_float(kEffectivePreviousAnimDuration, &playing_length, 0);
@@ -995,7 +1001,8 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
             start = static_cast<float>(-(static_cast<double>(length) - start));
         speed = static_cast<float>(get_speed(nullptr, nullptr));
     }
-    float current = 0.0f, ends = 0.0f;
+    float current = 0.0f;
+    float ends = 0.0f;
     if (const AnimTrack* playing_now = get_first(this))
         playing_now->get_times(&ends, &current, &ends);
     range_from_params(&from, &to, current, length, params, script);
@@ -1111,7 +1118,9 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         params->fetch_float(kDurationKey, &duration, 1);
         for (memory::ListNode* node = timelines_.next(); !is_head(node) && node; node = node->next()) {
             auto* timeline = track_of(node);
-            float start = 0.0f, current = 0.0f, end = 0.0f;
+            float start = 0.0f;
+            float current = 0.0f;
+            float end = 0.0f;
             timeline->get_times(&start, &current, &end);
             const float larger = start > end ? start : end;
             timeline->set_speed(static_cast<float>(larger / static_cast<double>(duration) * kSecondsPerFrame));
@@ -1179,7 +1188,9 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
 // from the current time (0x91A4C826), the end (FromEnd) or its start; the object's script made if it has none.
 int BlendChannel::wait_anim(Struct* params)
 {
-    float start = 0.0f, current = 0.0f, end = 0.0f;
+    float start = 0.0f;
+    float current = 0.0f;
+    float end = 0.0f;
     objects::get_channel_times(this, &start, &current, &end);
     float time = 0.0f;
     params->fetch_float(0u, &time, 0);
@@ -1219,7 +1230,9 @@ int BlendChannel::wait_anim(Struct* params)
 // start) lies between the playing timeline's time last frame and now - either way round.
 int BlendChannel::time_passed(Struct* params)
 {
-    float start = 0.0f, current = 0.0f, end = 0.0f;
+    float start = 0.0f;
+    float current = 0.0f;
+    float end = 0.0f;
     objects::get_channel_times(this, &start, &current, &end);
     float time = 0.0f;
     params->fetch_float(0u, &time, 0);

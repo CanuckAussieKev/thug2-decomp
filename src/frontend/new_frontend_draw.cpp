@@ -315,7 +315,8 @@ uint32_t get_mix(uint32_t a, uint32_t b, float t)
     t = std::clamp(t, 0.0f, 1.0f);
     uint32_t out = 0;
     for (int shift = 0; shift < kBitsPerWord; shift += kBitsPerByte) {
-        auto x = static_cast<float>((a >> shift) & kByteMask), y = static_cast<float>((b >> shift) & kByteMask);
+        auto x = static_cast<float>((a >> shift) & kByteMask);
+        auto y = static_cast<float>((b >> shift) & kByteMask);
         out |= maths::round_non_negative<uint32_t>(x + (y - x) * t) << shift;
     }
     return out;
@@ -1045,7 +1046,8 @@ std::string get_clock(float seconds)
 
 std::string thousands(int n)
 {
-    std::string digits = std::to_string(n < 0 ? -n : n), out;
+    std::string digits = std::to_string(n < 0 ? -n : n);
+    std::string out;
     for (size_t i = 0; i < digits.size(); ++i) {
         if (i > 0 && (digits.size() - i) % 3 == 0)
             out += ',';
@@ -1204,8 +1206,9 @@ void options_screen(Ctx& c, float window_width, float window_height)
     body.face = Face::kBody;
     body.css = kBodyTextSize;
     body.colour = kMuted;
-    std::string name,
-        kicker = std::string(core::at(groups, menu.option_group()).name) + " \xE2\x80\x94 " + pad2(menu.option_row() + 1);
+    std::string name;
+    std::string const kicker =
+        std::string(core::at(groups, menu.option_group()).name) + " \xE2\x80\x94 " + pad2(menu.option_row() + 1);
     if (action) {
         get_button(c, {.x = left, .y = bottom}, text_tools::kOpen, Menu::kHouseYellow, true, Hit::Kind::kSkate, 1.0f);
         bottom -= kHeadingTextSize * kButtonLineHeight + kButtonVerticalPad + kPanelStackGap;
@@ -1220,7 +1223,8 @@ void options_screen(Ctx& c, float window_width, float window_height)
         Style seg = mono12(kPaper, false);
         seg.css = kLabelTextSize;
         const float h = 13.0f * 1.3f + 16.0f;
-        float x = left, y0 = bottom - h;
+        float x = left;
+        float const y0 = bottom - h;
         const int chosen = menu.option_choice(option);
         for (size_t i = 0; i < spec.choices.size(); ++i) {
             const float w = get_measure(seg, *c.f, core::at(spec.choices, i).label) / c.f->scale() + 28.0f;
@@ -1597,7 +1601,8 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     name.upper = true;
     const float gap = 34.0f;
     std::vector<float> widths;
-    float total = 0.0f, selected_centre = 0.0f;
+    float total = 0.0f;
+    float selected_centre = 0.0f;
     for (size_t i = 0; i < v.rows.size(); ++i) {
         widths.push_back(get_measure(name, *c.f, core::at(v.rows, i).label.c_str()) / c.f->scale());
         if (ints::as_signed(i) == v.selected)
@@ -1796,9 +1801,12 @@ void colour_track(Ctx& c, const mirror::View& v, const mirror::Row& r, bool sele
 {
     const float x0 = band.left;
     const float x1 = band.right;
-    constexpr float kSatLimit = 90.0f, kValLow = 12.0f, kValHigh = 60.0f;
-    float hue = v.has_colour_ ? v.hue : 0.0f, sat = v.has_colour_ ? v.sat : kSatLimit,
-          val = v.has_colour_ ? v.val : kDefaultTrackValue;
+    constexpr float kSatLimit = 90.0f;
+    constexpr float kValLow = 12.0f;
+    constexpr float kValHigh = 60.0f;
+    float hue = v.has_colour_ ? v.hue : 0.0f;
+    float sat = v.has_colour_ ? v.sat : kSatLimit;
+    float val = v.has_colour_ ? v.val : kDefaultTrackValue;
     const float rail_half = 3.0f;
     const float px0 = c.f->get_x(x0);
     const float px1 = c.f->get_x(x1);
@@ -2135,7 +2143,9 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
     Style key = mono12(kPaper, false);
     key.css = kKeyTextSize;
     key.upper = false; // (the keys as the game shows them: lower case is lower case)
-    float top = line + kKeyRowsDrop, h = kKeyHeight, gap = kKeyGap;
+    float top = line + kKeyRowsDrop;
+    float const h = kKeyHeight;
+    float const gap = kKeyGap;
     for (size_t r = 0; r < v.keys.size(); ++r) {
         float x = kColumnLeft;
         for (size_t k = 0; k < core::at(v.keys, r).size(); ++k) {

@@ -144,7 +144,11 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script)
 {
     uint32_t result = 0;
     params->read_hash_value(kResult, &result, 1);
-    float from = 0.0f, to = 0.0f, value = 0.0f, lower = 0.0f, upper = 0.0f;
+    float from = 0.0f;
+    float to = 0.0f;
+    float value = 0.0f;
+    float lower = 0.0f;
+    float upper = 0.0f;
     params->fetch_float(kFrom, &from, 1);
     params->fetch_float(kTo, &to, 1);
     params->fetch_float(kValue, &value, 1);
@@ -164,7 +168,9 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script)
 // min > max).
 bool cfunc_clamp(script::Struct* params, script::Script* script)
 {
-    float value = 0.0f, min = 0.0f, max = 0.0f;
+    float value = 0.0f;
+    float min = 0.0f;
+    float max = 0.0f;
     params->fetch_float(0u, &value, 1);
     params->fetch_float(kMin, &min, 1);
     params->fetch_float(kMax, &max, 1);
@@ -182,7 +188,9 @@ bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
     params->fetch_float(kX, &point.x, 1);
     params->fetch_float(kY, &point.y, 1);
     params->fetch_float(kZ, &point.z, 1);
-    float rx = 0.0f, ry = 0.0f, rz = 0.0f;
+    float rx = 0.0f;
+    float ry = 0.0f;
+    float rz = 0.0f;
     params->fetch_float(kRx, &rx, 0);
     params->fetch_float(kRy, &ry, 0);
     params->fetch_float(kRz, &rz, 0);

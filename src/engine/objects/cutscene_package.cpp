@@ -452,7 +452,8 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         table.table = skin_colour_tables().skin_colour_table_.data();
         table.colours = skin;
         // which skin this is: the next names along say (none after it: the last)
-        bool male = false, has_face = false;
+        bool male = false;
+        bool has_face = false;
         if (!bundle_ptr_->find_entry(entry->name + 1, kTypeModel, 0)) {
             male = false;
             has_face = true;

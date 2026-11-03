@@ -499,7 +499,8 @@ Uv cover_uv(maths::Size image, maths::Size box, float pan)
     // The fraction of the picture shown each way: the box's aspect against the picture's, then the zoom for the pan.
     const float image_aspect = image_width / image_height;
     const float box_aspect = box_width / box_height;
-    float shown_u = 1.0f, shown_v = 1.0f;
+    float shown_u = 1.0f;
+    float shown_v = 1.0f;
     if (box_aspect < image_aspect)
         shown_u = box_aspect / image_aspect;
     else

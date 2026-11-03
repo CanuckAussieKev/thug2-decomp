@@ -103,7 +103,8 @@ void get_apply(const Goal& g, bool done)
 void current_settings(const Goal& goal, ImFont* mono)
 {
     Goal g = goal;
-    bool done = false, changed = false;
+    bool done = false;
+    bool changed = false;
     const std::string key = g.id + "/";
     if (text_field("Name##goal", key + "name", &g.name, kNameFieldLimit, false))
         changed = done = true; // (Create-a-Goal's keyboard: 16 characters)

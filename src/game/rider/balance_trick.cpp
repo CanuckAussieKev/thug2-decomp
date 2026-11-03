@@ -280,7 +280,12 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
     case kAdjustBalance: {
         if (!trick_)
             return 1;
-        float time_add = 0.0f, lean_add = 0.0f, speed_add = 0.0f, time_mult = 1.0f, lean_mult = 1.0f, speed_mult = 1.0f;
+        float time_add = 0.0f;
+        float lean_add = 0.0f;
+        float speed_add = 0.0f;
+        float time_mult = 1.0f;
+        float lean_mult = 1.0f;
+        float speed_mult = 1.0f;
         params->fetch_float(kTimeAdd, &time_add, 0);
         params->fetch_float(kLeanAdd, &lean_add, 0);
         params->fetch_float(kPaceBoost, &speed_add, 0);
@@ -322,7 +327,9 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
             change_args(balance_params);
         int tweak = 0;
         params->fetch_int_value(kTweak, &tweak, 0);
-        uint32_t button_a = 0, button_b = 0, type = 0;
+        uint32_t button_a = 0;
+        uint32_t button_b = 0;
+        uint32_t type = 0;
         params->read_hash_value(kButtonA, &button_a, 1);
         params->read_hash_value(kButtonB, &button_b, 1);
         params->read_hash_value(kTypeName, &type, 0);
