@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_layout.h"
@@ -148,7 +149,7 @@ bool spec_of_level_node(const nodes::Elem& n, node_create::Spec* spec)
     node_create::Kind kind{};
     switch (n.family) {
     case nodes::Family::kSpawn:
-        kind = (n.restart_types_ & nodes::kCtf) ? node_create::Kind::kTeamSpawn : node_create::Kind::kSpawn;
+        kind = core::any(n.restart_types_ & nodes::SpawnPointKind::kCtf) ? node_create::Kind::kTeamSpawn : node_create::Kind::kSpawn;
         break;
     case nodes::Family::kCrown:
         kind = node_create::Kind::kCrown;

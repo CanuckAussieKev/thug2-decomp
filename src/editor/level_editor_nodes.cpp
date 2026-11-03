@@ -14,6 +14,7 @@
 #include <utility>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "engine/maths/vec2.h"
 #include "engine/core/checksums.h"
@@ -148,30 +149,31 @@ Shape shape_of(Family family)
     }
 }
 
-uint32_t restart_type_bit(uint32_t type)
+SpawnPointKind restart_type_bit(uint32_t type)
 {
     struct TypeBit {
-        uint32_t checksum, bit;
+        uint32_t checksum;
+        SpawnPointKind bit;
     };
     static const auto kTypes = std::to_array<TypeBit>({
-        {.checksum = name_hash("Player1"), .bit = kPlayer1},
-        {.checksum = name_hash("Player2"), .bit = kPlayer2},
-        {.checksum = name_hash("Multiplayer"), .bit = kMultiplayer},
-        {.checksum = name_hash("Horse"), .bit = kHorse},
-        {.checksum = name_hash("CTF"), .bit = kCtf},
-        {.checksum = name_hash("CTF_1"), .bit = kCtf},
-        {.checksum = name_hash("CTF_2"), .bit = kCtf},
-        {.checksum = name_hash("CTF_3"), .bit = kCtf},
-        {.checksum = name_hash("CTF_4"), .bit = kCtf},
-        {.checksum = name_hash("Team"), .bit = kTeam},
-        {.checksum = name_hash("KingOfTheHill"), .bit = kKing},
-        {.checksum = name_hash("Generic"), .bit = kGeneric},
+        {.checksum = name_hash("Player1"), .bit = SpawnPointKind::kPlayer1},
+        {.checksum = name_hash("Player2"), .bit = SpawnPointKind::kPlayer2},
+        {.checksum = name_hash("Multiplayer"), .bit = SpawnPointKind::kMultiplayer},
+        {.checksum = name_hash("Horse"), .bit = SpawnPointKind::kHorse},
+        {.checksum = name_hash("CTF"), .bit = SpawnPointKind::kCtf},
+        {.checksum = name_hash("CTF_1"), .bit = SpawnPointKind::kCtf},
+        {.checksum = name_hash("CTF_2"), .bit = SpawnPointKind::kCtf},
+        {.checksum = name_hash("CTF_3"), .bit = SpawnPointKind::kCtf},
+        {.checksum = name_hash("CTF_4"), .bit = SpawnPointKind::kCtf},
+        {.checksum = name_hash("Team"), .bit = SpawnPointKind::kTeam},
+        {.checksum = name_hash("KingOfTheHill"), .bit = SpawnPointKind::kKing},
+        {.checksum = name_hash("Generic"), .bit = SpawnPointKind::kGeneric},
     });
     for (const auto& t : kTypes) {
         if (t.checksum == type)
             return t.bit;
     }
-    return 0;
+    return SpawnPointKind::kNone;
 }
 
 uint32_t team_colour(const char* text)
@@ -201,17 +203,17 @@ uint32_t team_colour(const char* text)
     return 0;
 }
 
-uint32_t spawn_colour(uint32_t types, uint32_t team)
+uint32_t spawn_colour(SpawnPointKind types, uint32_t team)
 {
-    if (team && (types & (kCtf | kTeam)))
+    if (team && core::any(types & (SpawnPointKind::kCtf | SpawnPointKind::kTeam)))
         return team;
-    if (types & kMultiplayer)
+    if (core::any(types & SpawnPointKind::kMultiplayer))
         return kMultiplayerSpawnColour;
-    if (types & kPlayer1)
+    if (core::any(types & SpawnPointKind::kPlayer1))
         return kPlayer1SpawnColour;
-    if (types & kPlayer2)
+    if (core::any(types & SpawnPointKind::kPlayer2))
         return kPlayer2SpawnColour;
-    if (types & kHorse)
+    if (core::any(types & SpawnPointKind::kHorse))
         return kHorseSpawnColour;
     return kOtherSpawnColour;
 }

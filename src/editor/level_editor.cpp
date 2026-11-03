@@ -2,6 +2,7 @@
 // level_editor.h.
 
 #include "editor/level_editor.h"
+#include "engine/core/enum_ops.h"
 #include "platform/keyboard.h"
 
 #include <SDL2/SDL.h>
@@ -2636,7 +2637,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             }
             o.circles.push_back({.x = px, .y = py, .radius = r + kOutlineGrow * k, .argb = outline, .filled = true, .thickness = 1.0f});
             o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0f});
-            if (n.restart_types_ & nodes::kHorse) // (a HORSE spot: restart_types has Horse - the feature map)
+            if (core::any(n.restart_types_ & nodes::SpawnPointKind::kHorse)) // (a HORSE spot: restart_types has Horse - the feature map)
                 o.texts.push_back({.x = px + r + kHorseLabelOffset * k, .y = py - r - kHorseLabelRise * k, .argb = kHorseColour, .text = "H"});
             break;
         }
@@ -3313,7 +3314,7 @@ const std::vector<PlaceEntry>& place_entries()
     using node_create::Kind;
     using node_create::Team;
     const auto teams = std::to_array<Team>({Team::kRed, Team::kBlue, Team::kGreen, Team::kYellow});
-    entries.push_back({.kind = Kind::kSpawn, .team = Team::kRed, .label = "Multiplayer Spawn", .colour = nodes::spawn_colour(nodes::kMultiplayer, 0)});
+    entries.push_back({.kind = Kind::kSpawn, .team = Team::kRed, .label = "Multiplayer Spawn", .colour = nodes::spawn_colour(nodes::SpawnPointKind::kMultiplayer, 0)});
     for (Team t : teams) {
         const std::string colour = node_create::get_team_name(t);
         entries.push_back(

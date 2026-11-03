@@ -1921,7 +1921,7 @@ std::string nearest_restart(V3 pos)
     std::string name;
     for (const nodes::Elem& node : nodes::get_all()) {
         if (node.family != nodes::Family::kSpawn || node.hidden || !node.has_pos_ ||
-            !(node.restart_types_ & (nodes::kPlayer1 | nodes::kMultiplayer)))
+            !core::any(node.restart_types_ & (nodes::SpawnPointKind::kPlayer1 | nodes::SpawnPointKind::kMultiplayer)))
             continue;
         const V3 d = node.pos - pos;
         const float distance = get_dot(d, d);

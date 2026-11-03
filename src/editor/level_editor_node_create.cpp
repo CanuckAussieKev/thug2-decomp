@@ -15,6 +15,7 @@
 #include <utility>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor_nodes.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_node_edit.h"
@@ -422,10 +423,10 @@ const char* limit_message(Kind kind, const Counts& counts)
     }
 }
 
-bool hide_leaves_no_restart(uint32_t types, uint32_t others)
+bool hide_leaves_no_restart(nodes::SpawnPointKind types, nodes::SpawnPointKind others)
 {
-    for (const uint32_t bit : {static_cast<uint32_t>(nodes::kPlayer1), static_cast<uint32_t>(nodes::kMultiplayer)}) {
-        if ((types & bit) && !(others & bit))
+    for (const nodes::SpawnPointKind bit : {nodes::SpawnPointKind::kPlayer1, nodes::SpawnPointKind::kMultiplayer}) {
+        if (core::any(types & bit) && !core::any(others & bit))
             return true;
     }
     return false;
@@ -1086,7 +1087,7 @@ bool can_hide(const nodes::Elem& node, const char** why)
         return false;
     }
     if (node.family == nodes::Family::kSpawn) {
-        uint32_t others = 0;
+        nodes::SpawnPointKind others = nodes::SpawnPointKind::kNone;
         for (const nodes::Elem& n : nodes::get_all()) {
             if (n.family == nodes::Family::kSpawn && !n.hidden && n.name != node.name)
                 others |= n.restart_types_;
