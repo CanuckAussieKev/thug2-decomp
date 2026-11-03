@@ -50,8 +50,7 @@ public:
     // 0x00481830: the timeline's constructor, then no controllers and no events, `object`, events on, playing.
     explicit AnimTrack(objects::GameEntity* object);
     // 0x00481960 (slot 1): the timeline's Reset, then off with no fade.
-    // NOLINTNEXTLINE(bugprone-derived-method-shadowing-base-method): the original's non-virtual method of the same name
-    void get_reset();
+    void reset_track();
     // 0x00481870: each controller deleted (its slot 0 with 1; null ones skipped), none left.
     void delete_controllers();
     // 0x004818B0: `controller` (if it's one of them) deleted and the rest moved down.
@@ -71,12 +70,10 @@ public:
     AnimTrack(const AnimTrack&) = delete;
     AnimTrack& operator=(const AnimTrack&) = delete;
     // 0x00482340 (slot 0)
-    // NOLINTNEXTLINE(bugprone-derived-method-shadowing-base-method): the original's non-virtual method of the same name
-    AnimTrack* teardown(uint8_t flags);
+    AnimTrack* teardown_track(uint8_t flags);
     // 0x00481AC0 (slot 2): not complete; fading, the weight drops by the frame's share of the fade rate (off at
     // nothing left, or once the fade times its scale goes below 0); playing or fading, each controller's Update.
-    // NOLINTNEXTLINE(bugprone-derived-method-shadowing-base-method): the original's non-virtual method of the same name
-    void tick_frame();
+    void tick_track();
     // 0x00482200 (slot 5): AddAnimController (1), RemoveAnimController (the one with `id`), 0xC68365EB (a new
     // animation and duration - Sync keeps the timeline's place in proportion); anything else to the controllers in
     // turn until one doesn't answer 2 (not its own).

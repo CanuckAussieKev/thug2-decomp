@@ -244,11 +244,11 @@ void uncouple(memory::ListNode* node)
 }
 
 // A timeline (an AnimTrack, its own node) deleted: its scalar deleting destructor (the original's slot 0).
-void delete_timeline(memory::ListNode* node) { static_cast<AnimTrack*>(node->data())->teardown(1); }
+void delete_timeline(memory::ListNode* node) { static_cast<AnimTrack*>(node->data())->teardown_track(1); }
 // Every timeline of the list deleted (0x0057A2F0 over the list).
 void delete_all_timelines(memory::ListNode* head)
 {
-    lists::delete_each<AnimTrack>(head, [](AnimTrack* timeline) { timeline->teardown(1); });
+    lists::delete_each<AnimTrack>(head, [](AnimTrack* timeline) { timeline->teardown_track(1); });
 }
 
 objects::GameEntity* get_owner(BlendChannel* channel)
@@ -455,7 +455,7 @@ void BlendChannel::update_timelines()
     int count = count_list_items(&timelines_);
     AnimTrack* timeline = masked(timelines_.next());
     for (; count > 0; --count) {
-        timeline->tick_frame();
+        timeline->tick_track();
         timeline = masked(elem(timeline)->next());
     }
 }

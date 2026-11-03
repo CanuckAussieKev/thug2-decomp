@@ -323,7 +323,7 @@ bool FallingTricksGoal::disengage(bool unused, bool reset_tree)
 }
 
 // 0x0056F2E0
-void FallingTricksGoal::prepare_all()
+void FallingTricksGoal::prepare_to_start()
 {
     trick_total_ = 0;
     stopwatch_ = 0;
@@ -410,7 +410,7 @@ bool FallingTricksGoal::activate()
 {
     if (is_operative())
         return false;
-    prepare_all();
+    prepare_to_start();
     return base_activate(this);
 }
 
@@ -875,7 +875,7 @@ int game_clock() { return frame_clock::game_clock_elapsed() + objects::clock_off
 } // namespace
 
 // 0x00574A10
-void TrickBeatGoal::prepare_all()
+void TrickBeatGoal::prepare_to_start()
 {
     last_time_ = game_clock();
     trick_total_ = 0;
@@ -954,7 +954,7 @@ bool TrickBeatGoal::activate()
     in_window_ = false;
     if (is_operative())
         return false;
-    prepare_all();
+    prepare_to_start();
     return base_activate(this);
 }
 

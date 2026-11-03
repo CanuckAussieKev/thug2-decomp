@@ -91,7 +91,7 @@ AnimTrack::~AnimTrack()
 }
 
 // 0x00482340
-AnimTrack* AnimTrack::teardown(uint8_t flags)
+AnimTrack* AnimTrack::teardown_track(uint8_t flags)
 {
     this->~AnimTrack();
     if (flags & 1)
@@ -128,7 +128,7 @@ AnimDriver* AnimTrack::find_controller(uint32_t id)
 }
 
 // 0x00481AC0
-void AnimTrack::tick_frame()
+void AnimTrack::tick_track()
 {
     set_complete(false);
     if (cur_phase_ == kFading) {

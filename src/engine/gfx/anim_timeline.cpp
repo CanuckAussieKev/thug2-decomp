@@ -175,7 +175,7 @@ void AnimTimeline::advance_clock(float frames)
 AnimTrack::AnimTrack(objects::GameEntity* object) : owner_object_(object) {}
 
 // 0x00481960
-void AnimTrack::get_reset()
+void AnimTrack::reset_track()
 {
     AnimTimeline::get_reset();
     cur_phase_ = kOff;
