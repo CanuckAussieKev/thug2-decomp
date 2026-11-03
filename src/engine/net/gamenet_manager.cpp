@@ -85,12 +85,12 @@ const char* Hub::level_list_name(uint32_t level)
 namespace online {
 
 // 0x0044E4E0
-int Hub::is_network_game() { return (flag_bits_ & 0x0C) != 0 ? 1 : 0; }
+int Hub::is_network_game() { return (flag_bits_ & kHubNetworkModeFlags) != 0 ? 1 : 0; }
 
 // 0x0044E4F0
 bool Hub::in_net_game()
 {
-    if (!(flag_bits_ & 0x0C))
+    if (!(flag_bits_ & kHubNetworkModeFlags))
         return false;
     if (host_ && !host_->is_host_local())
         return true;

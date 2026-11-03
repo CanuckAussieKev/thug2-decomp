@@ -16,6 +16,7 @@ namespace online {
 
 class Hub;
 
+constexpr size_t kScoreEntryTextSize = 32;
 // A line of the score list (0x48 bytes), a node of a local list sorted by its priority, the score (its node keeps the
 // original's size).
 struct ScoreEntry : memory::ListNode {
@@ -23,8 +24,8 @@ struct ScoreEntry : memory::ListNode {
     ScoreEntry* teardown(unsigned int flags);
 
     // The fields other code reads and sets.
-    std::array<char, 32>& text() { return text_; }
-    [[nodiscard]] const std::array<char, 32>& text() const { return text_; }
+    std::array<char, kScoreEntryTextSize>& text() { return text_; }
+    [[nodiscard]] const std::array<char, kScoreEntryTextSize>& text() const { return text_; }
     [[nodiscard]] bool king() const { return king_; }
     void set_king(bool value) { king_ = value; }
     [[nodiscard]] bool local() const { return local_; }
@@ -41,7 +42,7 @@ struct ScoreEntry : memory::ListNode {
     void set_unknown44(uint32_t value) { unknown44_ = value; }
 
 private:
-    std::array<char, 32> text_;      // +0x14 the player's (or team's) name; "> " before the local one
+    std::array<char, kScoreEntryTextSize> text_;      // +0x14 the player's (or team's) name; "> " before the local one
     bool king_;          // +0x34 has the crown
     bool local_;         // +0x35
     bool has_flag_;      // +0x36 carries a flag

@@ -23,6 +23,28 @@ class HostEnd;
 class Guest;
 struct AppHost;
 
+constexpr size_t kHubMessageFlagsSize = 0x100;
+constexpr size_t kHubLocalIpSize = 0x10;
+constexpr size_t kHubRouterAddrSize = 0x10;
+constexpr size_t kHubSubnetMaskSize = 0x10;
+constexpr size_t kHubDialupUserNameSize = 0x50;
+constexpr size_t kHubDialupPasswordSize = 0x50;
+constexpr size_t kHubHostNameSize = 0x20;
+constexpr size_t kHubDomainNameSize = 0x20;
+// The dial-up status (get_dialup_status / set_dialup_status).
+constexpr int kDialupStatusDisconnected = 5;
+constexpr int kDialupStatusIdle = 6;
+constexpr int kDialupStatusRedialPause = 7;
+constexpr int kDialupStatusRedialWaiting = 8;
+constexpr int kDialupStatusFinished = 9;
+// Link speeds by connection type (bits per second).
+constexpr int kLinkSpeedModem = 4200;
+constexpr int kLinkSpeedBroadband = 400000;
+constexpr int kLinkSpeedMedium = 300000;
+constexpr size_t kResolverIpBytes = 0x10;
+constexpr size_t kDialupNumberBytes = 0x20;
+constexpr size_t kHubUnknown2f0Offset = 0x2F0;
+constexpr size_t kHubDialupBpsOffset = 0x374;
 class Hub {
 public:
     // connection_type_: what the connection is. Setting it sets the bandwidth (bytes a second).
@@ -119,22 +141,22 @@ public:
 private:
     memory::ListNode hosts_{};       // +0x000 lists::Foremost<App>
     memory::ListNode clients_{};     // +0x014
-    std::array<uint8_t, 0x100> message_flags_{}; // +0x028 per message id (bit 0: sent without its length; the
+    std::array<uint8_t, kHubMessageFlagsSize> message_flags_{}; // +0x028 per message id (bit 0: sent without its length; the
                                      //        constructor: 8 and 9 get 1, 0-254 0)
     int connection_type_;          // +0x128
     uint32_t unknown12c_{};
     int device_type_{};                            // +0x130
-    std::array<char, 0x10> local_ip_{};                        // +0x134 ("<Unknown>" at first)
+    std::array<char, kHubLocalIpSize> local_ip_{};                        // +0x134 ("<Unknown>" at first)
     uint32_t local_address_{};                     // +0x144
-    std::array<std::array<char, 0x10>, kNumDnsServers> resolver_ips_{};    // +0x148
-    std::array<char, 0x10> router_addr_{};                     // +0x178 ("192.168.55.99")
-    std::array<char, 0x10> subnet_mask_{};                     // +0x188 ("255.255.0.0")
+    std::array<std::array<char, kResolverIpBytes>, kNumDnsServers> resolver_ips_{};    // +0x148
+    std::array<char, kHubRouterAddrSize> router_addr_{};                     // +0x178 ("192.168.55.99")
+    std::array<char, kHubSubnetMaskSize> subnet_mask_{};                     // +0x188 ("255.255.0.0")
     int dialup_number_index_;                      // +0x198 which dial-up number is in use
-    std::array<std::array<char, 0x20>, kNumDialupNumbers> dialup_numbers_{}; // +0x19C
-    std::array<char, 0x50> dialup_user_name_{};                  // +0x1FC
-    std::array<char, 0x50> dialup_password_{};                   // +0x24C
-    std::array<char, 0x20> host_name_{};                         // +0x29C
-    std::array<char, 0x20> domain_name_{};                       // +0x2BC
+    std::array<std::array<char, kDialupNumberBytes>, kNumDialupNumbers> dialup_numbers_{}; // +0x19C
+    std::array<char, kHubDialupUserNameSize> dialup_user_name_{};                  // +0x1FC
+    std::array<char, kHubDialupPasswordSize> dialup_password_{};                   // +0x24C
+    std::array<char, kHubHostNameSize> host_name_{};                         // +0x29C
+    std::array<char, kHubDomainNameSize> domain_name_{};                       // +0x2BC
     int num_apps_;                                 // +0x2DC apps made
     int last_error_;                               // +0x2E0
     bool is_networked_;                            // +0x2E4
@@ -142,7 +164,7 @@ private:
     bool flag_2e_6_;                               // +0x2E6
     int dialup_phase_;                             // +0x2E8
     int unknown2ec_;                               // +0x2EC (0 from the constructor)
-    std::array<uint8_t, 0x374 - 0x2F0> unknown2f0_{};
+    std::array<uint8_t, kHubDialupBpsOffset - kHubUnknown2f0Offset> unknown2f0_{};
     int dialup_bps_{}; // +0x374
     int link_speed_; // +0x378 (400000 at first)
 };

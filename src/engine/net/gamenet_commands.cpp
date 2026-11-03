@@ -3,6 +3,7 @@
 // client sends the server (start the game, change the level, toggle a pro set flag or a goal).
 
 #include <cstdint>
+#include "engine/net/service.h"
 #include <array>
 #include "engine/core/arena_alloc.h"
 #include "platform/gamespy.h"
@@ -199,7 +200,7 @@ bool cfunc_cancel_motd_download(Struct*, Script*)
 // 0x00535F40: DownloadMotd - the lobby's state 6.
 bool cfunc_download_motd(Struct*, Script*)
 {
-    net_game_state().online_hub()->set_service_state(6);
+    net_game_state().online_hub()->set_service_state(online::kServiceStateNewsMessage);
     return true;
 }
 

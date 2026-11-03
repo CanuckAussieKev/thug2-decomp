@@ -48,6 +48,8 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr int kRiderSlotCount = 8;
+constexpr uint8_t kArrivedResyncFlags = 0x11;
 
 // A joining player's flags (JoinerRecord::flag_bits_).
 constexpr uint32_t kNewLocal = 0x01;
@@ -176,7 +178,7 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
                     if (net::Conn* conn = client->begin_conn_walk(&search))
                         conn->stamp_last_heard(0); // (the time spent adding them isn't silence)
             }
-            for (int i = 0; i < 8; ++i)
+            for (int i = 0; i < kRiderSlotCount; ++i)
                 if (void* skater = static_cast<modules::Skate*>(skate)->get_rider_at(i))
                     static_cast<objects::Rider*>(skater)->reset_27c();
             manager->send_ready_response();
@@ -327,7 +329,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 std::strncpy(msg.header.name.data(), info->label().data(), kNameSize - 1);
                 msg.header.flags = 1;
                 if (player->flag_bits() & kNewResync)
-                    msg.header.flags = 0x11;
+                    msg.header.flags = kArrivedResyncFlags;
                 if (is_observer(player))
                     msg.header.flags |= 4;
                 desc.set_content(nullptr);

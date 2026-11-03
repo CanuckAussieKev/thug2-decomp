@@ -13,6 +13,7 @@ namespace net {
 
 struct NetMessageInfo;
 
+constexpr size_t kGuestHostSockAddrSize = 0x10;
 class Guest final : public AppHost {
 public:
     // 0x0045A250: the App (0x004594C0, with `flags`), then the App's task (tasks::Task, priority -2000). (Its
@@ -48,7 +49,7 @@ public:
     static int on_clock_sync_msg(InboundMsgCtx* context);
 
 private:
-    std::array<uint8_t, 0x10> host_sock_addr_{}; // +0x1F08 sockaddr_in (dial_server; pull_inbound looks the server up by it)
+    std::array<uint8_t, kGuestHostSockAddrSize> host_sock_addr_{}; // +0x1F08 sockaddr_in (dial_server; pull_inbound looks the server up by it)
 };
 
 // The app's task (net_client.cpp; the server uses it too).

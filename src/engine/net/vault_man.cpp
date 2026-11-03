@@ -39,6 +39,13 @@
 #include "engine/net/net_game_state.h"
 
 namespace {
+constexpr SIZE_T kThreadStackBytes = 0x8000;
+constexpr int kMaxSemaphoreCount = 10;
+constexpr int kProgressComplete = 100;
+// The progress callback's states while a file comes in or goes out.
+constexpr int kProgressStateReceiving = 3;
+constexpr int kProgressStatePosting = 7;
+constexpr size_t kUploadsLabelBytes = 8;
 
 // Names (the checksums of their text).
 constexpr uint32_t kCAT = 0x61A1BC57u; // CAT
@@ -89,7 +96,7 @@ void get_release(void* semaphore) { ReleaseSemaphore(static_cast<HANDLE>(semapho
 HANDLE start_thread(LPTHREAD_START_ROUTINE thread, void* param)
 {
     DWORD id = 0;
-    HANDLE handle = CreateThread(nullptr, 0x8000, thread, param, CREATE_SUSPENDED, &id);
+    HANDLE handle = CreateThread(nullptr, kThreadStackBytes, thread, param, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     return handle; // (never closed)
 }
@@ -273,7 +280,7 @@ VaultMan::VaultMan()
     search_.set_list_link(nullptr);
     task_ = std::make_unique<tasks::Task<VaultMan>>(&vault_task, this, 0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    semaphore_ = CreateSemaphoreA(nullptr, 1, 10, nullptr);
+    semaphore_ = CreateSemaphoreA(nullptr, 1, kMaxSemaphoreCount, nullptr);
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -376,7 +383,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
     pop_heap();
 
     const int transfer = vault->transfer_;
-    if (vault->progress_ < 100) {
+    if (vault->progress_ < kProgressComplete) {
         if (transfer == kDownload || transfer == kDownload6) {
             constexpr size_t kTextSize = 16;
             std::array<char, kTextSize> text{};
@@ -650,7 +657,7 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
 void VaultMan::on_progress(void*, int state, const char*, int64_t, int64_t received, int64_t total, VaultMan* vault)
 {
     // (states 3 and 7: receiving the file / posting)
-    if ((state == 7 || state == 3) && total > 0)
+    if ((state == kProgressStatePosting || state == kProgressStateReceiving) && total > 0)
         vault->progress_ = static_cast<int>(static_cast<double>(received) / static_cast<double>(total) * 100.0f);
     vault->start_time_ = frame_clock::get_time();
 }
@@ -658,7 +665,7 @@ void VaultMan::on_progress(void*, int state, const char*, int64_t, int64_t recei
 // 0x0054A740
 int VaultMan::on_transfer_done(void*, int result, char*, int64_t, VaultMan* vault)
 {
-    vault->progress_ = 100;
+    vault->progress_ = kProgressComplete;
     vault->outcome_val_ = result != 0 ? 2 : 1;
     return 1;
 }
@@ -666,7 +673,7 @@ int VaultMan::on_transfer_done(void*, int result, char*, int64_t, VaultMan* vaul
 // 0x0054A6B0
 int VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_t received, VaultMan* vault)
 {
-    vault->progress_ = 100;
+    vault->progress_ = kProgressComplete;
     if (result != 0) {
         vault->fault_ = result;
         vault->outcome_val_ = 2;
@@ -787,7 +794,7 @@ bool download_directory_list(script::Struct* params, script::Script*)
     VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
     category->set_skip(true);
     prepend(&vault->categories(), &category->list_link());
-    std::memcpy(category->label().data(), "Uploads", 8);
+    std::memcpy(category->label().data(), "Uploads", kUploadsLabelBytes);
     vault->set_category(static_cast<VaultCategory*>(vault->search().head_element(&vault->categories())));
     vault->set_transfer(VaultMan::kUploads);
     vault->set_outcome_val(0);

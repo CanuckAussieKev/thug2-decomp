@@ -63,6 +63,16 @@
 #include "engine/core/gathered_call.h"
 
 namespace {
+constexpr int kGameSpyProductId = 0x2880; // THUG2 PC's product (10368)
+constexpr int kGpCallbackError = 0;
+constexpr int kGpCallbackBuddyRequest = 1;
+constexpr int kGpCallbackBuddyStatus = 2;
+constexpr int kGpCallbackBuddyMessage = 3;
+constexpr int kGpCallbackUnused4 = 4;
+constexpr int kGpCallbackUnused5 = 5;
+constexpr SIZE_T kThreadStackBytes = 0x8000;
+constexpr float kDefaultMenuScale = 1.1f;
+constexpr int kCookieRange = 0xFFFF;
 
 // Names (the checksums of their text).
 constexpr uint32_t kCookie = 0x751F4599u; // cookie
@@ -306,13 +316,13 @@ FriendsManager::FriendsManager()
     friends_.make_head();
     messages_.make_head();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
-    gp_initialize(this, 0x2880, 0);
-    gp_set_callback(this, 0, code_address(&on_error), this);
-    gp_set_callback(this, 1, kOnBuddyRequest, this);
-    gp_set_callback(this, 2, code_address(&on_buddy_status), this);
-    gp_set_callback(this, 3, code_address(&on_buddy_message), this);
-    gp_set_callback(this, 4, code_address(&stubs::do_nothing), this);
-    gp_set_callback(this, 5, code_address(&stubs::do_nothing), this);
+    gp_initialize(this, kGameSpyProductId, 0);
+    gp_set_callback(this, kGpCallbackError, code_address(&on_error), this);
+    gp_set_callback(this, kGpCallbackBuddyRequest, kOnBuddyRequest, this);
+    gp_set_callback(this, kGpCallbackBuddyStatus, code_address(&on_buddy_status), this);
+    gp_set_callback(this, kGpCallbackBuddyMessage, code_address(&on_buddy_message), this);
+    gp_set_callback(this, kGpCallbackUnused4, code_address(&stubs::do_nothing), this);
+    gp_set_callback(this, kGpCallbackUnused5, code_address(&stubs::do_nothing), this);
     task_ = std::make_unique<tasks::Task<FriendsManager>>(&buddy_task, this, 0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     authenticated_ = false;
@@ -340,7 +350,7 @@ void FriendsManager::log_in()
     login_start() = frame_clock::get_time();
     get_run("log_in_profile");
     DWORD id = 0;
-    HANDLE thread = CreateThread(nullptr, 0x8000, kLoginThread, this, CREATE_SUSPENDED, &id);
+    HANDLE thread = CreateThread(nullptr, kThreadStackBytes, kLoginThread, this, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread); // (the handle is never closed)
     if (!task_->is_on_task_list())
@@ -357,7 +367,7 @@ void FriendsManager::spawn_account()
     login_start() = frame_clock::get_time();
     push_top_down();
     DWORD id = 0;
-    HANDLE thread = CreateThread(nullptr, 0x8000, &create_profile_thread, this, CREATE_SUSPENDED, &id);
+    HANDLE thread = CreateThread(nullptr, kThreadStackBytes, &create_profile_thread, this, CREATE_SUSPENDED, &id);
     net_game_state().online_hub()->set_room_id(id);
     ResumeThread(thread);
     get_logic_tasks()->queue_job(task_.get()); // (not checked for being in the list already, unlike LogIn)
@@ -473,7 +483,7 @@ void FriendsManager::fill_prospective_buddy_list()
         choose->put_int("profile", profile);
         choose->append_word("nick", name);
         params->put_sub_struct("pad_choose_params", choose.get());
-        params->push_float("scale", 1.1f);
+        params->push_float("scale", kDefaultMenuScale);
         get_run("make_text_sub_menu_item", params.get());
         params.reset();
     }
@@ -522,7 +532,7 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     params->put_name_key("pad_choose_script", get_checksums(choose_script));
     params->put_name_key("parent_menu_id", get_checksums("lobby_buddy_list_menu"));
     if (allow_join)
-        params->push_float("scale", 1.1f);
+        params->push_float("scale", kDefaultMenuScale);
     get_run("homie_list_add_item", params.get());
     params.reset();
     pop_heap();
@@ -801,7 +811,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     join->add_component_of_type(0, script::kQbvalInteger, static_cast<uint32_t>(port));
     join->append_word(0, script::kQbvalString, dotted);
     if (!same_address)
-        join->add_component_of_type(kCookie, script::kQbvalName, static_cast<uint32_t>(maths::rnd(0xFFFF)));
+        join->add_component_of_type(kCookie, script::kQbvalName, static_cast<uint32_t>(maths::rnd(kCookieRange)));
     get_run("net_chosen_join_server", join.get());
     join.reset();
     return true;

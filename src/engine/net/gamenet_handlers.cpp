@@ -46,6 +46,20 @@ namespace online {
 using namespace detail;
 
 namespace {
+// The object update message's layout: the intake buffer, the skaters, the fields' bits.
+constexpr uint32_t kObjectUpdateBufferBytes = 0x400;
+constexpr int kObjectUpdateSkaters = 8;
+constexpr uint32_t kObjectUpdateTimeBits = 16;
+constexpr int kObjectUpdatePoseFields = 6; // the position and the rotation
+constexpr uint32_t kObjectUpdateFieldBits = 16;
+constexpr uint32_t kObjectUpdateHasState = 0x40;
+constexpr uint32_t kObjectUpdateStateBits = 6;
+constexpr uint32_t kObjectUpdateHasByte = 0x80;
+constexpr uint32_t kObjectUpdateByteBits = 8;
+constexpr uint32_t kObjectUpdateHasWord = 0x100;
+constexpr uint32_t kObjectUpdateWordBits = 32;
+constexpr int kKeepAliveUnit = 1000; // ms
+constexpr int kDigestBytes = 8;
 
 // Names.
 constexpr uint32_t kLaunchAutoServerNotification = 0x6553898E; // launch_auto_server_notification
@@ -188,27 +202,27 @@ int on_hud_notice_msg(net::InboundMsgCtx* context)
 int handle_object_update_length(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
-    stream.change_intake_contents(context->body(), 0x400);
+    stream.change_intake_contents(context->body(), kObjectUpdateBufferBytes);
     const uint32_t present = stream.read_bits(8) & 0xFF;
-    for (int skater = 0; skater < 8; ++skater) {
+    for (int skater = 0; skater < kObjectUpdateSkaters; ++skater) {
         if (!(present & (1u << skater)))
             continue;
-        stream.read_bits(16); // the time
+        stream.read_bits(kObjectUpdateTimeBits); // the time
         const uint32_t flags = stream.read_bits(9);
-        for (int field = 0; field < 6; ++field) { // the position and the rotation
+        for (int field = 0; field < kObjectUpdatePoseFields; ++field) { // the position and the rotation
             if (flags & (1u << field))
-                stream.read_signed_bits(16);
+                stream.read_signed_bits(kObjectUpdateFieldBits);
         }
-        if (flags & 0x40) {
+        if (flags & kObjectUpdateHasState) {
             stream.read_bits(4);
-            stream.read_bits(6);
+            stream.read_bits(kObjectUpdateStateBits);
             stream.read_bits(1);
             stream.read_bits(1);
         }
-        if (flags & 0x80)
-            stream.read_bits(8);
-        if (flags & 0x100)
-            stream.read_signed_bits(32);
+        if (flags & kObjectUpdateHasByte)
+            stream.read_bits(kObjectUpdateByteBits);
+        if (flags & kObjectUpdateHasWord)
+            stream.read_signed_bits(kObjectUpdateWordBits);
     }
     context->set_body_size(stream.get_byte_count());
     return kContinue;
@@ -240,7 +254,7 @@ int handle_cd_key_challenge(net::InboundMsgCtx* context)
 // 0x0052DCA0
 int handle_keep_alive(net::InboundMsgCtx* context)
 {
-    context->sender_conn()->stamp_last_heard(net::wire::value_at<int8_t>(get_message(context)) * 1000);
+    context->sender_conn()->stamp_last_heard(net::wire::value_at<int8_t>(get_message(context)) * kKeepAliveUnit);
     return kContinue;
 }
 
@@ -250,7 +264,7 @@ int on_admitted_msg(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
-    manager->set_entry_phase(6);
+    manager->set_entry_phase(kJoinStateJoined);
     desc.set_ident(kMsgReadyToReceive);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(kGroupGame);
@@ -332,9 +346,9 @@ int handle_checksum_request(net::InboundMsgCtx* context)
     net::NetMessageInfo desc;
     uint8_t* msg = context->body();
     const uint32_t cheats = static_cast<modules::Skate*>(skate)->get_cheats();
-    std::memcpy(std::span(msg, 8).last(4).data(), &cheats, sizeof(cheats)); // (its second word)
+    std::memcpy(std::span(msg, kDigestBytes).last(4).data(), &cheats, sizeof(cheats)); // (its second word)
     desc.set_group_id(kGroupGame);
-    desc.set_byte_count(8);
+    desc.set_byte_count(kDigestBytes);
     desc.set_ident(kMsgDigest);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_content(msg);

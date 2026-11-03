@@ -8,6 +8,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include "engine/net/service.h"
 #include <cstring>
 #include <memory>
 
@@ -55,6 +56,18 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr SIZE_T kThreadStackBytes = 0x8000;
+// The server-browsing keys (qr2 key ids) the game registers.
+constexpr uint8_t kQr2KeyNumObservers = 0x33;
+constexpr uint8_t kQr2KeyMaxObservers = 0x34;
+constexpr uint8_t kQr2KeySkillLevel = 0x35;
+constexpr uint8_t kQr2KeyStarted = 0x36;
+constexpr uint8_t kQr2KeyHostMode = 0x37;
+constexpr uint8_t kQr2KeyRanked = 0x38;
+constexpr uint8_t kQr2KeyRating = 0x39;
+// peerSetTitle's game version and the most servers it updates at once.
+constexpr int kPeerGameVersion = 6;
+constexpr int kPeerMaxUpdates = 15;
 
 // Names.
 constexpr uint32_t kNumPlayers = 0x1CB2A6B0;            // num_players
@@ -201,13 +214,13 @@ RoomManager::RoomManager()
     nat_task_ = new_task(this, &online::RoomManager::nat_negotiation_task);
     hosting_task_ = new_task(this, &online::RoomManager::query_task);
     // The server-browsing keys (GameSpy's qr2 key registration).
-    game_spy::call_qr2_register_key(0x33, "numobservers");
-    game_spy::call_qr2_register_key(0x34, "maxobservers");
-    game_spy::call_qr2_register_key(0x35, "skilllevel");
-    game_spy::call_qr2_register_key(0x36, "started");
-    game_spy::call_qr2_register_key(0x37, "hostmode");
-    game_spy::call_qr2_register_key(0x38, "ranked");
-    game_spy::call_qr2_register_key(0x39, "rating_");
+    game_spy::call_qr2_register_key(kQr2KeyNumObservers, "numobservers");
+    game_spy::call_qr2_register_key(kQr2KeyMaxObservers, "maxobservers");
+    game_spy::call_qr2_register_key(kQr2KeySkillLevel, "skilllevel");
+    game_spy::call_qr2_register_key(kQr2KeyStarted, "started");
+    game_spy::call_qr2_register_key(kQr2KeyHostMode, "hostmode");
+    game_spy::call_qr2_register_key(kQr2KeyRanked, "ranked");
+    game_spy::call_qr2_register_key(kQr2KeyRating, "rating_");
 }
 
 // 0x00542DF0
@@ -257,7 +270,7 @@ void RoomManager::start_listing_games()
 {
     Hub* manager = net_game_state().online_hub();
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-    manager->set_service_state(14); // (the server list's state)
+    manager->set_service_state(online::kServiceStateLobbyListIdle); // (the server list's state)
     unknowne430() = 0;
     net_game_state().set_listing_asked(false);
     net_game_state().set_listing_found(false);
@@ -649,9 +662,9 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
     lobby->init_peer();
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
     const char* name = net::get_game_name();
-    game_spy::peer_set_title(manager->lobby_service()->remote(), name, key, name, key, 6, 15, 1, ping_rooms.data(),
+    game_spy::peer_set_title(manager->lobby_service()->remote(), name, key, name, key, kPeerGameVersion, kPeerMaxUpdates, 1, ping_rooms.data(),
                              cross_ping_rooms.data());
-    HANDLE thread = CreateThread(nullptr, 0x8000, &online::RoomManager::connect_thread, manager->lobby_service().get(),
+    HANDLE thread = CreateThread(nullptr, kThreadStackBytes, &online::RoomManager::connect_thread, manager->lobby_service().get(),
                                  CREATE_SUSPENDED, &thread_id);
     manager->set_room_id(thread_id);
     ResumeThread(thread);

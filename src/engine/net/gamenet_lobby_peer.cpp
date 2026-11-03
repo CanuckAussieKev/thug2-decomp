@@ -56,6 +56,12 @@ namespace online {
 using namespace detail;
 
 namespace {
+// A server-query packet starts 0xFE 0xFD (or a backslash); a NAT packet is at least as long as its magic.
+constexpr uint8_t kQueryMagic0 = 0xFE;
+constexpr uint8_t kQueryMagic1 = 0xFD;
+constexpr int kNatPacketMinimum = 6;
+constexpr size_t kSockaddrBytes = 8;
+constexpr int kByteBits = 8;
 
 // Scripts.
 constexpr uint32_t kConnectionFailureDialog = 0x209F813A; // create_gamespy_connection_failure_dialog
@@ -180,9 +186,9 @@ void RoomManager::queue_packet(const uint8_t* data, int length, const void* from
     const std::span<const uint8_t> bytes(data, length > 0 ? static_cast<size_t>(length) : 0);
     auto byte_at = [&](size_t i) { return i < bytes.size() ? core::at(bytes, i) : uint8_t{0}; };
     int type = 0;
-    if ((byte_at(0) == 0xFE && byte_at(1) == 0xFD) || byte_at(0) == '\\')
+    if ((byte_at(0) == kQueryMagic0 && byte_at(1) == kQueryMagic1) || byte_at(0) == '\\')
         type = kPacketQuery;
-    else if (length >= 6 && std::memcmp(bytes.data(), kNatMagic.data(), sizeof(kNatMagic)) == 0)
+    else if (length >= kNatPacketMinimum && std::memcmp(bytes.data(), kNatMagic.data(), sizeof(kNatMagic)) == 0)
         type = kPacketNatNegotiation;
     else
         return;
@@ -385,12 +391,12 @@ void RoomManager::nat_negotiation_completed(int result, int, const void* address
     Hub* manager = net_game_state().online_hub();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found
         // (the SDK's sockaddr_in: the family, the port in network order, the address as it is in memory)
-        util::ByteReader sockaddr(address, 8);
+        util::ByteReader sockaddr(address, kSockaddrBytes);
         sockaddr.skip(2);
         const uint8_t port_high = sockaddr.u8();
         const uint8_t port_low = sockaddr.u8();
         const uint32_t ip = sockaddr.u32();
-        auto port = static_cast<uint16_t>(port_high << 8 | port_low); // (ntohs)
+        auto port = static_cast<uint16_t>(port_high << kByteBits | port_low); // (ntohs)
         manager->join_server({.ip = ip, .port = port}, 0);
     }
     auto* lobby = manager->lobby_service().get();

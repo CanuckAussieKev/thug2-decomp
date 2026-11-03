@@ -26,6 +26,7 @@
 namespace net {
 
 namespace {
+constexpr uint32_t kLatencyPadding = 100; // ms
 
 constexpr int kAppTaskPriority = -2000;
 
@@ -60,10 +61,10 @@ bool Guest::prepare_all()
     if (!AppHost::prepare_all())
         return false;
     Router* dispatcher = get_dispatcher(this);
-    dispatcher->append_listener(kMsgConnectionAccepted, on_link_accepted_msg, 3, nullptr, 0x80);
-    dispatcher->append_listener(kMsgConnectionRefused, handle_connection_refused, 2, nullptr, 0x80);
-    dispatcher->append_listener(kMsgConnectionTerminated, handle_connection_refused, 2, nullptr, 0x80);
-    dispatcher->append_listener(kMsgClockStamp, on_clock_sync_msg, 3, nullptr, 0x80);
+    dispatcher->append_listener(kMsgConnectionAccepted, on_link_accepted_msg, 3, nullptr, kListenerPriority);
+    dispatcher->append_listener(kMsgConnectionRefused, handle_connection_refused, 2, nullptr, kListenerPriority);
+    dispatcher->append_listener(kMsgConnectionTerminated, handle_connection_refused, 2, nullptr, kListenerPriority);
+    dispatcher->append_listener(kMsgClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
     return true;
 }
 
@@ -133,7 +134,7 @@ void Guest::pull_inbound()
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
                                   vacant(conn->incoming()))) {
                     conn->incoming().used += static_cast<size_t>(size);
-                    add_packet_metric(&conn->receive_metrics(), received + 0x1C, get_timestamp(this));
+                    add_packet_metric(&conn->receive_metrics(), received + kUdpOverheadBytes, get_timestamp(this));
                     if (time > conn->last_heard_from())
                         conn->set_last_heard_from(time);
                 } else if (auto handler = unknown_packet_sink()) {
@@ -142,7 +143,7 @@ void Guest::pull_inbound()
             }
         } else if (!linked_up()) {
             // from an unknown address
-            if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
+            if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), (Conn::kFlagRemote | Conn::kFlagForeign))) {
                 fresh->set_owner_app(this);
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
                                   vacant(fresh->incoming()))) {
@@ -190,7 +191,7 @@ void Guest::flush_outbox(Conn* conn)
                 if (sent > conn->ping_probe().echo_seen_at()) {
                     uint32_t latency =
                         (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency())) +
-                        100;
+                        kLatencyPadding;
                     if (latency > max_latency())
                         latency = max_latency();
                     add_latency(conn, latency);
@@ -223,7 +224,7 @@ void Guest::flush_outbox(Conn* conn)
                 return;
             }
             outbound_byte_total() += size;
-            add_packet_metric(&conn->send_metrics(), size + 0x1C, get_timestamp(this));
+            add_packet_metric(&conn->send_metrics(), size + kUdpOverheadBytes, get_timestamp(this));
             conn->set_last_transmit_at(get_timestamp(this));
             force_send_now(conn, false);
             conn->outgoing().used = 0;

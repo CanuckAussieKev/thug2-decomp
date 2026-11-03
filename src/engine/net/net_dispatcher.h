@@ -33,9 +33,12 @@ constexpr uint32_t kPacketForeign = 0x1;          // from an address that isn't 
 constexpr uint32_t kPacketLate = 0x2;             // its timestamp is older than the newest
 constexpr uint32_t kPacketChecksumMismatch = 0x4; // a stream whose checksum doesn't match
 
+// The priority a message listener gets (append_listener) unless it asks for another.
+constexpr int kListenerPriority = 0x80;
 constexpr size_t kInboundMsgCtxSequencesToAckOffset = 0x1C;
 constexpr size_t kInboundMsgCtxNumSequencesToAckOffset = 0x9C;
 constexpr size_t kInboundMsgCtxBytes = 0xA4;
+constexpr size_t kInboundMsgCtxSequencesToAckSize = 32;
 // What a handler gets (0xA4 bytes, constructor 0x00454A20).
 struct InboundMsgCtx {
     // 0x00454A20 (net_descs.cpp): every field zeroed.
@@ -56,8 +59,8 @@ struct InboundMsgCtx {
     [[nodiscard]] uint32_t wire_options() const { return wire_options_; }
     [[nodiscard]] void* content() const { return content_; }
     void set_content(void* value) { content_ = value; }
-    std::array<uint32_t, 32>& sequences_to_ack() { return sequences_to_ack_; }
-    [[nodiscard]] const std::array<uint32_t, 32>& sequences_to_ack() const { return sequences_to_ack_; }
+    std::array<uint32_t, kInboundMsgCtxSequencesToAckSize>& sequences_to_ack() { return sequences_to_ack_; }
+    [[nodiscard]] const std::array<uint32_t, kInboundMsgCtxSequencesToAckSize>& sequences_to_ack() const { return sequences_to_ack_; }
     int& num_sequences_to_ack() { return num_sequences_to_ack_; }
     [[nodiscard]] int num_sequences_to_ack() const { return num_sequences_to_ack_; }
     [[nodiscard]] bool acknowledge() const { return acknowledge_; }
@@ -72,7 +75,7 @@ private:
     Conn* sender_conn_{nullptr};
     uint32_t wire_options_{0};
     void* content_{nullptr};          // the handler's own data (NoteHandler::content_)
-    std::array<uint32_t, 32> sequences_to_ack_{}; // the timestamps to acknowledge after the packet (low 16 bits)
+    std::array<uint32_t, kInboundMsgCtxSequencesToAckSize> sequences_to_ack_{}; // the timestamps to acknowledge after the packet (low 16 bits)
     int num_sequences_to_ack_{0};
     bool acknowledge_{false}; // send those acks
     // The original's layout (checked inside the class: the members are private).

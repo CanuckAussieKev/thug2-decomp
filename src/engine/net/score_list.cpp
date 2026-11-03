@@ -44,6 +44,14 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr uint32_t kBitMask = 31;
+constexpr int kSecondsPerMinute = 60;
+constexpr int kSecondsPerHour = 3600;
+// A scavenger hunt places this many objects; the entry flags that pick the name's style codes.
+constexpr int kHuntObjectCount = 5;
+constexpr uint32_t kEntryStyle1 = 2;
+constexpr uint32_t kEntryStyle2 = 4;
+constexpr uint32_t kEntryStyle3 = 8;
 
 // Names.
 constexpr uint32_t kSkaterScore = 0xD262802F;                                         // SkaterScore (the component)
@@ -101,7 +109,7 @@ ScoreEntry* new_entry()
 }
 
 // The lowest team whose flag the player carries (-1: none - a shift by 31 then, as the original's).
-uint32_t flag_bit(PlayerRecord* p) { return 1u << (static_cast<uint32_t>(p->get_flag_team()) & 31); }
+uint32_t flag_bit(PlayerRecord* p) { return 1u << (static_cast<uint32_t>(p->get_flag_team()) & kBitMask); }
 
 // At the end of the list.
 void get_append(lists::Foremost* head, ScoreEntry* entry)
@@ -219,7 +227,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 text::format_to(entry->text(), "> %s", p->label().data());
             else
                 std::strcpy(entry->text().data(), p->label().data());
-            entry->set_king((p->flag_bits() >> 7) & 1);
+            entry->set_king((p->flag_bits() >> kPlayerKingBit) & 1);
             entry->set_local(p->flag_bits() & 1);
             if (is_squad_match())
                 entry->set_shade(p->team() + 2);
@@ -232,7 +240,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             if (!not_lobby) {
                 get_append(&list, entry);
             } else {
-                entry->set_priority(scavenger_hunt ? 5 - p->num_placed() : manager->get_entrant_points(get_skater_id(p->skater())));
+                entry->set_priority(scavenger_hunt ? kHuntObjectCount - p->num_placed() : manager->get_entrant_points(get_skater_id(p->skater())));
                 list.append_vertex(entry);
             }
         }
@@ -252,11 +260,11 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         } else if (entry->has_flag()) {
             if (entry->flag_bits() & 1)
                 std::strcat(prefix.data(), "\\s0");
-            if (entry->flag_bits() & 2)
+            if (entry->flag_bits() & kEntryStyle1)
                 std::strcat(prefix.data(), "\\s1");
-            if (entry->flag_bits() & 4)
+            if (entry->flag_bits() & kEntryStyle2)
                 std::strcat(prefix.data(), "\\s2");
-            if (entry->flag_bits() & 8)
+            if (entry->flag_bits() & kEntryStyle3)
                 std::strcat(prefix.data(), "\\s3");
         } else {
             core::at(prefix, 0) = '\0';
@@ -270,12 +278,12 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             text::format_to(text, "\\c%d%s", entry->shade(), entry->text().data());
         } else if (hill_mode) {
             const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority()) / 1000);
-            if (seconds < 3600)
+            if (seconds < kSecondsPerHour)
                 text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade(), entry->text().data(),
-                                entry->shade(), seconds / 60, seconds % 60);
+                                entry->shade(), seconds / kSecondsPerMinute, seconds % kSecondsPerMinute);
             else
                 text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade(),
-                                entry->text().data(), entry->shade(), seconds / 3600, seconds % 3600 / 60, seconds % 60);
+                                entry->text().data(), entry->shade(), seconds / kSecondsPerHour, seconds % kSecondsPerHour / kSecondsPerMinute, seconds % kSecondsPerMinute);
         } else if (scavenger_hunt && !entry->local()) {
             text::format_to(text, "%s\\c%d %s", prefix.data(), entry->shade(), entry->text().data());
         } else {

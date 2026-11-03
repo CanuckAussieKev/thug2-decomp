@@ -43,14 +43,21 @@ enum PlayerFlag : uint32_t {
     kPlayerFaceTextureSent = 0x8000,
     kPlayerSurveying = 0x10000,  // (the byte at +0x1D2, bit 0) watching from the surveyor camera
     kPlayerEliminated = 0x20000, // out of the game (firefight), the time in eliminated_time_
+    kPlayerRejoining = 0x10, // (a pending player added back)
 };
 
+constexpr size_t kJoinerRecordLabelSize = 16;
+constexpr uint32_t kPlayerCountedFlags = 0x18; // pending observer or rejoining: counted among those joining
+// The bit numbers of flags read as 0 or 1.
+constexpr unsigned kPlayerKingBit = 7;
+constexpr unsigned kPlayerServerBit = 9;
+constexpr unsigned kPlayerSurveyingBit = 16;
 // A player not yet added (0x44 bytes, on the stack of the new-player handler 0x0052DB80): its name, object id,
 // connection, a skater profile (the appearance), flags, team and the numbers of the new-player message.
 struct JoinerRecord {
     // The fields other code reads and sets.
-    std::array<char, 16>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 16>& label() const { return label_; }
+    std::array<char, kJoinerRecordLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kJoinerRecordLabelSize>& label() const { return label_; }
     [[nodiscard]] uint8_t entity_key() const { return entity_key_; }
     void set_entity_key(uint8_t value) { entity_key_ = value; }
     [[nodiscard]] net::Conn* conn() const { return conn_; }
@@ -78,7 +85,7 @@ struct JoinerRecord {
     void set_drive_control_mode(int32_t value) { drive_control_mode_ = value; }
 
 private:
-    std::array<char, 16> label_{};     // +0x00
+    std::array<char, kJoinerRecordLabelSize> label_{};     // +0x00
     uint8_t entity_key_{}; // +0x10
     std::array<uint8_t, 3> pad11{};
     net::Conn* conn_{};               // +0x14
@@ -105,24 +112,39 @@ public:
     JoinerRecord& operator=(const JoinerRecord&) = delete;
 };
 
+constexpr size_t kSentSkaterUpdatesForcedFrameSize = 8;
+constexpr size_t kSentSkaterUpdatesTimeSize = 8;
+constexpr size_t kSentSkaterUpdatesValue7cSize = 8;
+constexpr size_t kSentSkaterUpdatesFlag75Size = 8;
+constexpr size_t kSentSkaterUpdatesFlag76Size = 8;
+constexpr size_t kSentSkaterUpdatesPosSize = 8;
+constexpr size_t kSentSkaterUpdatesAnglesSize = 8;
+constexpr size_t kSentSkaterUpdatesValue68Size = 8;
+constexpr size_t kSentSkaterUpdatesValue6cSize = 8;
+constexpr size_t kSentSkaterUpdatesStateSize = 8;
+constexpr size_t kSentSkaterUpdatesFlag74Size = 8;
+constexpr size_t kSentSkaterUpdatesUnknown108Size = 8;
+constexpr size_t kSentSkaterUpdatesValue80Size = 8;
 // What the server last sent a player about each of the 8 skaters (by object id) - the player's +0x50 (SkateNet's
 // relay: get_relay_flags, write_object_update).
 struct SentSkaterUpdates {
-    std::array<uint32_t, 8> forced_frame_; // +0x00 the server app's frame when everything was last sent
-    std::array<uint32_t, 8> time_;         // +0x20 the state entry's time stamp last sent
-    std::array<uint8_t, 8> value_7c_;      // +0x40
-    std::array<uint8_t, 8> flag75_;        // +0x48
-    std::array<uint8_t, 8> flag76_;        // +0x50
-    std::array<std::array<int16_t, 3>, 8> pos_;        // +0x58 (-1 each)
-    std::array<std::array<int16_t, 3>, 8> angles_;     // +0x88 (-1 each)
-    std::array<uint32_t, 8> value68_;      // +0xB8 (-1 each)
-    std::array<uint32_t, 8> value_6c_;     // +0xD8
-    std::array<uint8_t, 8> state_;         // +0xF8 (-1 each)
-    std::array<uint8_t, 8> flag74_;        // +0x100 (-1 each)
-    std::array<uint8_t, 8> unknown108_;
-    std::array<uint32_t, 8> value80_; // +0x110
+    std::array<uint32_t, kSentSkaterUpdatesForcedFrameSize> forced_frame_; // +0x00 the server app's frame when everything was last sent
+    std::array<uint32_t, kSentSkaterUpdatesTimeSize> time_;         // +0x20 the state entry's time stamp last sent
+    std::array<uint8_t, kSentSkaterUpdatesValue7cSize> value_7c_;      // +0x40
+    std::array<uint8_t, kSentSkaterUpdatesFlag75Size> flag75_;        // +0x48
+    std::array<uint8_t, kSentSkaterUpdatesFlag76Size> flag76_;        // +0x50
+    std::array<std::array<int16_t, 3>, kSentSkaterUpdatesPosSize> pos_;        // +0x58 (-1 each)
+    std::array<std::array<int16_t, 3>, kSentSkaterUpdatesAnglesSize> angles_;     // +0x88 (-1 each)
+    std::array<uint32_t, kSentSkaterUpdatesValue68Size> value68_;      // +0xB8 (-1 each)
+    std::array<uint32_t, kSentSkaterUpdatesValue6cSize> value_6c_;     // +0xD8
+    std::array<uint8_t, kSentSkaterUpdatesStateSize> state_;         // +0xF8 (-1 each)
+    std::array<uint8_t, kSentSkaterUpdatesFlag74Size> flag74_;        // +0x100 (-1 each)
+    std::array<uint8_t, kSentSkaterUpdatesUnknown108Size> unknown108_;
+    std::array<uint32_t, kSentSkaterUpdatesValue80Size> value80_; // +0x110
 };
 
+constexpr size_t kPlayerRecordLabelSize = 16;
+constexpr size_t kPlayerRecordPlacedSize = 5;
 // A player (0x1F0 bytes; a node of the manager's player list - lists::Elem<PlayerRecord>, its data itself - whose node
 // keeps the original's size: the net code reads players by byte offset). Also the players of a server described by the server list (HostListing's player list: only the name and
 // the rating are used there).
@@ -252,15 +274,15 @@ public:
     void set_team(int value) { team_ = value; }
     int& num_placed() { return num_placed_; }
     [[nodiscard]] int num_placed() const { return num_placed_; }
-    std::array<char, 16>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 16>& label() const { return label_; }
+    std::array<char, kPlayerRecordLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kPlayerRecordLabelSize>& label() const { return label_; }
     [[nodiscard]] int32_t drive_control_mode() const { return drive_control_mode_; }
     void set_drive_control_mode(int32_t value) { drive_control_mode_ = value; }
     [[nodiscard]] objects::RiderIdentity* account() const { return account_; }
     SentSkaterUpdates& sent() { return sent_; }
     [[nodiscard]] const SentSkaterUpdates& sent() const { return sent_; }
-    std::array<script::VectorValue, 5>& placed() { return placed_; }
-    [[nodiscard]] const std::array<script::VectorValue, 5>& placed() const { return placed_; }
+    std::array<script::VectorValue, kPlayerRecordPlacedSize>& placed() { return placed_; }
+    [[nodiscard]] const std::array<script::VectorValue, kPlayerRecordPlacedSize>& placed() const { return placed_; }
     uint32_t& flag_bits() { return flag_bits_; }
     [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
     [[nodiscard]] int rejoin_group() const { return rejoin_group_; }
@@ -287,11 +309,11 @@ private:
     int skill_points_;           // +0x2C (a server list's player: its rating)
     int team_;                   // +0x30
     int num_placed_;             // +0x34 scavenger hunt: its objects placed (5 minus it is its score line's number)
-    std::array<char, 16> label_{};           // +0x38 ("<No Name>" until named)
+    std::array<char, kPlayerRecordLabelSize> label_{};           // +0x38 ("<No Name>" until named)
     int32_t drive_control_mode_; // +0x48 its vehicle control type
     objects::RiderIdentity* account_;     // +0x4C
     SentSkaterUpdates sent_{};            // +0x50 (the server's)
-    std::array<script::VectorValue, 5> placed_{};     // +0x180 scavenger hunt: where its objects were placed (num_placed_)
+    std::array<script::VectorValue, kPlayerRecordPlacedSize> placed_{};     // +0x180 scavenger hunt: where its objects were placed (num_placed_)
     uint32_t flag_bits_;                  // +0x1D0 PlayerFlag
     uint32_t ready_query_owed_{};         // +0x1D4
     int rejoin_group_;                    // +0x1D8 (JoinerRecord::rejoin_group_)

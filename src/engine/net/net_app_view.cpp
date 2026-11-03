@@ -37,6 +37,7 @@
 namespace net {
 
 namespace {
+constexpr int kCrcFoldShift = 16;
 
 // (The message ids and handler results: net_access_c.h, net_dispatcher.h.)
 
@@ -89,7 +90,7 @@ int DispatchMessage(HandlerLists* dispatcher, InboundMsgCtx* context)
 uint16_t name_hash(const uint8_t* data, int length)
 {
     const uint32_t crc = checksums::generate_crc_from_buffer(data, length);
-    return static_cast<uint16_t>(crc + (crc >> 16));
+    return static_cast<uint16_t>(crc + (crc >> kCrcFoldShift));
 }
 
 // `node` out of its list (and linked to itself; its vtable stays).

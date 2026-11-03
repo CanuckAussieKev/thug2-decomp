@@ -26,12 +26,16 @@ namespace online {
 
 class Hub;
 
+constexpr size_t kHostListingLabelSize = 16;
+constexpr size_t kHostListingLevelSize = 32;
+constexpr size_t kHostListingModeSelSize = 32;
 // A server found (0xA8 bytes): a node of the manager's server list (+0x158) or of the servers waiting to be shown
 // (+0x16C). (The offsets are the original's.)
+constexpr int kHostListingMaxPlayers = 8;
 struct HostListing : memory::ListNode {
     // The fields other code reads and sets.
-    std::array<char, 16>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 16>& label() const { return label_; }
+    std::array<char, kHostListingLabelSize>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kHostListingLabelSize>& label() const { return label_; }
     [[nodiscard]] uint32_t remote_ip() const { return remote_ip_; }
     void set_remote_ip(uint32_t value) { remote_ip_ = value; }
     [[nodiscard]] int port_no() const { return port_no_; }
@@ -46,10 +50,10 @@ struct HostListing : memory::ListNode {
     void set_num_observers(int value) { num_observers_ = value; }
     [[nodiscard]] int max_observers() const { return max_observers_; }
     void set_max_observers(int value) { max_observers_ = value; }
-    std::array<char, 32>& level() { return level_; }
-    [[nodiscard]] const std::array<char, 32>& level() const { return level_; }
-    std::array<char, 32>& mode_sel() { return mode_sel_; }
-    [[nodiscard]] const std::array<char, 32>& mode_sel() const { return mode_sel_; }
+    std::array<char, kHostListingLevelSize>& level() { return level_; }
+    [[nodiscard]] const std::array<char, kHostListingLevelSize>& level() const { return level_; }
+    std::array<char, kHostListingModeSelSize>& mode_sel() { return mode_sel_; }
+    [[nodiscard]] const std::array<char, kHostListingModeSelSize>& mode_sel() const { return mode_sel_; }
     void set_password(bool value) { password_ = value; }
     [[nodiscard]] bool started() const { return started_; }
     void set_started(bool value) { started_ = value; }
@@ -74,16 +78,16 @@ struct HostListing : memory::ListNode {
     [[nodiscard]] uint32_t id() const { return id_; }
 
 private:
-    std::array<char, 16> label_{};     // +0x14
+    std::array<char, kHostListingLabelSize> label_{};     // +0x14
     uint32_t remote_ip_{}; // +0x24
     int port_no_{};        // +0x28
     int ping_{0};          // +0x2C (9999: not known)
     int num_players_{1};   // +0x30
-    int max_players_{8};   // +0x34
+    int max_players_{kHostListingMaxPlayers};   // +0x34
     int num_observers_{0}; // +0x38
     int max_observers_{1}; // +0x3C
-    std::array<char, 32> level_{};   // +0x40 ("None")
-    std::array<char, 32> mode_sel_{}; // +0x60 ("None")
+    std::array<char, kHostListingLevelSize> level_{};   // +0x40 ("None")
+    std::array<char, kHostListingModeSelSize> mode_sel_{}; // +0x60 ("None")
     bool password_{};     // +0x80
     bool started_{false}; // +0x81 a game in progress
     int8_t skill_level_{2}; // +0x82

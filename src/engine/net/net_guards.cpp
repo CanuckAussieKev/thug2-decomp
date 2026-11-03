@@ -18,6 +18,8 @@
 namespace online::guards {
 
 namespace {
+constexpr size_t kLoggedLimit = 4096;
+constexpr int kIdShift = 32;
 
 constexpr uint8_t kMsgPrimaryAnim = kMsgPlayAnim;
 constexpr uint8_t kMsgServerMovedOn = 'V';
@@ -81,7 +83,7 @@ Lookups& current_lookups()
 void log_once(uint8_t id, uint32_t name, const char* what)
 {
     static std::unordered_set<uint64_t> logged;
-    if (logged.size() < 4096 && logged.insert(static_cast<uint64_t>(id) << 32 | name).second)
+    if (logged.size() < kLoggedLimit && logged.insert(static_cast<uint64_t>(id) << kIdShift | name).second)
         get_log("network guard (THUGPRO, TP-R8): message 0x%02X %s 0x%08X", id, what, name);
 }
 

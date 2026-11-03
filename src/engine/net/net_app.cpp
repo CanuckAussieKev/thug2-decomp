@@ -38,6 +38,10 @@
 namespace net {
 
 namespace {
+constexpr unsigned kQueuedMsgBytes = 0x0C;
+constexpr int kMaxConnHandles = 0x100;
+constexpr int kDefaultMaxQueued = 5;
+constexpr unsigned kConnBytes = 0x3D20;
 
 using memory::ListNode;
 
@@ -260,7 +264,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 
     switch (desc->queue()) {
     case NetMessageInfo::kLaneNormal: {
-        void* memory = memory::alloc(0x0C);
+        void* memory = memory::alloc(kQueuedMsgBytes);
         PendingMsg* message =
             memory ? construct_queued_msg(memory, desc->ident(), desc->byte_count(), desc->content(), desc->compression())
                    : nullptr;
@@ -286,7 +290,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         break;
     }
     case NetMessageInfo::kLanePriority: {
-        void* memory = memory::alloc(0x0C);
+        void* memory = memory::alloc(kQueuedMsgBytes);
         PendingMsg* message =
             memory ? construct_queued_msg(memory, desc->ident(), desc->byte_count(), desc->content(), desc->compression())
                    : nullptr;
@@ -513,7 +517,7 @@ bool AppHost::over_bandwidth_budget(Conn* conn)
 // 0x00458F80
 int AppHost::fetch_unused_slot_id()
 {
-    for (int handle = 1; handle < 0x100; ++handle) {
+    for (int handle = 1; handle < kMaxConnHandles; ++handle) {
         if (!find_conn_with_id(handle))
             return handle;
     }
@@ -548,7 +552,7 @@ void AppHost::pump_stream_traffic()
     Hub* manager = Hub::sole();
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-        int max_queued = 5;
+        int max_queued = kDefaultMaxQueued;
         int max_per_frame = 3;
         if (connection_type(manager) == 1 || link_speed_class(conn) == 1) {
             max_queued = 2;
@@ -679,7 +683,7 @@ Conn* AppHost::opened_link(LinkTarget link_target)
     Conn* conn = nullptr;
     push_network_heap();
     if (open_links_ < peer_cap_) {
-        void* memory = memory::alloc(0x3D20);
+        void* memory = memory::alloc(kConnBytes);
         conn = memory ? construct_conn(memory, flags) : nullptr; // (not checked for null)
         conn->set_remote_ip(static_cast<uint32_t>(ip));
         conn->set_port_no(port);

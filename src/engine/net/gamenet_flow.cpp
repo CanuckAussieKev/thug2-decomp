@@ -6,6 +6,7 @@
 #include <cstring>
 #include <array>
 
+#include "engine/pad_input/input_hub.h"
 #include "engine/core/stubs.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_observer.h" // IWYU pragma: keep - the observer templates instantiated here need pad_input::Responder
@@ -116,6 +117,7 @@ constexpr int kDropDropped = 5;
 constexpr uint32_t kAutoServeWait = 2000; // ms after the host mode is set
 constexpr uint32_t kAutoServeIdle = 5000; // ms in the lobby
 constexpr int kPanelTime = 2000;
+constexpr int kGameIdRange = 0xFF;
 
 // PlayerRecord flags (+0x1D0).
 constexpr uint32_t kPlayerCaptureBlocked = 0x8000;
@@ -215,9 +217,9 @@ void Hub::start_network_game()
     game_preferences(this)->fetch_setting(kGoals)->read_hash_value("checksum", &value, 1);
     info.goals = value;
     info.team_graffiti_mode = get_team_graffiti_mode();
-    info.game_id = static_cast<uint8_t>(maths::rnd(0xFF) + 1);
+    info.game_id = static_cast<uint8_t>(maths::rnd(kGameIdRange) + 1);
     while (info.game_id == ended_game_id_)
-        info.game_id = static_cast<uint8_t>(maths::rnd(0xFF) + 1);
+        info.game_id = static_cast<uint8_t>(maths::rnd(kGameIdRange) + 1);
     info.crown_start_slot = static_cast<int8_t>(crown_start_);
     static_assert(sizeof(info.start_points) == sizeof(start_points_));
     std::memcpy(info.start_points.data(), start_points_.data(), sizeof(info.start_points));
@@ -252,7 +254,7 @@ void Hub::start_network_game()
 void Hub::cancel_join()
 {
     net::NetMessageInfo desc;
-    if (join_phase_ == 10 || join_phase_ == 8 || join_phase_ == kJoinStateRefused)
+    if (join_phase_ == kJoinStateCancelled || join_phase_ == kJoinStateOver || join_phase_ == kJoinStateRefused)
         return;
     net::AppHost* client = client_app_;
     desc.set_ident(kMsgDisconnect);
@@ -291,7 +293,7 @@ void Hub::observer_input(pad_input::Responder<Hub>* input)
         if (menu_state == kOn)
             return;
     }
-    if (input->control_data()->makes() & 0x40) // (the controller's button pressed: the next player)
+    if (input->control_data()->makes() & pad_input::kMaskCross) // (the controller's button pressed: the next player)
         manager->spectate_request_ = 1;
 }
 
@@ -326,7 +328,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         get_run(kCreateTryingPasswordDialog);
         manager->join_phase_ = kJoinStateTryingPassword;
         break;
-    case 6: { // joined
+    case kJoinStateJoined: { // joined
         NewPlayerSearch search;
         const JoinerRecord* info = first_new_player(manager, &search);
         for (; info && !(info->flag_bits() & kNewPlayerLocal); info = next_new_player(manager, &search)) {
@@ -337,10 +339,10 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
             manager->spectate_player(nullptr);
         }
         get_run(kEnteredNetworkGame);
-        manager->join_phase_ = 7;
+        manager->join_phase_ = kJoinStateEntered;
         break;
     }
-    case 8: // the join over
+    case kJoinStateOver: // the join over
         get_run(kDialogBoxExit);
         manager->join_expiry_job_->drop_out();
         manager->join_phase_job_->drop_out();
@@ -353,7 +355,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         params.reset();
         break;
     }
-    case 10: // cancelled
+    case kJoinStateCancelled: // cancelled
         manager->join_phase_job_->drop_out();
         break;
     default:
@@ -446,13 +448,13 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     if (!client)
         return;
     net::Conn* conn = client->begin_conn_walk(&search);
-    if (!conn || !(manager->join_phase_ == 8 || manager->join_phase_ == 7 || manager->join_phase_ == 6) ||
+    if (!conn || !(manager->join_phase_ == kJoinStateOver || manager->join_phase_ == kJoinStateEntered || manager->join_phase_ == kJoinStateJoined) ||
         conn->get_silence_duration() <= kSilentTimeout)
         return;
     if (skate->level() == kLoadMainMenu) {
         get_run(kShowJoinTimeoutNotice);
         manager->join_phase_job_->drop_out();
-        manager->join_phase_ = 10;
+        manager->join_phase_ = kJoinStateCancelled;
     } else {
         get_run(kCreateLostConnectionDialog);
         manager->destroy_all_players();

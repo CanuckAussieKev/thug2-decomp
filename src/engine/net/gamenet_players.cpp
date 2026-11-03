@@ -60,6 +60,7 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr int kRejoinDelayFrames = 10;
 
 constexpr uint8_t kMsgObserveRequest = 0x4A; // (the server's handle_observe_request)
 constexpr uint8_t kMsgFcfsNotice = 0x5F;     // (the client's handle_fcfs_notice)
@@ -401,14 +402,14 @@ void Hub::re_add_pending_players()
     net_game_state().set_open_waiting(true);
     if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting() != 1) // (just set: never)
         game_spy::qr2_send_state_changed(nullptr);
-    int frames = 10;
+    int frames = kRejoinDelayFrames;
     PlayerSearch search;
     PlayerRecord* player = start_roster_sweep(this, &search, true);
     while (player) {
         PlayerRecord* next = step_roster_sweep(this, &search, true); // (before the player is destroyed)
         if (player->flag_bits() & kPlayerPending) {
             JoinerRecord info; // (its constructor: a skater profile)
-            frames += 10;
+            frames += kRejoinDelayFrames;
             std::strcpy(info.label().data(), player_name(player));
             info.set_entity_key(static_cast<uint8_t>(reserve_obj_id_for_player()));
             info.set_conn(player->conn());

@@ -13,8 +13,12 @@
 // the session's times and flags, the lobby's queued packets, the online hub (the original's globals).
 namespace online {
 
+constexpr size_t kNetGameStateGetQueueSize = 200;
+constexpr size_t kNetGameStateQueuedPacketsSize = 200;
 // The online game's state the network folder's files share (the rest of the game reaches it through the folder's
 // functions). Trivially destructible: the accessor is a constant-initialised static, no guard.
+constexpr uint32_t kNoCommandLineServer = 0xFFFFFFFFu;
+constexpr int kDefaultMaxPlayers = 8;
 class NetGameState {
 public:
     [[nodiscard]] uint32_t net_game_start_time() const { return net_game_start_time_; }
@@ -25,7 +29,7 @@ public:
     void set_cheat_flag(bool value) { cheat_flag_ = value; }
     uint8_t& game_reported() { return game_reported_; }
     int& queued_count() { return queued_count_; }
-    std::array<QueuedPacket, 200>& get_queue() { return queued_packets_; }
+    std::array<QueuedPacket, kNetGameStateGetQueueSize>& get_queue() { return queued_packets_; }
     [[nodiscard]] bool listing_asked() const { return listing_asked_; }
     void set_listing_asked(bool value) { listing_asked_ = value; }
     [[nodiscard]] bool listing_found() const { return listing_found_; }
@@ -73,7 +77,7 @@ private:
 
     // (gamenet_lobby_cfuncs.cpp)
     int queued_count_{};
-    std::array<QueuedPacket, 200> queued_packets_{};
+    std::array<QueuedPacket, kNetGameStateQueuedPacketsSize> queued_packets_{};
 
     // (gamenet_lobby_menus.cpp)
     bool listing_asked_{};
@@ -100,7 +104,7 @@ private:
     uint32_t asked_for_{};
     uint32_t network_team_mode_{};
     int net_skill_level_{3};
-    int net_max_players_{8};
+    int net_max_players_{kDefaultMaxPlayers};
     bool join_server_ip_succeeded_{};
 
     // (server_list.cpp)
@@ -110,7 +114,7 @@ private:
     bool text_entry_{};
 
     // (gamenet_state.cpp)
-    uint32_t command_line_server_{0xFFFFFFFF};
+    uint32_t command_line_server_{kNoCommandLineServer};
 
     // (gamenet_player_lists.cpp)
     Hub* online_hub_{};

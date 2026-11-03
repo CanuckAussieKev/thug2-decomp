@@ -7,6 +7,7 @@
 #include <cstring>
 #include <array>
 
+#include "engine/net/player_info.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -46,6 +47,9 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr size_t kPlayerNameLength = 15; // the name fits the label's 16 bytes
+constexpr int kNewPlayerDelayFrames = 10;
+constexpr int kCrownNodeWalkLimit = 50;
 
 // Names.
 constexpr uint32_t kNetMessageNewPlayer = 0x640D3C87;     // net_message_new_player
@@ -129,7 +133,7 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     JoinerRecord* info = &record;
     // (15 characters at most, the rest zeroed)
     std::memset(info->label().data(), 0, sizeof(info->label()));
-    std::memcpy(info->label().data(), arrived.name.data(), strnlen(arrived.name.data(), 15));
+    std::memcpy(info->label().data(), arrived.name.data(), strnlen(arrived.name.data(), kPlayerNameLength));
     info->set_entity_key(static_cast<uint8_t>(arrived.object_id)); // the object id
     info->set_conn(nullptr);                                       // the connection
     info->flag_bits() = arrived.flags;                            // flags
@@ -139,7 +143,7 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     info->set_accumulated_score(arrived.accumulated_score);
     info->set_drive_control_mode(arrived.drive_scheme);
     info->set_score(arrived.score);
-    if (!(info->flag_bits() & 5)) {
+    if (!(info->flag_bits() & (kPlayerLocal | kPlayerObserver))) {
         static std::array<uint8_t, kAppearanceSize> appearance;
         const size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
         std::memset(appearance.data(), 0, sizeof(appearance));
@@ -150,7 +154,7 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     if (manager->cleared_to_start()) {
         manager->build_net_notice(false, kNetMessageNewPlayer, info->label().data(), nullptr, nullptr, nullptr, false,
                                   kPanelTime);
-        delay = 10;
+        delay = kNewPlayerDelayFrames;
     }
     manager->add_joining_player(info, delay); // the new player (added in `delay` frames)
     return kContinue;                         // (the record's destructor on the way out)
@@ -184,7 +188,7 @@ int handle_crown_spawn(net::InboundMsgCtx* context)
         return kContinue;
     // The crown to the spot'th crown node (counted on across up to 49 walks of the nodes).
     bool placed = false;
-    for (int walks = 1; walks != 50 && !placed; ++walks) {
+    for (int walks = 1; walks != kCrownNodeWalkLimit && !placed; ++walks) {
         level_nodes::start_node_walk(0);
         for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
             uint32_t type = 0;
@@ -326,8 +330,8 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
     } else {
         for (JoinerRecord* added = first_new_player(manager, &search); added;
              added = next_new_player(manager, &search)) {
-            if (added->flag_bits() & 0x80) {
-                added->flag_bits() &= ~0x80u;
+            if (added->flag_bits() & kPlayerKing) {
+                added->flag_bits() &= ~kPlayerKing;
                 break;
             }
         }
@@ -339,7 +343,7 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
     }
     for (JoinerRecord* added = first_new_player(manager, &search); added; added = next_new_player(manager, &search)) {
         if (added->entity_key() == *msg) {
-            added->flag_bits() |= 0x80;
+            added->flag_bits() |= kPlayerKing;
             break;
         }
     }

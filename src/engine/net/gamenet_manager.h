@@ -79,7 +79,11 @@ enum EntryPhase : uint8_t {
     kJoinStateJoiningWithPassword = 3,
     kJoinStateTryingPassword = 4,
     kJoinStateCdKey = 5,   // answered the host's CD-key challenge
+    kJoinStateJoined = 6,  // the host let the player in
+    kJoinStateEntered = 7, // the network game's script has run
+    kJoinStateOver = 8,    // the join is over
     kJoinStateRefused = 9, // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
+    kJoinStateCancelled = 10,
 };
 
 // A walk over the players (Hub::begin_player_walk / step_player_walk) and over the joining players
@@ -93,6 +97,20 @@ struct NewPlayerSearch {
     memory::ListNode* list_link_ = nullptr;
 };
 
+constexpr size_t kHubStartPointsSize = 8;
+constexpr size_t kHubNewsBufferSize = 0x6400;
+constexpr size_t kHubChallengeSize = 12;
+constexpr size_t kHubCreatedGoalsSize = 0x1770;
+constexpr size_t kHubUnknown1950Size = 0x8000;
+constexpr size_t kHubMasterServersSize = 10;
+constexpr size_t kHubTeamObjectsPerTeam = 5;
+constexpr size_t kHubMasterServerNameSize = 16;
+constexpr size_t kCommandLineEmailBytes = 256;
+constexpr size_t kCommandLinePasswordBytes = 16;
+// Hub::flag_bits_: on the server, internet mode, and the two bits of a net game.
+constexpr uint32_t kHubFlagOnServer = 1;
+constexpr uint32_t kHubFlagInternetMode = 4;
+constexpr uint32_t kHubNetworkModeFlags = 0x0C;
 class Hub {
 public:
     // 0x005369A0: the current network level's name - the `text` of its entry in the level select's list
@@ -649,14 +667,14 @@ public:
     void set_cheating_noted(bool value) { cheating_noted_ = value; }
     [[nodiscard]] int host_mode() const { return host_mode_; }
     void set_show_scores(bool value) { show_scores_ = value; }
-    std::array<int, 8>& start_points() { return start_points_; }
-    [[nodiscard]] const std::array<int, 8>& start_points() const { return start_points_; }
+    std::array<int, kHubStartPointsSize>& start_points() { return start_points_; }
+    [[nodiscard]] const std::array<int, kHubStartPointsSize>& start_points() const { return start_points_; }
     [[nodiscard]] int crown_start() const { return crown_start_; }
     void set_crown_start(int value) { crown_start_ = value; }
     [[nodiscard]] objects::CrownObject* crown() const { return crown_; }
     void set_crown(objects::CrownObject* value) { crown_ = value; }
-    std::array<std::array<uint32_t, 5>, 4>& team_objects() { return team_objects_; }
-    [[nodiscard]] const std::array<std::array<uint32_t, 5>, 4>& team_objects() const { return team_objects_; }
+    std::array<std::array<uint32_t, kHubTeamObjectsPerTeam>, 4>& team_objects() { return team_objects_; }
+    [[nodiscard]] const std::array<std::array<uint32_t, kHubTeamObjectsPerTeam>, 4>& team_objects() const { return team_objects_; }
     std::unique_ptr<tasks::SchedulerTask>& score_broadcast_job() { return score_broadcast_job_; }
     [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& score_broadcast_job() const { return score_broadcast_job_; }
     std::unique_ptr<tasks::SchedulerTask>& guest_admit_job() { return guest_admit_job_; }
@@ -706,8 +724,8 @@ public:
     [[nodiscard]] PlayerRecord* viewed_player() const { return viewed_player_; }
     void set_viewed_player(PlayerRecord* value) { viewed_player_ = value; }
     void set_last_leading_team(int value) { last_leading_team_ = value; }
-    std::array<uint8_t, 0x6400>& news_buffer() { return news_buffer_; }
-    [[nodiscard]] const std::array<uint8_t, 0x6400>& news_buffer() const { return news_buffer_; }
+    std::array<uint8_t, kHubNewsBufferSize>& news_buffer() { return news_buffer_; }
+    [[nodiscard]] const std::array<uint8_t, kHubNewsBufferSize>& news_buffer() const { return news_buffer_; }
     [[nodiscard]] const char* motd_text() const { return motd_text_; }
     void set_motd_text(const char* value) { motd_text_ = value; }
     void set_pending_data(uint8_t* value) { pending_data_ = value; }
@@ -733,7 +751,7 @@ private:
     memory::HeapUnique<VaultMan> vault_man_;              // +0x14 the content vault and HTTP transfers
     memory::HeapUnique<FriendsManager> presence_service_; // +0x18 the GameSpy presence
     memory::HeapUnique<RankingsManager> rating_service_;  // +0x1C the player's rating and stats
-    std::array<char, 12> challenge_{};                                // +0x20 the host's CD-key challenge
+    std::array<char, kHubChallengeSize> challenge_{};                                // +0x20 the host's CD-key challenge
     net::AppHost* browser_client_;                        // +0x2C the server list's client
     uint32_t game_type_{};        // +0x30 the game_type preference's checksum when the game started
     uint32_t level_{};            // +0x34 the level's load script
@@ -747,10 +765,10 @@ private:
     bool show_metrics_;           // +0x45 the net metrics shown (toggle_net_metrics)
     bool show_scores_;            // +0x46 the scores shown (toggle_scores)
     bool show_names_;             // +0x47 the players' names shown (toggle_player_names)
-    std::array<int, 8> start_points_{};      // +0x48 the skaters' starting points (choose_start_points; the start info's)
+    std::array<int, kHubStartPointsSize> start_points_{};      // +0x48 the skaters' starting points (choose_start_points; the start info's)
     int crown_start_{};           // +0x68 the crown's starting point (sent as a signed byte)
     objects::CrownObject* crown_{}; // +0x6C king of the hill's crown
-    std::array<std::array<uint32_t, 5>, 4> team_objects_{}; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
+    std::array<std::array<uint32_t, kHubTeamObjectsPerTeam>, 4> team_objects_{}; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
     std::unique_ptr<tasks::SchedulerTask> connection_job_;      // +0xC0 connection_task
     std::unique_ptr<tasks::SchedulerTask> metrics_job_;         // +0xC4 the net metrics' task
     std::unique_ptr<tasks::SchedulerTask> score_broadcast_job_; // +0xC8 score_broadcast_tick
@@ -803,13 +821,13 @@ private:
     // The created goals' message (prepare_created_goals): the level, then the goals. The goal editor is given 6000
     // bytes after the level - 4 more than the buffer holds, as in the original (they would reach the size, which is
     // written after).
-    std::array<uint8_t, 0x1770> created_goals_{}; // +0x1D8
+    std::array<uint8_t, kHubCreatedGoalsSize> created_goals_{}; // +0x1D8
     uint32_t created_goals_size_;   // +0x1948
     uint32_t created_goals_level_;  // +0x194C
-    std::array<uint8_t, 0x8000> unknown1950_{}; // +0x1950
+    std::array<uint8_t, kHubUnknown1950Size> unknown1950_{}; // +0x1950
     uint32_t room_id_{};            // +0x9950 (set_room_id)
-    std::array<std::array<char, 16>, 10> master_servers_{}; // +0x9954 the master servers' names (use_network_preferences)
-    std::array<uint8_t, 0x6400> news_buffer_{}; // +0x99F4 the news / message of the day downloaded
+    std::array<std::array<char, kHubMasterServerNameSize>, kHubMasterServersSize> master_servers_{}; // +0x9954 the master servers' names (use_network_preferences)
+    std::array<uint8_t, kHubNewsBufferSize> news_buffer_{}; // +0x99F4 the news / message of the day downloaded
     const char* motd_text_{};       // +0xFDF4 the message of the day in news_buffer_
     uint8_t* pending_data_{};       // +0xFDF8 the rest of the download after it
     uint32_t pending_data_size_{};  // +0xFDFC
@@ -829,8 +847,8 @@ void release_manager();
 
 // The command line's login (-email / -password, buddy_status.cpp) and a session's password to join with
 // (-PASSWORD, gamenet_join.cpp) - set by winmain.cpp.
-std::array<char, 256>& command_line_email();
-std::array<char, 16>& command_line_password();
+std::array<char, kCommandLineEmailBytes>& command_line_email();
+std::array<char, kCommandLinePasswordBytes>& command_line_password();
 std::array<char, kPasswordSize>& pending_password();
 
 } // namespace online

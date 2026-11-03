@@ -75,6 +75,7 @@ std::array<char, kPasswordSize>& pending_password()
 }
 
 namespace {
+constexpr int kMillisecondsPerSecond = 1000;
 
 using net::AppHost;
 using net::Conn;
@@ -596,7 +597,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         context->receiver_app()->opened_link({.ip = static_cast<int>(conn->remote_ip()), .port = conn->port_no(), .flags = Conn::kFlagRemote});
     context->set_sender_conn(joined);
     joined->set_link_speed_class(msg->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
-    joined->set_transmit_period(static_cast<uint32_t>(1000 / game_config::frame_rate() * 2)); // two frames
+    joined->set_transmit_period(static_cast<uint32_t>(kMillisecondsPerSecond / game_config::frame_rate() * 2)); // two frames
     // NOT ORIGINAL: in the THUGPRO peer mode no GameSpy CD-key check (TP-R12): proceed as on a LAN.
     if (manager->in_internet_mode() && !thugpro::peer_mode()) {
         auto* instance = static_cast<AuthInstance*>(memory::alloc(sizeof(AuthInstance)));

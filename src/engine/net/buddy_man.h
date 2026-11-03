@@ -24,14 +24,17 @@ class Task;
 // 0x00548560-0x0054A660 (the rest of the class, 0x00548040-0x00548560, is with the lobby code before it).
 namespace online {
 
+constexpr size_t kBuddyNickSize = 32;
+constexpr size_t kBuddyLocationSize = 256;
+constexpr size_t kBuddyStatusTextSize = 256;
 // A buddy (0x24C bytes, memory::alloc_zeroed'd): an lists::Elem<Buddy> (its scalar deleting destructor 0x00548CF0)
 // carrying the GP buddy's details. (The buddy records' nodes keep the original's size.)
 struct Buddy {
     // The fields other code reads and sets.
     memory::ListNode& list_link() { return list_link_; }
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
-    std::array<char, 32>& nick() { return nick_; }
-    [[nodiscard]] const std::array<char, 32>& nick() const { return nick_; }
+    std::array<char, kBuddyNickSize>& nick() { return nick_; }
+    [[nodiscard]] const std::array<char, kBuddyNickSize>& nick() const { return nick_; }
     [[nodiscard]] int account() const { return account_; }
     void set_account(int value) { account_ = value; }
     [[nodiscard]] int cur_standing() const { return cur_standing_; }
@@ -44,14 +47,14 @@ struct Buddy {
     void set_join_private_ip(uint32_t value) { join_private_ip_ = value; }
     [[nodiscard]] int join_port() const { return join_port_; }
     void set_join_port(int value) { join_port_ = value; }
-    std::array<char, 256>& location() { return location_; }
-    [[nodiscard]] const std::array<char, 256>& location() const { return location_; }
-    std::array<char, 256>& status_text() { return status_text_; }
-    [[nodiscard]] const std::array<char, 256>& status_text() const { return status_text_; }
+    std::array<char, kBuddyLocationSize>& location() { return location_; }
+    [[nodiscard]] const std::array<char, kBuddyLocationSize>& location() const { return location_; }
+    std::array<char, kBuddyStatusTextSize>& status_text() { return status_text_; }
+    [[nodiscard]] const std::array<char, kBuddyStatusTextSize>& status_text() const { return status_text_; }
 
 private:
     memory::ListNode list_link_; // +0x00 data = this
-    std::array<char, 32> nick_;              // +0x14
+    std::array<char, kBuddyNickSize> nick_;              // +0x14
     int account_;                // +0x34 the GameSpy profile id
     int cur_standing_; // +0x38 GP status: 0 offline, 1 online, 2 playing (in a THUG2 game: the location is one)
     bool pending_;     // +0x3C asked to be a buddy, no answer yet (not shown in the list)
@@ -59,8 +62,8 @@ private:
     uint32_t join_ip_;         // +0x40 the game the buddy plays in (from the location string, kThug2Location)
     uint32_t join_private_ip_; // +0x44
     int join_port_;            // +0x48
-    std::array<char, 256> location_;       // +0x4C the game's name (or the GP location string)
-    std::array<char, 256> status_text_;    // +0x14C
+    std::array<char, kBuddyLocationSize> location_;       // +0x4C the game's name (or the GP location string)
+    std::array<char, kBuddyStatusTextSize> status_text_;    // +0x14C
 
 public:
 
@@ -69,6 +72,8 @@ public:
     Buddy* teardown(unsigned int flags);
 };
 
+constexpr size_t kFriendNoteNickSize = 16;
+constexpr size_t kFriendNoteTextSize = 64;
 // A buddy message waiting to be shown (0x68 bytes): an lists::Elem<FriendNote> (its scalar deleting destructor
 // 0x00548D20). GP messages are "nick\ntext" (SendBuddyMessage); a message of one line comes
 // from a buddy and gets the buddy's nick.
@@ -78,16 +83,16 @@ struct FriendNote {
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
     [[nodiscard]] int account() const { return account_; }
     void set_account(int value) { account_ = value; }
-    std::array<char, 16>& nick() { return nick_; }
-    [[nodiscard]] const std::array<char, 16>& nick() const { return nick_; }
-    std::array<char, 64>& text() { return text_; }
-    [[nodiscard]] const std::array<char, 64>& text() const { return text_; }
+    std::array<char, kFriendNoteNickSize>& nick() { return nick_; }
+    [[nodiscard]] const std::array<char, kFriendNoteNickSize>& nick() const { return nick_; }
+    std::array<char, kFriendNoteTextSize>& text() { return text_; }
+    [[nodiscard]] const std::array<char, kFriendNoteTextSize>& text() const { return text_; }
 
 private:
     memory::ListNode list_link_{}; // +0x00 data = this
     int account_{0};               // +0x14 the sender
-    std::array<char, 16> nick_{};            // +0x18
-    std::array<char, 64> text_{};            // +0x28
+    std::array<char, kFriendNoteNickSize> nick_{};            // +0x18
+    std::array<char, kFriendNoteTextSize> text_{};            // +0x28
 
 public:
 

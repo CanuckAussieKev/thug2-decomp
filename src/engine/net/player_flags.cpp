@@ -39,6 +39,8 @@ namespace online {
 using namespace detail;
 
 namespace {
+constexpr uint32_t kBitMask = 31;
+constexpr int kMinStateHistoryFrames = 10;
 
 // Names.
 constexpr uint32_t kSkaterScore = 0xD262802F;        // SkaterScore (the component)
@@ -72,7 +74,7 @@ constexpr uint8_t kMsgPlayerFullyIn = 0x5E;
 constexpr uint32_t kJoinSettleTime = 1000; // ms
 constexpr uint32_t kJustJoinedTime = 5000; // ms
 
-uint32_t flag_of(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
+uint32_t flag_of(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & kBitMask); }
 
 // "team_<team + 1>_name" (the original's sprintf).
 void get_team_key(char* key, int team) { crt::get_sprintf(key, "team_%d_name", team + 1); }
@@ -101,7 +103,7 @@ bool PlayerRecord::is_invulnerable()
 {
     if (!(conn_->cur_standing() & net::Conn::kConnReady) || !rider()->get_flag_2c_4())
         return true;
-    if (rider()->state_history()->state_count() < 10) // (its state history's frames)
+    if (rider()->state_history()->state_count() < kMinStateHistoryFrames) // (its state history's frames)
         return true;
     if (frame_clock::get_time() - join_time_ < kJoinSettleTime)
         return true;

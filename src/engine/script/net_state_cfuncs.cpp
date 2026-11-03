@@ -40,6 +40,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/service.h"
 #include "engine/script/script_state.h"
 #include <gsl/pointers>
 
@@ -54,8 +55,6 @@ constexpr int kMessageTypeCount = 256;
 // The message a local skater's client sends the host when its script says so; the sequenced group of the game's messages.
 constexpr uint8_t kMsgSkaterNotice = 0x45;
 constexpr uint8_t kGroupGame = 8;
-// The service state of the lobby list.
-constexpr int kServiceStateLobbyList = 13;
 // "no server / no address" from the command line and from inet_addr.
 constexpr uint32_t kNoAddress = 0xFFFFFFFFu;
 
@@ -447,10 +446,10 @@ bool cfunc_start_lobby_list(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online::online_hub();
     if (game_net->get_service_state() == 2) {
-        game_net->set_next_service_state(kServiceStateLobbyList);
+        game_net->set_next_service_state(online::kServiceStateLobbyListStart);
         game_net->set_service_state(1);
     } else {
-        game_net->set_service_state(kServiceStateLobbyList);
+        game_net->set_service_state(online::kServiceStateLobbyListStart);
     }
     return true;
 }
@@ -579,7 +578,7 @@ uint32_t host_first_address(const char* name) { return crt::host_first_address(n
 bool cfunc_try_join_internet_game(script::Struct*, script::Script*)
 {
     const uint32_t server = online::net_game_state().command_line_server();
-    if (server != kNoAddress)
+    if (server != online::kNoCommandLineServer)
         online::online_hub()->find_server_at(server);
     script::script_state().set_trying_to_join(true);
     debug::printf("ScriptTryJoinInternetGame\n"); // "ScriptTryJoinInternetGame\n"
