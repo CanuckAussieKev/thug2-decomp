@@ -37,6 +37,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend::level_editor::node_create {
 
@@ -728,7 +729,7 @@ void make_live(const Spec& spec, script::Struct* node)
             proxim->at_point() = pos;
             proxim->radius() = spec.radius;
             proxim->set_reach_sq(spec.radius * spec.radius);
-            objects::proximity_node_enable(name, 1);
+            objects::proximity_node_enable(checksums::Name{name}, 1);
         } else {
             objects::nearby_zone_add_node(name, true);
         }
@@ -753,9 +754,9 @@ void kill_live(const Spec& spec)
         return;
     const uint32_t name = name_hash(spec.name);
     if (kind == Kind::kProximityNode && have_proxim())
-        objects::proximity_node_enable(name, 0);
+        objects::proximity_node_enable(checksums::Name{name}, 0);
     else if (kind == Kind::kSound && have_emitters())
-        objects::emitter_set_active(name, 0);
+        objects::emitter_set_active(checksums::Name{name}, 0);
     else if (kind == Kind::kLight)
         remove_light(name);
 }
@@ -1121,13 +1122,13 @@ bool conceal(uint32_t name, bool hide)
         if (cls == kProxim && have_proxim()) {
             if (const objects::ProximNode* proxim = objects::proxim_get_node(name)) {
                 h.proxim_active_ = proxim->active();
-                objects::proximity_node_enable(name, 0);
+                objects::proximity_node_enable(checksums::Name{name}, 0);
             }
         }
         if (cls == kEmitter && have_emitters()) {
             if (const objects::EmitterNode* emitter = objects::emitter_get_node(name)) {
                 h.emitter_active_ = emitter->active_;
-                objects::emitter_set_active(name, 0);
+                objects::emitter_set_active(checksums::Name{name}, 0);
             }
         }
         if (cls == kLight)
@@ -1155,9 +1156,9 @@ bool conceal(uint32_t name, bool hide)
         if (type)
             node->put_name_key(checksums::Name{kType}, type);
         if (cls == kProxim && have_proxim() && h.proxim_active_)
-            objects::proximity_node_enable(name, 1);
+            objects::proximity_node_enable(checksums::Name{name}, 1);
         if (cls == kEmitter && have_emitters() && h.emitter_active_)
-            objects::emitter_set_active(name, 1);
+            objects::emitter_set_active(checksums::Name{name}, 1);
         if (cls == kLight)
             add_light(node);
         get_log("level editor: showed the level's node %s again", object_edit::caption(name).c_str());

@@ -20,6 +20,7 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -281,8 +282,9 @@ bool VideoHub::end_movies(bool skippable)
 }
 
 // 0x0057A940
-bool VideoHub::movie_call_468f_40(uint32_t name, uint32_t value)
+bool VideoHub::movie_call_468f_40(checksums::Name movie_name, uint32_t value)
 {
+    const uint32_t name = movie_name.value();
     if (!total_of())
         return false;
     if (!name) {
@@ -295,8 +297,9 @@ bool VideoHub::movie_call_468f_40(uint32_t name, uint32_t value)
 }
 
 // 0x0057A9B0
-bool VideoHub::movie_call_468f_50(uint32_t name, uint32_t value)
+bool VideoHub::movie_call_468f_50(checksums::Name movie_name, uint32_t value)
 {
+    const uint32_t name = movie_name.value();
     if (!total_of())
         return false;
     if (!name) {

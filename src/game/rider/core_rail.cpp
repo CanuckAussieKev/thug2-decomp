@@ -117,7 +117,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     auto alignment = static_cast<float>(std::cos(static_cast<double>(angle) * kDegrees));
     maths::Vec4 point;
     objects::GrindPoint* found = nullptr;
-    bool onto = rail_manager_->find_grind_rail(&start, &stop, &point, &found, rail_node_, alignment, side) && found &&
+    bool onto = rail_manager_->find_grind_rail(&start, &stop, &point, &found, rail_node_, {.min_alignment_ = alignment, .side = side}) && found &&
                 found != rail_node_ && found->succ();
     if (onto && !in_park_editor()) {
         // (Not this rail's next or last node.)

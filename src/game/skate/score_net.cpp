@@ -27,6 +27,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace modules {
 
@@ -158,7 +159,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
                           ? as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater_id)))->team()
                           : skater_id;
     for (const uint32_t name : objects)
-        get_trick_objects()->set_object_graffiti_color(name, owner);
+        get_trick_objects()->set_object_graffiti_color(checksums::Name{name}, owner);
 }
 
 // 0x005626F0

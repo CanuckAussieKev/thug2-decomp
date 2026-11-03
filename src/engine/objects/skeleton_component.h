@@ -63,22 +63,37 @@ public:
     // 0x00432050: `out` = where `bone` is in the world (the skeleton's position - (0, 0, 0, 1) if the bone isn't found -
     // turned by the object's orientation and moved to its position). Always false (the original's AL is cleared).
     bool get_bone_position(uint32_t bone, maths::Vec4* out);
+    // A decal splat's size, its spin, turn and spread, its lifetime and how far it drops.
+    struct DecalShape {
+        float width{};
+        float height{};
+        float spin{};
+        float turn{};
+        float spread{};
+        float lifetime{};
+        float dropdown_length_{};
+    };
+
     // 0x004320F0 (RET 0x38): a texture splat (0x004928A0) along a line: from `start` (or the world position of `bone`
     // when not 0) towards `end` - or, with `dropdown`, `dropdown_length` (feet) down the object's up; without it, an
     // `end` of length 0 means the same length down the up - the start first raised a foot up the object's up; the end
     // scattered by up to `spread` along the object's right and at (two rand()s). `width` / `height` / `spin` / `turn`
     // / `lifetime` / `texture` / `blend` passed on, and `bone` when `follow`.
-    void place_decal_splat(const maths::Vec4* start, const maths::Vec4* end, uint32_t bone, float width, float height,
-                           float spin, float turn, float spread, float lifetime, float dropdown_length, render::BitmapTexture* texture,
+    void place_decal_splat(const maths::Vec4* start, const maths::Vec4* end, uint32_t bone, const DecalShape& decal_shape, render::BitmapTexture* texture,
                            uint32_t blend, bool follow, bool dropdown);
+    // The spawned object's velocity and its rotational velocity.
+    struct SpawnVelocities {
+        const maths::Vec4* velocity{};
+        const maths::Vec4* rotational_velocity_{};
+    };
+
     // 0x00432490 (RET 0x1C): a composite object made of `components` (0x0045F3A0, finalised) with `params` given
     // the position, orientation (a quaternion with w > 0), velocity and rotational velocity of the skeleton's `bone`
     // (its matrix with y and z swapped, z turned round, moved by `offset` - whose w is cleared - then by the
     // object's matrix): vel = `velocity_scale` * the object's velocity + `velocity` turned by the object; rotvel =
     // `rotational_velocity` turned by the object.
     void spawn_composite_object_at_bone(uint32_t bone, script::Array* components, script::Struct* params,
-                                        float velocity_scale, const maths::Vec4* velocity,
-                                        const maths::Vec4* rotational_velocity, maths::Vec4* offset);
+                                        float velocity_scale, SpawnVelocities velocities, maths::Vec4* offset);
 
     // --- script member functions (the table at 0x00684DE0) ---
     // 0x00431C00 Obj_SetBoneActive: bone= and active= (both asserted) to the skeleton (0x004A2BB0). True.

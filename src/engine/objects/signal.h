@@ -122,9 +122,16 @@ public:
     SignalRouteTable(const SignalRouteTable&) = delete;
     SignalRouteTable& operator=(const SignalRouteTable&) = delete;
 
+    // What a listener answers: the signal's type, the script run and the group.
+    struct ListenerKey {
+        uint32_t type{};
+        uint32_t script_name_{};
+        uint32_t group{};
+    };
+
     // 0x0045FBC0: a handler for `type`: replaces the entry of that type, else reuses a removed entry, else a new
     // one at the end. The tracker is told `script` listens for `type` unless the entry of that type was live.
-    void append_listener(script::Script* script, uint32_t type, uint32_t script_name, uint32_t group, bool exception,
+    void append_listener(script::Script* script, ListenerKey listener_key, bool exception,
                          script::Struct* params);
     // 0x004601A0: the handler structures of `handlers` ({type, script, [params = {...}], [group = g], [exception]})
     // go in front of the existing entries; with `replace`, existing entries of each type are removed first, and

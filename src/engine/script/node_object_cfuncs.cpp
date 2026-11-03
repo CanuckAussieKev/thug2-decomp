@@ -266,10 +266,10 @@ bool create_from_node(script::Struct* node)
         return true;
     case kClassClimbingNode:
     case kClassRailNode:
-        rail_manager()->change_live(name, 1, node->has_bare_flag("FLAG_WHOLE_RAIL")); // "FLAG_WHOLE_RAIL"
+        rail_manager()->change_live(checksums::Name{name}, 1, node->has_bare_flag("FLAG_WHOLE_RAIL")); // "FLAG_WHOLE_RAIL"
         return true;
     case kClassProximNode:
-        objects::proximity_node_enable(name, 1);
+        objects::proximity_node_enable(checksums::Name{name}, 1);
         return true;
     case kClassParticleObject:
         memory::push_mem_profile("Particle Systems"); // "Particle Systems"
@@ -277,7 +277,7 @@ bool create_from_node(script::Struct* node)
         memory::pop_mem_profile();
         return true;
     case kClassEmitterObject:
-        objects::emitter_set_active(name, 1);
+        objects::emitter_set_active(checksums::Name{name}, 1);
         return true;
     case kClassLevelObject:
         memory::push_mem_profile("LevelObjects"); // "LevelObjects"
@@ -389,16 +389,16 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
     }
     case kClassClimbingNode:
     case kClassRailNode:
-        rail_manager()->change_live(name, 0, node->has_bare_flag("FLAG_WHOLE_RAIL")); // "FLAG_WHOLE_RAIL"
+        rail_manager()->change_live(checksums::Name{name}, 0, node->has_bare_flag("FLAG_WHOLE_RAIL")); // "FLAG_WHOLE_RAIL"
         return true;
     case kClassProximNode:
-        objects::proximity_node_enable(name, 0);
+        objects::proximity_node_enable(checksums::Name{name}, 0);
         return true;
     case kClassA0e52802:
         render::delete_scene_light(name);
         return true;
     case kClassEmitterObject:
-        objects::emitter_set_active(name, 0);
+        objects::emitter_set_active(checksums::Name{name}, 0);
         return true;
     case kClassLevelGeometry: {
         uint32_t section_id = 0;

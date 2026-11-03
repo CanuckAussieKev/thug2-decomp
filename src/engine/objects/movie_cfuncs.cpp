@@ -19,6 +19,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/core/down_cast.h"
 #include "engine/sys/game_config.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -116,7 +117,7 @@ bool cfunc_set_skater_cam_anim_skippable(script::Struct* params, script::Script*
         const uint32_t name = movie_key_from_params(params, 0);
         int skippable = 0;
         params->fetch_int_value(kSkippable, &skippable, 0);
-        camera_movies()->movie_call_468f_40(name, skippable != 0);
+        camera_movies()->movie_call_468f_40(checksums::Name{name}, skippable != 0);
     }
     return true;
 }
@@ -128,7 +129,7 @@ bool cfunc_set_skater_cam_anim_should_pause(script::Struct* params, script::Scri
         const uint32_t name = movie_key_from_params(params, 0);
         int pause = 0;
         params->fetch_int_value(kShouldPause, &pause, 0);
-        camera_movies()->movie_call_468f_50(name, pause != 0);
+        camera_movies()->movie_call_468f_50(checksums::Name{name}, pause != 0);
     }
     return true;
 }
@@ -290,7 +291,7 @@ bool cfunc_set_object_anim_skippable(script::Struct* params, script::Script*)
     const uint32_t name = movie_key_from_params(params, 0);
     int skippable = 0;
     params->fetch_int_value(kSkippable, &skippable, 0);
-    object_movies()->movie_call_468f_40(name, skippable != 0);
+    object_movies()->movie_call_468f_40(checksums::Name{name}, skippable != 0);
     return true;
 }
 
@@ -299,7 +300,7 @@ bool cfunc_set_object_anim_should_pause(script::Struct* params, script::Script*)
     const uint32_t name = movie_key_from_params(params, 0);
     int pause = 0;
     params->fetch_int_value(kShouldPause, &pause, 0);
-    object_movies()->movie_call_468f_50(name, pause != 0);
+    object_movies()->movie_call_468f_50(checksums::Name{name}, pause != 0);
     return true;
 }
 

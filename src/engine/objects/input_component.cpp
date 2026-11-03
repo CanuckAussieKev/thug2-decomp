@@ -33,6 +33,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -263,14 +264,17 @@ void PadInputModule::update_events(std::span<const uint8_t> data)
             event.button < 0
                 ? nullptr
                 : pad_primary_.button_at_offset(static_cast<uint32_t>(event.button));
-        read_button_state(data, event.index, event.bit, event.down, event.up, button);
+        read_button_state(data, event.index, {.bit = event.bit, .down = event.down, .up = event.up}, button);
     }
 }
 
 // 0x0041EBF0
-void PadInputModule::read_button_state(std::span<const uint8_t> data, int index, uint32_t bit, uint32_t down, uint32_t up,
+void PadInputModule::read_button_state(std::span<const uint8_t> data, int index, ButtonMasks button_masks,
                                        ControlButton* button)
 {
+    const auto bit = button_masks.bit;
+    const auto down = button_masks.down;
+    const auto up = button_masks.up;
     if (button) {
         auto locked_until = static_cast<uint32_t>(get_truncated(button->locked_until()));
         if (frame_clock::get_time() < locked_until)
@@ -287,8 +291,9 @@ void PadInputModule::read_button_state(std::span<const uint8_t> data, int index,
 }
 
 // 0x0041E7E0
-void PadInputModule::lock_button(uint32_t name, float seconds, bool release)
+void PadInputModule::lock_button(checksums::Name button_name, float seconds, bool release)
 {
+    const uint32_t name = button_name.value();
     ControlButton* button = pad_primary_.read_button(name);
     const uint32_t now = frame_clock::get_time();
     auto time = static_cast<double>(static_cast<int32_t>(now));
@@ -313,7 +318,7 @@ int PadInputModule::lock_button_from_script(script::Struct* params, script::Scri
         debug::printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", 0x94, static_cast<double>(time));
         int clear = 0;
         params->fetch_int_value(kClear, &clear, 0);
-        lock_button(name, time, clear != 0);
+        lock_button(checksums::Name{name}, time, clear != 0);
     }
     return 1;
 }
@@ -395,10 +400,10 @@ int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 {
     script->args()->push_float(checksums::Name{0x737F15CF}, core::at(pad_primary_.polar(), 1).angle * kDegreesPerRadian);
     script->args()->push_float(checksums::Name{0x686AD1C2},
-        static_cast<float>(stick_length(core::at(pad_primary_.stick(), 2), core::at(pad_primary_.stick(), 3), core::at(pad_primary_.polar(), 1).angle)));
+        static_cast<float>(stick_length({.x = core::at(pad_primary_.stick(), 2), .y = core::at(pad_primary_.stick(), 3)}, core::at(pad_primary_.polar(), 1).angle)));
     script->args()->push_float(checksums::Name{0xD6030CEA}, core::at(pad_primary_.polar(), 0).angle * kDegreesPerRadian);
     script->args()->push_float(checksums::Name{0xC94777AC},
-        static_cast<float>(stick_length(core::at(pad_primary_.stick(), 0), core::at(pad_primary_.stick(), 1), core::at(pad_primary_.polar(), 0).angle)));
+        static_cast<float>(stick_length({.x = core::at(pad_primary_.stick(), 0), .y = core::at(pad_primary_.stick(), 1)}, core::at(pad_primary_.polar(), 0).angle)));
     return 1;
 }
 

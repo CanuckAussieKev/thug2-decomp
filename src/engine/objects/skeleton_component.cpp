@@ -149,10 +149,15 @@ bool BoneRigModule::get_bone_position(uint32_t bone, maths::Vec4* out)
 }
 
 // 0x004320F0
-void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec4* end, uint32_t bone, float width,
-                                      float height, float spin, float turn, float spread, float lifetime,
-                                      float dropdown_length, render::BitmapTexture* texture, uint32_t blend, bool follow, bool dropdown)
+void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec4* end, uint32_t bone, const DecalShape& decal_shape, render::BitmapTexture* texture, uint32_t blend, bool follow, bool dropdown)
 {
+    const auto width = decal_shape.width;
+    const auto height = decal_shape.height;
+    const auto spin = decal_shape.spin;
+    const auto turn = decal_shape.turn;
+    const auto spread = decal_shape.spread;
+    const auto lifetime = decal_shape.lifetime;
+    const auto dropdown_length = decal_shape.dropdown_length_;
     maths::Vec4 from;
     if (!bone)
         from = *start;
@@ -207,9 +212,10 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
 
 // 0x00432490
 void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array* components, script::Struct* params,
-                                                   float velocity_scale, const maths::Vec4* velocity,
-                                                   const maths::Vec4* rotational_velocity, maths::Vec4* offset)
+                                                   float velocity_scale, SpawnVelocities velocities, maths::Vec4* offset)
 {
+    const auto velocity = velocities.velocity;
+    const auto rotational_velocity = velocities.rotational_velocity_;
     auto* skeleton = core::down_cast<BoneRigModule>(entity()->fetch_module(kType));
     maths::Mat4 joint_mat;
     skeleton_bone_matrix(skeleton->bone_rig_, bone, &joint_mat);
@@ -358,7 +364,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
         spin = static_cast<float>(std::acos(static_cast<double>(at.z)) * side);
     }
     const maths::Vec4 end_vector = {.x = end.x, .y = end.y, .z = end.z, .w = end.w};
-    place_decal_splat(&start, &end_vector, bone, size, height, spin, angle, radius, lifetime, dropdown_length, texture,
+    place_decal_splat(&start, &end_vector, bone, {.width = size, .height = height, .spin = spin, .turn = angle, .spread = radius, .lifetime = lifetime, .dropdown_length_ = dropdown_length}, texture,
                       blend, trail, dropdown_vertical);
     return true;
 }
@@ -383,7 +389,7 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
     const maths::Vec4 velocity = {.x = vel.x, .y = vel.y, .z = vel.z, .w = vel.w};
     const maths::Vec4 rotation = {.x = rotvel.x, .y = rotvel.y, .z = rotvel.z, .w = rotvel.w};
     maths::Vec4 at = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
-    spawn_composite_object_at_bone(bone, components, object_params, factor, &velocity, &rotation, &at);
+    spawn_composite_object_at_bone(bone, components, object_params, factor, {.velocity = &velocity, .rotational_velocity_ = &rotation}, &at);
     return true;
 }
 

@@ -35,6 +35,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -582,8 +583,7 @@ void RiderRemoteSync::play_history_events()
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (msg->spin_axes_ & (1u << bit))
-                        append_one(core::at(mesh_set_->twist_rate(), bit), static_cast<float>(msg->spin_period_), static_cast<uint32_t>(time), msg->spin_start_,
-                            msg->spin_range_, msg->spin_power_, msg->spin_hold_, false);
+                        append_one(core::at(mesh_set_->twist_rate(), bit), {.period = static_cast<float>(msg->spin_period_), .start = static_cast<uint32_t>(time), .base = msg->spin_start_, .range = msg->spin_range_, .power = msg->spin_power_}, msg->spin_hold_, false);
                 }
                 break;
             }

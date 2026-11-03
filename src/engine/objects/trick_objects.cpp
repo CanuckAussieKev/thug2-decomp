@@ -40,6 +40,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -503,8 +504,9 @@ bool TrickObjectCluster::clear_graffiti_color(int index)
 }
 
 // 0x00588FF0
-bool TrickSpotHub::set_object_graffiti_color(uint32_t object_name, int player)
+bool TrickSpotHub::set_object_graffiti_color(checksums::Name object, int player)
 {
+    const uint32_t object_name = object.value();
     TrickObjectCluster* cluster = get_object_cluster(object_name);
     if (!cluster)
         return false;

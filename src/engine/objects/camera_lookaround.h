@@ -47,8 +47,16 @@ public:
     // 0x48D4868B (1 by default); 0xE3B327C0 stops turning. 2 for anything else. (NOT ORIGINAL, the feature on:
     // THAW's LookaroundOnDPad_On / _Off too.)
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
+    // Where the free look turns to (heading, tilt), over how long, and how fast.
+    struct LookTurn {
+        float heading{};
+        float tilt{};
+        float time{};
+        float factor{};
+    };
+
     // 0x004E3FA0 (not a Ghidra function): turn to `heading` and `tilt` over `time` (straight away without one).
-    void turn_to(float heading, float tilt, float time, float factor);
+    void turn_to(LookTurn look_turn);
     // 0x004E4000: lock (or unlock) the angles where they are.
     void set_locked(bool locked);
 

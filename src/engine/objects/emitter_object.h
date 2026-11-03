@@ -14,6 +14,7 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/checksums.h"
 
 namespace lists {
 class KeyMap;
@@ -55,7 +56,7 @@ EmitterNode* emitter_get_node(uint32_t name);
 // 0x004682B0: every emitter freed and taken out of the table.
 void emitter_cleanup();
 // 0x00468340: the emitter named `name` made active or not.
-void emitter_set_active(uint32_t name, int active);
+void emitter_set_active(checksums::Name emitter, int active);
 // 0x004683B0: the table made (16 buckets), or emptied if there is one.
 void emitter_init();
 // 0x00468450: an emitter for the level node `name`, from its parameters.

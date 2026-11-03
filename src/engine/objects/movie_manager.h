@@ -7,6 +7,7 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/node_objects.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 // The movie manager (GameObjects::VideoHub, 0x0057A180-0x0057B240): the queue of camera animations and cutscenes
@@ -78,8 +79,8 @@ public:
 
     // By name (0: the playing movie) - false with none queued:
     // 0x0057A940 / 0x0057A9B0: the movie's 0x00468F40 / 0x00468F50 with `value` (no such movie: nothing; true).
-    bool movie_call_468f_40(uint32_t name, uint32_t value);
-    bool movie_call_468f_50(uint32_t name, uint32_t value);
+    bool movie_call_468f_40(checksums::Name movie_name, uint32_t value);
+    bool movie_call_468f_50(checksums::Name movie_name, uint32_t value);
     // 0x0057AA20: whether the movie `name` is gone (none queued: true; name 0: false).
     bool is_movie_gone(uint32_t name);
     // 0x0057AA70: the movie's vtable +0x18 (no such movie: false).

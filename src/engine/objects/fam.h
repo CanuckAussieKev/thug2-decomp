@@ -48,14 +48,20 @@ public:
     // 0x0041D3E0: unload_fam, then fam\<name>.fam loaded as an animation (assets::ResourceRegistry::LoadAnim with `name` and
     // `anim_set`; the asset manager's +0x18 kept across it); loaded: its checksum kept.
     void load_anim_bank(uint32_t name, uint32_t anim_set);
+    // A face animation's sound volume and its priority.
+    struct FamLevels {
+        int volume{};
+        int priority{};
+    };
+
     // 0x0041D480: false if `name` isn't a stream. The last fam's stream stopped (and its scripts); then fam_play_stream
     // spawned on the object with stream_checksum = name, vol (when not 0) and - unless `stream_only` - use_pos_info = 0,
     // the fam loaded into the anim set, the stream preloaded (`priority`; its id as streamId, kept) and the unnamed
     // flag play_anim when the fam's animation is there. True.
-    bool play_fam(uint32_t name, bool stream_only, int volume, int priority);
+    bool play_fam(uint32_t name, bool stream_only, FamLevels fam_levels);
 
     // --- the member functions scripts call (the table at 0x006836E8) ---
-    // 0x0041D660 [Obj_PlayFam 0xE5894C80]: play_fam(the unnamed checksum (asserted), false, vol (0), priority (0x66)).
+    // 0x0041D660 [Obj_PlayFam 0xE5894C80]: play_fam(the unnamed checksum (asserted), false, {.volume = vol (0), .priority = priority (0x66)}).
     int obj_play_fam(script::Struct* params, script::Script* script);
     // 0x0041D280 [obj_stop_last_fam 0x48AC2139]: the last fam's stream stopped (and its scripts). 1.
     int obj_stop_last_fam(script::Struct* params, script::Script* script);

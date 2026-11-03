@@ -102,9 +102,19 @@ public:
         int depth; // the launch depth after this entry
     };
 
+    // A row of the signal trace: the signal's type, its target and source, the script, how and its kind.
+    struct TraceRow {
+        uint32_t type{};
+        uint32_t target{};
+        uint32_t source{};
+        uint32_t script{};
+        uint32_t how{};
+        int kind{};
+    };
+
     // 0x004627C0: add an entry. The first call also makes the table of event names from the global array
     // 0x08114F90 (copied into names_, keyed by their checksums).
-    void add_row(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind);
+    void add_row(const TraceRow& trace_row);
     // 0x004620A0: print it (the entries' printing is compiled out of this build); there are no new entries
     // after. `only_new` picks the header; `count` isn't used.
     void echo_out(bool only_new, int count);

@@ -10,6 +10,7 @@
 #include <array>
 #include <span>
 #include "engine/pad_input/input_hub.h"
+#include "engine/maths/vec2.h"
 
 namespace objects {
 
@@ -162,7 +163,7 @@ int d_pad_direction(uint8_t up, uint8_t down, uint8_t left, uint8_t right);
 float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right);
 // 0x0046C370: a stick's length 0-1 (x, y around 0, -128..127), squared off towards the corners of the stick's
 // square gate by the angle (x 1/0.85, at most 1), unrounded.
-double stick_length(float x, float y, float angle);
+double stick_length(maths::Vec2 stick, float angle);
 
 int clock_offset();
 void set_clock_offset(int value);

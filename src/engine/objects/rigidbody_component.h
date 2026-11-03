@@ -94,11 +94,25 @@ public:
     void set_contacts(script::Array* points);
     // 0x0042D560: a box of 8 corners, the top four from `top` (y up), the bottom four from `bottom` (y down).
     void set_box(const maths::Vec4* top, const maths::Vec4* bottom);
+    // A pyramid's half height and half depth.
+    struct PyramidSize {
+        float half_height_{};
+        float half_depth_{};
+    };
+
     // 0x0042D690: a pyramid of 5: a square base (half side `half_depth`) at -0.6 `half_height`, its tip at 1.6.
-    void set_pyramid(float half_height, float half_depth);
+    void set_pyramid(PyramidSize pyramid_size);
+    // A cylinder's radii (top, bottom), half height and edge count.
+    struct CylinderShape {
+        float top_radius_{};
+        float bottom_radius_{};
+        float half_height_{};
+        int edges{};
+    };
+
     // 0x0042D790: a cylinder of two rings of `edges` points each: the bottom (y -`half_height`, `bottom_radius`) then
     // the top (`top_radius`), from the last point round.
-    void set_cylinder(float top_radius, float bottom_radius, float half_height, int edges);
+    void set_cylinder(CylinderShape cylinder);
     // 0x0042D8A0: a triangular prism of 6 from `dimensions`.
     void set_triangle(const maths::Vec4* dimensions);
     // 0x0042ED60: the spheres from the structures of `spheres` (the unnamed vector, radius=; both asserted).
@@ -187,9 +201,15 @@ public:
     // 0x0042CF90: the springs: their points' velocities taken out by impulses (up to 20 rounds), then each pulled to
     // its anchor.
     void apply_springs();
+    // Where an impulse acts: its normal and its offset from the centre.
+    struct ImpulseAt {
+        const maths::Vec4* normal{};
+        const maths::Vec4* offset{};
+    };
+
     // 0x0042CEE0: the impulse that changes the speed along `normal` at `offset` by 1 (thiscall, the result left
     // unrounded in ST0).
-    double impulse_scale(const maths::Vec4* normal, const maths::Vec4* offset) const;
+    [[nodiscard]] double impulse_scale(ImpulseAt impulse_at) const;
     // 0x0042E980: a bounce at `speed` (faster than the threshold): BounceScript run (CallbackParams and the point,
     // 0x43F454D0, in its parameters), the bounce sound played at Percent of the full speed while 12 voices are free.
     void on_bounce(float speed, const maths::Vec4* point);

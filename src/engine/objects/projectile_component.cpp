@@ -39,14 +39,22 @@ constexpr int kRestFrames = 10;
 
 // One feeler's end x / z: the cosine of the angle as computed (in double), the sine of it rounded to float; z adds
 // (sin + float(cos)) * 12 rounded to float first.
-void probe_tip(int index, float x, float z, float* last_column, float* end_z)
+// A point on the ground: x and z.
+struct GroundPoint {
+    float x;
+    float z;
+};
+
+// The probe's end: the last column's x and the end's z.
+GroundPoint probe_tip(int index, GroundPoint centre)
 {
+    const float x = centre.x;
+    const float z = centre.z;
     const double angle = static_cast<double>(index) * kStep;
     const double cosine = std::cos(angle);
     const double sine = std::sin(static_cast<double>(static_cast<float>(angle)));
     const auto side = static_cast<float>((sine + static_cast<float>(cosine)) * kReach);
-    *last_column = static_cast<float>((cosine - sine) * kReach + x);
-    *end_z = static_cast<float>(z + static_cast<double>(side));
+    return {.x = static_cast<float>((cosine - sine) * kReach + x), .z = static_cast<float>(z + static_cast<double>(side))};
 }
 
 } // namespace
@@ -105,7 +113,9 @@ void ProjectileComponent::check_triggers()
         feeler.line().start = pos;
         feeler.line().end.y = pos.y;
         feeler.line().end.w = end_w;
-        probe_tip(i, pos.x, pos.z, &feeler.line().end.x, &feeler.line().end.z);
+        const GroundPoint tip = probe_tip(i, {.x = pos.x, .z = pos.z});
+        feeler.line().end.x = tip.x;
+        feeler.line().end.z = tip.z;
         if (feeler.get_hit_shape(true, false) && trigger_ptr_->probe_touches_zone(touch_events(), &feeler))
             rest_ = kRestFrames;
     }

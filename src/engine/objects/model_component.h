@@ -6,6 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 #include <memory>
@@ -57,8 +58,17 @@ struct ModelSpinAxis {
 // 0x004204F0: every turn off, inactive.
 void get_clear(ModelSpinAxis& axis);
 
+// A spin axis's wave: its period, its start time, its base, its range and its power.
+struct SpinWave {
+    float period{};
+    uint32_t start{};
+    float base{};
+    float range{};
+    int power{};
+};
+
 // 0x00420520: a new turn in the first free slot (none free: nothing), the axis active.
-void append_one(ModelSpinAxis& axis, float period, uint32_t start, float base, float range, int power, bool hold, bool real_time);
+void append_one(ModelSpinAxis& axis, SpinWave spin_wave, bool hold, bool real_time);
 
 // 0x004213E0: the angles of the turns still on, added up (degrees). Inactive once none is.
 float bearing(ModelSpinAxis& axis);
@@ -103,7 +113,7 @@ public:
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x00421230 (vtable slot 13): the model built from a profile (Gfx: 0x004897D0 / 0x0048A2F0 - the build script,
     // 0x91C1EC93 when 0), then as set_up_mesh ends.
-    void set_up_mesh_from_profile(void* profile, bool via_resource_store, int tex_dict_offset, uint32_t build_script);
+    void set_up_mesh_from_profile(void* profile, bool via_resource_store, int tex_dict_offset, checksums::Name build_script_name);
     // 0x00421360 (vtable slot 14): another model; its lights' brightness and bounding sphere taken.
     void change_mesh(render::RenderModel* model);
 

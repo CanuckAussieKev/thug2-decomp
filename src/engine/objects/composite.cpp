@@ -28,6 +28,8 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/mem.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -129,8 +131,11 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 }
 
 // |v| as the original's x87 code works it out: (x*x + y*y) + z*z in double precision, not rounded to a float.
-double len_of(float x, float y, float z)
+double len_of(const maths::Vec4& v)
 {
+    const auto x = v.x;
+    const auto y = v.y;
+    const auto z = v.z;
     const double x2 = static_cast<double>(x) * x;
     const double y2 = static_cast<double>(y) * y;
     const double z2 = static_cast<double>(z) * z;
@@ -467,7 +472,7 @@ bool GameEntity::obj_get_velocity(Struct* /*params*/, Script* script)
 // 0x0045DC80: speed = the velocity's length.
 bool GameEntity::get_speed(Struct* /*params*/, Script* script)
 {
-    script->args()->push_float(checksums::Name{kSpeed}, static_cast<float>(len_of(vel_.x, vel_.y, vel_.z)));
+    script->args()->push_float(checksums::Name{kSpeed}, static_cast<float>(len_of({.x = vel_.x, .y = vel_.y, .z = vel_.z})));
     return true;
 }
 
@@ -545,7 +550,7 @@ bool GameEntity::obj_speed_near(Struct* params, Script* /*script*/)
 {
     float speed = 0.0f;
     params->fetch_float(kUnnamed, &speed, 0);
-    return std::fabs(len_of(vel_.x, vel_.y, vel_.z) - speed) < kSpeedTolerance;
+    return std::fabs(len_of({.x = vel_.x, .y = vel_.y, .z = vel_.z}) - speed) < kSpeedTolerance;
 }
 
 // 0x0045E310 / 0x0045E380: whether the speed is above / below the unnamed float (0 if missing).
@@ -553,13 +558,13 @@ bool GameEntity::obj_speed_above(Struct* params, Script* /*script*/)
 {
     float speed = 0.0f;
     params->fetch_float(kUnnamed, &speed, 0);
-    return len_of(vel_.x, vel_.y, vel_.z) > speed;
+    return len_of({.x = vel_.x, .y = vel_.y, .z = vel_.z}) > speed;
 }
 bool GameEntity::obj_speed_below(Struct* params, Script* /*script*/)
 {
     float speed = 0.0f;
     params->fetch_float(kUnnamed, &speed, 0);
-    return len_of(vel_.x, vel_.y, vel_.z) < speed;
+    return len_of({.x = vel_.x, .y = vel_.y, .z = vel_.z}) < speed;
 }
 
 // 0x0045E3F0: its type, in the calling script's parameters.

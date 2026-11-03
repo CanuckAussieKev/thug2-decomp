@@ -182,9 +182,12 @@ void SignalRouteTable::unregister_with_tracker(Script* script)
 }
 
 // 0x0045FBC0
-void SignalRouteTable::append_listener(Script* script, uint32_t type, uint32_t script_name, uint32_t group,
+void SignalRouteTable::append_listener(Script* script, ListenerKey listener_key,
                                        bool exception, Struct* params)
 {
+    const auto type = listener_key.type;
+    const auto script_name = listener_key.script_name_;
+    const auto group = listener_key.group;
     bool tell_tracker = true;
     TableRow* entry = nullptr;
     if (!entries_) {

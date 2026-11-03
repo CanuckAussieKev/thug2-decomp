@@ -76,6 +76,8 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 #include <span>
 
@@ -401,26 +403,25 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
     auto generic = [] {
         debug::printf(
             "\n\nWARNING - no Player1 restart point, trying Generic\n\n"); // "WARNING - no Player1 restart point, trying Generic"
-        const uint32_t node = objects::get_spawn_node(0, 0, 0);
+        const uint32_t node = objects::get_spawn_node(checksums::Name{0}, 0, 0);
         if (!node)
             debug::printf("\n\nWARNING - No restart points found\n\n"); // "WARNING - No restart points found"
         return node;
     };
     auto found = [&](uint32_t node) { return node ? node : generic(); };
     auto multiplayer = [&](uint32_t start) {
-        const uint32_t node = objects::get_spawn_node(
-            kMultiplayer, static_cast<int>(net->get_start_info_word(static_cast<int>(start))), 0);
+        const uint32_t node = objects::get_spawn_node(checksums::Name{kMultiplayer}, static_cast<int>(net->get_start_info_word(static_cast<int>(start))), 0);
         if (node)
             return node;
         debug::printf(
             "\n\nWARNING - no multiplayer restart point, trying player1\n\n"); // "WARNING - no multiplayer restart point, trying player1"
-        return found(objects::get_spawn_node(kPlayer1, 0, 0));
+        return found(objects::get_spawn_node(checksums::Name{kPlayer1}, 0, 0));
     };
     if (!net->in_net_game() && goals::game_mode()->get_starting_rider_count() <= 1)
-        return found(objects::get_spawn_node(kPlayer1, static_cast<int>(skater_id), 0));
+        return found(objects::get_spawn_node(checksums::Name{kPlayer1}, static_cast<int>(skater_id), 0));
     if (static_cast<uint8_t>(goals::game_mode()->is_squad_match())) {
         if (goals::game_mode()->get_name_key() == kNetLobby)
-            return found(objects::get_spawn_node(kTeam, 0, 0));
+            return found(objects::get_spawn_node(checksums::Name{kTeam}, 0, 0));
         if (goals::game_mode()->get_name_key() == kNetCtf) {
             auto* local = as_player(net->get_own_player());
             if (!local || static_cast<uint32_t>(local->team()) > 3)
@@ -441,7 +442,7 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
         return multiplayer(skater_id);
     }
     if (goals::game_mode()->is_true(kIsHorse))
-        return found(objects::get_spawn_node(kHorse, horse_->get_restart(), 0));
+        return found(objects::get_spawn_node(checksums::Name{kHorse}, horse_->get_restart(), 0));
     uint32_t start = skater_id;
     if (goals::game_mode()->get_name_key() == kNetScavengerHunt || goals::game_mode()->get_name_key() == kScavengerHunt) {
         goals::Objective* hunt = goals::get_objective_board()->get_goal(kScavenger, 1);

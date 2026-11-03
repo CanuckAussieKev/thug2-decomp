@@ -31,6 +31,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/objects_shared.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -140,8 +142,10 @@ void BodyDynamicsModule::set_box(const maths::Vec4* top, const maths::Vec4* bott
 }
 
 // 0x0042D690
-void BodyDynamicsModule::set_pyramid(float half_height, float half_depth)
+void BodyDynamicsModule::set_pyramid(PyramidSize pyramid_size)
 {
+    const auto half_height = pyramid_size.half_height_;
+    const auto half_depth = pyramid_size.half_depth_;
     contact_count_ = 5;
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     const float base = half_height * kPyramidBase;
@@ -153,8 +157,12 @@ void BodyDynamicsModule::set_pyramid(float half_height, float half_depth)
 }
 
 // 0x0042D790 (the angle's cosine taken unrounded, its sine from the angle rounded to a float, as the original)
-void BodyDynamicsModule::set_cylinder(float top_radius, float bottom_radius, float half_height, int edges)
+void BodyDynamicsModule::set_cylinder(CylinderShape cylinder)
 {
+    const auto top_radius = cylinder.top_radius_;
+    const auto bottom_radius = cylinder.bottom_radius_;
+    const auto half_height = cylinder.half_height_;
+    const auto edges = cylinder.edges;
     contact_count_ = static_cast<uint16_t>(edges * 2);
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     int n = 0;
@@ -360,7 +368,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         params->fetch_float(0x055CE396, &depth, 0);  // depth
         height = height * kHalf;
         depth = depth * kHalf;
-        set_pyramid(height, depth);
+        set_pyramid({.half_height_ = height, .half_depth_ = depth});
         break;
     }
     case 2: {
@@ -373,7 +381,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         params->fetch_float(0x0AB21AF0, &height, 0);        // height
         params->fetch_int_value(0x4055F24A, &edges, 0);     // edges
         height = height * kHalf;
-        set_cylinder(radius, bottom_radius, height, edges);
+        set_cylinder({.top_radius_ = radius, .bottom_radius_ = bottom_radius, .half_height_ = height, .edges = edges});
         break;
     }
     case 3: {

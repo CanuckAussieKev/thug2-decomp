@@ -21,6 +21,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -242,7 +243,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     manager->enter_heap_scope(core::at(manager->skater_geom_heaps(), skater->get_skater_number()));
     model_build_hook();
     auto* model = core::down_cast<objects::MeshInstanceModule>(skater->fetch_module(kModel));
-    model->set_up_mesh_from_profile(profile, false, skater->get_skater_number(), 0);
+    model->set_up_mesh_from_profile(profile, false, skater->get_skater_number(), checksums::Name{0});
     memory::Hub::get_pull()->leave_heap_scope();
     manager = memory::Hub::get_pull();
     manager->enter_heap_scope(core::at(manager->skater_heaps(), skater->get_skater_number()));

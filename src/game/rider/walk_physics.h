@@ -313,7 +313,12 @@ public:
     // (find_joining_rail, without flags 8 / 0x20) whose direction is close enough (a dot product of at least -0.866,
     // or it's refused: "BAD ANGLE ON COINCIDENT RAIL"). Its nodes into `new_start` / `new_end`, `*t` flipped when it
     // runs the other way. Whether there's one.
-    bool next_hang_rail(float* t, GrindPoint* start, GrindPoint* end, GrindPoint** new_start, GrindPoint** new_end);
+    // A segment of a rail: its start and end nodes.
+    struct HangSegment {
+        GrindPoint* start;
+        GrindPoint* end;
+    };
+    bool next_hang_rail(float* t, GrindPoint* start, GrindPoint* end, HangSegment* next);
     // 0x0043E530: a pull-up onto the ledge above the hang: the ground near `target` (find_stand_position; failing that, 12 to
     // one side, then 12 to the other - `target` moved), seven feelers round it (none may hit) and one from behind the
     // skater up past the pull_up_obstruction_height (neither may hit). Then the animated move (PullUpFromHang) towards

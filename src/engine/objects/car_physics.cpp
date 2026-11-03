@@ -220,8 +220,13 @@ void AutomobileDynamicsModule::update_angles()
 }
 
 // 0x0041BF00
-void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer)
+void AutomobileDynamicsModule::refresh_bone_rig(BoneRigTarget rig_target, WheelPose wheel_pose)
 {
+    const auto skeleton = rig_target.skeleton;
+    const auto model = rig_target.model;
+    const auto tilt = wheel_pose.tilt;
+    const auto spin = wheel_pose.spin;
+    const auto steer = wheel_pose.steer;
     const std::span<const render::HierarchyNode> bones = model_bones(model);
     const std::span<maths::Mat4> matrices = rig_matrix_block(skeleton);
     const float tilt_radians = tilt * kRadiansPerDegree;
@@ -258,7 +263,7 @@ void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, flo
 // 0x0041C0B0
 void AutomobileDynamicsModule::update_bones()
 {
-    refresh_bone_rig(bone_rig_, mesh_instance_, lean_angle_, wheel_spin_, steer_);
+    refresh_bone_rig({.skeleton = bone_rig_, .model = mesh_instance_}, {.tilt = lean_angle_, .spin = wheel_spin_, .steer = steer_});
     if (body_shown_)
         return;
     maths::Mat4 collapsed{};

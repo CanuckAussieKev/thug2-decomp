@@ -243,8 +243,10 @@ void DrivableModule::move_by(const maths::Vec4* move)
 }
 
 // 0x00437450
-double DrivableModule::get_impulse_denominator(const maths::Vec4* offset, const maths::Vec4* direction)
+double DrivableModule::get_impulse_denominator(ImpulseLine impulse_line)
 {
+    const auto offset = impulse_line.offset;
+    const auto direction = impulse_line.direction;
     // 1 / (n . (n / m + (I^-1 (r x n)) x r)).
     const maths::Vec4& r = *offset;
     const maths::Vec4& n = *direction;
@@ -552,7 +554,7 @@ void DrivableModule::collide()
                 continue;
             separating = false;
             auto bounce = static_cast<float>(-(static_cast<double>(closing) * restitution_));
-            const double denominator = get_impulse_denominator(&r, &nrm);
+            const double denominator = get_impulse_denominator({.offset = &r, .direction = &nrm});
             auto impulse = static_cast<float>((static_cast<double>(bounce) - closing) * denominator);
             contact.impulse = static_cast<float>(static_cast<double>(impulse) + contact.impulse);
             const maths::Vec4 push{.x = static_cast<float>(static_cast<double>(impulse) * nrm.x),
@@ -621,7 +623,7 @@ void DrivableModule::collide()
         const double inverse = 1.0 / speed_rounded;
         const maths::Vec4 slide{.x = static_cast<float>(slide_x * inverse), .y = static_cast<float>(slide_y * inverse),
                                 .z = static_cast<float>(slide_z * inverse), .w = static_cast<float>(slide_w * inverse)};
-        double stop = get_impulse_denominator(&r, &slide) * speed_rounded;
+        double stop = get_impulse_denominator({.offset = &r, .direction = &slide}) * speed_rounded;
         auto most = static_cast<float>(static_cast<double>(friction) * contact.impulse);
         if (stop > most)
             stop = most;

@@ -137,7 +137,7 @@ public:
     void get_remove_tags(script::Array* names);
     // 0x00460CA0: a copy of the tag named by `params`' unnamed checksum, added to `dest`. False if there are no
     // tags or no such tag.
-    bool get_tag(script::Struct* params, script::Struct* dest);
+    bool get_tag(script::Struct* params, script::Struct& dest);
     // 0x00460D90: copies of the tags named in `names` (the last name first) added to `dest`. True.
     bool fetch_labels(script::Array* names, script::Struct* dest);
     // 0x004607B0: remove the flag `flag` from the tags (none: nothing).

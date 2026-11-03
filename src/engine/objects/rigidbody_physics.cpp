@@ -21,6 +21,8 @@
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/objects_shared.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -57,8 +59,10 @@ double get_at(const maths::Mat4& m, int r, int c) { return core::at(m.row, r)[c]
 } // namespace
 
 // 0x0042CEE0: 1 / (n . (n + (m (r x n)) x r)) - m the mass over the moment.
-double BodyDynamicsModule::impulse_scale(const maths::Vec4* normal, const maths::Vec4* offset) const
+double BodyDynamicsModule::impulse_scale(ImpulseAt impulse_at) const
 {
+    const auto normal = impulse_at.normal;
+    const auto offset = impulse_at.offset;
     const maths::Vec4& n = *normal;
     const maths::Vec4& r = *offset;
     const double m = mass_over_moment_;
@@ -352,7 +356,7 @@ void BodyDynamicsModule::resolve_contacts()
                 fastest = -along_f;
             const float target = get_narrow(-(get_wide(along_f) * restitution_));
             if (!c.scaled) {
-                c.impulse_scale_ = get_narrow(impulse_scale(&c.normal, &c.offset));
+                c.impulse_scale_ = get_narrow(impulse_scale({.normal = &c.normal, .offset = &c.offset}));
                 c.scaled = true;
             }
             const double j = (get_wide(target) - along_f) * c.impulse_scale_;
@@ -433,7 +437,7 @@ void BodyDynamicsModule::resolve_contacts()
         const double inverse = 1.0 / length_f;
         across = {.x = get_narrow(across.x * inverse), .y = get_narrow(across.y * inverse), .z = get_narrow(across.z * inverse),
                   .w = get_narrow(across.w * inverse)};
-        const double stop = impulse_scale(&across, &c.offset) * length_f;
+        const double stop = impulse_scale({.normal = &across, .offset = &c.offset}) * length_f;
         const float most = get_narrow(get_wide(c.impulse) * drag_factor_);
         const double f = -(stop > most ? most : stop);
         const double jx = across.x * f;

@@ -557,7 +557,7 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
     auto* objects = objects::object_hub_slot().get();
     for (objects::ObjectModule* input = objects->find_first_module_of_kind(0x27D7CD28); input;
          input = input->next_of_type())
-        core::down_cast<objects::PadInputModule>(input)->lock_button(button, time, release != 0);
+        core::down_cast<objects::PadInputModule>(input)->lock_button(checksums::Name{button}, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     auto until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
                                     static_cast<double>(time) * static_cast<double>(gfx::kThousand));
@@ -862,7 +862,7 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
 {
     int count = 0;
     uint32_t restart = 0;
-    while ((restart = objects::get_spawn_node(0, 0, restart)) != 0) {
+    while ((restart = objects::get_spawn_node(checksums::Name{0}, 0, restart)) != 0) {
         script::Struct* node = level_nodes::fetch_vertex(restart, true);
         const char* name = nullptr;
         if (!node->fetch_text("RestartName", &name, 0)) // "RestartName"

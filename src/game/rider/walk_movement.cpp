@@ -285,7 +285,7 @@ void FootMovement::update_control()
     if (!(core::at(pad->stick(), 2) == 0.0f) || !(core::at(pad->stick(), 3) == 0.0f)) {
         // The stick: its push, full from 85 %.
         stick_steers_ = true;
-        const double push = stick_length(core::at(pad->stick(), 2), core::at(pad->stick(), 3), core::at(pad->polar(), 1).angle) * kStickScale;
+        const double push = stick_length({.x = core::at(pad->stick(), 2), .y = core::at(pad->stick(), 3)}, core::at(pad->polar(), 1).angle) * kStickScale;
         magnitude = static_cast<float>(push);
         if (push < kOne || std::isnan(push)) {
             full = false;

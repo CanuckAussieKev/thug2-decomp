@@ -303,7 +303,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         for (int axis = 0; axis < 3; ++axis) {
             if (!params->has_bare_flag(core::at(kAxes, axis)))
                 continue;
-            append_one(core::at(twist_rate_, axis), duration, now, start, end - start, power, hold, dont_pause);
+            append_one(core::at(twist_rate_, axis), {.period = duration, .start = now, .base = start, .range = end - start, .power = power}, hold, dont_pause);
             axes |= static_cast<uint8_t>(1 << axis);
         }
         void* manager = online::online_hub();
@@ -445,7 +445,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->read_hash_value(kBuildScript, &build_script, 0);
             gfx::ModelLook appearance; // (destroyed at the end of the block)
             appearance.read_in(profile, true);
-            set_up_mesh_from_profile(&appearance, via_resource_store != 0, tex_dict_offset, build_script);
+            set_up_mesh_from_profile(&appearance, via_resource_store != 0, tex_dict_offset, checksums::Name{build_script});
         }
         break;
     case kObjReplaceTexture: {

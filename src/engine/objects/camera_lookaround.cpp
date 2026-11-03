@@ -41,9 +41,17 @@ constexpr float kEase = 3.75f;                    // 0x0064B2C0
 
 // A button's press this frame forgotten.
 
+// Where an angle eases to and the frame's share of the way.
+struct EaseStep {
+    double target{};
+    float frame{};
+};
+
 // One angle eased toward `target` (the original's x87 sequence: the difference rounded, its size unrounded).
-void get_ease(float& angle, double target, float frame)
+void get_ease(float& angle, EaseStep ease_step)
 {
+    const auto target = ease_step.target;
+    const auto frame = ease_step.frame;
     const double difference = target - angle;
     auto rounded = static_cast<float>(difference);
     if (std::fabs(difference) > kNear)
@@ -80,8 +88,12 @@ void FreeLookModule::seal() { input_ptr_ = core::down_cast<PadInputModule>(entit
 void FreeLookModule::set_locked(bool locked) { locked_ = locked; }
 
 // 0x004E3FA0
-void FreeLookModule::turn_to(float heading, float tilt, float time, float factor)
+void FreeLookModule::turn_to(LookTurn look_turn)
 {
+    const auto heading = look_turn.heading;
+    const auto tilt = look_turn.tilt;
+    const auto time = look_turn.time;
+    const auto factor = look_turn.factor;
     target_heading_ = heading;
     turning_ = true;
     target_tilt_ = tilt;
@@ -117,14 +129,14 @@ void FreeLookModule::tick_frame()
             p->up_dir().held_down() != 0, p->btn_down().held_down() != 0, p->left_side().held_down() != 0,
             p->right_side().held_down() != 0, skater::thaw_bmx::kLookInvertDefault);
         const float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
-        get_ease(lean_angle_, tilt, frame);
-        get_ease(heading_, in.heading, frame);
+        get_ease(lean_angle_, {.target = tilt, .frame = frame});
+        get_ease(heading_, {.target = in.heading, .frame = frame});
     } else if (!locked_ && !turning_) {
         const float stick_y = core::at(pad->scaled_stick(), 1);
         const double tilt = static_cast<double>(stick_y) * (stick_y < 0.0f ? kUpScale : kDownScale) * kTiltScale;
-        get_ease(lean_angle_, tilt, frame);
+        get_ease(lean_angle_, {.target = tilt, .frame = frame});
         const double heading = static_cast<double>(core::at(pad->scaled_stick(), 0)) * kHeadingScale;
-        get_ease(heading_, heading, frame);
+        get_ease(heading_, {.target = heading, .frame = frame});
     }
     auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (turning_ && seconds_remaining_ > 0.0f) {
@@ -149,7 +161,7 @@ int FreeLookModule::invoke_method_by_name(uint32_t name, script::Struct* params,
         params->fetch_float(kTilt, &tilt, 1);
         params->fetch_float(kTime, &time, 1);
         params->fetch_float(kFactor, &factor, 0);
-        turn_to(heading, tilt, time, factor);
+        turn_to({.heading = heading, .tilt = tilt, .time = time, .factor = factor});
         return 1;
     }
     if (name == kStopTurning) {

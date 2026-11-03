@@ -35,6 +35,7 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -177,8 +178,12 @@ void PedestrianBrainModule::decay_bias()
 }
 
 // 0x004ED5E0
-void PedestrianBrainModule::add_avoidance(float angle, float strength, float distance, float range)
+void PedestrianBrainModule::add_avoidance(Avoidance avoidance)
 {
+    const auto angle = avoidance.angle;
+    const auto strength = avoidance.strength;
+    const auto distance = avoidance.distance;
+    const auto range = avoidance.range;
     const double weight = (static_cast<double>(range) - distance) / range * strength;
     for (int i = 0; i < 4; ++i) {
         const double offset = static_cast<double>(i) * kQuarterTurn - angle;
@@ -195,8 +200,10 @@ void PedestrianBrainModule::add_avoidance(float angle, float strength, float dis
 }
 
 // 0x004ED680
-void PedestrianBrainModule::add_steer(float angle, float weight)
+void PedestrianBrainModule::add_steer(Steer steer)
 {
+    const auto angle = steer.angle;
+    const auto weight = steer.weight;
     for (int i = 0; i < 4; ++i) {
         const double offset = static_cast<double>(i) * kQuarterTurn - angle;
         const double size = std::fabs(offset);
@@ -339,7 +346,7 @@ bool PedestrianBrainModule::avoid_peds()
                 angle = -kQuarterTurn;
         }
         avoided = true;
-        add_avoidance(angle, bias, distance_f, range);
+        add_avoidance({.angle = angle, .strength = bias, .distance = distance_f, .range = range});
     }
     return avoided;
 }
@@ -407,7 +414,7 @@ void PedestrianBrainModule::keep_to_path()
     else
         weight = static_cast<float>(1.0 - (static_cast<double>(max_distance) - off) / max_distance);
     if (script::fetch_float(kMinDistanceToPath) < off)
-        add_steer(static_cast<float>(static_cast<double>(angle) * kToRadians), weight);
+        add_steer({.angle = static_cast<float>(static_cast<double>(angle) * kToRadians), .weight = weight});
 }
 
 // 0x004EEDC0
@@ -453,7 +460,7 @@ void PedestrianBrainModule::steer_towards(maths::Vec4 target, float weight)
         angle -= static_cast<double>(truncate(angle * kInverseDegrees)) * kDegrees;
     if (static_cast<double>(core::at(m.row, 2).z) * away.x - static_cast<double>(core::at(m.row, 2).x) * away.z > 0.0)
         angle = static_cast<double>(kDegrees) - angle;
-    add_steer(static_cast<float>(angle * kToRadians), weight);
+    add_steer({.angle = static_cast<float>(angle * kToRadians), .weight = weight});
 }
 
 // 0x004F2780

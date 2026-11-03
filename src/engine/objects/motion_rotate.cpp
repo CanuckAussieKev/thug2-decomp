@@ -18,6 +18,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -79,8 +80,10 @@ void KinematicsModule::set_rotation_direction(int axis)
 }
 
 // The body of Obj_RotX / RotY / RotZ (0x00424B90 / 0x00424D50 / 0x00424F50: three copies, the axis chosen before).
-void KinematicsModule::rotate_about_axis_by(script::Struct* params, int axis, float sign)
+void KinematicsModule::rotate_about_axis_by(script::Struct* params, AxisSign axis_sign)
 {
+    const auto axis = axis_sign.axis;
+    const auto sign = axis_sign.sign;
     float& target = get_axis(rot_target_, axis);
     float& speed = get_axis(spin_rates_, axis);
     float& deceleration = get_axis(rot_deceleration_, axis);
@@ -133,7 +136,7 @@ bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script*)
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
     if (params->has_bare_flag(kMaxCoords))
         sign = -1.0f;
-    rotate_about_axis_by(params, 0, sign);
+    rotate_about_axis_by(params, {.axis = 0, .sign = sign});
     return true;
 }
 
@@ -145,7 +148,7 @@ bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script*)
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
     if (params->has_bare_flag(kMaxCoords))
         axis = 2;
-    rotate_about_axis_by(params, axis, 1.0f);
+    rotate_about_axis_by(params, {.axis = axis, .sign = 1.0f});
     return true;
 }
 
@@ -157,13 +160,15 @@ bool KinematicsModule::obj_rot_z(script::Struct* params, script::Script*)
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
     if (params->has_bare_flag(kMaxCoords))
         axis = 1;
-    rotate_about_axis_by(params, axis, 1.0f);
+    rotate_about_axis_by(params, {.axis = axis, .sign = 1.0f});
     return true;
 }
 
 // 0x004258B0
-void KinematicsModule::rotate_about_axis(int axis, float angle)
+void KinematicsModule::rotate_about_axis(AxisTurn axis_turn)
 {
+    const auto axis = axis_turn.axis;
+    const auto angle = axis_turn.angle;
     maths::Mat4 rotation;
     maths::Mat4& matrix = entity()->basis_frame();
     switch (axis) {
@@ -220,7 +225,7 @@ bool KinematicsModule::update_axis_rotation(int axis)
             step = static_cast<float>(static_cast<double>(step) - (static_cast<double>(done) - target));
         }
     }
-    rotate_about_axis(axis, step);
+    rotate_about_axis({.axis = axis, .angle = step});
     return finished;
 }
 
@@ -272,9 +277,11 @@ void KinematicsModule::update_turn()
 // --- looking at things ---
 
 // 0x004240E0
-bool KinematicsModule::setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, int reference_axis, int axis,
-                                       float threshold)
+bool KinematicsModule::setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, LookAxes look_axes)
 {
+    const auto reference_axis = look_axes.reference_axis_;
+    const auto axis = look_axes.axis;
+    const auto threshold = look_axes.threshold;
     const maths::Vec4 offset = {.x = static_cast<float>(static_cast<double>(target->x) - from->x),
                                 .y = static_cast<float>(static_cast<double>(target->y) - from->y),
                                 .z = static_cast<float>(static_cast<double>(target->z) - from->z),
@@ -327,7 +334,7 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
     for (int axis = 0; axis < 3; ++axis) {
         if (!(axes & (1 << axis)))
             continue;
-        if (!setup_look_axis(target, &entity()->at_point(), (axis != 2) + 1, axis, threshold))
+        if (!setup_look_axis(target, &entity()->at_point(), {.reference_axis_ = (axis != 2) + 1, .axis = axis, .threshold = threshold}))
             continue;
         if (!(time == 0.0f)) {
             get_axis(rot_acceleration_, axis) = 0.0f;

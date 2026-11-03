@@ -68,8 +68,15 @@ public:
     void number_paths();
     // 0x00469820: the groups and the extra group freed.
     void dealloc();
+    // The path pool's group count, a group's size and the extra size.
+    struct PathPoolSizes {
+        int groups{};
+        int group_size_{};
+        int extra_size_{};
+    };
+
     // 0x00469960: `groups` groups of `group_size` slots and an extra group of `extraSize` (bottom-up heap).
-    void carve(int groups, int group_size, int extra_size);
+    void carve(PathPoolSizes pool_sizes);
 
     // NOT ORIGINAL - the groups as a run of their count.
     [[nodiscard]] std::span<ObjectGroup> groups() const

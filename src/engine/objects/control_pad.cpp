@@ -14,6 +14,7 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec2.h"
 
 namespace objects {
 
@@ -340,8 +341,10 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 }
 
 // 0x0046C370
-double stick_length(float x, float y, float angle)
+double stick_length(maths::Vec2 stick, float angle)
 {
+    const auto x = stick.x;
+    const auto y = stick.y;
     const double nx = x / static_cast<double>(x > 0.0f ? 127.0f : 128.0f);
     const double ny = y / static_cast<double>(y > 0.0f ? 127.0f : 128.0f);
     // the angle brought into the quarter around up / down, then around left / right

@@ -33,6 +33,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -99,9 +100,17 @@ net::Guest* client_app(void* manager, int index)
     return core::down_cast<net::Guest>(static_cast<online::Hub*>(manager)->fetch_patron(index));
 }
 
+// A message's id and its length in bytes.
+struct MessageHead {
+    uint8_t id{};
+    uint16_t length{};
+};
+
 // A message about `object` to the server, when its player is this machine's.
-void send_to_server(GameEntity* object, uint8_t id, uint16_t length, void* data)
+void send_to_server(GameEntity* object, MessageHead message_head, void* data)
 {
+    const auto id = message_head.id;
+    const auto length = message_head.length;
     void* manager = online::online_hub();
     void* player = find_player_slot_by_obj(object->ident());
     if (!player || !is_own_player(player))
@@ -152,9 +161,14 @@ void get_clear(ModelSpinAxis& axis)
 }
 
 // 0x00420520
-void append_one(ModelSpinAxis& axis, float period, uint32_t start, float base, float range, int power, bool hold,
+void append_one(ModelSpinAxis& axis, SpinWave spin_wave, bool hold,
                                bool real_time)
 {
+    const auto period = spin_wave.period;
+    const auto start = spin_wave.start;
+    const auto base = spin_wave.base;
+    const auto range = spin_wave.range;
+    const auto power = spin_wave.power;
     for (ModelSpin& spin : axis.spins_) {
         if (spin.flag_bits_ & kModelSpinOn)
             continue;
@@ -275,7 +289,7 @@ void MeshInstanceModule::get_update_brightness() { lights_update_brightness(mode
 void MeshInstanceModule::rebuild_from_profile(void* profile, uint32_t build_script)
 {
     if (mesh_instance_.get())
-        set_up_mesh_from_profile(profile, true, 0, build_script);
+        set_up_mesh_from_profile(profile, true, 0, checksums::Name{build_script});
 }
 
 // 0x00420110
@@ -295,7 +309,7 @@ bool MeshInstanceModule::conceal_mesh(uint32_t name, bool hide, bool send)
         std::array<uint8_t, online::kHideGeomSize> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_hide_geom(writer, sent);
-        send_to_server(entity(), online::kMsgHideGeom, sizeof(data), data.data());
+        send_to_server(entity(), {.id = online::kMsgHideGeom, .length = sizeof(data)}, data.data());
     }
     if (mesh_instance_.get())
         model_hide_geom(mesh_instance_.get(), name, hide);
@@ -342,7 +356,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     for (int axis = 0; axis < 3; ++axis) {
         if (!core::at(flags, axis))
             continue;
-        append_one(core::at(twist_rate_, axis), period, now, start, end - start, power, hold, false);
+        append_one(core::at(twist_rate_, axis), {.period = period, .start = now, .base = start, .range = end - start, .power = power}, hold, false);
         axes |= static_cast<uint8_t>(1 << axis);
     }
     online::SpinModelMessage sent;
@@ -377,7 +391,7 @@ void MeshInstanceModule::cancel_rotate_display()
         axis.active_ = false;
     }
     auto object = static_cast<uint8_t>(entity()->ident());
-    send_to_server(entity(), online::kMsgCancelSpins, 1, &object);
+    send_to_server(entity(), {.id = online::kMsgCancelSpins, .length = 1}, &object);
 }
 
 } // namespace objects

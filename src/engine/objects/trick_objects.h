@@ -10,6 +10,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
+#include "engine/core/checksums.h"
 
 // Pieces of the trick object code at the end of the viewer range (0x005880E0-0x0058817C) and the trick object
 // manager's (0x007CE500) lookups, graffiti colours and graffiti log (0x00588200-0x005889E0); the rest of it (its
@@ -168,7 +169,7 @@ public:
     void change_args(script::Struct* params);
     // 0x00588FF0: trick object `objectName`'s cluster coloured for `player` (colour player + 1; -1 stays -1). False
     // if it has no cluster.
-    bool set_object_graffiti_color(uint32_t object_name, int player);
+    bool set_object_graffiti_color(checksums::Name object, int player);
     // 0x00589030: every cluster's graffiti colour `index` cleared (in the table's order; false at the first that fails).
     bool clear_graffiti_color(int index);
     // 0x00589080: trick object `objectName` filed under the cluster named `cluster_name` (null if there's none). True.

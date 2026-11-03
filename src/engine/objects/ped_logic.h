@@ -163,11 +163,25 @@ public:
     // 0x004ECFF0: the lasting bias decayed: each quarter times the script float 0x98CD0C8C, set to 0 when the product
     // is below ped_min_bias (negative ones too).
     void decay_bias();
+    // An avoidance: its angle, its strength, the distance and the range it works over.
+    struct Avoidance {
+        float angle{};
+        float strength{};
+        float distance{};
+        float range{};
+    };
+
     // 0x004ED5E0: `strength` scaled by how far into `range` the other is, spread over the bias quarters near `angle`
     // (radians) as cos(quarter - angle), each kept in -1..1.
-    void add_avoidance(float angle, float strength, float distance, float range);
+    void add_avoidance(Avoidance avoidance);
+    // A steering angle and its weight.
+    struct Steer {
+        float angle{};
+        float weight{};
+    };
+
     // 0x004ED680: `weight` spread likewise over this frame's steering quarters.
-    void add_steer(float angle, float weight);
+    void add_steer(Steer steer);
     // 0x004ED710 / 0x004ED7D0: the steering's sideways / forward part (-1..1; 0 below ped_min_bias).
     float steer_sideways();
     float steer_forward();

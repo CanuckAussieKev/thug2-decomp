@@ -574,7 +574,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     auto* manager = modules::Skate::sole()->rail_manager().get();
     maths::Vec4 point;
     objects::GrindPoint* node = nullptr;
-    if (manager->find_grind_rail(&last, &now, &point, &node, nullptr, min_alignment, 0)) {
+    if (manager->find_grind_rail(&last, &now, &point, &node, nullptr, {.min_alignment_ = min_alignment, .side = 0})) {
         const objects::GameEntity* o = object_of(this);
         tracking_print(2, &o->old_pos(), &o->at_point());
         stop_riding(this);
@@ -596,7 +596,7 @@ void SkaterPhysicsModule::try_grind(bool always)
         maths::Vec4 local_last, local_now;
         inverse.xform(local_last, last);
         inverse.xform(local_now, now);
-        if (object_rails->find_grind_rail(&local_last, &local_now, &point, &node, nullptr, min_alignment, 0)) {
+        if (object_rails->find_grind_rail(&local_last, &local_now, &point, &node, nullptr, {.min_alignment_ = min_alignment, .side = 0})) {
             point.w = 1.0f;
             maths::Vec4 in_world;
             point = world.xform(in_world, point);

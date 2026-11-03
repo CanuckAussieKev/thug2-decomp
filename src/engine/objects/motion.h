@@ -141,14 +141,26 @@ public:
     // 0x00423F10: the axis' speed, maximum, acceleration and deceleration made positive - negative when its target
     // angle is.
     void set_rotation_direction(int axis);
+    // One of the object's axes (0 x, 1 y, 2 z) and the direction of the turn about it.
+    struct AxisSign {
+        int axis{};
+        float sign{};
+    };
+
     // The body of Obj_RotX / RotY / RotZ (three copies in the original): Angle (degrees; times `sign`) to turn
     // through - 0: that axis stops -, then deceleration (to speed: the speed to reach) or Acceleration (with speed: the
     // speed to reach; the speed now kept only while already turning) or just speed (degrees per second); with no
     // angle and no deceleration it turns for ever.
-    void rotate_about_axis_by(script::Struct* params, int axis, float sign);
+    void rotate_about_axis_by(script::Struct* params, AxisSign axis_sign);
+    // A turn about one of the object's axes (0 x, 1 y, 2 z) by an angle.
+    struct AxisTurn {
+        int axis{};
+        float angle{};
+    };
+
     // 0x004258B0: the orientation turned `angle` radians about its own axis 0-2 (rotation * matrix), that row kept
     // as the others are made orthonormal again; any other axis: nothing.
-    void rotate_about_axis(int axis, float angle);
+    void rotate_about_axis(AxisTurn axis_turn);
     // 0x00425A80: one frame of an axis' turn - accelerated (to the speed to reach, going its way), decelerated (to
     // it: done slowing, no turn this frame, finished when that speed is 0), then turned by speed * frame (only as
     // far as the target, when there is one: finished). Whether it's finished.
@@ -160,10 +172,16 @@ public:
     void start_rotation(script::Struct* params, const maths::Mat4* target);
     // 0x00424440: one frame of it (done at the end, or when there's no time).
     void update_turn();
+    // The axis looked along, the one turned about, and the threshold of the look.
+    struct LookAxes {
+        int reference_axis_{};
+        int axis{};
+        float threshold{};
+    };
+
     // 0x004240E0: axis `axis` set to turn towards `target` seen from `from` (the angle in the plane across that axis
     // from row `reference_axis`): true (turning) when the angle is beyond `threshold`.
-    bool setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, int reference_axis, int axis,
-                         float threshold);
+    bool setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, LookAxes look_axes);
     // 0x004252E0: turn to look at `target`: instant (about y at once when beyond AngleThreshold degrees; true if
     // turned), else the axes 0xA4AECB20 (bits, default y) turned over `time`, or at `speed` (degrees per second,
     // default 360) with Acceleration - true if any turns.

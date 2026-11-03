@@ -283,9 +283,15 @@ public:
     bool find_edge_contact(Contact* contact, render::BoxProbe* rect, const Collider* collider, int hit, int end);
     // 0x00437060: whether a contact's normal points away from the centre of mass (not a contact).
     bool normal_faces_away(const Contact* contact);
+    // Where an impulse acts: its offset from the centre and its direction.
+    struct ImpulseLine {
+        const maths::Vec4* offset{};
+        const maths::Vec4* direction{};
+    };
+
     // 0x00437450: 1 / (n . (n / m + (I^-1 (r x n)) x r)) - the impulse for a unit velocity change along `direction`
     // at `offset`. Unrounded.
-    double get_impulse_denominator(const maths::Vec4* offset, const maths::Vec4* direction);
+    double get_impulse_denominator(ImpulseLine impulse_line);
 
     // --- script member functions (the table at 0x00684060) ---
     // 0x00437A60 Vehicle_Kick (0x93B713A6): `linear` and `angular` (vectors, rotated into the world) added to the

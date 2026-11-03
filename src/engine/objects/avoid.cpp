@@ -29,6 +29,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -211,9 +212,11 @@ float ObstacleDodgeModule::side_away_from_skater()
 }
 
 // 0x004E3A40
-bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, float angle, float distance,
-                                   float max_distance)
+bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, JumpReach jump_reach)
 {
+    const auto angle = jump_reach.angle;
+    const auto distance = jump_reach.distance;
+    const auto max_distance = jump_reach.max_distance_;
     out = start;
     maths::Mat4 turn{};
     d3dx_multiply(out, maths::make_yaw_matrix(turn, static_cast<float>(static_cast<double>(angle) * kToRadians)), out);
@@ -284,14 +287,14 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     params->fetch_float("maxHerdDistance", &max_distance, 0);
     maths::Mat4 end{};
     const float side = side_away_from_skater();
-    bool found = try_jump(start, end, side, avoid_distance(side, params), max_distance);
+    bool found = try_jump(start, end, {.angle = side, .distance = avoid_distance(side, params), .max_distance_ = max_distance});
     if (!found) {
         auto other = static_cast<float>(static_cast<double>(side) + 180.0f);
-        found = try_jump(start, end, other, avoid_distance(other, params), max_distance);
+        found = try_jump(start, end, {.angle = other, .distance = avoid_distance(other, params), .max_distance_ = max_distance});
     }
     if (!found) {
         auto back = static_cast<float>(static_cast<double>(side) - 90.0f);
-        found = try_jump(start, end, back, avoid_distance(back, params), max_distance);
+        found = try_jump(start, end, {.angle = back, .distance = avoid_distance(back, params), .max_distance_ = max_distance});
     }
     if (!found) {
         // Away from the herd point (this angle in radians, as the original passes it).
@@ -299,7 +302,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
         const maths::Vec4 away = {.x = herd_point_.x - pos.x, .y = herd_point_.y - pos.y, .z = herd_point_.z - pos.z,
                                   .w = herd_point_.w - pos.w};
         const float angle = angle_in_plane(entity()->basis_frame(), away);
-        found = try_jump(start, end, angle, avoid_distance(angle, params), max_distance);
+        found = try_jump(start, end, {.angle = angle, .distance = avoid_distance(angle, params), .max_distance_ = max_distance});
     }
     if (!found)
         return false;

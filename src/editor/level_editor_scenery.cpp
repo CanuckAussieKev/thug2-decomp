@@ -1498,7 +1498,7 @@ void for_each_rail_point(void (*each)(void* context, uint32_t name, V3 pos), voi
 
 namespace {
 
-// WorldCell::change_live (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
+// WorldCell::change_live (checksums::Name{0x0049E9B0}, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
 // "off" flag 4) / is_operative (0x0049E9E0).
 void change_live(render::WorldCell* sector, bool active) { sector->change_live(active); }
 bool is_operative(render::WorldCell* sector) { return sector->is_operative(); }

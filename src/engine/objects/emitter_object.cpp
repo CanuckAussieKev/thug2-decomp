@@ -18,6 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -133,8 +134,9 @@ void emitter_cleanup()
 }
 
 // 0x00468340
-void emitter_set_active(uint32_t name, int active)
+void emitter_set_active(checksums::Name emitter, int active)
 {
+    const uint32_t name = emitter.value();
     // (no table: a null write, as the original)
     start_iteration(stored_emitter_table());
     for (EmitterNode* node = step_iterator(stored_emitter_table()); node; node = step_iterator(stored_emitter_table())) {

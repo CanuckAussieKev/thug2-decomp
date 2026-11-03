@@ -63,11 +63,24 @@ public:
     void update_angles();
     // 0x0041C0B0: refresh_bone_rig; with the body hidden, bone 0's matrix scaled to nothing.
     void update_bones();
+    // The car's body tilt, its wheels' spin and their steering angle.
+    struct WheelPose {
+        float tilt{};
+        float spin{};
+        float steer{};
+    };
+
+    // The skeleton and the model the car's bones are written to.
+    struct BoneRigTarget {
+        void* skeleton{};
+        void* model{};
+    };
+
     // 0x0041BF00 (cdecl): every bone's matrix from the model's description: the two front (0x80212262, 0x1E45B7C1)
     // and two back (0x69428757, 0xF04BD6ED) wheels turned about X by the spin, the steering wheels (0x6E2F434E,
     // 0xF72612F4) about Z by the steering then about X by the spin, the body (0x88C21962 "car") about X by the tilt;
     // each but the first then times its parent's matrix.
-    static void refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer);
+    static void refresh_bone_rig(BoneRigTarget rig_target, WheelPose wheel_pose);
 
     // --- the member functions scripts call (the table at 0x006846A8) ---
     // 0x0041B9E0 [0xA2331896]: the body shown when the unnamed integer isn't 0 (none: hidden). 1.

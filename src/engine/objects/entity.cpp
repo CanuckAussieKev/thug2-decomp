@@ -14,6 +14,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -275,7 +276,7 @@ void Entity::get_remove_tags(Array* names)
 }
 
 // 0x00460CA0
-bool Entity::get_tag(Struct* params, Struct* dest)
+bool Entity::get_tag(Struct* params, Struct& dest)
 {
     if (!tag_table_)
         return false;
@@ -285,7 +286,7 @@ bool Entity::get_tag(Struct* params, Struct* dest)
     Component* tag = tag_table_->find_component(name);
     if (!tag)
         return false;
-    add_copy(dest, tag);
+    add_copy(&dest, tag);
     return true;
 }
 
@@ -416,7 +417,7 @@ bool Entity::obj_get_tags(Struct* params, Script* script)
 }
 
 // 0x00460FB0: the tag named by the unnamed checksum, into the calling script's parameters.
-bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag(params, script->args().get()); }
+bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag(params, *script->args().get()); }
 
 // 0x00460FC0: the tags named in the unnamed array, into the calling script's parameters. With no array, the
 // pointer `params` is taken for one [bug].

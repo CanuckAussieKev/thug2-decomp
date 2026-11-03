@@ -114,8 +114,10 @@ void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
 }
 
 // 0x0041D480
-bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int priority)
+bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_levels)
 {
+    const auto volume = fam_levels.volume;
+    const auto priority = fam_levels.priority;
     if (!audio::stream_exists(name))
         return false;
     if (feed_) {
@@ -153,7 +155,7 @@ int FamComponent::obj_play_fam(script::Struct* params, script::Script*)
     params->fetch_int_value(kVol, &volume, 0);
     int priority = kDefaultPriority;
     params->fetch_int_value(kPriority, &priority, 0);
-    return play_fam(name, false, volume, priority) ? 1 : 0;
+    return play_fam(name, false, {.volume = volume, .priority = priority}) ? 1 : 0;
 }
 
 // 0x0041D280

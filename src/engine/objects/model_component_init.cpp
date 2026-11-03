@@ -212,8 +212,9 @@ void MeshInstanceModule::change_mesh(render::RenderModel* model)
 
 // 0x00421230
 void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resource_store, int tex_dict_offset,
-                                                  uint32_t build_script)
+                                                  checksums::Name build_script_name)
 {
+    const uint32_t build_script = build_script_name.value();
     render::RenderModel* model = mesh_instance_.get();
     gfx::Rig* skeleton = nullptr;
     if (ObjectModule* component = entity()->fetch_module(kSkeleton))

@@ -7,6 +7,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/checksums.h"
 
 // The rail manager (GameObjects::GrindRailHub, 0x0057C170-0x0057EE65): a level's (or a moving object's) grind rails and
 // climbing nodes, made from the node array's rail_nodes / ClimbingNodes. The skate module's is at +0x24; an object's
@@ -112,7 +113,7 @@ public:
     void remove_overlaps_if_not_park();
     // 0x0057D7C0: the node `name` switched on or off (`entireRail`: it and every node after it). 0x0057D840: whether
     // it's on (no such node: false).
-    void change_live(uint32_t name, int active, bool entire_rail);
+    void change_live(checksums::Name rail, int active, bool entire_rail);
     bool is_operative(uint32_t name);
     // 0x0057D880: a ladder node within `radius` (across) and `height` (up) of `pos`, from the last node back, that
     // `checker` accepts (`up`: 0x004418B0 with the node, the one it leads to and the node's orientation; else
@@ -139,13 +140,19 @@ public:
     // registered as trick objects of their cluster: 0x005896D0 / 0x00589080 on 0x007CE500), then linked by their
     // Links (a node's next: its first link, or a DefaultLine one; the linked node's previous: likewise).
     void add_from_node_array(script::Array* nodes);
+    // What a rail search accepts: the least alignment and the side.
+    struct RailSearch {
+        float min_alignment_{};
+        int side{};
+    };
+
     // 0x0057E2D0: the rail to grind for a skater moving from `start` to `end`: the best by distance from the line
     // (within Rail_Max_Snap), worse the less it lines up with the move (flat), doubled when its wall is on the other
     // side than `side` (if given); with `min_alignment` other than 1, only rails lining up at least that well. Rails
     // of one node count by their point. Into `point` (on the rail) and `found`. (Quirk kept: a better rail out of
     // reach still takes the best score and drops what was found.)
     bool find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point, GrindPoint** found,
-                         const GrindPoint* exclude, float min_alignment, int side);
+                         const GrindPoint* exclude, RailSearch rail_search);
     // 0x0057CBD0: the node named `name` (null: none).
     GrindPoint* find_node(uint32_t name);
     // 0x0057C3F0: the node `name` moved to `pos`: its segment's box again, and (the original's) a check of the node's
@@ -185,7 +192,7 @@ private:
 // 0x0057C260: the box of `a` and `b` (min and max per axis; w 1).
 void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max);
 // 0x0057C170: the span of four values (the largest minus the smallest).
-double span4(float a, float b, float c, float d);
+double span4(const std::array<float, 4>& values);
 // 0x0057C360: how much the intervals [a, b] and [c, d] overlap: |b - a| + |d - c| (as a float) minus their span.
 double get_overlap(float a, float b, float c, float d);
 // 0x0057C3A0: whether a, b, c, d step by less than `tolerance` each.

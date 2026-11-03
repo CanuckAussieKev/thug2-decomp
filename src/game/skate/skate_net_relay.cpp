@@ -62,6 +62,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 namespace modules {
 
@@ -1024,7 +1025,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
         owner = message->player;
     }
     for (uint32_t i = 0; i < message->count; ++i)
-        objects::trick_spot_hub()->set_object_graffiti_color(core::at(message->objects, i), owner);
+        objects::trick_spot_hub()->set_object_graffiti_color(checksums::Name{core::at(message->objects, i)}, owner);
     return 1;
 }
 

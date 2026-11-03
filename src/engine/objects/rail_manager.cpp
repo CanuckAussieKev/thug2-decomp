@@ -2,6 +2,7 @@
 
 #include "engine/objects/rail_manager.h"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -26,6 +27,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -62,8 +64,13 @@ maths::Vec4* xform(const maths::Mat4* matrix, maths::Vec4* out, const maths::Vec
 } // namespace
 
 // 0x0057C170
-double span4(float a, float b, float c, float d)
+// The spread of four values: the largest less the smallest.
+double span4(const std::array<float, 4>& values)
 {
+    const float a = core::at(values, 0);
+    const float b = core::at(values, 1);
+    const float c = core::at(values, 2);
+    const float d = core::at(values, 3);
     double low = a;
     if (b < a)
         low = b;
@@ -124,7 +131,7 @@ void GrindRailHub::tidy_up()
 double get_overlap(float a, float b, float c, float d)
 {
     auto lengths = static_cast<float>(std::fabs(static_cast<double>(d) - c) + std::fabs(static_cast<double>(b) - a));
-    return lengths - span4(a, b, c, d);
+    return lengths - span4({{a, b, c, d}});
 }
 
 // 0x0057C3A0
@@ -560,8 +567,9 @@ void GrindRailHub::remove_overlaps_if_not_park()
 }
 
 // 0x0057D7C0
-void GrindRailHub::change_live(uint32_t name, int active, bool entire_rail)
+void GrindRailHub::change_live(checksums::Name rail, int active, bool entire_rail)
 {
+    const uint32_t name = rail.value();
     const std::span<GrindPoint> run = node_run();
     std::size_t index = 0;
     while (index < run.size() && core::at(run, index).label() != name)
@@ -897,8 +905,10 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
 
 // 0x0057E2D0
 bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point,
-                                   GrindPoint** found, const GrindPoint* exclude, float min_alignment, int side)
+                                   GrindPoint** found, const GrindPoint* exclude, RailSearch rail_search)
 {
+    const auto min_alignment = rail_search.min_alignment_;
+    const auto side = rail_search.side;
     maths::Seg line{};
     line.start = *start;
     line.end = *end;

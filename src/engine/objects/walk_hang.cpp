@@ -459,7 +459,7 @@ void objects::FootMovement::face_hang_rail(float distance, bool from_end, const 
 
 // 0x0043E230
 bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start, objects::GrindPoint* end,
-                                           objects::GrindPoint** new_start, objects::GrindPoint** new_end)
+                                           HangSegment* onto)
 {
     objects::GrindRailHub* rails = get_rails_of(this);
     auto grabbable = [rails](objects::GrindPoint* from, objects::GrindPoint* to) {
@@ -477,8 +477,8 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
         // back past the start: the segment before it
         objects::GrindPoint* previous = start->last_value();
         if (previous && usable(previous) && grabbable(previous, start)) {
-            *new_end = start;
-            *new_start = start->last_value();
+            onto->end = start;
+            onto->start = start->last_value();
             return true;
         }
         if (!rails->find_joining_rail(start, 0x28, &joining))
@@ -486,8 +486,8 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
     } else {
         objects::GrindPoint* next = end->succ();
         if (next && usable(end) && grabbable(end, next)) {
-            *new_start = end;
-            *new_end = end->succ();
+            onto->start = end;
+            onto->end = end->succ();
             return true;
         }
         if (!rails->find_joining_rail(end, 0x28, &joining))
@@ -518,8 +518,8 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
     }
     if (!same_way)
         *t = 1.0f - *t;
-    *new_start = joining;
-    *new_end = joining->succ();
+    onto->start = joining;
+    onto->end = joining->succ();
     debug::printf("M:%s:%i: %s\n", "omponents\\WalkHangUtil.cpp", 0x4FC, "FOUND COINCIDENT RAIL");
     return true;
 }
@@ -705,9 +705,11 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     if (static_cast<double>(side_length) + 1.0f > distance) {
         // near the segment's end: look along the next segment instead, if it doesn't turn too far
         along = (towards_end ? 2.0f : -2.0f) + along;
-        objects::GrindPoint* next_start = nullptr;
-        objects::GrindPoint* next_end = nullptr;
-        if (next_hang_rail(&along, start, end, &next_start, &next_end)) {
+        HangSegment onto_rail{.start = nullptr, .end = nullptr};
+        const bool onto_next = next_hang_rail(&along, start, end, &onto_rail);
+        const objects::GrindPoint* next_start = onto_rail.start;
+        const objects::GrindPoint* next_end = onto_rail.end;
+        if (onto_next) {
             const float sign = along > 0.5f ? -1.0f : 1.0f;
             maths::Vec4 a{}, b{};
             get_rails_of(this)->get_absolute_pos(&a, next_end);
@@ -933,7 +935,11 @@ void objects::FootMovement::shimmy(float move)
     along = static_cast<float>(moved);
     // past an end: onto the next rail (the rest of the way along it), or stopped at the end
     const bool past_end = moved < 0.0 || moved > 1.0;
-    if (past_end && !next_hang_rail(&along, start, end, &start, &end)) {
+    HangSegment next{.start = start, .end = end};
+    const bool onto_next = past_end && next_hang_rail(&along, start, end, &next);
+    start = next.start;
+    end = next.end;
+    if (past_end && !onto_next) {
         const float t = along;
         climb_scale_ = 0.0f;
         if (t > 1.0f)

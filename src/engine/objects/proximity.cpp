@@ -21,6 +21,8 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 #include <span>
 
@@ -192,8 +194,9 @@ void ProximNode::change_live(bool active)
 }
 
 // 0x0046ACB0
-void proximity_node_enable(uint32_t name, int active)
+void proximity_node_enable(checksums::Name node_name, int active)
 {
+    const uint32_t name = node_name.value();
     const ProximityRegistry* manager = stored_proximity_hub();
     if (!manager)
         return;
@@ -431,8 +434,9 @@ int get_restart_nodes(uint32_t type, std::span<uint32_t> out, uint32_t start)
 }
 
 // 0x0046B790
-uint32_t get_spawn_node(uint32_t type, int index, uint32_t start)
+uint32_t get_spawn_node(checksums::Name spawn_type, int index, uint32_t start)
 {
+    const uint32_t type = spawn_type.value();
     std::array<uint32_t, 256> names{};
     const int count = get_restart_nodes(type, names, start);
     if (count <= 0)

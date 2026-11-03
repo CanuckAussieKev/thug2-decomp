@@ -357,7 +357,7 @@ void Script::set_event_handler(uint32_t event_type, uint32_t script, uint32_t gr
         gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
         signal_routes_ = made;
     }
-    signal_routes_->append_listener(this, event_type, script, group, exception, params);
+    signal_routes_->append_listener(this, {.type = event_type, .script_name_ = script, .group = group}, exception, params);
     memory::leave_heap_scope();
 }
 
@@ -387,7 +387,7 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
         const Component* type = flag->next;
         const Component* script = type->next;
         const Component* params = script->next;
-        signal_routes_->append_listener(this, type->value.word(), script->value.word(), group, flag->value.word() == kExceptionFlag,
+        signal_routes_->append_listener(this, {.type = type->value.word(), .script_name_ = script->value.word(), .group = group}, flag->value.word() == kExceptionFlag,
                                         params ? params->value.structure() : nullptr);
     }
     // (the group's handlers not added again go)

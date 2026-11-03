@@ -13,6 +13,7 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -119,7 +120,7 @@ void nearby_zone_shutdown();
 // 0x0046AB90: the node named `name` (null if none).
 ProximNode* proxim_get_node(uint32_t name);
 // 0x0046ACB0: the node named `name` made active or not (nothing if there's none).
-void proximity_node_enable(uint32_t name, int active);
+void proximity_node_enable(checksums::Name node_name, int active);
 // 0x0046B1F0: a node for the level node `name`, from its parameters. A plain node starts as holding the skaters
 // flagged at +0xBC, ends them (as change_live(false)) and is then made `active` or not.
 void nearby_zone_add_node(uint32_t name, bool active);
@@ -134,7 +135,7 @@ bool is_restart_node(uint32_t name);
 // include it) into `out`, from `start`'s node (after it, when given) on; returns how many.
 int get_restart_nodes(uint32_t type, std::span<uint32_t> out, uint32_t start);
 // 0x0046B790: restart node `index` (wrapped round the count once it's past it) of `type` - 0 if there's none.
-uint32_t get_spawn_node(uint32_t type, int index, uint32_t start);
+uint32_t get_spawn_node(checksums::Name spawn_type, int index, uint32_t start);
 
 ProximityRegistry* proximity_hub();
 } // namespace objects

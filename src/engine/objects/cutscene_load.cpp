@@ -24,6 +24,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -353,7 +354,7 @@ void CinematicTable::copy_skeleton(ObjectEntry& from, ObjectEntry& to)
 void CinematicTable::apply_skater_look(ObjectEntry& entry)
 {
     ObjectModule* component = entry.object->fetch_module(kModelModuleName);
-    core::down_cast<MeshInstanceModule>(component)->set_up_mesh_from_profile(skater_appearance_, false, 0, 0x8FB01036);
+    core::down_cast<MeshInstanceModule>(component)->set_up_mesh_from_profile(skater_appearance_, false, 0, checksums::Name{0x8FB01036});
     uint32_t part_name = kPartA;
     auto* part = static_cast<script::Struct*>(skater_appearance_->get_part(kPartA));
     if (!part) {

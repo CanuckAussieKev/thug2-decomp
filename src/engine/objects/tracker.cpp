@@ -182,8 +182,14 @@ void ScriptList::operator delete(void* list) { script_list_pools().dealloc(list)
 // --- the event log ---------------------------------------------------------------------------------------
 
 // 0x004627C0
-void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind)
+void SignalTrace::add_row(const TraceRow& trace_row)
 {
+    const auto type = trace_row.type;
+    const auto target = trace_row.target;
+    const auto source = trace_row.source;
+    const auto script = trace_row.script;
+    const auto how = trace_row.how;
+    const auto kind = trace_row.kind;
     if (!names_ptr_) {
         auto table = new_hash_table(8);
         names_ptr_ = table;
@@ -314,7 +320,7 @@ void EventWaitBoard::add_object(Entity* object)
         aliases_->erase_entry(current_object_id(object));
     }
     entity_list_->store_entry(current_object_id(object), object);
-    log_.add_row(0, current_object_id(object), kNoObjectId, 0, 0, SignalTrace::kObjectAdded);
+    log_.add_row({.type = 0, .target = current_object_id(object), .source = kNoObjectId, .script = 0, .how = 0, .kind = SignalTrace::kObjectAdded});
 }
 
 // 0x00462A20
@@ -329,7 +335,7 @@ void EventWaitBoard::remove_object(Entity* object, uint32_t fresh_id, bool renam
     } else {
         remove_aliases_of(object);
     }
-    log_.add_row(0, current_object_id(object), kNoObjectId, 0, 0, SignalTrace::kObjectRemoved);
+    log_.add_row({.type = 0, .target = current_object_id(object), .source = kNoObjectId, .script = 0, .how = 0, .kind = SignalTrace::kObjectRemoved});
 }
 
 // 0x00462590: from the start of the table again after each one removed.
@@ -480,7 +486,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
                                   float radius)
 {
     ++launch_depth_;
-    log_.add_row(type, target, source, static_cast<uint32_t>(launched_from_script_), 0, SignalTrace::kLaunched);
+    log_.add_row({.type = type, .target = target, .source = source, .script = static_cast<uint32_t>(launched_from_script_), .how = 0, .kind = SignalTrace::kLaunched});
     launched_from_script_ = 0;
     Signal event(type, source, target, data);
 
@@ -579,7 +585,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
         }
     }
     if (!(event.flag_bits() & Signal::kFlagHandled))
-        log_.add_row(event.kind_tag(), event.aim_point(), event.from_where(), 0, 3, SignalTrace::kHandled);
+        log_.add_row({.type = event.kind_tag(), .target = event.aim_point(), .source = event.from_where(), .script = 0, .how = 3, .kind = SignalTrace::kHandled});
     --launch_depth_;
     const bool handled = (event.flag_bits() & Signal::kFlagHandled) != 0;
     event.teardown();
@@ -589,17 +595,17 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
 // 0x00462B10
 void EventWaitBoard::log_handled(Signal* event, uint32_t how, uint32_t script)
 {
-    log_.add_row(event->kind_tag(), event->aim_point(), event->from_where(), script, how, SignalTrace::kHandled);
+    log_.add_row({.type = event->kind_tag(), .target = event->aim_point(), .source = event->from_where(), .script = script, .how = how, .kind = SignalTrace::kHandled});
 }
 
 // 0x00462B40
 void EventWaitBoard::log_read(Signal* event, uint32_t how, uint32_t script)
 {
-    log_.add_row(event->kind_tag(), event->aim_point(), event->from_where(), script, how, SignalTrace::kRead);
+    log_.add_row({.type = event->kind_tag(), .target = event->aim_point(), .source = event->from_where(), .script = script, .how = how, .kind = SignalTrace::kRead});
 }
 
 // 0x00462B70
-void EventWaitBoard::log_frame() { log_.add_row(0, 0, 0, 0, 0, SignalTrace::kFrame); }
+void EventWaitBoard::log_frame() { log_.add_row({.type = 0, .target = 0, .source = 0, .script = 0, .how = 0, .kind = SignalTrace::kFrame}); }
 
 // 0x00463730
 EventWaitBoard* create_tracker(bool create)

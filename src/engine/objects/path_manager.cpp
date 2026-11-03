@@ -14,6 +14,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -207,8 +208,11 @@ void PathManager::dealloc()
 }
 
 // 0x00469960
-void PathManager::carve(int groups, int group_size, int extra_size)
+void PathManager::carve(PathPoolSizes pool_sizes)
 {
+    const auto groups = pool_sizes.groups;
+    const auto group_size = pool_sizes.group_size_;
+    const auto extra_size = pool_sizes.extra_size_;
     group_count_ = groups;
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->bottom_up_heap());
@@ -234,7 +238,7 @@ bool cfunc_allocate_path_man_memory(script::Struct* params, script::Script* /*sc
     params->fetch_int_value(0xF6A4081D, &group_size, 0);
     int extra_size = 200;
     params->fetch_int_value(0x13AFFFF9, &extra_size, 0);
-    manager->carve(groups, group_size, extra_size);
+    manager->carve({.groups = groups, .group_size_ = group_size, .extra_size_ = extra_size});
     return true;
 }
 

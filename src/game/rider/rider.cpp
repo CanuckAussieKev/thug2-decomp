@@ -925,7 +925,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     auto* assets = assets::asset_manager();
     const bool flag = assets->get_permanent_by_default();
     assets->set_permanent_by_default(false);
-    model_component_->set_up_mesh_from_profile(profile, false, skater_number_, 0);
+    model_component_->set_up_mesh_from_profile(profile, false, skater_number_, checksums::Name{0});
     assets->set_permanent_by_default(flag);
     memory::Hub::get_pull()->leave_heap_scope();
     add_component_from_structure(this, [](script::Struct* params) {

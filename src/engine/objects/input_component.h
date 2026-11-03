@@ -6,6 +6,7 @@
 #include "engine/pad_input/input_hub.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 #include <span>
@@ -68,14 +69,21 @@ public:
     bool is_input_blocked();
     // 0x0041ECA0: the last frame's events kept; this frame's from the 17 buttons (read_button_state).
     void update_events(std::span<const uint8_t> data);
+    // A button's bit and the masks of the pads where it went down and up.
+    struct ButtonMasks {
+        uint32_t bit{};
+        uint32_t down{};
+        uint32_t up{};
+    };
+
     // 0x0041EBF0: a button's event: while it's locked (its lock time not yet reached: frame_clock::GetTime, unsigned) nothing;
     // down (its pressure in `data`) - its `down` event to the object (when it wasn't down last frame, input events are
     // on and input isn't disabled) and its bit set; up - its `up` event (when it was down last frame).
-    void read_button_state(std::span<const uint8_t> data, int index, uint32_t bit, uint32_t down, uint32_t up,
+    void read_button_state(std::span<const uint8_t> data, int index, ButtonMasks button_masks,
                            ControlButton* button);
     // 0x0041E7E0: `name`'s button (none: a crash, as the original) locked for `seconds` (its lock time: frame_clock::GetTime +
     // seconds * 1000, truncated, as a float); with `release`, also released and its events taken.
-    void lock_button(uint32_t name, float seconds, bool release);
+    void lock_button(checksums::Name button_name, float seconds, bool release);
 
     // --- the member functions scripts call (the table at 0x00684C78) ---
     // 0x0041E8F0 [0xBF7D6C46]: the unnamed checksum's button locked for `time` seconds (1), released with `clear`
