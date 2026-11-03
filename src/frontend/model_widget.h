@@ -26,6 +26,10 @@ class Struct;
 // Vtable 0x00649FF4 (UiWidget's, with 0 the destructor, 1 change_traits, 9 blend_towards, 10 tick_frame).
 namespace frontend {
 
+constexpr float kDefaultCameraDistance = 400.0f; // CameraZ's start: in front of the camera, so negated
+constexpr float kDefaultDistanceScale = 0.002f;  // the scale per unit of distance (checksum 0x571F3F3A)
+constexpr float kDefaultMaxScale = 3.0f;         // MaxScale's start
+
 class ModelWidget final : public UiWidget {
 public:
     ModelWidget(const ModelWidget&) = delete;
@@ -72,7 +76,7 @@ public:
 private:
     std::array<ShapeMesh, kMaxModels> models_; // +0x178
     int model_total_{0};           // +0x434
-    float camera_z_{-400.0f};      // +0x438 (CameraZ: the distance in front of the camera, negative)
+    float camera_z_{-kDefaultCameraDistance};      // +0x438 (CameraZ: the distance in front of the camera, negative)
     std::array<float, 3> angle_{};             // +0x43C angleX/Y/Z (radians, kept within one turn)
     std::array<float, 3> angular_velocity_{};  // +0x448 AngVelX/Y/Z (per frame)
     maths::Mat4 basis_frame_{};    // +0x454 where the element is: the camera's orientation and the place in
@@ -88,8 +92,8 @@ private:
     maths::Vec4 centre_{};         // +0x4D8 scale_to_screen_dims: minus the bounding box's centre (w = 0)
     float fit_scale_{1.0f};        // +0x4E8 scale_to_screen_dims' scale (1)
     bool size_follows_range_{false}; // +0x4EC ScaleWithDistance
-    float distance_scale_{0.002f};   // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
-    float max_scale_{3.0f};          // +0x4F4 MaxScale (3)
+    float distance_scale_{kDefaultDistanceScale};   // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
+    float max_scale_{kDefaultMaxScale};          // +0x4F4 MaxScale (3)
     int view_slot_{0};               // +0x4F8 active_viewport
     uint32_t anchor_object_{0};      // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
     int parent_integer_{0};          // +0x500 ParentParams' integer 0x5B8AB877

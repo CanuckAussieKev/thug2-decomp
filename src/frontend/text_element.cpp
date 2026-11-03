@@ -37,6 +37,13 @@ namespace frontend {
 
 namespace {
 
+constexpr std::uint32_t kRgbMask = 0x00FFFFFFu;
+constexpr int kAlphaShift = 24;
+constexpr int kSmearSteps = 16;
+constexpr int kShadowAlpha = 0x80;
+constexpr int kJoinedTextSize = 0x60;
+constexpr int kTextObjectCount = 17;
+
 using script::Struct;
 
 // Names (checksums).
@@ -102,7 +109,7 @@ void* front_end_new(unsigned int size)
 // A colour with its alpha byte replaced.
 uint32_t with_alpha(uint32_t rgba, uint8_t alpha)
 {
-    return (rgba & 0x00FFFFFFu) | (static_cast<uint32_t>(alpha) << 24);
+    return (rgba & kRgbMask) | (static_cast<uint32_t>(alpha) << kAlphaShift);
 }
 // The alpha byte: `a` times the element's summed alpha (none below 0.0001).
 uint8_t get_faded(int a, float alpha)
@@ -198,7 +205,7 @@ void SmearEffect::tick_frame()
     } else {
         ongoing_ = aim_point_;
     }
-    for (int n = 0; n < 16; ++n) {
+    for (int n = 0; n < kSmearSteps; ++n) {
         const double f = static_cast<double>(n) * sixteenth();
         DupFrom& c = core::at(copies_, n);
         c.dx = static_cast<float>(f * core::at(ongoing_.max_displacement_, 0));
@@ -251,7 +258,7 @@ SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
 LabelWidget::LabelWidget()
 {
     core::at(shadow_rgba_, 0) = core::at(shadow_rgba_, 1) = core::at(shadow_rgba_, 2) = 0;
-    core::at(shadow_rgba_, 3) = 0x80;
+    core::at(shadow_rgba_, 3) = kShadowAlpha;
     make_text_objects(1, false);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     inner_align_h_ = 0.0f;
@@ -399,9 +406,9 @@ bool LabelWidget::join_onto(const char* text)
 {
     const int length = chars_ ? static_cast<int>(std::strlen(chars_)) : 0;
     const int total = static_cast<int>(std::strlen(text)) + length;
-    if (total + 1 >= 0x60 || total <= 0)
+    if (total + 1 >= kJoinedTextSize || total <= 0)
         return false;
-    std::array<char, 0x60> joined{};
+    std::array<char, kJoinedTextSize> joined{};
     core::at(joined, 0) = 0;
     if (chars_)
         copy_unbounded(joined.data(), chars_);
@@ -418,7 +425,7 @@ bool LabelWidget::backspace()
     const int length = static_cast<int>(std::strlen(chars_));
     if (length == 0)
         return false;
-    std::array<char, 0x60> shorter{};
+    std::array<char, kJoinedTextSize> shorter{};
     copy_unbounded(shorter.data(), chars_);
     if (length > 1 && core::at(shorter, length - 1) == '\\' && core::at(shorter, length - 2) == '\\')
         core::at(shorter, length - 2) = 0;
@@ -476,7 +483,7 @@ void LabelWidget::enable_blur()
     blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
     std::memcpy(&blur_->rgba_value(), shown().rgba.data(), 4);
     memory::Hub::get_pull()->leave_heap_scope();
-    make_text_objects(17, false);
+    make_text_objects(kTextObjectCount, false);
 }
 
 // 0x004B0AE0

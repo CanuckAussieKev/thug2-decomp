@@ -20,12 +20,14 @@
 //     of those while [features] hd_ui=1 (default 0) and are never read otherwise (src/engine/gfx/hd_ui.h).
 namespace frontend::data_overlay {
 
+constexpr std::size_t kOverlayPathSize = 260;  // a path buffer (MAX_PATH)
+
 // The overlay folder (<game folder>\thug2-decomp-data).
 const std::string& get_folder();
 
 // The overlay's file for a game file name ("levels\mainmenu\mainmenu.qb", "data/..." or a development machine's
 // "c:\...\data\..." path), if it exists: its full path in `path`.
-bool get_overlay_path(const char* name, std::array<char, 260>& path);
+bool get_overlay_path(const char* name, std::array<char, kOverlayPathSize>& path);
 
 // [features] anteara_mod (read once; logs a line at start-up when on).
 bool anteara_mod();
@@ -37,6 +39,6 @@ int search_folders(bool anteara, bool front_end, std::array<const char*, 4>& fol
 
 // The game file name as the overlay keeps it: '/' as '\', lower case, without anything up to "data\" (exposed for
 // the self-tests).
-void overlay_name(const char* name, std::array<char, 260>& out);
+void overlay_name(const char* name, std::array<char, kOverlayPathSize>& out);
 
 } // namespace frontend::data_overlay

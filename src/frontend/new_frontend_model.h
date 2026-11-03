@@ -15,6 +15,9 @@
 // offline.
 namespace frontend::new_frontend {
 
+constexpr std::uint32_t kDefaultSectionColour = 0xFFC9CBD0u; // ARGB: a section's colour when its entry has none
+constexpr int kVisibleRowCount = 13;
+
 // --- the data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts) ----------------------------
 
 // Where a level is listed: its section and its index in the section.
@@ -58,7 +61,7 @@ struct Section {
     std::string id;               // "thug2", "thps3", "misc"...
     std::string tab;              // "THUG2", "THPS3", "Misc"
     std::string title;            // "TONY HAWK'S PRO SKATER 3"
-    uint32_t colour = 0xFFC9CBD0; // ARGB
+    uint32_t colour = kDefaultSectionColour; // ARGB
     std::vector<StageMap> levels;
 };
 
@@ -334,7 +337,7 @@ private:
     int bundle_ = 0;
     int option_row_ = 0;
     float scroll_ = 0.0f, scroll_target_ = 0.0f;
-    int visible_rows_ = 13;
+    int visible_rows_ = kVisibleRowCount;
     std::vector<RowAnim> rows_;
     float wipe_ = -1.0f;
     bool switched_ = false;

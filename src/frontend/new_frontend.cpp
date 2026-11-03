@@ -90,6 +90,69 @@
 namespace frontend::new_frontend {
 
 namespace {
+
+constexpr std::size_t kIniValueSize = 512;      // an ini value read
+constexpr float kBoldWeight = 0.022f;           // the bold face's stroke weight
+constexpr std::size_t kReadChunkSize = 4096;    // a file read in chunks
+constexpr double kPointsCeiling = 2.0e9;        // the most points an award is taken for
+constexpr int kMaxListNodes = 4096;             // a heap list walk stops after this many nodes
+constexpr int kMaxPictureSide = 8192;           // the loading screen pictures' limit, in texels
+constexpr int kPictureHeaderBytes = 0x20;       // the picture file's header before its texels
+constexpr int kTrueColourBits = 32;             // the bit depths the pictures may have
+constexpr int kPaletteBits = 8;
+constexpr int kBitsPerByte = 8;
+constexpr int kOpaqueAlpha = 0xFF;              // a full-bleed picture's alpha
+constexpr float kInvisibleThreshold = 0.001f;   // an element scaled or faded below this isn't there
+constexpr int kMaxLoggedFrames = 20;            // the frames a log line is written for
+constexpr float kVisibleAlpha = 0.02f;          // an element needs more alpha than this to count as shown
+constexpr int kWalkBudget = 8192;               // the most elements a tree walk visits
+constexpr int kMaxParentDepth = 64;             // the most containers walked up
+constexpr float kScaleArrowLeft = -49.0f;       // the scaling menus' arrow markers
+constexpr float kScaleArrowRight = 76.0f;
+constexpr float kColourArrowLeft = -53.0f;      // the colour menus' arrow markers
+constexpr float kColourArrowRight = 80.0f;
+constexpr int kLitRedThreshold = 40;            // a stat cap sprite counts as lit when its red reaches this
+constexpr float kLitAlpha = 0.6f;
+constexpr uint32_t kMaxStatNames = 16;
+constexpr int kMaxMenuChildren = 80;
+constexpr int kSpriteBudget = 256;
+constexpr int kValueBudget = 256;
+constexpr float kRowSpacing = 24.0f;            // the default spacing between a menu's rows
+constexpr float kRowSlack = 2.0f;               // rows closer than this belong to one line
+constexpr float kHalf = 0.5f;
+constexpr std::size_t kStatNameSize = 32;
+constexpr int kMaxKeyboardChildren = 32;
+constexpr std::size_t kLogLineSize = 512;
+constexpr int kMaxDumpDepth = 8;
+constexpr int kTextBudget = 400;
+constexpr std::size_t kMaxTexts = 6;
+constexpr int kScreenBudget = 600;
+constexpr std::size_t kTextLineSize = 160;
+constexpr int kKeyTextBudget = 256;             // a wide key: a container of a score of cap sprites before its words
+constexpr int kMinSingles = 20;                 // single-letter children that make a container a keyboard
+constexpr int kChildTextBudget = 32;
+constexpr int kButtonDown = 4;                  // the pad buttons a key names (render::button_for_tag)
+constexpr int kButtonRight = 5;
+constexpr int kButtonLeft = 6;
+constexpr int kButtonUp = 7;
+constexpr int kButtonDownRight = 10;
+constexpr int kButtonUpLeft = 11;
+constexpr int kButtonDownLeft = 12;
+constexpr int kButtonUpRight = 13;
+constexpr int kPolicyFrames = 30;
+constexpr std::size_t kDecisionKeySize = 96;
+constexpr int kChoicesPerRow = 16;              // a choice's index is its row * 16 + choice
+constexpr int kKeysPerRow = 64;                 // a keyboard key's index is its row * 64 + column
+constexpr float kEdgeFraction = 0.3f;           // the part of an adjustable row at each end that steps left or right
+constexpr std::size_t kMaxMirrorEvents = 64;
+constexpr std::size_t kMaxQueuedEvents = 256;
+constexpr float kEditOpenTimeoutSeconds = 60.0f;
+constexpr int kEditSettleFrames = 90;
+constexpr int kEditPauseMenuFrames = 120;
+constexpr int kEditChooseFrames = 20;
+constexpr float kMaxFrameSeconds = 0.25f;
+constexpr float kGuardSeconds = 2.0f;
+constexpr float kLevelStartTimeoutSeconds = 30.0f;
 void continue_last_level(modules::FrontEnd* front_end); // (below)
 
 namespace ui_backend = frontend::level_editor::ui_backend;
@@ -138,7 +201,7 @@ std::string ini_path() { return game_folder_path(build_info::kFileName); }
 
 std::string ini_string(const char* key, const char* fallback)
 {
-    std::array<char, 512> value = {};
+    std::array<char, kIniValueSize> value = {};
     GetPrivateProfileStringA("frontend", key, fallback, value.data(), sizeof(value), ini_path().c_str());
     return value.data();
 }
@@ -192,7 +255,7 @@ paint::FontFiles resolve_fonts()
     const bool bahnschrift = lower.find("bahnschrift") != std::string::npos;
     files.condense =
         static_cast<float>(text::to_int(ini_string("display_condense", bahnschrift ? "84" : "100").c_str())) / 100.0f;
-    files.bold = text::to_int(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) ? 0.022f : 0.0f;
+    files.bold = text::to_int(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) ? kBoldWeight : 0.0f;
     get_log("new front end: fonts - display %s (condensed %.0f%%%s), mono %s, body %s",
             files.display.empty() ? "(none)" : files.display.c_str(), files.condense * 100.0f,
             files.bold > 0 ? ", heavier" : "", files.mono.empty() ? "(none)" : files.mono.c_str(),
@@ -206,7 +269,7 @@ std::string read_text(const std::string& path)
     if (!file)
         return {};
     std::string text;
-    std::array<char, 4096> buffer{};
+    std::array<char, kReadChunkSize> buffer{};
     for (size_t n = 0; (n = std::fread(buffer.data(), 1, sizeof(buffer), file.get())) > 0;)
         text.append(buffer.data(), n);
     return text;
@@ -391,7 +454,7 @@ void update_session(float dt)
     if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore))
         if (const modules::PointTally* s = core::down_cast<objects::RiderPointKeeper>(score)->points_held()) {
             const double points = static_cast<double>(s->pot()) * s->multiplier();
-            if (points > 0.0 && points < 2.0e9)
+            if (points > 0.0 && points < kPointsCeiling)
                 pending = static_cast<int>(points);
         }
     level_editor::play_test::ComboEnd end;
@@ -404,7 +467,7 @@ void update_session(float dt)
             skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list())
                   : nullptr) {
         int guard = 0;
-        for (const memory::ListNode* node = list->gaps().next(); node && node != &list->gaps() && ++guard < 4096;
+        for (const memory::ListNode* node = list->gaps().next(); node && node != &list->gaps() && ++guard < kMaxListNodes;
              node = node->next()) {
             if (node->data() == memory::ListNode::head_marker())
                 break;
@@ -469,10 +532,10 @@ paint::Art load_image_file(const std::string& name)
     const uint32_t format = u32(16);
     const uint32_t marker = u32(20);
     const uint32_t palette_size = u32(28);
-    if (width == 0 || height == 0 || width > 8192 || height > 8192)
+    if (width == 0 || height == 0 || width > kMaxPictureSide || height > kMaxPictureSide)
         return {};
-    std::span<const uint8_t> texels = std::span<const uint8_t>(data).subspan(0x20);
-    size_t left = data.size() - 0x20;
+    std::span<const uint8_t> texels = std::span<const uint8_t>(data).subspan(kPictureHeaderBytes);
+    size_t left = data.size() - kPictureHeaderBytes;
     paint::Art art;
     art.width = static_cast<float>(width);
     art.height = static_cast<float>(height);
@@ -490,7 +553,7 @@ paint::Art load_image_file(const std::string& name)
     }
     const uint32_t bits = format == 0 ? 32 : format == 2 ? 16 : format == 0x13 ? 8 : format;
     const bool palettized = format == 0x13 || (format != 0 && format != 2 && format < 0x10);
-    if (bits != 32 && !(palettized && bits == 8))
+    if (bits != kTrueColourBits && !(palettized && bits == kPaletteBits))
         return {}; // (16-bit and 4-bit images: no loading screen is one)
     // (the palette: the colours index the rest of the file, as the original's read did - an index past a short
     // palette reads the texels that follow)
@@ -504,14 +567,14 @@ paint::Art load_image_file(const std::string& name)
         left -= palette_bytes;
     }
     const size_t count = static_cast<size_t>(width) * height;
-    if (left < count * (bits / 8))
+    if (left < count * (bits / kBitsPerByte))
         return {};
     const bool powers = (width & (width - 1)) == 0 && (height & (height - 1)) == 0;
     std::vector<uint8_t> plain;
     std::span<const uint8_t> rows_data = texels;
     if (powers) {
-        plain.resize(count * (bits / 8));
-        os_layer::unswizzle(plain, texels.first(plain.size()), {.width = static_cast<int>(width), .height = static_cast<int>(height), .bytes_per_texel_ = static_cast<uint32_t>(bits / 8)});
+        plain.resize(count * (bits / kBitsPerByte));
+        os_layer::unswizzle(plain, texels.first(plain.size()), {.width = static_cast<int>(width), .height = static_cast<int>(height), .bytes_per_texel_ = static_cast<uint32_t>(bits / kTrueColourBits)});
         rows_data = plain;
     }
     std::vector<uint8_t> bgra(count * 4);
@@ -521,7 +584,7 @@ paint::Art load_image_file(const std::string& name)
         core::at(bgra, i * 4 + 0) = core::at(px, 0);
         core::at(bgra, i * 4 + 1) = core::at(px, 1);
         core::at(bgra, i * 4 + 2) = core::at(px, 2);
-        core::at(bgra, i * 4 + 3) = 0xFF; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
+        core::at(bgra, i * 4 + 3) = kOpaqueAlpha; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
     }
     art.texture =
         ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height), ui_backend::PixelLayout::kBgra32,
@@ -818,10 +881,10 @@ void keep_root_hidden()
     if (!new_frontend_state().root_hidden_)
         return;
     const UiWidget* root = game_screens::get_find(name_hash("root_window"));
-    if (!root || (root->aim_point().scale_x_ < 0.001f && root->aim_point().alpha < 0.001f))
+    if (!root || (root->aim_point().scale_x_ < kInvisibleThreshold && root->aim_point().alpha < kInvisibleThreshold))
         return;
     static int s_logged = 0;
-    if (s_logged < 20) {
+    if (s_logged < kMaxLoggedFrames) {
         ++s_logged;
         get_log("new front end: the original's elements were shown again under ours (a script scaled root_window) - "
                 "hidden");
@@ -841,7 +904,7 @@ bool element_hidden(const UiWidget* element)
 }
 bool get_visible(const UiWidget* element)
 {
-    return !element_hidden(element) && element->aim_point().alpha > 0.02f && core::at(element->aim_point().rgba, 3) > 2;
+    return !element_hidden(element) && element->aim_point().alpha > kVisibleAlpha && core::at(element->aim_point().rgba, 3) > 2;
 }
 
 uint32_t text_type()
@@ -872,7 +935,7 @@ UiWidget* active_menu(bool* in_dialog = nullptr, bool coming = false)
     static const uint32_t kDialogContainer = name_hash("dialog_box_container");
     UiWidget* found = nullptr;
     UiWidget* dialog = nullptr;
-    int budget = 8192;
+    int budget = kWalkBudget;
     // (depth first, without recursion: the element, its first child, its next sibling, back up through the parents)
     struct Walk {
         UiWidget* element;
@@ -926,7 +989,7 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
 float absolute_y(const UiWidget* element)
 {
     float y = 0.0f;
-    for (int guard = 0; element && guard < 64; ++guard, element = element->container().get_pull())
+    for (int guard = 0; element && guard < kMaxParentDepth; ++guard, element = element->container().get_pull())
         y += element->aim_point().y;
     return y;
 }
@@ -951,10 +1014,10 @@ void collect_texts_at(const UiWidget* element, std::vector<std::pair<std::string
 // A visible sprite in `element` that isn't a highlight bar (those are drawn at alpha 0 until their item is focused).
 bool has_visible_sprite(const UiWidget* element, int* budget)
 {
-    if (!element || --*budget <= 0 || element_hidden(element) || element->aim_point().alpha <= 0.02f)
+    if (!element || --*budget <= 0 || element_hidden(element) || element->aim_point().alpha <= kVisibleAlpha)
         return false;
     if (type_of(element) == sprite_type() && core::at(element->aim_point().rgba, 3) > 2 &&
-        std::fabs(element->aim_point().scale_x_) > 0.001f)
+        std::fabs(element->aim_point().scale_x_) > kInvisibleThreshold)
         return true;
     for (const UiWidget* child = first_child(element); child; child = get_next(child))
         if (has_visible_sprite(child, budget))
@@ -987,11 +1050,11 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 // (colormenu_nowrap_arrow_left / right -53 .. 80 for the colour menus' markers, scalingmenu_arrow_left /
                 // right -49 .. 76 for the scaling ones)
                 const uint32_t id = id_of_element(e);
-                float left = -49.0f, right = 76.0f;
+                float left = -kScaleArrowLeft, right = kScaleArrowRight;
                 for (const uint32_t colour : kColourArrows)
                     if (id == colour) {
-                        left = -53.0f;
-                        right = 80.0f;
+                        left = -kColourArrowLeft;
+                        right = kColourArrowRight;
                     }
                 item->adjustable = true;
                 item->slider_at_ = std::clamp((e->aim_point().x - left) / (right - left), 0.0f, 1.0f);
@@ -1008,9 +1071,9 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 // but unspent ones lit at alpha 0.3)
                 item->stat_value_ = std::max(item->stat_value_, 0);
                 item->stat_cap_ = std::max(item->stat_cap_, 0);
-                if (core::at(e->aim_point().rgba, 0) >= 40) {
+                if (core::at(e->aim_point().rgba, 0) >= kLitRedThreshold) {
                     ++item->stat_cap_;
-                    if (e->aim_point().alpha > 0.6f)
+                    if (e->aim_point().alpha > kLitAlpha)
                         ++item->stat_value_;
                 }
             }
@@ -1036,7 +1099,7 @@ std::vector<std::pair<std::string, int>> skater_stats(uint32_t name)
     script::Array* names = script::fetch_list(name_hash("stat_names"));
     if (!profile || !names || names->kind_tag() != script::kQbvalStruct)
         return stats;
-    for (uint32_t i = 0; i < names->extent() && i < 16; ++i) {
+    for (uint32_t i = 0; i < names->extent() && i < kMaxStatNames; ++i) {
         auto* entry = names->struct_at(i);
         uint32_t stat = 0;
         const char* label = nullptr;
@@ -1064,19 +1127,19 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     read.graphic_editor_ = script::fetch_int_value("EG_in_create_a_graphic") == 1;
     static const uint32_t kSkaterMenu = name_hash("select_skater_hmenu");
     const bool skaters = read.menu_id_ == kSkaterMenu;
-    int budget = 4096;
+    int budget = kWalkBudget;
     int index = 0;
-    for (const UiWidget* child = first_child(menu); child && index < 80; child = get_next(child), ++index) {
+    for (const UiWidget* child = first_child(menu); child && index < kMaxMenuChildren; child = get_next(child), ++index) {
         mirror::ItemRead item;
         item.id = id_of_element(child);
         item.focusable = mouse_menus::item_focusable(child);
         collect_texts(child, &item.texts, {}, &budget, false);
         if (!skaters && index != read.selected_index_) {
-            int sprite_budget = 256;
+            int sprite_budget = kSpriteBudget;
             item.graphic_value_ = has_visible_sprite(child, &sprite_budget);
         }
         if (!skaters) {
-            int value_budget = 256;
+            int value_budget = kValueBudget;
             if (const UiWidget* first = first_child(child))
                 read_value_sprites(first, &item, &value_budget);
         }
@@ -1121,7 +1184,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
             read.title = core::down_cast<LabelWidget>(title)->chars();
     const UiWidget* root = root_element();
     const UiWidget* screen = menu;
-    for (int guard = 0; screen && guard < 64; ++guard) {
+    for (int guard = 0; screen && guard < kMaxParentDepth; ++guard) {
         const UiWidget* parent = screen->container().get_pull();
         if (!parent || parent == root)
             break;
@@ -1147,13 +1210,13 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
             row_y.push_back(y);
         }
         // (the nearest row, within half the rows' spacing)
-        float spacing = 24.0f;
+        float spacing = kRowSpacing;
         for (size_t i = 1; i < row_y.size(); ++i)
-            if (core::at(row_y, i) - core::at(row_y, i - 1) > 2.0f)
+            if (core::at(row_y, i) - core::at(row_y, i - 1) > kRowSlack)
                 spacing = std::min(spacing, core::at(row_y, i) - core::at(row_y, i - 1));
         for (const auto& [text, y] : beside) {
             size_t row = row_y.size();
-            float best = spacing * 0.5f;
+            float best = spacing * kHalf;
             for (size_t i = 0; i < row_y.size() && i < read.items.size(); ++i)
                 if (std::fabs(core::at(row_y, i) - y) < best && core::at(read.items, i).focusable) {
                     best = std::fabs(core::at(row_y, i) - y);
@@ -1176,7 +1239,7 @@ int stat_row_index(uint32_t id)
     static const std::array<uint32_t, 16> kIds = [] {
         std::array<uint32_t, 16> ids{};
         for (size_t i = 0; i < ids.size(); ++i) {
-            std::array<char, 32> name{};
+            std::array<char, kStatNameSize> name{};
             text::format_to(name, "stats_menu_names_%u", static_cast<unsigned>(i));
             core::at(ids, i) = name_hash(name.data());
         }
@@ -1229,14 +1292,14 @@ mirror::MenuRead read_stats(UiWidget* active)
         return read;
     read.menu_id_ = id_of_element(menus.front());
     read.menu_key_ = menus.front();
-    int budget = 4096;
+    int budget = kWalkBudget;
     int selected_stat = -1;
     for (size_t column = 0; column < menus.size(); ++column) {
         const UiWidget* menu = core::at(menus, column);
         const bool takes_pad = menu == active && !editing;
         const int selected = takes_pad ? mouse_menus::selected_index(menu) : -1;
         int index = 0;
-        for (const UiWidget* child = first_child(menu); child && index < 32; child = get_next(child), ++index) {
+        for (const UiWidget* child = first_child(menu); child && index < kMaxKeyboardChildren; child = get_next(child), ++index) {
             const int stat = stat_row_index(id_of_element(child));
             if (stat < 0)
                 continue;
@@ -1247,7 +1310,7 @@ mirror::MenuRead read_stats(UiWidget* active)
             item.stat_column_ = static_cast<int>(column);
             item.stat_child_ = takes_pad ? index : -1;
             collect_texts(child, &item.texts, {}, &budget, false);
-            int value_budget = 256;
+            int value_budget = kValueBudget;
             if (const UiWidget* first = first_child(child))
                 read_value_sprites(first, &item, &value_budget);
             if ((takes_pad && index == selected) || child == editing_row)
@@ -1266,7 +1329,7 @@ mirror::MenuRead read_stats(UiWidget* active)
             read.title = core::down_cast<LabelWidget>(title)->chars();
     const UiWidget* root = root_element();
     const UiWidget* screen = menus.front();
-    for (int guard = 0; screen && guard < 64; ++guard) {
+    for (int guard = 0; screen && guard < kMaxParentDepth; ++guard) {
         const UiWidget* parent = screen->container().get_pull();
         if (!parent || parent == root)
             break;
@@ -1297,7 +1360,7 @@ const char* current_type_name(uint32_t type)
 void dump_tree(const UiWidget* element, int depth, int* budget)
 {
     for (; element && --*budget > 0; element = get_next(element)) {
-        std::array<char, 512> line{};
+        std::array<char, kLogLineSize> line{};
         const char* type = current_type_name(type_of(element));
         const size_t at =
             text::format_to(line, "%*s%s %08X (%.0f, %.0f)%s", depth * 2, "", type ? type : "?", id_of_element(element),
@@ -1311,7 +1374,7 @@ void dump_tree(const UiWidget* element, int depth, int* budget)
                             core::down_cast<const ImageWidget>(element)->texture());
         }
         get_log("new front end: debug_restyle %s", line.data());
-        if (depth < 8)
+        if (depth < kMaxDumpDepth)
             dump_tree(first_child(element), depth + 1, budget);
     }
 }
@@ -1322,16 +1385,16 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
     // (each menu once by what it holds: menus share ids and are rebuilt in the same element)
     static std::set<std::string> logged;
     std::vector<std::string> texts;
-    int text_budget = 400;
+    int text_budget = kTextBudget;
     collect_texts(menu, &texts, {}, &text_budget, false);
     std::string key = std::to_string(id_of_element(menu));
-    for (size_t i = 0; i < texts.size() && i < 6; ++i)
+    for (size_t i = 0; i < texts.size() && i < kMaxTexts; ++i)
         key += "|" + core::at(texts, i);
     if (!kOn || !menu || !logged.insert(key).second)
         return;
     const UiWidget* root = root_element();
     const UiWidget* screen = menu;
-    for (int guard = 0; screen && guard < 64; ++guard) {
+    for (int guard = 0; screen && guard < kMaxParentDepth; ++guard) {
         const UiWidget* parent = screen->container().get_pull();
         if (!parent || parent == root)
             break;
@@ -1339,9 +1402,9 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
     }
     get_log("new front end: debug_restyle - the menu %08X (%s), its screen %08X:", id_of_element(menu), why.c_str(),
             id_of_element(screen));
-    int budget = 600;
+    int budget = kScreenBudget;
     const UiWidget* one = screen;
-    std::array<char, 160> line{};
+    std::array<char, kTextLineSize> line{};
     text::format_to(line, "%s %08X", current_type_name(type_of(one)) ? current_type_name(type_of(one)) : "?",
                     id_of_element(one));
     get_log("new front end: debug_restyle %s", line.data());
@@ -1374,13 +1437,13 @@ UiWidget* keyboard_of(UiWidget* menu)
         ++rows;
         for (const UiWidget* key = first_child(row); key; key = get_next(key)) {
             std::vector<std::string> texts;
-            int budget = 256;
+            int budget = kKeyTextBudget;
             collect_texts(key, &texts, {}, &budget, false);
             for (const std::string& t : texts)
                 singles += t.size() == 1 ? 1 : 0;
         }
     }
-    return rows >= 3 && singles >= 20 ? parent : nullptr;
+    return rows >= 3 && singles >= kMinSingles ? parent : nullptr;
 }
 
 // The keyboard read: its rows of keys (a key's words: the last that isn't a button tag, e.g. "Backspace"), the key
@@ -1401,7 +1464,7 @@ mirror::MenuRead read_keyboard(UiWidget* active)
         if (type_of(child) != h_menu_type()) {
             if (!entry_read) {
                 std::vector<std::string> texts;
-                int budget = 32;
+                int budget = kChildTextBudget;
                 collect_texts(child, &texts, {}, &budget, false);
                 if (!texts.empty())
                     read.entry = texts.front();
@@ -1412,7 +1475,7 @@ mirror::MenuRead read_keyboard(UiWidget* active)
         std::vector<std::string> key_row;
         for (const UiWidget* key = first_child(child); key; key = get_next(key)) {
             std::vector<std::string> texts;
-            int budget = 256; // (a wide key: a container of a score of cap sprites before its words)
+            int budget = kKeyTextBudget; // (a wide key: a container of a score of cap sprites before its words)
             collect_texts(key, &texts, {}, &budget, false);
             std::string label;
             for (const std::string& t : texts)
@@ -1446,22 +1509,22 @@ std::string pad_button_label_for(mirror::ButtonTag button_tag)
         button = static_cast<int>(render::button_for_tag(digit));
     }
     switch (button) {
-    case 4:
+    case kButtonDown:
         return text_tools::kKeyDown;
-    case 5:
+    case kButtonRight:
         return text_tools::kKeyRight;
-    case 6:
+    case kButtonLeft:
         return text_tools::kKeyLeft;
-    case 7:
+    case kButtonUp:
         return text_tools::kKeyUp;
-    case 10:
+    case kButtonDownRight:
         return text_tools::
             kKeyDownRight; // (the grab tricks' order: Down, Down-Left \bc, Down-Right \ba, ... Up-Left \bb,
-    case 11:
+    case kButtonUpLeft:
         return text_tools::kKeyUpLeft; // Up-Right \bd)
-    case 12:
+    case kButtonDownLeft:
         return text_tools::kKeyDownLeft;
-    case 13:
+    case kButtonUpRight:
         return text_tools::kKeyUpRight;
     default:
         break;
@@ -1542,7 +1605,7 @@ mirror::View mirror_now()
     static int g_policy_frames = 0;
     if (g_policy_frames-- <= 0) { // (the ini read twice a second)
         policy = mirror_policy();
-        g_policy_frames = 30;
+        g_policy_frames = kPolicyFrames;
         mirror::set_button_namer(pad_button_label_for);
     }
     // (online: restyled too unless [frontend] restyle_online=0 - tested by the user by hand, never by a tool)
@@ -1614,7 +1677,7 @@ mirror::View mirror_now()
     const UiWidget* keyboard = in_dialog ? nullptr : keyboard_of(menu);
     mirror::View view = mirror::get_build(keyboard ? read_keyboard(menu) : read_menu(menu, in_dialog), now);
     // (each menu's decision logged once)
-    std::array<char, 96> key{};
+    std::array<char, kDecisionKeySize> key{};
     text::format_to(key, "%08X %s %s", id_of_element(menu), mirror::kind_name(view.kind), view.why.c_str());
     if (menu_mirror().mirror_logged_ != key.data()) {
         menu_mirror().mirror_logged_ = key.data();
@@ -1675,7 +1738,7 @@ void choose_key(modules::FrontEnd* front_end, KeyPlace key)
 {
     const int row = key.row;
     const int col = key.col;
-    for (int guard = 0; guard < 64; ++guard) {
+    for (int guard = 0; guard < kMaxParentDepth; ++guard) {
         UiWidget* active = active_menu();
         const UiWidget* keys = keyboard_of(active);
         if (!keys)
@@ -1731,11 +1794,11 @@ void stats_click(modules::FrontEnd* front_end, const paint::Hit& hit)
             mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
         return;
     }
-    if (hit.kind != paint::Hit::Kind::kChoice || !step_to_stat(front_end, hit.index / 16))
+    if (hit.kind != paint::Hit::Kind::kChoice || !step_to_stat(front_end, hit.index / kChoicesPerRow))
         return;
     if (story && !v.stats_editing_)
         mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
-    mouse_menus::send_menu_pad_event(front_end, hit.index % 16 == 0 ? modules::FrontEnd::kPadLeft
+    mouse_menus::send_menu_pad_event(front_end, hit.index % kChoicesPerRow == 0 ? modules::FrontEnd::kPadLeft
                                                                     : modules::FrontEnd::kPadRight);
 }
 
@@ -1791,7 +1854,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
                     stats_click(front_end, *hit);
                 } else if (hit->kind == paint::Hit::Kind::kStageMap &&
                            menu_mirror().mirror_.get_shown().kind == mirror::Kind::kKeyboard) {
-                    choose_key(front_end, {.row = hit->index / 64, .col = hit->index % 64});
+                    choose_key(front_end, {.row = hit->index / kKeysPerRow, .col = hit->index % kKeysPerRow});
                 } else if (hit->kind == paint::Hit::Kind::kContinue) {
                     continue_last_level(front_end);
                 } else if (hit->kind == paint::Hit::Kind::kItem) {
@@ -1805,7 +1868,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
                         int side = 0;
                         if (shown.kind == mirror::Kind::kLinkChain && hit->index >= 0 &&
                             std::cmp_less(hit->index, shown.rows.size()) && core::at(shown.rows, hit->index).adjustable)
-                            side = click_x < hit->x0 + width * 0.3f ? -1 : click_x >= hit->x1 - width * 0.3f ? 1 : 0;
+                            side = click_x < hit->x0 + width * kEdgeFraction ? -1 : click_x >= hit->x1 - width * kEdgeFraction ? 1 : 0;
                         mouse_menus::send_menu_pad_event(front_end, side < 0   ? modules::FrontEnd::kPadLeft
                                                                     : side > 0 ? modules::FrontEnd::kPadRight
                                                                                : modules::FrontEnd::kPadChoose);
@@ -2311,7 +2374,7 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             case paint::Hit::Kind::kContinue:
                 break; // (the restyled main menu's - mirror_mouse)
             case paint::Hit::Kind::kChoice:
-                run_action(front_end, menu_state().click_choice({.row = clicked.index / 16, .choice = clicked.index % 16}));
+                run_action(front_end, menu_state().click_choice({.row = clicked.index / kChoicesPerRow, .choice = clicked.index % kChoicesPerRow}));
                 break;
             }
         }
@@ -2341,7 +2404,7 @@ void handle_event(SDL_Event* event)
     }
     if (new_frontend_state().state_ != State::kShown) {
         // (a restyled original screen: the mouse is ours - its keys and buttons go on to the original menu)
-        if (menu_mirror().mirror_.get_up() && menu_mirror().mirror_events_.size() < 64 &&
+        if (menu_mirror().mirror_.get_up() && menu_mirror().mirror_events_.size() < kMaxMirrorEvents &&
             (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEWHEEL ||
              event->type == SDL_KEYDOWN || event->type == SDL_CONTROLLERBUTTONDOWN))
             menu_mirror().mirror_events_.push_back(*event);
@@ -2355,7 +2418,7 @@ void handle_event(SDL_Event* event)
     case SDL_MOUSEMOTION:
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEWHEEL:
-        if (new_frontend_state().events_.size() < 256)
+        if (new_frontend_state().events_.size() < kMaxQueuedEvents)
             new_frontend_state().events_.push_back(*event);
         break;
     default:
@@ -2370,7 +2433,7 @@ void edit_update(modules::FrontEnd* front_end, float dt)
     if (edit_session().edit_ == Edit::kDisengaged)
         return;
     edit_session().edit_time_ += dt;
-    if (edit_session().edit_time_ > 60.0f) {
+    if (edit_session().edit_time_ > kEditOpenTimeoutSeconds) {
         get_log("new front end: the level editor didn't open in 60 s - free skate as it is");
         edit_session().edit_ = Edit::kDisengaged;
         return;
@@ -2383,7 +2446,7 @@ void edit_update(modules::FrontEnd* front_end, float dt)
     }
     if (edit_session().edit_ == Edit::kWaitLevel) {
         edit_session().edit_frames_ = get_paused() ? 0 : edit_session().edit_frames_ + 1;
-        if (edit_session().edit_frames_ < 90)
+        if (edit_session().edit_frames_ < kEditSettleFrames)
             return;
         // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
         mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
@@ -2394,14 +2457,14 @@ void edit_update(modules::FrontEnd* front_end, float dt)
     }
     // (kWaitPause) the pause menu up with its LEVEL EDITOR: chosen.
     if (!get_paused()) {
-        if (++edit_session().edit_frames_ >= 120 && edit_session().edit_presses_ < 3) {
+        if (++edit_session().edit_frames_ >= kEditPauseMenuFrames && edit_session().edit_presses_ < 3) {
             mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
             ++edit_session().edit_presses_;
             edit_session().edit_frames_ = 0;
         }
         return;
     }
-    if (++edit_session().edit_frames_ < 20)
+    if (++edit_session().edit_frames_ < kEditChooseFrames)
         return;
     edit_session().edit_ = Edit::kDisengaged;
     if (UiWidget* item = game_screens::get_find(name_hash("menu_level_editor"))) {
@@ -2526,7 +2589,7 @@ void tick_frame(modules::FrontEnd* front_end)
     float dt = menu_tick().ticked_ ? std::chrono::duration<float>(now - menu_tick().last_tick_).count() : 0.0f;
     menu_tick().last_tick_ = now;
     menu_tick().ticked_ = true;
-    dt = std::clamp(dt, 0.0f, 0.25f);
+    dt = std::clamp(dt, 0.0f, kMaxFrameSeconds);
     new_frontend_state().state_time_ += dt;
     load_catalogue();
     note_level_loaded();
@@ -2539,7 +2602,7 @@ void tick_frame(modules::FrontEnd* front_end)
                           get_key_down(SDL_SCANCODE_SPACE) || get_key_down(SDL_SCANCODE_ESCAPE) ||
                           get_key_down(SDL_SCANCODE_BACKSPACE) || new_frontend_state().buttons_down_ > 0 ||
                           (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK);
-        if (!held || new_frontend_state().guard_time_ > 2.0f)
+        if (!held || new_frontend_state().guard_time_ > kGuardSeconds)
             new_frontend_state().guard_ = false;
     }
 
@@ -2608,7 +2671,7 @@ void tick_frame(modules::FrontEnd* front_end)
             (new_frontend_state().launch_level_ != kLoadMainMenu && loading_screen_up())) {
             change_phase(State::kIdle);
             free_device_objects();
-        } else if (new_frontend_state().state_time_ > 30.0f) {
+        } else if (new_frontend_state().state_time_ > kLevelStartTimeoutSeconds) {
             get_log("new front end: the level didn't start in 30 seconds - back to the menus");
             menu_state().cancel_launch();
             change_phase(State::kIdle);

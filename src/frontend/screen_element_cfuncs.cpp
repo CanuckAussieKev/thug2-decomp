@@ -38,6 +38,9 @@ namespace frontend {
 
 namespace {
 
+constexpr std::size_t kCaptionSize = 0x200;
+constexpr std::size_t kLineWordSize = 0x60;
+
 // A new screen element of type T in `element` (the screen element manager owns it: it deletes the element when
 // the element is destroyed) - `new T(args...)`, as the original.
 template <typename T, typename... Args>
@@ -409,7 +412,7 @@ bool cfunc_text_element_backspace(script::Struct* params, script::Script*)
 // 0x004AD8D0 (the result is always false)
 bool cfunc_get_text_element_string(script::Struct* params, script::Script* script)
 {
-    std::array<char, 0x200> text{};
+    std::array<char, kCaptionSize> text{};
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
     if (element->kind_tag() == kTextBlockElement) {
@@ -482,7 +485,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     // (the word buffer right before the line's, as on the original's stack: an empty line's "last character" is
     // the word buffer's last)
     struct {
-        std::array<char, 0x60> word;
+        std::array<char, kLineWordSize> word;
         std::array<char, 0x1F4> line;
     } buffers{};
     auto& word = buffers.word;
@@ -540,7 +543,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         const float word_height = measured.height;
         bool new_line = false;
         const bool full = line_width > 0.0f && static_cast<double>(word_width) + line_width > max_width;
-        if (full || previous == 1 || std::strlen(word.data()) + line_length >= 0x60) {
+        if (full || previous == 1 || std::strlen(word.data()) + line_length >= kLineWordSize) {
             // the line so far (without its trailing space) becomes an element
             char* last = line_length ? &core::at(line, line_length - 1) : &core::at(word, sizeof(buffers.word) - 1);
             if (*last == ' ')

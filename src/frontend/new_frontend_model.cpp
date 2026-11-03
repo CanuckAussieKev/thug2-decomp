@@ -26,6 +26,24 @@ namespace frontend::new_frontend {
 
 namespace {
 
+constexpr uint32_t kOneByteLimit = 0x80;           // UTF-8: code points below this take one byte,
+constexpr uint32_t kTwoByteLimit = 0x800;          // below this two,
+constexpr int kLeadTwo = 0xC0;                     // the lead byte of two,
+constexpr int kLeadThree = 0xE0;                   // and of three
+constexpr int kContinuation = 0x80;                // a continuation byte
+constexpr int kSixBits = 6;                        // the payload bits a continuation byte carries
+constexpr int kTwelveBits = 12;
+constexpr uint32_t kPayloadMask = 0x3F;
+constexpr int kMaxFileDepth = 32;
+constexpr std::size_t kColourTextLength = 7;       // "#rrggbb"
+constexpr int kHexBase = 16;
+constexpr std::uint32_t kOpaqueAlphaMask = 0xFF000000u; // a colour with full alpha
+constexpr float kHalf = 0.5f;
+constexpr float kPi = 3.14159265f;
+constexpr std::size_t kGroupPrefixLength = 6;       // the group id's prefix before its name
+constexpr float kMaxStepSeconds = 0.1f;             // a long frame - a load, a hitch - doesn't skip the motion
+constexpr float kScrollSettle = 0.001f;
+
 // --- a small JSON reader (the data file only: objects, arrays, strings, numbers, true / false / null) ---
 
 struct Json {
@@ -84,15 +102,15 @@ private:
     }
     static void append_utf8(std::string* out, unsigned code)
     {
-        if (code < 0x80) {
+        if (code < kOneByteLimit) {
             out->push_back(static_cast<char>(code));
-        } else if (code < 0x800) {
-            out->push_back(static_cast<char>(0xC0 | (code >> 6)));
-            out->push_back(static_cast<char>(0x80 | (code & 0x3F)));
+        } else if (code < kTwoByteLimit) {
+            out->push_back(static_cast<char>(kLeadTwo | (code >> kSixBits)));
+            out->push_back(static_cast<char>(kContinuation | (code & kPayloadMask)));
         } else {
-            out->push_back(static_cast<char>(0xE0 | (code >> 12)));
-            out->push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
-            out->push_back(static_cast<char>(0x80 | (code & 0x3F)));
+            out->push_back(static_cast<char>(kLeadThree | (code >> kTwelveBits)));
+            out->push_back(static_cast<char>(kContinuation | ((code >> kSixBits) & kPayloadMask)));
+            out->push_back(static_cast<char>(kContinuation | (code & kPayloadMask)));
         }
     }
     bool string_value(std::string* out)
@@ -147,7 +165,7 @@ private:
     }
     bool get_value(Json* out, int depth)
     {
-        if (depth > 32)
+        if (depth > kMaxFileDepth)
             return get_fail("nesting too deep");
         get_space();
         if (look_at_ >= text_.size())
@@ -284,12 +302,12 @@ std::optional<LevelPlace> Catalogue::get_find(const std::string& load) const
 
 uint32_t parse_colour(const std::string& text, uint32_t fallback)
 {
-    if (text.size() != 7 || core::at(text, 0) != '#')
+    if (text.size() != kColourTextLength || core::at(text, 0) != '#')
         return fallback;
-    for (size_t i = 1; i < 7; ++i)
+    for (size_t i = 1; i < kColourTextLength; ++i)
         if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i))))
             return fallback;
-    return 0xFF000000u | static_cast<uint32_t>(std::strtoul(std::next(text.c_str()), nullptr, 16));
+    return kOpaqueAlphaMask | static_cast<uint32_t>(std::strtoul(std::next(text.c_str()), nullptr, kHexBase));
 }
 
 bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error)
@@ -323,7 +341,7 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
         section.id = s.text_util("id");
         section.tab = s.text_util("tab");
         section.title = s.text_util("title");
-        section.colour = parse_colour(s.text_util("colour"), 0xFFC9CBD0);
+        section.colour = parse_colour(s.text_util("colour"), kDefaultSectionColour);
         if (section.tab.empty())
             section.tab = section.id;
         const Json* levels = s.get_pull("levels");
@@ -472,8 +490,8 @@ TickCycle fit_frame(float window_width, float window_height)
     if (window_width <= 0.0f || window_height <= 0.0f)
         return frame;
     frame.set_scale(std::min(window_width / kDesignWidth, window_height / kDesignHeight));
-    frame.set_left(std::floor((window_width - kDesignWidth * frame.scale()) * 0.5f));
-    frame.set_top(std::floor((window_height - kDesignHeight * frame.scale()) * 0.5f));
+    frame.set_left(std::floor((window_width - kDesignWidth * frame.scale()) * kHalf));
+    frame.set_top(std::floor((window_height - kDesignHeight * frame.scale()) * kHalf));
     return frame;
 }
 
@@ -503,7 +521,7 @@ Uv cover_uv(maths::Size image, maths::Size box, float pan)
     const float slack_v = 1.0f - shown_v;
     const float p = std::clamp(pan, 0.0f, 1.0f);
     uv.u0 = slack_u * p;
-    uv.v0 = slack_v * 0.5f;
+    uv.v0 = slack_v * kHalf;
     uv.u1 = uv.u0 + shown_u;
     uv.v1 = uv.v0 + shown_v;
     return uv;
@@ -698,7 +716,7 @@ float Menu::get_pan() const
 {
     const float phase = std::fmod(clock_, kPanSeconds * 2.0f) / kPanSeconds; // 0..2
     const float linear = phase <= 1.0f ? phase : 2.0f - phase;
-    return 0.5f - 0.5f * std::cos(linear * 3.14159265f); // (eased at both ends)
+    return kHalf - kHalf * std::cos(linear * kPi); // (eased at both ends)
 }
 
 uint32_t Menu::accent_colour() const
@@ -1060,7 +1078,7 @@ bool Menu::select_id(const std::string& id)
         const std::vector<options::GroupSet>& groups = options::bunches();
         if (id.starts_with("group:")) {
             for (size_t g = 0; g < groups.size(); ++g)
-                if (same_text(core::at(groups, g).id, id.substr(6))) {
+                if (same_text(core::at(groups, g).id, id.substr(kGroupPrefixLength))) {
                     set_option_group(static_cast<int>(g));
                     reset_rows();
                     return true;
@@ -1110,11 +1128,11 @@ std::string Menu::chosen_item_id() const
 
 ActStep Menu::tick(float dt)
 {
-    dt = std::clamp(dt, 0.0f, 0.1f); // (a long frame - a load, a hitch - doesn't skip the motion)
+    dt = std::clamp(dt, 0.0f, kMaxStepSeconds); // (a long frame - a load, a hitch - doesn't skip the motion)
     clock_ += dt;
     if (wipe_ >= 0.0f) {
         wipe_ += dt;
-        if (!switched_ && wipe_ >= kWipeSeconds * 0.5f) {
+        if (!switched_ && wipe_ >= kWipeSeconds * kHalf) {
             // Half-way: the screen changes under the wipe; its list's rows start as they are (the selection drawn).
             switched_ = true;
             get_show(pile_.back());
@@ -1128,7 +1146,7 @@ ActStep Menu::tick(float dt)
     // The list's scroll eases toward its target (about a tenth of a second).
     const float k = 1.0f - std::exp(-dt * 18.0f);
     scroll_ += (scroll_target_ - scroll_) * k;
-    if (std::fabs(scroll_target_ - scroll_) < 0.001f)
+    if (std::fabs(scroll_target_ - scroll_) < kScrollSettle)
         scroll_ = scroll_target_;
     if (launch_ >= 0.0f) {
         launch_ += dt;

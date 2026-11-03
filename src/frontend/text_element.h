@@ -15,6 +15,9 @@ class Array;
 // font (0x0048D760 finds one by checksum).
 namespace frontend {
 
+constexpr std::size_t kUnknownWords = 5;
+constexpr std::size_t kCopyCount = 16;        // the copies a text element duplicates
+
 // The blur effect (0x47C bytes, made by blur_effect): 16 copies of the text behind it, each further along a
 // displacement, more scaled and fainter, morphing between settings over a time.
 struct SmearEffect {
@@ -24,7 +27,7 @@ struct SmearEffect {
         float dx, dy; // +0x14 its displacement
         std::array<float, 3> unknown1c_;
         float scale_x_, scale_y_; // +0x28
-        std::array<float, 5> unknown30;
+        std::array<float, kUnknownWords> unknown30;
     };
     // The settings, in order: blur_alpha_pair (x, y), blur_bottom_scales (x, y), blur_max_displacement (x, y).
     struct Settings {
@@ -50,7 +53,7 @@ struct SmearEffect {
     [[nodiscard]] uint32_t rgba_value() const { return rgba_value_; }
 
 private:
-    std::array<DupFrom, 16> copies_;  // +0x000
+    std::array<DupFrom, kCopyCount> copies_;  // +0x000
     Settings aim_point_;  // +0x440
     Settings ongoing_;    // +0x458
     int last_time_;       // +0x470 (ms)

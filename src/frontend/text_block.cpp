@@ -31,6 +31,10 @@ namespace frontend {
 
 namespace {
 
+constexpr int kShadowAlpha = 0x80;
+constexpr std::size_t kWordSize = 0x64;
+constexpr std::size_t kCaptionSize = 0x200;
+
 using script::Struct;
 
 // Names (checksums).
@@ -99,7 +103,7 @@ LabelWidget* as_text(UiWidget* e) { return core::down_cast<LabelWidget>(e); }
 ParagraphWidget::ParagraphWidget()
 {
     core::at(shadow_rgba_, 0) = core::at(shadow_rgba_, 1) = core::at(shadow_rgba_, 2) = 0;
-    core::at(shadow_rgba_, 3) = 0x80;
+    core::at(shadow_rgba_, 3) = kShadowAlpha;
     change_species(kTextBlockElement);
 }
 
@@ -127,7 +131,7 @@ void ParagraphWidget::add_words(const char* text)
     int previous = 0;
     int result = 0;
     for (bool again = true; again; again = result != 2) {
-        std::array<char, 0x64> word{};
+        std::array<char, kWordSize> word{};
         result = text::next_word(word, cursor);
         maths::Size measured{.width = 0.0f, .height = 0.0f};
         read_string_param(font, word.data(), &measured);
@@ -297,7 +301,7 @@ bool ParagraphWidget::backspace()
     const int length = fetch_magnitude();
     if (length == 0)
         return false;
-    std::array<char, 0x200> text{};
+    std::array<char, kCaptionSize> text{};
     fetch_caption(text.data(), sizeof(text));
     if (length > 1 && core::at(text, length - 1) == '\\' && core::at(text, length - 2) == '\\')
         core::at(text, length - 2) = 0;
@@ -310,14 +314,14 @@ bool ParagraphWidget::backspace()
 // 0x004B16D0 (the joined text in a block from the current heap)
 bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool last_line)
 {
-    char* joined = static_cast<char*>(memory::alloc(0x200));
-    fetch_caption(joined, 0x200);
+    char* joined = static_cast<char*>(memory::alloc(kCaptionSize));
+    fetch_caption(joined, kCaptionSize);
     append_unbounded(joined, text);
     if ((enforce_max_width && std::strcmp(text, get_space()) != 0) || last_line) {
         // the last word must fit the width
         void* font = get_font(font_name_);
         core::CStringCursor cursor(joined);
-        std::array<char, 0x64> word{};
+        std::array<char, kWordSize> word{};
         while (text::next_word(word, cursor) != 2) {
         }
         maths::Size measured{.width = 0.0f, .height = 0.0f};

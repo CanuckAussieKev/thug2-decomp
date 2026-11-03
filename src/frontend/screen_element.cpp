@@ -31,6 +31,20 @@ namespace frontend {
 
 namespace {
 
+constexpr double kHalf = 0.5;
+constexpr int kNeutralChannel = 0x80;          // a colour channel at half scale: the element's own colour unchanged
+constexpr float kHalfScreenWidth = 320.0f;     // the 640 x 448 layout screen
+constexpr float kHalfScreenHeight = 224.0f;
+constexpr int kMorphCurveShift = 8;            // object_flags() bits 8 and 9 pick a morph's curve
+constexpr double kSmoothstepThree = 3.0;
+constexpr std::uint32_t kByteMask = 0xFF;
+constexpr std::uint32_t kBitsPerByte = 8;
+constexpr std::uint32_t kShiftMask = 31;
+constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr std::uint32_t kMorphEaseOutBits = 0x100;
+constexpr std::uint32_t kMorphFastInBits = 0x200;
+constexpr std::uint32_t kMorphGentleBits = 0x300;
+
 using script::Struct;
 
 // Names (checksums).
@@ -92,15 +106,15 @@ void manager_destroy_element(void* manager, uint32_t id, int recurse, int unknow
 // orders occur in the original (the x87 products round differently): dims then scale, or scale then dims.
 void top_left_dims_first(const UiWidget* e, ElementState* s)
 {
-    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * e->level_y() * s->scale_y_ * 0.5);
-    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * e->span() * s->scale_x_ * 0.5);
+    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * e->level_y() * s->scale_y_ * kHalf);
+    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * e->span() * s->scale_x_ * kHalf);
 }
 void top_left_scale_first(const UiWidget* e, ElementState* s, maths::Size size)
 {
     const auto width = static_cast<double>(size.width);
     const auto height = static_cast<double>(size.height);
-    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * s->scale_y_ * height * 0.5);
-    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * s->scale_x_ * width * 0.5);
+    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * s->scale_y_ * height * kHalf);
+    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * s->scale_x_ * width * kHalf);
 }
 
 uint32_t get_rgba(const uint8_t* bytes)
@@ -141,13 +155,13 @@ UiWidget::UiWidget()
     shown_.x = shown_.y = 0.0f;
     shown_.angle = 0.0f;
     shown_.pos3d = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    core::at(shown_.rgba, 0) = core::at(shown_.rgba, 1) = core::at(shown_.rgba, 2) = core::at(shown_.rgba, 3) = 0x80;
+    core::at(shown_.rgba, 0) = core::at(shown_.rgba, 1) = core::at(shown_.rgba, 2) = core::at(shown_.rgba, 3) = kNeutralChannel;
     shown_.alpha = 1.0f;
     get_assign(aim_point_, &shown_);
     get_assign(summed_, &shown_);
     object_flags() |= kNew | kDirty;
     span_ = level_y_ = 0.0f;
-    core::at(rgba168_, 0) = core::at(rgba168_, 1) = core::at(rgba168_, 2) = core::at(rgba168_, 3) = 0x80;
+    core::at(rgba168_, 0) = core::at(rgba168_, 1) = core::at(rgba168_, 2) = core::at(rgba168_, 3) = kNeutralChannel;
 }
 
 // 0x004AAB30
@@ -301,9 +315,9 @@ void UiWidget::change_alignment(float x, float y)
     just_y_ = y;
     object_flags() |= kDirty;
     aim_point_.top =
-        static_cast<float>(aim_point_.y - (static_cast<double>(y) + 1.0) * aim_point_.scale_y_ * level_y_ * 0.5);
+        static_cast<float>(aim_point_.y - (static_cast<double>(y) + 1.0) * aim_point_.scale_y_ * level_y_ * kHalf);
     aim_point_.left =
-        static_cast<float>(aim_point_.x - (static_cast<double>(x) + 1.0) * aim_point_.scale_x_ * span_ * 0.5);
+        static_cast<float>(aim_point_.x - (static_cast<double>(x) + 1.0) * aim_point_.scale_x_ * span_ * kHalf);
 }
 
 // 0x004A94A0
@@ -568,8 +582,8 @@ void UiWidget::update_layout()
         const float x = at.x;
         const float y = at.y;
         if (scale < 0.0f) {
-            aim_point_.x = -320.0f;
-            aim_point_.y = -224.0f;
+            aim_point_.x = -kHalfScreenWidth;
+            aim_point_.y = -kHalfScreenHeight;
             object_flags() |= kOffScreen;
         } else {
             aim_point_.x = x;
@@ -592,7 +606,7 @@ void UiWidget::update_layout()
                 morph_length_ = 0;
             }
             float curve = 0.0f;
-            switch ((object_flags() >> 8) & 3) {
+            switch ((object_flags() >> kMorphCurveShift) & 3) {
             case 1: // ease out
                 curve = static_cast<float>((static_cast<double>(t) + t) - static_cast<double>(t) * t);
                 break;
@@ -600,7 +614,7 @@ void UiWidget::update_layout()
                 curve = static_cast<float>(static_cast<double>(t) * t);
                 break;
             case 3: // gentle
-                curve = static_cast<float>((3.0 - (static_cast<double>(t) + t)) * t * t);
+                curve = static_cast<float>((kSmoothstepThree - (static_cast<double>(t) + t)) * t * t);
                 break;
             default:
                 curve = t;
@@ -743,7 +757,7 @@ bool UiWidget::read_colour_param(script::Struct* params, uint32_t name, uint32_t
     const uint32_t count = array->extent();
     uint32_t value = 0;
     for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(count); ++i)
-        value |= (array->fetch_part(i) & 0xFF) << ((8 * i) & 31);
+        value |= (array->fetch_part(i) & kByteMask) << ((kBitsPerByte * i) & kShiftMask);
     *rgba = value;
     return true;
 }
@@ -841,7 +855,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
     if (name == kDoMorph) {
         float seconds = 0.0f;
         if (params->fetch_float(kTime, &seconds, 0))
-            script->lull(get_truncated(static_cast<double>(seconds) * 1000.0f));
+            script->lull(get_truncated(static_cast<double>(seconds) * kMillisecondsPerSecond));
         blend_towards(params);
         return true;
     }
@@ -943,11 +957,11 @@ void UiWidget::blend_towards(script::Struct* params)
     uint32_t anim = 0;
     if (params->read_hash_value(kAnim, &anim, 0)) {
         if (anim == kEaseOut)
-            object_flags() |= 0x100;
+            object_flags() |= kMorphEaseOutBits;
         else if (anim == kFastIn)
-            object_flags() |= 0x200;
+            object_flags() |= kMorphFastInBits;
         else if (anim == kGentle)
-            object_flags() |= 0x300;
+            object_flags() |= kMorphGentleBits;
     }
     uint32_t rgba = 0;
     if (read_colour_param(params, kRgba, &rgba) && get_rgba(aim_point_.rgba.data()) != rgba) {

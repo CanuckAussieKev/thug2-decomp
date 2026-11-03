@@ -29,6 +29,8 @@ namespace frontend {
 
 namespace {
 
+constexpr std::size_t kStackDepth = 32;
+
 std::unique_ptr<UiTree>& stored_ui_element_hub()
 {
     static core::NoDestroy<std::unique_ptr<UiTree>> ui_element_hub;
@@ -324,7 +326,7 @@ void UiTree::lock_tree(int lock)
 {
     if (!tree_root_)
         return;
-    std::array<UiWidget*, 32> stack{};
+    std::array<UiWidget*, kStackDepth> stack{};
     core::at(stack, 0) = tree_root_.get_pull();
     int count = 1;
     while (count) {

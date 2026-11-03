@@ -22,6 +22,15 @@ namespace frontend::new_frontend::mirror {
 
 namespace {
 
+constexpr int kDecimalBase = 10;
+constexpr std::size_t kMaxViewLines = 12;      // the lines a menu view keeps
+constexpr int kDefaultSliderTrack = 5;
+constexpr std::size_t kNumberTextSize = 24;
+constexpr float kDegreesPerTurn = 360.0f;
+constexpr float kRoundHalf = 0.5f;             // added before truncating: round to the nearest
+constexpr float kMaxHue = 359.0f;
+constexpr float kBrightenFactor = 2.0f;
+
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 // The longest list restyled (ours scrolls it; past this the game's own is kept - nothing the game makes is that long).
@@ -55,7 +64,7 @@ int first_number(const std::string& text)
     int n = -1;
     for (const char c : text) {
         if (c >= '0' && c <= '9')
-            n = (n < 0 ? 0 : n * 10) + (c - '0');
+            n = (n < 0 ? 0 : n * kDecimalBase) + (c - '0');
         else if (n >= 0)
             break;
     }
@@ -123,8 +132,8 @@ View stats_view(const MenuRead& read)
     }
     if (view.title.empty())
         view.title = !title.empty() ? title : std::string(text_tools::kTitleStats);
-    if (view.lines.size() > 12)
-        view.lines.resize(12);
+    if (view.lines.size() > kMaxViewLines)
+        view.lines.resize(kMaxViewLines);
     view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
     return view;
 }
@@ -359,26 +368,26 @@ View get_build(const MenuRead& read, const Policy& policy)
             // (Create-A-Graphic moves only the focused slider's: the others' are as of when they were last focused); the
             // scaling bars show their place on the bar, the selected one's only.
             if (item.slider_at_ >= 0.0f) {
-                row.track = item.slider_kind_ == 0 ? 5 : item.slider_kind_;
+                row.track = item.slider_kind_ == 0 ? kDefaultSliderTrack : item.slider_kind_;
                 row.track_at_ = item.slider_at_;
-                std::array<char, 24> number{};
+                std::array<char, kNumberTextSize> number{};
                 bool show = true;
                 if (item.slider_kind_ == 1)
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    text::format_to(number, "%d", static_cast<int>(item.slider_at_ * 360.0f + 0.5f));
+                    text::format_to(number, "%d", static_cast<int>(item.slider_at_ * kDegreesPerTurn + kRoundHalf));
                 else if (item.slider_kind_ == 2)
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    text::format_to(number, "%d%%", static_cast<int>(item.slider_at_ * kSatMax + 0.5f));
+                    text::format_to(number, "%d%%", static_cast<int>(item.slider_at_ * kSatMax + kRoundHalf));
                 else if (item.slider_kind_ == 3) {
                     const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
                     text::format_to(
                         number, "%d%%",
                         // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                        static_cast<int>(low + item.slider_at_ * (kValMax - low) + 0.5f));
+                        static_cast<int>(low + item.slider_at_ * (kValMax - low) + kRoundHalf));
                 } else {
                     show = ints::as_signed(i) == read.selected_index_;
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    text::format_to(number, "%d%%", static_cast<int>(item.slider_at_ * 100.0f + 0.5f));
+                    text::format_to(number, "%d%%", static_cast<int>(item.slider_at_ * 100.0f + kRoundHalf));
                 }
                 if (show)
                     row.value += (row.value.empty() ? "" : "  ") + std::string(number.data());
@@ -495,7 +504,7 @@ View get_build(const MenuRead& read, const Policy& policy)
         }
         if (view.main_menu_ && view.selected >= 0)
             view.kicker = std::string(text_tools::kMainKicker) + " \xE2\x80\x94 " +
-                          (view.selected + 1 < 10 ? "0" : "") + std::to_string(view.selected + 1);
+                          (view.selected + 1 < kDecimalBase ? "0" : "") + std::to_string(view.selected + 1);
         else
             view.kicker = view.title;
         view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
@@ -593,8 +602,8 @@ View get_build(const MenuRead& read, const Policy& policy)
         if (!clean.empty() && get_upper(clean) != get_upper(title))
             view.lines.push_back(clean);
     }
-    if (view.lines.size() > 12)
-        view.lines.resize(12);
+    if (view.lines.size() > kMaxViewLines)
+        view.lines.resize(kMaxViewLines);
     view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
     // A colour menu: hue, saturation and value all there - the numbers back from the markers' places.
     {
@@ -605,7 +614,7 @@ View get_build(const MenuRead& read, const Policy& policy)
         if (core::at(at, 1) >= 0.0f && core::at(at, 2) >= 0.0f && core::at(at, 3) >= 0.0f) {
             const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
             view.has_colour_ = true;
-            view.hue = std::min(core::at(at, 1) * 360.0f, 359.0f);
+            view.hue = std::min(core::at(at, 1) * kDegreesPerTurn, kMaxHue);
             view.sat = core::at(at, 2) * kSatMax;
             view.val = low + core::at(at, 3) * (kValMax - low);
         }
@@ -647,9 +656,9 @@ void skater_colour(const Hsv& colour, std::span<float, 3> rgb)
             break;
         }
     }
-    core::at(rgb, 0) = std::min(1.0f, r * 2.0f);
-    core::at(rgb, 1) = std::min(1.0f, g * 2.0f);
-    core::at(rgb, 2) = std::min(1.0f, b * 2.0f);
+    core::at(rgb, 0) = std::min(1.0f, r * kBrightenFactor);
+    core::at(rgb, 1) = std::min(1.0f, g * kBrightenFactor);
+    core::at(rgb, 2) = std::min(1.0f, b * kBrightenFactor);
 }
 
 bool Tracker::tick_frame(const View& now, float dt)

@@ -3,6 +3,7 @@
 
 #include "frontend/front_end.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <new>
@@ -42,6 +43,26 @@
 namespace modules {
 
 namespace {
+
+constexpr std::uint32_t kActionsMenu = 0x487FBC86u; // actions_menu
+constexpr std::uint32_t kLoadMainMenu = 0xE92ECAFEu; // Load_MainMenu
+constexpr std::uint32_t kSelectShift = 0xF3E055E1u; // select_shift
+constexpr std::uint32_t kViewMode = 0x968F7408u; // view_mode
+constexpr std::size_t kKeyStateSize = 256;
+constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr std::uint32_t kPadButtonCount = 18;       // the Xbox button names
+constexpr int kFirstPrintableKey = 0x20;
+constexpr std::uint32_t kPendingScript = 0xFB11E6CDu; // run on the home rider when a held-back script comes due (text unknown)
+constexpr std::uint32_t kShiftMask = 31;
+constexpr std::uint32_t kStartSwapButton = 0x100;   // with the global 0xF3E055E1 set, this button held stops Start being Start
+constexpr std::uint32_t kStartButton = 0x800;
+constexpr std::uint32_t kPausedSkipBits = 0xC;      // the logic task kinds skipped while paused
+constexpr std::uint32_t kStartupScriptOnFlag = 0x756FB186u; // the global that says the start-up script runs (text unknown)
+constexpr std::uint32_t kStartupScript = 0xDCE60A74u;       // the front end's start-up script (text unknown)
+constexpr int kUpdateTaskPriority = 2000;           // the front end's update task runs at its negative
+constexpr int kKeyboardTaskPriority = 1000;         // and its keyboard and pad input at this one's negative
+constexpr int kStartHoldRepeatMs = 300;
+constexpr int kStartAutoRepeatRate = 50;
 
 bool& stored_menus_active()
 {
@@ -256,7 +277,7 @@ uint32_t FrontEnd::auto_repeat(const PadRead& read)
         event = kPadDown;
     if (device_index == 0 && event == 0 && get_keyboard_on_screen()) {
         // The PC keyboard's arrows: the first one typed (the keys are left for the others to read).
-        std::array<char, 256> keys{};
+        std::array<char, kKeyStateSize> keys{};
         const int count = sio::get_keyboard_chars(keys);
         for (int i = 0; i < count; ++i) {
             const char key = core::at(keys, i);
@@ -286,7 +307,7 @@ uint32_t FrontEnd::auto_repeat(const PadRead& read)
             pad.repeat_state_ = 1;
         }
     } else if (event) {
-        auto elapsed = static_cast<uint32_t>(ftol(frame_clock::get_slomo_frame_seconds() * 1000.0f));
+        auto elapsed = static_cast<uint32_t>(ftol(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecond));
         pad.repeat_timer_ = elapsed < pad.repeat_timer_ ? pad.repeat_timer_ - elapsed : 0;
         if (pad.repeat_timer_ == 0) { // due: sent, then again after the rate
             if (pad.repeat_state_ == 1)
@@ -352,11 +373,11 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
         const uint32_t pad_button_label = pair->fetch_part(0);
         const uint32_t event = pair->fetch_part(1);
         uint32_t button = 0;
-        for (; button < 18; ++button) {
+        for (; button < kPadButtonCount; ++button) {
             if (pad_button_label == checksums::hash_from_text(core::at(kXboxButtonNames, button)) || pad_button_label == kNull)
                 break;
         }
-        if (button == 18)
+        if (button == kPadButtonCount)
             continue; // not a button
         // Quirks kept: button null (index 0) removes the event's pairs, then the first free slot still gets
         // (0, event) - the event moves to left_trigger_full; event null removes the button's pairs, then a free
@@ -425,12 +446,12 @@ bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*s
 void FrontEnd::keyboard_task(FrontEndTask* task)
 {
     const FrontEnd* front_end = task->content();
-    std::array<char, 256> keys{};
+    std::array<char, kKeyStateSize> keys{};
     const int count = sio::get_keyboard_chars(keys);
     for (int i = 0; i < count; ++i) {
         const char key = core::at(keys, i);
         // Printable (and the high half), Enter and Backspace.
-        if (!(key >= 0x20 || key < 0 || key == kKeyEnter || key == kKeyBackspace))
+        if (!(key >= kFirstPrintableKey || key < 0 || key == kKeyEnter || key == kKeyBackspace))
             continue;
         gsl::owner<script::Struct*> params = new_params();
         if (core::at(keys, i) == kKeyEnter) {
@@ -451,7 +472,7 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
 // 0x0054F380
 void FrontEnd::tick_frame(bool game_paused)
 {
-    bool in_skateshop = modules::Skate::sole()->pending_level() == 0xE92ECAFE; // (the level / game mode)
+    bool in_skateshop = modules::Skate::sole()->pending_level() == kLoadMainMenu; // (the level / game mode)
     if (skateshop_override())
         in_skateshop = false;
     bool keyboard_up = false;
@@ -490,7 +511,7 @@ void FrontEnd::tick_frame(bool game_paused)
         stored_pending_script() = false;
         auto* object =
             static_cast<objects::Entity*>(modules::Skate::sole()->get_home_rider());
-        script::launch_script(0xFB11E6CD, nullptr, object, false, nullptr);
+        script::launch_script(kPendingScript, nullptr, object, false, nullptr);
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -502,19 +523,19 @@ uint32_t FrontEnd::grab_control_event(const PadRead& read, int index)
     const int device_index = read.device;
     const uint32_t held = read.held;
     for (const PadPressRecord& entry : pad_event_queue_) {
-        if ((makes & (1u << (entry.button_ & 31))) && entry.incident_ != 0 && --index < 0)
+        if ((makes & (1u << (entry.button_ & kShiftMask))) && entry.incident_ != 0 && --index < 0)
             return entry.incident_;
     }
     // Start is pad_start (unless the global 0xF3E055E1 is set and the 0x100 button is down).
-    if (!((held & 0x100) && script::fetch_int_value(0xF3E055E1u) != 0)) {
-        if ((makes & 0x800) && index == 0)
+    if (!((held & kStartSwapButton) && script::fetch_int_value(kSelectShift) != 0)) {
+        if ((makes & kStartButton) && index == 0)
             return kPadStart;
     }
     if (device_index != 0 || !get_keyboard_on_screen())
         return 0;
 
     // The PC keyboard, while the on-screen keyboard is up.
-    std::array<char, 256> keys{};
+    std::array<char, kKeyStateSize> keys{};
     uint32_t event = 0;
     const int count = sio::get_keyboard_chars(keys);
     for (int i = 0; i < count; ++i) {
@@ -530,7 +551,7 @@ uint32_t FrontEnd::grab_control_event(const PadRead& read, int index)
             continue;
         gsl::owner<script::Struct*> params = new_params();
         if (!anchor_exists(params, kKeyboardAnchor, false)) {
-            if (anchor_exists(params, 0x487FBC86) && core::at(keys, i) == ' ')
+            if (anchor_exists(params, kActionsMenu) && core::at(keys, i) == ' ')
                 return 0; // (the original leaks params here)
             if (anchor_exists(params, kCurrentMenuAnchor) || anchor_exists(params, kDialogBoxAnchor)) {
                 event = kPadChoose;
@@ -587,7 +608,7 @@ void FrontEnd::get_pause_game(bool pause)
     // The main loop's logic tasks: while paused those of the 0xC kinds (a task's +0x14 bits) are skipped
     // (0x00406AC0 runs a task only when (mask & its kinds) == 0).
     if (pause) {
-        main_loop_manager()->logic_tasks().set_skip_bits(0xC);
+        main_loop_manager()->logic_tasks().set_skip_bits(kPausedSkipBits);
         report_pause_state();
     } else {
         main_loop_manager()->logic_tasks().set_skip_bits(0);
@@ -598,7 +619,7 @@ void FrontEnd::get_pause_game(bool pause)
         return;
     // Back in the game with a skater: the camera's view mode back to the global's.
     gsl::owner<script::Struct*> params = new_params();
-    params->put_int(checksums::Name{0u}, script::fetch_int_value(0x968F7408u));
+    params->put_int(checksums::Name{0u}, script::fetch_int_value(kViewMode));
     commands::cfunc_set_view_mode(params, nullptr);
     delete_params(params);
 }
@@ -618,10 +639,10 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
         uint32_t event = 0;
         if (index == 0) {
             if (front_end->check_startup_script_) {
-                front_end->startup_script_on_ = script::fetch_int_value(0x756FB186u) != 0;
+                front_end->startup_script_on_ = script::fetch_int_value(kStartupScriptOnFlag) != 0;
                 if (front_end->startup_script_on_) {
                     const script::Script* script =
-                        script::spawn_script(0xDCE60A74u, nullptr);
+                        script::spawn_script(kStartupScript, nullptr);
                     front_end->startup_script_id_ = script->unique_id();
                 }
                 front_end->check_startup_script_ = false;
@@ -689,16 +710,16 @@ bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Scr
 // 0x0054FE00
 FrontEnd::FrontEnd()
 {
-    update_job_ = std::make_unique<FrontEndTask>(&front_end_tick, this, -2000);
-    keyboard_task_ = std::make_unique<FrontEndTask>(&keyboard_task, this, -1000);
+    update_job_ = std::make_unique<FrontEndTask>(&front_end_tick, this, -kUpdateTaskPriority);
+    keyboard_task_ = std::make_unique<FrontEndTask>(&keyboard_task, this, -kKeyboardTaskPriority);
     for (int i = 0; i < 2; ++i) {
-        core::at(pad_listeners_, i) = std::make_unique<FrontEndInputHandler>(&input_logic, this, -1000, i);
+        core::at(pad_listeners_, i) = std::make_unique<FrontEndInputHandler>(&input_logic, this, -kKeyboardTaskPriority, i);
         core::at(pad_mappings_, i).repeat_state_ = 0;
         core::at(pad_mappings_, i).mapping_ = 1;
     }
     is_halted_ = false;
-    hold_repeat_ms_ = 300;
-    auto_repeat_rate_ = 50;
+    hold_repeat_ms_ = kStartHoldRepeatMs;
+    auto_repeat_rate_ = kStartAutoRepeatRate;
     block_menu_input_ = false;
     startup_script_on_ = false;
     check_startup_script_ = true;

@@ -31,6 +31,14 @@ namespace frontend::restart_tester {
 
 namespace {
 
+constexpr std::size_t kHexTextSize = 16;
+constexpr float kMessageStartY = 70.0f;
+constexpr float kMessageCenterX = 320.0f;
+constexpr int kMessageMilliseconds = 4000;
+constexpr int kNameHashMultiplier = 31;        // a polynomial hash over the restarts' names
+constexpr std::size_t kMessageSize = 160;
+constexpr float kDoneMessageY = 95.0f;
+
 constexpr SDL_Scancode kKey = SDL_SCANCODE_F8;
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
@@ -85,7 +93,7 @@ std::vector<Relaunch> level_restarts()
         const char* text = script::look_up_hash_name(name);
         const char* label = nullptr;
         node->fetch_text(restart_name, &label, 0);
-        std::array<char, 16> hex{};
+        std::array<char, kHexTextSize> hex{};
         text::format_to(hex, "#%08X", name);
         r.text = text ? text : (label && *label ? std::string(label) + " (" + hex.data() + ")" : std::string(hex.data()));
         node->fetch_vec(pos, &r.pos, 0);
@@ -109,7 +117,7 @@ std::vector<Relaunch> level_restarts()
 // Where a message goes: its element's id and its height on the screen.
 struct MessagePlace {
     const char* id = "restart_tester_message";
-    float y = 70.0f;
+    float y = kMessageStartY;
 };
 
 void get_message(const char* text, MessagePlace place = {})
@@ -119,8 +127,8 @@ void get_message(const char* text, MessagePlace place = {})
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(name_hash("text"), text);
     params->put_name_key(checksums::Name{name_hash("id")}, name_hash(id));
-    params->insert_pair(checksums::Name{name_hash("pos")}, {.x = 320.0f, .y = y});
-    params->put_int(checksums::Name{name_hash("time")}, 4000);
+    params->insert_pair(checksums::Name{name_hash("pos")}, {.x = kMessageCenterX, .y = y});
+    params->put_int(checksums::Name{name_hash("time")}, kMessageMilliseconds);
     script::spawn_script(name_hash("create_panel_message"), params);
     params->get_clear();
     script::delete_struct(params);
@@ -151,7 +159,7 @@ void get_next()
     // (another level: another set of restarts - the visited ones are forgotten)
     uint32_t level = 0;
     for (const Relaunch& r : restarts)
-        level = level * 31 + r.name;
+        level = level * kNameHashMultiplier + r.name;
     if (level != restart_tester_state().level_) {
         restart_tester_state().level_ = level;
         visited_state().clear();
@@ -177,12 +185,12 @@ void get_next()
                 static_cast<unsigned>(visited_state().size()), static_cast<unsigned>(restarts.size()), r.text.c_str(),
                 r.pos.x, r.pos.y, r.pos.z, r.types.c_str(),
                 visited_state().size() == restarts.size() ? " - all restarts visited" : "");
-        std::array<char, 160> text{};
+        std::array<char, kMessageSize> text{};
         text::format_to(text, "Restart %u / %u: %s", static_cast<unsigned>(visited_state().size()),
                         static_cast<unsigned>(restarts.size()), r.text.c_str());
         get_message(text.data());
         if (visited_state().size() == restarts.size())
-            get_message("All restarts visited", {.id = "restart_tester_done", .y = 95.0f});
+            get_message("All restarts visited", {.id = "restart_tester_done", .y = kDoneMessageY});
         return;
     }
 }

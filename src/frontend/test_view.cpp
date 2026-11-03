@@ -25,6 +25,10 @@ namespace frontend::test_view {
 
 namespace {
 
+constexpr float kMinDirectionLength = 1e-6f;
+constexpr float kMinRightLength = 1e-4f;
+constexpr double kDegreesPerHalfTurn = 180.0;
+
 constexpr double kPi = 3.14159265358979323846;
 constexpr float kProbeAbove = 12.0f;   // the ground ray starts this far above the point...
 constexpr float kProbeBelow = 4000.0f; // ...and ends this far below it
@@ -94,12 +98,12 @@ bool cfunc_teleport_skater_standing(script::Struct* params, script::Script*)
 std::optional<CameraRows> camera_rows(Vec3 direction)
 {
     const float length = len_of(direction);
-    if (!(length > 1e-6f))
+    if (!(length > kMinDirectionLength))
         return std::nullopt;
     const Vec3 b = scale_tool(direction, -1.0f / length);
     Vec3 r = perpendicular({.x = 0.0f, .y = 1.0f, .z = 0.0f}, b);
     const float rl = len_of(r);
-    if (!(rl > 1e-4f))
+    if (!(rl > kMinRightLength))
         return std::nullopt;
     r = scale_tool(r, 1.0f / rl);
     Vec3 u = perpendicular(b, r);
@@ -126,7 +130,7 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     if (!has_heading) {
         const maths::Vec4& at = core::at(skater->basis_frame().row, 2);
         heading_degrees =
-            static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
+            static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * kDegreesPerHalfTurn / kPi);
     }
     float ground = 0.0f;
     const bool grounded = ground_below(position, &ground);
