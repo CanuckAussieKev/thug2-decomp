@@ -71,6 +71,14 @@
 namespace collision_overlay {
 
 namespace {
+constexpr std::size_t kRecentCapacity = 32;
+constexpr int kSecondMs = 1000;
+constexpr int kLinesPerSecond = 8;
+constexpr int kRecentWindowMs = 2000;
+constexpr float kFloorNormalY = 0.7f;
+constexpr std::size_t kWhatBytes = 160;
+constexpr std::size_t kNameBytes = 96;
+constexpr std::size_t kSkaterNameBytes = 64;
 
 int get_mode()
 {
@@ -123,9 +131,9 @@ struct Recent {
     int face;
     DWORD time;
 };
-std::array<Recent, 32>& stored_recent()
+std::array<Recent, kRecentCapacity>& stored_recent()
 {
-    static core::NoDestroy<std::array<Recent, 32>> recent;
+    static core::NoDestroy<std::array<Recent, kRecentCapacity>> recent;
     return recent.get();
 }
 // NOT ORIGINAL grouping - debug_collision.cpp's state (the original's globals). Made on first use, never destroyed
@@ -145,15 +153,15 @@ DebugCollisionState& debug_collision_state()
 bool should_log(const void* what, int face)
 {
     const DWORD now = GetTickCount();
-    if (now - debug_collision_state().second_start_ >= 1000) {
+    if (now - debug_collision_state().second_start_ >= kSecondMs) {
         debug_collision_state().second_start_ = now;
         debug_collision_state().lines_this_second_ = 0;
     }
-    if (debug_collision_state().lines_this_second_ >= 8)
+    if (debug_collision_state().lines_this_second_ >= kLinesPerSecond)
         return false;
     for (Recent& recent : stored_recent()) {
         if (recent.what == what && recent.face == face) {
-            if (now - recent.time < 2000)
+            if (now - recent.time < kRecentWindowMs)
                 return false;
             recent.time = now;
             ++debug_collision_state().lines_this_second_;
@@ -183,13 +191,13 @@ void log_hit(const void* feeler, uint32_t caller)
     const uint32_t object_id = ray->entity_key();
 
     const objects::Rider* skater_feeler = skater_of_feeler(feeler);
-    if (get_mode() == 1 && (!skater_feeler || normal[1] > 0.7f))
+    if (get_mode() == 1 && (!skater_feeler || normal[1] > kFloorNormalY))
         return;
     if (!should_log(object ? object : static_cast<const void*>(coll_object), face))
         return;
 
-    std::array<char, 160> what{};
-    std::array<char, 96> name{};
+    std::array<char, kWhatBytes> what{};
+    std::array<char, kNameBytes> name{};
     if (object)
         text::format_to(what, "object %s", get_name_of(object_id, name.data(), sizeof(name)));
     else if (static_hit && coll_object)
@@ -198,7 +206,7 @@ void log_hit(const void* feeler, uint32_t caller)
     else
         text::format_to(what, "(nothing recorded)");
 
-    std::array<char, 64> skater = {""};
+    std::array<char, kSkaterNameBytes> skater = {""};
     std::array<float, 3> position{};
     if (get_skater_position(skater_feeler, position))
         text::format_to(skater, " skater (%.1f %.1f %.1f)", core::at(position, 0), core::at(position, 1),

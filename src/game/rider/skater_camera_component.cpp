@@ -37,6 +37,13 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kCameraBlockBytes = 0x98;
+constexpr float kZoomEaseRate = 0.0625f;
+constexpr float kLerpXz = 0.25f;
+constexpr float kLerpY = 0.5f;
+constexpr float kLookRate = 0.1f;
+constexpr int kModeCount = 5;                      // camera modes the player cycles through
+constexpr uint32_t kHash3F800000 = 0x3F800000u; // (text unknown)
 
 constexpr uint32_t kSkaterCamera = 0x5E43A604;   // skatercamera (the component type)
 constexpr uint32_t kCleanupState = 0xD8CC3428;   // SkaterCleanupState (the component type)
@@ -193,7 +200,7 @@ RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
     else if (state->cur_phase() == 3)
         zoom_target_ = lip_trick_zoom_;
     const FreeLookModule* look_around = free_look_module_;
-    if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != 0x3F800000u)
+    if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != kHash3F800000)
         zoom_target_ = static_cast<float>(static_cast<double>(look_around->factor()) * zoom_target_);
     const double eased = (static_cast<double>(zoom_target_) - zoom_) * zoom_ease_rate_ + zoom_;
     zoom_ = static_cast<float>(eased);
@@ -241,7 +248,7 @@ RiderChaseView::RiderChaseView()
     set_kind_tag(kSkaterCamera);
     if (!memory::manager_ready_flag())
         memory::ensure_manager();
-    void* memory = memory::Hub::get_pull()->carve(0x98, 1, nullptr);
+    void* memory = memory::Hub::get_pull()->carve(kCameraBlockBytes, 1, nullptr);
     // (The interpolator's constructor does nothing: folded with many empty ones at 0x005902E0.)
     arc_blender_ = static_cast<maths::ArcRotationBlender*>(memory);
     zoom_ = 1.0f;
@@ -251,10 +258,10 @@ RiderChaseView::RiderChaseView()
     rider_ref_ = nullptr;
     state_ref_ = nullptr;
     control_ = nullptr;
-    zoom_ease_rate_ = 0.0625f;
-    lerp_xz_ = 0.25f;
-    lerp_y_ = 0.5f;
-    look_rate_ = 0.1f;
+    zoom_ease_rate_ = kZoomEaseRate;
+    lerp_xz_ = kLerpXz;
+    lerp_y_ = kLerpY;
+    look_rate_ = kLookRate;
 }
 
 // 0x004FA5C0
@@ -304,9 +311,9 @@ void RiderChaseView::restore_default_state() { change_regime({.mode = mode_sel_,
 // 0x004FA7D0
 void RiderChaseView::next_mode()
 {
-    if (mode_sel_ >= 5)
+    if (mode_sel_ >= kModeCount)
         return;
-    if (++mode_sel_ >= 5)
+    if (++mode_sel_ >= kModeCount)
         mode_sel_ = 1;
     change_regime({.mode = mode_sel_, .time = 1.0f});
 }

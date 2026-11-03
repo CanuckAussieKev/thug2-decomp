@@ -30,6 +30,7 @@
 namespace objects {
 
 namespace {
+constexpr unsigned kByteMask = 0xFF;
 
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kModel = 0x286A8D26, kAnimBlender = 0x7149B753,
@@ -59,7 +60,7 @@ uint32_t app_value8(net::Guest* app) { return app->clock(); }
 // The core physics component's (not rewritten yet): the skater turned around (0x004FE120) and whether the flip is
 // needed (0x004FC440).
 void turn_around(skater::SkaterPhysicsModule* core_physics) { core_physics->turn_around(); }
-bool flip_needed(skater::SkaterPhysicsModule* core_physics) { return (core_physics->is_sides_swapped() & 0xFF) != 0; }
+bool flip_needed(skater::SkaterPhysicsModule* core_physics) { return (core_physics->is_sides_swapped() & kByteMask) != 0; }
 
 // The animation blender's 0x00419C10: its animations mirrored or not (`flip`: the state component's byte as it is).
 void flip_anims(ObjectModule* blender, uint32_t object_id, uint32_t flip, uint32_t a, int b)

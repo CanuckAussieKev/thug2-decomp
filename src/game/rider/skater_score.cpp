@@ -2,6 +2,7 @@
 
 #include "game/rider/skater_score.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <gsl/pointers>
 
@@ -24,6 +25,8 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kSkaterScoreBytes = 0x1550;
+constexpr int kHalfTurnDegrees = 180;
 
 constexpr uint32_t kSkaterScore = 0xD262802F;
 constexpr uint32_t kCheatAlwaysSpecial = 0xEEFECF1B;
@@ -83,7 +86,7 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
 {
     if (points_held_)
         return;
-    void* memory = memory::alloc_zeroed(0x1550);
+    void* memory = memory::alloc_zeroed(kSkaterScoreBytes);
     points_held_ = memory ? memory::construct_in<modules::PointTally>(memory) : nullptr; // (its constructor)
     get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity()->ident()));
 }
@@ -180,7 +183,7 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
             return 2;
         int spin = 0;
         if (params->fetch_int_value(kSpin, &spin, 0))
-            spin /= 180;
+            spin /= kHalfTurnDegrees;
         int taps = 1;
         params->fetch_int_value(kNumTaps, &taps, 0);
         const bool latest =

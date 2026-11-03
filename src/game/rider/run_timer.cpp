@@ -22,6 +22,10 @@
 
 namespace objects {
 namespace {
+constexpr uint32_t kRunTimerGetFactorCompleteName = 0xAB04CBF9; // RunTimer_GetFactorComplete
+constexpr uint32_t kRunTimerGetRunTimerControllerIdName = 0x96D81D8E; // RunTimer_GetRunTimerControllerId
+constexpr uint32_t kRunTimerGetRunTimerIdName = 0x81AAA6DD; // RunTimer_GetRunTimerId
+constexpr uint32_t kRunTimerComboStartedName = 0x37CC7691; // RunTimer_ComboStarted
 constexpr uint32_t kRunTimerPause = 0x82445966; // RunTimer_Pause
 constexpr uint32_t kSkaterRunTimer = 0x8BCE7E66; // SkaterRunTimer
 constexpr uint32_t kRunTimerUnpause = 0x956236B1; // RunTimer_Unpause

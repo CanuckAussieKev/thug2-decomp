@@ -19,6 +19,12 @@
 namespace objects {
 
 namespace {
+constexpr int kModeBackA = 5;                      // camera modes that look back, right and left
+constexpr int kModeBackB = 6;
+constexpr int kModeRightA = 7;
+constexpr int kModeRightB = 8;
+constexpr int kModeLeftA = 11;
+constexpr int kModeLeftB = 12;
 
 constexpr uint32_t kCameraLookaround = 0x81C7122D, kCamera = 0xC4E311FA;
 
@@ -155,16 +161,16 @@ void RiderChaseView::change_regime(CameraRegime camera_regime)
     view->change_h_fov(screen == 1 ? static_cast<float>(static_cast<double>(fov) * kHalf) : fov);
     float heading = 0.0f;
     switch (mode) {
-    case 5:
-    case 6:
+    case kModeBackA:
+    case kModeBackB:
         heading = kPi;
         break;
-    case 7:
-    case 8:
+    case kModeRightA:
+    case kModeRightB:
         heading = kHalfPi;
         break;
-    case 11:
-    case 12:
+    case kModeLeftA:
+    case kModeLeftB:
         heading = -kHalfPi;
         break;
     default:

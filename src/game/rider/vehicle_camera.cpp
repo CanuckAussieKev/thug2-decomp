@@ -29,11 +29,15 @@
 #include "engine/core/checked_index.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kVehicleCameraReset = 0x000469FD; // VehicleCamera_Reset
+constexpr uint32_t kVehicleCameraName = 0x2C747D8A; // VehicleCamera
+} // namespace
 
 std::array<script::MemberFunctionEntry, 2>& vehicle_camera_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 2> vehicle_camera_member_functions{{
-        {.callsign_ = 0x000469FD, .owner_kind_ = 0x2C747D8A}, {.callsign_ = 0, .owner_kind_ = 0x2C747D8A}}};
+        {.callsign_ = kVehicleCameraReset, .owner_kind_ = kVehicleCameraName}, {.callsign_ = 0, .owner_kind_ = kVehicleCameraName}}};
     return vehicle_camera_member_functions;
 }
 

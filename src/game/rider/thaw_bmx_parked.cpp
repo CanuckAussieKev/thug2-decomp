@@ -31,6 +31,9 @@
 namespace skater::thaw_bmx {
 
 namespace {
+constexpr float kHalfTurnF = 180.0f;
+constexpr float kTurnF = 360.0f;
+constexpr double kHalfTurnD = 180.0;
 
 constexpr double kPi = 3.14159265358979323846;
 
@@ -246,10 +249,10 @@ bool turn_toward(HeadingTurn heading_turn, float* out)
     const auto target = heading_turn.target;
     const auto max_step = heading_turn.max_step_;
     auto wrap = [](float a) {
-        a = std::fmod(a + 180.0f, 360.0f);
+        a = std::fmod(a + kHalfTurnF, kTurnF);
         if (a < 0.0f)
-            a += 360.0f;
-        return a - 180.0f;
+            a += kTurnF;
+        return a - kHalfTurnF;
     };
     const float difference = wrap(target - heading);
     if (std::fabs(difference) <= max_step) {
@@ -264,7 +267,7 @@ float get_heading_of(float x, float z)
 {
     if (x == 0.0f && z == 0.0f)
         return 0.0f;
-    return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * 180.0 / kPi);
+    return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * kHalfTurnD / kPi);
 }
 
 void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Point, 4> out)

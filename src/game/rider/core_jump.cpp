@@ -33,6 +33,9 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
+constexpr std::size_t kPointBytes = 16;
+constexpr uint32_t kHash35224F25 = 0x35224F25; // (text unknown)
+constexpr uint32_t kHash2739B86D = 0x2739B86D; // (text unknown)
 
 // The checksums used here.
 constexpr uint32_t kTriggerScript = 0x2CA8A299;
@@ -133,7 +136,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;
-        std::memcpy(&last_ground_pos_, &entity()->at_point(), 16); // (where it jumped)
+        std::memcpy(&last_ground_pos_, &entity()->at_point(), kPointBytes); // (where it jumped)
         if (sound)
             play_jump_sound(floor_feeler_.hit().terrain);
         start_vert_air();
@@ -224,7 +227,7 @@ void SkaterPhysicsModule::begin_skitch()
     skitch_moving_ = 1;
     get_skitch();
     if (objects::Entity* skitched = skitch_target_.get_pull())
-        skitched->post_own_event(0x35224F25, nullptr);
+        skitched->post_own_event(kHash35224F25, nullptr);
 }
 
 // 0x00509990
@@ -235,7 +238,7 @@ void SkaterPhysicsModule::end_skitch()
     set_flag(this, PoseFlag::kSkitching, 0);
     auto& skitched = skitch_target_;
     if (skitched.get_pull()) {
-        static_cast<objects::Entity*>(skitched.get_pull())->post_own_event(0x2739B86D, nullptr);
+        static_cast<objects::Entity*>(skitched.get_pull())->post_own_event(kHash2739B86D, nullptr);
         skitched.get_release();
         skitched.target_ = nullptr;
     }
@@ -264,7 +267,7 @@ void SkaterPhysicsModule::step_wallplant()
         end = core::at(entity()->basis_frame().row, 2) * kFeelerBehind;
         start += entity()->at_point();
         end += entity()->at_point();
-        if (get_feel(this, 0x10, 0))
+        if (get_feel(this, kProbeIgnoreFlags, 0))
             trigger_feeler(this, kWallplantEvents, &feeler_);
         return;
     }

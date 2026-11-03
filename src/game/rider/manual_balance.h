@@ -10,6 +10,7 @@
 // Lean_Repeat_Multiplier); a grind on the same rail adds time (Same_Grind_Add_Time), a new one takes it off; past
 // Lean_Bail_Angle the skater falls (an event). The skater's balance meter shows it.
 namespace objects {
+constexpr std::size_t kUnknown14Bytes = 0x10;
 
 class GameEntity;
 class ObjectModule;
@@ -78,7 +79,7 @@ private:
     RiderTeeterMoves* balance_trick_{}; // +0x08 SkaterBalanceTrick
     RiderPointKeeper* points_held_{};   // +0x0C SkaterScore
     PadInputModule* input_{};           // +0x10 input
-    std::array<uint8_t, 0x10> unknown14_{};
+    std::array<uint8_t, kUnknown14Bytes> unknown14_{};
     float clock_{};           // +0x24
     float on_rail_seconds_{}; // +0x28
     float best_time_{};       // +0x2C

@@ -27,38 +27,152 @@
 #include <bit>
 
 namespace skater {
+namespace {
+constexpr float kProbeRadius = 48.0f;
+constexpr float kProbeThird = 6.0f;
+constexpr uint32_t kJump = 0x584CF9E9; // Jump
+constexpr uint32_t kSkaterCorePhysicsName = 0x5BD63B29; // SkaterCorePhysics
+constexpr uint32_t kFlippedName = 0x0C7A712C; // Flipped
+constexpr uint32_t kSwitched = 0x8F66B80B; // Switched
+constexpr uint32_t kCrouchedName = 0x4ADC6C2A; // Crouched
+constexpr uint32_t kFirstTimeOnThisRail = 0x262D42D5; // FirstTimeOnThisRail
+constexpr uint32_t kStartSkitch = 0xCA6B3809; // StartSkitch
+constexpr uint32_t kSkitchingName = 0x9C6A7E41; // Skitching
+constexpr uint32_t kStopSkitch = 0x32DCC9CF; // StopSkitch
+constexpr uint32_t kCancelWallpushName = 0x5E8F9E77; // CancelWallpush
+constexpr uint32_t kAirTimeLessThan = 0x0C890A84; // AirTimeLessThan
+constexpr uint32_t kAirTimeGreaterThan = 0xBBF2B570; // AirTimeGreaterThan
+constexpr uint32_t kGetAirtime = 0xDE583E34; // GetAirtime
+constexpr uint32_t kGetAirTimeLeft = 0x1996B797; // GetAirTimeLeft
+constexpr uint32_t kBraking = 0x1F8BBD05; // Braking
+constexpr uint32_t kCanBrakeOff = 0xEBBCF455; // CanBrakeOff
+constexpr uint32_t kCanBrakeOn = 0xBC19E291; // CanBrakeOn
+constexpr uint32_t kCanKick = 0x02F66333; // CanKick
+constexpr uint32_t kCanKickOn = 0x68BF6C13; // CanKickOn
+constexpr uint32_t kCanKickOff = 0xE8DEB0D7; // CanKickOff
+constexpr uint32_t kForceAutoKickOn = 0x34DCFC97; // ForceAutoKickOn
+constexpr uint32_t kForceAutoKickOff = 0x0257947E; // ForceAutoKickOff
+constexpr uint32_t kAutoKickIsOff = 0x01BAA1D9; // AutoKickIsOff
+constexpr uint32_t kRestoreAutoKick = 0x9FCFDFEB; // RestoreAutoKick
+constexpr uint32_t kSkaterVehicleOn = 0xFEFF11CC; // SkaterVehicleOn
+constexpr uint32_t kSkaterVehicleOff = 0xFE243FEF; // SkaterVehicleOff
+constexpr uint32_t kIsSkaterOnVehicle = 0xE168CFE0; // IsSkaterOnVehicle
+constexpr uint32_t kSetSkaterVehicle = 0x29FBA9DF; // SetSkaterVehicle
+constexpr uint32_t kDoCarPlantBoost = 0x17846595; // DoCarPlantBoost
+constexpr uint32_t kHandleLipOllieDirection = 0x259CB90D; // HandleLipOllieDirection
+constexpr uint32_t kOrientToNormal = 0x1D1FD4F0; // OrientToNormal
+constexpr uint32_t kSetSpeed = 0x383B939B; // SetSpeed
+constexpr uint32_t kNoSpin = 0x54EF2B79; // NoSpin
+constexpr uint32_t kCanSpin = 0x0E2998B9; // CanSpin
+constexpr uint32_t kInBail = 0x6FC5AAE0; // InBail
+constexpr uint32_t kNotInBail = 0xBD4303F4; // NotInBail
+constexpr uint32_t kIsInBail = 0xA901A50C; // IsInBail
+constexpr uint32_t kBailOn = 0xE0DF1F0A; // BailOn
+constexpr uint32_t kBailOff = 0x8C3D7864; // BailOff
+constexpr uint32_t kBailIsOn = 0x0E1D5168; // BailIsOn
+constexpr uint32_t kSetState = 0x948EBF96; // SetState
+constexpr uint32_t kSetRailSound = 0x947FCCF4; // SetRailSound
+constexpr uint32_t kLockVelocityDirection = 0xACB82C02; // LockVelocityDirection
+constexpr uint32_t kSetRollingFriction = 0x510F983B; // SetRollingFriction
+constexpr uint32_t kSetGrindTweak = 0x71B993B7; // SetGrindTweak
+constexpr uint32_t kBadLedge = 0xBE371B7B; // BadLedge
+constexpr uint32_t kSkateInAble = 0x55934543; // SkateInAble
+constexpr uint32_t kNearGround = 0xB424244D; // NearGround
+constexpr uint32_t kTriggerGrindOff = 0x224CDDC9; // TriggerGrindOff
+constexpr uint32_t kLastSpinWas = 0x6C8A1316; // LastSpinWas
+constexpr uint32_t kLandedFromSpine = 0x448E3630; // LandedFromSpine
+constexpr uint32_t kLandedFromVert = 0xF37CE040; // LandedFromVert
+constexpr uint32_t kSetLandedFromVert = 0x133E1293; // SetLandedFromVert
+constexpr uint32_t kResetLandedFromVert = 0x0F922431; // ResetLandedFromVert
+constexpr uint32_t kInVertAir = 0xDFB8F052; // InVertAir
+constexpr uint32_t kAllowLipNoGrind = 0xC5B4B390; // AllowLipNoGrind
+constexpr uint32_t kClearAllowLipNoGrind = 0xB9EEBFF6; // ClearAllowLipNoGrind
+constexpr uint32_t kNoRailTricks = 0xEC681A59; // NoRailTricks
+constexpr uint32_t kAllowRailTricks = 0x065A559A; // AllowRailTricks
+constexpr uint32_t kTurnToFaceVelocity = 0x461E5B92; // TurnToFaceVelocity
+constexpr uint32_t kCancelRotateDisplayandUpdateMatrix = 0xA14A467F; // CancelRotateDisplayandUpdateMatrix
+constexpr uint32_t kOverrideLimits = 0x90F1D8D5; // OverrideLimits
+constexpr uint32_t kSetSpecialFriction = 0x5E8D9B80; // SetSpecialFriction
+constexpr uint32_t kOverrideCancelGround = 0xB94BC0C6; // OverrideCancelGround
+constexpr uint32_t kSetExtraPush = 0xE47FF4B5; // SetExtraPush
+constexpr uint32_t kGetMatrixNormal = 0x05144783; // GetMatrixNormal
+constexpr uint32_t kGetLastGroundPos = 0xF7E21884; // GetLastGroundPos
+constexpr uint32_t kGetLastGroundHeading = 0x0BFF3271; // GetLastGroundHeading
+constexpr uint32_t kHash2A547E37 = 0x2A547E37; // (text unknown)
+constexpr uint32_t kIsFacingWall = 0xAAE7E1D8; // IsFacingWall
+constexpr uint32_t kHashA038260D = 0xA038260D; // (text unknown)
+constexpr uint32_t kIsFacingVert = 0xD27F89E8; // IsFacingVert
+constexpr uint32_t kSetAmmo = 0x25B393E7; // SetAmmo
+constexpr uint32_t kGetAmmo = 0xB6222B3A; // GetAmmo
+constexpr uint32_t kSetAmmoType = 0x9D8BDE21; // SetAmmoType
+constexpr uint32_t kGetAmmoType = 0x83A46968; // GetAmmoType
+constexpr uint32_t kGetPitchBailDir = 0x6A0834C5; // GetPitchBailDir
+constexpr uint32_t kHash675CF35E = 0x675CF35E; // (text unknown)
+constexpr uint32_t kInRevert = 0xD3E1A093; // InRevert
+constexpr uint32_t kOutRevert = 0x3BAAC2C5; // OutRevert
+constexpr uint32_t kIsInRevert = 0xB195C726; // IsInRevert
+constexpr uint32_t kProjectilesOn = 0xB649958F; // ProjectilesOn
+constexpr uint32_t kProjectilesOff = 0x11B99941; // ProjectilesOff
+constexpr uint32_t kFocusOn = 0xEFFC54DC; // FocusOn
+constexpr uint32_t kFocusOff = 0xE3822CCE; // FocusOff
+constexpr uint32_t kIsSkaterFocused = 0xD5BCAB93; // IsSkaterFocused
+constexpr uint32_t kResetProjectileInput = 0x9AF4A4C2; // ResetProjectileInput
+constexpr uint32_t kEnterPowerslide = 0x8A8EBE72; // EnterPowerslide
+constexpr uint32_t kExitPowerslide = 0xC5623AEE; // ExitPowerslide
+constexpr uint32_t kWalkingWallplant = 0xD7ECF37C; // WalkingWallplant
+constexpr uint32_t kMotoSkateboardOn = 0x43A7516D; // MotoSkateboardOn
+constexpr uint32_t kMotoSkateboardOff = 0x5F48F4D1; // MotoSkateboardOff
+constexpr uint32_t kIsOnMotoSkateboard = 0x5F43DDF3; // IsOnMotoSkateboard
+constexpr uint32_t kSkaterIsFlipping = 0x68F6DB80; // SkaterIsFlipping
+constexpr uint32_t kResetIsFlipping = 0x1B4A5FF9; // ResetIsFlipping
+constexpr uint32_t kSetThrowingProjectile = 0x007CDADB; // SetThrowingProjectile
+constexpr uint32_t kUnsetThrowingProjectile = 0x27C92E33; // UnsetThrowingProjectile
+constexpr uint32_t kIsThrowingProjectile = 0x8476CA5B; // IsThrowingProjectile
+constexpr uint32_t kCheckNatasExitDirection = 0xF900547B; // CheckNatasExitDirection
+constexpr uint32_t kEndManualTurnaround = 0xFC9E2886; // EndManualTurnaround
+constexpr uint32_t kGetFocusTimeLeft = 0x3981FBF0; // GetFocusTimeLeft
+constexpr uint32_t kGetFocusTimesAllowed = 0x821BF006; // GetFocusTimesAllowed
+constexpr uint32_t kSetFocusTimesAllowed = 0x2C30B07A; // SetFocusTimesAllowed
+constexpr uint32_t kEnterTantrum = 0x1EB4121A; // EnterTantrum
+constexpr uint32_t kExitTantrum = 0xA751E3D8; // ExitTantrum
+constexpr uint32_t kInTantrum = 0x03B9946F; // InTantrum
+constexpr uint32_t kDoingFlip = 0xADCA7EE6; // DoingFlip
+constexpr uint32_t kEnterTagging = 0x0898E60F; // EnterTagging
+constexpr uint32_t kExitTagging = 0xB17D17CD; // ExitTagging
+constexpr uint32_t kIsTagging = 0xF22B4480; // IsTagging
+} // namespace
 
-std::array<script::MemberFunctionEntry, 110>& core_member_functions()
+std::array<script::MemberFunctionEntry, kCoreMemberFunctionCount>& core_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 110> core_member_functions{{
-        {.callsign_ = 0x584CF9E9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0C7A712C, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8F66B80B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x4ADC6C2A, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x262D42D5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xCA6B3809, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9C6A7E41, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x32DCC9CF, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x5E8F9E77, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0C890A84, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBBF2B570, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xDE583E34, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x1996B797, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1F8BBD05, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xEBBCF455, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBC19E291, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x02F66333, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x68BF6C13, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE8DEB0D7, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x34DCFC97, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x0257947E, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x01BAA1D9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9FCFDFEB, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xFEFF11CC, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xFE243FEF, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE168CFE0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x29FBA9DF, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x17846595, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x259CB90D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1D1FD4F0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x383B939B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x54EF2B79, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x0E2998B9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x6FC5AAE0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBD4303F4, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA901A50C, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xE0DF1F0A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8C3D7864, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0E1D5168, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x948EBF96, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x947FCCF4, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xACB82C02, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x510F983B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x71B993B7, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xBE371B7B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x55934543, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB424244D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x224CDDC9, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x6C8A1316, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x448E3630, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF37CE040, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x133E1293, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x0F922431, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xDFB8F052, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xC5B4B390, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB9EEBFF6, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xEC681A59, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x065A559A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x461E5B92, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA14A467F, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x90F1D8D5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5E8D9B80, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB94BC0C6, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE47FF4B5, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x05144783, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF7E21884, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0BFF3271, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x2A547E37, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xAAE7E1D8, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA038260D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xD27F89E8, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x25B393E7, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xB6222B3A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9D8BDE21, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x83A46968, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x6A0834C5, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x675CF35E, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xD3E1A093, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x3BAAC2C5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB195C726, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xB649958F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x11B99941, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xEFFC54DC, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE3822CCE, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xD5BCAB93, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9AF4A4C2, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8A8EBE72, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xC5623AEE, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xD7ECF37C, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x43A7516D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5F48F4D1, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5F43DDF3, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x68F6DB80, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1B4A5FF9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x007CDADB, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x27C92E33, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x8476CA5B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF900547B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xFC9E2886, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x3981FBF0, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x821BF006, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x2C30B07A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1EB4121A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA751E3D8, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0x03B9946F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xADCA7EE6, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0898E60F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB17D17CD, .owner_kind_ = 0x5BD63B29},
-        {.callsign_ = 0xF22B4480, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0, .owner_kind_ = 0x5BD63B29}}};
+    static std::array<script::MemberFunctionEntry, kCoreMemberFunctionCount> core_member_functions{{
+        {.callsign_ = kJump, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kFlippedName, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSwitched, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kCrouchedName, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kFirstTimeOnThisRail, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kStartSkitch, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSkitchingName, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kStopSkitch, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kCancelWallpushName, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kAirTimeLessThan, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kAirTimeGreaterThan, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetAirtime, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kGetAirTimeLeft, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kBraking, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kCanBrakeOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kCanBrakeOn, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kCanKick, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kCanKickOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kCanKickOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kForceAutoKickOn, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kForceAutoKickOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kAutoKickIsOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kRestoreAutoKick, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSkaterVehicleOn, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kSkaterVehicleOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsSkaterOnVehicle, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetSkaterVehicle, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kDoCarPlantBoost, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kHandleLipOllieDirection, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kOrientToNormal, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetSpeed, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kNoSpin, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kCanSpin, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kInBail, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kNotInBail, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsInBail, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kBailOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kBailOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kBailIsOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetState, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kSetRailSound, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kLockVelocityDirection, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetRollingFriction, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetGrindTweak, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kBadLedge, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSkateInAble, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kNearGround, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kTriggerGrindOff, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kLastSpinWas, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kLandedFromSpine, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kLandedFromVert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetLandedFromVert, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kResetLandedFromVert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kInVertAir, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kAllowLipNoGrind, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kClearAllowLipNoGrind, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kNoRailTricks, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kAllowRailTricks, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kTurnToFaceVelocity, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kCancelRotateDisplayandUpdateMatrix, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kOverrideLimits, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetSpecialFriction, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kOverrideCancelGround, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetExtraPush, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kGetMatrixNormal, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetLastGroundPos, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetLastGroundHeading, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kHash2A547E37, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kIsFacingWall, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kHashA038260D, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsFacingVert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetAmmo, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kGetAmmo, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetAmmoType, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetAmmoType, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetPitchBailDir, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kHash675CF35E, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kInRevert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kOutRevert, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsInRevert, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kProjectilesOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kProjectilesOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kFocusOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kFocusOff, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kIsSkaterFocused, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kResetProjectileInput, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kEnterPowerslide, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kExitPowerslide, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kWalkingWallplant, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kMotoSkateboardOn, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kMotoSkateboardOff, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kIsOnMotoSkateboard, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kSkaterIsFlipping, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kResetIsFlipping, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetThrowingProjectile, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kUnsetThrowingProjectile, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kIsThrowingProjectile, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kCheckNatasExitDirection, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kEndManualTurnaround, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kGetFocusTimeLeft, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kGetFocusTimesAllowed, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kSetFocusTimesAllowed, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kEnterTantrum, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kExitTantrum, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kInTantrum, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kDoingFlip, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kEnterTagging, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = kExitTagging, .owner_kind_ = kSkaterCorePhysicsName},
+        {.callsign_ = kIsTagging, .owner_kind_ = kSkaterCorePhysicsName}, {.callsign_ = 0, .owner_kind_ = kSkaterCorePhysicsName}}};
     return core_member_functions;
 }
 
@@ -155,7 +269,7 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
 // A wall the feeler hit: not vert, its normal's y within 0.1 of 0 (or not a number).
 bool hit_wall(const render::ProbeRay& feeler)
 {
-    if (feeler.hit().face_flags_ & 8)
+    if (feeler.hit().face_flags_ & kFaceVert)
         return false;
     return !(std::fabs(static_cast<double>(feeler.surface_dir().y)) > kWallNormalY);
 }
@@ -560,9 +674,9 @@ int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script*)
     float* radius = &side_reach_;
     float* speed = &side_push_;
     float* third = &side_turn_;
-    *radius = 48.0f;
+    *radius = kProbeRadius;
     *speed = 100.0f;
-    *third = 6.0f;
+    *third = kProbeThird;
     params->fetch_float(kRadius, radius, 0);
     params->fetch_float(kSpeed, speed, 0);
     params->fetch_float(kExtraPushThird, third, 0);
@@ -732,7 +846,7 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
         time = 0.0f;
         return 1;
     }
-    if (limits_time_ == -2.0f) // for the level
+    if (limits_time_ == -kTimerForLevel) // for the level
         return 1;
     if (params->has_bare_flag(kEnd)) {
         time = 0.0f;
@@ -754,7 +868,7 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
     if (params->has_bare_flag(kUntilCancelled))
         time = -1.0f;
     if (params->has_bare_flag(kCurrentLevel))
-        time = -2.0f;
+        time = -kTimerForLevel;
     return 1;
 }
 
@@ -847,7 +961,7 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
 int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script*)
 {
     render::ProbeRay feeler;
-    if (feel_ahead(params, feeler, true) && (feeler.hit().face_flags_ & 8))
+    if (feel_ahead(params, feeler, true) && (feeler.hit().face_flags_ & kFaceVert))
         return 1;
     return 0;
 }

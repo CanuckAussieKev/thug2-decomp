@@ -25,11 +25,14 @@
 #include "engine/core/checked_index.h"
 
 namespace objects {
+namespace {
+constexpr uint32_t kSkaterLoopingSoundName = 0xB5F1E9D2; // SkaterLoopingSound
+} // namespace
 
 std::array<script::MemberFunctionEntry, 1>& looping_sound_member_functions()
 {
     static std::array<script::MemberFunctionEntry, 1> looping_sound_member_functions{{
-        {.callsign_ = 0, .owner_kind_ = 0xB5F1E9D2}}};
+        {.callsign_ = 0, .owner_kind_ = kSkaterLoopingSoundName}}};
     return looping_sound_member_functions;
 }
 

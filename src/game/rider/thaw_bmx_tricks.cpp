@@ -5,6 +5,7 @@
 // addition at the user's request - not THUG2's code and not PartyMod's. Read from THAW's reference build
 // (game/rider/thaw_bmx.h - no tracing); our THUG2 functions call these only while ThawBmx::live_now(core).
 
+#include <cstddef>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -41,6 +42,9 @@
 namespace skater::thaw_bmx {
 
 namespace {
+constexpr float kFarthestStart = 1e14f;
+constexpr float kTwoThirds = 0.6666667f;
+constexpr std::size_t kLoggedSlots = 8;
 
 // The timed flags (THUG2's; THAW's in the comment).
 // THUG2's state flags against THAW's offsets: kVertAir 0x30, kVertWall 0x38, kBailing 0x78, kAcidDrop 0x80.
@@ -137,7 +141,7 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
     if (!rails)
         return false;
     bool found = false;
-    float best = 1e14f;
+    float best = kFarthestStart;
     const float steepest = rail_ascent_sine();
     for (int index = 0; index < rails->num(); ++index) {
         const objects::GrindPoint* node = &core::at(rails->node_run(), index);
@@ -266,7 +270,7 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
         return false;
     const double forward = dot3(apart, direction);
     if (forward > 0.0)
-        apart -= static_cast<float>(forward * 0.6666667f) * direction;
+        apart -= static_cast<float>(forward * kTwoThirds) * direction;
     *score = static_cast<float>(dot3(apart, apart));
     *point = on_rail;
     return true;
@@ -327,7 +331,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     if (!not_vert) {
         core->probe_start() = position;
         core->probe_end() = position + kTapAbove * up;
-        if (physics->probe_touches_zone(0x10, 0)) {
+        if (physics->probe_touches_zone(skater::kProbeIgnoreFlags, 0)) {
             state.tap_armed_ = true;
             return;
         }
@@ -341,7 +345,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
             const maths::Vec4 to = {.x = from.x, .y = from.y - kTapDrop, .z = from.z, .w = from.w};
             core->probe_start() = from;
             core->probe_end() = to;
-            if (!physics->probe_touches_zone(0x10, 0) || (core->feeler().hit().face_flags_ & 8))
+            if (!physics->probe_touches_zone(skater::kProbeIgnoreFlags, 0) || (core->feeler().hit().face_flags_ & skater::kFaceVert))
                 continue;
             const float distance = from.y - core->feeler().contact_pos().y;
             if (distance > best + kTapNearer)
@@ -572,7 +576,7 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
     if (!surface_kind::get_sound_info(entry, static_cast<surface_kind::SoundInfo*>(info)))
         return 0;
     // (the first of each kind logged: the bike's sounds can be checked from the log)
-    static std::array<bool, 8> s_logged = {};
+    static std::array<bool, kLoggedSlots> s_logged = {};
     const int k = static_cast<int>(kind);
     if (!core::at(s_logged, k)) {
         core::at(s_logged, k) = true;

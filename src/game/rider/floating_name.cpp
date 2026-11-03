@@ -2,6 +2,7 @@
 
 #include "game/rider/floating_name.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
@@ -29,6 +30,8 @@
 namespace objects {
 
 namespace {
+constexpr int kPlayerSlotCount = 8;
+constexpr std::size_t kNameBytes = 64;
 
 constexpr uint32_t kSkaterFloatingName = 0x125044E2;
 constexpr uint32_t kId = 0x40C698AF, kText = 0xC4745838, kPos3d = 0x4B491900;
@@ -90,7 +93,7 @@ RiderOverheadTag::~RiderOverheadTag() { run_with_label_id({.name = kDestroyObjec
 void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
 {
     const uint32_t id = entity()->ident();
-    if (id < 8)
+    if (id < kPlayerSlotCount)
         label_id_ = core::at(kLabelIds, id);
 }
 
@@ -121,7 +124,7 @@ void RiderOverheadTag::tick_frame()
     params->put_name_key(checksums::Name{kId}, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
     const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team()) : entity()->ident();
-    std::array<char, 64> text{};
+    std::array<char, kNameBytes> text{};
     text::format_to(text, "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
     params->append_word(kText, text.data());
     const maths::Vec4& pos = entity()->at_point();

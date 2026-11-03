@@ -57,6 +57,7 @@ class SkaterPhysicsModule;
 } // namespace skater
 
 namespace skater::thaw_bmx {
+constexpr float kDefaultSteerBlend = 0.5f;
 
 // THAW's wheel points sit this far ahead of / behind the skater's position along its facing (THAW 0x006DD14C,
 // loaded by 0x005DF050).
@@ -106,7 +107,7 @@ struct BikeState {
     StickButton stick_up_, stick_down_, stick_left_, stick_right_; // (THAW's pad +0x280 / +0x2A0 / +0x2C0 / +0x2E0)
     bool vert_ground_noted_ = false; // (ours: THAW's constructor 0x005CF6A0 sets +0x6F8 - never on vert ground yet)
     int vert_ground_time_ = 0;       // +0x6F8 the game clock (with its offset) last on vert ground
-    float steer_blend_ = 0.5f;       // +0x570 the turn animation's share of the turn branch (THAW 0x005D61F0), 0.5 .. 1
+    float steer_blend_ = kDefaultSteerBlend;       // +0x570 the turn animation's share of the turn branch (THAW 0x005D61F0), 0.5 .. 1
     bool steer_anim_ = false;        // (ours) bike_playturnanim's turn animation on (the member ThawBmxSteerAnim)
     float steer_in_ = 0.0f;          // (ours) how far THAW's tree has blended the turn branch in (0 .. 1)
     bool stall_script_ = false;      // +0x49D ShouldRunStallScript (R1 held as the grind started)

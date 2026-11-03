@@ -48,6 +48,11 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
+constexpr float kJumpAdjustFactor = 1.1f;
+constexpr int kGapRequireFlags = 0x100000;
+constexpr int kSourceLineAcidHoldA = 9116;         // the source lines the original reports its messages from
+constexpr int kSourceLineAcidHoldB = 9117;
+constexpr float kMillisecondsPerSecond = 1000.0f;
 
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // (a component)
 constexpr uint32_t kSkaterGap = 0x11B4C67F;           // (a component)
@@ -139,7 +144,7 @@ bool SkaterPhysicsModule::clear_to_point(const maths::Vec4* point, bool from_vec
 {
     probe_start_ = object_of(this)->at_point();
     probe_end_ = *point;
-    if (!get_feel(this, 0x10, 0))
+    if (!get_feel(this, kProbeIgnoreFlags, 0))
         return true;
     const maths::Vec4& hit = feeler_.contact_pos();
     double distance = 0.0;
@@ -231,7 +236,7 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
     const float kept_y = v.y;
     v.project_onto(along);
     if (from_object && moving_against_facing(object_of(this))) {
-        auto adjust = static_cast<float>(jump_adjust_speed() * 1.1f);
+        auto adjust = static_cast<float>(jump_adjust_speed() * kJumpAdjustFactor);
         const maths::Vec4& w = object_of(this)->vel();
         const double speed =
             (static_cast<double>(w.x) * w.x + static_cast<double>(w.y) * w.y) + static_cast<double>(w.z) * w.z;
@@ -315,7 +320,7 @@ void SkaterPhysicsModule::start_lip_trick(const maths::Vec4* point)
     display_matrix_ = object_of(this)->basis_frame();
     auto* gap = core::down_cast<objects::RiderGapTracker>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterGap));
-    gap->scan_for_gaps({.cancel = 0, .require = 0x100000});
+    gap->scan_for_gaps({.cancel = 0, .require = kGapRequireFlags});
     trigger_rail_script(kLipEvents);
     trick_->set_starting_special(false);
     auto* skater = static_cast<objects::Entity*>(object_of(this));
@@ -348,10 +353,10 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
         return;
     if (bit_mark(this, PoseFlag::kFromAcidDrop)) {
         // (From an acid drop: its hold velocity added.)
-        debug::printf("M:%s:%i: %s\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9116,
+        debug::printf("M:%s:%i: %s\n", "mponents\\SkaterCorePhysicsComponent.cpp", kSourceLineAcidHoldA,
                       "GRINDING FROM ACID DROP"); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
         const maths::Vec4& hold = rider_shared().acid_hold();
-        debug::printf("D:%s:%i: acid_hold = %g, %g, %g\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9117,
+        debug::printf("D:%s:%i: acid_hold = %g, %g, %g\n", "mponents\\SkaterCorePhysicsComponent.cpp", kSourceLineAcidHoldB,
                       static_cast<double>(hold.x), static_cast<double>(hold.y), static_cast<double>(hold.z));
         maths::Vec4& v = object_of(this)->vel();
         v.x = rider_shared().acid_hold().x + v.x;
@@ -514,7 +519,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
         // A point rail: a spin when a spin button is held, long enough after the last one; else a kick.
         if (input->pad_primary().shoulder_right_a().held_down() || input->pad_primary().shoulder_left_a().held_down()) {
             const int elapsed = static_cast<int>(get_since(static_cast<uint32_t>(natas_spin_time_)));
-            if (!(static_cast<double>(script::fetch_float(kNatasDelay)) * 1000.0f > static_cast<float>(elapsed))) {
+            if (!(static_cast<double>(script::fetch_float(kNatasDelay)) * kMillisecondsPerSecond > static_cast<float>(elapsed))) {
                 spin_on_point_rail(point);
                 return;
             }

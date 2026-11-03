@@ -24,6 +24,8 @@
 namespace objects {
 
 namespace {
+constexpr int kSourceLineAdjust = 0x182;
+constexpr int kShadeRequireFlags = 0x20;
 
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kModel = 0x286A8D26, kShadow = 0x8A897DD2,
                    kMovableContact = 0x408D2AA9, kSkaterState = 0x43686585;
@@ -83,7 +85,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
     const maths::Vec4& frame_start = core_ptr_->safe_pos();
     if (!ride_->find_contact_ahead(&entity()->at_point(), &frame_start))
         return;
-    debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182,
+    debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", kSourceLineAdjust,
                   "found to be inside a moving object");
     render::ProbeRay feeler;
     const maths::Vec4& pos = entity()->at_point();
@@ -108,7 +110,7 @@ void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
     const bool hit = ground->get_hit_shape(false, false) != 0;
     render::ProbeRay feeler;
     feeler.copy_construct(*ground);
-    feeler.set_excluded({.ignore = 0, .require = 0x20});
+    feeler.set_excluded({.ignore = 0, .require = kShadeRequireFlags});
     feeler.line().start.y = static_cast<float>(static_cast<double>(feeler.line().start.y) + kBrightnessAbove);
     if (hit)
         feeler.line().end = {.x = ground->contact_pos().x,

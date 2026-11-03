@@ -15,6 +15,9 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr float kDefaultLevelY = 60.0f;
+constexpr float kDefaultReach = 144.0f;
+constexpr float kDefaultLerp = 3.0f;
 
 class DrivableModule;
 
@@ -77,10 +80,10 @@ private:
     maths::Vec4 target_direction_{}; // +0x30
     maths::Vec4 anchor_point_{};     // +0x40
     maths::Mat4 orientation_{};      // +0x50
-    float level_y_{60.0f};           // +0x90 (0x14849B6D)
-    float reach_{144.0f};            // +0x94 (0xBD3D3CA9)
+    float level_y_{kDefaultLevelY};           // +0x90 (0x14849B6D)
+    float reach_{kDefaultReach};            // +0x94 (0xBD3D3CA9)
     float angle_{};                // +0x98 degrees (angle)
-    float lerp_{3.0f};             // +0x9C (0x9213625F) a second
+    float lerp_{kDefaultLerp};             // +0x9C (0x9213625F) a second
     FreeLookModule* free_look_{};  // +0xA0
 };
 

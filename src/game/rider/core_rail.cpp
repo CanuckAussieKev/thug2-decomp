@@ -36,6 +36,10 @@ namespace skater {
 using namespace core_fields;
 
 namespace {
+constexpr float kMidpointDivisor = 2.0f;
+constexpr float kSegmentSlack = 0.1f;
+constexpr float kSameWayTolerance = 0.01f;
+constexpr int kFaceNoParkEdit = 0x1000;            // a face flag that counts only outside the park editor
 
 constexpr uint32_t kCornerLeaveAngle = 0x76C1DA15; // Rail_Corner_Leave_Angle
 constexpr uint32_t kRailRegrabDelay = 0x2B4645AD;  // Rail_minimum_rerail_time
@@ -148,7 +152,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
                 if (onto && toward_rounded >= 0.0f) {
                     const maths::Vec4 c = grind_point_in_world(found);
                     const maths::Vec4 d = grind_point_in_world(next);
-                    point = (d + c) / 2.0f;
+                    point = (d + c) / kMidpointDivisor;
                 }
             } else {
                 onto = false;
@@ -301,7 +305,7 @@ void SkaterPhysicsModule::step_grind_move()
         const double ey = static_cast<double>(p.y) - q.y;
         const double ez = static_cast<double>(p.z) - q.z;
         const double distance = std::sqrt((ez * ez + ey * ey) + ex * ex);
-        if (distance > static_cast<double>(segment_length) + 0.1f) {
+        if (distance > static_cast<double>(segment_length) + kSegmentSlack) {
             overshoot = static_cast<float>(distance - segment_length);
             const objects::GrindPoint* corner = after < 0.0f ? node : next; // the node passed
             const objects::GrindPoint* onward =
@@ -484,7 +488,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
         maths::Vec4 that_way = f - e;
         this_way.make_unit();
         that_way.make_unit();
-        if (!(std::fabs(static_cast<double>(this_way.y) - that_way.y) < 0.01f))
+        if (!(std::fabs(static_cast<double>(this_way.y) - that_way.y) < kSameWayTolerance))
             return;
     }
 
@@ -509,10 +513,10 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     start.x = up.x + start.x, start.y = up.y + start.y, start.z = up.z + start.z, start.w = up.w + start.w;
     const maths::Vec4& up2 = core::at(entity()->basis_frame().row, 1);
     end.x = end.x + up2.x, end.y = end.y + up2.y, end.z = end.z + up2.z, end.w = end.w + up2.w;
-    if (!get_feel(this, 0x10, 0))
+    if (!get_feel(this, kProbeIgnoreFlags, 0))
         return;
     // Something ahead: off the rail (not for faces flagged 0x10 at +0xF9, outside the park editor).
-    if (!in_park_editor() && (feeler_.hit().face_flags_ & 0x1000))
+    if (!in_park_editor() && (feeler_.hit().face_flags_ & kFaceNoParkEdit))
         return;
     trigger_rail_script(kGrindOffEvents);
     objects::GameEntity* o = object_of(this);

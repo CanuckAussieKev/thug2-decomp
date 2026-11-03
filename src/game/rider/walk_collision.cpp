@@ -37,6 +37,13 @@
 namespace objects {
 
 namespace {
+constexpr int kButtonHeldMs = 30;
+constexpr int kShadeRequireFlags = 0x20;
+constexpr int kSourceLineUberFrig = 0x941;         // the source lines the original reports its messages from
+constexpr int kUnknown710Reset = 60;
+constexpr int kSourceLineBadPoint = 0xB8C;
+constexpr int kSourceLineAdjustment = 0xB8D;
+constexpr int kSourceLineOffset = 0xB8E;
 
 using namespace walk_fields;
 
@@ -190,7 +197,7 @@ void FootMovement::check_sticker_slap()
     auto* pad = &input_->pad_primary();
     if (!pad->pos_x().held_down() || !pad->btn_down().held_down())
         return;
-    if (static_cast<uint32_t>(pad->btn_down().get_held_millis()) > 30)
+    if (static_cast<uint32_t>(pad->btn_down().get_held_millis()) > kButtonHeldMs)
         return;
 
     // A wall ahead: a feeler from feeler_height up, feeler_length along the facing (static collision only).
@@ -240,7 +247,7 @@ void FootMovement::update_ground_below()
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     render::ProbeRay shade;
-    shade.set_excluded({.ignore = 0, .require = 0x20});
+    shade.set_excluded({.ignore = 0, .require = kShadeRequireFlags});
     shade.line().start = {.x = point.x, .y = static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), .z = point.z,
                          .w = point.w};
     if (below)
@@ -266,7 +273,7 @@ void FootMovement::update_ground_below()
     }
 
     // Nothing below at all: back to where the frame began, turned around, on the ground.
-    debug::printf(kMessageFormat, kSourceFile, 0x941, kUberFrigMessage);
+    debug::printf(kMessageFormat, kSourceFile, kSourceLineUberFrig, kUberFrigMessage);
     pos_ = old_pos_;
     maths::Vec4& vel = vel_;
     vel.y = 0.0f;
@@ -277,7 +284,7 @@ void FootMovement::update_ground_below()
     facing = {.x = facing.x * kMinus, .y = facing.y * kMinus, .z = facing.z * kMinus, .w = facing.w * kMinus};
     up_speed_ = 0.0f;
     locked_to_heading_ = true;
-    unknown710_ = 60;
+    unknown710_ = kUnknown710Reset;
     change_phase(0);
     feeler_hit_ = false;
     floor_normal_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
@@ -327,10 +334,10 @@ void FootMovement::ease_critical_point_offset()
         const maths::Vec4 adjustment =
             (feeler.contact_pos() + kAdjustClearance * feeler.surface_dir()) - feeler.line().end;
         pos += adjustment;
-        debug::printf(kMessageFormat, kSourceFile, 0xB8C, kBadPointMessage);
-        debug::printf(kAdjustmentFormat, kSourceFile, 0xB8D, static_cast<double>(adjustment.x),
+        debug::printf(kMessageFormat, kSourceFile, kSourceLineBadPoint, kBadPointMessage);
+        debug::printf(kAdjustmentFormat, kSourceFile, kSourceLineAdjustment, static_cast<double>(adjustment.x),
                       static_cast<double>(adjustment.y), static_cast<double>(adjustment.z));
-        debug::printf(kOffsetFormat, kSourceFile, 0xB8E, static_cast<double>(offset.x), static_cast<double>(offset.y),
+        debug::printf(kOffsetFormat, kSourceFile, kSourceLineOffset, static_cast<double>(offset.x), static_cast<double>(offset.y),
                       static_cast<double>(offset.z));
     }
     // Pushed back off a wall: the critical point kept on its side of the plane.
