@@ -68,6 +68,7 @@
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 #include "engine/script/script_state.h"
+#include "engine/net/player_info.h"
 
 namespace {
 
@@ -92,7 +93,6 @@ constexpr int kAssetKindObjectCamera = 9;
 constexpr int kKilobyteShift = 10;
 constexpr int kFlashFlagValue = 8;
 constexpr uint8_t kGroupGame = 8;
-constexpr uint32_t kRiderSlotCount = 8;
 // The number SetScreenModeFromGameMode's debug message prints.
 constexpr int kScreenModeDebugNumber = 0x16C0;
 // A cheat text is at least this long; the check hashes it through this many rounds.
@@ -675,8 +675,8 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
 bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 {
     render::cfunc_set_screen_mode(params, script);
-    for (uint32_t i = 0; i < kRiderSlotCount; ++i) {
-        if (objects::Rider* skater = get_rider_at(static_cast<int>(i)))
+    for (int i = 0; i < online::kPlayerSlotCount; ++i) {
+        if (objects::Rider* skater = get_rider_at(i))
             update_score_display(skater);
     }
     return true;
@@ -687,8 +687,8 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 // displays brought up to date.
 bool cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Script*)
 {
-    for (uint32_t i = 0; i < kRiderSlotCount; ++i) {
-        const objects::Rider* skater = get_rider_at(static_cast<int>(i));
+    for (int i = 0; i < online::kPlayerSlotCount; ++i) {
+        const objects::Rider* skater = get_rider_at(i);
         if (skater && skater->is_local_skater())
             debug::printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", kScreenModeDebugNumber); // "cfuncs %d: SUTUBBBED..."
     }
@@ -696,8 +696,8 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Script*)
     const int current = render::get_view_layout();
     if (!((mode == 1 && current == 2) || (mode == 2 && current == 1)))
         render::set_screen_mode(mode);
-    for (uint32_t i = 0; i < kRiderSlotCount; ++i) {
-        objects::Rider* skater = get_rider_at(static_cast<int>(i));
+    for (int i = 0; i < online::kPlayerSlotCount; ++i) {
+        objects::Rider* skater = get_rider_at(i);
         if (skater && skater->is_local_skater())
             update_score_display(skater);
     }

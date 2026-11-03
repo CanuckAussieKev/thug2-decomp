@@ -46,6 +46,10 @@ enum PlayerFlag : uint32_t {
     kPlayerRejoining = 0x10, // (a pending player added back)
 };
 
+// The player slots of a network game: at most this many players, skater object ids 0 to 7 (the rider slots of
+// the skate module, the per-skater records a player keeps).
+constexpr int kPlayerSlotCount = 8;
+
 constexpr size_t kJoinerRecordLabelSize = 16;
 constexpr uint32_t kPlayerCountedFlags = 0x18; // pending observer or rejoining: counted among those joining
 // The bit numbers of flags read as 0 or 1.
@@ -112,35 +116,22 @@ public:
     JoinerRecord& operator=(const JoinerRecord&) = delete;
 };
 
-constexpr size_t kSentSkaterUpdatesForcedFrameSize = 8;
-constexpr size_t kSentSkaterUpdatesTimeSize = 8;
-constexpr size_t kSentSkaterUpdatesValue7cSize = 8;
-constexpr size_t kSentSkaterUpdatesFlag75Size = 8;
-constexpr size_t kSentSkaterUpdatesFlag76Size = 8;
-constexpr size_t kSentSkaterUpdatesPosSize = 8;
-constexpr size_t kSentSkaterUpdatesAnglesSize = 8;
-constexpr size_t kSentSkaterUpdatesValue68Size = 8;
-constexpr size_t kSentSkaterUpdatesValue6cSize = 8;
-constexpr size_t kSentSkaterUpdatesStateSize = 8;
-constexpr size_t kSentSkaterUpdatesFlag74Size = 8;
-constexpr size_t kSentSkaterUpdatesUnknown108Size = 8;
-constexpr size_t kSentSkaterUpdatesValue80Size = 8;
 // What the server last sent a player about each of the 8 skaters (by object id) - the player's +0x50 (SkateNet's
 // relay: get_relay_flags, write_object_update).
 struct SentSkaterUpdates {
-    std::array<uint32_t, kSentSkaterUpdatesForcedFrameSize> forced_frame_; // +0x00 the server app's frame when everything was last sent
-    std::array<uint32_t, kSentSkaterUpdatesTimeSize> time_;         // +0x20 the state entry's time stamp last sent
-    std::array<uint8_t, kSentSkaterUpdatesValue7cSize> value_7c_;      // +0x40
-    std::array<uint8_t, kSentSkaterUpdatesFlag75Size> flag75_;        // +0x48
-    std::array<uint8_t, kSentSkaterUpdatesFlag76Size> flag76_;        // +0x50
-    std::array<std::array<int16_t, 3>, kSentSkaterUpdatesPosSize> pos_;        // +0x58 (-1 each)
-    std::array<std::array<int16_t, 3>, kSentSkaterUpdatesAnglesSize> angles_;     // +0x88 (-1 each)
-    std::array<uint32_t, kSentSkaterUpdatesValue68Size> value68_;      // +0xB8 (-1 each)
-    std::array<uint32_t, kSentSkaterUpdatesValue6cSize> value_6c_;     // +0xD8
-    std::array<uint8_t, kSentSkaterUpdatesStateSize> state_;         // +0xF8 (-1 each)
-    std::array<uint8_t, kSentSkaterUpdatesFlag74Size> flag74_;        // +0x100 (-1 each)
-    std::array<uint8_t, kSentSkaterUpdatesUnknown108Size> unknown108_;
-    std::array<uint32_t, kSentSkaterUpdatesValue80Size> value80_; // +0x110
+    std::array<uint32_t, kPlayerSlotCount> forced_frame_; // +0x00 the server app's frame when everything was last sent
+    std::array<uint32_t, kPlayerSlotCount> time_;         // +0x20 the state entry's time stamp last sent
+    std::array<uint8_t, kPlayerSlotCount> value_7c_;      // +0x40
+    std::array<uint8_t, kPlayerSlotCount> flag75_;        // +0x48
+    std::array<uint8_t, kPlayerSlotCount> flag76_;        // +0x50
+    std::array<std::array<int16_t, 3>, kPlayerSlotCount> pos_;        // +0x58 (-1 each)
+    std::array<std::array<int16_t, 3>, kPlayerSlotCount> angles_;     // +0x88 (-1 each)
+    std::array<uint32_t, kPlayerSlotCount> value68_;      // +0xB8 (-1 each)
+    std::array<uint32_t, kPlayerSlotCount> value_6c_;     // +0xD8
+    std::array<uint8_t, kPlayerSlotCount> state_;         // +0xF8 (-1 each)
+    std::array<uint8_t, kPlayerSlotCount> flag74_;        // +0x100 (-1 each)
+    std::array<uint8_t, kPlayerSlotCount> unknown108_;
+    std::array<uint32_t, kPlayerSlotCount> value80_; // +0x110
 };
 
 constexpr size_t kPlayerRecordLabelSize = 16;
@@ -150,8 +141,6 @@ constexpr size_t kPlayerRecordPlacedSize = 5;
 // the rating are used there).
 class PlayerRecord : public memory::ListNode {
 public:
-    static constexpr int kMaxPlayers = 8;
-
     // 0x00543740: an empty player with `flags` (PlayerFlag): no skater, connection or profile,
     // "<No Name>", last_sent_skater_ 7 and the update records cleared (the per-skater ones to -1).
     explicit PlayerRecord(uint32_t flags);

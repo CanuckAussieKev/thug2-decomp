@@ -31,6 +31,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/player_info.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -38,7 +39,6 @@ namespace commands {
 namespace {
 // The created tricks a skater has are slots 1-10; the skaters of a game.
 constexpr int kTrickSlotEnd = 11;
-constexpr int kRiderSlotCount = 8;
 
 using objects::RiderIdentity;
 using script::Array;
@@ -560,7 +560,7 @@ bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::
     int controller = 0;
     params->fetch_int_value(kController, &controller, 1);
     modules::Skate* skate = get_skate();
-    for (int i = 0; i < kRiderSlotCount; ++i) {
+    for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         if (i == skater)
             continue;
         objects::GameEntity* other = skate->get_rider_at(i);

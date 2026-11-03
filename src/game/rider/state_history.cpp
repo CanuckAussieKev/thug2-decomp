@@ -44,7 +44,6 @@ namespace {
 constexpr std::size_t kNameBytes = 0x20;
 constexpr int kWrapShift = 16;
 constexpr float kNearbyDistance = 96.0f;
-constexpr int kPlayerSlotCount = 8;
 constexpr int kDrivingBit = 0x80;                   // an object id's high bit: that skater was driving
 constexpr int kObjectIdMask = 0x7F;
 constexpr int kGameGroup = 8;                       // the sequenced group of the game's messages
@@ -305,7 +304,7 @@ void RiderFrameLog::check_for_collisions(int first)
     maths::Seg mine{};
     mine.start = my_pos;
 
-    for (int i = first; i < kPlayerSlotCount; ++i) {
+    for (int i = first; i < online::kPlayerSlotCount; ++i) {
         GameEntity* skater = skater_by_index(i);
         if (!skater || skater == entity())
             continue;

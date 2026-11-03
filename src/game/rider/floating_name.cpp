@@ -30,7 +30,6 @@
 namespace objects {
 
 namespace {
-constexpr int kPlayerSlotCount = 8;
 constexpr std::size_t kNameBytes = 64;
 
 constexpr uint32_t kSkaterFloatingName = 0x125044E2;
@@ -93,7 +92,7 @@ RiderOverheadTag::~RiderOverheadTag() { run_with_label_id({.name = kDestroyObjec
 void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
 {
     const uint32_t id = entity()->ident();
-    if (id < kPlayerSlotCount)
+    if (id < online::kPlayerSlotCount)
         label_id_ = core::at(kLabelIds, id);
 }
 

@@ -39,6 +39,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/player_info.h"
 #include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
@@ -48,7 +49,6 @@ namespace online {
 using namespace detail;
 
 namespace {
-constexpr int kRiderSlotCount = 8;
 constexpr uint8_t kArrivedResyncFlags = 0x11;
 
 // A joining player's flags (JoinerRecord::flag_bits_).
@@ -178,7 +178,7 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
                     if (net::Conn* conn = client->begin_conn_walk(&search))
                         conn->stamp_last_heard(0); // (the time spent adding them isn't silence)
             }
-            for (int i = 0; i < kRiderSlotCount; ++i)
+            for (int i = 0; i < online::kPlayerSlotCount; ++i)
                 if (void* skater = static_cast<modules::Skate*>(skate)->get_rider_at(i))
                     static_cast<objects::Rider*>(skater)->reset_27c();
             manager->send_ready_response();

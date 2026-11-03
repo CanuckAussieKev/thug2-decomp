@@ -28,6 +28,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"
+#include "engine/net/player_info.h"
 #include <gsl/pointers>
 #include <span>
 #include <string_view>
@@ -35,7 +36,6 @@
 namespace commands {
 
 namespace {
-constexpr int kRiderSlotCount = 8;
 // Search defaults: how far a rail point is looked for, and the start of the nearest-distance searches (squared).
 constexpr float kDefaultRailDistance = 150.0f;
 constexpr float kFarthestSquaredDistance = 1.0e8f;
@@ -206,7 +206,7 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
 bool cfunc_clear_powerups(script::Struct*, script::Script*)
 {
     modules::Skate* skate = modules::Skate::sole();
-    for (int i = 0; i < kRiderSlotCount; ++i) {
+    for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         if (skate->get_rider_at(i)) {
             auto* state = core::down_cast<objects::RiderPoseState>(
                 objects::object_hub_slot()->find_first_module_of_kind(kSkaterState));

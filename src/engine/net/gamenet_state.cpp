@@ -17,6 +17,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/player_info.h"
 
 namespace online {
 
@@ -24,7 +25,6 @@ namespace {
 // The limits the preferences give: the highest rank, skill tier, players, observers and fireball level.
 constexpr int kMaxRankLimit = 9;
 constexpr int kMaxSkillTier = 5;
-constexpr int kMaxPlayerLimit = 8;
 constexpr int kMaxSpectatorLimit = 8;
 constexpr int kMaxFireballLevel = 5;
 constexpr uint32_t kBroadcastAddress = 0xFFFFFFFFu;
@@ -135,7 +135,7 @@ int Hub::get_rank_limit() { return number_of(preference_checksum(this, kRankLimi
 int Hub::get_difficulty_tier() { return number_of(preference_checksum(this, kSkillLevel), {.first = 1, .last = kMaxSkillTier, .bias = -1, .otherwise = 2}); }
 
 // 0x00532C50
-int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPlayers), {.first = 2, .last = kMaxPlayerLimit, .bias = 0, .otherwise = 2}); }
+int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPlayers), {.first = 2, .last = online::kPlayerSlotCount, .bias = 0, .otherwise = 2}); }
 
 // 0x00532CF0
 int Hub::get_num_teams()

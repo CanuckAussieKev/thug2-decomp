@@ -101,7 +101,7 @@ PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
     flag_bits_ = 0;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     text::format_to(label_, "<No Name>"); // (0x0064CCE8)
-    for (int i = 0; i < kMaxPlayers; ++i) {
+    for (int i = 0; i < kPlayerSlotCount; ++i) {
         core::at(sent_.value68_, i) = kUnsentWord;
         core::at(sent_.state_, i) = kUnsentByte;
         core::at(sent_.flag74_, i) = kUnsentByte;

@@ -75,11 +75,11 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
 #include "engine/script/script_state.h"
+#include "engine/net/player_info.h"
 
 namespace {
 constexpr size_t kPasswordStarsBytes = 32;
 constexpr int kAssetKindNodeArray = 11;
-constexpr int kRiderSlotCount = 8;
 // The tracking lines of a camera dump: "\nTracking", a digit and a line end; the line types' colours and reach.
 constexpr int kTrackingMarkerLength = 9;
 constexpr size_t kTrackingLineSkip = 11;
@@ -529,7 +529,7 @@ void apply_view_mode(int mode)
         if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera))
             set_viewport_camera(0, viewpoint_camera(camera));
     }
-    for (int i = 0; i < kRiderSlotCount; ++i) {
+    for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         if (objects::Rider* skater = get_rider_at(i))
             skater->set_pause_state(view_mode());
     }

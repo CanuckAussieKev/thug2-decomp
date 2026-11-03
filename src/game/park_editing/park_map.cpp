@@ -24,6 +24,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/net/player_info.h"
 
 namespace park_editing {
 
@@ -164,7 +165,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
                 set_park_name(park_name);
         }
     }
-    builder_->set_player_cap(kParkPlayerCount);
+    builder_->set_player_cap(online::kPlayerSlotCount);
 }
 
 // 0x00599EB0: an older park (gaps of 0x2C bytes, another dead piece).

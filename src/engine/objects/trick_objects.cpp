@@ -47,7 +47,6 @@ namespace objects {
 namespace {
 constexpr uint8_t kHalfAlpha = 0x80;
 constexpr int kHeaderBytes = 8;
-constexpr int kPlayerSlotLoop = 8;
 constexpr uint32_t kMaxClusterObjects = 32;
 constexpr std::size_t kNameBytes = 32;
 constexpr int kObjectScore = 1000;
@@ -356,7 +355,7 @@ void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer
 int TrickSpotHub::write_graffiti_state(std::span<uint8_t> buffer)
 {
     GraffitiStateWriter writer = {.player = 0, .count = 0, .buffer = buffer, .manager = this};
-    for (int player = 0; player < kPlayerSlotLoop; ++player) {
+    for (int player = 0; player < online::kPlayerSlotCount; ++player) {
         core::at(buffer, player) = 0;
         writer.player = player;
         clusters_.run_hook<&write_held_cluster>(&writer);
@@ -483,7 +482,7 @@ bool TrickObjectCluster::set_graffiti_color(int index)
 }
 
 // 0x00588DC0
-TrickSpotHub::TrickSpotHub() : clusters_(kPlayerSlotLoop), object_clusters_(kPlayerSlotLoop)
+TrickSpotHub::TrickSpotHub() : clusters_(online::kPlayerSlotCount), object_clusters_(online::kPlayerSlotCount)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->script_heap());
@@ -561,7 +560,7 @@ void list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list)
 // 0x005890B0
 void TrickSpotHub::apply_player_graffiti()
 {
-    for (int player = 0; player < kPlayerSlotLoop; ++player) {
+    for (int player = 0; player < online::kPlayerSlotCount; ++player) {
         std::array<char, kNameBytes> name{};
         text::format_to(name, "Skater%d", player);
         script::Array* objects = nullptr;
@@ -632,12 +631,12 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
             if (const online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())))
                 conn = info->conn();
         }
-        std::array<uint8_t, kPlayerSlotLoop> stolen = {};
+        std::array<uint8_t, online::kPlayerSlotCount> stolen = {};
         count = stored_trick_spot_hub()->log_trick_objects(objects, stolen, player, score);
         objects = objects.first(count);
         if (count == 0)
             return;
-        for (int victim = 0; victim < kPlayerSlotLoop; ++victim) {
+        for (int victim = 0; victim < online::kPlayerSlotCount; ++victim) {
             if (!core::at(stolen, victim))
                 continue;
             net::NetMessageInfo stolen_desc;

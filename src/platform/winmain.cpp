@@ -47,6 +47,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
+#include "engine/net/player_info.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -69,7 +70,6 @@ constexpr int kHostedGameNameMax = 15;
 constexpr int kEmailMax = 255;
 constexpr int kCommandPasswordMax = 15;
 constexpr int kServerNameMax = 255;
-constexpr int kMaxNetPlayers = 8;
 constexpr int kPlayerNameMax = 15;
 constexpr int kNetworkPasswordMax = 9;
 constexpr int kNetworkPasswordBytes = 10;
@@ -317,7 +317,7 @@ void read_network_params(const char* command_line)
     // (The numbers are compared unsigned: a negative one counts as too big.)
     if (const auto at = find("-MAXPLAYERS")) {
         auto players = static_cast<uint32_t>(get_number(after(*at, kMaxPlayersValueAt)));
-        online::net_game_state().set_net_max_players(static_cast<int>(players < 2 ? 2 : players > kMaxNetPlayers ? kMaxNetPlayers : players));
+        online::net_game_state().set_net_max_players(static_cast<int>(players < 2 ? 2 : players > online::kPlayerSlotCount ? online::kPlayerSlotCount : players));
     }
     if (const auto at = find("-GROUP"))
         online::set_lobby_group_id(get_number(after(*at, kGroupValueAt)));

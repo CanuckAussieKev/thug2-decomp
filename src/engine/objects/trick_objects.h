@@ -11,6 +11,7 @@
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
 #include "engine/core/checksums.h"
+#include "engine/net/player_info.h"
 
 // Pieces of the trick object code at the end of the viewer range (0x005880E0-0x0058817C) and the trick object
 // manager's (0x007CE500) lookups, graffiti colours and graffiti log (0x00588200-0x005889E0); the rest of it (its
@@ -20,7 +21,6 @@ class Struct;
 }
 
 namespace objects {
-constexpr std::size_t kPlayerSlotCount = 8;
 constexpr std::size_t kClusterObjectCapacity = 32;
 
 // 0x005880E0: one count of the trick object manager (0x007CE500, counted at 0x007CE504) released; the last deletes it
@@ -97,8 +97,8 @@ struct TrickObjectCluster {
     [[nodiscard]] uint32_t label() const { return label_; }
     [[nodiscard]] uint32_t record_points() const { return record_points_; }
     void set_record_points(uint32_t value) { record_points_ = value; }
-    std::array<uint32_t, kPlayerSlotCount>& scores() { return scores_; }
-    [[nodiscard]] const std::array<uint32_t, kPlayerSlotCount>& scores() const { return scores_; }
+    std::array<uint32_t, online::kPlayerSlotCount>& scores() { return scores_; }
+    [[nodiscard]] const std::array<uint32_t, online::kPlayerSlotCount>& scores() const { return scores_; }
     [[nodiscard]] int owner() const { return owner_; }
     void set_owner(int value) { owner_ = value; }
     [[nodiscard]] bool owned() const { return owned_; }
@@ -110,7 +110,7 @@ private:
     memory::ListNode list_link_{}; // +0x00 (data itself)
     uint32_t label_;             // +0x14
     uint32_t record_points_{0};  // +0x18
-    std::array<uint32_t, kPlayerSlotCount> scores_{};       // +0x1C
+    std::array<uint32_t, online::kPlayerSlotCount> scores_{};       // +0x1C
     int owner_{0};               // +0x3C (an object id)
     bool owned_{false};          // +0x40
     std::array<uint8_t, 3> pad41_{};

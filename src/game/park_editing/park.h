@@ -73,7 +73,6 @@ constexpr std::size_t kBlockedAreaCapacity = 8;        // the areas a park layou
 constexpr int kShellCells = 56;                         // the park shell's width and length in cells
 constexpr int kFloorLevelMax = 15;                      // the highest a floor cell can be raised, in steps
 constexpr int kFloorLevelDepth = 16;                    // how many steps below zero it can be dug (the lowest is the negative)
-constexpr int kParkPlayerCount = 8;                         // the players a park has restarts for
 constexpr int kPlayerEnd = 9;                           // one past the last player number
 constexpr int kMaxMarqueeSpan = 10;                     // the widest area (in cells) a marquee may cover
 constexpr int kShellHeightCells = 8;                    // the shell's and the build area's height in cells
