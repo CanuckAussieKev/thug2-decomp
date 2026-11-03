@@ -67,6 +67,14 @@ constexpr uint32_t kCutsceneUnhideObjects = 0x94D0D528; // cutscene_unhide_objec
 constexpr uint32_t kRestoreSkaterCamera = 0x15674315; // Restore_skater_camera
 constexpr uint32_t kCutsceneKillObjects = 0x7216D8DA; // CutsceneKillObjects
 constexpr uint32_t kIsMale = 0x3F813177; // is_male
+constexpr std::size_t kSkinColourCount = 20;
+constexpr std::size_t kFileNameBytes = 256;
+constexpr float kMillisecondsToSeconds = 0.0010000000474974513f;
+constexpr int kResourceKindImage = 6;
+constexpr int kResourceKindModel = 7;
+constexpr int kTypeIndexBase = 200;
+constexpr int kMinSkinDataBytes = 0x96;
+constexpr std::size_t kColourBytes = 16;
 constexpr std::size_t kSkinColourTableBytes = 80;
 // The table: five rows of four floats, as little-endian bytes.
 constexpr std::array<uint8_t, kSkinColourTableBytes> kSkinColourTableInit{{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
@@ -79,7 +87,7 @@ constexpr std::array<uint8_t, kSkinColourTableBytes> kSkinColourTableInit{{0,   
 // never destroyed (skin_colour_tables()).
 struct SkinColourTables {
     std::array<uint8_t, kSkinColourTableBytes> skin_colour_table_{kSkinColourTableInit};
-    std::array<float, 20> skin_colours_{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+    std::array<float, kSkinColourCount> skin_colours_{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                          1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}};
 };
 
@@ -157,7 +165,7 @@ inline void print_cutscene_details(void*) {}
 // 0x00466620
 bool CinematicEntry::read_in(script::Struct* params)
 {
-    std::array<char, 256> file_name = {"none"}; // (from the game's 0x0064797C)
+    std::array<char, kFileNameBytes> file_name = {"none"}; // (from the game's 0x0064797C)
     uint32_t name = 0;
     if (owns_data_) {
         const char* path = nullptr;
@@ -212,14 +220,14 @@ bool CinematicEntry::read_in(script::Struct* params)
             float start = 0.0f;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
-                auto seconds = static_cast<float>(start * static_cast<double>(0.0010000000474974513f));
+                auto seconds = static_cast<float>(start * static_cast<double>(kMillisecondsToSeconds));
                 audio::pause_music(1);
                 data->set_unknown3474(1);
                 data->set_clock(seconds);
             }
             float loop = 0.0f;
             if (params->fetch_float(kLoopLength, &loop, 0)) {
-                loop = static_cast<float>(loop * static_cast<double>(0.0010000000474974513f));
+                loop = static_cast<float>(loop * static_cast<double>(kMillisecondsToSeconds));
                 CinematicTable* data = content_;
                 data->set_unknown3474(1);
                 data->set_loop_start(data->clock());
@@ -298,7 +306,7 @@ CinematicTable::~CinematicTable()
         audio::stop_music();
         if (flag_34b_0_) {
             get_run(kCutsceneKillObjects);
-            std::array<char, 256> file_name{};
+            std::array<char, kFileNameBytes> file_name{};
             text::format_to(file_name, "%08x.qb", label_);
             script::unload_qb(checksums::hash_from_text(file_name.data()));
         }
@@ -326,7 +334,7 @@ void CinematicTable::load_from_bundle()
             break;
         case kTypeQb:
             if (flag_34b_0_) {
-                std::array<char, 256> file_name{};
+                std::array<char, kFileNameBytes> file_name{};
                 text::format_to(file_name, "%08x.qb", label_);
                 script::load_qb_data(file_name.data(), std::span<uint8_t>(static_cast<uint8_t*>(data), entry->size), 1, 0, 0);
             }
@@ -363,7 +371,7 @@ void CinematicTable::load_from_bundle()
         }
         case kTypeImage: {
             const uint32_t name = entry->name;
-            load_asset_data(name, 6, 0, data, entry->size, nullptr);
+            load_asset_data(name, kResourceKindImage, 0, data, entry->size, nullptr);
             core::at(assets_, asset_count_) = name;
             ++asset_count_;
             break;
@@ -409,14 +417,14 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
     params.cas_size_ = 0;
     params.has_cas_ = is_model;
     params.flag0 = 0;
-    params.value = entry->type == kTypeSkin ? 0 : index + 200;
+    params.value = entry->type == kTypeSkin ? 0 : index + kTypeIndexBase;
     TextureParams texture_params{};
     texture_params.texture_set_ = params.value;
     void* assets = get_assets();
     texture_params.flag0 = 0;
     texture_params.flag9 = 0;
     texture_params.is_model_ = is_model;
-    bool load = static_cast<int>(entry->size) >= 0x96;
+    bool load = static_cast<int>(entry->size) >= kMinSkinDataBytes;
     if (const auto* colours = static_cast<const uint8_t*>(bundle_ptr_->find_asset(entry->name, kTypeColours, 0))) {
         // the skater's colours from its appearance (part A or B, else the other)
         auto* part1 = static_cast<script::Struct*>(skater_appearance_->get_part(kPartA));
@@ -432,7 +440,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             std::array<float, 4> colour{};
             script::Struct* from = part1->has_entry_named(core::at(kColourNames, k)) ? part1 : part2;
             std::memcpy(std::span(skin_colour_tables().skin_colours_).subspan(4 * (static_cast<size_t>(k) + 1), 4).data(),
-                        read_colour(colour, from, core::at(kColourNames, k)).data(), 16);
+                        read_colour(colour, from, core::at(kColourNames, k)).data(), kColourBytes);
         }
         // Not original - the colours read within their asset (bundle_format.h): a count past it reads none (the
         // original's table ran past the asset).
@@ -474,7 +482,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         if (params.cas_data_)
             params.cas_size_ = bundle_ptr_->find_entry(entry->name, kTypeExtra, 1)->size;
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{textures_name}, 3, checksums::Name{0}, texture_data, texture_size, false, true, &texture_params, nullptr);
-        static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{model_name}, 7, checksums::Name{textures_name}, data,
+        static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{model_name}, kResourceKindModel, checksums::Name{textures_name}, data,
                                                                                   entry->size, false, true, &params, nullptr);
         core::at(assets_, asset_count_) = model_name;
         ++asset_count_;
