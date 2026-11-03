@@ -19,6 +19,7 @@ Checks:
   - 'readability-redundant-access-specifiers'
   - 'readability-redundant-string-cstr'
   - 'readability-redundant-typename'
+  - 'readability-static-definition-in-anonymous-namespace'
   - 'clang-analyzer-*'
 
   # --- off: they conflict with the project's decisions ---
