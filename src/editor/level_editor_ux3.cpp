@@ -31,6 +31,9 @@ namespace frontend::level_editor::ux3 {
 
 namespace {
 
+constexpr double kSayDefaultSeconds = 5.0; // how long a message stays
+constexpr uint32_t kHistoryRefreshDelay = 1000; // milliseconds after the last change before the history refreshes
+
 // NOT ORIGINAL grouping - level_editor_ux3.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_ux3_state()).
 struct LevelEditorUx3State {
@@ -51,7 +54,7 @@ LevelEditorUx3State& level_editor_ux3_state()
     return state.get();
 }
 
-void get_say(const std::string& message) { show_message(message, 5.0); }
+void get_say(const std::string& message) { show_message(message, kSayDefaultSeconds); }
 
 // A setting of the toolbar's in the registry (the search shows and switches it).
 void add_toggle(const char* id, const char* name, const char* tip, std::function<int()> checked,
@@ -236,7 +239,7 @@ void tick_frame()
     // (other changes - a save, an autosave restored - don't move the history).
     const size_t key = undo_history().size() * 1000003u + redo_history().size();
     const uint32_t now = SDL_GetTicks();
-    if (key != level_editor_ux3_state().history_key_ || level_editor_ux3_state().refresh_asked_ || now - level_editor_ux3_state().changes_at_ > 1000) {
+    if (key != level_editor_ux3_state().history_key_ || level_editor_ux3_state().refresh_asked_ || now - level_editor_ux3_state().changes_at_ > kHistoryRefreshDelay) {
         level_editor_ux3_state().history_key_ = key;
         level_editor_ux3_state().refresh_asked_ = false;
         level_editor_ux3_state().changes_at_ = now;

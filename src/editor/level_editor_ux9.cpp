@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -33,6 +34,26 @@
 namespace frontend::level_editor::ux9 {
 
 namespace {
+
+constexpr float kProbeHeightAbove = 300.0f; // how far above the point the downward probe starts
+constexpr float kProbeDepthBelow = 3000.0f; // how far below the point it ends
+constexpr double kFirstCornerHintSeconds = 6.0; // how long the "click the first corner" hint stays
+constexpr double kOppositeCornerHintSeconds = 6.0; // how long the "click the opposite corner" hint stays
+constexpr double kFormMessageSeconds = 8.0; // how long a message from the Ground form stays
+constexpr double kGroundResultSeconds = 5.0; // how long the "Raised / Lowered ground" message stays
+constexpr double kGroundErrorSeconds = 8.0; // how long a Ground Tool refusal stays
+constexpr float kPanelRightInset = 12.0f; // the Ground form's gap from the view's right edge, at scale 1
+constexpr float kPanelTopOffset = 60.0f; // its gap from the view's top, at scale 1
+constexpr float kPanelWidth = 340.0f; // its width, at scale 1
+constexpr float kGridSpacingMax = 500.0f; // the grid drag's upper limit
+constexpr std::size_t kPieceRowSize = 160; // the text of a "Pieces in this level" row
+constexpr float kFrameDistanceFactor = 1.5f; // the camera stands this many piece-spans away...
+constexpr float kFrameDistancePadding = 300.0f; // ...plus this much
+constexpr float kGroundRayLength = 20000.0f; // how far a mouse ray is cast to find the ground
+constexpr float kSectorHitMargin = 1000.0f; // how far outside a piece's box a hit still counts as on it
+constexpr float kOutlineThickness = 2.0f; // the drawn outline's / guide's line width
+constexpr std::size_t kSizeLabelSize = 64; // the "w x d" label text
+constexpr float kHoverGuideLength = 25.0f; // the guide line drawn from the hovered corner
 
 constexpr float kHalf = 0.5f; // half
 
@@ -96,7 +117,7 @@ float get_ground_at(V3 p, float fallback)
 {
     V3 hit{};
     uint32_t sector = 0;
-    if (get_cast(p + V3{.x = 0.0f, .y = 300.0f, .z = 0.0f}, p - V3{.x = 0.0f, .y = 3000.0f, .z = 0.0f}, &hit, &sector) && !ground::is_piece(sector))
+    if (get_cast(p + V3{.x = 0.0f, .y = kProbeHeightAbove, .z = 0.0f}, p - V3{.x = 0.0f, .y = kProbeDepthBelow, .z = 0.0f}, &hit, &sector) && !ground::is_piece(sector))
         return hit.y;
     return fallback;
 }
@@ -106,7 +127,7 @@ void change_stage(Stage stage)
     goal_form().stage_ = stage;
     goal_form().have_hover_ = false;
     if (stage == Stage::kFirst)
-        show_message("Ground Tool: click the first corner", 6.0);
+        show_message("Ground Tool: click the first corner", kFirstCornerHintSeconds);
 }
 
 void open_form(const ground::Spec& spec, bool editing)
@@ -125,14 +146,14 @@ void get_apply()
         spec.name = ground::fresh_name(ground::get_all());
     if (!ground::place_in(spec, &why)) {
         goal_form().form_message_ = "Not made: " + why;
-        show_message(goal_form().form_message_, 8.0);
+        show_message(goal_form().form_message_, kFormMessageSeconds);
         return;
     }
     if (const ground::Spec* made = ground::get_find(spec.name))
         goal_form().draft_ = *made;
     goal_form().editing_ = true;
     goal_form().form_message_ = "Applied";
-    show_message(std::string(spec.lower ? "Lowered" : "Raised") + " ground: " + spec.name, 5.0);
+    show_message(std::string(spec.lower ? "Lowered" : "Raised") + " ground: " + spec.name, kGroundResultSeconds);
 }
 
 const char* ramp_name(ground::Ramp ramp)
@@ -144,9 +165,9 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
 {
     if (goal_form().stage_ != Stage::kForm)
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - 12.0f * scale, view_y + 60.0f * scale), ImGuiCond_Appearing,
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - kPanelRightInset * scale, view_y + kPanelTopOffset * scale), ImGuiCond_Appearing,
                             ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(340.0f * scale, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
     const std::string title =
         (goal_form().editing_ ? "Ground piece " + goal_form().draft_.name : std::string("Raise / lower ground")) + "###groundForm";
@@ -184,7 +205,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     ImGui::DragFloat("Ramp length", &d.length, 1.0f, 0.0f, ground::kMaxLength, d.length > 0.0f ? "%.0f" : "auto");
     if (ImGui::IsItemHovered())
         gui::tooltip("0: automatic");
-    ImGui::DragFloat("Grid", &goal_form().grid_, 1.0f, 0.0f, 500.0f, goal_form().grid_ > 0.0f ? "%.0f" : "off");
+    ImGui::DragFloat("Grid", &goal_form().grid_, 1.0f, 0.0f, kGridSpacingMax, goal_form().grid_ > 0.0f ? "%.0f" : "off");
     gui::text_disabled("Material: %s", d.material ? object_edit::caption(d.material).c_str() : "(automatic)");
     if (ImGui::Button("Use Selected Material"))
         goal_form().queue_.emplace_back([] {
@@ -224,7 +245,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     // (the pieces of this level)
     if (!ground::get_all().empty() && ImGui::CollapsingHeader("Pieces in this level")) {
         for (const ground::Spec& s : ground::get_all()) {
-            std::array<char, 160> row{};
+            std::array<char, kPieceRowSize> row{};
             text::format_to(row, "%s  %s %.0f x %.0f, %.0f", s.name.c_str(), s.lower ? "pit" : "platform", s.x1 - s.x0,
                             s.z1 - s.z0, s.height);
             if (ImGui::Selectable(row.data(), goal_form().editing_ && s.name == d.name)) {
@@ -233,7 +254,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                     if (const ground::Spec* found = ground::get_find(name)) {
                         open_form(*found, true);
                         go_to_point({.x = (found->x0 + found->x1) * kHalf, .y = found->base, .z = (found->z0 + found->z1) * kHalf},
-                                    std::max(found->x1 - found->x0, found->z1 - found->z0) * 1.5f + 300.0f);
+                                    std::max(found->x1 - found->x0, found->z1 - found->z0) * kFrameDistanceFactor + kFrameDistancePadding);
                     }
                 });
             }
@@ -251,7 +272,7 @@ void ground_hover(V3 origin, V3 unit_dir)
         return;
     V3 hit{};
     uint32_t sector = 0;
-    if (get_cast(origin, origin + unit_dir * 20000.0f, &hit, &sector)) {
+    if (get_cast(origin, origin + unit_dir * kGroundRayLength, &hit, &sector)) {
         goal_form().hover_ = get_snapped(hit);
         goal_form().have_hover_ = true;
     }
@@ -263,14 +284,14 @@ bool ground_click(V3 origin, V3 unit_dir)
         return false;
     V3 hit{};
     uint32_t sector = 0;
-    if (!get_cast(origin, origin + unit_dir * 20000.0f, &hit, &sector)) {
+    if (!get_cast(origin, origin + unit_dir * kGroundRayLength, &hit, &sector)) {
         show_message("Ground Tool: click on the ground");
         return true;
     }
     if (goal_form().stage_ == Stage::kFirst && ground::is_piece(sector)) {
         for (const ground::Spec& s : ground::get_all()) {
-            if (hit.x >= s.x0 - 1000.0f && hit.x <= s.x1 + 1000.0f && hit.z >= s.z0 - 1000.0f &&
-                hit.z <= s.z1 + 1000.0f) {
+            if (hit.x >= s.x0 - kSectorHitMargin && hit.x <= s.x1 + kSectorHitMargin && hit.z >= s.z0 - kSectorHitMargin &&
+                hit.z <= s.z1 + kSectorHitMargin) {
                 open_form(s, true);
                 return true;
             }
@@ -281,7 +302,7 @@ bool ground_click(V3 origin, V3 unit_dir)
         goal_form().first_ = corner;
         goal_form().floor_ = ground::is_piece(sector) ? 0 : sector;
         goal_form().stage_ = Stage::kSecond;
-        show_message("Ground Tool: click the opposite corner", 6.0);
+        show_message("Ground Tool: click the opposite corner", kOppositeCornerHintSeconds);
         return true;
     }
     ground::Spec spec;
@@ -291,7 +312,7 @@ bool ground_click(V3 origin, V3 unit_dir)
     spec.base = get_ground_at(centre, goal_form().first_.y);
     std::string why;
     if (!ground::choose_material(goal_form().floor_, &spec, &why)) {
-        show_message("Ground Tool: " + why, 8.0);
+        show_message("Ground Tool: " + why, kGroundErrorSeconds);
         change_stage(Stage::kDisengaged);
         return true;
     }
@@ -421,12 +442,12 @@ void add_overlay(const overlays::Painter& painter)
         const float y = goal_form().first_.y + 2.0f;
         const std::array<V3, 4> c = {{{.x = goal_form().first_.x, .y = y, .z = goal_form().first_.z}, {.x = b.x, .y = y, .z = goal_form().first_.z}, {.x = b.x, .y = y, .z = b.z}, {.x = goal_form().first_.x, .y = y, .z = b.z}}};
         for (int i = 0; i < 4; ++i)
-            (void)painter.get_seg(core::at(c, i), core::at(c, (i + 1) % 4), kRect, 2.0f);
-        std::array<char, 64> text{};
+            (void)painter.get_seg(core::at(c, i), core::at(c, (i + 1) % 4), kRect, kOutlineThickness);
+        std::array<char, kSizeLabelSize> text{};
         text::format_to(text, "%.0f x %.0f", std::fabs(b.x - goal_form().first_.x), std::fabs(b.z - goal_form().first_.z));
         painter.draw_label(b, kRect, text.data());
     } else if (goal_form().stage_ == Stage::kFirst && goal_form().have_hover_) {
-        painter.perpendicular(goal_form().hover_, 25.0f, kRect, 2.0f);
+        painter.perpendicular(goal_form().hover_, kHoverGuideLength, kRect, kOutlineThickness);
     }
     if (goal_form().stage_ == Stage::kForm)
         ground::add_preview(painter, goal_form().draft_, kPreview);

@@ -2,6 +2,7 @@
 // (the renderer-independence rules: level_editor_ui_backend.h); the settings are plain data the editor reads next frame.
 
 #include <array>
+#include <cstddef>
 
 #include "editor/level_editor_transform.h"
 #include "imgui.h"
@@ -10,6 +11,12 @@
 #include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::xform {
+
+namespace {
+
+constexpr std::size_t kAxisLabelSize = 16; // a field's label text
+
+} // namespace
 
 void options_menu_items()
 {
@@ -29,7 +36,7 @@ void options_menu_items()
     }
     if (ImGui::BeginMenu("Rotation Snap")) {
         for (const float step : angle_steps()) {
-            std::array<char, 16> label{};
+            std::array<char, kAxisLabelSize> label{};
             text::format_to(label, "%g\xC2\xB0", step);
             if (ImGui::MenuItem(label.data(), nullptr, angle_step() == step))
                 set_angle_step(step);

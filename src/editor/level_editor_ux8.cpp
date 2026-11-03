@@ -36,6 +36,12 @@ namespace frontend::level_editor::ux8 {
 
 namespace {
 
+constexpr double kDefaultSaySeconds = 3.0; // how long a message stays when no time is given
+constexpr float kTriggerDeadzone = 0.1f; // the shoulder triggers' dead zone (up / down)
+constexpr int kControllerButtonBits = 32; // buttons kept in the 32-bit pressed mask
+constexpr double kWalkHintSeconds = 5.0; // how long the Walk Mode keys hint stays
+constexpr double kGlideSeconds = 0.35; // how long the camera glide to a bookmark takes
+
 // The registry's indices of this module's actions (Init).
 struct Ids {
     int pie_context_ = -1, pie_view_ = -1, walk = -1, follow = -1, teleport = -1, pad = -1;
@@ -99,7 +105,7 @@ PieMenu& pie_menu()
 
 std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }
 
-void get_say(const std::string& text, double seconds = 3.0) { show_message(text, seconds); }
+void get_say(const std::string& text, double seconds = kDefaultSaySeconds) { show_message(text, seconds); }
 
 // A simulation (level_editor_playtest.h) stops before the controller or a pie edits anything: its key handler only
 // sees keys typed.
@@ -320,10 +326,10 @@ Pad read_pad()
     p.move_y_ = -axis(SDL_CONTROLLER_AXIS_LEFTY);
     p.look_x_ = axis(SDL_CONTROLLER_AXIS_RIGHTX);
     p.look_y_ = -axis(SDL_CONTROLLER_AXIS_RIGHTY);
-    p.up_down_ = nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT), .deadzone = 0.1f}) -
-                 nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), .deadzone = 0.1f});
+    p.up_down_ = nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT), .deadzone = kTriggerDeadzone}) -
+                 nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), .deadzone = kTriggerDeadzone});
     uint32_t now = 0;
-    for (int b = 0; b < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, 32); ++b) {
+    for (int b = 0; b < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, kControllerButtonBits); ++b) {
         if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)))
             now |= 1u << b;
     }
@@ -565,7 +571,7 @@ void set_walking(bool on, V3 camera)
     if (on) {
         level_editor_ux8_state().walker_ = nav::walker_at(camera);
         glide_state().on = false;
-        get_say("Walk Mode: WASD walk, Space jump, Shift run, Esc exit", 5.0);
+        get_say("Walk Mode: WASD walk, Space jump, Shift run, Esc exit", kWalkHintSeconds);
     } else {
         get_say("Walk mode off");
     }
@@ -600,7 +606,7 @@ bool glide(V3* pos, double seconds)
 {
     if (!glide_state().on)
         return false;
-    glide_state().t = std::min(1.0f, glide_state().t + static_cast<float>(seconds / 0.35));
+    glide_state().t = std::min(1.0f, glide_state().t + static_cast<float>(seconds / kGlideSeconds));
     const float e = view_cam::get_ease(glide_state().t);
     *pos = glide_state().from + (glide_state().to - glide_state().from) * e;
     if (glide_state().t >= 1.0f)

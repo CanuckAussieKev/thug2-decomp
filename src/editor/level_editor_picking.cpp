@@ -18,6 +18,18 @@ namespace frontend::level_editor::picking {
 
 namespace {
 
+constexpr int kPassSeeThroughFlag = 0x40; // a pass drawn see-through regardless of its blend
+constexpr int kBlendModeMask = 0xFFFFFF; // the blend mode's bits (the rest are flags)
+constexpr int kBlendModulate = 7;
+constexpr int kBlendFixModulate = 8;
+constexpr int kBlendBrighten = 9;
+constexpr int kBlendFixBrighten = 10;
+constexpr float kParallelEpsilon = 1e-12f; // a triangle edge-on to the ray (determinant near zero)
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -77,17 +89,17 @@ bool material_see_through(PassBlend pass_blend)
 {
     const auto pass_flags = pass_blend.pass_flags_;
     const auto blend_mode = pass_blend.blend_mode_;
-    if (pass_flags & 0x40)
+    if (pass_flags & kPassSeeThroughFlag)
         return true;
-    switch (blend_mode & 0xFFFFFF) {
+    switch (blend_mode & kBlendModeMask) {
     case 1:
     case 2: // add, fixadd
     case 3:
     case 4: // subtract, fixsubtract
-    case 7:
-    case 8: // modulate, fixmodulate
-    case 9:
-    case 10: // brighten, fixbrighten
+    case kBlendModulate:
+    case kBlendFixModulate: // modulate, fixmodulate
+    case kBlendBrighten:
+    case kBlendFixBrighten: // brighten, fixbrighten
         return true;
     default:
         return false; // 0 diffuse, 5 blend, 6 fixblend (and anything else)
@@ -211,7 +223,7 @@ bool ray_triangle(Ray ray, V3 a, V3 b, V3 c, float* t)
     const V3 e2 = c - a;
     const V3 p = perpendicular(dir, e2);
     const float det = get_dot(e1, p);
-    if (std::fabs(det) < 1e-12f)
+    if (std::fabs(det) < kParallelEpsilon)
         return false;
     const float inv = 1.0f / det;
     const V3 s = origin - a;

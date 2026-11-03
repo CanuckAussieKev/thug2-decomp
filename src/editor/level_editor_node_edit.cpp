@@ -34,6 +34,15 @@ namespace frontend::level_editor::node_edit {
 
 namespace {
 
+constexpr double kWrapSlack = 2e-6; // keeps -pi from wrapping onto +pi
+constexpr float kHalfTurnDegrees = 180.0f;
+constexpr int kMaxDynamicLights = 256; // the dynamic light list's size
+constexpr int kMaxLevelLamps = 150; // the level lamp list's size
+
+} // namespace
+
+namespace {
+
 constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 
 } // namespace
@@ -63,7 +72,7 @@ float wrap_angle(float radians)
     double a = std::fmod(static_cast<double>(radians), kTwoPi);
     if (a > kHalf)
         a -= kTwoPi;
-    else if (a <= -kHalf + 2e-6)
+    else if (a <= -kHalf + kWrapSlack)
         a += kTwoPi;
     return static_cast<float>(a);
 }
@@ -77,7 +86,7 @@ V3 get_turned(V3 angles, int notches)
 float get_heading_degrees(V3 angles)
 {
     const float degrees = wrap_angle(angles.y) * (180.0f / kPi);
-    return degrees <= -180.0f ? 180.0f : degrees;
+    return degrees <= -kHalfTurnDegrees ? kHalfTurnDegrees : degrees;
 }
 
 V3 with_heading(V3 angles, float degrees)
@@ -173,7 +182,7 @@ void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 void move_lights(uint32_t name, V3 pos)
 {
     const int dynamic_count = render::light_sets().dynamic_light_count();
-    for (int i = 0; i < dynamic_count && i < 256; ++i) {
+    for (int i = 0; i < dynamic_count && i < kMaxDynamicLights; ++i) {
         render::DynamicLightBase* light = core::at(render::light_sets().dynamic_lights(), i);
         if (light && light->owner() == name) {
             core::at(light->pos(), 0) = pos.x;
@@ -182,7 +191,7 @@ void move_lights(uint32_t name, V3 pos)
         }
     }
     const int level_count = render::light_sets().scene_light_count();
-    for (int i = 0; i < level_count && i < 150; ++i) {
+    for (int i = 0; i < level_count && i < kMaxLevelLamps; ++i) {
         render::LevelLamp& lamp = core::at(render::light_sets().level_lamps(), i);
         if (lamp.label() == name) {
             lamp.at_point().x = pos.x;

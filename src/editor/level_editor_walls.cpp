@@ -3,6 +3,7 @@
 #include "editor/level_editor_walls.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -24,13 +25,20 @@ namespace frontend::level_editor::walls {
 
 namespace {
 
+constexpr float kSixteenth = 16.0f; // wall positions snap to sixteenths
+constexpr std::size_t kStatusTextSize = 192; // the collision status line
+
+} // namespace
+
+namespace {
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
-float to_sixteenth(float value) { return std::round(value * 16.0f) / 16.0f; }
+float to_sixteenth(float value) { return std::round(value * kSixteenth) / kSixteenth; }
 
 V3 on_grid(V3 v) { return {.x = to_sixteenth(v.x), .y = to_sixteenth(v.y), .z = to_sixteenth(v.z)}; }
 
@@ -361,7 +369,7 @@ std::string describe_state(uint32_t checksum)
     const bool off = disengaged(checksum);
     Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
     const bool moved = get_moved(checksum, &placement);
-    std::array<char, 192> text{};
+    std::array<char, kStatusTextSize> text{};
     if (moved)
         text::format_to(text, "Collision %s - moved by (%.1f, %.1f, %.1f), %d quarter turn%s", off ? "OFF" : "on",
                         placement.offset.x, placement.offset.y, placement.offset.z, placement.quarters,
