@@ -26,6 +26,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/rider/rider_shared.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace skater {
@@ -415,9 +416,9 @@ constexpr float kLeastTurn = 0.5235988f;       // 0x0064BD48 (30 degrees)
 // (horizontal) normal `normal`: true with the point to land on (`target`), its normal, whether it's a hip and
 // whether the object hit is still there.
 bool SkaterPhysicsModule::find_transfer_target(maths::Vec4* look, maths::Vec4* normal, bool* hip,
-                          maths::Vec4* target, maths::Vec4* target_normal, bool* object_hit)
+                          VertTarget* target, bool* object_hit)
 {
-    return find_vert_target(look, normal, hip, target, target_normal,
+    return find_vert_target(look, normal, hip, target,
                                                                           object_hit);
 }
 
@@ -479,7 +480,11 @@ bool SkaterPhysicsModule::try_spine_transfer()
     const maths::Vec4 back = {.x = -target.x, .y = -target.y, .z = -target.z, .w = -target.w};
     maths::Vec4 look = back;
     maths::Vec4 target_normal{};
-    if (!find_transfer_target(&look, &normal, &hip, &target, &target_normal, &object_hit)) {
+    VertTarget aim{.point = target, .normal = target_normal};
+    bool found = find_transfer_target(&look, &normal, &hip, &aim, &object_hit);
+    target = aim.point;
+    target_normal = aim.normal;
+    if (!found) {
         const objects::PadInputModule* input = input_;
         if (!input->pad_primary().left_side().held_down() == !input->pad_primary().right_side().held_down())
             return false;
@@ -492,7 +497,11 @@ bool SkaterPhysicsModule::try_spine_transfer()
             look = side + back;
         }
         look.make_unit();
-        if (!find_transfer_target(&look, &normal, &hip, &target, &target_normal, &object_hit))
+        aim = {.point = target, .normal = target_normal};
+        found = find_transfer_target(&look, &normal, &hip, &aim, &object_hit);
+        target = aim.point;
+        target_normal = aim.normal;
+        if (!found)
             return false;
     }
 

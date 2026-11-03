@@ -345,8 +345,10 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
 }
 
 // 0x00522670
-void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script::Struct* trick_params)
+void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
 {
+    const auto params = trick_params_in.params;
+    const auto trick_params = trick_params_in.trick_params_;
     skater_state_->set_in_trick_move(false);
     starting_special_ = false;
     int& head = queue_first_;
@@ -758,11 +760,11 @@ bool cfunc_do_next_trick(script::Struct* params, script::Script* script)
     script::Struct* trick_params = nullptr;
     params->read_sub_struct(kTrickParams, &trick_params, 0);
     if (!trick_params) {
-        trick->do_next_trick(first, first_params, nullptr);
+        trick->do_next_trick(first, {.params = first_params, .trick_params_ = nullptr});
         return true;
     }
     gsl::owner<script::Struct*> copy = new_struct_copy(trick_params);
-    trick->do_next_trick(first, first_params, copy);
+    trick->do_next_trick(first, {.params = first_params, .trick_params_ = copy});
     if (copy)
         free_struct(copy);
     return true;

@@ -440,10 +440,14 @@ void RiderChaseView::tick_frame()
     if (instant) {
         const float rate = zoom_ease_rate_;
         zoom_ease_rate_ = 1.0f;
-        get_zoomed_offsets(&height, &distance);
+        const ZoomOffsets offsets = get_zoomed_offsets();
+        height = offsets.height;
+        distance = offsets.distance;
         zoom_ease_rate_ = rate;
     } else {
-        get_zoomed_offsets(&height, &distance);
+        const ZoomOffsets offsets = get_zoomed_offsets();
+        height = offsets.height;
+        distance = offsets.distance;
     }
     {
         const maths::Vec4& at = core::at(view.row, 2);

@@ -172,10 +172,13 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
 }
 
 // 0x004FA230
-void RiderChaseView::get_zoomed_offsets(float* height, float* distance)
+RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
 {
+    ZoomOffsets offsets{.height = 0.0f, .distance = 0.0f};
+    float* height = &offsets.height;
+    float* distance = &offsets.distance;
     if (!rider_ref_)
-        return;
+        return offsets;
     zoom_target_ = 1.0f;
     const objects::RiderPoseState* state = state_ref_;
     if (!vert_zoom_on_ && vert_air(state) && state->in_trick_move())
@@ -205,6 +208,7 @@ void RiderChaseView::get_zoomed_offsets(float* height, float* distance)
         *height = static_cast<float>((static_cast<double>(above) - kZoomedHeight) * zoom_ + kZoomedHeight);
     else
         *height = above;
+    return offsets;
 }
 
 // 0x004FA3C0

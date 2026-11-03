@@ -678,8 +678,13 @@ public:
     // vert face (normal y under 0.707) whose horizontal normal is at most 0.95 along `facing`. Found: its point and
     // normal, whether its object is still there (`object_alive`) and whether that normal is more than -0.866 along
     // `facing` (`not_opposite`; rounded to a float first). Whether one was found.
+    // A vert wall's target: the point to land on and its normal.
+    struct VertTarget {
+        maths::Vec4 point;
+        maths::Vec4 normal;
+    };
     bool find_vert_target(const maths::Vec4* direction, const maths::Vec4* facing, bool* not_opposite,
-                          maths::Vec4* point, maths::Vec4* normal, bool* object_alive);
+                          VertTarget* target, bool* object_alive);
     // 0x004FF200: the speed override (+0x3AC, a factor; 1 when off): turned on (+0x255, not in an acid drop or a
     // bail) when faster than 1.25 times the 0x2EACDDB3 stat - the factor the speed over that (at most 0xC6B38BE0),
     // the limits (+0x354, +0x358) lifted. Running down at 0xF9B006AA a second; while above 1 the max speed (+0x354)
@@ -989,7 +994,7 @@ private:
     bool walking_state(int state);
     double fall_time(float height, float upward);
     bool find_transfer_target(maths::Vec4* look, maths::Vec4* normal, bool* hip,
-                          maths::Vec4* target, maths::Vec4* target_normal, bool* object_hit);
+                          VertTarget* target, bool* object_hit);
     // (core_physics_turning.cpp)
     void turn_matrices(float angle);
     // (core_rail.cpp)

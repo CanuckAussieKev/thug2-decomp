@@ -56,8 +56,11 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 // The right stick's turn of the facing (0x00525468-): the sine rounded to float: x' = z * sin + cos * x,
 // z' = -(sin * x) + z * cos.
-void turn_by_stick(double angle, float* x, float* z)
+// (the facing's x and z turned; its y and w kept)
+void turn_by_stick(double angle, maths::Vec4* facing)
 {
+    float* x = &facing->x;
+    float* z = &facing->z;
     const double sine = static_cast<float>(std::sin(angle));
     const double cosine = std::cos(angle);
     const double old_x = *x, old_z = *z;
@@ -232,8 +235,11 @@ void FootView::fetch_goal(maths::Vec4* out, bool instant)
 }
 
 // 0x00524CB0
-void FootView::get_zoomed_offsets(float* height, float* distance)
+FootView::ZoomOffsets FootView::get_zoomed_offsets()
 {
+    ZoomOffsets offsets{.height = 0.0f, .distance = 0.0f};
+    float* height = &offsets.height;
+    float* distance = &offsets.distance;
     float factor = 1.0f;
     uint32_t factor_bits = 0;
     std::memcpy(&factor_bits, &free_look_->factor(), 4);
@@ -252,6 +258,7 @@ void FootView::get_zoomed_offsets(float* height, float* distance)
         *height = static_cast<float>((static_cast<double>(above) - kNearHeight) * zoom_ + kNearHeight);
     else
         *height = above;
+    return offsets;
 }
 
 // 0x005251D0
@@ -318,7 +325,7 @@ void FootView::tick_frame()
             facing = skater_facing;
     }
     if (!(turn == 0.0f) && !flush_)
-        turn_by_stick(static_cast<double>(get_param(kFacingControl)) * turn, &facing.x, &facing.z);
+        turn_by_stick(static_cast<double>(get_param(kFacingControl)) * turn, &facing);
     if (override_) {
         const float x = forced_heading_.x;
         facing.y = forced_heading_.y;
@@ -400,8 +407,9 @@ void FootView::tick_frame()
     // Where to be: behind and above the point followed, looking at a point above the skater.
     maths::Vec4 target{};
     fetch_goal(&target, instant);
-    float height = 0.0f, distance = 0.0f;
-    get_zoomed_offsets(&height, &distance);
+    const ZoomOffsets offsets = get_zoomed_offsets();
+    const float height = offsets.height;
+    const float distance = offsets.distance;
     const double up_x = static_cast<double>(skater_up.x) * height;
     const double up_y = static_cast<double>(skater_up.y) * height;
     const double up_z = static_cast<double>(skater_up.z) * height;

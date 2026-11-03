@@ -155,7 +155,12 @@ public:
     // 0x00582D90: its skater-list node, local or not, base components, type 0xBAF9B341, number and id (skaters 0 and 1
     // get tracker aliases), registered with `manager` (list priority -500), its viewport, and its components (a local
     // skater's full set, a remote one's few). The last argument isn't used.
-    Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skater_number, int unused);
+    // A rider's object id and its skater number.
+    struct RiderSlot {
+        uint32_t id{};
+        int skater_number_{};
+    };
+    Rider(int viewport, EntityHub* manager, bool local, RiderSlot rider_slot, int unused);
     // 0x00583400: a local skater's +0x270 and 0x589E5FB3 reset, 0xF27A294D's, the anim blender's; its script deleted.
     void reset_components();
     // 0x00583470: restarted (a walking skater back to skating, the script's exit scripts, its physics, its camera,

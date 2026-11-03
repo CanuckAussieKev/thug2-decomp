@@ -466,9 +466,22 @@ float steer_in(float in, bool on, float frame_length);
 // THAW 0x005CACA0: which brake acceleration (0 none: the brake is skipped, 1 Physics_Brake_Acceleration, 2
 // Physics_Front_Brake_Acceleration, 3 Physics_Brake_Skid_Acceleration).
 int brake_choice(bool manual, bool nose, bool front_brake, bool endo, bool balance_is_manual);
+// What the ground turn rate is found from: the speeds, the rotations, braking, a manual, the pad, the hold time, riding backwards and the lean.
+struct TurnInput {
+    float speed{};
+    float max_speed_{};
+    float rotation{};
+    float sharp_rotation_{};
+    bool braking{};
+    bool manual{};
+    float pad_axis_x_{};
+    int held_ms_{};
+    bool backwards{};
+    float balance_lean_{};
+};
+
 // THAW 0x005D61F0: the turn rate (radians a second; + left) before the frame length.
-float ground_turn_rate(float speed, float max_speed, float rotation, float sharp_rotation, bool braking, bool manual,
-                       float pad_axis_x, int held_ms, bool backwards, float balance_lean);
+float ground_turn_rate(const TurnInput& turn_input);
 // The manual pitch's input and what it did (THAW 0x005CDA50).
 struct ManualInput {
     bool manual, nose, endo;    // the state before
@@ -541,9 +554,16 @@ bool display_pitch_beyond(const maths::Vec4& up, const maths::Vec4& normal, floa
 // hang check, which THAW passes it) takes rails in the air. False when it's out of reach. `score`: how far (squared).
 bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::Vec4& direction, const maths::Vec4& a,
                  const maths::Vec4& b, float margin, maths::Vec4* point, float* score);
+// A stall test: the velocity at the start, the rail's direction and the tolerance.
+struct StallTest {
+    maths::Vec4 start_velocity_{};
+    maths::Vec4 direction{};
+    float tolerance{};
+};
+
 // The stall. THAW 0x005E2972: whether the grind starts straight into the stall - `start_velocity` flattened
 // and normalised (left alone at length 0) square to `direction` within `tolerance` (Rail_Tolerance > |dot|).
-bool stall_across(const maths::Vec4& start_velocity, const maths::Vec4& direction, float tolerance);
+bool stall_across(const StallTest& stall_test);
 // THAW 0x005E7082: a frame of the grind with the stall flag set, `elapsed` ms since the state changed:
 // `stall` past `slip_time` (stall_slip_time) - else `velocity` less `kept` / `slip_time`.
 struct StallSlipStep {

@@ -299,9 +299,18 @@ int brake_choice(bool manual, bool nose, bool front_brake, bool endo, bool balan
     return choice;
 }
 
-float ground_turn_rate(float speed, float max_speed, float rotation, float sharp_rotation, bool braking, bool manual,
-                       float pad_axis_x, int held_ms, bool backwards, float balance_lean)
+float ground_turn_rate(const TurnInput& turn_input)
 {
+    const auto speed = turn_input.speed;
+    const auto max_speed = turn_input.max_speed_;
+    const auto rotation = turn_input.rotation;
+    const auto sharp_rotation = turn_input.sharp_rotation_;
+    const auto braking = turn_input.braking;
+    const auto manual = turn_input.manual;
+    const auto pad_axis_x = turn_input.pad_axis_x_;
+    const auto held_ms = turn_input.held_ms_;
+    const auto backwards = turn_input.backwards;
+    const auto balance_lean = turn_input.balance_lean_;
     float rate = 0.0f;
     if (pad_axis_x != 0.0f) {
         if (!braking) {
@@ -544,8 +553,11 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     return out;
 }
 
-bool stall_across(const maths::Vec4& start_velocity, const maths::Vec4& direction, float tolerance)
+bool stall_across(const StallTest& stall_test)
 {
+    const auto start_velocity = stall_test.start_velocity_;
+    const auto direction = stall_test.direction;
+    const auto tolerance = stall_test.tolerance;
     // THAW 0x005E2972: the velocity flattened (y 0) and normalised, its dot with the rail's direction (single
     // precision, z first) - across the rail when Rail_Tolerance is more than its size.
     maths::Vec4 flat = start_velocity;
@@ -816,10 +828,7 @@ void turn_on_ground(SkaterPhysicsModule* core)
         held = static_cast<int>(pad->right_side().held_down() ? pad->right_side().get_held_millis()
                                                             : pad->left_side().get_held_millis());
     const float sharp = tuning_float_lookup(kGroundSharpRotation, core);
-    const float rate = bike::ground_turn_rate(get_pace(core), get_stat(kMaxSpeedStat, core),
-                                              tuning_float_lookup(kGroundRotation, core), sharp,
-                                              pad_axis_x != 0.0f && brake_held(core, state), state.manual, pad_axis_x,
-                                              held, moving_backwards(core), core->balance()->manual().lean());
+    const float rate = bike::ground_turn_rate({.speed = get_pace(core), .max_speed_ = get_stat(kMaxSpeedStat, core), .rotation = tuning_float_lookup(kGroundRotation, core), .sharp_rotation_ = sharp, .braking = pad_axis_x != 0.0f && brake_held(core, state), .manual = state.manual, .pad_axis_x_ = pad_axis_x, .held_ms_ = held, .backwards = moving_backwards(core), .balance_lean_ = core->balance()->manual().lean()});
     // THAW 0x005D61F0's +0x570: the turn animation's share, every frame on the ground.
     state.steer_blend_ = bike::steer_blend(rate, sharp);
     {
@@ -1409,7 +1418,7 @@ void grind_stall(SkaterPhysicsModule* core, const maths::Vec4& start_velocity, c
         state.stall_script_ = false;
         return;
     }
-    if (bike::stall_across(start_velocity, direction, script::fetch_float(kRailTolerance)))
+    if (bike::stall_across({.start_velocity_ = start_velocity, .direction = direction, .tolerance = script::fetch_float(kRailTolerance)}))
         change_phase(core, kStateBikeStall);
     state.stall_velocity_ = object_of(core)->vel();
     state.stall_script_ = true;

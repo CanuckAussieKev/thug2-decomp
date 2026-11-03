@@ -301,7 +301,8 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     const int heap = find_free_rider_heap(local);
     memory::enter_heap_scope(rider_heap_at(heap));
     auto skater = memory::make_owned<objects::Rider>(
-        viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local, id, heap, 1);
+        viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local,
+        objects::Rider::RiderSlot{.id = id, .skater_number_ = heap}, 1);
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
         const script::StructPtr params = script::make_struct();

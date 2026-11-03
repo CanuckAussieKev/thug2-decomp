@@ -41,6 +41,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 
@@ -100,12 +102,17 @@ float asin_degrees(double value, bool negate)
 }
 
 // get_turned_facing's turn (0x00528220): the cosine rounded to float.
-void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
+// A direction on the ground: x and z.
+struct FlatXz {
+    float x;
+    float z;
+};
+
+FlatXz turn_flat(double angle, FlatXz from)
 {
     const double cosine = static_cast<float>(std::cos(angle));
     const double sine = std::sin(angle);
-    *turned_x = static_cast<float>(cosine * x - sine * z);
-    *turned_z = static_cast<float>(sine * x + cosine * z);
+    return {.x = static_cast<float>(cosine * from.x - sine * from.z), .z = static_cast<float>(sine * from.x + cosine * from.z)};
 }
 
 } // namespace
@@ -241,8 +248,9 @@ maths::Vec4* FootMovement::get_facing(maths::Vec4* out)
 maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
 {
     const maths::Vec4& facing = facing_;
-    float x = 0.0f, z = 0.0f;
-    turn_flat(static_cast<double>(index) * kSeventhTurn, facing.x, facing.z, &x, &z);
+    const FlatXz turned = turn_flat(static_cast<double>(index) * kSeventhTurn, {.x = facing.x, .z = facing.z});
+    const float x = turned.x;
+    const float z = turned.z;
     out->y = 0.0f;
     out->w = 1.0f;
     out->x = x;

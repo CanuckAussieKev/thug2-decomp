@@ -95,7 +95,12 @@ public:
     // the distance behind (behind_ x the zoom, which eases at zoom_ease_rate_ toward 1 - in vert air big_air_trick_zoom_, on
     // a rail rail_zoom_factor_, on a lip lip_trick_zoom_ - times the look-around's zoom; nearer as the look-around tilts
     // down). Nothing without a skater.
-    void get_zoomed_offsets(float* height, float* distance);
+    // The camera's height and distance for the zoom.
+    struct ZoomOffsets {
+        float height;
+        float distance;
+    };
+    ZoomOffsets get_zoomed_offsets();
 
     // The fields other code reads and sets.
     void set_skater_matrix(const maths::Mat4& value) { skater_matrix_ = value; }

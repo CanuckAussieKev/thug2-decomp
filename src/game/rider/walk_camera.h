@@ -89,7 +89,12 @@ public:
     // 0x00524CB0: the height above the skater (the skater camera's +0xD0, from 3 when zoomed in) and the
     // distance behind (+0xC4 x the zoom, nearer when the look-around tilts up). The zoom eases toward the
     // look-around's factor while it turns (else 1) at the skater camera's +0x110.
-    void get_zoomed_offsets(float* height, float* distance);
+    // The camera's height and distance for the zoom.
+    struct ZoomOffsets {
+        float height;
+        float distance;
+    };
+    ZoomOffsets get_zoomed_offsets();
 
     // The fields other code reads and sets.
     void set_instant_frames(int value) { instant_frames_ = value; }

@@ -231,10 +231,16 @@ public:
     // the trick counted (0x00522340). A trick with Params without IsExtra is counted by the 0x4FF8DAC6 component
     // first. Whether it started.
     bool try_trick(script::Struct* trick, uint32_t flag, script::Struct* extra_params);
+    // A trick's parameters: those of the call and the trick's own.
+    struct TrickParams {
+        script::Struct* params{};
+        script::Struct* trick_params_{};
+    };
+
     // 0x00522670: the next trick of the queue (skipping empty entries): `first` run first as an interrupt (with
     // `params`); the trick tried; failing that its trickSlot's mapping: an integer starts CreateATrick (with
     // trick_index and `trickParams`), a name the structure it names (the goal manager told first).
-    void do_next_trick(uint32_t first, script::Struct* params, script::Struct* trick_params);
+    void do_next_trick(uint32_t first, TrickParams trick_params_in);
     // 0x005228B0: the pending manual trick (DoNextManualTrick): ScriptToRunFirst run first as an interrupt with
     // Params (on a copy of `params`, copied back); its slot's mapping; its script switched to with `params` (its
     // Params appended) or its Params.

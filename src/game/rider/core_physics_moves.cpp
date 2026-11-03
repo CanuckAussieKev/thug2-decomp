@@ -117,7 +117,7 @@ float least_of(float a, float b, float c) { return gfx::least_of(a, b, c); }
 
 // 0x004FEE10
 bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const maths::Vec4* facing, bool* not_opposite,
-                                           maths::Vec4* point, maths::Vec4* normal, bool* object_alive)
+                                           VertTarget* target, bool* object_alive)
 {
     render::ProbeRay feeler;
     render::HitMeshCache cache;
@@ -172,8 +172,8 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
     if (!found) {
         return false;
     }
-    *point = feeler.contact_pos();
-    *normal = feeler.surface_dir();
+    target->point = feeler.contact_pos();
+    target->normal = feeler.surface_dir();
     *object_alive = feeler.hit_object_alive();
     *not_opposite = static_cast<float>(along) > kTargetOpposite;
     return true;

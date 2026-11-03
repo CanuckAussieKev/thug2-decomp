@@ -1218,8 +1218,10 @@ void Rider::launch_projectile()
 }
 
 // 0x00582D90
-Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skater_number, int /*unused*/)
+Rider::Rider(int viewport, EntityHub* manager, bool local, RiderSlot rider_slot, int /*unused*/)
 {
+    const auto id = rider_slot.id;
+    const auto skater_number = rider_slot.skater_number_;
     // Its node in the skater list (lists::Elem<Rider>).
     skater_link_.make_node(this);
     set_is_local_skater(local);
