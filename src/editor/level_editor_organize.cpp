@@ -56,7 +56,6 @@ constexpr int kFirstPrintableChar = 0x20;
 constexpr int kDeleteChar = 0x7F;
 constexpr float kSizeTolerance = 0.5f; // two boxes this close in every axis count as the same size
 constexpr std::size_t kMaxSetNameLength = 32; // the longest saved selection name
-constexpr std::size_t kBoxCorners = 8; // an oriented box's corners
 constexpr std::size_t kBoxStatusSize = 160; // the box select's status line
 constexpr float kFarthest = 1e30f; // the nearest-node search starts from this distance
 constexpr float kBoxDragThreshold = 6.0f; // pixels the mouse moves before a click becomes a box drag
@@ -516,7 +515,7 @@ std::vector<uint32_t> selectable_sectors()
 // A thing's screen box from a placed box's corners (false: a corner behind the camera when `whole`, none in front).
 bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
 {
-    std::array<V3, kBoxCorners> corners{};
+    std::array<V3, kBoxCornerCount> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
     bool any = false;
     Rect2 r = {.x0 = 0, .y0 = 0, .x1 = 0, .y1 = 0};

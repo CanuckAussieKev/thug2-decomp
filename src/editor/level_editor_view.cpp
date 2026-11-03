@@ -62,7 +62,6 @@ constexpr std::uint32_t kHoveredEdge = 0xFFFFF060u;
 constexpr std::uint32_t kWallEdge = 0xE0FF60F0u;
 constexpr float kHighlightedEdgeThickness = 1.5f;
 constexpr int kMaxGeometries = 16; // an object geometries looked at
-constexpr int kBoxCornerCount = 8;
 constexpr float kWallPriorityBias = 1e7f; // walls are ordered before faces by this much
 constexpr int kRedShift = 16; // a colour channels
 constexpr int kGreenShift = 8;
@@ -567,7 +566,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
                 return;
             // (wholly behind the camera: left out)
             bool front = false;
-            for (int i = 0; i < kBoxCornerCount && !front; ++i) {
+            for (int i = 0; i < kBoxCorners && !front; ++i) {
                 const V3 corner = {.x = (i & 1) ? max.x : min.x, .y = (i & 2) ? max.y : min.y, .z = (i & 4) ? max.z : min.z};
                 front = -get_dot(corner - w->camera, w->frame->back) >= w->near_z_;
             }

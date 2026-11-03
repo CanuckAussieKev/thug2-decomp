@@ -4,7 +4,6 @@
 #include "editor/level_editor_overlays.h"
 
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -38,7 +37,6 @@ constexpr float kGridRefreshDistance = 25.0f; // the grid's ground is found agai
 constexpr std::uint32_t kGridMajorColour = 0x70E0E8F0u;
 constexpr std::uint32_t kGridMinorColour = 0x38C0C8D0u;
 constexpr float kGridMajorThickness = 1.25f;
-constexpr std::size_t kBoxCorners = 8;
 constexpr float kCarriedThickness = 1.25f;
 constexpr float kCarriedDotRadius = 5.0f;
 
@@ -278,7 +276,7 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
             OrientedBox box{};
             if (!object || (object->object_flags() & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
                 continue;
-            std::array<V3, kBoxCorners> corners{};
+            std::array<V3, kBoxCornerCount> corners{};
             box_corners(box.origin, box.axes, box.min, box.max, corners);
             static const std::array<std::array<int, 2>, 12> kEdges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};

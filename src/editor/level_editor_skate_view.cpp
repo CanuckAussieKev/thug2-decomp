@@ -46,7 +46,6 @@ constexpr std::uint32_t kNotSkatableColour = 0x70E03838;
 constexpr std::uint32_t kKillColour = 0x90FF1050;
 constexpr std::uint32_t kWaterColour = 0x903070FF;
 constexpr float kVertAngleDegrees = 45.0f; // the slope angle used when none is given
-constexpr int kBoxCornerCount = 8;
 constexpr float kEdgeThickness = 2.0f;
 constexpr float kRailThickness = 3.0f;
 constexpr float kLegendInset = 12.0f; // the legend gap from the view corner, at scale 1
@@ -340,7 +339,7 @@ void add_overlay(const overlays::Painter& painter)
         if (!a.alive || a.spec.kind != triggers::Kind::kKill)
             continue;
         OrientedBox box = triggers::box_of(a.pos, a.yaw, a.spec.size);
-        std::array<V3, kBoxCornerCount> corner{};
+        std::array<V3, kBoxCorners> corner{};
         box_corners(box.origin, box.axes, box.min, box.max, corner);
         const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                   {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};

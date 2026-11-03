@@ -35,7 +35,6 @@ constexpr int kRingPoints = 48;
 constexpr float kMinForwardSquared = 1e-6f;
 constexpr float kForwardArrowFraction = 0.8f;
 constexpr float kCubeFraction = 0.06f; // the scale handle cubes, of the gizmo length
-constexpr int kBoxCornerCount = 8;
 constexpr float kGrabSlackSquared = 2.25f; // the pick radius is 1.5 times the grab size
 constexpr std::uint32_t kLitHandleColour = 0xFFFFFF40;
 constexpr std::uint32_t kAxisXColour = 0xFFFF4040;
@@ -247,11 +246,11 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
     case Mode::kScale: {
         float cube = length * kCubeFraction;
         auto add_cube = [&](V3 c, int handle) {
-            std::array<V3, kBoxCornerCount> corners{};
-            for (int i = 0; i < kBoxCornerCount; ++i)
+            std::array<V3, kBoxCorners> corners{};
+            for (int i = 0; i < kBoxCorners; ++i)
                 core::at(corners, i) = c + V3{.x = (i & 1) ? cube : -cube, .y = (i & 2) ? cube : -cube, .z = (i & 4) ? cube : -cube};
-            for (int i = 0; i < kBoxCornerCount; ++i) {
-                for (int bit = 1; bit < kBoxCornerCount; bit <<= 1) {
+            for (int i = 0; i < kBoxCorners; ++i) {
+                for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
                     if (!(i & bit))
                         out.push_back({.a = core::at(corners, i), .b = core::at(corners, i | bit), .handle = handle, .arrow = false});
                 }

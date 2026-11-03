@@ -140,7 +140,6 @@ constexpr float kDefaultBoostMultiplier = 7.5f; // shown when the call has none
 // The overlay.
 constexpr float kDefaultSegmentThickness = 1.5f;
 constexpr float kNearPlaneMargin = 0.01f;
-constexpr int kBoxCornerCount = 8;
 constexpr float kOverlayLineThickness = 2.0f;
 constexpr float kMinArrowLength = 4.0f; // shorter arrows are not drawn
 constexpr uint32_t kRgbMask = 0x00FFFFFFu;
@@ -2356,9 +2355,9 @@ struct Painter {
     }
     void cuboid(const OrientedBox& box, uint32_t argb, float thickness) const
     {
-        std::array<V3, kBoxCornerCount> c{};
+        std::array<V3, kBoxCorners> c{};
         box_corners(box.origin, box.axes, box.min, box.max, c);
-        for (int i = 0; i < kBoxCornerCount; ++i) {
+        for (int i = 0; i < kBoxCorners; ++i) {
             for (const int bit : {1, 2, 4}) {
                 if (!(i & bit))
                     get_seg(core::at(c, i), core::at(c, i | bit), argb, thickness);

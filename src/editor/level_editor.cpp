@@ -103,8 +103,6 @@ constexpr double kNdcSpan = 2.0;            // normalised device coordinates run
 constexpr double kFarDistance = 1e30;       // the start of a slab test
 constexpr double kParallelEpsilon = 1e-12;  // a ray this close to parallel to a slab never enters it
 constexpr double kLineParallelEpsilon = 1e-9; // two lines this close to parallel have no nearest points
-constexpr int kBoxCorners = 8;
-constexpr int kBoxCornerBitLimit = 8;       // corner bits 1, 2 and 4
 constexpr float kHoldMargin = 0.05f;        // a box holds a point within this share of its size outside it
 constexpr float kGroundRayRise = 50.0f;     // the ground ray starts this far above the base
 constexpr float kDefaultFlySpeed = 800.0f;  // units a second
@@ -2466,7 +2464,7 @@ void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std
     std::array<V3, kBoxCornerCount> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
     for (int i = 0; i < kBoxCorners; ++i) {
-        for (int bit = 1; bit < kBoxCornerBitLimit; bit <<= 1) {
+        for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
             if (!(i & bit))
                 add_line(core::at(corners, i), core::at(corners, i | bit), frame, color, out);
         }

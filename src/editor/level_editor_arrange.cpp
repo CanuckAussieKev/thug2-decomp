@@ -82,8 +82,6 @@ constexpr uint32_t kPositionBytes = 12;        // a vertex position: three float
 constexpr float kMinEdgeLength = 16.0f;        // top edges shorter than this are dropped
 constexpr std::size_t kMaxEdgeRuns = 256;
 constexpr float kBoxLineWidth = 1.5f;
-constexpr int kBoxCorners = 8;
-constexpr int kBoxCornerBitLimit = 8;          // corner bits 1, 2 and 4
 constexpr float kHeadHeight = 72.0f;           // the marker pole
 constexpr float kMarkerWidth = 2.0f;
 constexpr float kHeadingRadius = 30.0f;        // the heading arc
@@ -1309,7 +1307,7 @@ struct Painter {
         std::array<V3, kBoxCornerCount> c{};
         box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < kBoxCorners; ++i) {
-            for (int bit = 1; bit < kBoxCornerBitLimit; bit <<= 1) {
+            for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
                 if (!(i & bit))
                     get_seg(core::at(c, i), core::at(c, i | bit), argb, kBoxLineWidth);
             }

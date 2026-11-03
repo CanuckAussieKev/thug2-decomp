@@ -160,6 +160,7 @@ class Script;
 namespace frontend::level_editor {
 
 constexpr std::size_t kBoxCornerCount = 8; // a box's corners
+constexpr int kBoxCorners = 8;            // the same, as a loop's count (a corner's index bits: x, y, z)
 
 // The axes' letters, by index (0 X, 1 Y, 2 Z).
 inline constexpr std::string_view kAxisLetters = "XYZ";

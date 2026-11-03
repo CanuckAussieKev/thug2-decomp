@@ -87,8 +87,6 @@ constexpr float kGhostRange = 4000.0f;       // ghosts are drawn within this dis
 constexpr std::size_t kMaxGhosts = 200;
 constexpr float kGhostHalfWidth = 20.0f;
 constexpr float kGhostHeight = 40.0f;
-constexpr int kBoxCorners = 8;
-constexpr int kBoxCornerBitLimit = 8;        // corner bits 1, 2 and 4
 constexpr float kGhostFacingLength = 30.0f;
 constexpr float kGhostFacingWidth = 1.5f;
 constexpr float kLabelRange = 1500.0f;       // ghosts are labelled within this distance
@@ -1392,7 +1390,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         std::array<V3, kBoxCornerCount> corners{};
         box_corners(n->pos, axes, {.x = -1.0f, .y = 0.0f, .z = -1.0f}, {.x = 1.0f, .y = 1.0f, .z = 1.0f}, corners);
         for (int i = 0; i < kBoxCorners; ++i) {
-            for (int bit = 1; bit < kBoxCornerBitLimit; bit <<= 1) {
+            for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
                 if (!(i & bit))
                     line(core::at(corners, i), core::at(corners, i | bit), kGhost, 1.0f);
             }

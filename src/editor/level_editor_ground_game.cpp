@@ -57,7 +57,6 @@ constexpr uint32_t kIndexStoreBytes = 0x18; // the index store object's size
 constexpr uint32_t kIndexStoreMode = 0x65;  // the index store's mode argument
 constexpr std::size_t kLineTextSize = 96;
 constexpr std::size_t kMaxIndexedVertices = 0xFFFF; // faces index the vertices with 16 bits
-constexpr int kBoxCorners = 8;
 constexpr uint32_t kVertexBytes = 12;       // a collision vertex: three floats
 constexpr uint32_t kFaceBytes = 10;         // a collision face: five 16-bit words
 constexpr std::size_t kFaceWords = 5;       // flags, terrain and three vertex indices
