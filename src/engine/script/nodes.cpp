@@ -230,7 +230,7 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
             if (!symbol)
                 break;
             switch (symbol->type()) {
-            case script::kQbvalScriptBody:
+            case script::QbValueKind::kScriptBody:
                 params->get_clear();
                 token = script::parse_arguments(params, token, parent_params);
                 if (name == target)
@@ -239,7 +239,7 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
                     token = script::skip_to_end_of_statement(token);
                 for_each_script_call({.script = name, .target = target}, callback, params, depth + 1);
                 break;
-            case script::kQbvalNativeFunc:
+            case script::QbValueKind::kNativeFunc:
                 if (name != target) {
                     token = script::skip_to_end_of_statement(token);
                     break;
@@ -248,7 +248,7 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
                 token = script::parse_arguments(params, token, parent_params);
                 callback(params, call.address());
                 break;
-            case script::kQbvalNativeMethod:
+            case script::QbValueKind::kNativeMethod:
                 if (name != target) {
                     token = script::skip_to_end_of_statement(token);
                     break;

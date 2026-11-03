@@ -141,7 +141,7 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (symbol) {
-        if (symbol->type() != kQbvalScriptBody)
+        if (symbol->type() != QbValueKind::kScriptBody)
             return nullptr;
         name = symbol->name_value();
     }

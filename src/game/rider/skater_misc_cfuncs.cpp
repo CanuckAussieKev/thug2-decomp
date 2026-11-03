@@ -172,7 +172,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
 
     // the stream numbers 1..count, shuffled
     gsl::owner<Array*> order = script::new_array();
-    order->configure_size_kind(count, script::kQbvalInteger);
+    order->configure_size_kind(count, script::QbValueKind::kInteger);
     for (int i = 0; i < count; ++i)
         order->set_element(i, static_cast<uint32_t>(i + 1));
     for (int i = 0; i < count; ++i) {

@@ -3448,7 +3448,7 @@ uint32_t chain_target()
 }
 
 // An Inspector / key operation on the selected node's chain.
-void run_chain_op(int op, uint32_t arg)
+void run_chain_op(chains::ChainOp op, uint32_t arg)
 {
     const uint32_t target = chain_target();
     if (!target)
@@ -3456,7 +3456,7 @@ void run_chain_op(int op, uint32_t arg)
     const chains::State before = chains::at_hand();
     std::string message;
     uint32_t select = 0;
-    chains::apply_op(static_cast<chains::ChainOp>(op), target, arg, &message, &select);
+    chains::apply_op(op, target, arg, &message, &select);
     if (select == target && !drag_state().node_selected_)
         select = 0; // (a ped / car stays selected as the object)
     after_chain_change(before, select, message);
@@ -3730,7 +3730,7 @@ void stop_chain_drawing(const char* message)
 {
     std::string text;
     uint32_t select = 0;
-    chains::apply_op(chains::kOpCancel, 0, 0, &text, &select);
+    chains::apply_op(chains::ChainOp::kCancel, 0, 0, &text, &select);
     if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone)
         pick_cycle().place_armed_ = -1;
     if (message)
@@ -3748,7 +3748,7 @@ void unlink_list_node(bool confirmed)
     // A rail or path point: deleted from its chain, its neighbours linked (a level's own hidden - level_editor_chains.h).
     if (node.family == nodes::Family::kRail || node.family == nodes::Family::kRouteWay ||
         node.family == nodes::Family::kLadder) { // (a ladder: whole)
-        run_chain_op(chains::kOpDelete, 0);
+        run_chain_op(chains::ChainOp::kDelete, 0);
         return;
     }
     // A copy selected by its node (a particle system's - level_editor_entities.h): deleted as the object copies are.
@@ -4694,9 +4694,9 @@ void get_reset()
             hud::get_message("Already original");
         }
         if (chains::is_ladder(drag_state().node_name_))
-            run_chain_op(chains::kOpFacingHome, 0); // (a level ladder turned: its facing too - its own undo step)
+            run_chain_op(chains::ChainOp::kFacingHome, 0); // (a level ladder turned: its facing too - its own undo step)
         if (chains::view_of(drag_state().node_name_).speed > 0.0f)
-            run_chain_op(chains::kOpSpeed, 0); // (a rail point's speed-up taken off: its own undo step)
+            run_chain_op(chains::ChainOp::kSpeed, 0); // (a rail point's speed-up taken off: its own undo step)
         if (triggers::proxim_of(drag_state().node_name_))
             triggers::set_proxim(triggers::ProximEdit{.node = drag_state().node_name_}, true); // (a proximity node's scripts / shape)
     } else if (!objects.empty()) {
@@ -5520,8 +5520,9 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             break;
         case ui::Request::Kind::kChainOp:
             if (!no_change) {
-                run_chain_op(request.value, request.id);
-                if (request.value == chains::kOpExtend && chains::get_drawing() != chains::Blit::kNone) {
+                const auto op = static_cast<chains::ChainOp>(request.value);
+                run_chain_op(op, request.id);
+                if (op == chains::ChainOp::kExtend && chains::get_drawing() != chains::Blit::kNone) {
                     pick_cycle().place_armed_ = -1; // (drawing on from the selected end: the palette's entry isn't armed)
                     unpick();           // (the camera flies while drawing)
                 }
@@ -6135,13 +6136,13 @@ void tick_frame()
     const bool unlink_now = actions::squeezed(actions::kChainUnlink);
     if (drag_state().node_selected_ && !no_change && !stored_browser().open && chains::is_chain_node(drag_state().node_name_)) {
         if (insert_now)
-            run_chain_op(chains::kOpInsert, 0);
+            run_chain_op(chains::ChainOp::kInsert, 0);
         if (unlink_now)
-            run_chain_op(chains::kOpUnlink, 0);
+            run_chain_op(chains::ChainOp::kUnlink, 0);
         if (join_now)
-            run_chain_op(chains::kOpLinkArm, 0);
+            run_chain_op(chains::ChainOp::kLinkArm, 0);
         if (end_now) {
-            run_chain_op(chains::kOpExtend, 0);
+            run_chain_op(chains::ChainOp::kExtend, 0);
             if (chains::get_drawing() != chains::Blit::kNone) {
                 pick_cycle().place_armed_ = -1;
                 unpick();
@@ -6333,7 +6334,7 @@ void tick_frame()
         if (turn && organize::selection_locked(true))
             turn = 0;
         if (turn && !drag_state().dragging_ && picked_node_index() >= 0 && chains::is_ladder(drag_state().node_name_)) {
-            run_chain_op(chains::kOpTurn, static_cast<uint32_t>(turn)); // (a ladder: its facing, whole)
+            run_chain_op(chains::ChainOp::kTurn, static_cast<uint32_t>(turn)); // (a ladder: its facing, whole)
         } else if (turn && !drag_state().dragging_ &&
                    !(picked_node_index() >= 0 && node_edit::is_chain(drag_state().node_name_))) { // (chain points don't turn)
             push_undo(get_snapshot(), "Turn");

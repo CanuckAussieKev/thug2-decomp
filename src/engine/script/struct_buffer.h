@@ -27,8 +27,6 @@ class Array;
 // The writers below write at a util::ByteWriter (NOT ORIGINAL: the original's took a buffer pointer and the bytes left);
 // each tests its fit as the original did - room for the longest name form (5 bytes) and the value - and returns the
 // bytes written, 0 when they don't fit (the writer's bytes past its start are then not to be used).
-// 0x00479840: the type byte and the name (shortened when the name is in one of the two arrays).
-void write_name_and_type(util::ByteWriter& out, uint8_t type, checksums::Name name);
 // 0x004798F0: an integer component, in the smallest form for its value.
 uint32_t emit_int(util::ByteWriter& out, checksums::Name name, int value);
 // 0x00479A50: a float component (0x13 with no value for tiny ones).

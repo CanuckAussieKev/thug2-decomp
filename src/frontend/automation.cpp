@@ -781,16 +781,16 @@ UiWidget* find_element(uint32_t id, ElementPtr* holder)
 // Whether a script's parameters name a denied script or id (structures and arrays too).
 bool struct_denied(script::Struct* params, int depth);
 
-bool value_denied(uint32_t type, script::Cell value, int depth)
+bool value_denied(script::QbValueKind type, script::Cell value, int depth)
 {
     switch (type) {
-    case script::kQbvalName:
+    case script::QbValueKind::kName:
         return checksum_denied(value.word());
-    case script::kQbvalStruct:
-    case script::kQbvalStructRef:
+    case script::QbValueKind::kStruct:
+    case script::QbValueKind::kStructRef:
         return struct_denied(value.structure(), depth + 1);
-    case script::kQbvalArray:
-    case script::kEsymboltypeArraypointer: {
+    case script::QbValueKind::kArray:
+    case script::QbValueKind::kArrayRef: {
         script::Array* array = value.array();
         if (!array || depth > kMaxStructureDepth)
             return false;
@@ -1183,7 +1183,7 @@ gsl::owner<script::Struct*> make_params(const std::vector<Param>& params)
 bool script_exists(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && (symbol->type() == script::kQbvalScriptBody || symbol->type() == script::kQbvalNativeFunc);
+    return symbol && (symbol->type() == script::QbValueKind::kScriptBody || symbol->type() == script::QbValueKind::kNativeFunc);
 }
 
 // Spawn a script (run's and -run's); "" if it ran, else why not.

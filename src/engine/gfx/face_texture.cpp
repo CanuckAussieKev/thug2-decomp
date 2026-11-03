@@ -138,7 +138,7 @@ bool read_point(Struct* params, uint32_t name, std::array<int, 2>& point)
 gsl::owner<Array*> new_point_array(const std::array<int, 2>& point)
 {
     gsl::owner<Array*> array = script::new_array();
-    array->configure_size_kind(2, script::kQbvalInteger);
+    array->configure_size_kind(2, script::QbValueKind::kInteger);
     array->set_element(0, static_cast<uint32_t>(std::get<0>(point)));
     array->set_element(1, static_cast<uint32_t>(std::get<1>(point)));
     return array;
@@ -385,7 +385,7 @@ void FaceSkin::save_to_structure(Struct* params)
 {
     gsl::owner<Array*> image = script::new_array();
     constexpr uint32_t kWords = kTexelEdge / 4;
-    image->configure_size_kind(kWords, script::kQbvalName);
+    image->configure_size_kind(kWords, script::QbValueKind::kName);
     for (uint32_t i = 0; i < kWords; ++i) {
         uint32_t word = 0;
         std::memcpy(&word, &core::at(image_, 4 * i), sizeof(word));

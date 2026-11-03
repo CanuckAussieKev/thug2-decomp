@@ -107,7 +107,7 @@ bool get_filled(const char* text) { return text && *text; }
 void set_preference_text(prefs::Preferences* preferences, uint32_t name, const char* text)
 {
     const script::StructPtr values = script::make_struct();
-    values->append_word(kUiString, script::kQbvalString, text);
+    values->append_word(kUiString, script::QbValueKind::kString, text);
     preferences->change_setting(name, values.get());
 }
 

@@ -270,7 +270,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
     Struct* callback_params = nullptr;
     params->read_sub_struct(kCallbackParams, &callback_params, 0);
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    if (symbol && symbol->type() == script::kQbvalNativeMethod) {
+    if (symbol && symbol->type() == script::QbValueKind::kNativeMethod) {
         element.get_pull()->invoke_method_by_name(name, script_params, script);
     } else if (Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params})) {
         spawned->entity().assign_value(element.get_pull());
@@ -373,7 +373,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
-    array->configure_size_kind(count, script::kQbvalName);
+    array->configure_size_kind(count, script::QbValueKind::kName);
     for (int i = 0; i < count; ++i)
         array->set_element(i, element->find_child_at_slot(i)->ident());
     script->args()->append_array_ref(kChildren, array);

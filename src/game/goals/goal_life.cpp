@@ -560,7 +560,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
     num_flags_ = 0;
     script::Array* flags = nullptr;
     if (params->fetch_list(kGoalFlags, &flags, 0)) {
-        if (flags->kind_tag() == script::kQbvalStruct) {
+        if (flags->kind_tag() == script::QbValueKind::kStruct) {
             // One structure per skater: its own flags and counts.
             goal_flags_->put_name_key(checksums::Name{kNoName}, kSkaterTraits);
             const int skaters = static_cast<int>(flags->extent());

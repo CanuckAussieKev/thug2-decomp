@@ -87,9 +87,9 @@ char* new_initials()
 gsl::owner<script::Struct*> record_structure(const BestEntry* record)
 {
     gsl::owner<script::Struct*> structure = script::new_struct();
-    structure->add_component_of_type(kValue, script::kQbvalInteger, static_cast<uint32_t>(record->val()));
-    structure->add_component_of_type(kNumber, script::kQbvalInteger, static_cast<uint32_t>(record->slot_no()));
-    structure->append_word(kInitials, script::kQbvalString, record->tag());
+    structure->add_component_of_type(kValue, script::QbValueKind::kInteger, static_cast<uint32_t>(record->val()));
+    structure->add_component_of_type(kNumber, script::QbValueKind::kInteger, static_cast<uint32_t>(record->slot_no()));
+    structure->append_word(kInitials, script::QbValueKind::kString, record->tag());
     return structure;
 }
 
@@ -235,7 +235,7 @@ void BestEntryList::write_to_structure(script::Struct* params)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    array->configure_size_kind(num_, script::kQbvalStruct);
+    array->configure_size_kind(num_, script::QbValueKind::kStruct);
     for (int i = 0; i < num_; ++i) {
         gsl::owner<script::Struct*> record = record_structure(&core::at(records(), i)); // (the array's)
         array->set_cell(i, script::Cell::of(record));
@@ -367,14 +367,14 @@ void BestResults::write_to_structure(script::Struct* params)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    array->configure_size_kind(level_count_, script::kQbvalStruct);
+    array->configure_size_kind(level_count_, script::QbValueKind::kStruct);
     for (int i = 0; i < level_count_; ++i) {
         gsl::owner<script::Struct*> structure = script::new_struct();
         core::at(levels(), i).write_to_structure(structure);
         array->set_cell(i, script::Cell::of(structure));
     }
     params->append_array_ref(kGameRecordsArray, array);
-    params->append_word(kDefaultInitialsName, script::kQbvalString, default_initials_);
+    params->append_word(kDefaultInitialsName, script::QbValueKind::kString, default_initials_);
 }
 
 // 0x0057EED0

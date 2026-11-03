@@ -375,7 +375,7 @@ void NodeManager::resolve_links(Array* nodes)
             auto* linked = nodes->struct_at(links->fetch_part(j));
             links->set_element(j, get_node_name(linked));
         }
-        links->change_species(script::kQbvalName);
+        links->change_species(script::QbValueKind::kName);
     }
 }
 

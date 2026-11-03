@@ -139,25 +139,25 @@ script::QbValueKind type_from_name(uint32_t name)
     switch (name) {
     case kStructure: // "Structure"
     case kStruct: // "struct"
-        return script::kQbvalStruct;
+        return script::QbValueKind::kStruct;
     case kChecksum: // "checksum"
     case kName: // "name"
-        return script::kQbvalName;
+        return script::QbValueKind::kName;
     case kFloat: // "float"
-        return script::kQbvalFloat;
+        return script::QbValueKind::kFloat;
     case kArray: // "array"
-        return script::kQbvalArray;
+        return script::QbValueKind::kArray;
     case kString: // "string"
-        return script::kQbvalString;
+        return script::QbValueKind::kString;
     case kVector: // "vector"
-        return script::kQbvalVector;
+        return script::QbValueKind::kVector;
     case kInteger: // "Integer"
     case kInt: // "int"
-        return script::kQbvalInteger;
+        return script::QbValueKind::kInteger;
     case kPair: // "pair"
-        return script::kQbvalPair;
+        return script::QbValueKind::kPair;
     default:
-        return script::kQbvalNone;
+        return script::QbValueKind::kNone;
     }
 }
 
@@ -215,13 +215,13 @@ int format_text(script::Struct& results, script::Struct* params)
             return 0;
         }
         Component& value = format_text_value();
-        value.type_and_flag_ = static_cast<uint8_t>((found->type_and_flag_ & ~1) | (value.type_and_flag_ & 1));
+        copy_value_kind(value, *found);
         value.value.set_word(found->value.word());
         script::evaluate_name_token(&value);
         constexpr size_t kTextSize = 100;
         std::array<char, kTextSize> text{}; // (the original's sprintf into it is unbounded)
         switch (value_kind(value)) {
-        case script::kQbvalInteger:
+        case script::QbValueKind::kInteger:
             if (params->has_bare_flag(kUseCommas)) {
                 text::format_to(text, "%s", text::format_with_separators(value.value.integer()));
             } else {
@@ -233,7 +233,7 @@ int format_text(script::Struct& results, script::Struct* params)
             }
             used = get_append(buffer, used, text.data());
             break;
-        case script::kQbvalFloat: {
+        case script::QbValueKind::kFloat: {
             int places = 3;
             params->fetch_int_value(kDecimalPlaces, &places, 0);
             text::format_to(text, "%.*f", places,
@@ -241,22 +241,22 @@ int format_text(script::Struct& results, script::Struct* params)
             used = get_append(buffer, used, text.data());
             break;
         }
-        case script::kQbvalString:
-        case script::kQbvalInlineText:
+        case script::QbValueKind::kString:
+        case script::QbValueKind::kInlineText:
             for (const char c : std::string_view(value.value.text()))
                 ::core::at(buffer, used++) = c;
             break;
-        case script::kQbvalPair:
+        case script::QbValueKind::kPair:
             text::format_to(text, "(%.3f,%.3f)", static_cast<double>(value.value.pair()->x()),
                             static_cast<double>(value.value.pair()->y()));
             used = get_append(buffer, used, text.data());
             break;
-        case script::kQbvalVector:
+        case script::QbValueKind::kVector:
             text::format_to(text, "(%.3f,%.3f,%.3f)", static_cast<double>(value.value.vector()->x()),
                             static_cast<double>(value.value.vector()->y()), static_cast<double>(value.value.vector()->z()));
             used = get_append(buffer, used, text.data());
             break;
-        case script::kQbvalName:
+        case script::QbValueKind::kName:
             result = 2;
             text::format_to(text, "%s", script::find_checksum_name_or_unknown(value.value.word()));
             used = get_append(buffer, used, text.data());
@@ -293,8 +293,8 @@ bool cfunc_change(script::Struct* params, script::Script*)
         name = value->name;
     }
     SymbolTableEntry* old = script::find_symbol(name);
-    if (!old || old->type() == script::kQbvalScriptBody || old->type() == script::kQbvalNativeFunc ||
-        old->type() == script::kQbvalNativeMethod)
+    if (!old || old->type() == script::QbValueKind::kScriptBody || old->type() == script::QbValueKind::kNativeFunc ||
+        old->type() == script::QbValueKind::kNativeMethod)
         return false;
     const uint32_t kept = old->unknown8();
     script::clean_up_and_remove_symbol(old);
@@ -304,31 +304,31 @@ bool cfunc_change(script::Struct* params, script::Script*)
     // the value in a component of its own (the new component's flag bit kept)
     Component copy;
     script::construct_component(&copy);
-    copy.type_and_flag_ = static_cast<uint8_t>((value->type_and_flag_ & ~1) | (copy.type_and_flag_ & 1));
+    copy_value_kind(copy, *value);
     copy.value.set_word(value->value.word());
-    if (value_kind(copy) == script::kQbvalName && params->has_bare_flag(kResolve)) {
+    if (value_kind(copy) == script::QbValueKind::kName && params->has_bare_flag(kResolve)) {
         if (SymbolTableEntry* resolved = script::resolve_symbol(copy.value.word())) {
-            copy.type_and_flag_ = static_cast<uint8_t>((resolved->type() << 1) | (copy.type_and_flag_ & 1));
+            set_value_kind(copy, resolved->type());
             copy.value.set_word(resolved->value().word());
         }
     }
     switch (value_kind(copy)) {
-    case script::kQbvalInteger:
-    case script::kQbvalFloat:
-    case script::kQbvalName:
+    case script::QbValueKind::kInteger:
+    case script::QbValueKind::kFloat:
+    case script::QbValueKind::kName:
         entry->set_type(value_kind(copy));
         entry->value().set_word(copy.value.word());
         break;
-    case script::kQbvalStruct: {
-        entry->set_type(script::kQbvalStruct);
+    case script::QbValueKind::kStruct: {
+        entry->set_type(script::QbValueKind::kStruct);
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* structure = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         entry->value().set_structure(structure);
         structure->append_structure_if_any(copy.value.structure());
         break;
     }
-    case script::kQbvalArray: {
-        entry->set_type(script::kQbvalArray);
+    case script::QbValueKind::kArray: {
+        entry->set_type(script::QbValueKind::kArray);
         gsl::owner<script::Array*> memory = script::alloc_script_array();
         script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
         entry->value().set_array(array);
@@ -467,7 +467,7 @@ bool cfunc_script_exists(script::Struct* params, script::Script*)
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
     SymbolTableEntry* entry = script::resolve_symbol(name);
-    return entry && entry->type() == script::kQbvalScriptBody;
+    return entry && entry->type() == script::QbValueKind::kScriptBody;
 }
 
 // 0x0044AA20: IsArray <value>: whether the unnamed value is an array.

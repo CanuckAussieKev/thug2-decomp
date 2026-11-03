@@ -129,7 +129,7 @@ bool add_copy_node(script::Struct* node)
     }
     level_editor_objects_state().copy_node_list_.push_back(node);
     auto count = static_cast<uint32_t>(level_editor_objects_state().copy_node_list_.size());
-    level_editor_objects_state().copy_nodes_->configure_size_kind(count, script::kQbvalStruct);
+    level_editor_objects_state().copy_nodes_->configure_size_kind(count, script::QbValueKind::kStruct);
     for (uint32_t i = 0; i < count; ++i)
         level_editor_objects_state().copy_nodes_->set_cell(i, script::Cell::of(core::at(level_editor_objects_state().copy_node_list_, i)));
     return manager->hash_node_in(checksums::Name{name}, count - 1, node);
@@ -146,7 +146,7 @@ void forget_copy_nodes()
         script::delete_struct(node);
     }
     level_editor_objects_state().copy_node_list_.clear();
-    level_editor_objects_state().copy_nodes_->configure_size_kind(0, script::kQbvalNone);
+    level_editor_objects_state().copy_nodes_->configure_size_kind(0, script::QbValueKind::kNone);
     script::delete_array(level_editor_objects_state().copy_nodes_);
     level_editor_objects_state().copy_nodes_ = nullptr;
 }
@@ -599,7 +599,7 @@ std::vector<TableRow> copyable()
     static const uint32_t kModel = checksums::hash_from_text("model");
     for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
         script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
-        if (!nodes || nodes->kind_tag() != script::kQbvalStruct)
+        if (!nodes || nodes->kind_tag() != script::QbValueKind::kStruct)
             continue;
         for (uint32_t i = 0; i < nodes->extent(); ++i) {
             auto* node = nodes->struct_at(i);

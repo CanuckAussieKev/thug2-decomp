@@ -106,7 +106,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
     words = std::span<const uint32_t>(table, 2 + (static_cast<size_t>(count) * kRecordWords)); // (a version, a count, 5 words each)
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> objects = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    objects->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
+    objects->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
     for (int i = 0; i < count; ++i) {
         const std::span<const uint32_t, 5> entry = std::span<const uint32_t>(words).subspan(2 + (static_cast<size_t>(i) * 5)).first<5>();
         gsl::owner<script::Struct*> block = script::spawn_param_bag();

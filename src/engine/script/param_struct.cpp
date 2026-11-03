@@ -101,10 +101,10 @@ namespace {
 // The global structure an unnamed name component includes, or null.
 Struct* included_structure(const Component* component)
 {
-    if (component->name != 0 || value_kind(*component) != kQbvalName)
+    if (component->name != 0 || value_kind(*component) != QbValueKind::kName)
         return nullptr;
     const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
-    return symbol && symbol->type() == kQbvalStruct ? symbol->value().structure() : nullptr;
+    return symbol && symbol->type() == QbValueKind::kStruct ? symbol->value().structure() : nullptr;
 }
 
 } // namespace
@@ -115,7 +115,7 @@ SymbolTableEntry* resolve_symbol(uint32_t name)
     SymbolTableEntry* entry = find_symbol(name);
     if (!entry)
         return nullptr;
-    while (entry->type() == kQbvalName) {
+    while (entry->type() == QbValueKind::kName) {
         SymbolTableEntry* target = find_symbol(entry->value().word());
         if (!target)
             return entry;
@@ -154,11 +154,11 @@ Component* Struct::find_component(uint32_t name)
     for (Component* component = head_; component; component = component->next) {
         if (component->name == name)
             return component;
-        if (component->name == 0 && value_kind(*component) == kQbvalName) {
+        if (component->name == 0 && value_kind(*component) == QbValueKind::kName) {
             if (component->value.word() == name)
                 return component;
             const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
-            if (symbol && symbol->type() == kQbvalStruct) {
+            if (symbol && symbol->type() == QbValueKind::kStruct) {
                 if (Component* inner = symbol->value().structure()->find_component(name))
                     return inner;
             }
@@ -168,7 +168,7 @@ Component* Struct::find_component(uint32_t name)
 }
 
 // 0x004764B0 (the last match wins)
-bool Struct::get_hunt(uint32_t name, uint32_t type, Cell* out)
+bool Struct::get_hunt(uint32_t name, QbValueKind type, Cell* out)
 {
     bool found = false;
     for (const Component* component = head_; component; component = component->next) {
@@ -177,17 +177,17 @@ bool Struct::get_hunt(uint32_t name, uint32_t type, Cell* out)
             if (component_type == type) {
                 *out = component->value;
                 found = true;
-            } else if (component_type == kQbvalInteger && type == kQbvalFloat) {
+            } else if (component_type == QbValueKind::kInteger && type == QbValueKind::kFloat) {
                 out->set_real(static_cast<float>(component->value.integer()));
                 found = true;
-            } else if (component_type == kQbvalName) {
+            } else if (component_type == QbValueKind::kName) {
                 // A name standing for a global value.
                 const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
                 if (symbol) {
                     if (symbol->type() == type) {
                         *out = symbol->value();
                         found = true;
-                    } else if (symbol->type() == kQbvalInteger && type == kQbvalFloat) {
+                    } else if (symbol->type() == QbValueKind::kInteger && type == QbValueKind::kFloat) {
                         out->set_real(static_cast<float>(symbol->value().integer()));
                         found = true;
                     }
@@ -214,12 +214,12 @@ bool Struct::has_entry_named(const char* name) { return find_component(checksums
 bool Struct::has_bare_flag(uint32_t flag)
 {
     for (const Component* component = head_; component; component = component->next) {
-        if (component->name != 0 || value_kind(*component) != kQbvalName)
+        if (component->name != 0 || value_kind(*component) != QbValueKind::kName)
             continue;
         if (component->value.word() == flag)
             return true;
         const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
-        if (symbol && symbol->type() == kQbvalStruct && symbol->value().structure()->has_bare_flag(flag))
+        if (symbol && symbol->type() == QbValueKind::kStruct && symbol->value().structure()->has_bare_flag(flag))
             return true;
     }
     return false;
@@ -234,7 +234,7 @@ bool Struct::ref_tally(Struct* other)
     if (other == this)
         return true;
     for (const Component* component = head_; component; component = component->next) {
-        if (value_kind(*component) == kQbvalStruct && component->value.structure()->ref_tally(other))
+        if (value_kind(*component) == QbValueKind::kStruct && component->value.structure()->ref_tally(other))
             return true;
     }
     return false;
@@ -259,7 +259,7 @@ bool Struct::is_subset_of(Struct* other)
 bool Struct::fetch_text(uint32_t name, const char** out, int assert)
 {
     Cell value;
-    if (!get_hunt(name, kQbvalString, &value) && !get_hunt(name, kQbvalInlineText, &value)) {
+    if (!get_hunt(name, QbValueKind::kString, &value) && !get_hunt(name, QbValueKind::kInlineText, &value)) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -278,7 +278,7 @@ bool Struct::fetch_text(const char* name, const char** out, int assert)
 bool Struct::fetch_int_value(uint32_t name, int* out, int assert)
 {
     Cell value;
-    if (!get_hunt(name, kQbvalInteger, &value)) {
+    if (!get_hunt(name, QbValueKind::kInteger, &value)) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -297,7 +297,7 @@ bool Struct::fetch_int_value(const char* name, int* out, int assert)
 bool Struct::fetch_float(uint32_t name, float* out, int assert)
 {
     Cell value;
-    if (!get_hunt(name, kQbvalFloat, &value)) {
+    if (!get_hunt(name, QbValueKind::kFloat, &value)) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -316,7 +316,7 @@ bool Struct::fetch_float(const char* name, float* out, int assert)
 bool Struct::fetch_pair(uint32_t name, maths::Vec2* out, int assert)
 {
     Cell value;
-    if (!get_hunt(name, kQbvalPair, &value)) {
+    if (!get_hunt(name, QbValueKind::kPair, &value)) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -331,7 +331,7 @@ bool Struct::fetch_pair(uint32_t name, maths::Vec2* out, int assert)
 bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
 {
     Cell value;
-    if (get_hunt(name, kQbvalPair, &value)) {
+    if (get_hunt(name, QbValueKind::kPair, &value)) {
         const Pair* pair = value.pair();
         out->x() = pair->x();
         out->y() = pair->y();
@@ -348,7 +348,7 @@ bool Struct::fetch_pair(uint32_t name, Pair* out, bool assert)
 bool Struct::read_sub_struct(uint32_t name, Struct** out, int assert)
 {
     Cell value;
-    if (!get_hunt(name, kQbvalStruct, &value)) {
+    if (!get_hunt(name, QbValueKind::kStruct, &value)) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -367,7 +367,7 @@ bool Struct::read_sub_struct(const char* name, Struct** out, int assert)
 bool Struct::fetch_list(uint32_t name, Array** out, int assert)
 {
     Cell value;
-    if (!get_hunt(name, kQbvalArray, &value)) {
+    if (!get_hunt(name, QbValueKind::kArray, &value)) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -386,7 +386,7 @@ bool Struct::fetch_list(const char* name, Array** out, int assert)
 bool Struct::fetch_script(uint32_t name, ParamScript* out, int assert)
 {
     Cell code;
-    if (!get_hunt(name, kQbvalScriptBody, &code)) {
+    if (!get_hunt(name, QbValueKind::kScriptBody, &code)) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -402,10 +402,10 @@ bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
     bool found = false;
     for (const Component* component = head_; component; component = component->next) {
         if (component->name == name) {
-            if (value_kind(*component) == kQbvalName) {
+            if (value_kind(*component) == QbValueKind::kName) {
                 // (the symbol looked up only for the unnamed component)
                 const SymbolTableEntry* symbol = name != 0 ? nullptr : resolve_symbol(component->value.word());
-                if (name != 0 || !symbol || symbol->type() != kQbvalStruct) {
+                if (name != 0 || !symbol || symbol->type() != QbValueKind::kStruct) {
                     *out = component->value.word();
                     found = true;
                 }
@@ -442,7 +442,7 @@ bool Struct::hash_from_name_or_text(uint32_t name, uint32_t* out, int assert)
 bool Struct::fetch_vec(uint32_t name, VectorValue* out, int assert)
 {
     Cell value;
-    if (!get_hunt(name, kQbvalVector, &value)) {
+    if (!get_hunt(name, QbValueKind::kVector, &value)) {
         if (assert)
             dump_to_log(this);
         return false;
@@ -632,7 +632,7 @@ void Array::get_clear()
     if (extent_ == 1) {
         // (the single element is in place: nothing to free)
         extent_ = 0;
-        kind_tag_ = kQbvalNone;
+        kind_tag_ = QbValueKind::kNone;
         storage_.clear();
         return;
     }
@@ -640,7 +640,7 @@ void Array::get_clear()
         memory::free_malloc(storage_.block());
         storage_.clear();
     }
-    kind_tag_ = kQbvalNone;
+    kind_tag_ = QbValueKind::kNone;
     extent_ = 0;
 }
 
@@ -661,23 +661,23 @@ void release_array_storage(Array* array)
         if (element.empty())
             continue;
         switch (type) {
-        case kQbvalString:
-        case kQbvalInlineText:
+        case QbValueKind::kString:
+        case QbValueKind::kInlineText:
             free_string(element.text());
             break;
-        case kQbvalPair:
+        case QbValueKind::kPair:
             delete_pair(element.pair());
             break;
-        case kQbvalVector:
+        case QbValueKind::kVector:
             delete_vector(element.vector());
             break;
-        case kQbvalStruct: {
+        case QbValueKind::kStruct: {
             Struct* structure = element.structure();
             structure->get_clear();
             delete_struct(structure);
             break;
         }
-        case kQbvalArray: {
+        case QbValueKind::kArray: {
             Array* inner = element.array();
             release_array_storage(inner);
             inner->get_clear();
@@ -696,33 +696,33 @@ void release_array_storage(Array* array)
 void release_component(Component* component)
 {
     switch (value_kind(*component)) {
-    case kQbvalString:
-    case kQbvalInlineText:
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
         if (component->value.text())
             free_string(component->value.text());
         break;
-    case kQbvalPair:
+    case QbValueKind::kPair:
         if (component->value.pair())
             delete_pair(component->value.pair());
         break;
-    case kQbvalVector:
+    case QbValueKind::kVector:
         if (component->value.vector())
             delete_vector(component->value.vector());
         break;
-    case kQbvalScriptBody:
+    case QbValueKind::kScriptBody:
         if (component->value.word()) {
             forget_code_block(component->value.code());
             memory::free_malloc(component->value.code());
         }
         component->unknown2 = 0; // the script's size
         break;
-    case kQbvalStruct:
+    case QbValueKind::kStruct:
         if (Struct* structure = component->value.structure()) {
             structure->get_clear();
             delete_struct(structure);
         }
         break;
-    case kQbvalArray:
+    case QbValueKind::kArray:
         if (Array* array = component->value.array()) {
             release_array_storage(array);
             array->get_clear();
@@ -741,14 +741,14 @@ void duplicate_component(Component* dest, const Component* source, int reference
 {
     if (dest->value.word())
         release_component(dest);
-    dest->type_and_flag_ = static_cast<uint8_t>((source->type_and_flag_ & ~1) | (dest->type_and_flag_ & 1));
+    copy_value_kind(*dest, *source);
     dest->name = source->name;
     switch (value_kind(*source)) {
-    case kQbvalString:
-    case kQbvalInlineText:
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
         dest->value.set_text(spawn_text(source->value.text()));
         break;
-    case kQbvalPair: {
+    case QbValueKind::kPair: {
         auto* pair = script_state().pair_pools().allocate<Pair>();
         if (pair) {
             // (the constructor: only the first byte of the first word is cleared)
@@ -761,7 +761,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
         dest->value.pair()->y() = source->value.pair()->y();
         break;
     }
-    case kQbvalVector: {
+    case QbValueKind::kVector: {
         auto* vector = vector_pools().allocate<Vector>();
         if (vector) {
             vector->z() = 0.0f;
@@ -775,7 +775,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
         dest->value.vector()->z() = source->value.vector()->z();
         break;
     }
-    case kQbvalScriptBody: {
+    case QbValueKind::kScriptBody: {
         // The compiled script, `unknown2` bytes.
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         dest->value.set_code(static_cast<uint8_t*>(memory::alloc_block(source->unknown2)));
@@ -788,9 +788,9 @@ void duplicate_component(Component* dest, const Component* source, int reference
         std::ranges::copy(from.rest().first(to.size()), to.begin());
         break;
     }
-    case kQbvalStruct: {
+    case QbValueKind::kStruct: {
         if (reference) {
-            dest->type_and_flag_ = static_cast<uint8_t>((dest->type_and_flag_ & 1) | (kQbvalStructRef << 1));
+            set_value_kind(*dest, QbValueKind::kStructRef);
             dest->value.set_structure(source->value.structure());
             break;
         }
@@ -804,7 +804,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
         }
         break;
     }
-    case kQbvalArray: {
+    case QbValueKind::kArray: {
         if (!reference) {
             gsl::owner<Array*> array = alloc_script_array();
             if (array)
@@ -813,15 +813,15 @@ void duplicate_component(Component* dest, const Component* source, int reference
             duplicate_array(array, source->value.array());
             break;
         }
-        dest->type_and_flag_ = static_cast<uint8_t>((dest->type_and_flag_ & 1) | (kEsymboltypeArraypointer << 1));
+        set_value_kind(*dest, QbValueKind::kArrayRef);
         dest->value.set_word(source->value.word());
         break;
     }
-    case kQbvalInteger:
-    case kQbvalFloat:
-    case kQbvalName:
-    case kQbvalStructRef:
-    case kEsymboltypeArraypointer:
+    case QbValueKind::kInteger:
+    case QbValueKind::kFloat:
+    case QbValueKind::kName:
+    case QbValueKind::kStructRef:
+    case QbValueKind::kArrayRef:
         dest->value.set_word(source->value.word());
         break;
     default:
@@ -867,7 +867,7 @@ void Struct::erase_module(uint32_t name)
 void Struct::erase_module(const char* name) { erase_module(checksums::hash_from_text(name)); }
 
 // 0x00477790
-void Struct::remove_component_of_type(uint32_t name, uint8_t type)
+void Struct::remove_component_of_type(uint32_t name, QbValueKind type)
 {
     Component* previous = nullptr;
     Component* component = head_;
@@ -910,7 +910,7 @@ gsl::owner<Component*> new_typed_component(uint32_t name, QbValueKind type)
 {
     gsl::owner<Component*> component = new_component();
     component->name = name;
-    component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (type << 1));
+    set_value_kind(*component, type);
     return component;
 }
 
@@ -955,10 +955,10 @@ void Struct::attach_module(Component* added)
             const QbValueKind mine = value_kind(*component);
             const QbValueKind theirs = value_kind(*added);
             if (mine == theirs)
-                replace = !(mine == kQbvalName && component->name == 0) || component->value.word() == added->value.word();
+                replace = !(mine == QbValueKind::kName && component->name == 0) || component->value.word() == added->value.word();
             else
-                replace = (mine == kQbvalFloat && theirs == kQbvalInteger) ||
-                          (mine == kQbvalInteger && theirs == kQbvalFloat);
+                replace = (mine == QbValueKind::kFloat && theirs == QbValueKind::kInteger) ||
+                          (mine == QbValueKind::kInteger && theirs == QbValueKind::kFloat);
         }
         if (replace) {
             Component* next = component->next;
@@ -984,7 +984,7 @@ void Struct::attach_module(Component* added)
 // 0x004779D0
 void Struct::append_word(uint32_t name, const char* value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalString);
+    gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kString);
     component->value.set_text(spawn_text(value));
     attach_module(component);
 }
@@ -995,7 +995,7 @@ void Struct::append_word(const char* name, const char* value) { append_word(chec
 // 0x00477AC0
 void Struct::append_inline_text(uint32_t name, const char* value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalInlineText);
+    gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kInlineText);
     component->value.set_text(spawn_text(value));
     attach_module(component);
 }
@@ -1003,7 +1003,7 @@ void Struct::append_inline_text(uint32_t name, const char* value)
 // 0x00478390
 void Struct::append_word(uint32_t name, QbValueKind type, const char* value)
 {
-    if (type == kQbvalString)
+    if (type == QbValueKind::kString)
         append_word(name, value);
     else
         append_inline_text(name, value);
@@ -1012,7 +1012,7 @@ void Struct::append_word(uint32_t name, QbValueKind type, const char* value)
 // 0x00477B80
 void Struct::put_int(checksums::Name name, int value)
 {
-    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalInteger);
+    gsl::owner<Component*> component = new_typed_component(name.value(), QbValueKind::kInteger);
     component->value.set_integer(value);
     attach_module(component);
 }
@@ -1023,7 +1023,7 @@ void Struct::put_int(const char* name, int value) { put_int(checksums::Name{chec
 // 0x00477C60
 void Struct::push_float(checksums::Name name, float value)
 {
-    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalFloat);
+    gsl::owner<Component*> component = new_typed_component(name.value(), QbValueKind::kFloat);
     component->value.set_real(value);
     attach_module(component);
 }
@@ -1034,7 +1034,7 @@ void Struct::push_float(const char* name, float value) { push_float(checksums::N
 // 0x00477D40
 void Struct::put_name_key(checksums::Name name, uint32_t value)
 {
-    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalName);
+    gsl::owner<Component*> component = new_typed_component(name.value(), QbValueKind::kName);
     component->value.set_word(value);
     attach_module(component);
 }
@@ -1051,7 +1051,7 @@ void Struct::put_vec3(checksums::Name name, VectorValue value)
     const float x = value.x;
     const float y = value.y;
     const float z = value.z;
-    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalVector);
+    gsl::owner<Component*> component = new_typed_component(name.value(), QbValueKind::kVector);
     auto* vector = vector_pools().allocate<Vector>();
     if (vector) {
         vector->z() = 0.0f;
@@ -1077,7 +1077,7 @@ void Struct::insert_pair(checksums::Name name, maths::Vec2 value)
 {
     const float x = value.x;
     const float y = value.y;
-    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalPair);
+    gsl::owner<Component*> component = new_typed_component(name.value(), QbValueKind::kPair);
     auto* pair = script_state().pair_pools().allocate<Pair>();
     if (pair) {
         pair->y() = 0.0f;
@@ -1093,7 +1093,7 @@ void Struct::insert_pair(checksums::Name name, maths::Vec2 value)
 // 0x004780D0
 void Struct::append_array_ref(uint32_t name, gsl::owner<Array*> value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalArray);
+    gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kArray);
     component->value.set_array(value);
     attach_module(component);
 }
@@ -1107,7 +1107,7 @@ void Struct::append_array_ref(const char* name, gsl::owner<Array*> value)
 // 0x004781B0
 void Struct::append_struct_ref(uint32_t name, gsl::owner<Struct*> value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalStruct);
+    gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kStruct);
     component->value.set_structure(value);
     attach_module(component);
 }
@@ -1121,7 +1121,7 @@ void Struct::append_struct_ref(const char* name, gsl::owner<Struct*> value)
 // 0x00478670
 void Struct::put_sub_struct(uint32_t name, Struct* value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalStruct);
+    gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kStruct);
     gsl::owner<Struct*> copy = spawn_param_bag();
     if (copy)
         new (copy) script::Struct;
@@ -1140,7 +1140,7 @@ void Struct::put_sub_struct(const char* name, Struct* value) { put_sub_struct(ch
 void Struct::append_script(uint32_t name, std::span<const uint8_t> code)
 {
     const auto size = static_cast<uint32_t>(code.size());
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalScriptBody);
+    gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kScriptBody);
     component->unknown2 = static_cast<uint16_t>(size);
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     auto* block = static_cast<uint8_t*>(memory::alloc_block(size));
@@ -1156,21 +1156,21 @@ void Struct::append_script(uint32_t name, std::span<const uint8_t> code)
 void Struct::add_component_of_type(uint32_t name, QbValueKind type, uint32_t value)
 {
     switch (type) {
-    case kQbvalInteger:
+    case QbValueKind::kInteger:
         put_int(checksums::Name{name}, static_cast<int>(value));
         break;
-    case kQbvalFloat: {
+    case QbValueKind::kFloat: {
         auto number = std::bit_cast<float>(value);
         push_float(checksums::Name{name}, number);
         break;
     }
-    case kQbvalStructHandedOver:
+    case QbValueKind::kStructHandedOver:
         append_struct_ref(name, memory::owned_element(Cell::of_word(value).structure())); // (handed over in the word)
         break;
-    case kQbvalArray:
+    case QbValueKind::kArray:
         append_array_ref(name, memory::owned_element(Cell::of_word(value).array())); // (handed over in the word)
         break;
-    case kQbvalName:
+    case QbValueKind::kName:
         put_name_key(checksums::Name{name}, value);
         break;
     default:
@@ -1266,7 +1266,7 @@ void Array::configure_size_kind(uint32_t size, QbValueKind type)
     kind_tag_ = type;
     extent_ = size;
     if (size == 0) {
-        kind_tag_ = kQbvalNone;
+        kind_tag_ = QbValueKind::kNone;
         return;
     }
     if (size == 1)
@@ -1330,29 +1330,29 @@ Vector* Array::vector_at(uint32_t index) { return cell_at(index).vector(); }
 float Array::fetch_float(uint32_t index)
 {
     const Cell cell = cell_at(index);
-    if (kind_tag_ == kQbvalFloat)
+    if (kind_tag_ == QbValueKind::kFloat)
         return cell.real();
     return static_cast<float>(cell.integer());
 }
 
 // 0x004787A0
-void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uint32_t type)
+void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, QbValueKind type)
 {
     for (size_t i = 0; i < source.size(); ++i) {
         const Cell element = core::at(source, i);
         Cell& to = core::at(dest, i);
         switch (type) {
-        case kQbvalInteger:
-        case kQbvalFloat:
-        case kQbvalName:
+        case QbValueKind::kInteger:
+        case QbValueKind::kFloat:
+        case QbValueKind::kName:
             to = element;
             break;
-        case kQbvalString:
-        case kQbvalInlineText:
+        case QbValueKind::kString:
+        case QbValueKind::kInlineText:
             if (!element.empty())
                 to = Cell::of_text(spawn_text(element.text()));
             break;
-        case kQbvalPair:
+        case QbValueKind::kPair:
             if (!element.empty()) {
                 const Pair* from = element.pair();
                 Pair* pair = new_pair();
@@ -1362,7 +1362,7 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uin
                 to = Cell::of(pair);
             }
             break;
-        case kQbvalVector:
+        case QbValueKind::kVector:
             if (!element.empty()) {
                 const Vector* from = element.vector();
                 Vector* vector = alloc_script_vector();
@@ -1373,7 +1373,7 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uin
                 to = Cell::of(vector);
             }
             break;
-        case kQbvalStruct:
+        case QbValueKind::kStruct:
             if (!element.empty()) {
                 Struct* from = element.structure();
                 gsl::owner<Struct*> structure = spawn_param_bag();
@@ -1386,7 +1386,7 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uin
                 to = Cell::of(structure);
             }
             break;
-        case kQbvalArray:
+        case QbValueKind::kArray:
             if (!element.empty()) {
                 gsl::owner<Array*> array = alloc_script_array();
                 if (array)
@@ -1461,9 +1461,9 @@ uint32_t& iterator_bucket() { return param_struct_state().iterator_bucket_; }
 int symbol_integer(SymbolTableEntry* entry)
 {
     if (entry) {
-        if (entry->type() == kQbvalInteger)
+        if (entry->type() == QbValueKind::kInteger)
             return entry->value().integer();
-        if (entry->type() == kQbvalFloat)
+        if (entry->type() == QbValueKind::kFloat)
             return static_cast<int>(entry->value().real());
     }
     return 0;
@@ -1471,9 +1471,9 @@ int symbol_integer(SymbolTableEntry* entry)
 float symbol_float(SymbolTableEntry* entry)
 {
     if (entry) {
-        if (entry->type() == kQbvalInteger)
+        if (entry->type() == QbValueKind::kInteger)
             return static_cast<float>(entry->value().integer());
-        if (entry->type() == kQbvalFloat)
+        if (entry->type() == QbValueKind::kFloat)
             return entry->value().real();
     }
     return 0.0f;
@@ -1583,13 +1583,13 @@ const char* fetch_text(const char* name) { return fetch_text(checksums::hash_fro
 // 0x00479020 / 0x00479040
 Struct* read_sub_struct(uint32_t name)
 {
-    return symbol_value_of_type(resolve_symbol(name), kQbvalStruct).structure();
+    return symbol_value_of_type(resolve_symbol(name), QbValueKind::kStruct).structure();
 }
 Struct* read_sub_struct(const char* name) { return read_sub_struct(checksums::hash_from_text(name)); }
 // 0x00479070 / 0x00479090
 Array* fetch_list(uint32_t name)
 {
-    return symbol_value_of_type(resolve_symbol(name), kQbvalArray).array();
+    return symbol_value_of_type(resolve_symbol(name), QbValueKind::kArray).array();
 }
 Array* fetch_list(const char* name) { return fetch_list(checksums::hash_from_text(name)); }
 
@@ -1597,17 +1597,17 @@ Array* fetch_list(const char* name) { return fetch_list(checksums::hash_from_tex
 bool components_equal(Component* a, Component* b)
 {
     // A name standing for a global symbol counts as the symbol's value.
-    auto resolve = [](Component* component, uint32_t* type, Cell* value) {
+    auto resolve = [](Component* component, QbValueKind* type, Cell* value) {
         *type = value_kind(*component);
         *value = component->value;
-        if (*type == kQbvalName) {
+        if (*type == QbValueKind::kName) {
             if (const SymbolTableEntry* symbol = resolve_symbol(value->word())) {
                 *value = symbol->value();
                 *type = symbol->type();
             }
         }
     };
-    uint32_t type_a = 0, type_b = 0;
+    QbValueKind type_a = QbValueKind::kNone, type_b = QbValueKind::kNone;
     Cell value_a, value_b;
     resolve(a, &type_a, &value_a);
     resolve(b, &type_b, &value_b);
@@ -1615,35 +1615,35 @@ bool components_equal(Component* a, Component* b)
     // (integers are compared with floats exactly, as the x87 does)
     auto as_integer = [](Cell value) { return static_cast<double>(value.integer()); };
     switch (type_a) {
-    case kQbvalInteger:
-        if (type_b == kQbvalFloat)
+    case QbValueKind::kInteger:
+        if (type_b == QbValueKind::kFloat)
             return as_integer(value_a) == as_float(value_b);
-        return type_b == kQbvalInteger && value_a.word() == value_b.word();
-    case kQbvalFloat:
-        if (type_b == kQbvalInteger)
+        return type_b == QbValueKind::kInteger && value_a.word() == value_b.word();
+    case QbValueKind::kFloat:
+        if (type_b == QbValueKind::kInteger)
             return as_float(value_a) == as_integer(value_b);
-        return type_b == kQbvalFloat && as_float(value_a) == as_float(value_b);
-    case kQbvalString:
-    case kQbvalInlineText:
+        return type_b == QbValueKind::kFloat && as_float(value_a) == as_float(value_b);
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
         return type_b == type_a && std::strcmp(value_a.text(), value_b.text()) == 0;
-    case kQbvalPair: {
-        if (type_b != kQbvalPair)
+    case QbValueKind::kPair: {
+        if (type_b != QbValueKind::kPair)
             return false;
         const Pair* pa = value_a.pair();
         const Pair* pb = value_b.pair();
         return pa->x() == pb->x() && pa->y() == pb->y();
     }
-    case kQbvalVector: {
-        if (type_b != kQbvalVector)
+    case QbValueKind::kVector: {
+        if (type_b != QbValueKind::kVector)
             return false;
         const Vector* va = value_a.vector();
         const Vector* vb = value_b.vector();
         return va->x() == vb->x() && va->y() == vb->y() && va->z() == vb->z();
     }
-    case kQbvalScriptBody:
-    case kQbvalName:
-    case kQbvalStruct:
-    case kQbvalArray:
+    case QbValueKind::kScriptBody:
+    case QbValueKind::kName:
+    case QbValueKind::kStruct:
+    case QbValueKind::kArray:
         // (structures and arrays by their address: different arrays are never equal - their comparison 0x0049F4B0
         // just returns false)
         return type_b == type_a && value_a.word() == value_b.word();
@@ -1655,7 +1655,7 @@ bool components_equal(Component* a, Component* b)
 // 0x00478B00
 void Struct::append_array_value(uint32_t name, Array* value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalArray);
+    gsl::owner<Component*> component = new_typed_component(name, QbValueKind::kArray);
     gsl::owner<Array*> array = alloc_script_array();
     if (array)
         array = new (array) script::Array;

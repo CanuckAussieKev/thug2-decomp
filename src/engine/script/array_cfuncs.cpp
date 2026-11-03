@@ -41,33 +41,33 @@ Array* find_array(script::Script* script, uint32_t name)
 void add_element(Struct* results, Array* array, uint32_t index)
 {
     switch (array->kind_tag()) {
-    case script::kQbvalInteger:
+    case script::QbValueKind::kInteger:
         results->put_int(checksums::Name{kVal}, static_cast<int>(array->fetch_part(index)));
         break;
-    case script::kQbvalFloat:
+    case script::QbValueKind::kFloat:
         results->push_float(checksums::Name{kVal}, array->fetch_float(index));
         break;
-    case script::kQbvalString:
-    case script::kQbvalInlineText:
+    case script::QbValueKind::kString:
+    case script::QbValueKind::kInlineText:
         results->append_word(kVal, array->find_inline_text(index));
         break;
-    case script::kQbvalPair: {
+    case script::QbValueKind::kPair: {
         auto* pair = array->pair_at(index);
         results->insert_pair(checksums::Name{kVal}, {.x = pair->x(), .y = pair->y()});
         break;
     }
-    case script::kQbvalVector: {
+    case script::QbValueKind::kVector: {
         auto* vector = array->vector_at(index);
         results->put_vec3(checksums::Name{kVal}, {.x = vector->x(), .y = vector->y(), .z = vector->z()});
         break;
     }
-    case script::kQbvalStruct:
+    case script::QbValueKind::kStruct:
         results->put_sub_struct(kVal, array->struct_at(index));
         break;
-    case script::kQbvalArray:
+    case script::QbValueKind::kArray:
         results->append_array_value(kVal, element_array(array, index));
         break;
-    case script::kQbvalName:
+    case script::QbValueKind::kName:
         results->put_name_key(checksums::Name{kVal}, array->fetch_part(index));
         break;
     default:
@@ -86,21 +86,21 @@ bool cfunc_array_contains(Struct* params, script::Script*)
     const script::QbValueKind type = array->kind_tag();
     for (uint32_t i = 0; i < array->extent(); ++i) {
         switch (type) {
-        case script::kQbvalInteger: {
+        case script::QbValueKind::kInteger: {
             int value = 0;
             params->fetch_int_value(kContains, &value, 1);
             if (static_cast<uint32_t>(value) == array->fetch_part(i))
                 return true;
             break;
         }
-        case script::kQbvalString: {
+        case script::QbValueKind::kString: {
             const char* value = "";
             params->fetch_text(kContains, &value, 1);
             if (_stricmp(value, array->find_inline_text(i)) == 0)
                 return true;
             break;
         }
-        case script::kQbvalName: {
+        case script::QbValueKind::kName: {
             uint32_t value = 0;
             params->read_hash_value(kContains, &value, 1);
             if (value == array->fetch_part(i))

@@ -228,7 +228,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         goals->fetch_int_value(kNumGoals, &number, 1);
         goals->erase_module(kNumGoals);
         gsl::owner<script::Array*> list = script::new_array();
-        list->configure_size_kind(static_cast<uint32_t>(number), script::kQbvalStruct);
+        list->configure_size_kind(static_cast<uint32_t>(number), script::QbValueKind::kStruct);
         uint32_t index = 0;
         for (script::Component* element = goals->step_to_entry(nullptr); element;) {
             script::Component* next = goals->step_to_entry(element);
@@ -319,7 +319,7 @@ bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     script::ArrayPtr list = script::make_array();
-    list->configure_size_kind(static_cast<uint32_t>(manager->goals().num()), script::kQbvalStruct);
+    list->configure_size_kind(static_cast<uint32_t>(manager->goals().num()), script::QbValueKind::kStruct);
     for (int i = 0; i < manager->goals().num(); ++i) {
         Objective* goal = manager->goals().get_by_index(i);
         gsl::owner<script::Struct*> entry = script::new_struct();

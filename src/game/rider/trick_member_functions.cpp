@@ -31,7 +31,6 @@ namespace objects {
 
 namespace {
 constexpr unsigned kByteMask = 0xFF;
-constexpr unsigned kTypeBitsMask = 0xFE;         // a component's type with the flag bit off
 constexpr int kDefaultRestoreDuration = 200;     // milliseconds
 constexpr uint32_t kUsedByOtherMask = 8;
 constexpr int kEventRing = 100;
@@ -104,7 +103,7 @@ void collect_names(script::Struct* params, int& count, std::span<uint32_t> array
 {
     count = 0;
     for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-        if (c->name == 0 && (c->type_and_flag_ & kTypeBitsMask) == script::kQbvalName << 1)
+        if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName)
             core::at(arrays, count++) = c->value.word();
     }
 }
@@ -314,7 +313,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kReplaceBindings: {
         // The trick mappings replaced by the global structure the first (unnamed name) component names.
         const script::Component* c = params->step_to_entry(nullptr);
-        if (!c || c->name != 0 || (c->type_and_flag_ & kTypeBitsMask) != script::kQbvalName << 1)
+        if (!c || c->name != 0 || value_kind(*c) != script::QbValueKind::kName)
             return 1;
         script::Struct* mappings = script::read_sub_struct(c->value.word());
         if (!mappings)
@@ -356,7 +355,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     }
     case kClearTricksFrom:
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-            if (c->name == 0 && (c->type_and_flag_ & kTypeBitsMask) == script::kQbvalName << 1)
+            if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName)
                 remove_trick_list(c->value.word());
         }
         return 1;

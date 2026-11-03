@@ -1257,7 +1257,7 @@ void Rider::write_cat_info(script::Struct* save)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> tricks = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    tricks->configure_size_kind(kCatTrickCount, script::kQbvalStruct);
+    tricks->configure_size_kind(kCatTrickCount, script::QbValueKind::kStruct);
     for (int i = 0; i < kCatTrickCount; ++i) {
         gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
@@ -1275,7 +1275,7 @@ void Rider::write_list_44b_66a_9f(script::Struct* save)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> entries = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    entries->configure_size_kind(kGoalStatusCount, script::kQbvalInteger);
+    entries->configure_size_kind(kGoalStatusCount, script::QbValueKind::kInteger);
     for (int i = 0; i < kGoalStatusCount; ++i)
         entries->set_element(i, static_cast<uint32_t>(static_cast<AttributeTracker*>(stats_)->get_goal_status(i)));
     save->append_array_ref(kList44b66a9f, entries);

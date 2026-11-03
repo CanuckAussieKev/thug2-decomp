@@ -263,9 +263,9 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
     set_pixel_shader(vertex_colour, nullptr);
     renderer().set_pixel_shader_locked(vertex_colour);
     set_texture(0, nullptr);
-    change_phase(kZWrite, 0);
-    change_phase(kZTest, 1);
-    change_phase(kPhaseAlphaTest, 0);
+    change_phase(RenderStateId::kZWrite, 0);
+    change_phase(RenderStateId::kZTest, 1);
+    change_phase(RenderStateId::kPhaseAlphaTest, 0);
     if (!two_sided_stencil())
         renderer().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
     const auto* list = static_cast<const SceneRef*>(scene);
@@ -277,20 +277,20 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
             continue;
         if (!two_sided_stencil()) {
             // One side's faces, then the other's.
-            change_phase(kCullMode, D3DCULL_CW);
+            change_phase(RenderStateId::kCullMode, D3DCULL_CW);
             choose_blend_mode(kShadowPassBlendA);
             draw_scene_mesh(mesh);
-            change_phase(kCullMode, D3DCULL_CCW);
+            change_phase(RenderStateId::kCullMode, D3DCULL_CCW);
             choose_blend_mode(kShadowPassBlendB);
         } else {
-            change_phase(kCullMode, D3DCULL_NONE);
+            change_phase(RenderStateId::kCullMode, D3DCULL_NONE);
             choose_blend_mode(kShadowPassBlendC);
         }
         draw_scene_mesh(mesh);
     }
     renderer().set_pixel_shader_locked(nullptr);
-    change_phase(kZWrite, 1);
-    change_phase(kCullMode, D3DCULL_CW);
+    change_phase(RenderStateId::kZWrite, 1);
+    change_phase(RenderStateId::kCullMode, D3DCULL_CW);
     renderer().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
 }
 
@@ -396,13 +396,13 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
         renderer().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kShadowColour); // the shadow's colour
-        change_phase(kPhaseAlphaTest, 1);
+        change_phase(RenderStateId::kPhaseAlphaTest, 1);
         set_texture(0, nullptr);
         set_texture(2, nullptr);
         set_texture(3, nullptr);
         set_texture(1, nullptr);
         set_texture(0, caster->target->texture);
-        change_phase(kAddressMode0, kBorderBothWays); // border
+        change_phase(RenderStateId::kAddressMode0, kBorderBothWays); // border
         if (renderer().border_addressing_supported())
             renderer().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
         renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);

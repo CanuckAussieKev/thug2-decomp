@@ -412,7 +412,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                 // unnamed checksum 1 (the exception bit); then the handler replaces what the script runs.
                 if (script->get_on_exception_script()) {
                     gsl::owner<Struct*> exception_params = script::new_struct();
-                    exception_params->add_component_of_type(0, script::kQbvalName,
+                    exception_params->add_component_of_type(0, script::QbValueKind::kName,
                                                             entry->flags & TableRow::kFlagReplacesRunning);
                     const uint32_t on_exception = script->get_on_exception_script();
                     script->set_on_exception_script(0);

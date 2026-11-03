@@ -4,6 +4,8 @@
 #include <array>
 #include <span>
 
+#include "engine/core/enum_ops.h"
+
 // The renderer's cached Direct3D 9 state (Nx engine, PC): every setter compares with what it last sent and only
 // calls the device when something changes. The cache is reset to the device's own defaults (reset_render_state)
 // when the device is created and pushed to the device again (apply_render_state) after a reset.
@@ -43,22 +45,49 @@ constexpr uint32_t kFvfTex4 = 0x400u;
 struct MaterialRef;
 
 // The renderer's own render state numbering (change_phase's `state`).
-using RenderStateId = uint8_t;
-constexpr int kZWrite = 1;         // bool
-constexpr int kZTest = 2;          // bool: less-equal, else always
-constexpr int kPhaseAlphaTest = 3; // 0 = alpha test off, else on with this reference
-constexpr int kAddressMode0 = 4;   // 4-7: a sampler's addressing, U in the low 16 bits and V in the high: 0 wrap,
-// 1 clamp, 2 border (clamp without border support)
-constexpr int kMipLodBias0 = 8;    // 8-11: a sampler's mip level bias (float bits)
-constexpr int kCullMode = 0x10;    // D3DCULL
-constexpr int kAlphaBlend = 0x11;  // bool
-constexpr int kAlphaTest = 0x12;   // bool
-constexpr int kSpecular = 0x13;    // bool (and the local viewer with it)
-constexpr int kFog = 0x14;         // bool
-constexpr int kDepthBias = 0x15;   // in units of the factor at 0x0064AAA4
-constexpr int kLighting = 0x16;    // bool
-constexpr int kFilter0 = 0x20;     // 0x20-0x23: a sampler's filters, bit 0 minification linear, bit 16 magnification
-constexpr int kLocalViewer = 0x24; // bool
+enum class RenderStateId : uint8_t {
+    kZWrite = 1,         // bool
+    kZTest = 2,          // bool: less-equal, else always
+    kPhaseAlphaTest = 3, // 0 = alpha test off, else on with this reference
+    // a sampler's addressing, U in the low 16 bits and V in the high: 0 wrap, 1 clamp, 2 border (clamp without border
+    // support)
+    kAddressMode0 = 4,
+    kAddressMode1 = 5,
+    kAddressMode2 = 6,
+    kAddressMode3 = 7,
+    // a sampler's mip level bias (float bits)
+    kMipLodBias0 = 8,
+    kMipLodBias1 = 9,
+    kMipLodBias2 = 0xA,
+    kMipLodBias3 = 0xB,
+    kCullMode = 0x10,   // D3DCULL
+    kAlphaBlend = 0x11, // bool
+    kAlphaTest = 0x12,  // bool
+    kSpecular = 0x13,   // bool (and the local viewer with it)
+    kFog = 0x14,        // bool
+    kDepthBias = 0x15,  // in units of the factor at 0x0064AAA4
+    kLighting = 0x16,   // bool
+    // a sampler's filters, bit 0 minification linear, bit 16 magnification
+    kFilter0 = 0x20,
+    kFilter1 = 0x21,
+    kFilter2 = 0x22,
+    kFilter3 = 0x23,
+    kLocalViewer = 0x24, // bool
+};
+// The per-sampler states of sampler `sampler` (0-3).
+[[nodiscard]] constexpr RenderStateId address_mode_state(int sampler)
+{
+    return static_cast<RenderStateId>(core::to_underlying(RenderStateId::kAddressMode0) + sampler);
+}
+[[nodiscard]] constexpr RenderStateId mip_lod_bias_state(int sampler)
+{
+    return static_cast<RenderStateId>(core::to_underlying(RenderStateId::kMipLodBias0) + sampler);
+}
+// The sampler a per-sampler state is for, its first sampler's state `first`.
+[[nodiscard]] constexpr int sampler_of(RenderStateId state, RenderStateId first)
+{
+    return core::to_underlying(state) - core::to_underlying(first);
+}
 
 // 0x004DAB60: set one of the renderer's states (RenderStateId) on the device, if it isn't already.
 void change_phase(RenderStateId state, uint32_t value);

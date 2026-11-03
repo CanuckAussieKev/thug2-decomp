@@ -577,7 +577,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         gsl::owner<script::Array*> listing = script::alloc_script_array();
         if (listing)
             listing = new (listing) script::Array;
-        listing->configure_size_kind(static_cast<uint32_t>(listed), script::kQbvalStruct);
+        listing->configure_size_kind(static_cast<uint32_t>(listed), script::QbValueKind::kStruct);
         for (int j = 0; j < listed; ++j)
             listing->set_cell(static_cast<uint32_t>(j), script::Cell::of(core::at(entries, j)));
         script->args().get()->append_array_ref(kDirectoryListing, listing);

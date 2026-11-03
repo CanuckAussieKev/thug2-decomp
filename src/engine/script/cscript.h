@@ -127,7 +127,7 @@ struct ParamScript {
 static_assert(sizeof(ParamScript) == kParamScriptBytes, "allocated as 8 bytes by 0x0048B200");
 
 constexpr size_t kMemberFunctionEntryBytes = 0x18;
-// A member function's table entry (the value of a kQbvalNativeMethod symbol, token 0x46), 0x18 bytes: the
+// A member function's table entry (the value of a QbValueKind::kNativeMethod symbol, token 0x46), 0x18 bytes: the
 // tables at 0x00683550 (Entity's, filled in by 0x00642940) and 0x00683268 (GameEntity's, 0x006425D0).
 struct MemberFunctionEntry {
     uint32_t callsign_;

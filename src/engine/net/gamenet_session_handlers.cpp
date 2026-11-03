@@ -270,8 +270,8 @@ int handle_host_options(net::InboundMsgCtx* context)
             const char* text = option_text(list, value);
             if (fireball)
                 option_field(list, value, kFireballLevel); // (looked up for nothing)
-            params->append_word(kUiString, script::kQbvalString, text);
-            params->add_component_of_type(kChecksum, script::kQbvalName, value);
+            params->append_word(kUiString, script::QbValueKind::kString, text);
+            params->add_component_of_type(kChecksum, script::QbValueKind::kName, value);
             prefs->change_setting(preference, params.get());
         };
         set({.preference = kGameType, .list = kNetGameTypeInfo, .value = request.game_type});            // game_type: net_game_type_info
@@ -288,9 +288,9 @@ int handle_host_options(net::InboundMsgCtx* context)
             const script::StructPtr params = script::make_struct();
             const char* text = option_text(kTimeLimitOptions, request.time_limit);
             const int time = option_field(0x834A7C01, request.time_limit, kTime);
-            params->append_word(kUiString, script::kQbvalString, text);
-            params->add_component_of_type(kChecksum, script::kQbvalName, request.time_limit);
-            params->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
+            params->append_word(kUiString, script::QbValueKind::kString, text);
+            params->add_component_of_type(kChecksum, script::QbValueKind::kName, request.time_limit);
+            params->add_component_of_type(kTime, script::QbValueKind::kInteger, static_cast<uint32_t>(time));
             prefs->change_setting(kTimeLimit, params.get());
         }
         { // target_score: target_score_options, else capture_options, else time_limit_options (its time, in ms)
@@ -305,10 +305,10 @@ int handle_host_options(net::InboundMsgCtx* context)
                     score = option_field(kTimeLimitOptions, request.target_score, kTime) * kMillisecondsPerSecond;
                 }
             }
-            params->append_word(kUiString, script::kQbvalString, text);
-            params->add_component_of_type(kChecksum, script::kQbvalName, request.target_score);
+            params->append_word(kUiString, script::QbValueKind::kString, text);
+            params->add_component_of_type(kChecksum, script::QbValueKind::kName, request.target_score);
             if (score > 0)
-                params->add_component_of_type(kScore, script::kQbvalInteger, static_cast<uint32_t>(score));
+                params->add_component_of_type(kScore, script::QbValueKind::kInteger, static_cast<uint32_t>(score));
             prefs->change_setting(kTargetScore, params.get());
         }
         get_run(kChosenStartGame);
@@ -342,7 +342,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         if (!reader.ok())
             return kDone;
         script::StructPtr params = script::make_struct();
-        params->add_component_of_type(kLevel, script::kQbvalName, level);
+        params->add_component_of_type(kLevel, script::QbValueKind::kName, level);
         params->put_name_key(checksums::Name{kChangeLevelFlag}, kChangeLevelFlag);
         params->put_name_key(checksums::Name{kShowWarning}, kShowWarning);
         get_run(kChangeLevel, params.get());
@@ -425,8 +425,8 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     net_game_state().level_change_time() = frame_clock::get_time() + kLevelChangeDelay; // when to change
     if (manager->get_on_server()) {
         script::StructPtr params = script::make_struct();
-        params->append_word(kUiString, script::kQbvalString, manager->get_map_name(false));
-        params->add_component_of_type(kChecksum, script::kQbvalName, manager->level());
+        params->append_word(kUiString, script::QbValueKind::kString, manager->get_map_name(false));
+        params->add_component_of_type(kChecksum, script::QbValueKind::kName, manager->level());
         manager->get_online_settings()->change_setting(kLevel, params.get());
         params.reset();
         if (manager->level() == kLoadSk5edGameplay)
@@ -471,25 +471,25 @@ int handle_start_game(net::InboundMsgCtx* context)
     // The victory conditions.
     script::StructPtr victory = script::make_struct();
     if (start.time_limit == 0 && start.game_type != kNetGoalAttack) {
-        victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
+        victory->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, 0);
         if (start.game_type != kFirefight && start.game_type != kNetFirefight) {
             gsl::owner<script::Array*> conditions = script::new_array();
             script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
             auto* condition = conditions->struct_at(0);
-            condition->add_component_of_type(kScore, script::kQbvalInteger, start.target_score);
+            condition->add_component_of_type(kScore, script::QbValueKind::kInteger, start.target_score);
             victory->append_array_value(kVictoryConditions, conditions);
         }
     } else {
-        victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, start.time_limit);
+        victory->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, start.time_limit);
         if (start.game_type == kNetCtf) {
             gsl::owner<script::Array*> conditions = script::new_array();
             script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
             victory->append_array_value(kVictoryConditions, conditions);
         }
     }
-    victory->add_component_of_type(kFireballLevel, script::kQbvalInteger, start.fireball_level);
-    victory->add_component_of_type(kStopAtZero, script::kQbvalInteger, static_cast<uint32_t>(start.stop_at_zero));
-    victory->add_component_of_type(kShouldResetScores, script::kQbvalInteger,
+    victory->add_component_of_type(kFireballLevel, script::QbValueKind::kInteger, start.fireball_level);
+    victory->add_component_of_type(kStopAtZero, script::QbValueKind::kInteger, static_cast<uint32_t>(start.stop_at_zero));
+    victory->add_component_of_type(kShouldResetScores, script::QbValueKind::kInteger,
                                    static_cast<uint32_t>(start.reset_scores));
     static_cast<modules::Skate*>(skate)->set_unknown370(static_cast<int>(start.time_limit));
     get_game_mode()->force_match_settings(victory.get());

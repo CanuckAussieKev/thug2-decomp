@@ -242,7 +242,7 @@ bool Script::execute_command(Tokens& pc)
         pc_ = pc.address();
         pc = parse_expression(pc, args_.get(), value);
         pc_ = pc.address();
-        if (value_kind(*value) != kQbvalName) {
+        if (value_kind(*value) != QbValueKind::kName) {
             const bool result = value->value.word() != 0;
             delete_component(value);
             return result;
@@ -276,12 +276,12 @@ bool Script::execute_command(Tokens& pc)
             return false;
         // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
         switch (symbol->type()) {
-        case kQbvalScriptBody: {
+        case QbValueKind::kScriptBody: {
             const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
             run_sub_script(function, code, stmt_args_.get(), object, false);
             return true;
         }
-        case kQbvalNativeMethod:
+        case QbValueKind::kNativeMethod:
             if (auto* entry = symbol->value().method())
                 return invoke_method_by_name(entry, object);
             return invoke_method_by_name(function, object);
@@ -302,7 +302,7 @@ bool Script::execute_command(Tokens& pc)
         else
             pc = parse_value(pc, args_.get(), value);
         pc_ = pc.address();
-        if (value_kind(*value) != kQbvalNone) {
+        if (value_kind(*value) != QbValueKind::kNone) {
             value->name = target;
             args_->attach_module(value);
         } else {
@@ -321,17 +321,17 @@ bool Script::execute_command(Tokens& pc)
     }
     // Not original - the loading console (engine/gfx/loading_console.h): while a loading screen is up, the scripts
     // called and the commands that load or build things.
-    if (gfx::loading_console::live_now() && (symbol->type() == kQbvalScriptBody || symbol->type() == kQbvalNativeFunc))
-        gfx::loading_console::note_script_call(name, symbol->type() == kQbvalNativeFunc, stmt_args_.get());
+    if (gfx::loading_console::live_now() && (symbol->type() == QbValueKind::kScriptBody || symbol->type() == QbValueKind::kNativeFunc))
+        gfx::loading_console::note_script_call(name, symbol->type() == QbValueKind::kNativeFunc, stmt_args_.get());
     switch (symbol->type()) {
-    case kQbvalScriptBody: {
+    case QbValueKind::kScriptBody: {
         const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
         run_sub_script(name, code, stmt_args_.get(), entity_.get_pull(), false);
         return true;
     }
-    case kQbvalNativeFunc:
+    case QbValueKind::kNativeFunc:
         return symbol->value().function()(stmt_args_.get(), this);
-    case kQbvalNativeMethod: {
+    case QbValueKind::kNativeMethod: {
         auto* entry = symbol->value().method();
         objects::Entity* object = entity_.get_pull();
         if (entry) {

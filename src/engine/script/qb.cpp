@@ -310,10 +310,10 @@ void prepare_script_tokens(std::span<uint8_t> code)
             const MutableTokens name(code, token.position());
             token += kTokenWithWordBytes;
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
-                if (symbol->type() == kQbvalNativeFunc) {
+                if (symbol->type() == QbValueKind::kNativeFunc) {
                     name[0] = kTokenNativeFunction;
                     store_word32(name + 1, symbol->value().word());
-                } else if (symbol->type() == kQbvalNativeMethod) {
+                } else if (symbol->type() == QbValueKind::kNativeMethod) {
                     if (symbol->value().word()) {
                         store_word32(name + 1, symbol->value().word());
                         name[0] = kTokenMemberFunction;
@@ -577,7 +577,7 @@ void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
     pending.symbol = symbol;
     pending.owned = owned;
     ++pending_symbol_count();
-    if (symbol->type() == kQbvalScriptBody && script_store_instance())
+    if (symbol->type() == QbValueKind::kScriptBody && script_store_instance())
         remove_from_script_cache(symbol->name_value());
 }
 
@@ -611,26 +611,26 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
     if (symbol->unknown0() & 4) // (kept: not owned by the table?)
         return;
     switch (symbol->type()) {
-    case kQbvalString:
-    case kQbvalInlineText:
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
         free_string(symbol->value().text());
         break;
-    case kQbvalPair:
+    case QbValueKind::kPair:
         free_pair(symbol->value().pair());
         break;
-    case kQbvalVector:
+    case QbValueKind::kVector:
         free_vector(symbol->value().vector());
         break;
-    case kQbvalScriptBody:
+    case QbValueKind::kScriptBody:
         memory::free_malloc(symbol->value().code());
         break;
-    case kQbvalStruct:
+    case QbValueKind::kStruct:
         if (Struct* structure = symbol->value().structure()) {
             structure->get_clear();
             delete_struct(structure);
         }
         break;
-    case kQbvalArray:
+    case QbValueKind::kArray:
         release_array_storage(symbol->value().array());
         if (auto* array = symbol->value().array()) {
             array->get_clear();
@@ -661,7 +661,7 @@ void process_pending_symbols()
             link_symbol(pending.symbol);
         }
         // (reads the symbol even when it has just been freed, as the original does)
-        if (pending.symbol->type() == kQbvalScriptBody && script_store_instance())
+        if (pending.symbol->type() == QbValueKind::kScriptBody && script_store_instance())
             remove_from_script_cache(pending.symbol->name_value());
     }
     pending_symbol_count() = 0;

@@ -151,8 +151,8 @@ uint16_t texture_palette_size(void* texture)
 void set_count_preference(Hub* manager, uint32_t preference, const char* ui_string, uint32_t checksum)
 {
     gsl::owner<script::Struct*> values = script::new_struct();
-    values->append_word(kUiString, script::kQbvalString, ui_string);
-    values->add_component_of_type(kChecksum, script::kQbvalName, checksum);
+    values->append_word(kUiString, script::QbValueKind::kString, ui_string);
+    values->add_component_of_type(kChecksum, script::QbValueKind::kName, checksum);
     manager->get_online_settings()->change_setting(preference, values);
 }
 

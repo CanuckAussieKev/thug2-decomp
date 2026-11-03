@@ -302,7 +302,7 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
 
 void PieceGroup::get_piece_list(script::Array* out)
 {
-    out->configure_size_kind(filled_slots_, script::kQbvalStruct);
+    out->configure_size_kind(filled_slots_, script::QbValueKind::kStruct);
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* piece = memory ? memory::construct_in<script::Struct>(memory) : nullptr;

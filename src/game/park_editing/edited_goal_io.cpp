@@ -111,7 +111,6 @@ std::array<char, kNodeNameSize>& goal_io_name_buffer()
 }
 
 constexpr float kDropHeight = 10000.0f; // 0x0064B308
-constexpr uint32_t kStructureArray = 10, kChecksumArray = 13, kIntegerArray = 1;
 
 template <typename... Args>
 int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
@@ -119,10 +118,10 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
     return crt::get_sprintf(out, format, args...);
 }
 
-gsl::owner<script::Array*> new_array_of(uint32_t size, uint32_t type)
+gsl::owner<script::Array*> new_array_of(uint32_t size, script::QbValueKind type)
 {
     gsl::owner<script::Array*> array = script::new_array();
-    array->configure_size_kind(size, static_cast<script::QbValueKind>(type));
+    array->configure_size_kind(size, type);
     return array;
 }
 script::Struct* structure_element(script::Array* array, uint32_t index)
@@ -250,7 +249,7 @@ void EditedGoal::write_key_combo_sets(script::Struct* out)
 {
     if (num_key_combo_sets_ == 0)
         return;
-    gsl::owner<script::Array*> sets = new_array_of(static_cast<uint32_t>(num_key_combo_sets_), kStructureArray);
+    gsl::owner<script::Array*> sets = new_array_of(static_cast<uint32_t>(num_key_combo_sets_), script::QbValueKind::kStruct);
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         const KeyComboSet& set = core::at(key_combo_sets_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();
@@ -280,7 +279,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
         structure_element(all_sets, core::at(key_combo_sets_, i).set)->fetch_list(kKeyCombos, &combos, 0);
         total += combos->extent();
     }
-    gsl::owner<script::Array*> result = new_array_of(total, kStructureArray);
+    gsl::owner<script::Array*> result = new_array_of(total, script::QbValueKind::kStruct);
     uint32_t index = 0;
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         const KeyComboSet& set = core::at(key_combo_sets_, i);
@@ -288,7 +287,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
         structure_element(all_sets, set.set)->fetch_list(kKeyCombos, &combos, 0);
         for (uint32_t j = 0; j < combos->extent(); ++j) {
             gsl::owner<script::Struct*> entry = script::new_struct();
-            if (combos->kind_tag() == kChecksumArray)
+            if (combos->kind_tag() == script::QbValueKind::kName)
                 entry->put_name_key(checksums::Name{kKeyCombo}, combos->fetch_part(j));
             else
                 entry->append_structure_if_any(structure_element(combos, j));
@@ -346,18 +345,18 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
     case kGoalTypeGap:
         out->append_word(kRequiredTrickName, required_trick_.data());
         if (for_goal_manager == 1) {
-            gsl::owner<script::Array*> flags = new_array_of(num_gaps_, kChecksumArray);
+            gsl::owner<script::Array*> flags = new_array_of(num_gaps_, script::QbValueKind::kName);
             for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
                 get_sprintf(text.data(), "got_%d", i + 1);
                 flags->set_element(static_cast<uint32_t>(i), checksums::hash_from_text(text.data()));
             }
             out->append_array_ref(kGoalFlags, flags);
-            gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, kIntegerArray);
+            gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, script::QbValueKind::kInteger);
             for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
                 gaps->set_element(static_cast<uint32_t>(i), core::at(gaps_, i));
             out->append_array_ref(kRequiredGaps, gaps);
         } else if (num_gaps_) {
-            gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, kIntegerArray);
+            gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, script::QbValueKind::kInteger);
             for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
                 gaps->set_element(static_cast<uint32_t>(i), core::at(gaps_, i));
             out->append_array_ref(kGaps, gaps);
@@ -419,7 +418,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     }
     case kGoalTypeCombo: {
         static const std::array<const char*, 5> kLetters = {{"C", "O", "M", "B", "O"}};
-        gsl::owner<script::Array*> letters = new_array_of(kLetterCount, kStructureArray);
+        gsl::owner<script::Array*> letters = new_array_of(kLetterCount, script::QbValueKind::kStruct);
         for (int i = 0; i < kLetterCount; ++i) {
             gsl::owner<script::Struct*> letter = script::new_struct();
             core::at(name, 0) = '\0';
@@ -433,8 +432,8 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     }
     case kGoalTypeRace: {
         const int count = vertex_total_ - 2;
-        gsl::owner<script::Array*> waypoints = new_array_of(static_cast<uint32_t>(count), kStructureArray);
-        gsl::owner<script::Array*> flags = new_array_of(static_cast<uint32_t>(count), kChecksumArray);
+        gsl::owner<script::Array*> waypoints = new_array_of(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
+        gsl::owner<script::Array*> flags = new_array_of(static_cast<uint32_t>(count), script::QbValueKind::kName);
         std::array<char, kNodeNameSize> flag{};
         for (int i = 0; i < count; ++i) {
             gsl::owner<script::Struct*> waypoint = script::new_struct();
@@ -503,7 +502,7 @@ void EditedGoal::export_to_struct(script::Struct* out)
     write_specific_params(out, 0);
     if (!vertex_total_)
         return;
-    gsl::owner<script::Array*> points = new_array_of(vertex_total_, kStructureArray);
+    gsl::owner<script::Array*> points = new_array_of(vertex_total_, script::QbValueKind::kStruct);
     for (uint32_t i = 0; i < vertex_total_; ++i) {
         const EditedGoalPoint& point = core::at(path_vertices_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();

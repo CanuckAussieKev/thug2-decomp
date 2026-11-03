@@ -609,7 +609,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     std::array<std::array<uint8_t, 4>, 3> colour{};
     std::memcpy(colour.data(), own->shade().data(), sizeof(colour));
     for (script::Array* array : colours)
-        array->configure_size_kind(4, script::kQbvalInteger);
+        array->configure_size_kind(4, script::QbValueKind::kInteger);
     for (int i = 0; i < 3; ++i)
         for (uint32_t j = 0; j < 4; ++j)
             core::at(colours, i)->set_element(j, core::at(core::at(colour, i), j));

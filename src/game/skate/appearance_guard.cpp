@@ -19,7 +19,7 @@ constexpr uint32_t kDefaultAppearance = 0x33D0ACDE; // appearance_custom_skater_
 
 // (an appearance read from a buffer owns its slots' structures: a structure pointer - one it doesn't own - is left
 // alone)
-bool is_structure(const script::Component* component) { return value_kind(*component) == script::kQbvalStruct; }
+bool is_structure(const script::Component* component) { return value_kind(*component) == script::QbValueKind::kStruct; }
 
 script::Array* game_part_list(uint32_t slot) { return script::fetch_list(slot); }
 script::Struct* game_defaults() { return script::read_sub_struct(kDefaultAppearance); }
@@ -34,7 +34,7 @@ Catalog& current_catalog()
 script::Array* part_list(uint32_t slot)
 {
     script::Array* list = current_catalog().part_list_(slot);
-    if (!list || list->extent() == 0 || list->kind_tag() != script::kQbvalStruct)
+    if (!list || list->extent() == 0 || list->kind_tag() != script::QbValueKind::kStruct)
         return nullptr;
     return list;
 }

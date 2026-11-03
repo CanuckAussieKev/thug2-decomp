@@ -55,7 +55,7 @@ gsl::owner<script::Array*> copy_info_list(const char* name)
 {
     script::Array* source = script::fetch_list(name);
     gsl::owner<script::Array*> copy = script::new_array();
-    copy->configure_size_kind(kInfoListSize, script::kQbvalStruct);
+    copy->configure_size_kind(kInfoListSize, script::QbValueKind::kStruct);
     script::duplicate_array(copy, source);
     return copy;
 }

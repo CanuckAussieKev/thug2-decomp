@@ -24,7 +24,6 @@ constexpr int kMillisecondsPerSecond = 1000;
 constexpr int kMillisecondsPerCentisecond = 10;
 constexpr int kCentisecondsPerSecond = 100;
 constexpr int kClockSlackMilliseconds = 20;    // a time limit runs this much past its seconds
-constexpr int kTypeMask = 0xFE;                // the kind of a component without its flag bit
 constexpr int kDecimalBase = 10;
 constexpr int kDeactivateOnExpireShift = 6;
 
@@ -155,7 +154,7 @@ void Objective::zero_objective_bits()
         script::Component* component = goal_flags_->step_to_entry(nullptr);
         while (component) {
             script::Component* next = goal_flags_->step_to_entry(component);
-            if ((component->type_and_flag_ & kTypeMask) == (script::kQbvalStruct << 1)) {
+            if (value_kind(*component) == script::QbValueKind::kStruct) {
                 script::Struct* skater = component->value.structure();
                 script::Component* flag = skater->step_to_entry(nullptr);
                 while (flag) {
@@ -184,7 +183,7 @@ bool Objective::has_every_bit()
     if (goal_flags_->has_bare_flag(kSkaterTraits)) {
         for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
             script::Component* next = goal_flags_->step_to_entry(component);
-            if ((component->type_and_flag_ & kTypeMask) == (script::kQbvalStruct << 1)) {
+            if (value_kind(*component) == script::QbValueKind::kStruct) {
                 script::Struct* skater = component->value.structure();
                 int set = 0;
                 int count = 0;

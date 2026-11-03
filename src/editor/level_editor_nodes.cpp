@@ -282,7 +282,7 @@ std::vector<ArraySignature> get_signature()
 
 script::Struct* get_node_at(script::Array* nodes, uint32_t index)
 {
-    if (!nodes || index >= nodes->extent() || nodes->kind_tag() != script::kQbvalStruct)
+    if (!nodes || index >= nodes->extent() || nodes->kind_tag() != script::QbValueKind::kStruct)
         return nullptr;
     return nodes->struct_at(index);
 }
@@ -319,7 +319,7 @@ void get_scan()
     ++node_walk().generation_;
     for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
         script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
-        if (!nodes || nodes->kind_tag() != script::kQbvalStruct)
+        if (!nodes || nodes->kind_tag() != script::QbValueKind::kStruct)
             continue;
         for (uint32_t i = 0; i < nodes->extent(); ++i) {
             script::Struct* s = get_node_at(nodes, i);
@@ -394,7 +394,7 @@ void get_scan()
                 script::Array* colour = nullptr;
                 if (s->fetch_list(kColor, &colour, 0) && colour && colour->extent() >= 3) {
                     auto c = [&](uint32_t k) {
-                        const int value = colour->kind_tag() == script::kQbvalFloat
+                        const int value = colour->kind_tag() == script::QbValueKind::kFloat
                                               ? static_cast<int>(colour->fetch_float(k))
                                               : static_cast<int>(colour->fetch_part(k));
                         return static_cast<uint32_t>(std::max(0, std::min(kChannelMax, value)));
@@ -617,21 +617,21 @@ std::string array_text(script::Array* array, int depth)
             text += " ";
         std::array<char, kNameBufferSize> buffer{};
         switch (array->kind_tag()) {
-        case script::kQbvalInteger:
+        case script::QbValueKind::kInteger:
             text::format_to(buffer, "%d", static_cast<int>(array->fetch_part(i)));
             text += buffer.data();
             break;
-        case script::kQbvalFloat:
+        case script::QbValueKind::kFloat:
             text::format_to(buffer, "%g", array->fetch_float(i));
             text += buffer.data();
             break;
-        case script::kQbvalName:
+        case script::QbValueKind::kName:
             text += get_name_text(array->fetch_part(i));
             break;
-        case script::kQbvalString:
+        case script::QbValueKind::kString:
             text += std::string("\"") + (array->fetch_text(i) ? array->fetch_text(i) : "") + "\"";
             break;
-        case script::kQbvalStruct:
+        case script::QbValueKind::kStruct:
             text += depth < 2 ? "{...}" : "{}";
             break;
         default:
@@ -648,33 +648,33 @@ std::string value_text(script::Component* c, int depth)
 {
     std::array<char, kValueBufferSize> buffer{};
     switch (value_kind(*c)) {
-    case script::kQbvalInteger:
+    case script::QbValueKind::kInteger:
         text::format_to(buffer, "%d", c->value.integer());
         return buffer.data();
-    case script::kQbvalFloat:
+    case script::QbValueKind::kFloat:
         text::format_to(buffer, "%g", c->value.real());
         return buffer.data();
-    case script::kQbvalString:
-    case script::kQbvalInlineText:
+    case script::QbValueKind::kString:
+    case script::QbValueKind::kInlineText:
         return std::string("\"") + (c->value.text() ? c->value.text() : "") + "\"";
-    case script::kQbvalPair:
+    case script::QbValueKind::kPair:
         if (c->value.pair())
             text::format_to(buffer, "(%g, %g)", c->value.pair()->x(), c->value.pair()->y());
         return c->value.pair() ? buffer.data() : "()";
-    case script::kQbvalVector:
+    case script::QbValueKind::kVector:
         if (c->value.vector())
             text::format_to(buffer, "(%.2f, %.2f, %.2f)", c->value.vector()->x(), c->value.vector()->y(),
                             c->value.vector()->z());
         return c->value.vector() ? buffer.data() : "()";
-    case script::kQbvalName:
+    case script::QbValueKind::kName:
         return get_name_text(c->value.word());
-    case script::kQbvalArray:
-    case script::kEsymboltypeArraypointer:
+    case script::QbValueKind::kArray:
+    case script::QbValueKind::kArrayRef:
         return array_text(c->value.array(), depth + 1);
-    case script::kQbvalStruct:
-    case script::kQbvalStructRef:
+    case script::QbValueKind::kStruct:
+    case script::QbValueKind::kStructRef:
         return "{...}";
-    case script::kQbvalScriptBody:
+    case script::QbValueKind::kScriptBody:
         return "(a script)";
     default:
         return "?";
@@ -686,10 +686,10 @@ void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* 
     if (!s || depth > 3)
         return;
     for (script::Component* c = s->head(); c; c = c->next) {
-        if (c->name == 0 && value_kind(*c) == script::kQbvalName) {
+        if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
             const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
-            if (symbol && symbol->type() == script::kQbvalStruct && symbol->value().structure()) {
+            if (symbol && symbol->type() == script::QbValueKind::kStruct && symbol->value().structure()) {
                 add_fields(symbol->value().structure(), true, depth + 1, out);
                 continue;
             }
@@ -729,7 +729,7 @@ bool level_is_shared(const char** game)
     static const uint32_t kLevel = name_hash("level"), kGameTag = name_hash("game_tag");
     for (const auto& entry : kLists) {
         script::Array* levels = script::fetch_list(entry.list);
-        if (!levels || levels->kind_tag() != script::kQbvalStruct)
+        if (!levels || levels->kind_tag() != script::QbValueKind::kStruct)
             continue;
         for (uint32_t i = 0; i < levels->extent(); ++i) {
             auto* info = levels->struct_at(i);

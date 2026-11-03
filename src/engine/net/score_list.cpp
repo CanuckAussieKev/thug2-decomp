@@ -292,8 +292,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         }
         const uint32_t id = line < 8 ? core::at(kScoreLines, line) : 0;
         script::StructPtr params = script::make_struct();
-        params->append_word(kText, script::kQbvalString, text.data());
-        params->add_component_of_type(kId, script::kQbvalName, id);
+        params->append_word(kText, script::QbValueKind::kString, text.data());
+        params->add_component_of_type(kId, script::QbValueKind::kName, id);
         frontend::UiWidget* element = nullptr;
         {
             frontend::ElementPtr found;

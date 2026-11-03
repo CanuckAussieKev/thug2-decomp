@@ -265,7 +265,7 @@ void PcWeather::render_rain(maths::Vec2 centre)
     } else {
         choose_blend_mode(rain_blend_);
     }
-    change_phase(kPhaseAlphaTest, 0);
+    change_phase(RenderStateId::kPhaseAlphaTest, 0);
     set_pixel_shader(nullptr, nullptr);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
@@ -352,8 +352,8 @@ void PcWeather::render_snow(maths::Vec2 centre)
     if (max_z < 0 || min_z > depth - 1)
         return;
     choose_blend_mode(snow_blend_);
-    change_phase(kPhaseAlphaTest, 0);
-    change_phase(kAddressMode0, 0);
+    change_phase(RenderStateId::kPhaseAlphaTest, 0);
+    change_phase(RenderStateId::kAddressMode0, 0);
     static_cast<TextureRef*>(snow_texture_)->assign_value(0);
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
@@ -469,8 +469,8 @@ void PcWeather::render_splashes(float x, float z)
         feeler.entity().get_release();
     }
     choose_blend_mode(splash_blend_);
-    change_phase(kPhaseAlphaTest, 0);
-    change_phase(kAddressMode0, 0);
+    change_phase(RenderStateId::kPhaseAlphaTest, 0);
+    change_phase(RenderStateId::kAddressMode0, 0);
     static_cast<TextureRef*>(splash_texture_)->assign_value(0);
     set_pixel_shader(nullptr, nullptr);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);

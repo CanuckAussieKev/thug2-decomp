@@ -72,9 +72,9 @@ float get_as_float(uint32_t bits)
     return value;
 }
 
-void change_species(Component* component, uint32_t type)
+void change_species(Component* component, QbValueKind type)
 {
-    component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (type << 1));
+    set_value_kind(*component, type);
 }
 
 Tokens skip_end_of_lines_in(Tokens p)
@@ -103,11 +103,11 @@ Tokens add_expression(Tokens token, Struct& dest, Struct* args)
 {
     gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
-    if (value_kind(*value) == kQbvalStruct) {
+    if (value_kind(*value) == QbValueKind::kStruct) {
         dest.append_structure_if_any(value->value.structure());
         release_component(value);
         free_component(value);
-    } else if (value_kind(*value) != kQbvalNone) {
+    } else if (value_kind(*value) != QbValueKind::kNone) {
         value->name = 0;
         dest.attach_module(value);
     } else {
@@ -321,7 +321,7 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
         const int range = high - low + 1;
         const int pick = deterministic ? maths::roll_side_stream(range) : maths::rnd(range);
         out->value.set_word(static_cast<uint32_t>(pick + low));
-        change_species(out, kQbvalInteger);
+        change_species(out, QbValueKind::kInteger);
         return token + kTokenWithPairBytes;
     }
     if (a > b) {
@@ -330,7 +330,7 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
         b = swapped;
     }
     const int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
-    change_species(out, kQbvalFloat);
+    change_species(out, QbValueKind::kFloat);
     const double scale = kParseRandomScale;
     out->value.set_real(static_cast<float>((static_cast<double>(b) - a) * pick * scale + a));
     return token + kTokenWithPairBytes;
@@ -339,21 +339,21 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
 // 0x00479730
 void evaluate_name_token(Component* component)
 {
-    if ((component->type_and_flag_ & kComponentTypeBits) != (kQbvalName << 1))
+    if (value_kind(*component) != QbValueKind::kName)
         return;
     const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
     if (!symbol)
         return;
     switch (symbol->type()) {
-    case kQbvalInteger:
-    case kQbvalFloat:
-    case kQbvalString:
-    case kQbvalInlineText:
-    case kQbvalPair:
-    case kQbvalVector:
-    case kQbvalStruct:
-    case kQbvalArray:
-    case kQbvalName:
+    case QbValueKind::kInteger:
+    case QbValueKind::kFloat:
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
+    case QbValueKind::kPair:
+    case QbValueKind::kVector:
+    case QbValueKind::kStruct:
+    case QbValueKind::kArray:
+    case QbValueKind::kName:
         change_species(component, symbol->type());
         component->value.set_word(symbol->value().word());
         break;
@@ -370,7 +370,7 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
     case kTokenStructStart: {
         gsl::owner<Struct*> structure = script::new_struct();
         p = parse_structure(structure, token, args);
-        change_species(out, kQbvalStruct);
+        change_species(out, QbValueKind::kStruct);
         out->value.set_structure(structure);
         return p;
     }
@@ -379,31 +379,31 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
-        change_species(out, kQbvalArray);
+        change_species(out, QbValueKind::kArray);
         out->value.set_array(array);
         return p;
     }
     case kTokenName:
-        change_species(out, kQbvalName);
+        change_species(out, QbValueKind::kName);
         out->value.set_word(fetch_word32(p));
         return token + kTokenWithWordBytes;
     case kTokenInteger:
-        change_species(out, kQbvalInteger);
+        change_species(out, QbValueKind::kInteger);
         out->value.set_word(fetch_word32(p));
         return token + kTokenWithWordBytes;
     case kTokenFloat:
-        change_species(out, kQbvalFloat);
+        change_species(out, QbValueKind::kFloat);
         out->value.set_word(fetch_word32(p));
         return token + kTokenWithWordBytes;
     case kTokenString:
     case kTokenLocalString: {
-        change_species(out, *token == kTokenString ? kQbvalString : kQbvalInlineText);
+        change_species(out, *token == kTokenString ? QbValueKind::kString : QbValueKind::kInlineText);
         const uint32_t length = fetch_word32(p);
         out->value.set_text(spawn_text(raw::chars((token + kTokenWithWordBytes).address())));
         return token + kTokenWithWordBytes + length;
     }
     case kTokenVector: {
-        change_species(out, kQbvalVector);
+        change_species(out, QbValueKind::kVector);
         uint32_t x = fetch_word32(p), y = fetch_word32(token + kTokenWithWordBytes), z = fetch_word32(token + kTokenWithPairBytes);
         Vector* vector = alloc_script_vector();
         vector = vector ? new (vector) script::Vector : nullptr;
@@ -414,7 +414,7 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         return token + kTokenWithVectorBytes;
     }
     case kTokenPair: {
-        change_species(out, kQbvalPair);
+        change_species(out, QbValueKind::kPair);
         uint32_t x = fetch_word32(p), y = fetch_word32(token + kTokenWithWordBytes);
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
@@ -427,7 +427,7 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         out->name = fetch_word32(token + 2);
         const Tokens start = token + 6;
         Tokens end = skip_to_end_of_script(start);
-        change_species(out, kQbvalScriptBody);
+        change_species(out, QbValueKind::kScriptBody);
         const std::span<const uint8_t> script = code_between(start, end);
         const auto size = static_cast<uint32_t>(script.size());
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
@@ -443,7 +443,7 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         if (args) {
             gsl::owner<Struct*> structure = script::new_struct();
             structure->get_assign(args);
-            change_species(out, kQbvalStruct);
+            change_species(out, QbValueKind::kStruct);
             out->value.set_structure(structure);
         }
         return token + 1;
@@ -532,7 +532,7 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         const Component* found = args->find_last_component(reference);
         if (!found)
             return p;
-        if (name == 0 && (found->type_and_flag_ & kComponentTypeBits) == (kQbvalStruct << 1)) {
+        if (name == 0 && value_kind(*found) == QbValueKind::kStruct) {
             dest->append_structure_if_any(found->value.structure());
             return p;
         }
@@ -668,7 +668,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
 {
     const Tokens first = token + 1;
     Tokens p = resolve_random_jumps(first);
-    uint32_t type = 0;
+    QbValueKind type = QbValueKind::kNone;
     uint32_t count = 0;
     if (*p == kTokenArrayEnd)
         return p + 1;
@@ -676,33 +676,33 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
         const uint8_t t = *p;
         switch (t) {
         case kTokenStructStart:
-            type = kQbvalStruct;
+            type = QbValueKind::kStruct;
             break;
         case kTokenArrayStart:
-            type = kQbvalArray;
+            type = QbValueKind::kArray;
             break;
         case kTokenName:
-            type = kQbvalName;
+            type = QbValueKind::kName;
             break;
         case kTokenInteger:
         case kTokenHexInteger:
-            if (type != kQbvalFloat)
-                type = kQbvalInteger;
+            if (type != QbValueKind::kFloat)
+                type = QbValueKind::kInteger;
             break;
         case kTokenFloat:
-            type = kQbvalFloat;
+            type = QbValueKind::kFloat;
             break;
         case kTokenString:
-            type = kQbvalString;
+            type = QbValueKind::kString;
             break;
         case kTokenLocalString:
-            type = kQbvalInlineText;
+            type = QbValueKind::kInlineText;
             break;
         case kTokenVector:
-            type = kQbvalVector;
+            type = QbValueKind::kVector;
             break;
         case kTokenPair:
-            type = kQbvalPair;
+            type = QbValueKind::kPair;
             break;
         default:
             break;
@@ -732,20 +732,20 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
         }
         p = resolve_random_jumps(p);
     }
-    if (type == 0)
+    if (type == QbValueKind::kNone)
         return p + 1;
 
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
-    dest->configure_size_kind(count, static_cast<QbValueKind>(type));
+    dest->configure_size_kind(count, type);
     memory::leave_heap_scope();
-    if (type == kQbvalScriptBody || type == kQbvalNativeFunc || type == kQbvalNativeMethod || type == kQbvalStructHandedOver)
+    if (type == QbValueKind::kScriptBody || type == QbValueKind::kNativeFunc || type == QbValueKind::kNativeMethod || type == QbValueKind::kStructHandedOver)
         return token;
     uint32_t element = 0; // (the next element written)
     p = resolve_random_jumps(first);
     while (*p != kTokenArrayEnd) {
         const uint8_t t = *p;
         switch (type) {
-        case kQbvalStruct:
+        case QbValueKind::kStruct:
             // (no step first; unknown tokens don't move on: the original loops here)
             if (t == kTokenEndOfLine || t == kTokenComma) {
                 ++p;
@@ -757,7 +757,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 dest->set_cell(element++, Cell::of(structure));
             }
             break;
-        case kQbvalArray:
+        case QbValueKind::kArray:
             ++p;
             if (t == kTokenEndOfLineNumbered) {
                 p += 4;
@@ -767,7 +767,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 dest->set_cell(element++, Cell::of(array));
             }
             break;
-        case kQbvalInteger:
+        case QbValueKind::kInteger:
             ++p;
             if (t == kTokenEndOfLineNumbered) {
                 p += 4;
@@ -776,7 +776,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 p += 4;
             }
             break;
-        case kQbvalFloat:
+        case QbValueKind::kFloat:
             ++p;
             if (t == kTokenEndOfLineNumbered) {
                 p += 4;
@@ -788,7 +788,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 p += 4;
             }
             break;
-        case kQbvalName:
+        case QbValueKind::kName:
             ++p;
             if (t == kTokenEndOfLineNumbered) {
                 p += 4;
@@ -797,19 +797,19 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 p += 4;
             }
             break;
-        case kQbvalString:
-        case kQbvalInlineText:
+        case QbValueKind::kString:
+        case QbValueKind::kInlineText:
             ++p;
             if (t == kTokenEndOfLineNumbered) {
                 p += 4;
-            } else if (t == (type == kQbvalString ? kTokenString : kTokenLocalString)) {
+            } else if (t == (type == QbValueKind::kString ? kTokenString : kTokenLocalString)) {
                 const uint32_t length = fetch_word32(p);
                 p += 4;
                 dest->set_cell(element++, Cell::of_text(spawn_text(raw::chars(p.address()))));
                 p += length;
             }
             break;
-        case kQbvalVector:
+        case QbValueKind::kVector:
             ++p;
             if (t == kTokenEndOfLineNumbered) {
                 p += 4;
@@ -824,7 +824,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 dest->set_cell(element++, Cell::of(vector));
             }
             break;
-        case kQbvalPair:
+        case QbValueKind::kPair:
             ++p;
             if (t == kTokenEndOfLineNumbered) {
                 p += 4;
@@ -929,28 +929,28 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             if (symbol) {
                 bool push = true;
                 switch (symbol->type()) {
-                case kQbvalInteger:
-                case kQbvalFloat:
-                case kQbvalString:
-                case kQbvalInlineText:
-                case kQbvalPair:
-                case kQbvalVector:
-                case kQbvalName:
+                case QbValueKind::kInteger:
+                case QbValueKind::kFloat:
+                case QbValueKind::kString:
+                case QbValueKind::kInlineText:
+                case QbValueKind::kPair:
+                case QbValueKind::kVector:
+                case QbValueKind::kName:
                     change_species(&value, symbol->type());
                     value.value.set_word(symbol->value().word());
                     break;
-                case kQbvalStruct:
-                    change_species(&value, kQbvalStructRef);
+                case QbValueKind::kStruct:
+                    change_species(&value, QbValueKind::kStructRef);
                     value.value.set_word(symbol->value().word());
                     break;
-                case kQbvalArray:
-                    change_species(&value, kEsymboltypeArraypointer);
+                case QbValueKind::kArray:
+                    change_species(&value, QbValueKind::kArrayRef);
                     value.value.set_word(symbol->value().word());
                     break;
-                case kQbvalNativeFunc: {
+                case QbValueKind::kNativeFunc: {
                     // Called now, with the arguments that follow.
                     Script* script = get_running_script();
-                    change_species(&value, kQbvalInteger);
+                    change_species(&value, QbValueKind::kInteger);
                     gsl::owner<Struct*> params = script::new_struct();
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
@@ -963,7 +963,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
                     }
                     break;
                 }
-                case kQbvalNativeMethod:
+                case QbValueKind::kNativeMethod:
                     push = false;
                     break;
                 default:
@@ -1009,7 +1009,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
                 break;
             ++p;
             if (args) {
-                change_species(&value, kQbvalStructRef);
+                change_species(&value, QbValueKind::kStructRef);
                 value.value.set_structure(args);
                 evaluator.intake(&value);
             }
@@ -1022,8 +1022,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             p += kTokenWithNamedWordBytes;
             const Component* found = args ? args->find_last_component(name) : nullptr;
             if (found) {
-                value.type_and_flag_ =
-                    static_cast<uint8_t>((value.type_and_flag_ & 1) | (found->type_and_flag_ & kComponentTypeBits));
+                copy_value_kind(value, *found);
                 value.value.set_word(found->value.word());
                 evaluate_name_token(&value);
                 make_reference(&value);

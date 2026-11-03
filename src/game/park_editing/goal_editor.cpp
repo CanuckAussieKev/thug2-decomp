@@ -523,7 +523,7 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
     if (!count)
         return;
     gsl::owner<script::Array*> goals = script::new_array();
-    goals->configure_size_kind(count, script::kQbvalStruct);
+    goals->configure_size_kind(count, script::QbValueKind::kStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count() || goal.level() == kParkEditorLevel)
@@ -541,7 +541,7 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
     // (sized by the complete goals, filled with every used one: as the original)
     auto count = static_cast<uint32_t>(count_complete_goals(level));
     gsl::owner<script::Array*> goals = script::new_array();
-    goals->configure_size_kind(count, script::kQbvalStruct);
+    goals->configure_size_kind(count, script::QbValueKind::kStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count() || goal.level() != level)
@@ -669,7 +669,7 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
     if (!count)
         return true;
     gsl::owner<script::Array*> goals = script::new_array();
-    goals->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
+    goals->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count() || (level && goal.level() != level) || goal.vertex_total() < goal.min_points())

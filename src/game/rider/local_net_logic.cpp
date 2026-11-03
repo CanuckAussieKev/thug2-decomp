@@ -283,7 +283,7 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     if (params)
         params = new (params) script::Struct;
     params->get_clear(); // (on the new structure, as the original)
-    params->append_word(kString0, script::kQbvalString, other->fetch_shown_name());
+    params->append_word(kString0, script::QbValueKind::kString, other->fetch_shown_name());
     script::launch_script(script, params, skater, false, nullptr);
     if (params) {
         params->get_clear();

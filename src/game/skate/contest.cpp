@@ -333,7 +333,7 @@ void Contest::show_leader_board()
         return;
     const script::StructPtr params = script::make_struct();
     script::ArrayPtr board = script::make_array();
-    board->configure_size_kind(kBoardRows, script::kQbvalStruct);
+    board->configure_size_kind(kBoardRows, script::QbValueKind::kStruct);
     debug::printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
         const Leader& leader = core::at(leaders_, i);
@@ -479,7 +479,7 @@ void Contest::end_run(int score)
         return;
     const script::StructPtr params = script::make_struct();
     script::ArrayPtr scores = script::make_array();
-    scores->configure_size_kind(kBoardRows, script::kQbvalStruct);
+    scores->configure_size_kind(kBoardRows, script::QbValueKind::kStruct);
     debug::printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
         gsl::owner<script::Struct*> entry = script::new_struct();

@@ -587,7 +587,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             script::Array* old = prefs->get_setting_list(get_checksums("buddy_array"));
             gsl::owner<script::Array*> memory = script::alloc_script_array();
             script::Array* buddies = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-            buddies->configure_size_kind(old->extent() + 1, script::kQbvalStruct);
+            buddies->configure_size_kind(old->extent() + 1, script::QbValueKind::kStruct);
             uint32_t i = 0;
             for (; i < old->extent(); ++i) {
                 auto* entry = old->struct_at(i);
@@ -602,10 +602,10 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             prefs->change_option_list(get_checksums("buddy_array"), buddies);
         }
         script::StructPtr params = script::make_struct();
-        params->append_word(get_checksums("name"), script::kQbvalString, buddy->nick().data());
-        params->append_word(get_checksums("status"), script::kQbvalString, buddy->status_text().data());
-        params->append_word(get_checksums("location"), script::kQbvalString, buddy->location().data());
-        params->add_component_of_type(get_checksums("id"), script::kQbvalName,
+        params->append_word(get_checksums("name"), script::QbValueKind::kString, buddy->nick().data());
+        params->append_word(get_checksums("status"), script::QbValueKind::kString, buddy->status_text().data());
+        params->append_word(get_checksums("location"), script::QbValueKind::kString, buddy->location().data());
+        params->add_component_of_type(get_checksums("id"), script::QbValueKind::kName,
                                       get_checksums("first_lobby_buddy") + buddy->account());
         get_run("update_buddy_status", params.get());
         params.reset();
@@ -798,10 +798,10 @@ bool join_buddy(script::Struct* params, script::Script*)
     pop_heap();
     script::StructPtr join = script::make_struct();
     const char* dotted = crt::get_inet_ntoa(static_cast<uint32_t>(ip));
-    join->add_component_of_type(0, script::kQbvalInteger, static_cast<uint32_t>(port));
-    join->append_word(0, script::kQbvalString, dotted);
+    join->add_component_of_type(0, script::QbValueKind::kInteger, static_cast<uint32_t>(port));
+    join->append_word(0, script::QbValueKind::kString, dotted);
     if (!same_address)
-        join->add_component_of_type(kCookie, script::kQbvalName, static_cast<uint32_t>(maths::rnd(kCookieRange)));
+        join->add_component_of_type(kCookie, script::QbValueKind::kName, static_cast<uint32_t>(maths::rnd(kCookieRange)));
     get_run("net_chosen_join_server", join.get());
     join.reset();
     return true;

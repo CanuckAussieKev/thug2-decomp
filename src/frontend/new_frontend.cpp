@@ -183,7 +183,7 @@ bool loading_screen_up()
 bool is_script(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && symbol->type() == script::kQbvalScriptBody;
+    return symbol && symbol->type() == script::QbValueKind::kScriptBody;
 }
 
 // A script integer by name (-1: none).
@@ -192,7 +192,7 @@ int script_integer(const std::string& name)
     if (name.empty())
         return -1;
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name_hash(name.c_str()));
-    return symbol && symbol->type() == script::kQbvalInteger ? symbol->value().integer() : -1;
+    return symbol && symbol->type() == script::QbValueKind::kInteger ? symbol->value().integer() : -1;
 }
 
 // --- the setting and the files ---
@@ -1097,7 +1097,7 @@ std::vector<std::pair<std::string, int>> skater_stats(uint32_t name)
     objects::ProfileRoster* manager = objects::profile_roster();
     objects::RiderIdentity* profile = manager ? manager->get_template(name) : nullptr;
     script::Array* names = script::fetch_list(name_hash("stat_names"));
-    if (!profile || !names || names->kind_tag() != script::kQbvalStruct)
+    if (!profile || !names || names->kind_tag() != script::QbValueKind::kStruct)
         return stats;
     for (uint32_t i = 0; i < names->extent() && i < kMaxStatNames; ++i) {
         auto* entry = names->struct_at(i);

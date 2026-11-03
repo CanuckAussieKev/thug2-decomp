@@ -299,7 +299,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     }
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> list = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    list->configure_size_kind(count, script::kQbvalStruct);
+    list->configure_size_kind(count, script::QbValueKind::kStruct);
     int got = 0;
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {

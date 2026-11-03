@@ -157,17 +157,17 @@ void PlayerRecord::score_flag_capture(int team)
     const PlayerRecord* local = find_own_player_record(net_game_state().online_hub());
     const script::StructPtr params = script::make_struct();
     if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team);
         get_run(kCapturedFlagYou, params.get());
     } else if (!(local->flag_bits_ & kPlayerObserver) && local->team_ == team) {
-        params->append_word(kString0, script::kQbvalString, label_.data());
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
         params->put_int(checksums::Name{kTeam}, team);
         get_run(kHideCtfArrow);
         get_run(kCapturedYourFlag, params.get());
     } else {
-        params->append_word(kString0, script::kQbvalString, label_.data());
-        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
+        params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team);
         get_run(kCapturedFlagOther, params.get());
     }
@@ -184,11 +184,11 @@ void PlayerRecord::note_flag_steal(int team)
     script::StructPtr params = script::make_struct();
     PlayerRecord* local = find_own_player_record(manager);
     if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, get_team_name(key.data()));
         get_run(kStoleFlagYou, params.get());
     } else {
-        params->append_word(kString0, script::kQbvalString, label_.data());
-        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
+        params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
         const bool from_local = !(local->flag_bits_ & kPlayerObserver) && local->get_flag_team() == team;
         get_run(from_local ? kStoleFlagFromYou : kStoleFlagOther, params.get());
     }
@@ -207,18 +207,18 @@ void PlayerRecord::note_flag_pickup(int team)
     script::StructPtr params = script::make_struct();
     const PlayerRecord* local = find_own_player_record(manager);
     if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, get_team_name(key.data()));
         get_run(kTookFlagYou, params.get());
     } else if (!(local->flag_bits_ & kPlayerObserver) && team == local->team_) {
         script::StructPtr arrow = script::make_struct();
         arrow->put_int(checksums::Name{kTeam}, local->team_);
         get_run(kShowCtfArrow, arrow.get());
         arrow.reset();
-        params->append_word(kString0, script::kQbvalString, label_.data());
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
         get_run(kTookFlagYours, params.get());
     } else {
-        params->append_word(kString0, script::kQbvalString, label_.data());
-        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
+        params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
         get_run(kTookFlagOther, params.get());
     }
     params.reset();
@@ -234,7 +234,7 @@ void PlayerRecord::note_flag_returned()
     get_team_key(key.data(), team_);
     gsl::owner<script::Struct*> params = script::new_struct();
     if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team_);
         get_run(kHideCtfArrow);
         get_run(kRetrievedFlagYou, params);
@@ -242,8 +242,8 @@ void PlayerRecord::note_flag_returned()
         const PlayerRecord* local = find_own_player_record(manager);
         if (local && !(local->flag_bits_ & kPlayerObserver) && local->team_ == team_)
             get_run(kHideCtfArrow);
-        params->append_word(kString0, script::kQbvalString, label_.data());
-        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
+        params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team_);
         get_run(kRetrievedFlagOther, params);
     }

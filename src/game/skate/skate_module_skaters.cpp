@@ -545,7 +545,7 @@ void Skate::change_level(uint32_t level)
     memory::enter_heap_scope(memory::Hub::get_pull()->skater_info_heap());
     gsl::owner<script::Struct*> params = script::new_struct();
     params->get_clear();
-    params->add_component_of_type(kLevel, script::kQbvalName, level);
+    params->add_component_of_type(kLevel, script::QbValueKind::kName, level);
     script::launch_script(kRequestLevel, params, nullptr, false, nullptr);
     script::free_struct(params);
     previous_level_ = level_;
@@ -553,7 +553,7 @@ void Skate::change_level(uint32_t level)
     params = script::new_struct();
     params->get_clear();
     if (level != kLoadMainMenu)
-        params->add_component_of_type(0, script::kQbvalName, kPreserveSkaters);
+        params->add_component_of_type(0, script::QbValueKind::kName, kPreserveSkaters);
     commands::cfunc_cleanup(params, nullptr);
     script::free_struct(params);
     stage_switched_ = true;

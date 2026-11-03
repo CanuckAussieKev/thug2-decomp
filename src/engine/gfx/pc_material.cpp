@@ -121,9 +121,9 @@ float wibble_offset(float t, float frequency, float phase, float amplitude, floa
 // (pass 0's flag 0x100) - or none, once, when the last material had it (0x00786E4C).
 void set_common_states(MaterialRef* material)
 {
-    change_phase(kPhaseAlphaTest, material->alpha_ref());
-    change_phase(kCullMode, material->two_sided() ? D3DCULL_NONE : D3DCULL_CW);
-    change_phase(kDepthBias, material->depth_bias());
+    change_phase(RenderStateId::kPhaseAlphaTest, material->alpha_ref());
+    change_phase(RenderStateId::kCullMode, material->two_sided() ? D3DCULL_NONE : D3DCULL_CW);
+    change_phase(RenderStateId::kDepthBias, material->depth_bias());
     material->update_uv_wibbles();
     material->update_color_anims();
     material->update_texture_anims();
@@ -132,7 +132,7 @@ void set_common_states(MaterialRef* material)
     if (core::at(material->pass_flags(), 0) & kPassSpecular) {
         if (specular_on)
             return;
-        change_phase(kSpecular, 1);
+        change_phase(RenderStateId::kSpecular, 1);
         std::memset(&specular, 0, sizeof(specular));
         specular.Specular.r = core::at(material->specular(), 0);
         specular.Specular.g = core::at(material->specular(), 1);
@@ -142,7 +142,7 @@ void set_common_states(MaterialRef* material)
     } else {
         if (!specular_on)
             return;
-        change_phase(kSpecular, 0);
+        change_phase(RenderStateId::kSpecular, 0);
         std::memset(&specular, 0, sizeof(specular));
     }
     renderer().d3d_device()->SetMaterial(&specular);
@@ -320,8 +320,8 @@ void MaterialRef::hand_in()
             continue;
         }
         set_texture(static_cast<int>(pass), texture->texture);
-        change_phase(static_cast<RenderStateId>(kAddressMode0 + static_cast<int>(pass)), core::at(address_modes_, pass));
-        change_phase(static_cast<RenderStateId>(kMipLodBias0 + static_cast<int>(pass)), core::at(mip_lod_bias_, pass));
+        change_phase(address_mode_state(static_cast<int>(pass)), core::at(address_modes_, pass));
+        change_phase(mip_lod_bias_state(static_cast<int>(pass)), core::at(mip_lod_bias_, pass));
         set_border_color(this, {.pass = pass, .stage = pass});
         uint32_t flags = core::at(pass_flags_, pass);
         if (flags & kPassBumpEnv)
@@ -332,7 +332,7 @@ void MaterialRef::hand_in()
             auto& matrix = pc_material_state().environment_matrix_pass_;
             core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * kHalf);
             core::at(matrix, kUvScaleV) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * kHalf);
-            change_phase(kLocalViewer, 1);
+            change_phase(RenderStateId::kLocalViewer, 1);
             renderer().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
@@ -385,8 +385,8 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
             set_texture(0, nullptr);
         } else {
             set_texture(0, texture->texture);
-            change_phase(kAddressMode0, core::at(address_modes_, pass));
-            change_phase(kMipLodBias0, core::at(mip_lod_bias_, pass));
+            change_phase(RenderStateId::kAddressMode0, core::at(address_modes_, pass));
+            change_phase(RenderStateId::kMipLodBias0, core::at(mip_lod_bias_, pass));
             set_border_color(this, {.pass = pass, .stage = pass});
             if (core::at(pass_flags_, pass) & kPassBumpEnv)
                 change_bump_map_matrix(0);
@@ -395,7 +395,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 auto& matrix = pc_material_state().environment_matrix_;
                 core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * kHalf);
                 core::at(matrix, kUvScaleV) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * kHalf);
-                change_phase(kLocalViewer, 1);
+                change_phase(RenderStateId::kLocalViewer, 1);
                 render::set_transform(D3DTS_TEXTURE0, matrix.data());
                 set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
@@ -419,8 +419,8 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                     if (static_cast<int>(pass) > 0) {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
                         set_texture(1, core::at(textures_, pass - 1)->texture);
-                        change_phase(static_cast<RenderStateId>(kAddressMode0 + 1), core::at(address_modes_, pass - 1));
-                        change_phase(static_cast<RenderStateId>(kMipLodBias0 + 1), core::at(mip_lod_bias_, pass - 1));
+                        change_phase(RenderStateId::kAddressMode1, core::at(address_modes_, pass - 1));
+                        change_phase(RenderStateId::kMipLodBias1, core::at(mip_lod_bias_, pass - 1));
                     } else {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
                         set_texture(1, core::at(textures_, pass)->texture);

@@ -142,7 +142,7 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
         ++count;
     if (count) {
         gsl::owner<script::Array*> rails = script::new_array();
-        rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
+        rails->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
         uint32_t i = 0;
         for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
             gsl::owner<script::Struct*> entry = script::new_struct(); // (the array's)
@@ -161,7 +161,7 @@ void RailAuthoring::write_to_structure(script::Struct* params)
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
         ++count;
     gsl::owner<script::Array*> rails = script::new_array();
-    rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
+    rails->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
     uint32_t r = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         gsl::owner<script::Struct*> rail_info = script::new_struct();
@@ -169,7 +169,7 @@ void RailAuthoring::write_to_structure(script::Struct* params)
         for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following())
             ++point_count;
         gsl::owner<script::Array*> points = script::new_array();
-        points->configure_size_kind(point_count, script::kQbvalStruct);
+        points->configure_size_kind(point_count, script::QbValueKind::kStruct);
         uint32_t i = 0;
         for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
             gsl::owner<script::Struct*> point = script::new_struct();
@@ -229,7 +229,7 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
             if (p->following()) {
                 // linked to the next point's node (the next one written)
                 gsl::owner<script::Array*> links = script::new_array();
-                links->configure_size_kind(1, script::kQbvalInteger);
+                links->configure_size_kind(1, script::QbValueKind::kInteger);
                 links->set_element(0, static_cast<uint32_t>(next));
                 node->append_array_ref(kLinks, links);
             }

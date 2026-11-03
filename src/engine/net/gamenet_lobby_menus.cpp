@@ -202,7 +202,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     gsl::owner<script::Array*> rgba = script::new_array();
     script::StructPtr unfocus = script::make_struct();
     params->append_word(kText, player->nick_.data());
-    rgba->configure_size_kind(4, script::kQbvalInteger);
+    rgba->configure_size_kind(4, script::QbValueKind::kInteger);
     FriendsManager* buddy = manager->presence_service().get();
     uint32_t script = 0;
     if (player->account_ && mark_friend_online(buddy)) {

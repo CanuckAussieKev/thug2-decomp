@@ -125,7 +125,7 @@ constexpr uint32_t kMeshLit = 0x10;       // a mesh's +0x38: it asks for lightin
 constexpr uint32_t kMeshNotLit = 0x20000; // a mesh's flags
 constexpr uint32_t kMeshShown = 0x40;     // a mesh's flags
 constexpr int kMaxBones = 0x3A;
-constexpr RenderStateId kStateLighting = kLighting; // change_phase's
+constexpr RenderStateId kStateLighting = RenderStateId::kLighting; // change_phase's
 
 int bones_on_device(const SceneRef* scene) { return static_cast<int>(scene->unknown78()); }
 // Its bones drawn by the vertex shader: it has bones, and its scene doesn't skin them on the CPU (+0x78).

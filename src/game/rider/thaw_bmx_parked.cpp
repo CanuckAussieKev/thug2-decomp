@@ -128,7 +128,7 @@ bool thaw_spot(Point* pos, float* heading)
     if (!level || !level->fetch_text("level", &name, 0) || !name)
         return false;
     script::Array* bikes = script::fetch_list(kHomeBikes);
-    if (!bikes || bikes->kind_tag() != script::kQbvalStruct)
+    if (!bikes || bikes->kind_tag() != script::QbValueKind::kStruct)
         return false;
     const uint32_t want = name_hash(name);
     for (uint32_t i = 0; i < bikes->extent(); ++i) {

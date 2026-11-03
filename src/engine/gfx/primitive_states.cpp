@@ -22,11 +22,11 @@ void set_primitive_states()
     set_pixel_shader(nullptr, nullptr);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-    change_phase(kAddressMode0, kClampBothWays); // (clamped both ways)
-    change_phase(kPhaseAlphaTest, 1);
-    change_phase(kZWrite, 1);
-    change_phase(kZTest, 1);
-    change_phase(kCullMode, D3DCULL_NONE);
+    change_phase(RenderStateId::kAddressMode0, kClampBothWays); // (clamped both ways)
+    change_phase(RenderStateId::kPhaseAlphaTest, 1);
+    change_phase(RenderStateId::kZWrite, 1);
+    change_phase(RenderStateId::kZTest, 1);
+    change_phase(RenderStateId::kCullMode, D3DCULL_NONE);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
 }
@@ -35,7 +35,7 @@ void set_primitive_states()
 void reset_primitive_states()
 {
     set_texture(0, nullptr); // (the original passes a third 0)
-    change_phase(kCullMode, D3DCULL_CW);
+    change_phase(RenderStateId::kCullMode, D3DCULL_CW);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }

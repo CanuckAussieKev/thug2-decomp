@@ -482,7 +482,7 @@ void* NodeTableResource::build_node_table(checksums::Name table_name, int count)
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         new (array) script::Array;
-    array->configure_size_kind(count, script::kQbvalStruct);
+    array->configure_size_kind(count, script::QbValueKind::kStruct);
     for (int i = 0; i < count; ++i) {
         gsl::owner<Struct*> node = script::spawn_param_bag();
         if (node)
@@ -493,7 +493,7 @@ void* NodeTableResource::build_node_table(checksums::Name table_name, int count)
         script::clean_up_and_remove_symbol(old);
     script::SymbolTableEntry* symbol = script::create_symbol(name);
     symbol->value().set_array(array);
-    symbol->set_type(script::kQbvalArray);
+    symbol->set_type(script::QbValueKind::kArray);
     array_name_ = name;
     script::Array* const table = array; // (the symbol's now)
     nodes_ = table;

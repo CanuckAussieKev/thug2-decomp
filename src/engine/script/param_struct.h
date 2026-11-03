@@ -6,6 +6,7 @@
 #include "engine/core/slab_bank.h"
 #include <gsl/pointers>
 #include "engine/core/checksums.h"
+#include "engine/core/enum_ops.h"
 #include "engine/maths/vec2.h"
 #include "engine/maths/vec4.h"
 #include "engine/script/cell.h"
@@ -24,27 +25,28 @@ struct Pair;
 struct Vector;
 struct ParamScript;
 
-// The types of components and symbols.
-using QbValueKind = uint8_t;
-constexpr int kQbvalNone = 0;
-constexpr int kQbvalInteger = 1;
-constexpr int kQbvalFloat = 2;
-constexpr int kQbvalString = 3;
-constexpr int kQbvalInlineText = 4;
-constexpr int kQbvalPair = 5;
-constexpr int kQbvalVector = 6;
-constexpr int kQbvalScriptBody = 7;
-constexpr int kQbvalNativeFunc = 8;
-constexpr int kQbvalNativeMethod = 9;
-constexpr int kQbvalStruct = 10;
-constexpr int kQbvalArray = 12;
-constexpr int kQbvalName = 13;
-// A component referring to a structure / array it doesn't own (made by duplicate_component when asked to).
-constexpr int kQbvalStructRef = 20;
-constexpr int kEsymboltypeArraypointer = 21;
-
-// A component of this kind holds a structure handed over in its word (the elements of an array of it aren't read).
-constexpr uint32_t kQbvalStructHandedOver = 11;
+// The types of components and symbols (a component's kind byte, an array's, a symbol's). Kinds the game doesn't list
+// stay representable: a .qb or a saved structure is read as its byte.
+enum class QbValueKind : uint8_t {
+    kNone = 0,
+    kInteger = 1,
+    kFloat = 2,
+    kString = 3,
+    kInlineText = 4,
+    kPair = 5,
+    kVector = 6,
+    kScriptBody = 7,
+    kNativeFunc = 8,
+    kNativeMethod = 9,
+    kStruct = 10,
+    // A component of this kind holds a structure handed over in its word (the elements of an array of it aren't read).
+    kStructHandedOver = 11,
+    kArray = 12,
+    kName = 13,
+    // A component referring to a structure / array it doesn't own (made by duplicate_component when asked to).
+    kStructRef = 20,
+    kArrayRef = 21,
+};
 
 constexpr size_t kArrayBytes = 0xC;
 // A script array: `size` elements of one type. A single element is kept in place of the pointer.
@@ -99,7 +101,7 @@ public:
 
 private:
     uint8_t unknown0_{0};
-    QbValueKind kind_tag_{kQbvalNone};
+    QbValueKind kind_tag_{QbValueKind::kNone};
     uint16_t unknown2_{};
     uint32_t extent_{0};
     // One cell: the element block (Cell::block), or the one element itself - which by extent_ (the arrays are
@@ -165,6 +167,16 @@ struct Component {
 {
     return static_cast<QbValueKind>(component.type_and_flag_ >> 1);
 }
+// The component's kind set (its flag bit kept).
+inline void set_value_kind(Component& component, QbValueKind kind)
+{
+    component.type_and_flag_ = static_cast<uint8_t>((component.type_and_flag_ & 1) | (core::to_underlying(kind) << 1));
+}
+// The kind of `from` given to `to` (its flag bit kept).
+inline void copy_value_kind(Component& to, const Component& from)
+{
+    to.type_and_flag_ = static_cast<uint8_t>((to.type_and_flag_ & 1) | (from.type_and_flag_ & kComponentTypeBits));
+}
 static_assert(sizeof(Component) == kComponentBytes, "layout must match the original");
 
 struct SymbolTableEntry {
@@ -186,7 +198,7 @@ struct SymbolTableEntry {
 
 private:
     uint8_t unknown0_{}; // bit 0: in use
-    QbValueKind type_{kQbvalNone};
+    QbValueKind type_{QbValueKind::kNone};
     uint16_t unknown2{};
     uint32_t name{0};
     uint32_t unknown8_{0};
@@ -255,7 +267,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
 // Make `dest` a deep copy of `source`.
 void duplicate_array(Array* dest, Array* source);
 // Deep copies of `count` elements of `type` (null elements are skipped).
-void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uint32_t type);
+void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, QbValueKind type);
 
 // An integer / name array's elements, in order.
 std::vector<uint32_t> words_of(Array* array);
@@ -309,7 +321,7 @@ public:
     Component* find_component(uint32_t name);
     // The value of the last component `name` of type `type` (integers are converted for floats; name components
     // naming a global symbol of the type count too), into `out`.
-    bool get_hunt(uint32_t name, uint32_t type, Cell* out);
+    bool get_hunt(uint32_t name, QbValueKind type, Cell* out);
 
     bool has_entry_named(uint32_t name);
     bool has_entry_named(const char* name);
@@ -326,7 +338,7 @@ public:
     // Remove every component named `name` (of type `type`).
     void erase_module(uint32_t name);
     void erase_module(const char* name);
-    void remove_component_of_type(uint32_t name, uint8_t type);
+    void remove_component_of_type(uint32_t name, QbValueKind type);
     // Remove the bare name `flag`.
     void remove_flag(uint32_t flag);
 

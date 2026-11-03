@@ -498,7 +498,7 @@ bool Entity::obj_set_tags(Struct* params, Script* /*script*/)
 bool Entity::obj_spawn_script(Struct* params, Script* script)
 {
     Component* first = params->step_to_entry(nullptr);
-    if (!first || value_kind(*first) != script::kQbvalName)
+    if (!first || value_kind(*first) != script::QbValueKind::kName)
         return true;
     const uint32_t name = first->value.word();
     uint32_t id = script::get_spawn_id(script);

@@ -624,16 +624,16 @@ bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
         if (component->name)
             continue;
         script::Array* array = nullptr;
-        if (value_kind(*component) == script::kQbvalName) {
+        if (value_kind(*component) == script::QbValueKind::kName) {
             const script::SymbolTableEntry* symbol = script::resolve_symbol(component->value.word());
-            if (symbol && symbol->type() == script::kQbvalArray) {
+            if (symbol && symbol->type() == script::QbValueKind::kArray) {
                 array = symbol->value().array();
             } else {
                 if (component->value.word() == anim)
                     return true;
                 continue;
             }
-        } else if (value_kind(*component) == script::kQbvalArray) {
+        } else if (value_kind(*component) == script::QbValueKind::kArray) {
             array = component->value.array();
         } else {
             continue;

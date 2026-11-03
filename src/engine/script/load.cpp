@@ -95,13 +95,13 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
         return end;
     }
     case kTokenStructStart: {
-        symbol->set_type(kQbvalStruct);
+        symbol->set_type(QbValueKind::kStruct);
         gsl::owner<Struct*> structure = script::new_struct();
         symbol->value().set_structure(structure);
         return parse_structure(structure, token, nullptr);
     }
     case kTokenArrayStart: {
-        symbol->set_type(kQbvalArray);
+        symbol->set_type(QbValueKind::kArray);
         gsl::owner<Array*> array = script::new_array();
         symbol->value().set_array(array);
         return parse_array(array, token, nullptr);
@@ -118,7 +118,7 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums:
     const uint32_t name = script.value();
     const auto size = static_cast<uint32_t>(code.size());
     SymbolTableEntry* symbol = create_symbol(name);
-    symbol->set_type(kQbvalScriptBody);
+    symbol->set_type(QbValueKind::kScriptBody);
     // (not original: room for LZSS's worst case - the original's 20000 bytes overflowed for a script past ~17.7 KB
     // that doesn't compress)
     const uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
@@ -203,7 +203,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
                 // (an unchanged script is left as it is)
-                if (existing->type() == kQbvalScriptBody && checksum == read_stored_script(existing->value().code()).checksum_)
+                if (existing->type() == QbValueKind::kScriptBody && checksum == read_stored_script(existing->value().code()).checksum_)
                     break;
                 get_replace(existing, temporary);
                 define_script_symbol(code, checksums::Name{name}, checksum, filename);
@@ -261,7 +261,7 @@ void restart_changed_scripts()
 {
     for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
         // (byte 0 bit 0: new since the last time - create_symbol sets it)
-        if ((symbol->unknown0() & 1) && symbol->type() == kQbvalScriptBody) {
+        if ((symbol->unknown0() & 1) && symbol->type() == QbValueKind::kScriptBody) {
             for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {
                 if (script_refers_to(script, symbol->name_value()))
                     script->relaunch();

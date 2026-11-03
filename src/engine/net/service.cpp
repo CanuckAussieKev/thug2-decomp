@@ -106,7 +106,7 @@ void start_thread(online::Hub* manager, LPTHREAD_START_ROUTINE thread)
 void show_no_servers()
 {
     const script::StructPtr params = script::make_struct();
-    params->append_word(kText, script::kQbvalString, script::fetch_text(kNetStatusGamespyNoConnect));
+    params->append_word(kText, script::QbValueKind::kString, script::fetch_text(kNetStatusGamespyNoConnect));
     launch_script(kCreateFailedLobbyListDialog, params.get());
 }
 
@@ -173,7 +173,7 @@ void service_task(tasks::Task<online::Hub>* task)
             constexpr size_t kTextSize = 256;
             std::array<char, kTextSize> text{};
             text::format_to(text, "(%d) %s", count, script::fetch_text(kNetStatusRetryMotd));
-            params->append_word(kText, script::kQbvalString, text.data());
+            params->append_word(kText, script::QbValueKind::kString, text.data());
             script::spawn_script(kCreateMotdRetryDialog, params.get());
         }
         manager->assign_service_state(0);

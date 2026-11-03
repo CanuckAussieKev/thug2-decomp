@@ -554,7 +554,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 {
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
-        if (component->name == 0 && value_kind(*component) == script::kQbvalName &&
+        if (component->name == 0 && value_kind(*component) == script::QbValueKind::kName &&
             game_mode_object()->is_true(component->value.word()))
             return true;
     }
@@ -566,7 +566,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 bool cfunc_get_current_level(script::Struct*, script::Script* script)
 {
     const modules::Skate* skate = modules::Skate::sole();
-    script->args()->add_component_of_type(kLEVEL, script::kQbvalName, modules::Skate::sole()->pending_level());
+    script->args()->add_component_of_type(kLEVEL, script::QbValueKind::kName, modules::Skate::sole()->pending_level());
     script->args()->put_name_key(checksums::Name{kLevelStructure}, modules::Skate::sole()->level_params());
     return true;
 }

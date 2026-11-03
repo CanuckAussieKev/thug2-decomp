@@ -274,8 +274,8 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     const maths::Vec4 position = {.x = eye.pos.x, .y = eye.pos.y, .z = eye.pos.z, .w = 1.0f};
     render::choose_camera(&orientation, &position, {.angle = kAngle, .aspect = kSquareAspect, .zoom = 1.0f}, false);
     render::set_world_transform(nullptr);
-    render::change_phase(render::kZWrite, 1);
-    render::change_phase(render::kZTest, 1);
+    render::change_phase(render::RenderStateId::kZWrite, 1);
+    render::change_phase(render::RenderStateId::kZTest, 1);
     draw_subject(kind, id);
     // Put back: the camera's globals, the frustum from them, no instance's lights taken as set (0x007825BC: the
     // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.

@@ -230,7 +230,7 @@ bool cfunc_test_net_setup(script::Struct* params, script::Script*)
         text = "net_error_invalid_irx";
     else
         text = "net_error_general_error";
-    params->append_word(kNetSetupError, script::kQbvalString, script::fetch_text(text));
+    params->append_word(kNetSetupError, script::QbValueKind::kString, script::fetch_text(text));
     script::launch_script(kNetSetupFailedScript, params, nullptr, false, nullptr);
     return ok;
 }
@@ -626,7 +626,7 @@ uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name
 void set_string_preference(prefs::Preferences* prefs, uint32_t name, const char* text)
 {
     const script::StructPtr preference = script::make_struct();
-    preference->append_word(get_checksums("ui_string"), script::kQbvalString, text); // "ui_string"
+    preference->append_word(get_checksums("ui_string"), script::QbValueKind::kString, text); // "ui_string"
     prefs->change_setting(name, preference.get());
 }
 // ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.

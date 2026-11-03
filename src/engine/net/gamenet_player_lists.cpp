@@ -388,8 +388,8 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
         std::strcat(line.data(), std::next(slot, 3));
         shown = line.data();
     }
-    params->append_word(kText, script::kQbvalString, shown);
-    params->add_component_of_type(kId, script::kQbvalName, kNetPanelMsg);
+    params->append_word(kText, script::QbValueKind::kString, shown);
+    params->add_component_of_type(kId, script::QbValueKind::kName, kNetPanelMsg);
     params->put_int(checksums::Name{kMsgTime}, time);
     get_run(kCreateNetPanelMessage, params.get());
 }

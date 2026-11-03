@@ -64,7 +64,7 @@ bool call_member_function_of(const MemberFunctionEntry* entry, Struct* params, o
     return invoke_method_by_name(entry, params, object, script);
 }
 
-// A C function (the value of an kQbvalNativeFunc symbol).
+// A C function (the value of an QbValueKind::kNativeFunc symbol).
 using Function = bool (*)(Struct* params, Script* script);
 
 // Run the member function `name` on a game object.
@@ -163,7 +163,7 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
     const bool not_session_specific = setup.not_session_specific_;
     const bool pause_with_object = setup.pause_with_object_;
     const SymbolTableEntry* symbol = resolve_symbol(name);
-    if (symbol && symbol->type() == kQbvalNativeFunc) {
+    if (symbol && symbol->type() == QbValueKind::kNativeFunc) {
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap());
@@ -226,19 +226,19 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol ||
-        (symbol->type() != kQbvalScriptBody && symbol->type() != kQbvalNativeFunc && symbol->type() != kQbvalNativeMethod))
+        (symbol->type() != QbValueKind::kScriptBody && symbol->type() != QbValueKind::kNativeFunc && symbol->type() != QbValueKind::kNativeMethod))
         return;
     if (replicate_flag)
         send_run_script_message(name, params, object);
     switch (symbol->type()) {
-    case kQbvalNativeMethod:
+    case QbValueKind::kNativeMethod:
         // (no check that there is an object)
         if (auto* entry = symbol->value().method())
             call_member_function_of(entry, params, object, nullptr);
         else
             call_member_function_by_name(object, name, params, nullptr);
         return;
-    case kQbvalNativeFunc:
+    case QbValueKind::kNativeFunc:
         symbol->value().function()(params, nullptr);
         return;
     default: {
@@ -345,7 +345,7 @@ void resume_child_script(Script* script)
 bool script_exists(uint32_t name)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
-    return symbol && symbol->type() == kQbvalScriptBody;
+    return symbol && symbol->type() == QbValueKind::kScriptBody;
 }
 
 // 0x00472E00

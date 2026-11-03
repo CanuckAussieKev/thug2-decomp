@@ -1255,7 +1255,7 @@ const Calls& calls_of(uint32_t script)
 bool is_script(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = name ? script::resolve_symbol(name) : nullptr;
-    return symbol && symbol->type() == script::kQbvalScriptBody;
+    return symbol && symbol->type() == script::QbValueKind::kScriptBody;
 }
 
 Calls get_walk(uint32_t script)

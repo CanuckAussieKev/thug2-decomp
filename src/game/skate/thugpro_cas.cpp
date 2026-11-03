@@ -177,11 +177,11 @@ void collect_array_paths(script::Array* array, std::vector<const char*>* out, in
         const script::Cell element = array->cell_at(i);
         if (element.empty())
             continue;
-        if (array->kind_tag() == script::kQbvalString && is_path(element.text()))
+        if (array->kind_tag() == script::QbValueKind::kString && is_path(element.text()))
             out->push_back(element.text());
-        else if (array->kind_tag() == script::kQbvalStruct)
+        else if (array->kind_tag() == script::QbValueKind::kStruct)
             collect_paths(element.structure(), out, depth + 1);
-        else if (array->kind_tag() == script::kQbvalArray)
+        else if (array->kind_tag() == script::QbValueKind::kArray)
             collect_array_paths(element.array(), out, depth + 1);
     }
 }
@@ -191,14 +191,14 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
         return;
     for (script::Component* c = part->step_to_entry(nullptr); c; c = part->step_to_entry(c)) {
         switch (value_kind(*c)) {
-        case script::kQbvalString:
+        case script::QbValueKind::kString:
             if (c->value.text() && is_path(c->value.text()))
                 out->push_back(c->value.text());
             break;
-        case script::kQbvalStruct:
+        case script::QbValueKind::kStruct:
             collect_paths(c->value.structure(), out, depth + 1);
             break;
-        case script::kQbvalArray:
+        case script::QbValueKind::kArray:
             collect_array_paths(c->value.array(), out, depth + 1);
             break;
         default:
@@ -210,7 +210,7 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
 // One of our part lists: a global array of structures whose first has a desc_id.
 bool is_part_list(script::Array* array)
 {
-    if (!array || array->kind_tag() != script::kQbvalStruct || array->extent() == 0)
+    if (!array || array->kind_tag() != script::QbValueKind::kStruct || array->extent() == 0)
         return false;
     auto* first = array->struct_at(0);
     uint32_t desc = 0;
@@ -390,7 +390,7 @@ std::string path_key(const char* path)
 std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool (*found)(const char* path))
 {
     std::vector<uint32_t> picked;
-    if (!ours || !theirs || theirs->kind_tag() != script::kQbvalStruct)
+    if (!ours || !theirs || theirs->kind_tag() != script::QbValueKind::kStruct)
         return picked;
     std::set<uint32_t> descs;
     for (uint32_t i = 0; i < ours->extent(); ++i) {
@@ -500,7 +500,7 @@ void load_once()
         script::parse_array(theirs, target.theirs, nullptr);
         std::vector<uint32_t> picked = pick_new(target.ours, theirs, get_found);
         int their_new = 0;
-        if (theirs->kind_tag() == script::kQbvalStruct) {
+        if (theirs->kind_tag() == script::QbValueKind::kStruct) {
             std::set<uint32_t> descs;
             for (uint32_t i = 0; i < target.ours->extent(); ++i) {
                 uint32_t desc = 0;

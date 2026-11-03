@@ -108,7 +108,7 @@ bool cfunc_test(script::Struct*, script::Script*)
 {
     script::SymbolTableEntry entry; // (all zero, as the original's memset of it: every field starts at 0)
     entry.unknown0() = 4;
-    entry.set_type(script::kQbvalStruct);
+    entry.set_type(script::QbValueKind::kStruct);
     entry.set_name(kTestSymbolName);
     debug::printf("CSymbolTableEntry:\n");
     print_bytes(&entry, sizeof(entry));

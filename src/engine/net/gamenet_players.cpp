@@ -499,7 +499,7 @@ void Hub::flag_returned(PlayerRecord* player)
     team_name_key(key, team);
     script::StructPtr params = script::make_struct();
     params->put_int(checksums::Name{kTeam}, team);
-    params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
+    params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(key.data()));
     get_run(kFlagReturned, params.get());
     params.reset();
     PlayerRecord* local = find_own_player_record(this);
@@ -531,7 +531,7 @@ void Hub::enter_observe_mode()
         team_name_key(key, team);
         script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kTeam}, team);
-        params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(key.data()));
         get_run(kFlagReturned, params.get());
         params.reset();
         get_run(kHideCtfArrow);

@@ -111,7 +111,7 @@ objects::GameEntity* object_named(uint32_t id)
 gsl::owner<script::Array*> shuffled_numbers(int count)
 {
     gsl::owner<script::Array*> numbers = script::new_array();
-    numbers->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalInteger);
+    numbers->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kInteger);
     for (int i = 0; i < count; ++i)
         numbers->set_element(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1));
     for (int i = 0; i < count; ++i) {

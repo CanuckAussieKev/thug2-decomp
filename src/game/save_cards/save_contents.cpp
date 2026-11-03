@@ -139,7 +139,7 @@ void write_global_info(Struct* global)
     gsl::owner<Array*> controllers = script::alloc_script_array();
     if (controllers)
         controllers = new (controllers) script::Array;
-    controllers->configure_size_kind(kControllers, script::kQbvalStruct);
+    controllers->configure_size_kind(kControllers, script::QbValueKind::kStruct);
     for (int i = 0; i < kControllers; ++i) {
         gsl::owner<Struct*> controller = script::new_struct();
         const modules::Skate::PlayerSettings& flags = controller_flags(i);

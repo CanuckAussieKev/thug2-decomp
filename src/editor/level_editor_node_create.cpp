@@ -646,7 +646,7 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
             new (array) script::Array;
             const bool names = f.type == Prop::kNames;
             auto count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
-            array->configure_size_kind(count, names ? script::kQbvalName : script::kQbvalInteger);
+            array->configure_size_kind(count, names ? script::QbValueKind::kName : script::QbValueKind::kInteger);
             for (uint32_t i = 0; i < count; ++i)
                 array->set_element(i, names ? name_hash(core::at(f.list, i)) : static_cast<uint32_t>(core::at(f.integers, i)));
             node->append_array_ref(key, array);
@@ -679,7 +679,7 @@ void write_links(script::Struct* node, const std::vector<uint32_t>& links)
     if (!array)
         return;
     new (array) script::Array;
-    array->configure_size_kind(static_cast<uint32_t>(links.size()), script::kQbvalName);
+    array->configure_size_kind(static_cast<uint32_t>(links.size()), script::QbValueKind::kName);
     for (size_t i = 0; i < links.size(); ++i)
         array->set_element(static_cast<uint32_t>(i), core::at(links, i));
     node->append_array_ref(kLinks, array);
@@ -710,7 +710,7 @@ bool get_sync()
             return false;
         level_editor_node_create_state().array_ = made;
         script::SymbolTableEntry* symbol = script::create_symbol(name);
-        symbol->set_type(script::kQbvalArray);
+        symbol->set_type(script::QbValueKind::kArray);
         symbol->value().set_array(level_editor_node_create_state().array_);
     }
     if (manager->num() >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {
@@ -718,7 +718,7 @@ bool get_sync()
         return false;
     }
     level_editor_node_create_state().level_array_ = manager->get_last_node_array_name(); // (the overlay passed over: the level's)
-    level_editor_node_create_state().array_->configure_size_kind(static_cast<uint32_t>(level_editor_node_create_state().structs_.size()), script::kQbvalStruct);
+    level_editor_node_create_state().array_->configure_size_kind(static_cast<uint32_t>(level_editor_node_create_state().structs_.size()), script::QbValueKind::kStruct);
     for (size_t i = 0; i < level_editor_node_create_state().structs_.size(); ++i) {
         level_editor_node_create_state().array_->set_cell(static_cast<uint32_t>(i), script::Cell::of(core::at(level_editor_node_create_state().structs_, i)));
         // (links= are names already: kept out of AddNodeArray's resolve_links, which reads indices - put on after)
@@ -804,7 +804,7 @@ void get_forget()
     level_editor_node_create_state().structs_.clear();
     level_editor_node_create_state().list_.clear();
     if (level_editor_node_create_state().array_)
-        level_editor_node_create_state().array_->configure_size_kind(0, script::kQbvalStruct);
+        level_editor_node_create_state().array_->configure_size_kind(0, script::QbValueKind::kStruct);
     stored_hidden().clear();
     nodes::mark_stale();
 }

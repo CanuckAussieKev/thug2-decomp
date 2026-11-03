@@ -416,7 +416,7 @@ bool cfunc_spin_taps_off(script::Struct* params, script::Script*) { return set_o
 bool cfunc_get_current_pro_display_info(script::Struct*, script::Script* script)
 {
     objects::RiderIdentity* profile = get_profile_from_params(nullptr);
-    script->args()->append_word(kString, script::kQbvalString, profile->fetch_shown_name());
+    script->args()->append_word(kString, script::QbValueKind::kString, profile->fetch_shown_name());
     return true;
 }
 
@@ -509,7 +509,7 @@ bool cfunc_get_custom_skater_name(script::Struct*, script::Script* script)
 bool cfunc_get_current_ped_pro_name(script::Struct*, script::Script* script)
 {
     const script::SymbolTableEntry* entry = script::resolve_symbol(kCurrentPedPro);
-    if (entry->type() != script::kQbvalStruct) // (the original also tests for a name first)
+    if (entry->type() != script::QbValueKind::kStruct) // (the original also tests for a name first)
         return false;
     script->args()->put_name_key(checksums::Name{kPedProName}, entry->name_value());
     return true;

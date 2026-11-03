@@ -386,7 +386,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             std::array<char, kTextSize> text{};
             text::format_to(text, "%d%%", vault->progress_);
             const script::StructPtr params = script::make_struct();
-            params->append_word(get_checksums("text"), script::kQbvalString, text.data());
+            params->append_word(get_checksums("text"), script::QbValueKind::kString, text.data());
             get_run(vault->progress_script_, params.get());
         }
         return;

@@ -374,7 +374,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         team_name_key(name, team);
         script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kTeam}, team);
-        params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
+        params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(name.data()));
         get_run(kFlagReturned, params.get());
         params.reset();
         std::array<uint8_t, 2> returned = {{static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(team)}};

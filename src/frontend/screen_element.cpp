@@ -727,10 +727,10 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, maths
     script::Array* array = nullptr;
     if (!params->fetch_list(name, &array, 0))
         return false;
-    if (array->kind_tag() == script::kQbvalFloat) {
+    if (array->kind_tag() == script::QbValueKind::kFloat) {
         *x = array->fetch_float(0);
         *y = array->fetch_float(1);
-    } else if (array->kind_tag() == script::kQbvalName) {
+    } else if (array->kind_tag() == script::QbValueKind::kName) {
         std::array<float, 2> just{};
         for (int i = 0; i < 2; ++i) {
             const uint32_t side = array->fetch_part(i);
@@ -890,7 +890,7 @@ void UiWidget::get_properties(script::Struct* out)
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
-    array->configure_size_kind(4, script::kQbvalInteger);
+    array->configure_size_kind(4, script::QbValueKind::kInteger);
     for (int i = 0; i < 4; ++i)
         array->set_element(i, core::at(rgba, i));
     out->append_array_value(kRgba, array);

@@ -33,7 +33,6 @@
 namespace objects {
 namespace {
 constexpr unsigned kEventSpent = 0x100;            // an event's flag: it has been used
-constexpr unsigned kTypeBitsMask = 0xFE;           // a component's type with the flag bit off
 constexpr int kMaxTrickSlots = 100;
 constexpr uint32_t kPressed = 0xE4AB4785; // Pressed
 constexpr uint32_t kTrickName = 0x270F56E1; // Trick
@@ -491,7 +490,7 @@ uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, st
         core::at(out, i) = button;
         node = node->next;
     }
-    if ((node->type_and_flag_ & kTypeBitsMask) == 2)
+    if (script::value_kind(*node) == script::QbValueKind::kInteger)
         return node->value.word();
     return static_cast<uint32_t>(script::fetch_int_value(node->value.word()));
 }

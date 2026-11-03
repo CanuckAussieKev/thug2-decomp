@@ -331,8 +331,8 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     online::Hub* net = online::online_hub();
     script::kill_all_child_scripts();
     script::StructPtr params = script::make_struct();
-    params->add_component_of_type(kWidth, script::kQbvalInteger, kDialogWidth);
-    params->add_component_of_type(kTitle, script::kQbvalName, kNetNoticeMsg);
+    params->add_component_of_type(kWidth, script::QbValueKind::kInteger, kDialogWidth);
+    params->add_component_of_type(kTitle, script::QbValueKind::kName, kNetNoticeMsg);
     // (the dialogs get no parameters: the structure isn't passed)
     if (context->type_code() == 'Q')
         get_run(kServerRemovedYouDialog);
@@ -489,7 +489,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
         if (!core::at(counts, i))
             continue;
         gsl::owner<Array*> array = script::new_array();
-        array->configure_size_kind(core::at(counts, i), script::kQbvalName);
+        array->configure_size_kind(core::at(counts, i), script::QbValueKind::kName);
         // (NOT ORIGINAL: past the message's end the indexes read as 0 - the original read on)
         for (int j = 0; std::cmp_less(j, core::at(counts, i)); ++j)
             array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(reader.u8()));
@@ -588,7 +588,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             text::format_to(text, "team_%d_name", best + 1);
             const script::StructPtr params = script::make_struct();
             params->get_clear();
-            params->append_word(kString0, script::kQbvalString, script::fetch_text(text.data()));
+            params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(text.data()));
             get_run(kLeaderOtherTeam, params.get(), player_skater(local));
         }
         net->set_last_leading_team(best);
@@ -629,7 +629,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     } else {
         const script::StructPtr params = script::make_struct();
         params->get_clear();
-        params->append_word(kString0, script::kQbvalString, best->label().data());
+        params->append_word(kString0, script::QbValueKind::kString, best->label().data());
         get_run(kLeaderOther, params.get(), player_skater(local));
     }
     net->set_last_leader(best);
@@ -657,7 +657,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     net->set_start_info_words(brief.start_points.data());
     script::StructPtr params = script::make_struct();
     params->get_clear();
-    params->add_component_of_type(kLevel, script::kQbvalName, brief.level);
+    params->add_component_of_type(kLevel, script::QbValueKind::kName, brief.level);
     get_run(kRequestLevel, params.get());
     params.reset();
     get_run(kLeaveFrontEnd);
@@ -689,13 +689,13 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
                 gsl::owner<Array*> conditions = script::new_array();
                 script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
                 auto* condition = conditions->struct_at(0);
-                condition->add_component_of_type(kScore, script::kQbvalInteger, brief.target_score);
+                condition->add_component_of_type(kScore, script::QbValueKind::kInteger, brief.target_score);
                 victory->append_array_value(kVictoryConditions, conditions);
             }
-            victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
+            victory->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, 0);
             skate->set_unknown370(static_cast<int>(0));
         } else {
-            victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, brief.time_limit);
+            victory->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, brief.time_limit);
             if (brief.game_type == kNetCtf) {
                 gsl::owner<Array*> conditions = script::new_array();
                 script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));

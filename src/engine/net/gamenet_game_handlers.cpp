@@ -241,7 +241,7 @@ int handle_flag_returned(net::InboundMsgCtx* context)
     team_name_key(name, team);
     script::StructPtr params = script::make_struct();
     params->put_int(checksums::Name{kTeam}, team);
-    params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
+    params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(name.data()));
     get_run(kFlagReturned, params.get());
     params.reset();
     if (is_own_player(player))
@@ -391,12 +391,12 @@ int handle_joined_team(net::InboundMsgCtx* context)
     script::StructPtr params = script::make_struct();
     if (is_own_player(player)) {
         if (is_squad_match()) {
-            params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
+            params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(name.data()));
             get_run(kJoinedTeamYou, params.get());
         }
     } else if (is_squad_match()) {
-        params->append_word(kString0, script::kQbvalString, player_name(player));
-        params->append_word(kString1, script::kQbvalString, script::fetch_text(name.data()));
+        params->append_word(kString0, script::QbValueKind::kString, player_name(player));
+        params->append_word(kString1, script::QbValueKind::kString, script::fetch_text(name.data()));
         get_run(kJoinedTeamOther, params.get());
     }
     params.reset();

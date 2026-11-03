@@ -538,7 +538,7 @@ void FallingTricksGoal::add_tricks(int count)
             const int index = pick_key_combo(key_combos);
             if (index == -1)
                 return;
-            if (key_combos->kind_tag() == script::kQbvalName) {
+            if (key_combos->kind_tag() == script::QbValueKind::kName) {
                 key_combo = key_combos->fetch_part(static_cast<uint32_t>(index));
             } else {
                 auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
@@ -939,7 +939,7 @@ TrickBeatGoal::TrickBeatGoal(script::Struct* params) : Objective(params)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     pattern_ = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    pattern_->configure_size_kind(kBeats, script::kQbvalStruct);
+    pattern_->configure_size_kind(kBeats, script::QbValueKind::kStruct);
     script::Array* pattern = nullptr;
     params->fetch_list(kBeatPattern, &pattern, 1);
     int tempo = 0;
@@ -1122,7 +1122,7 @@ void TrickBeatGoal::add_tricks(int count)
             const int index = pick_key_combo(key_combos);
             if (index == -1)
                 return;
-            if (key_combos->kind_tag() == script::kQbvalName) {
+            if (key_combos->kind_tag() == script::QbValueKind::kName) {
                 key_combo = key_combos->fetch_part(static_cast<uint32_t>(index));
             } else {
                 auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
