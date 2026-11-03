@@ -442,7 +442,7 @@ RankingsManager::~RankingsManager()
 void RankingsManager::log_in()
 {
     push_bottom_up();
-    cur_phase_ = kLoggingIn;
+    cur_phase_ = RankingsManager::State::kLoggingIn;
     login_start() = frame_clock::get_time();
     get_run(kLoggingInScript);
     DWORD id = 0;
@@ -460,7 +460,7 @@ void RankingsManager::log_off()
     close_stats_connection();
     task_->drop_out();
     authenticated_ = false;
-    cur_phase_ = kNone;
+    cur_phase_ = RankingsManager::State::kNone;
 }
 
 // 0x0054C9B0
@@ -546,7 +546,7 @@ void RankingsManager::raise_tallies(bool final)
     set_game_int(game_, "highscore", manager->cheating_noted() | net_game_state().cheat_flag());
     send_game_snap_shot(game_, nullptr, final);
     if (final) {
-        cur_phase_ = kReady;
+        cur_phase_ = RankingsManager::State::kReady;
         if (game_) {
             free_game(game_);
             game_ = nullptr;
@@ -559,7 +559,7 @@ void RankingsManager::raise_tallies(bool final)
 // 0x0054C9F0
 void RankingsManager::remove_player(int id)
 {
-    if (cur_phase_ == kReporting)
+    if (cur_phase_ == RankingsManager::State::kReporting)
         remove_player_from_game(game_, id);
 }
 
@@ -647,28 +647,29 @@ void RankingsManager::stats_task(tasks::Task<RankingsManager>* task)
     RankingsManager* stats = task->content();
     bool failed = false;
     switch (stats->cur_phase_) {
-    case kLoggingIn:
+    case RankingsManager::State::kLoggingIn:
         failed = frame_clock::get_time() - login_start() > kLoginTimeout;
         break;
-    case kAuthDone:
-        stats->cur_phase_ = kReady;
+    case RankingsManager::State::kAuthDone:
+        stats->cur_phase_ = RankingsManager::State::kReady;
         stats->on_logged_in();
         break;
-    case kLoginFailed:
+    case RankingsManager::State::kLoginFailed:
         get_run(kStatsLoginFailedDialog);
         close_stats_connection();
         stats->task_->drop_out();
         stats->authenticated_ = false;
-        stats->cur_phase_ = kNone;
+        stats->cur_phase_ = RankingsManager::State::kNone;
         break;
-    case kGettingStats:
+    case RankingsManager::State::kGettingStats:
         failed = frame_clock::get_time() - login_start() > kLoginTimeout || persist_think() == 0;
         break;
-    case kReporting:
+    case RankingsManager::State::kReporting:
         if (frame_clock::get_time() - stats->last_report_ > kReportInterval)
             stats->raise_tallies(false);
         break;
-    default: // kReady
+    case RankingsManager::State::kNone:
+    case RankingsManager::State::kReady:
         break;
     }
     if (failed) {
@@ -690,13 +691,13 @@ unsigned long __stdcall RankingsManager::log_in_thread(void* param)
     text::format_to(std::span(get_gcd_secret_key(), kGcdBufferBytes), "%s", stats_key());
     switch (init_stats_connection(kStatsPort)) {
     case 0: // connected
-        stats->cur_phase_ = kAuthDone;
+        stats->cur_phase_ = RankingsManager::State::kAuthDone;
         break;
     case 1:
     case 2:
     case 3:
     case kStatsResultLateFailure:
-        stats->cur_phase_ = kLoginFailed;
+        stats->cur_phase_ = RankingsManager::State::kLoginFailed;
         break;
     default: // 4 and others
         break;
@@ -740,7 +741,7 @@ void RankingsManager::on_personal_stats(const PersistReply& reply)
     }
     if (index == kLastPersonalStatsIndex) {
         get_run(kStatsReadyScript);
-        stats->cur_phase_ = kReady;
+        stats->cur_phase_ = RankingsManager::State::kReady;
     }
 }
 
@@ -832,7 +833,7 @@ bool retrieve_personal_stats(script::Struct*, script::Script*)
         profile = manager->presence_service()->account();
         get_persist_data_values(0, profile, 2, index, "\\THUG2HighScore\\THUG2HighCombo", callback, nullptr);
     }
-    manager->rating_service()->set_cur_phase(RankingsManager::kGettingStats);
+    manager->rating_service()->set_cur_phase(RankingsManager::State::kGettingStats);
     return true;
 }
 
