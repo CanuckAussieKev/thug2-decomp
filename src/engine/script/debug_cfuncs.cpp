@@ -30,6 +30,11 @@
 #include <span>
 
 namespace {
+// The record layout test: values the dumps are built from.
+constexpr uint32_t kTestSymbolName = 0xC1C935B2u; // text unknown
+constexpr uint8_t kTestComponentType = 0x57;
+constexpr uint16_t kTestComponentUnknown2 = 1000;
+constexpr uint32_t kTestComponentWord = 0x01020304;
 
 // Names (the checksums of their text).
 constexpr uint32_t kBlaa = 0x480A2607u; // blaa
@@ -105,7 +110,7 @@ bool cfunc_test(script::Struct*, script::Script*)
     std::memset(&entry, 0, sizeof(entry));
     entry.unknown0() = 4;
     entry.set_type(script::kQbvalStruct);
-    entry.set_name(0xC1C935B2);
+    entry.set_name(kTestSymbolName);
     debug::printf("CSymbolTableEntry:\n");
     print_bytes(&entry, sizeof(entry));
     entry.unknown0() |= 1;
@@ -116,10 +121,10 @@ bool cfunc_test(script::Struct*, script::Script*)
 
     script::Component component{};
     script::construct_component(&component);
-    component.type_and_flag_ = 0x57;
-    component.unknown2 = 1000;
+    component.type_and_flag_ = kTestComponentType;
+    component.unknown2 = kTestComponentUnknown2;
     component.name = kBlaa;
-    component.value.set_word(0x01020304);
+    component.value.set_word(kTestComponentWord);
     debug::printf("CComponent:\n");
     print_bytes(&component, sizeof(component));
     return true;
@@ -178,10 +183,10 @@ bool cfunc_toggle_metrics(script::Struct*, script::Script*)
 
 // 0x004494F0 / 0x00449500 / 0x00449510 / 0x00449520 / 0x00449530: German / French / Spanish / Italian / English:
 // whether the game runs in that language.
-bool cfunc_german(script::Struct*, script::Script*) { return get_language() == 5; }
+bool cfunc_german(script::Struct*, script::Script*) { return get_language() == game_config::kLanguageGerman; }
 bool cfunc_french(script::Struct*, script::Script*) { return get_language() == 3; }
 bool cfunc_spanish(script::Struct*, script::Script*) { return get_language() == 4; }
-bool cfunc_italian(script::Struct*, script::Script*) { return get_language() == 6; }
+bool cfunc_italian(script::Struct*, script::Script*) { return get_language() == game_config::kLanguageItalian; }
 bool cfunc_english(script::Struct*, script::Script*) { return get_language() == 2; }
 
 // 0x004498F0: ProximCleanup: every sound and stream component's proximity node cleared (what they keep of

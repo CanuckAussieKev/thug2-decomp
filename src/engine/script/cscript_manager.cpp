@@ -43,6 +43,11 @@
 namespace script {
 
 namespace {
+// The spawn flags a new script keeps of what bind_script set.
+constexpr int kSpawnFlagsKept = 0xF1;
+// A message with no object; the net group a spawn-script message goes in.
+constexpr uint32_t kNoObjectId = 0xFFFFFFFFu;
+constexpr int kSpawnScriptGroupId = 8;
 
 void bind_script(Script* script, uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {
@@ -174,7 +179,7 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
     bind_script(script, name, nullptr, params, nullptr);
     script->set_spawn_id(id);
     script->set_list_link(node);
-    script->spawn_flags() = static_cast<uint8_t>((script->spawn_flags() & 0xF1) | kScriptFlagSpawned |
+    script->spawn_flags() = static_cast<uint8_t>((script->spawn_flags() & kSpawnFlagsKept) | kScriptFlagSpawned |
                                                 (not_session_specific ? kScriptFlagNotSessionSpecific : 0) |
                                                 (pause_with_object ? kScriptFlagPauseWithObject : 0));
     if (callback) {
@@ -280,7 +285,7 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     // (the message: wire/play_messages.h)
     online::RunScript message;
     message.name = name;
-    message.object_id = object ? current_object_id(object) : 0xFFFFFFFF;
+    message.object_id = object ? current_object_id(object) : kNoObjectId;
     std::array<uint8_t, online::kRunScriptHeaderSize + online::kRunScriptParamsSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_run_script(writer, message);
@@ -290,7 +295,7 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     desc.set_byte_count(static_cast<uint16_t>(size + online::kRunScriptHeaderSize));
     desc.set_ident(kNetopSpawnScript);
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(8);
+    desc.set_group_id(kSpawnScriptGroupId);
     send_to_host(client, &desc);
 }
 
@@ -305,7 +310,7 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
     // (the message: wire/play_messages.h; the original leaves the last 3 bytes as they were on its stack)
     online::SpawnScript message;
     message.name = name;
-    message.object_id = object ? current_object_id(object) : 0xFFFFFFFF;
+    message.object_id = object ? current_object_id(object) : kNoObjectId;
     message.node = node;
     message.permanent = permanent;
     std::array<uint8_t, online::kSpawnScriptSize> data{};
@@ -316,7 +321,7 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
     desc.set_byte_count(sizeof(data));
     desc.set_ident(kMsgIdSpawnScript);
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(8);
+    desc.set_group_id(kSpawnScriptGroupId);
     send_to_host(client, &desc);
 }
 

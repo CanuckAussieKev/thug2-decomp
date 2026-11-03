@@ -48,6 +48,9 @@ constexpr size_t kValueResolverHasOperatorsOffset = 0x1E8;
 constexpr size_t kValueResolverTokenOffset = 0x1EC;
 constexpr size_t kValueResolverFaultOffset = 0x1F0;
 constexpr size_t kValueResolverUnknown1f4Offset = 0x1F4;
+constexpr int kValueStackDepth = 20;
+constexpr int kOperatorStackDepth = 20;
+constexpr size_t kValueStackBytes = 0x140;
 class ValueResolver {
 public:
     ValueResolver* prepare_all(); // the constructor
@@ -80,9 +83,9 @@ public:
     void set_unknown1f4(bool value) { unknown1f4_ = value; }
 
 private:
-    std::array<Component, 20> values_;
+    std::array<Component, kValueStackDepth> values_;
     int value_top_{};
-    std::array<Operator, 20> operators_{};
+    std::array<Operator, kOperatorStackDepth> operators_{};
     int operator_top_{};
     bool has_operators_{};
     const uint8_t* token_{};
@@ -100,6 +103,6 @@ private:
         static_assert(offsetof(ValueResolver, unknown1f4_) == kValueResolverUnknown1f4Offset, "layout must match the original");
     }
 };
-static_assert(sizeof(Component) * 20 == 0x140, "layout must match the original");
+static_assert(sizeof(Component) * kValueStackDepth == kValueStackBytes, "layout must match the original");
 
 } // namespace script

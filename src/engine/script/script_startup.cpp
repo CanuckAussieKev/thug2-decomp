@@ -29,6 +29,16 @@
 namespace script {
 
 namespace {
+// Item sizes and counts of the pools made here.
+constexpr int kBonedAnimControllerBytes = 0x28;
+constexpr int kSpawnedPolyDetailsBytes = 0xB8;
+constexpr int kEventReceiverListBytes = 0x14;
+constexpr int kAnimCachePredictorCount = 200;
+constexpr int kBlendChannelCount = 150;
+constexpr int kBonedAnimControllerCount = 150;
+constexpr int kAnimLookupCount = 175;
+constexpr int kSpawnedPolyDetailsCount = 75;
+constexpr int kEventReceiverListCount = 175;
 
 constexpr uint32_t kNodeArray = 0xC472ECC5;     // "nodearray": looked up after each unload, the result unused
 constexpr uint32_t kDebuggerNames = 0xC2F97BA7; // "debugger_names": removed once the start-up files are loaded
@@ -47,9 +57,9 @@ void create_pool_of(memory::PoolPair& pools, int item_size, int count, const cha
 } // namespace
 
 // 0x005A5660
-uint32_t get_num_c_functions() { return 1254; }
+uint32_t get_num_c_functions() { return static_cast<uint32_t>(kCFunctionCount); }
 // 0x005A5670
-uint32_t count_method_entries() { return 250; }
+uint32_t count_method_entries() { return static_cast<uint32_t>(kMemberFunctionNameCount); }
 
 NativeCommand* find_c_function(const char* name)
 {
@@ -145,7 +155,7 @@ void create_blend_channel_pool(int count, const char* name)
 }
 void create_boned_anim_controller_pool(int count, const char* name)
 {
-    create_pool_of(gfx::standard_pools(), 0x28, count, name);
+    create_pool_of(gfx::standard_pools(), kBonedAnimControllerBytes, count, name);
 }
 void create_anim_lookup_pool(int count, const char* name)
 {
@@ -153,11 +163,11 @@ void create_anim_lookup_pool(int count, const char* name)
 }
 void create_spawned_poly_details_pool(int count, const char* name)
 {
-    create_pool_of(render::spawned_poly_pools(), 0xB8, count, name);
+    create_pool_of(render::spawned_poly_pools(), kSpawnedPolyDetailsBytes, count, name);
 }
 void create_event_receiver_list_pool(int count, const char* name)
 {
-    create_pool_of(objects::script_list_pools(), 0x14, count, name);
+    create_pool_of(objects::script_list_pools(), kEventReceiverListBytes, count, name);
 }
 
 // 0x005A5E70
@@ -168,22 +178,22 @@ void allocate_pools()
     memory::pop_mem_profile();
     memory::pop_mem_profile(); // (a second empty call)
     memory::push_mem_profile("CAnimCachePredictor");
-    create_anim_cache_predictor_pool(200, "CAnimCachePredictor");
+    create_anim_cache_predictor_pool(kAnimCachePredictorCount, "CAnimCachePredictor");
     memory::pop_mem_profile();
     memory::push_mem_profile("CBlendChannel");
-    create_blend_channel_pool(150, "CBlendChannel");
+    create_blend_channel_pool(kBlendChannelCount, "CBlendChannel");
     memory::pop_mem_profile();
     memory::push_mem_profile("CBonedAnimController");
-    create_boned_anim_controller_pool(150, "CBonedAnimController");
+    create_boned_anim_controller_pool(kBonedAnimControllerCount, "CBonedAnimController");
     memory::pop_mem_profile();
     memory::push_mem_profile("CAnimLookup");
-    create_anim_lookup_pool(175, "CAnimLookup");
+    create_anim_lookup_pool(kAnimLookupCount, "CAnimLookup");
     memory::pop_mem_profile();
     memory::push_mem_profile("sSpawnedPolyDetails");
-    create_spawned_poly_details_pool(75, "sSpawnedPolyDetails");
+    create_spawned_poly_details_pool(kSpawnedPolyDetailsCount, "sSpawnedPolyDetails");
     memory::pop_mem_profile();
     memory::push_mem_profile("Obj::CEventReceiverList");
-    create_event_receiver_list_pool(175, "Obj::CEventReceiverList");
+    create_event_receiver_list_pool(kEventReceiverListCount, "Obj::CEventReceiverList");
     memory::pop_mem_profile();
     memory::push_mem_profile("Registering script functions");
     install_script_functions(std::span<const NativeCommand>(cfunction_table()).first(get_num_c_functions()));

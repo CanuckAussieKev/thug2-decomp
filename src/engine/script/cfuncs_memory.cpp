@@ -33,6 +33,8 @@ using script::Script;
 using script::Struct;
 
 namespace {
+constexpr int kDefaultFragmentDumpSize = 0x3C00;
+constexpr int kKilobyte = 1024;
 
 constexpr uint32_t kOff = 0xD443A2BC;            // "off"
 constexpr uint32_t kName = 0xA1DC81F9;           // "name"
@@ -96,7 +98,7 @@ bool cfunc_set_mem_thread_safe(Struct* params, Script*)
 // 0x00448060: DumpFragments [<size> (0x3C00)] [K] (compiled out). Always true.
 bool cfunc_dump_fragments(Struct* params, Script*)
 {
-    int size = 0x3C00;
+    int size = kDefaultFragmentDumpSize;
     params->fetch_int_value(0u, &size, 0);
     dump_fragments(size, params->has_bare_flag("K"));
     return true;
@@ -254,12 +256,12 @@ bool cfunc_dump_heaps(Struct* params, Script*)
                           minimum,
                           blocks); // "%23s: %8d %7d %7d %7d  %5d \n"
         else
-            debug::printf("%23s: %5dK %4dK %4dK %4dK  %5d \n", heap->label(), heap->used_size() / 1024,
-                          heap->free_size() / 1024, available / 1024, minimum / 1024,
+            debug::printf("%23s: %5dK %4dK %4dK %4dK  %5d \n", heap->label(), heap->used_size() / kKilobyte,
+                          heap->free_size() / kKilobyte, available / kKilobyte, minimum / kKilobyte,
                           blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
     }
     const int sound_free = free_sound_memory();
-    debug::printf("\nSound mem free %d K  (%d bytes)\n", free_sound_memory() / 1024,
+    debug::printf("\nSound mem free %d K  (%d bytes)\n", free_sound_memory() / kKilobyte,
                   sound_free); // "\nSound mem free %d K  (%d bytes)\n"
     dump_pool_usage(false, true);
     return true;

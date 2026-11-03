@@ -32,6 +32,33 @@
 #include "engine/script/script_state.h"
 
 namespace script {
+namespace {
+// The pools' item sizes (the classes' sizes).
+constexpr int kScriptCacheEntryPoolBytes = 0x14;
+constexpr int kComponentPoolBytes = 0x10;
+constexpr int kStructPoolBytes = 8;
+constexpr int kVectorPoolBytes = 0x10;
+constexpr int kPairPoolBytes = 0x0C;
+constexpr int kArrayPoolBytes = 0x0C;
+constexpr int kSymbolPoolBytes = 0x14;
+constexpr int kScriptPoolBytes = 0xF4;
+constexpr int kStoredRandomPoolBytes = 0x60;
+// The byte-by-byte word readers and writers.
+constexpr int kShiftByte1 = 8;
+constexpr int kShiftByte2 = 16;
+constexpr int kShiftByte3 = 24;
+constexpr uint32_t kChecksumInitial = 0xFFFFFFFFu;
+// The names of checksums given in .qb files: 0x1000 buckets, three words each.
+constexpr int kLabelBucketCount = 0x1000;
+constexpr int kLabelBucketBytes = 12;
+constexpr int kLabelBucketWords = 3;
+constexpr uint32_t kLabelBucketMask = 0xFFF;
+// A shuffle swaps this many pairs for each choice.
+constexpr int kShuffleSwapsPerChoice = 10;
+// The permanent string table: one 8-byte entry per string.
+constexpr uint32_t kPermanentStringEntryBytes = 8;
+constexpr std::size_t kPendingSymbolCapacity = 500;
+} // namespace
 
 StoredScript read_stored_script(const uint8_t* record)
 {
@@ -44,11 +71,11 @@ StoredScript read_stored_script(const uint8_t* record)
     return out;
 }
 
-static_assert(offsetof(StoredRandom, num_) == 8, "layout must match the original");
-static_assert(offsetof(StoredRandom, order_) == 0x12, "layout must match the original");
-static_assert(offsetof(StoredRandom, last_) == 0x54 && offsetof(StoredRandom, succ_) == 0x58,
+static_assert(offsetof(StoredRandom, num_) == kStoredRandomNumOffset, "layout must match the original");
+static_assert(offsetof(StoredRandom, order_) == kStoredRandomOrderOffset, "layout must match the original");
+static_assert(offsetof(StoredRandom, last_) == kStoredRandomLastOffset && offsetof(StoredRandom, succ_) == kStoredRandomSuccOffset,
               "layout must match the original");
-static_assert(sizeof(StoredRandom) == 0x60, "layout must match the original");
+static_assert(sizeof(StoredRandom) == kStoredRandomBytes, "layout must match the original");
 
 namespace {
 
@@ -95,85 +122,85 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
 Tokens step_over_token(Tokens token)
 {
     switch (*token) {
-    case 0x01:
-    case 0x03:
-    case 0x04:
-    case 0x05:
-    case 0x06:
-    case 0x07:
-    case 0x08:
-    case 0x09:
-    case 0x0A:
-    case 0x0B:
-    case 0x0C:
-    case 0x0D:
-    case 0x0E:
-    case 0x0F:
-    case 0x11:
-    case 0x12:
-    case 0x13:
-    case 0x14:
-    case 0x15:
-    case 0x20:
-    case 0x21:
-    case 0x22:
-    case 0x23:
-    case 0x24:
-    case 0x25:
-    case 0x26:
-    case 0x27:
-    case 0x28:
-    case 0x29:
-    case 0x2C:
-    case 0x2D:
-    case 0x30:
-    case 0x32:
-    case 0x33:
-    case 0x34:
-    case 0x35:
-    case 0x36:
-    case 0x38:
-    case 0x39:
-    case 0x3A:
-    case 0x3B:
-    case 0x3C:
-    case 0x3D:
-    case 0x3E:
-    case 0x3F:
-    case 0x42:
-    case 0x45:
+    case kTokenEndOfLine:
+    case kTokenStructStart:
+    case kTokenStructEnd:
+    case kTokenArrayStart:
+    case kTokenArrayEnd:
+    case kTokenEquals:
+    case kTokenDot:
+    case kTokenComma:
+    case kTokenMinus:
+    case kTokenPlus:
+    case kTokenDivide:
+    case kTokenMultiply:
+    case kTokenOpenParenthesis:
+    case kTokenCloseParenthesis:
+    case kTokenEqualTo:
+    case kTokenLessThan:
+    case kTokenLessThanOrEqual:
+    case kTokenGreaterThan:
+    case kTokenGreaterThanOrEqual:
+    case kTokenLoopStart:
+    case kTokenLoopRepeat:
+    case kTokenLoopBreak:
+    case kTokenScriptStart:
+    case kTokenScriptEnd:
+    case kTokenIf:
+    case kTokenElse:
+    case kTokenUnknown27:
+    case kTokenEndIf:
+    case kTokenReturn:
+    case kTokenAllArguments:
+    case kTokenLocalArgument:
+    case kTokenRandomRange:
+    case kTokenOr:
+    case kTokenAnd:
+    case kTokenXor:
+    case kTokenUnknown35:
+    case kTokenUnknown36:
+    case kTokenRandomRangeSideStream:
+    case kTokenNot:
+    case kTokenUnknown3A:
+    case kTokenUnknown3B:
+    case kTokenSwitch:
+    case kTokenEndSwitch:
+    case kTokenCase:
+    case kTokenDefault:
+    case kTokenColon:
+    case kTokenSectionMarker:
         return token + 1;
-    case 0x02:
-    case 0x16:
-    case 0x17:
-    case 0x18:
-    case 0x1A:
-    case 0x2E:
-    case 0x43:
-    case 0x44:
-    case 0x46:
-        return token + 5;
-    case 0x1B:
-    case 0x1C: // strings: the length, then the text
-        return token + 5 + fetch_word32(token + 1);
-    case 0x1E: // vector
-        return token + 13;
-    case 0x1F: // pair
-        return token + 9;
-    case 0x2B: { // a checksum's name: the checksum, then the text
-        Tokens p = token + 5;
+    case kTokenEndOfLineNumbered:
+    case kTokenName:
+    case kTokenInteger:
+    case kTokenHexInteger:
+    case kTokenFloat:
+    case kTokenLongJump:
+    case kTokenNativeFunction:
+    case kTokenMemberFunctionName:
+    case kTokenMemberFunction:
+        return token + kTokenWithWordBytes;
+    case kTokenString:
+    case kTokenLocalString: // strings: the length, then the text
+        return token + kTokenWithWordBytes + fetch_word32(token + 1);
+    case kTokenVector: // vector
+        return token + kTokenWithVectorBytes;
+    case kTokenPair: // pair
+        return token + kTokenWithPairBytes;
+    case kTokenChecksumName: { // a checksum's name: the checksum, then the text
+        Tokens p = token + kTokenWithWordBytes;
         while (*p)
             ++p;
         return p + 1;
     }
-    case 0x2F:
-    case 0x37:
-    case 0x40:
-    case 0x41: // tables of 6-byte entries
-        return token + 5 + fetch_word32(token + 1) * 6;
-    case 0x47:
-    case 0x48:
-    case 0x49:
+    case kTokenRandom:
+    case kTokenRandomSideStream:
+    case kTokenRandomNoRepeat:
+    case kTokenRandomPermute: // tables of 6-byte entries
+        return token + kTokenWithWordBytes + fetch_word32(token + 1) * kJumpTableEntryBytes;
+    case kTokenShortIf:
+    case kTokenShortElse:
+    case kTokenShortJump:
         return token + 3;
     default: // (0x00, 0x10, 0x19, 0x1D, 0x2A, 0x31 and unknown tokens: no step)
         return token;
@@ -183,19 +210,19 @@ Tokens step_over_token(Tokens token)
 // 0x0046F7E0
 uint32_t fetch_word32(Tokens p)
 {
-    return p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24);
+    return p[0] | (p[1] << kShiftByte1) | (p[2] << kShiftByte2) | (static_cast<uint32_t>(p[3]) << kShiftByte3);
 }
 
 // 0x0046F800
-uint16_t fetch_word16(Tokens p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
+uint16_t fetch_word16(Tokens p) { return static_cast<uint16_t>(p[0] | (p[1] << kShiftByte1)); }
 
 // 0x0046F810
 MutableTokens store_word32(MutableTokens p, uint32_t value)
 {
     p[0] = static_cast<uint8_t>(value);
-    p[1] = static_cast<uint8_t>(value >> 8);
-    p[2] = static_cast<uint8_t>(value >> 16);
-    p[3] = static_cast<uint8_t>(value >> 24);
+    p[1] = static_cast<uint8_t>(value >> kShiftByte1);
+    p[2] = static_cast<uint8_t>(value >> kShiftByte2);
+    p[3] = static_cast<uint8_t>(value >> kShiftByte3);
     return p + 4;
 }
 
@@ -203,7 +230,7 @@ MutableTokens store_word32(MutableTokens p, uint32_t value)
 MutableTokens store_word16(MutableTokens p, uint16_t value)
 {
     p[0] = static_cast<uint8_t>(value);
-    p[1] = static_cast<uint8_t>(value >> 8);
+    p[1] = static_cast<uint8_t>(value >> kShiftByte1);
     return p + 2;
 }
 
@@ -211,10 +238,10 @@ MutableTokens store_word16(MutableTokens p, uint16_t value)
 Tokens skip_newline_tokens(Tokens token)
 {
     for (;;) {
-        if (*token == 0x01)
+        if (*token == kTokenEndOfLine)
             token += 1;
-        else if (*token == 0x02)
-            token += 5;
+        else if (*token == kTokenEndOfLineNumbered)
+            token += kTokenWithWordBytes;
         else
             return token;
     }
@@ -226,19 +253,19 @@ Tokens skip_to_end_of_statement(Tokens token)
     int braces = 0, brackets = 0, parentheses = 0;
     for (;;) {
         const uint8_t t = *token;
-        if (t == 0x03)
+        if (t == kTokenStructStart)
             ++braces;
-        if (t == 0x04)
+        if (t == kTokenStructEnd)
             --braces;
-        if (t == 0x05)
+        if (t == kTokenArrayStart)
             ++brackets;
-        if (t == 0x06)
+        if (t == kTokenArrayEnd)
             --brackets;
-        if (t == 0x0E)
+        if (t == kTokenOpenParenthesis)
             ++parentheses;
-        if (t == 0x0F)
+        if (t == kTokenCloseParenthesis)
             --parentheses;
-        if (braces == 0 && brackets == 0 && parentheses == 0 && (t == 0x01 || t == 0x02 || t == 0x00))
+        if (braces == 0 && brackets == 0 && parentheses == 0 && (t == kTokenEndOfLine || t == kTokenEndOfLineNumbered || t == kTokenEndOfFile))
             return step_over_token(token);
         token = step_over_token(token);
     }
@@ -247,12 +274,12 @@ Tokens skip_to_end_of_statement(Tokens token)
 // 0x0046F920
 Tokens skip_to_end_of_script(Tokens token)
 {
-    while (*token != 0x24)
+    while (*token != kTokenScriptEnd)
         token = step_over_token(token);
     token = step_over_token(token);
     // (a script whose '$' ends its block - a structure's script body, a private copy - has no line number after it:
     // the original read the byte past the block)
-    if (token.remaining() > 0 && *token == 0x02)
+    if (token.remaining() > 0 && *token == kTokenEndOfLineNumbered)
         return step_over_token(token);
     return token;
 }
@@ -260,10 +287,10 @@ Tokens skip_to_end_of_script(Tokens token)
 // 0x0046F960
 uint32_t calculate_script_checksum(Tokens token)
 {
-    uint32_t checksum = 0xFFFFFFFF;
-    while (*token != 0x24) {
+    uint32_t checksum = kChecksumInitial;
+    while (*token != kTokenScriptEnd) {
         const Tokens next = step_over_token(token);
-        if (*token != 0x01 && *token != 0x02) {
+        if (*token != kTokenEndOfLine && *token != kTokenEndOfLineNumbered) {
             const std::span<const uint8_t> bytes = code_between(token, next);
             checksum = checksums::extend_crc_with_buffer(bytes, checksum);
         }
@@ -278,28 +305,28 @@ void prepare_script_tokens(std::span<uint8_t> code)
     // (the code is changed in place: its tokens walked as read-only, each rewritten through a writable cursor at the
     // same place)
     Tokens token = skip_to_end_of_statement(Tokens(code));
-    while (*token != 0x24) {
-        if (*token == 0x16) {
+    while (*token != kTokenScriptEnd) {
+        if (*token == kTokenName) {
             // A statement starting with a name: a call?
             const MutableTokens name(code, token.position());
-            token += 5;
+            token += kTokenWithWordBytes;
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
                 if (symbol->type() == kQbvalNativeFunc) {
-                    name[0] = 0x43;
+                    name[0] = kTokenNativeFunction;
                     store_word32(name + 1, symbol->value().word());
                 } else if (symbol->type() == kQbvalNativeMethod) {
                     if (symbol->value().word()) {
                         store_word32(name + 1, symbol->value().word());
-                        name[0] = 0x46;
+                        name[0] = kTokenMemberFunction;
                     } else {
-                        name[0] = 0x44;
+                        name[0] = kTokenMemberFunctionName;
                     }
                 }
             }
             token = skip_to_end_of_statement(token);
-        } else if (*token == 0x47) {
+        } else if (*token == kTokenShortIf) {
             token = step_over_token(token);
-            if (*token == 0x39)
+            if (*token == kTokenNot)
                 ++token;
         } else {
             token = skip_to_end_of_statement(token);
@@ -312,7 +339,7 @@ const char* find_script_checksum_name(uint32_t checksum)
 {
     if (!script_label_table())
         return nullptr;
-    for (const ScriptChecksumName* entry = &core::at(label_buckets(), checksum & 0xFFF); entry; entry = entry->next) {
+    for (const ScriptChecksumName* entry = &core::at(label_buckets(), checksum & kLabelBucketMask); entry; entry = entry->next) {
         if (entry->checksum == checksum)
             return entry->name;
     }
@@ -368,7 +395,7 @@ const char* kept_qb_name(uint32_t checksum)
 // 0x0046FA60 (a checksum already there is added again)
 void add_script_checksum_name(uint32_t checksum, const char* name)
 {
-    ScriptChecksumName& bucket = core::at(label_buckets(), checksum & 0xFFF);
+    ScriptChecksumName& bucket = core::at(label_buckets(), checksum & kLabelBucketMask);
     if (bucket.name) {
         auto* entry = static_cast<ScriptChecksumName*>(memory::alloc_block(sizeof(ScriptChecksumName)));
         entry->checksum = checksum;
@@ -397,7 +424,7 @@ void forget_stored_randoms_of(const Script* owner)
 void shuffle(StoredRandom& random, bool avoid_repeat)
 {
     const uint8_t last = core::at(random.order_, random.num_ - 1);
-    for (int swaps = random.num_ * 10; swaps; --swaps) {
+    for (int swaps = random.num_ * kShuffleSwapsPerChoice; swaps; --swaps) {
         const int a = maths::rnd(random.num_);
         const int b = maths::rnd(random.num_);
         const uint8_t swapped = core::at(random.order_, a);
@@ -422,7 +449,7 @@ void allocate_permanent_string_heap(const memory::sizes::Pools& sizes)
     char* strings = static_cast<char*>(memory::alloc_block(size));
     script_state().set_permanent_strings_start(strings);
     script_state().set_permanent_strings_next(strings);
-    memory::bits_as<void*>(script_state().permanent_string_table()) = memory::alloc_block(count * 8);
+    memory::bits_as<void*>(script_state().permanent_string_table()) = memory::alloc_block(count * kPermanentStringEntryBytes);
     script_state().permanent_string_count() = 0;
 }
 
@@ -441,31 +468,31 @@ void create_script_pools()
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
     memory::push_mem_profile("CScriptCacheEntry");
-    create_pool(script_state().cache_entry_pools(), 0x14, sizes.script_cache_entries_, "CScriptCacheEntry");
+    create_pool(script_state().cache_entry_pools(), kScriptCacheEntryPoolBytes, sizes.script_cache_entries_, "CScriptCacheEntry");
     memory::pop_mem_profile();
     memory::push_mem_profile("CComponent and Reserve CComponent");
-    create_pool(component_pools(), 0x10, sizes.components, "CComponent");
+    create_pool(component_pools(), kComponentPoolBytes, sizes.components, "CComponent");
     memory::pop_mem_profile();
     memory::push_mem_profile("CStruct");
-    create_pool(struct_pools(), 0x08, sizes.structs, "CStruct");
+    create_pool(struct_pools(), kStructPoolBytes, sizes.structs, "CStruct");
     memory::pop_mem_profile();
     memory::push_mem_profile("CVector");
-    create_pool(vector_pools(), 0x10, sizes.vectors, "CVector");
+    create_pool(vector_pools(), kVectorPoolBytes, sizes.vectors, "CVector");
     memory::pop_mem_profile();
     memory::push_mem_profile("CPair");
-    create_pool(script_state().pair_pools(), 0x0C, sizes.pairs, "CPair");
+    create_pool(script_state().pair_pools(), kPairPoolBytes, sizes.pairs, "CPair");
     memory::pop_mem_profile();
     memory::push_mem_profile("CArray");
-    create_pool(array_pools(), 0x0C, sizes.arrays, "CArray");
+    create_pool(array_pools(), kArrayPoolBytes, sizes.arrays, "CArray");
     memory::pop_mem_profile();
     memory::push_mem_profile("CSymbolTableEntry");
-    create_pool(symbol_pools(), 0x14, sizes.symbols, "CSymbolTableEntry");
+    create_pool(symbol_pools(), kSymbolPoolBytes, sizes.symbols, "CSymbolTableEntry");
     memory::pop_mem_profile();
     memory::push_mem_profile("CScript");
-    create_pool(script_pools(), 0xF4, sizes.scripts, "CScript");
+    create_pool(script_pools(), kScriptPoolBytes, sizes.scripts, "CScript");
     memory::pop_mem_profile();
     memory::push_mem_profile("CStoredRandom");
-    create_pool(script_state().stored_random_pools(), 0x60, sizes.stored_randoms_, "CStoredRandom");
+    create_pool(script_state().stored_random_pools(), kStoredRandomPoolBytes, sizes.stored_randoms_, "CStoredRandom");
     memory::pop_mem_profile();
     memory::push_mem_profile("AllocatePermanentStringHeap");
     allocate_permanent_string_heap(sizes);
@@ -534,9 +561,9 @@ struct PendingSymbol {
     SymbolTableEntry* symbol;
     bool owned;
 };
-std::array<PendingSymbol, 500>& pending_symbols()
+std::array<PendingSymbol, kPendingSymbolCapacity>& pending_symbols()
 {
-    static core::NoDestroy<std::array<PendingSymbol, 500>> pending_symbols;
+    static core::NoDestroy<std::array<PendingSymbol, kPendingSymbolCapacity>> pending_symbols;
     return pending_symbols.get();
 }
 int& pending_symbol_count()
@@ -566,10 +593,10 @@ void allocate_script_checksum_names(bool debug_heap)
 {
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(debug_heap ? manager->debug_heap() : manager->script_heap());
-    auto* names = static_cast<uint32_t*>(memory::alloc_block(0x1000 * 12));
+    auto* names = static_cast<uint32_t*>(memory::alloc_block(kLabelBucketCount * kLabelBucketBytes));
     memory::bits_as<uint32_t*>(script_label_table()) = names;
     memory::leave_heap_scope();
-    std::ranges::fill(std::span<uint32_t>(names, 0x1000 * 3), 0u);
+    std::ranges::fill(std::span<uint32_t>(names, kLabelBucketCount * kLabelBucketWords), 0u);
 }
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0

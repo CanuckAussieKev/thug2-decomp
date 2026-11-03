@@ -35,6 +35,14 @@
 namespace commands {
 
 namespace {
+constexpr int kRiderSlotCount = 8;
+// Search defaults: how far a rail point is looked for, and the start of the nearest-distance searches (squared).
+constexpr float kDefaultRailDistance = 150.0f;
+constexpr float kFarthestSquaredDistance = 1.0e8f;
+// The aim line: 90 degrees to the heading's start, 50 feet along, 75 feet above the skater.
+constexpr double kQuarterTurnDegrees = 90.0;
+constexpr double kAimLineLength = 50.0;
+constexpr int kMillisecondsPerSecond = 1000;
 constexpr float kGameUtilWholeTurn{360.0f};
 constexpr float kGameUtilHalfTurn{180.0f};
 constexpr float kGameUtilMinusDegreesToRadians{-0.017453292f};
@@ -198,7 +206,7 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
 bool cfunc_clear_powerups(script::Struct*, script::Script*)
 {
     modules::Skate* skate = modules::Skate::sole();
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kRiderSlotCount; ++i) {
         if (skate->get_rider_at(i)) {
             auto* state = core::down_cast<objects::RiderPoseState>(
                 objects::object_hub_slot()->find_first_module_of_kind(kSkaterState));
@@ -216,7 +224,7 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
 {
     maths::Vec4 pos;
     params->fetch_vec(kPos, &pos, 1);
-    float distance = 150.0f;
+    float distance = kDefaultRailDistance;
     params->fetch_float(kRailDistance, &distance, 0);
     auto max_distance_squared = static_cast<float>(static_cast<double>(distance) * distance);
     uint32_t ignore_rail = 0;
@@ -224,13 +232,13 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
     int ignore_index = -1;
     params->fetch_int_value(kIgnoreRailPointIndex, &ignore_index, 0);
 
-    float rail_distance_squared = 1.0e8f;
+    float rail_distance_squared = kFarthestSquaredDistance;
     uint32_t rail = 0;
     int rail_index = 0;
     maths::Vec4 rail_point;
     get_rail_editor()->find_nearest_point(&pos, &rail_point, &rail_distance_squared, &rail, &rail_index, ignore_rail,
                                           ignore_index);
-    float geometry_distance_squared = 1.0e8f;
+    float geometry_distance_squared = kFarthestSquaredDistance;
     maths::Vec4 geometry_point;
     if (params->has_bare_flag(kCheckLevelGeometry))
         park_editing::ParkBuilderMode::find_restart(&pos, &geometry_point, &geometry_distance_squared);
@@ -325,7 +333,7 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
     float pitch = 0.0f;
     params->fetch_float(kPitch, &pitch, 1);
     pitch = static_cast<float>(pitch * static_cast<double>(kGameUtilMinusDegreesToRadians)); // -pi / 180
-    heading = static_cast<float>((90.0 - heading) * kDegreeToRadianRatio);                     // pi / 180
+    heading = static_cast<float>((kQuarterTurnDegrees - heading) * kDegreeToRadianRatio);                     // pi / 180
     int r = 0;
     params->fetch_int_value(kR, &r, 1);
     int g = 0;
@@ -335,7 +343,7 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
     const objects::GameEntity* skater = get_skate()->get_home_rider();
     const maths::Vec4& position = skater->at_point();
     const double above = static_cast<double>(position.y) + 75.0;
-    auto horizontal = static_cast<float>(std::cos(static_cast<double>(pitch)) * 50.0);
+    auto horizontal = static_cast<float>(std::cos(static_cast<double>(pitch)) * kAimLineLength);
     maths::Vec4 from;
     from.x = position.x;
     from.y = static_cast<float>(above);
@@ -343,7 +351,7 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
     from.w = 0.0f;
     maths::Vec4 to;
     to.x = static_cast<float>(std::cos(static_cast<double>(heading)) * horizontal + position.x);
-    to.y = static_cast<float>(std::sin(static_cast<double>(pitch)) * 50.0 + above);
+    to.y = static_cast<float>(std::sin(static_cast<double>(pitch)) * kAimLineLength + above);
     to.z = static_cast<float>(std::sin(static_cast<double>(heading)) * horizontal + position.z);
     to.w = 0.0f;
     const uint32_t colour = 0xFF000000u | static_cast<uint32_t>(static_cast<uint8_t>(b)) << 16 |
@@ -382,7 +390,7 @@ bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
         int score = 0;
         if (!params->fetch_int_value(kScore, &score, 0)) {
             params->fetch_int_value(kTime, &score, 1);
-            score *= 1000;
+            score *= kMillisecondsPerSecond;
         }
         value->add_component_of_type(kScore, script::kQbvalInteger, static_cast<uint32_t>(score));
     }

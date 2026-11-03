@@ -56,10 +56,10 @@ bool& viewer_launched()
 } // namespace
 
 // 0x005A5360
-bool cfunc_set_light_group(Struct* params, Script* script) { return node_command(params, script, 7); }
+bool cfunc_set_light_group(Struct* params, Script* script) { return node_command(params, script, kNodeActionTerrain); }
 
 // 0x005A5380
-bool cfunc_is_alive(Struct* params, Script* script) { return node_command(params, script, 5); }
+bool cfunc_is_alive(Struct* params, Script* script) { return node_command(params, script, kNodeActionAlive); }
 
 // 0x005A53A0
 bool cfunc_pause_skaters(Struct* params, Script*)

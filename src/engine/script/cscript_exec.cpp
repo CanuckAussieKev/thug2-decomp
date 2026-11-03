@@ -70,6 +70,13 @@ constexpr uint32_t kQuietScriptName = 0xFB11E6CD;
 // Member function entries for these component types are run by the object itself.
 constexpr uint32_t kObjectComponentType = 0x57525413;
 constexpr uint32_t kObjectComponentType2 = 0x0ADA4E74;
+// A short jump, the Case it leads to and the case's own short jump.
+constexpr int kShortJumpCaseBytes = 7;
+// The loop frames a script's first heap block holds (not checked beyond).
+constexpr size_t kLoopFrameCount = 10;
+// Steps in one Update after which a script that never yields is logged; scripts logged at most this many.
+constexpr uint32_t kRunawayStepCount = 5000000u;
+constexpr int kLoggedScriptCount = 16;
 
 // The object's and its components' script member functions. The object's: Entity::invoke_method (the original's
 // slot 2) and Entity::invoke_method_by_name (slot 3).
@@ -156,16 +163,16 @@ uint32_t Script::read_name(Tokens& pc)
     uint32_t name = 0;
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (*pc) {
-    case 0x16:
+    case kTokenName:
         ++pc;
         name = fetch_word32(pc);
         pc += 4;
         break;
-    case 0x2C:
+    case kTokenAllArguments:
         ++pc;
         args_->read_hash_value(0u, &name, 0);
         break;
-    case 0x2D: // 2D 16 <name>
+    case kTokenLocalArgument: // 2D 16 <name>
         pc += 2;
         {
             const uint32_t parameter = fetch_word32(pc);
@@ -196,7 +203,7 @@ bool Script::execute_command(Tokens& pc)
 {
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (*pc) {
-    case 0x44: {
+    case kTokenMemberFunctionName: {
         ++pc;
         const uint32_t name = fetch_word32(pc);
         pc += 4;
@@ -207,7 +214,7 @@ bool Script::execute_command(Tokens& pc)
         }
         return object_call_member_function(entity_.get_pull(), name, stmt_args_.get(), this);
     }
-    case 0x46: {
+    case kTokenMemberFunction: {
         ++pc;
         const MemberFunctionEntry* entry = member_entry_at(pc);
         pc += 4;
@@ -218,7 +225,7 @@ bool Script::execute_command(Tokens& pc)
         }
         return script::invoke_method_by_name(entry, stmt_args_.get(), entity_.get_pull(), this);
     }
-    case 0x43: {
+    case kTokenNativeFunction: {
         ++pc;
         const NativeFunction function = native_function_at(pc);
         pc += 4;
@@ -228,7 +235,7 @@ bool Script::execute_command(Tokens& pc)
     }
 
     uint32_t name = 0;
-    if (*pc == 0x0E) {
+    if (*pc == kTokenOpenParenthesis) {
         gsl::owner<Component*> value = new_component();
         pc_ = pc.address();
         pc = parse_expression(pc, args_.get(), value);
@@ -247,13 +254,13 @@ bool Script::execute_command(Tokens& pc)
     }
     pc_ = pc.address();
 
-    if (*pc == 0x42) { // name:
+    if (*pc == kTokenColon) { // name:
         objects::Entity* object = find_object(name);
         if (!object)
             return true; // (pc_ left at the ':')
         ++pc;
         pc = resolve_random_jumps(pc);
-        if (*pc == 0x44) {
+        if (*pc == kTokenMemberFunctionName) {
             ++pc;
             const uint32_t member = fetch_word32(pc);
             pc += 4;
@@ -281,14 +288,14 @@ bool Script::execute_command(Tokens& pc)
         }
     }
 
-    if (*pc == 0x07) { // name = value
+    if (*pc == kTokenEquals) { // name = value
         pc -= 4;
         const uint32_t target = fetch_word32(pc);
-        pc += 5;
+        pc += kTokenWithWordBytes;
         pc = resolve_random_jumps(pc);
         gsl::owner<Component*> value = new_component();
         pc_ = pc.address();
-        if (*pc == 0x0E)
+        if (*pc == kTokenOpenParenthesis)
             pc = parse_expression(pc, args_.get(), value);
         else
             pc = parse_value(pc, args_.get(), value);
@@ -348,7 +355,7 @@ void Script::run_conditional(Tokens& pc)
     const Tokens target = pc + fetch_word16(pc);
     pc += 2;
     bool negate = false;
-    if (*pc == 0x39) {
+    if (*pc == kTokenNot) {
         ++pc;
         negate = true;
     }
@@ -366,8 +373,8 @@ void Script::run_conditional(Tokens& pc)
 // 0x00472A70: pc just after a 3C switch: past its 3D endswitch (switches inside skipped whole).
 void Script::skip_to_end_of_switch(Tokens& pc)
 {
-    while (*pc != 0x3D) {
-        if (*pc == 0x3C) {
+    while (*pc != kTokenEndSwitch) {
+        if (*pc == kTokenSwitch) {
             ++pc;
             skip_to_end_of_switch(pc);
         } else {
@@ -391,22 +398,22 @@ void Script::run_multi_branch(Tokens& pc)
         duplicate_component(value, first, 0);
     for (;;) {
         const uint8_t token = *pc;
-        if (token == 0x24) // '$': not moved past - the original loops for ever here (kept)
+        if (token == kTokenScriptEnd) // '$': not moved past - the original loops for ever here (kept)
             continue;
-        if (token == 0x3C) { // a switch in a case not taken
+        if (token == kTokenSwitch) { // a switch in a case not taken
             ++pc;
             skip_to_end_of_switch(pc);
             continue;
         }
-        if (token == 0x3D) {
+        if (token == kTokenEndSwitch) {
             ++pc;
             break;
         }
-        if (token == 0x3F) { // default: past 3F 49 xx xx
+        if (token == kTokenDefault) { // default: past 3F 49 xx xx
             pc += 4;
             break;
         }
-        if (token != 0x3E) {
+        if (token != kTokenCase) {
             pc = step_over_token(pc);
             continue;
         }
@@ -420,8 +427,8 @@ void Script::run_multi_branch(Tokens& pc)
             continue;
         }
         pc = skip_newline_tokens(pc);
-        while (*pc == 0x49 && pc[3] == 0x3E) {
-            pc += 7;
+        while (*pc == kTokenShortJump && pc[3] == kTokenCase) {
+            pc += kShortJumpCaseBytes;
             parse_function_params(pc);
             pc = skip_newline_tokens(pc);
         }
@@ -440,7 +447,7 @@ void Script::run_loop_open(Tokens& pc)
     if (innermost_repeat_ == &inline_loop_) {
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap());
-        loops_ = static_cast<RepeatFrame*>(memory::alloc_block(10 * sizeof(RepeatFrame)));
+        loops_ = static_cast<RepeatFrame*>(memory::alloc_block(kLoopFrameCount * sizeof(RepeatFrame)));
         memory::Hub::get_pull()->leave_heap_scope();
         const std::span<RepeatFrame> moved = loop_stack();
         core::at(moved, 0) = inline_loop_;
@@ -505,9 +512,9 @@ void Script::run_loop_exit(Tokens& pc)
     bool searching = true;
     for (bool again = true; again; again = searching) {
         const uint8_t token = *pc;
-        if (token == 0x20) {
+        if (token == kTokenLoopStart) {
             ++depth;
-        } else if (token == 0x21) {
+        } else if (token == kTokenLoopRepeat) {
             if (depth)
                 --depth;
             else
@@ -536,15 +543,15 @@ ScriptOutcome Script::tick_frame()
     // original does. Logged once per script, with its name and its object's id, before the hang.)
     uint32_t steps = 0;
     while (pc_) {
-        if (++steps == 5000000u) {
-            constexpr size_t kSLoggedSize = 16;
+        if (++steps == kRunawayStepCount) {
+            constexpr size_t kSLoggedSize = kLoggedScriptCount;
             static std::array<uint32_t, kSLoggedSize> s_logged;
             static int tally;
             bool seen = false;
             for (int i = 0; i < tally; ++i)
                 seen = seen || core::at(s_logged, i) == script_title_;
             if (!seen) {
-                if (tally < 16)
+                if (tally < kLoggedScriptCount)
                     core::at(s_logged, tally++) = script_title_;
                 const objects::Entity* object = entity_.get_pull();
                 // (the object's id as a number: find_checksum_name_or_unknown's text for an unknown name is one buffer)
@@ -568,24 +575,24 @@ ScriptOutcome Script::tick_frame()
             blocks_seen = code_blocks_generation();
         }
         switch (*pc) {
-        case 0x01: // end of line
-        case 0x28:
-        case 0x3D: // endswitch
+        case kTokenEndOfLine: // end of line
+        case kTokenEndIf:
+        case kTokenEndSwitch: // endswitch
             ++pc;
             break;
-        case 0x02: // end of line + line number
-            pc += 5;
+        case kTokenEndOfLineNumbered: // end of line + line number
+            pc += kTokenWithWordBytes;
             break;
-        case 0x20:
+        case kTokenLoopStart:
             run_loop_open(pc);
             break;
-        case 0x21:
+        case kTokenLoopRepeat:
             run_counted_loop(pc);
             break;
-        case 0x22:
+        case kTokenLoopBreak:
             run_loop_exit(pc);
             break;
-        case 0x24: // '$'
+        case kTokenScriptEnd: // '$'
             if (const uint32_t on_exit = on_exit_script_) {
                 on_exit_script_ = 0;
                 preempt(on_exit, nullptr);
@@ -593,7 +600,7 @@ ScriptOutcome Script::tick_frame()
             if (return_from_script(nullptr))
                 return kScriptOutcomeEndedByInterrupt;
             continue; // (pc_ is the caller's now, or null)
-        case 0x29: // return [args]
+        case kTokenReturn: // return [args]
             if (const uint32_t on_exit = on_exit_script_) {
                 on_exit_script_ = 0;
                 preempt(on_exit, nullptr);
@@ -605,26 +612,26 @@ ScriptOutcome Script::tick_frame()
             if (return_from_script(stmt_args_.get()))
                 return kScriptOutcomeEndedByInterrupt;
             continue;
-        case 0x25:
-        case 0x26:
-        case 0x3E: // case
-        case 0x3F: // default
+        case kTokenIf:
+        case kTokenElse:
+        case kTokenCase: // case
+        case kTokenDefault: // default
             break; // (not moved past: loops for ever, as in the original)
-        case 0x2E:
-        case 0x2F:
-        case 0x37:
-        case 0x40:
-        case 0x41:
-        case 0x49:
+        case kTokenLongJump:
+        case kTokenRandom:
+        case kTokenRandomSideStream:
+        case kTokenRandomNoRepeat:
+        case kTokenRandomPermute:
+        case kTokenShortJump:
             pc = resolve_random_jumps(pc);
             break;
-        case 0x3C:
+        case kTokenSwitch:
             run_multi_branch(pc);
             break;
-        case 0x47:
+        case kTokenShortIf:
             run_conditional(pc);
             continue; // (pc_ set by the statement it ran)
-        case 0x48: // else: jump to the endif
+        case kTokenShortElse: // else: jump to the endif
             ++pc;
             pc += fetch_word16(pc);
             break;

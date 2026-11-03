@@ -87,6 +87,18 @@ namespace commands {
 namespace {
 
 constexpr uint32_t kParams = 0x7031F10C;           // "params"
+constexpr uint32_t kFlagBitMask = 31;
+constexpr int kAssetKindObjectCamera = 9;
+constexpr int kKilobyteShift = 10;
+constexpr int kFlashFlagValue = 8;
+constexpr uint8_t kGroupGame = 8;
+constexpr uint32_t kRiderSlotCount = 8;
+// The number SetScreenModeFromGameMode's debug message prints.
+constexpr int kScreenModeDebugNumber = 0x16C0;
+// A cheat text is at least this long; the check hashes it through this many rounds.
+constexpr size_t kMinCheatLength = 6;
+constexpr int kCheatRounds = 100000;
+constexpr int kCheatCharacterWeight = 0x3FF;
 constexpr uint32_t kSkater = 0x5B8AB877;           // "skater"
 constexpr uint32_t kName = 0xA1DC81F9;             // "name"
 constexpr uint32_t kPrefix = 0x6C4E7971;           // "prefix"
@@ -181,7 +193,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     compiled_out_debug_call();
     render::uninit_light_manager();
     sound::get_audio_mixer()->sweep_up();
-    assets->unload_all_assets_of_type(false, 9);
+    assets->unload_all_assets_of_type(false, kAssetKindObjectCamera);
     debug::printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->unload_all_assets(false);
     debug::printf("done unloading assman ...........\n"); // "done unloading assman ...........\n"
@@ -220,7 +232,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     std::array<char, kTextSize> text{};
     // (the original: wsprintfA, its integers as printf's)
     const size_t length = text::format_to(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);
-    text::format_to(std::span(text).subspan(length), "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);
+    text::format_to(std::span(text).subspan(length), "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> kKilobyteShift);
     OutputDebugStringA(text.data());
     if (skate_module()->in_net_game_level())
         mem_manager()->create_net_scratch_zone();
@@ -238,25 +250,25 @@ void apply_flag_command(FlagCommandData* data, objects::Entity* object)
 {
     data->found = true;
     switch (data->action) {
-    case 0:
-        object->flag_bits() |= 1u << (data->value & 31);
+    case kFlagActionSet:
+        object->flag_bits() |= 1u << (data->value & kFlagBitMask);
         data->result = true;
         break;
-    case 1:
-        object->flag_bits() &= ~(1u << (data->value & 31));
+    case kFlagActionClear:
+        object->flag_bits() &= ~(1u << (data->value & kFlagBitMask));
         data->result = true;
         break;
-    case 2:
-        if (object->flag_bits() & (1u << (data->value & 31)))
+    case kFlagActionTest:
+        if (object->flag_bits() & (1u << (data->value & kFlagBitMask)))
             data->result = true;
         break;
-    case 3:
+    case kFlagActionSetObjectFlags:
         object->object_flags() |= data->value;
         break;
-    case 4:
+    case kFlagActionClearObjectFlags:
         object->object_flags() &= ~data->value;
         break;
-    case 5:
+    case kFlagActionException:
         object->post_own_event(data->value, nullptr);
         data->result = true;
         break;
@@ -484,7 +496,7 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
     if (viewport == -1)
         viewport = core::down_cast<objects::Rider>(script->entity().get_pull())->view_slot();
     if (params->has_bare_flag(kFlashFlag8))
-        flags |= 8;
+        flags |= kFlashFlagValue;
     std::array<uint8_t, 4> start{};
     std::array<uint8_t, 4> end{};
     int value = 0;
@@ -650,7 +662,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         desc.set_ident(online::kMsgToggleCheat);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(8);
+        desc.set_group_id(kGroupGame);
         server->put_on_outbox(conn->hdl(), &desc);
         script::script_state().set_last_broadcasted_omnigon(omnigon);
     }
@@ -663,7 +675,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
 bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 {
     render::cfunc_set_screen_mode(params, script);
-    for (uint32_t i = 0; i < 8; ++i) {
+    for (uint32_t i = 0; i < kRiderSlotCount; ++i) {
         if (objects::Rider* skater = get_rider_at(static_cast<int>(i)))
             update_score_display(skater);
     }
@@ -675,16 +687,16 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 // displays brought up to date.
 bool cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Script*)
 {
-    for (uint32_t i = 0; i < 8; ++i) {
+    for (uint32_t i = 0; i < kRiderSlotCount; ++i) {
         const objects::Rider* skater = get_rider_at(static_cast<int>(i));
         if (skater && skater->is_local_skater())
-            debug::printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", 0x16C0); // "cfuncs %d: SUTUBBBED..."
+            debug::printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", kScreenModeDebugNumber); // "cfuncs %d: SUTUBBBED..."
     }
     const int mode = game_mode_object()->get_view_layout();
     const int current = render::get_view_layout();
     if (!((mode == 1 && current == 2) || (mode == 2 && current == 1)))
         render::set_screen_mode(mode);
-    for (uint32_t i = 0; i < 8; ++i) {
+    for (uint32_t i = 0; i < kRiderSlotCount; ++i) {
         objects::Rider* skater = get_rider_at(static_cast<int>(i));
         if (skater && skater->is_local_skater())
             update_score_display(skater);
@@ -704,7 +716,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
 {
     const char* text = nullptr; // (unset in the original when missing - an asserted parameter)
     params->fetch_text(kCheatText, &text, true);
-    if (std::strlen(text) < 6) {
+    if (std::strlen(text) < kMinCheatLength) {
         script::launch_script(kCheatFailed, nullptr, nullptr, false, nullptr);
         return false;
     }
@@ -714,11 +726,11 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
     text::format_data_to(buffer, text);              // (the text is the format: as in the original)
     uint32_t checksum = checksums::hash_from_text(text);
     int sum = 0;
-    for (int round = 0; round < 100000; ++round) {
+    for (int round = 0; round < kCheatRounds; ++round) {
         text::format_to(buffer, "%d", static_cast<int>(round + checksum));
         core::at(buffer, std::strlen(buffer.data())) = 'X';
         for (core::CStringCursor c(buffer.data()); *c; ++c)
-            sum += static_cast<signed char>(*c) * 0x3FF;
+            sum += static_cast<signed char>(*c) * kCheatCharacterWeight;
         checksum = checksums::hash_from_text(buffer.data());
     }
     const uint32_t c1 = checksums::hash_from_text(std::next(text, static_cast<std::ptrdiff_t>(std::strlen(text) / 3))) ^ static_cast<uint32_t>(sum);

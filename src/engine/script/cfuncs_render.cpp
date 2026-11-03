@@ -42,6 +42,20 @@ using script::Script;
 using script::Struct;
 
 namespace {
+// A colour's bytes: memory order r, g, b, a (the shifts of green, blue, alpha) and 0xAARRGGBB (alpha, red, green).
+constexpr int kGreenShift = 8;
+constexpr int kBlueShift = 16;
+constexpr int kAlphaShift = 24;
+constexpr int kArgbAlphaShift = 24;
+constexpr int kArgbRedShift = 16;
+constexpr int kArgbGreenShift = 8;
+constexpr int kByteMask = 0xFF;
+constexpr int kFogChannelDefault = 0xFF;
+constexpr int kFogAlphaDefault = 0x80;
+constexpr int kLightAlpha = 0x80;
+constexpr uint32_t kDebugLineColour = 0xFF0000FFu;
+constexpr float kPausePosY = 240.0f;
+constexpr double kHalf = 0.5;
 constexpr float kRenderDefaultFarPlane{12.0f};
 constexpr float kRenderDefaultNearPlane{12000.0f};
 int& render_mode()
@@ -126,8 +140,8 @@ gfx::ViewCam* viewport_camera(int index) { return render::obtain_active_lens(ind
 // A colour of four bytes (r, g, b, a in memory order).
 uint32_t pack_bytes(int r, int g, int b, int a)
 {
-    return static_cast<uint8_t>(r) | static_cast<uint8_t>(g) << 8 | static_cast<uint8_t>(b) << 16 |
-           static_cast<uint32_t>(static_cast<uint8_t>(a)) << 24;
+    return static_cast<uint8_t>(r) | static_cast<uint8_t>(g) << kGreenShift | static_cast<uint8_t>(b) << kBlueShift |
+           static_cast<uint32_t>(static_cast<uint8_t>(a)) << kAlphaShift;
 }
 
 } // namespace
@@ -272,7 +286,7 @@ bool cfunc_debug_line(Struct* params, Script*)
 {
     script::VectorValue start{};
     script::VectorValue end{};
-    int colour = static_cast<int>(0xFF0000FF);
+    int colour = static_cast<int>(kDebugLineColour);
     int frames = 0;
     params->fetch_vec(kStart, &start, 1);
     params->fetch_vec(kEnd, &end, 1);
@@ -288,7 +302,7 @@ bool cfunc_debug_line(Struct* params, Script*)
 bool cfunc_get_pause_pos_by_resolution(Struct*, Script* script)
 {
     const float x = render::present_parameters().BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
-    script->args()->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = 240.0f});
+    script->args()->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = kPausePosY});
     return true;
 }
 
@@ -322,9 +336,9 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
     };
     auto extent = [](float size) {
         const double inches = static_cast<double>(size) * 12.0;
-        double half = inches * -0.5;
+        double half = inches * -kHalf;
         Sides sides{.low = 0.0 < half ? 0.0f : static_cast<float>(half), .high = 0.0f};
-        half = static_cast<double>(static_cast<float>(inches)) * 0.5;
+        half = static_cast<double>(static_cast<float>(inches)) * kHalf;
         sides.high = half < 0.0 ? 0.0f : static_cast<float>(half);
         return sides;
     };
@@ -426,13 +440,13 @@ bool cfunc_set_fog_distance(Struct* params, Script*)
 // clipping is on, the clear colour used with it (0x0078733C, 0xAARRGGBB) instead - and false.
 bool cfunc_set_fog_color(Struct* params, Script*)
 {
-    int r = 0xFF, g = 0xFF, b = 0xFF, a = 0x80;
+    int r = kFogChannelDefault, g = kFogChannelDefault, b = kFogChannelDefault, a = kFogAlphaDefault;
     params->fetch_int_value("r", &r, 0);
     params->fetch_int_value("g", &g, 0);
     params->fetch_int_value("b", &b, 0);
     params->fetch_int_value("a", &a, 0);
     if (render::view_setup().distance_clipping()) {
-        render::engine_parts().set_fog_colour(static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF));
+        render::engine_parts().set_fog_colour(static_cast<uint32_t>(a) << kArgbAlphaShift | (r & kByteMask) << kArgbRedShift | (g & kByteMask) << kArgbGreenShift | (b & kByteMask));
         return false;
     }
     render::engine::set_fog_color(pack_bytes(r, g, b, a));
@@ -464,7 +478,7 @@ bool cfunc_set_light_ambient_color(Struct* params, Script*)
     params->fetch_int_value("r", &r, 0);
     params->fetch_int_value("g", &g, 0);
     params->fetch_int_value("b", &b, 0);
-    return render::set_light_ambient_color(pack_bytes(r, g, b, 0x80));
+    return render::set_light_ambient_color(pack_bytes(r, g, b, kLightAlpha));
 }
 
 // 0x00447010: GetLightDirection index=<n>: the light's direction (0x0048E920) in degrees into the script's params:
@@ -488,7 +502,7 @@ bool cfunc_set_light_diffuse_color(Struct* params, Script*)
     params->fetch_int_value(kUpperR, &r, 0);
     params->fetch_int_value(kUpperG, &g, 0);
     params->fetch_int_value(kUpperB, &b, 0);
-    return render::set_light_diffuse_color(index, pack_bytes(r, g, b, 0x80));
+    return render::set_light_diffuse_color(index, pack_bytes(r, g, b, kLightAlpha));
 }
 
 // 0x00447130: GetLightCurrentColor: the current ambient colour (0x0048E900) and the two directional lights'
@@ -504,9 +518,9 @@ bool cfunc_get_light_current_color(Struct*, Script* script)
         uint32_t blue;
     };
     auto add = [&](ChannelNames names) {
-        out->put_int(checksums::Name{names.red}, static_cast<int>(colour & 0xFF));
-        out->put_int(checksums::Name{names.green}, static_cast<int>(colour >> 8 & 0xFF));
-        out->put_int(checksums::Name{names.blue}, static_cast<int>(colour >> 16 & 0xFF));
+        out->put_int(checksums::Name{names.red}, static_cast<int>(colour & kByteMask));
+        out->put_int(checksums::Name{names.green}, static_cast<int>(colour >> kGreenShift & kByteMask));
+        out->put_int(checksums::Name{names.blue}, static_cast<int>(colour >> kBlueShift & kByteMask));
     };
     uint32_t buffer = 0;
     colour = *render::get_light_ambient_color(&buffer);

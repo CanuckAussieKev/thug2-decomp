@@ -21,12 +21,18 @@
 
 namespace script {
 
-static_assert(offsetof(ScriptCacheEntry, older) == 0xC && offsetof(ScriptCacheEntry, newer) == 0x10,
+constexpr size_t kScriptCacheEntryOlderOffset = 0xC;
+constexpr size_t kScriptCacheEntryNewerOffset = 0x10;
+static_assert(offsetof(ScriptCacheEntry, older) == kScriptCacheEntryOlderOffset && offsetof(ScriptCacheEntry, newer) == kScriptCacheEntryNewerOffset,
               "layout must match the original");
 
 script::ScriptStore* script_store() { return script_state().script_store().get(); }
 
 namespace {
+// Buckets of the cache's table; the heap a new script leaves free; the most cache entries taken from their pool.
+constexpr int kEntryTableBuckets = 8;
+constexpr int kHeapSlackBytes = 0x80;
+constexpr int kCacheEntryLimit = 100;
 
 uint32_t& cache_references()
 {
@@ -51,7 +57,7 @@ ScriptStore::ScriptStore()
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap());
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    entries_ = memory ? memory::construct_in<lists::KeyMap>(memory, 8) : nullptr;
+    entries_ = memory ? memory::construct_in<lists::KeyMap>(memory, kEntryTableBuckets) : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     newest_unused_ = nullptr;
@@ -129,9 +135,9 @@ void ScriptStore::delete_entry(ScriptCacheEntry* entry)
 // 0x00475BD0
 void ScriptStore::make_room(int size, uint32_t /*name*/)
 {
-    while (size > static_cast<int>(memory::Hub::get_pull()->script_heap()->largest_free()) - 0x80)
+    while (size > static_cast<int>(memory::Hub::get_pull()->script_heap()->largest_free()) - kHeapSlackBytes)
         delete_entry(oldest_unused_); // (null when nothing is left to drop: the original crashes too)
-    while (core::at(script_state().cache_entry_pools().pools(), script_state().cache_entry_pools().current())->taken_count() >= 100 && oldest_unused_)
+    while (core::at(script_state().cache_entry_pools().pools(), script_state().cache_entry_pools().current())->taken_count() >= kCacheEntryLimit && oldest_unused_)
         delete_entry(oldest_unused_);
 }
 
