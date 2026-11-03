@@ -57,6 +57,47 @@ namespace frontend::level_editor::entities {
 
 namespace {
 
+constexpr double kTinyAngle = 1e-6;          // a sine or cosine this small is zero
+constexpr std::size_t kSummaryTextSize = 40;
+constexpr std::size_t kNumberTextSize = 32;
+constexpr std::size_t kChecksumTextSize = 12;
+constexpr std::size_t kChecksumDigits = 8;   // hex digits of a checksum
+constexpr int kHexBase = 16;
+constexpr int kBitsPerByte = 8;
+constexpr int kQbName = 0x16;      // QB token: a name (4-byte checksum follows)
+constexpr int kQbScript = 0x23;    // QB token: script
+constexpr int kQbArgument = 0x2D;  // QB token: <argument> reference
+constexpr int kQbEndScript = 0x24; // QB token: endscript
+constexpr int kQbNameText = 0x2B;  // QB token: a checksum's name (4-byte checksum, then the text)
+constexpr std::size_t kMaxPathPoints = 512;
+constexpr float kVehicleMph = 25.0f;         // preview speed of a vehicle on its path
+constexpr float kPedestrianMph = 3.0f;
+constexpr float kDefaultMph = 10.0f;
+constexpr double kMaxStepSeconds = 0.1;      // a preview advances by at most this each frame
+constexpr uint32_t kPedPaletteColour = 0xFFE0A0FF;      // ARGB
+constexpr uint32_t kCarPaletteColour = 0xFF60B0FF;      // ARGB
+constexpr std::size_t kMaxBouncyNames = 24;  // a bouncy set lists at most this many objects
+constexpr std::size_t kPaletteLabelSize = 160;
+constexpr uint32_t kBouncyPaletteColour = 0xFFFFB060;   // ARGB
+constexpr uint32_t kParticlePaletteColour = 0xFFFF9050; // ARGB
+constexpr uint32_t kSoundPaletteColour = 0xFF4FD1C5;    // ARGB
+constexpr double kSlowTickSeconds = 0.5;
+constexpr double kRemakeDelaySeconds = 0.3;  // a dragged object is rebuilt once it rests this long
+constexpr uint32_t kInvalidGeneration = 0xFFFFFFFF; // no list has this generation: forces a rebuild
+constexpr std::size_t kPreviewTextSize = 96;
+constexpr uint32_t kPathPreviewColour = 0xFF60FF90; // ARGB
+constexpr float kPathPreviewWidth = 2.0f;
+constexpr float kGhostRange = 4000.0f;       // ghosts are drawn within this distance
+constexpr std::size_t kMaxGhosts = 200;
+constexpr float kGhostHalfWidth = 20.0f;
+constexpr float kGhostHeight = 40.0f;
+constexpr int kBoxCorners = 8;
+constexpr int kBoxCornerBitLimit = 8;        // corner bits 1, 2 and 4
+constexpr float kGhostFacingLength = 30.0f;
+constexpr float kGhostFacingWidth = 1.5f;
+constexpr float kLabelRange = 1500.0f;       // ghosts are labelled within this distance
+constexpr float kLabelRise = 48.0f;
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -92,9 +133,9 @@ V3 turn_box_extents(V3 extents, float turn)
 {
     double c = std::fabs(std::cos(static_cast<double>(turn))), s = std::fabs(std::sin(static_cast<double>(turn)));
     // (a quarter turn exactly: x and z swapped - cos(pi/2) in floats isn't 0)
-    if (c < 1e-6)
+    if (c < kTinyAngle)
         c = 0.0;
-    if (s < 1e-6)
+    if (s < kTinyAngle)
         s = 0.0;
     return {.x = static_cast<float>(c * extents.x + s * extents.z), .y = extents.y,
             .z = static_cast<float>(s * extents.x + c * extents.z)};
@@ -158,7 +199,7 @@ bool path_sample(const std::vector<V3>& points, bool closed, float distance, Ray
 
 std::string type_key(uint32_t cls, uint32_t type, uint32_t profile, const std::string& model)
 {
-    std::array<char, 40> text{};
+    std::array<char, kSummaryTextSize> text{};
     text::format_to(text, "%08X:%08X:%08X:", cls, type, profile);
     std::string key = text.data();
     for (const char c : model)
@@ -241,27 +282,27 @@ namespace {
 
 void get_number(std::ostringstream& out, float value)
 {
-    std::array<char, 32> text{};
+    std::array<char, kNumberTextSize> text{};
     text::format_to(text, "%.9g", value);
     out << text.data();
 }
 
 void get_hex(std::ostringstream& out, uint32_t value)
 {
-    std::array<char, 12> text{};
+    std::array<char, kChecksumTextSize> text{};
     text::format_to(text, "%08X", value);
     out << text.data();
 }
 
 bool parse_hex(const std::string& text, uint32_t* out)
 {
-    if (text.size() != 8)
+    if (text.size() != kChecksumDigits)
         return false;
     for (const char c : text) {
         if (!std::isxdigit(static_cast<unsigned char>(c)))
             return false;
     }
-    *out = static_cast<uint32_t>(std::strtoul(text.c_str(), nullptr, 16));
+    *out = static_cast<uint32_t>(std::strtoul(text.c_str(), nullptr, kHexBase));
     return true;
 }
 
@@ -757,24 +798,24 @@ uint32_t path_speed_script()
     std::vector<uint8_t> qb;
     auto put4 = [&](uint32_t v) {
         for (int i = 0; i < 4; ++i)
-            qb.push_back(static_cast<uint8_t>(v >> (8 * i)));
+            qb.push_back(static_cast<uint8_t>(v >> (kBitsPerByte * i)));
     };
     auto name4 = [&](uint32_t v) {
-        qb.push_back(0x16);
+        qb.push_back(kQbName);
         put4(v);
     };
-    qb.push_back(0x23); // script
+    qb.push_back(kQbScript); // script
     name4(kName);
     qb.push_back(0x01);
     name4(k_set_path_velocity());
-    qb.push_back(0x2D); // <speed>
+    qb.push_back(kQbArgument); // <speed>
     name4(get_key("speed"));
     name4(k_mph());
     qb.push_back(0x01);
-    qb.push_back(0x24); // endscript
+    qb.push_back(kQbEndScript); // endscript
     qb.push_back(0x01);
     for (const char* text : {"LevelEditor_PathSpeed", "Obj_SetPathVelocity", "speed", "mph"}) {
-        qb.push_back(0x2B);
+        qb.push_back(kQbNameText);
         put4(get_key(text));
         qb.insert(qb.end(), std::string_view(text).begin(), std::string_view(text).end());
         qb.push_back(0x00);
@@ -852,7 +893,7 @@ bool path_of(uint32_t name, std::vector<V3>* points, bool* closed)
         return false;
     uint32_t next = level_nodes::fetch_link(node, 0);
     std::vector<uint32_t> seen;
-    while (next && points->size() < 512) {
+    while (next && points->size() < kMaxPathPoints) {
         if (std::ranges::find(seen, next) != seen.end()) {
             *closed = next == seen.front();
             break;
@@ -876,7 +917,7 @@ float preview_mph(uint32_t name)
             return s.mph;
     }
     const uint32_t cls = class_of(look_up_node_params(name));
-    return cls == kVehicle ? 25.0f : cls == kPedestrian ? 3.0f : 10.0f;
+    return cls == kVehicle ? kVehicleMph : cls == kPedestrian ? kPedestrianMph : kDefaultMph;
 }
 
 float current_heading(const objects::GameEntity* object)
@@ -913,7 +954,7 @@ void preview_tick(double seconds)
 {
     if (!entity_preview().preview_.id || !entity_preview().preview_.playing)
         return;
-    entity_preview().preview_.distance += mph_to_units(preview_mph(entity_preview().preview_.id)) * static_cast<float>(std::min(seconds, 0.1));
+    entity_preview().preview_.distance += mph_to_units(preview_mph(entity_preview().preview_.id)) * static_cast<float>(std::min(seconds, kMaxStepSeconds));
     preview_place(entity_preview().preview_.distance);
 }
 
@@ -1000,19 +1041,19 @@ void build_palette()
             entity_palette().sources_.push_back(e.second);
         }
     };
-    add(peds, 0xFFE0A0FF);
-    add(cars, 0xFF60B0FF);
+    add(peds, kPedPaletteColour);
+    add(cars, kCarPaletteColour);
     for (auto& [stem, names] : sets) {
         if (names.size() < 2)
             continue; // (a single bouncy object: the browser's objects copy it)
-        if (names.size() > 24)
-            names.resize(24);
-        std::array<char, 160> label{};
+        if (names.size() > kMaxBouncyNames)
+            names.resize(kMaxBouncyNames);
+        std::array<char, kPaletteLabelSize> label{};
         text::format_to(label, "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
-        entity_palette().palette_.push_back({.label = label.data(), .colour = 0xFFFFB060, .why = ""});
+        entity_palette().palette_.push_back({.label = label.data(), .colour = kBouncyPaletteColour, .why = ""});
         entity_palette().sources_.push_back({.kind = SourceKind::kAssignValue, .names = names});
     }
-    add(particles, 0xFFFF9050);
+    add(particles, kParticlePaletteColour);
     // The level's loaded sounds (its wave table): an emitter with that sound.
     const char* why = node_create::get_why_not(node_create::Kind::kSound, node_create::Team::kRed);
     const int count = std::clamp(sound::level_wave_count(), 0, 256);
@@ -1026,7 +1067,7 @@ void build_palette()
     }
     std::ranges::sort(sounds, [](const auto& a, const auto& b) { return a.first < b.first; });
     for (auto& e : sounds) {
-        entity_palette().palette_.push_back({.label = e.first, .colour = 0xFF4FD1C5, .why = why ? why : ""});
+        entity_palette().palette_.push_back({.label = e.first, .colour = kSoundPaletteColour, .why = why ? why : ""});
         entity_palette().sources_.push_back(e.second);
     }
 }
@@ -1146,7 +1187,7 @@ void tick(bool editor_active, uint32_t selected, bool dragging)
     }
     update_sounds();
     if (now >= entity_playback().next_slow_tick_) {
-        entity_playback().next_slow_tick_ = now + 0.5;
+        entity_playback().next_slow_tick_ = now + kSlowTickSeconds;
         update_speeds();
         for (const EmitterSound& e : level_editor_entities_state().state_.emitters)
             apply_radius(e);
@@ -1206,7 +1247,7 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
         put(core::at(kBoxes, i), core::at(now.has_box_, i), core::at(now.box, i));
     o.at = pos;
     o.at_yaw_ = angles.y;
-    queue_remake(name, false, 0.3); // (once the drag rests)
+    queue_remake(name, false, kRemakeDelaySeconds); // (once the drag rests)
 }
 
 bool picked_node_index(checksums::Name node_name, int family)
@@ -1248,8 +1289,8 @@ const std::vector<PaletteEntry>& get_palette()
 
 void refresh_palette()
 {
-    entity_palette().palette_generation_ = 0xFFFFFFFF;
-    entity_palette().models_generation_ = 0xFFFFFFFF;
+    entity_palette().palette_generation_ = kInvalidGeneration;
+    entity_palette().models_generation_ = kInvalidGeneration;
 }
 
 Placed get_place(int index, V3 at, float yaw)
@@ -1288,7 +1329,7 @@ Placed get_place(int index, V3 at, float yaw)
         if (const objects::GameEntity* copy = object_edit::make_copy(core::at(source.names, i), at + (core::at(places, i) - anchor)))
             placed.copies.push_back(copy->ident());
     }
-    std::array<char, 96> text{};
+    std::array<char, kPreviewTextSize> text{};
     text::format_to(text, "Placed a bouncy set: %u objects", static_cast<unsigned>(placed.copies.size()));
     placed.message = text.data();
     return placed;
@@ -1328,9 +1369,9 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     // The previewed path.
     if (entity_preview().preview_.id) {
         for (size_t i = 0; i + 1 < entity_preview().preview_.points.size(); ++i)
-            line(core::at(entity_preview().preview_.points, i), core::at(entity_preview().preview_.points, i + 1), 0xFF60FF90, 2.0f);
+            line(core::at(entity_preview().preview_.points, i), core::at(entity_preview().preview_.points, i + 1), kPathPreviewColour, kPathPreviewWidth);
         if (entity_preview().preview_.closed && entity_preview().preview_.points.size() > 2)
-            line(entity_preview().preview_.points.back(), entity_preview().preview_.points.front(), 0xFF60FF90, 2.0f);
+            line(entity_preview().preview_.points.back(), entity_preview().preview_.points.front(), kPathPreviewColour, kPathPreviewWidth);
     }
     if (!entity_preview().show_uncreated_)
         return;
@@ -1340,29 +1381,29 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         if (n.family != nodes::Family::kObject || !n.has_pos_ || n.hidden || live_object(n.name) || deleted_copy(n))
             continue;
         const float d = len_of(n.pos - camera);
-        if (d < 4000.0f)
+        if (d < kGhostRange)
             near.emplace_back(d, &n);
     }
     std::ranges::sort(near, [](const auto& a, const auto& b) { return a.first < b.first; });
-    if (near.size() > 200)
-        near.resize(200);
+    if (near.size() > kMaxGhosts)
+        near.resize(kMaxGhosts);
     constexpr uint32_t kGhost = 0xB0B0A0FF;
     for (const auto& [d, n] : near) {
         const V3 at = n->forward;
         const V3 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
         const V3 right = make_unit(perpendicular(up, at));
-        std::array<V3, 3> axes = {{right * 20.0f, up * 40.0f, at * 20.0f}};
-        std::array<V3, 8> corners{};
+        std::array<V3, 3> axes = {{right * kGhostHalfWidth, up * kGhostHeight, at * kGhostHalfWidth}};
+        std::array<V3, kBoxCornerCount> corners{};
         box_corners(n->pos, axes, {.x = -1.0f, .y = 0.0f, .z = -1.0f}, {.x = 1.0f, .y = 1.0f, .z = 1.0f}, corners);
-        for (int i = 0; i < 8; ++i) {
-            for (int bit = 1; bit < 8; bit <<= 1) {
+        for (int i = 0; i < kBoxCorners; ++i) {
+            for (int bit = 1; bit < kBoxCornerBitLimit; bit <<= 1) {
                 if (!(i & bit))
                     line(core::at(corners, i), core::at(corners, i | bit), kGhost, 1.0f);
             }
         }
-        line(n->pos, n->pos + at * 30.0f, kGhost, 1.5f);
+        line(n->pos, n->pos + at * kGhostFacingLength, kGhost, kGhostFacingWidth);
         float x = 0.0f, y = 0.0f;
-        if (d < 1500.0f && to_pixel(n->pos + up * 48.0f, &x, &y))
+        if (d < kLabelRange && to_pixel(n->pos + up * kLabelRise, &x, &y))
             texts->push_back({.x = x, .y = y, .argb = kGhost, .text = nodes::caption(n->name) + " (uncreated)"});
     }
 }
@@ -1380,8 +1421,8 @@ void forget_level()
     made_with().clear();
     speed_applied().clear();
     level_editor_entities_state().scanned_ = false;
-    entity_palette().palette_generation_ = 0xFFFFFFFF;
-    entity_palette().models_generation_ = 0xFFFFFFFF;
+    entity_palette().palette_generation_ = kInvalidGeneration;
+    entity_palette().models_generation_ = kInvalidGeneration;
 }
 
 // --- for the UI (level_editor_entities_ui.cpp) ---

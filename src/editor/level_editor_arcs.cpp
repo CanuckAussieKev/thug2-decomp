@@ -46,15 +46,61 @@ constexpr float kHalf = 0.5f; // half
 
 namespace {
 
+constexpr uint16_t kFaceNotCollidable = 0x10; // face flag: not collidable
+constexpr uint16_t kFaceTrigger = 0x40;       // face flag: a trigger
+constexpr uint16_t kFaceVert = 0x08;          // face flag: vert
+constexpr float kTinyLength = 1e-6f;
+constexpr float kFarDistance = 1e30f;         // the start of a min / max search
+constexpr float kTinyLengthSquared = 1e-12f;
+constexpr float kStatStep = 0.1f;             // the share of the stat range one stat point is worth
+constexpr float kVertGravityDivisor = 1.1f;   // vert gravity is the base divided by this
+constexpr float kJumpAtStatMin = 414.0f;      // jump speed at the lowest ollie stat ...
+constexpr float kJumpAtStatMax = 450.0f;      // ... and at the highest
+constexpr float kPushSpeedAtStatMin = 532.0f; // push speed at the lowest speed stat ...
+constexpr float kPushSpeedAtStatMax = 675.0f; // ... and at the highest
+constexpr float kPushSpeedCap = 900.0f;
+constexpr float kTopSpeedAtStatMin = 757.0f;
+constexpr float kTopSpeedAtStatMax = 900.0f;
+constexpr float kMaxSpeedAtStatMin = 957.0f;
+constexpr float kMaxSpeedAtStatMax = 1100.0f;
+constexpr uint32_t kNoSpeedColour = 0xFFFFFFFF; // ARGB: white, for an index with no speed
+constexpr float kHalfGravityFactor = 2.0f;    // v^2 / (2 g)
+constexpr std::size_t kSpanTextSize = 48;
+constexpr float kUnitsPerFoot = 12.0f;        // inches
+constexpr std::size_t kSourceTextSize = 96;
+constexpr std::size_t kMaxLips = 20000;       // lip points collected at most
+constexpr float kMinStepSquared = 0.01f;
+constexpr float kLaunchLift = 2.0f;           // a flight starts this far above the lip so the lip itself is not the first thing met
+constexpr float kFrameRate = 60.0f;           // the simulation step is a frame
+constexpr float kMaxFlightSeconds = 6.0f;
+constexpr int kRefreshMilliseconds = 250;     // the arcs are worked out again after this long
+constexpr uint32_t kLipColour = 0xFFFFFFFF;   // ARGB
+constexpr float kLipWidth = 2.0f;
+constexpr float kTangentLength = 40.0f;
+constexpr uint32_t kTangentColour = 0xC0FFFFFF; // ARGB
+constexpr float kTangentWidth = 1.5f;
+constexpr std::size_t kLabelTextSize = 96;
+constexpr float kDegreesPerRadian = 57.29578f;
+constexpr float kLipLabelOffset = 6.0f;
+constexpr float kFlightWidth = 2.0f;
+constexpr float kCrossHalfWidth = 12.0f;      // the cross at the apex
+constexpr float kLandingMarkSize = 14.0f;
+constexpr std::size_t kDropTextSize = 48;
+constexpr float kWallNormalY = 0.5f;          // a landing on a face this steep is a wall hit
+constexpr float kLandingLabelOffsetX = 8.0f;
+constexpr float kLandingLabelRise = 10.0f;
+constexpr float kLandingLabelRowHeight = 14.0f;
+constexpr std::size_t kLineTextSize = 160;
+
 constexpr V3 kUp = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
 
 float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
 bool eligible(uint16_t flags)
 {
-    if (flags & (0x10 | 0x40 | 0x04)) // (not collidable, a trigger, wallride)
+    if (flags & (kFaceNotCollidable | kFaceTrigger | 0x04)) // (not collidable, a trigger, wallride)
         return false;
-    if ((flags & 0x02) && !(flags & (0x01 | 0x08))) // (not skatable)
+    if ((flags & 0x02) && !(flags & (0x01 | kFaceVert))) // (not skatable)
         return false;
     return true;
 }
@@ -84,7 +130,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         const Face& f = core::at(faces, i);
         const V3 n = perpendicular(f.b - f.a, f.c - f.a);
         const float length = len_of(n);
-        core::at(info, i) = {.n = length > 1e-6f ? n * (1.0f / length) : V3{}, .area = length * kHalf, .use = length > 1e-6f && eligible(f.flags)};
+        core::at(info, i) = {.n = length > kTinyLength ? n * (1.0f / length) : V3{}, .area = length * kHalf, .use = length > kTinyLength && eligible(f.flags)};
         if (!core::at(info, i).use)
             continue;
         const float y = core::at(info, i).n.y;
@@ -141,7 +187,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
     for (const GroupSet& g : groups) {
         if (std::cmp_greater_equal(lips.size(), max_lips))
             break;
-        float top = -1e30f, bottom = 1e30f;
+        float top = -kFarDistance, bottom = kFarDistance;
         for (const int i : g.faces) {
             for (const V3 p : {core::at(faces, i).a, core::at(faces, i).b, core::at(faces, i).c}) {
                 top = std::max(top, p.y);
@@ -157,7 +203,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         // The top faces' tangent (by area) and the edge's vertices.
         constexpr float kTop = 1.5f;
         V3 tangent = {};
-        float min = 1e30f, max = -1e30f, u_sum = 0.0f;
+        float min = kFarDistance, max = -kFarDistance, u_sum = 0.0f;
         int count = 0;
         bool vert_flag = false;
         for (const int i : g.faces) {
@@ -179,9 +225,9 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             const V3 n = core::at(info, i).n * convention;
             const V3 t = make_unit(kUp - n * n.y);
             tangent = tangent + t * core::at(info, i).area;
-            vert_flag |= (f.flags & 0x08) != 0;
+            vert_flag |= (f.flags & kFaceVert) != 0;
         }
-        if (count == 0 || get_dot(tangent, tangent) < 1e-12f)
+        if (count == 0 || get_dot(tangent, tangent) < kTinyLengthSquared)
             continue;
         lip.tangent = make_unit(tangent);
         // (a tangent pointing back over the top - an overhang's - launches as vert)
@@ -199,7 +245,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
 
 float scaled_stat(float low, float high, float stat, bool has_limit, float limit)
 {
-    auto result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
+    auto result = static_cast<float>((static_cast<double>(high) - low) * stat * kStatStep + low);
     if (!has_limit)
         return result;
     if (low < high)
@@ -210,12 +256,12 @@ float scaled_stat(float low, float high, float stat, bool has_limit, float limit
 Physics arcs_fallback()
 {
     Physics p;
-    p.air_gravity_ = -1350.0f / 1.0f;
-    p.vert_gravity_ = -1350.0f / 1.1f;
-    p.jump = scaled_stat(414.0f, 450.0f, 5.0f, false, 0.0f);
-    core::at(p.speeds, 0) = scaled_stat(532.0f, 675.0f, 5.0f, true, 900.0f);
-    core::at(p.speeds, 1) = scaled_stat(757.0f, 900.0f, 5.0f, false, 0.0f);
-    core::at(p.speeds, 2) = scaled_stat(957.0f, 1100.0f, 5.0f, false, 0.0f);
+    p.air_gravity_ = -kDefaultAirGravity / 1.0f;
+    p.vert_gravity_ = -kDefaultAirGravity / kVertGravityDivisor;
+    p.jump = scaled_stat(kJumpAtStatMin, kJumpAtStatMax, kDefaultStat, false, 0.0f);
+    core::at(p.speeds, 0) = scaled_stat(kPushSpeedAtStatMin, kPushSpeedAtStatMax, kDefaultStat, true, kPushSpeedCap);
+    core::at(p.speeds, 1) = scaled_stat(kTopSpeedAtStatMin, kTopSpeedAtStatMax, kDefaultStat, false, 0.0f);
+    core::at(p.speeds, 2) = scaled_stat(kMaxSpeedAtStatMin, kMaxSpeedAtStatMax, kDefaultStat, false, 0.0f);
     return p;
 }
 
@@ -228,7 +274,7 @@ const char* speed_name(int index)
 uint32_t speed_colour(int index)
 {
     static const std::array<uint32_t, kSpeeds> kColours = {{0xFF50E070, 0xFFFFD040, 0xFFFF5040}};
-    return index >= 0 && index < kSpeeds ? core::at(kColours, index) : 0xFFFFFFFF;
+    return index >= 0 && index < kSpeeds ? core::at(kColours, index) : kNoSpeedColour;
 }
 
 V3 launch_velocity(const Lip& lip, LaunchSpeeds speeds)
@@ -280,13 +326,13 @@ float rise_height(float vertical_speed, float gravity)
 {
     if (vertical_speed <= 0.0f || gravity >= 0.0f)
         return 0.0f;
-    return vertical_speed * vertical_speed / (-2.0f * gravity);
+    return vertical_speed * vertical_speed / (-kHalfGravityFactor * gravity);
 }
 
 std::string span_to(float units)
 {
-    std::array<char, 48> text{};
-    text::format_to(text, "%.0f (%.1f ft)", units, units / 12.0f);
+    std::array<char, kSpanTextSize> text{};
+    text::format_to(text, "%.0f (%.1f ft)", units, units / kUnitsPerFoot);
     return text.data();
 }
 
@@ -359,7 +405,7 @@ void read_physics()
     stat_value(physics, checksums::Name{kKickSpeed}, p.speed_stat_, &core::at(p.speeds, 0));
     stat_value(physics, checksums::Name{kMaxSpeed}, p.speed_stat_, &core::at(p.speeds, 1));
     stat_value(physics, checksums::Name{kSpeedCapStat}, p.speed_stat_, &core::at(p.speeds, 2));
-    std::array<char, 96> source{};
+    std::array<char, kSourceTextSize> source{};
     text::format_to(source, "%s, speed stat %.1f, ollie stat %.1f", skater ? "the skater's physics" : "skater_physics",
                     p.speed_stat_, p.ollie_stat_);
     p.source = source.data();
@@ -378,7 +424,7 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
     const auto* tri = coll->geometry();
     if (!tri || !tri->faces() || !tri->vertices())
         return;
-    for (int f = 0; std::cmp_less(f, tri->tri_count()) && out->size() < 20000; ++f) {
+    for (int f = 0; std::cmp_less(f, tri->tri_count()) && out->size() < kMaxLips; ++f) {
         std::array<V3, 3> p{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
@@ -458,7 +504,7 @@ bool same_boxes(const std::vector<V3>& a, const std::vector<V3>& b)
         return false;
     for (size_t i = 0; i < a.size(); ++i) {
         const V3 d = core::at(a, i) - core::at(b, i);
-        if (get_dot(d, d) > 0.01f)
+        if (get_dot(d, d) > kMinStepSquared)
             return false;
     }
     return true;
@@ -487,7 +533,7 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
             }
             uint32_t* landed_on = &core::at(arcs.landed_on_, i);
             // (from just off the lip: 2 units up, so the lip's own edge isn't the first thing met)
-            core::at(arcs.flights, i) = get_fly(lip.point + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f}, v, {.gravity = physics_state().air_gravity_, .dt = 1.0f / 60.0f, .max_time_ = 6.0f, .skip = 1.0f / 60.0f}, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
+            core::at(arcs.flights, i) = get_fly(lip.point + V3{.x = 0.0f, .y = kLaunchLift, .z = 0.0f}, v, {.gravity = physics_state().air_gravity_, .dt = 1.0f / kFrameRate, .max_time_ = kMaxFlightSeconds, .skip = 1.0f / kFrameRate}, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
                                           return cast_feeler(from, to, {.point = hit, .normal = normal}, landed_on);
                                       });
         }
@@ -521,17 +567,17 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
     const bool stale = !cache().valid || cache().sectors != sectors || !same_boxes(cache().boxes, boxes);
     // (while the selection moves: made again at most four times a second)
     if (stale && (!cache().valid || cache().sectors != sectors ||
-                  std::chrono::steady_clock::now() - cache().made > std::chrono::milliseconds(250)))
+                  std::chrono::steady_clock::now() - cache().made > std::chrono::milliseconds(kRefreshMilliseconds)))
         get_remake(sectors, boxes);
     for (const LipArcs& arcs : cache().arcs) {
         const Lip& lip = arcs.lip;
         const V3 half = lip.across * (lip.width * 0.5f);
-        (void)painter.get_seg(lip.point - half, lip.point + half, 0xFFFFFFFF, 2.0f);
-        (void)painter.get_seg(lip.point, lip.point + lip.tangent * 40.0f, 0xC0FFFFFF, 1.5f);
-        std::array<char, 96> label{};
+        (void)painter.get_seg(lip.point - half, lip.point + half, kLipColour, kLipWidth);
+        (void)painter.get_seg(lip.point, lip.point + lip.tangent * kTangentLength, kTangentColour, kTangentWidth);
+        std::array<char, kLabelTextSize> label{};
         text::format_to(label, "lip %.0f high, %.0f deg%s", lip.height,
-                        std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * 57.29578f, lip.vert ? " (vert)" : "");
-        painter.draw_label(lip.point, 0xFFFFFFFF, label.data(), 6.0f, 6.0f);
+                        std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * kDegreesPerRadian, lip.vert ? " (vert)" : "");
+        painter.draw_label(lip.point, kLipColour, label.data(), kLipLabelOffset, kLipLabelOffset);
         for (int i = 0; i < kSpeeds; ++i) {
             const uint32_t colour = speed_colour(i);
             if (lip.vert) {
@@ -539,33 +585,33 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
                 const V3 side = lip.across * (lip.width * (0.15f * static_cast<float>(i - 1)));
                 const V3 base = lip.point + side;
                 const V3 apex = base + V3{.x = 0.0f, .y = core::at(arcs.rise, i), .z = 0.0f};
-                (void)painter.get_seg(base, apex, colour, 2.0f);
-                (void)painter.get_seg(apex - lip.across * 12.0f, apex + lip.across * 12.0f, colour, 2.0f);
+                (void)painter.get_seg(base, apex, colour, kFlightWidth);
+                (void)painter.get_seg(apex - lip.across * kCrossHalfWidth, apex + lip.across * kCrossHalfWidth, colour, kFlightWidth);
                 painter.draw_label(apex, colour, std::string(speed_name(i)) + ": rises " + span_to(core::at(arcs.rise, i)));
                 continue;
             }
             const Flight& flight = core::at(arcs.flights, i);
             for (size_t k = 1; k < flight.points.size(); ++k)
-                (void)painter.get_seg(core::at(flight.points, k - 1), core::at(flight.points, k), colour, 2.0f);
+                (void)painter.get_seg(core::at(flight.points, k - 1), core::at(flight.points, k), colour, kFlightWidth);
             if (!flight.landed) {
                 if (!flight.points.empty())
                     painter.draw_label(flight.points.back(), colour,
                                        std::string(speed_name(i)) + ": no landing in 6 s");
                 continue;
             }
-            painter.perpendicular(flight.landing, 14.0f, colour, 2.0f);
+            painter.perpendicular(flight.landing, kLandingMarkSize, colour, kFlightWidth);
             const V3 gap = flight.landing - lip.point;
             const float across = std::sqrt(gap.x * gap.x + gap.z * gap.z);
             std::string text = std::string(speed_name(i)) + ": " + span_to(across);
-            std::array<char, 48> drop{};
+            std::array<char, kDropTextSize> drop{};
             text::format_to(drop, ", %.0f %s", std::fabs(gap.y), gap.y < 0.0f ? "lower" : "higher");
             text += drop.data();
-            if (std::fabs(flight.normal.y) < 0.5f)
+            if (std::fabs(flight.normal.y) < kWallNormalY)
                 text += " - hits a wall";
             if (core::at(arcs.landed_on_, i) && std::ranges::find(sectors, core::at(arcs.landed_on_, i)) == sectors.end() &&
                 scenery::sector_geometry(core::at(arcs.landed_on_, i)))
                 text += " on " + object_edit::caption(core::at(arcs.landed_on_, i));
-            painter.draw_label(flight.landing, colour, text, 8.0f, -10.0f - 14.0f * static_cast<float>(i));
+            painter.draw_label(flight.landing, colour, text, kLandingLabelOffsetX, -kLandingLabelRise - kLandingLabelRowHeight * static_cast<float>(i));
         }
     }
 }
@@ -574,7 +620,7 @@ std::string describe()
 {
     if (!cache().valid)
         return "";
-    std::array<char, 160> text{};
+    std::array<char, kLineTextSize> text{};
     if (cache().arcs.empty())
         return "Jump Arcs: no lip found";
     const LipArcs& first = cache().arcs.front();

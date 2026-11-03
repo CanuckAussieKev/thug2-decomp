@@ -64,6 +64,9 @@ struct ImFont;
 // Offline only: layouts apply only offline (level_editor_layout.h); the baked fields are ignored in a network session.
 namespace frontend::level_editor::entities {
 
+constexpr float kUnitsPerMph = 17.6f; // inches a second in one mile an hour
+constexpr uint32_t kDefaultPaletteColour = 0xFFC0C0C0; // ARGB: light grey
+
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
 // A bouncy set's stem: the name with its trailing digits, then trailing '_', taken off ("BO_Bouncy_Ball01" ->
@@ -78,7 +81,7 @@ V3 pin_anchor_point(const std::vector<V3>& places);
 float path_length(const std::vector<V3>& points, bool closed);
 bool path_sample(const std::vector<V3>& points, bool closed, float distance, RayOut sample);
 // Miles an hour in the game's units (inches) a second: 1 mph = 17.6 in/s.
-inline float mph_to_units(float mph) { return mph * 17.6f; }
+inline float mph_to_units(float mph) { return mph * kUnitsPerMph; }
 // The limits the editor accepts (the Inspector's fields clamp to them; a layout record outside them is refused).
 constexpr float kMinMph = 0.1f, kMaxMph = 200.0f;
 constexpr float kMinVolume = 0.0f, kLoudest = 400.0f;
@@ -169,7 +172,7 @@ void preview_resume();
 // The Place palette's entries after the editor's own: peds, cars, bouncy sets, particle systems, sound emitters.
 struct PaletteEntry {
     std::string label;
-    uint32_t colour = 0xFFC0C0C0;
+    uint32_t colour = kDefaultPaletteColour;
     std::string why; // (empty: can be placed now)
 };
 const std::vector<PaletteEntry>& get_palette();

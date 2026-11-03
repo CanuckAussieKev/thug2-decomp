@@ -47,6 +47,12 @@ struct Painter;
 // measured on the donor when the piece was made, so the bake gives the same piece). hides: the floor tiles a pit hides.
 namespace frontend::level_editor::ground {
 
+constexpr float kDefaultGroundHeight = 200.0f; // a new ground sector's height
+constexpr float kDefaultUvScale = 256.0f;      // world units per texture repeat
+constexpr uint32_t kDefaultGroundColour = 0xFF808080u; // ARGB: mid grey
+constexpr float kMinUvScale = 16.0f;   // the smallest world size of a texture repeat
+constexpr float kMaxUvScale = 4096.0f; // the largest
+
 // --- the pure parts (tools/game/ground_pieces.ts is their port) -------------------------------------------------------
 
 enum class Ramp : uint8_t { kNone, kKicker, kQuarter };
@@ -58,12 +64,12 @@ struct Spec {
     bool lower = false;
     float x0 = 0.0f, z0 = 0.0f, x1 = 0.0f, z1 = 0.0f; // the rectangle (x0 < x1, z0 < z1)
     float base = 0.0f;                                // the ground's height there
-    float height = 200.0f;
+    float height = kDefaultGroundHeight;
     std::array<Ramp, 4> ramps = {Ramp::kNone, Ramp::kNone, Ramp::kNone, Ramp::kNone}; // by Side
     float length = 0.0f;                                                              // the ramps' (0: automatic)
     uint32_t material = 0;         // the donor sector (its material and vertex format)
-    float uv = 256.0f;             // world units per texture repeat
-    uint32_t colour = 0xFF808080u; // ARGB
+    float uv = kDefaultUvScale;             // world units per texture repeat
+    uint32_t colour = kDefaultGroundColour; // ARGB
     uint16_t terrain = 0;
     std::vector<uint32_t> hides; // (lower) the floor tiles hidden
 };

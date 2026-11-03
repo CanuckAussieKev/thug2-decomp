@@ -98,6 +98,147 @@ namespace frontend::level_editor {
 
 namespace {
 
+constexpr double kNdcSpan = 2.0;            // normalised device coordinates run from -1 to 1
+constexpr double kFarDistance = 1e30;       // the start of a slab test
+constexpr double kParallelEpsilon = 1e-12;  // a ray this close to parallel to a slab never enters it
+constexpr double kLineParallelEpsilon = 1e-9; // two lines this close to parallel have no nearest points
+constexpr int kBoxCorners = 8;
+constexpr int kBoxCornerBitLimit = 8;       // corner bits 1, 2 and 4
+constexpr float kHoldMargin = 0.05f;        // a box holds a point within this share of its size outside it
+constexpr float kGroundRayRise = 50.0f;     // the ground ray starts this far above the base
+constexpr float kDefaultFlySpeed = 800.0f;  // units a second
+constexpr float kDefaultOrbitDistance = 300.0f;
+constexpr std::size_t kLastActionSize = 128;
+constexpr double kSharedWarningSeconds = 8.0;
+constexpr float kTinyLengthSquared = 1e-6f;
+constexpr float kTurnEpsilon = 1e-6f;       // a turn smaller than this (radians) is none
+constexpr float kRatioEpsilon = 1e-4f;      // a scale ratio this close to 1 is unchanged
+constexpr float kRotPlaneMinSlope = 0.25f;  // a rotation drags on the ground plane when the ray is this far from level
+constexpr float kMinRotDragPixels = 2.0f;   // a rotation drag shorter than this has no direction
+constexpr float kScreenSpanFactor = 2.0f;   // the world width of the screen is twice depth times the tangent
+constexpr float kScreenDragSlope = 0.34f;   // a ray flatter than this drags in the screen plane
+constexpr float kMinDragReach = 2000.0f;
+constexpr float kDragReachFactor = 3.0f;
+constexpr int kMaxLayerVertices = 65536;
+constexpr float kAxisFarFactor = 20.0f;     // a hit further along the axis than this many orbit distances is ignored
+constexpr float kNearPlaneMargin = 0.01f;   // clipped just in front of the near plane
+constexpr float kArrowHeadLength = 12.0f;   // pixels, at the reference view height
+constexpr float kReferenceViewHeight = 720.0f;
+constexpr int kLadderPieceCount = 8;        // a ladder segment is drawn dashed: eight pieces, every other one
+constexpr float kLadderPieceCountF = 8.0f;
+constexpr float kRouteArrowMinLength = 30.0f; // a route segment shorter than this (times the icon scale) has no arrowhead
+constexpr float kRouteArrowWing = 0.6f;     // the arrowhead is this wide for its length
+constexpr float kPickDotRadius = 4.0f;
+constexpr float kLabelOffset = 8.0f;
+constexpr float kLabelDrop = 2.0f;
+constexpr uint32_t kLabelColour = 0xFFFFFFFF; // ARGB
+constexpr float kRailPointRange = 1500.0f;  // a rail shows its points within this distance
+constexpr float kRailDotRadius = 2.5f;
+constexpr float kSpawnArrowWidth = 2.5f;
+constexpr float kMinArrowPixels = 4.0f;
+constexpr float kSpawnArrowWing = 0.55f;
+constexpr float kOutlineGrow = 1.5f;        // the outline circle is this much bigger
+constexpr float kHorseLabelOffset = 3.0f;
+constexpr float kHorseLabelRise = 12.0f;
+constexpr uint32_t kHorseColour = 0xFFF0943C; // ARGB
+constexpr float kCrownHeight = 1.4f;        // the crown diamond is this many radii tall
+constexpr std::size_t kOrderTextSize = 16;
+constexpr float kCrownLabelOffset = 4.0f;
+constexpr float kPoleHeight = 3.2f;         // the pennant pole, in radii
+constexpr uint32_t kPoleColour = 0xFFE0E0E0; // ARGB
+constexpr float kMarkerLineWidth = 2.0f;
+constexpr float kPennantReach = 2.2f;       // in radii
+constexpr float kPennantMiddle = 2.6f;
+constexpr float kPennantBottom = 2.0f;
+constexpr float kSparkInner = 1.4f;         // the spark strokes start and end this many radii out
+constexpr float kSparkOuter = 2.1f;
+constexpr float kSparkWidth = 1.5f;
+constexpr uint32_t kRgbMask = 0x00FFFFFF;
+constexpr uint32_t kHalfAlpha = 0x80000000;
+constexpr float kSpeakerBack = 0.3f;        // the speaker box, in radii
+constexpr float kSpeakerConeSpread = 1.1f;
+constexpr float kRingNearRange = 2000.0f;   // a fire-off square shows its radius rings within this distance
+constexpr float kDiamondRadius = 0.8f;      // an object marker is a diamond of this many radii
+constexpr float kDiamondWidth = 1.5f;
+constexpr float kCoreRadius = 0.55f;
+constexpr float kRingGrow = 5.0f;           // the selection ring is this much bigger
+constexpr float kDashLength = 6.0f;
+constexpr float kDashGap = 4.0f;
+constexpr double kWelcomeSeconds = 3.0;
+constexpr double kEditedSeconds = 5.0;
+constexpr int kMaxRailLogs = 8;             // misplaced rail points logged at most
+constexpr float kGroundProbeDepth = 5000.0f;
+constexpr float kTinyForwardLength = 0.0001f;
+constexpr float kDefaultNearPlane = 2.0f;
+constexpr std::size_t kPlaceTextSize = 64;
+constexpr int kHintRefreshFrames = 6;       // the key hints are made again every this many frames
+constexpr std::size_t kHintTextSize = 200;
+constexpr int kHintStrandFirst = 5;         // the HUD strand of the first hint line
+constexpr int kHintStrandSecond = 6;        // ... and of the second
+constexpr uint32_t kCrownColour = 0xFFFFC233;     // ARGB: the Place palette entries
+constexpr uint32_t kLightColour = 0xFFFFE9A8;
+constexpr uint32_t kSoundColour = 0xFF4FD1C5;
+constexpr uint32_t kProximityColour = 0xFFF08A3C;
+constexpr uint32_t kRailColour = 0xFF7FB2D9;
+constexpr uint32_t kPathColour = 0xFF8FD18F;
+constexpr uint32_t kLadderColour = 0xFFC88FD9;
+constexpr uint32_t kLedgeColour = 0xFFB98CFF;
+constexpr double kMessageSeconds = 5.0;
+constexpr double kShortMessageSeconds = 4.0;
+constexpr double kLongMessageSeconds = 6.0;
+constexpr double kBriefSeconds = 1.5;
+constexpr double kPairSeconds = 2.0;
+constexpr double kCountMessageSeconds = 2.5;
+constexpr double kResizeHintSeconds = 3.0;
+constexpr double kAutosaveNoticeSeconds = 20.0;
+constexpr float kPlaceRaise = 150.0f;       // a new spawn is put this far above the ground under it
+constexpr std::size_t kCaptionTextSize = 96;
+constexpr int kModifierHintLimit = 9;       // modifier hints shown at most
+constexpr double kHalfTurnDegrees = 180.0;
+constexpr std::size_t kSizeTextSize = 48;
+constexpr float kHelpPanelX = 96.0f;        // the key help panel (before the UI scale)
+constexpr float kHelpPanelY = 104.0f;
+constexpr float kHelpPanelWidth = 448.0f;
+constexpr float kBrowserPanelX = 380.0f;    // the browser list panel
+constexpr float kBrowserPanelY = 34.0f;
+constexpr float kBrowserPanelWidth = 254.0f;
+constexpr float kRayReach = 600.0f;
+constexpr float kPasteGap = 20.0f;          // a pasted piece goes beside the original, this far apart
+constexpr float kRepeatOffset = 64.0f;      // a duplicate with no repeat step goes this far to the right
+constexpr std::size_t kStatusTextSize = 160;
+constexpr float kOccluderPixels = 8.0f;     // pixels at the reference view height
+constexpr float kFarDistanceF = 1e30f;
+constexpr float kClickSlopPixels = 4.0f;    // a click that moved less than this is the same spot
+constexpr std::size_t kPickTextSize = 64;
+constexpr std::size_t kMessageTextSize = 128;
+constexpr int kKeyRepeatDelay = 400;        // milliseconds before a held key repeats ...
+constexpr int kKeyRepeatStep = 83;          // ... the first repeat comes after this many of them
+constexpr float kRailLookDistance = 500.0f; // how far from a rail point the camera stops
+constexpr float kLookDistance = 400.0f;
+constexpr int kResetConfirmMilliseconds = 5000; // Reset level must be asked again within this time
+constexpr float kMinLookDistance = 300.0f;
+constexpr float kLookMargin = 1.5f;         // the camera stops this many sizes away
+constexpr float kMinBoxLookDistance = 200.0f;
+constexpr float kMinFrameRadius = 50.0f;
+constexpr uint32_t kMillisecondsPerSecond = 1000u;
+constexpr double kMaxFrameSeconds = 0.1;    // a frame counts for at most this long
+constexpr double kFastFlyFactor = 4.0;      // Shift flies four times as fast
+constexpr float kMinWheelStep = 20.0f;
+constexpr float kWheelStepFraction = 0.1f;  // a wheel notch moves a tenth of the distance
+constexpr double kWheelZoomStep = 0.85;     // an orbit wheel notch zooms by this factor
+constexpr double kMinFlySpeed = 50.0;
+constexpr double kMaxFlySpeed = 20000.0;
+constexpr double kSpeedStepFactor = 1.5;    // a fly speed step changes the speed by this factor
+constexpr int kDebugLogFrames = 60;         // the debug log reports every this many frames
+constexpr float kDragStartPixels = 4.0f;    // a press that moved this far is a drag
+constexpr float kHandlePickPixels = 8.0f;   // handles are picked within this many pixels at the reference view height
+constexpr uint32_t kGroupBoxColour = 0xFFFFFF00;  // ARGB
+constexpr uint32_t kMemberBoxColour = 0xFF00FFFF; // ARGB
+constexpr std::size_t kMaxBoxesDrawn = 64;
+constexpr uint32_t kSegmentColour = 0xFF40E0FF;   // ARGB
+constexpr uint32_t kVertexFormatScreen = 0x144;   // XYZRHW | DIFFUSE | TEX1
+constexpr float kMaxPitchDegrees = 89.0f;   // the view looks up or down at most this far
+
 constexpr std::uint32_t kPos = 0x7F261953u; // Pos
 constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kHalf = 0.5f; // half
@@ -177,8 +318,8 @@ bool pixel_to_ndc(std::span<const uint32_t, 4> viewport, float px, float py, flo
 {
     if (core::at(viewport, 2) == 0 || core::at(viewport, 3) == 0)
         return false;
-    *nx = static_cast<float>((static_cast<double>(px) - core::at(viewport, 0)) / core::at(viewport, 2) * 2.0 - 1.0);
-    *ny = static_cast<float>(1.0 - (static_cast<double>(py) - core::at(viewport, 1)) / core::at(viewport, 3) * 2.0);
+    *nx = static_cast<float>((static_cast<double>(px) - core::at(viewport, 0)) / core::at(viewport, 2) * kNdcSpan - 1.0);
+    *ny = static_cast<float>(1.0 - (static_cast<double>(py) - core::at(viewport, 1)) / core::at(viewport, 3) * kNdcSpan);
     return true;
 }
 
@@ -244,9 +385,9 @@ bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max
     }
     const std::array<double, 3> lo = {{min.x, min.y, min.z}};
     const std::array<double, 3> hi = {{max.x, max.y, max.z}};
-    double enter = -1e30, leave = 1e30;
+    double enter = -kFarDistance, leave = kFarDistance;
     for (int i = 0; i < 3; ++i) {
-        if (std::fabs(core::at(d, i)) < 1e-12) {
+        if (std::fabs(core::at(d, i)) < kParallelEpsilon) {
             if (core::at(o, i) < core::at(lo, i) || core::at(o, i) > core::at(hi, i))
                 return false;
             continue;
@@ -270,7 +411,7 @@ bool ray_plane(Ray ray, V3 point, V3 normal, float* t)
     const auto origin = ray.origin;
     const auto dir = ray.dir;
     const double denominator = get_dot(dir, normal);
-    if (std::fabs(denominator) < 1e-9)
+    if (std::fabs(denominator) < kLineParallelEpsilon)
         return false;
     const double hit = get_dot(point - origin, normal) / denominator;
     if (hit < 0.0)
@@ -279,9 +420,9 @@ bool ray_plane(Ray ray, V3 point, V3 normal, float* t)
     return true;
 }
 
-void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, 8> out)
+void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, kBoxCornerCount> out)
 {
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kBoxCorners; ++i) {
         const float x = (i & 1) ? max.x : min.x;
         const float y = (i & 2) ? max.y : min.y;
         const float z = (i & 4) ? max.z : min.z;
@@ -296,7 +437,7 @@ bool box_looks_world_space(V3 min, V3 max, V3 object_pos)
                p.z >= min.z - margin && p.z <= max.z + margin;
     };
     const float size = std::max({max.x - min.x, max.y - min.y, max.z - min.z, 1.0f});
-    return holds(object_pos, size * 0.05f) && !holds({.x = 0.0f, .y = 0.0f, .z = 0.0f}, size * 0.05f);
+    return holds(object_pos, size * kHoldMargin) && !holds({.x = 0.0f, .y = 0.0f, .z = 0.0f}, size * kHoldMargin);
 }
 
 V3 turn_about_up(V3 v, float angle)
@@ -321,7 +462,7 @@ bool closest_on_axis(Ray axis, Ray line, float* s)
     const double e = get_dot(u, w);
     const double f = get_dot(d, w);
     const double denominator = a * c - b * b;
-    if (std::fabs(denominator) < 1e-9 * a * c || a <= 0.0 || c <= 0.0)
+    if (std::fabs(denominator) < kLineParallelEpsilon * a * c || a <= 0.0 || c <= 0.0)
         return false;
     *s = static_cast<float>((b * f - c * e) / denominator);
     return true;
@@ -344,7 +485,7 @@ float snap_to_grid(float value, float grid) { return grid > 0.0f ? std::round(va
 
 V3 ground_ray_start(V3 pos, float base, bool from_above)
 {
-    return from_above ? V3{.x = pos.x, .y = base + 50.0f, .z = pos.z} : V3{.x = pos.x, .y = base - 1.0f, .z = pos.z};
+    return from_above ? V3{.x = pos.x, .y = base + kGroundRayRise, .z = pos.z} : V3{.x = pos.x, .y = base - 1.0f, .z = pos.z};
 }
 
 V3 dropped_to(V3 pos, float base, float ground_y) { return {.x = pos.x, .y = pos.y + (ground_y - base), .z = pos.z}; }
@@ -387,9 +528,9 @@ struct LevelEditorState {
     V3 pos_{};
     float yaw_{};
     float pitch_{};
-    float speed_ = 800.0f; // units a second (Shift: 4x)
+    float speed_ = kDefaultFlySpeed; // units a second (Shift: 4x)
     // With something selected: the camera's distance from it, and whether the keys are moving it.
-    float orbit_distance_ = 300.0f;
+    float orbit_distance_ = kDefaultOrbitDistance;
     bool key_moving_{};
     // The view as last drawn (note_view).
     bool have_view_{};
@@ -411,7 +552,7 @@ struct LevelEditorState {
     bool offer_show_{}; // (shown on the first frame the HUD is up)
     bool offer_pending_{}; // (Ctrl+R / Ctrl+Shift+R)
     // What the editor last did, for the log if the game crashes (plain memory: the crash hook reads it).
-    std::array<char, 128> last_action_ = {"none"};
+    std::array<char, kLastActionSize> last_action_ = {"none"};
     // The camera tools and play from here (level_editor_camera.h, level_editor_play.h): the last frame's ray under the
     // cursor (an orbit's pivot), the play key (held when the editor starts: it counts once let go).
     bool last_have_ray_{};
@@ -780,7 +921,7 @@ void note_online_change(nodes::Family family, const char* what, const char* verb
     drag_state().online_warned_ = true;
     drag_state().online_warning_shown_ = true;
     get_log("level editor: %s %s in a level shared with THUGPRO (%s) - warned", what, verb, game);
-    hud::get_message("Shared level: spawn, crown and flag changes differ from THUGPRO players' copies", 8.0);
+    hud::get_message("Shared level: spawn, crown and flag changes differ from THUGPRO players' copies", kSharedWarningSeconds);
 }
 void note_online_edit(int index)
 {
@@ -1627,7 +1768,7 @@ V3 drag_plane_normal(bool vertical, const TickCycle& frame)
     if (!vertical)
         return {.x = 0.0f, .y = 1.0f, .z = 0.0f};
     const V3 flat = {.x = frame.back.x, .y = 0.0f, .z = frame.back.z};
-    if (get_dot(flat, flat) < 1e-6f)
+    if (get_dot(flat, flat) < kTinyLengthSquared)
         return frame.back;
     return make_unit(flat);
 }
@@ -1754,12 +1895,12 @@ void apply_turn_to(float target)
     node_edit::Values node;
     if (!objects.empty()) {
         const float delta = target - drag_state().rot_applied_;
-        if (std::fabs(delta) < 1e-6f)
+        if (std::fabs(delta) < kTurnEpsilon)
             return;
         turn_objects_by(objects, delta, drag_state().transform_pivot_);
     } else if (node_values(&node)) {
         const float delta = target - drag_state().rot_applied_;
-        if (std::fabs(delta) < 1e-6f)
+        if (std::fabs(delta) < kTurnEpsilon)
             return;
         node.angles =
             node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + delta * kDegreesPerHalfTurn / kPi);
@@ -1801,7 +1942,7 @@ void apply_scale_to(V3 wanted, bool uniform)
 {
     const V3 applied = scale_applied_now();
     const V3 ratio = {.x = wanted.x / applied.x, .y = wanted.y / applied.y, .z = wanted.z / applied.z};
-    if (std::fabs(ratio.x - 1.0f) < 1e-4f && std::fabs(ratio.y - 1.0f) < 1e-4f && std::fabs(ratio.z - 1.0f) < 1e-4f)
+    if (std::fabs(ratio.x - 1.0f) < kRatioEpsilon && std::fabs(ratio.y - 1.0f) < kRatioEpsilon && std::fabs(ratio.z - 1.0f) < kRatioEpsilon)
         return;
     const bool local = xform::at_hand().space == xform::Space::kLocal;
     const bool centre = xform::at_hand().pivot == xform::Pivot::kCentre;
@@ -1858,7 +1999,7 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
         drag_state().rot_sign_ = 1.0f;
         drag_state().rot_last_ = 0.0f;
         float t = 0.0f;
-        drag_state().rot_by_plane_ = std::fabs(make_unit(dir).y) > 0.25f &&
+        drag_state().rot_by_plane_ = std::fabs(make_unit(dir).y) > kRotPlaneMinSlope &&
                          ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, &t) && t < kMaxPickDistance;
         if (drag_state().rot_by_plane_) {
             drag_state().rot_last_ = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * t);
@@ -1900,7 +2041,7 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
                 have = true;
             }
         } else if (get_to_pixel(frame, drag_state().transform_pivot_, &px, &py) &&
-                   std::hypot(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py) > 2.0f) {
+                   std::hypot(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py) > kMinRotDragPixels) {
             angle = std::atan2(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py);
             have = true;
         }
@@ -1965,15 +2106,15 @@ void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float 
     drag_state().drag_right_ = make_unit({.x = frame.right.x, .y = 0.0f, .z = frame.right.z});
     drag_state().drag_forward_ = make_unit({.x = -frame.back.x, .y = 0.0f, .z = -frame.back.z});
     const float depth = std::max(50.0f, -get_dot(pos - origin, frame.back));
-    drag_state().drag_units_ = 2.0f * depth * level_editor_state().lens_.tan_x_ / static_cast<float>(std::max(1, stored_mouse().window_width_));
+    drag_state().drag_units_ = kScreenSpanFactor * depth * level_editor_state().lens_.tan_x_ / static_cast<float>(std::max(1, stored_mouse().window_width_));
     float t = 0.0f;
-    drag_state().drag_screen_ = !vertical && (std::fabs(make_unit(dir).y) < 0.34f ||
+    drag_state().drag_screen_ = !vertical && (std::fabs(make_unit(dir).y) < kScreenDragSlope ||
                                   !ray_plane({.origin = origin, .dir = dir}, pos + drag_state().drag_plane_offset_, drag_state().drag_plane_normal_, &t));
     const V3 point = pos + drag_state().drag_plane_offset_;
     drag_state().drag_offset_ = !drag_state().drag_screen_ && ray_plane({.origin = origin, .dir = dir}, point, drag_state().drag_plane_normal_, &t)
                         ? point - (origin + dir * t)
                         : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
-    drag_state().drag_reach_ = std::max(2000.0f, 3.0f * t);
+    drag_state().drag_reach_ = std::max(kMinDragReach, kDragReachFactor * t);
     drag_state().drag_offset_ = drag_state().drag_offset_ - drag_state().drag_plane_offset_;
 }
 
@@ -2089,7 +2230,7 @@ void vertex_drag(Ray ray, const TickCycle& frame)
             continue;
         OrientedBox box{};
         if (object_edit::model_box(picked.first, &box)) {
-            std::array<V3, 8> corners{};
+            std::array<V3, kBoxCornerCount> corners{};
             box_corners(box.origin, box.axes, box.min, box.max, corners);
             targets.assign(corners.begin(), corners.end());
             at = origin + unit * picked.second;
@@ -2103,7 +2244,7 @@ void vertex_drag(Ray ray, const TickCycle& frame)
     for (const scenery::Layer& layer : layers) {
         if (scenery::get_selected(layer.checksum) || layer.t >= reach)
             continue;
-        std::vector<V3> vertices = snap::sector_vertices(checksums::Name{layer.checksum}, 65536);
+        std::vector<V3> vertices = snap::sector_vertices(checksums::Name{layer.checksum}, kMaxLayerVertices);
         if (!vertices.empty()) {
             targets = std::move(vertices);
             at = origin + unit * layer.t;
@@ -2159,7 +2300,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
         if (!closest_on_axis({.origin = drag_state().drag_from_, .dir = u}, {.origin = origin, .dir = dir}, &s))
             return;
         const float along = s - drag_state().axis_t0_;
-        if (std::fabs(along) > level_editor_state().orbit_distance_ * 20.0f)
+        if (std::fabs(along) > level_editor_state().orbit_distance_ * kAxisFarFactor)
             return; // (the ray nearly along the axis: far off)
         wanted = drag_state().drag_from_ + u * along;
         if (snap.on && absolute && xform::at_hand().space == xform::Space::kWorld) {
@@ -2307,7 +2448,7 @@ void add_pixel_line(maths::Rect line, uint32_t color, std::vector<LineVertex>* o
 // A world line; `thickness` 3: drawn three times a pixel apart across it.
 void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out, int thickness = 1)
 {
-    if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + 0.01f, &a, &b))
+    if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
         return;
     float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
     if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
@@ -2323,10 +2464,10 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
 
 void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
 {
-    std::array<V3, 8> corners{};
+    std::array<V3, kBoxCornerCount> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
-    for (int i = 0; i < 8; ++i) {
-        for (int bit = 1; bit < 8; bit <<= 1) {
+    for (int i = 0; i < kBoxCorners; ++i) {
+        for (int bit = 1; bit < kBoxCornerBitLimit; bit <<= 1) {
             if (!(i & bit))
                 add_line(core::at(corners, i), core::at(corners, i | bit), frame, color, out);
         }
@@ -2348,7 +2489,7 @@ void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vect
     for (const float side : {-1.0f, 1.0f}) {
         const float hx = -dx * 0.9f + -dy * 0.45f * side;
         const float hy = -dy * 0.9f + dx * 0.45f * side;
-        add_pixel_line({.x0 = bx, .y0 = by, .x1 = bx + hx * 12.0f, .y1 = by + hy * 12.0f}, color, out);
+        add_pixel_line({.x0 = bx, .y0 = by, .x1 = bx + hx * kArrowHeadLength, .y1 = by + hy * kArrowHeadLength}, color, out);
     }
 }
 
@@ -2363,7 +2504,7 @@ void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vect
 float pixel_scale()
 {
     const float gizmo = static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0f; // ([editor] gizmo_pct)
-    return (core::at(level_editor_state().viewport_, 3) > 0 ? static_cast<float>(core::at(level_editor_state().viewport_, 3)) / 720.0f : 1.0f) * gizmo;
+    return (core::at(level_editor_state().viewport_, 3) > 0 ? static_cast<float>(core::at(level_editor_state().viewport_, 3)) / kReferenceViewHeight : 1.0f) * gizmo;
 }
 
 constexpr uint32_t kSelectedGizmo = 0xFFFFFFFF, kHoverGizmo = 0xFFFFE070;
@@ -2378,7 +2519,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         o.lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = c, .thickness = t});
     };
     auto world_line = [&](V3 a, V3 b, uint32_t c, float t) {
-        if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + 0.01f, &a, &b))
+        if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
             return;
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (get_to_pixel(frame, a, &ax, &ay) && get_to_pixel(frame, b, &bx, &by))
@@ -2422,7 +2563,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                     view_cam::apparent(std::sqrt(get_dot(e, e))) > kChainCutoff)
                     continue;
                 V3 a = n.pos, b = m.pos;
-                if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + 0.01f, &a, &b))
+                if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b))
                     continue;
                 float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
                 if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
@@ -2433,26 +2574,26 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 const uint32_t c = is_selected ? kSelectedGizmo : is_hovered ? kHoverGizmo : n.colour;
                 const float t = is_selected || is_hovered ? 3.0f : n.family == nodes::Family::kRail ? 2.0f : 1.5f;
                 if (n.family == nodes::Family::kLadder) {
-                    for (int piece = 0; piece < 8; piece += 2) // (dashed)
-                        line(ax + (bx - ax) * static_cast<float>(piece) / 8.0f,
-                             ay + (by - ay) * static_cast<float>(piece) / 8.0f,
-                             ax + (bx - ax) * static_cast<float>(piece + 1) / 8.0f,
-                             ay + (by - ay) * static_cast<float>(piece + 1) / 8.0f, c, t);
+                    for (int piece = 0; piece < kLadderPieceCount; piece += 2) // (dashed)
+                        line(ax + (bx - ax) * static_cast<float>(piece) / kLadderPieceCountF,
+                             ay + (by - ay) * static_cast<float>(piece) / kLadderPieceCountF,
+                             ax + (bx - ax) * static_cast<float>(piece + 1) / kLadderPieceCountF,
+                             ay + (by - ay) * static_cast<float>(piece + 1) / kLadderPieceCountF, c, t);
                 } else {
                     line(ax, ay, bx, by, c, t);
                 }
                 if (n.family == nodes::Family::kRouteWay) {
                     // (the way it goes: an arrowhead at the middle)
                     float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
-                    if (length > 30.0f * k) {
+                    if (length > kRouteArrowMinLength * k) {
                         dx /= length;
                         dy /= length;
                         const float mx = (ax + bx) * 0.5f;
                         const float my = (ay + by) * 0.5f;
                         const float h = 7.0f * k;
-                        o.triangles.push_back({.ax = mx + dx * h, .ay = my + dy * h, .bx = mx - dx * h - dy * h * 0.6f,
-                                               .by = my - dy * h + dx * h * 0.6f, .cx = mx - dx * h + dy * h * 0.6f,
-                                               .cy = my - dy * h - dx * h * 0.6f, .argb = c});
+                        o.triangles.push_back({.ax = mx + dx * h, .ay = my + dy * h, .bx = mx - dx * h - dy * h * kRouteArrowWing,
+                                               .by = my - dy * h + dx * h * kRouteArrowWing, .cx = mx - dx * h + dy * h * kRouteArrowWing,
+                                               .cy = my - dy * h - dx * h * kRouteArrowWing, .argb = c});
                     }
                 }
                 const V3 middle = (a + b) * 0.5f;
@@ -2462,11 +2603,11 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             if (is_selected || is_hovered) {
                 float px = 0.0f, py = 0.0f;
                 if (get_to_pixel(frame, n.pos, &px, &py)) {
-                    o.circles.push_back({.x = px, .y = py, .radius = 4.0f * k, .argb = is_selected ? kSelectedGizmo : kHoverGizmo, .filled = true, .thickness = 1.0f});
-                    o.texts.push_back({.x = px + 8.0f * k, .y = py - 8.0f * k, .argb = 0xFFFFFFFF, .text = nodes::caption(n.name)});
+                    o.circles.push_back({.x = px, .y = py, .radius = kPickDotRadius * k, .argb = is_selected ? kSelectedGizmo : kHoverGizmo, .filled = true, .thickness = 1.0f});
+                    o.texts.push_back({.x = px + kLabelOffset * k, .y = py - kLabelOffset * k, .argb = kLabelColour, .text = nodes::caption(n.name)});
                 }
             }
-            if (n.family == nodes::Family::kRail && (distance < 1500.0f || is_selected)) {
+            if (n.family == nodes::Family::kRail && (distance < kRailPointRange || is_selected)) {
                 // (a rail's points, near: a dot each, picked before its segments - a point moves by itself or with
                 // its whole rail)
                 float px = 0.0f, py = 0.0f;
@@ -2474,7 +2615,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, n.pos, &px, &py) && px >= left &&
                     px <= right && py >= top && py <= bottom) {
                     if (!is_selected && !is_hovered)
-                        o.circles.push_back({.x = px, .y = py, .radius = 2.5f * k, .argb = n.colour, .filled = true, .thickness = 1.0f});
+                        o.circles.push_back({.x = px, .y = py, .radius = kRailDotRadius * k, .argb = n.colour, .filled = true, .thickness = 1.0f});
                     pick_cycle().pickables_.push_back({.node = i, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = -get_dot(front, frame.back)});
                 }
             }
@@ -2498,66 +2639,66 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             const V3 tip = n.pos + n.forward * length;
             float tx = 0.0f, ty = 0.0f;
             if (get_to_pixel(frame, tip, &tx, &ty)) {
-                line(px, py, tx, ty, c, 2.5f);
+                line(px, py, tx, ty, c, kSpawnArrowWidth);
                 float dx = tx - px, dy = ty - py, l = std::sqrt(dx * dx + dy * dy);
-                if (l > 4.0f) {
+                if (l > kMinArrowPixels) {
                     dx /= l;
                     dy /= l;
                     const float h = 8.0f * k;
-                    o.triangles.push_back({.ax = tx + dx * h * kHalf, .ay = ty + dy * h * kHalf, .bx = tx - dx * h - dy * h * 0.55f,
-                                           .by = ty - dy * h + dx * h * 0.55f, .cx = tx - dx * h + dy * h * 0.55f,
-                                           .cy = ty - dy * h - dx * h * 0.55f, .argb = c});
+                    o.triangles.push_back({.ax = tx + dx * h * kHalf, .ay = ty + dy * h * kHalf, .bx = tx - dx * h - dy * h * kSpawnArrowWing,
+                                           .by = ty - dy * h + dx * h * kSpawnArrowWing, .cx = tx - dx * h + dy * h * kSpawnArrowWing,
+                                           .cy = ty - dy * h - dx * h * kSpawnArrowWing, .argb = c});
                 }
             }
-            o.circles.push_back({.x = px, .y = py, .radius = r + 1.5f * k, .argb = outline, .filled = true, .thickness = 1.0f});
+            o.circles.push_back({.x = px, .y = py, .radius = r + kOutlineGrow * k, .argb = outline, .filled = true, .thickness = 1.0f});
             o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0f});
             if (n.restart_types_ & nodes::kHorse) // (a HORSE spot: restart_types has Horse - the feature map)
-                o.texts.push_back({.x = px + r + 3.0f * k, .y = py - r - 12.0f * k, .argb = 0xFFF0943C, .text = "H"});
+                o.texts.push_back({.x = px + r + kHorseLabelOffset * k, .y = py - r - kHorseLabelRise * k, .argb = kHorseColour, .text = "H"});
             break;
         }
         case nodes::Family::kCrown: {
             // A gold diamond and its index.
-            o.triangles.push_back({.ax = px, .ay = py - r * 1.4f, .bx = px + r, .by = py, .cx = px - r, .cy = py, .argb = c});
-            o.triangles.push_back({.ax = px - r, .ay = py, .bx = px + r, .by = py, .cx = px, .cy = py + r * 1.4f, .argb = c});
-            std::array<char, 16> text{};
+            o.triangles.push_back({.ax = px, .ay = py - r * kCrownHeight, .bx = px + r, .by = py, .cx = px - r, .cy = py, .argb = c});
+            o.triangles.push_back({.ax = px - r, .ay = py, .bx = px + r, .by = py, .cx = px, .cy = py + r * kCrownHeight, .argb = c});
+            std::array<char, kOrderTextSize> text{};
             if (n.order >= 0)
                 text::format_to(text, "#%d", n.order);
             else
                 text::format_to(text, "hidden");
-            o.texts.push_back({.x = px + r + 4.0f * k, .y = py - r * 1.4f, .argb = c, .text = text.data()});
+            o.texts.push_back({.x = px + r + kCrownLabelOffset * k, .y = py - r * kCrownHeight, .argb = c, .text = text.data()});
             break;
         }
         case nodes::Family::kBitMark:
             // A pole and a pennant in its team's colour.
-            line(px, py, px, py - r * 3.2f, 0xFFE0E0E0, 2.0f);
-            o.triangles.push_back({.ax = px, .ay = py - r * 3.2f, .bx = px + r * 2.2f, .by = py - r * 2.6f, .cx = px, .cy = py - r * 2.0f, .argb = c});
+            line(px, py, px, py - r * kPoleHeight, kPoleColour, kMarkerLineWidth);
+            o.triangles.push_back({.ax = px, .ay = py - r * kPoleHeight, .bx = px + r * kPennantReach, .by = py - r * kPennantMiddle, .cx = px, .cy = py - r * kPennantBottom, .argb = c});
             o.circles.push_back({.x = px, .y = py, .radius = r * kHalf, .argb = c, .filled = true, .thickness = 1.0f});
             break;
         case nodes::Family::kLight: {
             // A bulb in its colour; rings at its radii when near.
-            o.circles.push_back({.x = px, .y = py, .radius = r + 1.5f * k, .argb = outline, .filled = true, .thickness = 1.0f});
+            o.circles.push_back({.x = px, .y = py, .radius = r + kOutlineGrow * k, .argb = outline, .filled = true, .thickness = 1.0f});
             o.circles.push_back({.x = px, .y = py, .radius = r, .argb = c, .filled = true, .thickness = 1.0f});
             for (int ray = 0; ray < 4; ++ray) {
                 const float angle = kPi * 0.25f + kPi * 0.5f * static_cast<float>(ray);
                 const float cx = std::cos(angle);
                 const float cy = std::sin(angle);
-                line(px + cx * r * 1.4f, py + cy * r * 1.4f, px + cx * r * 2.1f, py + cy * r * 2.1f, c, 1.5f);
+                line(px + cx * r * kSparkInner, py + cy * r * kSparkInner, px + cx * r * kSparkOuter, py + cy * r * kSparkOuter, c, kSparkWidth);
             }
             if ((is_selected || is_hovered) && n.radius > 0.0f) {
                 ring(n.pos, n.radius, x_axis, z_axis, c);
                 if (n.inner_radius_ > 0.0f && n.inner_radius_ < n.radius)
-                    ring(n.pos, n.inner_radius_, x_axis, z_axis, (c & 0x00FFFFFF) | 0x80000000);
+                    ring(n.pos, n.inner_radius_, x_axis, z_axis, (c & kRgbMask) | kHalfAlpha);
             }
             break;
         }
         case nodes::Family::kSound:
             // A speaker: a box and its cone.
-            line(px - r, py - r * kHalf, px - r * 0.3f, py - r * kHalf, c, 2.0f);
-            line(px - r, py + r * kHalf, px - r * 0.3f, py + r * kHalf, c, 2.0f);
-            line(px - r, py - r * kHalf, px - r, py + r * kHalf, c, 2.0f);
-            o.triangles.push_back({.ax = px - r * 0.3f, .ay = py - r * kHalf, .bx = px + r, .by = py - r * 1.1f, .cx = px + r, .cy = py + r * 1.1f, .argb = c});
+            line(px - r, py - r * kHalf, px - r * kSpeakerBack, py - r * kHalf, c, kMarkerLineWidth);
+            line(px - r, py + r * kHalf, px - r * kSpeakerBack, py + r * kHalf, c, kMarkerLineWidth);
+            line(px - r, py - r * kHalf, px - r, py + r * kHalf, c, kMarkerLineWidth);
+            o.triangles.push_back({.ax = px - r * kSpeakerBack, .ay = py - r * kHalf, .bx = px + r, .by = py - r * kSpeakerConeSpread, .cx = px + r, .cy = py + r * kSpeakerConeSpread, .argb = c});
             o.triangles.push_back(
-                {.ax = px - r * 0.3f, .ay = py - r * kHalf, .bx = px + r, .by = py + r * 1.1f, .cx = px - r * 0.3f, .cy = py + r * kHalf, .argb = c});
+                {.ax = px - r * kSpeakerBack, .ay = py - r * kHalf, .bx = px + r, .by = py + r * kSpeakerConeSpread, .cx = px - r * kSpeakerBack, .cy = py + r * kHalf, .argb = c});
             break;
         case nodes::Family::kParticle:
             // A spark: three strokes.
@@ -2565,16 +2706,16 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 const float angle = kPi * static_cast<float>(stroke) / 3.0f;
                 const float cx = std::cos(angle) * r;
                 const float cy = std::sin(angle) * r;
-                line(px - cx, py - cy, px + cx, py + cy, c, 2.0f);
+                line(px - cx, py - cy, px + cx, py + cy, c, kMarkerLineWidth);
             }
             break;
         case nodes::Family::kFireOff:
             // A square; a radius as three rings when near.
-            line(px - r, py - r, px + r, py - r, c, 2.0f);
-            line(px + r, py - r, px + r, py + r, c, 2.0f);
-            line(px + r, py + r, px - r, py + r, c, 2.0f);
-            line(px - r, py + r, px - r, py - r, c, 2.0f);
-            if (n.radius > 0.0f && (is_selected || is_hovered || distance < 2000.0f)) {
+            line(px - r, py - r, px + r, py - r, c, kMarkerLineWidth);
+            line(px + r, py - r, px + r, py + r, c, kMarkerLineWidth);
+            line(px + r, py + r, px - r, py + r, c, kMarkerLineWidth);
+            line(px - r, py + r, px - r, py - r, c, kMarkerLineWidth);
+            if (n.radius > 0.0f && (is_selected || is_hovered || distance < kRingNearRange)) {
                 const uint32_t faint = (c & 0x00FFFFFF) | 0x90000000;
                 ring(n.pos, n.radius, x_axis, z_axis, faint);
                 ring(n.pos, n.radius, x_axis, y_axis, faint);
@@ -2583,18 +2724,18 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             break;
         case nodes::Family::kObject:
             // A small open diamond (the object itself shows).
-            line(px, py - r * 0.8f, px + r * 0.8f, py, c, 1.5f);
-            line(px + r * 0.8f, py, px, py + r * 0.8f, c, 1.5f);
-            line(px, py + r * 0.8f, px - r * 0.8f, py, c, 1.5f);
-            line(px - r * 0.8f, py, px, py - r * 0.8f, c, 1.5f);
+            line(px, py - r * kDiamondRadius, px + r * kDiamondRadius, py, c, kDiamondWidth);
+            line(px + r * kDiamondRadius, py, px, py + r * kDiamondRadius, c, kDiamondWidth);
+            line(px, py + r * kDiamondRadius, px - r * kDiamondRadius, py, c, kDiamondWidth);
+            line(px - r * kDiamondRadius, py, px, py - r * kDiamondRadius, c, kDiamondWidth);
             break;
         default:
-            o.circles.push_back({.x = px, .y = py, .radius = r * 0.55f, .argb = c, .filled = true, .thickness = 1.0f});
+            o.circles.push_back({.x = px, .y = py, .radius = r * kCoreRadius, .argb = c, .filled = true, .thickness = 1.0f});
             break;
         }
         if (is_selected || is_hovered) {
-            o.circles.push_back({.x = px, .y = py, .radius = r + 5.0f * k, .argb = is_selected ? kSelectedGizmo : kHoverGizmo, .filled = false, .thickness = 2.0f});
-            o.texts.push_back({.x = px + r + 8.0f * k, .y = py + 2.0f * k, .argb = 0xFFFFFFFF, .text = nodes::caption(n.name)});
+            o.circles.push_back({.x = px, .y = py, .radius = r + kRingGrow * k, .argb = is_selected ? kSelectedGizmo : kHoverGizmo, .filled = false, .thickness = kMarkerLineWidth});
+            o.texts.push_back({.x = px + r + kLabelOffset * k, .y = py + kLabelDrop * k, .argb = kLabelColour, .text = nodes::caption(n.name)});
         }
         pick_cycle().pickables_.push_back({.node = i, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = depth});
     }
@@ -2613,7 +2754,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                                   {.ax = box.x0, .ay = box.y1, .bx = box.x0, .by = box.y0, .argb = c, .thickness = 1.5f}}};
         for (const ui::Seg& edge : edges) {
             if (crossing)
-                view::add_dashed(&o.lines, edge, 6.0f * k, 4.0f * k);
+                view::add_dashed(&o.lines, edge, kDashLength * k, kDashGap * k);
             else
                 o.lines.push_back(edge);
         }
@@ -2820,7 +2961,7 @@ bool cfunc_start(script::Struct*, script::Script*)
     level_editor_state().offer_pending_ = level_editor_state().offer_show_ = layout::autosave_offered();
     note_action("entered the editor");
     get_log("level editor: on");
-    hud::get_message(edited.empty() ? "Level Editor - F1: Keyboard Shortcuts" : edited, edited.empty() ? 3.0 : 5.0);
+    hud::get_message(edited.empty() ? "Level Editor - F1: Keyboard Shortcuts" : edited, edited.empty() ? kWelcomeSeconds : kEditedSeconds);
     if (debug_enabled()) {
         object_edit::log_census();
         scenery::log_census();
@@ -2833,7 +2974,7 @@ bool cfunc_start(script::Struct*, script::Script*)
             if (!s || !s->fetch_vec(kPos, &v, 0) || !scenery::get_rail_point(n.name, &rail) ||
                 (rail.x == v.x && rail.y == v.y && rail.z == v.z))
                 continue;
-            if (++away <= 8)
+            if (++away <= kMaxRailLogs)
                 get_log(
                     "level editor: rail point %s at (%.1f, %.1f, %.1f) - its node's pos= (%.1f, %.1f, %.1f), shown at "
                     "(%.1f, %.1f, %.1f)",
@@ -2861,7 +3002,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
     *hit = {.x = point[0], .y = point[1], .z = point[2]};
     return true;
 }
-bool ground_below(V3 from, V3* ground) { return get_cast(from, {.x = from.x, .y = from.y - 5000.0f, .z = from.z}, ground); }
+bool ground_below(V3 from, V3* ground) { return get_cast(from, {.x = from.x, .y = from.y - kGroundProbeDepth, .z = from.z}, ground); }
 
 // Leaving the editor: the skater (hidden while editing) put on the ground below the camera, facing the way the camera
 // looked, so play goes on where the editor was left (as Obj_MoveToNode does: position, orientation, teleported).
@@ -2879,7 +3020,7 @@ void place_skater_below_camera()
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, 0.0f);
     V3 at = {.x = -frame.back.x, .y = 0.0f, .z = -frame.back.z};
     const float length = std::sqrt(at.x * at.x + at.z * at.z);
-    if (length > 0.0001f)
+    if (length > kTinyForwardLength)
         at = {.x = at.x / length, .y = 0.0f, .z = at.z / length};
     else
         at = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
@@ -3025,7 +3166,7 @@ float adjust_view_angle(gfx::ViewCam* camera, float angle)
 
 float get_near_plane(gfx::ViewCam* camera)
 {
-    return level_editor_state().active_ && camera && camera == level_editor_state().camera_ ? view_cam::get_near_plane() : 2.0f;
+    return level_editor_state().active_ && camera && camera == level_editor_state().camera_ ? view_cam::get_near_plane() : kDefaultNearPlane;
 }
 
 void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const uint32_t, 4> viewport)
@@ -3117,7 +3258,7 @@ std::string hover_text()
                        : get_live(drag_state().hover_) ? object_edit::describe(get_live(drag_state().hover_))
                                            : "-";
     if (drag_state().hover_axis_ < 0 && pick_cycle().hover_cycle_ >= 0) {
-        std::array<char, 64> place{};
+        std::array<char, kPlaceTextSize> place{};
         text::format_to(place, "  (%d of %d under the cursor: click)", pick_cycle().hover_cycle_ + 1,
                         static_cast<int>(pick_cycle().cycle_.order.size()));
         text += place.data();
@@ -3131,9 +3272,9 @@ void update_hud()
 {
     static int frames = 0;
     hud::tick();
-    if (frames++ % 6 != 0)
+    if (frames++ % kHintRefreshFrames != 0)
         return;
-    std::array<char, 200> text{};
+    std::array<char, kHintTextSize> text{};
     // (which level: always its edited copy - never the level as shipped)
     text::format_to(text, "EDITING %.24s (EDITED COPY)   %s%s%s", layout::level_title().c_str(), mode_name(),
                     level_editor_state().unsaved_ ? "   (unsaved)" : "", level_editor_state().offer_pending_ ? "   (autosave: Ctrl+R)" : "");
@@ -3145,28 +3286,28 @@ void update_hud()
     hud::change_strand(4, text.data());
     // (each line at most 90 characters with its colour codes - 6 a key)
     if (stored_browser().open) {
-        hud::change_strand(5, get_key("Up/Down") + " choose   " + get_key("Left/Right") + " scenery / objects   " +
+        hud::change_strand(kHintStrandFirst, get_key("Up/Down") + " choose   " + get_key("Left/Right") + " scenery / objects   " +
                                   get_key("Enter") + " place it");
-        hud::change_strand(6, get_key("F") + " show me the original   " + get_key("B") + " or " + get_key("Esc") +
+        hud::change_strand(kHintStrandSecond, get_key("F") + " show me the original   " + get_key("B") + " or " + get_key("Esc") +
                                   " close");
     } else if (drag_state().dragging_) {
         if (drag_state().axis_ >= 0)
-            hud::change_strand(5, get_key("Mouse") + " moves it along the arrow   " + get_key("Ctrl") + " snap");
+            hud::change_strand(kHintStrandFirst, get_key("Mouse") + " moves it along the arrow   " + get_key("Ctrl") + " snap");
         else
-            hud::change_strand(5, get_key("Mouse") + " move   " + get_key("Shift") + " up / down   " +
+            hud::change_strand(kHintStrandFirst, get_key("Mouse") + " move   " + get_key("Shift") + " up / down   " +
                                       get_key("Wheel") + " push / pull   " + get_key("Ctrl") + " snap");
-        hud::change_strand(6, get_key("Esc") + " put it back where it was");
+        hud::change_strand(kHintStrandSecond, get_key("Esc") + " put it back where it was");
     } else if (have_selection()) {
-        hud::change_strand(5, get_key("Drag") + " move  " + get_key("Arrows") + " one axis  " + get_key("WASDQE") +
+        hud::change_strand(kHintStrandFirst, get_key("Drag") + " move  " + get_key("Arrows") + " one axis  " + get_key("WASDQE") +
                                   " nudge  " + get_key("ZX") + " turn  " + get_key("[ ]") + " scale  " + get_key("G") +
                                   " drop");
-        hud::change_strand(6, (get_primary() ? std::string() : get_key("Ctrl+click") + " remove one  ") +
+        hud::change_strand(kHintStrandSecond, (get_primary() ? std::string() : get_key("Ctrl+click") + " remove one  ") +
                                   get_key("Ctrl+D") + " copy  " + get_key("Del") + " hide  " + get_key("Home") +
                                   " reset  " + get_key("Esc") + " deselect  " + get_key("F1") + " help");
     } else {
-        hud::change_strand(5, get_key("WASD") + " fly  " + get_key("QE") + " down / up  " + get_key("Shift") +
+        hud::change_strand(kHintStrandFirst, get_key("WASD") + " fly  " + get_key("QE") + " down / up  " + get_key("Shift") +
                                   " fast  " + get_key("RMB") + " look  " + get_key("Wheel") + " dolly");
-        hud::change_strand(6, get_key("Click") + " select  " + get_key("B") + " add  " + get_key("Ctrl+S") + " save  " +
+        hud::change_strand(kHintStrandSecond, get_key("Click") + " select  " + get_key("B") + " add  " + get_key("Ctrl+S") + " save  " +
                                   get_key("Ctrl+Z/Y") + " undo  " + get_key("F1") + " help");
     }
 }
@@ -3194,7 +3335,7 @@ const std::vector<PlaceEntry>& place_entries()
         entries.push_back(
             {.kind = Kind::kTeamSpawn, .team = t, .label = "Team spawn (" + colour + ")", .colour = nodes::team_colour(("_" + colour).c_str())});
     }
-    entries.push_back({.kind = Kind::kCrown, .team = Team::kRed, .label = "Crown", .colour = 0xFFFFC233});
+    entries.push_back({.kind = Kind::kCrown, .team = Team::kRed, .label = "Crown", .colour = kCrownColour});
     for (Team t : teams) {
         const std::string colour = node_create::get_team_name(t);
         entries.push_back({.kind = Kind::kFlagSet, .team = t, .label = "CTF Flag (" + colour + ")", .colour = nodes::team_colour(("_" + colour).c_str())});
@@ -3204,9 +3345,9 @@ const std::vector<PlaceEntry>& place_entries()
         entries.push_back(
             {.kind = Kind::kFlagSet, .team = t, .label = "Team Flag (" + colour + ")", .colour = nodes::team_colour(("_" + colour).c_str()), .lobby = true});
     }
-    entries.push_back({.kind = Kind::kLight, .team = Team::kRed, .label = "Level light", .colour = 0xFFFFE9A8});
-    entries.push_back({.kind = Kind::kSound, .team = Team::kRed, .label = "Sound Emitter", .colour = 0xFF4FD1C5});
-    entries.push_back({.kind = Kind::kProximityNode, .team = Team::kRed, .label = "Proximity Node", .colour = 0xFFF08A3C});
+    entries.push_back({.kind = Kind::kLight, .team = Team::kRed, .label = "Level light", .colour = kLightColour});
+    entries.push_back({.kind = Kind::kSound, .team = Team::kRed, .label = "Sound Emitter", .colour = kSoundColour});
+    entries.push_back({.kind = Kind::kProximityNode, .team = Team::kRed, .label = "Proximity Node", .colour = kProximityColour});
     return entries;
 }
 
@@ -3243,14 +3384,14 @@ void place_node(int entry, V3 at)
     const PlaceEntry& e = core::at(entries, entry);
     if (const char* why =
             e.lobby ? node_create::why_not_lobby_flag(e.team) : node_create::get_why_not(e.kind, e.team)) {
-        hud::get_message(why, 5.0);
+        hud::get_message(why, kMessageSeconds);
         return;
     }
     V3 ground{};
     if (ground_below(ground_ray_start(at, at.y, true), &ground))
         at = dropped_to(at, at.y, ground.y);
     if (e.kind == node_create::Kind::kLight)
-        at.y += 150.0f;
+        at.y += kPlaceRaise;
     std::string name = e.lobby ? node_create::lobby_flag_name(e.team) : node_create::pinned_node_name(e.kind, e.team);
     if (name.empty())
         name = node_create::fresh_name(node_create::name_stem(e.kind), node_create::name_taken);
@@ -3268,7 +3409,7 @@ void place_node(int entry, V3 at)
         step.added_at_.push_back(node_create::get_index_of(node_create::at_hand(), spec.name));
     }
     if (step.added.empty()) {
-        hud::get_message(message, 5.0);
+        hud::get_message(message, kMessageSeconds);
         return;
     }
     push_undo(step, "Place node");
@@ -3307,7 +3448,7 @@ void after_chain_change(const chains::State& before, uint32_t select, const std:
         drag_state().node_selected_ = false;
     }
     if (!message.empty())
-        hud::get_message(message, 5.0);
+        hud::get_message(message, kMessageSeconds);
     note_action("chains: %s", message.c_str());
 }
 
@@ -3355,7 +3496,7 @@ void set_links_from_inspector(uint32_t node, const std::string& text, bool home)
         if (!fields::parse(fields::Kind::kNames, text, &value, &error) ||
             !fields::valid_links(
                 value.list, node, [](uint32_t c) { return nodes::get_find(c) >= 0; }, fields::get_name_of, &error)) {
-            hud::get_message("Links: " + error, 5.0);
+            hud::get_message("Links: " + error, kMessageSeconds);
             return;
         }
         if (it != state.links.end()) {
@@ -3411,13 +3552,13 @@ void field_request(const ui::Request& request)
         std::string error;
         const bool removed = request.kind == ui::Request::Kind::kFieldRemove;
         if (!removed && !fields::parse(static_cast<fields::Kind>(request.value), request.text, &value, &error)) {
-            hud::get_message("Not set: " + error, 5.0);
+            hud::get_message("Not set: " + error, kMessageSeconds);
             return;
         }
         if (!request.label.empty())
             fields::remember(request.label);
         if (!fields::assign_value(node, request.id, value, removed, &error)) {
-            hud::get_message("Not set: " + error, 5.0);
+            hud::get_message("Not set: " + error, kMessageSeconds);
             return;
         }
         step.fields.push_back({.node = node, .key = request.id, .own = before});
@@ -3429,7 +3570,7 @@ void field_request(const ui::Request& request)
     }
     if (!step.fields.empty()) {
         push_undo(step, message.c_str());
-        hud::get_message(message, 4.0);
+        hud::get_message(message, kShortMessageSeconds);
         note_action("inspector: %s - %s.%s", message.c_str(), object_edit::caption(node).c_str(),
                     fields::get_name_text(request.id, fields::get_name_of).c_str());
     }
@@ -3488,7 +3629,7 @@ bool place_entity(int entry, V3 at)
         return false;
     const entities::PaletteEntry& e = core::at(entities::get_palette(), index);
     if (!e.why.empty()) {
-        hud::get_message(e.why, 5.0);
+        hud::get_message(e.why, kMessageSeconds);
         return true;
     }
     V3 ground{};
@@ -3502,7 +3643,7 @@ bool place_entity(int entry, V3 at)
             node_create::default_spec(node_create::Kind::kSound, node_create::Team::kRed, at, level_editor_state().yaw_, name);
         std::string message;
         if (!node_create::fabricate(spec, -1, &message)) {
-            hud::get_message(message, 5.0);
+            hud::get_message(message, kMessageSeconds);
             return true;
         }
         entities::attach_sound({.emitter = node_create::name_hash(name), .sound = placed.sound});
@@ -3522,7 +3663,7 @@ bool place_entity(int entry, V3 at)
         return true;
     }
     if (placed.copies.empty()) {
-        hud::get_message(placed.message.empty() ? std::string("Could not place") : placed.message, 5.0);
+        hud::get_message(placed.message.empty() ? std::string("Could not place") : placed.message, kMessageSeconds);
         return true;
     }
     UndoStep step;
@@ -3674,7 +3815,7 @@ void unlink_list_node(bool confirmed)
     }
     const char* why = nullptr;
     if (!node_create::can_hide(node, &why)) {
-        hud::get_message(why ? why : "Can't be hidden", 5.0);
+        hud::get_message(why ? why : "Can't be hidden", kMessageSeconds);
         return;
     }
     if (ui::underway() && !confirmed) {
@@ -3731,14 +3872,14 @@ void move_selected_crown(int delta)
     const uint32_t name = node.name;
     const nodes::Family family = node.family;
     if (!node_create::move_crown(checksums::Name{name}, delta, &message)) {
-        hud::get_message(message, 5.0);
+        hud::get_message(message, kMessageSeconds);
         return;
     }
     push_undo(step, "Crown order");
     const int now = nodes::get_find(name);
     if (now >= 0) {
         select_node_only(now);
-        std::array<char, 96> text{};
+        std::array<char, kCaptionTextSize> text{};
         text::format_to(text, "Now crown #%d", core::at(nodes::get_all(), now).order);
         hud::get_message(text.data());
     }
@@ -3809,7 +3950,7 @@ std::vector<std::pair<std::string, std::string>> keys_now()
     c.pad = ux8::pad_mode() && ux8::pad_owns_cursor();
     c.simulating = play_test::get_simulating();
     if (c.mods)
-        c.modded = hints::modifier_hints(actions::get_all(), {.mods = c.mods, .limit = 9});
+        c.modded = hints::modifier_hints(actions::get_all(), {.mods = c.mods, .limit = kModifierHintLimit});
     std::vector<std::pair<std::string, std::string>> out;
     for (const hints::Hint& h :
          hints::get_build(c, [](const char* id) { return actions::get_keys_text(actions::get_find(id)); }))
@@ -3944,7 +4085,7 @@ ui::ShapeMesh assemble_model()
         s.scale = scale_tool::get_object_scale(object);
         s.has_heading_ = true;
         s.heading_degrees_ =
-            static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
+            static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * kHalfTurnDegrees / kPi);
     } else if (scenery::has_selection()) {
         s.sectors = static_cast<int>(scenery::get_selection().size());
         s.kind = s.sectors > 1 ? "Scenery group" : "Scenery";
@@ -3961,7 +4102,7 @@ ui::ShapeMesh assemble_model()
                 member.shadow = scenery::is_shadow(checksum);
                 OrientedBox box{};
                 if (scenery::cuboid(checksum, &box)) {
-                    std::array<char, 48> size{};
+                    std::array<char, kSizeTextSize> size{};
                     const V3 extent = box_size(box);
                     text::format_to(size, "%.0f x %.0f x %.0f", extent.x, extent.y, extent.z);
                     member.size = size.data();
@@ -4064,10 +4205,10 @@ ui::ShapeMesh assemble_model()
             model.place.entries.push_back({.label = e.label, .colour = e.colour, .why = why ? why : ""});
         }
         // (phase 4: chains drawn point by point - level_editor_chains.h)
-        model.place.entries.push_back({.label = "Rail", .colour = 0xFF7FB2D9, .why = ""});
-        model.place.entries.push_back({.label = "Path", .colour = 0xFF8FD18F, .why = ""});
-        model.place.entries.push_back({.label = "Ladder", .colour = 0xFFC88FD9, .why = ""});
-        model.place.entries.push_back({.label = "Ledge", .colour = 0xFFB98CFF, .why = ""});
+        model.place.entries.push_back({.label = "Rail", .colour = kRailColour, .why = ""});
+        model.place.entries.push_back({.label = "Path", .colour = kPathColour, .why = ""});
+        model.place.entries.push_back({.label = "Ladder", .colour = kLadderColour, .why = ""});
+        model.place.entries.push_back({.label = "Ledge", .colour = kLedgeColour, .why = ""});
         // (peds, cars, bouncy sets, particle systems, sound emitters - level_editor_entities.h; place_entity)
         for (const entities::PaletteEntry& e : entities::get_palette())
             model.place.entries.push_back({.label = e.label, .colour = e.colour, .why = e.why});
@@ -4130,7 +4271,7 @@ void show_help()
         "Triggers     T: kill zones, teleports, gaps - shown and added with the UI only",
         "Camera       P writes where the camera is to the log (position, back, up)",
     };
-    hud::show_panel(lines, 96.0f, 104.0f, 448.0f);
+    hud::show_panel(lines, kHelpPanelX, kHelpPanelY, kHelpPanelWidth);
 }
 
 // --- the browser (B): the level's pieces and objects, a copy placed where the cursor points ---
@@ -4141,7 +4282,7 @@ void fill_browser()
     if (stored_browser().tab == 0) {
         for (const uint32_t checksum : scenery::movable_pieces()) {
             OrientedBox box{};
-            std::array<char, 48> size = {""};
+            std::array<char, kSizeTextSize> size = {""};
             if (scenery::cuboid(checksum, &box))
                 text::format_to(size, "  %.0f x %.0f x %.0f", box.max.x - box.min.x, box.max.y - box.min.y,
                                 box.max.z - box.min.z);
@@ -4160,7 +4301,7 @@ void fill_browser()
 void show_browser()
 {
     std::vector<std::string> lines;
-    std::array<char, 96> title{};
+    std::array<char, kCaptionTextSize> title{};
     text::format_to(title, "ADD   %s / %s   (%d)", stored_browser().tab == 0 ? "SCENERY" : "scenery",
                     stored_browser().tab == 1 ? "OBJECTS" : "objects", static_cast<int>(stored_browser().items.size()));
     lines.emplace_back(title.data());
@@ -4180,7 +4321,7 @@ void show_browser()
         const std::string label = core::at(stored_browser().items, i).label.substr(0, 40);
         lines.push_back(i == stored_browser().index ? get_key(("> " + label).c_str()) : "  " + label);
     }
-    hud::show_panel(lines, 380.0f, 34.0f, 254.0f);
+    hud::show_panel(lines, kBrowserPanelX, kBrowserPanelY, kBrowserPanelWidth);
 }
 
 // Where the cursor points: the ground below the point its ray first meets the level (a wall: the floor at its foot;
@@ -4193,7 +4334,7 @@ V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame)
         const V3 back = hit - ray * 5.0f + V3{.x = 0.0f, .y = 5.0f, .z = 0.0f};
         return ground_below(back, &ground) ? ground : hit;
     }
-    V3 ahead = level_editor_state().pos_ + ray * 600.0f;
+    V3 ahead = level_editor_state().pos_ + ray * kRayReach;
     if (ground_below(ahead, &hit))
         return hit;
     return ahead;
@@ -4337,7 +4478,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
             if (repeat->quarters)
                 scenery::get_turn(repeat->quarters);
         } else {
-            scenery::move_to(scenery::get_pivot() + right * (width + 20.0f));
+            scenery::move_to(scenery::get_pivot() + right * (width + kPasteGap));
         }
         scenery::finalise();
         step.sectors = copies;
@@ -4394,20 +4535,20 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
         return false;
     }
     if (const char* why = node_create::get_why_not(kind, node_create::Team::kRed)) {
-        hud::get_message(why, 5.0);
+        hud::get_message(why, kMessageSeconds);
         return false;
     }
     node_create::Spec spec = core::at(list, at);
     const V3 right = make_unit({.x = frame.right.x, .y = 0.0f, .z = frame.right.z});
     spec.name = node_create::fresh_name(node_create::name_stem(kind), node_create::name_taken);
-    spec.pos = repeat ? xform::repeat_target(values.pos, *repeat) : values.pos + right * 64.0f;
+    spec.pos = repeat ? xform::repeat_target(values.pos, *repeat) : values.pos + right * kRepeatOffset;
     spec.angles = values.angles;
     if (repeat && repeat->turn != 0.0f)
         spec.angles = node_edit::with_heading(spec.angles, node_edit::get_heading_degrees(spec.angles) +
                                                                repeat->turn * kDegreesPerHalfTurn / kPi);
     std::string message;
     if (!node_create::fabricate(spec, -1, &message)) {
-        hud::get_message(message, 5.0);
+        hud::get_message(message, kMessageSeconds);
         return false;
     }
     UndoStep step;
@@ -4448,7 +4589,7 @@ void repeat_duplicate(const TickCycle& frame)
     }
     xform::RepeatStep repeat;
     if (!xform::repeat_for(xform::last_duplicate(), kind, ids, selection_pos(), selection_heading(), &repeat)) {
-        hud::get_message("Nothing to repeat: duplicate first (Ctrl+D)", 4.0);
+        hud::get_message("Nothing to repeat: duplicate first (Ctrl+D)", kShortMessageSeconds);
         return;
     }
     get_duplicate(frame, &repeat);
@@ -4488,7 +4629,7 @@ void switch_scenery_collision(bool off)
     if (!changed)
         return;
     push_undo(step, "Collision on / off");
-    std::array<char, 160> text{};
+    std::array<char, kStatusTextSize> text{};
     text::format_to(text, "Collision %s (%d piece%s)", off ? "off" : "on", changed, changed == 1 ? "" : "s");
     hud::get_message(text.data());
     note_action("scenery collision %s (%d pieces)", off ? "off" : "on", changed);
@@ -4629,8 +4770,8 @@ nodes::Occluder gizmo_occluder(const TickCycle& frame, V3 dir, const scenery::Hi
         return occluder;
     occluder.blocked = true;
     occluder.depth = hit.block_t_ * -get_dot(make_unit(dir), frame.back);
-    occluder.units_per_pixel_ = core::at(level_editor_state().viewport_, 2) > 0 ? 2.0f * level_editor_state().lens_.tan_x_ / static_cast<float>(core::at(level_editor_state().viewport_, 2)) : 0.0f;
-    occluder.pixels = 8.0f * pixel_scale();
+    occluder.units_per_pixel_ = core::at(level_editor_state().viewport_, 2) > 0 ? kScreenSpanFactor * level_editor_state().lens_.tan_x_ / static_cast<float>(core::at(level_editor_state().viewport_, 2)) : 0.0f;
+    occluder.pixels = kOccluderPixels * pixel_scale();
     return occluder;
 }
 
@@ -4640,7 +4781,7 @@ float trigger_reach(V3 dir)
 {
     scenery::Hit hit;
     scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &hit);
-    return hit.blocked ? hit.block_t_ + picking::kGizmoSlack : 1e30f;
+    return hit.blocked ? hit.block_t_ + picking::kGizmoSlack : kFarDistanceF;
 }
 
 // Click-to-cycle (level_editor_picking.h): a plain click on the last click's spot (within 4 pixels at 720 lines), the
@@ -4650,7 +4791,7 @@ bool cycle_holds(float x, float y, bool shift, bool everything)
 {
     const V3 moved = level_editor_state().pos_ - pick_cycle().cycle_.pos;
     return pick_cycle().cycle_.have && !shift && !everything && pick_cycle().cycle_.index >= 0 && pick_cycle().cycle_.order.size() > 1 &&
-           picking::same_spot(x, y, pick_cycle().cycle_.x, pick_cycle().cycle_.y, 4.0f * pixel_scale()) && get_dot(moved, moved) < 1.0f &&
+           picking::same_spot(x, y, pick_cycle().cycle_.x, pick_cycle().cycle_.y, kClickSlopPixels * pixel_scale()) && get_dot(moved, moved) < 1.0f &&
            pick_cycle().cycle_.changes == level_editor_state().changes_ && pick_cycle().cycle_.filter == drag_state().pick_filter_;
 }
 
@@ -4688,9 +4829,9 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
                             : -1;
     }
     if (pick_cycle().cycle_.index >= 0 && pick_cycle().cycle_.order.size() > 1) {
-        std::array<char, 64> text{};
+        std::array<char, kPickTextSize> text{};
         text::format_to(text, "%d of %d under cursor", pick_cycle().cycle_.index + 1, static_cast<int>(pick_cycle().cycle_.order.size()));
-        hud::get_message(text.data(), 2.5);
+        hud::get_message(text.data(), kCountMessageSeconds);
     }
 }
 
@@ -4754,7 +4895,7 @@ void view_hide(bool isolate)
     if (!isolate)
         unpick();
     note_action("view: %s (%d hidden)", isolate ? "isolated" : "hid", count);
-    std::array<char, 128> text{};
+    std::array<char, kMessageTextSize> text{};
     text::format_to(text, "%s %d in editor", isolate ? "Isolated: hid" : "Hid", count);
     hud::get_message(text.data());
 }
@@ -4787,7 +4928,7 @@ void toggle_lock()
     const std::vector<picking::Lock> locks = selection_locks();
     if (locks.empty() && !drag_state().node_selected_ && !picking::get_locks().empty()) {
         // (nothing selected: every lock dropped - the old HUD has no Inspector to unlock one)
-        std::array<char, 64> text{};
+        std::array<char, kPickTextSize> text{};
         text::format_to(text, "Unlocked %d", static_cast<int>(picking::get_locks().size()));
         push_locks_undo(); // (one undo step - unsaved with it)
         picking::clear_locks();
@@ -4842,9 +4983,9 @@ bool get_repeated(platform::KeyState keys, SDL_Scancode key, uint32_t* since)
         *since = now;
         return true;
     }
-    if (now - *since < 400)
+    if (now - *since < kKeyRepeatDelay)
         return false;
-    *since = now - 400 + 83;
+    *since = now - kKeyRepeatDelay + kKeyRepeatStep;
     return true;
 }
 
@@ -4921,7 +5062,7 @@ void go_to_node(int index)
     if (index < 0 || std::cmp_greater_equal(index, nodes.size()) || !core::at(nodes, index).has_pos_)
         return;
     if (!have_selection())
-        get_look_at(core::at(nodes, index).pos, core::at(nodes, index).family == nodes::Family::kRail ? 500.0f : 400.0f);
+        get_look_at(core::at(nodes, index).pos, core::at(nodes, index).family == nodes::Family::kRail ? kRailLookDistance : kLookDistance);
 }
 
 // G: down onto the ground below it (the collision ray from just under the scenery's bottom - not to hit itself - or
@@ -4950,7 +5091,7 @@ void save_layout()
         level_editor_state().unsaved_ = false;
         level_editor_state().offer_pending_ = false; // (the autosave is gone with the save)
     }
-    hud::get_message(message, 4.0);
+    hud::get_message(message, kShortMessageSeconds);
     note_action("saved (Ctrl+S)");
 }
 
@@ -4971,7 +5112,7 @@ void answer_autosave(bool discard)
         note_action("restored the autosave (Ctrl+R)");
     }
     level_editor_state().offer_pending_ = false;
-    hud::get_message(message, 4.0);
+    hud::get_message(message, kShortMessageSeconds);
 }
 
 // Reset level: everything in the level put back as the level has it and its edited copy's files deleted
@@ -4986,7 +5127,7 @@ void reset_level_now()
     std::string message;
     pick_cycle().confirm_reset_ = false;
     if (!layout::reset_level({.before = &step.layout, .message = &message})) {
-        hud::get_message(message, 4.0);
+        hud::get_message(message, kShortMessageSeconds);
         return;
     }
     undo_steps().undo_.clear();
@@ -4995,7 +5136,7 @@ void reset_level_now()
     level_editor_state().unsaved_ = false; // (nothing to save: the level as shipped, no layout)
     level_editor_state().offer_pending_ = false;
     note_action("reset the level");
-    hud::get_message(message, 6.0);
+    hud::get_message(message, kLongMessageSeconds);
 }
 
 // Ctrl+Shift+Delete / the toolbar: the UI asks in a window; the old HUD asks for the keys again within 5 seconds.
@@ -5006,13 +5147,13 @@ void ask_reset_level()
         return;
     }
     const uint32_t now = SDL_GetTicks();
-    if (pick_cycle().reset_asked_at_ && now - pick_cycle().reset_asked_at_ < 5000) {
+    if (pick_cycle().reset_asked_at_ && now - pick_cycle().reset_asked_at_ < kResetConfirmMilliseconds) {
         pick_cycle().reset_asked_at_ = 0;
         reset_level_now();
         return;
     }
     pick_cycle().reset_asked_at_ = now;
-    hud::get_message("Reset level? Press Ctrl+Shift+Delete again to confirm", 5.0);
+    hud::get_message("Reset level? Press Ctrl+Shift+Delete again to confirm", kMessageSeconds);
 }
 
 void toggle_help()
@@ -5047,9 +5188,9 @@ void focus_browser_item()
     if (stored_browser().tab == 0 && scenery::cuboid(id, &box)) {
         V3 a{}, b{};
         bounds_of(box, &a, &b);
-        get_look_at((a + b) * kHalf, std::max(300.0f, std::sqrt(get_dot(b - a, b - a)) * 1.5f));
+        get_look_at((a + b) * kHalf, std::max(kMinLookDistance, std::sqrt(get_dot(b - a, b - a)) * kLookMargin));
     } else if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id))) {
-        get_look_at(object_edit::current_centre(object), 300.0f);
+        get_look_at(object_edit::current_centre(object), kMinLookDistance);
     }
 }
 
@@ -5058,15 +5199,15 @@ void go_to_selection()
 {
     if (!have_selection())
         return;
-    float distance = 300.0f;
+    float distance = kMinLookDistance;
     OrientedBox box{};
     if (objects::GameEntity* object = get_primary()) {
         if (object_edit::model_box(object, &box))
-            distance = std::max(200.0f, std::sqrt(get_dot(box.max - box.min, box.max - box.min)) * 1.5f);
+            distance = std::max(kMinBoxLookDistance, std::sqrt(get_dot(box.max - box.min, box.max - box.min)) * kLookMargin);
     } else if (!scenery::get_selection().empty() && scenery::cuboid(scenery::get_selection().front(), &box)) {
         V3 a{}, b{};
         bounds_of(box, &a, &b);
-        distance = std::max(300.0f, std::sqrt(get_dot(b - a, b - a)) * 1.5f);
+        distance = std::max(kMinLookDistance, std::sqrt(get_dot(b - a, b - a)) * kLookMargin);
     }
     get_look_at(target_of(), std::min(distance, kMaxOrbit));
     focus_on_selection();
@@ -5081,7 +5222,7 @@ float selection_radius()
     if (objects::GameEntity* object = get_primary()) {
         if (object_edit::model_box(object, &box)) {
             const V3 size = box_size(box);
-            return std::max(50.0f, kHalf * std::sqrt(get_dot(size, size)));
+            return std::max(kMinFrameRadius, kHalf * std::sqrt(get_dot(size, size)));
         }
     } else if (!scenery::get_selection().empty()) {
         V3 lo = {}, hi = {};
@@ -5095,7 +5236,7 @@ float selection_radius()
             have = true;
         }
         if (have)
-            return std::max(50.0f, kHalf * std::sqrt(get_dot(hi - lo, hi - lo)));
+            return std::max(kMinFrameRadius, kHalf * std::sqrt(get_dot(hi - lo, hi - lo)));
     }
     return 100.0f;
 }
@@ -5390,7 +5531,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
                 // (a rail / a path: drawn point by point - each click a point, Enter finishes)
                 chains::start_drawing(chain_kind_of(pick_cycle().place_armed_));
-                hud::get_message(chains::get_waiting(), 6.0);
+                hud::get_message(chains::get_waiting(), kLongMessageSeconds);
             }
             break;
         case ui::Request::Kind::kChainOp:
@@ -5522,15 +5663,15 @@ void drill_through(int steps, maths::Vec2 point, V3 dir)
     if (count < 2) {
         pick_cycle().cycle_.have = false;
         stored_drilled() = false;
-        hud::get_message(count ? "Only one item under cursor" : "Nothing under cursor", 1.5);
+        hud::get_message(count ? "Only one item under cursor" : "Nothing under cursor", kBriefSeconds);
         return;
     }
     const int at = nav::drill_index(shown, steps, count);
     pick_cycle().cycle_.index = nav::cycle_index_showing(at, count);
     stored_drilled() = true;
-    std::array<char, 96> text{};
+    std::array<char, kCaptionTextSize> text{};
     text::format_to(text, "%d of %d under cursor", at + 1, count);
-    hud::get_message(text.data(), 2.0);
+    hud::get_message(text.data(), kPairSeconds);
 }
 
 // Click-to-teleport: the camera glides to the surface under the cursor (nav::teleport_target), looking the same way.
@@ -5643,7 +5784,7 @@ void transform_keys(platform::KeyState keys, bool ctrl, bool shift, bool alt, co
         begin_change();
         start_drag(level_editor_state().pos_, dir, false, frame, input.x, input.y);
         hud::get_message(std::string(xform::mode_name(drag_state().drag_mode_)) + ": X/Y/Z constrain, type a value, Enter applies",
-                         4.0);
+                         kShortMessageSeconds);
     }
 }
 
@@ -5675,20 +5816,20 @@ void tick_frame()
     if (level_editor_state().unsaved_ && level_editor_state().changes_ != level_editor_state().snapshot_changes_ && layout::get_snapshot())
         level_editor_state().snapshot_changes_ = level_editor_state().changes_;
     if (level_editor_state().unsaved_ && SDL_GetTicks() - level_editor_state().last_autosave_ >=
-                         static_cast<uint32_t>(prefs::get_pull().autosave_seconds_) * 1000u) { // ([editor] autosave_s)
+                         static_cast<uint32_t>(prefs::get_pull().autosave_seconds_) * kMillisecondsPerSecond) { // ([editor] autosave_s)
         level_editor_state().last_autosave_ = SDL_GetTicks();
         layout::write_autosave();
     }
     if (level_editor_state().offer_show_) {
         level_editor_state().offer_show_ = false;
-        hud::get_message("Autosave found: Ctrl+R restores, Ctrl+Shift+R discards", 20.0);
+        hud::get_message("Autosave found: Ctrl+R restores, Ctrl+Shift+R discards", kAutosaveNoticeSeconds);
     }
     const uint64_t now = SDL_GetPerformanceCounter();
     double seconds =
         level_editor_state().last_counter_ ? static_cast<double>(now - level_editor_state().last_counter_) / static_cast<double>(SDL_GetPerformanceFrequency())
                        : 0.0;
     level_editor_state().last_counter_ = now;
-    seconds = std::min(seconds, 0.1);
+    seconds = std::min(seconds, kMaxFrameSeconds);
     Mouse input = stored_mouse();
     stored_mouse().rel_x_ = stored_mouse().rel_y_ = 0.0f;
     stored_mouse().wheel = 0;
@@ -6064,7 +6205,7 @@ void tick_frame()
         // (UX8: the left stick flies, the triggers down / up - with a selection the camera leaves it, as the right
         // button's flying does; F frames it again)
         const V3 move = frame.back * -pad.move_y_ + frame.right * pad.move_x_ + V3{.x = 0.0f, .y = pad.up_down_, .z = 0.0f};
-        level_editor_state().pos_ = level_editor_state().pos_ + move * static_cast<float>(level_editor_state().speed_ * (pad.fast ? 4.0 : 1.0) * seconds);
+        level_editor_state().pos_ = level_editor_state().pos_ + move * static_cast<float>(level_editor_state().speed_ * (pad.fast ? kFastFlyFactor : 1.0) * seconds);
         if (have_selection())
             drag_state().free_camera_ = true;
         if (drag_state().dragging_ && pad_cursor)
@@ -6260,13 +6401,13 @@ void tick_frame()
         if (input.wheel && drag_state().dragging_) {
             const V3 pos = selection_pos();
             drag_state().drag_push_ +=
-                static_cast<float>(input.wheel) * std::max(20.0f, std::sqrt(get_dot(pos - level_editor_state().pos_, pos - level_editor_state().pos_)) * 0.1f);
+                static_cast<float>(input.wheel) * std::max(kMinWheelStep, std::sqrt(get_dot(pos - level_editor_state().pos_, pos - level_editor_state().pos_)) * kWheelStepFraction);
         } else if (input.wheel && drag_state().free_camera_) {
             level_editor_state().pos_ = level_editor_state().pos_ - frame.back * static_cast<float>(kWheelStep * boost * input.wheel);
         } else if (input.wheel) {
             level_editor_state().orbit_distance_ = static_cast<float>(
                 std::max(static_cast<double>(kMinOrbit),
-                         std::min(static_cast<double>(kMaxOrbit), level_editor_state().orbit_distance_ * std::pow(0.85, input.wheel))));
+                         std::min(static_cast<double>(kMaxOrbit), level_editor_state().orbit_distance_ * std::pow(kWheelZoomStep, input.wheel))));
         }
         // The camera at that distance from it (held still while the mouse drags it or a trigger's face).
         if (!drag_state().dragging_ && !triggers::resizing() && !drag_state().free_camera_)
@@ -6292,7 +6433,7 @@ void tick_frame()
         }
         const int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
         if (speed)
-            level_editor_state().speed_ = static_cast<float>(std::max(50.0, std::min(20000.0, level_editor_state().speed_ * std::pow(1.5, speed))));
+            level_editor_state().speed_ = static_cast<float>(std::max(kMinFlySpeed, std::min(kMaxFlySpeed, level_editor_state().speed_ * std::pow(kSpeedStepFactor, speed))));
     }
     {
         // (UX8: the follow camera, Shift+F - the camera moved as the selection moves, keeping its offset even after
@@ -6315,7 +6456,7 @@ void tick_frame()
 
     // ([features] debug_editor: once a second, what the mouse is seen as)
     static int g_debug_frames = 0;
-    if (debug_enabled() && ++g_debug_frames % 60 == 0)
+    if (debug_enabled() && ++g_debug_frames % kDebugLogFrames == 0)
         get_log("level editor: mouse (%.0f, %.0f) in %dx%d, ray %d (%.3f, %.3f, %.3f), arrow %d", input.x, input.y,
                 input.window_width_, input.window_height_, have_ray ? 1 : 0, dir.x, dir.y, dir.z, drag_state().hover_axis_);
 
@@ -6335,7 +6476,7 @@ void tick_frame()
     ux9::get_hover(level_editor_state().pos_, make_unit(dir), back_x, back_y, have_ray && !drag_state().dragging_); // (UX9: the tools' next pick)
     // Dragging, or what's under the cursor (an arrow first, then an object or scenery - the nearer).
     if (drag_state().dragging_ && have_selection() && have_ray) {
-        if (!drag_state().drag_moved_ && (drag_state().modal_ || std::fabs(input.x - drag_state().press_x_) + std::fabs(input.y - drag_state().press_y_) >= 4.0f))
+        if (!drag_state().drag_moved_ && (drag_state().modal_ || std::fabs(input.x - drag_state().press_x_) + std::fabs(input.y - drag_state().press_y_) >= kDragStartPixels))
             drag_state().drag_moved_ = true;
         // (an axis typed - X / Y / Z, level_editor_transform.h: a move starts again from where it began, along it)
         if (drag_state().typed_.axis_changed_) {
@@ -6367,7 +6508,7 @@ void tick_frame()
         // (a selected trigger volume's resize handle - after the arrows: level_editor_triggers.h)
         if (!triggers::resizing())
             drag_state().hover_handle_ = have_ray && drag_state().hover_axis_ < 0 && ui::underway()
-                                 ? triggers::handle_at({.x = back_x, .y = back_y}, 8.0f * pixel_scale())
+                                 ? triggers::handle_at({.x = back_x, .y = back_y}, kHandlePickPixels * pixel_scale())
                                  : -1;
         triggers::set_hover_handle(drag_state().hover_handle_);
         objects::GameEntity* hover = nullptr;
@@ -6397,7 +6538,7 @@ void tick_frame()
             scenery::Hit hit;
             scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &hit);
             // (a gizmo behind the first occluding surface under the cursor isn't taken by a plain click)
-            c.node = ui::underway() ? nodes::pick_nearest(pick_cycle().pickables_, {.x = back_x, .y = back_y}, 8.0f * pixel_scale(),
+            c.node = ui::underway() ? nodes::pick_nearest(pick_cycle().pickables_, {.x = back_x, .y = back_y}, kHandlePickPixels * pixel_scale(),
                                                           gizmo_occluder(frame, dir, hit, everything))
                                     : -1;
             float object_t = kMaxPickDistance;
@@ -6473,7 +6614,7 @@ void tick_frame()
                                 drag_state().hover_handle_ >= 0 && !triggers::resizing() &&
                                 triggers::begin_resize(drag_state().hover_handle_, level_editor_state().pos_, dir);
     if (handle_pressed) {
-        hud::get_message("Resize: drag the face (Ctrl: snap)", 3.0);
+        hud::get_message("Resize: drag the face (Ctrl: snap)", kResizeHintSeconds);
     } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && drag_state().hover_axis_ < 0 && ux9::occupied() &&
                ux9::get_click(level_editor_state().pos_, make_unit(dir), back_x, back_y)) {
         // (UX9: the gap wizard's / the ground tool's pick - level_editor_ux9.h)
@@ -6487,7 +6628,7 @@ void tick_frame()
         // (the Add palette open with Click places: its piece where the ghost showed it - level_editor_arrange.h)
     } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && ruler::get_armed() && drag_state().hover_axis_ < 0) {
         // (the ruler armed: a click puts an end - level_editor_ruler.h)
-        hud::get_message(ruler::get_click(), 6.0);
+        hud::get_message(ruler::get_click(), kLongMessageSeconds);
     } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && faces::get_picking() && drag_state().hover_axis_ < 0) {
         // (map3: Faces mode - the collision face clicked, Shift adds / drops it: level_editor_faces.h)
         faces::click_at(level_editor_state().pos_, make_unit(dir), shift);
@@ -6664,7 +6805,7 @@ void blit()
     // its one piece with Alt)
     if (!hover_tinted() || ui::underway()) {
         if (hover && !is_picked(hover) && object_edit::model_box(hover, &box)) {
-            add_box(box, frame, 0xFFFFFF00, &lines);
+            add_box(box, frame, kGroupBoxColour, &lines);
         } else if (!drag_state().dragging_ && drag_state().hover_sector_ && !scenery::get_selected(drag_state().hover_sector_)) {
             const platform::KeyState keys = platform::keyboard_keys();
             const bool one =
@@ -6672,27 +6813,27 @@ void blit()
             const std::vector<uint32_t>& group = scenery::hover_group(drag_state().hover_sector_);
             if (one || group.empty()) {
                 if (scenery::cuboid(drag_state().hover_sector_, &box))
-                    add_box(box, frame, 0xFFFFFF00, &lines);
+                    add_box(box, frame, kGroupBoxColour, &lines);
             } else {
-                for (size_t i = 0; i < group.size() && i < 64; ++i)
+                for (size_t i = 0; i < group.size() && i < kMaxBoxesDrawn; ++i)
                     if (scenery::cuboid(core::at(group, i), &box))
-                        add_box(box, frame, 0xFFFFFF00, &lines);
+                        add_box(box, frame, kGroupBoxColour, &lines);
             }
         }
     }
     if (!selected_tinted()) {
         for (objects::GameEntity* object : objects) {
             if (object_edit::model_box(object, &box))
-                add_box(box, frame, 0xFF00FFFF, &lines);
+                add_box(box, frame, kMemberBoxColour, &lines);
         }
-        for (size_t i = 0; objects.empty() && i < scenery::get_selection().size() && i < 64; ++i) {
+        for (size_t i = 0; objects.empty() && i < scenery::get_selection().size() && i < kMaxBoxesDrawn; ++i) {
             if (scenery::cuboid(core::at(scenery::get_selection(), i), &box))
-                add_box(box, frame, 0xFF00FFFF, &lines);
+                add_box(box, frame, kMemberBoxColour, &lines);
         }
     }
     if (objects.empty()) {
         for (const auto& segment : scenery::selected_rails())
-            add_line(segment.first, segment.second, frame, 0xFF40E0FF, &lines);
+            add_line(segment.first, segment.second, frame, kSegmentColour, &lines);
     }
     // The ground marker: a line from the selection's base down (or up) to the ground below it, and a cross there.
     if (drag_state().have_mark_ && have_selection()) {
@@ -6776,7 +6917,7 @@ void blit()
     const LineVertex* line_data = lines.data();
     // The renderer's own (cached) state: no texture, pre-transformed vertices with a colour.
     render::set_texture(0, nullptr);
-    render::set_vertex_format(0x144);           // XYZRHW | DIFFUSE | TEX1
+    render::set_vertex_format(kVertexFormatScreen);           // XYZRHW | DIFFUSE | TEX1
     render::set_pixel_shader(nullptr, nullptr); // no pixel shader
     // Stage 0 takes the vertex colour (put back after: the renderer doesn't know of this).
     const std::array<int, 4> states = {{1, 2, 4, 5}};      // colour op / arg 1, alpha op / arg 1
@@ -6798,7 +6939,7 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
     if (!level_editor_state().active_)
         return out;
     const ui::ShapeMesh model = assemble_model();
-    std::array<char, 160> text{};
+    std::array<char, kStatusTextSize> text{};
     out.emplace_back("mode", std::string(model.mode ? model.mode : "") +
                                  (ui::underway() ? " (Dear ImGui panels)" : " (old HUD)"));
     out.emplace_back("level", model.level);
@@ -7115,7 +7256,7 @@ void look_from(V3 pos, YawPitch view)
     drag_state().dragging_ = false;
     level_editor_state().pos_ = pos;
     level_editor_state().yaw_ = yaw;
-    level_editor_state().pitch_ = std::clamp(pitch, -89.0f * kPi / kDegreesPerHalfTurn, 89.0f * kPi / kDegreesPerHalfTurn);
+    level_editor_state().pitch_ = std::clamp(pitch, -kMaxPitchDegrees * kPi / kDegreesPerHalfTurn, kMaxPitchDegrees * kPi / kDegreesPerHalfTurn);
 }
 
 // (UX5 - level_editor_modules.h) the Problems window's and the notes' Go to.

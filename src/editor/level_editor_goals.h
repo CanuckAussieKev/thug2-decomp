@@ -130,6 +130,39 @@ std::string point_suffix(KindTag type, int index);
 // The default height of a point above its node (letters: GoalEditor_ObjectHeight, 27; others 0).
 float starting_height(KindTag type, int index);
 
+constexpr int kMinTimeLimit = 15;        // seconds: a goal's time limit range
+constexpr int kMaxTimeLimit = 3600;
+constexpr int kDefaultTimeLimit = 120;
+constexpr int kMinHighScore = 1000;       // HighScore / HighCombo targets
+constexpr int kMaxHighScore = 10000000;
+constexpr int kDefaultScore = 100;
+constexpr int kMaxLaps = 10;
+constexpr int kMaxCheckpointTime = 60;    // seconds a race checkpoint adds (0: off)
+constexpr int kDefaultSpin = 360;         // degrees
+constexpr int kMaxSpin = 900;
+constexpr int kSpinStep = 180;            // the spin is a whole number of half turns
+constexpr int kDefaultAccelInterval = 5;
+constexpr int kMaxAccelInterval = 10;
+constexpr float kDefaultAccelPercent = 0.1f;
+constexpr float kMinAccelPercent = 0.01f;
+constexpr int kDefaultComboTime = 3000;   // milliseconds
+constexpr int kMinComboTime = 5;
+constexpr int kMaxComboTime = 3000;
+constexpr int kDefaultStopAt = 5;         // seconds before the end when no more tricks are added
+constexpr int kMinStopAt = 5;          // the earliest stop, in seconds
+constexpr int kStopAtMargin = 5;          // the latest stop is this many seconds before the end
+constexpr int kDefaultMaxTricks = 11;
+constexpr int kMaxTrickCount = 15;        // the most tricks, combo length or block size
+constexpr int kDefaultToWin = 8;
+constexpr int kMaxToWin = 1000;
+constexpr std::size_t kMaxGaps = 10;      // gaps a Gap goal lists at most
+constexpr float kLetterHeight = 27.0f;    // GoalEditor_ObjectHeight: the default height of a letter
+constexpr int kSkatePointCount = 7;       // the pro, the start and the five letters
+constexpr int kRaceMaxPointCount = 12;
+constexpr int kComboSetCount = 8;         // key combo sets to choose from
+constexpr int kHighScoreTarget = 15000;   // a new HighScore goal's score
+constexpr int kHighComboTarget = 10000;   // a new HighCombo goal's score
+
 struct Point {
     V3 pos = {};          // its node's place (on the ground)
     float heading = 0.0f; // its node's Angles y: the way the pro / the skater faces
@@ -141,23 +174,23 @@ struct Goal {
     std::string id; // ed_goalNN: its points' nodes are <id>_<suffix>
     KindTag type = KindTag::kSkate;
     std::string name, ped, text, win;   // view_goals_text, ped_name, goal_description, win_message
-    int time = 120;                     // time_limit (15..3600)
-    int score = 100;                    // score (HighScore / HighCombo: 1000..10000000)
+    int time = kDefaultTimeLimit;                     // time_limit (15..3600)
+    int score = kDefaultScore;                    // score (HighScore / HighCombo: 1000..10000000)
     bool walk = false;                  // control_type Walk (else Skate)
     int laps = 1, checkpoint_time_ = 0; // Race: race_total_laps (1..10), race_per_checkpoint_time (0..60, 0 off)
     std::vector<std::string> gaps;      // Gap: the gaps (names - their numbers are the gap list's order when played)
     std::string trick;                  // Gap: required_trick_name
     // The trick goals (init_edited_goal's defaults):
     uint32_t sets = 0;                // key combo sets chosen (bit per cag_key_combos entry)
-    int spin = 360;                   // 0..900 (Trick to the Beat: 0)
-    int accel_interval_ = 5;          // 1..10
-    float accel_percent_ = 0.1f;      // 0.01..1
-    int combo_time_ = 3000;           // 5..3000
-    int stop_at_ = 5;                 // time_to_stop_adding_tricks
-    int max_tricks_ = 11;             // 1..15
+    int spin = kDefaultSpin;                   // 0..900 (Trick to the Beat: 0)
+    int accel_interval_ = kDefaultAccelInterval;          // 1..10
+    float accel_percent_ = kDefaultAccelPercent;      // 0.01..1
+    int combo_time_ = kDefaultComboTime;           // 5..3000
+    int stop_at_ = kDefaultStopAt;                 // time_to_stop_adding_tricks
+    int max_tricks_ = kDefaultMaxTricks;             // 1..15
     bool single_combo_ = false;       // Combo Skate-Tricks
     int combo_size_ = 2;              // 1..15
-    int block_size_ = 3, to_win_ = 8; // Tricktris: 1..15, 1..1000
+    int block_size_ = 3, to_win_ = kDefaultToWin; // Tricktris: 1..15, 1..1000
     std::vector<Point> points;        // min_points..max_points of them
 };
 bool get_same(const Goal& a, const Goal& b);

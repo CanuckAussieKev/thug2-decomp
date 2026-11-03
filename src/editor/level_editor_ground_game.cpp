@@ -52,6 +52,30 @@ namespace frontend::level_editor::ground {
 
 namespace {
 
+constexpr uint32_t kIndexStoreBytes = 0x18; // the index store object's size
+constexpr uint32_t kIndexStoreMode = 0x65;  // the index store's mode argument
+constexpr std::size_t kLineTextSize = 96;
+constexpr std::size_t kMaxIndexedVertices = 0xFFFF; // faces index the vertices with 16 bits
+constexpr int kBoxCorners = 8;
+constexpr uint32_t kVertexBytes = 12;       // a collision vertex: three floats
+constexpr uint32_t kFaceBytes = 10;         // a collision face: five 16-bit words
+constexpr std::size_t kFaceWords = 5;       // flags, terrain and three vertex indices
+constexpr int kNeutralVertexByte = 0x80;    // the vertex bytes' fill: the middle of the range
+constexpr int kOctetFill = 0xFF;            // the faces' octets' fill
+constexpr uint32_t kMaxMeshes = 64;         // a donor with more meshes is refused
+constexpr uint32_t kSharedMeshFlags = 0x11; // mesh flags of a shared mesh
+constexpr float kFarDistance = 1e30f;       // the start of a nearest search
+constexpr float kFloorTolerance = 30.0f;    // a face this close in height to the tile's top counts as its floor
+constexpr uint32_t kBitsPerByte = 8;
+constexpr uint32_t kByteMask = 0xFF;
+constexpr double kRoundHalfDouble = 0.5;    // added before truncating: round to the nearest
+constexpr double kTinyScale = 1e-4;         // a texture or world extent smaller than this has no scale
+constexpr float kTileHeightMargin = 40.0f;  // tiles further than this above or below the ground are not inside it
+constexpr uint16_t kFaceNotCollidable = 0x10; // the face flag: not collidable
+constexpr float kGroundFaceReach = 30.0f;
+constexpr float kTileInsideMargin = 25.0f;
+constexpr std::size_t kReportTextSize = 320;
+
 render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
 gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body(); }
 std::span<render::MeshRef*> meshes_of(render::PcGeom* geom) { return geom->mesh_run(); }
@@ -86,10 +110,10 @@ void upload_vertices(render::VertexBuffer* buffer)
 }
 gsl::owner<render::IdxStore*> new_index_buffer(uint32_t bytes)
 {
-    gsl::owner<void*> memory = crt::alloc_block(0x18);
+    gsl::owner<void*> memory = crt::alloc_block(kIndexStoreBytes);
     if (!memory)
         return nullptr;
-    return memory::construct_in<render::IdxStore>(memory, bytes, 0, 0x65);
+    return memory::construct_in<render::IdxStore>(memory, bytes, 0, kIndexStoreMode);
 }
 void upload_indices(render::IdxStore* buffer)
 {
@@ -142,7 +166,7 @@ LevelEditorGroundGameState& level_editor_ground_game_state()
 
 uint32_t sector_key_from_spec(const Spec& spec)
 {
-    std::array<char, 96> text{};
+    std::array<char, kLineTextSize> text{};
     text::format_to(text, "%s_%08X", spec.name.c_str(), spec.material);
     return checksums::hash_from_text(text.data());
 }
@@ -215,8 +239,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         return false;
     }
     std::vector<uint16_t> strip = get_strip(mesh.faces, true);
-    if (mesh.faces.empty() || mesh.faces.size() > static_cast<size_t>(kMaxFaces) || mesh.vertices.size() > 0xFFFF ||
-        strip.size() > 0xFFFF) {
+    if (mesh.faces.empty() || mesh.faces.size() > static_cast<size_t>(kMaxFaces) || mesh.vertices.size() > kMaxIndexedVertices ||
+        strip.size() > kMaxIndexedVertices) {
         *why = "the piece has too many faces (at most 2048)";
         return false;
     }
@@ -235,7 +259,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         core::at(first->vertex_buffers(), b) = buffer;
     }
     first->set_vertex_count(static_cast<uint16_t>(count));
-    for (int k = 0; k < 8; ++k) {
+    for (int k = 0; k < kBoxCorners; ++k) {
         if (k > 0 && !core::at(first->index_counts(), k))
             continue;
         gsl::owner<render::IdxStore*> buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
@@ -264,7 +288,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         render::MeshRef* other = core::at(meshes, i);
         if (!other)
             continue;
-        for (int k = 0; k < 8; ++k) {
+        for (int k = 0; k < kBoxCorners; ++k) {
             render::IdxStore* buffer = core::at(other->index_buffers(), k);
             if (!core::at(other->index_counts(), k) || !buffer || !buffer->indices())
                 continue;
@@ -284,8 +308,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     // 10-byte faces, one leaf listing every face.
     render::TriMeshSource* tri = coll->geometry();
     auto faces = static_cast<uint32_t>(mesh.faces.size());
-    auto* vertices = static_cast<float*>(memory::alloc(count * 12));
-    auto* face_data = static_cast<uint8_t*>(memory::alloc(faces * 10));
+    auto* vertices = static_cast<float*>(memory::alloc(count * kVertexBytes));
+    auto* face_data = static_cast<uint8_t*>(memory::alloc(faces * kFaceBytes));
     render::HitTreeNode* leaf = render::new_tree_nodes(1);
     auto* leaf_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
     uint8_t* bytes = tri->vertex_bytes() ? static_cast<uint8_t*>(memory::alloc(count)) : nullptr;
@@ -295,17 +319,17 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     }
     const std::span<float> vertex_floats(vertices, size_t{count} * 3);
     for (uint32_t v = 0; v < count; ++v)
-        std::memcpy(&core::at(vertex_floats, 3 * v), &core::at(mesh.vertices, v).pos, 12);
+        std::memcpy(&core::at(vertex_floats, 3 * v), &core::at(mesh.vertices, v).pos, kVertexBytes);
     const std::span<uint8_t> face_bytes(face_data, size_t{faces} * 10);
     const std::span<uint16_t> leaf_run(leaf_faces, faces);
     for (uint32_t f = 0; f < faces; ++f) {
         const Face& face = core::at(mesh.faces, f);
-        std::array<uint16_t, 5> words = {{face.flags, spec.terrain, face.a, face.b, face.c}};
-        std::memcpy(&core::at(face_bytes, 10 * f), words.data(), 10);
+        std::array<uint16_t, kFaceWords> words = {{face.flags, spec.terrain, face.a, face.b, face.c}};
+        std::memcpy(&core::at(face_bytes, kFaceBytes * f), words.data(), kFaceBytes);
         core::at(leaf_run, f) = static_cast<uint16_t>(f);
     }
     if (bytes)
-        std::memset(bytes, 0x80, count);
+        std::memset(bytes, kNeutralVertexByte, count);
     if (tri->vertices())
         memory::dealloc(tri->vertices());
     if (tri->faces())
@@ -334,7 +358,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     coll->set_octets(static_cast<uint8_t*>(memory::alloc_block(faces)));
     memory::leave_heap_scope();
     if (coll->octets())
-        std::memset(coll->octets(), 0xFF, faces);
+        std::memset(coll->octets(), kOctetFill, faces);
     return true;
 }
 
@@ -438,11 +462,11 @@ const char* why_not_donor(uint32_t checksum)
     if (geom->instance())
         return "an instance";
     const uint32_t meshes = mesh_count_of(geom);
-    if (!geom->meshes() || meshes == 0 || meshes > 64)
+    if (!geom->meshes() || meshes == 0 || meshes > kMaxMeshes)
         return "no meshes (or too many)";
     const render::MeshRef* first = core::at(meshes_of(geom), 0);
     Layout layout;
-    if (!first || first->billboard() || (first->flags() & 0x11))
+    if (!first || first->billboard() || (first->flags() & kSharedMeshFlags))
         return "a billboard or shared mesh";
     if (!layout_for({.fvf = vertex_format(first), .stride = first->stride()}, &layout) || layout.tex_count_ < 1)
         return "its vertex format (no plain positions and texture coordinates)";
@@ -469,7 +493,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
         struct Walk {
             const Spec* spec{};
             uint32_t best = 0, best_floor_ = 0;
-            float best_distance_ = 1e30f, best_floor_distance_ = 1e30f;
+            float best_distance_ = kFarDistance, best_floor_distance_ = kFarDistance;
         } walk = {.spec = spec};
         scenery::for_each_level_sector(
             [](void* context, uint32_t checksum, render::WorldCell* sector) {
@@ -486,7 +510,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                 const float distance = std::sqrt(get_dot(d, d));
                 if (distance < w->best_distance_)
                     w->best = checksum, w->best_distance_ = distance;
-                if (std::fabs(hi.y - c.y) < 30.0f && distance < w->best_floor_distance_)
+                if (std::fabs(hi.y - c.y) < kFloorTolerance && distance < w->best_floor_distance_)
                     w->best_floor_ = checksum, w->best_floor_distance_ = distance;
             },
             &walk);
@@ -512,12 +536,12 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             uint32_t c = 0;
             std::memcpy(&c, vertex_bytes.subspan(size_t{v} * mesh->stride() + static_cast<size_t>(layout.diffuse)).data(), 4);
             for (int k = 0; k < 4; ++k)
-                core::at(sum, k) += (c >> (8 * k)) & 0xFF;
+                core::at(sum, k) += (c >> (kBitsPerByte * k)) & kByteMask;
         }
         uint32_t colour = 0;
         for (int k = 0; k < 4; ++k)
             // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-            colour |= static_cast<uint32_t>(core::at(sum, k) / mesh->vertex_count() + 0.5) << (8 * k);
+            colour |= static_cast<uint32_t>(core::at(sum, k) / mesh->vertex_count() + kRoundHalfDouble) << (kBitsPerByte * k);
         spec->colour = colour;
     }
     const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
@@ -538,13 +562,13 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                                         static_cast<double>(core::at(pa, 2) - core::at(pb, 2)) * (core::at(pa, 2) - core::at(pb, 2)));
             const double dt = std::sqrt(static_cast<double>(core::at(ta, 0) - core::at(tb, 0)) * (core::at(ta, 0) - core::at(tb, 0)) +
                                         static_cast<double>(core::at(ta, 1) - core::at(tb, 1)) * (core::at(ta, 1) - core::at(tb, 1)));
-            if (dt > 1e-4 && std::isfinite(dt) && std::isfinite(dw)) {
+            if (dt > kTinyScale && std::isfinite(dt) && std::isfinite(dw)) {
                 world += dw;
                 texture += dt;
             }
         }
-        if (texture > 1e-4)
-            spec->uv = std::clamp(static_cast<float>(world / texture), 16.0f, 4096.0f);
+        if (texture > kTinyScale)
+            spec->uv = std::clamp(static_cast<float>(world / texture), kMinUvScale, kMaxUvScale);
     }
     const render::TriMeshSource* tri = static_of(sector)->geometry();
     std::map<uint16_t, int> terrains;
@@ -580,15 +604,15 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                 return;
             const Spec& s = *w->spec;
             if (tri->bounds().max.x < s.x0 || tri->bounds().min.x > s.x1 || tri->bounds().max.z < s.z0 ||
-                tri->bounds().min.z > s.z1 || tri->bounds().max.y < s.base - 40.0f ||
-                tri->bounds().min.y > s.base + 40.0f)
+                tri->bounds().min.z > s.z1 || tri->bounds().max.y < s.base - kTileHeightMargin ||
+                tri->bounds().min.y > s.base + kTileHeightMargin)
                 return;
             bool ground = false;
             const int faces = std::min<int>(tri->tri_count(), 60000);
             for (int f = 0; f < faces && !ground; ++f) {
                 const uint16_t flags =
                     tri->face_flags(f);
-                if (flags & 0x10)
+                if (flags & kFaceNotCollidable)
                     continue;
                 std::array<V3, 3> c{};
                 bool ok = true;
@@ -600,17 +624,17 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                         core::at(c, k) = {.x = p.x, .y = p.y, .z = p.z};
                     }
                 }
-                ground = ok && ground_face_under(c, s, 30.0f);
+                ground = ok && ground_face_under(c, s, kGroundFaceReach);
             }
             if (!ground)
                 return;
             const V3 lo = {.x = tri->bounds().min.x, .y = tri->bounds().min.y, .z = tri->bounds().min.z};
             const V3 hi = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
-            if (tile_inside(lo, hi, s, 25.0f)) {
+            if (tile_inside(lo, hi, s, kTileInsideMargin)) {
                 w->tiles.push_back(checksum);
                 return;
             }
-            std::array<char, 320> text{};
+            std::array<char, kReportTextSize> text{};
             text::format_to(
                 text,
                 "the floor here is %s%s, %.0f x %.0f - bigger than the rectangle. THUG2's floors can't be cut: "

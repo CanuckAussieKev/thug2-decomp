@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -31,6 +32,32 @@ namespace frontend::level_editor::gap_wizard {
 
 namespace {
 
+constexpr float kFloorNormalY = 0.7f;   // a face whose normal is this upright is floor
+constexpr float kWallNormalY = 0.2f;    // a face whose normal is this level is a wall
+constexpr float kTinyLength = 1e-6f;
+constexpr float kRailGateRise = 30.0f;  // a rail's gate sits this far above the spot
+constexpr float kLipGateRise = 200.0f;
+constexpr float kTinyOutLength = 1e-4f; // a wall normal flatter than this has no outward direction
+constexpr float kWallGateOffset = 80.0f; // a wall's gate stands this far out from the wall
+constexpr float kAreaGateRise = 150.0f;
+constexpr std::size_t kGapNameSize = 64;
+constexpr float kRailPickReach = 14.0f; // a rail is picked within this many pixels
+constexpr float kBehindWallMargin = 60.0f; // a rail point this far past the wall is behind it
+constexpr float kGateLineWidth = 2.0f;
+constexpr double kHintSeconds = 6.0;
+constexpr uint32_t kRubberBandColour = 0xFFFFFFFF; // ARGB
+constexpr float kRubberBandWidth = 2.0f;
+constexpr std::size_t kMeasureTextSize = 64;
+constexpr float kHoverDotRadius = 5.0f;
+constexpr uint32_t kHoverBandColour = 0x90FFFFFF; // ARGB
+constexpr float kWindowTopOffset = 80.0f; // the window's first position: below the view's top edge
+constexpr float kWindowPivotX = 0.5f;     // centred on its position
+constexpr float kWindowWidth = 320.0f;
+constexpr V3 kRailGateSize = V3{.x = 120.0f, .y = 120.0f, .z = 60.0f};
+constexpr V3 kLipGateSize = V3{.x = 300.0f, .y = 400.0f, .z = 60.0f};
+constexpr V3 kWallGateSize = V3{.x = 300.0f, .y = 300.0f, .z = 60.0f};
+constexpr V3 kAreaGateSize = V3{.x = 300.0f, .y = 300.0f, .z = 60.0f};
+
 constexpr float kHalf = 0.5f; // half
 
 } // namespace
@@ -56,9 +83,9 @@ SpotKind kind_of_face(FaceKindOf face)
     const auto normal_y = face.normal_y_;
     const auto face_flags = face.face_flags_;
     const bool vert = (face_flags & 0x08) != 0;
-    if (!vert && normal_y >= 0.7f)
+    if (!vert && normal_y >= kFloorNormalY)
         return SpotKind::kArea;
-    if (!vert && std::fabs(normal_y) < 0.2f)
+    if (!vert && std::fabs(normal_y) < kWallNormalY)
         return SpotKind::kWall;
     return SpotKind::kLip;
 }
@@ -106,7 +133,7 @@ KindTag suggest(const Spot& start, const Spot& end)
 
 float get_heading_of(V3 d)
 {
-    if (std::fabs(d.x) < 1e-6f && std::fabs(d.z) < 1e-6f)
+    if (std::fabs(d.x) < kTinyLength && std::fabs(d.z) < kTinyLength)
         return 0.0f;
     return std::atan2(d.x, d.z);
 }
@@ -121,29 +148,29 @@ Gate gate_for(const Spot& spot, V3 toward)
         V3 along = spot.along;
         if (get_dot(along, to) < 0.0f)
             along = along * -1.0f;
-        gate.yaw = get_heading_of(get_dot(along, along) > 1e-6f ? along : to);
-        gate.size = {.x = 120.0f, .y = 120.0f, .z = 60.0f};
-        gate.pos = spot.point + V3{.x = 0.0f, .y = 30.0f, .z = 0.0f};
+        gate.yaw = get_heading_of(get_dot(along, along) > kTinyLength ? along : to);
+        gate.size = kRailGateSize;
+        gate.pos = spot.point + V3{.x = 0.0f, .y = kRailGateRise, .z = 0.0f};
         break;
     }
     case SpotKind::kLip:
         gate.yaw = get_heading_of(to);
-        gate.size = {.x = 300.0f, .y = 400.0f, .z = 60.0f};
-        gate.pos = spot.point + V3{.x = 0.0f, .y = 200.0f, .z = 0.0f};
+        gate.size = kLipGateSize;
+        gate.pos = spot.point + V3{.x = 0.0f, .y = kLipGateRise, .z = 0.0f};
         break;
     case SpotKind::kWall: {
         V3 out = {.x = spot.normal.x, .y = 0.0f, .z = spot.normal.z};
         const float length = std::sqrt(get_dot(out, out));
-        out = length > 1e-4f ? out * (1.0f / length) : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
+        out = length > kTinyOutLength ? out * (1.0f / length) : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
         gate.yaw = get_heading_of(to);
-        gate.size = {.x = 300.0f, .y = 300.0f, .z = 60.0f};
-        gate.pos = spot.point + out * 80.0f;
+        gate.size = kWallGateSize;
+        gate.pos = spot.point + out * kWallGateOffset;
         break;
     }
     default:
         gate.yaw = get_heading_of(to);
-        gate.size = {.x = 300.0f, .y = 300.0f, .z = 60.0f};
-        gate.pos = spot.point + V3{.x = 0.0f, .y = 150.0f, .z = 0.0f};
+        gate.size = kAreaGateSize;
+        gate.pos = spot.point + V3{.x = 0.0f, .y = kAreaGateRise, .z = 0.0f};
         break;
     }
     return gate;
@@ -165,7 +192,7 @@ struct LevelEditorGapWizardState {
     Spot hover_{};
     // The form.
     bool form_open_{};
-    std::array<char, 64> name_ = {"My Gap"};
+    std::array<char, kGapNameSize> name_ = {"My Gap"};
     int score_ = 250;
     int type_{};
     std::vector<std::function<void()>> queue_{};
@@ -216,7 +243,7 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
     const objects::GrindRailHub* rails = get_rails();
     if (!rails)
         return false;
-    float best = 14.0f;
+    float best = kRailPickReach;
     bool found = false;
     for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
@@ -238,7 +265,7 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
         const float t = length2 > 1e-6f ? std::clamp(((x - ax) * sx + (y - ay) * sy) / length2, 0.0f, 1.0f) : 0.0f;
         const V3 p = a + (b - a) * t;
         const V3 to = p - origin;
-        if (get_dot(to, unit_dir) > max_t + 60.0f)
+        if (get_dot(to, unit_dir) > max_t + kBehindWallMargin)
             continue; // (behind a wall)
         best = d;
         found = true;
@@ -269,12 +296,12 @@ bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
 void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb)
 {
     OrientedBox box = triggers::box_of(gate.pos, gate.yaw, gate.size);
-    std::array<V3, 8> c{};
+    std::array<V3, kBoxCornerCount> c{};
     box_corners(box.origin, box.axes, box.min, box.max, c);
     const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
     for (const auto& e : edges)
-        (void)painter.get_seg(core::at(c, core::at(e, 0)), core::at(c, core::at(e, 1)), argb, 2.0f);
+        (void)painter.get_seg(core::at(c, core::at(e, 0)), core::at(c, core::at(e, 1)), argb, kGateLineWidth);
 }
 
 void get_make()
@@ -305,7 +332,7 @@ void set_armed(bool on)
     level_editor_gap_wizard_state().form_open_ = false;
     level_editor_gap_wizard_state().have_hover_ = false;
     if (on)
-        show_message("Gap Wizard: click the gap start", 6.0);
+        show_message("Gap Wizard: click the gap start", kHintSeconds);
 }
 
 bool get_cancel()
@@ -333,12 +360,12 @@ bool get_click(V3 origin, V3 unit_dir, float x, float y)
     }
     core::at(level_editor_gap_wizard_state().spots_, level_editor_gap_wizard_state().picked_++) = spot;
     if (level_editor_gap_wizard_state().picked_ == 1) {
-        show_message(std::string("Gap starts at ") + spot_name(spot.kind) + " - click the gap end", 6.0);
+        show_message(std::string("Gap starts at ") + spot_name(spot.kind) + " - click the gap end", kHintSeconds);
     } else {
         level_editor_gap_wizard_state().armed_ = false;
         level_editor_gap_wizard_state().form_open_ = true;
         level_editor_gap_wizard_state().type_ = static_cast<int>(suggest(core::at(level_editor_gap_wizard_state().spots_, 0), core::at(level_editor_gap_wizard_state().spots_, 1)));
-        show_message(std::string("Gap ends at ") + spot_name(spot.kind) + "", 6.0);
+        show_message(std::string("Gap ends at ") + spot_name(spot.kind) + "", kHintSeconds);
     }
     return true;
 }
@@ -359,17 +386,17 @@ void add_overlay(const overlays::Painter& painter)
         const Gate b = gate_for(core::at(level_editor_gap_wizard_state().spots_, 1), core::at(level_editor_gap_wizard_state().spots_, 0).point);
         draw_gate(painter, b, kEnd);
         painter.draw_label(core::at(level_editor_gap_wizard_state().spots_, 1).point, kEnd, std::string("end: ") + spot_name(core::at(level_editor_gap_wizard_state().spots_, 1).kind));
-        (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, core::at(level_editor_gap_wizard_state().spots_, 1).point, 0xFFFFFFFF, 2.0f);
+        (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, core::at(level_editor_gap_wizard_state().spots_, 1).point, kRubberBandColour, kRubberBandWidth);
         const V3 d = core::at(level_editor_gap_wizard_state().spots_, 1).point - core::at(level_editor_gap_wizard_state().spots_, 0).point;
-        std::array<char, 64> text{};
+        std::array<char, kMeasureTextSize> text{};
         text::format_to(text, "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
                         d.y >= 0.0f ? "up" : "down");
-        painter.draw_label((core::at(level_editor_gap_wizard_state().spots_, 0).point + core::at(level_editor_gap_wizard_state().spots_, 1).point) * kHalf, 0xFFFFFFFF, text.data());
+        painter.draw_label((core::at(level_editor_gap_wizard_state().spots_, 0).point + core::at(level_editor_gap_wizard_state().spots_, 1).point) * kHalf, kRubberBandColour, text.data());
     } else if (level_editor_gap_wizard_state().have_hover_) {
-        painter.get_dot(level_editor_gap_wizard_state().hover_.point, 5.0f, kHover);
+        painter.get_dot(level_editor_gap_wizard_state().hover_.point, kHoverDotRadius, kHover);
         painter.draw_label(level_editor_gap_wizard_state().hover_.point, kHover, spot_name(level_editor_gap_wizard_state().hover_.kind));
         if (level_editor_gap_wizard_state().picked_ == 1)
-            (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, level_editor_gap_wizard_state().hover_.point, 0x90FFFFFF, 1.0f);
+            (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, level_editor_gap_wizard_state().hover_.point, kHoverBandColour, 1.0f);
     }
 }
 
@@ -390,9 +417,9 @@ void pane(PaneArea area, float scale)
     (void)view_height;
     if (!level_editor_gap_wizard_state().form_open_)
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * kHalf, view_y + 80.0f * scale), ImGuiCond_Appearing,
-                            ImVec2(0.5f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(320.0f * scale, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width * kHalf, view_y + kWindowTopOffset * scale), ImGuiCond_Appearing,
+                            ImVec2(kWindowPivotX, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
     if (!ImGui::Begin("Gap Wizard###gapWizard", &open,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
