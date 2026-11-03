@@ -444,11 +444,11 @@ bool cfunc_start_server_list(script::Struct*, script::Script*)
 bool cfunc_start_lobby_list(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online::online_hub();
-    if (game_net->get_service_state() == 2) {
-        game_net->set_next_service_state(online::kServiceStateLobbyListStart);
-        game_net->set_service_state(1);
+    if (game_net->get_service_state() == online::ServiceState::kStopped) {
+        game_net->set_next_service_state(online::ServiceState::kLobbyListStart);
+        game_net->set_service_state(online::ServiceState::kWake);
     } else {
-        game_net->set_service_state(online::kServiceStateLobbyListStart);
+        game_net->set_service_state(online::ServiceState::kLobbyListStart);
     }
     return true;
 }

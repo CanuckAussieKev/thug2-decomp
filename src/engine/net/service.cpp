@@ -113,7 +113,7 @@ void show_no_servers()
 // Done: state 2, and this task stops.
 void get_finish(online::Hub* manager)
 {
-    manager->assign_service_state(2);
+    manager->assign_service_state(online::ServiceState::kStopped);
     manager->service_job()->drop_out();
 }
 
@@ -124,23 +124,23 @@ void service_task(tasks::Task<online::Hub>* task)
 {
     auto* manager = static_cast<online::Hub*>(task->content());
     switch (manager->service_state()) {
-    case online::kServiceStateWaiting: // waiting
+    case online::ServiceState::kWaiting: // waiting
         if (manager->service_wake_at() != 0 && frame_clock::get_time() > manager->service_wake_at())
             manager->set_service_state((manager->next_service_state()));
         break;
-    case online::kServiceStateStart: // start: a script, then the availability check a moment later
+    case online::ServiceState::kStart: // start: a script, then the availability check a moment later
         push_internet_heap();
         launch_script(kAvailabilityCheckWait);
-        manager->assign_service_state(0);
-        manager->assign_next_service_state(online::kServiceStateAvailabilityStart);
+        manager->assign_service_state(online::ServiceState::kWaiting);
+        manager->assign_next_service_state(online::ServiceState::kAvailabilityStart);
         manager->set_service_wake_at(kAvailabilityRecheckDelay);
         pop_heap();
         break;
-    case online::kServiceStateAvailabilityStart:
-        manager->assign_service_state(online::kServiceStateAvailabilityAnswer);
+    case online::ServiceState::kAvailabilityStart:
+        manager->assign_service_state(online::ServiceState::kAvailabilityAnswer);
         gsi_start_available_check("mototrax");
         break;
-    case online::kServiceStateAvailabilityAnswer: // the availability check's answer
+    case online::ServiceState::kAvailabilityAnswer: // the availability check's answer
         push_internet_heap();
         switch (gsi_available_check_think()) {
         case 1: // available
@@ -162,8 +162,8 @@ void service_task(tasks::Task<online::Hub>* task)
         }
         pop_heap();
         break;
-    case online::kServiceStateNewsMessage:
-    case online::kServiceStateNewsMessageRetry: { // the news: a message (with the count of messages, if any), then the download thread
+    case online::ServiceState::kNewsMessage:
+    case online::ServiceState::kNewsMessageRetry: { // the news: a message (with the count of messages, if any), then the download thread
         freeze_stream(1);
         const int count = static_cast<int>(online::net_game_state().news_message_count());
         if (count == 0) {
@@ -176,49 +176,49 @@ void service_task(tasks::Task<online::Hub>* task)
             params->append_word(kText, script::QbValueKind::kString, text.data());
             script::spawn_script(kCreateMotdRetryDialog, params.get());
         }
-        manager->assign_service_state(0);
+        manager->assign_service_state(online::ServiceState::kWaiting);
         manager->set_service_wake_at(0);
         manager->set_download_done(false);
         start_thread(manager, kNewsThread); // (it sets state 7)
         break;
     }
-    case online::kServiceStateNewsDownload: // the news download
+    case online::ServiceState::kNewsDownload: // the news download
         push_internet_heap();
         // (PartyMod's time limit; the original's was 15000 ms)
         if (frame_clock::get_time() - manager->request_started_at() > kNewsTimeout || manager->download_done()) {
             ghttp_cancel_request(manager->request());
-            manager->assign_service_state(online::kServiceStateNewsEnded);
+            manager->assign_service_state(online::ServiceState::kNewsEnded);
         } else {
             ghttp_think();
         }
         pop_heap();
         break;
-    case online::kServiceStateMotdStart: // the message of the day: the download thread (it sets state 0xC)
+    case online::ServiceState::kMotdStart: // the message of the day: the download thread (it sets state 0xC)
         ghttp_cleanup();
         freeze_stream(1);
         start_thread(manager, kMotdThread);
         break;
-    case online::kServiceStateMotdDownload: // the message of the day's download
+    case online::ServiceState::kMotdDownload: // the message of the day's download
         push_internet_heap();
         if (frame_clock::get_time() - manager->request_started_at() > kMotdTimeout) {
             ghttp_cancel_request(manager->request());
-            manager->assign_service_state(online::kServiceStateMotdShow);
+            manager->assign_service_state(online::ServiceState::kMotdShow);
         } else {
             ghttp_think();
         }
         pop_heap();
         break;
-    case online::kServiceStateMotdShow: { // show the message of the day
+    case online::ServiceState::kMotdShow: { // show the message of the day
         ghttp_cleanup();
         script::StructPtr params = script::make_struct();
         params->append_word(kText, manager->motd_text());
         launch_script(kCreateMotdMenu, params.get());
         params.reset();
-        manager->assign_service_state(0);
+        manager->assign_service_state(online::ServiceState::kWaiting);
         manager->set_service_wake_at(0);
         break;
     }
-    case online::kServiceStateNewsEnded: // the news download has ended
+    case online::ServiceState::kNewsEnded: // the news download has ended
         ghttp_cleanup();
         // Originally from PartyMod Fixes: the flag set and script 0x588ED87C (original: flag cleared, script 0xD4E84C8D)
         manager->set_motd_received(kNewsOkValue);
@@ -226,30 +226,30 @@ void service_task(tasks::Task<online::Hub>* task)
         get_finish(manager);
         manager->set_service_wake_at(0);
         break;
-    case online::kServiceStateLobbyListStart:
+    case online::ServiceState::kLobbyListStart:
         launch_script(kCreateGettingLobbyListDialog);
         manager->lobby_service().get()->clear_lobbies();
         manager->lobby_service().get()->start_listing_games();
         break;
-    case online::kServiceStateLobbyListIdle:
-        manager->assign_service_state(0);
+    case online::ServiceState::kLobbyListIdle:
+        manager->assign_service_state(online::ServiceState::kWaiting);
         manager->set_service_wake_at(0);
         break;
-    case online::kServiceStateLobbyListCheck: // the lobby list: empty or not
+    case online::ServiceState::kLobbyListCheck: // the lobby list: empty or not
         if (!manager->lobby_service().get()->get_lobby(0)) {
             show_no_servers();
             get_finish(manager);
         } else {
-            manager->assign_service_state(online::kServiceStateLobbyListShow);
+            manager->assign_service_state(online::ServiceState::kLobbyListShow);
         }
         freeze_stream(0);
         break;
-    case online::kServiceStateLobbyListEmpty:
+    case online::ServiceState::kLobbyListEmpty:
         manager->lobby_service().get()->clear_lobbies();
         show_no_servers();
         get_finish(manager);
         break;
-    case online::kServiceStateLobbyListShow:
+    case online::ServiceState::kLobbyListShow:
         manager->lobby_service().get()->populate_room_list();
         get_finish(manager);
         break;

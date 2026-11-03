@@ -255,7 +255,7 @@ void Hub::start_network_game()
 void Hub::cancel_join()
 {
     net::NetMessageInfo desc;
-    if (join_phase_ == kJoinStateCancelled || join_phase_ == kJoinStateOver || join_phase_ == kJoinStateRefused)
+    if (join_phase() == EntryPhase::kCancelled || join_phase() == EntryPhase::kOver || join_phase() == EntryPhase::kRefused)
         return;
     net::AppHost* client = client_app_;
     desc.set_ident(net::wire::MessageId::kDisconnRequest);
@@ -315,21 +315,21 @@ void Hub::auto_serve_task(tasks::Task<Hub>* task)
 void Hub::join_progress_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
-    switch (manager->join_phase_) {
-    case kJoinStateConnecting: // 1
+    switch (manager->join_phase()) {
+    case EntryPhase::kConnecting: // 1
         get_run(kCreateConnectingDialog);
-        manager->join_phase_ = 0;
+        manager->set_join_phase(EntryPhase::kNone);
         break;
-    case kJoinStateJoining: // 2 (none for the host's own client)
+    case EntryPhase::kJoining: // 2 (none for the host's own client)
         if (!manager->client_app_->is_host_local())
             get_run(kCreateJoiningDialog);
-        manager->join_phase_ = 0;
+        manager->set_join_phase(EntryPhase::kNone);
         break;
-    case kJoinStateJoiningWithPassword: // 3
+    case EntryPhase::kJoiningWithPassword: // 3
         get_run(kCreateTryingPasswordDialog);
-        manager->join_phase_ = kJoinStateTryingPassword;
+        manager->set_join_phase(EntryPhase::kTryingPassword);
         break;
-    case kJoinStateJoined: { // joined
+    case EntryPhase::kJoined: { // joined
         NewPlayerSearch search;
         const JoinerRecord* info = first_new_player(manager, &search);
         for (; info && !(info->flag_bits() & kNewPlayerLocal); info = next_new_player(manager, &search)) {
@@ -340,15 +340,15 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
             manager->spectate_player(nullptr);
         }
         get_run(kEnteredNetworkGame);
-        manager->join_phase_ = kJoinStateEntered;
+        manager->set_join_phase(EntryPhase::kEntered);
         break;
     }
-    case kJoinStateOver: // the join over
+    case EntryPhase::kOver: // the join over
         get_run(kDialogBoxExit);
         manager->join_expiry_job_->drop_out();
         manager->join_phase_job_->drop_out();
         break;
-    case kJoinStateRefused: { // 9
+    case EntryPhase::kRefused: { // 9
         script::StructPtr params = script::make_struct();
         params->put_name_key(checksums::Name{kReason}, manager->refused_reason_);
         manager->join_phase_job_->drop_out();
@@ -356,7 +356,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         params.reset();
         break;
     }
-    case kJoinStateCancelled: // cancelled
+    case EntryPhase::kCancelled: // cancelled
         manager->join_phase_job_->drop_out();
         break;
     default:
@@ -449,13 +449,13 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     if (!client)
         return;
     net::Conn* conn = client->begin_conn_walk(&search);
-    if (!conn || !(manager->join_phase_ == kJoinStateOver || manager->join_phase_ == kJoinStateEntered || manager->join_phase_ == kJoinStateJoined) ||
+    if (!conn || !(manager->join_phase() == EntryPhase::kOver || manager->join_phase() == EntryPhase::kEntered || manager->join_phase() == EntryPhase::kJoined) ||
         conn->get_silence_duration() <= kSilentTimeout)
         return;
     if (skate->level() == kLoadMainMenu) {
         get_run(kShowJoinTimeoutNotice);
         manager->join_phase_job_->drop_out();
-        manager->join_phase_ = kJoinStateCancelled;
+        manager->set_join_phase(EntryPhase::kCancelled);
     } else {
         get_run(kCreateLostConnectionDialog);
         manager->destroy_all_players();

@@ -285,7 +285,7 @@ bool cfunc_cancel_join_server(script::Struct*, script::Script*)
 {
     Hub* manager = net_game_state().online_hub();
     manager->cancel_join();
-    manager->set_join_phase(kJoinStateCancelled);
+    manager->set_join_phase(EntryPhase::kCancelled);
     return true;
 }
 

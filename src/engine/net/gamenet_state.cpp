@@ -248,8 +248,8 @@ void Hub::set_final_scores_received(bool received) { final_scores_received_ = re
 bool Hub::final_scores_received() { return final_scores_received_; }
 
 // 0x005331F0 / 0x00533200
-void Hub::set_entry_phase(int state) { join_phase_ = state; }
-int Hub::get_entry_phase() { return join_phase_; }
+void Hub::set_entry_phase(EntryPhase state) { set_join_phase(state); }
+EntryPhase Hub::get_entry_phase() { return join_phase(); }
 
 // 0x00533210 / 0x00533220
 objects::CrownObject* Hub::get_crown_holder() { return crown_; }

@@ -66,8 +66,6 @@ constexpr int kDefaultListenerPriority = 0x80;
 constexpr int kServerTaskPriority = 1000;        // the server tasks run at the negative of this
 constexpr int kSkaterMessagePriority = 0xFF;
 constexpr int kDialogWidth = 300;
-constexpr int kEntryPhaseMenu = 10;              // back to the main menu
-constexpr int kEntryPhaseBriefed = 8;            // the session brief received
 constexpr int kFiveLeft = 5;
 constexpr std::size_t kTextBytes = 128;
 constexpr std::size_t kNameBytes = 32;
@@ -341,7 +339,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     params.reset();
     if (skate->pending_level() == kLoadMainMenu) {
         net->cancel_join();
-        net->set_entry_phase(kEntryPhaseMenu);
+        net->set_entry_phase(online::EntryPhase::kCancelled); // back to the main menu
         return 2;
     }
     net->remove_players();
@@ -640,7 +638,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
 int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
 {
     online::Hub* net = online::online_hub();
-    net->set_entry_phase(kEntryPhaseBriefed);
+    net->set_entry_phase(online::EntryPhase::kOver); // the session brief received
     net->empty_server_listing();
     // (the message: wire/gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the
     // original read on past it)

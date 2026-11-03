@@ -6,6 +6,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "engine/net/service.h"
 #include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -71,8 +72,6 @@ constexpr uint32_t kAddLobbyPlayer = 0x459148C5;       // (the player list's ite
 constexpr int kMaxBuddies = 30;
 constexpr int kMaxRank = 10;
 constexpr int kRoomGroupKind = 1;
-constexpr int kLobbyStateListed = 15;
-constexpr int kLobbyStateFailed = 16;
 constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
 
 void push_internet_heap()
@@ -261,14 +260,14 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
     const auto spare = info.spare;
     const auto param = info.param;
     Hub* manager = net_game_state().online_hub();
-    auto set_state = [manager](int state) { manager->set_service_state(state); };
+    auto set_state = [manager](ServiceState state) { manager->set_service_state(state); };
     if (!success) {
-        set_state(kLobbyStateFailed);
+        set_state(ServiceState::kLobbyListEmpty);
         return;
     }
     // (the listing's flags: a room was asked for by its lobby_num, and found)
     if (group_id == 0) { // the list's end
-        set_state(!net_game_state().listing_asked() || net_game_state().listing_found() ? kLobbyStateListed : kLobbyStateFailed);
+        set_state(!net_game_state().listing_asked() || net_game_state().listing_found() ? ServiceState::kLobbyListCheck : ServiceState::kLobbyListEmpty);
         return;
     }
     memory::Hub* memory = memory::Hub::get_pull();

@@ -12,6 +12,7 @@
 #include <span>
 
 #include "engine/core/checksums.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/format.h"
 #include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
 #include "platform/gamespy.h"
@@ -329,24 +330,24 @@ void send_refused(AppHost* app, Conn* conn, const char* data)
 } // namespace
 
 // 0x0052F560
-bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_password, bool check_version,
+bool Hub::joins_accepted(JoinRefusedReason& reason, ConnectInfo* msg, Conn* conn, bool check_password, bool check_version,
                          bool check_cd_key)
 {
     if (host_->is_conn_blocked(conn)) {
-        reason = kRefusedBanned;
+        reason = JoinRefusedReason::kBanned;
         return false;
     }
     if (msg->observer) {
         if (count_observers() >= get_spectator_limit()) {
-            reason = kRefusedFullObservers;
+            reason = JoinRefusedReason::kFullObservers;
             return false;
         }
     } else if (count_players() >= get_player_limit()) {
-        reason = kRefusedFull;
+        reason = JoinRefusedReason::kFull;
         return false;
     }
     if (check_version && msg->version != kVersion) {
-        reason = kRefusedVersion;
+        reason = JoinRefusedReason::kVersion;
         return false;
     }
     if (conn->is_off_machine()) {
@@ -354,22 +355,22 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
         const int test = get_rank_test();
         if (test == kRankTestGreater) {
             if (msg->rank <= limit) {
-                reason = kRefusedRankLow;
+                reason = JoinRefusedReason::kRankLow;
                 return false;
             }
         } else if (test == kRankTestLess && msg->rank >= limit) {
-            reason = kRefusedRankHigh;
+            reason = JoinRefusedReason::kRankHigh;
             return false;
         }
     }
     if (!msg->can_queue_up_ && !msg->observer && (active_ruleset_label() != kNetLobby && !match_ended_)) {
-        reason = kRefusedInProgress;
+        reason = JoinRefusedReason::kInProgress;
         return false;
     }
     if (check_password) {
         const char* password = fetch_secret();
         if (*password && std::strcmp(password, msg->password.data()) != 0) {
-            reason = kRefusedPassword;
+            reason = JoinRefusedReason::kPassword;
             return false;
         }
     }
@@ -378,7 +379,7 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
     // read past a message without one.)
     if (check_cd_key && !thugpro::peer_mode() &&
         strnlen(msg->cd_key_response_.data(), sizeof(msg->cd_key_response_)) != kCdKeyResponseLength) {
-        reason = kRefusedCdKey;
+        reason = JoinRefusedReason::kCdKey;
         return false;
     }
     return true;
@@ -405,7 +406,7 @@ void Hub::join_server(net::Address address, int index)
         client->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagRemote});
         join_began_at_ = milli_seconds();
         get_logic_tasks()->queue_job(join_expiry_job_.get());
-        join_phase_ = kJoinStateConnecting;
+        set_join_phase(EntryPhase::kConnecting);
         get_logic_tasks()->queue_job(join_phase_job_.get());
         join_port_ = port;
         join_ip_ = ip;
@@ -455,7 +456,7 @@ void Hub::retry_entry(AppHost* client)
     client->transmit(false);
     join_began_at_ = milli_seconds();
     get_logic_tasks()->queue_job(join_expiry_job_.get());
-    join_phase_ = kJoinStateJoining;
+    set_join_phase(EntryPhase::kJoining);
 }
 
 // 0x00534BD0
@@ -476,7 +477,7 @@ void Hub::retry_entry_with_key(const char* password)
     send_connection_request(as_client(client_app_), info, &request);
     join_began_at_ = milli_seconds();
     get_logic_tasks()->queue_job(join_expiry_job_.get());
-    join_phase_ = kJoinStateJoiningWithPassword;
+    set_join_phase(EntryPhase::kJoiningWithPassword);
 }
 
 const std::array<char, 10> kUiStringText{{"ui_string"}};
@@ -579,12 +580,12 @@ int Hub::on_link_established(InboundMsgCtx* context)
                 "machine %08X",
                 trailer.version, trailer.release, trailer.scripts_hash_, trailer.modified_scripts_ ? " (modified)" : "",
                 trailer.machine_id_);
-    int reason = 0;
+    JoinRefusedReason reason = JoinRefusedReason::kFull;
     if (!manager->joins_accepted(reason, msg, conn, true, true, true)) {
         constexpr size_t kRefusedSize = 32;
-        std::array<char, kRefusedSize> refused = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
-        core::at(refused, 0) = static_cast<char>(reason);
-        if (reason == kRefusedCdKey)
+        std::array<char, kRefusedSize> refused = {}; // (10 sent: the reason, and the challenge for kCdKey)
+        core::at(refused, 0) = static_cast<char>(core::to_underlying(reason));
+        if (reason == JoinRefusedReason::kCdKey)
             std::strcpy(std::span<char>(refused).subspan(1).data(), manager->challenge_.data());
         send_refused(context->receiver_app(), conn, refused.data());
         return net::kResultStop;
@@ -632,7 +633,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         return;
     if (!authenticated) {
         std::array<char, kJoinRefusedSize> refused = {};
-        core::at(refused, 0) = kRefusedCdKey;
+        core::at(refused, 0) = static_cast<char>(core::to_underlying(JoinRefusedReason::kCdKey));
         send_refused(instance->app, instance->conn, refused.data());
         instance->conn->mark_stale();
     } else {
@@ -669,11 +670,11 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     if (!read_join_request(reader, &request))
         return net::kResultConsumed;
     JoinRequestHeader* msg = &request;
-    int reason = 0;
+    JoinRefusedReason reason = JoinRefusedReason::kFull;
     if (conn->is_off_machine() && !manager->joins_accepted(reason, msg, conn, false, false, false)) {
         NetMessageInfo desc = new_desc();
         std::array<char, kJoinRefusedSize> refused = {};
-        core::at(refused, 0) = static_cast<char>(reason);
+        core::at(refused, 0) = static_cast<char>(core::to_underlying(reason));
         desc.set_content(refused.data());
         desc.set_byte_count(kJoinRefusedSize);
         desc.set_ident(MessageId::kJoinRefused);
@@ -811,7 +812,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     if (context->sender_conn()->is_off_machine())
         desc.set_queue(NetMessageInfo::kLaneOrdered);
     as_client(context->receiver_app())->send_to_host(&desc);
-    manager->join_phase_ = kJoinStateJoining;
+    manager->set_join_phase(EntryPhase::kJoining);
     return net::kResultConsumed;
 }
 
@@ -819,19 +820,19 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
 int Hub::on_turned_away_msg(InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content());
-    const int reason = int{net::wire::value_at<int8_t>(context->body())};
+    const auto reason = static_cast<JoinRefusedReason>(net::wire::value_at<int8_t>(context->body()));
     switch (reason) {
-    case kRefusedBanned:
+    case JoinRefusedReason::kBanned:
         manager->refused_reason_ = kReasonBanned;
         break;
-    case kRefusedFull:
+    case JoinRefusedReason::kFull:
         manager->refused_reason_ = kReasonFull;
         break;
-    case kRefusedFullObservers:
+    case JoinRefusedReason::kFullObservers:
         manager->refused_reason_ = kReasonFullObservers;
         break;
-    case kRefusedCdKey: {
-        if (manager->join_phase_ == kJoinStateCdKey) {
+    case JoinRefusedReason::kCdKey: {
+        if (manager->join_phase() == EntryPhase::kCdKey) {
             // Answered already: refused.
             manager->refused_reason_ = checksums::hash_from_text(kNetReasonGeneral.data());
             break;
@@ -862,11 +863,11 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         std::strcpy(info.password.data(), join_password().data());
         thugpro::ConnectRequest request{};
         send_connection_request(as_client(manager->client_app_), info, &request);
-        manager->join_phase_ = kJoinStateCdKey;
+        manager->set_join_phase(EntryPhase::kCdKey);
         return net::kResultPassOn;
     }
-    case kRefusedPassword:
-        if (manager->join_phase_ == kJoinStateTryingPassword) {
+    case JoinRefusedReason::kPassword:
+        if (manager->join_phase() == EntryPhase::kTryingPassword) {
             manager->refused_reason_ = kReasonWrongPassword;
             break;
         }
@@ -876,26 +877,26 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         manager->join_expiry_job_->drop_out();
         memory::Hub::get_pull()->leave_heap_scope();
         return net::kResultPassOn;
-    case kRefusedInProgress:
+    case JoinRefusedReason::kInProgress:
         script::launch_script(kCreateGameInProgressDialog, nullptr, nullptr, false, nullptr);
         manager->join_expiry_job_->drop_out();
         return net::kResultPassOn;
-    case kRefusedRankLow:
+    case JoinRefusedReason::kRankLow:
         manager->refused_reason_ = kReasonRankLow;
         break;
-    case kRefusedRankHigh:
+    case JoinRefusedReason::kRankHigh:
         manager->refused_reason_ = kReasonRankHigh;
         break;
     default:
         // (the wrong version too.) NOT ORIGINAL: THUGPRO's reasons 31-37 in words (TP-R13).
-        if (const uint32_t text = thugpro::refused_reason_text(reason))
+        if (const uint32_t text = thugpro::refused_reason_text(core::to_underlying(reason)))
             manager->refused_reason_ = text;
         else
             manager->refused_reason_ = kReasonDefault;
         break;
     }
     manager->cancel_join();
-    manager->join_phase_ = kJoinStateRefused;
+    manager->set_join_phase(EntryPhase::kRefused);
     return net::kResultMsgFreed;
 }
 

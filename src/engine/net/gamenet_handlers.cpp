@@ -248,7 +248,7 @@ int on_admitted_msg(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
-    manager->set_entry_phase(kJoinStateJoined);
+    manager->set_entry_phase(EntryPhase::kJoined);
     desc.set_ident(MessageId::kReadyToReceive);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);

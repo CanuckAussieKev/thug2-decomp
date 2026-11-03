@@ -195,7 +195,7 @@ bool cfunc_cancel_motd_download(Struct*, Script*)
 // 0x00535F40: DownloadMotd - the lobby's state 6.
 bool cfunc_download_motd(Struct*, Script*)
 {
-    net_game_state().online_hub()->set_service_state(online::kServiceStateNewsMessage);
+    net_game_state().online_hub()->set_service_state(online::ServiceState::kNewsMessage);
     return true;
 }
 
@@ -206,13 +206,13 @@ bool cfunc_services_are_available(Struct*, Script*)
     Hub* manager = net_game_state().online_hub();
     if (manager->services_available() == 1) {
         if (!manager->motd_received()) {
-            manager->set_next_service_state(0);
-            manager->set_service_state(1);
+            manager->set_next_service_state(ServiceState::kWaiting);
+            manager->set_service_state(ServiceState::kWake);
         }
         return true;
     }
-    manager->set_next_service_state(3);
-    manager->set_service_state(1);
+    manager->set_next_service_state(ServiceState::kStart);
+    manager->set_service_state(ServiceState::kWake);
     return false;
 }
 

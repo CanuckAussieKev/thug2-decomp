@@ -9,6 +9,7 @@
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fixed fields)
 
+#include "engine/net/service.h"
 #include "engine/core/task_list.h"
 #include "platform/gamespy.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -328,7 +329,7 @@ void Hub::disconnect_from_internet(uint32_t script)
     if (script)
         online_fail_script_ = script;
     tasks->queue_job(dialup_job_.get());
-    set_service_state(2);
+    set_service_state(ServiceState::kStopped);
     net->disconnect_from_internet();
 }
 
@@ -344,7 +345,7 @@ void Hub::cancel_connect_to_internet()
         task->drop_out();
         manager->modem_state_shown_ = -1;
         get_logic_tasks()->queue_job(manager->dialup_job_.get());
-        manager->set_service_state(2);
+        manager->set_service_state(ServiceState::kStopped);
         net::Hub::sole()->disconnect_from_internet();
         break;
     case 2:

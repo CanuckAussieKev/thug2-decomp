@@ -8,6 +8,8 @@
 #include <array>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
+#include "engine/core/enum_ops.h"
+#include "engine/net/service.h"
 #include "wire/gamenet_messages.h"
 #include "engine/script/preferences.h"
 #include "engine/net/net_address.h"
@@ -57,32 +59,34 @@ struct JoinerRecord;
 
 // (the join messages: wire/gamenet_messages.h - ConnectInfo, JoinRequestBlock, ProceedInfo)
 
-// Join refused (message 71, 10 bytes): the reason; with kRefusedCdKey, the host's CD-key challenge after it.
-using JoinRefusedReason = int8_t;
-constexpr int kRefusedFull = 0;
-constexpr int kRefusedPassword = 1;
-constexpr int kRefusedVersion = 2;
-constexpr int kRefusedInProgress = 3;
-constexpr int kRefusedBanned = 4;
-constexpr int kRefusedFullObservers = 5;
-constexpr int kRefusedRankLow = 6;  // the host's "rank greater than" test
-constexpr int kRefusedRankHigh = 7; // its "rank less than" test
-constexpr int kRefusedCdKey = 8;    // (and the challenge: the client answers with a new connection request)
+// Join refused (message 71, 10 bytes): the reason; with kCdKey, the host's CD-key challenge after it.
+enum class JoinRefusedReason : int8_t {
+    kFull = 0,
+    kPassword = 1,
+    kVersion = 2,
+    kInProgress = 3,
+    kBanned = 4,
+    kFullObservers = 5,
+    kRankLow = 6, // the host's "rank greater than" test
+    kRankHigh = 7, // its "rank less than" test
+    kCdKey = 8, // (and the challenge: the client answers with a new connection request)
+};
 constexpr uint16_t kJoinRefusedSize = 10;
 
 // The join's state (join_phase_, 0x005331F0 / 0x00533200).
-using EntryPhase = uint8_t;
-constexpr int kJoinStateConnecting = 1;
-constexpr int kJoinStateJoining = 2;
-constexpr int kJoinStateJoiningWithPassword = 3;
-constexpr int kJoinStateTryingPassword = 4;
-constexpr int kJoinStateCdKey = 5;   // answered the host's CD-key challenge
-constexpr int kJoinStateJoined = 6;  // the host let the player in
-constexpr int kJoinStateEntered = 7; // the network game's script has run
-constexpr int kJoinStateOver = 8;    // the join is over
-constexpr int kJoinStateRefused =
-    9; // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
-constexpr int kJoinStateCancelled = 10;
+enum class EntryPhase : uint8_t {
+    kNone = 0, // no join
+    kConnecting = 1,
+    kJoining = 2,
+    kJoiningWithPassword = 3,
+    kTryingPassword = 4,
+    kCdKey = 5, // answered the host's CD-key challenge
+    kJoined = 6, // the host let the player in
+    kEntered = 7, // the network game's script has run
+    kOver = 8, // the join is over
+    kRefused = 9, // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
+    kCancelled = 10,
+};
 
 // A walk over the players (Hub::begin_player_walk / step_player_walk) and over the joining players
 // (begin_joiner_walk / step_joiner_walk): the current node. The original's searches (lists::Hunt<PlayerRecord> /
@@ -213,8 +217,8 @@ public:
     void set_final_scores_received(bool received);
     bool final_scores_received();
     // 0x005331F0 / 0x00533200: join_phase_.
-    void set_entry_phase(int state);
-    int get_entry_phase();
+    void set_entry_phase(EntryPhase state);
+    EntryPhase get_entry_phase();
     // 0x00533210 / 0x00533220: the crown of king of the hill (+0x6C) / forgotten.
     objects::CrownObject* get_crown_holder();
     void clear_crown();
@@ -447,11 +451,11 @@ public:
 
     // --- The server list (server_list.cpp) ---
     // 0x005451B0 / 0x005451C0: the online service's next state (+0x1BC) / its state (+0x1B8).
-    void set_next_service_state(int state);
-    int get_service_state();
+    void set_next_service_state(ServiceState state);
+    ServiceState get_service_state();
     // 0x005453E0: the state; 1 (wake): the service task added to the logic tasks and the next state taken (the
     // time 0x007CE444 cleared); 2: the task removed.
-    void set_service_state(int state);
+    void set_service_state(ServiceState state);
     // 0x005451E0 (PostGame): the lobby's 0x00540220; logged in to presence, the status "hosting" with the
     // location "10thug211:<local address>:<public address>:5153:<server name> (<lobby>)" (all 0 without a peer).
     void update_hosting_status();
@@ -492,7 +496,7 @@ public:
     // game is none), with `check_password` the password, with `check_cd_key` a CD-key response of 72 characters.
     // In the THUGPRO peer mode the CD-key check is left out: THUGPRO's hosts drop it, and its players send a made-up
     // key (TP-R12).
-    bool joins_accepted(int& reason, ConnectInfo* msg, net::Conn* conn, bool check_password, bool check_version,
+    bool joins_accepted(JoinRefusedReason& reason, ConnectInfo* msg, net::Conn* conn, bool check_password, bool check_version,
                         bool check_cd_key);
     // 0x00534480: join the server at ip:port with client `index` (a local client - the host's own - is connected
     // directly): the connection request sent, the client's join handlers added (index 0: the game's too).
@@ -705,18 +709,20 @@ public:
     void set_last_ready_probe_id(uint32_t value) { last_ready_probe_id_ = value; }
     [[nodiscard]] bool cleared_to_start() const { return cleared_to_start_; }
     [[nodiscard]] uint32_t script_flag_bits() const { return script_flag_bits_; }
-    [[nodiscard]] int join_phase() const { return join_phase_; }
-    void set_join_phase(int value) { join_phase_ = value; }
+    // (the phase is kept in the original's 32-bit word)
+    [[nodiscard]] EntryPhase join_phase() const { return static_cast<EntryPhase>(join_phase_); }
+    void set_join_phase(EntryPhase value) { join_phase_ = core::to_underlying(value); }
     int& modem_state_shown() { return modem_state_shown_; }
     [[nodiscard]] int modem_state_shown() const { return modem_state_shown_; }
     [[nodiscard]] int join_began_at() const { return join_began_at_; }
     [[nodiscard]] bool match_being_set_up() const { return match_being_set_up_; }
     void set_match_being_set_up(bool value) { match_being_set_up_ = value; }
     void set_awaiting_start(bool value) { awaiting_start_ = value; }
-    [[nodiscard]] int service_state() const { return service_state_; }
-    void assign_service_state(int value) { service_state_ = value; }
-    [[nodiscard]] int next_service_state() const { return next_service_state_; }
-    void assign_next_service_state(int value) { next_service_state_ = value; }
+    // (the states are kept in the original's 32-bit words)
+    [[nodiscard]] ServiceState service_state() const { return static_cast<ServiceState>(service_state_); }
+    void assign_service_state(ServiceState value) { service_state_ = core::to_underlying(value); }
+    [[nodiscard]] ServiceState next_service_state() const { return static_cast<ServiceState>(next_service_state_); }
+    void assign_next_service_state(ServiceState value) { next_service_state_ = core::to_underlying(value); }
     [[nodiscard]] uint32_t service_wake_at() const { return service_wake_at_; }
     void set_service_wake_at(uint32_t value) { service_wake_at_ = value; }
     [[nodiscard]] PlayerRecord* viewed_player() const { return viewed_player_; }
@@ -809,8 +815,8 @@ private:
     uint32_t lobby_since_{};                // +0x1B0 when the lobby began (reset_to_lobby)
     bool match_being_set_up_{};             // +0x1B4
     bool awaiting_start_{};                 // +0x1B5
-    int service_state_{2};                  // +0x1B8 the online service's state (service_task)
-    int next_service_state_{2};             // +0x1BC state 0 moves on to it at the wake time
+    int service_state_{core::to_underlying(ServiceState::kStopped)}; // +0x1B8 the online service's state (service_task)
+    int next_service_state_{core::to_underlying(ServiceState::kStopped)}; // +0x1BC state 0 moves on to it at the wake time
     uint32_t service_wake_at_{};            // +0x1C0 frame_clock::get_time() milliseconds; 0: none
     uint32_t online_script_{};              // +0x1C4 run once online (connect_to_internet)
     uint32_t online_fail_script_{};         // +0x1C8 run if going online fails

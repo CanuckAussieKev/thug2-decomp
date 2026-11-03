@@ -269,7 +269,7 @@ void RoomManager::start_listing_games()
 {
     Hub* manager = net_game_state().online_hub();
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-    manager->set_service_state(online::kServiceStateLobbyListIdle); // (the server list's state)
+    manager->set_service_state(online::ServiceState::kLobbyListIdle); // (the server list's state)
     unknowne430() = 0;
     net_game_state().set_listing_asked(false);
     net_game_state().set_listing_found(false);

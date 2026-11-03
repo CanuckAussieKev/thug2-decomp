@@ -106,7 +106,7 @@ void cancel_join(Hub* manager, bool notify_first)
         params->put_name_key(checksums::Name{0u}, kShowTimeout);
     }
     manager->join_phase_job()->drop_out();
-    manager->set_entry_phase(2);
+    manager->set_entry_phase(EntryPhase::kJoining);
     if (!notify_first) {
         params = script::new_struct();
         params->put_name_key(checksums::Name{0u}, kShowTimeout);

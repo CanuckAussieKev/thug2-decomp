@@ -200,7 +200,7 @@ void net_metrics_task(tasks::Task<Hub>* task)
 void join_deadline_tick(tasks::Task<Hub>* task)
 {
     const Hub* manager = task_manager(task);
-    if (manager->join_phase() == kJoinStateOver ||
+    if (manager->join_phase() == EntryPhase::kOver ||
         frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at()) <= kJoinTimeout)
         return;
     manager->join_phase_job()->drop_out();
