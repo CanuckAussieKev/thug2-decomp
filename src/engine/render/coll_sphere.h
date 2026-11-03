@@ -12,6 +12,8 @@
 
 namespace render {
 
+constexpr std::size_t kSphereFeelerUnknownBytes = 0x598;
+
 class HitMeshCache;
 
 // Where a sphere touches a face (0x2C bytes): the point, how far along its move (when moving), the face's normal,
@@ -24,7 +26,9 @@ struct SphereHit {
     uint8_t face_flag40_; // +0x28
     std::array<uint8_t, 3> pad;
 };
-static_assert(sizeof(SphereHit) == 0x2C, "layout must match the original");
+constexpr std::size_t kSphereHitBytes = 0x2C;
+
+static_assert(sizeof(SphereHit) == kSphereHitBytes, "layout must match the original");
 
 // What a sphere query fills (0x5A4 bytes): up to 32 hits; the move (a direction and how far along it - none when 0),
 // the flags of faces to pass over or to require, and whether to stop at the first hit (mode 2).
@@ -40,7 +44,10 @@ struct SphereHits {
     uint16_t require_flags_; // +0x59E
     int mode;                // +0x5A0
 };
-static_assert(sizeof(SphereHits) == 0x5A4 && offsetof(SphereHits, count) == 0x598, "layout must match the original");
+constexpr std::size_t kSphereHitsBytes = 0x5A4;
+constexpr std::size_t kSphereHitsCountOffset = 0x598;
+
+static_assert(sizeof(SphereHits) == kSphereHitsBytes && offsetof(SphereHits, count) == kSphereHitsCountOffset, "layout must match the original");
 
 // 0x0040E280 (cdecl): where the segment crosses the sphere's surface: 0, 1 or 2 points (*count) in order along
 // it; whether any. (The fifth argument isn't used.)
@@ -95,6 +102,9 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
 // as the rect query: its box (and the moved sphere's), through `cache` when it holds it, else the scenes' grids.
 bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, HitMeshCache* cache);
 
+constexpr std::size_t kSphereFeelerHitsOffset = 0x14;
+constexpr std::size_t kSphereFeelerHitCacheOffset = 0xB5C;
+
 // The sphere feeler (0xB60 bytes).
 class SphereFeeler {
 public:
@@ -113,14 +123,14 @@ public:
 private:
     CollSphere bound_ball_{};     // +0x000
     SphereHits hits_{};           // +0x014
-    std::array<uint8_t, 0x598> unknown5b8_{}; // +0x5B8
+    std::array<uint8_t, kSphereFeelerUnknownBytes> unknown5b8_{}; // +0x5B8
     uint32_t unknownb50_{0};      // +0xB50
     std::array<uint32_t, 2> unknownb54_{};  // +0xB54
     HitMeshCache* hit_cache_{nullptr}; // +0xB5C
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SphereFeeler, hits_) == 0x14 && offsetof(SphereFeeler, hit_cache_) == 0xB5C,
+        static_assert(offsetof(SphereFeeler, hits_) == kSphereFeelerHitsOffset && offsetof(SphereFeeler, hit_cache_) == kSphereFeelerHitCacheOffset,
                       "layout must match the original");
     }
 };

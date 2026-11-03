@@ -17,6 +17,9 @@ namespace render {
 struct CollisionHit;
 struct CollRect;
 
+constexpr std::size_t kHitMovingMeshBytes = 0xA4;
+constexpr std::size_t kHitMovingMeshInverseOffset = 0x60;
+
 // A movable collision object (0xA4 bytes, the original's vtable 0x00645B00; a car, a level object...): its world
 // position and orientation, and the orientation's inverse (the transpose).
 class HitMovingMesh : public HitMesh {
@@ -64,7 +67,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMovingMesh) == 0xA4 && offsetof(HitMovingMesh, inverse_) == 0x60, "layout must match");
+        static_assert(sizeof(HitMovingMesh) == kHitMovingMeshBytes && offsetof(HitMovingMesh, inverse_) == kHitMovingMeshInverseOffset, "layout must match");
     }
 };
 
@@ -73,6 +76,9 @@ struct MatrixTranspose : maths::Mat4 {
     maths::Mat4* transpose_from(const maths::Mat4* source);
     void transpose_in_place();
 };
+
+constexpr std::size_t kHitMovingBoxBytes = 0xD0;
+constexpr std::size_t kHitMovingBoxPolyAttrBitsOffset = 0xC4;
 
 // A movable box (0xD0 bytes, the original's vtable 0x00645BC0): one set of face flags and terrain for every face.
 class HitMovingBox final : public HitMovingMesh {
@@ -117,9 +123,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMovingBox) == 0xD0 && offsetof(HitMovingBox, poly_attr_bits_) == 0xC4, "layout must match");
+        static_assert(sizeof(HitMovingBox) == kHitMovingBoxBytes && offsetof(HitMovingBox, poly_attr_bits_) == kHitMovingBoxPolyAttrBitsOffset, "layout must match");
     }
 };
+
+constexpr std::size_t kCollScaledBytes = 0xA0;
+constexpr std::size_t kCollScaledInverseOffset = 0x60;
 
 // A scaled, rotated and placed collision object (0xA0 bytes, the original's vtable 0x00645B58), with the inverse
 // transform. (Its slot 25, 0x00412050 - the scale's address, folded with HitMovingMesh::get_absolute_point - was never
@@ -171,7 +180,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(CollScaled) == 0xA0 && offsetof(CollScaled, inverse_) == 0x60, "layout must match");
+        static_assert(sizeof(CollScaled) == kCollScaledBytes && offsetof(CollScaled, inverse_) == kCollScaledInverseOffset, "layout must match");
     }
 };
 

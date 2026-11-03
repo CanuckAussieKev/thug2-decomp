@@ -14,6 +14,10 @@
 
 namespace render {
 
+constexpr int kLeafCountShift = 16; // a leaf node keeps its face count in the tag's high half
+constexpr int kSmallFaceBytes = 8;
+constexpr int kFullFaceBytes = 10;
+
 // A node of a collision geometry's BSP tree (8 bytes; an array of them, made with new[] - a count before the
 // first). +0: the low 2 bits the split axis (0 x, 1 y, 2 z) or 3 for a leaf; the rest (>> 2, signed) the split
 // position in sixteenths. A leaf has its face count at +2 and a pointer to its face indices (u16) at +4. A
@@ -39,7 +43,7 @@ public:
     [[nodiscard]] int get_axis() const { return axis_tag_ & 3; }
     [[nodiscard]] int get_split() const { return axis_tag_ >> 2; }
     void set_split(int value) { axis_tag_ = (value << 2) | (axis_tag_ & 3); }
-    [[nodiscard]] uint16_t leaf_face_count() const { return static_cast<uint16_t>(static_cast<uint32_t>(axis_tag_) >> 16); }
+    [[nodiscard]] uint16_t leaf_face_count() const { return static_cast<uint16_t>(static_cast<uint32_t>(axis_tag_) >> kLeafCountShift); }
     [[nodiscard]] uint16_t* get_leaf_faces() const { return collision_format::tree_leaf_faces(chain_link_); }
     // The leaf's face indices as a run of its face count.
     [[nodiscard]] std::span<uint16_t> leaf_face_run() const { return {get_leaf_faces(), leaf_face_count()}; }
@@ -49,7 +53,7 @@ public:
     // A leaf of `count` faces listed at `faces`.
     void make_leaf(uint16_t count, uint16_t* faces)
     {
-        axis_tag_ = 3 | static_cast<int32_t>(static_cast<uint32_t>(count) << 16);
+        axis_tag_ = 3 | static_cast<int32_t>(static_cast<uint32_t>(count) << kLeafCountShift);
         chain_link_ = collision_format::tree_link_to(faces);
     }
     [[nodiscard]] HitTreeNode* less_child() const { return &core::at(child_pair(), (chain_link_ & 1) ? 1 : 0); }
@@ -70,12 +74,24 @@ public:
     // 0x00416A10: a copy of the tree and its face indices (the argument unused); null if it has no nodes.
     [[nodiscard]] HitTreeNode* replicate(int unused) const;
 };
-static_assert(sizeof(HitTreeNode) == 8, "the collision file's BSP node (collision_format.h), used in place");
+constexpr std::size_t kHitTreeNodeBytes = 8;
+
+static_assert(sizeof(HitTreeNode) == kHitTreeNodeBytes, "the collision file's BSP node (collision_format.h), used in place");
 
 // A tree's nodes as new[] made them (0x00414D70 each), the block before the first holding their count - and the
 // block freed from there (the original's new[] kept the count in the word before them).
 HitTreeNode* new_tree_nodes(int count);
 void free_tree_nodes(HitTreeNode* first);
+
+constexpr std::size_t kTriMeshSourceNumVerticesOffset = 0x06;
+constexpr std::size_t kTriMeshSourceTriCountOffset = 0x08;
+constexpr std::size_t kTriMeshSourceSmallFacesOffset = 0x0A;
+constexpr std::size_t kTriMeshSourceCompressedOffset = 0x0B;
+constexpr std::size_t kTriMeshSourceFacesOffset = 0x0C;
+constexpr std::size_t kTriMeshSourceBoundsOffset = 0x10;
+constexpr std::size_t kTriMeshSourceVerticesOffset = 0x30;
+constexpr std::size_t kTriMeshSourceBspOffset = 0x34;
+constexpr std::size_t kTriMeshSourceVertexBytesOffset = 0x38;
 
 // A collision object's geometry (render::TriMeshSource, from a .col file): its vertices (floats, or 16-bit offsets
 // from its box's minimum in sixteenths when "compressed"), faces and BSP tree.
@@ -193,7 +209,7 @@ public:
     // The faces (collision_format::FaceTable: flags, terrain, vertex indices).
     [[nodiscard]] collision_format::FaceTable face_table() const
     {
-        return {std::span<uint8_t>(faces_, static_cast<size_t>(tri_count_) * (small_faces_ ? 8 : 10)), small_faces_};
+        return {std::span<uint8_t>(faces_, static_cast<size_t>(tri_count_) * (small_faces_ ? kSmallFaceBytes : kFullFaceBytes)), small_faces_};
     }
     [[nodiscard]] uint32_t face_vertex(int face, int corner) const { return face_table().vertex(face, corner); }
     [[nodiscard]] uint16_t face_flags(int face) const { return face_table().flags(face); }
@@ -203,11 +219,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TriMeshSource, num_vertices_) == 0x06 && offsetof(TriMeshSource, tri_count_) == 0x08 &&
-                          offsetof(TriMeshSource, small_faces_) == 0x0A && offsetof(TriMeshSource, compressed_) == 0x0B &&
-                          offsetof(TriMeshSource, faces_) == 0x0C && offsetof(TriMeshSource, bounds_) == 0x10 &&
-                          offsetof(TriMeshSource, vertices_) == 0x30 && offsetof(TriMeshSource, bsp_) == 0x34 &&
-                          offsetof(TriMeshSource, vertex_bytes_) == 0x38 &&
+        static_assert(offsetof(TriMeshSource, num_vertices_) == kTriMeshSourceNumVerticesOffset && offsetof(TriMeshSource, tri_count_) == kTriMeshSourceTriCountOffset &&
+                          offsetof(TriMeshSource, small_faces_) == kTriMeshSourceSmallFacesOffset && offsetof(TriMeshSource, compressed_) == kTriMeshSourceCompressedOffset &&
+                          offsetof(TriMeshSource, faces_) == kTriMeshSourceFacesOffset && offsetof(TriMeshSource, bounds_) == kTriMeshSourceBoundsOffset &&
+                          offsetof(TriMeshSource, vertices_) == kTriMeshSourceVerticesOffset && offsetof(TriMeshSource, bsp_) == kTriMeshSourceBspOffset &&
+                          offsetof(TriMeshSource, vertex_bytes_) == kTriMeshSourceVertexBytesOffset &&
                           sizeof(TriMeshSource) == collision_format::kObjectSize,
                       "the collision file's object record (collision_format.h)");
     }

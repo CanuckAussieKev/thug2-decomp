@@ -22,6 +22,11 @@
 
 namespace render {
 
+constexpr std::size_t kFoundCapacity = 2048; // the objects one grid query can list
+constexpr float kCellFraction = 0.05f;       // the bounds are cut into 20 cells each way
+constexpr float kUnboundedHeight = 1e12f;    // a cell reaches this far up and down
+constexpr float kHalf = 0.5f;
+
 namespace {
 
 // NOT ORIGINAL grouping - the grid queries' shared answer and the current query's mark. Made on first use, never
@@ -29,7 +34,7 @@ namespace {
 struct GridQuery {
     // The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
     // last one that listed them, so each is listed once).
-    std::array<HitMesh*, 2048> found_{};
+    std::array<HitMesh*, kFoundCapacity> found_{};
     uint8_t stamp_{};
 };
 
@@ -54,7 +59,7 @@ int confine(int value, int size)
 // An object's box as the grid sees it.
 const maths::BBox* cuboid(HitMesh* object) { return object->get_world_bounds(); }
 
-bool listable(HitMesh* object) { return !(object->flag_bits() & 6); }
+bool listable(HitMesh* object) { return !(object->flag_bits() & kUnlistedFlags); }
 
 bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 memory::ListNode* masked(memory::ListNode* node) { return is_head(node) ? nullptr : node; }
@@ -175,15 +180,15 @@ CollGridCell::~CollGridCell()
 void CollGrid::prepare_all(const maths::BBox* bounds)
 {
     box_ = *bounds;
-    cell_span_x_ = static_cast<float>((static_cast<double>(bounds->max.x) - bounds->min.x) * 0.05f);
-    cell_depth_ = static_cast<float>((static_cast<double>(bounds->max.z) - bounds->min.z) * 0.05f);
+    cell_span_x_ = static_cast<float>((static_cast<double>(bounds->max.x) - bounds->min.x) * kCellFraction);
+    cell_depth_ = static_cast<float>((static_cast<double>(bounds->max.z) - bounds->min.z) * kCellFraction);
     double x = bounds->min.x;
     for (auto& column : cells_) {
         double z = bounds->min.z;
         for (auto& cell : column) {
             maths::BBox& box = cell.box();
-            box.min = {.x = static_cast<float>(x), .y = -1e12f, .z = static_cast<float>(z), .w = 0.0f};
-            box.max = {.x = static_cast<float>(x + cell_span_x_), .y = 1e12f, .z = static_cast<float>(z + cell_depth_), .w = 0.0f};
+            box.min = {.x = static_cast<float>(x), .y = -kUnboundedHeight, .z = static_cast<float>(z), .w = 0.0f};
+            box.max = {.x = static_cast<float>(x + cell_span_x_), .y = kUnboundedHeight, .z = static_cast<float>(z + cell_depth_), .w = 0.0f};
             z += cell_depth_;
         }
         x += cell_span_x_;
@@ -335,11 +340,11 @@ std::span<HitMesh* const> CollGrid::objects_in_box(const maths::BBox* box)
 {
     const uint8_t stamp = ++grid_query().stamp_;
     const double inverse_width = 1.0 / cell_span_x_;
-    int x0 = truncate((static_cast<double>(box->min.x) - box_.min.x - 0.5f) * inverse_width);
+    int x0 = truncate((static_cast<double>(box->min.x) - box_.min.x - kQueryBoxMargin) * inverse_width);
     auto inverse_depth = static_cast<float>(1.0 / cell_depth_);
-    int z0 = truncate((static_cast<double>(box->min.z) - box_.min.z - 0.5f) * inverse_depth);
-    int x1 = truncate((static_cast<double>(box->max.x) - box_.min.x + 0.5f) * inverse_width);
-    int z1 = truncate((static_cast<double>(box->max.z) - box_.min.z + 0.5f) * inverse_depth);
+    int z0 = truncate((static_cast<double>(box->min.z) - box_.min.z - kQueryBoxMargin) * inverse_depth);
+    int x1 = truncate((static_cast<double>(box->max.x) - box_.min.x + kQueryBoxMargin) * inverse_width);
+    int z1 = truncate((static_cast<double>(box->max.z) - box_.min.z + kQueryBoxMargin) * inverse_depth);
     x0 = confine(x0, columns_);
     z0 = confine(z0, rows_);
     x1 = confine(x1, columns_);
@@ -379,7 +384,7 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
     }
     const double ex = dx * 0.5f;
     const double ey = static_cast<double>(dy) * 0.5f;
-    auto ez = static_cast<float>(static_cast<double>(dz) * 0.5f);
+    auto ez = static_cast<float>(static_cast<double>(dz) * kHalf);
     maths::Seg longer{};
     longer.start = {.x = static_cast<float>(line->start.x - ex), .y = static_cast<float>(line->start.y - ey),
                     .z = static_cast<float>(static_cast<double>(line->start.z) - ez), .w = 0.0f};

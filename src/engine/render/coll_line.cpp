@@ -20,6 +20,8 @@
 #include "engine/render/collision_state.h"
 namespace render {
 
+constexpr uint32_t kMaxHitThreshold = 0xFF; // farther than this from the geometry: no hit
+
 namespace {
 
 // Set while a caller (0x00410930) wants the farthest hit rather than the nearest.
@@ -86,7 +88,7 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
         hit->face_flags_ = static_cast<uint16_t>(flags);
         hit->terrain = static_cast<uint8_t>(object->get_face_terrain(static_cast<int>(face.face)));
         hit->object = object;
-        hit->face_flag40_ = static_cast<uint8_t>(flags & 0x40);
+        hit->face_flag40_ = static_cast<uint8_t>(flags & kFaceFlag40);
         hit->object_checksum_ = object->checksum();
         // the point recomputed along the line
         const double dx = static_cast<double>(line.end.x) - line.start.x;
@@ -171,10 +173,10 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
     const double rz = cz - pz;
     const uint32_t threshold =
         get_threshold(std::sqrt((rz * rz + static_cast<double>(ry) * ry) + static_cast<double>(rx) * rx), geometry);
-    if (threshold > 0xFF)
+    if (threshold > kMaxHitThreshold)
         return false;
 
-    std::array<uint16_t, 0x800> buffer{};
+    std::array<uint16_t, kFaceQueryBufferSize> buffer{};
     const std::span<const uint16_t> faces = geometry->get_faces_in_box(line_box, buffer);
     const int count = static_cast<int>(faces.size());
     bool any = false;
@@ -220,7 +222,7 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
                           .z = get_difference(local.end.z, local.start.z), .w = get_difference(local.end.w, local.start.w)};
     maths::BBox around(local.start);
     around.append_spot(local.end);
-    std::array<uint16_t, 0x800> buffer{};
+    std::array<uint16_t, kFaceQueryBufferSize> buffer{};
     const std::span<const uint16_t> faces = geometry()->get_faces_in_box(&around, buffer);
     const int count = static_cast<int>(faces.size());
     bool any = false;
@@ -298,10 +300,10 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
         const double ry = cy - py;
         const double rz = static_cast<double>(cz) - pz;
         threshold = get_threshold(std::sqrt((static_cast<double>(rx) * rx + rz * rz) + ry * ry), geometry);
-        if (threshold > 0xFF)
+        if (threshold > kMaxHitThreshold)
             return false;
     }
-    std::array<uint16_t, 0x800> buffer{};
+    std::array<uint16_t, kFaceQueryBufferSize> buffer{};
     const std::span<const uint16_t> faces = geometry->get_faces_in_box(&around, buffer);
     const int count = static_cast<int>(faces.size());
     bool any = false;

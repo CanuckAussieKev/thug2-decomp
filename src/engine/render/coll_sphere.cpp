@@ -444,7 +444,7 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
 // 0x004110B0 (slot 16 of a sector and of an instance - the instance's faces taken as they are, unplaced)
 bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
 {
-    std::array<uint16_t, 0x800> buffer{};
+    std::array<uint16_t, kFaceQueryBufferSize> buffer{};
     const std::span<const uint16_t> faces = geometry_->get_faces_in_box(box, buffer);
     const int count = static_cast<int>(faces.size());
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
@@ -469,7 +469,7 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
             return true;
         SphereHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
-        entry.face_flag40_ = static_cast<uint8_t>(flags & 0x40);
+        entry.face_flag40_ = static_cast<uint8_t>(flags & kFaceFlag40);
         entry.checksum = checksum_;
         entry.point = point;
         if (hits->sweep > 0.0f)
@@ -508,8 +508,8 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
         grid->objects_in_box(&box); // (the answer isn't used)
     }
     maths::BBox grown;
-    grown.min = {.x = box.min.x - 0.5f, .y = box.min.y - 0.5f, .z = box.min.z - 0.5f, .w = box.min.w - 1.0f};
-    grown.max = {.x = box.max.x + 0.5f, .y = box.max.y + 0.5f, .z = box.max.z + 0.5f, .w = box.max.w + 1.0f};
+    grown.min = {.x = box.min.x - kQueryBoxMargin, .y = box.min.y - kQueryBoxMargin, .z = box.min.z - kQueryBoxMargin, .w = box.min.w - 1.0f};
+    grown.max = {.x = box.max.x + kQueryBoxMargin, .y = box.max.y + kQueryBoxMargin, .z = box.max.z + kQueryBoxMargin, .w = box.max.w + 1.0f};
     hits->count = 0;
     if (use_cache) {
         for (int i = 0; i < cache->statics(); ++i) {
@@ -543,7 +543,7 @@ SphereFeeler::SphereFeeler(const maths::Vec4* centre, float radius)
     hits_.count = 0;
     hits_.mode = 0;
     hits_.require_flags_ = 0;
-    hits_.ignore_flags_ = 0x10;
+    hits_.ignore_flags_ = kDefaultIgnoredFaceFlags;
 }
 
 // 0x00418300

@@ -25,6 +25,11 @@
 
 namespace render {
 
+// Each hit line of the diagnostic draw is a step further round the colour cube.
+constexpr int kHitColourBlueStep = 0x1F;
+constexpr int kHitColourGreenStep = 0x63;
+constexpr int kHitColourRedStep = 0xC9;
+
 namespace {
 
 // The cache the rect feelers use when they have none (0x0069198C).
@@ -72,7 +77,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         static_cast<double>(hit.normal.z) * hit.normal.z;
     if (length_squared <= 0.0)
         return;
-    hit.face_flag40_ = static_cast<uint8_t>(face_flags & 0x40);
+    hit.face_flag40_ = static_cast<uint8_t>(face_flags & kFaceFlag40);
     hit.checksum = checksum;
     core::at(hit.ends, 0).point = core::at(points, 0);
     core::at(hit.ends, 1).point = core::at(points, 1);
@@ -120,7 +125,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
 bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits,
                         const CollScaled* placed)
 {
-    std::array<uint16_t, 0x800> buffer{};
+    std::array<uint16_t, kFaceQueryBufferSize> buffer{};
     const std::span<const uint16_t> faces = object->geometry()->get_faces_in_box(box, buffer);
     const int count = static_cast<int>(faces.size());
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
@@ -208,8 +213,8 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
         grid->objects_in_box(&box); // (the answer isn't used)
     }
     maths::BBox grown;
-    grown.min = {.x = box.min.x - 0.5f, .y = box.min.y - 0.5f, .z = box.min.z - 0.5f, .w = box.min.w - 1.0f};
-    grown.max = {.x = box.max.x + 0.5f, .y = box.max.y + 0.5f, .z = box.max.z + 0.5f, .w = box.max.w + 1.0f};
+    grown.min = {.x = box.min.x - kQueryBoxMargin, .y = box.min.y - kQueryBoxMargin, .z = box.min.z - kQueryBoxMargin, .w = box.min.w - 1.0f};
+    grown.max = {.x = box.max.x + kQueryBoxMargin, .y = box.max.y + kQueryBoxMargin, .z = box.max.z + kQueryBoxMargin, .w = box.max.w + 1.0f};
     hits->count = 0;
     if (use_cache) {
         for (int i = 0; i < cache->statics(); ++i) {
@@ -298,7 +303,7 @@ BoxProbe::BoxProbe()
 {
     hits_.count = 0;
     hits_.require_flags_ = 0;
-    hits_.ignore_flags_ = 0x10;
+    hits_.ignore_flags_ = kDefaultIgnoredFaceFlags;
 }
 
 // 0x00417840
@@ -402,9 +407,9 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
     const std::span<const RectHit> hits = joined_count_ > 0 ? std::span<const RectHit>(joined_) : std::span<const RectHit>(hits_.hits);
     const int count = joined_count_ > 0 ? joined_count_ : hits_.count;
     for (int i = count - 1; i >= 0; --i) {
-        b += 0x1F;
-        g += 0x63;
-        r += 0xC9;
+        b += kHitColourBlueStep;
+        g += kHitColourGreenStep;
+        r += kHitColourRedStep;
         const uint32_t hit_colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
         gfx::push_diag_line(&core::at(core::at(hits, i).ends, 0).point, &core::at(core::at(hits, i).ends, 1).point, hit_colour, hit_colour, 1);
     }

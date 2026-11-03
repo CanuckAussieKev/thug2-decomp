@@ -10,7 +10,12 @@
 // lines and boxes against them, and the caches that keep the objects near a box for repeated queries.
 namespace render {
 
+constexpr std::size_t kCacheRowCount = 500; // the rows of one collision cache
+
 class HitMesh;
+
+constexpr std::size_t kHitMeshCacheBytes = 0xFCC;
+constexpr std::size_t kHitMeshCacheNumOffset = 0xFC0;
 
 // A collision cache (0xFCC bytes): the collision objects whose boxes touch its box, the static ones (level
 // sectors) first, then the movable ones; each with the geometry the queries use. Every cache is registered (8 at
@@ -39,8 +44,8 @@ public:
     // The fields other code reads and sets.
     maths::BBox& box() { return box_; }
     [[nodiscard]] const maths::BBox& box() const { return box_; }
-    std::array<TableRow, 500>& entries() { return entries_; }
-    [[nodiscard]] const std::array<TableRow, 500>& entries() const { return entries_; }
+    std::array<TableRow, kCacheRowCount>& entries() { return entries_; }
+    [[nodiscard]] const std::array<TableRow, kCacheRowCount>& entries() const { return entries_; }
     void set_num(int value) { num_ = value; }
     [[nodiscard]] int statics() const { return statics_; }
     void set_statics(int value) { statics_ = value; }
@@ -49,14 +54,14 @@ public:
 
 private:
     maths::BBox box_;       // +0x000
-    std::array<TableRow, 500> entries_{}; // +0x020
+    std::array<TableRow, kCacheRowCount> entries_{}; // +0x020
     int num_{};               // +0xFC0
     int statics_{};           // +0xFC4
     int movables_{};          // +0xFC8
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMeshCache) == 0xFCC && offsetof(HitMeshCache, num_) == 0xFC0, "layout must match the original");
+        static_assert(sizeof(HitMeshCache) == kHitMeshCacheBytes && offsetof(HitMeshCache, num_) == kHitMeshCacheNumOffset, "layout must match the original");
     }
 };
 

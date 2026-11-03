@@ -1,6 +1,7 @@
 // Collision geometry (TriMeshSource) and its BSP tree (HitTreeNode).
 
 #include "engine/render/coll_tri.h"
+#include "engine/render/coll_obj.h"
 
 #include <cmath>
 #include <cstdint>
@@ -20,6 +21,11 @@
 
 namespace render {
 
+constexpr std::size_t kAllFaceTableSize = 2048; // the faces one geometry can have
+constexpr int kAllFaceTableEntries = 0x800;      // the same count, for the fill loop
+constexpr int kFaceTableUnset = 0xFFFF;          // the table's first entry until it is filled
+constexpr float kVertexUnit = 0.0625f;           // a packed vertex coordinate is in sixteenths of a unit of its box
+
 namespace {
 
 constexpr float kSixteenth = 0.0625f;
@@ -29,7 +35,7 @@ constexpr float kSixteen = 16.0f;
 // walking the tree. Made on first use, never destroyed (face_walk()).
 struct FaceWalk {
     // The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
-    std::array<uint16_t, 2048> all_faces_{{0xFFFF}};
+    std::array<uint16_t, kAllFaceTableSize> all_faces_{{kFaceTableUnset}};
     std::span<uint16_t> face_buffer_{};
     int face_count_{};
 };
@@ -40,7 +46,7 @@ FaceWalk& face_walk()
     return state.get();
 }
 
-std::array<uint16_t, 2048>& all_faces() { return face_walk().all_faces_; }
+std::array<uint16_t, kAllFaceTableSize>& all_faces() { return face_walk().all_faces_; }
 
 // get_faces_in_box's / is_point_behind_faces' state while walking the tree.
 
@@ -56,9 +62,9 @@ maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
 {
     if (compressed_) {
         const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
-        return {.x = static_cast<float>(core::at(v, 0)) * 0.0625f + bounds_.min.x,
-                .y = static_cast<float>(core::at(v, 1)) * 0.0625f + bounds_.min.y,
-                .z = static_cast<float>(core::at(v, 2)) * 0.0625f + bounds_.min.z, .w = 0.0f};
+        return {.x = static_cast<float>(core::at(v, 0)) * kVertexUnit + bounds_.min.x,
+                .y = static_cast<float>(core::at(v, 1)) * kVertexUnit + bounds_.min.y,
+                .z = static_cast<float>(core::at(v, 2)) * kVertexUnit + bounds_.min.z, .w = 0.0f};
     }
     const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
     return {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2), .w = 0.0f};
@@ -69,9 +75,9 @@ void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
 {
     if (compressed_) {
         const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
-        out->x = static_cast<float>(core::at(v, 0)) * 0.0625f + bounds_.min.x;
-        out->y = static_cast<float>(core::at(v, 1)) * 0.0625f + bounds_.min.y;
-        out->z = static_cast<float>(core::at(v, 2)) * 0.0625f + bounds_.min.z;
+        out->x = static_cast<float>(core::at(v, 0)) * kVertexUnit + bounds_.min.x;
+        out->y = static_cast<float>(core::at(v, 1)) * kVertexUnit + bounds_.min.y;
+        out->z = static_cast<float>(core::at(v, 2)) * kVertexUnit + bounds_.min.z;
         out->w = 0.0f;
         return;
     }
@@ -112,8 +118,8 @@ void TriMeshSource::get_stored_vertex_array(std::span<maths::Vec4> out) const
 void TriMeshSource::choose_raw_verts(std::span<const maths::Vec4> positions)
 {
     maths::BBox* box = &bounds_;
-    box->min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
-    box->max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
+    box->min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0f};
+    box->max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0f};
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
         box->append_spot(core::at(positions, i));
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
@@ -280,8 +286,8 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     min.turn_quarter_about_y(quarter_turns);
     max.turn_quarter_about_y(quarter_turns);
     maths::BBox* box = &bounds_;
-    box->min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
-    box->max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
+    box->min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0f};
+    box->max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0f};
     box->append_spot(min);
     box->append_spot(max);
     if (positions) {
@@ -338,7 +344,7 @@ bool TriMeshSource::set_up_all_faces()
 {
     auto& table = all_faces();
     if (core::at(table, 0) != 0) {
-        for (int i = 0; i < 0x800; ++i)
+        for (int i = 0; i < kAllFaceTableEntries; ++i)
             core::at(table, i) = static_cast<uint16_t>(i);
     }
     return bsp_ != nullptr;

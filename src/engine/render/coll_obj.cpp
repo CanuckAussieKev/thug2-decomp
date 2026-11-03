@@ -201,8 +201,8 @@ maths::BBox* HitMeshGroup::get_local_bounds()
 void HitMeshGroup::recompute_b_box()
 {
     box_valid_ = true;
-    box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
-    box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
+    box_.min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0f};
+    box_.max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0f};
     for (const memory::ListNode* node = sub_nodes_->next(); node->data() != kHeadData && node; node = node->next()) {
         const maths::BBox* box = static_cast<HitMesh*>(node->data())->get_local_bounds();
         if (!box) {

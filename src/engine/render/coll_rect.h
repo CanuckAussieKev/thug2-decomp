@@ -22,7 +22,9 @@ struct RectHitEnd {
     bool on_triangle_edge_;
     std::array<uint8_t, 3> pad;
 };
-static_assert(sizeof(RectHitEnd) == 0x24, "layout must match the original");
+constexpr std::size_t kRectHitEndBytes = 0x24;
+
+static_assert(sizeof(RectHitEnd) == kRectHitEndBytes, "layout must match the original");
 
 // Where the rect crosses a triangle (0x60 bytes): a segment, the face's normal, its object's checksum and flag 0x40.
 struct RectHit {
@@ -38,7 +40,10 @@ struct RectHit {
 RectHit* copy_from(RectHit& hit, const RectHit* other);
 
 RectHit* get_assign(RectHit& hit, const RectHit* other);
-static_assert(sizeof(RectHit) == 0x60 && offsetof(RectHit, normal) == 0x48, "layout must match the original");
+constexpr std::size_t kRectHitBytes = 0x60;
+constexpr std::size_t kRectHitNormalOffset = 0x48;
+
+static_assert(sizeof(RectHit) == kRectHitBytes && offsetof(RectHit, normal) == kRectHitNormalOffset, "layout must match the original");
 
 // What a rect query fills (0xC08 bytes): up to 32 hits; faces with an ignored flag or without a required one are
 // passed over.
@@ -50,13 +55,18 @@ struct RectHits {
     uint16_t ignore_flags_;  // +0xC04
     uint16_t require_flags_; // +0xC06
 };
-static_assert(sizeof(RectHits) == 0xC08, "layout must match the original");
+constexpr std::size_t kRectHitsBytes = 0xC08;
+
+static_assert(sizeof(RectHits) == kRectHitsBytes, "layout must match the original");
 
 // 0x0040FEE0 (cdecl): the rect against the static collision objects (slot 15 of each), the count reset first:
 // through `cache` when it holds the rect's box (its statics whose boxes touch that box grown by 0.5 - w by 1),
 // else the scenes' grids along the rect's diagonal (each object's slot 13 first; nothing when the rect's scene has
 // no grid). Whether anything was hit.
 bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCache* cache);
+
+constexpr std::size_t kBoxProbeJoinedOffset = 0xC38;
+constexpr std::size_t kBoxProbeHitCacheOffset = 0x1840;
 
 // The rect feeler (0x1844 bytes): a rect, what it hits, and the hits joined into longer segments.
 class BoxProbe {
@@ -93,7 +103,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BoxProbe, joined_) == 0xC38 && offsetof(BoxProbe, hit_cache_) == 0x1840,
+        static_assert(offsetof(BoxProbe, joined_) == kBoxProbeJoinedOffset && offsetof(BoxProbe, hit_cache_) == kBoxProbeHitCacheOffset,
                       "layout must match the original");
     }
 };

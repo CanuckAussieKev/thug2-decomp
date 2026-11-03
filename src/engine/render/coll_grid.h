@@ -18,6 +18,9 @@ namespace render {
 class HitMesh;
 class StaticCollider;
 
+constexpr std::size_t kCollGridCellBytes = 0x30;
+constexpr std::size_t kCollGridCellObjectsOffset = 0x2C;
+
 // A cell (0x30 bytes).
 struct CollGridCell {
     // 0x004183B0: an empty box, nothing listed.
@@ -50,10 +53,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(CollGridCell) == 0x30 && offsetof(CollGridCell, objects_) == 0x2C,
+        static_assert(sizeof(CollGridCell) == kCollGridCellBytes && offsetof(CollGridCell, objects_) == kCollGridCellObjectsOffset,
                       "layout must match the original");
     }
 };
+
+constexpr std::size_t kCollGridCellsOffset = 0x30;
+constexpr std::size_t kCollGridBytes = 0x4B30;
 
 class CollGrid {
 public:
@@ -95,7 +101,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(CollGrid, cells_) == 0x30 && sizeof(CollGrid) == 0x4B30, "layout must match the original");
+        static_assert(offsetof(CollGrid, cells_) == kCollGridCellsOffset && sizeof(CollGrid) == kCollGridBytes, "layout must match the original");
     }
 };
 

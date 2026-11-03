@@ -199,8 +199,8 @@ void CollStaticInstance::change_scale(const maths::Vec4* scale)
 // 0x004113B0
 void CollStaticInstance::recompute_world_bounds()
 {
-    world_box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
-    world_box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
+    world_box_.min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0f};
+    world_box_.max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0f};
     const int count = geometry()->num_vertices();
     for (int i = 0; i < count; ++i) {
         maths::Vec4 raw{};

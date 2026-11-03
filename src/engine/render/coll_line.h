@@ -45,7 +45,10 @@ struct CollisionHit {
 
 // 0x004F8160: every field copied (not the padding). Returns this.
 CollisionHit* copy_from(CollisionHit& hit, const CollisionHit& other);
-static_assert(sizeof(CollisionHit) == 0x50 && offsetof(CollisionHit, hit) == 0x48, "layout must match the original");
+constexpr std::size_t kCollisionHitBytes = 0x50;
+constexpr std::size_t kCollisionHitHitOffset = 0x48;
+
+static_assert(sizeof(CollisionHit) == kCollisionHitBytes && offsetof(CollisionHit, hit) == kCollisionHitHitOffset, "layout must match the original");
 
 // A face the line crosses, as a line test hands it on: its normal, where it's crossed, and its index.
 struct FaceHit {
@@ -53,7 +56,9 @@ struct FaceHit {
     maths::Vec4 point;
     uint32_t face;
 };
-static_assert(sizeof(FaceHit) == 0x24, "layout must match the original");
+constexpr std::size_t kFaceHitBytes = 0x24;
+
+static_assert(sizeof(FaceHit) == kFaceHitBytes, "layout must match the original");
 
 // 0x004131F0 (cdecl): a face the line hits at `distance` (0..1 along it) offered to `hit`. It's taken (the
 // record filled - the point recomputed from the line - and the callback called) unless the face's flags include

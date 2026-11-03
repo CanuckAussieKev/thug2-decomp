@@ -14,6 +14,14 @@ class GameEntity;
 }
 namespace render {
 
+// Values the collision queries share.
+constexpr float kEmptyBoxExtent = 10000000.0f; // an empty box starts with min at +this and max at -this on each axis
+constexpr float kQueryBoxMargin = 0.5f;        // a query's box is grown by this each way before it is matched
+constexpr int kUnlistedFlags = 6;              // an object with any of these flag bits is left out of the queries
+constexpr int kFaceFlag40 = 0x40;              // the face flag a hit record keeps (0 or 0x40)
+constexpr int kDefaultIgnoredFaceFlags = 0x10; // the faces a fresh probe passes over
+constexpr std::size_t kFaceQueryBufferSize = 0x800; // the face indices one query lists
+
 // The geometry a collision object's faces come from (render::TriMeshSource; its methods are rewritten later).
 struct TriMeshSource;
 struct CollisionHit;
@@ -31,6 +39,8 @@ enum class HitMeshKind : uint8_t {
     kStatic,          // StaticCollider
     kStaticInstance,  // CollStaticInstance
 };
+
+constexpr std::size_t kHitMeshBytes = 0x10;
 
 // The base of the collision objects (0x10 bytes; the original's vtable 0x00645A30). The virtual functions keep the
 // original's slot order (slot 18, the same in every table, is the plain is_point_behind_faces; 24 is CollScaled's):
@@ -152,12 +162,15 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMesh) == 0x10 && offsetof(HitMesh, checksum_) == 4, "layout must match the original");
+        static_assert(sizeof(HitMesh) == kHitMeshBytes && offsetof(HitMesh, checksum_) == 4, "layout must match the original");
     }
 };
 
 // (The lists of collision objects: lists::Elem<HitMesh>'s destructors 0x004131D0 / 0x00411880, the heads' constructor
 // 0x00413180 and scalar deleting destructor 0x004131A0 - memory::ListNode's make_head / uncouple / destroy.)
+
+constexpr std::size_t kHitMeshGroupBytes = 0x3C;
+constexpr std::size_t kHitMeshGroupBoxOffset = 0x14;
 
 // A collision object made of others (0x3C bytes, the original's vtable 0x00645AA8): its children in a list; most
 // calls are passed to each; its box is theirs together (recomputed when a child moves).
@@ -222,7 +235,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMeshGroup) == 0x3C && offsetof(HitMeshGroup, box_) == 0x14, "layout must match the original");
+        static_assert(sizeof(HitMeshGroup) == kHitMeshGroupBytes && offsetof(HitMeshGroup, box_) == kHitMeshGroupBoxOffset, "layout must match the original");
     }
 };
 

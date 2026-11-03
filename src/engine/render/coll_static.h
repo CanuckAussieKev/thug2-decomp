@@ -103,7 +103,12 @@ private:
     uint8_t* octets_{nullptr}; // +0x10
     int unknown14_{0};         // +0x14
 };
-static_assert(sizeof(StaticCollider) == 0x18, "layout must match the original");
+constexpr std::size_t kStaticColliderBytes = 0x18;
+
+static_assert(sizeof(StaticCollider) == kStaticColliderBytes, "layout must match the original");
+
+constexpr std::size_t kCollStaticInstanceBytes = 0xC8;
+constexpr std::size_t kCollStaticInstanceWorldBoxOffset = 0xA0;
 
 // An instance of a sector's collision (0xC8 bytes, the original's vtable 0x00645C78): scaled, rotated and placed;
 // its world box.
@@ -166,9 +171,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(CollStaticInstance) == 0xC8 && offsetof(CollStaticInstance, world_box_) == 0xA0, "layout");
+        static_assert(sizeof(CollStaticInstance) == kCollStaticInstanceBytes && offsetof(CollStaticInstance, world_box_) == kCollStaticInstanceWorldBoxOffset, "layout");
     }
 };
+
+constexpr std::size_t kHitMovingTrianglesBytes = 0xD4;
+constexpr std::size_t kHitMovingTrianglesBoxOffset = 0xAC;
 
 // A movable triangle object (0xD4 bytes, the original's vtable 0x00645CE0): its bounding sphere's radius and the box
 // around it.
@@ -220,7 +228,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMovingTriangles) == 0xD4 && offsetof(HitMovingTriangles, box_) == 0xAC,
+        static_assert(sizeof(HitMovingTriangles) == kHitMovingTrianglesBytes && offsetof(HitMovingTriangles, box_) == kHitMovingTrianglesBoxOffset,
                       "layout must match the original");
     }
 };

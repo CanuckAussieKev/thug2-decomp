@@ -4,6 +4,7 @@
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_obj.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 #include <array>
@@ -18,12 +19,22 @@
 
 namespace render {
 
+// The collision caches there can be.
+constexpr std::size_t kCacheSlotCount = 8;
+constexpr int kCacheSlotIndexLimit = 8; // the same count, for the loops over the slots
+
+// The checksums shape_type_from_checksum tells apart.
+constexpr uint32_t kBoxShapeAlias1 = 0xDD42AA66u; // text unknown (a box shape)
+constexpr uint32_t kBoxShapeAlias2 = 0x2BA71070u; // text unknown (a box shape)
+constexpr uint32_t kBoundingBox = 0xE460ABDEu;    // BoundingBox
+constexpr uint32_t kGeometry = 0x6AADF154u;       // Geometry (a sector)
+
 namespace {
 
 // NOT ORIGINAL grouping - the collision caches and how many are in use. Made on first use, never destroyed
 // (cache_slots()).
 struct CacheSlots {
-    std::array<HitMeshCache*, 8> caches_{};
+    std::array<HitMeshCache*, kCacheSlotCount> caches_{};
     uint32_t caches_in_use_{};
 };
 
@@ -33,7 +44,7 @@ CacheSlots& cache_slots()
     return state.get();
 }
 
-std::array<HitMeshCache*, 8>& caches() { return cache_slots().caches_; }
+std::array<HitMeshCache*, kCacheSlotCount>& caches() { return cache_slots().caches_; }
 
 uint32_t& caches_in_use() { return cache_slots().caches_in_use_; }
 
@@ -50,8 +61,8 @@ std::span<HitMesh* const> objects_along(CollGrid* list, maths::Seg* line)
 
 void get_clear(HitMeshCache* cache)
 {
-    cache->box().min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
-    cache->box().max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
+    cache->box().min = {.x = kEmptyBoxExtent, .y = kEmptyBoxExtent, .z = kEmptyBoxExtent, .w = 1.0f};
+    cache->box().max = {.x = -kEmptyBoxExtent, .y = -kEmptyBoxExtent, .z = -kEmptyBoxExtent, .w = 1.0f};
     cache->set_num(0);
     cache->set_statics(0);
     cache->set_movables(0);
@@ -80,8 +91,8 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     box_ = box;
     // The box the objects are tested against: grown by half a unit each way.
     maths::BBox grown;
-    grown.append_spot({.x = box.max.x + 0.5f, .y = box.max.y + 0.5f, .z = box.max.z + 0.5f, .w = box.max.w});
-    grown.append_spot({.x = box.min.x - 0.5f, .y = box.min.y - 0.5f, .z = box.min.z - 0.5f, .w = box.min.w});
+    grown.append_spot({.x = box.max.x + kQueryBoxMargin, .y = box.max.y + kQueryBoxMargin, .z = box.max.z + kQueryBoxMargin, .w = box.max.w});
+    grown.append_spot({.x = box.min.x - kQueryBoxMargin, .y = box.min.y - kQueryBoxMargin, .z = box.min.z - kQueryBoxMargin, .w = box.min.w});
     for (CollGrid* const list : lists) {
         for (HitMesh* const object : objects_along(list, &line)) {
             if (!object->inside_bounds(&grown))
@@ -95,7 +106,7 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     for (const memory::ListNode* node = first_movable(); node->data() != memory::ListNode::head_marker() && node;
          node = node->next()) {
         auto* object = static_cast<HitMesh*>(node->data());
-        if (!object || (object->flag_bits() & 6) || !object->inside_bounds(&grown))
+        if (!object || (object->flag_bits() & kUnlistedFlags) || !object->inside_bounds(&grown))
             continue;
         core::at(entries_, num_).bounds = object->get_local_bounds();
         core::at(entries_, num_).object = object;
@@ -134,7 +145,7 @@ void HitMeshCache::remove_movable(HitMesh* object)
 // 0x0040AA00
 void register_coll_cache(HitMeshCache* cache)
 {
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
         if (!(caches_in_use() & (1u << i))) {
             core::at(caches(), i) = cache;
             caches_in_use() |= 1u << i;
@@ -146,7 +157,7 @@ void register_coll_cache(HitMeshCache* cache)
 // 0x0040AA40
 void unregister_coll_cache(HitMeshCache* cache)
 {
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
         if ((caches_in_use() & (1u << i)) && core::at(caches(), i) == cache) {
             caches_in_use() &= ~(1u << i);
             return;
@@ -157,7 +168,7 @@ void unregister_coll_cache(HitMeshCache* cache)
 // 0x0040AA80
 void remove_movable_from_caches(HitMesh* object)
 {
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
         if (caches_in_use() & (1u << i))
             core::at(caches(), i)->remove_movable(object);
     }
@@ -166,7 +177,7 @@ void remove_movable_from_caches(HitMesh* object)
 // 0x0040AAC0
 void remove_from_caches(HitMesh* object)
 {
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
         if (caches_in_use() & (1u << i)) {
             core::at(caches(), i)->remove_static(object);
             core::at(caches(), i)->remove_movable(object);
@@ -178,11 +189,11 @@ void remove_from_caches(HitMesh* object)
 int shape_type_from_checksum(uint32_t shape)
 {
     switch (shape) {
-    case 0xDD42AA66:
-    case 0x2BA71070:
-    case 0xE460ABDE: // box
+    case kBoxShapeAlias1:
+    case kBoxShapeAlias2:
+    case kBoundingBox: // box
         return 1;
-    case 0x6AADF154: // sector
+    case kGeometry: // sector
         return 4;
     default:
         return 0;

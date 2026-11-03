@@ -94,7 +94,7 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
 // 0x004114E0 (slot 17, an instance's too: its faces are taken unplaced)
 bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const maths::BBox* box, CapsuleHits* hits)
 {
-    std::array<uint16_t, 0x800> buffer{};
+    std::array<uint16_t, kFaceQueryBufferSize> buffer{};
     const std::span<const uint16_t> faces = geometry_->get_faces_in_box(box, buffer);
     const int count = static_cast<int>(faces.size());
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
@@ -118,7 +118,7 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
         CapsuleHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
         entry.offset = offset;
-        entry.face_flag40_ = static_cast<uint8_t>(flags & 0x40);
+        entry.face_flag40_ = static_cast<uint8_t>(flags & kFaceFlag40);
         entry.checksum = checksum_;
         entry.point = point;
         if (hits->sweep > 0.0f) // (never here: the sweep is 0)

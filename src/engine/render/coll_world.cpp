@@ -22,6 +22,8 @@
 
 namespace render {
 
+constexpr std::size_t kSceneGridCount = 16; // the scenes that have collision grids
+
 CollisionState& collision_state()
 {
     static core::NoDestroy<CollisionState> state;
@@ -37,7 +39,7 @@ constexpr float kFarthestStart = -0.01f;
 // The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
 // same order (0x0048C980 / 0x0048C0B0).
 std::span<CollGrid* const> grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
-const std::array<WorldScene*, 16>& grid_scenes() { return render::engine_parts().collision_scenes(); }
+const std::array<WorldScene*, kSceneGridCount>& grid_scenes() { return render::engine_parts().collision_scenes(); }
 
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
 // and the line's direction.
@@ -63,14 +65,14 @@ public:
         use_cache_ = cache && cache->box().get_holds(box_);
         // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
         maths::Vec4 grown = box_.max;
-        grown.x += 0.5f;
-        grown.y += 0.5f;
-        grown.z += 0.5f;
+        grown.x += kQueryBoxMargin;
+        grown.y += kQueryBoxMargin;
+        grown.z += kQueryBoxMargin;
         box_.append_spot(grown);
         grown = box_.min;
-        grown.x -= 0.5f;
-        grown.y -= 0.5f;
-        grown.z -= 0.5f;
+        grown.x -= kQueryBoxMargin;
+        grown.y -= kQueryBoxMargin;
+        grown.z -= kQueryBoxMargin;
         box_.append_spot(grown);
         direction_ = {.x = line->end.x - line->start.x, .y = line->end.y - line->start.y, .z = line->end.z - line->start.z,
                      .w = line->end.w - line->start.w};
@@ -191,7 +193,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
     for (const memory::ListNode* node = collision_state().movables().next(); node->data() != memory::ListNode::head_marker() && node;
          node = node->next()) {
         auto* object = static_cast<HitMesh*>(node->data());
-        if (object && !(object->flag_bits() & 6) && may_touch(object, &query.box()))
+        if (object && !(object->flag_bits() & kUnlistedFlags) && may_touch(object, &query.box()))
             owner = test_movable(object, line, query, hit, owner);
     }
     return owner;

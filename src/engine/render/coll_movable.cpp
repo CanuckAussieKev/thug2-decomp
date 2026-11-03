@@ -19,6 +19,15 @@
 
 namespace render {
 
+// The default box of a moving box, around a skater.
+constexpr float kBoxMinX = 50.0f;
+constexpr float kBoxMinY = 20.0f;
+constexpr float kBoxMinZ = 90.0f;
+constexpr float kBoxMaxX = 30.0f;
+constexpr float kBoxMaxY = 36.0f;
+constexpr float kBoxMaxZ = 90.0f;
+constexpr uint32_t kDiagnosticBoxColour = 0x80808080u;
+
 namespace {
 
 void set_identity(maths::Mat4& m)
@@ -123,8 +132,8 @@ void MatrixTranspose::transpose_in_place()
 // 0x00412550
 HitMovingBox::HitMovingBox()
 {
-    box_.min = {.x = -50.0f, .y = -20.0f, .z = -90.0f, .w = 1.0f};
-    box_.max = {.x = 30.0f, .y = 36.0f, .z = 90.0f, .w = 1.0f};
+    box_.min = {.x = -kBoxMinX, .y = -kBoxMinY, .z = -kBoxMinZ, .w = 1.0f};
+    box_.max = {.x = kBoxMaxX, .y = kBoxMaxY, .z = kBoxMaxZ, .w = 1.0f};
 }
 
 // 0x00413700
@@ -155,7 +164,7 @@ uint16_t HitMovingBox::get_face_terrain(int /*face*/) const { return surface_typ
 gsl::owner<HitMovingBox*> HitMovingBox::replicate(int)
 {
     auto copy = memory::make_owned<HitMovingBox>(*this);
-    copy->flag_bits() |= 0x8000;
+    copy->flag_bits() |= HitMesh::kOwnsGeometry;
     copy->set_geometry(nullptr);
     return copy;
 }
@@ -165,7 +174,7 @@ void HitMovingBox::draw_diagnostic(int /*a*/, int /*b*/)
 {
     maths::Mat4 transform = orientation();
     core::at(transform.row, 3) = anchor_point();
-    draw_box(&box_, &transform, 0x80808080, 1);
+    draw_box(&box_, &transform, kDiagnosticBoxColour, 1);
 }
 
 // 0x004123C0

@@ -29,7 +29,7 @@ namespace {
 
 void reset_hit(CollisionHit& hit)
 {
-    hit.ignore_flags_ = 0x10;
+    hit.ignore_flags_ = kDefaultIgnoredFaceFlags;
     hit.require_flags_ = 0;
     hit.normal = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     hit.point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};

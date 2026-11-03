@@ -11,6 +11,8 @@
 
 namespace render {
 
+constexpr double kCrossTermFactor = 2.0; // the quadratic form's mixed terms are doubled
+
 namespace {
 
 constexpr float kMinDeterminant = 0.03f;
@@ -201,12 +203,12 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
     auto at_v1 = [&]() { // s = 1, t = 0
         so = 1.0f;
         to = 0.0f;
-        result = (2.0 * d + f) + a;
+        result = (kCrossTermFactor * d + f) + a;
     };
     auto at_v2 = [&]() { // s = 0, t = 1
         so = 0.0f;
         to = 1.0f;
-        result = (2.0 * e + f) + c;
+        result = (kCrossTermFactor * e + f) + c;
     };
     auto along_edge0 = [&]() { // t = 0, s = -d / a
         const double q = -(static_cast<double>(d) / a);
@@ -224,7 +226,7 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
         const double second = ((static_cast<double>(to) * b + static_cast<double>(so) * a) + 2.0 * d) * so;
         result = f + (first + second);
     };
-    auto denominator = [&]() { return (static_cast<double>(a) - 2.0 * b) + c; };
+    auto denominator = [&]() { return (static_cast<double>(a) - kCrossTermFactor * b) + c; };
     // "less" as most of the original's tests here read the flags: NaN counts as less
     auto below = [](double x, double y) { return !(x >= y); };
 

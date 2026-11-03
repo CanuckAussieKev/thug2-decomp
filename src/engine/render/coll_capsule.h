@@ -23,7 +23,9 @@ struct CapsuleHit {
     uint8_t face_flag40_; // +0x38
     std::array<uint8_t, 3> pad;
 };
-static_assert(sizeof(CapsuleHit) == 0x3C, "layout must match the original");
+constexpr std::size_t kCapsuleHitBytes = 0x3C;
+
+static_assert(sizeof(CapsuleHit) == kCapsuleHitBytes, "layout must match the original");
 
 // What a capsule query fills (0x7A4 bytes): up to 32 hits; a move (direction and sweep: the faces are only
 // tested when the sweep is 0), the flags of faces to pass over or to require, and whether to stop at the first hit
@@ -40,8 +42,12 @@ struct CapsuleHits {
     uint16_t require_flags_; // +0x79E
     int mode;                // +0x7A0
 };
-static_assert(sizeof(CapsuleHits) == 0x7A4 && offsetof(CapsuleHits, count) == 0x798 &&
-                  offsetof(CapsuleHits, mode) == 0x7A0,
+constexpr std::size_t kCapsuleHitsBytes = 0x7A4;
+constexpr std::size_t kCapsuleHitsCountOffset = 0x798;
+constexpr std::size_t kCapsuleHitsModeOffset = 0x7A0;
+
+static_assert(sizeof(CapsuleHits) == kCapsuleHitsBytes && offsetof(CapsuleHits, count) == kCapsuleHitsCountOffset &&
+                  offsetof(CapsuleHits, mode) == kCapsuleHitsModeOffset,
               "layout must match the original");
 
 // 0x0040FC00 (cdecl): the capsule against the triangle v0 v1 v2: the face's unit normal (v1 - v0) x (v2 - v0) to

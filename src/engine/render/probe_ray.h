@@ -24,6 +24,12 @@ class ProbeRay;
 // Called (cdecl) with the feeler for every face its query accepts.
 using FeelerCallback = void (*)(ProbeRay* feeler);
 
+constexpr std::size_t kProbeRayHitOffset = 0x24;
+constexpr std::size_t kProbeRayReachOffset = 0x74;
+constexpr std::size_t kProbeRayEntityOffset = 0x98;
+constexpr std::size_t kProbeRayHitCacheOffset = 0xAC;
+constexpr std::size_t kProbeRayBytes = 0xB0;
+
 class ProbeRay {
 public:
     // 0x00417760: no callback, cache or object; faces flagged 0x10 ignored; the hit's normal and point (0, 0, 0, 1).
@@ -119,9 +125,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ProbeRay, hit_) == 0x24 && offsetof(ProbeRay, reach_) == 0x74 &&
-                          offsetof(ProbeRay, entity_) == 0x98 && offsetof(ProbeRay, hit_cache_) == 0xAC &&
-                          sizeof(ProbeRay) == 0xB0,
+        static_assert(offsetof(ProbeRay, hit_) == kProbeRayHitOffset && offsetof(ProbeRay, reach_) == kProbeRayReachOffset &&
+                          offsetof(ProbeRay, entity_) == kProbeRayEntityOffset && offsetof(ProbeRay, hit_cache_) == kProbeRayHitCacheOffset &&
+                          sizeof(ProbeRay) == kProbeRayBytes,
                       "layout must match the original");
     }
 };
