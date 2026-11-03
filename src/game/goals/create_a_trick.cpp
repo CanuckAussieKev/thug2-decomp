@@ -112,7 +112,7 @@ bool cfunc_get_create_a_trick_other_params(script::Struct* params, script::Scrip
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->put_sub_struct(kOtherParams, core::at(skater->trick_slots(), index).get()->other_params());
+    script->args().get()->put_sub_struct(kOtherParams, core::at(skater->trick_slots(), index)->other_params());
     return true;
 }
 
@@ -124,7 +124,7 @@ bool cfunc_get_create_a_trick_rotations(script::Struct* params, script::Script* 
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->append_array_value(kRotationInfo, core::at(skater->trick_slots(), index).get()->spin_list());
+    script->args().get()->append_array_value(kRotationInfo, core::at(skater->trick_slots(), index)->spin_list());
     return true;
 }
 
@@ -136,7 +136,7 @@ bool cfunc_get_create_a_trick_animations(script::Struct* params, script::Script*
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->append_array_value(kAnimationInfo, core::at(skater->trick_slots(), index).get()->animations());
+    script->args().get()->append_array_value(kAnimationInfo, core::at(skater->trick_slots(), index)->animations());
     return true;
 }
 
@@ -155,17 +155,17 @@ bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script*)
     script::Struct* other = nullptr;
     if (params->read_sub_struct(kOtherParams, &other, 1)) {
         debug::printf("Storing param info %i\n", index); // "Storing param info %i\n"
-        core::at(skater->trick_slots(), index).get()->other_params()->append_structure_if_any(other);
+        core::at(skater->trick_slots(), index)->other_params()->append_structure_if_any(other);
     }
     script::Array* rotations = nullptr;
     if (params->fetch_list(kRotationInfo, &rotations, 1)) {
         debug::printf("Storing rotation info %i\n", index); // "Storing rotation info %i\n"
-        script::duplicate_array(core::at(skater->trick_slots(), index).get()->spin_list(), rotations);
+        script::duplicate_array(core::at(skater->trick_slots(), index)->spin_list(), rotations);
     }
     script::Array* animations = nullptr;
     if (params->fetch_list(kAnimationInfo, &animations, 1)) {
         debug::printf("Storing animation info %i\n", index); // "Storing animation info %i\n"
-        script::duplicate_array(core::at(skater->trick_slots(), index).get()->animations(), animations);
+        script::duplicate_array(core::at(skater->trick_slots(), index)->animations(), animations);
     }
     return true;
 }
@@ -181,7 +181,7 @@ bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Scrip
     script::Struct* other = nullptr;
     if (params->read_sub_struct(kOtherParams, &other, 1)) {
         debug::printf("Storing param info %i\n", index);
-        core::at(skater->trick_slots(), index).get()->other_params()->append_structure_if_any(other);
+        core::at(skater->trick_slots(), index)->other_params()->append_structure_if_any(other);
     }
     return true;
 }
@@ -197,7 +197,7 @@ bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script*)
     script::Array* rotations = nullptr;
     if (params->fetch_list(kRotationInfo, &rotations, 1)) {
         debug::printf("Storing rotation info %i\n", index);
-        script::duplicate_array(core::at(skater->trick_slots(), index).get()->spin_list(), rotations);
+        script::duplicate_array(core::at(skater->trick_slots(), index)->spin_list(), rotations);
     }
     return true;
 }
@@ -213,7 +213,7 @@ bool cfunc_set_create_a_trick_animations(script::Struct* params, script::Script*
     script::Array* animations = nullptr;
     if (params->fetch_list(kAnimationInfo, &animations, 1)) {
         debug::printf("Storing animation info %i\n", index);
-        script::duplicate_array(core::at(skater->trick_slots(), index).get()->animations(), animations);
+        script::duplicate_array(core::at(skater->trick_slots(), index)->animations(), animations);
     }
     return true;
 }

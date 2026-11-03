@@ -194,15 +194,15 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjEnableScaling:
-        if (mesh_instance_.get())
+        if (mesh_instance_)
             allow_resizing(mesh_instance_.get(), true);
         break;
     case kObjDisableScaling:
-        if (mesh_instance_.get())
+        if (mesh_instance_)
             allow_resizing(mesh_instance_.get(), false);
         break;
     case kObjApplyScaling:
-        if (mesh_instance_.get()) {
+        if (mesh_instance_) {
             maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
             if (fetch_magnification(&scale, params)) {
                 change_scale(mesh_instance_.get(), &scale);
@@ -211,7 +211,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         }
         break;
     case kObjGetScaling:
-        if (mesh_instance_.get()) {
+        if (mesh_instance_) {
             const maths::Vec4 scale = mesh_instance_->size_factor(); // (0x0041A680: its +0x1C)
             script->args()->put_vec3(checksums::Name{kScaling}, script::VectorValue{.x = scale.x, .y = scale.y, .z = scale.z, .w = scale.w});
         }
@@ -342,14 +342,14 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjSetBoundingSphere: {
         float radius = 0.0f;
         params->fetch_float(0u, &radius, 1);
-        if (mesh_instance_.get()) {
+        if (mesh_instance_) {
             const maths::Vec4 sphere = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = radius};
             mesh_instance_->change_bound_sphere(&sphere);
         }
         break;
     }
     case kObjRestoreBoundingSphere:
-        if (mesh_instance_.get())
+        if (mesh_instance_)
             mesh_instance_->change_bound_sphere(&enclosing_ball_);
         break;
     case kClearGeom: {
@@ -360,7 +360,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjClearGeoms:
-        if (mesh_instance_.get())
+        if (mesh_instance_)
             mesh_instance_->drop_geoms();
         break;
     case kAddGeom: {
@@ -409,11 +409,11 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjClearColor:
-        if (mesh_instance_.get())
+        if (mesh_instance_)
             mesh_instance_->clear_geom_color(kAll);
         break;
     case kObjSetColor:
-        if (mesh_instance_.get()) {
+        if (mesh_instance_) {
             int h = 0, s = 0, v = 0;
             if (params->fetch_int_value(kH, &h, false) && params->fetch_int_value(kS, &s, false) &&
                 params->fetch_int_value(kV, &v, false)) {
@@ -424,7 +424,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         }
         break;
     case kObjSetColorRgb:
-        if (mesh_instance_.get()) {
+        if (mesh_instance_) {
             int r = 0, g = 0, b = 0;
             if (params->fetch_int_value(kR, &r, false) && params->fetch_int_value(kG, &g, false) &&
                 params->fetch_int_value(kB, &b, false))
@@ -438,7 +438,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         set_up_mesh(params);
         break;
     case kObjInitModelFromProfile:
-        if (mesh_instance_.get()) {
+        if (mesh_instance_) {
             int tex_dict_offset = 0;
             params->fetch_int_value(kTexDictOffset, &tex_dict_offset, 0);
             int via_resource_store = 0;

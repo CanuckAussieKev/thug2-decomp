@@ -274,7 +274,7 @@ int MeshInstanceModule::test_collision(const maths::Seg* line, const render::Bon
 // 0x00420070
 void MeshInstanceModule::conceal(bool hide)
 {
-    if (mesh_instance_.get())
+    if (mesh_instance_)
         model_hide(mesh_instance_.get(), hide);
 }
 
@@ -291,7 +291,7 @@ void MeshInstanceModule::get_update_brightness() { lights_update_brightness(mode
 // 0x004200E0
 void MeshInstanceModule::rebuild_from_profile(void* profile, uint32_t build_script)
 {
-    if (mesh_instance_.get())
+    if (mesh_instance_)
         set_up_mesh_from_profile(profile, true, 0, checksums::Name{build_script});
 }
 
@@ -314,7 +314,7 @@ bool MeshInstanceModule::conceal_mesh(uint32_t name, bool hide, bool send)
         online::write_hide_geom(writer, sent);
         send_to_server(entity(), {.id = online::MessageId::kHideGeom, .length = sizeof(data)}, data.data());
     }
-    if (mesh_instance_.get())
+    if (mesh_instance_)
         model_hide_geom(mesh_instance_.get(), name, hide);
     return true;
 }

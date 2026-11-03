@@ -21,6 +21,7 @@ Checks:
   - 'readability-redundant-access-specifiers'
   - 'readability-redundant-control-flow'
   - 'readability-redundant-declaration'
+  - 'readability-redundant-smartptr-get'
   - 'readability-redundant-string-cstr'
   - 'readability-redundant-typename'
   - 'readability-static-definition-in-anonymous-namespace'

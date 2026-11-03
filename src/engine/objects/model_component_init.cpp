@@ -176,8 +176,8 @@ void MeshInstanceModule::tick_frame()
         model->copy_bones(skeleton_of(skeleton));
         return;
     }
-    const uint8_t model_flags = mesh_instance_.get() ? mesh_instance_->flag_bits() : 0;
-    if (!mesh_instance_.get() || !(model_flags & 2) || (model_flags & 4))
+    const uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits() : 0;
+    if (!mesh_instance_ || !(model_flags & 2) || (model_flags & 4))
         return; // (not active, or hidden)
     get_draw_matrix(&matrix);
     gfx::Rig* skeleton = bone_rig_ ? skeleton_of(bone_rig_) : nullptr;
