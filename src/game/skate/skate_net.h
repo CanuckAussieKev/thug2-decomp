@@ -23,6 +23,29 @@ class Task;
 } // namespace tasks
 
 namespace modules {
+// Message ids of the game's network traffic that wire/ doesn't name, and the sequenced groups messages go in.
+constexpr uint8_t kMsgObjectUpdates = 0x23;     // the skaters' states
+constexpr uint8_t kMsgServerQuit = 0x32;        // the server is going away
+constexpr uint8_t kMsgTerrainSoundB = 0x36;     // the second terrain sound message
+constexpr uint8_t kMsgSparksOn = 0x37;
+constexpr uint8_t kMsgSparksOff = 0x38;
+constexpr uint8_t kMsgLookUpObjectA = 0x39;
+constexpr uint8_t kMsgLookUpObjectB = 0x3A;
+constexpr uint8_t kMsgJoined = 0x45;
+constexpr uint8_t kMsgServerRemovedYou = 0x51;  // 'Q'
+constexpr uint8_t kMsgServerMovedOn = 0x56;     // 'V'
+constexpr uint8_t kMsgGraffitiColors = 0x5C;
+constexpr uint8_t kMsgFaceTexture = 0x7E;
+constexpr uint8_t kMsgHuntAddTime = 0x91;       // the scavenger hunt's messages
+constexpr uint8_t kMsgHuntEnd = 0x92;
+constexpr uint8_t kMsgHuntCollectStart = 0x93;
+constexpr uint8_t kMsgHuntCollectEnd = 0x94;
+constexpr uint8_t kMsgGraffitiPlayer = 0x96;    // the graffiti messages: the player they are for, texture, palette, parts
+constexpr uint8_t kMsgGraffitiTexture = 0x97;
+constexpr uint8_t kMsgGraffitiPalette = 0x98;
+constexpr uint8_t kMsgGraffitiParts = 0x9A;
+constexpr uint8_t kGameGroup = 8;               // the sequenced group of the game's messages
+constexpr uint8_t kCustomArtGroup = 10;         // ... of the create-a-graphic data
 
 class Skate;
 
