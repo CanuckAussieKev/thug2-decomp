@@ -1,7 +1,9 @@
 # The project's checks (docs/style-guide.md): the C++ Core Guidelines' checks and the bug-finding, modernising and
-# performance groups, with the house naming rules. Zero warnings is the rule; a place that can't keep a check says so
-# with `// NOLINT(<check>): <reason>` (or NOLINTBEGIN / NOLINTEND around a listed record) - docs/style-guide.md
-# "Exceptions". Every check switched off is listed below with its reason.
+# performance groups, with the house naming rules. Zero warnings is the rule, and there is no NOLINT in src/ (npm test
+# fails on one: tools/no_nolint.test.ts). Code that doesn't keep a check is changed; where the original's behaviour
+# can't be kept without what a check flags, the check is configured by its own options (CheckOptions below) or
+# switched off here, the reason beside it - docs/style-guide.md "Exceptions". src/tests/.clang-tidy switches off two
+# more for the reference programs.
 # Run: clang-tidy -p out/build/<preset> --extra-arg=--target=i686-pc-windows-msvc <file>
 Checks:
   - '-*'

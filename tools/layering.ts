@@ -17,6 +17,8 @@ const BOUNDARY_FILES = new Set([
     "src/engine/core/raw_view.h",
     "src/engine/core/pointer_cell.h",
     "src/engine/core/bits_as.h",
+    // a script value's 32 bits, read as the kind its holder says (the QB value cell)
+    "src/engine/script/cell.h",
     // the QB bytecode and its pre-compiled images, read in place
     "src/engine/script/qb.cpp",
     "src/engine/script/token_reader.cpp",

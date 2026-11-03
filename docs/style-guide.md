@@ -68,35 +68,42 @@ keep the namespaces their headers had). The layers and their rules: docs/archite
 - Standard C++ only, buildable by MSVC and GCC: no inline assembly (the original's x87 maths is plain `<cmath>` -
   results may differ from the original's in the last bits, which is accepted), no compiler-specific keywords outside
   `src/platform/compiler.h`.
-- Where a rule can't be kept (for example a layout a file format fixes), the code says so with a
-  `// NOLINT(<check>)` naming the rule and a reason; the list of such places is kept short.
+- Where a rule seems not to fit, the code changes so that it does; no `NOLINT` (see "Exceptions").
 
 ## Exceptions
 
 `.clang-tidy` enables the Guidelines' checks (`cppcoreguidelines-*`) with `bugprone-*`, `misc-*`, `modernize-*`,
-`performance-*` and the naming check, and switches off by name, each with its reason, the ones that conflict with
-what the code is: a decompilation that keeps the original's data layouts, constants, formatting and pointer-walking
-loops (pointer arithmetic, C arrays in layouts, non-const globals, printf
-formatting, trailing return types and a few more). Everything else runs with zero warnings; the places that can't
-keep a check carry a `NOLINT` with their reason:
+`performance-*` and the naming check, and runs them with zero warnings. **There is no `NOLINT` in `src/`** (`npm test`
+fails on one: `tools/no_nolint.test.ts`). A place that doesn't keep a check is changed so that it does; where the
+original's behaviour can't be kept without what a check flags, the check is configured by its own options or switched
+off in a `.clang-tidy`, the reason written beside it - those are the project's exceptions, all in one place:
 
-- **Plain records** of file and network formats (`*_format.h`, the message structs, the format checks' own records)
-  name their fields as plain data, without the member suffix (`NOLINTBEGIN(readability-identifier-naming)` around
-  each record).
-- **Outside names**: forward declarations of SDL, Win32 and Winsock types, the GameSpy SDK's globals, Winsock's
-  `_WINSOCK_DEPRECATED_NO_WARNINGS`.
-- **The original's behaviour, kept as written**: integer divisions where it divides integers, bitwise compares of
-  floats (`memcmp`), repeated branches, assignments and increments inside conditions, switches that ignore other
-  values, its random seed and `rand()`.
-- **The scene's collider arrays** (`StaticCollider[n]`): indexed as arrays of exactly that type.
-- **COM interfaces** (forward-declared Direct3D types): released, never deleted, so no virtual destructor.
-- **The C runtime's allocator** where a library or the original's file reader wants `malloc` / `free`.
-- **Macros**: libraries' configuration macros (`DIRECTINPUT_VERSION`) and `src/platform/compiler.h`, the one place
-  for compiler specifics.
-- **Plain enums** that stay plain say why: bit flags or-ed together, indexes into tables, values fixed by a file, a
-  script, the wire or an SDK, or closed sets still held in the original's integer fields.
-- **The script values' cells** (`engine/script/param_struct.h`): 32-bit unions tagged from outside, read by their
-  tag - the script runtime's own files as a whole, single places elsewhere.
+- **Off** (`.clang-tidy`): trailing return types (a style), recursion (the interpreter and the trees recurse by
+  design), `misc-predictable-rand` (the game's numbers are the C runtime's `rand()` sequence, as the original's),
+  `cppcoreguidelines-pro-type-static-cast-downcast` (every downcast goes through `core::down_cast`, below).
+  `src/tests/.clang-tidy`: the reference programs call the C runtime's `atoi` / `sscanf_s` / `snprintf` to compare
+  with, so the string-to-number and vararg checks are off there.
+- **Configured** (`CheckOptions`): public data is named as plain data, without the member suffix (the format
+  records' and messages' fields; `PublicMemberCase`); the libraries' own names (`SDL_*`, `sockaddr`, the GameSpy
+  SDK's host-name globals) by the naming check's `IgnoredRegexp`s; `THUG2_MSVC_WARNING` / `THUG2_RETURN_ADDRESS`
+  (`platform/compiler.h`: a pragma inside a statement, the caller's return address - neither can be a function) by
+  the macro check's `AllowedRegexp`; the game's time seed (`DisallowedSeedTypes`); the x87 reference's locals that
+  inline assembly writes (`AsmFloat`... in `src/tests/maths_check.cpp`: clang-tidy can't see an `__asm` block's
+  writes; `AllowedTypes`); a script value's kind, a render state id and an editor chain operation next to a name or
+  value in a parameter list (the swappable-parameters check's `IgnoredParameterTypeSuffixes`); and the options
+  listed in `.clang-tidy` for the other checks.
+- **What changed instead of an exception**, for the record: the original's integer divisions keep their quotient in
+  a named integer; bit-for-bit float compares are `core::has_bits` / `same_bits` (`engine/core/same_bits.h`);
+  repeated branches are merged; assignments and counts come out of conditions; switches say `default: break`;
+  `value + 0.5` truncations are `maths::round_non_negative`; Direct3D's interfaces come from `<d3d9.h>` (a forward
+  declaration of a COM interface is a second declaration of the SDK's class); the C runtime heap is
+  `crt::alloc_block` / `dealloc`; configuration macros (`DIRECTINPUT_VERSION`, Winsock's deprecation switch) are
+  CMake definitions; plain enums held as integers (bit flags, table indexes, values fixed by a file, a script, the
+  wire or an SDK, the original's integer fields) are named `constexpr` constants with an alias for the field's type;
+  the original's whole-object clears and copies of objects that aren't trivially copyable are `raw::zero_object` /
+  `raw::copy_object` (`engine/core/raw_view.h`, with the other named views).
+- **The script values' cells** (`engine/script/cell.h`): one 32-bit word, read as the kind its holder says
+  (`std::bit_cast`, `cell::pointer`) - a boundary file for the layering rule, like the QB readers.
 - **No `reinterpret_cast`, no integer-to-pointer cast** anywhere in `src/` (both checks on). Bytes from outside
   are read by the boundary layer's readers (`formats/`, `wire/`); casts between related classes are `static_cast`;
   what is left of the original's ways of reaching memory has a name, so it can be counted and removed:
@@ -114,7 +121,7 @@ keep a check carry a `NOLINT` with their reason:
 - **Downcasts** go through `core::down_cast<Derived>(base)` (`engine/core/down_cast.h`): code that has checked an
   object's type tag (or asked a manager for an object of a type) converts the base pointer with it; Debug builds
   assert the object really is a Derived (a class's own `is_instance(const Base&)` if it has one, else `dynamic_cast`).
-  The `static_cast` inside it is the one downcast in `src/` (its NOLINT says so).
+  The `static_cast` inside it is the one downcast in `src/` (so the static-cast-downcast check is off).
 - **Arrays are `std::array`** (or `std::vector` / `std::string` / `std::span`), tables `std::to_array` (rows of a
   named struct, never an anonymous one); a pointer to the elements is asked for with `.data()` where a C API or a
   pointer-taking function wants one - never passed through `...` (printf-style calls take `.data()`). A C API
@@ -154,19 +161,21 @@ keep a check carry a `NOLINT` with their reason:
   object bigger than its items (a class that grew past the original's byte size ends the game with a report).
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
   but don't move; a class with a destructor of its own deletes its copies unless it really copies.
-- **Constructor bodies in the original's order**: an assignment stays in the body (not an initialiser) when moving it
-  could change what the constructor does - set after a heap scope, a registration with `this`, a method call or an
-  allocation made in that order, or set twice (`NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer)` around those
-  statements, the reason given). Everything else is initialised in the list or by a default member initialiser.
+- **Constructor bodies in the original's order**: members are initialised in the list or by a default member
+  initialiser; where the original's order matters (a value read after a call that sets it, allocations made in
+  another order than the members are declared) the constructor's later part is a named private step
+  (`PileUp::open_base_list`, `StageBests::make_longest_records`) or the value is computed from what the initialiser
+  already has.
 - **Members left unset** by a constructor have a default member initialiser (`{}`), as do locals of plain record
   types (`Vec4 box{};`): zero where the original left whatever the memory held.
-- **The GameSpy SDK** takes non-const `char*` where it only reads: `const_cast` there with a NOLINT naming the SDK.
+- **The GameSpy SDK** takes non-const `char*` where it only reads (and copies what it keeps): it gets copies
+  (`SdkText` in `platform/gamespy.cpp`), never a `const_cast`.
 - Narrowing conversions are written as `static_cast` where the original narrows.
 - **`const` wherever nothing changes** (`misc-const-correctness`): locals and what pointers point at. Placement new
   goes through `memory::construct_in` / `construct_value_in` / `construct_global_in` (`engine/core/mem.h`) and the
   original's unbounded inline copies through `text::copy_unbounded` / `append_unbounded` (`engine/core/str.h`), so
-  the check sees the writes. The one exception: `src/tests/maths_check.cpp`'s x87 reference, whose locals inline
-  assembly writes.
+  the check sees the writes. `src/tests/maths_check.cpp`'s x87 reference declares the locals its inline assembly
+  writes with `AsmFloat` / `AsmDouble` / ... (the check's `AllowedTypes`); the ones it only reads are const.
 - **Mixed-sign comparisons** say which conversion they make: `std::cmp_less` and its kin where the answer is the same
   for every value (an int against a narrower unsigned, a container's `size()`), `ints::as_signed` /
   `ints::as_unsigned` (`engine/core/ints.h`) where the original compares a 32-bit count as an int or an int as a

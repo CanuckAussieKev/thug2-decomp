@@ -29,7 +29,6 @@
 #include "engine/core/language.h"
 #include <gsl/pointers>
 #include <span>
-#include "engine/core/raw_view.h"
 
 namespace {
 // The record layout test: values the dumps are built from.
@@ -107,8 +106,7 @@ bool cfunc_display_free_mem(script::Struct*, script::Script*)
 // value 0x01020304) - a check of the layouts. Always true.
 bool cfunc_test(script::Struct*, script::Script*)
 {
-    script::SymbolTableEntry entry;
-    raw::zero_object(&entry);
+    script::SymbolTableEntry entry; // (all zero, as the original's memset of it: every field starts at 0)
     entry.unknown0() = 4;
     entry.set_type(script::kQbvalStruct);
     entry.set_name(kTestSymbolName);

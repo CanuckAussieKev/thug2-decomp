@@ -16,7 +16,6 @@
 #include "platform/screenshot_files.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/raw_view.h"
 
 namespace gfx::screenshot_capture {
 
@@ -70,7 +69,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
     HRESULT hr = device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back);
     if (FAILED(hr) || !back)
         return fail("no back buffer", hr);
-    auto desc = raw::zeroed<D3DSURFACE_DESC>();
+    D3DSURFACE_DESC desc{.Type = D3DRTYPE_SURFACE}; // (filled by GetDesc)
     back->GetDesc(&desc);
     const sys::screenshot::PixelFormat format = get_map(desc.Format);
     if (format == sys::screenshot::PixelFormat::kUnknown)
