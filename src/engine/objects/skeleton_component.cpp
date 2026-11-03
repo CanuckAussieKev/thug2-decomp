@@ -57,22 +57,22 @@ constexpr uint32_t kRotVel = 0xFB1A83B2; // RotVel
 constexpr uint32_t kActive = 0xB4E103FD; // Active
 constexpr uint32_t kScale = 0x13B9DA7B; // Scale
 constexpr uint32_t kForceUpdate = 0x734AD918; // force_update
-constexpr uint32_t kHash7323E97C = 0x7323E97C; // (text unknown)
-constexpr uint32_t kHash0424D9EA = 0x0424D9EA; // (text unknown)
-constexpr uint32_t kHash9D2D8850 = 0x9D2D8850; // (text unknown)
+constexpr uint32_t kX = 0x7323E97C; // x
+constexpr uint32_t kY = 0x0424D9EA; // y
+constexpr uint32_t kZ = 0x9D2D8850; // z
 constexpr uint32_t kSize = 0x083FDB95; // Size
-constexpr uint32_t kHash3786B657 = 0x3786B657; // (text unknown)
+constexpr uint32_t kStartSize = 0x3786B657; // start_size (letter case unknown)
 constexpr uint32_t kRadius = 0xC48391A5; // Radius
 constexpr uint32_t kLifeTime = 0xC218CF77; // LifeTime
 constexpr uint32_t kDropdownLength = 0x12C62572; // dropdown_length
-constexpr uint32_t kHash78AAF97F = 0x78AAF97F; // (text unknown)
+constexpr uint32_t kSpinDegrees = 0x78AAF97F; // text unknown (the spin in degrees (default 180))
 constexpr uint32_t kBlend = 0x54628ED7; // Blend
 constexpr uint32_t kBlendMode = 0xDD6BB3D5; // BlendMode
 constexpr uint32_t kName = 0xA1DC81F9u; // Name
 constexpr uint32_t kTexture = 0x7D99F28Du; // Texture
 constexpr uint32_t kForward = 0x186ED079; // Forward
 constexpr uint32_t kEndPos = 0x09A7DC2E; // end_pos
-constexpr uint32_t kHash744E673F = 0x744E673F; // (text unknown)
+constexpr uint32_t kAlignForward = 0x744E673F; // align_forward (letter case unknown)
 constexpr uint32_t kOffset = 0xA6F5352F; // Offset
 constexpr uint32_t kComponents = 0x11B70A02; // Components
 constexpr uint32_t kParams = 0x7031F10C; // Params
@@ -344,9 +344,9 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
     const bool found = get_bone_position(bone, &pos);
-    script->args()->push_float(checksums::Name{kHash7323E97C}, pos.x); // x
-    script->args()->push_float(checksums::Name{kHash0424D9EA}, pos.y); // y
-    script->args()->push_float(checksums::Name{kHash9D2D8850}, pos.z); // z
+    script->args()->push_float(checksums::Name{kX}, pos.x); // x
+    script->args()->push_float(checksums::Name{kY}, pos.y); // y
+    script->args()->push_float(checksums::Name{kZ}, pos.z); // z
     return found;
 }
 
@@ -359,7 +359,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     float size = 0.0f;
     params->fetch_float(kSize, &size, 0); // size
     float height = size;
-    params->fetch_float(kHash3786B657, &height, 0);
+    params->fetch_float(kStartSize, &height, 0);
     float radius = 0.0f;
     params->fetch_float(kRadius, &radius, 0); // radius
     float lifetime = kDropLifetime;
@@ -367,7 +367,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     float dropdown_length = kDropdownLengthDefault;
     params->fetch_float(kDropdownLength, &dropdown_length, 0); // dropdown_length
     float angle = kDropAngle;
-    params->fetch_float(kHash78AAF97F, &angle, 0);
+    params->fetch_float(kSpinDegrees, &angle, 0);
     uint32_t blend = kBlend;                    // blend
     params->read_hash_value(kBlendMode, &blend, 0); // blendmode
     angle = angle * kRadiansPerDegree;
@@ -398,7 +398,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     script::VectorValue end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(kEndPos, &end, 0); // end_pos
     auto spin = static_cast<float>(static_cast<double>(get_rand()) * maths::kTwoPi * kOneOverRandMax);
-    if (params->has_bare_flag(kHash744E673F)) {
+    if (params->has_bare_flag(kAlignForward)) {
         // The object's at's angle about z: acos of its z, on the side of its x (the C runtime's acos, 0x00623630).
         const maths::Vec4& at = core::at(entity()->basis_frame().row, 2);
         const float side = at.x < 0.0f ? -1.0f : 1.0f;

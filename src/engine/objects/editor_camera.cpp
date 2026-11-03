@@ -66,7 +66,7 @@ constexpr uint32_t kMinHeight = 0x9CDF40CD; // min_height
 constexpr uint32_t kMinRadius = 0x52EECB98; // min_radius
 constexpr uint32_t kMaxRadius = 0x53E2512C; // max_radius
 constexpr uint32_t kSimpleCollision = 0xA0D7FBAB; // SimpleCollision
-constexpr uint32_t kHashF5680DEF = 0xF5680DEF; // (text unknown)
+constexpr uint32_t kNoWallCheck = 0xF5680DEF; // text unknown (the flag that turns the wall check off)
 constexpr uint32_t kRailEditor = 0x5B509AD3; // RailEditor
 constexpr uint32_t kGoalEditorObjectHeight = 0x71EC75E9; // GoalEditor_ObjectHeight
 constexpr uint32_t kEditorCamSetCursorPos = 0x69CB3AE1; // EditorCam_SetCursorPos
@@ -267,7 +267,7 @@ void EditorViewModule::configure_from_data(script::Struct* params)
     max_zoom_ = kMaxZoom;
     params->fetch_float(kMaxRadius, &max_zoom_, 0);
     simple_collision_ = params->has_bare_flag(kSimpleCollision); // SimpleCollision
-    no_wall_check_ = params->has_bare_flag(kHashF5680DEF);
+    no_wall_check_ = params->has_bare_flag(kNoWallCheck);
 }
 
 // 0x004E51F0

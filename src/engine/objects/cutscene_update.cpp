@@ -48,7 +48,7 @@ constexpr int kFlagBitHidden = 30;
 constexpr int kFlagBitLast = 31;
 constexpr std::size_t kQuadBytes = 16;             // four floats
 constexpr std::size_t kRotationBytes = 48;         // the three rotation rows
-constexpr uint32_t kHashFF0000C8 = 0xFF0000C8; // (text unknown)
+constexpr uint32_t kBoxColour = 0xFF0000C8; // ARGB: the debug box
 
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kModelModuleName = 0x286A8D26;
@@ -309,7 +309,7 @@ void CinematicTable::update_object_transforms()
         }
         if (script::fetch_int_value(kDebugBoxes)) {
             const std::array<float, 8> box = {{1.0f, 10.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f}};
-            debug_draw_box(&object->display_matrix(), &object->at_point(), box.data(), 0, 1, 0, kHashFF0000C8);
+            debug_draw_box(&object->display_matrix(), &object->at_point(), box.data(), 0, 1, 0, kBoxColour);
         }
     }
 }

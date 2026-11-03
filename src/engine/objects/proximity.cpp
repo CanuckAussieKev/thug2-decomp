@@ -32,7 +32,7 @@ namespace objects {
 namespace {
 constexpr std::size_t kNameCapacity = 256;
 constexpr uint32_t kBoundingBox = 0xE460ABDE; // BoundingBox
-constexpr uint32_t kHash03F1E5A7 = 0x03F1E5A7; // (text unknown)
+constexpr uint32_t kOtherShape = 0x03F1E5A7; // text unknown (the shape that is never inside)
 constexpr uint32_t kCylinder = 0x64FBA415; // Cylinder
 constexpr uint32_t kGeometry = 0x6AADF154; // Geometry
 constexpr uint32_t kSphere = 0xAA069978; // Sphere
@@ -115,7 +115,7 @@ ProximShape proxim_shape_from_checksum(uint32_t checksum)
     switch (checksum) {
     case kBoundingBox:
         return objects::ProximShape::kBox;
-    case kHash03F1E5A7:
+    case kOtherShape:
         return objects::ProximShape::kSectorBox;
     case kCylinder:
         return objects::ProximShape::kNone;

@@ -20,7 +20,7 @@
 namespace objects {
 
 namespace {
-constexpr uint32_t kHash56B5E621 = 0x56B5E621u; // (text unknown)
+constexpr float kFarEnough = 1e14f; // an initial nearest distance no real one exceeds
 
 constexpr uint32_t kObjectHookManager = 0x27443708;
 constexpr uint32_t kAllowSkitching = 0xC38CCE3B; // Obj_AllowSkitching
@@ -78,7 +78,7 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
     if (!nodes)
         return nearest;
     place_nodes(nodes, object);
-    auto nearest_distance = std::bit_cast<float>(kHash56B5E621); // (far enough)
+    auto nearest_distance = kFarEnough;
     maths::Vec4 nearest_point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     int index = 0;
     for (const ClassNodeList::TableRow* node = nodes->entries(); node; node = node->next, ++index) {

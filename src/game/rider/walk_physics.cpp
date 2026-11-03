@@ -53,8 +53,8 @@ constexpr uint32_t kWalkGround = 0x893213E5; // Walk_Ground
 constexpr uint32_t kWalkName = 0x726E85AA; // Walk
 constexpr uint32_t kWalkAir = 0x5012082E; // Walk_Air
 constexpr uint32_t kWalkHang = 0x9A3CA853; // Walk_Hang
-constexpr uint32_t kHash19702CA8 = 0x19702CA8; // (text unknown)
-constexpr uint32_t kHash8FE2B013 = 0x8FE2B013; // (text unknown)
+constexpr uint32_t kWalkLadder = 0x19702CA8; // Walk_Ladder
+constexpr uint32_t kWalkAnimWait = 0x8FE2B013; // Walk_AnimWait
 constexpr uint32_t kWalkGetStateTime = 0xCE64576C; // Walk_GetStateTime
 constexpr uint32_t kWalkJump = 0x83E4BD70; // Walk_Jump
 constexpr uint32_t kWalkGetSpeedScale = 0xAF04B983; // Walk_GetSpeedScale
@@ -65,7 +65,7 @@ constexpr uint32_t kWalkGetStateDuration = 0x55BF1CD6; // Walk_GetStateDuration
 constexpr uint32_t kWalkGetPreviousState = 0xE9B1CDE8; // Walk_GetPreviousState
 constexpr uint32_t kWalkGetState = 0xAC7B36C8; // Walk_GetState
 constexpr uint32_t kWalkGetHangAngle = 0x7E01B923; // Walk_GetHangAngle
-constexpr uint32_t kHash492EBA50 = 0x492EBA50; // (text unknown)
+constexpr uint32_t kWalkReleaseHang = 0x492EBA50; // releasehang (letter case unknown)
 constexpr uint32_t kWalkSetForwardControlLock = 0xF8F754EF; // Walk_SetForwardControlLock
 constexpr uint32_t kWalkForceToAirFromHang = 0x8BC2C0EC; // Walk_ForceToAirFromHang
 constexpr uint32_t kInputName = 0x27D7CD28; // Input
@@ -82,10 +82,10 @@ constexpr uint32_t kTaggingControlName = 0x380D909A; // TaggingControl
 std::array<script::MemberFunctionEntry, kWalkMemberFunctionCount>& walk_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kWalkMemberFunctionCount> walk_member_functions{{
-        {.callsign_ = kWalkGround, .owner_kind_ = kWalkName}, {.callsign_ = kWalkAir, .owner_kind_ = kWalkName}, {.callsign_ = kWalkHang, .owner_kind_ = kWalkName}, {.callsign_ = kHash19702CA8, .owner_kind_ = kWalkName},
-        {.callsign_ = kHash8FE2B013, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetStateTime, .owner_kind_ = kWalkName}, {.callsign_ = kWalkJump, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetSpeedScale, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkGround, .owner_kind_ = kWalkName}, {.callsign_ = kWalkAir, .owner_kind_ = kWalkName}, {.callsign_ = kWalkHang, .owner_kind_ = kWalkName}, {.callsign_ = kWalkLadder, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkAnimWait, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetStateTime, .owner_kind_ = kWalkName}, {.callsign_ = kWalkJump, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetSpeedScale, .owner_kind_ = kWalkName},
         {.callsign_ = kWalkScaleAnimSpeed, .owner_kind_ = kWalkName}, {.callsign_ = kWalkAnimWaitComplete, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetHangInitAnimType, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetStateDuration, .owner_kind_ = kWalkName},
-        {.callsign_ = kWalkGetPreviousState, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetState, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetHangAngle, .owner_kind_ = kWalkName}, {.callsign_ = kHash492EBA50, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkGetPreviousState, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetState, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetHangAngle, .owner_kind_ = kWalkName}, {.callsign_ = kWalkReleaseHang, .owner_kind_ = kWalkName},
         {.callsign_ = kWalkSetForwardControlLock, .owner_kind_ = kWalkName}, {.callsign_ = kWalkForceToAirFromHang, .owner_kind_ = kWalkName}, {.callsign_ = 0, .owner_kind_ = kWalkName}}};
     return walk_member_functions;
 }

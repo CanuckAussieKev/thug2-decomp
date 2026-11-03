@@ -26,9 +26,9 @@ constexpr uint32_t kRailNode = 0x8E6B02AD; // RailNode
 constexpr uint32_t kClimbingNode = 0x30C19600; // ClimbingNode
 constexpr uint32_t kWaypoint = 0x4C23A77E; // Waypoint
 constexpr uint32_t kPedAI = 0xCBA10FFA; // PedAI
-constexpr uint32_t kHash0C230B04 = 0x0C230B04; // (text unknown)
-constexpr uint32_t kHashF6A4081D = 0xF6A4081D; // (text unknown)
-constexpr uint32_t kHash13AFFFF9 = 0x13AFFFF9; // (text unknown)
+constexpr uint32_t kMaxLinks = 0x0C230B04; // MaxLinks
+constexpr uint32_t kPathGroupSlots = 0xF6A4081D; // text unknown (AllocatePathManMemory: the slots in each group)
+constexpr uint32_t kPathExtraSlots = 0x13AFFFF9; // text unknown (AllocatePathManMemory: the extra slots)
 
 constexpr uint32_t kPathNum = 0x9C91C3CA; // PathNum
 constexpr uint32_t kClass = 0x12B4E660;   // class
@@ -243,11 +243,11 @@ bool cfunc_allocate_path_man_memory(script::Struct* params, script::Script* /*sc
 {
     PathManager* manager = PathManager::sole();
     int groups = kGroupCount;
-    params->fetch_int_value(kHash0C230B04, &groups, 0);
+    params->fetch_int_value(kMaxLinks, &groups, 0);
     int group_size = kGroupSize;
-    params->fetch_int_value(kHashF6A4081D, &group_size, 0);
+    params->fetch_int_value(kPathGroupSlots, &group_size, 0);
     int extra_size = kExtraSize;
-    params->fetch_int_value(kHash13AFFFF9, &extra_size, 0);
+    params->fetch_int_value(kPathExtraSlots, &extra_size, 0);
     manager->carve({.groups = groups, .group_size_ = group_size, .extra_size_ = extra_size});
     return true;
 }

@@ -63,33 +63,33 @@ constexpr int kLastLoadIndex = 9;
 constexpr int kMaxSteps = 6;
 constexpr int kLastSpoke = 11;
 constexpr int kProbeIterations = 60;
-constexpr uint32_t kHash3DB3FA83 = 0x3DB3FA83; // (text unknown)
-constexpr uint32_t kHash738500FD = 0x738500FD; // (text unknown)
-constexpr uint32_t kHash771922A6 = 0x771922A6; // (text unknown)
+constexpr uint32_t kVehiclePhysicsNetcollForwardImpulse = 0x3DB3FA83; // vehicle_physics_netcoll_forward_impulse (letter case unknown)
+constexpr uint32_t kVehiclePhysicsNetcollUpwardsImpulse = 0x738500FD; // vehicle_physics_netcoll_upwards_impulse (letter case unknown)
+constexpr uint32_t kVehiclePhysicsArtificialCollisionDuration = 0x771922A6; // vehicle_physics_artificial_collision_duration (letter case unknown)
 constexpr uint32_t kDebug = 0x935AB858; // Debug
-constexpr uint32_t kHashE6B5FCD9 = 0xE6B5FCD9; // (text unknown)
-constexpr uint32_t kHash751DA48B = 0x751DA48B; // (text unknown)
-constexpr uint32_t kHash93346B8C = 0x93346B8C; // (text unknown)
+constexpr uint32_t kFullDebug = 0xE6B5FCD9; // full_debug (letter case unknown)
+constexpr uint32_t kNoDebug = 0x751DA48B; // no_debug (letter case unknown)
+constexpr uint32_t kSuspensionCenterOfMass = 0x93346B8C; // suspension_center_of_mass (letter case unknown)
 constexpr uint32_t kMass = 0x93FCA499; // mass
 constexpr uint32_t kMomentOfInertia = 0x8C6473EC; // moment_of_inertia
 constexpr uint32_t kBodyRestitution = 0x79C3B862; // body_restitution
 constexpr uint32_t kBodyFriction = 0xF476273C; // body_friction
-constexpr uint32_t kHash4A23A53C = 0x4A23A53C; // (text unknown)
-constexpr uint32_t kHash01DD4890 = 0x01DD4890; // (text unknown)
-constexpr uint32_t kHashB9F026ED = 0xB9F026ED; // (text unknown)
-constexpr uint32_t kHash8C14709E = 0x8C14709E; // (text unknown)
-constexpr uint32_t kHash2C91E49B = 0x2C91E49B; // (text unknown)
-constexpr uint32_t kHash280F0E0B = 0x280F0E0B; // (text unknown)
-constexpr uint32_t kHash5341806A = 0x5341806A; // (text unknown)
+constexpr uint32_t kBodyWipeoutFriction = 0x4A23A53C; // body_wipeout_friction (letter case unknown)
+constexpr uint32_t kBodySpring = 0x01DD4890; // body_spring (letter case unknown)
+constexpr uint32_t kCollisionControl = 0xB9F026ED; // collision_control (letter case unknown)
+constexpr uint32_t kInAirSlerpVelocityCutoff = 0x8C14709E; // in_air_slerp_velocity_cutoff (letter case unknown)
+constexpr uint32_t kInAirSlerpTimeDelay = 0x2C91E49B; // in_air_slerp_time_delay (letter case unknown)
+constexpr uint32_t kInAirSlerpStrength = 0x280F0E0B; // in_air_slerp_strength (letter case unknown)
+constexpr uint32_t kVertCorrection = 0x5341806A; // vert_correction (letter case unknown)
 constexpr uint32_t kMaxSteeringAngle = 0xC1E5ABDD; // max_steering_angle
-constexpr uint32_t kHash386837DB = 0x386837DB; // (text unknown)
-constexpr uint32_t kHash469CF79A = 0x469CF79A; // (text unknown)
+constexpr uint32_t kConstantRotationalDamping = 0x386837DB; // constant_rotational_damping (letter case unknown)
+constexpr uint32_t kQuadraticRotationalDamping = 0x469CF79A; // quadratic_rotational_damping (letter case unknown)
 constexpr uint32_t kExitable = 0xC2A136CC; // Exitable
 constexpr uint32_t kNoHandbrake = 0xAD6C0A46; // no_handbrake
 constexpr uint32_t kColliders = 0xFC8C4AC6; // colliders
 constexpr uint32_t kEngine = 0x1757E572; // Engine
 constexpr uint32_t kDriveTorque = 0x9AA9FAEE; // drive_torque
-constexpr uint32_t kHashB2268648 = 0xB2268648; // (text unknown)
+constexpr uint32_t kDragTorque = 0xB2268648; // drag_torque (letter case unknown)
 constexpr uint32_t kUpshiftRpm = 0x33921583; // upshift_rpm
 constexpr uint32_t kDifferentialRatio = 0x94EA6601; // differential_ratio
 constexpr uint32_t kReverseTorqueRatio = 0x82BCBB10; // reverse_torque_ratio
@@ -102,12 +102,12 @@ constexpr uint32_t kPos = 0x7F261953; // Pos
 constexpr uint32_t kSkaterPos = 0xEC86EF7A; // skater_pos
 constexpr uint32_t kSkaterAnim = 0xDA75A33E; // skater_anim
 constexpr uint32_t kSounds = 0x0EDCF90E; // Sounds
-constexpr uint32_t kHashFF00FF00 = 0xFF00FF00; // (text unknown)
-constexpr uint32_t kHashFF000000 = 0xFF000000; // (text unknown)
-constexpr uint32_t kHashFF00C8FF = 0xFF00C8FF; // (text unknown)
-constexpr uint32_t kHashFF0000FF = 0xFF0000FF; // (text unknown)
-constexpr uint32_t kHashFF960096 = 0xFF960096; // (text unknown)
-constexpr uint32_t kHashFF969600 = 0xFF969600; // (text unknown)
+constexpr uint32_t kStaticSlowWheelColour = 0xFF00FF00; // ARGB: a wheel in the static-slow state
+constexpr uint32_t kStaticWheelColour = 0xFF000000; // ARGB: a wheel in the static state
+constexpr uint32_t kStaticToDynamicWheelColour = 0xFF00C8FF; // ARGB: a wheel going from static to dynamic
+constexpr uint32_t kDynamicWheelColour = 0xFF0000FF; // ARGB: a wheel in the dynamic state
+constexpr uint32_t kHandbrakeThrottleWheelColour = 0xFF960096; // ARGB: a wheel in the handbrake-throttle state
+constexpr uint32_t kHandbrakeLockedWheelColour = 0xFF969600; // ARGB: a wheel locked by the handbrake
 constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 // The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
 // 0x00696878: 132 of them.
@@ -309,7 +309,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     // The push: along the direction (0x3DB3FA83 * (1 + +-0.5)), sideways (0x39E99FEC * +-1.5), up
     // (0x738500FD * (1 + +-0.2)).
     auto forward_scale = static_cast<float>(maths::signed_spread(kForwardSpread) + 1.0);
-    auto forward = static_cast<float>(script::fetch_float(kHash3DB3FA83) * static_cast<double>(forward_scale));
+    auto forward = static_cast<float>(script::fetch_float(kVehiclePhysicsNetcollForwardImpulse) * static_cast<double>(forward_scale));
     const float side_scale = script::fetch_float(0x39E99FEC);
     const double side = static_cast<double>(maths::signed_spread(1.5f)) * side_scale;
     const double side_x = sideways * side;
@@ -325,7 +325,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + side_w);
     auto up_scale = static_cast<float>(maths::signed_spread(kUpSpread) + 1.0);
     push_y = static_cast<float>(static_cast<double>(push_y) +
-                                script::fetch_float(kHash738500FD) * static_cast<double>(up_scale));
+                                script::fetch_float(kVehiclePhysicsNetcollUpwardsImpulse) * static_cast<double>(up_scale));
 
     // The spin: about the up axis (0x14DDB3EF * +-1.5) and about the sideways one (0x4088E6EC * (1 + +-0.8)).
     const float yaw_scale = script::fetch_float(0x14DDB3EF);
@@ -353,7 +353,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     rotmom_.z = static_cast<float>(static_cast<double>(turn_z) + rotmom_.z);
     rotmom_.w = static_cast<float>(static_cast<double>(rot_w) + rotmom_.w);
     step_vehicle_speeds();
-    kick_time_ = script::fetch_float(kHash771922A6);
+    kick_time_ = script::fetch_float(kVehiclePhysicsArtificialCollisionDuration);
     awake_ = 1;
     still_frames_ = 0;
 }
@@ -519,14 +519,14 @@ void DrivableModule::configure_from_data(script::Struct* params)
     // debug / 0xE6B5FCD9 / 0x751DA48B: the debug drawing's next mode, the previous one, off.
     if (params->has_bare_flag(kDebug))
         debug_mode_ = (debug_mode_ + 1) % 3;
-    else if (params->has_bare_flag(kHashE6B5FCD9))
+    else if (params->has_bare_flag(kFullDebug))
         debug_mode_ = (debug_mode_ + 2) % 3;
-    else if (params->has_bare_flag(kHash751DA48B))
+    else if (params->has_bare_flag(kNoDebug))
         debug_mode_ = 0;
-    if (params->has_entry_named(kHash93346B8C)) {
+    if (params->has_entry_named(kSuspensionCenterOfMass)) {
         // (read into the original's argument slot: missing, the height is that pointer's bits)
         float height = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
-        params->fetch_float(kHash93346B8C, &height, 0);
+        params->fetch_float(kSuspensionCenterOfMass, &height, 0);
         balance_point_ = {.x = 0.0f, .y = height, .z = 0.0f, .w = 1.0f};
     }
     if (params->has_entry_named(kMass)) { // mass
@@ -543,19 +543,19 @@ void DrivableModule::configure_from_data(script::Struct* params)
     }
     params->fetch_float(kBodyRestitution, &restitution_, 0);
     params->fetch_float(kBodyFriction, &drag_factor_, 0);
-    params->fetch_float(kHash4A23A53C, &tipped_friction_, 0);
-    params->fetch_float(kHash01DD4890, &depth_correction_, 0);
-    params->fetch_float(kHashB9F026ED, &wall_steering_, 0);
-    params->fetch_float(kHash8C14709E, &align_speed_, 0);
-    params->fetch_float(kHash2C91E49B, &align_time_, 0);
-    params->fetch_float(kHash280F0E0B, &align_rate_, 0);
-    align_when_slow_ = params->has_bare_flag(kHash5341806A);
+    params->fetch_float(kBodyWipeoutFriction, &tipped_friction_, 0);
+    params->fetch_float(kBodySpring, &depth_correction_, 0);
+    params->fetch_float(kCollisionControl, &wall_steering_, 0);
+    params->fetch_float(kInAirSlerpVelocityCutoff, &align_speed_, 0);
+    params->fetch_float(kInAirSlerpTimeDelay, &align_time_, 0);
+    params->fetch_float(kInAirSlerpStrength, &align_rate_, 0);
+    align_when_slow_ = params->has_bare_flag(kVertCorrection);
     if (params->has_entry_named(kMaxSteeringAngle)) { // max_steering_angle (degrees)
         params->fetch_float(kMaxSteeringAngle, &max_steering_angle_, 0);
         max_steering_angle_ = static_cast<float>(static_cast<double>(max_steering_angle_) * kToRadians);
     }
-    params->fetch_float(kHash386837DB, &yaw_damping_, 0);
-    params->fetch_float(kHash469CF79A, &spin_damping_, 0);
+    params->fetch_float(kConstantRotationalDamping, &yaw_damping_, 0);
+    params->fetch_float(kQuadraticRotationalDamping, &spin_damping_, 0);
     can_dismount_ = params->has_bare_flag(kExitable);
     handbrake_disabled_ = params->has_bare_flag(kNoHandbrake);
 
@@ -612,8 +612,8 @@ void DrivableModule::configure_from_data(script::Struct* params)
             engine->fetch_float(kDriveTorque, &engine_torque_, 0);
             engine_torque_ = static_cast<float>(static_cast<double>(engine_torque_) * kFeet);
         }
-        if (engine->has_entry_named(kHashB2268648)) {
-            engine->fetch_float(kHashB2268648, &engine_braking_, 0);
+        if (engine->has_entry_named(kDragTorque)) {
+            engine->fetch_float(kDragTorque, &engine_braking_, 0);
             engine_braking_ = static_cast<float>(static_cast<double>(engine_braking_) * kFeet);
         }
         if (engine->has_entry_named(kUpshiftRpm)) {
@@ -972,22 +972,22 @@ void DrivableModule::debug_draw()
         uint32_t colour = 0;
         switch (wheel.state) {
         case DrivableModule::WheelState::kStaticSlow:
-            colour = kHashFF00FF00;
+            colour = kStaticSlowWheelColour;
             break;
         case DrivableModule::WheelState::kStatic:
-            colour = kHashFF000000;
+            colour = kStaticWheelColour;
             break;
         case DrivableModule::WheelState::kStaticToDynamic:
-            colour = kHashFF00C8FF;
+            colour = kStaticToDynamicWheelColour;
             break;
         case DrivableModule::WheelState::kDynamic:
-            colour = kHashFF0000FF;
+            colour = kDynamicWheelColour;
             break;
         case DrivableModule::WheelState::kHandbrakeThrottle:
-            colour = kHashFF960096;
+            colour = kHandbrakeThrottleWheelColour;
             break;
         case DrivableModule::WheelState::kHandbrakeLocked:
-            colour = kHashFF969600;
+            colour = kHandbrakeLockedWheelColour;
             break;
         default:
             colour = kAllBitsSet;
@@ -1017,7 +1017,7 @@ void DrivableModule::debug_draw()
                 basis_frame_.rotate_vector(world, local);
                 core::at(ends, e) = {.x = world.x + at_point_.x, .y = world.y + at_point_.y, .z = world.z + at_point_.z, .w = world.w + at_point_.w};
             }
-            gfx::push_diag_line(&core::at(ends, 0), &core::at(ends, 1), kHashFF000000, kHashFF000000, 1);
+            gfx::push_diag_line(&core::at(ends, 0), &core::at(ends, 1), kStaticWheelColour, kStaticWheelColour, 1);
         }
     }
 }

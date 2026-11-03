@@ -47,24 +47,24 @@ constexpr uint32_t kObjAnimSubsetExists = 0xD58E2AD5; // Obj_AnimSubsetExists
 constexpr uint32_t kOBJEnableAnimBlending = 0x98A32669; // OBJ_EnableAnimBlending
 constexpr uint32_t kObjSetAnimCycleMode = 0x58C52F64; // Obj_SetAnimCycleMode
 constexpr uint32_t kObjPlayAnimName = 0x2CB9AD09; // Obj_PlayAnim
-constexpr uint32_t kHash2889C6C9 = 0x2889C6C9; // (text unknown)
+constexpr uint32_t kObjAnimComplete = 0x2889C6C9; // Obj_AnimComplete
 constexpr uint32_t kAnimFinished = 0x76CC99D5; // AnimFinished
 constexpr uint32_t kObjAnimEquals = 0xB5FB7EB6; // Obj_AnimEquals
 constexpr uint32_t kAnimEquals = 0x1A0F9646; // AnimEquals
 constexpr uint32_t kObjGetAnimSpeed = 0x5195BCBB; // Obj_GetAnimSpeed
 constexpr uint32_t kBlendPeriodOut = 0x68C86AEC; // BlendPeriodOut
-constexpr uint32_t kHash80FDBDF2 = 0x80FDBDF2; // (text unknown)
+constexpr uint32_t kLoopingAnim = 0x80FDBDF2; // LoopingAnim
 constexpr uint32_t kGetAnimLength = 0x42FFC3CE; // GetAnimLength
 constexpr uint32_t kFrameIs = 0x922E7D14; // FrameIs
 constexpr uint32_t kWaitAnim = 0x74CF5C94; // WaitAnim
 constexpr uint32_t kAnimExists = 0x9069F357; // AnimExists
-constexpr uint32_t kHash1DF59A54 = 0x1DF59A54; // (text unknown)
-constexpr uint32_t kHashC68365EB = 0xC68365EB; // (text unknown)
+constexpr uint32_t kTimelineInfo = 0x1DF59A54; // text unknown (the info of a timeline to the script)
+constexpr uint32_t kReplaceAnim = 0xC68365EB; // ReplaceAnim
 constexpr uint32_t kAddAnimController = 0x83654874; // AddAnimController
 constexpr uint32_t kGetPartialAnimParams = 0xD63A1B81; // GetPartialAnimParams
 constexpr uint32_t kSetPartialAnimSpeed = 0xBD4EDD44; // SetPartialAnimSpeed
-constexpr uint32_t kHash6AAEB76F = 0x6AAEB76F; // (text unknown)
-constexpr uint32_t kHashF5E2B871 = 0xF5E2B871; // (text unknown)
+constexpr uint32_t kStepFrames = 0x6AAEB76F; // text unknown (a step of frames)
+constexpr uint32_t kReversePartialAnimDirection = 0xF5E2B871; // ReversePartialAnimDirection
 constexpr uint32_t kRemoveAnimController = 0x986D274E; // RemoveAnimController
 constexpr uint32_t kObjFlip = 0x27A98022; // Obj_Flip
 constexpr uint32_t kObjAnimationFlipped = 0x6ECEB234; // Obj_AnimationFlipped
@@ -75,7 +75,7 @@ constexpr uint32_t kSetWobbleDetails = 0xEA6D0EFD; // SetWobbleDetails
 constexpr uint32_t kReferenceChecksum = 0x52A864B0; // ReferenceChecksum
 constexpr uint32_t kBlendWeight = 0x4D786F62; // BlendWeight
 constexpr uint32_t kBlendDuration = 0xBF237659; // BlendDuration
-constexpr uint32_t kHashC7C6228C = 0xC7C6228C; // (text unknown)
+constexpr uint32_t kSubsetExists = 0xC7C6228C; // subsetexists (letter case unknown)
 } // namespace
 
 std::array<script::MemberFunctionEntry, kAnimBlenderMemberFunctionCount>& anim_blender_member_functions()
@@ -83,11 +83,11 @@ std::array<script::MemberFunctionEntry, kAnimBlenderMemberFunctionCount>& anim_b
     static std::array<script::MemberFunctionEntry, kAnimBlenderMemberFunctionCount> anim_blender_member_functions{{
         {.callsign_ = kObjAddAnimSubset, .owner_kind_ = kAnimBlender}, {.callsign_ = kOBJWaitanimfinished, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjRemoveAnimSubset, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjSetAnimSubsetWeight, .owner_kind_ = kAnimBlender},
         {.callsign_ = kObjAnimSubsetExists, .owner_kind_ = kAnimBlender}, {.callsign_ = kOBJEnableAnimBlending, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjSetAnimCycleMode, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjPlayAnimName, .owner_kind_ = kAnimBlender},
-        {.callsign_ = kHash2889C6C9, .owner_kind_ = kAnimBlender}, {.callsign_ = kAnimFinished, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjAnimEquals, .owner_kind_ = kAnimBlender}, {.callsign_ = kAnimEquals, .owner_kind_ = kAnimBlender},
-        {.callsign_ = kObjGetAnimSpeed, .owner_kind_ = kAnimBlender}, {.callsign_ = kBlendPeriodOut, .owner_kind_ = kAnimBlender}, {.callsign_ = kHash80FDBDF2, .owner_kind_ = kAnimBlender}, {.callsign_ = kGetAnimLength, .owner_kind_ = kAnimBlender},
-        {.callsign_ = kFrameIs, .owner_kind_ = kAnimBlender}, {.callsign_ = kWaitAnim, .owner_kind_ = kAnimBlender}, {.callsign_ = kAnimExists, .owner_kind_ = kAnimBlender}, {.callsign_ = kHash1DF59A54, .owner_kind_ = kAnimBlender},
-        {.callsign_ = kHashC68365EB, .owner_kind_ = kAnimBlender}, {.callsign_ = kAddAnimController, .owner_kind_ = kAnimBlender}, {.callsign_ = kGetPartialAnimParams, .owner_kind_ = kAnimBlender}, {.callsign_ = kSetPartialAnimSpeed, .owner_kind_ = kAnimBlender},
-        {.callsign_ = kHash6AAEB76F, .owner_kind_ = kAnimBlender}, {.callsign_ = kHashF5E2B871, .owner_kind_ = kAnimBlender}, {.callsign_ = kRemoveAnimController, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjFlip, .owner_kind_ = kAnimBlender},
+        {.callsign_ = kObjAnimComplete, .owner_kind_ = kAnimBlender}, {.callsign_ = kAnimFinished, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjAnimEquals, .owner_kind_ = kAnimBlender}, {.callsign_ = kAnimEquals, .owner_kind_ = kAnimBlender},
+        {.callsign_ = kObjGetAnimSpeed, .owner_kind_ = kAnimBlender}, {.callsign_ = kBlendPeriodOut, .owner_kind_ = kAnimBlender}, {.callsign_ = kLoopingAnim, .owner_kind_ = kAnimBlender}, {.callsign_ = kGetAnimLength, .owner_kind_ = kAnimBlender},
+        {.callsign_ = kFrameIs, .owner_kind_ = kAnimBlender}, {.callsign_ = kWaitAnim, .owner_kind_ = kAnimBlender}, {.callsign_ = kAnimExists, .owner_kind_ = kAnimBlender}, {.callsign_ = kTimelineInfo, .owner_kind_ = kAnimBlender},
+        {.callsign_ = kReplaceAnim, .owner_kind_ = kAnimBlender}, {.callsign_ = kAddAnimController, .owner_kind_ = kAnimBlender}, {.callsign_ = kGetPartialAnimParams, .owner_kind_ = kAnimBlender}, {.callsign_ = kSetPartialAnimSpeed, .owner_kind_ = kAnimBlender},
+        {.callsign_ = kStepFrames, .owner_kind_ = kAnimBlender}, {.callsign_ = kReversePartialAnimDirection, .owner_kind_ = kAnimBlender}, {.callsign_ = kRemoveAnimController, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjFlip, .owner_kind_ = kAnimBlender},
         {.callsign_ = kObjAnimationFlipped, .owner_kind_ = kAnimBlender}, {.callsign_ = 0, .owner_kind_ = kAnimBlender}}};
     return anim_blender_member_functions;
 }
@@ -334,7 +334,7 @@ int AnimBlenderComponent::channel_exists(uint32_t, script::Struct* params, scrip
     params->read_hash_value(kId, &id, 0);
     for (memory::ListNode* node = lanes_.next(); !is_over(node); node = node->next()) {
         if (ident_no(as_channel(node)) == id) {
-            script->args()->put_name_key(checksums::Name{0u}, kHashC7C6228C); // (an unnamed flag)
+            script->args()->put_name_key(checksums::Name{0u}, kSubsetExists); // (an unnamed flag)
             return 1;
         }
     }

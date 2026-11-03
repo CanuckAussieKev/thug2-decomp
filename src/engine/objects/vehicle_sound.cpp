@@ -30,7 +30,7 @@ namespace objects {
 namespace {
 constexpr uint32_t kEngineSound = 0x2A19E830; // engine_sound
 constexpr uint32_t kTireSound = 0xE798FE80; // tire_sound
-constexpr uint32_t kHash36FA68D2 = 0x36FA68D2; // (text unknown)
+constexpr uint32_t kCollideSoundInfo = 0x36FA68D2; // collide_sound (letter case unknown)
 constexpr uint32_t kEngineSoundName = 0x306F8A9F; // EngineSound
 constexpr uint32_t kTireSoundName = 0x667FA96A; // TireSound
 constexpr uint32_t kGears = 0x83273E6B; // Gears
@@ -45,7 +45,7 @@ constexpr uint32_t kCAGCollideSound = 0x22995285; // CAGCollideSound
 constexpr uint32_t kIdleEngineEffectiveSpeedFactor = 0xEC67BC97; // idle_engine_effective_speed_factor
 constexpr uint32_t kPercentName = 0x9E497FC6; // Percent
 constexpr uint32_t kStrength = 0x29461E27; // Strength
-constexpr uint32_t kHashC4A60423 = 0xC4A60423; // (text unknown)
+constexpr uint32_t kVehicleBodycollision = 0xC4A60423; // vehicle_bodycollision (letter case unknown)
 
 constexpr uint32_t kVehicle = 0xE47F1B79;
 constexpr uint32_t kSound = 0x07713C7B;
@@ -153,7 +153,7 @@ void EngineAudioModule::fetch_diagnostics(script::Struct* info)
 {
     info->put_name_key(checksums::Name{kEngineSound}, engine_sound_name_);
     info->put_name_key(checksums::Name{kTireSound}, skid_sound_name_);
-    info->put_sub_struct(kHash36FA68D2, collide_sound_);
+    info->put_sub_struct(kCollideSoundInfo, collide_sound_);
     // (then the base's fetch_diagnostics, which is empty: 0x005BAB90)
 }
 
@@ -337,7 +337,7 @@ void EngineAudioModule::update_collide_sound()
     script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
     event->push_float(checksums::Name{kStrength}, level);
-    vehicle_ptr_->rider_ref()->post_own_event(kHashC4A60423, event);
+    vehicle_ptr_->rider_ref()->post_own_event(kVehicleBodycollision, event);
     if (event) {
         event->get_clear();
         script::delete_struct(event);

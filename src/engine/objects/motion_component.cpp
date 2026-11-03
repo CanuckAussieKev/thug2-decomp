@@ -9,6 +9,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/maths/random.h"
+#include "engine/maths/trig.h"
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/lock_obj.h"
 #include "engine/objects/motion.h"
@@ -38,8 +39,7 @@ constexpr float kJumpSpeed = 150.0f;
 constexpr float kLeapPull = 360.0f;                 // (negated)
 constexpr float kJumpProbeAbove = 6.0f;
 constexpr float kJumpProbeBelow = 6.0f;
-constexpr uint32_t kHash40490FDB = 0x40490FDB; // (text unknown)
-constexpr uint32_t kHash447A0000 = 0x447A0000; // (text unknown)
+constexpr float kMillisecondsPerSecond = 1000.0f;
 
 
 // The game clock with its offset (0x0044ECE0 + 0x00696D60).
@@ -177,7 +177,7 @@ void KinematicsModule::update_hover()
     auto phase = static_cast<double>(doubled);
     if (doubled < 0)
         phase += maths::kUnsignedWrap; // (the count taken as unsigned)
-    phase = phase * static_cast<double>(get_bits(kHash40490FDB)) / static_cast<double>(bob_period_); // (pi)
+    phase = phase * static_cast<double>(maths::kPi) / static_cast<double>(bob_period_); // (pi)
     auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;
     const float height = entity()->at_point().y;
@@ -234,7 +234,7 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script*)
     params->fetch_float(kAmp, &bob_height_, 0);
     float frequency = 1.0f;
     params->fetch_float(kFreq, &frequency, 0);
-    int period = truncate(static_cast<double>(get_bits(kHash447A0000)) / frequency); // (1000)
+    int period = truncate(static_cast<double>(kMillisecondsPerSecond) / frequency); // (1000)
     bob_period_ = period;
     // (a tenth either way: period - period / 10 + Rnd(period * 2 / 10), in the original's 32-bit arithmetic)
     const int twice = static_cast<int>(static_cast<uint32_t>(period) * 20u);

@@ -31,9 +31,9 @@
 namespace skater {
 
 namespace {
-constexpr uint32_t kHash40490FDB = 0x40490FDB; // (text unknown)
-constexpr uint32_t kHash3C8EFA35 = 0x3C8EFA35; // (text unknown)
-constexpr uint32_t kHash42652EE0 = 0x42652EE0; // (text unknown)
+constexpr uint32_t kPiBits = 0x40490FDB;             // pi as the original stores it
+constexpr uint32_t kRadiansPerDegreeBits = 0x3C8EFA35; // pi / 180 as the original stores it
+constexpr uint32_t kDegreesPerRadianBits = 0x42652EE0; // 180 / pi as the original stores it
 
 using objects::PoseFlag; // (kSpin: cleared once a spin has gone on long enough)
 
@@ -66,8 +66,8 @@ constexpr uint32_t kBreakVertPitch = 0xD757F4BB;
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kDegreesPerRadian = 57.2957764f;   // 0x00645468
 constexpr float kBreakVertPush = 24.0f;            // 0x00645EE8
-static_assert(std::bit_cast<uint32_t>(maths::kPi) == kHash40490FDB && std::bit_cast<uint32_t>(kRadiansPerDegree) == kHash3C8EFA35 &&
-                  std::bit_cast<uint32_t>(kDegreesPerRadian) == kHash42652EE0,
+static_assert(std::bit_cast<uint32_t>(maths::kPi) == kPiBits && std::bit_cast<uint32_t>(kRadiansPerDegree) == kRadiansPerDegreeBits &&
+                  std::bit_cast<uint32_t>(kDegreesPerRadian) == kDegreesPerRadianBits,
               "the original's constants");
 
 // The game clock (ms) plus the offset at 0x00696D60: the time a flag or button changed.

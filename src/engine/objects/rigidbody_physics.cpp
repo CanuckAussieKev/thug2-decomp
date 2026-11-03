@@ -32,16 +32,16 @@ constexpr float kMarkerSize = 36.0f;
 constexpr float kSpringMarkerSize = 24.0f;
 constexpr int kVoiceLimit = 48;
 constexpr int kVoiceReserve = 12;                  // voices left free for other sounds
-constexpr uint32_t kHashFFC80000 = 0xFFC80000; // (text unknown)
-constexpr uint32_t kHashFF00C800 = 0xFF00C800; // (text unknown)
-constexpr uint32_t kHashFF0000C8 = 0xFF0000C8; // (text unknown)
-constexpr uint32_t kHashFF640064 = 0xFF640064; // (text unknown)
-constexpr uint32_t kHashFFC800C8 = 0xFFC800C8; // (text unknown)
-constexpr uint32_t kHashFFC86400 = 0xFFC86400; // (text unknown)
-constexpr uint32_t kHashFFC80064 = 0xFFC80064; // (text unknown)
-constexpr uint32_t kHash43F454D0 = 0x43F454D0; // (text unknown)
+constexpr uint32_t kAsleepColour = 0xFFC80000; // ARGB: a sleeping body
+constexpr uint32_t kPushedColour = 0xFF00C800; // ARGB: an awake body that was just pushed
+constexpr uint32_t kAwakeColour = 0xFF0000C8; // ARGB: an awake body
+constexpr uint32_t kDisabledColour = 0xFF640064; // ARGB: a disabled body
+constexpr uint32_t kDetailMarkerColour = 0xFFC800C8; // ARGB: the body marker
+constexpr uint32_t kSpringPointColour = 0xFFC86400; // ARGB: a spring point
+constexpr uint32_t kSpringAnchorColour = 0xFFC80064; // ARGB: a spring anchor
+constexpr uint32_t kBouncePos = 0x43F454D0; // bouncepos (letter case unknown)
 constexpr uint32_t kPercent = 0x9E497FC6; // Percent
-constexpr uint32_t kHashFF00FFFF = 0xFF00FFFF; // (text unknown)
+constexpr uint32_t kImpulseLineColour = 0xFF00FFFF; // ARGB: the impulse lines
 
 constexpr float kZero = 0.0f;               // 0x0066D520 (rotational w changes by 0 * mass_over_moment)
 constexpr float kSpringMinSpeed = 0.1f;     // 0x00645D74
@@ -194,13 +194,13 @@ void BodyDynamicsModule::debug_draw()
     uint32_t colour = 0;
     switch (cur_phase_) {
     case BodyDynamicsModule::State::kAsleep:
-        colour = kHashFFC80000;
+        colour = kAsleepColour;
         break;
     case BodyDynamicsModule::State::kAwake:
-        colour = push_cooldown_ > kZero ? kHashFF00C800 : kHashFF0000C8;
+        colour = push_cooldown_ > kZero ? kPushedColour : kAwakeColour;
         break;
     case BodyDynamicsModule::State::kDisabled:
-        colour = kHashFF640064;
+        colour = kDisabledColour;
         break;
     }
     auto at = [this](const maths::Vec4& p) {
@@ -221,14 +221,14 @@ void BodyDynamicsModule::debug_draw()
         gfx::add_debug_sphere(&center, core::at(sphere_run(), i).radius, &basis_frame_, kSphereSegments, colour, 1);
     }
     if (objects_shared().rigid_body_draw_details())
-        gfx::push_diag_marker(at_point_, kMarkerSize, kHashFFC800C8, 1);
+        gfx::push_diag_marker(at_point_, kMarkerSize, kDetailMarkerColour, 1);
     const auto& springs = world_spring_points();
     for (int i = spring_count_; i != 0;) {
         --i;
         if (!core::at(spring_run(), i).active)
             continue;
-        gfx::push_diag_marker(at(core::at(springs, i)), kSpringMarkerSize, kHashFFC86400, 1);
-        gfx::push_diag_marker(core::at(spring_run(), i).anchor, kSpringMarkerSize, kHashFFC80064, 1);
+        gfx::push_diag_marker(at(core::at(springs, i)), kSpringMarkerSize, kSpringPointColour, 1);
+        gfx::push_diag_marker(core::at(spring_run(), i).anchor, kSpringMarkerSize, kSpringAnchorColour, 1);
     }
 }
 
@@ -324,7 +324,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
             params = new (params) script::Struct;
         if (callback_params_ptr_)
             params->merge_structure(callback_params_ptr_); // (out of memory: through null, as the original)
-        params->put_vec3(checksums::Name{kHash43F454D0}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
+        params->put_vec3(checksums::Name{kBouncePos}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
         entity()->spawn_script(bounce_script_, params, 0, false)->tick_frame();
         if (params) {
             params->get_clear();
@@ -493,7 +493,7 @@ void BodyDynamicsModule::resolve_contacts()
             const maths::Vec4 from = {.x = r.x + at_point_.x, .y = at_point_.y + r.y, .z = at_point_.z + r.z, .w = at_point_.w + r.w};
             const maths::Vec4 to = {.x = from.x + push.x * kDebugImpulseScale, .y = from.y + push.y * kDebugImpulseScale,
                                     .z = from.z + push.z * kDebugImpulseScale, .w = from.w + push.w * kDebugImpulseScale};
-            gfx::push_diag_line(&to, &from, kHashFF00FFFF, 0, 1);
+            gfx::push_diag_line(&to, &from, kImpulseLineColour, 0, 1);
         }
     }
 

@@ -32,13 +32,13 @@ constexpr uint32_t kColObjId = 0xF79C90AE; // colObjId
 constexpr uint32_t kIntId = 0xDB1E28CD; // intId
 constexpr uint32_t kObjectInRadius = 0x7048029A; // ObjectInRadius
 constexpr uint32_t kAnyObjectInRadius = 0xF5B2A042; // AnyObjectInRadius
-constexpr uint32_t kHash873A40D0 = 0x873A40D0; // (text unknown)
+constexpr uint32_t kRadiusEventObject = 0x873A40D0; // text unknown (the object id put in the radius event data)
 constexpr uint32_t kOutIntId = 0x5F3602F5; // outIntId
 constexpr uint32_t kObjectOutofRadius = 0x91BCAD1D; // ObjectOutofRadius
 constexpr uint32_t kObjectInAvoidRadius = 0xD69BD3DE; // ObjectInAvoidRadius
 constexpr uint32_t kObjectOutofAvoidRadius = 0x35FDAFAE; // ObjectOutofAvoidRadius
 constexpr uint32_t kObjectInAttentionRadius = 0xA06C9031; // ObjectInAttentionRadius
-constexpr uint32_t kHash9C1CDE7A = 0x9C1CDE7A; // (text unknown)
+constexpr uint32_t kObjectOutofAttentionRadius = 0x9C1CDE7A; // ObjectOutofAttentionRadius
 constexpr uint32_t kIfZero = 0xFD2EACAD; // ifZero
 } // namespace
 
@@ -175,7 +175,7 @@ void ObjectProximityComponent::tick_frame()
             distance = nearest_skater_distance_squared(&id);
         if (distance >= outer_radius_squared_ && !(entity()->object_flags() & kObjectFlagDead)) {
             gsl::owner<script::Struct*> data = new_data();
-            data->put_name_key(checksums::Name{kHash873A40D0}, id);
+            data->put_name_key(checksums::Name{kRadiusEventObject}, id);
             data->put_int(checksums::Name{kOutIntId}, static_cast<int>(id));
             event(kObjectOutofRadius, data);
             delete_data(data);
@@ -203,7 +203,7 @@ void ObjectProximityComponent::tick_frame()
             distance = static_cast<float>(local_skater_distance_squared(&id));
         dead = (entity()->object_flags() & kObjectFlagDead) != 0;
         if (!dead)
-            event(distance <= attention_radius_squared_ ? kObjectInAttentionRadius : kHash9C1CDE7A, nullptr);
+            event(distance <= attention_radius_squared_ ? kObjectInAttentionRadius : kObjectOutofAttentionRadius, nullptr);
     }
 }
 

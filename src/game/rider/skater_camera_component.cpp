@@ -44,7 +44,7 @@ constexpr float kLerpXz = 0.25f;
 constexpr float kLerpY = 0.5f;
 constexpr float kLookRate = 0.1f;
 constexpr int kModeCount = 5;                      // camera modes the player cycles through
-constexpr uint32_t kHash3F800000 = 0x3F800000u; // (text unknown)
+constexpr uint32_t kFloatOneBits = std::bit_cast<uint32_t>(1.0f); // 1.0f's bits (compared as bits)
 
 constexpr uint32_t kSkaterCamera = 0x5E43A604;   // skatercamera (the component type)
 constexpr uint32_t kCleanupState = 0xD8CC3428;   // SkaterCleanupState (the component type)
@@ -200,7 +200,7 @@ RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
     else if (state->cur_phase() == 3)
         zoom_target_ = lip_trick_zoom_;
     const FreeLookModule* look_around = free_look_module_;
-    if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != kHash3F800000)
+    if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != kFloatOneBits)
         zoom_target_ = static_cast<float>(static_cast<double>(look_around->factor()) * zoom_target_);
     const double eased = (static_cast<double>(zoom_target_) - zoom_) * zoom_ease_rate_ + zoom_;
     zoom_ = static_cast<float>(eased);

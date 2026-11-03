@@ -43,29 +43,29 @@ constexpr uint32_t kLeft = 0x85981897; // Left
 constexpr uint32_t kRight = 0x4B358AEB; // Right
 constexpr uint32_t kDownRight = 0x786B8B68; // DownRight
 constexpr uint32_t kUpRight = 0xA50950C5; // UpRight
-constexpr uint32_t kHashBC6B118F = 0xBC6B118F; // (text unknown)
+constexpr uint32_t kUp = 0xBC6B118F; // up
 constexpr uint32_t kDownLeft = 0xD8847EFA; // DownLeft
 constexpr uint32_t kDown = 0xE3006FC4; // Down
 constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 constexpr uint32_t kTriangle = 0x20689278; // Triangle
 constexpr uint32_t kCircle = 0x2B489A86; // Circle
 constexpr uint32_t kSquare = 0x321C9756; // Square
-constexpr uint32_t kHash03749393 = 0x03749393; // (text unknown)
-constexpr uint32_t kHash7473A305 = 0x7473A305; // (text unknown)
-constexpr uint32_t kHash9A7DC229 = 0x9A7DC229; // (text unknown)
+constexpr uint32_t kButtonAlias1 = 0x03749393; // text unknown (a trigger button name taken as button_map_[1])
+constexpr uint32_t kButtonAlias2 = 0x7473A305; // text unknown (a trigger button name taken as button_map_[2])
+constexpr uint32_t kButtonAlias0 = 0x9A7DC229; // text unknown (a trigger button name taken as button_map_[0])
 constexpr uint32_t kScr = 0xA6D2D890u; // Scr
 constexpr uint32_t kScripts = 0x22E168C1u; // Scripts
 constexpr uint32_t kTemplate = 0x689FE07Cu; // Template
 constexpr uint32_t kTrickSlot = 0xA92A2280u; // TrickSlot
 constexpr uint32_t kParams = 0x7031F10Cu; // Params
 constexpr uint32_t kName = 0xA1DC81F9u; // Name
-constexpr uint32_t kHash26B0C991 = 0x26B0C991; // (text unknown)
-constexpr uint32_t kHash6BF8A7F4 = 0x6BF8A7F4; // (text unknown)
-constexpr uint32_t kHash7323E97C = 0x7323E97C; // (text unknown)
+constexpr uint32_t kL1 = 0x26B0C991; // L1
+constexpr uint32_t kR2 = 0x6BF8A7F4; // R2
+constexpr uint32_t kX = 0x7323E97C; // x
 constexpr uint32_t kBlack = 0x767A45D7; // Black
 constexpr uint32_t kWhite = 0xBD30325B; // White
-constexpr uint32_t kHashBFB9982B = 0xBFB9982B; // (text unknown)
-constexpr uint32_t kHashF2F1F64E = 0xF2F1F64E; // (text unknown)
+constexpr uint32_t kL2 = 0xBFB9982B; // L2
+constexpr uint32_t kR1 = 0xF2F1F64E; // R1
 constexpr uint32_t kPress = 0x823B8342; // Press
 constexpr uint32_t kBikePress = 0xCEA9F4B5; // BikePress
 constexpr uint32_t kRelease = 0x61B8FCE2; // Release
@@ -147,7 +147,7 @@ bool is_direction(uint32_t button)
     case kRight:
     case kDownRight:
     case kUpRight:
-    case kHashBC6B118F:
+    case kUp:
     case kDownLeft:
     case kDown:
         return true;
@@ -481,11 +481,11 @@ uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, st
 {
     for (int i = 0; i < count; ++i) {
         uint32_t button = node->value.word();
-        if (button == kHash03749393)
+        if (button == kButtonAlias1)
             button = core::at(button_map_, 1);
-        else if (button == kHash7473A305)
+        else if (button == kButtonAlias2)
             button = core::at(button_map_, 2);
-        else if (button == kHash9A7DC229)
+        else if (button == kButtonAlias0)
             button = core::at(button_map_, 0);
         core::at(out, i) = button;
         node = node->next;
@@ -619,7 +619,7 @@ void MoveExecutor::dump_event_buffer()
         case kTriangle:
             text = "Triangle";
             break;
-        case kHash26B0C991:
+        case kL1:
             text = "L1";
             break;
         case kCircle:
@@ -631,10 +631,10 @@ void MoveExecutor::dump_event_buffer()
         case kRight:
             text = "Right";
             break;
-        case kHash6BF8A7F4:
+        case kR2:
             text = "R2";
             break;
-        case kHash7323E97C:
+        case kX:
             text = "X";
             break;
         case kBlack:
@@ -652,13 +652,13 @@ void MoveExecutor::dump_event_buffer()
         case kUpLeft:
             text = "UpLeft";
             break;
-        case kHashBC6B118F:
+        case kUp:
             text = "Up";
             break;
         case kWhite:
             text = "White";
             break;
-        case kHashBFB9982B:
+        case kL2:
             text = "L2";
             break;
         case kDownLeft:
@@ -667,7 +667,7 @@ void MoveExecutor::dump_event_buffer()
         case kDown:
             text = "Down";
             break;
-        case kHashF2F1F64E:
+        case kR1:
             text = "R1";
             break;
         default:
@@ -761,7 +761,7 @@ Scan find_event(MoveExecutor* trick, int type, checksums::Name button_name, Move
 // The d-pad's four directions (ReleaseAndTap looks past them).
 bool is_straight_direction(uint32_t button)
 {
-    return button == kHashBC6B118F || button == kDown || button == kLeft || button == kRight;
+    return button == kUp || button == kDown || button == kLeft || button == kRight;
 }
 
 } // namespace

@@ -38,7 +38,7 @@
 namespace objects {
 namespace {
 constexpr int kSourceLineInputTime = 0x94;           // the source line the original reports the message from
-constexpr uint32_t kHashBF7D6C46 = 0xBF7D6C46; // (text unknown)
+constexpr uint32_t kInputDebounce = 0xBF7D6C46; // Input_Debounce
 constexpr uint32_t kInput = 0x27D7CD28; // Input
 constexpr uint32_t kDisablePlayerInput = 0x6E24F5FD; // DisablePlayerInput
 constexpr uint32_t kEnablePlayerInput = 0x56C6C0CD; // EnablePlayerInput
@@ -49,23 +49,23 @@ constexpr uint32_t kLeftPressed = 0x78238598; // LeftPressed
 constexpr uint32_t kRightPressed = 0x1D604A9D; // RightPressed
 constexpr uint32_t kUpPressed = 0x89AA9B5F; // UpPressed
 constexpr uint32_t kDownPressed = 0x83028FC5; // DownPressed
-constexpr uint32_t kHashB2A022DE = 0xB2A022DE; // (text unknown)
+constexpr uint32_t kGetSticks = 0xB2A022DE; // text unknown (the sticks into the script parameters)
 constexpr uint32_t kHeldLongerThan = 0x2366469C; // HeldLongerThan
 constexpr uint32_t kEnableInputEvents = 0x1090A150; // EnableInputEvents
-constexpr uint32_t kHash28729460 = 0x28729460; // (text unknown)
-constexpr uint32_t kHash737F15CF = 0x737F15CF; // (text unknown)
-constexpr uint32_t kHash686AD1C2 = 0x686AD1C2; // (text unknown)
-constexpr uint32_t kHashD6030CEA = 0xD6030CEA; // (text unknown)
-constexpr uint32_t kHashC94777AC = 0xC94777AC; // (text unknown)
+constexpr uint32_t kDisableInputEvents = 0x28729460; // DisableInputEvents
+constexpr uint32_t kLeftStickAngle = 0x737F15CF; // LeftStickAngle (letter case unknown)
+constexpr uint32_t kLeftStickMagnitude = 0x686AD1C2; // LeftStickMagnitude (letter case unknown)
+constexpr uint32_t kRightStickAngle = 0xD6030CEA; // RightStickAngle (letter case unknown)
+constexpr uint32_t kRightStickMagnitude = 0xC94777AC; // RightStickMagnitude (letter case unknown)
 } // namespace
 
 std::array<script::MemberFunctionEntry, kInputComponentMemberFunctionCount>& input_component_member_functions()
 {
     static std::array<script::MemberFunctionEntry, kInputComponentMemberFunctionCount> input_component_member_functions{{
-        {.callsign_ = kHashBF7D6C46, .owner_kind_ = kInput}, {.callsign_ = kDisablePlayerInput, .owner_kind_ = kInput}, {.callsign_ = kEnablePlayerInput, .owner_kind_ = kInput}, {.callsign_ = kNetDisablePlayerInput, .owner_kind_ = kInput},
+        {.callsign_ = kInputDebounce, .owner_kind_ = kInput}, {.callsign_ = kDisablePlayerInput, .owner_kind_ = kInput}, {.callsign_ = kEnablePlayerInput, .owner_kind_ = kInput}, {.callsign_ = kNetDisablePlayerInput, .owner_kind_ = kInput},
         {.callsign_ = kNetEnablePlayerInput, .owner_kind_ = kInput}, {.callsign_ = kPlayerInputIsDisabled, .owner_kind_ = kInput}, {.callsign_ = kLeftPressed, .owner_kind_ = kInput}, {.callsign_ = kRightPressed, .owner_kind_ = kInput},
-        {.callsign_ = kUpPressed, .owner_kind_ = kInput}, {.callsign_ = kDownPressed, .owner_kind_ = kInput}, {.callsign_ = kHashB2A022DE, .owner_kind_ = kInput}, {.callsign_ = kHeldLongerThan, .owner_kind_ = kInput},
-        {.callsign_ = kEnableInputEvents, .owner_kind_ = kInput}, {.callsign_ = kHash28729460, .owner_kind_ = kInput}, {.callsign_ = 0, .owner_kind_ = kInput}}};
+        {.callsign_ = kUpPressed, .owner_kind_ = kInput}, {.callsign_ = kDownPressed, .owner_kind_ = kInput}, {.callsign_ = kGetSticks, .owner_kind_ = kInput}, {.callsign_ = kHeldLongerThan, .owner_kind_ = kInput},
+        {.callsign_ = kEnableInputEvents, .owner_kind_ = kInput}, {.callsign_ = kDisableInputEvents, .owner_kind_ = kInput}, {.callsign_ = 0, .owner_kind_ = kInput}}};
     return input_component_member_functions;
 }
 
@@ -420,11 +420,11 @@ int PadInputModule::down_pressed(script::Struct*, script::Script*)
 // 0x0041EA60
 int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 {
-    script->args()->push_float(checksums::Name{kHash737F15CF}, core::at(pad_primary_.polar(), 1).angle * kDegreesPerRadian);
-    script->args()->push_float(checksums::Name{kHash686AD1C2},
+    script->args()->push_float(checksums::Name{kLeftStickAngle}, core::at(pad_primary_.polar(), 1).angle * kDegreesPerRadian);
+    script->args()->push_float(checksums::Name{kLeftStickMagnitude},
         static_cast<float>(stick_length({.x = core::at(pad_primary_.stick(), 2), .y = core::at(pad_primary_.stick(), 3)}, core::at(pad_primary_.polar(), 1).angle)));
-    script->args()->push_float(checksums::Name{kHashD6030CEA}, core::at(pad_primary_.polar(), 0).angle * kDegreesPerRadian);
-    script->args()->push_float(checksums::Name{kHashC94777AC},
+    script->args()->push_float(checksums::Name{kRightStickAngle}, core::at(pad_primary_.polar(), 0).angle * kDegreesPerRadian);
+    script->args()->push_float(checksums::Name{kRightStickMagnitude},
         static_cast<float>(stick_length({.x = core::at(pad_primary_.stick(), 0), .y = core::at(pad_primary_.stick(), 1)}, core::at(pad_primary_.polar(), 0).angle)));
     return 1;
 }

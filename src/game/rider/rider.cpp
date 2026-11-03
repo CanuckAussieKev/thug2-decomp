@@ -150,7 +150,7 @@ constexpr uint32_t kTricyclePhysics = 0x43DA544E; // tricycle_physics
 constexpr uint32_t kGurney = 0xD8D2D646; // Gurney
 constexpr uint32_t kGurneyPhysics = 0x08C9AD5E; // gurney_physics
 constexpr uint32_t kChainsaw = 0x14A3A4CF; // Chainsaw
-constexpr uint32_t kHashBF800000 = 0xBF800000; // (text unknown)
+constexpr uint32_t kUnsetStatBits = std::bit_cast<uint32_t>(-1.0f); // -1.0f's bits: no override (compared as bits)
 constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick
 constexpr uint32_t kInitSkaterParticles = 0xAE5438AF; // InitSkaterParticles
 constexpr uint32_t kSkaterState = 0x43686585; // SkaterState
@@ -164,7 +164,7 @@ constexpr uint32_t kHatLogo = 0x5B288E0B; // hat_logo
 constexpr uint32_t kCustomHatlogoParams = 0xEF76A8DB; // custom_hatlogo_params
 constexpr uint32_t kBackLogo = 0xD0C656A2; // back_logo
 constexpr uint32_t kCustomBacklogoParams = 0xFFE9F52A; // custom_backlogo_params
-constexpr uint32_t kHashA01371B1 = 0xA01371B1; // (text unknown)
+constexpr uint32_t kIn = 0xA01371B1; // in
 constexpr uint32_t kXScale = 0x6AA8D676; // x_scale
 constexpr uint32_t kYScale = 0xCCDFDDC2; // y_scale
 constexpr uint32_t kWith = 0x676F1DF1; // With
@@ -179,7 +179,7 @@ constexpr uint32_t kSkaterLoopingSound = 0xB5F1E9D2; // SkaterLoopingSound
 constexpr uint32_t kPauseRunTimer = 0x1277E3FD; // pause_run_timer
 constexpr uint32_t kSkaterCamera = 0x5E43A604; // SkaterCamera
 constexpr uint32_t kWalkCamera = 0xC7D37EC2; // WalkCamera
-constexpr uint32_t kHash4C48DA58 = 0x4C48DA58; // (text unknown)
+constexpr uint32_t kCameraTarget = 0x4C48DA58; // CameraTarget
 constexpr uint32_t kWalk = 0x726E85AA; // Walk
 constexpr uint32_t kTHPS6Human = 0x9FE476E2; // THPS6_Human
 constexpr uint32_t kSkaterAssetInfo = 0x962E5CF7; // skater_asset_info
@@ -207,7 +207,7 @@ constexpr uint32_t kTagTexture = 0x4FA8DF27; // tag_texture
 constexpr uint32_t kHasCustomTag = 0xB78D4AAE; // has_custom_tag
 constexpr uint32_t kStickerTexture = 0x130618A0; // sticker_texture
 constexpr uint32_t kSuspend = 0xCE0CA665; // Suspend
-constexpr uint32_t kHash7B738580 = 0x7B738580; // (text unknown)
+constexpr uint32_t kInCleanup = 0x7B738580; // incleanup (letter case unknown)
 constexpr uint32_t kSkaterInit = 0xE740F458; // SkaterInit
 constexpr uint32_t kProjectileproximity = 0x3618B878; // projectileproximity
 constexpr uint32_t kPedLogic = 0x6EFDDFB8; // PedLogic
@@ -521,7 +521,7 @@ float Rider::fetch_tally(int index)
     if (stat == 0.0f) {
         uint32_t bits = 0;
         std::memcpy(&bits, &core::at(stat_overrides_, index), 4);
-        stat = bits == kHashBF800000 ? script::fetch_float(kSkaterDefaultStats) : core::at(stat_overrides_, index);
+        stat = bits == kUnsetStatBits ? script::fetch_float(kSkaterDefaultStats) : core::at(stat_overrides_, index);
     }
     // Online: the server's rules for this player.
     if (online::online_hub()->in_net_game()) {
@@ -874,7 +874,7 @@ void Rider::show_board_element(uint32_t type)
     uint32_t model_swap = 0, model_swap2 = 0;
     float width = 0.0f, height = 0.0f;
     const char* texture = nullptr;
-    params->read_hash_value(kHashA01371B1, &model_swap, 1);
+    params->read_hash_value(kIn, &model_swap, 1);
     params->fetch_float(kXScale, &width, 1);
     params->fetch_float(kYScale, &height, 1);
     params->read_hash_value(kWith, &model_swap2, 1);
@@ -1050,7 +1050,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         } else {
             gsl::owner<script::Struct*> memory = script::spawn_param_bag();
             script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-            params->put_name_key(checksums::Name{kHash4C48DA58}, ident());
+            params->put_name_key(checksums::Name{kCameraTarget}, ident());
             params->put_name_key(checksums::Name{kNameChecksum}, camera_name);
             camera = object_hub_slot()->spawn_entity_from_node(script::fetch_list("skatercam_composite_structure"),
                                                                params, true);
@@ -1229,7 +1229,7 @@ void Rider::run_state_script(bool walk, bool other)
         if (walk)
             params->put_name_key(checksums::Name{0u}, kWalk); // Walk
         if (other)
-            params->put_name_key(checksums::Name{0u}, kHash7B738580);
+            params->put_name_key(checksums::Name{0u}, kInCleanup);
     }
     own_script()->bind_script(kSkaterInit, params, this);
     if (is_local_skater())

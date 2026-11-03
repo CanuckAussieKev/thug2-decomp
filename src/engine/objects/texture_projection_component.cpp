@@ -21,7 +21,7 @@
 namespace objects {
 
 namespace {
-constexpr uint32_t kHash1EE8B7B9 = 0x1EE8B7B9; // (text unknown)
+constexpr uint32_t kProjectionLabel = 0x1EE8B7B9; // text unknown (the projection label)
 constexpr uint32_t kSuspend = 0xCE0CA665; // Suspend
 constexpr uint32_t kSkeleton = 0x222756D5; // Skeleton
 constexpr uint32_t kModel = 0x286A8D26; // Model
@@ -67,7 +67,7 @@ void TextureProjectionComponent::configure_from_data(script::Struct* params)
     for (uint32_t i = 0; i < projections->extent(); ++i) {
         auto* settings = projections->struct_at(i);
         uint32_t name = 0; // (read into the parameters' own argument slot)
-        settings->read_hash_value(kHash1EE8B7B9, &name, 1);
+        settings->read_hash_value(kProjectionLabel, &name, 1);
         gsl::owner<render::TextureProjection*> projection = new_projection();
         // (out of memory: written through null, as the original)
         projection->set_label(name);

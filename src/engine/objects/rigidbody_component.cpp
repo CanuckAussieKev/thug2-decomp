@@ -75,8 +75,8 @@ constexpr uint32_t kConstAcc = 0x6FAE5C9A; // const_acc
 constexpr uint32_t kCoeffRestitution = 0x60B4860D; // coeff_restitution
 constexpr uint32_t kCoeffFriction = 0xF9D75930; // coeff_friction
 constexpr uint32_t kSpringConst = 0xF1ECB30F; // spring_const
-constexpr uint32_t kHashDE76C3A7 = 0xDE76C3A7; // (text unknown)
-constexpr uint32_t kHash9DA897CF = 0x9DA897CF; // (text unknown)
+constexpr uint32_t kLinearDamping = 0xDE76C3A7; // text unknown (the linear damping)
+constexpr uint32_t kAngularDamping = 0x9DA897CF; // text unknown (the angular damping)
 constexpr uint32_t kLinearVelocitySleepPoint = 0xC11E4DD8; // linear_velocity_sleep_point
 constexpr uint32_t kAngularVelocitySleepPoint = 0xA457ECE3; // angular_velocity_sleep_point
 constexpr uint32_t kSkaterCollisionImpulseFactor = 0x3390D1E5; // skater_collision_impulse_factor
@@ -84,17 +84,17 @@ constexpr uint32_t kSkaterCollisionRotationFactor = 0x5A18F61F; // skater_collis
 constexpr uint32_t kSkaterCollisionRadius = 0x85F112C1; // skater_collision_radius
 constexpr uint32_t kSkaterCollisionApplicationRadius = 0x8AB2DB68; // skater_collision_application_radius
 constexpr uint32_t kSkaterCollisionAssent = 0xE9156E6D; // skater_collision_assent
-constexpr uint32_t kHash1F4D0CA5 = 0x1F4D0CA5; // (text unknown)
+constexpr uint32_t kPusherQuietTime = 0x1F4D0CA5; // text unknown (the seconds the pushers are not felt after a push)
 constexpr uint32_t kCollideScript = 0x58CDC0F0; // CollideScript
 constexpr uint32_t kBounceScript = 0x2D075F90; // BounceScript
 constexpr uint32_t kSettleScript = 0x571917FA; // SettleScript
-constexpr uint32_t kHashCCB84047 = 0xCCB84047; // (text unknown)
+constexpr uint32_t kStuckScript = 0xCCB84047; // stuckscript
 constexpr uint32_t kCallbackParams = 0x0DD85BDA; // CallbackParams
 constexpr uint32_t kSoundType = 0x94956E48; // SoundType
 constexpr uint32_t kDieUponSettling = 0x5E51924F; // DieUponSettling
-constexpr uint32_t kHashB77BE94A = 0xB77BE94A; // (text unknown)
+constexpr uint32_t kConstraints = 0xB77BE94A; // constraints
 constexpr uint32_t kContacts = 0xCCBFEA8C; // Contacts
-constexpr uint32_t kHash5B6A8D18 = 0x5B6A8D18; // (text unknown)
+constexpr uint32_t kSpheres = 0x5B6A8D18; // text unknown (the list of spheres)
 constexpr uint32_t kBox = 0xF756B7C5; // Box
 constexpr uint32_t kPyramid = 0x1CB1A2B6; // Pyramid
 constexpr uint32_t kCylinder = 0x64FBA415; // Cylinder
@@ -344,8 +344,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     params->fetch_float(kCoeffRestitution, &restitution_, 0);  // coeff_restitution
     params->fetch_float(kCoeffFriction, &drag_factor_, 0);  // coeff_friction
     params->fetch_float(kSpringConst, &spring_const_, 0); // spring_const
-    params->fetch_float(kHashDE76C3A7, &unknown38_, 0);
-    params->fetch_float(kHash9DA897CF, &unknown3c_, 0);
+    params->fetch_float(kLinearDamping, &unknown38_, 0);
+    params->fetch_float(kAngularDamping, &unknown3c_, 0);
     if (params->has_entry_named(kLinearVelocitySleepPoint)) { // linear_velocity_sleep_point
         params->fetch_float(kLinearVelocitySleepPoint, &linear_sleep_squared_, 0);
         linear_sleep_squared_ = linear_sleep_squared_ * linear_sleep_squared_;
@@ -365,11 +365,11 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         skater_assent_cos_ = static_cast<float>(std::cos(radians));
         skater_assent_sin_ = static_cast<float>(std::sin(radians));
     }
-    params->fetch_float(kHash1F4D0CA5, &push_cooldown_time_, 0);
+    params->fetch_float(kPusherQuietTime, &push_cooldown_time_, 0);
     params->read_hash_value(kCollideScript, &collide_script_, 0); // CollideScript
     params->read_hash_value(kBounceScript, &bounce_script_, 0);  // BounceScript
     params->read_hash_value(kSettleScript, &settle_script_, 0);  // SettleScript
-    params->read_hash_value(kHashCCB84047, &script_d0_, 0);
+    params->read_hash_value(kStuckScript, &script_d0_, 0);
     if (params->has_entry_named(kCallbackParams)) { // CallbackParams (the old copy is kept - leaked)
         script::Struct* callback = nullptr;
         params->read_sub_struct(kCallbackParams, &callback, 1);
@@ -385,9 +385,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     else
         flag_bits_ &= ~kFlagDieUponSettling;
 
-    if (params->has_entry_named(kHashB77BE94A)) { // springs
+    if (params->has_entry_named(kConstraints)) { // springs
         script::Array* springs = nullptr;
-        params->fetch_list(kHashB77BE94A, &springs, 1);
+        params->fetch_list(kConstraints, &springs, 1);
         spring_count_ = static_cast<uint16_t>(springs->extent());
         springs_ = reallocate(springs_, spring_count_ * sizeof(Spring));
         // (each built by the vector constructor iterator 0x00401020 with 0x005902E0 - which does nothing)
@@ -405,9 +405,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         set_contacts(contacts);
         shape = 4;
     }
-    if (params->has_entry_named(kHash5B6A8D18)) { // (the spheres)
+    if (params->has_entry_named(kSpheres)) { // (the spheres)
         script::Array* spheres = nullptr;
-        params->fetch_list(kHash5B6A8D18, &spheres, 0);
+        params->fetch_list(kSpheres, &spheres, 0);
         set_spheres(spheres);
         shape = 4;
     }
