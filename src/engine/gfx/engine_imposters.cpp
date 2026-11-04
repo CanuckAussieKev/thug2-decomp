@@ -5,7 +5,7 @@
 #include <new>
 
 #include "engine/memory/mem.h"
-#include "engine/gfx/primitive_states.h"
+#include "engine/gfx/render_device.h"
 #include "engine/lists/key_map.h"
 
 namespace render {
@@ -76,13 +76,13 @@ void ImposterManager::tick_frame()
 // 0x0048E370
 void ImposterManager::render()
 {
-    set_primitive_states();
+    device().set_primitive_states();
     for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
         if (group->has_imposter()) {
             group->draw_imposter();
         }
     }
-    reset_primitive_states();
+    device().reset_primitive_states();
 }
 
 } // namespace render

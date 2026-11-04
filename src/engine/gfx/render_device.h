@@ -31,6 +31,10 @@
 namespace gfx {
 class ViewCam;
 }
+namespace maths {
+class BBox;
+class Vec4;
+}
 
 namespace render {
 
@@ -45,7 +49,21 @@ class BillboardQuad;
 class TexturedQuad;
 class ModelLights;
 class PcViewport;
+class BitmapTexture;
+class PcGeom;
+class PcShatter;
+class HitMesh;
+struct SkinScaling;
+struct Flash;
+struct TextureSplats;
+struct SplatParams;
 class Typeface;
+
+// The primitives' depth test (set_primitive_depth_test): the state's index and its value.
+struct DepthTest {
+    int state{};
+    int value{};
+};
 
 class Device {
 public:
@@ -112,6 +130,52 @@ public:
     virtual void unload_pc_font(Typeface* font) = 0;
     virtual void allocate_text_pool(uint32_t count) = 0;
     virtual void create_window_pool() = 0;
+
+    // --- state blocks: set as the engine groups them ---
+    // The fog: on or off, where it starts, its colour (pc_fog.h).
+    virtual void toggle_fog(bool on) = 0;
+    virtual void set_fog_distance(float start) = 0;
+    virtual void set_fog_color(uint32_t rgba) = 0;
+    // The gamma ramp from / as three factors (engine_glue.h).
+    virtual void set_gamma(float red, float green, float blue) = 0;
+    virtual std::array<float, 3> get_gamma() = 0;
+    // The 2D clip rectangle set and turned on (engine_glue.h).
+    virtual void set_screen_clip(const SkinScaling* settings) = 0;
+    // The primitives' states around the imposters, and their depth test (primitive_states.h, pc_primitive.h).
+    virtual void set_primitive_states() = 0;
+    virtual void reset_primitive_states() = 0;
+    virtual void set_primitive_depth_test(DepthTest depth_test) = 0;
+    // The world's lights as the light manager sets them: the ambient colour, a light's colour and direction - each
+    // sent on, and read back - and all of them again (pc_lights.h).
+    virtual bool update_ambient_light() = 0;
+    virtual uint32_t* fetch_ambient_hue(uint32_t* out) = 0;
+    virtual bool update_light_color(int light) = 0;
+    virtual uint32_t* fetch_light_tint(uint32_t* out, int light) = 0;
+    virtual bool update_light_direction(int light) = 0;
+    virtual maths::Vec4* get_light_direction(int light) = 0;
+    virtual void update_all_lights() = 0;
+
+    // --- effects: made, stepped and drawn a batch (a flash, a shatter, a splat set) at a time ---
+    // A flash over its viewport (flash.h).
+    virtual void draw_flash(const Flash* flash) = 0;
+    // A geom's glass shattered, a shatter stepped and drawn, all of them gone (shatter.h).
+    virtual void shatter_geom(PcGeom* geom) = 0;
+    virtual void update_shatter(PcShatter* shatter, float step) = 0;
+    virtual void draw_shatter(PcShatter* shatter) = 0;
+    virtual void kill_all_shatters() = 0;
+    // A texture splat set made on the sectors and objects hit, lit, and splats removed (texture_splats.h).
+    virtual TextureSplats* create_texture_splat(void** sectors, HitMesh* const* objects, SplatParams* params) = 0;
+    virtual void light_texture_splats(TextureSplats* splats) = 0;
+    virtual void kill_all_texture_splats() = 0;
+    virtual void kill_texture_splats_in_box(const maths::BBox* box) = 0;
+    // A texture's shadow caster added for a model, aimed from a camera, removed (engine_glue.h); the model whose
+    // shadow a caster's model also casts (shadow_base.h).
+    virtual void add_texture_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* unused) = 0;
+    virtual void aim_texture_shadow_caster(const BitmapTexture* texture, gfx::ViewCam* camera) = 0;
+    virtual void remove_texture_shadow_caster(const BitmapTexture* texture) = 0;
+    virtual void set_shadow_companion(void* (*companion)(void* caster_model)) = 0;
+    // The sun's occlusion query: the pixels drawn, when its result is in (pc_viewport.h).
+    virtual uint32_t occlusion_pixels() = 0;
 
 protected:
     ~Device() = default;

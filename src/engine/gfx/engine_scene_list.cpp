@@ -148,7 +148,7 @@ void add_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* sc
     if (!scene) {
         scene = get_main_scene();
     }
-    add_texture_shadow_caster(texture, model, scene);
+    device().add_texture_shadow_caster(texture, model, scene);
 }
 
 // 0x0048C8F0

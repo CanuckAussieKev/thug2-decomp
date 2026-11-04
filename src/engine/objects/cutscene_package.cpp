@@ -41,6 +41,7 @@
 #include <array>
 #include "base/core/checked_index.h"
 #include "engine/gfx/render_state.h"
+#include "engine/gfx/render_device.h"
 #include "engine/memory/mem.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
@@ -484,7 +485,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         skater_details_->fetch_int_value(kIsMale, &skater_male, 1);
         load = static_cast<int>(has_face) == skater_face && static_cast<int>(male) == skater_male;
         if (load) {
-            render::set_screen_clip(&table);
+            render::device().set_screen_clip(&table);
         }
     }
     if (load) {

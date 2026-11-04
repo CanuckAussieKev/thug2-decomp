@@ -8,7 +8,7 @@
 #include "engine/gfx/engine_primitive.h"
 
 #include "base/core/dbg.h"
-#include "engine/gfx/pc_primitive.h"
+#include "engine/gfx/render_device.h"
 #include "base/core/no_destroy.h"
 #include "base/core/packed_colour.h"
 #include "base/maths/vec2.h"
@@ -245,7 +245,7 @@ void set_primitive_state(int state, int value)
     default:
         break;
     }
-    set_primitive_depth_test({.state = state, .value = value});
+    device().set_primitive_depth_test({.state = state, .value = value});
 }
 
 } // namespace render

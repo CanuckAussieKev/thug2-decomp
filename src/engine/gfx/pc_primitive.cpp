@@ -17,6 +17,7 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/surface_material.h"
+#include "engine/gfx/render_device.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/pc_d3d_resources.h"

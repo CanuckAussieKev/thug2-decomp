@@ -92,7 +92,7 @@ FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance
 // 0x004A16E0
 FullShadow::~FullShadow()
 {
-    remove_texture_shadow_caster(bitmap_);
+    device().remove_texture_shadow_caster(bitmap_);
     delete bitmap_;
     view_camera_.reset();
 }
@@ -101,7 +101,7 @@ FullShadow::~FullShadow()
 void FullShadow::change_place(maths::Vec4 position)
 {
     view_camera_->change_location(back_along_light(position, direction_, reach_));
-    aim_texture_shadow_caster(bitmap_, view_camera_.get());
+    device().aim_texture_shadow_caster(bitmap_, view_camera_.get());
 }
 
 // 0x004A1BA0
@@ -113,7 +113,7 @@ void FullShadow::set_light_direction(const maths::Vec4* direction)
     view_camera_->change_location(maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F});
     look_along(view_camera_.get(), direction_);
     view_camera_->change_location(position);
-    aim_texture_shadow_caster(bitmap_, view_camera_.get());
+    device().aim_texture_shadow_caster(bitmap_, view_camera_.get());
 }
 
 // 0x004A1750

@@ -12,13 +12,13 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"
 #include "engine/gfx/engine.h"
-#include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/sector.h"
 #include "engine/sys/game_config.h"
 #include "platform/registry.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/gfx/render_device.h"
 #include "base/core/checked_index.h"
 
 namespace commands {
@@ -72,8 +72,8 @@ render::WorldCell* look_up_sector(uint32_t name)
 }
 
 // The renderer's gamma (0x004B24D0 / 0x004B24C0 through the jumps 0x0048C140 / 0x0048C130).
-std::array<float, 3> get_gamma() { return render::get_gamma(); }
-void set_gamma(float red, float green, float blue) { render::set_gamma(red, green, blue); }
+std::array<float, 3> get_gamma() { return render::device().get_gamma(); }
+void set_gamma(float red, float green, float blue) { render::device().set_gamma(red, green, blue); }
 
 // Whether the frame buffer is cleared each frame - compiled out of this build (0x0048C1B0, a jump to the empty
 // function 0x005480A0).

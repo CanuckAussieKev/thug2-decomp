@@ -19,16 +19,23 @@
 #include "engine/gfx/device_d3d.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/gfx/flash.h"
 #include "engine/gfx/pc_billboards.h"
+#include "engine/gfx/pc_fog.h"
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/gfx/pc_font.h"
 #include "engine/gfx/pc_lights.h"
+#include "engine/gfx/pc_primitive.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/pc_viewport.h"
+#include "engine/gfx/primitive_states.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/scene_load.h"
+#include "engine/gfx/shadow_base.h"
+#include "engine/gfx/shatter.h"
 #include "engine/gfx/sub_mesh.h"
+#include "engine/gfx/texture_splats.h"
 
 namespace render::d3d9 {
 
@@ -114,6 +121,55 @@ public:
     void unload_pc_font(Typeface* font) override { render::unload_pc_font(core::down_cast<PcFont>(font)); }
     void allocate_text_pool(uint32_t count) override { render::allocate_text_pool(count); }
     void create_window_pool() override { render::create_window_pool(); }
+
+    // --- state blocks ---
+    void toggle_fog(bool on) override { render::toggle_fog(on); }
+    void set_fog_distance(float start) override { render::set_fog_distance(start); }
+    void set_fog_color(uint32_t rgba) override { render::set_fog_color(rgba); }
+    void set_gamma(float red, float green, float blue) override { render::set_gamma(red, green, blue); }
+    std::array<float, 3> get_gamma() override { return render::get_gamma(); }
+    void set_screen_clip(const SkinScaling* settings) override { render::set_screen_clip(settings); }
+    void set_primitive_states() override { render::set_primitive_states(); }
+    void reset_primitive_states() override { render::reset_primitive_states(); }
+    void set_primitive_depth_test(DepthTest depth_test) override { render::set_primitive_depth_test(depth_test); }
+    bool update_ambient_light() override { return render::update_ambient_light(); }
+    uint32_t* fetch_ambient_hue(uint32_t* out) override { return render::fetch_ambient_hue(out); }
+    bool update_light_color(int light) override { return render::update_light_color(light); }
+    uint32_t* fetch_light_tint(uint32_t* out, int light) override { return render::fetch_light_tint(out, light); }
+    bool update_light_direction(int light) override { return render::update_light_direction(light); }
+    maths::Vec4* get_light_direction(int light) override { return render::get_light_direction(light); }
+    void update_all_lights() override { render::update_all_lights(); }
+
+    // --- effects ---
+    void draw_flash(const Flash* flash) override { render::draw_flash(flash); }
+    void shatter_geom(PcGeom* geom) override { render::shatter_geom(geom); }
+    void update_shatter(PcShatter* shatter, float step) override { render::update_shatter(shatter, step); }
+    void draw_shatter(PcShatter* shatter) override { render::draw_shatter(shatter); }
+    void kill_all_shatters() override { render::kill_all_shatters(); }
+    TextureSplats* create_texture_splat(void** sectors, HitMesh* const* objects, SplatParams* params) override
+    {
+        return render::create_texture_splat(sectors, objects, params);
+    }
+    void light_texture_splats(TextureSplats* splats) override { render::light_texture_splats(splats); }
+    void kill_all_texture_splats() override { render::kill_all_texture_splats(); }
+    void kill_texture_splats_in_box(const maths::BBox* box) override { render::kill_texture_splats_in_box(box); }
+    void add_texture_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* unused) override
+    {
+        render::add_texture_shadow_caster(texture, model, unused);
+    }
+    void aim_texture_shadow_caster(const BitmapTexture* texture, gfx::ViewCam* camera) override
+    {
+        render::aim_texture_shadow_caster(texture, camera);
+    }
+    void remove_texture_shadow_caster(const BitmapTexture* texture) override
+    {
+        render::remove_texture_shadow_caster(texture);
+    }
+    void set_shadow_companion(void* (*companion)(void* caster_model)) override
+    {
+        render::set_shadow_companion(companion);
+    }
+    uint32_t occlusion_pixels() override { return render::occlusion_pixels(); }
 };
 
 } // namespace

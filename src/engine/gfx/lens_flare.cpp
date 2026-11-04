@@ -15,7 +15,6 @@
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/pc_primitive.h"
-#include "engine/gfx/pc_viewport.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
@@ -31,6 +30,7 @@
 #include "base/core/checksums.h"
 #include "base/maths/vec2.h"
 #include "engine/gfx/screen.h"
+#include "engine/gfx/render_device.h"
 #include <bit>
 #include <gsl/pointers>
 
@@ -171,7 +171,7 @@ void set_prim_state(int state, int value) { render::set_primitive_state(state, v
 void add_query(render::OcclusionRequest* request) { render::request_occlusion_query(request); }
 uint32_t query_result(uint8_t /*unused*/)
 {
-    return render::occlusion_pixels();
+    return render::device().occlusion_pixels();
 } // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
 void transform_in_place(maths::Vec4* v, const maths::Mat4* matrix) { v->multiply_by(*matrix); }

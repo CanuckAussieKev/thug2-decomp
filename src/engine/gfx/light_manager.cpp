@@ -15,12 +15,12 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/gfx/pc_lights.h"
 #include "base/maths/vec4.h"
 #include "engine/sys/startup_init.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/gfx/render_device.h"
 
 namespace render {
 
@@ -157,13 +157,13 @@ void uninit_light_manager()
 bool set_light_ambient_color(uint32_t rgba)
 {
     light_sets().world_lighting().ambient = rgba;
-    return update_ambient_light();
+    return device().update_ambient_light();
 }
 
 // 0x0048E900
 uint32_t* get_light_ambient_color(uint32_t* out)
 {
-    fetch_ambient_hue(out);
+    device().fetch_ambient_hue(out);
     return out;
 }
 
@@ -171,13 +171,13 @@ uint32_t* get_light_ambient_color(uint32_t* out)
 bool set_light_diffuse_color(int light, uint32_t rgba)
 {
     core::at(light_sets().world_lighting().colours, light) = rgba;
-    return update_light_color(light);
+    return device().update_light_color(light);
 }
 
 // 0x0048E950
 uint32_t* get_light_diffuse_color(uint32_t* out, int light)
 {
-    fetch_light_tint(out, light);
+    device().fetch_light_tint(out, light);
     return out;
 }
 
@@ -185,7 +185,7 @@ uint32_t* get_light_diffuse_color(uint32_t* out, int light)
 bool set_light_direction(int light, const maths::Vec4* direction)
 {
     core::at(light_sets().world_lighting().directions, light) = *direction;
-    return update_light_direction(light);
+    return device().update_light_direction(light);
 }
 
 // 0x0048E970
@@ -264,7 +264,7 @@ bool set_world_brightness(float target)
         intensity = get_scaled(brightness, core::at(light_sets().world_lighting().light_low_, i), core::at(light_sets().world_lighting().light_high_, i));
         intensity = std::max(intensity, min_intensity());
     }
-    update_all_lights();
+    device().update_all_lights();
     return true;
 }
 

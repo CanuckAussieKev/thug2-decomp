@@ -17,7 +17,6 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/flash.h"
-#include "engine/gfx/pc_fog.h"
 #include "engine/gfx/shatter.h"
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_dict.h"
@@ -36,6 +35,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/render_device.h"
 #include "base/maths/vec4.h"
 
 namespace render {
@@ -232,14 +232,14 @@ namespace engine {
 void enable_fog(bool on)
 {
     fog_and_shatter().fog_active_ = on;
-    render::toggle_fog(on);
+    render::device().toggle_fog(on);
 }
 
 // 0x00490E00
 void set_fog_distance(float distance)
 {
     fog_and_shatter().fog_distance_ = distance;
-    render::set_fog_distance(distance);
+    render::device().set_fog_distance(distance);
 }
 
 // 0x00490E10
@@ -253,7 +253,7 @@ void set_fog_exponent(float exponent)
 void set_fog_color(uint32_t rgba)
 {
     fog_and_shatter().fog_color_ = rgba;
-    render::set_fog_color(rgba);
+    render::device().set_fog_color(rgba);
 }
 
 // 0x00491290
@@ -296,7 +296,7 @@ void shatter_geom(void* geom)
 {
     // (the PC's shatter_geom - shatter.cpp - only reads the geom: the original also looked up the particles' texture
     // 0x007004BC and passed it, unused)
-    render::shatter_geom(static_cast<render::PcGeom*>(geom));
+    render::device().shatter_geom(static_cast<render::PcGeom*>(geom));
 }
 
 // --- texture splats ---
@@ -382,7 +382,7 @@ void age_all_texture_splats()
 // 0x00491F10
 void light_all_texture_splats()
 {
-    effects_state().splat_sets().for_each([](TextureSplats* splats) { light_texture_splats(splats); });
+    effects_state().splat_sets().for_each([](TextureSplats* splats) { device().light_texture_splats(splats); });
 }
 
 // 0x004915A0
@@ -392,7 +392,7 @@ void kill_all_texture_splats()
         recent_splats().erase(recent);
         memory::Hub::dealloc(recent);
     });
-    render::kill_all_texture_splats();
+    render::device().kill_all_texture_splats();
 }
 
 // 0x00491630
@@ -405,7 +405,7 @@ void kill_texture_splats_in_box(const maths::BBox* box)
             recent->time = 0; // (the original stored 0.0f: the same bits)
         }
     });
-    render::kill_texture_splats_in_box(box);
+    render::device().kill_texture_splats_in_box(box);
 }
 
 // 0x004916F0
@@ -523,11 +523,11 @@ bool create_texture_splat_at(const SplatSettings& settings)
         params.set_unknown38(unknown38);
         params.set_up(recent ? &recent->pos.x : nullptr);
         params.set_unknown40(unknown40);
-        TextureSplats* splats = render::create_texture_splat(sectors.data(), objects.data(), &params);
+        TextureSplats* splats = render::device().create_texture_splat(sectors.data(), objects.data(), &params);
         made = splats != nullptr;
         if ((follow == 0U) && splats) {
             age_texture_splats(splats, frame_milliseconds());
-            light_texture_splats(splats);
+            device().light_texture_splats(splats);
             splats->texture = texture->checksum();
         }
     }
@@ -555,7 +555,7 @@ void update_shatters()
             gsl::owner<Shatter*> owned = memory::owned_element(shatter); // (the set's)
             delete owned;
         } else {
-            update_shatter(shatter, elapsed);
+            device().update_shatter(shatter, elapsed);
         }
     });
 }
@@ -563,7 +563,7 @@ void update_shatters()
 // 0x004920E0
 void draw_shatters()
 {
-    effects_state().shatters().for_each([](PcShatter* shatter) { draw_shatter(shatter); });
+    effects_state().shatters().for_each([](PcShatter* shatter) { device().draw_shatter(shatter); });
 }
 
 // --- flashes ---
@@ -621,7 +621,7 @@ void draw_flashes(int viewport, uint32_t pass)
 {
     flashes().for_each([viewport, pass](const Flash* flash) {
         if (flash->viewport == viewport && !((flash->flags ^ pass) & 1)) {
-            draw_flash(flash);
+            device().draw_flash(flash);
         }
     });
 }
@@ -649,7 +649,7 @@ void kill_all_effects()
     });
     kill_all_spawned_polys();
     kill_all_texture_splats();
-    kill_all_shatters();
+    device().kill_all_shatters();
 }
 
 } // namespace engine

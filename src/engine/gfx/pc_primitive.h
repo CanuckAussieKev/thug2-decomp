@@ -6,6 +6,7 @@
 #include <array>
 
 #include "engine/gfx/engine_primitive.h"
+#include "engine/gfx/render_device.h"
 #include "engine/gfx/surface_material.h"
 #include "base/core/packed_colour.h"
 #include "base/maths/vec2.h"
@@ -123,12 +124,6 @@ private:
                           sizeof(PcPrimitive) == kPcPrimitiveBytes,
                       "layout must match the original");
     }
-};
-
-// The primitives' depth test: the state's index and its value.
-struct DepthTest {
-    int state{};
-    int value{};
 };
 
 // 0x004C5E40 (the engine's primitive state 0x0049C700 jumps here for state 1): the depth test - 1 never, 2 always,

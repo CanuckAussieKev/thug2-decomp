@@ -27,13 +27,13 @@
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/light_manager.h"
-#include "engine/gfx/pc_lights.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/device.h"
 #include "base/core/down_cast.h"
 #include "base/core/format.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/render_device.h"
 #include "base/core/checked_index.h"
 
 namespace commands {
@@ -379,7 +379,7 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script* /*script*/)
 // Always true.
 bool cfunc_get_gamma_values(Struct* /*params*/, Script* script)
 {
-    const std::array<float, 3> gamma = render::get_gamma();
+    const std::array<float, 3> gamma = render::device().get_gamma();
     const float red = core::at(gamma, 0);
     const float green = core::at(gamma, 1);
     const float blue = core::at(gamma, 2);
@@ -507,7 +507,7 @@ bool cfunc_get_light_direction(Struct* params, Script* script)
 {
     int index = 0; // (uninitialised in the original)
     params->fetch_int_value(kIndex, &index, 0);
-    maths::Vec4 direction = *render::get_light_direction(index);
+    maths::Vec4 direction = *render::device().get_light_direction(index);
     direction.convert_to_degrees();
     script->args()->push_float(checksums::Name{kHeading}, direction.y);
     script->args()->push_float(checksums::Name{kPitch}, direction.x);

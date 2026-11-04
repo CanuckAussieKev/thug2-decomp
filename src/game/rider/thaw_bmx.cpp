@@ -19,8 +19,8 @@
 #include "game/front_end/front_end.h"
 #include "engine/ext/extension.h"
 #include "engine/gfx/screen.h"
-#include "engine/gfx/shadow_base.h"
 #include "engine/gfx/texture_cfuncs.h"
+#include "engine/gfx/render_device.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -427,7 +427,7 @@ void register_script_functions()
     }
     script::publish_method_table(kMembers);
     register_parked_functions(); // (the parked bikes: thaw_bmx_parked.h)
-    render::set_shadow_companion(&shadow_companion);
+    render::device().set_shadow_companion(&shadow_companion);
     std::array<char, kSettingBytes> setting = {""};
     build_info::fetch_text(build_info::kKeybinds, "ThawBmx", "", setting.data(), sizeof(setting));
     auto by_name = [](const std::string& text) { return static_cast<int>(SDL_GetScancodeFromName(text.c_str())); };
