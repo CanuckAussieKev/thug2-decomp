@@ -191,90 +191,11 @@ target_include_directories(thug2_options INTERFACE src)
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
 target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
 
-# The base layer (src/base): the OS-free helpers every layer uses - checksums, printf-style formatting, text, checked
-# indexing, the enum and pointer helpers (base/core), the maths (base/maths), two containers (base/lists), the bit
-# stream and BPS patches (base/util). It includes nothing but the standard library and GSL (tools/layers.ts checks
-# it); the debugger output and error lines go to sinks the platform installs (base/core/dbg.h, log_sink.h).
-add_library(thug2_base STATIC
-    src/base/core/checksums.cpp
-    src/base/core/dbg.cpp
-    src/base/core/format.cpp
-    src/base/core/log_sink.cpp
-    src/base/core/single_instance.cpp
-    src/base/core/str.cpp
-    src/base/core/stubs.cpp
-    src/base/maths/mat4.cpp
-    src/base/maths/maths.cpp
-    src/base/maths/quat_rotation.cpp
-    src/base/maths/random.cpp
-    src/base/maths/rigidbody_math.cpp
-    src/base/maths/rotation_blend.cpp
-    src/base/maths/shape_tests.cpp
-    src/base/maths/vec4.cpp
-    src/base/maths/vector_rotate_z.cpp
-    src/base/maths/vector_transform.cpp
-    src/base/util/bitstream.cpp
-    src/base/util/bps.cpp
-)
-target_link_libraries(thug2_base PUBLIC thug2_options)
-
-# The file formats: readers and writers of the game's data files, saves and custom parks (round-trip checked by
-# thug2_format_check).
-add_library(thug2_formats STATIC
-    src/formats/anim_format.cpp
-    src/formats/bundle_format.cpp
-    src/formats/collision_format.cpp
-    src/formats/font_format.cpp
-    src/formats/image_format.cpp
-    src/formats/lzss_unpack.cpp
-    src/formats/park_map_format.cpp
-    src/formats/pre_format.cpp
-    src/formats/rail_buffer_format.cpp
-    src/formats/save_file_format.cpp
-    src/formats/skeleton_format.cpp
-    src/formats/texture_format.cpp
-    src/formats/wave_format.cpp
-)
-target_link_libraries(thug2_formats PUBLIC thug2_base)
-
-# The network messages: the packet framing and every game message, byte-compatible with the original's peers.
-add_library(thug2_wire STATIC
-    src/wire/gamenet_messages.cpp
-    src/wire/net_wire.cpp
-    src/wire/play_messages.cpp
-    src/wire/skate_net_messages.cpp
-    src/wire/skater_messages.cpp
-)
-target_link_libraries(thug2_wire PUBLIC thug2_formats)
-
-# The platform layer (src/platform): the OS and SDK side - the SDL window and its event pump, the run log and crash
-# reports, the C runtime's game-visible parts, the settings file, the registry, DirectSound's set-up, Bink, Winsock,
-# the GameSpy SDK's glue, D3DX and the screenshot files. It includes nothing of the project but base (tools/layers.ts
-# checks it); what the game does on its events and with its devices is passed in or handed back by app/ (WinMain,
-# the start-up).
-add_library(thug2_platform STATIC
-    src/platform/bink.cpp
-    src/platform/crash.cpp
-    src/platform/crt.cpp
-    src/platform/d3dx.cpp
-    src/platform/debug_log.cpp
-    src/platform/gamespy.cpp
-    src/platform/mute_audio.cpp
-    src/platform/output_sinks.cpp
-    src/platform/platform_config.cpp
-    src/platform/platform_system.cpp
-    src/platform/process_flags.cpp
-    src/platform/registry.cpp
-    src/platform/run_log.cpp
-    src/platform/screenshot_files.cpp
-    src/platform/sdl_events.cpp
-    src/platform/sdl_window.cpp
-    src/platform/sockets.cpp
-)
-target_include_directories(thug2_platform PRIVATE "${stb_SOURCE_DIR}")
-# sdl2: the window and its events; dsound, ole32: DirectSound and the audio session (mute_audio); ws2_32: Winsock;
-# d3d9, winmm: crt.h's imports; d3dx9: d3dx.cpp; gamespy_sdk: gamespy.cpp; stb_image_write: the PNG files
-target_link_libraries(thug2_platform PUBLIC thug2_base sdl2 ws2_32 dsound ole32 d3d9 d3dx9 winmm gamespy_sdk stb_image_write)
+# The layers below the game, in link order (each folder's CMakeLists.txt; docs/architecture.md "Layers").
+add_subdirectory(src/base)
+add_subdirectory(src/formats)
+add_subdirectory(src/wire)
+add_subdirectory(src/platform)
 
 # --- The game ----------------------------------------------------------------------------------------------------
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
@@ -968,7 +889,7 @@ set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
 # them deprecated unless this is defined.
 set_source_files_properties(
     src/game/online/gamenet_lobby_cfuncs.cpp src/engine/net/net_manager.cpp
-    src/engine/net/net_manager_apps.cpp src/engine/sys/model_viewer.cpp src/platform/crt.cpp src/platform/sockets.cpp
+    src/engine/net/net_manager_apps.cpp src/engine/sys/model_viewer.cpp
     src/app/winmain.cpp
     PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
 target_include_directories(thug2 PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
