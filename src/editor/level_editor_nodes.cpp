@@ -344,6 +344,126 @@ V3 get_heading_of(V3 angles)
                                       : V3{.x = 0.0F, .y = 0.0F, .z = 1.0F};
 }
 
+// The walk's spawn and crown counts so far (the next one's order).
+struct FamilyOrders {
+    int crowns = 0;
+    int restarts = 0;
+};
+
+// A node's family's details: its order (spawns, crowns), restart types, colour, rail terrain, light colour and
+// radii.
+void set_family_details(Elem& node, script::Struct* structure, FamilyOrders& orders)
+{
+    static const uint32_t kRestartTypes = name_hash("restart_types");
+    static const uint32_t kColor = name_hash("Color");
+    static const uint32_t kOuterRadius = name_hash("OuterRadius");
+    static const uint32_t kInnerRadius = name_hash("InnerRadius");
+    static const uint32_t kRadius = name_hash("Radius");
+    static const uint32_t kSurfaceKindKey = name_hash("TerrainType");
+    static const uint32_t kTrickObject = name_hash("TrickObject");
+    const char* name = object_edit::get_name_of(node.name);
+    switch (node.family) {
+    case Family::kSpawn: {
+        node.order = node.hidden ? -1 : orders.restarts++; // (the game's walks skip a hidden one)
+        script::Array* types = nullptr;
+        if (structure->fetch_list(kRestartTypes, &types, 0) && types) {
+            for (uint32_t type_index = 0; type_index < types->extent(); ++type_index) {
+                node.restart_types_ |= restart_type_bit(types->fetch_part(type_index));
+            }
+        }
+        node.colour = spawn_colour(node.restart_types_, team_colour(name));
+        break;
+    }
+    case Family::kCrown:
+        node.order = node.hidden ? -1 : orders.crowns++;
+        node.colour = kCrownColour;
+        break;
+    case Family::kBitMark: {
+        const uint32_t team = team_colour(object_edit::get_name_of(node.type));
+        node.colour = (team != 0U) ? team : team_colour(name);
+        if (node.colour == 0U) {
+            node.colour = kFlagFallbackColour;
+        }
+        break;
+    }
+    case Family::kRail:
+    case Family::kLadder: {
+        structure->read_hash_value(kSurfaceKindKey, &node.terrain, 0);
+        node.trick_object_ = structure->has_bare_flag(kTrickObject);
+        static const uint32_t kMetal = name_hash("Metal");
+        static const uint32_t kWood = name_hash("Wood");
+        static const uint32_t kConcrete = name_hash("Concrete");
+        if (node.family == Family::kLadder) {
+            node.colour = kLadderColour;
+        } else if (node.type == kMetal) {
+            node.colour = kMetalRailColour;
+        } else if (node.type == kWood) {
+            node.colour = kWoodRailColour;
+        } else if (node.type == kConcrete) {
+            node.colour = kConcreteRailColour;
+        } else {
+            node.colour = kOtherRailColour;
+        }
+        break;
+    }
+    case Family::kRouteWay:
+        node.colour = kRouteWayColour;
+        break;
+    case Family::kLight: {
+        script::Array* colour = nullptr;
+        if (structure->fetch_list(kColor, &colour, 0) && colour && colour->extent() >= 3) {
+            auto getter = [&](uint32_t index) {
+                const int value = colour->kind_tag() == script::QbValueKind::kFloat
+                                      ? static_cast<int>(colour->fetch_float(index))
+                                      : static_cast<int>(colour->fetch_part(index));
+                return static_cast<uint32_t>(std::max(0, std::min(kChannelMax, value)));
+            };
+            node.colour = kOpaqueAlpha | (getter(0) << kRedShift) | (getter(1) << kGreenShift) | getter(2);
+        } else {
+            node.colour = kDefaultLightColour;
+        }
+        structure->fetch_float(kOuterRadius, &node.radius, 0);
+        structure->fetch_float(kInnerRadius, &node.inner_radius_, 0);
+        break;
+    }
+    case Family::kSound:
+        node.colour = kSoundColour;
+        break;
+    case Family::kParticle:
+        node.colour = kParticleColour;
+        break;
+    case Family::kFireOff:
+        node.colour = kFireOffColour;
+        structure->fetch_float(kRadius, &node.radius, 0);
+        break;
+    case Family::kObject:
+        node.colour = kObjectColour;
+        break;
+    default:
+        node.colour = kOtherNodeColour;
+        break;
+    }
+}
+
+// The links, as indices (links= holds the linked nodes' names once the array is added - resolve_links).
+void resolve_node_links(const level_nodes::NodeManager* manager)
+{
+    for (Elem& node : level_editor_nodes_state().nodes_) {
+        script::Struct* structure =
+            get_node_at(core::at(manager->arrays(), node.array).node_entries_, static_cast<uint32_t>(node.index));
+        script::Array* links = nullptr;
+        if (!structure || !structure->fetch_list(kLinks, &links, 0) || !links) {
+            continue;
+        }
+        for (uint32_t link_index = 0; link_index < links->extent(); ++link_index) {
+            auto it = by_name().find(links->fetch_part(link_index));
+            if (it != by_name().end()) {
+                node.links.push_back(it->second);
+            }
+        }
+    }
+}
+
 void get_scan()
 {
     level_editor_nodes_state().nodes_.clear();
@@ -353,16 +473,8 @@ void get_scan()
     if (!manager) {
         return;
     }
-    static const uint32_t kRestartTypes = name_hash("restart_types");
-    static const uint32_t kColor = name_hash("Color");
-    static const uint32_t kOuterRadius = name_hash("OuterRadius");
-    static const uint32_t kInnerRadius = name_hash("InnerRadius");
-    static const uint32_t kRadius = name_hash("Radius");
-    static const uint32_t kSurfaceKindKey = name_hash("TerrainType");
-    static const uint32_t kTrickObject = name_hash("TrickObject");
     static const uint32_t kTriggerScript = name_hash("TriggerScript");
-    int crowns = 0;
-    int restarts = 0;
+    FamilyOrders orders;
     ++node_walk().generation_;
     for (uint32_t array_index = 0; array_index < manager->num() && array_index < level_nodes::NodeManager::kMaxArrays;
          ++array_index) {
@@ -402,88 +514,7 @@ void get_scan()
                     node.forward = get_heading_of(node.angles);
                 }
             }
-            const char* name = object_edit::get_name_of(node.name);
-            switch (node.family) {
-            case Family::kSpawn: {
-                node.order = node.hidden ? -1 : restarts++; // (the game's walks skip a hidden one)
-                script::Array* types = nullptr;
-                if (structure->fetch_list(kRestartTypes, &types, 0) && types) {
-                    for (uint32_t type_index = 0; type_index < types->extent(); ++type_index) {
-                        node.restart_types_ |= restart_type_bit(types->fetch_part(type_index));
-                    }
-                }
-                node.colour = spawn_colour(node.restart_types_, team_colour(name));
-                break;
-            }
-            case Family::kCrown:
-                node.order = node.hidden ? -1 : crowns++;
-                node.colour = kCrownColour;
-                break;
-            case Family::kBitMark: {
-                const uint32_t team = team_colour(object_edit::get_name_of(node.type));
-                node.colour = (team != 0U) ? team : team_colour(name);
-                if (node.colour == 0U) {
-                    node.colour = kFlagFallbackColour;
-                }
-                break;
-            }
-            case Family::kRail:
-            case Family::kLadder: {
-                structure->read_hash_value(kSurfaceKindKey, &node.terrain, 0);
-                node.trick_object_ = structure->has_bare_flag(kTrickObject);
-                static const uint32_t kMetal = name_hash("Metal");
-                static const uint32_t kWood = name_hash("Wood");
-                static const uint32_t kConcrete = name_hash("Concrete");
-                if (node.family == Family::kLadder) {
-                    node.colour = kLadderColour;
-                } else if (node.type == kMetal) {
-                    node.colour = kMetalRailColour;
-                } else if (node.type == kWood) {
-                    node.colour = kWoodRailColour;
-                } else if (node.type == kConcrete) {
-                    node.colour = kConcreteRailColour;
-                } else {
-                    node.colour = kOtherRailColour;
-                }
-                break;
-            }
-            case Family::kRouteWay:
-                node.colour = kRouteWayColour;
-                break;
-            case Family::kLight: {
-                script::Array* colour = nullptr;
-                if (structure->fetch_list(kColor, &colour, 0) && colour && colour->extent() >= 3) {
-                    auto getter = [&](uint32_t index) {
-                        const int value = colour->kind_tag() == script::QbValueKind::kFloat
-                                              ? static_cast<int>(colour->fetch_float(index))
-                                              : static_cast<int>(colour->fetch_part(index));
-                        return static_cast<uint32_t>(std::max(0, std::min(kChannelMax, value)));
-                    };
-                    node.colour = kOpaqueAlpha | (getter(0) << kRedShift) | (getter(1) << kGreenShift) | getter(2);
-                } else {
-                    node.colour = kDefaultLightColour;
-                }
-                structure->fetch_float(kOuterRadius, &node.radius, 0);
-                structure->fetch_float(kInnerRadius, &node.inner_radius_, 0);
-                break;
-            }
-            case Family::kSound:
-                node.colour = kSoundColour;
-                break;
-            case Family::kParticle:
-                node.colour = kParticleColour;
-                break;
-            case Family::kFireOff:
-                node.colour = kFireOffColour;
-                structure->fetch_float(kRadius, &node.radius, 0);
-                break;
-            case Family::kObject:
-                node.colour = kObjectColour;
-                break;
-            default:
-                node.colour = kOtherNodeColour;
-                break;
-            }
+            set_family_details(node, structure, orders);
             node.trigger_script_ = structure->has_entry_named(kTriggerScript);
             ++core::at(level_editor_nodes_state().counts_, static_cast<int>(node.family));
             if (node.name != 0U) {
@@ -492,23 +523,10 @@ void get_scan()
             level_editor_nodes_state().nodes_.push_back(std::move(node));
         }
     }
-    node_walk().walked_crowns_ = crowns;
-    node_walk().walked_spawns_ = restarts;
+    node_walk().walked_crowns_ = orders.crowns;
+    node_walk().walked_spawns_ = orders.restarts;
     // The links, as indices (links= holds the linked nodes' names once the array is added - resolve_links).
-    for (Elem& node : level_editor_nodes_state().nodes_) {
-        script::Struct* structure =
-            get_node_at(core::at(manager->arrays(), node.array).node_entries_, static_cast<uint32_t>(node.index));
-        script::Array* links = nullptr;
-        if (!structure || !structure->fetch_list(kLinks, &links, 0) || !links) {
-            continue;
-        }
-        for (uint32_t link_index = 0; link_index < links->extent(); ++link_index) {
-            auto it = by_name().find(links->fetch_part(link_index));
-            if (it != by_name().end()) {
-                node.links.push_back(it->second);
-            }
-        }
-    }
+    resolve_node_links(manager);
 }
 
 // Rails and ladders where the rail manager has them now: a sector moved takes its rails' points with it, and a rail

@@ -1101,6 +1101,59 @@ void tick(bool dragging)
     }
 }
 
+namespace {
+
+// A run's event marked: a bail's cross, a gap's dot (landed green, lost red, pending yellow) and name, a combo's
+// score - labelled within `label_far`.
+template <class ToScreen, class Line>
+void draw_event_marker(const Occurrence& event, float distance2, float label_far, ToScreen& to_screen, Line& line,
+                       std::vector<ui::Overlay::Circle>* circles, std::vector<ui::Overlay::OverlayText>* texts)
+{
+    float x = 0.0F;
+    float y = 0.0F;
+    if (event.kind == EventKind::kBail) {
+        constexpr float kS = 30.0F;
+        line(event.pos + V3{.x = -kS, .y = 0.0F, .z = -kS}, event.pos + V3{.x = kS, .y = 0.0F, .z = kS}, kBailColour,
+             kBailLineThickness);
+        line(event.pos + V3{.x = -kS, .y = 0.0F, .z = kS}, event.pos + V3{.x = kS, .y = 0.0F, .z = -kS}, kBailColour,
+             kBailLineThickness);
+        line(event.pos, event.pos + V3{.x = 0.0F, .y = kBailLineThickness * kS, .z = 0.0F}, kBailColour, 1.0F);
+        return;
+    }
+    if (!to_screen(event.pos, &x, &y)) {
+        return;
+    }
+    if (event.kind == EventKind::kGap) {
+        // (ARGB: landed green, lost red, pending yellow)
+        const bool lost = event.status == GapStatus::kLost;
+        const bool landed = event.status == GapStatus::kLanded;
+        const uint32_t unlanded_colour = lost ? 0xFFFF4040 : 0xFFFFE040;
+        const uint32_t colour = landed ? 0xFF40FF60 : unlanded_colour;
+        const char* unlanded_outcome = lost ? " (lost)" : " (pending)";
+        const char* outcome = landed ? "" : unlanded_outcome;
+        circles->push_back(
+            {.x = x, .y = y, .radius = kGapMarkerRadius, .argb = colour, .filled = true, .thickness = 1.0F});
+        circles->push_back({.x = x,
+                            .y = y,
+                            .radius = kGapMarkerOutlineRadius,
+                            .argb = kGapMarkerOutlineColour,
+                            .filled = false,
+                            .thickness = 1.0F});
+        if (distance2 < label_far * label_far) {
+            texts->push_back(
+                {.x = x + kGapLabelOffsetX, .y = y - kGapLabelOffsetY, .argb = colour, .text = event.name + outcome});
+        }
+    } else if (event.kind == EventKind::kCombo &&
+               distance2 < (label_far * kComboLabelFraction) * (label_far * kComboLabelFraction)) {
+        texts->push_back({.x = x + kComboLabelOffsetX,
+                          .y = y + kComboLabelOffsetY,
+                          .argb = event.status == GapStatus::kLanded ? kLandedLabelColour : kBailedLabelColour,
+                          .text = (event.status == GapStatus::kLanded ? "+" : "lost ") + std::to_string(event.value)});
+    }
+}
+
+} // namespace
+
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
                  std::vector<ui::Overlay::OverlayText>* texts)
@@ -1185,50 +1238,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             if (distance2 > kFar * kFar) {
                 continue;
             }
-            float x = 0.0F;
-            float y = 0.0F;
-            if (event.kind == EventKind::kBail) {
-                constexpr float kS = 30.0F;
-                line(event.pos + V3{.x = -kS, .y = 0.0F, .z = -kS}, event.pos + V3{.x = kS, .y = 0.0F, .z = kS},
-                     kBailColour, kBailLineThickness);
-                line(event.pos + V3{.x = -kS, .y = 0.0F, .z = kS}, event.pos + V3{.x = kS, .y = 0.0F, .z = -kS},
-                     kBailColour, kBailLineThickness);
-                line(event.pos, event.pos + V3{.x = 0.0F, .y = kBailLineThickness * kS, .z = 0.0F}, kBailColour, 1.0F);
-                continue;
-            }
-            if (!to_screen(event.pos, &x, &y)) {
-                continue;
-            }
-            if (event.kind == EventKind::kGap) {
-                // (ARGB: landed green, lost red, pending yellow)
-                const bool lost = event.status == GapStatus::kLost;
-                const bool landed = event.status == GapStatus::kLanded;
-                const uint32_t unlanded_colour = lost ? 0xFFFF4040 : 0xFFFFE040;
-                const uint32_t colour = landed ? 0xFF40FF60 : unlanded_colour;
-                const char* unlanded_outcome = lost ? " (lost)" : " (pending)";
-                const char* outcome = landed ? "" : unlanded_outcome;
-                circles->push_back(
-                    {.x = x, .y = y, .radius = kGapMarkerRadius, .argb = colour, .filled = true, .thickness = 1.0F});
-                circles->push_back({.x = x,
-                                    .y = y,
-                                    .radius = kGapMarkerOutlineRadius,
-                                    .argb = kGapMarkerOutlineColour,
-                                    .filled = false,
-                                    .thickness = 1.0F});
-                if (distance2 < kLabelFar * kLabelFar) {
-                    texts->push_back({.x = x + kGapLabelOffsetX,
-                                      .y = y - kGapLabelOffsetY,
-                                      .argb = colour,
-                                      .text = event.name + outcome});
-                }
-            } else if (event.kind == EventKind::kCombo &&
-                       distance2 < (kLabelFar * kComboLabelFraction) * (kLabelFar * kComboLabelFraction)) {
-                texts->push_back(
-                    {.x = x + kComboLabelOffsetX,
-                     .y = y + kComboLabelOffsetY,
-                     .argb = event.status == GapStatus::kLanded ? kLandedLabelColour : kBailedLabelColour,
-                     .text = (event.status == GapStatus::kLanded ? "+" : "lost ") + std::to_string(event.value)});
-            }
+            draw_event_marker(event, distance2, kLabelFar, to_screen, line, circles, texts);
         }
     }
 }

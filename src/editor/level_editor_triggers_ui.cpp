@@ -315,33 +315,9 @@ void level_trigger_details(const LevelTrigger& level_trigger)
     }
 }
 
-} // namespace
-
-void pane(PaneArea area, PaneState pane_state)
+// The add buttons: a trigger of each kind at the view's centre.
+void add_buttons()
 {
-    const auto scale = pane_state.scale;
-    const auto selected_node = pane_state.selected_node_;
-    const auto view_x = area.x;
-    const auto view_y = area.y;
-    const auto view_width = area.width;
-    const auto view_height = area.height;
-    (void)view_height;
-    (void)selected_node;
-    if (!get_shown()) {
-        return;
-    }
-    update_lists();
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - (kPaneInset * scale), view_y + (kPaneTop * scale)),
-                            ImGuiCond_FirstUseEver, ImVec2(1.0F, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
-    bool open = true;
-    if (!ImGui::Begin("Triggers###triggers", &open, ImGuiWindowFlags_NoSavedSettings)) {
-        ImGui::End();
-        if (!open) {
-            get_queue([] { set_shown(false); });
-        }
-        return;
-    }
     gui::text_disabled("Add at view center:");
     if (ImGui::Button("Kill zone")) {
         get_queue([] { add_kill(false); });
@@ -391,6 +367,165 @@ void pane(PaneArea area, PaneState pane_state)
     if (ImGui::IsItemHovered()) {
         gui::tooltip("Play a camera shot");
     }
+}
+
+// The nearest triggers (the editor's, then the level's); a click selects / inspects one.
+void trigger_list()
+{
+    for (const Added& added_trigger : added_triggers()) {
+        if (!added_trigger.alive) {
+            continue;
+        }
+        std::string text = added_trigger.spec.name + "  " + kind_name(added_trigger.spec.kind);
+        if ((added_trigger.spec.kind == Kind::kGapStart || added_trigger.spec.kind == Kind::kGapEnd) &&
+            !added_trigger.spec.text.empty()) {
+            text += std::string("  - ") +
+                    play_test::gap_note(clean_text(added_trigger.spec.text)); // (landed in a test run?)
+        }
+        ImGui::PushStyleColor(
+            ImGuiCol_Text, get_colour(added_trigger.problem ? kDisabledColour : kind_colour(added_trigger.spec.kind)));
+        const uint32_t name = node_create::name_hash(added_trigger.spec.name);
+        if (ImGui::Selectable((text + "##a" + added_trigger.spec.name).c_str(), false)) {
+            get_queue([name] { select_node_named(name); });
+        }
+        ImGui::PopStyleColor();
+    }
+    int shown = 0;
+    for (const LevelTrigger& level_trigger : level_triggers()) {
+        if (++shown > kMaxListed) {
+            break;
+        }
+        const std::string text = nodes::caption(level_trigger.sector) + "  " + describe_level_trigger(level_trigger) +
+                                 (level_trigger.off ? "  (off)" : "");
+        ImGui::PushStyleColor(ImGuiCol_Text,
+                              get_colour(level_trigger.off ? kDisabledColour : kind_colour(level_trigger.kind)));
+        const uint32_t sector = level_trigger.sector;
+        const bool has_node = level_trigger.has_node_;
+        if (ImGui::Selectable((text + "##l" + std::to_string(level_trigger.sector)).c_str(),
+                              level_trigger.sector == inspected_sector())) {
+            get_queue([sector, has_node] {
+                inspect(sector);
+                if (has_node) {
+                    select_node_named(sector);
+                }
+            });
+        }
+        ImGui::PopStyleColor();
+    }
+}
+
+// A trigger's kind chosen (a gap one: a gap of its own until it's given another end); whether it changed.
+bool kind_combo(Spec& spec, std::span<const Kind> kinds)
+{
+    bool changed = false;
+    if (ImGui::BeginCombo("Kind", kind_name(spec.kind))) {
+        for (const Kind kind : kinds) {
+            if (ImGui::Selectable(kind_name(kind), kind == spec.kind) && kind != spec.kind) {
+                spec.kind = kind;
+                if ((kind == Kind::kGapStart || kind == Kind::kGapEnd) && spec.gap.empty()) {
+                    spec.gap = spec.name; // (a gap of its own until it's given another end)
+                }
+                changed = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    return changed;
+}
+
+// A gap trigger's fields: whether it was landed, its name, score and flags, the other end; whether they changed.
+bool gap_fields(Spec& spec, const std::string& key, std::array<char, kTextBufferSize>& text, bool* text_editing)
+{
+    bool changed = false;
+    gui::text_disabled("Gap %s (%s)", spec.gap.c_str(), spec.kind == Kind::kGapStart ? "StartGap here" : "EndGap here");
+    if (!spec.text.empty()) {
+        // (validated by skating - level_editor_playtest.h)
+        const bool landed = play_test::gap_landed(clean_text(spec.text));
+        gui::text_colored(landed ? kLandedColour : kNotLandedColour, "%s",
+                          landed ? "Landed in a test run" : "Not yet landed in a test run");
+    }
+    changed |= name_field("Name", &spec.text, text.data(), sizeof(text), text_editing);
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Gap name");
+    }
+    int score = spec.score;
+    if (ImGui::InputInt("Score", &score, kScoreStep, kScoreStepFast) && score != spec.score) {
+        spec.score = std::max(0, std::min(kMaxScore, score));
+        changed = true;
+    }
+    if (ImGui::TreeNode("Flags")) {
+        for (const char* flag : gap_option_labels()) {
+            bool on = std::ranges::find(spec.flags, flag) != spec.flags.end();
+            if (ImGui::Checkbox(flag, &on)) {
+                if (on) {
+                    spec.flags.emplace_back(flag);
+                } else {
+                    std::erase(spec.flags, flag);
+                }
+                changed = true;
+            }
+        }
+        ImGui::TreePop();
+    }
+    if (ImGui::Button("Select Other End")) {
+        get_queue([key] { select_partner(key); });
+    }
+    return changed;
+}
+
+// A camera trigger's fields (map4): the camera played and for how long; whether they changed.
+bool camera_fields(Spec& spec, const std::string& key, std::array<char, kTextBufferSize>& target, bool* target_editing)
+{
+    bool changed = false;
+    changed |= name_combo("Camera", &spec.target, level_editor_triggers_ui_state().cameras_);
+    changed |= name_field("Or a node", &spec.target, target.data(), sizeof(target), target_editing);
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Camera node");
+    }
+    float seconds = spec.seconds;
+    if (ImGui::SliderFloat("Seconds", &seconds, kCameraMinSeconds, kCameraMaxSeconds, "%.1f",
+                           ImGuiSliderFlags_AlwaysClamp) &&
+        seconds != spec.seconds) {
+        Spec timed = spec;
+        timed.seconds = seconds;
+        get_queue([key, timed] { set_spec(key, timed, false); });
+    }
+    if (ImGui::IsItemActivated()) {
+        get_queue([] { begin_edit(); });
+    }
+    gui::text_disabled("LevelEditor_PlayCamera camera=%s time=%.1f",
+                       spec.target.empty() ? "<camera>" : spec.target.c_str(), spec.seconds);
+    return changed;
+}
+
+} // namespace
+
+void pane(PaneArea area, PaneState pane_state)
+{
+    const auto scale = pane_state.scale;
+    const auto selected_node = pane_state.selected_node_;
+    const auto view_x = area.x;
+    const auto view_y = area.y;
+    const auto view_width = area.width;
+    const auto view_height = area.height;
+    (void)view_height;
+    (void)selected_node;
+    if (!get_shown()) {
+        return;
+    }
+    update_lists();
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - (kPaneInset * scale), view_y + (kPaneTop * scale)),
+                            ImGuiCond_FirstUseEver, ImVec2(1.0F, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
+    bool open = true;
+    if (!ImGui::Begin("Triggers###triggers", &open, ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::End();
+        if (!open) {
+            get_queue([] { set_shown(false); });
+        }
+        return;
+    }
+    add_buttons();
     gui::text_disabled("%s", describe().c_str());
     gui::text_disabled("Breakables: select scenery, then Breaks When Hit");
     // The legend.
@@ -403,47 +538,7 @@ void pane(PaneArea area, PaneState pane_state)
     ImGui::Separator();
     // The nearest (the editor's, then the level's), a click selects / inspects.
     if (ImGui::BeginChild("##triggerlist", ImVec2(0.0F, kListHeight * scale), ImGuiChildFlags_Borders)) {
-        for (const Added& added_trigger : added_triggers()) {
-            if (!added_trigger.alive) {
-                continue;
-            }
-            std::string text = added_trigger.spec.name + "  " + kind_name(added_trigger.spec.kind);
-            if ((added_trigger.spec.kind == Kind::kGapStart || added_trigger.spec.kind == Kind::kGapEnd) &&
-                !added_trigger.spec.text.empty()) {
-                text += std::string("  - ") +
-                        play_test::gap_note(clean_text(added_trigger.spec.text)); // (landed in a test run?)
-            }
-            ImGui::PushStyleColor(
-                ImGuiCol_Text,
-                get_colour(added_trigger.problem ? kDisabledColour : kind_colour(added_trigger.spec.kind)));
-            const uint32_t name = node_create::name_hash(added_trigger.spec.name);
-            if (ImGui::Selectable((text + "##a" + added_trigger.spec.name).c_str(), false)) {
-                get_queue([name] { select_node_named(name); });
-            }
-            ImGui::PopStyleColor();
-        }
-        int shown = 0;
-        for (const LevelTrigger& level_trigger : level_triggers()) {
-            if (++shown > kMaxListed) {
-                break;
-            }
-            const std::string text = nodes::caption(level_trigger.sector) + "  " +
-                                     describe_level_trigger(level_trigger) + (level_trigger.off ? "  (off)" : "");
-            ImGui::PushStyleColor(ImGuiCol_Text,
-                                  get_colour(level_trigger.off ? kDisabledColour : kind_colour(level_trigger.kind)));
-            const uint32_t sector = level_trigger.sector;
-            const bool has_node = level_trigger.has_node_;
-            if (ImGui::Selectable((text + "##l" + std::to_string(level_trigger.sector)).c_str(),
-                                  level_trigger.sector == inspected_sector())) {
-                get_queue([sector, has_node] {
-                    inspect(sector);
-                    if (has_node) {
-                        select_node_named(sector);
-                    }
-                });
-            }
-            ImGui::PopStyleColor();
-        }
+        trigger_list();
     }
     ImGui::EndChild();
     if (const LevelTrigger* level_trigger = level_named(inspected_sector())) {
@@ -495,18 +590,7 @@ void inspector_section(int index)
     // The kind.
     const auto kinds = std::to_array<Kind>({Kind::kKill,   Kind::kJumpTo, Kind::kScripts, Kind::kGapStart,
                           Kind::kGapEnd, Kind::kBoost,  Kind::kViewCam});
-    if (ImGui::BeginCombo("Kind", kind_name(spec.kind))) {
-        for (const Kind kind : kinds) {
-            if (ImGui::Selectable(kind_name(kind), kind == spec.kind) && kind != spec.kind) {
-                spec.kind = kind;
-                if ((kind == Kind::kGapStart || kind == Kind::kGapEnd) && spec.gap.empty()) {
-                    spec.gap = spec.name; // (a gap of its own until it's given another end)
-                }
-                changed = true;
-            }
-        }
-        ImGui::EndCombo();
-    }
+    changed |= kind_combo(spec, kinds);
     // The size (one undo step a drag).
     std::array<float, 3> size = {{spec.size.x, spec.size.y, spec.size.z}};
     if (ImGui::DragFloat3("Size", size.data(), kSizeDragStep, kMinSize, kMaxSize, "%.0f")) {
@@ -545,40 +629,7 @@ void inspector_section(int index)
         break;
     case Kind::kGapStart:
     case Kind::kGapEnd: {
-        gui::text_disabled("Gap %s (%s)", spec.gap.c_str(),
-                           spec.kind == Kind::kGapStart ? "StartGap here" : "EndGap here");
-        if (!spec.text.empty()) {
-            // (validated by skating - level_editor_playtest.h)
-            const bool landed = play_test::gap_landed(clean_text(spec.text));
-            gui::text_colored(landed ? kLandedColour : kNotLandedColour, "%s",
-                               landed ? "Landed in a test run" : "Not yet landed in a test run");
-        }
-        changed |= name_field("Name", &spec.text, text.data(), sizeof(text), &g_text_editing);
-        if (ImGui::IsItemHovered()) {
-            gui::tooltip("Gap name");
-        }
-        int score = spec.score;
-        if (ImGui::InputInt("Score", &score, kScoreStep, kScoreStepFast) && score != spec.score) {
-            spec.score = std::max(0, std::min(kMaxScore, score));
-            changed = true;
-        }
-        if (ImGui::TreeNode("Flags")) {
-            for (const char* flag : gap_option_labels()) {
-                bool on = std::ranges::find(spec.flags, flag) != spec.flags.end();
-                if (ImGui::Checkbox(flag, &on)) {
-                    if (on) {
-                        spec.flags.emplace_back(flag);
-                    } else {
-                        std::erase(spec.flags, flag);
-                    }
-                    changed = true;
-                }
-            }
-            ImGui::TreePop();
-        }
-        if (ImGui::Button("Select Other End")) {
-            get_queue([key] { select_partner(key); });
-        }
+        changed |= gap_fields(spec, key, text, &g_text_editing);
         break;
     }
     case Kind::kBoost: {
@@ -599,24 +650,7 @@ void inspector_section(int index)
     }
     case Kind::kViewCam: {
         // (map4) the camera played and for how long
-        changed |= name_combo("Camera", &spec.target, level_editor_triggers_ui_state().cameras_);
-        changed |= name_field("Or a node", &spec.target, target.data(), sizeof(target), &g_target_editing);
-        if (ImGui::IsItemHovered()) {
-            gui::tooltip("Camera node");
-        }
-        float seconds = spec.seconds;
-        if (ImGui::SliderFloat("Seconds", &seconds, kCameraMinSeconds, kCameraMaxSeconds, "%.1f",
-                               ImGuiSliderFlags_AlwaysClamp) &&
-            seconds != spec.seconds) {
-            Spec timed = spec;
-            timed.seconds = seconds;
-            get_queue([key, timed] { set_spec(key, timed, false); });
-        }
-        if (ImGui::IsItemActivated()) {
-            get_queue([] { begin_edit(); });
-        }
-        gui::text_disabled("LevelEditor_PlayCamera camera=%s time=%.1f",
-                           spec.target.empty() ? "<camera>" : spec.target.c_str(), spec.seconds);
+        changed |= camera_fields(spec, key, target, &g_target_editing);
         break;
     }
     case Kind::kOther:
