@@ -46,19 +46,24 @@ src/
   app/        main, WinMain, the start-up and the game's main, the exe's extensions (extensions.cpp), the command
               table and the component registry (the composition: may include anything)
   platform/   the window and its events, crash reports, the run log, settings, the registry, code addresses (the
-              Win32 / DirectSound / SDL / GameSpy side; library thug2_platform)
+              Win32 / SDL / GameSpy side; library thug2_platform)
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
               sounds, saves, custom parks (library thug2_formats)
   wire/       the network messages and their framing (library thug2_wire)
   base/       the OS-free helpers under everything: core (checksums, formatting, text, checked indexing, the enum and
               pointer helpers), maths, two containers (lists), the bit stream and BPS patches (util) (library
               thug2_base)
-  engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network transport, pad input, ui (the
+  engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, media (the movie codec's
+              interface), network transport, pad input, ui (the
               original's screen elements and our UI fonts), ext (the extension points) (library thug2_engine)
   render_d3d9/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
               textures, materials, shaders, screen effects, 2D and text, movies' frames, the loading screen) and the
               GPU's vertex and index buffers, D3DX's last calls; it implements render::Device and render::UiBackend
               (library thug2_render_d3d9, included and linked by app/ only)
+  audio_dsound/ the sound backend, DirectSound: the output and the voices; it implements audio::Device (library
+              thug2_audio_dsound, included and linked by app/ only)
+  media_bink/ the movie codec, Bink (the player's binkw32.dll): the movies and the music / sound streams; it
+              implements media::Movie (library thug2_media_bink, included and linked by app/ only)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
               network session; the transport stays in engine/net), commands (the game's script commands), world
               (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park

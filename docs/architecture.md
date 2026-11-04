@@ -11,11 +11,12 @@ app/                        main, WinMain, the start-up, the game's main: the co
 editor/  frontend/  devtools/   the level editor; the new front end and mouse menus; the developer tools
 game/                       skating, the rider, goals, parks, saves, the online session (game/online)
 render_d3d9/                the graphics backend: Direct3D 9 (the original's PC platform layer); only app/ includes it
-engine/                     memory, lists, files, assets, script, objects, renderer, audio, network transport, pad input,
+audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
+engine/                     memory, lists, files, assets, script, objects, renderer, audio, media, network transport, pad input,
                             ui (the original's screen elements), ext (the extension points)
 -------------------------   the boundary: where bytes come from outside the game
 formats/  wire/             file formats; network messages
-platform/                   Win32, the SDL window, DirectSound's set-up, the GameSpy SDK, crash reports, code addresses
+platform/                   Win32, the SDL window, the GameSpy SDK, crash reports, code addresses
 -------------------------
 base/                       checksums, formatting, text, checked indexing, maths, the bit stream (no OS, no SDK)
 ```
@@ -35,8 +36,8 @@ to a sink the platform installs first thing in WinMain (`platform/output_sinks.h
 `base/` and their headers. It doesn't call up: what the game does on the platform's events, and where it keeps the
 platform's devices, is wired by `app/`. The SDL event pump calls the handlers registered with it (the quit request is
 the start-up's, `app/pc_setup.cpp`; the window's focus WinMain's); `sys::create_sdl_window` returns the window's
-handle, which WinMain keeps where the platform's window is (`sys::game_window`), and `os_layer::init_direct_sound` the
-DirectSound device, which it keeps in the audio's state; the base layer's sinks are installed by `app/main.cpp`. What uses the engine's state is the engine's: the frame
+handle, which WinMain keeps where the platform's window is (`sys::game_window`); the sound output WinMain opens through
+`audio::Device` and keeps in the audio's state; the base layer's sinks are installed by `app/main.cpp`. What uses the engine's state is the engine's: the frame
 clock (`engine/sys/stopwatch`, `game_clock`), the renderer's Direct3D buffers and queries
 (`engine/gfx/pc_d3d_resources`), and the original's DirectInput side - its pad read, the registry options and input
 set-up (`engine/pad_input/direct_input`, `input_setup`).
@@ -143,14 +144,14 @@ headers are part of its own), and reaches every one of them through those links:
 thug2_base  <-  thug2_formats  <-  thug2_wire
             <-  thug2_platform
 thug2_platform + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
-thug2_engine  <-  thug2_render_d3d9 (the graphics backend: linked by the exe alone)
+thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink (the backends: linked by the exe alone)
 every library  <-  thug2 (src/app: thug2-decomp.exe)
 ```
 
 The checks in `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`:
 base; `thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
-library that calls them (SDL, DirectSound, Winsock, D3D9 and the GameSpy SDK by the platform; LZHAM and
-DirectInput by the engine; D3DX by the graphics backend; imgui's core by the graphics backend - the loading console's
+library that calls them (SDL, Winsock, D3D9 and the GameSpy SDK by the platform; LZHAM and DirectInput by the
+engine; DirectSound by the sound backend; D3DX by the graphics backend; imgui's core by the graphics backend - the loading console's
 panel -, the editor and the front end, and imgui's SDL2 and Direct3D 9 backends, `imgui_backends`, by the graphics
 backend alone). `node tools/cmake_layers.ts` (part of `npm test`)
 reads the `CMakeLists.txt` files and fails when a library links outside the map or doesn't reach a library the map
@@ -159,8 +160,9 @@ The one exception is the editor / front end / dev tools' sibling edges (round 29
 where `tools/layers_baseline.txt` still has include lines between them - static libraries that need each other, which
 CMake repeats on the link line for a linker that reads each library once (GNU ld) - and a sibling link with no
 baseline line left fails. A sibling's own links are its own: the front end linking the editor doesn't count as
-reaching what the editor links. Only the exe links the graphics backend: the editor and the front end reach it
-through the engine's interfaces (`render::Device`, `render::UiBackend`).
+reaching what the editor links. Only the exe links the backends: the editor and the front end reach the graphics
+backend through the engine's interfaces (`render::Device`, `render::UiBackend`), the engine reaches the sound output
+and the movie codec through `audio::Device` and `media::Movie`.
 
 Nothing is registered by a static initialiser: the start-up runs explicit tables (app's start-up initialisers, the
 command table, the component registry), so the linker drops no object the game needs (a static library leaves out an
@@ -237,8 +239,32 @@ everything above it uses the game's own types and may change them freely.
     renderer's state is `render::Renderer`, `engine/gfx/renderer.h`), `device_d3d.h`, `pc_d3d_resources.h`,
     `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's), `render_d3d9/d3dx_jpg.h` and ImGui's
     texture id over Direct3D's textures (`render_d3d9/imgui_texture_id.h`).
-- `platform/`: the operating system and the SDKs - the SDL window and its event pump, DirectSound's set-up, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
-  addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
+- **The audio backend** (`src/audio_dsound`, static library `thug2_audio_dsound`, on the engine) is DirectSound. It
+  implements `audio::Device` (`engine/audio/audio_device.h`): the output made and released (WinMain; the platform
+  layer's 0x005F59D0 / 0x005F5A00), its devices listed (the graphics device's start-up notes the last one), and the
+  sound effects' voices (`engine/sound/sfx_voices.cpp`, the original's PC driver) - a buffer made from the wave's
+  format and description, its 3D controls, filled whole, played from the start, stopped, its status read, its volume,
+  pan and frequency set, its 3D range and place; the listener made, faced and committed. A call per voice or per
+  listener update, never per sample; the units are the game's (hundredths of a decibel, samples a second). Each method
+  is the DirectSound calls the original made at that place, in the same order. The output, the buffers, their 3D
+  controls and the listener are handles (`engine/audio/audio_handles.h`: `audio::SoundOutput`, `SoundBuffer`,
+  `SoundBuffer3d`, `SoundListener`, the objects' own pointers; `audio_dsound/dsound_handles.h` converts).
+  `app/main.cpp` installs DirectSound's (`audio::dsound::device()`), or with `[features] mute_audio=1` the muted
+  output over it (`engine/audio/muted_device.h`): the null output, which forwards every call but the three that could
+  be heard - the audio session muted while the output is open (`platform/mute_audio.h`), every voice's volume silent,
+  every movie's and stream's track at 0 (`audio::Device::track_volume`) - so the voices still play and end as with
+  sound. Only `audio_dsound/` includes `<dsound.h>` (tools/audio_headers.test.ts).
+- **The movie codec** (`src/media_bink`, static library `thug2_media_bink`, on the engine) is Bink: the player's own
+  binkw32.dll, each export looked up by name on first use (`media_bink/bink.h`). It implements `media::Movie`
+  (`engine/media/movie.h`): the movies (`render_d3d9/movie.cpp`) and the music and sound streams
+  (`engine/audio/bink_stream*.cpp`, sound-only Bink files from a path, a file handle or memory) open, decode, step,
+  seek and pause through it and set their tracks' volume and pan; an open movie is its header
+  (`media::MovieHeader`, the fields of Bink's BINK the game reads). Its sound plays into the sound output
+  (`use_sound_output`: the output's handle - Bink's DirectSound output on the game's DirectSound object). A call per
+  movie or per frame. `app/main.cpp` installs Bink's (`media::bink::movie()`); only `media_bink/` includes the
+  wrapper (tools/audio_headers.test.ts).
+- `platform/`: the operating system and the SDKs - the SDL window and its event pump, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
+  addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`);
   Winsock with IPv4 addresses and byte buffers (`sockets.h`), the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), the Windows audio session API
   (`mute_audio.h`), the owners of Win32 and C runtime handles (`unique_handle.h`) and the sinks behind the base
   layer's output (`output_sinks.h`).
