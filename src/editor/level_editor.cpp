@@ -5992,336 +5992,419 @@ void apply_resume(const perform::Resume& resume)
             describe_selection().c_str());
 }
 
+// The frame's view for the UI's requests: where the mouse ray points, and whether a change may start now.
+struct RequestFrame {
+    V3 dir{};
+    bool have_ray_{};
+    const TickCycle* frame{};
+    bool no_change_{};
+};
+
+void browser_tab_request(const ui::Request& request)
+{
+    if (stored_browser().open && stored_browser().tab != request.value) {
+        stored_browser().tab = (request.value != 0) ? 1 : 0;
+        stored_browser().index = stored_browser().top = 0;
+        fill_browser();
+    }
+}
+
+// The Inspector's list of the scenery selection's parts: x / Keep only this.
+void member_request(const ui::Request& request)
+{
+    if (drag_state().dragging_ || !scenery::has_selection()) {
+        return;
+    }
+    if (request.value != 0) {
+        if (request.kind == ui::Request::Kind::kMemberRemove) {
+            scenery::drop_rail(request.id);
+        } else {
+            // (a rail point by itself: the node selected, as its gizmo would)
+            const std::vector<nodes::Elem>& nodes = nodes::get_all();
+            for (size_t i = 0; i < nodes.size(); ++i) {
+                if (core::at(nodes, i).name == request.id) {
+                    unpick();
+                    select_node(static_cast<int>(i));
+                    break;
+                }
+            }
+        }
+    } else if (scenery::get_selected(request.id)) {
+        if (request.kind == ui::Request::Kind::kMemberRemove) {
+            scenery::flip_over(request.id);
+        } else {
+            scenery::keep_only(request.id);
+        }
+    }
+    note_action("Inspector - selected: %s", describe_selection().c_str());
+}
+
+void select_scenery_request(const ui::Request& request)
+{
+    if (!drag_state().dragging_ && !scenery::why_not_movable(request.id)) {
+        drag_state().objects_.clear();
+        scenery::set_selection({request.id});
+        go_to_selection();
+        note_action("selected in the Outliner: %s", describe_selection().c_str());
+    }
+}
+
+void unlock_request(const ui::Request& request, bool no_change)
+{
+    if (!no_change && picking::latched(static_cast<uint32_t>(request.value), request.id)) {
+        push_locks_undo(); // (one undo step - unsaved with it)
+        picking::set_locked(static_cast<uint32_t>(request.value), request.id, false);
+        hud::get_message("Unlocked");
+    }
+}
+
+// The Inspector's fields (typed, or dragged to scrub): one undo step until they're let go.
+void node_set_request(const ui::Request& request)
+{
+    if (picked_node_index() >= 0 && !drag_state().dragging_ && !level_editor_state().key_moving_) {
+        if (!drag_state().field_editing_) {
+            begin_change();
+            drag_state().field_editing_ = true;
+        }
+        node_edit::Values values;
+        values.pos = {.x = core::at(request.a, 0), .y = core::at(request.a, 1), .z = core::at(request.a, 2)};
+        values.angles = {.x = core::at(request.b, 0), .y = core::at(request.b, 1), .z = core::at(request.b, 2)};
+        set_selected_node(values);
+        note_action("set in the Inspector: %s", describe_selection().c_str());
+    }
+}
+
+// The Inspector's Scale X / Y / Z (level_editor_scale.h): scenery or objects scaled to them (along their own axes)
+// while dragged or typed; one undo step until let go.
+void scale_set_request(const ui::Request& request)
+{
+    if ((get_primary() || scenery::has_selection()) && picked_node_index() < 0 && !drag_state().dragging_ &&
+        !level_editor_state().key_moving_) {
+        if (!drag_state().field_editing_) {
+            begin_change();
+            drag_state().field_editing_ = true;
+            scale_at_field_start() = selection_scale_now();
+        }
+        scale_selection_to({.x = core::at(request.a, 0), .y = core::at(request.a, 1), .z = core::at(request.a, 2)});
+        if (!get_primary()) {
+            follow_scenery();
+        }
+    }
+}
+
+void scale_done_request()
+{
+    if (!drag_state().field_editing_) {
+        return;
+    }
+    drag_state().field_editing_ = false;
+    if (!get_primary()) {
+        scenery::finalise();
+    }
+    const V3 now = selection_scale_now();
+    if (undo_steps().has_pending_ &&
+        (now.x != scale_at_field_start().x || now.y != scale_at_field_start().y || now.z != scale_at_field_start().z)) {
+        push_undo(undo_steps().pending_, "Scale (Inspector)");
+        note_action("scaled in the Inspector: %s", describe_selection().c_str());
+    }
+    undo_steps().has_pending_ = false;
+}
+
+void place_toggle_request()
+{
+    pick_cycle().place_open_ = !pick_cycle().place_open_;
+    if (pick_cycle().place_open_) {
+        entities::refresh_palette();
+    }
+    if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
+        stop_chain_drawing(nullptr);
+    }
+    pick_cycle().place_armed_ = -1;
+}
+
+void place_arm_request(const ui::Request& request)
+{
+    if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
+        stop_chain_drawing(nullptr);
+    }
+    pick_cycle().place_armed_ = request.value;
+    if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
+        // (a rail / a path: drawn point by point - each click a point, Enter finishes)
+        chains::start_drawing(chain_kind_of(pick_cycle().place_armed_));
+        hud::get_message(chains::get_waiting(), hud::kLongMessageSeconds);
+    }
+}
+
+void chain_op_request(const ui::Request& request, bool no_change)
+{
+    if (!no_change) {
+        const auto op = static_cast<chains::ChainOp>(request.value);
+        run_chain_op(op, request.id);
+        if (op == chains::ChainOp::kExtend && chains::get_drawing() != chains::Blit::kNone) {
+            pick_cycle().place_armed_ = -1; // (drawing on from the selected end: the palette's entry isn't armed)
+            unpick();                       // (the camera flies while drawing)
+        }
+    }
+}
+
+void place_here_request(const ui::Request& request, const RequestFrame& request_frame)
+{
+    if (chain_kind_of(request.value) != chains::Blit::kNone) {
+        hud::get_message("Click points in the view");
+        return;
+    }
+    if (!request_frame.no_change_) {
+        // (where the view looks: the panel has the mouse)
+        const TickCycle& frame = *request_frame.frame;
+        place_node(request.value, cursor_point(frame.back * -1.0F, false, frame));
+        pick_cycle().place_armed_ = -1;
+    }
+}
+
+void hide_confirmed_request(bool no_change)
+{
+    const uint32_t name = pick_cycle().confirm_hide_;
+    pick_cycle().confirm_hide_ = 0;
+    if (!no_change && (name != 0U) && name == drag_state().node_name_) {
+        unlink_list_node(true);
+    }
+}
+
+void select_object_request(const ui::Request& request)
+{
+    if (!drag_state().dragging_) {
+        if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(request.id))) {
+            select_objects({object});
+            go_to_selection();
+            note_action("selected in the Outliner: %s", describe_selection().c_str());
+        }
+    }
+}
+
+// One request: the history, the browser, the selection and the view.
+void apply_request(const ui::Request& request, const RequestFrame& request_frame)
+{
+    const bool no_change = request_frame.no_change_;
+    switch (request.kind) {
+    case ui::Request::Kind::kUndo:
+        if (!no_change) {
+            step_history(&undo_steps().undo_, &undo_steps().redo_, "Undone");
+        }
+        break;
+    case ui::Request::Kind::kRedo:
+        if (!no_change) {
+            step_history(&undo_steps().redo_, &undo_steps().undo_, "Redone");
+        }
+        break;
+    case ui::Request::Kind::kSave:
+        if (!no_change) {
+            save_layout();
+        }
+        break;
+    case ui::Request::Kind::kRestoreAutosave:
+    case ui::Request::Kind::kDiscardAutosave:
+        if (!no_change) {
+            answer_autosave(request.kind == ui::Request::Kind::kDiscardAutosave);
+        }
+        break;
+    case ui::Request::Kind::kToggleHelp:
+        toggle_help();
+        break;
+    case ui::Request::Kind::kToggleBrowser:
+        toggle_browser();
+        break;
+    case ui::Request::Kind::kBrowserTab:
+        browser_tab_request(request);
+        break;
+    case ui::Request::Kind::kBrowserIndex:
+        if (stored_browser().open && request.value >= 0 &&
+            std::cmp_less(request.value, stored_browser().items.size())) {
+            stored_browser().index = request.value;
+        }
+        break;
+    case ui::Request::Kind::kBrowserPlace:
+        if (stored_browser().open && !drag_state().dragging_) {
+            place_from_browser(cursor_point(request_frame.dir, request_frame.have_ray_, *request_frame.frame));
+        }
+        break;
+    case ui::Request::Kind::kBrowserFocus:
+        if (stored_browser().open) {
+            focus_browser_item();
+        }
+        break;
+    case ui::Request::Kind::kDrop:
+        drop_selection();
+        break;
+    case ui::Request::Kind::kDeselect:
+        if (!drag_state().dragging_) {
+            unpick();
+        }
+        break;
+    case ui::Request::Kind::kSnapAlways:
+        drag_state().snap_always_ = request.value != 0;
+        break;
+    case ui::Request::Kind::kMemberRemove:
+    case ui::Request::Kind::kMemberKeep:
+        member_request(request);
+        break;
+    case ui::Request::Kind::kSelectScenery:
+        select_scenery_request(request);
+        break;
+    case ui::Request::Kind::kFamilies:
+        drag_state().families_ = request.id & nodes::kAllFamilies;
+        config_set_int("editor", "families", static_cast<int>(drag_state().families_));
+        break;
+    case ui::Request::Kind::kPickFilter:
+        drag_state().pick_filter_ = request.id & picking::kAll;
+        config_set_int("editor", "pick", static_cast<int>(drag_state().pick_filter_));
+        break;
+    case ui::Request::Kind::kToggleLock:
+        toggle_lock();
+        break;
+    case ui::Request::Kind::kCollision:
+        show_collision(request.value != 0);
+        break;
+    case ui::Request::Kind::kViewHide:
+        view_hide(false);
+        break;
+    case ui::Request::Kind::kViewIsolate:
+        view_hide(true);
+        break;
+    case ui::Request::Kind::kViewShowAll:
+        view_show_all();
+        break;
+    case ui::Request::Kind::kClearWall:
+        view::clear_wall();
+        break;
+    case ui::Request::Kind::kWallCollision:
+        if (const uint32_t wall = wall_only(); (wall != 0U) && !no_change) {
+            switch_wall(wall, request.value == 0);
+        }
+        break;
+    case ui::Request::Kind::kSceneryCollision:
+        if (!no_change) {
+            switch_scenery_collision(request.value == 0);
+        }
+        break;
+    case ui::Request::Kind::kUnlock:
+        unlock_request(request, no_change);
+        break;
+    case ui::Request::Kind::kCarry:
+        carry::set_enabled(request.value != 0);
+        hud::get_message((request.value != 0) ? "Carry Objects on" : "Carry Objects off");
+        break;
+    case ui::Request::Kind::kSelectNode:
+        select_node(request.value);
+        if (picked_node_index() >= 0) {
+            focus_on_selection(); // (the camera turns to it, at the distance it is - and orbits it)
+        }
+        break;
+    case ui::Request::Kind::kNodeSet:
+        node_set_request(request);
+        break;
+    case ui::Request::Kind::kNodeSetDone:
+        if (drag_state().field_editing_) {
+            drag_state().field_editing_ = false;
+            end_change();
+        }
+        break;
+    case ui::Request::Kind::kScaleSet:
+        scale_set_request(request);
+        break;
+    case ui::Request::Kind::kScaleDone:
+        scale_done_request();
+        break;
+    case ui::Request::Kind::kReset:
+        if (!no_change) {
+            get_reset();
+        }
+        break;
+    case ui::Request::Kind::kOnlineWarningSeen:
+        drag_state().online_warning_shown_ = false;
+        break;
+    case ui::Request::Kind::kGoToNode:
+        go_to_node(request.value);
+        if (have_selection()) {
+            go_to_selection();
+        }
+        break;
+    case ui::Request::Kind::kPlaceToggle:
+        place_toggle_request();
+        break;
+    case ui::Request::Kind::kPlaceArm:
+        place_arm_request(request);
+        break;
+    case ui::Request::Kind::kChainOp:
+        chain_op_request(request, no_change);
+        break;
+    case ui::Request::Kind::kPlaceHere:
+        place_here_request(request, request_frame);
+        break;
+    case ui::Request::Kind::kRemoveNodeAction:
+        if (!no_change) {
+            unlink_list_node(false);
+        }
+        break;
+    case ui::Request::Kind::kHideConfirmed:
+        hide_confirmed_request(no_change);
+        break;
+    case ui::Request::Kind::kHideCancelled:
+        pick_cycle().confirm_hide_ = 0;
+        break;
+    case ui::Request::Kind::kResetLevel:
+        if (!no_change) {
+            ask_reset_level();
+        }
+        break;
+    case ui::Request::Kind::kResetConfirmed:
+        if (!no_change && pick_cycle().confirm_reset_) {
+            reset_level_now();
+        }
+        break;
+    case ui::Request::Kind::kResetCancelled:
+        pick_cycle().confirm_reset_ = false;
+        break;
+    case ui::Request::Kind::kReqEntireRail:
+        pick_cycle().move_entire_rail_ = request.value != 0;
+        break;
+    case ui::Request::Kind::kFieldSet:
+    case ui::Request::Kind::kFieldRemove:
+    case ui::Request::Kind::kFieldHome:
+        if (!no_change) {
+            field_request(request);
+        }
+        break;
+    case ui::Request::Kind::kLevelProps:
+    case ui::Request::Kind::kLevelPropsDone:
+        if (!drag_state().dragging_ && !level_editor_state().key_moving_) {
+            level_props_request(request);
+        }
+        break;
+    case ui::Request::Kind::kCrownMove:
+        if (!no_change) {
+            move_selected_crown(request.value);
+        }
+        break;
+    case ui::Request::Kind::kBrowserPreview:
+        stored_browser().preview = request.value;
+        break;
+    case ui::Request::Kind::kPreviewOrbit:
+        preview::intake({.x = core::at(request.a, 0), .y = core::at(request.a, 1)}, core::at(request.a, 2));
+        break;
+    case ui::Request::Kind::kSelectObject:
+        select_object_request(request);
+        break;
+    }
+}
+
 // What was asked for on the UI's panels (level_editor_ui.h), done as the keys would.
 void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
 {
-    const bool no_change = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_ || triggers::resizing();
+    const bool no_change = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_ ||
+                           triggers::resizing();
+    const RequestFrame request_frame{.dir = dir, .have_ray_ = have_ray, .frame = &frame, .no_change_ = no_change};
     for (const ui::Request& request : ui::take_requests()) {
-        switch (request.kind) {
-        case ui::Request::Kind::kUndo:
-            if (!no_change) {
-                step_history(&undo_steps().undo_, &undo_steps().redo_, "Undone");
-            }
-            break;
-        case ui::Request::Kind::kRedo:
-            if (!no_change) {
-                step_history(&undo_steps().redo_, &undo_steps().undo_, "Redone");
-            }
-            break;
-        case ui::Request::Kind::kSave:
-            if (!no_change) {
-                save_layout();
-            }
-            break;
-        case ui::Request::Kind::kRestoreAutosave:
-        case ui::Request::Kind::kDiscardAutosave:
-            if (!no_change) {
-                answer_autosave(request.kind == ui::Request::Kind::kDiscardAutosave);
-            }
-            break;
-        case ui::Request::Kind::kToggleHelp:
-            toggle_help();
-            break;
-        case ui::Request::Kind::kToggleBrowser:
-            toggle_browser();
-            break;
-        case ui::Request::Kind::kBrowserTab:
-            if (stored_browser().open && stored_browser().tab != request.value) {
-                stored_browser().tab = (request.value != 0) ? 1 : 0;
-                stored_browser().index = stored_browser().top = 0;
-                fill_browser();
-            }
-            break;
-        case ui::Request::Kind::kBrowserIndex:
-            if (stored_browser().open && request.value >= 0 &&
-                std::cmp_less(request.value, stored_browser().items.size())) {
-                stored_browser().index = request.value;
-            }
-            break;
-        case ui::Request::Kind::kBrowserPlace:
-            if (stored_browser().open && !drag_state().dragging_) {
-                place_from_browser(cursor_point(dir, have_ray, frame));
-            }
-            break;
-        case ui::Request::Kind::kBrowserFocus:
-            if (stored_browser().open) {
-                focus_browser_item();
-            }
-            break;
-        case ui::Request::Kind::kDrop:
-            drop_selection();
-            break;
-        case ui::Request::Kind::kDeselect:
-            if (!drag_state().dragging_) {
-                unpick();
-            }
-            break;
-        case ui::Request::Kind::kSnapAlways:
-            drag_state().snap_always_ = request.value != 0;
-            break;
-        case ui::Request::Kind::kMemberRemove:
-        case ui::Request::Kind::kMemberKeep:
-            // (the Inspector's list of the scenery selection's parts: x / Keep only this)
-            if (drag_state().dragging_ || !scenery::has_selection()) {
-                break;
-            }
-            if (request.value != 0) {
-                if (request.kind == ui::Request::Kind::kMemberRemove) {
-                    scenery::drop_rail(request.id);
-                } else {
-                    // (a rail point by itself: the node selected, as its gizmo would)
-                    const std::vector<nodes::Elem>& nodes = nodes::get_all();
-                    for (size_t i = 0; i < nodes.size(); ++i) {
-                        if (core::at(nodes, i).name == request.id) {
-                            unpick();
-                            select_node(static_cast<int>(i));
-                            break;
-                        }
-                    }
-                }
-            } else if (scenery::get_selected(request.id)) {
-                if (request.kind == ui::Request::Kind::kMemberRemove) {
-                    scenery::flip_over(request.id);
-                } else {
-                    scenery::keep_only(request.id);
-                }
-            }
-            note_action("Inspector - selected: %s", describe_selection().c_str());
-            break;
-        case ui::Request::Kind::kSelectScenery:
-            if (!drag_state().dragging_ && !scenery::why_not_movable(request.id)) {
-                drag_state().objects_.clear();
-                scenery::set_selection({request.id});
-                go_to_selection();
-                note_action("selected in the Outliner: %s", describe_selection().c_str());
-            }
-            break;
-        case ui::Request::Kind::kFamilies:
-            drag_state().families_ = request.id & nodes::kAllFamilies;
-            config_set_int("editor", "families", static_cast<int>(drag_state().families_));
-            break;
-        case ui::Request::Kind::kPickFilter:
-            drag_state().pick_filter_ = request.id & picking::kAll;
-            config_set_int("editor", "pick", static_cast<int>(drag_state().pick_filter_));
-            break;
-        case ui::Request::Kind::kToggleLock:
-            toggle_lock();
-            break;
-        case ui::Request::Kind::kCollision:
-            show_collision(request.value != 0);
-            break;
-        case ui::Request::Kind::kViewHide:
-            view_hide(false);
-            break;
-        case ui::Request::Kind::kViewIsolate:
-            view_hide(true);
-            break;
-        case ui::Request::Kind::kViewShowAll:
-            view_show_all();
-            break;
-        case ui::Request::Kind::kClearWall:
-            view::clear_wall();
-            break;
-        case ui::Request::Kind::kWallCollision:
-            if (const uint32_t wall = wall_only(); (wall != 0U) && !no_change) {
-                switch_wall(wall, request.value == 0);
-            }
-            break;
-        case ui::Request::Kind::kSceneryCollision:
-            if (!no_change) {
-                switch_scenery_collision(request.value == 0);
-            }
-            break;
-        case ui::Request::Kind::kUnlock:
-            if (!no_change && picking::latched(static_cast<uint32_t>(request.value), request.id)) {
-                push_locks_undo(); // (one undo step - unsaved with it)
-                picking::set_locked(static_cast<uint32_t>(request.value), request.id, false);
-                hud::get_message("Unlocked");
-            }
-            break;
-        case ui::Request::Kind::kCarry:
-            carry::set_enabled(request.value != 0);
-            hud::get_message((request.value != 0) ? "Carry Objects on" : "Carry Objects off");
-            break;
-        case ui::Request::Kind::kSelectNode:
-            select_node(request.value);
-            if (picked_node_index() >= 0) {
-                focus_on_selection(); // (the camera turns to it, at the distance it is - and orbits it)
-            }
-            break;
-        case ui::Request::Kind::kNodeSet:
-            // The Inspector's fields (typed, or dragged to scrub): one undo step until they're let go.
-            if (picked_node_index() >= 0 && !drag_state().dragging_ && !level_editor_state().key_moving_) {
-                if (!drag_state().field_editing_) {
-                    begin_change();
-                    drag_state().field_editing_ = true;
-                }
-                node_edit::Values values;
-                values.pos = {.x = core::at(request.a, 0), .y = core::at(request.a, 1), .z = core::at(request.a, 2)};
-                values.angles = {.x = core::at(request.b, 0), .y = core::at(request.b, 1), .z = core::at(request.b, 2)};
-                set_selected_node(values);
-                note_action("set in the Inspector: %s", describe_selection().c_str());
-            }
-            break;
-        case ui::Request::Kind::kNodeSetDone:
-            if (drag_state().field_editing_) {
-                drag_state().field_editing_ = false;
-                end_change();
-            }
-            break;
-        case ui::Request::Kind::kScaleSet:
-            // The Inspector's Scale X / Y / Z (level_editor_scale.h): scenery or objects scaled to them (along their own
-            // axes) while dragged or typed; one undo step until let go.
-            if ((get_primary() || scenery::has_selection()) && picked_node_index() < 0 && !drag_state().dragging_ &&
-                !level_editor_state().key_moving_) {
-                if (!drag_state().field_editing_) {
-                    begin_change();
-                    drag_state().field_editing_ = true;
-                    scale_at_field_start() = selection_scale_now();
-                }
-                scale_selection_to({.x = core::at(request.a, 0), .y = core::at(request.a, 1), .z = core::at(request.a, 2)});
-                if (!get_primary()) {
-                    follow_scenery();
-                }
-            }
-            break;
-        case ui::Request::Kind::kScaleDone:
-            if (drag_state().field_editing_) {
-                drag_state().field_editing_ = false;
-                if (!get_primary()) {
-                    scenery::finalise();
-                }
-                const V3 now = selection_scale_now();
-                if (undo_steps().has_pending_ && (now.x != scale_at_field_start().x || now.y != scale_at_field_start().y ||
-                                      now.z != scale_at_field_start().z)) {
-                    push_undo(undo_steps().pending_, "Scale (Inspector)");
-                    note_action("scaled in the Inspector: %s", describe_selection().c_str());
-                }
-                undo_steps().has_pending_ = false;
-            }
-            break;
-        case ui::Request::Kind::kReset:
-            if (!no_change) {
-                get_reset();
-            }
-            break;
-        case ui::Request::Kind::kOnlineWarningSeen:
-            drag_state().online_warning_shown_ = false;
-            break;
-        case ui::Request::Kind::kGoToNode:
-            go_to_node(request.value);
-            if (have_selection()) {
-                go_to_selection();
-            }
-            break;
-        case ui::Request::Kind::kPlaceToggle:
-            pick_cycle().place_open_ = !pick_cycle().place_open_;
-            if (pick_cycle().place_open_) {
-                entities::refresh_palette();
-            }
-            if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
-                stop_chain_drawing(nullptr);
-            }
-            pick_cycle().place_armed_ = -1;
-            break;
-        case ui::Request::Kind::kPlaceArm:
-            if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
-                stop_chain_drawing(nullptr);
-            }
-            pick_cycle().place_armed_ = request.value;
-            if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
-                // (a rail / a path: drawn point by point - each click a point, Enter finishes)
-                chains::start_drawing(chain_kind_of(pick_cycle().place_armed_));
-                hud::get_message(chains::get_waiting(), hud::kLongMessageSeconds);
-            }
-            break;
-        case ui::Request::Kind::kChainOp:
-            if (!no_change) {
-                const auto op = static_cast<chains::ChainOp>(request.value);
-                run_chain_op(op, request.id);
-                if (op == chains::ChainOp::kExtend && chains::get_drawing() != chains::Blit::kNone) {
-                    pick_cycle().place_armed_ = -1; // (drawing on from the selected end: the palette's entry isn't armed)
-                    unpick();           // (the camera flies while drawing)
-                }
-            }
-            break;
-        case ui::Request::Kind::kPlaceHere:
-            if (chain_kind_of(request.value) != chains::Blit::kNone) {
-                hud::get_message("Click points in the view");
-                break;
-            }
-            if (!no_change) {
-                // (where the view looks: the panel has the mouse)
-                place_node(request.value, cursor_point(frame.back * -1.0F, false, frame));
-                pick_cycle().place_armed_ = -1;
-            }
-            break;
-        case ui::Request::Kind::kRemoveNodeAction:
-            if (!no_change) {
-                unlink_list_node(false);
-            }
-            break;
-        case ui::Request::Kind::kHideConfirmed: {
-            const uint32_t name = pick_cycle().confirm_hide_;
-            pick_cycle().confirm_hide_ = 0;
-            if (!no_change && (name != 0U) && name == drag_state().node_name_) {
-                unlink_list_node(true);
-            }
-            break;
-        }
-        case ui::Request::Kind::kHideCancelled:
-            pick_cycle().confirm_hide_ = 0;
-            break;
-        case ui::Request::Kind::kResetLevel:
-            if (!no_change) {
-                ask_reset_level();
-            }
-            break;
-        case ui::Request::Kind::kResetConfirmed:
-            if (!no_change && pick_cycle().confirm_reset_) {
-                reset_level_now();
-            }
-            break;
-        case ui::Request::Kind::kResetCancelled:
-            pick_cycle().confirm_reset_ = false;
-            break;
-        case ui::Request::Kind::kReqEntireRail:
-            pick_cycle().move_entire_rail_ = request.value != 0;
-            break;
-        case ui::Request::Kind::kFieldSet:
-        case ui::Request::Kind::kFieldRemove:
-        case ui::Request::Kind::kFieldHome:
-            if (!no_change) {
-                field_request(request);
-            }
-            break;
-        case ui::Request::Kind::kLevelProps:
-        case ui::Request::Kind::kLevelPropsDone:
-            if (!drag_state().dragging_ && !level_editor_state().key_moving_) {
-                level_props_request(request);
-            }
-            break;
-        case ui::Request::Kind::kCrownMove:
-            if (!no_change) {
-                move_selected_crown(request.value);
-            }
-            break;
-        case ui::Request::Kind::kBrowserPreview:
-            stored_browser().preview = request.value;
-            break;
-        case ui::Request::Kind::kPreviewOrbit:
-            preview::intake({.x = core::at(request.a, 0), .y = core::at(request.a, 1)}, core::at(request.a, 2));
-            break;
-        case ui::Request::Kind::kSelectObject:
-            if (!drag_state().dragging_) {
-                if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(request.id))) {
-                    select_objects({object});
-                    go_to_selection();
-                    note_action("selected in the Outliner: %s", describe_selection().c_str());
-                }
-            }
-            break;
-        }
+        apply_request(request, request_frame);
     }
 }
 
