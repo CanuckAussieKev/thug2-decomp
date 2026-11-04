@@ -4,8 +4,8 @@ param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$G
 # A game in trouble (game_health.ps1: it crashed - exit code not 0 -, Windows Error Reporting runs for it, it shows a
 # dialog, or its window hasn't responded for -HangSeconds) is noticed while waiting, closed (WM_CLOSE, then killed),
 # and reported with the end of its log - also appended to <folder>\thug2-decomp-crashes.txt. Exit code 5 then.
-# -Level <name>: the game started with -level <name> - straight into free skate there (src/frontend/start_level.h).
-# Commands (the test-automation channel, src/frontend/automation.h - [features] automation=1, set in the workspaces):
+# -Level <name>: the game started with -level <name> - straight into free skate there (src/devtools/start_level.h).
+# Commands (the test-automation channel, src/devtools/automation.h - [features] automation=1, set in the workspaces):
 #   -Commands "waitfor ready","choose menu_singlesess",...: written to <folder>\thug2-decomp-commands.txt before the
 #                       game starts; the run waits until the game has done them (its status file) - -Seconds is then
 #                       the most it waits - and the picture is taken right after. No fixed waits, no posted keys.

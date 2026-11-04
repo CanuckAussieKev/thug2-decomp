@@ -2,7 +2,7 @@ param([Parameter(Mandatory = $true)][ValidateRange(1, 9)][int]$Number, [string]$
 # Makes (or refreshes) a workspace copy of the game, C:\Games\THUG2-<Number>, from the main install, for an agent's
 # game runs alongside the user's: a 1280x720 window (not borderless), allow_multiple_instances=1, debug_collision=0
 # and the test-automation channel on ([features] automation=1: commands from
-# thug2-decomp-commands.txt, src/frontend/automation.h - never on in the main install).
+# thug2-decomp-commands.txt, src/devtools/automation.h - never on in the main install).
 #   make_workspace.ps1 -Number 3
 # -To <folder>: make it there instead of C:\Games\THUG2-<Number> (a scratch folder, to try the script itself).
 # A refresh mirrors the main install over it (main's thug2-decomp.exe, levels and overlay; files only the workspace had - its logs,

@@ -1,5 +1,5 @@
 # Dot-sourced by run_game.ps1 and game_cmd.ps1: the test-automation channel's files in a game folder
-# (src/frontend/automation.h - [features] automation=1, set in the workspaces by make_workspace.ps1).
+# (src/devtools/automation.h - [features] automation=1, set in the workspaces by make_workspace.ps1).
 #   <folder>\thug2-decomp-commands.txt   commands the game runs, one a line (appended)
 #   <folder>\thug2-decomp-status.json    where the game is and the last command's result (rewritten by the game)
 

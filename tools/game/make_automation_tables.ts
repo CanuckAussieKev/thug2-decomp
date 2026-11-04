@@ -22,7 +22,7 @@ const USAGE = "usage: make_automation_tables.ts [--game GAME] [--ns NS] [--out O
 
 // (the default --out: the decomp's src/devtools/automation_tables.inc - lib/decomp.ts)
 const defaultOut = (): string =>
-    path.join(needDecomp("src/frontend (the default --out)"), "src", "frontend", "automation_tables.inc");
+    path.join(needDecomp("src/devtools (the default --out)"), "src", "devtools", "automation_tables.inc");
 // The menu level's maker names the ids of the menus it adds.
 // (the content pipeline, the decomp's submodule tools/pipeline)
 const MENU_LEVEL = [path.join(import.meta.dirname, "..", "pipeline", "menu_level", "make_menu_level.ts")];

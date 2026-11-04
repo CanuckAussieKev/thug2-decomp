@@ -57,7 +57,7 @@ bool edit_requested();
 void tick_frame(modules::FrontEnd* front_end);
 // What Update does once the menu is up: the level `name` (with or without Load_) in free skate. False (logged, and
 // why in `why` if given) for an unknown level or one whose scene isn't installed. (Also the automation channel's
-// `level` command - frontend/automation.h.)
+// `level` command - devtools/automation.h.)
 bool read_in(const char* name, std::string* why);
 
 // The command line's option (pure): the word after `-<option> `, `--<option> ` or `--<option>=` in

@@ -85,7 +85,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     net / online / internet / lobby / login / buddy / homie / gamespy / network / server / join / host / lan), `choose` /
     `focus` / `press` refuse items whose ids or event handlers lead there (MULTIPLAYER, Network / Online Play...), and
     nothing but wait / echo / quit runs while the game is online or in a network game mode. The tables are generated:
-    `node tools/game/make_automation_tables.ts` (reads the game's loose scripts) -> src/frontend/automation_tables.inc.
+    `node tools/game/make_automation_tables.ts` (reads the game's loose scripts) -> src/devtools/automation_tables.inc.
   - With the channel on, the game also keeps drawing while its window is in the background (PrintWindow pictures show
     the current frame; without it the main loop stops drawing when the window loses the focus).
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
