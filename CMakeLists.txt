@@ -331,6 +331,7 @@ add_executable(thug2 WIN32
     src/editor/level_editor.cpp
     src/devtools/restart_tester.cpp
     src/devtools/screenshot.cpp
+    src/devtools/extensions.cpp
     src/engine/gfx/screenshot_capture.cpp
     src/game/commands/career_complete.cpp
     src/devtools/test_view.cpp

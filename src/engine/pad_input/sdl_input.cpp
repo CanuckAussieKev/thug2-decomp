@@ -16,7 +16,6 @@
 #include <array>
 
 #include "base/core/format.h"
-#include "devtools/automation.h"
 #include "engine/ext/extension.h"
 #include "frontend/mouse_menus.h"
 #include "engine/ui/screen_element.h"
@@ -27,7 +26,6 @@
 #include "platform/debug_log.h"
 #include "engine/sys/debug_mode.h"
 #include "engine/pad_input/pad_cfuncs.h"
-#include "devtools/screenshot.h"
 #include "platform/sdl_events.h"
 #include "engine/pad_input/direct_input.h"
 #include "base/core/checked_index.h"
@@ -1189,10 +1187,8 @@ void init_sdl_input()
     // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
     mouse_menus::prepare_all();
     // (not PartyMod's either - the extensions, engine/ext/extension.h: the level editor's mouse and Escape key, the
-    // new front end's input - nothing when it's off)
+    // new front end's input - nothing when it's off - and the screenshot key)
     ext::prepare_input();
-    // (nor the screenshot key - devtools/screenshot.h)
-    sys::screenshot::prepare_all();
 }
 
 void process_sdl_device(InputPort* device)
@@ -1246,8 +1242,8 @@ void process_sdl_device(InputPort* device)
         (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !blocked) {
         poll_controller(device, core::at(sdl_input_state().players_, port).controller);
     }
-    // (not original: the buttons the test-automation channel presses - devtools/automation.h)
-    frontend::automation::add_pad_buttons(device->port_no(), data);
+    // (not original: the buttons an extension presses - engine/ext/extension.h; the test-automation channel's)
+    ext::add_pad_buttons(device->port_no(), data);
 
     core::at(data, kControlButtonsHigh) = static_cast<uint8_t>(~core::at(data, kControlButtonsHigh));
     core::at(data, kControlButtonsLow) = static_cast<uint8_t>(~core::at(data, kControlButtonsLow));

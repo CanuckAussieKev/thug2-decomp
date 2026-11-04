@@ -26,7 +26,6 @@
 #include "game/skate/thugpro_cas.h"
 #include "engine/pad_input/device.h"
 #include "platform/sdl_events.h"
-#include "devtools/screenshot.h"
 #include "engine/sys/stopwatch.h"
 #include "platform/process_flags.h"
 #include "engine/assets/resource_registry.h"
@@ -277,16 +276,18 @@ void Hub::get_main_loop()
         }
         render_frame_letterboxed();
         after_render();
-        // Not original - the screenshot key (devtools/screenshot.h): the frame read just before it's presented.
+        // Not original - the extensions (engine/ext/extension.h; the screenshot key: the frame read just before it's
+        // presented).
         // Original behaviour: the scene is ended and presented.
-        sys::screenshot::before_present(!render::engine_parts().suppress_draw());
+        ext::before_present(!render::engine_parts().suppress_draw());
         if (!render::engine_parts().suppress_draw()) {
             end_scene();
         }
-        // Not original - a frame series (devtools/screenshot.h): the capture's time isn't counted, so no frame is
-        // skipped to catch up - every logic frame is drawn and taken.
+        // Not original - an extension that keeps every frame (engine/ext/extension.h; the screenshot key's frame
+        // series): the capture's time isn't counted, so no frame is skipped to catch up - every logic frame is drawn
+        // and taken.
         // Original behaviour: the next frame is due a frame after this one was (late ones skip drawing).
-        if (sys::screenshot::series_running()) {
+        if (ext::keeps_every_frame()) {
             QueryPerformanceCounter(&counter);
             frame_start = static_cast<uint64_t>(counter.QuadPart);
         }

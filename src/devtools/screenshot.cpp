@@ -30,9 +30,9 @@
 #include "base/core/checksums.h"
 #include "devtools/automation.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
-#include "editor/level_editor_hud.h"
-#include "editor/level_editor_scenery.h"
+#include "engine/ext/extension.h"
+#include "engine/gfx/engine_scene.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/gfx/screenshot_capture.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -85,6 +85,21 @@ namespace {
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate module's level in the front end)
 constexpr int kLogLines = 20;
 constexpr uint32_t kMessageMs = 2000;
+constexpr int kMaxSceneNodes = 256; // a scene list longer than this is taken as broken
+
+// The first world scene that isn't a sky's (the level's main scene; none while no level is up) - its checksum.
+uint32_t main_scene_key()
+{
+    const memory::ListNode* node = render::engine_parts().scene_list().next();
+    for (int guard = 0; node && !node->is_head() && guard < kMaxSceneNodes; ++guard) {
+        const auto* scene = static_cast<const render::WorldScene*>(node->data());
+        if (scene && !scene->is_sky()) {
+            return scene->checksum();
+        }
+        node = node->next();
+    }
+    return 0;
+}
 
 // NOT ORIGINAL grouping - screenshot.cpp's state (were globals). Made on first use, never destroyed
 // (screenshot_state()).
@@ -266,8 +281,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     const char* started_where = in_level ? "level" : "front end";
     game.fields.push_back({.key = "where", .value = (load == 0U) ? "starting up" : started_where});
     game.fields.push_back({.key = "level load script", .value = (load != 0U) ? get_name_of(load) : ""});
-    const uint32_t scene =
-        frontend::level_editor::scenery::world_scene_key(frontend::level_editor::scenery::main_scene());
+    const uint32_t scene = main_scene_key();
     game.fields.push_back({.key = "scene", .value = (scene != 0U) ? get_name_of(scene) : ""});
     game.fields.push_back({.key = "game mode", .value = active_ruleset_label()});
     const modules::FrontEnd* front_end = the_front_end();
@@ -277,7 +291,8 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     }
     game.fields.push_back({.key = "paused", .value = paused});
     game.fields.push_back({.key = "loading screen", .value = loading ? "yes" : "no"});
-    game.fields.push_back({.key = "level editor", .value = frontend::level_editor::live_now() ? "open" : "closed"});
+    // (the extension that owns the game: the level editor)
+    game.fields.push_back({.key = "level editor", .value = (ext::game_owner() != nullptr) ? "open" : "closed"});
     game.fields.push_back({.key = "frames run", .value = std::to_string(frame_loop::frames_run())});
     sections.push_back(game);
 
@@ -302,12 +317,13 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     }
     sections.push_back(camera);
 
-    if (frontend::level_editor::live_now()) {
-        Section editor{.title = "level editor", .fields = {}};
-        for (auto& [key, value] : frontend::level_editor::describe_for_screenshot()) {
-            editor.fields.push_back({.key = key, .value = value});
+    // (the extensions' own sections: the level editor's while it runs)
+    for (const ext::Description& added : ext::describe()) {
+        Section section{.title = added.title, .fields = {}};
+        for (const auto& [key, value] : added.fields) {
+            section.fields.push_back({.key = key, .value = value});
         }
-        sections.push_back(editor);
+        sections.push_back(section);
     }
     return sections;
 }
@@ -316,8 +332,8 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
 
 void show_message(const std::string& text)
 {
-    if (frontend::level_editor::live_now()) {
-        frontend::level_editor::hud::get_message(text, kMessageMs / kMillisecondsPerSecond);
+    // (the extension that has the screen shows it itself: the level editor's message line)
+    if (ext::show_message(text, kMessageMs / kMillisecondsPerSecond)) {
         return;
     }
     // A panel message (as the restart tester's), once the game's scripts are up.

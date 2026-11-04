@@ -32,7 +32,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
 #include "engine/sys/mlp.h"
-#include "devtools/screenshot.h"
+#include "engine/ext/extension.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
@@ -679,7 +679,7 @@ void get_emit(int before)
     if (kShots) {
         std::array<char, kNoteBytes> note{};
         text::format_to(note, "collision event %d", event.number);
-        event.screenshot = sys::screenshot::request_event_shot(note.data()) ? "requested" : "busy";
+        event.screenshot = ext::request_event_shot(note.data()) ? "requested" : "busy";
     }
 
     // The detail line.
@@ -718,7 +718,7 @@ void get_emit(int before)
                         core::at(sample.pos, 1), core::at(sample.pos, 2), state_letter(sample.state));
         detail.approach += text.data();
     }
-    detail.camera = sys::screenshot::last_view(detail.camera_pos_, detail.camera_dir_);
+    detail.camera = ext::last_view(detail.camera_pos_, detail.camera_dir_);
 
     get_log("%s", format_event(event, &get_name_of).c_str());
     get_log("%s", format_detail(detail).c_str());
@@ -726,7 +726,7 @@ void get_emit(int before)
     std::array<char, kNoticeBytes> notice{};
     text::format_to(notice, "collision event %d: %s%s", event.number, event.reason,
                     event.screenshot == "requested" ? " (screenshot)" : "");
-    sys::screenshot::show_notice(notice.data());
+    ext::show_notice(notice.data());
 }
 
 void detect()

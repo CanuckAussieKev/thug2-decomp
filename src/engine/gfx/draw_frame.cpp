@@ -17,7 +17,6 @@
 #include "engine/ext/extension.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/mat4.h"
-#include "devtools/test_view.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/draw2d.h"
 #include "engine/gfx/engine_effects.h"
@@ -41,7 +40,6 @@
 #include "engine/gfx/texture_splats.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
-#include "devtools/screenshot.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine.h"
@@ -576,10 +574,8 @@ void draw_viewport(int index)
     // Not original - the extensions (engine/ext/extension.h; the level editor: while it runs, the first viewport's
     // camera is put where the editor flies).
     // Original behaviour: the camera is drawn where the game put it.
+    // (then the automation channel's camera lock - devtools/test_view.h: viewport 0's camera held at a pose)
     ext::place_camera(static_cast<gfx::ViewCam*>(camera), index);
-    // Not original - the automation channel's camera lock (devtools/test_view.h): viewport 0's camera held at a pose.
-    // Original behaviour: the camera is drawn where the game put it.
-    frontend::test_view::place_camera(static_cast<gfx::ViewCam*>(camera), index);
     view_setup().set_drawn_viewport(index); // the viewport being drawn
     const double width = renderer().back_buffer_width();
     const double height = static_cast<float>(renderer().back_buffer_height());
@@ -617,7 +613,7 @@ void draw_viewport(int index)
         const maths::Vec4* position = viewer_location(camera);
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
         // Not original - the extensions (engine/ext/extension.h): the view's projection noted (the level editor's
-        // mouse ray and outlines).
+        // mouse ray and outlines; the camera for the screenshot key's sidecar).
         // Original behaviour: nothing.
         const DeviceViewport& drawn = renderer().device_viewport();
         const maths::Mat4* frame = cam_orientation(camera);
@@ -631,8 +627,6 @@ void draw_viewport(int index)
             .forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}},
         };
         ext::view_drawn(note);
-        // Not original - the screenshot key's sidecar (devtools/screenshot.h): the camera noted.
-        sys::screenshot::note_view(index, note.position, note.forward);
     }
     for_each_scene([&](PcScene* scene) {
         if (scene->is_sky()) {

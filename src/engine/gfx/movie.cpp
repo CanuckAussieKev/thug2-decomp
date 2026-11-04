@@ -21,7 +21,7 @@
 
 #include "base/core/dbg.h"
 #include "base/core/checksums.h"
-#include "devtools/start_level.h"
+#include "engine/ext/extension.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/render_state.h"
 #include "engine/audio/music_player.h"
@@ -510,8 +510,9 @@ bool from_start_up_script(void* script)
 
 bool& skip_intro_movies()
 {
-    // (not original either: -edit implies it - straight into the level editor)
-    static bool skip = config_int("features", "skip_intro_movies", 0) != 0 || frontend::begin_level::edit_requested();
+    // (not original either: an extension may skip them - engine/ext/extension.h; -edit does: straight into the level
+    // editor)
+    static bool skip = config_int("features", "skip_intro_movies", 0) != 0 || ext::skips_intro_movies();
     return skip;
 }
 
