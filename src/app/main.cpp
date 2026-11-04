@@ -33,7 +33,7 @@
 #include "engine/net/transport.h"
 #include "engine/media/movie.h"
 #include "engine/script/host.h"
-#include "engine/script/qb_host.h"
+#include "script_qb/qb_host.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
 #include "input_dinput/dinput_source.h"

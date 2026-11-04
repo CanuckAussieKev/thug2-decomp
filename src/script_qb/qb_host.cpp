@@ -1,14 +1,14 @@
 // NOT ORIGINAL - the QB interpreter behind script::Host (qb_host.h): one line each, into the interpreter's functions
 // (qb_script.h) - the same calls, with the same arguments, in the same order as the game made them.
 
-#include "engine/script/qb_host.h"
+#include "script_qb/qb_host.h"
 
 #include <cstdint>
 
 #include "base/core/no_destroy.h"
 #include "engine/script/cscript.h"
 #include "engine/script/host.h"
-#include "engine/script/qb_script.h"
+#include "script_qb/qb_script.h"
 
 namespace objects {
 class Entity;

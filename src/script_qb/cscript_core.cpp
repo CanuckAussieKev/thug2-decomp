@@ -1,7 +1,7 @@
 // CScript's life: construction and destruction, the pooled new / delete, stopping (reset_script_state), setting the
 // script to run. See qb_script.h for the class and docs/script-runtime.md.
 
-#include "engine/script/qb_script.h"
+#include "script_qb/qb_script.h"
 #include "engine/script/cscript.h"
 
 #include <algorithm>

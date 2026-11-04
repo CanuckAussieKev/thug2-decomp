@@ -15,7 +15,7 @@ set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
 # Every layer, highest first (the libraries bring the system and third-party libraries they need).
 target_link_libraries(thug2 PRIVATE thug2_frontend thug2_editor thug2_devtools thug2_game thug2_render_d3d9
                                     thug2_audio_dsound thug2_media_bink thug2_input_dinput thug2_fs_win32 thug2_net_winsock
-                                    thug2_engine
+                                    thug2_script_qb thug2_engine
                                     thug2_wire thug2_formats thug2_platform thug2_base)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.

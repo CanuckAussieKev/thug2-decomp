@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <span>
 
-#include "engine/script/qb_script.h"
+#include "script_qb/qb_script.h"
 #include "engine/script/cscript.h"
 #include "base/core/enum_ops.h"
 

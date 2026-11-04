@@ -28,7 +28,7 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/objects/entity.h"
-#include "engine/script/qb_script.h"
+#include "script_qb/qb_script.h"
 #include "engine/script/cscript.h"
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"

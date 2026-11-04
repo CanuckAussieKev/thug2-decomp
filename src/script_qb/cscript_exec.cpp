@@ -47,7 +47,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cache.h"
 #include "engine/script/cell.h"
-#include "engine/script/qb_script.h"
+#include "script_qb/qb_script.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/params.h"
