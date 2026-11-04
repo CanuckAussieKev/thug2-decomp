@@ -2,6 +2,8 @@
 
 #include "engine/script/node_hooks.h"
 
+#include <cstdint>
+
 namespace script {
 
 namespace {
