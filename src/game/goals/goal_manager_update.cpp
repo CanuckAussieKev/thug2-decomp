@@ -11,6 +11,7 @@
 #include <span>
 
 #include "engine/core/str.h"
+#include "engine/sys/game_config.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/text_element.h"
@@ -221,7 +222,8 @@ void GoalManager::append_objective_list_entries()
                 if (params->read_hash_value(kRecordType, &type, 0)) {
                     if (type == kScore) {
                         params->fetch_int_value(kWinRecord, &value, 0);
-                        text::format_to(record, "%s", text::format_with_separators(value)); // "%s"
+                        text::format_to(record, "%s", // "%s"
+                                        text::format_with_separators(value, game_config::get_language()));
                         item->append_word(kRecordText, record.data());
                     } else if (type == kTime) {
                         int ms = 0;

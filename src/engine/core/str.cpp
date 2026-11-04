@@ -9,7 +9,6 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
-#include "engine/sys/game_config.h"
 #include "engine/core/language.h"
 
 namespace text {
@@ -82,7 +81,7 @@ std::array<char, kSeparatedNumberSize>& separated_number()
 } // namespace
 
 // 0x00402200
-const char* format_with_separators(int value)
+const char* format_with_separators(int value, int language)
 {
     core::Cursor<char> out{std::span<char>(separated_number())}; // shared with the original code
     if (value < 0) {
@@ -94,7 +93,7 @@ const char* format_with_separators(int value)
     text::format_to(digits, "%d", value);
 
     char separator = 0;
-    switch (game_config::get_language()) { // the game's language setting
+    switch (language) { // the game's language setting, from the caller
     case core::kLanguageFrench:
         separator = ' ';
         break;

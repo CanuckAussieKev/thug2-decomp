@@ -14,6 +14,7 @@
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
+#include "engine/sys/game_config.h"
 #include "engine/lists/dynamic_table.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/text_block.h"
@@ -344,13 +345,14 @@ void PointTally::dispatch_score_pot(int points, float multiplier) const
         core::at(shown, 0) = ' ';
         core::at(shown, 1) = 0;
     } else if (multiplier == 0.0F) {
-        text::format_to(shown, "%s", text::format_with_separators(points)); // "%s"
+        text::format_to(shown, "%s", text::format_with_separators(points, game_config::get_language())); // "%s"
     } else {
         const int whole = ftol(multiplier);
         if (static_cast<double>(whole) == multiplier) {
-            text::format_to(shown, "%s X %d", text::format_with_separators(points), whole); // "%s X %d"
+            text::format_to(shown, "%s X %d", // "%s X %d"
+                            text::format_with_separators(points, game_config::get_language()), whole);
         } else {
-            text::format_to(shown, "%s X %.1f", text::format_with_separators(points),
+            text::format_to(shown, "%s X %.1f", text::format_with_separators(points, game_config::get_language()),
                             static_cast<double>(multiplier)); // "%s X %.1f"
         }
     }

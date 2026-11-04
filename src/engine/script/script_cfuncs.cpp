@@ -14,6 +14,7 @@
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
+#include "engine/sys/game_config.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/token_reader.h"
@@ -227,7 +228,8 @@ int format_text(script::Struct& results, script::Struct* params)
         switch (value_kind(value)) {
         case script::QbValueKind::kInteger:
             if (params->has_bare_flag(kUseCommas)) {
-                text::format_to(text, "%s", text::format_with_separators(value.value.integer()));
+                text::format_to(text, "%s",
+                                text::format_with_separators(value.value.integer(), game_config::get_language()));
             } else {
                 int width = 0;
                 if (params->fetch_int_value(kIntegerWidth, &width, 0)) {
