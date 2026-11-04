@@ -153,6 +153,34 @@ gsl::owner<Array*> new_array_of(script::QbValueKind type, uint32_t value)
     return array;
 }
 
+// A restart node's RestartName: its kind's for a restart's first node, else a multiplayer one's.
+const char* restart_label(int type, bool first_node)
+{
+    const char* label = "Multi Restart";
+    if (first_node) {
+        switch (type) {
+        case RestartPoint::kPlayer1:
+            label = "Player 1 Restart";
+            break;
+        case RestartPoint::kPlayer2:
+            label = "Player 2 Restart";
+            break;
+        case RestartPoint::kHorse:
+            label = "Horse Restart";
+            break;
+        case RestartPoint::kRedFlag:
+        case RestartPoint::kRedFlag + 1:
+        case RestartPoint::kRedFlag + 2:
+        case RestartPoint::kYellowFlag:
+            label = "Team: CTF";
+            break;
+        default:
+            break;
+        }
+    }
+    return label;
+}
+
 } // namespace
 
 uint32_t ParkAssembler::next_geometry_node(Array* nodes, int* index)
@@ -171,20 +199,23 @@ uint32_t ParkAssembler::next_geometry_node(Array* nodes, int* index)
     return 0;
 }
 
+bool ParkAssembler::node_used(int node) const
+{
+    const std::span<const int> used_run(used_nodes_, 256); // (room for 256)
+    bool found = false;
+    for (int i = 0; i < num_used_nodes_; ++i) {
+        if (core::at(used_run, i) == node) {
+            found = true;
+        }
+    }
+    return found;
+}
+
 uint32_t ParkAssembler::find_following_rail_node(Array* nodes, checksums::Name geometry_name, uint32_t previous, RailNodeInfo* info,
                                                  bool* is_loop)
 {
     const uint32_t geometry = geometry_name.value();
     const std::span<int> used_run(used_nodes_, 256); // (room for 256)
-    auto used = [this, used_run](int node) {
-        bool found = false;
-        for (int i = 0; i < num_used_nodes_; ++i) {
-            if (core::at(used_run, i) == node) {
-                found = true;
-            }
-        }
-        return found;
-    };
     int linked = -1; // a node linked from another (the next after `previous`, or one of a rail with no end)
     int first = -1;  // a node with no links: a rail's first
     int from = 0;
@@ -209,7 +240,7 @@ uint32_t ParkAssembler::find_following_rail_node(Array* nodes, checksums::Name g
             if (link != previous) {
                 continue;
             }
-            linked = used(i) ? -1 : i;
+            linked = node_used(i) ? -1 : i;
             if (linked != -1) {
                 break;
             }
@@ -221,12 +252,12 @@ uint32_t ParkAssembler::find_following_rail_node(Array* nodes, checksums::Name g
                 rail_search_start() = i;
             }
             if (link == 0U) {
-                first = used(i) ? -1 : i;
+                first = node_used(i) ? -1 : i;
                 if (first != -1) {
                     break;
                 }
             } else if (linked == -1) {
-                linked = used(i) ? -1 : i;
+                linked = node_used(i) ? -1 : i;
             }
         }
     }
@@ -614,28 +645,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                 node->add_component_of_type(kType, script::QbValueKind::kName, restart_type);
                 node->add_component_of_type(kFlag, script::QbValueKind::kName, kCreatedAtStart);
                 if (type != RestartPoint::kCrownRestart) {
-                    const char* label = "Multi Restart";
-                    if (k == 0) {
-                        switch (type) {
-                        case RestartPoint::kPlayer1:
-                            label = "Player 1 Restart";
-                            break;
-                        case RestartPoint::kPlayer2:
-                            label = "Player 2 Restart";
-                            break;
-                        case RestartPoint::kHorse:
-                            label = "Horse Restart";
-                            break;
-                        case RestartPoint::kRedFlag:
-                        case RestartPoint::kRedFlag + 1:
-                        case RestartPoint::kRedFlag + 2:
-                        case RestartPoint::kYellowFlag:
-                            label = "Team: CTF";
-                            break;
-                        default:
-                            break;
-                        }
-                    }
+                    const char* label = restart_label(type, k == 0);
                     node->append_word(kRestartName, script::QbValueKind::kString, label);
                     gsl::owner<Array*> types = new_array_of(script::QbValueKind::kName, restart_type);
                     node->append_array_value(kRestartTypes, types);

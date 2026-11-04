@@ -478,6 +478,79 @@ void ParkBuilderMode::move_selection_cursor() const
     }
 }
 
+// Turning the piece (its quarter turns returned), or the gap.
+int ParkBuilderMode::turn_with_cursor() const
+{
+    int rotation90 = 0;
+    if ((actions_ & kCommandTurnLeft) != 0U) {
+        launch_script(kPlayRotatePieceSound);
+        if (is_gap_tool(get_cursor())) {
+            get_cursor()->change_gap({.turn = -1, .left = 0, .right = 0});
+        } else {
+            rotation90 = -1;
+        }
+    }
+    if ((actions_ & kCommandTurnRight) != 0U) {
+        launch_script(kPlayRotatePieceSound);
+        if (is_gap_tool(get_cursor())) {
+            get_cursor()->change_gap({.turn = 1, .left = 0, .right = 0});
+        } else {
+            rotation90 = 1;
+        }
+    }
+    return rotation90;
+}
+
+// Placing: a gap's half, the area selection's corners, the paste, or the piece.
+void ParkBuilderMode::place_with_cursor()
+{
+    if (is_gap_tool(get_cursor())) {
+        if ((get_cursor()->add_gap_half() || get_cursor()->is_over_gap()) &&
+            get_cursor()->current_gap().halves_placed() != 1) {
+            launch_script(kPlayEdPlaceSound);
+            launch_script(kGapPlaced);
+        } else {
+            launch_script(kPlayEdBuzzSound);
+        }
+        action_finished_ = true;
+    } else if (get_cursor()->mode_sel() == BuildPointer::Mode::kAreaSelect) {
+        switch (get_cursor()->advance_area_selection()) {
+        case 1:
+            launch_script(kPlayEdPlaceSound);
+            break;
+        case 2:
+            launch_script(kPlayEdPlaceSound);
+            launch_script(kAreaSelected);
+            break;
+        default:
+            launch_script(kPlayEdBuzzSound);
+            break;
+        }
+    } else if (get_cursor()->mode_sel() == BuildPointer::Mode::kPaste) {
+        get_cursor()->show_clipboard();
+        action_finished_ = true;
+    } else {
+        launch_script(get_cursor()->commit_tile_placement() ? kPlayEdPlaceSound : kPlayEdBuzzSound);
+        action_finished_ = true;
+    }
+}
+
+// Removing: a gap's half (the command isn't counted), the area selection, or what's under the cursor.
+void ParkBuilderMode::remove_with_cursor()
+{
+    if (is_gap_tool(get_cursor())) {
+        launch_script(get_cursor()->remove_gap_half() ? kPlayEdEraseSound : kPlayEdBuzzSound);
+    } else {
+        if (get_cursor()->mode_sel() == BuildPointer::Mode::kAreaSelect) {
+            get_cursor()->drop_area_marquee();
+        } else {
+            launch_script(get_cursor()->destroy_under_cursor() ? kPlayEdEraseSound : kPlayEdBuzzSound);
+        }
+        action_finished_ = true;
+    }
+    gap_registry()->update_checklist();
+}
+
 // 0x0058ED50
 void ParkBuilderMode::tick_frame()
 {
@@ -547,70 +620,16 @@ void ParkBuilderMode::tick_frame()
     }
 
     // Turning the piece, or the gap.
-    int rotation90 = 0;
-    if ((actions_ & kCommandTurnLeft) != 0U) {
-        launch_script(kPlayRotatePieceSound);
-        if (is_gap_tool(get_cursor())) {
-            get_cursor()->change_gap({.turn = -1, .left = 0, .right = 0});
-        } else {
-            rotation90 = -1;
-        }
-    }
-    if ((actions_ & kCommandTurnRight) != 0U) {
-        launch_script(kPlayRotatePieceSound);
-        if (is_gap_tool(get_cursor())) {
-            get_cursor()->change_gap({.turn = 1, .left = 0, .right = 0});
-        } else {
-            rotation90 = 1;
-        }
-    }
+    const int rotation90 = turn_with_cursor();
 
     // Placing: a gap's half, the area selection's corners, the paste, or the piece.
     if ((actions_ & kCommandPlace) != 0U) {
-        if (is_gap_tool(get_cursor())) {
-            if ((get_cursor()->add_gap_half() || get_cursor()->is_over_gap()) &&
-                get_cursor()->current_gap().halves_placed() != 1) {
-                launch_script(kPlayEdPlaceSound);
-                launch_script(kGapPlaced);
-            } else {
-                launch_script(kPlayEdBuzzSound);
-            }
-            action_finished_ = true;
-        } else if (get_cursor()->mode_sel() == BuildPointer::Mode::kAreaSelect) {
-            switch (get_cursor()->advance_area_selection()) {
-            case 1:
-                launch_script(kPlayEdPlaceSound);
-                break;
-            case 2:
-                launch_script(kPlayEdPlaceSound);
-                launch_script(kAreaSelected);
-                break;
-            default:
-                launch_script(kPlayEdBuzzSound);
-                break;
-            }
-        } else if (get_cursor()->mode_sel() == BuildPointer::Mode::kPaste) {
-            get_cursor()->show_clipboard();
-            action_finished_ = true;
-        } else {
-            launch_script(get_cursor()->commit_tile_placement() ? kPlayEdPlaceSound : kPlayEdBuzzSound);
-            action_finished_ = true;
-        }
+        place_with_cursor();
     }
 
     // Removing: a gap's half (the command isn't counted), the area selection, or what's under the cursor.
     if ((actions_ & kCommandRemove) != 0U) {
-        if (is_gap_tool(get_cursor())) {
-            launch_script(get_cursor()->remove_gap_half() ? kPlayEdEraseSound : kPlayEdBuzzSound);
-        } else {
-            if (get_cursor()->mode_sel() == BuildPointer::Mode::kAreaSelect) {
-                get_cursor()->drop_area_marquee();
-            } else {
-                launch_script(get_cursor()->destroy_under_cursor() ? kPlayEdEraseSound : kPlayEdBuzzSound);
-            }
-            action_finished_ = true;
-        }
-        gap_registry()->update_checklist();
+        remove_with_cursor();
     }
 
     move_selection_cursor();

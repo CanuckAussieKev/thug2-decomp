@@ -186,6 +186,12 @@ public:
     void set_lighting_script(uint32_t value) { lighting_script_ = value; }
 
 private:
+    // (Parts of 0x0058ED50, tick_frame: turning the piece (its quarter turns returned) or the gap; placing and
+    // removing with the cursor.)
+    [[nodiscard]] int turn_with_cursor() const;
+    void place_with_cursor();
+    void remove_with_cursor();
+
     Listener listener_;    // +0x14
     bool action_finished_{false}; // +0x30: a command that changes the park was carried out
     std::array<uint8_t, 3> pad31{};

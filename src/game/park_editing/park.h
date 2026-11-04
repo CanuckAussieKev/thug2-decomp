@@ -998,6 +998,8 @@ public:
     // one: one with no links, else a linked one - `*is_loop` set); its name (0 if none)
     uint32_t find_following_rail_node(script::Array* nodes, checksums::Name geometry_name, uint32_t previous, RailNodeInfo* info,
                                       bool* is_loop);
+    // Whether node `node` is one of the rails' nodes used already.
+    [[nodiscard]] bool node_used(int node) const;
     // 0x005936E0: the source rails from the pieces' node array (each source piece's rail point and segment counts)
     void build_source_rails(script::Array* nodes);
     // --- park_generator.cpp (0x00591C70-0x00592740) ---
@@ -1409,6 +1411,11 @@ public:
     [[nodiscard]] const std::array<uint32_t, kNumRestartPieces>& restart_pieces() const { return restart_pieces_; }
 
 private:
+    // (Parts of set_up_abstract_metas: a single piece's special_type - a tool, a restart's piece or a flag; a
+    // metapiece of several pieces, their names added to `piece_names` from `count` on.)
+    void read_special_type(script::Struct* desc, PieceGroup* meta, uint32_t single);
+    void add_multiple_pieces(PieceGroup* meta, script::Array* pieces, std::span<uint32_t> piece_names, uint32_t& count);
+
     ParkAssembler* builder_; // +0x00
     bool park_built_{false}; // +0x04: the park is built (its changes go into the map when asked)
     bool field_05_{false};   // +0x05: the floor is built

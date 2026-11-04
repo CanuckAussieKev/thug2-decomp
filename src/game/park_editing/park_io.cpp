@@ -99,6 +99,88 @@ uint8_t byte_at(script::Array* array, uint32_t index) { return static_cast<uint8
 
 } // namespace
 
+// A single piece's special_type: a tool, a restart's piece or a flag.
+void ParkLayout::read_special_type(script::Struct* desc, PieceGroup* meta, uint32_t single)
+{
+    uint32_t special = 0;                                   // (left unset if there's none, as in the original)
+    if (desc->read_hash_value(kSpecialType, &special, 0)) { // special_type
+        switch (special) {
+        case kGapPlacement: // gap_placement
+            meta->flag_bits() |= PieceGroup::kGap;
+            break;
+        case kAreaSelection: // area_selection
+            meta->flag_bits() |= PieceGroup::kMarqueeTool;
+            break;
+        case kRailPlacement: // rail_placement
+            meta->flag_bits() |= PieceGroup::kRailPlacement;
+            break;
+        case kRestart1: // restart_1
+            core::at(restart_pieces_, 0) = single;
+            break;
+        case kRestartMulti: // restart_multi
+            core::at(restart_pieces_, 1) = single;
+            break;
+        case kRestartHorse: // restart_horse
+            core::at(restart_pieces_, 2) = single;
+            break;
+        case kKingOfHill: // king_of_hill
+            core::at(restart_pieces_, 3) = single;
+            break;
+        case kRedFlag: // red_flag
+            core::at(restart_pieces_, 4) = single;
+            meta->flag_bits() |= PieceGroup::kRestartFlag;
+            break;
+        case kGreenFlag: // green_flag
+            core::at(restart_pieces_, kGreenFlagSlot) = single;
+            meta->flag_bits() |= PieceGroup::kRestartFlag;
+            break;
+        case kBlueFlag: // blue_flag
+            core::at(restart_pieces_, kBlueFlagSlot) = single;
+            meta->flag_bits() |= PieceGroup::kRestartFlag;
+            break;
+        case kYellowFlag: // yellow_flag
+            core::at(restart_pieces_, kYellowFlagSlot) = single;
+            meta->flag_bits() |= PieceGroup::kRestartFlag;
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+// A metapiece of several pieces (at their positions and turns), their names added to `piece_names` from `count`
+// on; locked to the floor with a riser among them.
+void ParkLayout::add_multiple_pieces(PieceGroup* meta, script::Array* pieces, std::span<uint32_t> piece_names,
+                                     uint32_t& count)
+{
+    bool unslidable = false;
+    meta->commission(static_cast<int>(pieces->extent()));
+    for (uint32_t i = 0; i < pieces->extent(); ++i) {
+        auto* entry = pieces->struct_at(i);
+        const uint32_t name = entry->step_to_entry(nullptr)->value.word(); // the piece's name comes first
+        script::Array* at = nullptr;
+        entry->fetch_list(0U, &at, 1); // its unnamed [x y z (rot)]
+        TileTemplate* source = piece_source(builder_, name);
+        core::at(piece_names, count++) = name;
+        CellBox pos{};
+        pos.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
+        get_footprint_size(source, &pos);
+        const uint8_t z = byte_at(at, 2);
+        const uint8_t y = byte_at(at, 1);
+        pos.x = byte_at(at, 0);
+        pos.y = static_cast<int8_t>(y);
+        pos.z = z;
+        const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
+        if (entry->has_bare_flag(kRiser)) {
+            unslidable = true;
+        }
+        meta->insert_tile(source, &pos, rot, entry->has_bare_flag(kRiser));
+    }
+    if (unslidable) {
+        meta->flag_bits() |= PieceGroup::kFloorLocked;
+    }
+}
+
 void ParkLayout::set_up_abstract_metas()
 {
     script::Array* all = script::fetch_list("Ed_standard_metapieces"); // (0x00479090, asserting)
@@ -136,77 +218,9 @@ void ParkLayout::set_up_abstract_metas()
             core::at(piece_names, num_piece_names++) = name;
             meta->flag_bits() |= PieceGroup::kSector;
             meta->name_key() = name;
-            uint32_t special = 0;                                 // (left unset if there's none, as in the original)
-            if (desc->read_hash_value(kSpecialType, &special, 0)) { // special_type
-                switch (special) {
-                case kGapPlacement: // gap_placement
-                    meta->flag_bits() |= PieceGroup::kGap;
-                    break;
-                case kAreaSelection: // area_selection
-                    meta->flag_bits() |= PieceGroup::kMarqueeTool;
-                    break;
-                case kRailPlacement: // rail_placement
-                    meta->flag_bits() |= PieceGroup::kRailPlacement;
-                    break;
-                case kRestart1: // restart_1
-                    core::at(restart_pieces_, 0) = single;
-                    break;
-                case kRestartMulti: // restart_multi
-                    core::at(restart_pieces_, 1) = single;
-                    break;
-                case kRestartHorse: // restart_horse
-                    core::at(restart_pieces_, 2) = single;
-                    break;
-                case kKingOfHill: // king_of_hill
-                    core::at(restart_pieces_, 3) = single;
-                    break;
-                case kRedFlag: // red_flag
-                    core::at(restart_pieces_, 4) = single;
-                    meta->flag_bits() |= PieceGroup::kRestartFlag;
-                    break;
-                case kGreenFlag: // green_flag
-                    core::at(restart_pieces_, kGreenFlagSlot) = single;
-                    meta->flag_bits() |= PieceGroup::kRestartFlag;
-                    break;
-                case kBlueFlag: // blue_flag
-                    core::at(restart_pieces_, kBlueFlagSlot) = single;
-                    meta->flag_bits() |= PieceGroup::kRestartFlag;
-                    break;
-                case kYellowFlag: // yellow_flag
-                    core::at(restart_pieces_, kYellowFlagSlot) = single;
-                    meta->flag_bits() |= PieceGroup::kRestartFlag;
-                    break;
-                default:
-                    break;
-                }
-            }
+            read_special_type(desc, meta, single);
         } else if (desc->fetch_list("multiple", &pieces, 0)) {
-            bool unslidable = false;
-            meta->commission(static_cast<int>(pieces->extent()));
-            for (uint32_t i = 0; i < pieces->extent(); ++i) {
-                auto* entry = pieces->struct_at(i);
-                const uint32_t name = entry->step_to_entry(nullptr)->value.word(); // the piece's name comes first
-                script::Array* at = nullptr;
-                entry->fetch_list(0U, &at, 1); // its unnamed [x y z (rot)]
-                TileTemplate* source = piece_source(builder_, name);
-                core::at(piece_names, num_piece_names++) = name;
-                CellBox pos{};
-                pos.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
-                get_footprint_size(source, &pos);
-                const uint8_t z = byte_at(at, 2);
-                const uint8_t y = byte_at(at, 1);
-                pos.x = byte_at(at, 0);
-                pos.y = static_cast<int8_t>(y);
-                pos.z = z;
-                const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
-                if (entry->has_bare_flag(kRiser)) {
-                    unslidable = true;
-                }
-                meta->insert_tile(source, &pos, rot, entry->has_bare_flag(kRiser));
-            }
-            if (unslidable) {
-                meta->flag_bits() |= PieceGroup::kFloorLocked;
-            }
+            add_multiple_pieces(meta, pieces, piece_names, num_piece_names);
         } else if (desc->fetch_list("ack", &pieces, 0)) { // made of other palette metapieces
             meta->commission(static_cast<int>(pieces->extent()));
             for (uint32_t i = 0; i < pieces->extent(); ++i) {
