@@ -18,7 +18,7 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "formats/image_format.h"
 #include "formats/byte_stream.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "platform/platform_system.h"
 #include <gsl/pointers>
 #include <array>

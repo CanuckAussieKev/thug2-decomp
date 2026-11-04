@@ -29,7 +29,7 @@
 #include "engine/gfx/hd_ui.h"
 #include "engine/gfx/render_state.h"
 #include "engine/pad_input/device.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"

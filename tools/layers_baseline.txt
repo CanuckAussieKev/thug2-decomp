@@ -460,8 +460,6 @@ src/platform/platform_cfuncs.cpp -> src/engine/pad_input/sdl_input.h
 src/platform/platform_cfuncs.cpp -> src/engine/script/cscript.h
 src/platform/platform_cfuncs.cpp -> src/engine/script/names.h
 src/platform/platform_cfuncs.cpp -> src/engine/script/script_tables.h
-src/platform/platform_d3d.cpp -> src/engine/gfx/pc_flexible_particles.h
-src/platform/platform_d3d.cpp -> src/engine/gfx/renderer.h
 src/platform/platform_input.cpp -> src/engine/gfx/renderer.h
 src/platform/platform_input.cpp -> src/engine/gfx/view_cam.h
 src/platform/platform_input.cpp -> src/engine/gfx/view_setup.h

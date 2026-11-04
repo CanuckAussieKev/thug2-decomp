@@ -840,7 +840,7 @@ add_executable(thug2 WIN32
     src/game/rider/thaw_bmx_tricks.cpp
     src/game/rider/trick_component.cpp
     src/platform/platform.cpp
-    src/platform/platform_d3d.cpp
+    src/engine/gfx/pc_d3d_resources.cpp
     src/platform/platform_input.cpp
     src/platform/platform_state.cpp
     src/platform/platform_system.cpp

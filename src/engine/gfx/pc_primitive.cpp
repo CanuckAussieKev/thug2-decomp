@@ -20,7 +20,7 @@
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
 #include "base/core/down_cast.h"

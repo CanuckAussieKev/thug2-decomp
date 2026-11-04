@@ -19,7 +19,7 @@
 #include "engine/gfx/particle_types.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine.h"
 #include <gsl/pointers>

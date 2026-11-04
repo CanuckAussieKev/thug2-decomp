@@ -1,6 +1,6 @@
 // The Win32 platform layer's Direct3D side: see platform_d3d.h.
 
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 
 #include <cstddef>
 #include <cstdint>

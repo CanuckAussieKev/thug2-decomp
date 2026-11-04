@@ -14,7 +14,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport.h"
 #include "base/maths/vec4.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "engine/gfx/shader_slots.h"
 #include <gsl/pointers>
 #include <array>

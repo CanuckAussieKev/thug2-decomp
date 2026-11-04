@@ -33,7 +33,7 @@
 #include "app/startup.h"
 #include "app/pc_setup.h"
 #include "platform/platform.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "platform/platform_input.h"
 #include "platform/platform_system.h"
 #include "platform/process_flags.h"

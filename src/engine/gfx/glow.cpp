@@ -15,7 +15,7 @@
 
 #include "engine/gfx/render_state.h"
 #include "engine/lists/key_map.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/sys/startup_init.h"
 #include "base/core/checked_index.h"

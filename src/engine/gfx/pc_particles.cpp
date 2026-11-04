@@ -23,7 +23,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/texture_dict.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"

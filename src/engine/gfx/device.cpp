@@ -22,7 +22,7 @@
 #include "engine/gfx/pc_gamma.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/text.h"
-#include "platform/platform_d3d.h"
+#include "engine/gfx/pc_d3d_resources.h"
 #include "platform/sdl_window.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/sys/game_config.h"
