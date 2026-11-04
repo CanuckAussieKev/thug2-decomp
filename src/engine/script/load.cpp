@@ -15,6 +15,7 @@
 #include "engine/memory/mem.h"
 #include "engine/file/packs.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/token_reader.h"
@@ -273,7 +274,7 @@ void restart_changed_scripts()
     for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
         // (byte 0 bit 0: new since the last time - create_symbol sets it)
         if (((symbol->unknown0() & 1) != 0) && symbol->type() == QbValueKind::kScriptBody) {
-            relaunch_scripts_referring_to(symbol->name_value());
+            host().relaunch_scripts_referring_to(symbol->name_value());
             symbol->unknown0() &= kSymbolNotNewMask;
         }
     }
@@ -348,7 +349,7 @@ void unload_qb(uint32_t file_checksum)
         memory::free_malloc(static_cast<void*>(block));
     }
     // Scripts left running code that's gone are stopped.
-    stop_scripts_left_without_code();
+    host().stop_scripts_left_without_code();
     // (a pre-compiled file stays loaded until now)
     forget_precompiled_image(file_checksum);
     packs::offload(file_checksum);

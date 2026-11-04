@@ -14,6 +14,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/engine.h"
@@ -384,9 +385,9 @@ bool cfunc_set_event_handler_on_object(script::Struct* params, script::Script* /
     params->read_hash_value(kObject, &id, 1);
     objects::GameEntity* object = entity_for_id(id);
     if (!object->own_script()) {
-        object->set_own_script(script::Script::create());
+        object->set_own_script(script::host().create());
     }
-    object->own_script()->set_event_handler(event_type, handler, group, exception, handler_params);
+    script::host().set_event_handler(object->own_script(), event_type, handler, group, exception, handler_params);
     return true;
 }
 

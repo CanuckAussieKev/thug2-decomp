@@ -35,6 +35,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/path_manager.h"
 #include "engine/script/cfuncs_scene.h"
+#include "engine/script/host.h"
 #include "engine/script/cscript.h"
 #include "engine/script/node_prefixes.h"
 #include "engine/script/skate_cfuncs.h"
@@ -405,7 +406,7 @@ bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
         params->read_sub_struct("Params", &script_params, 0); // "Params"
         script::Script* spawned = script->entity().get_pull()->spawn_script(name, script_params, id, false);
         if (!params->has_bare_flag(kKeepSpawnerFile)) {
-            spawned->set_spawner_file(script);
+            script::host().set_spawner_file(spawned, script);
         }
     }
     return true;

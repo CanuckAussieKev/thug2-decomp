@@ -16,6 +16,7 @@
 #include "engine/objects/motion_internal.h"
 #include "engine/objects/path_follower.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_clock.h"
@@ -141,22 +142,22 @@ void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
     switch (script->suspend_reason()) {
     case script::BlockReason::kMove:
         if ((motion_flags_ & kMotionMoveMask) == 0U) {
-            script->stop_waiting();
+            script::host().stop_waiting(script);
         }
         break;
     case script::BlockReason::kJump:
         if ((motion_flags_ & kMotionJumping) == 0U) {
-            script->stop_waiting();
+            script::host().stop_waiting(script);
         }
         break;
     case script::BlockReason::kPathStop:
         if (!(path_speed_ > 0.0F)) { // (a NaN stops it too)
-            script->stop_waiting();
+            script::host().stop_waiting(script);
         }
         break;
     case script::BlockReason::kRotate:
         if ((motion_flags_ & kMotionRotateMask) == 0U) {
-            script->stop_waiting();
+            script::host().stop_waiting(script);
         }
         break;
     default: // (6: never)

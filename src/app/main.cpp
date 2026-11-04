@@ -32,6 +32,8 @@
 #include "engine/net/loopback_transport.h"
 #include "engine/net/transport.h"
 #include "engine/media/movie.h"
+#include "engine/script/host.h"
+#include "engine/script/qb_host.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
 #include "input_dinput/dinput_source.h"
@@ -96,6 +98,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     } else {
         net::install_transport(net::winsock::transport());
     }
+    // NOT ORIGINAL: the script runtime the game runs its scripts with (engine/script/host.h): the QB interpreter.
+    script::install_host(script::qb::host());
     // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
     app::install_command_tables();
     // NOT ORIGINAL: the extensions (the editor, the new front end, the dev tools) registered before any of the

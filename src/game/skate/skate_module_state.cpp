@@ -18,6 +18,7 @@
 #include "engine/memory/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/script/fwd.h"
+#include "engine/script/host.h"
 #include "game/goals/goal_manager.h"
 #include "engine/gfx/view_cam.h"
 #include "game/online/gamenet_manager.h"
@@ -194,7 +195,7 @@ void Skate::set_unknown370(int value) { unknown370_ = value; }
 void Skate::advance_match_flow()
 {
     if (own_script_) {
-        own_script_->tick_frame();
+        script::host().tick_frame(own_script_);
     }
     game_flow_->tick_frame();
 }

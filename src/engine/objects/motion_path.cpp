@@ -11,6 +11,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/motion.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 
@@ -119,7 +120,7 @@ void get_speed(script::Struct* params, float* value, uint32_t feet, uint32_t inc
 // The script waits on the component (CScript::set_wait_on_component).
 int wait_on(script::Script* script, KinematicsModule* component, script::BlockReason type)
 {
-    script->set_wait_on_component(type, component, 0);
+    script::host().set_wait_on_component(script, type, component, 0);
     return 1;
 }
 

@@ -11,6 +11,7 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/host.h"
 #include "game/goals/objective.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/script/cscript.h"
@@ -149,7 +150,7 @@ MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_
 // --- The game flow -------------------------------------------------------------------------------------------
 
 // 0x00552F30
-MatchFlow::~MatchFlow() { script::Script::destroy(own_script_); }
+MatchFlow::~MatchFlow() { script::host().destroy(own_script_); }
 
 // 0x00552E30
 void MatchFlow::get_request(uint32_t name)
@@ -163,13 +164,13 @@ void MatchFlow::tick_frame()
 {
     if (pending_) {
         pending_ = false;
-        script::Script::destroy(own_script_);
-        auto* script = script::Script::create();
+        script::host().destroy(own_script_);
+        auto* script = script::host().create();
         own_script_ = script;
-        script->bind_script(label_, nullptr, nullptr);
+        script::host().bind_script(script, label_, nullptr, nullptr);
     }
-    if (own_script_ && static_cast<int>(own_script_->tick_frame()) == 0) {
-        script::Script::destroy(own_script_);
+    if (own_script_ && static_cast<int>(script::host().tick_frame(own_script_)) == 0) {
+        script::host().destroy(own_script_);
         own_script_ = nullptr;
     }
 }

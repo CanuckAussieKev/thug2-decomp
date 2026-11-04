@@ -12,6 +12,7 @@
 #include "engine/objects/smtptr.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
@@ -76,9 +77,9 @@ Entity::~Entity()
         park_owner_->drop_entity_registration(this);
     }
     if (own_script_) {
-        own_script_->clear_on_exit_scripts();
+        script::host().clear_on_exit_scripts(own_script_);
         if (own_script_) {
-            Script::destroy(own_script_);
+            script::host().destroy(own_script_);
         }
         own_script_ = nullptr;
     }
@@ -103,7 +104,7 @@ void Entity::change_traits(Struct* params)
     Array* handlers = nullptr;
     if (params->fetch_list(kReactionList, &handlers, 0)) {
         create_script_if_needed();
-        own_script_->install_event_table(handlers, replace);
+        script::host().install_event_table(own_script_, handlers, replace);
     }
     Struct* tags = nullptr;
     if (params->read_sub_struct(kTags, &tags, 0)) {
@@ -135,7 +136,7 @@ bool Entity::pass_event_to_script(Signal* event)
     }
     SharedRef<Entity> self;
     self.assign_value(this);
-    own_script_->receive_event(event);
+    script::host().receive_event(own_script_, event);
     return static_cast<bool>(self); // (cleared if the object was deleted meanwhile)
 }
 
@@ -143,7 +144,7 @@ bool Entity::pass_event_to_script(Signal* event)
 void Entity::flag_as_dead()
 {
     if (own_script_) {
-        own_script_->gate_off(0); // (until unblocked: for good)
+        script::host().gate_off(own_script_, 0); // (until unblocked: for good)
     }
     script::end_scripts_bound_to_entity(this);
     object_flags_ &= ~kObjectFlagLocked;
@@ -161,9 +162,9 @@ void Entity::create_script_if_needed()
         return;
     }
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
-    Script* script = Script::create();
+    Script* script = script::host().create();
     own_script_ = script;
-    script->bind_script(kEmptyScript, nullptr, this);
+    script::host().bind_script(script, kEmptyScript, nullptr, this);
     memory::leave_heap_scope();
 }
 
@@ -171,10 +172,10 @@ void Entity::create_script_if_needed()
 Script* Entity::replace_script(uint32_t name, Struct* params)
 {
     if (!own_script_) {
-        own_script_ = Script::create();
+        own_script_ = script::host().create();
     }
-    own_script_->bind_script(name, params, this);
-    own_script_->has_attached_script(); // (the answer isn't used)
+    script::host().bind_script(own_script_, name, params, this);
+    static_cast<void>(own_script_->has_attached_script()); // (the answer isn't used)
     return own_script_;
 }
 
@@ -182,11 +183,11 @@ Script* Entity::replace_script(uint32_t name, Struct* params)
 script::ScriptOutcome Entity::run_sub_script(uint32_t name, Struct* params)
 {
     if (!own_script_) {
-        Script* script = Script::create();
+        Script* script = script::host().create();
         own_script_ = script;
         script->entity().assign_value(this);
     }
-    return own_script_->preempt(name, params);
+    return script::host().preempt(own_script_, name, params);
 }
 
 // 0x00461410
@@ -205,7 +206,7 @@ Script* Entity::start_script_task(uint32_t name, int node, bool replicate_flag, 
     }
     Script* script = script::spawn_script(name, params, {.node = node});
     script->entity().assign_value(this);
-    script->tick_frame();
+    script::host().tick_frame(script);
     return script;
 }
 
@@ -330,7 +331,7 @@ bool Entity::fetch_labels(Array* names, Struct* dest)
 void Entity::clear_event_handler(uint32_t type)
 {
     if (own_script_) {
-        own_script_->clear_event_handler(type);
+        script::host().clear_event_handler(own_script_, type);
     }
 }
 
@@ -387,7 +388,7 @@ uint32_t Entity::get_flag_mask(Struct* params, Script* /*script*/)
 // 0x00460840: the calling script lets go of the object (at every level; it stops waiting). True.
 bool Entity::obj_leave_script(Struct* /*params*/, Script* script)
 {
-    script->object_destroyed(this);
+    script::host().object_destroyed(script, this);
     return true;
 }
 
@@ -545,7 +546,7 @@ bool Entity::obj_spawn_script(Struct* params, Script* script)
     const bool pause_with_object = params->has_bare_flag(kPauseWithObject);
     Script* spawned = spawn_script(name, script_params, id, pause_with_object);
     if (!params->has_bare_flag(kNoSpawnerFile)) {
-        spawned->set_spawner_file(script);
+        script::host().set_spawner_file(spawned, script);
     }
     return true;
 }

@@ -19,6 +19,7 @@
 #include "engine/objects/smtptr.h"
 #include "game/rider/walk_hang.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/core_physics_fields.h"
@@ -346,11 +347,11 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
 {
     objects::GameEntity* object = object_of(this);
     if (!object->own_script()) {
-        object_of(this)->set_own_script(script::Script::create());
+        object_of(this)->set_own_script(script::host().create());
     }
     if (motoskateboard_ != 0U) {
         object = object_of(this);
-        object->own_script()->bind_script(kMotoskateboardGrind, nullptr, object);
+        script::host().bind_script(object->own_script(), kMotoskateboardGrind, nullptr, object);
     } else {
         // GrindTrickList[the rail's type (0-8; anything else 0)][the four trick buttons as bits 0-3].
         const uint32_t index = rail_type <= 8 ? rail_type : 0;
@@ -378,9 +379,9 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
         core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
             ->do_after_anim();
         object = object_of(this);
-        object->own_script()->bind_script(tricks->fetch_part(buttons), nullptr, object);
+        script::host().bind_script(object->own_script(), tricks->fetch_part(buttons), nullptr, object);
     }
-    object_of(this)->own_script()->tick_frame();
+    script::host().tick_frame(object_of(this)->own_script());
     state_->set_in_trick_move(1);
 }
 

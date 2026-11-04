@@ -16,6 +16,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/render_constants.h"
 #include "engine/sys/startup_init.h"
@@ -134,7 +135,7 @@ Tokens add_named_expression(Tokens token, uint32_t name, Struct& dest, Struct* a
 } // namespace
 
 // 0x004728C0
-Script* get_running_script() { return current_script_var(); }
+Script* get_running_script() { return host().get_running_script(); }
 
 // 0x0046F7A0
 StoredRandom* look_up_saved_random(const uint8_t* table, QbToken type, uint32_t count)

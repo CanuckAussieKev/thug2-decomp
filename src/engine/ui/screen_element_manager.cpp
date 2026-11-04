@@ -18,6 +18,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/objects/entity_hub.h"
@@ -190,7 +191,7 @@ void UiTree::destroy_tree(bool keep, ElementPtr* element, script::Script* script
     }
     if (!keep) {
         if (script && element->get_pull()) {
-            script->object_destroyed(element->get_pull());
+            script::host().object_destroyed(script, element->get_pull());
         }
         {
             ElementPtr none;
@@ -216,7 +217,7 @@ void UiTree::dismantle_part(uint32_t id, bool recurse, bool keep, script::Script
     } else {
         remove_focus_entries(&element, false, false);
         if (script && element.get_pull()) {
-            script->object_destroyed(element.get_pull());
+            script::host().object_destroyed(script, element.get_pull());
         }
         drop_entity_registration(element.get_pull());
         gsl::owner<UiWidget*> owned = memory::owned_element(element.get_pull()); // (the manager's)

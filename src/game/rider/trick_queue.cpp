@@ -17,6 +17,7 @@
 #include "engine/objects/control_pad.h"
 #include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/rider/controls.h"
@@ -366,7 +367,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
         object->own_script()->args()->put_name_key(checksums::Name{0U}, flag);
     }
     object->own_script()->args()->append_structure_if_any(extra_params);
-    object->own_script()->tick_frame();
+    script::host().tick_frame(object->own_script());
     trick_started(this);
     count_trick();
     --busy_;
@@ -410,7 +411,7 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
     }
     if (first != 0U) {
         entity()->create_script_if_needed();
-        entity()->own_script()->preempt(first, params);
+        script::host().preempt(entity()->own_script(), first, params);
     }
     auto* trick = script::fetch_list(array)->struct_at(index);
     if (try_trick(trick, 0, extra_params)) {
@@ -433,7 +434,7 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
         if (create_params) {
             free_struct(create_params);
         }
-        object->own_script()->tick_frame();
+        script::host().tick_frame(object->own_script());
         trick_started(this);
         count_trick();
         return;
@@ -467,7 +468,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
         script::Struct copy;
         copy.init_copy(params);
         entity()->create_script_if_needed();
-        entity()->own_script()->preempt(first, first_params);
+        script::host().preempt(entity()->own_script(), first, first_params);
         params->get_assign(&copy);
         copy.get_clear();
     }
@@ -495,7 +496,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     } else {
         object->replace_script(script, trick_params);
     }
-    object->own_script()->tick_frame();
+    script::host().tick_frame(object->own_script());
     trick_started(this);
     if (++trick_count_ > 3) {
         entity()->announce(kTricksDone, nullptr, 0.0F);
@@ -546,7 +547,7 @@ bool MoveExecutor::do_extra_grind_trick(bool left_side, bool sideways, bool back
     starting_special_ = grind_.is_special_;
     prepare_flip_and_rotate(this);
     object->replace_script(script, trick_params);
-    object->own_script()->tick_frame();
+    script::host().tick_frame(object->own_script());
     trick_started(this);
     if (++trick_count_ > 3) {
         entity()->announce(kTricksDone, nullptr, 0.0F);

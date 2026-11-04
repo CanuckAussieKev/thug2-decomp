@@ -19,6 +19,7 @@
 #include "engine/objects/pager_message.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/lists/chain_start.h"
@@ -301,7 +302,7 @@ int AnimBlenderComponent::wait_on_channel(uint32_t /*unused*/, script::Struct* p
     } else {
         wait_for = ident_no(first);
     }
-    script->set_wait_on_component(script::BlockReason::kAnimDone, this, wait_for);
+    script::host().set_wait_on_component(script, script::BlockReason::kAnimDone, this, wait_for);
     return 1;
 }
 

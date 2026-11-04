@@ -1,6 +1,7 @@
 // The engine's general script commands, 0x0044B7E0-0x0044CFFF (see script_util_cfuncs.h).
 
 #include "engine/script/script_util_cfuncs.h"
+#include "engine/script/host.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -280,7 +281,7 @@ bool cfunc_goto(Struct* params, Script* script)
     params->read_hash_value(0U, &name, 0);
     Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    script->bind_script(name, script_params, script->entity().get_pull());
+    script::host().bind_script(script, name, script_params, script->entity().get_pull());
     return true;
 }
 
@@ -293,7 +294,7 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
     if (array && (array->extent() != 0U) && array->kind_tag() == script::QbValueKind::kName) {
         objects::Entity* object = script->entity().get_pull();
         const uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent())));
-        script->bind_script(name, nullptr, object);
+        script::host().bind_script(script, name, nullptr, object);
     }
     return true;
 }
@@ -537,7 +538,7 @@ bool cfunc_goto_preserve_params(Struct* params, Script* script)
     Struct* extra = nullptr;
     params->read_sub_struct(kParams, &extra, 0);
     script_params->append_structure_if_any(extra);
-    script->bind_script(name, script_params, script->entity().get_pull());
+    script::host().bind_script(script, name, script_params, script->entity().get_pull());
     if (script_params) {
         script_params->get_clear();
         script::delete_struct(script_params);

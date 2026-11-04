@@ -27,6 +27,7 @@
 #include "engine/gfx/font.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
@@ -279,7 +280,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
         element.get_pull()->invoke_method_by_name(name, script_params, script);
     } else if (Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params})) {
         spawned->entity().assign_value(element.get_pull());
-        spawned->tick_frame();
+        script::host().tick_frame(spawned);
     }
     return true;
 }

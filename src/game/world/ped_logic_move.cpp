@@ -27,6 +27,7 @@
 #include "game/world/ped_logic.h"
 #include "engine/objects/walk_lerp.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
@@ -1308,7 +1309,7 @@ void PedestrianBrainModule::tick_frame()
         break;
     }
     if (aux_script_) {
-        aux_script_->tick_frame();
+        script::host().tick_frame(aux_script_);
     }
 }
 

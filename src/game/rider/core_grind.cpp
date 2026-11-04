@@ -20,6 +20,7 @@
 #include "engine/objects/trigger_component.h"
 #include "game/rider/walk_hang.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_fields.h"
@@ -335,11 +336,11 @@ void SkaterPhysicsModule::start_lip_trick(const maths::Vec4* point)
     trick_->set_starting_special(false);
     auto* skater = static_cast<objects::Entity*>(object_of(this));
     if (!skater->own_script()) {
-        static_cast<objects::Entity*>(object_of(this))->set_own_script(script::Script::create());
+        static_cast<objects::Entity*>(object_of(this))->set_own_script(script::host().create());
     }
-    static_cast<objects::Entity*>(object_of(this))
-        ->own_script()->bind_script(kLipTrick, nullptr, static_cast<objects::Entity*>(object_of(this)));
-    static_cast<objects::Entity*>(object_of(this))->own_script()->tick_frame();
+    script::host().bind_script(static_cast<objects::Entity*>(object_of(this))->own_script(), kLipTrick, nullptr,
+                               static_cast<objects::Entity*>(object_of(this)));
+    script::host().tick_frame(static_cast<objects::Entity*>(object_of(this))->own_script());
     state_->set_in_trick_move(1); // (without its time)
     set_rail_terrain();
 }

@@ -23,12 +23,12 @@
 #include <new>
 #include <array>
 
-#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/objects/entity.h"
+#include "engine/script/qb_script.h"
 #include "engine/script/cscript.h"
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"
@@ -40,7 +40,7 @@
 #include "wire/message_ids.h"
 #include <gsl/pointers>
 
-namespace script {
+namespace script::qb {
 
 namespace {
 // The spawn flags a new script keeps of what bind_script set.
@@ -50,13 +50,13 @@ constexpr uint32_t kNoObjectId = 0xFFFFFFFFU;
 
 void bind_script(Script* script, uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {
-    script->bind_script(name, code, params, object);
+    as_qb(script)->bind_script(name, code, params, object);
 }
 // Stop a script and report it (the walks have report_stopped inlined).
 void halt(Script* script)
 {
-    script->reset_script_state();
-    script->report_stopped();
+    as_qb(script)->reset_script_state();
+    as_qb(script)->report_stopped();
 }
 bool call_member_function_of(const MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
 {
@@ -124,12 +124,12 @@ void tick_child_scripts()
         if (run && ((flags & kScriptFlagPauseWithObject) != 0) && script->entity().get_pull()) {
             run = object_runs_scripts(script->entity().get_pull());
         }
-        if (run && script->tick_frame() == ScriptOutcome::kFinished) {
+        if (run && as_qb(script)->tick_frame() == ScriptOutcome::kFinished) {
             if (script->on_finish_script() != 0U) {
-                launch_script(script->on_finish_script(), script->callback_params().get(), script->entity().get_pull(), false,
+                qb::launch_script(script->on_finish_script(), script->callback_params().get(), script->entity().get_pull(), false,
                               nullptr);
             }
-            Script::destroy(script);
+            QbScript::destroy(as_qb(script));
         }
         script = next;
     }
@@ -151,7 +151,7 @@ void kill_all_child_scripts()
         Script* next = script->following();
         if (((script->spawn_flags() & kScriptFlagSpawned) != 0) &&
             ((script->spawn_flags() & kScriptFlagNotSessionSpecific) == 0)) {
-            Script::destroy(script);
+            QbScript::destroy(as_qb(script));
         }
         script = next;
     }
@@ -173,14 +173,14 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap());
-        Script* script = Script::create();
+        Script* script = QbScript::create();
         memory::Hub::get_pull()->leave_heap_scope();
         symbol->value().function()(params, script);
-        Script::destroy(script);
+        QbScript::destroy(as_qb(script));
         return nullptr;
     }
     // (with no such symbol too: bind_script then stops it at once, and it's deleted at its first update)
-    Script* script = Script::create();
+    Script* script = QbScript::create();
     bind_script(script, name, nullptr, params, nullptr);
     script->set_spawn_id(id);
     script->set_list_link(node);
@@ -201,17 +201,11 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
     return script;
 }
 
-// 0x00475670
-Script* spawn_script(const char* name, Struct* params, const SpawnSetup& setup)
-{
-    return spawn_script(checksums::hash_from_text(name), params, setup);
-}
-
 // 0x004756C0
 void kill_spawned_script(Script* script)
 {
     if (script && ((script->spawn_flags() & kScriptFlagSpawned) != 0)) {
-        Script::destroy(script);
+        QbScript::destroy(as_qb(script));
     }
 }
 
@@ -224,7 +218,7 @@ void delete_finished_scripts()
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
         if (!script->pc() && !((script->spawn_flags() & kScriptFlagSpawned) != 0) && !script->signal_routes()) {
-            Script::destroy(script);
+            QbScript::destroy(as_qb(script));
         }
         script = next;
     }
@@ -257,34 +251,28 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
     default: {
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap());
-        Script* script = Script::create();
+        Script* script = QbScript::create();
         bind_script(script, name, nullptr, params, object);
         memory::Hub::get_pull()->leave_heap_scope();
         // To the end now: waits on frames or time just spin; a script that blocks never returns (original).
-        while (script->tick_frame() != ScriptOutcome::kFinished) {
+        while (as_qb(script)->tick_frame() != ScriptOutcome::kFinished) {
         }
-        Script::destroy(script);
+        QbScript::destroy(as_qb(script));
         return;
     }
     }
 }
 
-// 0x004758F0
-void launch_script(const char* name, Struct* params, objects::Entity* object, bool replicate_flag)
-{
-    launch_script(checksums::hash_from_text(name), params, object, replicate_flag, name);
-}
-
 // 0x004752F0
 void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Struct* results)
 {
-    Script* script = Script::create();
+    Script* script = QbScript::create();
     bind_script(script, name, nullptr, params, object);
-    script->tick_frame();
+    as_qb(script)->tick_frame();
     if (script->args()) {
         results->merge_structure(script->args().get()); // (no check that there are results)
     }
-    Script::destroy(script);
+    QbScript::destroy(as_qb(script));
 }
 
 // 0x00473350
@@ -469,7 +457,7 @@ void relaunch_scripts_referring_to(uint32_t name)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
         if (script_refers_to(script, name)) {
-            script->relaunch();
+            as_qb(script)->relaunch();
         }
     }
 }
@@ -477,11 +465,11 @@ void relaunch_scripts_referring_to(uint32_t name)
 void stop_scripts_left_without_code()
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        if (!script->all_scripts_still_defined()) {
-            script->reset_script_state();
-            script->report_stopped();
+        if (!as_qb(script)->all_scripts_still_defined()) {
+            as_qb(script)->reset_script_state();
+            as_qb(script)->report_stopped();
         }
     }
 }
 
-} // namespace script
+} // namespace script::qb

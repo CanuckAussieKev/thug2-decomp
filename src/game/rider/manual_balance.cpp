@@ -15,6 +15,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/stats_manager.h"
 #include "engine/sys/game_clock.h"
@@ -323,7 +324,7 @@ void Balance::tick_frame()
         }
     }
     if (!skater_->own_script()) {
-        skater_->set_own_script(script::Script::create());
+        skater_->set_own_script(script::host().create());
     }
     // Past the bail angle: the skater falls.
     const float lean = std::fabs(lean_);

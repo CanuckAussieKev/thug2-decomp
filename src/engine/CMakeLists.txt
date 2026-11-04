@@ -275,6 +275,8 @@ add_library(thug2_engine STATIC
     script/cscript_exec.cpp
     script/load.cpp
     script/cscript_core.cpp
+    script/host.cpp
+    script/qb_host.cpp
     script/names.cpp
     script/token_reader.cpp
     script/tokens.cpp

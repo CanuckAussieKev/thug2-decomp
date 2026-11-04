@@ -16,6 +16,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/math_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
@@ -905,7 +906,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
     if (name == kDoMorph) {
         float seconds = 0.0F;
         if (params->fetch_float(kTime, &seconds, 0)) {
-            script->lull(get_truncated(static_cast<double>(seconds) * kMillisecondsPerSecond));
+            script::host().lull(script, get_truncated(static_cast<double>(seconds) * kMillisecondsPerSecond));
         }
         blend_towards(params);
         return true;

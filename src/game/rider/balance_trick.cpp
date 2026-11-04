@@ -2,17 +2,16 @@
 
 #include "game/rider/balance_trick.h"
 
-#include <cstddef>
 #include <cstdint>
 #include <new>
 #include <gsl/pointers>
 #include <array>
 #include <span>
 
-#include "engine/memory/slab_bank.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/point_tally.h"
@@ -27,7 +26,6 @@
 
 namespace objects {
 namespace {
-constexpr std::size_t kBalanceTrickBytes = 0xF4;
 constexpr int kValueCount = 5;
 constexpr uint32_t kDoingBalanceTrick = 0x6DF82E70; // DoingBalanceTrick
 constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick
@@ -243,8 +241,8 @@ void RiderTeeterMoves::change_args(script::Struct* params)
 void RiderTeeterMoves::set_wobble(script::Struct* wobble)
 {
     if (!entity()->own_script()) {
-        void* memory = script::script_pools().carve(kBalanceTrickBytes);
-        entity()->set_own_script(memory ? static_cast<script::Script*>(memory)->make_new() : nullptr);
+        // (a script from the script pool - the 0xF4 bytes the original carved - made by the runtime)
+        entity()->set_own_script(script::host().create());
     }
     std::array<float, kValueCount> values{};
     script::Struct* value = nullptr; // (not cleared again: a missing one leaves the last found)

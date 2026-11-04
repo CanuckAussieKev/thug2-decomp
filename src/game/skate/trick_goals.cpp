@@ -17,6 +17,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "game/skate/profile_manager.h"
@@ -230,7 +231,7 @@ void get_run(uint32_t name, script::Struct* params) { script::launch_script(name
 void run_on(script::Script* script, void* object)
 {
     script->entity().assign_value(static_cast<objects::Entity*>(object));
-    script->tick_frame();
+    script::host().tick_frame(script);
 }
 
 // A name and the prefix put before it.

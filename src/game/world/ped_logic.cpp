@@ -16,6 +16,7 @@
 #include "engine/objects/motion.h"
 #include "engine/objects/motion_path.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/names.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
@@ -197,7 +198,7 @@ PedestrianBrainModule::PedestrianBrainModule()
 PedestrianBrainModule::~PedestrianBrainModule()
 {
     if (script::Script* script = aux_script_) {
-        script::Script::destroy(script);
+        script::host().destroy(script);
         aux_script_ = nullptr;
     }
 }
@@ -380,7 +381,7 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
     update_type_ = update_type;
     entity()->replace_script(script, params);
     if (script::Script* aux = aux_script_) {
-        script::Script::destroy(aux);
+        script::host().destroy(aux);
         aux_script_ = nullptr;
     }
     initialize_movement();
@@ -388,7 +389,7 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
         hide_board(1);
     }
     if (entity()->own_script()) {
-        entity()->own_script()->tick_frame();
+        script::host().tick_frame(entity()->own_script());
     }
     return true;
 }
@@ -400,15 +401,15 @@ void PedestrianBrainModule::activate_aux_script(uint32_t script, script::Struct*
         return;
     }
     if (!aux_script_) {
-        aux_script_ = script::Script::create();
+        aux_script_ = script::host().create();
     }
-    aux_script_->bind_script(script, params, entity());
+    script::host().bind_script(aux_script_, script, params, entity());
     if (aux_script_->has_attached_script()) {
-        aux_script_->tick_frame();
+        script::host().tick_frame(aux_script_);
         return;
     }
     if (script::Script* aux = aux_script_) {
-        script::Script::destroy(aux);
+        script::host().destroy(aux);
         aux_script_ = nullptr;
     }
 }
@@ -667,7 +668,7 @@ bool PedestrianBrainModule::ped_activate_aux_script(script::Struct* params, scri
 bool PedestrianBrainModule::ped_deactivate_aux_script(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (script::Script* aux = aux_script_) {
-        script::Script::destroy(aux);
+        script::host().destroy(aux);
         aux_script_ = nullptr;
     }
     return true;

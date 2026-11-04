@@ -37,6 +37,7 @@
 #include "engine/objects/smtptr.h"
 #include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "game/commands/game_cfuncs.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
@@ -1279,7 +1280,7 @@ int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
     script::Script* script =
         script::spawn_script(message.name, nullptr, {.node = message.node});
     script->entity().assign_value(object);
-    script->tick_frame();
+    script::host().tick_frame(script);
     return 1;
 }
 

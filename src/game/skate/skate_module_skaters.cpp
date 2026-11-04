@@ -40,6 +40,7 @@
 #include "game/world/trick_objects.h"
 #include "engine/objects/vibration_component.h"
 #include "engine/script/preferences.h"
+#include "engine/script/host.h"
 #include "game/skate/highscores.h"
 #include "engine/script/cscript.h"
 #include "game/commands/game_cfuncs.h"
@@ -835,9 +836,9 @@ void Skate::change_rumble(int player, int on)
 void Skate::launch_script(uint32_t name, script::Struct* params)
 {
     if (!own_script_) {
-        own_script_ = script::Script::create();
+        own_script_ = script::host().create();
     }
-    own_script_->bind_script(name, params, nullptr);
+    script::host().bind_script(own_script_, name, params, nullptr);
 }
 
 // 0x00565F80
@@ -847,7 +848,7 @@ bool Skate::kill_script()
     if (!script) {
         return false;
     }
-    script::Script::destroy(script);
+    script::host().destroy(script);
     own_script_ = nullptr;
     return true;
 }
@@ -1132,7 +1133,7 @@ Skate::~Skate()
     memory::destroy_then_clear(update_job_);
     memory::destroy_then_clear(splitscreen_preferences_);
     memory::destroy_then_clear(checksums_);
-    script::Script::destroy(own_script_);
+    script::host().destroy(own_script_);
     riders_.list_link().uncouple(); // (0x00565730)
 }
 

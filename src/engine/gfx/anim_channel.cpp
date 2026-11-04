@@ -35,6 +35,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/sys/startup_init.h"
@@ -361,7 +362,7 @@ void BlendChannel::get_reset()
     if (waiting) {
         waiting_ = false;
         if (script::Script* script = get_owner(this)->own_script()) {
-            script->stop_waiting();
+            script::host().stop_waiting(script);
         }
     }
     wait_time_ = 0.0F;
@@ -394,7 +395,7 @@ void BlendChannel::release_waiting_script(script::Script* script)
     }
     if (const AnimTrack* first = get_first(this)) {
         if (first->is_accomplished()) {
-            script->stop_waiting();
+            script::host().stop_waiting(script);
         }
     }
 }
@@ -422,10 +423,10 @@ void BlendChannel::update_blend()
     }
     objects::GameEntity* owner = get_owner(this);
     if (!owner->own_script()) {
-        owner->set_own_script(script::Script::create());
+        owner->set_own_script(script::host().create());
     }
     bool stop = false;
-    if (!owner->own_script()->is_blocked(false)) {
+    if (!script::host().is_blocked(owner->own_script(), false)) {
         stop = true;
     } else {
         float start = 0.0F;
@@ -440,7 +441,7 @@ void BlendChannel::update_blend()
         }
     }
     if (stop) {
-        owner->own_script()->stop_waiting();
+        script::host().stop_waiting(owner->own_script());
         waiting_ = false;
     }
 }
@@ -1275,13 +1276,13 @@ int BlendChannel::wait_anim(Struct* params)
     }
     objects::GameEntity* owner = get_owner(this);
     if (!owner->own_script()) {
-        owner->set_own_script(script::Script::create());
+        owner->set_own_script(script::host().create());
     }
     if ((start <= end && current >= wait_time_) || (start >= end && current <= wait_time_)) {
-        owner->own_script()->stop_waiting(); // (already there)
+        script::host().stop_waiting(owner->own_script()); // (already there)
         waiting_ = false;
     } else {
-        owner->own_script()->gate_off(0);
+        script::host().gate_off(owner->own_script(), 0);
         waiting_ = true;
     }
     return 1;

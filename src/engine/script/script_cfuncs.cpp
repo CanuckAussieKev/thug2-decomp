@@ -1,6 +1,7 @@
 // Script commands (CFunctions) for the script system itself, 0x00449D00-0x0044B7E0 (see script_cfuncs.h).
 
 #include "engine/script/script_cfuncs.h"
+#include "engine/script/host.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -131,9 +132,9 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 void wait_ms(script::Script* script, bool real_time, int ms)
 {
     if (real_time) {
-        script->wait_real_time(ms);
+        script::host().wait_real_time(script, ms);
     } else {
-        script->lull(ms);
+        script::host().lull(script, ms);
     }
 }
 
@@ -368,11 +369,11 @@ bool cfunc_wait(script::Struct* params, script::Script* script)
         wait_ms(script, real_time, truncate(static_cast<double>(value) * gfx::kThousand)); // 1000
     } else if (params->has_bare_flag(kGameFrame) || params->has_bare_flag(kGameFrames) ||
                params->has_bare_flag(kGame)) {
-        script->get_stall(truncate(value));
+        script::host().get_stall(script, truncate(value));
     } else if (params->has_bare_flag(kFrame) || params->has_bare_flag(kFrames)) {
         wait_ms(script, real_time, truncate(static_cast<double>(value) * kScriptFrameMilliseconds)); // 16.67
     } else if (params->has_bare_flag(kOnePerFrame)) {
-        script->suspend_until_next_frame(truncate(value));
+        script::host().suspend_until_next_frame(script, truncate(value));
     } else {
         wait_ms(script, real_time, truncate(value));
     }
@@ -503,7 +504,7 @@ bool cfunc_block(script::Struct* params, script::Script* script)
             params->read_hash_value(kUntilEvent, &event_type, 0);
         }
     }
-    script->gate_off(event_type);
+    script::host().gate_off(script, event_type);
     return true;
 }
 
@@ -541,7 +542,7 @@ bool cfunc_set_event_handler(script::Struct* params, script::Script* script)
     const bool exception = params->has_bare_flag(kException);
     script::Struct* handler_params = nullptr;
     params->read_sub_struct(kParams, &handler_params, 0);
-    script->set_event_handler(event_type, handler, group, exception, handler_params);
+    script::host().set_event_handler(script, event_type, handler, group, exception, handler_params);
     return true;
 }
 
@@ -556,7 +557,7 @@ bool cfunc_set_exception_handler(script::Struct* params, script::Script* script)
     params->read_hash_value(kGroup, &group, 0);
     script::Struct* handler_params = nullptr;
     params->read_sub_struct(kParams, &handler_params, 0);
-    script->set_event_handler(event_type, handler, group, true, handler_params);
+    script::host().set_event_handler(script, event_type, handler, group, true, handler_params);
     return true;
 }
 
@@ -568,7 +569,7 @@ bool cfunc_reset_event_handlers_from_table(script::Struct* params, script::Scrip
     script::Array* table = script::fetch_list(name);
     uint32_t group = kDefaultGroup;
     params->read_hash_value(kGroup, &group, 0);
-    script->reset_event_handlers_from_table(table, group);
+    script::host().reset_event_handlers_from_table(script, table, group);
     return true;
 }
 
@@ -577,7 +578,7 @@ bool cfunc_clear_event_handler(script::Struct* params, script::Script* script)
 {
     uint32_t event_type = 0;
     params->read_hash_value(0U, &event_type, 1);
-    script->clear_event_handler(event_type);
+    script::host().clear_event_handler(script, event_type);
     return true;
 }
 
@@ -586,7 +587,7 @@ bool cfunc_clear_event_handler_group(script::Struct* params, script::Script* scr
 {
     uint32_t group = kDefaultGroup;
     params->read_hash_value(0U, &group, 0);
-    script->clear_event_handler_group(group);
+    script::host().clear_event_handler_group(script, group);
     return true;
 }
 
@@ -611,7 +612,7 @@ bool cfunc_on_exit_run(script::Struct* params, script::Script* script)
 // 0x0044AD90: PrintEventHandlerTable.
 bool cfunc_print_event_handler_table(script::Struct* /*params*/, script::Script* script)
 {
-    script->print_event_handler_table();
+    script::host().print_event_handler_table(script);
     return true;
 }
 

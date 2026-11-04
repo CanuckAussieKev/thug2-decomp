@@ -1,6 +1,7 @@
 // Script commands (CFunctions) of the skate game, 0x0059EDF0-0x0059F610 (see skate_cfuncs.h).
 
 #include "engine/script/skate_cfuncs.h"
+#include "engine/script/host.h"
 
 #include "base/core/str.h"
 
@@ -307,7 +308,7 @@ bool cfunc_spawn_script(script::Struct* params, script::Script* script)
     script::Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params, .node = script->list_link(), .id = id, .replicate = replicate_flag, .permanent = permanent, .not_session_specific_ = not_session_specific != 0});
     // (as in the original, not checked for null - a C function spawns no script)
     if (!params->has_bare_flag(kKeepSpawnerFile)) {
-        spawned->set_spawner_file(script);
+        script::host().set_spawner_file(spawned, script);
     }
     return true;
 }
@@ -315,7 +316,7 @@ bool cfunc_spawn_script(script::Struct* params, script::Script* script)
 // 0x0059F440: UnBlockInterruptedScript: the level the calling script's interrupt interrupted goes on.
 bool cfunc_un_block_interrupted_script(script::Struct* /*params*/, script::Script* script)
 {
-    script->unblock_interrupted_script();
+    script::host().unblock_interrupted_script(script);
     return true;
 }
 

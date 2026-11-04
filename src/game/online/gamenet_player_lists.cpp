@@ -32,6 +32,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/objects/entity.h"
 #include "game/skate/profile_manager.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "game/online/gamenet_handler_util.h"
@@ -466,7 +467,7 @@ void Hub::launch_queued_scripts()
         script::Script* script = script::spawn_script(queued->own_script(), nullptr, {.node = queued->list_link()});
         objects::Entity* object = objects::EntityHub::look_up_entity(queued->entity_key());
         script->entity().assign_value(object);
-        while (script->tick_frame() != script::ScriptOutcome::kFinished) {
+        while (script::host().tick_frame(script) != script::ScriptOutcome::kFinished) {
         }
         script::kill_spawned_script(script);
         queued->destroy_record(1);

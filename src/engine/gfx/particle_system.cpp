@@ -24,6 +24,7 @@
 #include "engine/gfx/viewport.h"
 #include "base/maths/mat4.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "base/core/checked_index.h"
 #include "base/maths/vec4.h"
@@ -207,10 +208,10 @@ void EmitterInstance::get_reset()
 EmitterInstance::~EmitterInstance()
 {
     if (emit_script_ptr_) {
-        script::Script::destroy(emit_script_ptr_);
+        script::host().destroy(emit_script_ptr_);
     }
     if (tick_script_) {
-        script::Script::destroy(tick_script_);
+        script::host().destroy(tick_script_);
     }
     if (script::Struct* params = script_args_) {
         params->get_clear();
@@ -394,9 +395,9 @@ void EmitterInstance::set_colour_scale(std::span<const float, 4> rgba)
 // 0x00496F60
 void EmitterInstance::run_emit_script()
 {
-    if (emit_script_ptr_ && emit_script_ptr_->tick_frame() == script::ScriptOutcome::kFinished) {
+    if (emit_script_ptr_ && script::host().tick_frame(emit_script_ptr_) == script::ScriptOutcome::kFinished) {
         if (script::Script* script = emit_script_ptr_) {
-            script::Script::destroy(script);
+            script::host().destroy(script);
         }
         emit_script_ptr_ = nullptr;
     }
@@ -419,19 +420,19 @@ void bind_script(EmitterInstance* system, script::Script*& slot, uint32_t script
 {
     if (script == 0U) {
         if (script::Script* old = slot) {
-            script::Script::destroy(old);
+            script::host().destroy(old);
         }
         slot = nullptr;
         return;
     }
     if (!slot) {
-        slot = script::Script::create();
+        slot = script::host().create();
     }
     if (!system->script_args()) {
         system->set_script_args(script::new_struct());
     }
     system->script_args()->append_structure_if_any(params);
-    slot->bind_script(script, system->script_args(), static_cast<objects::Entity*>(object));
+    script::host().bind_script(slot, script, system->script_args(), static_cast<objects::Entity*>(object));
 }
 
 } // namespace

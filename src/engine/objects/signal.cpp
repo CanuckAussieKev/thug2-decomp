@@ -14,6 +14,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "base/core/checked_index.h"
@@ -439,15 +440,15 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                                                             entry->flags & TableRow::kFlagReplacesRunning);
                     const uint32_t on_exception = script->get_on_exception_script();
                     script->set_on_exception_script(0);
-                    script->preempt(on_exception, exception_params);
+                    script::host().preempt(script, on_exception, exception_params);
                     if (exception_params) {
                         free_struct(exception_params);
                     }
                 }
                 // (The entry may have been removed by the OnExceptionRun script - or its array freed [bug].)
                 if (entry->script != kNullScript) {
-                    script->bind_script(entry->script, params, script->entity().get_pull());
-                    script->tick_frame();
+                    script::host().bind_script(script, entry->script, params, script->entity().get_pull());
+                    script::host().tick_frame(script);
                 }
             } else if (const Entity* object = script->entity().get_pull();
                        object && ((object->object_flags() & objects::kObjectFlagSpawnHandlers) != 0U)) {
@@ -456,9 +457,9 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                 Script* spawned =
                     script::spawn_script(entry->script, params);
                 spawned->entity().assign_value(script->entity().get_pull());
-                spawned->tick_frame();
+                script::host().tick_frame(spawned);
             } else {
-                script->preempt(entry->script, params);
+                script::host().preempt(script, entry->script, params);
             }
 
             if (merged) {

@@ -47,6 +47,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cache.h"
 #include "engine/script/cell.h"
+#include "engine/script/qb_script.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/params.h"
@@ -60,7 +61,7 @@
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 
-namespace script {
+namespace script::qb {
 
 namespace {
 
@@ -124,7 +125,7 @@ bool invoke_method_by_name(const MemberFunctionEntry* entry, Struct* params, obj
 }
 
 // 0x004731A0
-bool Script::invoke_method_by_name(const MemberFunctionEntry* entry, objects::Entity* object)
+bool QbScript::invoke_method_by_name(const MemberFunctionEntry* entry, objects::Entity* object)
 {
     if (!object) {
         object = entity_.get_pull();
@@ -133,11 +134,11 @@ bool Script::invoke_method_by_name(const MemberFunctionEntry* entry, objects::En
         no_object_check();
         return false;
     }
-    return script::invoke_method_by_name(entry, stmt_args_.get(), object, this);
+    return qb::invoke_method_by_name(entry, stmt_args_.get(), object, this);
 }
 
 // 0x004731E0
-bool Script::invoke_method_by_name(uint32_t name, objects::Entity* object)
+bool QbScript::invoke_method_by_name(uint32_t name, objects::Entity* object)
 {
     if (!object) {
         object = entity_.get_pull();
@@ -150,7 +151,7 @@ bool Script::invoke_method_by_name(uint32_t name, objects::Entity* object)
 }
 
 // 0x00472950 (pc_ is kept at the statement as it is read: a C function inside an expression may look at the script)
-void Script::parse_function_params(Tokens& pc)
+void QbScript::parse_function_params(Tokens& pc)
 {
     pc_ = pc.address();
     stmt_args_->get_clear();
@@ -160,7 +161,7 @@ void Script::parse_function_params(Tokens& pc)
 
 // 0x004729E0: a name token, `<name>` (the parameter's checksum value) or `<...>` (the unnamed checksum
 // parameter); anything else is 0 and isn't moved past.
-uint32_t Script::read_name(Tokens& pc)
+uint32_t QbScript::read_name(Tokens& pc)
 {
     uint32_t name = 0;
     switch (as_token(*pc)) {
@@ -202,7 +203,7 @@ uint32_t Script::read_name(Tokens& pc)
 //                           an unknown name is reported (except in the script 0xFB11E6CD) and is false
 // The arguments are parsed into stmt_args_ (they may refer to args_). pc_ is where the statement ends before anything
 // is called (what is called may move it: a script called, a Goto...).
-bool Script::execute_command(Tokens& pc)
+bool QbScript::execute_command(Tokens& pc)
 {
     switch (as_token(*pc)) {
     case QbToken::kMemberFunctionName: {
@@ -225,7 +226,7 @@ bool Script::execute_command(Tokens& pc)
             no_object_check();
             return false;
         }
-        return script::invoke_method_by_name(entry, stmt_args_.get(), entity_.get_pull(), this);
+        return qb::invoke_method_by_name(entry, stmt_args_.get(), entity_.get_pull(), this);
     }
     case QbToken::kNativeFunction: {
         ++pc;
@@ -346,7 +347,7 @@ bool Script::execute_command(Tokens& pc)
         objects::Entity* object = entity_.get_pull();
         if (entry) {
             if (object) {
-                return script::invoke_method_by_name(entry, stmt_args_.get(), object, this);
+                return qb::invoke_method_by_name(entry, stmt_args_.get(), object, this);
             }
         } else if (object) {
             return object_call_member_function(object, name, stmt_args_.get(), this);
@@ -362,7 +363,7 @@ bool Script::execute_command(Tokens& pc)
 // 0x00475050: 47 <offset to the else / endif> [39 not] condition. The condition is a statement (a script call
 // in it runs first, and counts as true). If the script is still running and the (negated) result is false, it
 // jumps; else it goes on into the true part. (pc_ is left where the statement put it.)
-void Script::run_conditional(Tokens& pc)
+void QbScript::run_conditional(Tokens& pc)
 {
     ++pc;
     const Tokens target = pc + fetch_word16(pc);
@@ -386,7 +387,7 @@ void Script::run_conditional(Tokens& pc)
 }
 
 // 0x00472A70: pc just after a 3C switch: past its 3D endswitch (switches inside skipped whole).
-void Script::skip_to_end_of_switch(Tokens& pc)
+void QbScript::skip_to_end_of_switch(Tokens& pc)
 {
     while (as_token(*pc) != QbToken::kEndSwitch) {
         if (as_token(*pc) == QbToken::kSwitch) {
@@ -404,7 +405,7 @@ void Script::skip_to_end_of_switch(Tokens& pc)
 // component equals it (components_equal). On a match, the case labels right after it (`49 xx xx 3E 49 xx xx
 // value`) are skipped and the case's statements run from there; the 49 jump at the end of a case's statements
 // goes to the endswitch. No match: on to the next case, finally into the default or past the endswitch.
-void Script::run_multi_branch(Tokens& pc)
+void QbScript::run_multi_branch(Tokens& pc)
 {
     ++pc;
     parse_function_params(pc);
@@ -458,7 +459,7 @@ void Script::run_multi_branch(Tokens& pc)
 // inline loop in use) moves the stack to a block of 10 on the script heap - also when the inline loop belongs
 // to a calling level (run_sub_script keeps innermost_repeat_: one stack for every level), whose saved loop pointers are
 // moved with it. Not checked beyond 10.
-void Script::run_loop_open(Tokens& pc)
+void QbScript::run_loop_open(Tokens& pc)
 {
     ++pc;
     if (innermost_repeat_ == &inline_loop_) {
@@ -497,7 +498,7 @@ RepeatFrame* outer_loop(Script& script, const RepeatFrame* loop)
 // stays after the 21 - it only moves by jumping back or to tokens_end_). No count: back to the start for ever (until
 // a break). A count: counted down, back to the start until it reaches 0 - so `repeat 0` (or a negative count)
 // goes round 2^32 times, as in the original.
-void Script::run_counted_loop(Tokens& pc)
+void QbScript::run_counted_loop(Tokens& pc)
 {
     RepeatFrame* loop = innermost_repeat_;
     if (loop->args_expected_) {
@@ -524,7 +525,7 @@ void Script::run_counted_loop(Tokens& pc)
 
 // 0x00472B50: 22 break: past the repeat of this loop (counting nested begin / repeat), whose arguments are
 // parsed (without the script's parameters) and dropped, then out of the loop.
-void Script::run_loop_exit(Tokens& pc)
+void QbScript::run_loop_exit(Tokens& pc)
 {
     int depth = 0;
     bool searching = true;
@@ -548,7 +549,7 @@ void Script::run_loop_exit(Tokens& pc)
 }
 
 // 0x004750B0 (see the top of the file)
-ScriptOutcome Script::tick_frame()
+ScriptOutcome QbScript::tick_frame()
 {
     flag_bits_ &= ~kScriptRunWaitUpdated;
     // NOT ORIGINAL - the tokens are read through a cursor over the block of code pc_ is in (tokens.h). pc_ stays the
@@ -670,4 +671,4 @@ ScriptOutcome Script::tick_frame()
     return ScriptOutcome::kFinished;
 }
 
-} // namespace script
+} // namespace script::qb

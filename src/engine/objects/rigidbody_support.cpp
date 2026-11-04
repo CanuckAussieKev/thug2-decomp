@@ -21,6 +21,7 @@
 #include "engine/objects/smtptr.h"
 #include "engine/objects/sound_component.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
@@ -173,7 +174,7 @@ void BodyDynamicsModule::seal()
 void BodyDynamicsModule::sleep()
 {
     if (settle_script_ != 0U) {
-        entity()->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
+        script::host().tick_frame(entity()->spawn_script(settle_script_, callback_params_ptr_, 0, false));
     }
     vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     rot_vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -437,7 +438,7 @@ void BodyDynamicsModule::feel_pushers()
         wake();
         push_cooldown_ = push_cooldown_time_;
         if (collide_script_ != 0U) {
-            entity()->spawn_script(collide_script_, callback_params_ptr_, 0, false)->tick_frame();
+            script::host().tick_frame(entity()->spawn_script(collide_script_, callback_params_ptr_, 0, false));
         }
         hide_sector(checksums::fold_text_into_checksum(entity()->ident(), "_Shadow"));
         const int now = static_cast<int>(frame_clock::get_time());

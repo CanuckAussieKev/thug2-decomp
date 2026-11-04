@@ -25,6 +25,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/script_startup.h"
 #include "base/core/ints.h"
@@ -154,7 +155,7 @@ void broadcast_event(ScriptList* list, Signal& event, float radius)
     if (count == 1) {
         script::Script* script = first->payload();
         if (in_range(script)) {
-            script->receive_event(&event);
+            script::host().receive_event(script, &event);
         }
     } else {
         // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
@@ -179,7 +180,7 @@ void broadcast_event(ScriptList* list, Signal& event, float radius)
         }
         for (int i = 0; i < count; ++i) {
             if (core::at(pointers, i) && in_range(core::at(scripts, i))) {
-                core::at(scripts, i)->receive_event(&event);
+                script::host().receive_event(core::at(scripts, i), &event);
             }
         }
         if (pointers_block) {
@@ -573,7 +574,7 @@ void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
     waiter.script_id_ = script->unique_id();
     waiter.object_id_ = script->entity() ? current_object_id(script->entity().get_pull()) : 0;
     waiter.type = type;
-    script->gate_off(0);
+    script::host().gate_off(script, 0);
 }
 
 // (Part of 0x00462F00) Every event listener, then the target: an object, or else the spawned script with that id.
@@ -594,7 +595,7 @@ void EventWaitBoard::send_to_target(Signal& event)
             if (!script) {
                 log_.echo_out(true, kLogSize);
             }
-            script->receive_event(&event); // (null when there's no such script - an original crash)
+            script::host().receive_event(script, &event); // (null when there's no such script - an original crash)
         }
     }
 }
@@ -626,7 +627,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             (waiter.object_id_ == target || waiter.object_id_ == 0 || target == kNoObjectId || broadcast)) {
             waiter.type = 0;
             if (script::Script* script = script::find_script_with_unique_id(waiter.script_id_)) {
-                script->stop_waiting();
+                script::host().stop_waiting(script);
                 event.set_event_handled(2, script->script_title());
                 break;
             }

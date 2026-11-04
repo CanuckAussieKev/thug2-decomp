@@ -1,6 +1,7 @@
 // CScript's life: construction and destruction, the pooled new / delete, stopping (reset_script_state), setting the
-// script to run, and the small accessors. See cscript.h for the class and docs/script-runtime.md.
+// script to run. See qb_script.h for the class and docs/script-runtime.md.
 
+#include "engine/script/qb_script.h"
 #include "engine/script/cscript.h"
 
 #include <algorithm>
@@ -10,7 +11,6 @@
 #include <new>
 #include <span>
 
-#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
@@ -28,15 +28,15 @@
 #include <gsl/pointers>
 #include "base/core/raw_view.h"
 
-namespace script {
+namespace script::qb {
 
 namespace {
 
 // NOT ORIGINAL grouping - the scripts' list and counters (the original's globals). Made on first use, never destroyed
 // (script_run_state()).
 struct ScriptRunState {
-    Script* running_script_{};
-    Script* script_list_head_{};
+    QbScript* running_script_{};
+    QbScript* script_list_head_{};
     bool one_per_frame_released_{};
     int script_count_{};
     uint32_t next_script_unique_id_{};
@@ -52,8 +52,8 @@ ScriptRunState& script_run_state()
 
 } // namespace
 
-Script*& script_list_head() { return script_run_state().script_list_head_; }
-Script*& current_script_var() { return script_run_state().running_script_; }
+QbScript*& script_list_head() { return script_run_state().script_list_head_; }
+QbScript*& current_script_var() { return script_run_state().running_script_; }
 int& script_count() { return script_run_state().script_count_; }
 uint32_t& next_script_unique_id() { return script_run_state().next_script_unique_id_; }
 bool& updating_spawned_scripts() { return script_run_state().updating_spawned_scripts_; }
@@ -71,7 +71,7 @@ namespace {
 } // namespace
 
 // 0x004738E0
-Script* Script::make_new()
+QbScript* QbScript::make_new()
 {
     entity_.preceding_ = nullptr;
     entity_.following_ = nullptr;
@@ -97,7 +97,7 @@ Script* Script::make_new()
 }
 
 // 0x00474420
-void Script::teardown()
+void QbScript::teardown()
 {
     reset_script_state();
     report_stopped(); // (inlined in the original)
@@ -106,7 +106,7 @@ void Script::teardown()
     }
 
     if (!prior_entry_) {
-        script_list_head() = following_;
+        script_list_head() = as_qb(following_);
     }
     if (following_) {
         following_->prior_entry_ = prior_entry_;
@@ -131,18 +131,18 @@ void Script::teardown()
 }
 
 // 0x00449970
-void* Script::operator new(size_t size) { return script_pools().carve(static_cast<unsigned int>(size)); }
+void* QbScript::operator new(size_t size) { return script_pools().carve(static_cast<unsigned int>(size)); }
 
 // 0x004499B0
-void Script::operator delete(void* script) { script_pools().dealloc(script); }
+void QbScript::operator delete(void* script) { script_pools().dealloc(script); }
 
-Script* Script::create()
+QbScript* QbScript::create()
 {
-    void* memory = operator new(sizeof(Script));
-    return memory ? static_cast<Script*>(memory)->make_new() : nullptr;
+    void* memory = operator new(sizeof(QbScript));
+    return memory ? static_cast<QbScript*>(memory)->make_new() : nullptr;
 }
 
-void Script::destroy(Script* script)
+void QbScript::destroy(QbScript* script)
 {
     if (!script) {
         return;
@@ -152,7 +152,7 @@ void Script::destroy(Script* script)
 }
 
 // 0x00473A80
-void Script::reset_script_state()
+void QbScript::reset_script_state()
 {
     run_on_exit_scripts();
     if (code_copy_) {
@@ -200,7 +200,7 @@ void Script::reset_script_state()
 }
 
 // 0x00473880
-void Script::run_on_exit_scripts()
+void QbScript::run_on_exit_scripts()
 {
     if (const uint32_t name = on_exit_script_) {
         on_exit_script_ = 0;
@@ -217,7 +217,7 @@ void Script::run_on_exit_scripts()
 }
 
 // 0x00473010
-void Script::report_stopped()
+void QbScript::report_stopped()
 {
     if (signal_routes_) {
         signal_routes_->unregister_with_tracker(this);
@@ -229,7 +229,7 @@ void Script::report_stopped()
 }
 
 // 0x004739D0
-gsl::owner<Struct*> Script::copy_params_if_owned(Struct* params)
+gsl::owner<Struct*> QbScript::copy_params_if_owned(Struct* params)
 {
     if (!params) {
         return nullptr;
@@ -243,7 +243,7 @@ gsl::owner<Struct*> Script::copy_params_if_owned(Struct* params)
 }
 
 // 0x00474540
-void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
+void QbScript::bind_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {
     // reset_script_state frees this script's parameters: keep what `params` needs.
     gsl::owner<Struct*> copy = copy_params_if_owned(params);
@@ -273,19 +273,13 @@ void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, obj
 }
 
 // 0x004747A0
-void Script::bind_script(uint32_t name, Struct* params, objects::Entity* object)
+void QbScript::bind_script(uint32_t name, Struct* params, objects::Entity* object)
 {
     bind_script(name, nullptr, params, object);
 }
 
-// 0x004747C0
-void Script::bind_script(const char* name, Struct* params, objects::Entity* object)
-{
-    bind_script(checksums::hash_from_text(name), nullptr, params, object);
-}
-
 // 0x00474720
-void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entity* object)
+void QbScript::set_script_copy(ParamScript* script, Struct* params, objects::Entity* object)
 {
     const Tokens start = tokens_at(script->code_stream_);
     const std::span<const uint8_t> source = code_between(start, skip_to_end_of_script(start));
@@ -302,7 +296,7 @@ void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entit
 }
 
 // 0x004747F0
-void Script::relaunch()
+void QbScript::relaunch()
 {
     gsl::owner<Struct*> params = script::new_struct();
     uint32_t name = 0;
@@ -324,7 +318,7 @@ void Script::relaunch()
 }
 
 // 0x00472C90
-bool Script::all_scripts_still_defined()
+bool QbScript::all_scripts_still_defined()
 {
     if (call_depth_ == 0) {
         return (code_copy_ != nullptr) || (find_symbol(script_title_) != nullptr);
@@ -341,11 +335,8 @@ bool Script::all_scripts_still_defined()
     return true;
 }
 
-// 0x00472940
-bool Script::has_attached_script() { return pc_ != nullptr; }
-
 // 0x00472F90
-void Script::set_spawner_file(Script* spawner)
+void QbScript::set_spawner_file(Script* spawner)
 {
     const uint32_t name =
         (spawner->call_depth_ != 0) ? core::at(spawner->call_stack(), 0).script_id_ : spawner->script_title_;
@@ -353,7 +344,7 @@ void Script::set_spawner_file(Script* spawner)
 }
 
 // 0x00473BE0
-void Script::object_destroyed(objects::Entity* object)
+void QbScript::object_destroyed(objects::Entity* object)
 {
     if (!object) {
         return;
@@ -369,13 +360,8 @@ void Script::object_destroyed(objects::Entity* object)
     suspend_reason_ = BlockReason::kNothing; // (whatever it was waiting for)
 }
 
-// 0x00472ED0 / 0x00472EE0 / 0x00472EF0
-void Script::set_on_exception_script(uint32_t name) { on_exception_script_ = name; }
-uint32_t Script::get_on_exception_script() const { return on_exception_script_; }
-void Script::set_on_exit_script(uint32_t name) { on_exit_script_ = name; }
-
 // 0x00472F00
-void Script::clear_on_exit_scripts()
+void QbScript::clear_on_exit_scripts()
 {
     on_exit_script_ = 0;
     for (int i = call_depth_; i != 0; --i) {
@@ -394,4 +380,4 @@ Script* find_script_with_unique_id(uint32_t id)
     return nullptr;
 }
 
-} // namespace script
+} // namespace script::qb

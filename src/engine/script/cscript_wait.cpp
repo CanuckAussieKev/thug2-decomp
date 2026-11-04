@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <span>
 
+#include "engine/script/qb_script.h"
 #include "engine/script/cscript.h"
 #include "base/core/enum_ops.h"
 
@@ -28,7 +29,7 @@
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 
-namespace script {
+namespace script::qb {
 
 namespace {
 // Frame records a script's first call stack holds.
@@ -59,7 +60,7 @@ gsl::owner<Struct*> new_empty_struct() { return new_struct(); }
 } // namespace
 
 // 0x00473050
-void Script::update_wait()
+void QbScript::update_wait()
 {
     switch (suspend_reason_) {
     case BlockReason::kCount:
@@ -121,10 +122,10 @@ void Script::update_wait()
 }
 
 // 0x004728F0
-void Script::stop_waiting() { suspend_reason_ = BlockReason::kNothing; }
+void QbScript::stop_waiting() { suspend_reason_ = BlockReason::kNothing; }
 
 // 0x00472900
-bool Script::is_blocked(bool print)
+bool QbScript::is_blocked(bool print)
 {
     if (print) {
         debug::printf("m_wait_type == %i\n" /* "m_wait_type == %i\n" */, core::to_underlying(suspend_reason_));
@@ -133,21 +134,21 @@ bool Script::is_blocked(bool print)
 }
 
 // 0x00472BD0
-void Script::get_stall(int frames)
+void QbScript::get_stall(int frames)
 {
     suspend_reason_ = BlockReason::kCount;
     suspend_frames_left_ = frames;
 }
 
 // 0x00472BF0
-void Script::suspend_until_next_frame(int frames)
+void QbScript::suspend_until_next_frame(int frames)
 {
     suspend_reason_ = BlockReason::kFrame;
     suspend_frames_left_ = frames;
 }
 
 // 0x00472C10 (the milliseconds unsigned)
-void Script::lull(int ms)
+void QbScript::lull(int ms)
 {
     suspend_reason_ = BlockReason::kTimer;
     suspend_clock_started_ = false;
@@ -155,7 +156,7 @@ void Script::lull(int ms)
 }
 
 // 0x00473310 (the milliseconds unsigned)
-void Script::wait_real_time(int ms)
+void QbScript::wait_real_time(int ms)
 {
     suspend_reason_ = BlockReason::kRealTimer;
     suspend_arg_ = static_cast<uint32_t>(game_clock() + objects::clock_offset());
@@ -163,7 +164,7 @@ void Script::wait_real_time(int ms)
 }
 
 // 0x00472FD0
-void Script::gate_off(uint32_t event_type)
+void QbScript::gate_off(uint32_t event_type)
 {
     suspend_reason_ = BlockReason::kBlock;
     suspend_arg_ = event_type;
@@ -174,7 +175,7 @@ void Script::gate_off(uint32_t event_type)
 }
 
 // 0x004739A0
-void Script::set_wait_on_component(BlockReason type, objects::ObjectModule* component, uint32_t arg)
+void QbScript::set_wait_on_component(BlockReason type, objects::ObjectModule* component, uint32_t arg)
 {
     suspend_reason_ = type;
     blocking_module_ = component;
@@ -184,7 +185,7 @@ void Script::set_wait_on_component(BlockReason type, objects::ObjectModule* comp
 }
 
 // 0x00472D20
-void Script::component_destroyed(objects::ObjectModule* component)
+void QbScript::component_destroyed(objects::ObjectModule* component)
 {
     if (blocking_module_ && blocking_module_ == component) {
         suspend_reason_ = BlockReason::kNothing;
@@ -202,12 +203,12 @@ void Script::component_destroyed(objects::ObjectModule* component)
 void component_destroyed_all_scripts(objects::ObjectModule* component)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        script->component_destroyed(component);
+        as_qb(script)->component_destroyed(component);
     }
 }
 
 // 0x00473800
-bool Script::receive_event(objects::Signal* event)
+bool QbScript::receive_event(objects::Signal* event)
 {
     if (suspend_reason_ == BlockReason::kBlock && (suspend_arg_ != 0U) && event->kind_tag() == suspend_arg_) {
         suspend_reason_ = BlockReason::kNothing;
@@ -228,7 +229,7 @@ bool Script::receive_event(objects::Signal* event)
 
 // 0x00472F40: from the top down, the first level entered as an interrupt (the top's flag is flag_bits_ bit 0,
 // a lower level's is its saved frame's bit 1): the level below it - the one it interrupted - stops waiting.
-void Script::unblock_interrupted_script()
+void QbScript::unblock_interrupted_script()
 {
     bool interrupt = (flag_bits_ & kScriptRunInterrupted) != 0;
     for (int level = call_depth_; level > 0; --level) {
@@ -242,7 +243,7 @@ void Script::unblock_interrupted_script()
 }
 
 // 0x004748E0
-void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object,
+void QbScript::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object,
                             bool interrupted)
 {
     if (!pc_) {
@@ -295,7 +296,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
 }
 
 // 0x00473E70
-bool Script::return_from_script(Struct* results)
+bool QbScript::return_from_script(Struct* results)
 {
     script_store_instance()->release_script(script_title_);
     const bool interrupted = (flag_bits_ & kScriptRunInterrupted) != 0;
@@ -334,7 +335,7 @@ bool Script::return_from_script(Struct* results)
 }
 
 // 0x00475750
-ScriptOutcome Script::preempt(uint32_t name, Struct* params)
+ScriptOutcome QbScript::preempt(uint32_t name, Struct* params)
 {
     const uint8_t* code = script_store_instance()->fetch_script(name);
     run_sub_script(name, code, params, entity_.get_pull(), true);
@@ -342,7 +343,7 @@ ScriptOutcome Script::preempt(uint32_t name, Struct* params)
 }
 
 // 0x00472EA0
-void Script::clear_event_handler_group(uint32_t group)
+void QbScript::clear_event_handler_group(uint32_t group)
 {
     if (signal_routes_) {
         signal_routes_->remove_group(this, group);
@@ -350,10 +351,10 @@ void Script::clear_event_handler_group(uint32_t group)
 }
 
 // 0x00472EC0
-int Script::print_event_handler_table() { return SignalRouteTable::list_wait_table(signal_routes_); }
+int QbScript::print_event_handler_table() { return SignalRouteTable::list_wait_table(signal_routes_); }
 
 // 0x004734E0
-void Script::install_event_table(Array* handlers, bool replace)
+void QbScript::install_event_table(Array* handlers, bool replace)
 {
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     if (!signal_routes_) {
@@ -369,7 +370,7 @@ void Script::install_event_table(Array* handlers, bool replace)
 }
 
 // 0x004735D0
-void Script::set_event_handler(uint32_t event_type, uint32_t script, uint32_t group, bool exception, Struct* params)
+void QbScript::set_event_handler(uint32_t event_type, uint32_t script, uint32_t group, bool exception, Struct* params)
 {
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     if (!signal_routes_) {
@@ -381,7 +382,7 @@ void Script::set_event_handler(uint32_t event_type, uint32_t script, uint32_t gr
 }
 
 // 0x00473690
-void Script::clear_event_handler(uint32_t event_type)
+void QbScript::clear_event_handler(uint32_t event_type)
 {
     if (signal_routes_) {
         signal_routes_->remove_type(event_type);
@@ -391,7 +392,7 @@ void Script::clear_event_handler(uint32_t event_type)
 
 // 0x004736C0: the group's handlers become those of `table`, an array of structures {flag, type, script,
 // [params]} - the flag `exception` makes it an exception handler. (At least three components each: not checked.)
-void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
+void QbScript::reset_event_handlers_from_table(Array* table, uint32_t group)
 {
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     if (signal_routes_) {
@@ -417,4 +418,4 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
     memory::leave_heap_scope();
 }
 
-} // namespace script
+} // namespace script::qb

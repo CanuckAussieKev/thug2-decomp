@@ -10,21 +10,23 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/member_code.h"
 #include "engine/script/tokens.h"
-#include "engine/memory/slab_bank.h"
-#include <gsl/pointers>
 
-// A running script (Scripts::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, engine/memory/memory_sizes.h) and the list of all of them.
+// A running script's record (Scripts::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200,
+// engine/memory/memory_sizes.h), the types its fields hold, and the script functions the game calls by name.
 //
 // A script runs compiled .qb code (see qb.h) one statement at a time from its program counter until it has to
-// wait or it ends; Update does that once (the callers decide when: the spawned scripts every frame, objects'
+// wait or it ends; one Update does that once (the callers decide when: the spawned scripts every frame, objects'
 // scripts from their own updates, launch_script all at once). Calling another script pushes a return address
 // (the caller's whole state, 0x30 bytes) and runs the callee in the same Update; '$' / return pops it.
-// Every script is on one list (head 0x006F3538, the newest first). Spawned scripts belong to the list and are
-// updated and deleted by tick_child_scripts; the others belong to whoever made them (objects...).
+// Every script is on one list (the newest first). Spawned scripts belong to the list and are updated and deleted by
+// tick_child_scripts; the others belong to whoever made them (objects...).
+//
+// NOT ORIGINAL - what runs a script is the script runtime behind script::Host (host.h): the QB interpreter
+// (script_qb/qb_script.h: its operations on this record, the list, the manager), which app/ installs. Here is the
+// record - the original's layout, read and set by the commands and objects through its accessors - and the
+// functions by name, each the installed runtime's (host.cpp).
 //
 // Layout and conventions are from the disassembly of 0x004728F0-0x00475920 (docs/script-runtime.md).
-// Every method is __thiscall, callee-pops (RET n = 4 * arguments); the free functions are __cdecl. None takes
-// arguments in other registers.
 namespace objects {
 class Entity;           // a game object (SharedBase; +0x100 its component list)
 class ObjectModule;     // one of an object's components; can hold a script waiting on it
@@ -35,6 +37,9 @@ struct Signal;          // an event (engine/objects/signal.h)
 namespace script {
 
 class Script;
+namespace qb {
+class QbScript;
+} // namespace qb
 
 // What Update returns.
 enum class ScriptOutcome : uint8_t {
@@ -180,138 +185,13 @@ constexpr size_t kScriptSharedBaseOffset = 0xEC;
 constexpr size_t kScriptBytes = 0xF4;
 class Script {
 public:
-    // --- life (group A: cscript_core.cpp) ---
-    // 0x004738E0: the constructor (returns this). Zeroes the whole object (after constructing shared_base_:
-    // its vptr ends up null - kept), takes the next unique id, goes to the head of the list.
-    Script* make_new();
-    // 0x00474420: the destructor body: reset_script_state, report_stopped, frees the callback parameters, leaves the
-    // list, forgets its stored randoms, lets go of the event handler table, ~shared_base_, ~entity_.
-    void teardown();
-    // Never destroyed by a delete-expression: destroy() runs teardown (the destructor's body - it frees the owned
-    // parameters) and gives the memory back to the pool; make_new is the constructor. Never copied or moved.
+    // Made and given back only by the script runtime (Host::create / destroy); never destroyed by a delete-expression,
+    // never copied or moved.
     ~Script() = delete;
     Script(const Script&) = delete;
     Script& operator=(const Script&) = delete;
     Script(Script&&) = delete;
     Script& operator=(Script&&) = delete;
-    // 0x00449970 / 0x004499B0 (cdecl): CPoolable new / delete (the pool 0x006F3548, else the current heap).
-    static void* operator new(size_t size);
-    static void operator delete(void* script);
-    // NOT ORIGINAL - the pair the game's inlined new / delete of a script come to: one from the pool (else the
-    // current heap) made by make_new - null when there's no memory -; and one torn down and given back (null:
-    // nothing).
-    static Script* create();
-    static void destroy(Script* script);
-
-    // 0x00473A80: stop: run the OnExitRun scripts, free the code copy, release the code and every level's
-    // code from the script cache, free the parameters and every level's, back to the inline call stack /
-    // loop, no wait, no object, no name, interrupt flags cleared.
-    void reset_script_state();
-    // 0x00473880: run the pending OnExitRun scripts (this level's, then each return address' from the top) as
-    // interrupts. Also called by 0x00583470.
-    void run_on_exit_scripts();
-    // 0x00473010: after reset_script_state: the tracker forgets the event handler table's types for this script and
-    // every handler is removed (group all_groups); with kScriptFlagTrackerBlocked, the tracker (0x006F0FC0,
-    // 0x00462B90) forgets it.
-    void report_stopped();
-    // 0x004739D0: a copy of `params` if it is (or is inside) this script's own parameters or function
-    // parameters, which reset_script_state is about to free; else null.
-    gsl::owner<Struct*> copy_params_if_owned(Struct* params);
-    // 0x00474540: run `name` from the start: `code`, or the cached code of `name` (if there is none: stop and
-    // report_stopped). The parameters are the script's defaults (its first line) plus `params`.
-    void bind_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object);
-    // 0x004747A0 / 0x004747C0: bind_script(name, null, params, object), the name as a checksum or a string.
-    void bind_script(uint32_t name, Struct* params, objects::Entity* object);
-    void bind_script(const char* name, Struct* params, objects::Entity* object);
-    // 0x00474720: bind_script with a private copy of `script`'s code (code_copy_, on the script heap) - a script
-    // held in a structure (0x0048B200 gets it with 0x00476900).
-    void set_script_copy(ParamScript* script, Struct* params, objects::Entity* object);
-    // 0x004747F0: start again the script it was started with (the bottom level's name, parameters, object).
-    void relaunch();
-    // 0x00472C90: whether the scripts of every level are still defined (the bottom level is skipped when it
-    // runs a private copy).
-    bool all_scripts_still_defined();
-    // 0x00472940: whether it has code to run.
-    bool has_attached_script();
-    // 0x00472F90: spawner_file_ = the .qb file of `spawner`'s bottom-level script (SpawnScript's Function).
-    void set_spawner_file(Script* spawner);
-    // 0x00473BE0: `object` is going: let go of it at every level, and stop waiting.
-    void object_destroyed(objects::Entity* object);
-    // 0x00472ED0 / 0x00472EE0: the OnExceptionRun script. 0x00472EF0: the OnExitRun script.
-    void set_on_exception_script(uint32_t name);
-    [[nodiscard]] uint32_t get_on_exception_script() const;
-    void set_on_exit_script(uint32_t name);
-    // 0x00472F00: no OnExitRun script at any level.
-    void clear_on_exit_scripts();
-
-    // --- the interpreter (group B: cscript_exec.cpp) ---
-    // 0x004750B0: run statements until it waits or ends.
-    ScriptOutcome tick_frame();
-    // The statements tick_frame runs, from `pc` (NOT ORIGINAL: a cursor at pc_ over its block of code, moved as the
-    // original moved pc_; pc_ is written back before anything is called).
-    // 0x00474B40: one statement: a C function / member function / script call (also `obj:Func`), an
-    // assignment `name = value`, or an expression (its truth value). Returns the call's result.
-    bool execute_command(Tokens& pc);
-    // 0x00475050: if / if not (token 0x47): run the condition, skip to the else / endif when false.
-    void run_conditional(Tokens& pc);
-    // 0x00473C60: switch (token 0x3C) to the matching case (or past endswitch).
-    void run_multi_branch(Tokens& pc);
-    // 0x00472A70: past the endswitch matching the switch just entered (nested switches skipped).
-    void skip_to_end_of_switch(Tokens& pc);
-    // 0x00473220 / 0x00472AB0 / 0x00472B50: begin, repeat [n], break.
-    void run_loop_open(Tokens& pc);
-    void run_counted_loop(Tokens& pc);
-    void run_loop_exit(Tokens& pc);
-    // 0x00472950: the rest of the line as stmt_args_.
-    void parse_function_params(Tokens& pc);
-    // 0x004729E0: the name at pc (a name token, or <name> / <...> from the parameters), or 0.
-    uint32_t read_name(Tokens& pc);
-    // 0x004731A0 / 0x004731E0: a member function on `object` (null: entity_; none: false) - by table entry
-    // or by name.
-    bool invoke_method_by_name(const MemberFunctionEntry* entry, objects::Entity* object);
-    bool invoke_method_by_name(uint32_t name, objects::Entity* object);
-
-    // --- waiting, call stack, events (group C: cscript_wait.cpp) ---
-    // 0x00473050: count down / check this Update's wait (see BlockReason).
-    void update_wait();
-    // 0x004728F0: stop waiting. 0x00472900: whether blocked (`print`: prints "m_wait_type == %i").
-    void stop_waiting();
-    bool is_blocked(bool print);
-    // 0x00472BD0 / 0x00472BF0: wait `frames` Updates (one per frame: kSuspendOnFrame).
-    void get_stall(int frames);
-    void suspend_until_next_frame(int frames);
-    // 0x00472C10: wait `ms` of frame time (as seconds, * 0.001f). 0x00473310: `ms` of the game clock.
-    void lull(int ms);
-    void wait_real_time(int ms);
-    // 0x00472FD0: block until an event of type `event_type` (0: until unblocked); registers with the tracker.
-    void gate_off(uint32_t event_type);
-    // 0x004739A0: wait (type 5-10) until `component` says so; marks the component (+0x08 |= 2).
-    void set_wait_on_component(BlockReason type, objects::ObjectModule* component, uint32_t arg);
-    // 0x00472D20: `component` is going: no level waits on it any more.
-    void component_destroyed(objects::ObjectModule* component);
-    // 0x00473800: an event: unblocks the levels blocked on its type, then the event handler table gets it.
-    // Always true.
-    bool receive_event(objects::Signal* event);
-    // 0x00472F40: the level an interrupt interrupted stops waiting (the Function UnBlockInterruptedScript).
-    void unblock_interrupted_script();
-    // 0x004748E0: call `name` (`code`; its default parameters plus `params`, on `object`): the current state
-    // goes on the call stack. With no code running, just bind_script. `interrupted`: returning ends Update (5).
-    void run_sub_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object, bool interrupted);
-    // 0x00473E70: '$' / return: release the code, pop the caller's state (none: the script ends); `results`
-    // (the return's parameters) are added to the caller's parameters. Returns whether the level that ended
-    // was an interrupt.
-    bool return_from_script(Struct* results);
-    // 0x00475750: run the cached script `name` now, as an interrupt, then carry on Updating.
-    ScriptOutcome preempt(uint32_t name, Struct* params);
-    // Event handlers (0x00472EA0, 0x00472EC0, 0x004734E0, 0x004735D0, 0x00473690, 0x004736C0): through
-    // signal_routes_ (made on demand: 0x10 bytes, 0x0045F820, on the front-end heap).
-    void clear_event_handler_group(uint32_t group);          // 0x00472EA0 (0x004600E0)
-    int print_event_handler_table();                         // 0x00472EC0 (0x0045F880, cdecl)
-    void install_event_table(Array* handlers, bool replace); // 0x004734E0
-    void set_event_handler(uint32_t event_type, uint32_t script, uint32_t group, bool exception,
-                           Struct* params);                             // 0x004735D0
-    void clear_event_handler(uint32_t event_type);                      // 0x00473690
-    void reset_event_handlers_from_table(Array* table, uint32_t group); // 0x004736C0
 
     // NOT ORIGINAL - the loop stack and the call stack as runs of what they hold now: the one loop / two frames inside
     // the script, or the blocks on the script heap (kHeapLoops / kHeapFrames; the original didn't check beyond them).
@@ -363,8 +243,17 @@ public:
     [[nodiscard]] objects::SignalRouteTable* signal_routes() const { return signal_routes_; }
     objects::SharedBase& shared_base() { return shared_base_; }
     [[nodiscard]] const objects::SharedBase& shared_base() const { return shared_base_; }
+    // 0x00472940: whether it has code to run.
+    [[nodiscard]] bool has_attached_script() const { return pc_ != nullptr; }
+    // 0x00472ED0 / 0x00472EE0: the OnExceptionRun script. 0x00472EF0: this level's OnExitRun script.
+    void set_on_exception_script(uint32_t name) { on_exception_script_ = name; }
+    [[nodiscard]] uint32_t get_on_exception_script() const { return on_exception_script_; }
+    void set_on_exit_script(uint32_t name) { on_exit_script_ = name; }
 
 private:
+    // The QB interpreter's view of the record: its operations (script_qb/qb_script.h), which add no fields.
+    friend class qb::QbScript;
+
     // --- the fields ---
     Script* following_;             // +0x00 the list (older)
     Script* prior_entry_;           // +0x04 (newer; null for the head)
@@ -438,25 +327,10 @@ constexpr uint8_t kScriptFlagPaused = 0x04;
 constexpr uint8_t kScriptFlagPauseWithObject = 0x08; // not updated while its object says no (vtable +0x1C)
 constexpr uint8_t kScriptFlagTrackerBlocked = 0x10;  // Block registered it with the tracker
 
-// The scripts' shared state (the original's globals; cscript_core.cpp's record).
-Script*& script_list_head();
-Script*& current_script_var(); // get_running_script 0x004728C0
-int& script_count();
-uint32_t& next_script_unique_id();
-bool& updating_spawned_scripts();
-bool& delete_spawned_scripts_pending();
-bool& one_per_frame_released(); // kSuspendOnFrame
-// (also: the CScript pool pair 0x006F3548 - qb.cpp creates it; the script cache 0x006F3558 - cache.h; the object
-// tracker 0x006F0FC0; online::Hub 0x007CCE14; the game clock offset 0x00696D60)
-
-// --- free functions ---
-// 0x00472980 (group B): a member function on `object` (no null check): the object itself for the two special
-// component types (vtable +0x08), else its component of that type (0x0045DB90; vtable +0x2C).
-bool invoke_method_by_name(const MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script);
-// 0x004734B0 (group A): the script with this unique id, or null.
+// --- the script functions the game calls by name (host.cpp: each the installed runtime's - host.h) ---
+// 0x004734B0: the script with this unique id, or null.
 Script* find_script_with_unique_id(uint32_t id);
 
-// The script manager (group D: cscript_manager.cpp).
 // 0x00475920: one Update of every spawned script (newest first); finished ones run their callback and go.
 void tick_child_scripts();
 // 0x004753C0: delete the spawned scripts that aren't kScriptFlagNotSessionSpecific (deferred to the end of
@@ -487,8 +361,7 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
 void launch_script(const char* name, Struct* params, objects::Entity* object, bool replicate_flag);
 // 0x004752F0: one Update of `name`, then its parameters are added to `results` (not checked for null).
 void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Struct* results);
-// 0x00473350 / 0x00473420: the network messages for launch_script (0x48) and SpawnScript (0x49).
-void send_run_script_message(uint32_t name, Struct* params, objects::Entity* object);
+// 0x00473420: the network message for SpawnScript (0x49).
 void send_spawn_script_message(uint32_t name, objects::Entity* object, int node, bool permanent);
 // 0x00472D80 / 0x00472DC0: pause or unpause every spawned script / unpause one.
 void pause_spawned_scripts(bool pause);
@@ -507,13 +380,8 @@ void stop_scripts_by_tag(uint32_t id);      // 0x00474040 (spawn id, unique id o
 void stop_scripts_of_object_and_tag(objects::Entity* object, uint32_t id, Script* except);        // 0x004740D0
 void end_child_scripts_of_entity_by_name(objects::Entity* object, uint32_t name, Script* except); // 0x00474190
 void stop_all_scripts();                                                // 0x00474250 (every script)
-void stop_scripts_using_object(objects::Entity* object, uint32_t name); // 0x004742B0 (name 0: any; top level only)
-void end_scripts_bound_to_entity(objects::Entity* object);              // 0x004756F0 = 0x004742B0(object, 0)
+void end_scripts_bound_to_entity(objects::Entity* object);              // 0x004756F0 (every script using it)
 void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t name); // 0x00474350 (name at any level)
 // 0x00475700: delete the scripts that aren't spawned, have no code and no event handler table (Cleanup).
 void delete_finished_scripts();
-// The loader's walks (load.cpp): every script with `name` at any level started again (restart_changed_scripts
-// 0x0046ED20, for a script that changed); every script whose code is gone stopped (unload_qb 0x0046EEC0).
-void relaunch_scripts_referring_to(uint32_t name);
-void stop_scripts_left_without_code();
 } // namespace script

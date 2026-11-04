@@ -25,6 +25,7 @@
 #include "engine/net/net_client.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/script/cell.h"
+#include "engine/script/host.h"
 #include "engine/script/nodes.h"
 #include "engine/pad_input/device.h"
 #include "game/skate/profile_manager.h"
@@ -1126,7 +1127,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         memory::Hub::get_pull()->leave_heap_scope();
     }
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
-    set_own_script(script::Script::create());
+    set_own_script(script::host().create());
     uint32_t skeleton = kTHPS6Human;
     if (script::Struct* asset_info = script::read_sub_struct(kSkaterAssetInfo)) {
         asset_info->read_hash_value(kSkaterSkeleton, &skeleton, 0);
@@ -1191,7 +1192,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         core_physics_->set_tap_spin(static_cast<uint8_t>(core::at(skate->participants(), view_slot_).spin_taps_));
         vibration_->change_live(core::at(skate->participants(), view_slot_).vibration_);
         if (is_local_skater() != 0U) {
-            own_script()->bind_script("SkaterInit", nullptr, this);
+            script::host().bind_script(own_script(), checksums::hash_from_text("SkaterInit"), nullptr, this);
         }
     }
     update_from_profile(profile);
@@ -1291,7 +1292,7 @@ void Rider::init_from_profile(RiderIdentity* profile)
 void Rider::run_state_script(bool walk, bool other)
 {
     if (!own_script()) {
-        set_own_script(script::Script::create());
+        set_own_script(script::host().create());
     }
     script::Struct* params = nullptr;
     if (walk || other) {
@@ -1305,9 +1306,9 @@ void Rider::run_state_script(bool walk, bool other)
             params->put_name_key(checksums::Name{0U}, kInCleanup);
         }
     }
-    own_script()->bind_script(kSkaterInit, params, this);
+    script::host().bind_script(own_script(), kSkaterInit, params, this);
     if (is_local_skater() != 0U) {
-        own_script()->tick_frame();
+        script::host().tick_frame(own_script());
     }
     if (params) {
         params->get_clear();
@@ -1319,13 +1320,13 @@ void Rider::run_state_script(bool walk, bool other)
 void Rider::switch_to_script(uint32_t name, script::Struct* params)
 {
     if (!own_script()) {
-        set_own_script(script::Script::create());
+        set_own_script(script::host().create());
     }
     if (ObjectModule* flip_and_rotate = fetch_module(kSkaterFlipAndRotate)) {
         core::down_cast<RiderSpinAndFlip>(flip_and_rotate)->do_after_anim();
     }
-    own_script()->bind_script(name, params, this);
-    own_script()->tick_frame();
+    script::host().bind_script(own_script(), name, params, this);
+    script::host().tick_frame(own_script());
 }
 
 // 0x005825E0
@@ -1594,7 +1595,7 @@ void Rider::reset_components()
     core::down_cast<PickupItemHandler>(fetch_module(kSpecialItem))->destroy_items();
     anim_blender_->reset_channels();
     if (script::Script* script = own_script()) {
-        script::Script::destroy(script);
+        script::host().destroy(script);
         set_own_script(nullptr);
     }
     // Not original - the special items gone, THAW's bike with them: off the bike (game/rider/thaw_bmx.h).
@@ -1620,7 +1621,7 @@ void Rider::relaunch(uint32_t a, uint32_t b)
         }
     }
     if (own_script()) {
-        own_script()->run_on_exit_scripts();
+        script::host().run_on_exit_scripts(own_script());
     }
     core_physics_->get_reset();
     auto* camera =

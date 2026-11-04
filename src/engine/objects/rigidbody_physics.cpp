@@ -17,7 +17,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/rigidbody_component.h"
 #include "engine/objects/sound_component.h"
-#include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/stopwatch.h"
@@ -360,7 +360,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
             params->merge_structure(callback_params_ptr_);
         }
         params->put_vec3(checksums::Name{kBouncePos}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
-        entity()->spawn_script(bounce_script_, params, 0, false)->tick_frame();
+        script::host().tick_frame(entity()->spawn_script(bounce_script_, params, 0, false));
         if (params) {
             params->get_clear();
             script::delete_struct(params);
@@ -430,7 +430,7 @@ void BodyDynamicsModule::resolve_contacts()
         if (++round == kMaxRounds) {
             // Stuck: the script, or no velocity at all.
             if (script_d0_ != 0U) {
-                entity()->spawn_script(script_d0_, callback_params_ptr_, 0, false)->tick_frame();
+                script::host().tick_frame(entity()->spawn_script(script_d0_, callback_params_ptr_, 0, false));
                 return;
             }
             vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};

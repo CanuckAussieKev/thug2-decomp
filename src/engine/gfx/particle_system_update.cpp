@@ -20,6 +20,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/flexible_particle_manager.h"
 #include "platform/crt.h"
@@ -555,7 +556,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
         }
     }
     if (tick_script_) {
-        tick_script_->tick_frame();
+        script::host().tick_frame(tick_script_);
     }
     if (!moving_ || time == 0.0F) {
         return;

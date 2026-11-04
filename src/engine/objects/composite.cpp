@@ -17,6 +17,7 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/car_physics.h"
@@ -264,7 +265,7 @@ void GameEntity::tick_frame()
     }
     if ((composite_flags_ & kCompositeFlagSuspended) == 0U) {
         if (own_script()) {
-            own_script()->tick_frame();
+            script::host().tick_frame(own_script());
         }
         if ((object_flags() & kObjectFlagDead) != 0U) {
             return;

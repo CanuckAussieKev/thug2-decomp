@@ -18,6 +18,7 @@
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/script/cscript.h"
+#include "engine/script/host.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
@@ -779,12 +780,12 @@ bool ModelAssembler::launch_script(checksums::Name part_name, uint32_t target)
         held->code_stream_ = nullptr;
     }
     if (fetch_script(option, target, held, 0)) {
-        script::Script* script = script::Script::create();
-        script->set_script_copy(held, nullptr, built_appearance().get()); // (no memory: a crash, as the original)
-        while (script->tick_frame() != script::ScriptOutcome::kFinished) {
+        script::Script* script = script::host().create();
+        script::host().set_script_copy(script, held, nullptr, built_appearance().get()); // (no memory: a crash, as the original)
+        while (script::host().tick_frame(script) != script::ScriptOutcome::kFinished) {
         }
         if (script) {
-            script::Script::destroy(script);
+            script::host().destroy(script);
         }
     }
     memory::Hub::dealloc(held);
