@@ -18,8 +18,9 @@ class GapTally;
 // level's) are what the save keeps of gaps: the game save's builder (0x005A7560, the memory card / save game's
 // structure) calls the career's write_to_structure (0x00585550, ours: src/game/skate/career.cpp - also the script command
 // GetCareerSaveInfo, 0x00585E20), which writes each built checklist's gaps (name, times landed, score, the skater's
-// start position / direction). The editor adds its gaps to the current level's checklist (editor/level_editor_triggers.h: the
-// game's own Build), and gaps landed in an edited copy count in that checklist like any other. So:
+// start position / direction). The editor adds its gaps to the current level's checklist
+// (editor/level_editor_triggers.h: the game's own Build), and gaps landed in an edited copy count in that checklist
+// like any other. So:
 //   - when the level becomes its edited copy (get_edited_copy(true): the layout put in place, the editor opened in it, a
 //     switch in place), the current level's checklist is copied first - the BASELINE: its gaps (names, scores, times
 //     landed, positions) and whether it was built;

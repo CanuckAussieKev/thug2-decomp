@@ -38,11 +38,11 @@
 //   the level's collision / scene files (size and time, to tell a reconverted file), the approach, the camera.
 // - Rate limit: the same spot (within 40 inches) again within 1 second isn't logged; the next line there says how
 //   many were left out (repeats=).
-// - On screen: "collision event <n>: <reason>" for 2 s (ext::show_notice - the screenshot key's; " (screenshot)" when one was
-//   taken). A level's first frame logs "collision-event: logging on in <level>".
+// - On screen: "collision event <n>: <reason>" for 2 s (ext::show_notice - the screenshot key's; " (screenshot)" when
+//   one was taken). A level's first frame logs "collision-event: logging on in <level>".
 // - [debug] collision_event_screenshots (default 1 - 0 turns them off): a screenshot of the event's frame
-//   (ext::request_event_shot - the screenshot key's; the reversal is seen the frame it happens, while the camera still looks the
-//   way the skater was going - it follows his turn only over the next frames), named in the log.
+//   (ext::request_event_shot - the screenshot key's; the reversal is seen the frame it happens, while the camera
+//   still looks the way the skater was going - it follows his turn only over the next frames), named in the log.
 
 #include <cstdint>
 #include <span>

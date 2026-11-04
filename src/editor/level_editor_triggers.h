@@ -423,9 +423,9 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
 // For the Inspector, the help and the screenshot sidecar: a line about the triggers.
 std::string describe();
 
-// The career save (game/skate/edited_copy_career.h, through the editor's extension): the names of the gaps the editor put in `checklist` (false, nothing: it
-// isn't the checklist they went into, or there are none) and the level's own gap names (a level gap of the same name
-// is the level's, not the editor's).
+// The career save (game/skate/edited_copy_career.h, through the editor's extension): the names of the gaps the editor
+// put in `checklist` (false, nothing: it isn't the checklist they went into, or there are none) and the level's own gap
+// names (a level gap of the same name is the level's, not the editor's).
 bool get_editor_gaps(const goals::GapTally* checklist, std::vector<std::string>* names,
                      std::vector<std::string>* level_names);
 

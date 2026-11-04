@@ -32,7 +32,10 @@ Registry& registry()
     return state.get();
 }
 
-std::span<Extension* const> registered() { return std::span<Extension* const>(registry().extensions_).first(registry().count_); }
+std::span<Extension* const> registered()
+{
+    return std::span<Extension* const>(registry().extensions_).first(registry().count_);
+}
 
 } // namespace
 
