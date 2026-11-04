@@ -16,6 +16,7 @@
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
 #include "base/core/checksums.h"
+#include "engine/pad_input/sdl_input.h"
 #include "engine/pad_input/input_hub.h" // IWYU pragma: keep - the complete InputHandler type (deleted here)
 #include "platform/gamespy.h"
 #include "engine/memory/manager.h"
@@ -591,7 +592,7 @@ void Hub::disconnect_clients()
     if (spectator_pad_listener_) {
         delete_spectator_pad_listener();
     }
-    net_game_state().set_text_entry(false);
+    sio::text_entry_flag() = false;
     if (net_game_state().query_reporting()) {
         game_spy::get_qr2_shutdown(nullptr);
         net_game_state().set_query_reporting(false);

@@ -29,7 +29,6 @@
 #include "engine/pad_input/direct_input.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "game/online/net_game_state.h"
 
 namespace sio {
 
@@ -64,11 +63,12 @@ constexpr int kInGameMenuElement = 0x5999551E; // (text unknown)
 
 namespace {
 
-// NOT ORIGINAL grouping - whether the on-screen keyboard is up and whether a menu is on screen. Made on first use,
-// never destroyed (screen_flags()).
+// NOT ORIGINAL grouping - whether the on-screen keyboard is up, whether a menu is on screen and whether text entry is
+// on. Made on first use, never destroyed (screen_flags()).
 struct ScreenFlags {
     bool keyboard_on_screen_{};
     bool in_menu_flag_{};
+    bool text_entry_{};
 };
 
 ScreenFlags& screen_flags()
@@ -81,6 +81,7 @@ ScreenFlags& screen_flags()
 
 bool& keyboard_on_screen_flag() { return screen_flags().keyboard_on_screen_; }
 bool& menu_flag() { return screen_flags().in_menu_flag_; }
+bool& text_entry_flag() { return screen_flags().text_entry_; }
 
 namespace {
 
@@ -1252,7 +1253,7 @@ void process_sdl_device(InputPort* device)
                                : 0);
 
     // (typed text only works with these set)
-    online::net_game_state().set_text_entry(true);
+    screen_flags().text_entry_ = true;
     screen_flags().in_menu_flag_ = false;
 }
 

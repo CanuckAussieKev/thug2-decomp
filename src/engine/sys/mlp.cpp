@@ -33,7 +33,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "game/online/net_game_state.h"
+#include "engine/pad_input/sdl_input.h"
 #include "engine/objects/objects_shared.h"
 
 namespace frame_loop {
@@ -52,7 +52,7 @@ constexpr uint64_t kFarBehindFrames = 20;         // a frame this many frames la
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
 
-bool text_entry() { return online::net_game_state().text_entry(); } // keeps the loop running while the window is inactive
+bool text_entry() { return sio::text_entry_flag(); } // keeps the loop running while the window is inactive
 
 D3DPRESENT_PARAMETERS* present_parameters() { return &render::present_parameters(); }
 

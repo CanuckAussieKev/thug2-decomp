@@ -57,8 +57,6 @@ public:
     void set_join_server_ip_succeeded(bool value) { join_server_ip_succeeded_ = value; }
     [[nodiscard]] uint32_t news_message_count() const { return news_message_count_; }
     void set_news_message_count(uint32_t value) { news_message_count_ = value; }
-    [[nodiscard]] bool text_entry() const { return text_entry_; }
-    void set_text_entry(bool value) { text_entry_ = value; }
     [[nodiscard]] uint32_t command_line_server() const { return command_line_server_; }
     void set_command_line_server(uint32_t value) { command_line_server_ = value; }
     [[nodiscard]] Hub* online_hub() const { return online_hub_; }
@@ -109,9 +107,6 @@ private:
 
     // (server_list.cpp)
     uint32_t news_message_count_{};
-
-    // (gamenet_game_cfuncs.cpp)
-    bool text_entry_{};
 
     // (gamenet_state.cpp)
     uint32_t command_line_server_{kNoCommandLineServer};

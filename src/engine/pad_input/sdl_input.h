@@ -45,5 +45,9 @@ void set_sdl_actuators(int port, uint16_t high, uint16_t low);
 // (the front end sets them; the input reads them).
 bool& keyboard_on_screen_flag();
 bool& menu_flag();
+// Whether text entry is on (0x007CCDF8): typed keys are taken outside a menu, and the main loop keeps running while the
+// window is inactive. The online game sets it when a network game is entered and clears it when the session's players
+// are let go; PartyMod's input sets it every poll (typed text only works with it).
+bool& text_entry_flag();
 
 } // namespace sio

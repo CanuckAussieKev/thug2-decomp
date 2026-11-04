@@ -20,6 +20,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
+#include "engine/pad_input/sdl_input.h"
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
@@ -265,7 +266,7 @@ bool cfunc_entered_network_game(script::Struct* /*params*/, script::Script* /*sc
     }
     tasks::PileUp* tasks = get_logic_tasks();
     tasks->queue_job(manager->keyboard_job().get());
-    net_game_state().set_text_entry(true);
+    sio::text_entry_flag() = true;
     tasks->queue_job(manager->score_broadcast_job().get());
     manager->set_show_scores(true);
     return true;

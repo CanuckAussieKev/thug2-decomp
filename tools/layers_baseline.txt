@@ -18,15 +18,12 @@ src/engine/gfx/tod_manager.cpp -> src/game/skate/game_mode.h
 src/engine/gfx/tod_manager.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/viewport.cpp -> src/game/skate/skate_module.h
 src/engine/pad_input/device.cpp -> src/game/front_end/front_end.h
-src/engine/pad_input/device.cpp -> src/game/online/net_game_state.h
 src/engine/pad_input/device.cpp -> src/game/park_editing/park_editor.h
 src/engine/pad_input/device.cpp -> src/game/skate/profile_manager.h
-src/engine/pad_input/sdl_input.cpp -> src/game/online/net_game_state.h
 src/engine/pad_input/sdl_input.cpp -> src/game/rider/thaw_bmx.h
 src/engine/render/probe_ray.cpp -> src/game/rider/debug_collision.h
 src/engine/sys/debug_mode.cpp -> src/game/front_end/front_end.h
 src/engine/sys/mlp.cpp -> src/game/online/gamenet_manager.h
-src/engine/sys/mlp.cpp -> src/game/online/net_game_state.h
 src/engine/sys/mlp.cpp -> src/game/online/thugpro_compat.h
 src/engine/sys/mlp.cpp -> src/game/skate/skate_module.h
 src/engine/sys/mlp.cpp -> src/game/skate/thugpro_cas.h
