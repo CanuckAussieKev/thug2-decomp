@@ -689,6 +689,156 @@ void family_chips(const ShapeMesh& model)
     ImGui::PopFont();
 }
 
+// A row's end: its tag and its markers (what the editor has done to it); where the row's toggles end.
+float row_marks(const ShapeMesh& model, const nodes::Elem& node)
+{
+    const std::string tag = row_tag(node);
+    // (the markers - what the editor has done to it - at the row's end, the tag before them)
+    auto found = model.marks.find(node.name);
+    const uint8_t marks = found == model.marks.end() ? 0 : found->second;
+    // (the Overlays menu's Outliner markers off: none shown - Changed only still filters by them)
+    const std::string letters = overlays::get_shown(overlays::kOutlinerMarks) ? mark_letters(marks) : std::string();
+    const float row_right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x -
+                            ImGui::GetStyle().ScrollbarSize - ux3::toggles_width();
+    const float marks_width =
+        letters.empty() ? 0.0F : ImGui::CalcTextSize(letters.c_str()).x + (6.0F * level_editor_ui_state().scale_);
+    if (!tag.empty()) {
+        const float width = ImGui::CalcTextSize(tag.c_str()).x;
+        ImGui::SameLine(std::max(ImGui::GetCursorPosX(), row_right - marks_width - width));
+        gui::text_colored(kMutedTextColour, "%s", tag.c_str());
+    }
+    if (!letters.empty()) {
+        ImGui::SameLine(
+            std::max(ImGui::GetCursorPosX(), row_right - marks_width + (kMarksGap * level_editor_ui_state().scale_)));
+        bool first = true;
+        for (int bit = 0; bit < kMaxMarkers; ++bit) {
+            if ((marks & (1U << bit)) == 0U) {
+                continue;
+            }
+            if (!first) {
+                ImGui::SameLine(0.0F, 0.0F);
+            }
+            first = false;
+            gui::text_colored(ImGui::ColorConvertU32ToFloat4(get_colour(mark_colour(bit))), "%c", mark_letter(bit));
+            if (ImGui::IsItemHovered()) {
+                gui::tooltip("%s", mark_name(bit));
+            }
+        }
+    }
+    return row_right;
+}
+
+// One row of the Outliner: the node's swatch, its name (and the user's label), its menu and tooltip; its tag,
+// markers and toggles at the end.
+void outliner_row(const ShapeMesh& model, const nodes::Elem& node, int index, bool is_selected)
+{
+    // (the gizmo's colour as a small swatch)
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const float height = ImGui::GetTextLineHeight();
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImVec2(pos.x, pos.y + (height * kRowSwatchTop)),
+        ImVec2(pos.x + (height * kRowSwatchWidth), pos.y + (height * kRowSwatchBottom)), get_colour(node.colour),
+        kSwatchRounding);
+    ImGui::SetCursorScreenPos(ImVec2(pos.x + (height * kRowSwatchTextOffset), pos.y));
+    if (node.hidden) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+    }
+    // (the user's label beside the name - level_editor_organize.h)
+    const std::string user_label = ux3::row_label(node.name);
+    const std::string row_text = user_label.empty()
+                                     ? core::at(ui_cache().cache_.labels, index)
+                                     : core::at(ui_cache().cache_.labels, index) + "  \xE2\x80\x94 " + user_label;
+    const bool clicked = ImGui::Selectable(row_text.c_str(), is_selected,
+                                           ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns |
+                                               ImGuiSelectableFlags_AllowOverlap); // (the row's toggles)
+    ux3::row_menu(node); // (right-click: label, groups, eye / lock / selectable)
+    if (node.hidden) {
+        ImGui::PopStyleColor();
+    }
+    if (clicked) {
+        get_ask(Request::Kind::kSelectNode, index);
+        if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            get_ask(Request::Kind::kGoToNode, index);
+        }
+    }
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Click to select, double-click to focus");
+    }
+    const float row_right = row_marks(model, node);
+    ux3::row_toggles(node, row_right); // (the eye, the lock, selectable - level_editor_organize.h)
+}
+
+// One family's branch of the Outliner: its rows that pass the search and the Changed Only filter, opened for the
+// node picked in the view (`follow`) and scrolled to it.
+void outliner_family(const ShapeMesh& model, int family_index, bool follow)
+{
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
+    const int selected = model.nodes.selected;
+    static std::vector<int> shown;
+    auto family = static_cast<nodes::Family>(family_index);
+    const std::vector<int>& members = core::at(ui_cache().cache_.by_family_, family_index);
+    if (members.empty() || ((model.nodes.families & nodes::get_bit(family)) == 0U)) {
+        return;
+    }
+    shown.clear();
+    for (const int member : members) {
+        auto found = model.marks.find(core::at(nodes, member).name);
+        if (ux3::row_passes(core::at(nodes, member), core::at(ui_cache().cache_.labels, member),
+                            level_editor_ui_state().outliner_search_.data()) &&
+            mark_shown(found == model.marks.end() ? 0 : found->second, level_editor_ui_state().changed_only_)) {
+            shown.push_back(member);
+        }
+    }
+    if (shown.empty()) {
+        return;
+    }
+    const bool holds_selected =
+        follow && std::cmp_less(selected, nodes.size()) && core::at(nodes, selected).family == family;
+    if (holds_selected || (core::at(level_editor_ui_state().outliner_search_, 0) != '\0') ||
+        level_editor_ui_state().changed_only_) {
+        ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
+    }
+    std::array<char, kFamilyHeaderSize> header{};
+    text::format_to(header, "%s###family%d", nodes::family_name(family), family_index);
+    const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
+    ImGui::SameLine();
+    ImGui::PushFont(level_editor_ui_state().mono_);
+    gui::text_disabled("%d", static_cast<int>(shown.size()));
+    ImGui::PopFont();
+    if (!open) {
+        return;
+    }
+    ImGui::PushFont(level_editor_ui_state().mono_);
+    // (rows the clipper skips aren't laid out; the selected one is brought into view once)
+    int scroll_to = -1;
+    if (holds_selected) {
+        auto it = std::ranges::find(shown, selected);
+        if (it != shown.end()) {
+            scroll_to = static_cast<int>(it - shown.begin());
+        }
+    }
+    ImGuiListClipper clipper;
+    clipper.Begin(static_cast<int>(shown.size()));
+    if (scroll_to >= 0) {
+        clipper.IncludeItemByIndex(scroll_to);
+    }
+    while (clipper.Step()) {
+        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+            const int index = core::at(shown, row);
+            const nodes::Elem& node = core::at(nodes, index);
+            ImGui::PushID(index);
+            const bool is_selected = index == selected;
+            outliner_row(model, node, index, is_selected);
+            if (row == scroll_to) {
+                ImGui::SetScrollHereY(kScrollRowFraction);
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::PopFont();
+    ImGui::TreePop();
+}
+
 void get_outliner(const ShapeMesh& model)
 {
     if (!level_editor_ui_state().layout_.outliner_shown_) {
@@ -731,138 +881,8 @@ void get_outliner(const ShapeMesh& model)
     const int selected = model.nodes.selected;
     const bool follow = selected != ui_cache().last_selected_ && selected >= 0; // (picked in the view: shown here)
     ui_cache().last_selected_ = selected;
-    static std::vector<int> shown;
     for (int family_index = 0; family_index < nodes::kFamilies; ++family_index) {
-        auto family = static_cast<nodes::Family>(family_index);
-        const std::vector<int>& members = core::at(ui_cache().cache_.by_family_, family_index);
-        if (members.empty() || ((model.nodes.families & nodes::get_bit(family)) == 0U)) {
-            continue;
-        }
-        shown.clear();
-        for (const int member : members) {
-            auto found = model.marks.find(core::at(nodes, member).name);
-            if (ux3::row_passes(core::at(nodes, member), core::at(ui_cache().cache_.labels, member),
-                                level_editor_ui_state().outliner_search_.data()) &&
-                mark_shown(found == model.marks.end() ? 0 : found->second, level_editor_ui_state().changed_only_)) {
-                shown.push_back(member);
-            }
-        }
-        if (shown.empty()) {
-            continue;
-        }
-        const bool holds_selected = follow && std::cmp_less(selected, nodes.size()) && core::at(nodes, selected).family == family;
-        if (holds_selected || (core::at(level_editor_ui_state().outliner_search_, 0) != '\0') ||
-            level_editor_ui_state().changed_only_) {
-            ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
-        }
-        std::array<char, kFamilyHeaderSize> header{};
-        text::format_to(header, "%s###family%d", nodes::family_name(family), family_index);
-        const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
-        ImGui::SameLine();
-        ImGui::PushFont(level_editor_ui_state().mono_);
-        gui::text_disabled("%d", static_cast<int>(shown.size()));
-        ImGui::PopFont();
-        if (!open) {
-            continue;
-        }
-        ImGui::PushFont(level_editor_ui_state().mono_);
-        // (rows the clipper skips aren't laid out; the selected one is brought into view once)
-        int scroll_to = -1;
-        if (holds_selected) {
-            auto it = std::ranges::find(shown, selected);
-            if (it != shown.end()) {
-                scroll_to = static_cast<int>(it - shown.begin());
-            }
-        }
-        ImGuiListClipper clipper;
-        clipper.Begin(static_cast<int>(shown.size()));
-        if (scroll_to >= 0) {
-            clipper.IncludeItemByIndex(scroll_to);
-        }
-        while (clipper.Step()) {
-            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
-                const int index = core::at(shown, row);
-                const nodes::Elem& node = core::at(nodes, index);
-                ImGui::PushID(index);
-                const bool is_selected = index == selected;
-                // (the gizmo's colour as a small swatch)
-                const ImVec2 pos = ImGui::GetCursorScreenPos();
-                const float height = ImGui::GetTextLineHeight();
-                ImGui::GetWindowDrawList()->AddRectFilled(
-                    ImVec2(pos.x, pos.y + (height * kRowSwatchTop)),
-                    ImVec2(pos.x + (height * kRowSwatchWidth), pos.y + (height * kRowSwatchBottom)),
-                    get_colour(node.colour), kSwatchRounding);
-                ImGui::SetCursorScreenPos(ImVec2(pos.x + (height * kRowSwatchTextOffset), pos.y));
-                if (node.hidden) {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-                }
-                // (the user's label beside the name - level_editor_organize.h)
-                const std::string user_label = ux3::row_label(node.name);
-                const std::string row_text =
-                    user_label.empty() ? core::at(ui_cache().cache_.labels, index)
-                                       : core::at(ui_cache().cache_.labels, index) + "  \xE2\x80\x94 " + user_label;
-                const bool clicked =
-                    ImGui::Selectable(row_text.c_str(), is_selected,
-                                      ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns |
-                                          ImGuiSelectableFlags_AllowOverlap); // (the row's toggles)
-                ux3::row_menu(node); // (right-click: label, groups, eye / lock / selectable)
-                if (node.hidden) {
-                    ImGui::PopStyleColor();
-                }
-                if (clicked) {
-                    get_ask(Request::Kind::kSelectNode, index);
-                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                        get_ask(Request::Kind::kGoToNode, index);
-                    }
-                }
-                if (ImGui::IsItemHovered()) {
-                    gui::tooltip("Click to select, double-click to focus");
-                }
-                const std::string tag = row_tag(node);
-                // (the markers - what the editor has done to it - at the row's end, the tag before them)
-                auto found = model.marks.find(node.name);
-                const uint8_t marks = found == model.marks.end() ? 0 : found->second;
-                // (the Overlays menu's Outliner markers off: none shown - Changed only still filters by them)
-                const std::string letters =
-                    overlays::get_shown(overlays::kOutlinerMarks) ? mark_letters(marks) : std::string();
-                const float row_right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x -
-                                        ImGui::GetStyle().ScrollbarSize - ux3::toggles_width();
-                const float marks_width =
-                    letters.empty() ? 0.0F
-                                    : ImGui::CalcTextSize(letters.c_str()).x + (6.0F * level_editor_ui_state().scale_);
-                if (!tag.empty()) {
-                    const float width = ImGui::CalcTextSize(tag.c_str()).x;
-                    ImGui::SameLine(std::max(ImGui::GetCursorPosX(), row_right - marks_width - width));
-                    gui::text_colored(kMutedTextColour, "%s", tag.c_str());
-                }
-                if (!letters.empty()) {
-                    ImGui::SameLine(std::max(ImGui::GetCursorPosX(),
-                                             row_right - marks_width + (kMarksGap * level_editor_ui_state().scale_)));
-                    bool first = true;
-                    for (int bit = 0; bit < kMaxMarkers; ++bit) {
-                        if ((marks & (1U << bit)) == 0U) {
-                            continue;
-                        }
-                        if (!first) {
-                            ImGui::SameLine(0.0F, 0.0F);
-                        }
-                        first = false;
-                        gui::text_colored(ImGui::ColorConvertU32ToFloat4(get_colour(mark_colour(bit))), "%c",
-                                           mark_letter(bit));
-                        if (ImGui::IsItemHovered()) {
-                            gui::tooltip("%s", mark_name(bit));
-                        }
-                    }
-                }
-                ux3::row_toggles(node, row_right); // (the eye, the lock, selectable - level_editor_organize.h)
-                if (row == scroll_to) {
-                    ImGui::SetScrollHereY(kScrollRowFraction);
-                }
-                ImGui::PopID();
-            }
-        }
-        ImGui::PopFont();
-        ImGui::TreePop();
+        outliner_family(model, family_index, follow);
     }
     notes::outliner_section(level_editor_ui_state().mono_, level_editor_ui_state().outliner_search_.data()); // (UX5: note pins - level_editor_notes.h)
     ImGui::EndChild();
