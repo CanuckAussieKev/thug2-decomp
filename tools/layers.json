@@ -23,7 +23,7 @@
             "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game"]
         },
         "app": {
-            "folders": ["src/main.cpp", "src/tests/"],
+            "folders": ["src/app/", "src/tests/"],
             "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game", "frontend", "editor"]
         }
     }

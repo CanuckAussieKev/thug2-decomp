@@ -1,7 +1,7 @@
 // The program's entry point and its command line.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
-#include "platform/winmain.h"
+#include "app/winmain.h"
 #include "platform/gamespy.h"
 
 #include <winsock2.h>
@@ -27,8 +27,8 @@
 #include "engine/net/online_identity.h"
 #include "engine/pad_input/device.h"
 #include "platform/run_log.h"
-#include "engine/sys/startup.h"
-#include "platform/pc_setup.h"
+#include "app/startup.h"
+#include "app/pc_setup.h"
 #include "platform/platform.h"
 #include "platform/platform_d3d.h"
 #include "platform/platform_input.h"

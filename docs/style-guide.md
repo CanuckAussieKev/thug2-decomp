@@ -43,7 +43,7 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 
 ```
 src/
-  main.cpp
+  app/main.cpp
   platform/   window, input devices, timers, crash reports, settings, code addresses (the Win32 / Direct3D /
               DirectSound / SDL / GameSpy side)
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,

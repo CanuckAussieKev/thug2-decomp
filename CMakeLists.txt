@@ -250,7 +250,7 @@ target_link_libraries(thug2_wire PUBLIC thug2_formats)
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
 # (its Data folder, binkw32.dll): README.md "Building and running".
 add_executable(thug2 WIN32
-    src/main.cpp
+    src/app/main.cpp
     src/platform/run_log.cpp
     src/platform/crash.cpp
     src/engine/assets/resource_entry.cpp
@@ -852,17 +852,17 @@ add_executable(thug2 WIN32
     src/platform/sockets.cpp
     src/platform/debug_log.cpp
     src/platform/output_sinks.cpp
-    src/platform/pc_setup.cpp
+    src/app/pc_setup.cpp
     src/platform/sdl_events.cpp
     src/platform/sdl_window.cpp
     src/platform/registry.cpp
     src/platform/stopwatch.cpp
-    src/engine/sys/startup.cpp
+    src/app/startup.cpp
     src/engine/sys/mlp.cpp
     src/platform/game_clock.cpp
     src/engine/sys/system_cfuncs.cpp
     src/engine/sys/game_module.cpp
-    src/platform/winmain.cpp
+    src/app/winmain.cpp
     src/platform/process_flags.cpp
     src/engine/sys/startup_init.cpp
     src/game/save_cards/memcard.cpp
@@ -938,7 +938,7 @@ target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPU
 set_source_files_properties(
     src/engine/net/gamenet_lobby_cfuncs.cpp src/engine/net/net_manager.cpp
     src/engine/net/net_manager_apps.cpp src/engine/sys/model_viewer.cpp src/platform/crt.cpp src/platform/sockets.cpp
-    src/platform/winmain.cpp
+    src/app/winmain.cpp
     PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
 target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
                                          "${CMAKE_BINARY_DIR}/editor_fonts")

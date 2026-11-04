@@ -345,7 +345,7 @@ each borrowed idea is credited where it's used.
 
 | Path | Contents |
 |---|---|
-| `src/main.cpp` | The program's entry point |
+| `src/app/main.cpp` | The program's entry point |
 | `src/game/` | The game's code, by subsystem: engine (`gfx`, `nx`), scripts (`script`), objects and skater (`obj`, `skater`), goals, park editor (`ed`), networking (`net`), front end (`front`)... |
 | `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |
 | `tools/game/` | The scripts that run and drive the game for tests, the layout baker, the level editor's offline tools |

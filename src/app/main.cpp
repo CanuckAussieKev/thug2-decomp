@@ -17,7 +17,7 @@
 #include "platform/output_sinks.h"
 #include "platform/run_log.h"
 #include "engine/sys/startup_init.h"
-#include "platform/winmain.h"
+#include "app/winmain.h"
 
 namespace {
 

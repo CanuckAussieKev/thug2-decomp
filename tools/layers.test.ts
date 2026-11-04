@@ -10,7 +10,7 @@ test("folders belong to the library of their longest prefix", () => {
     assert.equal(libraryOf(map, "src/base/core/str.cpp"), "base");
     assert.equal(libraryOf(map, "src/engine/gfx/geom.cpp"), "engine");
     assert.equal(libraryOf(map, "src/game/rider/rider.h"), "game");
-    assert.equal(libraryOf(map, "src/main.cpp"), "app");
+    assert.equal(libraryOf(map, "src/app/main.cpp"), "app");
     assert.equal(libraryOf(map, "docs/x.h"), undefined);
 });
 

@@ -1,7 +1,7 @@
 // The game's main.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
-#include "engine/sys/startup.h"
+#include "app/startup.h"
 
 #include <windows.h>
 
@@ -53,7 +53,7 @@
 #include "platform/key_names.h"
 #include "engine/sys/mlp.h"
 #include "engine/sys/game_module.h"
-#include "platform/pc_setup.h"
+#include "app/pc_setup.h"
 #include "platform/stopwatch.h"
 #include "engine/script/node_manager.h"
 #include "engine/sys/game_config.h"

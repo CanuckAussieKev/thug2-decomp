@@ -1,7 +1,7 @@
 // PartyMod's start-up and fast exit.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
-#include "platform/pc_setup.h"
+#include "app/pc_setup.h"
 
 #include <windows.h>
 
