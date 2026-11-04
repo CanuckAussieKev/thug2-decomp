@@ -398,11 +398,11 @@ void RoomManager::nat_negotiation_completed(int result, int /*unused*/, const vo
     Hub* manager = net_game_state().online_hub();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found
         // (the SDK's sockaddr_in: the family, the port in network order, the address as it is in memory)
-        util::ByteReader sockaddr(address, kSockaddrBytes);
-        sockaddr.skip(2);
-        const uint8_t port_high = sockaddr.u8();
-        const uint8_t port_low = sockaddr.u8();
-        const uint32_t ip = sockaddr.u32();
+        util::ByteReader found(address, kSockaddrBytes);
+        found.skip(2);
+        const uint8_t port_high = found.u8();
+        const uint8_t port_low = found.u8();
+        const uint32_t ip = found.u32();
         auto port = static_cast<uint16_t>(port_high << kByteBits | port_low); // (ntohs)
         manager->join_server({.ip = ip, .port = port}, 0);
     }
