@@ -1,7 +1,7 @@
 // Script functions about the platform.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
-#include "platform/platform_cfuncs.h"
+#include "engine/pad_input/pad_cfuncs.h"
 
 #include <cstdint>
 #include "engine/script/names.h"

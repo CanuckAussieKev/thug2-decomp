@@ -451,10 +451,6 @@ src/game/skate/trick_goals.cpp -> src/frontend/screen_element_manager.h
 src/game/skate/trick_goals.cpp -> src/frontend/text_element.h
 src/gpu/vertex_buffers.cpp -> src/engine/gfx/renderer.h
 src/gpu/vertex_buffers.cpp -> src/engine/memory/mem.h
-src/platform/platform_cfuncs.cpp -> src/engine/pad_input/sdl_input.h
-src/platform/platform_cfuncs.cpp -> src/engine/script/cscript.h
-src/platform/platform_cfuncs.cpp -> src/engine/script/names.h
-src/platform/platform_cfuncs.cpp -> src/engine/script/script_tables.h
 src/wire/gamenet_messages.cpp -> src/formats/byte_stream.h
 src/wire/net_wire.cpp -> src/formats/byte_stream.h
 src/wire/play_messages.cpp -> src/formats/byte_stream.h

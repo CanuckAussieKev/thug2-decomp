@@ -27,7 +27,7 @@
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 #include "engine/sys/debug_mode.h"
-#include "platform/platform_cfuncs.h"
+#include "engine/pad_input/pad_cfuncs.h"
 #include "devtools/screenshot.h"
 #include "platform/sdl_events.h"
 #include "engine/pad_input/direct_input.h"

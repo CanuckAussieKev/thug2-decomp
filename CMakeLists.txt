@@ -844,7 +844,7 @@ add_executable(thug2 WIN32
     src/engine/pad_input/direct_input.cpp
     src/engine/pad_input/direct_input_state.cpp
     src/platform/platform_system.cpp
-    src/platform/platform_cfuncs.cpp
+    src/engine/pad_input/pad_cfuncs.cpp
     src/engine/sys/debug_mode.cpp
     src/platform/platform_config.cpp
     src/platform/crt.cpp
