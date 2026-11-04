@@ -1276,6 +1276,132 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
     ImGui::EndChild();
 }
 
+void scale_fields(const ShapeMesh::Selection& selection)
+{
+    // The scale along its own axes (level_editor_scale.h): X / Y / Z dragged to scrub, Ctrl+click to type;
+    // one undo step a field. Locked (the default): all three keep their proportions.
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    get_muted("Scale");
+    ImGui::TableNextColumn();
+    const std::array<float, 3> values = {{selection.scale.x, selection.scale.y, selection.scale.z}};
+    static const std::array<const char*, 3> kIds = {{"##scalex", "##scaley", "##scalez"}};
+    static const std::array<const char*, 3> kFormats = {{"x %.3f", "y %.3f", "z %.3f"}};
+    ImGui::PushFont(level_editor_ui_state().mono_);
+    for (int axis = 0; axis < 3; ++axis) {
+        ImGui::SetNextItemWidth(kScaleFieldWidth * level_editor_ui_state().scale_);
+        float value = core::at(values, axis);
+        if (ImGui::DragFloat(core::at(kIds, axis), &value, kScaleDragSpeed, scale_tool::kMin, scale_tool::kMax,
+                             core::at(kFormats, axis), ImGuiSliderFlags_AlwaysClamp)) {
+            Request request = {.kind = Request::Kind::kScaleSet};
+            for (int component = 0; component < 3; ++component) {
+                core::at(request.a, component) = core::at(values, component);
+            }
+            if (level_editor_ui_state().scale_locked_ && core::at(values, axis) > 0.0F) {
+                // (every axis by the same ratio, clamped so none leaves 0.25..4)
+                float ratio = value / core::at(values, axis);
+                for (const float limit : values) {
+                    ratio = std::clamp(ratio, scale_tool::kMin / limit, scale_tool::kMax / limit);
+                }
+                for (int component = 0; component < 3; ++component) {
+                    core::at(request.a, component) = core::at(values, component) * ratio;
+                }
+            } else {
+                core::at(request.a, axis) = value;
+            }
+            level_editor_ui_state().requests_.push_back(request);
+        }
+        if (ImGui::IsItemDeactivated()) {
+            get_ask(Request::Kind::kScaleDone);
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("Local %c scale (%.2f to %.0f)", core::at(kAxisLetters, axis), scale_tool::kMin,
+                         scale_tool::kMax);
+        }
+    }
+    ImGui::PopFont();
+    ImGui::Checkbox("Uniform##scalelock", &level_editor_ui_state().scale_locked_);
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Scale all axes together");
+    }
+}
+
+// The node selected: its section, a trigger's, an object's, a camera's, a goal point's.
+void inspect_node(const ShapeMesh& model)
+{
+    node_section(model, model.nodes.selected);
+    triggers::inspector_section(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
+    entities::inspector_section(model.nodes.selected, checksums::Name{0}, level_editor_ui_state().mono_,
+                                &level_editor_ui_state().requests_); // (sound, particles, ghosts)
+    // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
+    if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
+        cameras::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_,
+                                   level_editor_ui_state().small_);
+    }
+    if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
+        goal_edit::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name,
+                                     level_editor_ui_state().mono_,
+                                     level_editor_ui_state().small_); // (a goal's point)
+    }
+}
+
+// The selection's place, heading, scale and count.
+void selection_transform(const ShapeMesh::Selection& selection)
+{
+    if (ImGui::BeginTable("##transform", 2, ImGuiTableFlags_SizingFixedFit)) {
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        get_muted("Position");
+        ImGui::TableNextColumn();
+        get_mono("x %10.1f\ny %10.1f\nz %10.1f", selection.pos.x, selection.pos.y, selection.pos.z);
+        if (selection.has_heading_) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            get_muted("Heading");
+            ImGui::TableNextColumn();
+            get_mono("%.1f\xC2\xB0", selection.heading_degrees_);
+        }
+        if (selection.scalable) {
+            scale_fields(selection);
+        }
+        if (selection.objects > 1 || selection.sectors > 1) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            get_muted("Selected");
+            ImGui::TableNextColumn();
+            get_mono("%d", selection.objects > 0 ? selection.objects : selection.sectors);
+        }
+        ImGui::EndTable();
+    }
+}
+
+// The selection's buttons: Drop to Ground, Deselect, Lock / Unlock.
+void selection_buttons(const ShapeMesh& model)
+{
+    if (ImGui::Button("Drop to Ground")) {
+        get_ask(Request::Kind::kDrop);
+    }
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Drop to Ground  (G)");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Deselect")) {
+        get_ask(Request::Kind::kDeselect);
+    }
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Deselect  (Esc)");
+    }
+    if (model.selection_lockable_) {
+        ImGui::SameLine();
+        if (ImGui::Button(model.selection_locked_ ? "Unlock" : "Lock")) {
+            get_ask(Request::Kind::kToggleLock);
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("Prevent selection in the view  (L)");
+        }
+    }
+}
+
 void get_inspector(const ShapeMesh& model)
 {
     if (!level_editor_ui_state().layout_.inspector_shown_) {
@@ -1286,17 +1412,7 @@ void get_inspector(const ShapeMesh& model)
     panel_title("Inspector");
     const ShapeMesh::Selection& selection = model.selection;
     if (model.nodes.node_only_) {
-        node_section(model, model.nodes.selected);
-        triggers::inspector_section(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
-        entities::inspector_section(model.nodes.selected, checksums::Name{0}, level_editor_ui_state().mono_, &level_editor_ui_state().requests_); // (sound, particles, ghosts)
-        // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
-        if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
-            cameras::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_, level_editor_ui_state().small_);
-        }
-        if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
-            goal_edit::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_,
-                                         level_editor_ui_state().small_); // (a goal's point)
-        }
+        inspect_node(model);
     } else if (selection.objects == 0 && selection.sectors == 0 && (model.view.wall == 0U)) {
         gui::text_disabled("Nothing selected");
     } else if (selection.objects > 0 || selection.sectors > 0) {
@@ -1309,76 +1425,7 @@ void get_inspector(const ShapeMesh& model)
             get_mono("0x%08X", selection.checksum);
         }
         ImGui::Spacing();
-        if (ImGui::BeginTable("##transform", 2, ImGuiTableFlags_SizingFixedFit)) {
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            get_muted("Position");
-            ImGui::TableNextColumn();
-            get_mono("x %10.1f\ny %10.1f\nz %10.1f", selection.pos.x, selection.pos.y, selection.pos.z);
-            if (selection.has_heading_) {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                get_muted("Heading");
-                ImGui::TableNextColumn();
-                get_mono("%.1f\xC2\xB0", selection.heading_degrees_);
-            }
-            if (selection.scalable) {
-                // The scale along its own axes (level_editor_scale.h): X / Y / Z dragged to scrub, Ctrl+click to type;
-                // one undo step a field. Locked (the default): all three keep their proportions.
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                get_muted("Scale");
-                ImGui::TableNextColumn();
-                const std::array<float, 3> values = {{selection.scale.x, selection.scale.y, selection.scale.z}};
-                static const std::array<const char*, 3> kIds = {{"##scalex", "##scaley", "##scalez"}};
-                static const std::array<const char*, 3> kFormats = {{"x %.3f", "y %.3f", "z %.3f"}};
-                ImGui::PushFont(level_editor_ui_state().mono_);
-                for (int axis = 0; axis < 3; ++axis) {
-                    ImGui::SetNextItemWidth(kScaleFieldWidth * level_editor_ui_state().scale_);
-                    float value = core::at(values, axis);
-                    if (ImGui::DragFloat(core::at(kIds, axis), &value, kScaleDragSpeed, scale_tool::kMin, scale_tool::kMax, core::at(kFormats, axis),
-                                         ImGuiSliderFlags_AlwaysClamp)) {
-                        Request request = {.kind = Request::Kind::kScaleSet};
-                        for (int component = 0; component < 3; ++component) {
-                            core::at(request.a, component) = core::at(values, component);
-                        }
-                        if (level_editor_ui_state().scale_locked_ && core::at(values, axis) > 0.0F) {
-                            // (every axis by the same ratio, clamped so none leaves 0.25..4)
-                            float ratio = value / core::at(values, axis);
-                            for (const float limit : values) {
-                                ratio = std::clamp(ratio, scale_tool::kMin / limit, scale_tool::kMax / limit);
-                            }
-                            for (int component = 0; component < 3; ++component) {
-                                core::at(request.a, component) = core::at(values, component) * ratio;
-                            }
-                        } else {
-                            core::at(request.a, axis) = value;
-                        }
-                        level_editor_ui_state().requests_.push_back(request);
-                    }
-                    if (ImGui::IsItemDeactivated()) {
-                        get_ask(Request::Kind::kScaleDone);
-                    }
-                    if (ImGui::IsItemHovered()) {
-                        gui::tooltip("Local %c scale (%.2f to %.0f)", core::at(kAxisLetters, axis), scale_tool::kMin,
-                                          scale_tool::kMax);
-                    }
-                }
-                ImGui::PopFont();
-                ImGui::Checkbox("Uniform##scalelock", &level_editor_ui_state().scale_locked_);
-                if (ImGui::IsItemHovered()) {
-                    gui::tooltip("Scale all axes together");
-                }
-            }
-            if (selection.objects > 1 || selection.sectors > 1) {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                get_muted("Selected");
-                ImGui::TableNextColumn();
-                get_mono("%d", selection.objects > 0 ? selection.objects : selection.sectors);
-            }
-            ImGui::EndTable();
-        }
+        selection_transform(selection);
         member_list(selection.members);
         // (map3: the selected scenery's trick-object cluster - level_editor_clusters.h)
         if (selection.sectors > 0 && selection.objects == 0) {
@@ -1387,28 +1434,7 @@ void get_inspector(const ShapeMesh& model)
         ImGui::Spacing();
         gui::text_wrapped("%s", model.selected.c_str());
         ImGui::Spacing();
-        if (ImGui::Button("Drop to Ground")) {
-            get_ask(Request::Kind::kDrop);
-        }
-        if (ImGui::IsItemHovered()) {
-            gui::tooltip("Drop to Ground  (G)");
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Deselect")) {
-            get_ask(Request::Kind::kDeselect);
-        }
-        if (ImGui::IsItemHovered()) {
-            gui::tooltip("Deselect  (Esc)");
-        }
-        if (model.selection_lockable_) {
-            ImGui::SameLine();
-            if (ImGui::Button(model.selection_locked_ ? "Unlock" : "Lock")) {
-                get_ask(Request::Kind::kToggleLock);
-            }
-            if (ImGui::IsItemHovered()) {
-                gui::tooltip("Prevent selection in the view  (L)");
-            }
-        }
+        selection_buttons(model);
         if (selection.objects == 0 && selection.sectors == 1) {
             triggers::scenery_section(
                 selection.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
