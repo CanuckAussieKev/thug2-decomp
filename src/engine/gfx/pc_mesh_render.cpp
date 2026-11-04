@@ -11,6 +11,7 @@
 #include <array>
 #include <span>
 
+#include "gpu/d3d9_handles.h"
 #include "engine/gfx/device.h"
 #include "base/maths/mat4.h"
 #include "gpu/vertex_buffers.h"
@@ -236,7 +237,7 @@ void MeshRef::render()
         vb->set_lock_offset(0);
         vb->set_lock_flags(D3DLOCK_DISCARD);
         void* locked = out;
-        vb->buffer()->Lock(0, 0, &locked, D3DLOCK_DISCARD);
+        d3d9::object(vb->buffer())->Lock(0, 0, &locked, D3DLOCK_DISCARD);
         out = static_cast<uint8_t*>(locked);
         switch (unknowna8_) {
         case 1:
@@ -256,9 +257,9 @@ void MeshRef::render()
     if (vertex_buffer_count_ > 1) {
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
     }
-    renderer().d3d_device()->SetStreamSource(0, vb->buffer(), vb->arena_offset(), stride_);
+    renderer().d3d_device()->SetStreamSource(0, d3d9::object(vb->buffer()), vb->arena_offset(), stride_);
     const int level = lod_level();
-    renderer().d3d_device()->SetIndices(index_buffer_at(this, level)->buffer());
+    renderer().d3d_device()->SetIndices(d3d9::object(index_buffer_at(this, level)->buffer()));
     const uint32_t primitives = index_count_at(this, level) - 2U;
     if (renderer().shaders_available()) {
         count_draw(primitives);

@@ -1,6 +1,7 @@
 // A scene's mesh list and materials: see mesh_list.h.
 
 #include "engine/gfx/mesh_list.h"
+#include "gpu/d3d9_handles.h"
 
 #include <windows.h>
 
@@ -168,7 +169,7 @@ void SceneRef::destroy_body()
     }
     free_hierarchy(hierarchy_);
     if (arena_buffer_) {
-        arena_buffer_->Release();
+        d3d9::object(arena_buffer_)->Release();
     }
 }
 

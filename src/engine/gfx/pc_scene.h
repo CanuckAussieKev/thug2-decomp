@@ -10,7 +10,7 @@
 #include "base/maths/shape_tests.h"
 #include <gsl/pointers>
 #include <array>
-#include "platform/d3d_forward.h"
+#include "gpu/gpu_handles.h"
 
 namespace scene_format {
 class MemoryStream;
@@ -24,7 +24,7 @@ struct SceneRef;
 
 // What the scene's PostLoad packs the sectors' vertices into (one vertex buffer).
 struct VertexArena {
-    IDirect3DVertexBuffer9* buffer; // +0x00
+    GpuVertexBuffer* buffer; // +0x00
     uint32_t used; // +0x04
     uint32_t size; // +0x08: bytes
     void* data;    // +0x0C: while locked

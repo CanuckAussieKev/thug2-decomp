@@ -13,6 +13,8 @@
 #include <cstring>
 #include <span>
 
+#include "gpu/d3d9_handles.h"
+#include "gpu/gpu_handles.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/manager.h"
 #include "engine/gfx/engine_scene_list.h"
@@ -63,7 +65,7 @@ SceneRef* scene_meshes(memory::ListNode* node)
     return scene ? scene->meshes() : nullptr;
 }
 
-IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes) { return meshes->arena_buffer(); }
+GpuVertexBuffer*& arena_buffer(SceneRef* meshes) { return meshes->arena_buffer(); }
 
 } // namespace
 
@@ -225,9 +227,9 @@ void release_buffers()
         if (!vb) {
             continue;
         }
-        IDirect3DVertexBuffer9* buffer = vb->buffer();
+        GpuVertexBuffer* buffer = vb->buffer();
         if (buffer) {
-            buffer->Release();
+            d3d9::object(buffer)->Release();
             vb->set_buffer(nullptr);
         }
         vb->set_buffer(buffer); // (kept: recreate_buffers matches the shares by it)
@@ -235,8 +237,8 @@ void release_buffers()
     for (memory::ListNode* node = first_scene_node_bytes(); node;) {
         memory::ListNode* next = next_scene_node(node);
         if (SceneRef* meshes = scene_meshes(node)) {
-            if (IDirect3DVertexBuffer9* arena = arena_buffer(meshes)) {
-                arena->Release();
+            if (GpuVertexBuffer* arena = arena_buffer(meshes)) {
+                d3d9::object(arena)->Release();
             }
         }
         node = next;
@@ -247,7 +249,7 @@ void release_buffers()
             continue;
         }
         if (ib->buffer()) {
-            ib->buffer()->Release();
+            d3d9::object(ib->buffer())->Release();
         }
         ib->buffer() = nullptr;
     }
@@ -260,9 +262,9 @@ void recreate_buffers()
         memory::ListNode* next = next_scene_node(node);
         SceneRef* meshes = scene_meshes(node);
         if (meshes && arena_buffer(meshes)) {
-            const IDirect3DVertexBuffer9* old = arena_buffer(meshes);
+            const GpuVertexBuffer* old = arena_buffer(meshes);
             renderer().d3d_device()->CreateVertexBuffer(meshes->unknown80(), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                             &arena_buffer(meshes), nullptr);
+                                             d3d9::out(&arena_buffer(meshes)), nullptr);
             for (const BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);
                 if (vb && vb->buffer() == old) {
@@ -283,12 +285,12 @@ void recreate_buffers()
             continue;
         }
         renderer().d3d_device()->CreateIndexBuffer(ib->size(), ib->usage() | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format()),
-                                        D3DPOOL_DEFAULT, &ib->buffer(),
+                                        D3DPOOL_DEFAULT, d3d9::out(&ib->buffer()),
                                         nullptr);
         void* card = nullptr;
-        if (ib->buffer()->Lock(0, 0, &card, 0) >= 0) {
+        if (d3d9::object(ib->buffer())->Lock(0, 0, &card, 0) >= 0) {
             std::memcpy(card, ib->indices(), ib->size());
-            ib->buffer()->Unlock();
+            d3d9::object(ib->buffer())->Unlock();
         }
     }
 }
@@ -331,14 +333,14 @@ MeshRef::~MeshRef()
         }
         for (uint32_t i = 0; i < vertex_buffer_count_; ++i) {
             if (core::at(vertex_buffers_, i)) {
-                if (stream == core::at(vertex_buffers_, i)->buffer()) {
+                if (stream == d3d9::object(core::at(vertex_buffers_, i)->buffer())) {
                     renderer().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 }
                 core::at(vertex_buffers_, i)->teardown();
                 core::at(vertex_buffers_, i) = nullptr;
             }
             if (core::at(extra_buffers_, i)) {
-                if (stream == core::at(extra_buffers_, i)->buffer()) {
+                if (stream == d3d9::object(core::at(extra_buffers_, i)->buffer())) {
                     renderer().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 }
                 core::at(extra_buffers_, i)->teardown(); // (left pointing at it: cleared with the rest below)

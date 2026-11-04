@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include "platform/d3d_forward.h"
+#include "gpu/gpu_handles.h"
 
 // The GPU's vertex and index buffers (the boundary layer's gpu part: docs/architecture.md "Layers"): each a Direct3D
 // buffer and a copy of its bytes in memory, written to the card when unlocked and written again after the device is
@@ -14,7 +14,7 @@ namespace render {
 
 // The device the buffers are created on: the renderer hands it over whenever it makes or drops its own
 // (Renderer::set_d3d_device), so the gpu code asks nothing of the engine.
-void set_buffer_device(IDirect3DDevice9* device);
+void set_buffer_device(GpuDevice* device);
 
 // A vertex buffer (0x24 bytes, constructor 0x004D3FF0; made by 0x004D5760): the size, the Direct3D buffer - its own,
 // or a share of an arena's (flag 4) -, a copy of the vertices in memory (none with flag 1) written to the card when
@@ -23,8 +23,8 @@ void set_buffer_device(IDirect3DDevice9* device);
 struct VertexBuffer {
     // The fields other code reads and sets.
     [[nodiscard]] uint32_t size() const { return size_; }
-    [[nodiscard]] IDirect3DVertexBuffer9* buffer() const { return buffer_; }
-    void set_buffer(IDirect3DVertexBuffer9* value) { buffer_ = value; }
+    [[nodiscard]] GpuVertexBuffer* buffer() const { return buffer_; }
+    void set_buffer(GpuVertexBuffer* value) { buffer_ = value; }
     [[nodiscard]] uint8_t* data() const { return data_; }
     void set_lock_offset(uint32_t value) { lock_offset_ = value; }
     void set_lock_size(uint32_t value) { lock_size_ = value; }
@@ -35,7 +35,7 @@ struct VertexBuffer {
 private:
     uint32_t size_;
     uint32_t usage;
-    IDirect3DVertexBuffer9* buffer_{nullptr};        // +0x08
+    GpuVertexBuffer* buffer_{nullptr};        // +0x08
     uint8_t* data_;                                  // +0x0C
     uint32_t lock_offset_{}, lock_size_{}, lock_flags_; // +0x10 (lockFlags -1: not locked)
     uint32_t flags;                                 // +0x1C: 1 no copy in memory; 4 a share of an arena's buffer
@@ -86,15 +86,15 @@ struct IdxStore {
     [[nodiscard]] uint32_t size() const { return size_; }
     [[nodiscard]] uint32_t usage() const { return usage_; }
     [[nodiscard]] uint32_t format() const { return format_; }
-    IDirect3DIndexBuffer9*& buffer() { return buffer_; }
-    [[nodiscard]] IDirect3DIndexBuffer9* buffer() const { return buffer_; }
+    GpuIndexBuffer*& buffer() { return buffer_; }
+    [[nodiscard]] GpuIndexBuffer* buffer() const { return buffer_; }
     [[nodiscard]] uint16_t* indices() const { return indices_; }
 
 private:
     uint32_t size_;
     uint32_t usage_;
     uint32_t format_;
-    IDirect3DIndexBuffer9* buffer_{nullptr};
+    GpuIndexBuffer* buffer_{nullptr};
     uint16_t* indices_;
     uint32_t unknown14{}; // (cleared when destroyed)
 

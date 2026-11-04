@@ -1,6 +1,7 @@
 // The PC scene and sector, the PC screen effects: see pc_scene.h.
 
 #include "engine/gfx/pc_scene.h"
+#include "gpu/d3d9_handles.h"
 
 #include <windows.h>
 
@@ -147,8 +148,8 @@ void PcScene::post_load(void* arena_word)
     void* sector = first_sector(table);
     if (arena) {
         renderer().d3d_device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                         &arena->buffer, nullptr);
-        arena->buffer->Lock(0, 0, &arena->data, 0);
+                                         d3d9::out(&arena->buffer), nullptr);
+        d3d9::object(arena->buffer)->Lock(0, 0, &arena->data, 0);
         arena->used = 0;
         meshes_->set_arena_buffer(arena->buffer);
         meshes_->set_unknown80(arena->size);
@@ -159,7 +160,7 @@ void PcScene::post_load(void* arena_word)
         geom->add_to_mesh_list(true);
     }
     if (arena) {
-        arena->buffer->Unlock();
+        d3d9::object(arena->buffer)->Unlock();
         arena->data = nullptr;
     }
     meshes_->allocate_mesh_list();

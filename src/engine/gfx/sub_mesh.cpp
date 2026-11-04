@@ -2,6 +2,7 @@
 // double precision where it keeps them in registers).
 
 #include "engine/gfx/sub_mesh.h"
+#include "gpu/d3d9_handles.h"
 
 #include <windows.h>
 
@@ -65,7 +66,7 @@ gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 // The index buffer's Direct3D copy written again from the one in memory.
 void upload_indices(IdxStore* buffer)
 {
-    auto* d3d = buffer->buffer();
+    auto* d3d = d3d9::object(buffer->buffer());
     void* locked = nullptr;
     if (FAILED(d3d->Lock(0, 0, &locked, 0))) {
         return;

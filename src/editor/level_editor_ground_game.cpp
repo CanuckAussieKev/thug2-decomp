@@ -19,6 +19,7 @@
 #include <utility>
 #include <array>
 
+#include "gpu/d3d9_handles.h"
 #include "editor/level_editor.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/engine_geom.h"
@@ -117,7 +118,7 @@ gsl::owner<render::IdxStore*> new_index_buffer(uint32_t bytes)
 }
 void upload_indices(render::IdxStore* buffer)
 {
-    auto* d3d = buffer->buffer();
+    auto* d3d = render::d3d9::object(buffer->buffer());
     void* locked = nullptr;
     if (!d3d || FAILED(d3d->Lock(0, 0, &locked, 0))) {
         return;

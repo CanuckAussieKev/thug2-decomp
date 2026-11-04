@@ -10,6 +10,7 @@
 #include <span>
 #include <array>
 
+#include "gpu/d3d9_handles.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/pc_scene.h"
@@ -54,7 +55,7 @@ void MeshRef::move_into_arena(VertexArena* arena)
     vb->set_arena_offset(arena->used);
     const std::span<uint8_t> locked(static_cast<uint8_t*>(arena->data), arena->size); // (the buffer, locked)
     std::memcpy(locked.subspan(arena->used, vb->size()).data(), vb->data(), vb->size());
-    arena->buffer->AddRef();
+    d3d9::object(arena->buffer)->AddRef();
     arena->used += (vb->size() + kBufferAlignSlack) & ~kBufferAlignMask;
 }
 

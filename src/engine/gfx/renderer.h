@@ -14,6 +14,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/draw_frame.h"
 #include "base/maths/mat4.h"
+#include "gpu/d3d9_handles.h"
 #include "gpu/vertex_buffers.h"
 
 // NOT ORIGINAL - the renderer's state: the Direct3D 9 device and what was made with it, the frame's camera, matrices
@@ -72,7 +73,7 @@ public:
     void set_d3d_device(IDirect3DDevice9* value)
     {
         d3d_device_ = value;
-        set_buffer_device(value); // (the gpu buffers' device)
+        set_buffer_device(d3d9::handle(value)); // (the gpu buffers' device)
     }
     [[nodiscard]] bool stream_offset_supported() const { return stream_offset_supported_; }
     void set_stream_offset_supported(bool value) { stream_offset_supported_ = value; }

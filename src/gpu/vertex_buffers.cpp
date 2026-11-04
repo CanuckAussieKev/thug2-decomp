@@ -15,6 +15,8 @@
 #include <gsl/pointers>
 
 #include "base/core/raw_view.h"
+#include "gpu/d3d9_handles.h"
+#include "gpu/gpu_handles.h"
 #include "platform/crt.h"
 #include "base/core/owned_element.h"
 #include "base/core/no_destroy.h"
@@ -35,7 +37,7 @@ void dealloc(gsl::owner<void*> memory) { crt::dealloc(memory); }
 struct VertexBuffersState {
     buffer_lists::Node* vertex_buffer_list_ = nullptr; // (the original's 0x007865E4)
     buffer_lists::Node* index_buffer_list_ = nullptr; // (0x007865E8)
-    IDirect3DDevice9* device_ = nullptr; // (the renderer's device, set through set_buffer_device)
+    GpuDevice* device_ = nullptr; // (the renderer's device, set through set_buffer_device)
 };
 
 VertexBuffersState& vertex_buffers_state()
@@ -47,7 +49,7 @@ VertexBuffersState& vertex_buffers_state()
 // The renderer's device (set before any buffer is made; the buffers can't exist without one).
 IDirect3DDevice9& buffer_device()
 {
-    IDirect3DDevice9* device = vertex_buffers_state().device_;
+    IDirect3DDevice9* device = d3d9::object(vertex_buffers_state().device_);
     Expects(device != nullptr);
     return *device;
 }
@@ -96,15 +98,15 @@ void unlist(BufferNode*& head, const void* buffer)
     dealloc(memory::owned_element(node)); // (the list's)
 }
 
-IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return vb->buffer(); }
-IDirect3DIndexBuffer9* d_3d(const IdxStore* ib) { return ib->buffer(); }
+IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return d3d9::object(vb->buffer()); }
+IDirect3DIndexBuffer9* d_3d(const IdxStore* ib) { return d3d9::object(ib->buffer()); }
 
 constexpr uint32_t kNoCopy = 1;
 constexpr uint32_t kShared = 4;
 
 } // namespace
 
-void set_buffer_device(IDirect3DDevice9* device) { vertex_buffers_state().device_ = device; }
+void set_buffer_device(GpuDevice* device) { vertex_buffers_state().device_ = device; }
 
 buffer_lists::Node* buffer_lists::vertex_buffers() { return vertex_buffers_state().vertex_buffer_list_; }
 buffer_lists::Node* buffer_lists::index_buffers() { return vertex_buffers_state().index_buffer_list_; }
@@ -116,7 +118,7 @@ VertexBuffer::VertexBuffer(uint32_t bytes, BufferFlags creation)
     const auto buffer_flags = creation.buffer_flags_;
     if ((buffer_flags & kShared) == 0U) {
         buffer_device().CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
-                         raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
+                         d3d9::out(&buffer_), nullptr);
     }
     size_ = bytes;
     usage = usage_flags;
@@ -175,7 +177,7 @@ void VertexBuffer::recreate()
         d_3d(this)->AddRef();
     } else {
         buffer_device().CreateVertexBuffer(size_, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                         raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
+                         d3d9::out(&buffer_), nullptr);
     }
     if ((flags & kNoCopy) != 0U) {
         return;
@@ -192,7 +194,7 @@ IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
     : size_(bytes), usage_(usage_flags), format_(index_format), indices_(static_cast<uint16_t*>(alloc_block(bytes)))
 {
     buffer_device().CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
-                    D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer_), nullptr);
+                    D3DPOOL_DEFAULT, d3d9::out(&buffer_), nullptr);
     enlist(index_buffers(), this);
 }
 
@@ -221,7 +223,7 @@ long IdxStore::get_unlock()
 uint32_t VertexBuffer::teardown()
 {
     // (NOT ORIGINAL: a buffer the card never made - its creation failed - has nothing to release)
-    const uint32_t references = buffer_ != nullptr ? buffer_->Release() : 0;
+    const uint32_t references = buffer_ != nullptr ? d3d9::object(buffer_)->Release() : 0;
     buffer_ = nullptr;
     unlist();
     if (data_) {
@@ -236,7 +238,7 @@ uint32_t VertexBuffer::teardown()
 uint32_t IdxStore::teardown()
 {
     // (NOT ORIGINAL: a buffer the card never made - its creation failed - has nothing to release)
-    const uint32_t references = buffer_ != nullptr ? buffer_->Release() : 0;
+    const uint32_t references = buffer_ != nullptr ? d3d9::object(buffer_)->Release() : 0;
     buffer_ = nullptr;
     unlist();
     if (indices_) {

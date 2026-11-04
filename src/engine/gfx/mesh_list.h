@@ -6,7 +6,7 @@
 #include <array>
 
 #include "base/maths/shape_tests.h"
-#include "platform/d3d_forward.h"
+#include "gpu/gpu_handles.h"
 
 
 namespace lists {
@@ -55,9 +55,9 @@ struct SceneRef {
     void set_hierarchy(HierarchyNode* value) { hierarchy_ = value; }
     [[nodiscard]] uint32_t unknown78() const { return unknown78_; }
     void set_unknown78(uint32_t value) { unknown78_ = value; }
-    IDirect3DVertexBuffer9*& arena_buffer() { return arena_buffer_; }
-    [[nodiscard]] IDirect3DVertexBuffer9* arena_buffer() const { return arena_buffer_; }
-    void set_arena_buffer(IDirect3DVertexBuffer9* value) { arena_buffer_ = value; }
+    GpuVertexBuffer*& arena_buffer() { return arena_buffer_; }
+    [[nodiscard]] GpuVertexBuffer* arena_buffer() const { return arena_buffer_; }
+    void set_arena_buffer(GpuVertexBuffer* value) { arena_buffer_ = value; }
     [[nodiscard]] uint32_t unknown80() const { return unknown80_; }
     void set_unknown80(uint32_t value) { unknown80_ = value; }
 
@@ -80,7 +80,7 @@ private:
     float radius_{};     // +0x70
     HierarchyNode* hierarchy_{nullptr}; // +0x74: the scene's hierarchy (new_hierarchy's)
     uint32_t unknown78_{0};
-    IDirect3DVertexBuffer9* arena_buffer_{nullptr}; // +0x7C: the vertex arena's buffer (released with the scene)
+    GpuVertexBuffer* arena_buffer_{nullptr}; // +0x7C: the vertex arena's buffer (released with the scene)
     uint32_t unknown80_{0};
 
 public:
