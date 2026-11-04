@@ -112,6 +112,7 @@ add_library(thug2_engine STATIC
     gfx/renderer.cpp
     gfx/render_device.cpp
     gfx/ui_backend.cpp
+    gfx/view_modes.cpp
     gfx/occlusion.cpp
     gfx/hd_ui.cpp
     gfx/graphics_options.cpp

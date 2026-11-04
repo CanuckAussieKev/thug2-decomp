@@ -1,6 +1,7 @@
 // The pixel shaders: see pixel_shaders.h.
 
 #include "render_d3d9/pixel_shaders.h"
+#include "engine/gfx/mesh_formats.h"
 #include "platform/d3dx.h"
 
 #include <windows.h>

@@ -2,6 +2,7 @@
 // x87 code: double precision where it keeps values in registers, floats where it stores them.
 
 #include "render_d3d9/texture_splats.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/engine_splats.h"
 #include "base/core/cursor.h"
 #include "render_d3d9/geom.h"

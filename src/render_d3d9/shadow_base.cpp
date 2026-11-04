@@ -1,6 +1,7 @@
 // Shadows: see shadow_base.h.
 
 #include "render_d3d9/shadow_base.h"
+#include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/d3d9_handles.h"
 #include "platform/d3dx.h"
 

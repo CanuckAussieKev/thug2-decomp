@@ -8,42 +8,20 @@
 
 #include "base/core/enum_ops.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/mesh_formats.h"
 
 // The renderer's cached Direct3D 9 state (Nx engine, PC): every setter compares with what it last sent and only
 // calls the device when something changes. The cache is reset to the device's own defaults (reset_render_state)
 // when the device is created and pushed to the device again (apply_render_state) after a reset.
 namespace render {
 
-// choose_blend_mode's modes the pixel shaders and the fixed-function states know (with kBlendModeAlpha, 5, and
-// kBlendModePrimitive below): the Fix modes take the pass colour's alpha, the others the texture's; 0xC and 0xD blend
-// with the pass before.
-constexpr int kBlendModeFixBlend = 6;
-constexpr int kBlendModeModulate = 7;
-constexpr int kBlendModeFixModulate = 8;
-constexpr int kBlendModeBrighten = 9;
-constexpr int kBlendModeFixBrighten = 0xA;
-constexpr int kBlendModeVertexTexAlpha = 0xB;
-constexpr int kBlendModeLerpPrevious = 0xC;
-constexpr int kBlendModeLerpFromPrevious = 0xD;
-constexpr int kBlendModeMultiplyColour = 0xF;
-
-// Values the renderer's callers pass to the setters below.
+// Values the renderer's callers pass to the setters below (the blend modes and the vertex formats' bits:
+// engine/gfx/mesh_formats.h).
 constexpr int kClampBothWays = 0x10001;   // an address mode: clamp (1) in U (the low half) and in V (the high half)
-constexpr int kBlendModeAlpha = 5;        // choose_blend_mode: the alpha blend the 2D drawing uses
-constexpr int kBlendModePrimitive = 0x11; // choose_blend_mode: what the primitives' state is set up with
 constexpr int kScreenVertexFormat = 0x144; // D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1
-constexpr int kBlendModeMask = 0xFFFFFF;    // a pass's blend mode in its blend word (the top byte: its fixed alpha, flags)
 constexpr int kTextureOpModulate2x = 5;    // D3DTOP_MODULATE2X (a texture stage's colour or alpha op)
 constexpr int kLockDiscard = 0x10;         // D3DLOCK_DISCARD
 constexpr unsigned kLockReadOnly = 0x10U;  // D3DLOCK_READONLY
-// The flexible vertex format's bits the renderer and the editor read (D3DFVF_*).
-constexpr uint32_t kFvfNormal = 0x010U;
-constexpr uint32_t kFvfDiffuse = 0x040U;
-constexpr uint32_t kFvfSpecular = 0x080U;
-constexpr uint32_t kFvfTex1 = 0x100U; // one to four sets of texture coordinates
-constexpr uint32_t kFvfTex2 = 0x200U;
-constexpr uint32_t kFvfTex3 = 0x300U;
-constexpr uint32_t kFvfTex4 = 0x400U;
 
 struct MaterialRef;
 

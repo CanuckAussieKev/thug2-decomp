@@ -13,6 +13,7 @@
 #include <new>
 #include <array>
 
+#include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/render_state.h"
 #include "engine/lists/key_map.h"
 #include "render_d3d9/pc_d3d_resources.h"

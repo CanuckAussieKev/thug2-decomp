@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "render_d3d9/flash.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_texture.h"
 

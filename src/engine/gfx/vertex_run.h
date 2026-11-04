@@ -29,7 +29,7 @@ constexpr int kFvfColour = 0x42;
 constexpr int kFvfUv = 0x102;
 constexpr int kFvfColourUv = 0x142;
 constexpr int kFvfColourUvNormal = 0x152;
-constexpr uint32_t kFvfNormal = 0x010U; // (render_state.h's)
+constexpr uint32_t kFvfNormal = 0x010U; // (mesh_formats.h's)
 constexpr uint32_t kFvfTex1 = 0x100U;
 // ... and their vertex sizes.
 constexpr int kPositionVertexBytes = 0xC;

@@ -17,6 +17,7 @@
 #include <utility>
 #include <array>
 
+#include "engine/gfx/mesh_formats.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_scene_list.h"

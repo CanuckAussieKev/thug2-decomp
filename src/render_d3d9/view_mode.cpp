@@ -1,6 +1,7 @@
 // The level editor's view modes (render_d3d9/view_mode.h). NOT ORIGINAL.
 
 #include "render_d3d9/view_mode.h"
+#include "engine/gfx/view_modes.h"
 #include "platform/d3dx.h"
 
 #include <windows.h>
@@ -79,22 +80,6 @@ std::string unlit_shader_source(const std::string& source)
     // The constant's definition right after the version line (ps.1.x: defs before any other instruction).
     out.insert(version_end + 1, "def " + constant + ", 0.5, 0.5, 0.5, 0.5\n");
     return out;
-}
-
-const char* get_name(Mode mode)
-{
-    switch (mode) {
-    case Mode::kLit:
-        return "Lit";
-    case Mode::kUnlit:
-        return "Unlit";
-    case Mode::kWireframe:
-        return "Wireframe";
-    case Mode::kCollisionOnly:
-        return "Collision only";
-    default:
-        return "?";
-    }
 }
 
 // --- the renderer side ------------------------------------------------------------------------------------------

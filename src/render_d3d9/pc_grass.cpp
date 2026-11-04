@@ -15,6 +15,7 @@
 #include <span>
 #include <array>
 
+#include "engine/gfx/mesh_formats.h"
 #include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"

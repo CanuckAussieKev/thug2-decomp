@@ -65,6 +65,7 @@ add_library(thug2_render_d3d9 STATIC
     pc_d3d_resources.cpp
     vertex_buffers.cpp
     d3d9_ui_backend.cpp
+    editor_support.cpp
 )
 # imgui: the loading console's panel (loading_console_panel.cpp: its font atlas); imgui_backends: ImGui's SDL2 and
 # Direct3D 9 backends (d3d9_ui_backend.cpp: render::UiBackend)

@@ -13,6 +13,7 @@
 #include <array>
 #include <span>
 
+#include "engine/gfx/mesh_formats.h"
 #include "engine/memory/manager.h"
 #include "base/maths/trig.h"
 #include "engine/gfx/surface_material.h"

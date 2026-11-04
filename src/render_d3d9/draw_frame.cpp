@@ -2,6 +2,7 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "render_d3d9/draw_frame.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/render_camera.h"
 #include "render_d3d9/device_d3d.h"
 #include "render_d3d9/d3d9_handles.h"

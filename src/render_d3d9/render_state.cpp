@@ -1,6 +1,7 @@
 // The renderer's cached Direct3D 9 state: render states, sampler states, textures, blend modes, pixel shaders.
 
 #include "render_d3d9/render_state.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/surface_material.h"
 
 #include <cstddef>

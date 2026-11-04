@@ -16,6 +16,7 @@
 #include <array>
 #include <gsl/pointers>
 
+#include "engine/gfx/mesh_formats.h"
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"

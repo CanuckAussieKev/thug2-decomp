@@ -9,6 +9,7 @@
 
 #include <d3d9.h>
 
+#include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/render_state.h"
 #include "render_d3d9/d3d9_state.h"
 

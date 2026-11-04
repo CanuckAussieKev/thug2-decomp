@@ -46,6 +46,9 @@
 #include "render_d3d9/shatter.h"
 #include "render_d3d9/sub_mesh.h"
 #include "render_d3d9/texture_splats.h"
+#include "render_d3d9/view_mode.h"
+#include "render_d3d9/editor_support.h"
+#include "engine/gfx/view_modes.h"
 
 namespace render::d3d9 {
 
@@ -212,6 +215,14 @@ public:
     void free_loading_screen_sprite() override { render::free_loading_screen_sprite(); }
     void update_loading_bar_colors() override { render::update_loading_bar_colors(); }
     void show_progress_bar(float seconds) override { render::show_progress_bar(seconds); }
+
+    // --- what our level editor asks ---
+    [[nodiscard]] bool device_made() override { return state().d3d_device() != nullptr; }
+    void set_view_mode(view_mode::Mode mode) override { view_mode::assign_value(mode); }
+    void draw_screen_lines(std::span<const ScreenLineVertex> vertices) override
+    {
+        editor_support::draw_screen_lines(vertices);
+    }
 };
 
 } // namespace

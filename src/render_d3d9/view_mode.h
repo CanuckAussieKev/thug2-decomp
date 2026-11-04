@@ -3,9 +3,12 @@
 #include <cstdint>
 #include <string>
 
+#include "engine/gfx/view_modes.h"
+
 // NOT ORIGINAL - the level editor's view modes (ours, added at the user's request; not the game's and not PartyMod's):
-// how the frame's 3D passes are drawn while the editor asks for it (editor/level_editor_overlays.h - the toolbar's
-// View menu, Alt+1..Alt+4). Nothing here changes while the mode is Lit, which is what the game always draws.
+// how the frame's 3D passes are drawn while the editor asks for it (render::Device::set_view_mode; the editor's
+// editor/level_editor_overlays.h - the toolbar's View menu, Alt+1..Alt+4). Nothing here changes while the mode is Lit,
+// which is what the game always draws.
 //   - Lit: as the game draws.
 //   - Unlit: the textures without their light - the pixel shaders' vertex colour (v0: the level's baked lighting, or a
 //     model's lit colour from the fixed-function lights; render_d3d9/pixel_shaders.cpp - every shader multiplies by it)
@@ -21,9 +24,7 @@
 //     shows of the level. Objects, peds and the skater drawn as usual.
 namespace render::view_mode {
 
-enum class Mode : uint8_t { kLit, kUnlit, kWireframe, kCollisionOnly, kCount };
-const char* get_name(Mode mode);
-
+// (the modes and their names: engine/gfx/view_modes.h)
 Mode at_hand();
 void assign_value(Mode mode);
 

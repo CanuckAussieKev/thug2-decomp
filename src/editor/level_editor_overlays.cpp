@@ -15,7 +15,8 @@
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_view.h"
-#include "render_d3d9/view_mode.h"
+#include "engine/gfx/render_device.h"
+#include "engine/gfx/view_modes.h"
 #include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
@@ -145,7 +146,7 @@ void kickoff()
     get_take_in();
     level_editor_overlays_state().view_mode_ = 0;
     level_editor_overlays_state().forced_collision_ = false;
-    render::view_mode::assign_value(render::view_mode::Mode::kLit);
+    render::device().set_view_mode(render::view_mode::Mode::kLit);
 }
 
 void halt() { change_view_mode(0); }
@@ -168,7 +169,7 @@ void change_view_mode(int mode)
         level_editor_overlays_state().forced_collision_ = false;
     }
     level_editor_overlays_state().view_mode_ = mode;
-    render::view_mode::assign_value(static_cast<render::view_mode::Mode>(mode));
+    render::device().set_view_mode(static_cast<render::view_mode::Mode>(mode));
 }
 
 const char* view_mode_name(int mode) { return render::view_mode::get_name(static_cast<render::view_mode::Mode>(mode)); }

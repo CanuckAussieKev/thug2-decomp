@@ -1,6 +1,7 @@
 // A one-pass material made on the fly, and the chunk skippers: see simple_material.h.
 
 #include "render_d3d9/simple_material.h"
+#include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/render_state.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/texture_dict.h"

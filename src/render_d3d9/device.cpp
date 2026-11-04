@@ -17,6 +17,7 @@
 #include <array>
 #include <iterator>
 
+#include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/device_d3d.h"
 #include "render_d3d9/d3d9_handles.h"
 #include "base/core/stubs.h"

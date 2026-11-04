@@ -2,6 +2,7 @@
 // level_editor.h.
 
 #include "editor/level_editor.h"
+#include "engine/gfx/render_device.h"
 #include "base/core/enum_ops.h"
 #include "platform/keyboard.h"
 
@@ -78,7 +79,6 @@
 #include "frontend/mouse_menus.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/occlusion.h"
-#include "render_d3d9/render_state.h"
 #include "engine/gfx/screen.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
@@ -91,7 +91,6 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "render_d3d9/d3d9_state.h"
 #include "base/maths/rect.h"
 #include "base/core/checksums.h"
 #include "base/maths/trig.h"
@@ -2687,24 +2686,10 @@ int arrow_at(const TickCycle& frame, maths::Vec2 at)
         kArrowGrab);
 }
 
-// --- drawing (the renderer's cached state, then the device directly) ---
+// --- drawing ---
 
-uint32_t get_stage_state(int type)
-{
-    DWORD value = 0;
-    render::d3d9::state().d3d_device()->GetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), &value);
-    return value;
-}
-void set_stage_state(int type, uint32_t value)
-{
-    render::d3d9::state().d3d_device()->SetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
-}
-
-struct LineVertex {
-    float x, y, z, rhw;
-    uint32_t color;
-    float u, v;
-};
+// A line's end in screen pixels (the device draws the old HUD's lines: render::Device::draw_screen_lines).
+using LineVertex = render::ScreenLineVertex;
 
 void add_pixel_line(maths::Rect line, uint32_t color, std::vector<LineVertex>* out)
 {
@@ -8490,7 +8475,7 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
 
 void blit()
 {
-    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::d3d9::state().d3d_device()) {
+    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::device().device_made()) {
         return;
     }
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
@@ -8531,25 +8516,7 @@ void blit()
     if (lines.empty()) {
         return;
     }
-    const int count = static_cast<int>(lines.size());
-    const LineVertex* line_data = lines.data();
-    // The renderer's own (cached) state: no texture, pre-transformed vertices with a colour.
-    render::set_texture(0, nullptr);
-    render::set_vertex_format(render::kScreenVertexFormat);           // XYZRHW | DIFFUSE | TEX1
-    render::set_pixel_shader(nullptr, nullptr); // no pixel shader
-    // Stage 0 takes the vertex colour (put back after: the renderer doesn't know of this).
-    const std::array<int, 4> states = {{1, 2, 4, 5}};      // colour op / arg 1, alpha op / arg 1
-    const std::array<uint32_t, 4> values = {{2, 0, 2, 0}}; // select arg 1, diffuse
-    std::array<uint32_t, 4> saved{};
-    for (int i = 0; i < 4; ++i) {
-        core::at(saved, i) = get_stage_state(core::at(states, i));
-        set_stage_state(core::at(states, i), core::at(values, i));
-    }
-    render::d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, static_cast<unsigned int>(count / 2), line_data,
-                                          sizeof(LineVertex));
-    for (int i = 0; i < 4; ++i) {
-        set_stage_state(core::at(states, i), core::at(saved, i));
-    }
+    render::device().draw_screen_lines(lines);
 }
 
 std::vector<std::pair<std::string, std::string>> describe_for_screenshot()

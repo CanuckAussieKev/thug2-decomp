@@ -33,6 +33,7 @@
 #include "base/core/checksums.h"
 #include "engine/gfx/gpu_handles.h"
 #include "base/maths/rect.h"
+#include "engine/gfx/view_modes.h"
 
 namespace gfx {
 class ViewCam;
@@ -81,6 +82,13 @@ struct SkinScaling {
     std::span<const uint8_t> entries; // the colour table's entries (the original: its end and its start)
     void* table = nullptr;
     std::span<const float> colours; // four floats a bone
+};
+
+// A vertex of the lines drawn over the frame in screen pixels (draw_screen_lines: XYZRHW | DIFFUSE | TEX1).
+struct ScreenLineVertex {
+    float x, y, z, rhw;
+    uint32_t color;
+    float u, v;
 };
 
 // The primitives' depth test (set_primitive_depth_test): the state's index and its value.
@@ -227,6 +235,15 @@ public:
     virtual void free_loading_screen_sprite() = 0;
     virtual void update_loading_bar_colors() = 0;
     virtual void show_progress_bar(float seconds) = 0;
+
+    // --- what our level editor asks of the backend (NOT ORIGINAL: editor/; one call per frame, per view or per edit) ---
+    // Whether the device is made (the editor draws nothing before).
+    [[nodiscard]] virtual bool device_made() = 0;
+    // The editor's view mode (view_modes.h; render_d3d9/view_mode.h draws it).
+    virtual void set_view_mode(view_mode::Mode mode) = 0;
+    // Lines over the frame, a pair of vertices each, in the vertices' colours: no texture, no pixel shader, the
+    // renderer's cached state kept and the texture stage it changes put back after (the editor's old HUD).
+    virtual void draw_screen_lines(std::span<const ScreenLineVertex> vertices) = 0;
 
 protected:
     ~Device() = default;

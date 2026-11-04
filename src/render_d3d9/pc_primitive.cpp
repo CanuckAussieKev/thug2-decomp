@@ -11,6 +11,7 @@
 #include <cstring>
 #include <array>
 
+#include "engine/gfx/mesh_formats.h"
 #include "engine/memory/manager.h"
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/vertex_run.h"

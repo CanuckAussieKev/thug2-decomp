@@ -4,6 +4,7 @@
 
 #include <cstdint>
 
+#include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/render_state.h"
 #include "base/core/no_destroy.h"
 

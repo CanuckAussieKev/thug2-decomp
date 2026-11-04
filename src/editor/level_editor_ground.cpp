@@ -24,7 +24,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/packed_colour.h"
-#include "render_d3d9/render_state.h"
+#include "engine/gfx/mesh_formats.h"
 
 namespace frontend::level_editor::ground {
 

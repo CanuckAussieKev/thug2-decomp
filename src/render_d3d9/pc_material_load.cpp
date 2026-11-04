@@ -6,6 +6,7 @@
 #include <cstring>
 #include <new>
 
+#include "engine/gfx/mesh_formats.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
