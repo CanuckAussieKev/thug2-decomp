@@ -333,17 +333,19 @@ std::vector<std::string> readout_lines(const Readout& readout)
     return lines;
 }
 
-std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_limits)
+namespace {
+
+// How an edge is used by the triangles around it: as a top's, or a side's whose third point is below, above or
+// level with it.
+struct EdgeUse {
+    int top = 0, down = 0, up = 0, level = 0;
+};
+
+// The triangles' points welded (within `weld` one, on a grid of that size) into `points`, and their edges by use.
+std::map<std::pair<int, int>, EdgeUse> classify_edges(const std::vector<V3>& triangles, float weld,
+                                                      std::vector<V3>& points)
 {
-    auto weld = edge_limits.weld;
-    const auto min_length = edge_limits.min_length_;
-    std::vector<Run> runs;
-    if (weld <= 0.0F) {
-        weld = kDefaultWeld;
-    }
-    // Points within `weld` one (on a grid of that size).
     std::map<std::tuple<long, long, long>, int> ids;
-    std::vector<V3> points;
     auto id = [&](V3 point) {
         auto key =
             std::make_tuple(std::lround(point.x / weld), std::lround(point.y / weld), std::lround(point.z / weld));
@@ -355,9 +357,6 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
         points.push_back(point);
         ids.emplace(key, index);
         return index;
-    };
-    struct EdgeUse {
-        int top = 0, down = 0, up = 0, level = 0;
     };
     std::map<std::pair<int, int>, EdgeUse> edges;
     for (size_t triangle = 0; triangle + 2 < triangles.size(); triangle += 3) {
@@ -393,6 +392,22 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
             }
         }
     }
+    return edges;
+}
+
+} // namespace
+
+std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_limits)
+{
+    auto weld = edge_limits.weld;
+    const auto min_length = edge_limits.min_length_;
+    std::vector<Run> runs;
+    if (weld <= 0.0F) {
+        weld = kDefaultWeld;
+    }
+    // Points within `weld` one (on a grid of that size).
+    std::vector<V3> points;
+    const std::map<std::pair<int, int>, EdgeUse> edges = classify_edges(triangles, weld, points);
     // The lips: one upward triangle, and the surface falls away beyond it (or nothing does - an open edge).
     std::map<int, std::vector<int>> at; // (a point's lip edges)
     std::vector<std::pair<int, int>> lips;

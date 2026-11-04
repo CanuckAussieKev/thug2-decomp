@@ -197,6 +197,97 @@ LevelEditorGrindPreviewState& level_editor_grind_preview_state()
     return state.get();
 }
 
+// The rail's segments, with chevrons showing their direction.
+void draw_rail_segments(const overlays::Painter& painter, const Rail& rail, const std::vector<V3>& positions,
+                        uint32_t segment_colour)
+{
+    constexpr uint32_t kChevron = 0xFF40E0FF;
+    for (const auto& link : rail.links) {
+        const V3 point_a = core::at(positions, link.first);
+        const V3 point_b = core::at(positions, link.second);
+        (void)painter.get_seg(point_a, point_b, segment_colour, kSegmentWidth);
+        const V3 delta = point_b - point_a;
+        const float length = std::sqrt(get_dot(delta, delta));
+        if (length < kMinSegmentLength) {
+            continue;
+        }
+        const V3 along = delta * (1.0F / length);
+        // (a chevron: two short strokes back from the tip, either side across the rail - in the horizontal plane, or
+        // about x for a vertical rail)
+        V3 side = perpendicular(along, {.x = 0.0F, .y = 1.0F, .z = 0.0F});
+        if (get_dot(side, side) < kMinSideLength) {
+            side = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
+        }
+        side = make_unit(side);
+        const float size = std::clamp(painter.span_to(point_a + delta * 0.5F) * 0.012F, 4.0F, 24.0F);
+        for (const V3 tip : chevron_tips(point_a, point_b, std::max(kChevronSpacing, size * 4.0F))) {
+            (void)painter.get_seg(tip, tip - along * size + side * size * kChevronSideFraction, kChevron, kChevronWidth);
+            (void)painter.get_seg(tip, tip - along * size - side * size * kChevronSideFraction, kChevron, kChevronWidth);
+        }
+    }
+}
+
+// The speed-ups on the rail (the level's and the editor's), labelled; how many.
+int draw_rail_speed_ups(const overlays::Painter& painter, const Rail& rail, const std::vector<V3>& positions, V3 near)
+{
+    int speed_ups = 0;
+    for (const chains::SpeedSegment& speed_segment : chains::speed_segments(near, 50000.0F)) {
+        for (const auto& link : rail.links) {
+            const V3 da = speed_segment.a - core::at(positions, link.first);
+            const V3 db = speed_segment.b - core::at(positions, link.second);
+            if (get_dot(da, da) > 1.0F || get_dot(db, db) > 1.0F) {
+                continue;
+            }
+            ++speed_ups;
+            (void)painter.get_seg(speed_segment.a, speed_segment.b, kSpeedUpColour, kSpeedUpWidth);
+            std::array<char, kSpeedUpTextSize> text{};
+            text::format_to(text, "speed-up %.1f%%%s", speed_segment.rate * 100.0F,
+                            speed_segment.level ? " (level)" : "");
+            painter.draw_label((speed_segment.a + speed_segment.b) * kHalf, kSpeedUpColour, text.data());
+            break;
+        }
+    }
+    return speed_ups;
+}
+
+// Transfers: other rails' ends near this one's ends, with their distances; how many.
+int draw_transfers(const overlays::Painter& painter, const Rail& rail, const Graph& graph,
+                   const std::vector<V3>& positions, const std::vector<int>& ends, const objects::GrindRailHub* rails)
+{
+    std::vector<uint8_t> in_rail(graph.count, 0);
+    for (const int point : rail.points) {
+        core::at(in_rail, point) = 1;
+    }
+    std::vector<int> degree(graph.count, 0);
+    for (const auto& link : graph.links) {
+        ++core::at(degree, link.first);
+        ++core::at(degree, link.second);
+    }
+    int transfers = 0;
+    for (const int end_point : ends) {
+        for (int candidate = 0; candidate < graph.count && transfers < kMaxTransfers; ++candidate) {
+            if ((core::at(in_rail, candidate) != 0U) || core::at(degree, candidate) != 1 ||
+                ((core::at(rails->node_run(), candidate).flag_bits() & objects::kRailFlagClimbing) != 0U)) {
+                continue;
+            }
+            const V3 delta = core::at(positions, candidate) - core::at(positions, end_point);
+            const float distance = std::sqrt(get_dot(delta, delta));
+            if (distance > kTransferReach) {
+                continue;
+            }
+            ++transfers;
+            (void)painter.get_seg(core::at(positions, end_point), core::at(positions, candidate), kTransferLineColour,
+                                  kTransferLineWidth);
+            painter.get_dot(core::at(positions, candidate), kTransferDotRadius, kTransferColour, false);
+            std::array<char, kTransferTextSize> text{};
+            text::format_to(text, "transfer %.0f", distance);
+            painter.draw_label((core::at(positions, end_point) + core::at(positions, candidate)) * kHalf,
+                               kTransferColour, text.data());
+        }
+    }
+    return transfers;
+}
+
 } // namespace
 
 void add_overlay(const overlays::Painter& painter, int hovered, int selected)
@@ -245,32 +336,9 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     const bool active = (core::at(rails->node_run(), start).flag_bits() & objects::kRailFlagActive) != 0;
     // The segments with their direction; the points; the ends; branches.
     constexpr uint32_t kSegment = 0xF0FFFFFF;
-    constexpr uint32_t kChevron = 0xFF40E0FF;
     constexpr uint32_t kInactive = 0xA0909090;
     const uint32_t segment_colour = active ? kSegment : kInactive;
-    for (const auto& link : rail.links) {
-        const V3 point_a = core::at(positions, link.first);
-        const V3 point_b = core::at(positions, link.second);
-        (void)painter.get_seg(point_a, point_b, segment_colour, kSegmentWidth);
-        const V3 delta = point_b - point_a;
-        const float length = std::sqrt(get_dot(delta, delta));
-        if (length < kMinSegmentLength) {
-            continue;
-        }
-        const V3 along = delta * (1.0F / length);
-        // (a chevron: two short strokes back from the tip, either side across the rail - in the horizontal plane, or
-        // about x for a vertical rail)
-        V3 side = perpendicular(along, {.x = 0.0F, .y = 1.0F, .z = 0.0F});
-        if (get_dot(side, side) < kMinSideLength) {
-            side = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
-        }
-        side = make_unit(side);
-        const float size = std::clamp(painter.span_to(point_a + delta * 0.5F) * 0.012F, 4.0F, 24.0F);
-        for (const V3 tip : chevron_tips(point_a, point_b, std::max(kChevronSpacing, size * 4.0F))) {
-            (void)painter.get_seg(tip, tip - along * size + side * size * kChevronSideFraction, kChevron, kChevronWidth);
-            (void)painter.get_seg(tip, tip - along * size - side * size * kChevronSideFraction, kChevron, kChevronWidth);
-        }
-    }
+    draw_rail_segments(painter, rail, positions, segment_colour);
     for (const int point : rail.points) {
         painter.get_dot(core::at(positions, point), point == start ? kStartDotRadius : kPointDotRadius,
                         point == start ? kStartColour : kPointColour);
@@ -284,56 +352,10 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         painter.draw_label(core::at(positions, branch), kBranchColour, "branch");
     }
     // Speed-ups on it (the level's and the editor's).
-    int speed_ups = 0;
     const V3 near = core::at(positions, start);
-    for (const chains::SpeedSegment& speed_segment : chains::speed_segments(near, 50000.0F)) {
-        for (const auto& link : rail.links) {
-            const V3 da = speed_segment.a - core::at(positions, link.first);
-            const V3 db = speed_segment.b - core::at(positions, link.second);
-            if (get_dot(da, da) > 1.0F || get_dot(db, db) > 1.0F) {
-                continue;
-            }
-            ++speed_ups;
-            (void)painter.get_seg(speed_segment.a, speed_segment.b, kSpeedUpColour, kSpeedUpWidth);
-            std::array<char, kSpeedUpTextSize> text{};
-            text::format_to(text, "speed-up %.1f%%%s", speed_segment.rate * 100.0F,
-                            speed_segment.level ? " (level)" : "");
-            painter.draw_label((speed_segment.a + speed_segment.b) * kHalf, kSpeedUpColour, text.data());
-            break;
-        }
-    }
+    const int speed_ups = draw_rail_speed_ups(painter, rail, positions, near);
     // Transfers: other rails' ends near this one's ends.
-    std::vector<uint8_t> in_rail(graph.count, 0);
-    for (const int point : rail.points) {
-        core::at(in_rail, point) = 1;
-    }
-    std::vector<int> degree(graph.count, 0);
-    for (const auto& link : graph.links) {
-        ++core::at(degree, link.first);
-        ++core::at(degree, link.second);
-    }
-    int transfers = 0;
-    for (const int end_point : ends) {
-        for (int candidate = 0; candidate < graph.count && transfers < kMaxTransfers; ++candidate) {
-            if ((core::at(in_rail, candidate) != 0U) || core::at(degree, candidate) != 1 ||
-                ((core::at(rails->node_run(), candidate).flag_bits() & objects::kRailFlagClimbing) != 0U)) {
-                continue;
-            }
-            const V3 delta = core::at(positions, candidate) - core::at(positions, end_point);
-            const float distance = std::sqrt(get_dot(delta, delta));
-            if (distance > kTransferReach) {
-                continue;
-            }
-            ++transfers;
-            (void)painter.get_seg(core::at(positions, end_point), core::at(positions, candidate), kTransferLineColour,
-                                  kTransferLineWidth);
-            painter.get_dot(core::at(positions, candidate), kTransferDotRadius, kTransferColour, false);
-            std::array<char, kTransferTextSize> text{};
-            text::format_to(text, "transfer %.0f", distance);
-            painter.draw_label((core::at(positions, end_point) + core::at(positions, candidate)) * kHalf,
-                               kTransferColour, text.data());
-        }
-    }
+    const int transfers = draw_transfers(painter, rail, graph, positions, ends, rails);
     // The label at the point: the rail, its size, terrain, speed-ups, connections.
     if (level_editor_grind_preview_state().terrain_for_ != name) {
         level_editor_grind_preview_state().terrain_for_ = name;
