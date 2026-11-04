@@ -165,10 +165,6 @@ foreach(font IN LISTS THUG2_EDITOR_FONTS)
 endforeach()
 add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 
-# --- The boundary layer (docs/architecture.md "Layers") ----------------------------------------------------------
-# The places where bytes come from outside: files on disk (formats), network messages (wire). Each is a static library
-# that depends only on the standard library and thug2_base; the game sees their typed APIs. (GPU vertex data: src/gpu,
-# thug2_gpu - it needs the Direct3D device; the platform APIs: src/platform.)
 # --- Microsoft GSL 4.2.0 (MIT; THIRD_PARTY_NOTICES.md) -----------------------------------------------------------
 # The C++ Core Guidelines' support library, header-only: gsl::owner (the ownership mark), gsl::at (indexing checked
 # against the extent - an index out of range ends the game with a report instead of reading past), gsl::narrow.
@@ -191,7 +187,13 @@ target_include_directories(thug2_options INTERFACE src)
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
 target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
 
-# The layers below the game, in link order (each folder's CMakeLists.txt; docs/architecture.md "Layers").
+# --- The layers (docs/architecture.md "Layers"; tools/layers.json is the map, tools/cmake_layers.ts checks that the
+# libraries below link as it says) ---------------------------------------------------------------------------------
+# One static library per folder of src/, each in its folder's CMakeLists.txt, linking only the layers below it:
+#   thug2_base <- thug2_platform, thug2_formats <- thug2_wire; thug2_platform <- thug2_gpu;
+#   thug2_gpu + thug2_wire <- thug2_engine <- thug2_game <- thug2_frontend, thug2_editor, thug2_devtools <- the exe (src/app).
+# The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 add_subdirectory(src/base)
 add_subdirectory(src/formats)
 add_subdirectory(src/wire)
@@ -202,88 +204,5 @@ add_subdirectory(src/game)
 add_subdirectory(src/frontend)
 add_subdirectory(src/editor)
 add_subdirectory(src/devtools)
-
-# --- The game ----------------------------------------------------------------------------------------------------
-# thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
-# (its Data folder, binkw32.dll): README.md "Building and running".
-add_executable(thug2 WIN32
-    src/app/main.cpp
-    src/app/extensions.cpp
-    src/app/component_types.cpp
-    src/app/pc_setup.cpp
-    src/app/startup.cpp
-    src/app/winmain.cpp
-    src/app/startup_init.cpp
-    src/app/command_table.cpp
-)
-set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
-# The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
-# them deprecated unless this is defined.
-set_source_files_properties(src/app/winmain.cpp PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
-target_include_directories(thug2 PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
-                                         "${CMAKE_BINARY_DIR}/editor_fonts")
-# (the UI fonts, compressed at build time: engine/ui/ui_fonts.cpp includes them; the generated build_info.h)
-add_dependencies(thug2 editor_fonts build_info)
-# ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
-# formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_frontend thug2_editor thug2_devtools thug2_game thug2_engine thug2_gpu thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
-# The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
-# THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
-add_custom_command(TARGET thug2 POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2>/d3dx9_43.dll"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "$<TARGET_FILE_DIR:thug2>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "$<TARGET_FILE_DIR:thug2>"
-    COMMENT "Copying d3dx9_43.dll, SDL2.dll and gamecontrollerdb.txt next to thug2-decomp.exe")
-
-# NOT ORIGINAL - thug2_format_check.exe: offline checks of the file, save and network format readers / writers
-# (src/tests/format_check.cpp; give it save files or folders: `thug2_format_check <game>/Save`).
-add_executable(thug2_format_check
-    src/tests/format_check.cpp
-    src/tests/format_check_net.cpp
-    src/tests/format_check_files.cpp)
-target_link_libraries(thug2_format_check PRIVATE thug2_wire)
-
-# NOT ORIGINAL - thug2_maths_check.exe: the plain C++ that replaced the x87 inline assembly compared with that
-# assembly over many inputs, and maths::matrix_multiply with D3DX's matrix product (src/tests/maths_check.cpp; the
-# reference half needs MSVC for 32-bit x86).
-add_executable(thug2_maths_check src/tests/maths_check.cpp src/tests/maths_check_d3dx.cpp)
-# (d3dx9: D3DX's matrix product, the reference for maths::matrix_multiply; its DLL next to the check)
-target_link_libraries(thug2_maths_check PRIVATE thug2_base d3dx9)
-add_custom_command(TARGET thug2_maths_check POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_maths_check>/d3dx9_43.dll")
-
-# NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (base/core/
-# parse_number.h) compared with the C runtime's over many texts (src/tests/parse_check.cpp).
-add_executable(thug2_parse_check src/tests/parse_check.cpp)
-target_link_libraries(thug2_parse_check PRIVATE thug2_formats)
-
-# NOT ORIGINAL - thug2_printf_check.exe: the printf-style formatting without C varargs (base/core/format.h) compared
-# with the C runtime's snprintf over every conversion, flag, width, precision and edge value (src/tests/printf_check.cpp).
-add_executable(thug2_printf_check src/tests/printf_check.cpp)
-target_link_libraries(thug2_printf_check PRIVATE thug2_formats)
-
-# THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
-# (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
-# install root (C:/Games/THUG2) steps into its Game folder when the game isn't at the top (as thug2-level-converter-core/lib/install.ts).
-# When it exists, every build copies the exe, its PDB and the DLLs above into it.
-set(THUG2_DEPLOY_DIR "${THUG2_GAME_DIR}")
-function(thug2_is_game_folder dir out)
-    if(EXISTS "${dir}/THUG2.exe" OR EXISTS "${dir}/Data/pre/qb_scripts.prx")
-        set(${out} TRUE PARENT_SCOPE)
-    else()
-        set(${out} FALSE PARENT_SCOPE)
-    endif()
-endfunction()
-thug2_is_game_folder("${THUG2_DEPLOY_DIR}" THUG2_AT_TOP)
-thug2_is_game_folder("${THUG2_DEPLOY_DIR}/Game" THUG2_IN_GAME)
-if(NOT THUG2_AT_TOP AND THUG2_IN_GAME)
-    set(THUG2_DEPLOY_DIR "${THUG2_DEPLOY_DIR}/Game")
-endif()
-if(EXISTS "${THUG2_DEPLOY_DIR}")
-    add_custom_command(TARGET thug2 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2> $<TARGET_PDB_FILE:thug2> "${THUG2_DEPLOY_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "${THUG2_DEPLOY_DIR}/d3dx9_43.dll"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "${THUG2_DEPLOY_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "${THUG2_DEPLOY_DIR}"
-        COMMENT "Copying thug2-decomp.exe and its DLLs into ${THUG2_DEPLOY_DIR}")
-endif()
+add_subdirectory(src/app)
+add_subdirectory(src/tests)
