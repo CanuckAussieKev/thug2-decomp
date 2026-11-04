@@ -3,8 +3,6 @@
 
 #include "engine/net/net_manager.h"
 
-#include <winsock2.h>
-
 #include <cstdint>
 #include <cstring>
 #include <span>
@@ -15,7 +13,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
 #include "base/core/checked_index.h"
-#include "platform/sockets.h"
+#include "engine/net/transport.h"
 #include "engine/net/shared_state.h"
 
 namespace net {
@@ -142,23 +140,23 @@ uint32_t Hub::get_local_address()
     if (local_address_ != 0U) {
         return local_address_;
     }
-    return inet_addr(local_ip_.data());
+    return transport().parse_address(local_ip_.data());
 }
 
 // 0x00454910
 const char* Hub::fetch_own_address()
 {
-    const hostent* localhost = gethostbyname("localhost");
+    const HostEntry* localhost = transport().find_host("localhost");
     if (!localhost) {
         return "<Unknown>";
     }
-    const hostent* host = gethostbyname(localhost->h_name);
+    const HostEntry* host = transport().find_host(transport().host_name(localhost));
     // (Without the host, localhost's address - read from Winsock's per-thread hostent after the second lookup
     // has used it, as the original does.)
     if (!host) {
         host = localhost;
     }
-    return sockets::first_address_text(host);
+    return transport().address_text(transport().host_first_address(host));
 }
 
 // 0x004549C0

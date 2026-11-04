@@ -28,6 +28,8 @@
 #include "engine/file/file_sources.h"
 #include "engine/file/file_system.h"
 #include "fs_win32/win32_disk.h"
+#include "net_winsock/winsock_transport.h"
+#include "engine/net/transport.h"
 #include "engine/media/movie.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
@@ -84,6 +86,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     fs::file_system().add(file::overlay_source());
     fs::file_system().add(file::archive_source());
     fs::file_system().add(file::data_folder_source());
+    // NOT ORIGINAL: the network sockets and address lookups (engine/net/transport.h): Winsock's.
+    net::install_transport(net::winsock::transport());
     // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
     app::install_command_tables();
     // NOT ORIGINAL: the extensions (the editor, the new front end, the dev tools) registered before any of the

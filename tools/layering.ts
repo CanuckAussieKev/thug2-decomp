@@ -36,6 +36,8 @@ const BOUNDARY_FILES = new Set([
     "src/render_d3d9/d3dx.cpp",
     // binkw32's exports looked up by name (platform/ until stage 11 round 17)
     "src/media_bink/bink.cpp",
+    // Winsock's generic addresses, hostent and char buffers over the game's (platform/sockets.cpp until stage 11 round 20)
+    "src/net_winsock/winsock_transport.cpp",
     // the QB bytecode and its pre-compiled images, read in place
     "src/engine/script/qb.cpp",
     "src/engine/script/token_reader.cpp",

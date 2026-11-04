@@ -1,7 +1,6 @@
 // The viewer module, 0x00576CB0-0x00577F20. See model_viewer.h.
 
 #include <memory>
-#include <winsock2.h>
 
 #include "engine/sys/model_viewer.h"
 
@@ -25,6 +24,7 @@
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_manager.h"
+#include "engine/net/transport.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -605,7 +605,7 @@ Viewer::Viewer()
         net::Hub* net = net::Hub::sole();
         // (the original first calls inet_addr on the address and drops the result: a parse with no effect, left out)
         stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
-        const int address = static_cast<int>(inet_addr(net::Hub::fetch_own_address()));
+        const int address = static_cast<int>(net::transport().parse_address(net::Hub::fetch_own_address()));
         net_handler_ = memory::take_unique<net::AppHost>(net->make_server_app(0, "THUG2 Viewer", 4, viewer_message::kViewerPort, {.address = address, .flags = viewer_message::kServerAppFlags}));
     }
     const int controller = script::fetch_int_value(kViewerPadKey);

@@ -7,8 +7,6 @@
 
 #include "engine/net/net_server.h"
 
-#include <winsock2.h>
-
 #include "wire/message_ids.h"
 #include "engine/memory/manager.h"
 #include "engine/net/net_access_c.h"
@@ -19,7 +17,7 @@
 #include "engine/net/net_client.h"
 #include "base/core/checked_index.h"
 #include "wire/net_wire.h"
-#include "platform/sockets.h"
+#include "engine/net/transport.h"
 
 namespace net {
 
@@ -58,22 +56,22 @@ bool HostEnd::prepare_all()
 // 0x0045BBD0
 void HostEnd::pull_inbound()
 {
-    int from_length = sizeof(sockaddr_in);
-    sockaddr_in from{};
+    int from_length = sizeof(SocketAddress);
+    SocketAddress from{};
     if (has_no_socket(this)) {
         return;
     }
     int received = 0;
     for (bool again = true; again; again = received > 0) {
         uint8_t* buffer = receive_buffer().data();
-        received = sockets::receive_bytes_from(sock(), buffer, kReceiveBufferSize, 0, &from, &from_length);
+        received = transport().receive_from(sock(), buffer, kReceiveBufferSize, 0, &from, &from_length);
         if (received < 0) {
-            WSAGetLastError();
+            transport().last_error(); // (read and dropped, as the original does)
             return;
         }
         inbound_byte_total() += received;
         const int size = ((flag_bits() & kAppSecure) != 0U) ? received - 2 : received;
-        if (Conn* conn = net::find_conn_at_address(this, from.sin_addr.s_addr, ntohs(from.sin_port))) {
+        if (Conn* conn = net::find_conn_at_address(this, from.ip, port_of(from.port))) {
             if ((is_new(conn) || ((flag_bits() & kAppSecure) == 0U)) &&
                 static_cast<int>(conn->incoming().used) + size < static_cast<int>(kConnReceiveBufferSize)) {
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
@@ -83,10 +81,10 @@ void HostEnd::pull_inbound()
                     conn->set_last_heard_from(frame_clock::get_time());
                 } else if (auto handler = unknown_packet_sink()) {
                     // (given the connection's read pointer, not the packet - as in the original)
-                    handler(vacant(conn->incoming()).data(), received, sockets::generic(&from));
+                    handler(vacant(conn->incoming()).data(), received, &from);
                 }
             }
-        } else if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), (Conn::kFlagRemote | Conn::kFlagForeign))) {
+        } else if (Conn* fresh = net::opened_link(this, from.ip, port_of(from.port), (Conn::kFlagRemote | Conn::kFlagForeign))) {
             fresh->set_owner_app(this);
             if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
                               vacant(fresh->incoming()))) {
@@ -94,7 +92,7 @@ void HostEnd::pull_inbound()
                 mark_new_connection(fresh);
             } else {
                 if (auto handler = unknown_packet_sink()) {
-                    handler(buffer, received, sockets::generic(&from));
+                    handler(buffer, received, &from);
                 }
                 destroy_conn(fresh);
                 memory::Hub::dealloc(fresh);

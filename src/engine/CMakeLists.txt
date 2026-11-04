@@ -168,6 +168,7 @@ add_library(thug2_engine STATIC
     net/net_messages.cpp
     net/net_manager_apps.cpp
     net/net_conn_times.cpp
+    net/transport.cpp
     objects/composite.cpp
     objects/compositemgr.cpp
     objects/cutscene.cpp
@@ -311,7 +312,3 @@ target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/editor_font
 add_dependencies(thug2_engine editor_fonts)
 # lzham: THUGPRO's compression method (net/net_lzham.cpp)
 target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE lzham)
-# The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
-# them deprecated unless this is defined.
-set_source_files_properties(net/net_manager.cpp net/net_manager_apps.cpp sys/model_viewer.cpp
-    PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)

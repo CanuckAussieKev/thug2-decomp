@@ -5,7 +5,6 @@
 #include "base/core/enum_ops.h"
 #include "engine/memory/task_list.h"
 
-#include <winsock2.h>
 #include <windows.h>
 
 #include <cstdint>
@@ -28,7 +27,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/span_copy.h"
-#include "platform/sockets.h"
+#include "engine/net/transport.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 #include "base/core/format.h"
@@ -151,7 +150,7 @@ void AppHost::raise_fault()
 {
     constexpr size_t kMessageSize = 0x400;
     std::array<char, kMessageSize> message{};
-    text::format_to(message, "%s: Error %d\n", label_.data(), WSAGetLastError());
+    text::format_to(message, "%s: Error %d\n", label_.data(), transport().last_error());
     OutputDebugStringA(message.data());
 }
 
@@ -175,29 +174,27 @@ void AppHost::link_duplicate_conns(Conn* first, Conn* second)
 // 0x00456BA0
 bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
 {
-    sockaddr_in local = {};
-    local.sin_family = AF_INET;
-    local.sin_port = htons(port);
+    SocketAddress local = ipv4(kAnyAddress, port);
     // (The original asks the manager for its +0x128 value and sets the address to INADDR_ANY unless it's 1 - it's
     // INADDR_ANY already either way.)
     if (supervisor_->get_net_link_kind() != Hub::kConnectionModem) {
-        local.sin_addr.s_addr = INADDR_ANY;
+        local.ip = kAnyAddress;
     }
-    if (sockets::bind_to(sock_, local) < 0) {
-        if (WSAGetLastError() != WSAEADDRINUSE) {
+    if (transport().bind(sock_, local) < 0) {
+        if (transport().last_error() != kErrorAddressInUse) {
             raise_fault();
             return false;
         }
         raise_fault();
-        local.sin_port = htons(0);
-        if (sockets::bind_to(sock_, local) < 0) {
+        local.port = network_port(0);
+        if (transport().bind(sock_, local) < 0) {
             raise_fault();
             return false;
         }
     }
-    int length = sizeof(sockaddr_in);
-    sockaddr_in bound{};
-    if (sockets::name_of(sock_, &bound, &length) < 0) {
+    int length = sizeof(SocketAddress);
+    SocketAddress bound{};
+    if (transport().name_of(sock_, &bound, &length) < 0) {
         raise_fault();
         return false;
     }
@@ -221,20 +218,17 @@ bool AppHost::transmit_to(net::Address address, const uint8_t* data, int length,
 {
     const auto ip = address.ip;
     const auto port = address.port;
-    sockaddr_in to = {};
-    to.sin_family = AF_INET;
-    to.sin_port = htons(port);
-    to.sin_addr.s_addr = ip;
+    const SocketAddress to = ipv4(ip, port);
     int result = 0;
     if ((flag_bits_ & kSecure) != 0U) {
         encrypt(data, scrambled_.data(), length, &length);
-        result = sockets::send_bytes_to(sock_, scrambled_.data(), length, flags, to);
+        result = transport().send_to(sock_, scrambled_.data(), length, flags, to);
     } else {
-        result = sockets::send_bytes_to(sock_, data, length, flags, to);
+        result = transport().send_to(sock_, data, length, flags, to);
     }
-    if (result == SOCKET_ERROR) {
-        const int error = WSAGetLastError();
-        if (error != WSAEWOULDBLOCK && error != WSAEINPROGRESS) {
+    if (result == kSocketError) {
+        const int error = transport().last_error();
+        if (error != kErrorWouldBlock && error != kErrorInProgress) {
             return false;
         }
     }
@@ -249,29 +243,26 @@ bool AppHost::post_out(const uint8_t* data, int length, int flags)
     }
     if ((flag_bits_ & kSecure) != 0U) {
         encrypt(data, scrambled_.data(), length, &length);
-        return sockets::send_bytes(sock_, scrambled_.data(), length, flags) != SOCKET_ERROR;
+        return transport().send(sock_, scrambled_.data(), length, flags) != kSocketError;
     }
-    return sockets::send_bytes(sock_, data, length, flags) != SOCKET_ERROR;
+    return transport().send(sock_, data, length, flags) != kSocketError;
 }
 
 // 0x00457110
 bool AppHost::prepare_all()
 {
     if ((flag_bits_ & kLocal) == 0U) {
-        const SOCKET made = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-        sock_ = static_cast<uint32_t>(made);
-        constexpr auto kNoSocket = INVALID_SOCKET; // (winsock's macro: a C cast of ~0)
+        const SocketId made = transport().open_datagram();
+        sock_ = made;
         if (made == kNoSocket) {
             raise_fault();
             return false;
         }
-        u_long on = 1;
-        if (ioctlsocket(sock_, FIONBIO, &on) == SOCKET_ERROR) {
+        if (transport().set_non_blocking(sock_) == kSocketError) {
             raise_fault();
             return false;
         }
-        if (((flag_bits_ & kBroadcast) != 0U) &&
-            sockets::set_option(sock_, SOL_SOCKET, SO_BROADCAST, &on, sizeof(on)) == SOCKET_ERROR) {
+        if (((flag_bits_ & kBroadcast) != 0U) && transport().allow_broadcast(sock_) == kSocketError) {
             raise_fault();
             return false;
         }
@@ -346,7 +337,7 @@ void AppHost::block_connection(Conn* conn)
 void AppHost::tear_down_state()
 {
     if ((flag_bits_ & kLocal) == 0U) {
-        closesocket(sock_);
+        transport().close(sock_);
     }
     dispatcher_deinit(&dispatcher_);
     lists::Hunt<Conn> search;

@@ -1,6 +1,6 @@
 {
-    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_d3d9, audio_dsound, media_bink, input_dinput, fs_win32) are included by app/ only: the editor and the front end reach the graphics backend through the engine's interfaces (render::Device, render::UiBackend), the engine reaches the sound output through audio::Device, the movie codec through media::Movie, DirectInput through its input::Source and the operating system's files through fs::Disk.",
-    "strict": ["base", "platform", "formats", "wire", "engine", "render_d3d9", "audio_dsound", "media_bink", "input_dinput", "fs_win32", "game"],
+    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_d3d9, audio_dsound, media_bink, input_dinput, fs_win32, net_winsock) are included by app/ only: the editor and the front end reach the graphics backend through the engine's interfaces (render::Device, render::UiBackend), the engine reaches the sound output through audio::Device, the movie codec through media::Movie, DirectInput through its input::Source, the operating system's files through fs::Disk and Winsock's sockets through net::Transport.",
+    "strict": ["base", "platform", "formats", "wire", "engine", "render_d3d9", "audio_dsound", "media_bink", "input_dinput", "fs_win32", "net_winsock", "game"],
     "libraries": {
         "base": {
             "folders": ["src/base/"],
@@ -15,6 +15,7 @@
         "media_bink": { "folders": ["src/media_bink/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "input_dinput": { "folders": ["src/input_dinput/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "fs_win32": { "folders": ["src/fs_win32/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
+        "net_winsock": { "folders": ["src/net_winsock/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "game": {
             "folders": ["src/game/"],
             "allowed": ["base", "platform", "formats", "wire", "engine"]
@@ -33,7 +34,7 @@
         },
         "app": {
             "folders": ["src/app/", "src/tests/"],
-            "allowed": ["base", "platform", "formats", "wire", "engine", "render_d3d9", "audio_dsound", "media_bink", "input_dinput", "fs_win32", "game", "frontend", "editor", "devtools"]
+            "allowed": ["base", "platform", "formats", "wire", "engine", "render_d3d9", "audio_dsound", "media_bink", "input_dinput", "fs_win32", "net_winsock", "game", "frontend", "editor", "devtools"]
         }
     }
 }

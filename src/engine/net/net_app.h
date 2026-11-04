@@ -16,7 +16,6 @@
 #include <gsl/pointers>
 #include <memory>
 
-struct sockaddr;
 
 // The network library: an App (the base of the Server and the Client) owns its connections (Conn),
 // queues messages for them and streams big messages in pieces. Here: App's constructor and the App code at
@@ -33,9 +32,10 @@ namespace net {
 
 struct AppHost;
 class Hub;
+struct SocketAddress;
 
 // What an App does with a packet from an address that isn't one of its connections (+0x1E88).
-using UnknownPacketCallback = void (*)(const uint8_t* data, int size, sockaddr* from);
+using UnknownPacketCallback = void (*)(const uint8_t* data, int size, SocketAddress* from);
 
 // A message to be sent (0x20 bytes; the constructor 0x004549F0 sets every field: zero, priority 0x80).
 struct NetMessageInfo {

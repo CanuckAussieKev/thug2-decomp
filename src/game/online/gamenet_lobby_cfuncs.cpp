@@ -91,7 +91,7 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script* /*scrip
         return false;
     }
     tasks->queue_job(lobby->nat_task().get());
-    client->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
+    client->set_outside_packet_hook([](const uint8_t* data, int size, net::SocketAddress* from) { RoomManager::queue_packet(data, size, from); });
     tasks->queue_job(lobby->hosting_task().get());
     for (int i = 0; i < net_game_state().queued_count(); ++i) {
         crt::dealloc(memory::owned_element(core::at(net_game_state().get_queue(), i).data)); // (the game's C runtime free; the queue's copy)

@@ -2,8 +2,6 @@
 
 #include "engine/net/net_client.h"
 
-#include <winsock2.h>
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -22,7 +20,7 @@
 #include "engine/sys/stopwatch.h"
 #include "base/core/checked_index.h"
 #include "wire/net_wire.h"
-#include "platform/sockets.h"
+#include "engine/net/transport.h"
 #include "engine/net/net_address.h"
 
 namespace net {
@@ -76,14 +74,11 @@ bool Guest::dial_server(net::Address host)
 {
     const auto ip = host.ip;
     const auto port = host.port;
-    sockaddr_in address{};
-    address.sin_family = AF_INET;
-    address.sin_port = htons(port);
-    address.sin_addr.s_addr = ip;
-    std::memset(std::data(address.sin_zero), 0, sizeof(address.sin_zero));
+    SocketAddress address = ipv4(ip, port);
+    std::memset(std::data(address.zero), 0, sizeof(address.zero));
     std::memcpy(host_sock_addr_.data(), &address, sizeof(address));
-    while (sockets::connect_to(sock(), address) == SOCKET_ERROR) {
-        if (WSAGetLastError() != WSAEWOULDBLOCK) {
+    while (transport().connect(sock(), address) == kSocketError) {
+        if (transport().last_error() != kErrorWouldBlock) {
             report_socket_error(this);
             return false;
         }
@@ -112,30 +107,29 @@ void Guest::send_to_host(NetMessageInfo* desc)
 // 0x0045A300
 void Guest::pull_inbound()
 {
-    int from_length = sizeof(sockaddr_in);
-    sockaddr_in from = {}; // (the original leaves it uninitialised: recv doesn't fill it in)
+    int from_length = sizeof(SocketAddress);
+    SocketAddress from = {}; // (the original leaves it uninitialised: recv doesn't fill it in)
     if (has_no_socket(this)) {
         return;
     }
     int received = 0;
     for (bool again = true; again; again = received > 0) {
         uint8_t* buffer = receive_buffer().data();
-        const SOCKET socket = sock();
+        const SocketId socket = sock();
         if (!linked_up()) {
-            received =
-                sockets::receive_bytes_from(socket, buffer, kReceiveBufferSize, 0, &from, &from_length);
+            received = transport().receive_from(socket, buffer, kReceiveBufferSize, 0, &from, &from_length);
         } else {
-            received = sockets::receive_bytes(socket, buffer, kReceiveBufferSize, 0);
+            received = transport().receive(socket, buffer, kReceiveBufferSize, 0);
         }
         if (received < 0) {
-            WSAGetLastError();
+            transport().last_error(); // (read and dropped, as the original does)
             return;
         }
         inbound_byte_total() += received;
         const int size = ((flag_bits() & kAppSecure) != 0U) ? received - 2 : received;
-        sockaddr_in server{};
+        SocketAddress server{};
         std::memcpy(&server, host_sock_addr_.data(), sizeof(server));
-        if (Conn* conn = net::find_conn_at_address(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
+        if (Conn* conn = net::find_conn_at_address(this, server.ip, port_of(server.port))) {
             if (static_cast<int>(conn->incoming().used) + size < static_cast<int>(kConnReceiveBufferSize)) {
                 const uint32_t time = frame_clock::get_time();
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
@@ -146,12 +140,12 @@ void Guest::pull_inbound()
                         conn->set_last_heard_from(time);
                     }
                 } else if (auto handler = unknown_packet_sink()) {
-                    handler(buffer, received, sockets::generic(&from));
+                    handler(buffer, received, &from);
                 }
             }
         } else if (!linked_up()) {
             // from an unknown address
-            if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), (Conn::kFlagRemote | Conn::kFlagForeign))) {
+            if (Conn* fresh = net::opened_link(this, from.ip, port_of(from.port), (Conn::kFlagRemote | Conn::kFlagForeign))) {
                 fresh->set_owner_app(this);
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
                                   vacant(fresh->incoming()))) {
@@ -159,7 +153,7 @@ void Guest::pull_inbound()
                     mark_new_connection(fresh);
                 } else {
                     if (auto handler = unknown_packet_sink()) {
-                        handler(buffer, received, sockets::generic(&from));
+                        handler(buffer, received, &from);
                     }
                     destroy_conn(fresh);
                     memory::Hub::dealloc(fresh);

@@ -376,7 +376,7 @@ void RoomManager::start_hosting()
 {
     tasks::PileUp* tasks = get_logic_tasks();
     net::AppHost* server = net_game_state().online_hub()->host();
-    server->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
+    server->set_outside_packet_hook([](const uint8_t* data, int size, net::SocketAddress* from) { RoomManager::queue_packet(data, size, from); });
     clear_queue();
     if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
         1) { // reporting on its socket

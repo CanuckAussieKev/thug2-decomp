@@ -3,8 +3,6 @@
 
 #include "engine/net/net_manager.h"
 
-#include <winsock2.h>
-
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -15,6 +13,7 @@
 #include "engine/memory/mem.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_server.h"
+#include "engine/net/transport.h"
 #include <gsl/pointers>
 #include "base/core/compiler.h"
 #include "base/core/checked_index.h"
@@ -113,7 +112,7 @@ gsl::owner<HostEnd*> Hub::make_server_app(int id, const char* name, int max_clie
     const auto flags = binding.flags;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap());
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_) {
-        address = static_cast<int>(inet_addr(local_ip_.data()));
+        address = static_cast<int>(transport().parse_address(local_ip_.data()));
     }
     gsl::owner<net::HostEnd*> server{memory::make_owned<HostEnd>(flags)};
     server->set_supervisor(this);
@@ -131,10 +130,8 @@ gsl::owner<HostEnd*> Hub::make_server_app(int id, const char* name, int max_clie
         }
     }
     add_app_tasks(server);
-    in_addr ip{};
-    ip.s_addr = static_cast<ULONG>(address);
     debug::printf("Created new: %s server %p, Max Clients: %d, IP: %s, Port: %d", name, server, max_clients,
-                  inet_ntoa(ip), port);
+                  transport().address_text(static_cast<uint32_t>(address)), port);
     ++num_apps_;
     memory::Hub::get_pull()->leave_heap_scope();
     return server;
@@ -147,7 +144,7 @@ gsl::owner<Guest*> Hub::make_client_app(int id, const char* name, uint16_t port,
     const auto flags = binding.flags;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap());
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_) {
-        address = static_cast<int>(inet_addr(local_ip_.data()));
+        address = static_cast<int>(transport().parse_address(local_ip_.data()));
     }
     gsl::owner<net::Guest*> client{memory::make_owned<Guest>(flags)};
     copy_name(client->label().data(), name);
