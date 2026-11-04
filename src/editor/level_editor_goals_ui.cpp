@@ -104,12 +104,51 @@ void get_apply(const Goal& goal, bool done)
     get_queue([changed, done] { get_edit(changed.id, changed, done); });
 }
 
-void current_settings(const Goal& goal, ImFont* mono)
+// The goal being edited, whether a field changed and whether its edit is done (one undo step), the fields' ids' key,
+// the numbers' font.
+struct GoalEdit {
+    Goal edited;
+    bool done{};
+    bool changed{};
+    std::string key;
+    ImFont* mono{};
+};
+
+// Skatetris' (and a combo Skatetris' not single combo) acceleration, trick time, stop and max tricks.
+void skatetris_fields(GoalEdit& edit)
 {
-    Goal edited = goal;
-    bool done = false;
-    bool changed = false;
-    const std::string key = edited.id + "/";
+    Goal& edited = edit.edited;
+    bool& done = edit.done;
+    bool& changed = edit.changed;
+    if (int_field("Accel. interval##goal", &edited.accel_interval_, kCountDragSpeed, 1, kMaxAccelInterval, "%d",
+                  &done)) {
+        changed = true;
+    }
+    int percent = static_cast<int>((edited.accel_percent_ * 100.0F) + kPercentRounding);
+    if (int_field("Accel. percent##goal", &percent, kPercentDragSpeed, 1, kMaxAccelPercent, "%d%%", &done)) {
+        edited.accel_percent_ = static_cast<float>(percent) / 100.0F;
+        changed = true;
+    }
+    if (int_field("Trick time##goal", &edited.combo_time_, kComboTimeDragSpeed, kMinComboTime, kMaxComboTime, "%d",
+                  &done)) {
+        changed = true;
+    }
+    if (int_field("Stop adding at##goal", &edited.stop_at_, kStopDragSpeed, kMinStopAt,
+                  std::max(kMinStopAt, edited.time - kStopAtMargin), "%d s", &done)) {
+        changed = true;
+    }
+    if (int_field("Max tricks##goal", &edited.max_tricks_, kCountDragSpeed, 1, kMaxTrickCount, "%d", &done)) {
+        changed = true;
+    }
+}
+
+// The goal's name, ped name, text and win message.
+void goal_text_fields(GoalEdit& edit)
+{
+    Goal& edited = edit.edited;
+    bool& done = edit.done;
+    bool& changed = edit.changed;
+    const std::string& key = edit.key;
     if (text_field("Name##goal", key + "name", &edited.name, kNameFieldLimit, false)) {
         changed = done = true; // (Create-a-Goal's keyboard: 16 characters)
     }
@@ -127,6 +166,15 @@ void current_settings(const Goal& goal, ImFont* mono)
     if (text_field("##goalwin", key + "win", &edited.win, kMessageFieldLimit, true)) {
         changed = done = true;
     }
+}
+
+// Its time limit; a high score's or combo's score; a race's laps and checkpoint time.
+void goal_number_fields(GoalEdit& edit)
+{
+    Goal& edited = edit.edited;
+    bool& done = edit.done;
+    bool& changed = edit.changed;
+    ImFont* mono = edit.mono;
     ImGui::PushFont(mono);
     if (int_field("Time limit##goal", &edited.time, 1.0F, kMinTimeLimit, kMaxTimeLimit, "%d s", &done)) {
         changed = true;
@@ -147,7 +195,14 @@ void current_settings(const Goal& goal, ImFont* mono)
         }
     }
     ImGui::PopFont();
-    // (goal_update_control: SKATE letters and gap goals keep theirs; the trick goals have none)
+}
+
+// (goal_update_control: SKATE letters and gap goals keep theirs; the trick goals have none)
+void goal_control_field(GoalEdit& edit)
+{
+    Goal& edited = edit.edited;
+    bool& done = edit.done;
+    bool& changed = edit.changed;
     if (!get_trick_type(edited.type) && edited.type != KindTag::kSkate && edited.type != KindTag::kGap) {
         int control = edited.walk ? 1 : 0;
         ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
@@ -156,6 +211,15 @@ void current_settings(const Goal& goal, ImFont* mono)
             changed = done = true;
         }
     }
+}
+
+// A gap goal's gaps (the level's, and any it has the level hasn't now) and its required trick.
+void goal_gap_fields(GoalEdit& edit)
+{
+    Goal& edited = edit.edited;
+    bool& done = edit.done;
+    bool& changed = edit.changed;
+    const std::string& key = edit.key;
     if (edited.type == KindTag::kGap) {
         ImGui::TextUnformatted("Gaps");
         std::vector<std::string> gaps = get_level_gaps();
@@ -188,6 +252,15 @@ void current_settings(const Goal& goal, ImFont* mono)
             changed = done = true;
         }
     }
+}
+
+// A trick goal's key combo sets, spin, combo and block sizes and Skatetris' settings.
+void goal_trick_fields(GoalEdit& edit)
+{
+    Goal& edited = edit.edited;
+    bool& done = edit.done;
+    bool& changed = edit.changed;
+    ImFont* mono = edit.mono;
     if (get_trick_type(edited.type)) {
         ImGui::TextUnformatted("Key Combo Sets");
         for (int set = 0; set < combo_set_count(edited.type); ++set) {
@@ -221,32 +294,23 @@ void current_settings(const Goal& goal, ImFont* mono)
             }
         }
         if (edited.type == KindTag::kSkatetris || (edited.type == KindTag::kComboSkatetris && !edited.single_combo_)) {
-            if (int_field("Accel. interval##goal", &edited.accel_interval_, kCountDragSpeed, 1, kMaxAccelInterval, "%d",
-                          &done)) {
-                changed = true;
-            }
-            int percent = static_cast<int>((edited.accel_percent_ * 100.0F) + kPercentRounding);
-            if (int_field("Accel. percent##goal", &percent, kPercentDragSpeed, 1, kMaxAccelPercent, "%d%%", &done)) {
-                edited.accel_percent_ = static_cast<float>(percent) / 100.0F;
-                changed = true;
-            }
-            if (int_field("Trick time##goal", &edited.combo_time_, kComboTimeDragSpeed, kMinComboTime, kMaxComboTime,
-                          "%d", &done)) {
-                changed = true;
-            }
-            if (int_field("Stop adding at##goal", &edited.stop_at_, kStopDragSpeed, kMinStopAt,
-                          std::max(kMinStopAt, edited.time - kStopAtMargin), "%d s", &done)) {
-                changed = true;
-            }
-            if (int_field("Max tricks##goal", &edited.max_tricks_, kCountDragSpeed, 1, kMaxTrickCount, "%d", &done)) {
-                changed = true;
-            }
+            skatetris_fields(edit);
         }
         ImGui::PopFont();
     }
-    if (changed) {
-        get_apply(edited, done);
-    } else if (done) {
+}
+
+void current_settings(const Goal& goal, ImFont* mono)
+{
+    GoalEdit edit{.edited = goal, .done = false, .changed = false, .key = goal.id + "/", .mono = mono};
+    goal_text_fields(edit);
+    goal_number_fields(edit);
+    goal_control_field(edit);
+    goal_gap_fields(edit);
+    goal_trick_fields(edit);
+    if (edit.changed) {
+        get_apply(edit.edited, edit.done);
+    } else if (edit.done) {
         get_queue([] { end_drag(); });
     }
 }
