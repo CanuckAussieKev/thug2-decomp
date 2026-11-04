@@ -126,7 +126,7 @@ void SkaterPhysicsModule::get_reset()
             sound_->set_sliding(0);
         }
     }
-    set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity())->goofy());
+    set_timed_flag(this, PoseFlag::kFlipped, static_cast<uint8_t>(!core::down_cast<objects::Rider>(entity())->goofy()));
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* rider = ride->ride().get()) {
@@ -186,7 +186,7 @@ void SkaterPhysicsModule::refresh_hit_cache()
 // 0x00500710
 void SkaterPhysicsModule::update_free_revert()
 {
-    if (!special_friction_index_) {
+    if (special_friction_index_ == 0) {
         return;
     }
     auto start = static_cast<uint32_t>(special_friction_start_);
@@ -197,7 +197,7 @@ void SkaterPhysicsModule::update_free_revert()
     }
     --special_friction_index_;
     debug::printf(kMessageFormat, kSourceFile, kFreeRevertLine, kFreeRevertText);
-    if (special_friction_index_) {
+    if (special_friction_index_ != 0) {
         special_friction_start_ = get_now();
     }
 }
@@ -206,13 +206,13 @@ void SkaterPhysicsModule::update_free_revert()
 void SkaterPhysicsModule::update_focus_button()
 {
     objects::ControlButton* button = &input_->pad_primary().stick_click_left();
-    if (focus_held_) {
-        if (!button->held_down()) {
+    if (focus_held_ != 0U) {
+        if (button->held_down() == 0U) {
             focus_held_ = 0;
         }
         return;
     }
-    if (!button->held_down()) {
+    if (button->held_down() == 0U) {
         return;
     }
     const int wait = script::fetch_int_value(kFocusButtonTime);
@@ -225,22 +225,22 @@ void SkaterPhysicsModule::update_focus_button()
 // 0x00500820
 void SkaterPhysicsModule::update_projectiles()
 {
-    if (throwing_projectile_ || !projectiles_on_ || state_->flag(PoseFlag::kBailing).on) {
+    if ((throwing_projectile_ != 0U) || (projectiles_on_ == 0U) || (state_->flag(PoseFlag::kBailing).on != 0U)) {
         return;
     }
     const objects::TaggingControlComponent* other = tagging_component_;
-    if (other->pending() || other->countdown() || !(other->cooldown() == 0.0F)) {
+    if (other->pending() || (other->countdown() != 0) || !(other->cooldown() == 0.0F)) {
         return;
     }
     int& wait = throw_wait_;
-    if (wait) {
+    if (wait != 0) {
         --wait;
         return;
     }
     if (ammo_ <= 0) {
         return;
     }
-    if (!projectile_button_pressed() || wait) {
+    if (!projectile_button_pressed() || (wait != 0)) {
         return;
     }
     wait = kProjectileWaitFrames;
@@ -252,7 +252,7 @@ void SkaterPhysicsModule::update_projectiles()
 // 0x00500900
 void SkaterPhysicsModule::update_model_rotation()
 {
-    if (!model_rotating_) {
+    if (model_rotating_ == 0U) {
         return;
     }
     auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(kModel));
@@ -274,7 +274,7 @@ void SkaterPhysicsModule::update_model_rotation()
     if (left <= 0.0) {
         model_rotating_ = 0;
         model_rotation_left_ = 0.0F;
-        if (model_flipped_) {
+        if (model_flipped_ != 0U) {
             core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
                 ->get_flip();
         }
@@ -285,7 +285,7 @@ void SkaterPhysicsModule::update_model_rotation()
 // 0x00500BC0
 void SkaterPhysicsModule::update_special_time() const
 {
-    if (!focus_on_) {
+    if (focus_on_ == 0U) {
         return;
     }
     modules::PointTally* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
@@ -348,7 +348,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
     if (!object->own_script()) {
         object_of(this)->set_own_script(script::Script::create());
     }
-    if (motoskateboard_) {
+    if (motoskateboard_ != 0U) {
         object = object_of(this);
         object->own_script()->bind_script(kMotoskateboardGrind, nullptr, object);
     } else {

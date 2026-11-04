@@ -230,7 +230,7 @@ bool brake_held(const SkaterPhysicsModule* core, BikeState& state)
 {
     const objects::PadSnapshot* pad = &core->input()->pad_primary();
     state.front_brake_ = false;
-    if (pad->shoulder_left_a().held_down()) {
+    if (pad->shoulder_left_a().held_down() != 0U) {
         state.front_brake_ = true;
         return true;
     }
@@ -703,7 +703,7 @@ void end_frame(SkaterPhysicsModule* core)
     if (!(state_of(core) == kStateAir || (state.manual && !state.nose_manual_))) {
         return;
     }
-    if (core->input()->pad_primary().button_round().held_down()) {
+    if (core->input()->pad_primary().button_round().held_down() != 0U) {
         return;
     }
     state.xup = false;
@@ -822,9 +822,9 @@ bool should_brake(SkaterPhysicsModule* core)
     BikeState& state = *state_of(core, true);
     const objects::PadSnapshot* pad = &core->input()->pad_primary();
     state.front_brake_ = false;
-    if (pad->shoulder_left_a().held_down()) {
+    if (pad->shoulder_left_a().held_down() != 0U) {
         state.front_brake_ = true;
-    } else if (!pad->shoulder_right_a().held_down()) {
+    } else if (pad->shoulder_right_a().held_down() == 0U) {
         return false;
     }
     return core->can_brake() != 0;
@@ -862,10 +862,10 @@ void get_brake(SkaterPhysicsModule* core)
 bool can_kick(SkaterPhysicsModule* core)
 {
     BikeState& state = *state_of(core, true);
-    if (core->no_kick() || brake_held(core, state) || state.manual || moving_backwards(core)) {
+    if ((core->no_kick() != 0U) || brake_held(core, state) || state.manual || moving_backwards(core)) {
         return false;
     }
-    const bool crouched = core->state()->flag(PoseFlag::kCrouched).on || core->crouch_stats();
+    const bool crouched = (core->state()->flag(PoseFlag::kCrouched).on != 0U) || (core->crouch_stats() != 0U);
     const float most = get_stat(crouched ? kCrouchedKickSpeed : kStandingKickSpeed, core);
     return !(most < get_pace(core));
 }
@@ -885,8 +885,8 @@ void turn_on_ground(SkaterPhysicsModule* core)
     // (THAW 0x005D6342: its &pad->right_side_ / +0x40 - the d-pad's right / left, not the stick's buttons; with the
     // stick off the d-pad on the bike, the time since the d-pad was last pressed, as THAW's)
     if (pad_axis_x != 0.0F) {
-        held =
-            (pad->right_side().held_down() ? pad->right_side().get_held_millis() : pad->left_side().get_held_millis());
+        held = ((pad->right_side().held_down() != 0U) ? pad->right_side().get_held_millis()
+                                                      : pad->left_side().get_held_millis());
     }
     const float sharp = tuning_float_lookup(kGroundSharpRotation, core);
     const float rate = bike::ground_turn_rate({.speed = get_pace(core),
@@ -925,7 +925,7 @@ void turn_on_ground(SkaterPhysicsModule* core)
     const float step = get_frame_length(core) * rate;
     core->set_last_spin_backside(step > 0.0F ? 1 : 0);
     objects::GameEntity* object = object_of(core);
-    if (!core->lock_velocity()) {
+    if (core->lock_velocity() == 0U) {
         turn_velocity(object->vel(), step);
     }
     object->basis_frame().yaw_locally(step);
@@ -1079,7 +1079,7 @@ void air_rotation(SkaterPhysicsModule* core)
 {
     // THAW 0x005D7CB0.
     objects::RiderPoseState* flags = core->state();
-    if (flags->flag(PoseFlag::kBailing).on) {
+    if (flags->flag(PoseFlag::kBailing).on != 0U) {
         return;
     }
     BikeState& state = *state_of(core, true);
@@ -1102,7 +1102,7 @@ void air_rotation(SkaterPhysicsModule* core)
     int held = 0;
     if (sy != 0.0F) {
         pitch = 0.0F - (lean * sy);
-        held = static_cast<int>(get_held_ms(pad->up_dir().held_down() ? &pad->up_dir() : &pad->btn_down()));
+        held = static_cast<int>(get_held_ms((pad->up_dir().held_down() != 0U) ? &pad->up_dir() : &pad->btn_down()));
     }
     auto held_f = static_cast<float>(held);
     if (!(no_lean < held_f)) {
@@ -1115,12 +1115,13 @@ void air_rotation(SkaterPhysicsModule* core)
     clear_timed_flag(core, PoseFlag::kSpin);
     // The spin: left / right, likewise.
     float spin = 0.0F;
-    if (!flags->flag(PoseFlag::kNoSecondSpin).on) {
+    if (flags->flag(PoseFlag::kNoSecondSpin).on == 0U) {
         const float rotation = get_stat(fast ? kAirRotationFastStat : kAirRotationStat, core);
         int held2 = 0;
         if (sx != 0.0F) {
             spin = 0.0F - (rotation * sx);
-            held2 = static_cast<int>(get_held_ms(pad->left_side().held_down() ? &pad->left_side() : &pad->right_side()));
+            held2 = static_cast<int>(
+                get_held_ms((pad->left_side().held_down() != 0U) ? &pad->left_side() : &pad->right_side()));
         }
         auto held_2f = static_cast<float>(held2);
         if (tuning_float_lookup(kAutoturnCancelTime, core) < held_2f) {
@@ -1152,7 +1153,7 @@ void air_rotation(SkaterPhysicsModule* core)
             pitched = true;
         }
     }
-    if (pitched && !flags->flag(PoseFlag::kVertAir).on) {
+    if (pitched && (flags->flag(PoseFlag::kVertAir).on == 0U)) {
         // (In vert THAW pitches the model only - through its model component, which THUG2's hasn't: not here.)
         object->basis_frame().pitch_locally(pitch_step);
         core->display_matrix().pitch_locally(pitch_step);
@@ -1170,7 +1171,7 @@ void air_rotation(SkaterPhysicsModule* core)
         float& total = core->trick()->spin_total();
         total = (spin_step * kDegreesPerRadian) + total;
         bool show = true;
-        if (flags->flag(PoseFlag::kVertAir).on && !flags->flag(PoseFlag::kAcidDrop).on && !pitched) {
+        if ((flags->flag(PoseFlag::kVertAir).on != 0U) && (flags->flag(PoseFlag::kAcidDrop).on == 0U) && !pitched) {
             const double snap = 360.0F - tuning_float_lookup(kSpinCountSlop, core) + 0.1F;
             show = snap <= std::fabs(static_cast<double>(total));
         }
@@ -1180,7 +1181,7 @@ void air_rotation(SkaterPhysicsModule* core)
         }
     }
     // The rider's head into something (not on vert): the bail.
-    if (!flags->flag(PoseFlag::kVertAir).on) {
+    if (flags->flag(PoseFlag::kVertAir).on == 0U) {
         const maths::Vec4& position = object->at_point();
         const maths::Vec4& up = core::at(object->basis_frame().row, 1);
         const float head = tuning_float_lookup(kEyeLevelStat, core);
@@ -1236,7 +1237,7 @@ WheelHit feel_wheel(SkaterPhysicsModule* core, maths::Vec4& wheel, const maths::
     feel.backwards = moving_backwards(core);
     feel.skatable = core->hit_skatable() != 0;
     feel.stick_angle_ = tuning_float_lookup(
-        core->input()->pad_primary().up_dir().held_down() ? kGroundStickAngleForward : kGroundStickAngle, core);
+        (core->input()->pad_primary().up_dir().held_down() != 0U) ? kGroundStickAngleForward : kGroundStickAngle, core);
     feel.snap_down_ = tuning_float_lookup(kGroundSnapDown, core);
     const bike::WheelFeelResult out = bike::feel_wheel_on(feel);
     result.why = out.why;
@@ -1330,7 +1331,7 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
                                .z = position.z + (up.z * kWheelOffset),
                                .w = position.w + (up.w * kWheelOffset)};
         feeler.line().end = {.x = wheel->x + up.x, .y = wheel->y + up.y, .z = wheel->z + up.z, .w = wheel->w + up.w};
-        if (feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) != 0) {
             *wheel = {.x = feeler.contact_pos().x + feeler.surface_dir().x, .y = feeler.contact_pos().y + feeler.surface_dir().y,
                       .z = feeler.contact_pos().z + feeler.surface_dir().z, .w = feeler.contact_pos().w + feeler.surface_dir().w};
             maths::Vec4& velocity = object->vel();
@@ -1352,15 +1353,15 @@ bool vert_push_held(SkaterPhysicsModule* core, int push_time)
     const BikeState& state = *state_of(core, true);
     const objects::PadSnapshot* pad = &core->input()->pad_primary();
     return state.stick_up_.down && push_time < ints::as_signed(get_since(state.stick_up_.press_time_)) &&
-           !state.stick_left_.down && !state.stick_right_.down && !pad->button_box().held_down() &&
-           !pad->button_round().held_down();
+           !state.stick_left_.down && !state.stick_right_.down && (pad->button_box().held_down() == 0U) &&
+           (pad->button_round().held_down() == 0U);
 }
 
 bool vert_tap_held(SkaterPhysicsModule* core)
 {
     // THAW 0x005DA210 on the bike: R1 with LEFTUP or LEFTDOWN, or the tire tap looked for in vert (+0x54C).
     const BikeState& state = *state_of(core, true);
-    return (core->input()->pad_primary().shoulder_right_a().held_down() &&
+    return ((core->input()->pad_primary().shoulder_right_a().held_down() != 0U) &&
             (state.stick_up_.down || state.stick_down_.down)) ||
            state.tap_armed_;
 }
@@ -1377,7 +1378,7 @@ void note_vert_ground(SkaterPhysicsModule* core)
 {
     // THAW 0x005E4579: the ground feeler's face vert (THAW's +0x3E9 - read as its feeler check's vert byte, THUG2's
     // +0x229) - the time noted.
-    if (!core->hit_vert()) {
+    if (core->hit_vert() == 0U) {
         return;
     }
     BikeState& state = *state_of(core, true);
@@ -1408,7 +1409,7 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     objects::GameEntity* object = object_of(core);
     // (THAW 0x005E51DA: the wheels only out of a manual, a tire tap and flag +0x78 (THUG2's +0x70); otherwise the
     // skater's ground check with the wheel points at the skater's sides.)
-    if (!wheels_on() || state.manual || state.tire_tap_ || core->state()->flag(PoseFlag::kBailing).on) {
+    if (!wheels_on() || state.manual || state.tire_tap_ || (core->state()->flag(PoseFlag::kBailing).on != 0U)) {
         set_wheel_points(state, object->at_point(), core::at(object->basis_frame().row, 2));
         return WheelGround::kWheelsNotUsed;
     }
@@ -1419,7 +1420,8 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     snap_wheels(core, state, front, rear, main_hit);
     // (THAW's flag +0x40, vert under a wheel; THAW also sets its +0x58 from face flag 0x100 - THUG2's equivalent isn't
     // known: not here.)
-    const uint8_t vert = (front.hit && core::any(front.flags & render::FaceFlag::kVert)) || (rear.hit && core::any(rear.flags & render::FaceFlag::kVert));
+    const auto vert = static_cast<uint8_t>((front.hit && core::any(front.flags & render::FaceFlag::kVert)) ||
+                                           (rear.hit && core::any(rear.flags & render::FaceFlag::kVert)));
     core->state()->set_flag(PoseFlag::kOnVert, vert);
     // Off the ground: no wheel down, or only the trailing one (the leading wheel over an edge).
     const bool backwards = moving_backwards(core);
@@ -1537,7 +1539,7 @@ void grind_stall(SkaterPhysicsModule* core, const maths::Vec4& start_velocity, c
     // the bike's is ported. THAW runs the rail's TriggerScript here, with its stall event 0x20000 when R1 is held - our
     // grind start ran THUG2's before getting onto the rail, and THUG2's events have no stall.)
     BikeState& state = *state_of(core, true);
-    if (!core->input()->pad_primary().shoulder_right_a().held_down()) {
+    if (core->input()->pad_primary().shoulder_right_a().held_down() == 0U) {
         state.stall_script_ = false;
         return;
     }
@@ -1592,9 +1594,9 @@ int enter_wheelie_from_air(SkaterPhysicsModule* core, script::Struct* params)
     state.manual = true;
     state.manual_angle_ = kManualBalance;
     state.no_balance_frames_ = physics_integer(kNoBalanceFrames, core);
-    state.nose_manual_ = params && params->has_bare_flag(kNose);
+    state.nose_manual_ = (params != nullptr) && params->has_bare_flag(kNose);
     const objects::PadSnapshot* pad = &core->input()->pad_primary();
-    if ((state.nose_manual_ ? pad->shoulder_left_a() : pad->shoulder_right_a()).held_down()) {
+    if ((state.nose_manual_ ? pad->shoulder_left_a() : pad->shoulder_right_a()).held_down() != 0U) {
         object_of(core)->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     state.tire_tap_ = false;

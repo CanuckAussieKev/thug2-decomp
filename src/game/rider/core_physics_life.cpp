@@ -75,7 +75,7 @@ constexpr int kRail = 4;
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
 void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b)
 {
-    if (!script::fetch_int_value(kTrackingName)) {
+    if (script::fetch_int_value(kTrackingName) == 0) {
         return;
     }
     debug::printf("Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", index, static_cast<double>(a->x),
@@ -101,7 +101,7 @@ int SkaterPhysicsModule::is_sides_swapped()
     if (core::down_cast<objects::Rider>(entity())->goofy()) {
         return flipped;
     }
-    return flipped ? 0 : 1;
+    return (flipped != 0U) ? 0 : 1;
 }
 
 // 0x004FC470
@@ -155,7 +155,7 @@ void SkaterPhysicsModule::seal()
 // 0x004FDD50
 void SkaterPhysicsModule::leave_skating()
 {
-    if (vert_air_announced_) {
+    if (vert_air_announced_ != 0U) {
         vert_air_announced_ = 0;
         static_cast<objects::Entity*>(object_of(this))->announce(kGetOffEvent, nullptr, 0.0F);
     }
@@ -164,7 +164,7 @@ void SkaterPhysicsModule::leave_skating()
         rail_time_ = lip_time_;
     }
     objects::RiderPoseState* state = state_;
-    if (state->cur_phase() == kAir && old_state_ == kLip && state->flag(PoseFlag::kLipToAir).on) {
+    if (state->cur_phase() == kAir && old_state_ == kLip && (state->flag(PoseFlag::kLipToAir).on != 0U)) {
         set_timed_flag(this, PoseFlag::kLipToAir, 0);
     }
     state_->change_phase(kGround);
@@ -247,7 +247,7 @@ void SkaterPhysicsModule::turn_around()
     maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
     right = maths::Vec4(-right.x, -right.y, -right.z, -right.w);
     display_matrix_ = entity()->basis_frame();
-    rail_backwards_ = rail_backwards_ ? 0 : 1;
+    rail_backwards_ = (rail_backwards_ != 0U) ? 0 : 1;
 }
 
 // 0x004FE1D0
@@ -283,7 +283,7 @@ int MovingSurfaceModule::time_since_stop() const { return static_cast<int>(skate
 bool RiderBoardPhysics::is_on_foot()
 {
     auto* state = pose_;
-    return !state->in_vehicle() && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking;
+    return (state->in_vehicle() == 0U) && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking;
 }
 
 } // namespace objects

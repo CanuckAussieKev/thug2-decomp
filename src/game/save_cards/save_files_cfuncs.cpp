@@ -112,7 +112,7 @@ void delete_reserve_pool(memory::PoolPair& pools)
 {
     ++pools.current();
     if (memory::SlabBank* pool = core::at(pools.pools(), pools.current())) {
-        if (core::at(pools.made_here(), pools.current())) {
+        if (core::at(pools.made_here(), pools.current()) != 0U) {
             memory::Hub::dealloc(pool->memory().data()); // (its destructor body, 0x005BA4E0)
             memory::Hub::dealloc(pool);
         }
@@ -271,7 +271,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
     params->fetch_text("Name", &name, 0);
     uint32_t type = 0;
     params->read_hash_value("Type", &type, 0);
-    if (!name || !type) {
+    if (!name || (type == 0U)) {
         return false;
     }
     const char* type_file_name = nullptr; // (only made on the PC and platform 7)
@@ -516,7 +516,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         }
         ++game_files;
         const uint32_t type = listed_file_type(file, folder_length);
-        if (wanted_type && type != wanted_type) {
+        if ((wanted_type != 0U) && type != wanted_type) {
             continue;
         }
         if (listed >= kMaxFiles) {
@@ -596,7 +596,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     if (game_files >= kMaxFiles) {
         script->args().get()->put_name_key(checksums::Name{0U}, kFilesLimitReached);
     }
-    if (listed) {
+    if (listed != 0) {
         // newest first (a bubble sort by the dates)
         bool swapped = false;
         for (bool again = true; again; again = swapped) {
@@ -651,7 +651,7 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
     params->read_hash_value("Type", &type, 0);
     int vault_data = 0;
     params->fetch_int_value(kSavevaultdata, &vault_data, 0); // savevaultdata
-    if (vault_data) {
+    if (vault_data != 0) {
         type = save_cards_state().kept_type();
     } else if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
@@ -669,7 +669,7 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
     if (contents) {
         contents = new (contents) script::Struct;
     }
-    if (vault_data) {
+    if (vault_data != 0) {
         contents->append_structure_if_any(save_cards_state().kept_params());
     } else {
         write_save_contents(contents, type);

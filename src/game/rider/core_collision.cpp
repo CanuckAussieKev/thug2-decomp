@@ -110,7 +110,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 
     const maths::Vec4 normal = feeler_.surface_dir();
     const maths::Vec4* hit_normal = &feeler_.surface_dir();
-    if (hit_skatable_) {
+    if (hit_skatable_ != 0U) {
         // Something to skate on: only a wall when it's unlike the ground (and not facing up).
         const maths::Vec4& ground = floor_normal_;
         const double dot = ((static_cast<double>(normal.z) * ground.z) + (static_cast<double>(normal.y) * ground.y)) +
@@ -145,13 +145,13 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         float snap = tuning_float_lookup(kAirSnapUp, object);
         hit.line().start.y = hit.line().start.y + snap;
         hit.line().end.y = hit.line().end.y + snap;
-        if (!hit.get_hit_shape(true, false)) {
+        if (hit.get_hit_shape(true, false) == 0) {
             if (snap > kSnapLimit) {
                 double lower = 0.0;
                 for (bool again = true; again; again = lower > kSnapLimitD) {
                     hit.line().start.y = hit.line().start.y - kSnapDrop;
                     hit.line().end.y = hit.line().end.y - kSnapDrop;
-                    if (hit.get_hit_shape(true, false)) {
+                    if (hit.get_hit_shape(true, false) != 0) {
                         break;
                     }
                     lower = static_cast<double>(snap) - kSnapDropD;
@@ -165,7 +165,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         }
     }
 
-    if (bit_mark(this, PoseFlag::kVertAir)) {
+    if (bit_mark(this, PoseFlag::kVertAir) != 0U) {
         // On vert: back at the hit, kept the min distance off it, the velocity along it.
         const maths::Vec4& point = feeler_.contact_pos();
         maths::Vec4& q = entity()->at_point();
@@ -180,7 +180,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         r.z = static_cast<float>((static_cast<double>(normal.z) * distance) + r.z);
         r.w = static_cast<float>((static_cast<double>(normal.w) * distance) + r.w);
         maths::Vec4& velocity = entity()->vel();
-        if (bit_mark(this, PoseFlag::kAcidDrop)) {
+        if (bit_mark(this, PoseFlag::kAcidDrop) != 0U) {
             velocity.align_to_plane(*hit_normal);
         } else {
             velocity.flatten_onto_plane(normal);
@@ -192,8 +192,8 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 
     // A bonk - unless a wallplant (not with +0x302) or 0x00508140 takes over.
     bool done = false;
-    if (!state_->in_trick_move() && !bit_mark(this, PoseFlag::kBailing)) {
-        if ((!motoskateboard_ && wall_plant(false, false, false)) || start_wall_ride()) {
+    if ((state_->in_trick_move() == 0U) && (bit_mark(this, PoseFlag::kBailing) == 0U)) {
+        if (((motoskateboard_ == 0U) && wall_plant(false, false, false)) || start_wall_ride()) {
             done = true;
         }
     }
@@ -205,7 +205,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     if (!done) {
         if (feeler_.surface_dir().y < kMinSurfaceY) {
             // The bonk's sound: by speed and terrain - on a vehicle its own script.
-            if (!on_vehicle_) {
+            if (on_vehicle_ == 0U) {
                 const uint8_t terrain = feeler_.hit().terrain;
                 objects::GameEntity* skater = object_of(this);
                 auto speed = static_cast<float>(length_of(skater->vel()));
@@ -306,7 +306,7 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
     const maths::Vec4 normal = feeler_.surface_dir();
     float overlap = 0.0F; // (uninitialised in the original when not in the air)
     if (state_of(this) == kAir) {
-        if (!state_->in_trick_move() && !bit_mark(this, PoseFlag::kBailing) && start_wall_ride()) {
+        if ((state_->in_trick_move() == 0U) && (bit_mark(this, PoseFlag::kBailing) == 0U) && start_wall_ride()) {
             return true;
         }
         // Pushed out of it by a tenth of how far into it the skater is (the hit's distance under the reach, less
@@ -324,9 +324,10 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
         into.set_length(overlap);
         entity()->at_point() -= into / kOverlapDivisor;
         const objects::PadInputModule* input = input_;
-        if (state_of(this) != kAir && !input->pad_primary().shoulder_right_a().held_down() &&
-            !input->pad_primary().shoulder_left_a().held_down() && !input->pad_primary().left_side().held_down() &&
-            !input->pad_primary().right_side().held_down()) {
+        if (state_of(this) != kAir && (input->pad_primary().shoulder_right_a().held_down() == 0U) &&
+            (input->pad_primary().shoulder_left_a().held_down() == 0U) &&
+            (input->pad_primary().left_side().held_down() == 0U) &&
+            (input->pad_primary().right_side().held_down() == 0U)) {
             deflect_from_wall(&normal, &overlap, kDeflectFactor); // (never: the state is the air's)
         }
         return false;
@@ -347,7 +348,7 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
     const maths::Vec4 outer = point + normal * length;
     const maths::Vec4 inner = point + normal;
     render::ProbeRay feeler(&inner, &outer);
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         destroy_feeler(&feeler);
         return false;
     }

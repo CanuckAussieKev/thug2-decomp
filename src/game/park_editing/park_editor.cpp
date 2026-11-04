@@ -307,7 +307,7 @@ const char* ParkBuilderMode::get_park_name() { return hub()->get_park_name(); }
 void ParkBuilderMode::show_editor_view(bool on)
 {
     hub()->builder()->glow_every_piece(false);
-    hub()->builder()->set_pieces_highlighted(on);
+    hub()->builder()->set_pieces_highlighted(static_cast<int>(on));
     hub()->builder()->set_restart_pieces_active(on);
     if (on) {
         launch_script(kPauseTrickText);
@@ -356,7 +356,7 @@ void ParkBuilderMode::refresh_piece_menu()
 void ParkBuilderMode::Listener::receive(objects::Signal* event)
 {
     ParkBuilderMode* editor = get_editor();
-    if (editor->cur_phase_ != kStateEdit || !have_cursor() || (editor->flag_bits_ & kFlagPaused) ||
+    if (editor->cur_phase_ != kStateEdit || !have_cursor() || ((editor->flag_bits_ & kFlagPaused) != 0U) ||
         event->aim_point() != kRootWindow) {
         return;
     }
@@ -415,40 +415,40 @@ void process_pad_input(ParkEditorInputHandler* handler)
     uint32_t& commands = editor->actions();
     auto made = [handler]() { return handler->control_data()->makes(); };
     auto held = [handler]() { return handler->control_data()->buttons(); };
-    if (made() & kPadSquare) { // Square
+    if ((made() & kPadSquare) != 0U) { // Square
         commands |= ParkBuilderMode::kCommandTurnRight;
     }
-    if (made() & kPadCircle) { // Circle
+    if ((made() & kPadCircle) != 0U) { // Circle
         commands |= ParkBuilderMode::kCommandTurnLeft;
     }
-    if (made() & kPadCross) { // X
+    if ((made() & kPadCross) != 0U) { // X
         commands |= ParkBuilderMode::kCommandPlace;
     }
-    if (made() & kPadTriangle) { // Triangle
+    if ((made() & kPadTriangle) != 0U) { // Triangle
         commands |= ParkBuilderMode::kCommandRemove;
     }
-    if (made() & 0x04) { // L1
+    if ((made() & 0x04) != 0U) { // L1
         commands |= ParkBuilderMode::kCommandRaise;
     }
-    if (made() & 0x01) { // L2
+    if ((made() & 0x01) != 0U) { // L2
         commands |= ParkBuilderMode::kCommandLower;
     }
-    if (made() & 0x04) {
+    if ((made() & 0x04) != 0U) {
         commands |= ParkBuilderMode::kCommandWidenGapRight;
     }
-    if (made() & 0x01) {
+    if ((made() & 0x01) != 0U) {
         commands |= ParkBuilderMode::kCommandNarrowGapRight;
     }
-    if (made() & kPadHighBit0) {
+    if ((made() & kPadHighBit0) != 0U) {
         commands |= ParkBuilderMode::kCommandWidenGapLeft;
     }
-    if (made() & kPadHighBit1) {
+    if ((made() & kPadHighBit1) != 0U) {
         commands |= ParkBuilderMode::kCommandNarrowGapLeft;
     }
-    if (held() & kPadHighBit0) {
+    if ((held() & kPadHighBit0) != 0U) {
         commands |= ParkBuilderMode::kCommandZoomOut;
     }
-    if (held() & kPadHighBit1) {
+    if ((held() & kPadHighBit1) != 0U) {
         commands |= ParkBuilderMode::kCommandZoomIn;
     }
 }
@@ -456,22 +456,22 @@ void process_pad_input(ParkEditorInputHandler* handler)
 // 0x0058EBE0
 void ParkBuilderMode::move_selection_cursor() const
 {
-    if (actions_ & kCommandPreviousSet) {
+    if ((actions_ & kCommandPreviousSet) != 0U) {
         get_cursor()->step_piece_family(-1);
         refresh_piece_menu();
         objects::get_tracker()->launch_event(kParkedMenuUp, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     }
-    if (actions_ & kCommandNextSet) {
+    if ((actions_ & kCommandNextSet) != 0U) {
         get_cursor()->step_piece_family(1);
         refresh_piece_menu();
         objects::get_tracker()->launch_event(kParkedMenuDown, kSetMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     }
-    if (actions_ & kCommandPreviousPiece) {
+    if ((actions_ & kCommandPreviousPiece) != 0U) {
         get_cursor()->step_piece_choice(-1);
         refresh_piece_menu();
         objects::get_tracker()->launch_event(kParkedMenuLeft, kPieceMenuContainer, kMenuEvent, nullptr, false, -1.0F);
     }
-    if (actions_ & kCommandNextPiece) {
+    if ((actions_ & kCommandNextPiece) != 0U) {
         get_cursor()->step_piece_choice(1);
         refresh_piece_menu();
         objects::get_tracker()->launch_event(kParkedMenuRight, kPieceMenuContainer, kMenuEvent, nullptr, false, -1.0F);
@@ -502,7 +502,7 @@ void ParkBuilderMode::tick_frame()
         cam->at_point() = core::at(camera.row, 3);
         cam->basis_frame() = camera;
     }
-    if (flag_bits_ & kFlagPaused) {
+    if ((flag_bits_ & kFlagPaused) != 0U) {
         return;
     }
 
@@ -547,7 +547,7 @@ void ParkBuilderMode::tick_frame()
 
     // Turning the piece, or the gap.
     int rotation90 = 0;
-    if (actions_ & kCommandTurnLeft) {
+    if ((actions_ & kCommandTurnLeft) != 0U) {
         launch_script(kPlayRotatePieceSound);
         if (is_gap_tool(get_cursor())) {
             get_cursor()->change_gap({.turn = -1, .left = 0, .right = 0});
@@ -555,7 +555,7 @@ void ParkBuilderMode::tick_frame()
             rotation90 = -1;
         }
     }
-    if (actions_ & kCommandTurnRight) {
+    if ((actions_ & kCommandTurnRight) != 0U) {
         launch_script(kPlayRotatePieceSound);
         if (is_gap_tool(get_cursor())) {
             get_cursor()->change_gap({.turn = 1, .left = 0, .right = 0});
@@ -565,7 +565,7 @@ void ParkBuilderMode::tick_frame()
     }
 
     // Placing: a gap's half, the area selection's corners, the paste, or the piece.
-    if (actions_ & kCommandPlace) {
+    if ((actions_ & kCommandPlace) != 0U) {
         if (is_gap_tool(get_cursor())) {
             if ((get_cursor()->add_gap_half() || get_cursor()->is_over_gap()) &&
                 get_cursor()->current_gap().halves_placed() != 1) {
@@ -598,7 +598,7 @@ void ParkBuilderMode::tick_frame()
     }
 
     // Removing: a gap's half (the command isn't counted), the area selection, or what's under the cursor.
-    if (actions_ & kCommandRemove) {
+    if ((actions_ & kCommandRemove) != 0U) {
         if (is_gap_tool(get_cursor())) {
             launch_script(get_cursor()->remove_gap_half() ? kPlayEdEraseSound : kPlayEdBuzzSound);
         } else {
@@ -615,13 +615,13 @@ void ParkBuilderMode::tick_frame()
     move_selection_cursor();
 
     // Raising and lowering the floor (not with a gap).
-    if (actions_ & kCommandRaise) {
+    if ((actions_ & kCommandRaise) != 0U) {
         if (!is_gap_tool(get_cursor())) {
             launch_script(get_cursor()->raise_lower(1) ? kPlayRaiseGroundSound : kPlayEdBuzzSound);
         }
         action_finished_ = true;
     }
-    if (actions_ & kCommandLower) {
+    if ((actions_ & kCommandLower) != 0U) {
         if (!is_gap_tool(get_cursor())) {
             launch_script(get_cursor()->raise_lower(-1) ? kPlayLowerGroundSound : kPlayEdBuzzSound);
         }
@@ -629,14 +629,14 @@ void ParkBuilderMode::tick_frame()
     }
 
     // Zooming (not with a gap).
-    if ((actions_ & kCommandZoomOut) && !is_gap_tool(get_cursor())) {
+    if (((actions_ & kCommandZoomOut) != 0U) && !is_gap_tool(get_cursor())) {
         const double distance = static_cast<double>(orbit_radius_) + kZoomStep;
         orbit_radius_ = static_cast<float>(distance);
         if (distance > kMaxDistance) {
             orbit_radius_ = kMaxDistance;
         }
     }
-    if ((actions_ & kCommandZoomIn) && !is_gap_tool(get_cursor())) {
+    if (((actions_ & kCommandZoomIn) != 0U) && !is_gap_tool(get_cursor())) {
         const double distance = static_cast<double>(orbit_radius_) - kZoomStep;
         orbit_radius_ = static_cast<float>(distance);
         if (distance < kMinDistance) {
@@ -645,21 +645,21 @@ void ParkBuilderMode::tick_frame()
     }
 
     // A gap's extents.
-    if ((actions_ & kCommandWidenGapLeft) && is_gap_tool(get_cursor())) {
+    if (((actions_ & kCommandWidenGapLeft) != 0U) && is_gap_tool(get_cursor())) {
         get_cursor()->change_gap({.turn = 0, .left = 1, .right = 0});
     }
-    if ((actions_ & kCommandWidenGapRight) && is_gap_tool(get_cursor())) {
+    if (((actions_ & kCommandWidenGapRight) != 0U) && is_gap_tool(get_cursor())) {
         get_cursor()->change_gap({.turn = 0, .left = 0, .right = 1});
     }
-    if ((actions_ & kCommandNarrowGapLeft) && is_gap_tool(get_cursor())) {
+    if (((actions_ & kCommandNarrowGapLeft) != 0U) && is_gap_tool(get_cursor())) {
         get_cursor()->change_gap({.turn = 0, .left = -1, .right = 0});
     }
-    if ((actions_ & kCommandNarrowGapRight) && is_gap_tool(get_cursor())) {
+    if (((actions_ & kCommandNarrowGapRight) != 0U) && is_gap_tool(get_cursor())) {
         get_cursor()->change_gap({.turn = 0, .left = 0, .right = -1});
     }
 
     // After a change to the park: the rails and the goals follow the floor.
-    if ((actions_ & (kCommandPlace | kCommandRemove | kCommandRaise)) || (actions_ & kCommandLower)) {
+    if (((actions_ & (kCommandPlace | kCommandRemove | kCommandRaise)) != 0U) || ((actions_ & kCommandLower) != 0U)) {
         RailAuthoring* rails = get_rail_editor();
         rails->restore_heights();                        // the rails' points onto the floor again
         rails->draw_all_segments();                      // their segments updated
@@ -681,7 +681,8 @@ void ParkBuilderMode::tick_frame()
 void ParkBuilderMode::update_menu_stick() const
 {
     modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
-    modules::FrontEnd::set_analog_stick_active_for_menus(!(cur_phase_ == kStateEdit && !(flag_bits_ & kFlagPaused)));
+    modules::FrontEnd::set_analog_stick_active_for_menus(
+        !(cur_phase_ == kStateEdit && ((flag_bits_ & kFlagPaused) == 0U)));
     modules::release_front_end();
 }
 
@@ -701,7 +702,7 @@ void ParkBuilderMode::link_to_pad(int controller)
 // 0x0058F8A0 (reached from the logic task 0x0058FFC0)
 void ParkBuilderMode::logic_update()
 {
-    if (!(flag_bits_ & kFlagPaused)) {
+    if ((flag_bits_ & kFlagPaused) == 0U) {
         if (cur_phase_ == kStateEdit) {
             script::Struct params;
             params.put_name_key(checksums::Name{0U}, kHide);
@@ -715,7 +716,7 @@ void ParkBuilderMode::logic_update()
         actions_ = 0;
         return;
     }
-    if (flag_bits_ & kFlagPaused) {
+    if ((flag_bits_ & kFlagPaused) != 0U) {
         return;
     }
     // The rail editor's flags (+0x08): bit 0.
@@ -724,7 +725,7 @@ void ParkBuilderMode::logic_update()
         if (rail_bit()) {
             launch_script(kSwitchOnRailEditor);
         }
-        if (!(flag_bits_ & kFlagPaused)) {
+        if ((flag_bits_ & kFlagPaused) == 0U) {
             move_selection_cursor();
         }
         if (get_cursor()->mode_sel() != BuildPointer::Mode::kRailPlacement) {
@@ -745,7 +746,7 @@ void ParkBuilderMode::logic_update()
 // 0x0058FA50
 void ParkBuilderMode::change_phase(uint32_t state)
 {
-    if (state) {
+    if (state != 0U) {
         cur_phase_ = state;
     }
     actions_ = 0;

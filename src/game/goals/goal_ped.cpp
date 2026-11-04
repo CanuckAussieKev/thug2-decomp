@@ -153,7 +153,7 @@ const char* ObjectiveNpc::get_pro_given_name() const
 {
     script::Struct* params = get_goal_params(objective_key_);
     const char* pro = nullptr;
-    if (!params->fetch_text(kPro, &pro, false)) {
+    if (!params->fetch_text(kPro, &pro, 0)) {
         return nullptr;
     }
     objects::RiderIdentity* profile = current_profile();
@@ -163,7 +163,7 @@ const char* ObjectiveNpc::get_pro_given_name() const
         read_leading_name(first, display);
         if (profile->is_pro() && checksums::hash_from_text(pro) == checksums::hash_from_text(first.data())) {
             const char* alternative = nullptr;
-            return params->fetch_text(kProAlternative, &alternative, false) ? alternative : nullptr;
+            return params->fetch_text(kProAlternative, &alternative, 0) ? alternative : nullptr;
         }
     }
     return pro;
@@ -179,7 +179,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
         return false;
     }
     const char* goal_name = nullptr;
-    params->fetch_text(kGoalName, &goal_name, true);
+    params->fetch_text(kGoalName, &goal_name, 1);
     std::array<char, kLongVoiceNameSize> base{};
     text::format_to(base, kFormatTwo, pro, goal_name);
     const char* difficulty = nullptr;
@@ -200,7 +200,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     if (suffix && checksums::hash_from_text(suffix) == kSkater) {
         int male = 0;
         current_profile()->details_params()->fetch_int_value(kIsMale, &male, 1);
-        if (!male) {
+        if (male == 0) {
             female = true;
         }
     }
@@ -263,7 +263,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     bool lip = false;
     for (int i = index >= 0 ? 4 : 0; i < kLineCandidateCount; ++i) {
         const char* name = core::at(candidates, i);
-        if (!std::strlen(name)) {
+        if (std::strlen(name) == 0U) {
             continue;
         }
         std::array<char, kLineNameSize> lip_name{};
@@ -295,10 +295,10 @@ void ObjectiveNpc::get_skater_given_name(std::span<char> out)
 // 0x0055F1B0
 void ObjectiveNpc::cut_previous_voice_line()
 {
-    if (!feed_) {
+    if (feed_ == 0U) {
         return;
     }
-    if (anim_object_) {
+    if (anim_object_ != 0U) {
         script::stop_scripts_using_object_that_refer_to(object_named(anim_object_), kGoalPlayStream);
     }
     audio::halt_stream(feed_);
@@ -314,7 +314,7 @@ void ObjectiveNpc::cut_voice_line() const
         return;
     }
     params->erase_module(kCurrentStream);
-    if (stream) {
+    if (stream != 0U) {
         audio::halt_stream(stream);
     }
 }
@@ -348,7 +348,7 @@ void ObjectiveNpc::remove_objective_npc() const
 {
     uint32_t trigger = 0;
     get_goal_params(objective_key_)->read_hash_value(kTriggerObjId, &trigger, 0);
-    if (!trigger) {
+    if (trigger == 0U) {
         return;
     }
     if (objects::Entity* object = objects::EntityHub::look_up_entity(trigger)) {
@@ -370,10 +370,10 @@ void ObjectiveNpc::halt_objective_updates(bool suspend)
 // 0x0055F460
 void ObjectiveNpc::unload_anim_bank()
 {
-    if (!fam_) {
+    if (fam_ == 0U) {
         return;
     }
-    if (anim_object_) {
+    if (anim_object_ != 0U) {
         objects::GameEntity* object = object_named(anim_object_);
         script::stop_scripts_using_object_that_refer_to(object, kGoalPlayStream);
         script::StructPtr params = script::make_struct();
@@ -401,7 +401,7 @@ void ObjectiveNpc::conceal(bool hide) const
     }
     uint32_t trigger = 0;
     params->read_hash_value(kTriggerObjId, &trigger, 0);
-    if (!trigger) {
+    if (trigger == 0U) {
         return;
     }
     if (auto* object = core::down_cast<objects::GameEntity>(objects::EntityHub::look_up_entity(trigger))) {
@@ -441,7 +441,7 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     }
     script::Struct* params = get_goal_params(objective_key_);
     uint32_t id = object_id;
-    if (!id) {
+    if (id == 0U) {
         params->read_hash_value(kTriggerObjId, &id, 1);
     }
     objects::GameEntity* object = object_named(id);
@@ -484,7 +484,7 @@ void ObjectiveNpc::play_opening_voice_line(script::Struct* params)
     // (without a stream found the slot keeps what was there: the original's held last_anim's byte)
     uint32_t stream = last_anim ? 1U : 0U;
     const bool lip = get_voice_clip_key(&stream, index, false, speaker, last_anim);
-    if (!stream) {
+    if (stream == 0U) {
         return;
     }
     cut_voice_line();
@@ -505,7 +505,7 @@ void ObjectiveNpc::play_victory_voice_line(script::Struct* params)
     const bool lip = get_voice_clip_key(&stream, -1, true, speaker, true);
     uint32_t speaker_object = 0;
     params->read_hash_value(kSpeakerObjId, &speaker_object, 0);
-    if (stream) {
+    if (stream != 0U) {
         play_stream(stream, false, speaker_object, lip);
     }
 }

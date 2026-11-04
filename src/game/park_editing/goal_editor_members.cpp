@@ -101,7 +101,10 @@ bool ObjectiveAuthoring::add_key_combo_set(script::Struct* params, script::Scrip
         params->fetch_int_value(kSetIndex, &set, 0);
         params->fetch_int_value(kSpin, &spin, 0);
         params->fetch_int_value(kNumTaps, &taps, 0);
-        goal->add_key_combo_set({.set = set, .must_be_flawless_ = params->has_bare_flag(kRequirePerfect), .spin = spin, .tap_total_ = taps});
+        goal->add_key_combo_set({.set = set,
+                                 .must_be_flawless_ = static_cast<int>(params->has_bare_flag(kRequirePerfect)),
+                                 .spin = spin,
+                                 .tap_total_ = taps});
     }
     return true;
 }
@@ -132,7 +135,7 @@ bool ObjectiveAuthoring::get_key_combo_set(script::Struct* params, script::Scrip
     }
     script->args()->put_int(checksums::Name{kSpin}, entry->spin * kSpinUnitDegrees);
     script->args()->put_int(checksums::Name{kNumTaps}, entry->tap_total_);
-    if (entry->must_be_flawless_) {
+    if (entry->must_be_flawless_ != 0U) {
         script->args()->put_name_key(checksums::Name{0U}, kRequirePerfect);
     }
     return true;
@@ -202,7 +205,7 @@ bool ObjectiveAuthoring::removed_created_goal(script::Struct* params, script::Sc
 bool ObjectiveAuthoring::goal_has_all_positions_set(script::Struct* params, script::Script* /*script*/)
 {
     const EditedGoal* goal = get_goal_from_params(params);
-    return goal && goal->vertex_total() >= goal->min_points();
+    return (goal != nullptr) && goal->vertex_total() >= goal->min_points();
 }
 
 // 0x004E8980
@@ -254,7 +257,7 @@ bool ObjectiveAuthoring::get_num_edited_goals(script::Struct* params, script::Sc
         level = kParkEditorLevel;
     }
     int count = count_complete_goals(level);
-    if (!level && params->has_bare_flag(kExcludeParkEditorGoals)) {
+    if ((level == 0U) && params->has_bare_flag(kExcludeParkEditorGoals)) {
         count -= count_complete_goals(kParkEditorLevel);
     }
     script->args()->put_int("NumGoals", count);

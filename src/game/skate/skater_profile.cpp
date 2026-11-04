@@ -260,7 +260,7 @@ RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out,
     slot->read_hash_value(kTrickKeys, &trick.keys(), 1);
     int flag = 0;
     slot->fetch_int_value(kTrickMarker, &flag, 0);
-    if (flag) {
+    if (flag != 0) {
         trick.set_flag(true);
     }
     *out = trick;
@@ -335,8 +335,8 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
     // (the original keeps its values in its argument slots: what a lookup that finds nothing leaves - the
     // parameters' address for the checksums; here 0)
     uint32_t checksum = 0;                                  // the checksums
-    uint32_t number = info;                                 // the integers, then the trick style structure
-    uint32_t stat_name = specials;
+    auto number = static_cast<uint32_t>(info);              // the integers, then the trick style structure
+    auto stat_name = static_cast<uint32_t>(specials);
     const char* text = nullptr;
     int stat = 0;
     script::Struct* mine = details_params();
@@ -351,7 +351,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
             mine->append_word(name, text);
         }
         for (const uint32_t name : {kIsPro, 0x3F813177U, 0x09F350E5U, 0x4564BAB1U, 0x27EB9B9DU, 0x5ECFEF4DU}) {
-            params->fetch_int_value(name, &number, name != kIsHidden);
+            params->fetch_int_value(name, &number, static_cast<int>(name != kIsHidden));
             mine->put_int(checksums::Name{name}, static_cast<int>(number));
         }
         params->read_hash_value(kName, &checksum, 1);
@@ -367,7 +367,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
         // A custom skater (not a pro) gets a face texture, in the skater info heap.
         int pro = 0;
         mine->fetch_int_value(kIsPro, &pro, 1);
-        if (!pro) {
+        if (pro == 0) {
             push_skater_info_heap();
             make_face_texture(this);
             pop_heap();
@@ -427,7 +427,7 @@ bool RiderIdentity::get_reset(script::Struct* params)
     mine->append_structure_if_any(params);
     int pro = 0;
     mine->fetch_int_value(kIsPro, &pro, 1);
-    if (!pro) {
+    if (pro == 0) {
         push_skater_info_heap();
         make_face_texture(this);
         pop_heap();
@@ -455,7 +455,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
     mine->add_component_of_type(kVersionNumber, script::QbValueKind::kInteger, 2); // the version
     int pro = 0; // (the original's: the slot's last value - a structure's address)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
-    if (!pro) {
+    if (pro == 0) {
         gsl::owner<script::Struct*> appearance = script::new_struct();
         appearance->append_structure_if_any(&this->appearance()->structure());
         mine->append_struct_ref(kAppearance, appearance);

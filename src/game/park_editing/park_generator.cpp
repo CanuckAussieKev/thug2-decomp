@@ -199,7 +199,7 @@ bool ParkAssembler::has_free_restart_slot(int type)
     int last = 0;
     fetch_spawn_slots(type, &first, &last);
     for (int i = first; i <= last; ++i) {
-        if (!core::at(restarts_, i).kind_tag_ || core::at(restarts_, i).automatic_) {
+        if ((core::at(restarts_, i).kind_tag_ == 0) || (core::at(restarts_, i).automatic_ != 0U)) {
             return true;
         }
     }
@@ -216,7 +216,7 @@ void ParkAssembler::clear_restarts()
 void ParkAssembler::purge_auto_restart_points()
 {
     for (RestartPoint& slot : restarts_) {
-        if (slot.automatic_) {
+        if (slot.automatic_ != 0U) {
             slot.kind_tag_ = RestartPoint::kFree;
         }
     }
@@ -279,7 +279,7 @@ void ParkAssembler::set_pieces_highlighted(int on)
 {
     for (ParkTile* piece = pieces_; piece;) {
         ParkTile* next = piece->following();
-        if (piece->flag_bits() & ParkTile::kGap) {
+        if ((piece->flag_bits() & ParkTile::kGap) != 0U) {
             piece->set_visible(on != 0);
         }
         piece = next;
@@ -290,7 +290,7 @@ void ParkAssembler::set_restart_pieces_active(bool active)
 {
     for (ParkTile* piece = pieces_; piece;) {
         ParkTile* next = piece->following();
-        if (ParkLayout::singleton()->get_restart_index(piece->blend_source()->sector())) {
+        if (ParkLayout::singleton()->get_restart_index(piece->blend_source()->sector()) != 0) {
             piece->change_live(active);
         }
         piece = next;
@@ -317,17 +317,17 @@ bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
 gsl::owner<ParkTile*> ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
 {
     flags &= ParkTile::kCursor | ParkTile::kNoNode20 | ParkTile::kNoRails | ParkTile::kDestroyNow;
-    TileTemplate* from = (source->flag_bits() & ParkPiece::kSource) ? core::down_cast<TileTemplate>(source)
-                                                                   : core::down_cast<ParkTile>(source)->blend_source();
+    TileTemplate* from = ((source->flag_bits() & ParkPiece::kSource) != 0U)
+                             ? core::down_cast<TileTemplate>(source)
+                             : core::down_cast<ParkTile>(source)->blend_source();
     // The source's sector copied into the park's scene (on the bottom-up heap).
     cloning_piece() = 1;
     const uint32_t name = from->sector();
     flag_bits_ |= ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
-    const uint32_t clone =
-        (flags & ParkTile::kCursor)
-            ? scene::duplicate_scene_sector(source_world_, name, scene_handle_, 1, 0, 0)
-            : scene::duplicate_scene_sector(source_world_, name, scene_handle_, 0, 1, 0);
+    const uint32_t clone = ((flags & ParkTile::kCursor) != 0U)
+                               ? scene::duplicate_scene_sector(source_world_, name, scene_handle_, 1, 0, 0)
+                               : scene::duplicate_scene_sector(source_world_, name, scene_handle_, 0, 1, 0);
     memory::leave_heap_scope();
     cloning_piece() = 0;
     // The piece itself on the park editor's heap.
@@ -362,7 +362,7 @@ void ParkAssembler::insert_tile(ParkTile* piece)
 
 void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
 {
-    if (!(piece->flag_bits() & ParkTile::kCursor)) {
+    if ((piece->flag_bits() & ParkTile::kCursor) == 0U) {
         ParkTile* previous = nullptr;
         for (ParkTile* p = pieces_; p; previous = p, p = p->following()) {
             if (p != piece) {
@@ -376,7 +376,7 @@ void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
             break;
         }
     }
-    if (!keep_sector) {
+    if (keep_sector == 0) {
         destroy_sector(piece->sector(), static_cast<int>(piece->flag_bits()));
     }
     set_counts_dirty();
@@ -398,7 +398,7 @@ void ParkAssembler::read_piece_flags(script::Array* nodes)
         }
         uint32_t name = 0;
         node->read_hash_value(kName, &name, 0); // name
-        if (!name) {
+        if (name == 0U) {
             continue;
         }
         TileTemplate* source = get_piece_source(name);
@@ -413,7 +413,7 @@ void ParkAssembler::read_piece_flags(script::Array* nodes)
         }
         uint32_t script = 0;
         node->read_hash_value(kTriggerScript, &script, 0); // TriggerScript
-        if (!script) {
+        if (script == 0U) {
             continue;
         }
         source->set_trigger_script(script);

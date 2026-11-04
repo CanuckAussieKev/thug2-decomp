@@ -156,7 +156,7 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
 // 0x0055BF40
 void GoalManager::retry_previous_objective()
 {
-    if (!previous_objective_) {
+    if (previous_objective_ == 0U) {
         return;
     }
     Objective* goal = goals_.get_pull(previous_objective_);
@@ -207,7 +207,7 @@ int GoalManager::count_cleared_in_stage(int level, int /*unused*/)
         if (component->value.structure()->fetch_int_value(kLevelNum, &goal_level, 0)) {
             int beaten = 0;
             component->value.structure()->fetch_int_value(kAlreadyWon, &beaten, 0);
-            if (goal_level == level && beaten) {
+            if (goal_level == level && (beaten != 0)) {
                 ++count;
             }
         }
@@ -224,7 +224,7 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
         goal->swap_move_caption();
         const char* text = nullptr;
         goal->get_objective_list_caption(&text);
-        if (!text || goal->is_online_objective() || goal->parents()->objective_key_) {
+        if (!text || goal->is_online_objective() || (goal->parents()->objective_key_ != 0U)) {
             continue;
         }
         online::cfunc_is_host(nullptr, nullptr); // (its answer isn't used)

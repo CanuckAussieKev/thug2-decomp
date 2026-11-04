@@ -123,7 +123,7 @@ uint32_t count_conditions(MatchRules::ConditionNode* head)
     if (node->condition == head_marker() || !node) {
         return 0;
     }
-    for (bool again = true; again; again = node->condition != head_marker() && node) {
+    for (bool again = true; again; again = node->condition != head_marker() && (node != nullptr)) {
         node = node->succ;
         ++count;
     }
@@ -135,7 +135,7 @@ MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_
     if (node->condition == head_marker() || !node) {
         return nullptr;
     }
-    for (uint32_t left = index; left; --left) {
+    for (uint32_t left = index; left != 0U; --left) {
         node = node->succ;
         if (node->condition == head_marker() || !node) {
             return nullptr;
@@ -313,7 +313,7 @@ bool MatchRules::finish_rules_reached()
             }
         }
     }
-    return terminal && complete == terminal;
+    return (terminal != 0) && complete == terminal;
 }
 
 // 0x00553A60
@@ -334,19 +334,19 @@ bool MatchRules::apply_match_style(uint32_t type)
     int max_players = kDefaultMaxPlayers;
     online::Hub* net = online::online_hub();
     if (net && net->in_net_game()) {
-        args_.fetch_int_value(kMaxPlayers, &max_players, true);
+        args_.fetch_int_value(kMaxPlayers, &max_players, 1);
     }
     args_.get_clear();
     script::Array* modes = script::fetch_list(kModeInfo);
     for (uint32_t i = 0; i < modes->extent(); ++i) {
         auto* mode = modes->struct_at(i);
         uint32_t name = 0;
-        mode->read_hash_value(kChecksum, &name, true);
+        mode->read_hash_value(kChecksum, &name, 1);
         if (name != type) {
             continue;
         }
         const char* definition = nullptr;
-        mode->fetch_text(kDefinition, &definition, true);
+        mode->fetch_text(kDefinition, &definition, 1);
         args_.append_structure_if_any(script::read_sub_struct(definition));
         clear_victory_conditions();
         build_victory_conditions();
@@ -379,7 +379,7 @@ bool MatchRules::force_match_settings(script::Struct* options)
 bool MatchRules::keeps_running_total()
 {
     int accumulate = unset(this);
-    args_.fetch_int_value(kAccumulateScore, &accumulate, true);
+    args_.fetch_int_value(kAccumulateScore, &accumulate, 1);
     return accumulate != 0;
 }
 
@@ -387,23 +387,29 @@ bool MatchRules::keeps_running_total()
 bool MatchRules::keeps_best_chain()
 {
     int track = 0;
-    if (!args_.fetch_int_value(kTrackBestCombo, &track, false)) {
+    if (!args_.fetch_int_value(kTrackBestCombo, &track, 0)) {
         return false;
     }
     return track != 0;
 }
 
 // 0x00553000
-void MatchRules::set_score_accumulation(bool on) { args_.put_int(checksums::Name{kAccumulateScore}, on); }
+void MatchRules::set_score_accumulation(bool on)
+{
+    args_.put_int(checksums::Name{kAccumulateScore}, static_cast<int>(on));
+}
 
 // 0x00553020
-void MatchRules::hold_points(bool on) { args_.put_int(checksums::Name{kPointsHeldFlag}, on); }
+void MatchRules::hold_points(bool on) { args_.put_int(checksums::Name{kPointsHeldFlag}, static_cast<int>(on)); }
 
 // 0x00553040
-void MatchRules::set_score_degradation(bool on) { args_.put_int(checksums::Name{kDegradeScore}, on); }
+void MatchRules::set_score_degradation(bool on) { args_.put_int(checksums::Name{kDegradeScore}, static_cast<int>(on)); }
 
 // 0x00553060
-void MatchRules::set_trick_score_tracking(bool on) { args_.put_int(checksums::Name{kTrackTrickScore}, on); }
+void MatchRules::set_trick_score_tracking(bool on)
+{
+    args_.put_int(checksums::Name{kTrackTrickScore}, static_cast<int>(on));
+}
 
 // 0x00553080
 void MatchRules::set_team_graffiti_mode(uint32_t mode) { args_.put_name_key(checksums::Name{kTeamGraffitiMode}, mode); }
@@ -415,7 +421,7 @@ void MatchRules::set_goals_mode(uint32_t mode) { args_.put_name_key(checksums::N
 int MatchRules::is_scoring_paused()
 {
     int frozen = unset(this);
-    args_.fetch_int_value(kPointsHeldFlag, &frozen, true);
+    args_.fetch_int_value(kPointsHeldFlag, &frozen, 1);
     return frozen != 0 ? 1 : 0;
 }
 
@@ -423,7 +429,7 @@ int MatchRules::is_scoring_paused()
 bool MatchRules::keeps_move_points()
 {
     int track = unset(this);
-    args_.fetch_int_value(kTrackTrickScore, &track, true);
+    args_.fetch_int_value(kTrackTrickScore, &track, 1);
     return track != 0;
 }
 
@@ -431,7 +437,7 @@ bool MatchRules::keeps_move_points()
 bool MatchRules::repeats_lose_points()
 {
     int degrade = unset(this);
-    args_.fetch_int_value(kDegradeScore, &degrade, true);
+    args_.fetch_int_value(kDegradeScore, &degrade, 1);
     return degrade != 0;
 }
 
@@ -439,7 +445,7 @@ bool MatchRules::repeats_lose_points()
 int MatchRules::current_num_teams()
 {
     int teams = unset(this);
-    args_.fetch_int_value(kNumTeams, &teams, true);
+    args_.fetch_int_value(kNumTeams, &teams, 1);
     return teams;
 }
 
@@ -447,7 +453,7 @@ int MatchRules::current_num_teams()
 bool MatchRules::clock_beeps_near_end()
 {
     int beeps = unset(this);
-    args_.fetch_int_value(kTimerBeeps, &beeps, true);
+    args_.fetch_int_value(kTimerBeeps, &beeps, 1);
     return beeps != 0;
 }
 
@@ -455,7 +461,7 @@ bool MatchRules::clock_beeps_near_end()
 int MatchRules::get_time_limit()
 {
     int limit = unset(this);
-    args_.fetch_int_value(kDefaultTimeLimit, &limit, true);
+    args_.fetch_int_value(kDefaultTimeLimit, &limit, 1);
     return limit;
 }
 
@@ -463,7 +469,7 @@ int MatchRules::get_time_limit()
 int MatchRules::get_starting_rider_count()
 {
     int players = unset(this);
-    args_.fetch_int_value(kInitialPlayers, &players, true);
+    args_.fetch_int_value(kInitialPlayers, &players, 1);
     return players;
 }
 
@@ -474,7 +480,7 @@ void MatchRules::set_rider_ceiling(int players) { args_.put_int(checksums::Name{
 int MatchRules::get_rider_ceiling()
 {
     int players = unset(this);
-    args_.fetch_int_value(kMaxPlayers, &players, true);
+    args_.fetch_int_value(kMaxPlayers, &players, 1);
     return players;
 }
 
@@ -490,7 +496,7 @@ int MatchRules::get_fireball_level()
 bool MatchRules::is_true(uint32_t name)
 {
     int value = 0;
-    args_.fetch_int_value(name, &value, false);
+    args_.fetch_int_value(name, &value, 0);
     return value != 0;
 }
 
@@ -501,7 +507,7 @@ void MatchRules::set_round(int round) { args_.put_int(checksums::Name{kRound}, r
 int MatchRules::get_round()
 {
     int round = 0;
-    args_.fetch_int_value(kRound, &round, false);
+    args_.fetch_int_value(kRound, &round, 0);
     return round;
 }
 
@@ -592,21 +598,21 @@ bool MatchRules::uses_countdown()
         return false;
     }
     int limit = static_cast<int>(name); // (the original's local is the name's)
-    args_.fetch_int_value(kDefaultTimeLimit, &limit, true);
+    args_.fetch_int_value(kDefaultTimeLimit, &limit, 1);
     return limit != 0;
 }
 
 // 0x00553550
 bool MatchRules::clock_halts_at_zero()
 {
-    if (!modules::Skate::is_multiplayer()) { // (the skate module's is_versus_session)
+    if (modules::Skate::is_multiplayer() == 0) { // (the skate module's is_versus_session)
         return false;
     }
     if (!uses_countdown()) {
         return true;
     }
     int stop = unset(this);
-    args_.fetch_int_value(kStopAtZero, &stop, true);
+    args_.fetch_int_value(kStopAtZero, &stop, 1);
     return stop == 1;
 }
 
@@ -628,7 +634,7 @@ int MatchRules::is_squad_match()
         return 0;
     }
     int teams = unset(this);
-    args_.fetch_int_value(kNumTeams, &teams, true);
+    args_.fetch_int_value(kNumTeams, &teams, 1);
     return teams > 0 ? 1 : 0;
 }
 
@@ -636,11 +642,11 @@ int MatchRules::is_squad_match()
 int MatchRules::get_view_layout()
 {
     uint32_t mode = 0;
-    args_.read_hash_value(kScreenMode, &mode, true);
+    args_.read_hash_value(kScreenMode, &mode, 1);
     if (mode == kSplitScreen) {
         auto* prefs = modules::Skate::sole()->get_split_view_settings();
         uint32_t viewport = 0;
-        prefs->fetch_setting(kScreenLayoutKey)->read_hash_value(kChecksum, &viewport, true);
+        prefs->fetch_setting(kScreenLayoutKey)->read_hash_value(kChecksum, &viewport, 1);
         if (viewport == kViewportVertical) {
             return 1;
         }
@@ -656,7 +662,7 @@ int MatchRules::get_view_layout()
 void MatchRules::increment_round()
 {
     int round = 0;
-    args_.fetch_int_value(kRound, &round, false);
+    args_.fetch_int_value(kRound, &round, 0);
     args_.put_int(checksums::Name{kRound}, round + 1);
 }
 

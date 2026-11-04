@@ -245,7 +245,7 @@ constexpr float kFacingDistance = 200.0F;               // (IsFacingWall's defau
 constexpr uint32_t kLimitsTimeDefault = 0x551184E7;     // (float bits: about 1e13)
 constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e-6)
 
-int get_is(uint8_t value) { return value ? 1 : 0; }
+int get_is(uint8_t value) { return (value != 0U) ? 1 : 0; }
 
 // The skater's facing, made unit (the x and y products left unrounded as the original keeps them on the x87 stack),
 // as the end of a feeler from `start` `distance` long.
@@ -369,7 +369,7 @@ int SkaterPhysicsModule::force_auto_kick_off(script::Struct* /*params*/, script:
 // 0x004FBFA0
 int SkaterPhysicsModule::auto_kick_is_off(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return auto_kick_ ? 0 : 1;
+    return (auto_kick_ != 0U) ? 0 : 1;
 }
 // 0x004FBFB0
 int SkaterPhysicsModule::skater_vehicle_on(script::Struct* /*params*/, script::Script* /*script*/)
@@ -701,7 +701,7 @@ int SkaterPhysicsModule::set_skater_vehicle(script::Struct* params, script::Scri
 // 0x004FC040
 int SkaterPhysicsModule::lock_velocity_direction(script::Struct* params, script::Script* /*script*/)
 {
-    lock_velocity_ = params->has_bare_flag(kOn);
+    lock_velocity_ = static_cast<uint8_t>(params->has_bare_flag(kOn));
     return 1;
 }
 // 0x004FC060
@@ -733,7 +733,7 @@ int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script* 
 // 0x004FC340
 int SkaterPhysicsModule::doing_flip(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    if (model_rotating_ && model_rotation_left_ > kFlipLeftMin) {
+    if ((model_rotating_ != 0U) && model_rotation_left_ > kFlipLeftMin) {
         return 1;
     }
     return 0;
@@ -766,7 +766,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct* /*params*/, script::Script*
 int SkaterPhysicsModule::restore_auto_kick(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const int profile = core::down_cast<objects::Rider>(entity())->view_slot();
-    auto_kick_ = core::at(modules::Skate::sole()->participants(), profile).auto_kick_;
+    auto_kick_ = static_cast<uint8_t>(core::at(modules::Skate::sole()->participants(), profile).auto_kick_);
     return 1;
 }
 

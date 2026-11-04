@@ -119,7 +119,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     // Ground. Standing on a moving object (the skater on the ground or in the air, not skitching (+0x88) nor
     // wallriding (+0x78)) that isn't what the feeler hit: off it, with its velocity.
     objects::RiderPoseState* flags = core->state();
-    if (!flags->flag(PoseFlag::kSkitching).on && !flags->flag(PoseFlag::kAcidDrop).on && ride_->ride()) {
+    if ((flags->flag(PoseFlag::kSkitching).on == 0U) && (flags->flag(PoseFlag::kAcidDrop).on == 0U) && ride_->ride()) {
         const RideTracker* ride = ride_->ride().get();
         bool leave = true;
         if (ride->entity().get_pull()) {
@@ -170,7 +170,7 @@ void RiderPhysicsTweaks::keep_above_ground()
             to.y += raise;
         }
         feeler.change_finish(&to);
-        if (feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) != 0) {
             const maths::Vec4 off = {.x = position.x - feeler.contact_pos().x, .y = position.y - feeler.contact_pos().y,
                                      .z = position.z - feeler.contact_pos().z, .w = position.w - feeler.contact_pos().w};
             const double near = (static_cast<double>(off.x) * off.x) + (static_cast<double>(off.y) * off.y) +

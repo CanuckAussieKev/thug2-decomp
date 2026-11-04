@@ -91,8 +91,8 @@ Objective* name_then_goal(script::Struct* params)
 Objective* optional_goal(GoalManager* manager, script::Struct* params)
 {
     uint32_t name = 0;
-    params->read_hash_value(kName, &name, true);
-    return name ? manager->goals().get_pull(name) : nullptr;
+    params->read_hash_value(kName, &name, 1);
+    return (name != 0U) ? manager->goals().get_pull(name) : nullptr;
 }
 
 } // namespace
@@ -137,7 +137,7 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
                 extra = extras->fetch_part(0);
             }
         }
-        if (extra) {
+        if (extra != 0U) {
             auto* entry = script::fetch_list(extra)->struct_at(0);
             script::Struct* extra_params = nullptr;
             entry->read_sub_struct(kParams, &extra_params, 1);
@@ -295,7 +295,7 @@ bool cfunc_goal_manager_set_can_start_goal(script::Struct* params, script::Scrip
 bool cfunc_goal_manager_get_last_goal_id(script::Struct* /*params*/, script::Script* script)
 {
     const uint32_t last = get_objective_board()->previous_objective();
-    if (!last) {
+    if (last == 0U) {
         return false;
     }
     script->args()->put_name_key(checksums::Name{kGoalIdChecksum}, last);
@@ -318,7 +318,7 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
     online::Hub* net = online::online_hub();
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals().get_pull(get_goal_name(params));
-    if (goal->is_online_objective() || goal->parents()->objective_key_) {
+    if (goal->is_online_objective() || (goal->parents()->objective_key_ != 0U)) {
         return true;
     }
     net::AppHost* client = net->fetch_patron(0);
@@ -626,7 +626,7 @@ bool cfunc_goal_manager_get_goal_reward_points(script::Struct* params, script::S
 {
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals().get_pull(get_goal_name(params));
-    if (!goal->get_reward_points()) {
+    if (goal->get_reward_points() == 0) {
         return false;
     }
     script->args()->put_int(checksums::Name{kRewardPoints}, goal->get_reward_points());

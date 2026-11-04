@@ -44,7 +44,7 @@ bool buttons_held(objects::FootMovement* walk)
         return false;
     }
     const objects::PadSnapshot& pad = walk->input()->pad_primary();
-    if (!ps2_controls() && !pad.shoulder_left_b().held_down()) {
+    if (!ps2_controls() && (pad.shoulder_left_b().held_down() == 0U)) {
         return false;
     }
     return pad.shoulder_right_b().held_down() != 0;
@@ -116,7 +116,7 @@ bool try_acid_drop(objects::FootMovement* walk)
     }
     if (walk->feeler_hit()) {
         walk->trigger()->probe_touches_zone(kWalkEvents0064c63c, &walk->get_feeler());
-        if (walk->physics_control()->flag26()) {
+        if (walk->physics_control()->flag26() != 0U) {
             return true;
         }
     }

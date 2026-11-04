@@ -154,7 +154,7 @@ uint32_t created_trick_name(int index)
 bool key_combo_name(uint32_t key_combo, int taps, uint32_t* name)
 {
     *name = PointTally::trick_from_key_combo(checksums::Name{key_combo}, taps);
-    if (*name) {
+    if (*name != 0U) {
         return true;
     }
     const int index = PointTally::created_trick_from_key_combo(key_combo);
@@ -235,7 +235,7 @@ uint32_t PointTally::trick_name_after_taps(checksums::Name trick_checksum, int t
     script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
     if (taps > 1) {
         auto extra = static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
-        for (int left = taps - 1; left; --left) {
+        for (int left = taps - 1; left != 0; --left) {
             params->read_hash_value(kExtraTricks, &extra, 0);
             script::fetch_list(extra)->struct_at(0)
                 ->read_sub_struct(kParams, &params, 1);
@@ -267,14 +267,14 @@ int PointTally::get_score_of_range(int first, int last)
     int spin = 2;
     for (int i = first; i < last; ++i) {
         const TrickLog* trick = get_trick(i);
-        if (trick->flag_bits_ & kTrickNoSpin) {
+        if ((trick->flag_bits_ & kTrickNoSpin) != 0U) {
             spin = 2;
-        } else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin)) {
+        } else if (i == 0 || ((get_trick(i - 1)->flag_bits_ & kTrickNoSpin) != 0U)) {
             spin = spin_multiplier(trick->twist_rate_);
         }
         int points =
             trick->points_held_ * get_reduction(trick->repeats_) * spin / kPointsDivisor; // (percent times half the multiplier)
-        if (trick->kind_) {
+        if (trick->kind_ != 0) {
             points = points * kLandedKindBonusPercent / kPercentScale;
         }
         total += points;
@@ -283,7 +283,7 @@ int PointTally::get_score_of_range(int first, int last)
 }
 
 // 0x00561640
-uint32_t PointTally::fetch_newest_trick_key() { return log_.num() ? newest_logged_trick()->label_ : 0; }
+uint32_t PointTally::fetch_newest_trick_key() { return (log_.num() != 0) ? newest_logged_trick()->label_ : 0; }
 
 // 0x00561660
 uint32_t PointTally::get_trick_name(int index) { return get_trick(index)->label_; }
@@ -323,7 +323,7 @@ void PointTally::setup_balance_meter()
     arrow_step_ = static_cast<float>(1.0 / arrow_count_);
     script::Array* bars = nullptr;
     uint32_t name = kBarPositions;
-    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) &&
+    if ((static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) &&
         get_game_mode()->get_name_key() != kHorse && get_game_mode()->get_name_key() != kNetHorse) {
         name = screen_mode() == 1 ? kBarPositionsMpV : kBarPositionsMpH;
     }
@@ -340,7 +340,7 @@ void PointTally::dispatch_score_pot(int points, float multiplier) const
     const int number = skater ? skater->get_skater_number() : 0;
     auto* text = core::down_cast<frontend::LabelWidget>(find_element(kTheScorePotText + static_cast<uint32_t>(number)));
     std::array<char, kScorePotBytes> shown{};
-    if (!points) {
+    if (points == 0) {
         core::at(shown, 0) = ' ';
         core::at(shown, 1) = 0;
     } else if (multiplier == 0.0F) {
@@ -370,7 +370,7 @@ void PointTally::test_record_score(int before, int after) const
         const int score = core::at(goals, i).score;
         const int goal = core::at(goals, i).goal;
         const uint32_t script = core::at(goals, i).script;
-        if (!score || before >= score || after < score || skate_calls::get_career()->get_goal(goal, -1)) {
+        if ((score == 0) || before >= score || after < score || skate_calls::get_career()->get_goal(goal, -1)) {
             continue;
         }
         skate_calls::get_career()->set_goal(goal, -1);
@@ -383,7 +383,7 @@ void PointTally::set_grand_total(int total)
 {
     sum_ = total;
     const objects::Rider* skater = rider_for_slot(rider_no_);
-    if (!skater->is_local_skater()) { // (no check: as the original)
+    if (skater->is_local_skater() == 0U) { // (no check: as the original)
         return;
     }
     std::array<char, kShownTimeBytes> shown{};
@@ -400,7 +400,7 @@ void PointTally::set_grand_total(int total)
 int PointTally::get_total_score() const
 {
     if (online::online_hub()->get_on_server() &&
-        (script::fetch_int_value(kScoreByClusters) || get_game_mode()->is_true(kShouldModulateColor))) {
+        ((script::fetch_int_value(kScoreByClusters) != 0) || get_game_mode()->is_true(kShouldModulateColor))) {
         return get_trick_objects()->count_clusters_held_by(rider_no_);
     }
     return sum_;
@@ -427,7 +427,7 @@ uint32_t PointTally::trick_from_key_combo(checksums::Name combo, int taps)
             }
         }
     }
-    if (!trick) {
+    if (trick == 0U) {
         return 0;
     }
     return trick_name_after_taps(checksums::Name{trick}, taps);
@@ -449,7 +449,7 @@ int PointTally::created_trick_from_key_combo(uint32_t key_combo)
         auto* special = specials->struct_at(static_cast<uint32_t>(i));
         int is_cat = 0;
         special->fetch_int_value(kIsCat, &is_cat, 0);
-        if (!is_cat) {
+        if (is_cat == 0) {
             continue;
         }
         uint32_t slot = 0;
@@ -474,7 +474,7 @@ bool PointTally::is_trick_at(int index, checksums::Name trick_checksum, int spin
     if (trick->label_ != name) {
         return false;
     }
-    if (!spin) {
+    if (spin == 0) {
         return true;
     }
     if (spin != trick->twist_rate_) {
@@ -499,15 +499,15 @@ int PointTally::count_trick(checksums::Name trick_checksum, int spin, bool perfe
     int shared = 1;
     for (int i = 0; i < tricks_; ++i) {
         const TrickLog* trick = get_trick(i);
-        if (trick->flag_bits_ & kTrickNoSpin) {
+        if ((trick->flag_bits_ & kTrickNoSpin) != 0U) {
             shared = 1;
-        } else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin)) {
+        } else if (i == 0 || ((get_trick(i - 1)->flag_bits_ & kTrickNoSpin) != 0U)) {
             shared = trick->twist_rate_;
         }
         if (trick->label_ != name) {
             continue;
         }
-        if (spin) {
+        if (spin != 0) {
             if (spin != shared) {
                 continue;
             }
@@ -544,7 +544,7 @@ bool PointTally::last_trick_is(checksums::Name trick_checksum, int spin, bool pe
 {
     const uint32_t name = trick_checksum.value();
     int index = tricks_;
-    for (bool again = true; again; again = !core::at(get_trick(index)->text_, 0)) {
+    for (bool again = true; again; again = (core::at(get_trick(index)->text_, 0) == '\0')) {
         if (index <= 0) {
             return false;
         }
@@ -559,7 +559,7 @@ bool PointTally::last_trick_is_key_combo(checksums::Name combo, int spin, bool p
 {
     const uint32_t key_combo = combo.value();
     int index = tricks_;
-    for (bool again = true; again; again = !core::at(get_trick(index)->text_, 0)) {
+    for (bool again = true; again; again = (core::at(get_trick(index)->text_, 0) == '\0')) {
         if (index <= 0) {
             return false;
         }
@@ -601,11 +601,11 @@ int PointTally::count_repeats(checksums::Name trick_checksum, int spin)
     for (int i = 0; i < tricks_; ++i) {
         const TrickLog* trick = get_trick(i);
         if (trick->label_ == name) {
-            if (!spin || spin == trick->twist_rate_) {
+            if ((spin == 0) || spin == trick->twist_rate_) {
                 ++count;
                 latest = true;
             }
-        } else if (!(trick->flag_bits_ & kTrickGap)) {
+        } else if ((trick->flag_bits_ & kTrickGap) == 0U) {
             latest = false;
         }
     }
@@ -642,7 +642,7 @@ int PointTally::count_key_combo_repeats(checksums::Name combo, PointTally::SpinT
 void PointTally::refresh_balance_meter() { setup_balance_meter(); }
 
 // 0x00562740
-bool PointTally::is_gap(int index) { return (get_trick(index)->flag_bits_ >> 4) & 1; }
+bool PointTally::is_gap(int index) { return ((get_trick(index)->flag_bits_ >> 4) & 1) != 0U; }
 
 // 0x00562760
 void PointTally::set_special_active(bool active)
@@ -666,7 +666,7 @@ void PointTally::refresh_bot_check(int line)
     ++robot_lines_;
     ++robot_combo_lines_;
     uint8_t& count = core::at(line_counts_, line);
-    if (!count) {
+    if (count == 0U) {
         ++robot_new_lines_;
         ++robot_combo_new_lines_;
     }
@@ -674,7 +674,7 @@ void PointTally::refresh_bot_check(int line)
         ++count;
     }
     uint8_t& combo_count = core::at(combo_line_counts_, line);
-    if (!combo_count) {
+    if (combo_count == 0U) {
         ++robot_combo_first_lines_;
     }
     if (combo_count < kLineCountMax) {
@@ -697,7 +697,7 @@ void PointTally::trim_log()
     std::memcpy(merged.shown_.data(), "...\\_+\\_", kMergedShownBytes); // "...\_+\_"
     int end = log_.num();
     for (int i = 0; i < log_.num(); ++i) {
-        if (i != 0 && !core::at(get_trick(i)->text_, 0)) {
+        if (i != 0 && (core::at(get_trick(i)->text_, 0) == '\0')) {
             end = i;
             break;
         }
@@ -747,7 +747,7 @@ int PointTally::count_non_gap_tricks()
 {
     int count = 0;
     for (int i = 0; i < tricks_; ++i) {
-        if (!((get_trick(i)->flag_bits_ >> 4) & 1)) {
+        if (((get_trick(i)->flag_bits_ >> 4) & 1) == 0U) {
             ++count;
         }
     }

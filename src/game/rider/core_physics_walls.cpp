@@ -97,7 +97,7 @@ void turn_velocity(maths::Vec4& velocity, double angle)
 bool SkaterPhysicsModule::vert_wallplant()
 {
     // (not original: THAW 0x005D6960 - never a vert wallplant on the bike)
-    if (on_vehicle_ || thaw_bmx::live_now(this)) {
+    if ((on_vehicle_ != 0U) || thaw_bmx::live_now(this)) {
         return false;
     }
     // The trick button pressed (or pressed within Wall_Ride_Triangle_Window).
@@ -110,10 +110,10 @@ bool SkaterPhysicsModule::vert_wallplant()
         }
     }
     objects::RiderPoseState* flags = state_;
-    if (!flags->flag(PoseFlag::kVertAir).on || !flags->flag(PoseFlag::kJumped).on) {
+    if ((flags->flag(PoseFlag::kVertAir).on == 0U) || (flags->flag(PoseFlag::kJumped).on == 0U)) {
         return false;
     }
-    if (!(trick_->spin_total() == 0.0F) || vert_wallplanted_) {
+    if (!(trick_->spin_total() == 0.0F) || (vert_wallplanted_ != 0U)) {
         return false;
     }
     // The wall within reach below the skater's up axis.
@@ -172,9 +172,9 @@ void SkaterPhysicsModule::lean_push_off_wall()
     // Skate_wall_lean_push_time.
     objects::PadSnapshot* pad = &input_->pad_primary();
     int held = 0;
-    if (pad->left_side().held_down()) {
+    if (pad->left_side().held_down() != 0U) {
         held = time_since_press(&pad->left_side());
-    } else if (pad->right_side().held_down()) {
+    } else if (pad->right_side().held_down() != 0U) {
         held = time_since_press(&pad->right_side());
     } else {
         return;
@@ -186,7 +186,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     auto seconds = static_cast<float>(held_time * kMilliseconds);
     const float push_time = script::fetch_float(kLeanPushTime);
     seconds = std::min(seconds, push_time);
-    if (pad->right_side().held_down()) {
+    if (pad->right_side().held_down() != 0U) {
         seconds = -seconds;
     }
     const double length = script::fetch_float(kLeanPushLength);
@@ -376,7 +376,7 @@ void SkaterPhysicsModule::check_wall_ahead()
         return;
     }
     const maths::Vec4 normal = feeler_.surface_dir();
-    if (hit_skatable_) {
+    if (hit_skatable_ != 0U) {
         // Skatable and not flat against the ground: pushed out of it a little.
         const maths::Vec4& ground = floor_normal_;
         const double into = (static_cast<double>(normal.z) * ground.z) + (static_cast<double>(normal.y) * ground.y) +
@@ -392,7 +392,7 @@ void SkaterPhysicsModule::check_wall_ahead()
         }
     }
     static_cast<objects::ActivationZoneModule*>(trigger_)->probe_touches_zone(kBonkEvents, &feeler_);
-    if (!physics_control_->flag26() != 0) {
+    if (physics_control_->flag26() == 0U) {
         bounce_off_wall_ahead(&normal);
     }
 }
@@ -437,7 +437,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
             const bool same =
                 (state_->flag(PoseFlag::kFlipped).on ^ left_turn) == 0; // (flag +0x28 against the turn's side)
             object_of(this)->post_own_event(same ? kFlailRight : kFlailLeft, nullptr);
-            if (!on_vehicle_) {
+            if (on_vehicle_ == 0U) {
                 // (The original passes the surface byte in a word whose upper bytes are the angle's.)
                 auto angle_bits = std::bit_cast<uint32_t>(angle);
                 const uint32_t surface = (angle_bits & 0xFFFFFF00U) | feeler_.hit().terrain;
@@ -503,7 +503,8 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     end.y = static_cast<float>(static_cast<double>(base.y) + ay);
     end.z = base.z + az;
     end.w = static_cast<float>(base.w + aw);
-    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags) || !entity()->is_local_skater()) {
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags) ||
+        (entity()->is_local_skater() == 0U)) {
         return;
     }
     // Into a corner: turned back the other way, half as fast; fast enough, a flail.

@@ -40,7 +40,7 @@ int truncate(double value) { return static_cast<int>(value); }
 void Objective::pass_inherited_flags(int depth)
 {
     void* manager = objective_board();
-    for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
+    for (const GoalEdge* link = sub_nodes_; link && (link->objective_key_ != 0U); link = link->succ_) {
         Objective* child = get_goal(manager, link->objective_key_, 1);
         if (child) {
             child->inherited_ |= inherited_;
@@ -53,7 +53,7 @@ void Objective::pass_inherited_flags(int depth)
 void Objective::clear_child_wins()
 {
     void* manager = objective_board();
-    for (GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
+    for (GoalEdge* link = sub_nodes_; link && (link->objective_key_ != 0U); link = link->succ_) {
         link->won_ = false;
         Objective* child = get_goal(manager, link->objective_key_, 1);
         if (child) {
@@ -125,7 +125,7 @@ bool Objective::bit_matches(checksums::Name flag_name, int value, checksums::Nam
     const uint32_t sub = sub_goal.value();
     const uint32_t flag = flag_name.value();
     script::Struct* flags = goal_flags_;
-    if (sub) {
+    if (sub != 0U) {
         // (a sub-structure that isn't there: null - the original left the name itself as the pointer; both crash)
         flags = nullptr;
         goal_flags_->read_sub_struct(sub, &flags, 1);
@@ -204,7 +204,7 @@ bool Objective::has_every_bit()
         }
         return true;
     }
-    if (!to_win) {
+    if (to_win == 0) {
         return false;
     }
     return num_flags_set_ >= to_win;
@@ -216,7 +216,7 @@ bool Objective::bit_is_on(GoalBit goal_bit)
     const auto flag = goal_bit.flag;
     const auto sub = goal_bit.sub;
     script::Struct* flags = goal_flags_;
-    if (sub) {
+    if (sub != 0U) {
         script::Struct* found = nullptr; // (as bit_matches)
         flags->read_sub_struct(sub, &found, 1);
         flags = found;
@@ -385,17 +385,17 @@ void Objective::restore_save_block(script::Struct* data)
 {
     int beaten = 0;
     data->fetch_int_value(kAlreadyWon, &beaten, 1);
-    if (beaten) {
+    if (beaten != 0) {
         mark_won();
     }
     int locked = 1;
     data->fetch_int_value(kIsLocked, &locked, 1);
-    if (!locked) {
+    if (locked == 0) {
         flag_bits_ &= ~Objective::Flags::kLocked;
     }
     int seen = 0;
     data->fetch_int_value(kHasSeen, &seen, 1);
-    if (seen) {
+    if (seen != 0) {
         flag_bits_ |= Objective::Flags::kSeen;
     }
     int record = 0;
@@ -419,7 +419,7 @@ void Objective::restore_save_block(script::Struct* data)
         for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
             script::Component* next = goal_flags_->step_to_entry(component);
             ++num_flags_;
-            if (component->value.word()) {
+            if (component->value.word() != 0U) {
                 ++num_flags_set_;
             }
             component = next;
@@ -433,9 +433,9 @@ void Objective::capture_save_block(script::Struct* data)
     data->put_int(checksums::Name{kLevelNum}, level_);
     void* manager = objective_board();
     const bool locked = core::any(flag_bits_ & Objective::Flags::kLocked) || is_group_locked(manager, bundle_, level_);
-    data->put_int(checksums::Name{kIsLocked}, locked);
+    data->put_int(checksums::Name{kIsLocked}, static_cast<int>(locked));
     data->put_int(checksums::Name{kHasSeen}, core::any(flag_bits_ & Objective::Flags::kSeen) ? 1 : 0);
-    data->put_int(checksums::Name{kAlreadyWon}, has_won());
+    data->put_int(checksums::Name{kAlreadyWon}, static_cast<int>(has_won()));
     int record = 0;
     uint32_t type = 0;
     if (args_->read_hash_value(kRecordType, &type, 0)) {
@@ -459,11 +459,11 @@ void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, 
     auto* const tricks = arrays.tricks;
     core::Cursor<char> out(out_run);
     core::CStringCursor at(text);
-    if (!*at) {
+    if (*at == '\0') {
         *out = 0;
         return;
     }
-    while (*at) {
+    while (*at != '\0') {
         const char c = *at;
         script::Array* source = nullptr;
         if (c == '\\' && at[1] == 't' && at[2] <= '9' && at[2] >= '0') {
@@ -508,7 +508,7 @@ int Objective::get_num_flags_to_win()
 {
     int to_win = num_flags_;
     args_->fetch_int_value(kNumFlagsToWin, &to_win, 0);
-    return to_win ? to_win : -1;
+    return (to_win != 0) ? to_win : -1;
 }
 
 // 0x00554A00

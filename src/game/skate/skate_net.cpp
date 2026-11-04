@@ -322,7 +322,7 @@ void SkateNet::add_client_handlers(Skate* skate, net::AppHost* client, int index
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         auto* skater =
             core::down_cast<objects::Rider>(skate->get_rider_at(i));
-        if (!skater || !skater->is_local_skater() || skater->get_skater_number() != index) {
+        if (!skater || (skater->is_local_skater() == 0U) || skater->get_skater_number() != index) {
             continue;
         }
         append_listener(client, online::MessageId::kTrickObjects, &modules::PointTally::on_score_msg, 0, skater);
@@ -420,7 +420,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     if ((goals::game_mode()->is_squad_match() != 0)) { // teams
         int local_team = -1;
         PlayerRecord* local = net->get_own_player();
-        if (local && !local->is_observer() && local->has_finished_joining()) {
+        if (local && (local->is_observer() == 0) && (local->has_finished_joining() != 0)) {
             local_team = local->team();
         }
         params = script::new_struct();
@@ -518,7 +518,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     manager->enter_heap_scope(manager->script_heap());
     gsl::owner<Struct*> params = script::new_struct();
     for (int i = 0; i < skate_net::kGraffitiSkaters; ++i) {
-        if (!core::at(counts, i)) {
+        if (core::at(counts, i) == 0U) {
             continue;
         }
         gsl::owner<Array*> array = script::new_array();
@@ -566,13 +566,13 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         auto* skater = core::down_cast<objects::Rider>(object);
         modules::PointTally* score = nullptr;
         if (!goals::game_mode()->is_true(kShouldModulateColor) && goals::game_mode()->keeps_move_points()) {
-            if (skater->is_local_skater()) { // (a local skater keeps its own)
+            if (skater->is_local_skater() != 0U) { // (a local skater keeps its own)
                 continue;
             }
             score = skater->get_points_total();
         } else {
             score = skater->get_points_total();
-            if (goals::game_mode()->get_name_key() == kNetFirefight && !skater->is_local_skater() &&
+            if (goals::game_mode()->get_name_key() == kNetFirefight && (skater->is_local_skater() == 0U) &&
                 score->get_total_score() > 0 && value == 0) {
                 // Eliminated.
                 if (PlayerRecord* player = find_player_slot_by_obj(object->ident())) {
@@ -720,7 +720,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     net->set_preset_option_bits(static_cast<char>(brief.pro_option_bits));
     // The pro set geometry flags.
     for (int i = 0; i < kProSetGeoFlagCount; ++i) {
-        if (!(static_cast<int>(static_cast<int8_t>(brief.pro_option_bits)) & (1 << i))) {
+        if ((static_cast<int>(static_cast<int8_t>(brief.pro_option_bits)) & (1 << i)) == 0) {
             continue;
         }
         const script::StructPtr flag = script::make_struct();
@@ -766,11 +766,11 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         script::StructPtr goal_params = script::make_struct();
         goal_params->put_int(checksums::Name{kTime}, static_cast<int>(brief.time_limit));
         goal_params->put_int(checksums::Name{kScore}, static_cast<int>(brief.target_score));
-        goal_params->put_int(checksums::Name{kUnlimitedTime}, brief.time_limit == 0);
+        goal_params->put_int(checksums::Name{kUnlimitedTime}, static_cast<int>(brief.time_limit == 0));
         // (the original keeps the script in its argument's slot: with no goal_script, the skate module's address)
         uint32_t script = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         const uint8_t variant = brief.variant;
-        if (!variant) {
+        if (variant == 0U) {
             type->read_hash_value("goal_script", &script, 1);
         } else if (brief.game_type == kNetElimiskate) {
             script = variant == 1 ? kElimiskateInterval : kElimiskateBreak;
@@ -817,7 +817,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
     stream.change_intake_contents(context->body(), online::kObjectUpdateBytes);
     const uint32_t objects = stream.read_bits(8);
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
-        if (!(objects & (1U << i))) {
+        if ((objects & (1U << i)) == 0U) {
             continue;
         }
         auto time = static_cast<uint16_t>(stream.read_bits(online::kObjectUpdateTimeBits));
@@ -833,16 +833,16 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         uint32_t value_6c = 0;
         uint32_t value80 = 0;
         for (int k = 0; k < 3; ++k) {
-            if (fields & (1U << k)) {
+            if ((fields & (1U << k)) != 0U) {
                 core::at(pos, k) = static_cast<int16_t>(stream.read_signed_bits(online::kObjectUpdatePoseBits));
             }
         }
         for (int k = 0; k < 3; ++k) {
-            if (fields & (online::kObjectUpdateAngleFieldBase << k)) {
+            if ((fields & (online::kObjectUpdateAngleFieldBase << k)) != 0U) {
                 core::at(angles, k) = static_cast<float>(static_cast<int16_t>(stream.read_signed_bits(online::kObjectUpdatePoseBits)) * (1.0 / online::kObjectUpdateAngleScale));
             }
         }
-        if (fields & online::kObjectUpdateHasState) {
+        if ((fields & online::kObjectUpdateHasState) != 0U) {
             const uint32_t bits = stream.read_bits(4);
             state = static_cast<uint8_t>(bits & online::kObjectUpdateStateMask);
             flag74 = static_cast<uint8_t>((bits >> online::kObjectUpdateFlag74Shift) & 1); // (always 0: the original's)
@@ -850,16 +850,16 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             flag75 = static_cast<uint8_t>(stream.read_bits(1));
             flag76 = static_cast<uint8_t>(stream.read_bits(1));
         }
-        if (fields & online::kObjectUpdateHasControls) {
+        if ((fields & online::kObjectUpdateHasControls) != 0U) {
             value68 = stream.read_bits(online::kObjectUpdateControlsBits);
             value_6c = stream.read_bits(3);
         }
-        if (fields & online::kObjectUpdateHasWord) {
+        if ((fields & online::kObjectUpdateHasWord) != 0U) {
             value80 = stream.read_bits(online::kObjectUpdateWordBits);
         }
 
         objects::Entity* object = objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(i));
-        if (!object || (context->wire_options() & 3)) {
+        if (!object || ((context->wire_options() & 3) != 0U)) {
             continue;
         }
         auto* skater = core::down_cast<objects::GameEntity>(object);
@@ -888,7 +888,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         const StateEntry& prev = core::at(history->states(), previous);
         StateEntry& cur = core::at(history->states(), history->state_count() % objects::RiderFrameLog::kEntries);
         for (int k = 0; k < 3; ++k) {
-            if (!(fields & (1U << k))) {
+            if ((fields & (1U << k)) == 0U) {
                 core::at(pos, k) = core::at(prev.pos, k);
             }
         }
@@ -899,7 +899,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         const std::array<float, 3> position = {{thugpro::unpack_horizontal(core::at(pos, 0)), thugpro::unpack_height(core::at(pos, 1)),
                                    thugpro::unpack_horizontal(core::at(pos, 2))}};
         for (int k = 0; k < 3; ++k) {
-            if (!(fields & (online::kObjectUpdateAngleFieldBase << k))) {
+            if ((fields & (online::kObjectUpdateAngleFieldBase << k)) == 0U) {
                 core::at(angles, k) = core::at(prev.angles, k);
             }
         }
@@ -910,18 +910,18 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         matrix.set_from_euler_angles(core::at(angles, 0), core::at(angles, 1), core::at(angles, 2));
         cur.matrix = matrix;
         cur.position = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 0.0F};
-        if (!(fields & online::kObjectUpdateHasState)) {
+        if ((fields & online::kObjectUpdateHasState) == 0U) {
             state = static_cast<uint8_t>(prev.state);
             flag74 = prev.flag74;
             value_7c = prev.value_7c_;
             flag75 = prev.flag75;
             flag76 = prev.flag76;
         }
-        if (!(fields & online::kObjectUpdateHasControls)) {
+        if ((fields & online::kObjectUpdateHasControls) == 0U) {
             value68 = prev.value68;
             value_6c = prev.value_6c_;
         }
-        if (!(fields & online::kObjectUpdateHasWord)) {
+        if ((fields & online::kObjectUpdateHasWord) == 0U) {
             value80 = prev.value80;
         }
         cur.value68 = value68;
@@ -1023,14 +1023,14 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal(entry.position[k]);
-        if (flags & (1U << k)) {
+        if ((flags & (1U << k)) != 0U) {
             stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = online::kObjectUpdatePoseBits});
         }
         core::at(core::at(sent->pos_, index), k) = value;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle(core::at(angles, k));
-        if (flags & (online::kObjectUpdateAngleFieldBase << k)) {
+        if ((flags & (online::kObjectUpdateAngleFieldBase << k)) != 0U) {
             stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = online::kObjectUpdatePoseBits});
         }
         core::at(core::at(sent->angles_, index), k) = value;
@@ -1044,8 +1044,10 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     const uint8_t flag74 = entry.flag74;
     const uint8_t flag75 = entry.flag75;
     const uint8_t flag76 = entry.flag76;
-    if (flags & online::kObjectUpdateHasState) {
-        stream.write_bits({.value = signed_byte(flag74 ? static_cast<uint8_t>(state | online::kObjectUpdateFlag74Mask) : state), .count = 4});
+    if ((flags & online::kObjectUpdateHasState) != 0U) {
+        stream.write_bits({.value = signed_byte(
+                               (flag74 != 0U) ? static_cast<uint8_t>(state | online::kObjectUpdateFlag74Mask) : state),
+                           .count = 4});
         stream.write_bits({.value = signed_byte(value_7c), .count = online::kObjectUpdateValue7cBits});
         stream.write_bits({.value = signed_byte(flag75), .count = 1});
         stream.write_bits({.value = signed_byte(flag76), .count = 1});
@@ -1055,13 +1057,13 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
         core::at(sent->flag75_, index) = flag75;
         core::at(sent->flag76_, index) = flag76;
     }
-    if (flags & online::kObjectUpdateHasControls) {
+    if ((flags & online::kObjectUpdateHasControls) != 0U) {
         core::at(sent->value68_, index) = entry.value68;
         core::at(sent->value_6c_, index) = entry.value_6c_;
         stream.write_bits({.value = entry.value68, .count = online::kObjectUpdateControlsBits});
         stream.write_bits({.value = entry.value_6c_, .count = 3});
     }
-    if (flags & online::kObjectUpdateHasWord) {
+    if ((flags & online::kObjectUpdateHasWord) != 0U) {
         core::at(sent->value80_, index) = entry.value80;
         stream.write_bits({.value = entry.value80, .count = online::kObjectUpdateWordBits});
     }
@@ -1073,25 +1075,25 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     util::PackedBitBuffer stream;
     PlayerRecord* player = online::online_hub()->find_player_by_sender(context->sender_conn());
     objects::Entity* object = player ? player_skater(player) : nullptr;
-    if (!object || !(player->conn()->cur_standing() & 1) || (context->wire_options() & 3)) {
+    if (!object || ((player->conn()->cur_standing() & 1) == 0U) || ((context->wire_options() & 3) != 0U)) {
         // Not taken: the message's length worked out from its fields (a 32-bit time stamp, 9 field bits, then 16
         // bits for each position and angle, 12 for the state, 8 for the 0x80 pair, 32 for the last).
         stream.change_intake_contents(context->body(), online::kObjectUpdateBytes);
         stream.read_signed_bits(online::kObjectUpdateClockBits);
         const uint32_t fields = stream.read_bits(online::kObjectUpdateFieldBits);
-        int bits = fields & 1 ? kBitsWithTime : kBitsWithoutTime;
+        int bits = ((fields & 1) != 0U) ? kBitsWithTime : kBitsWithoutTime;
         for (const uint32_t bit : {2U, 4U, 8U, 0x10U, 0x20U}) {
-            if (fields & bit) {
+            if ((fields & bit) != 0U) {
                 bits += online::kObjectUpdatePoseBits;
             }
         }
-        if (fields & online::kObjectUpdateHasState) {
+        if ((fields & online::kObjectUpdateHasState) != 0U) {
             bits += kStateFieldBits;
         }
-        if (fields & online::kObjectUpdateHasControls) {
+        if ((fields & online::kObjectUpdateHasControls) != 0U) {
             bits += online::kObjectUpdateControlsFieldBits;
         }
-        if (fields & online::kObjectUpdateHasWord) {
+        if ((fields & online::kObjectUpdateHasWord) != 0U) {
             bits += online::kObjectUpdateWordBits;
         }
         context->set_body_size(static_cast<uint32_t>((bits + kRoundUpToByte) >> 3));
@@ -1130,16 +1132,16 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     const uint32_t time = stream.read_bits(32);
     const uint32_t fields = stream.read_bits(online::kObjectUpdateFieldBits);
     for (int k = 0; k < 3; ++k) {
-        if (fields & (1U << k)) {
+        if ((fields & (1U << k)) != 0U) {
             core::at(pos, k) = static_cast<int16_t>(stream.read_signed_bits(online::kObjectUpdatePoseBits));
         }
     }
     for (int k = 0; k < 3; ++k) {
-        if (fields & (online::kObjectUpdateAngleFieldBase << k)) {
+        if ((fields & (online::kObjectUpdateAngleFieldBase << k)) != 0U) {
             core::at(angles, k) = static_cast<float>(static_cast<int16_t>(stream.read_signed_bits(online::kObjectUpdatePoseBits)) * (1.0 / online::kObjectUpdateAngleScale));
         }
     }
-    if (fields & online::kObjectUpdateHasState) {
+    if ((fields & online::kObjectUpdateHasState) != 0U) {
         const uint32_t bits = stream.read_bits(4);
         state = static_cast<uint8_t>(bits & online::kObjectUpdateStateMask);
         flag74 = static_cast<uint8_t>((bits >> online::kObjectUpdateFlag74Shift) & 1); // (always 0: the original's)
@@ -1147,11 +1149,11 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
         flag75 = static_cast<uint8_t>(stream.read_bits(1));
         flag76 = static_cast<uint8_t>(stream.read_bits(1));
     }
-    if (fields & online::kObjectUpdateHasControls) {
+    if ((fields & online::kObjectUpdateHasControls) != 0U) {
         value68 = stream.read_bits(online::kObjectUpdateControlsBits);
         value_6c = stream.read_bits(3);
     }
-    if (fields & online::kObjectUpdateHasWord) {
+    if ((fields & online::kObjectUpdateHasWord) != 0U) {
         value80 = stream.read_bits(online::kObjectUpdateWordBits);
     }
     context->set_body_size(static_cast<uint32_t>(stream.get_byte_count()));

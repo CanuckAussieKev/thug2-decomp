@@ -106,7 +106,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
     origin.z = static_cast<float>((((meta->cell_footprint().l * kHalf) + pos.z) * kGridStepAlong) -
                                   (static_cast<double>(kGridStepAlong) * kGridCells * kHalf));
     origin.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
-    if (meta->flag_bits() & PieceGroup::kRiserBelow) {
+    if ((meta->flag_bits() & PieceGroup::kRiserBelow) != 0U) {
         origin.y = static_cast<float>(static_cast<double>(origin.y) - kRiserBelowDrop);
     }
     origin.w = 1.0F; // (the original leaves w as it was on the stack)
@@ -132,7 +132,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
             break;
         }
     }
-    if (!(meta->flag_bits() & PieceGroup::kFence) && !(meta->flag_bits() & PieceGroup::kBuiltShell)) {
+    if (((meta->flag_bits() & PieceGroup::kFence) == 0U) && ((meta->flag_bits() & PieceGroup::kBuiltShell) == 0U)) {
         flag_bits_ &= ~(kMapUpToDate | kMapSaved);
     }
     add_piece_cost(meta);
@@ -146,7 +146,7 @@ uint32_t ParkLayout::free_piece_groups_in_region(CellBox area, uint32_t flags)
     MapListNode* list = get_intersecting_metas(area, 0, nullptr, (flags >> 1) & kPieceKindMask);
     if (list) {
         for (MapListNode* node = list; node; node = node->following()) {
-            if ((flags & 4) && (node->get_placed_piece()->flag_bits() & PieceGroup::kFlag20)) {
+            if (((flags & 4) != 0U) && ((node->get_placed_piece()->flag_bits() & PieceGroup::kFlag20) != 0U)) {
                 continue;
             }
             ++metas;
@@ -165,7 +165,7 @@ void ParkLayout::highlight_metas_within_area(CellBox area, int on)
     const MapListHolder metas(collect_pieces_in_region(area));
     for (MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group();
-        if (meta && (meta->flag_bits() & PieceGroup::kFlag1) && meta->fits_inside_region(&area)) {
+        if (meta && ((meta->flag_bits() & PieceGroup::kFlag1) != 0U) && meta->fits_inside_region(&area)) {
             node->get_placed_piece()->spotlight(on, 0);
         }
     }
@@ -174,7 +174,7 @@ void ParkLayout::highlight_metas_within_area(CellBox area, int on)
 // 0x0059AE90
 void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
 {
-    if (meta->flag_bits() & PieceGroup::kCursor) {
+    if ((meta->flag_bits() & PieceGroup::kCursor) != 0U) {
         return;
     }
     if (BuildPointer* cursor = BuildPointer::sole()) {
@@ -187,12 +187,12 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
     }
     // A change to the park the player made: the compressed map is out of date.
     const uint32_t meta_flags = meta->flag_bits();
-    if (!(meta_flags & PieceGroup::kFence) && (meta_flags & PieceGroup::kInPark) &&
-        !(meta_flags & PieceGroup::kBuiltShell)) {
+    if (((meta_flags & PieceGroup::kFence) == 0U) && ((meta_flags & PieceGroup::kInPark) != 0U) &&
+        ((meta_flags & PieceGroup::kBuiltShell) == 0U)) {
         flag_bits_ &= ~(kMapUpToDate | kMapSaved);
     }
     // What stands on it goes too.
-    if (!(meta->flag_bits() & PieceGroup::kBuiltShell) && (flags & 1)) {
+    if (((meta->flag_bits() & PieceGroup::kBuiltShell) == 0U) && ((flags & 1) != 0U)) {
         CellBox above = meta->cell_footprint();
         above.y = static_cast<int8_t>(above.h + above.y);
         above.stretch_vertically();
@@ -229,7 +229,7 @@ void ParkLayout::destroy_concrete_metas(int keep_rails)
     builder_->destroy_pieces(keep_rails);
     builder_->clear_restarts();
     park_editing_state().set_collision_allowed(true);
-    if (keep_rails) {
+    if (keep_rails != 0) {
         builder_->rebuild_collision();
     }
 }
@@ -276,7 +276,7 @@ void ParkLayout::teardown(int keep_rails)
     if (!park_built_) {
         return;
     }
-    if (!(flag_bits_ & (kMapUpToDate | kMapSaved))) {
+    if ((flag_bits_ & (kMapUpToDate | kMapSaved)) == 0U) {
         write_compressed_map();
     }
     gap_registry_->clear_gap_entries();

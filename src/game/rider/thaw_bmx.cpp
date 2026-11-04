@@ -207,7 +207,7 @@ void get_forget(const SkaterPhysicsModule* core) { get_states().erase(core); }
 bool on_bike(const SkaterPhysicsModule* core)
 {
     const BikeState* state = core ? state_of(core, false) : nullptr;
-    return state && state->on;
+    return (state != nullptr) && state->on;
 }
 
 uint32_t bike_skater_script(ScriptNames script_names, bool bike_script_loaded)
@@ -333,7 +333,7 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
     static const uint32_t kSteerAnim = name_hash("ThawBmxSteerAnim");
     static const uint32_t kOffFlag = name_hash("off");
     if (name == kSteerAnim) { // (ours: `on` / `off`)
-        set_steer_anim(core, !(params && params->has_bare_flag(kOffFlag)));
+        set_steer_anim(core, !((params != nullptr) && params->has_bare_flag(kOffFlag)));
         return 1;
     }
     // (the rest read or change the state; one is made on first use)
@@ -468,7 +468,8 @@ void tick_frame(modules::FrontEnd* front_end)
         get_log("thaw_bmx: no level with the bike's d-pad camera on - the stick moves through the menus again");
     }
     const platform::KeyState keys = platform::keyboard_keys();
-    const bool down = !keys.empty() && thaw_bmx_state().key_ > 0 && thaw_bmx_state().key_ < SDL_NUM_SCANCODES && core::at(keys, thaw_bmx_state().key_);
+    const bool down = !keys.empty() && thaw_bmx_state().key_ > 0 && thaw_bmx_state().key_ < SDL_NUM_SCANCODES &&
+                      (core::at(keys, thaw_bmx_state().key_) != 0U);
     const bool pressed = down && thaw_bmx_state().key_up_;
     thaw_bmx_state().key_up_ = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||

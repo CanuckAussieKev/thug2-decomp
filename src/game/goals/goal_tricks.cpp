@@ -102,11 +102,11 @@ int Objective::pick_key_combo(script::Array* combos)
     };
     uint32_t trick = 0;
     int picked = 0;
-    for (int tries = kPickTries; tries; --tries) {
+    for (int tries = kPickTries; tries != 0; --tries) {
         picked = maths::rnd(static_cast<int>(count));
         combo_at(static_cast<uint32_t>(picked));
         mapping->read_hash_value(combo, &trick, 0);
-        if (trick) {
+        if (trick != 0U) {
             return picked;
         }
         int slot = 0;
@@ -118,7 +118,7 @@ int Objective::pick_key_combo(script::Array* combos)
     // Then each in turn (one with a trick returns the last random pick, as the original).
     for (uint32_t i = 0; i < count; ++i) {
         mapping->read_hash_value(combo_at(i), &trick, 0);
-        if (trick) {
+        if (trick != 0U) {
             return picked;
         }
         trick = 0;

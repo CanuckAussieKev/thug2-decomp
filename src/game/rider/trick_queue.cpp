@@ -111,7 +111,7 @@ bool pressed_within(MoveExecutor* self, uint32_t button, int ms, int ignore)
 // SkaterFlipAndRotate's do_after_anim (before a trick's script starts).
 void prepare_flip_and_rotate(MoveExecutor* self) { self->flip_rotate()->do_after_anim(); }
 // The state component told a trick started.
-void trick_started(MoveExecutor* self) { self->skater_state()->set_in_trick_move(true); }
+void trick_started(MoveExecutor* self) { self->skater_state()->set_in_trick_move(1U); }
 
 script::Script* object_script(MoveExecutor* self) { return self->entity()->own_script(); }
 
@@ -131,11 +131,11 @@ script::Struct* mapped_trick(MoveExecutor* self, script::Struct* trick)
 {
     uint32_t slot = 0;
     trick->read_hash_value(kTrickSlot, &slot, 0);
-    if (!slot) {
+    if (slot == 0U) {
         return nullptr;
     }
     const uint32_t mapped = self->mapped_slot(slot);
-    if (!mapped) {
+    if (mapped == 0U) {
         return nullptr;
     }
     return script::read_sub_struct(mapped);
@@ -211,7 +211,8 @@ void MoveExecutor::update_buttons()
 {
     const uint32_t mask = input_->events();
     auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
-    const int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
+    const int direction = d_pad_direction(static_cast<uint8_t>(bit(6)), static_cast<uint8_t>(bit(7)),
+                                          static_cast<uint8_t>(bit(5)), static_cast<uint8_t>(bit(4)));
     for (int i = 1; i <= kDirections; ++i) {
         set_button(this, i, direction == i);
     }
@@ -270,7 +271,7 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
     int duration = kDefaultSqueezeDuration;
     params->read_hash_value(0U, &button, 0);
     params->fetch_int_value("dur", &duration, 0);
-    if (!button) {
+    if (button == 0U) {
         return 0;
     }
     return pressed_within(this, button, duration, -1) ? 1 : 0;
@@ -280,7 +281,7 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::Script* script) const
 {
     const uint32_t endpose = bail_endpose_;
-    script->args()->put_name_key(checksums::Name{kCurrentBailEndpose}, endpose ? endpose : kNone);
+    script->args()->put_name_key(checksums::Name{kCurrentBailEndpose}, (endpose != 0U) ? endpose : kNone);
     return 1;
 }
 
@@ -341,7 +342,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     trick->read_hash_value(kScr, &script, 0);
     if (script == kGrind) {
         const GrindPoint* rail = core_physics_->rail_node();
-        if (!rail || !rail->label()) {
+        if (!rail || (rail->label() == 0U)) {
             return false;
         }
     }
@@ -349,7 +350,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     if (trick->read_sub_struct(kParams, &params, 0) && !params->has_entry_named(kIsExtra)) {
         stats_manager_->total_of(script);
     }
-    if (!script) {
+    if (script == 0U) {
         return false;
     }
     ++busy_;
@@ -361,7 +362,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     prepare_flip_and_rotate(this);
     Entity* object = entity();
     object->replace_script(script, trick_params);
-    if (flag) {
+    if (flag != 0U) {
         object->own_script()->args()->put_name_key(checksums::Name{0U}, flag);
     }
     object->own_script()->args()->append_structure_if_any(extra_params);
@@ -377,7 +378,7 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
 {
     auto* const params = trick_params_in.params;
     auto* const trick_params = trick_params_in.trick_params_;
-    skater_state_->set_in_trick_move(false);
+    skater_state_->set_in_trick_move(0U);
     starting_special_ = false;
     int& head = queue_first_;
     int& tail = queue_last_;
@@ -400,14 +401,14 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
                 head = 0;
             }
         }
-        if (array) {
+        if (array != 0U) {
             break;
         }
         if (head == -1) {
             return;
         }
     }
-    if (first) {
+    if (first != 0U) {
         entity()->create_script_if_needed();
         entity()->own_script()->preempt(first, params);
     }
@@ -417,7 +418,7 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
     }
     uint32_t slot = 0;
     trick->read_hash_value(kTrickSlot, &slot, 0);
-    if (!slot) {
+    if (slot == 0U) {
         return;
     }
     script::Struct* mappings = trick_lists_;
@@ -439,7 +440,7 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
     }
     uint32_t mapped = 0;
     mappings->read_hash_value(slot, &mapped, 0);
-    if (!mapped) {
+    if (mapped == 0U) {
         return;
     }
     script::Struct* structure = script::read_sub_struct(mapped);
@@ -462,7 +463,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
         return;
     }
     manual_.pending_ = false;
-    if (first) {
+    if (first != 0U) {
         script::Struct copy;
         copy.init_copy(params);
         entity()->create_script_if_needed();
@@ -480,7 +481,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     }
     uint32_t script = 0;
     trick->read_hash_value(kScr, &script, 0);
-    if (!script) {
+    if (script == 0U) {
         return;
     }
     prepare_flip_and_rotate(this);
@@ -557,7 +558,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
 void MoveExecutor::update_manual_tricks()
 {
     const uint32_t special = manual_.special_;
-    if (special && score_->special_active()) {
+    if ((special != 0U) && score_->special_active()) {
         check_manual_tricks(this, special, -kTriggerLookback, true);
         if (manual_.pending_) {
             return;
@@ -602,7 +603,7 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
 void MoveExecutor::update_extra_grind_tricks()
 {
     const uint32_t special = grind_.special_;
-    if (special && score_->special_active()) {
+    if ((special != 0U) && score_->special_active()) {
         check_extra_grind_tricks(special, true);
     }
     for (int i = 0; i < grind_.count_; ++i) {
@@ -647,7 +648,7 @@ bool MoveExecutor::try_extra_tricks(ExtraTrickCall extra_call)
     }
     const int count = static_cast<int>(tricks->extent());
     for (int i = 0; i < count; ++i) {
-        if (skip & (1U << i)) {
+        if ((skip & (1U << i)) != 0U) {
             continue;
         }
         auto* trick = tricks->struct_at(i);
@@ -663,10 +664,10 @@ bool MoveExecutor::try_extra_tricks(ExtraTrickCall extra_call)
             } else {
                 uint32_t slot = 0;
                 trick->read_hash_value(kTrickSlot, &slot, 0);
-                if (slot) {
+                if (slot != 0U) {
                     uint32_t mapped = 0;
                     trick_lists_->read_hash_value(slot, &mapped, 0);
-                    if (mapped) {
+                    if (mapped != 0U) {
                         script::Struct* structure = script::read_sub_struct(mapped);
                         if (structure && try_trick(structure, kIsExtra, nullptr)) {
                             started = true;
@@ -771,7 +772,7 @@ void MoveExecutor::update_bash()
         if (!(get_bash_speed() > kMashedFastEnough)) {
             return;
         }
-        if (static_cast<uint32_t>(skater_state_->physics_mode())) {
+        if (static_cast<uint32_t>(skater_state_->physics_mode()) != 0U) {
             float one = 0.0F;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
@@ -779,7 +780,7 @@ void MoveExecutor::update_bash()
             return;
         }
         script::launch_script(kTantrumOff, nullptr, entity(), false, nullptr);
-        if (bail_endpose_ && !quick_getup_done_) {
+        if ((bail_endpose_ != 0U) && !quick_getup_done_) {
             debug::printf(
                 "ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
             quick_getup_done_ = true;
@@ -796,7 +797,7 @@ void MoveExecutor::update_bash()
 // 0x005231D0
 void MoveExecutor::tick_frame()
 {
-    if (!entity()->is_local_skater()) {
+    if (entity()->is_local_skater() == 0U) {
         hold_off(true);
         return;
     }

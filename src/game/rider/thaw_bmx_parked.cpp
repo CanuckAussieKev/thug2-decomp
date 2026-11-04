@@ -87,7 +87,7 @@ bool get_hit(Point from, Point to, Point* at)
     render::ProbeRay* feeler = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!feeler->get_collision_along(&start, &end, false)) {
+    if (feeler->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     if (at) {
@@ -123,7 +123,7 @@ Kickoff find_start_spot(Point pos, float heading)
 script::Struct* level_params_ref()
 {
     const uint32_t name = modules::Skate::sole()->level_params();
-    return name ? script::read_sub_struct(name) : nullptr;
+    return (name != 0U) ? script::read_sub_struct(name) : nullptr;
 }
 
 // THAW's place for the current level (thaw_bmx_home_bikes, by the level structure's `level`).
@@ -234,7 +234,8 @@ bool cfunc_bike_reachable(script::Struct* params, script::Script* /*script*/)
 {
     const objects::Rider* skater = local_skater();
     const objects::GameEntity* bike = object_of(params);
-    return skater && bike && get_clear(point_of(skater->at_point()), point_of(bike->at_point()));
+    return (skater != nullptr) && (bike != nullptr) &&
+           get_clear(point_of(skater->at_point()), point_of(bike->at_point()));
 }
 
 void launch_script(const char* name)
@@ -322,7 +323,7 @@ void update_parked(modules::FrontEnd* front_end)
     }
     const objects::Rider* skater = local_skater();
     const uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params() : 0;
-    if (!skater || !structure || render::current_level() == 0) {
+    if (!skater || (structure == 0U) || render::current_level() == 0) {
         stage_map().frames = 0;
         return;
     }

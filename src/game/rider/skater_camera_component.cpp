@@ -71,8 +71,8 @@ constexpr float kZoomedHeight = 3.0F;             // 0x006467A8
 // In vert air: the state's +0x30 on, +0x48 and +0x78 off.
 bool vert_air(const objects::RiderPoseState* state)
 {
-    return state->flag(PoseFlag::kVertAir).on && !state->flag(PoseFlag::kLeftVert).on &&
-           !state->flag(PoseFlag::kAcidDrop).on;
+    return (state->flag(PoseFlag::kVertAir).on != 0U) && (state->flag(PoseFlag::kLeftVert).on == 0U) &&
+           (state->flag(PoseFlag::kAcidDrop).on == 0U);
 }
 
 } // namespace
@@ -162,10 +162,10 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
             static_cast<float>(frame_blend(static_cast<float>(lerp_xz_ * static_cast<double>(rate_scale_)), seconds));
         up = frame_blend(static_cast<float>(lerp_y_ * static_cast<double>(rate_scale_)), seconds);
         state = state_ref_;
-        if (state->flag(PoseFlag::kGroundSnapped).on) {
+        if (state->flag(PoseFlag::kGroundSnapped).on != 0U) {
             up = 1.0;
         }
-        if (state->flag(PoseFlag::kWallplanted).on) {
+        if (state->flag(PoseFlag::kWallplanted).on != 0U) {
             snap = true;
         }
     }
@@ -194,13 +194,13 @@ RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
     }
     zoom_target_ = 1.0F;
     const objects::RiderPoseState* state = state_ref_;
-    if (!vert_zoom_on_ && vert_air(state) && state->in_trick_move()) {
+    if ((vert_zoom_on_ == 0U) && vert_air(state) && (state->in_trick_move() != 0U)) {
         vert_zoom_on_ = 1;
     } else if (!vert_air(state_ref_)) {
         vert_zoom_on_ = 0;
     }
     state = state_ref_;
-    if (vert_zoom_on_) {
+    if (vert_zoom_on_ != 0U) {
         zoom_target_ = big_air_trick_zoom_;
     } else if (state->cur_phase() == 4) {
         zoom_target_ = rail_zoom_factor_;

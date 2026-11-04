@@ -134,7 +134,7 @@ int total_score(void* score) { return static_cast<modules::PointTally*>(score)->
 Objective* root_of(void* manager, GoalEdge* parents)
 {
     Objective* root = nullptr;
-    for (const GoalEdge* link = parents; link && link->objective_key_; link = root->parents()) {
+    for (const GoalEdge* link = parents; link && (link->objective_key_ != 0U); link = root->parents()) {
         root = get_goal(manager, link->objective_key_, 1);
     }
     return root;
@@ -235,7 +235,7 @@ void Objective::prepare_all()
     flag_bits_ |= Objective::Flags::kInitialized;
     int unlimited = 0;
     args_->fetch_int_value(kUnlimitedTime, &unlimited, 0);
-    if (unlimited) {
+    if (unlimited != 0) {
         cur_phase_ |= Objective::State::kNoTimeLimit;
     }
     if (args_->has_entry_named(kDontDeactivateOnExpiry)) {
@@ -264,9 +264,9 @@ bool Objective::activate()
         }
     }
     // A child goal: the timer passed down (single_timer: its root's, in whole seconds), the root's state for it.
-    Objective* root = parents_->objective_key_ ? root_of(manager, parents_) : nullptr;
+    Objective* root = (parents_->objective_key_ != 0U) ? root_of(manager, parents_) : nullptr;
     if (root) {
-        if (inherited_ & 2) {
+        if ((inherited_ & 2) != 0U) {
             seconds_remaining_ =
                 truncate(root->seconds_remaining_ * static_cast<double>(kGoalLifeSecondsPerMillisecond)) * kMillisecondsPerSecond;
         } else {
@@ -323,7 +323,7 @@ bool Objective::disengage(bool /*unused*/, bool reset_tree)
     }
     if (!args_->has_bare_flag(kJustWonGoal) && !args_->has_bare_flag(kQuickStart)) {
         script::launch_script(kReadySkaterForEarlyEnd, args_.get(), nullptr, false, nullptr);
-        if (reset_tree && parents_ && parents_->objective_key_) {
+        if (reset_tree && parents_ && (parents_->objective_key_ != 0U)) {
             uninitialize(false, 0);
             void* manager = objective_board();
             Objective* root = root_of(manager, parents_);
@@ -341,7 +341,7 @@ bool Objective::get_win()
 {
     args_->put_int(checksums::Name{kWinRecord}, 0);
     GoalEdge* children = sub_nodes_;
-    if (children->objective_key_) {
+    if (children->objective_key_ != 0U) {
         // A goal of stages: the next one started.
         void* manager = objective_board();
         disengage(false, true);
@@ -513,7 +513,7 @@ void Objective::open_up_prize_objectives()
     const int count = static_cast<int>(goals->extent());
     for (int i = 0; i < count; ++i) {
         const uint32_t id = goals->fetch_part(static_cast<uint32_t>(i));
-        if (id) {
+        if (id != 0U) {
             open_up_objective(manager, id);
         }
     }
@@ -551,7 +551,7 @@ bool Objective::set_flag(checksums::Name flag_name, int value, checksums::Name s
         return false;
     }
     script::Struct* flags = goal_flags_;
-    if (sub) {
+    if (sub != 0U) {
         goal_flags_->read_sub_struct(sub, &flags, 1);
     }
     bool changed = false;
@@ -561,7 +561,7 @@ bool Objective::set_flag(checksums::Name flag_name, int value, checksums::Name s
         flags->put_int(checksums::Name{flag}, value);
         if (old != value) {
             bool counted = false;
-            if (sub) {
+            if (sub != 0U) {
                 int set = 0;
                 flags->fetch_int_value(kNumFlagsSet, &set, 1);
                 counted = value != 0;
@@ -591,7 +591,7 @@ bool Objective::set_flag(checksums::Name flag_name, int value, checksums::Name s
         void* goals = objective_board();
         const uint32_t id = get_objective_key();
         complete_objective(goals, id);
-    } else if (!sub && args_->has_bare_flag(kGaps) && !args_->has_bare_flag(kNoGapMessages)) {
+    } else if ((sub == 0U) && args_->has_bare_flag(kGaps) && !args_->has_bare_flag(kNoGapMessages)) {
         const script::StructPtr params = script::make_struct();
         params->append_structure_if_any(args_.get());
         script::launch_script(kGoalGapsGotGap, params.get(), nullptr, false, nullptr);
@@ -646,7 +646,7 @@ bool Objective::all_skaters_run_done() const
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
         if (active_ruleset_label() == kHorse &&
-            (core::down_cast<objects::Rider>(skater)->is_halted() || (skater->composite_flags() >> 2) & 1)) {
+            (core::down_cast<objects::Rider>(skater)->is_halted() || (((skater->composite_flags() >> 2) & 1) != 0U))) {
             continue;
         }
         bool done = false;

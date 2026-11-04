@@ -70,10 +70,13 @@ void launch_event(void* tracker, uint32_t type, uint32_t target, uint32_t source
 // 0x004A94A0 their scale, 0x004AF8C0 a text element's text).
 void fetch_part(void* /*manager*/, frontend::ElementPtr* out, uint32_t id) { frontend::UiTree::fetch_part(out, id, 1); }
 maths::Vec2 fetch_location(const frontend::UiWidget* element) { return element->fetch_location(); }
-void change_location(frontend::UiWidget* element, float x, float y, int flag) { element->change_location(x, y, flag); }
+void change_location(frontend::UiWidget* element, float x, float y, int flag)
+{
+    element->change_location(x, y, flag != 0);
+}
 void change_scale(frontend::UiWidget* element, float x, float y, int a, int b)
 {
-    element->change_scale(x, y, a != 0, b);
+    element->change_scale(x, y, a != 0, b != 0);
 }
 void change_caption(frontend::UiWidget* element, const char* text)
 {
@@ -137,7 +140,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
             } else {
                 // (an entry with no metapiece is read through a null pointer, as in the original)
                 PieceGroup* meta = park_owner_->find_piece_template(checksum);
-                if (meta->flag_bits() & PieceGroup::kSector) {
+                if ((meta->flag_bits() & PieceGroup::kSector) != 0U) {
                     params.put_name_key(checksums::Name{kSector}, checksum);
                     launch_script(kMakePieceMenuItem, &params);
                 } else {

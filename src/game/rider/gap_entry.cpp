@@ -224,7 +224,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         *require |= bit << kRequireShift;
     };
     const objects::RiderPoseState* state = state_of(physics_control_);
-    if (state->in_vehicle()) {
+    if (state->in_vehicle() != 0U) {
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
@@ -262,7 +262,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
     switch (core_state->cur_phase()) {
     case 0: { // the ground: plain (+0x90 and the balance trick's two clear) or a manual
         const bool balancing = balance_trick_->trick() != 0 || balance_trick_->started();
-        if (!core_state->flag(PoseFlag::kCancelGround).on && !balancing) {
+        if ((core_state->flag(PoseFlag::kCancelGround).on == 0U) && !balancing) {
             set(kGapGround);
         }
         if (balancing) {
@@ -298,10 +298,10 @@ void RiderGapTracker::scan_for_gaps(GapMasks gap_masks)
     for (auto* gap = get_first<TrickListEntry>(gaps_); gap;) {
         TrickListEntry* next = get_next(gap);
         gap_option_labels(gap) &= ~require;
-        if (gap_option_labels(gap) & cancel) {
+        if ((gap_option_labels(gap) & cancel) != 0U) {
             if (const uint32_t script = gap_trick_script(gap)) {
                 for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
-                    if (!trick_done(trick) && trick_gap_id(trick) == get_gap_id(gap) &&
+                    if ((trick_done(trick) == 0U) && trick_gap_id(trick) == get_gap_id(gap) &&
                         get_trick_script(trick) == script && trick_node(trick) == gap_node(gap)) {
                         erase_one(trick);
                         break;
@@ -346,7 +346,7 @@ void RiderGapTracker::check_gap_tricks(script::Struct* /*params*/)
 {
     for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;) {
         TrickNameEntry* next = get_next(trick);
-        if (trick_done(trick)) {
+        if (trick_done(trick) != 0U) {
             entity()->start_script_task(get_trick_script(trick), trick_node(trick), false, false, nullptr);
         }
         trick = next;
@@ -369,7 +369,7 @@ void RiderGapTracker::clear_gap_tricks(script::Struct* params)
 // 0x00512360
 void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 {
-    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on) {
+    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on != 0U) {
         return;
     }
     uint32_t gap_id = 0;
@@ -448,12 +448,13 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     }
     if (params->has_bare_flag(kCarGap)) {
         gap_option_labels(gap) |= kGapSkating | kGapWalking;
-    } else if (!params->has_bare_flag(kNotOnlyCar) && !(gap_option_labels(gap) & (kGapSkating | kGapWalking))) {
+    } else if (!params->has_bare_flag(kNotOnlyCar) && ((gap_option_labels(gap) & (kGapSkating | kGapWalking)) == 0U)) {
         gap_option_labels(gap) |= kGapDriving;
     }
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
-    const bool driving_matters = state_of(physics_control_)->in_vehicle() && (gap_option_labels(gap) & kGapDriving);
+    const bool driving_matters =
+        (state_of(physics_control_)->in_vehicle() != 0U) && ((gap_option_labels(gap) & kGapDriving) != 0U);
     if (!driving_matters && park_editing::ParkBuilderMode::sole()->editor_state() == kOff) {
         return;
     }
@@ -466,7 +467,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 // 0x00512770
 void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
 {
-    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on) {
+    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on != 0U) {
         return;
     }
     uint32_t gap_id = 0;
@@ -480,7 +481,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
             continue;
         }
         // Failed: a required state never seen, or not landed perfectly when that's required.
-        if (gap_option_labels(gap) & kGapRequired) {
+        if ((gap_option_labels(gap) & kGapRequired) != 0U) {
             erase_one(gap);
             gap = next;
             continue;
@@ -511,18 +512,18 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         text::format_to(coloured, "\\c1%s\\c0", text);
 
         // Its gap trick done: no trick needed, or the trick was done since the gap started.
-        if (gap_trick_script(gap)) {
+        if (gap_trick_script(gap) != 0U) {
             bool done = false;
-            if (!gap_key_combo(gap) && !gap_trick_text(gap) && gap->element_list()->extent() == 0) {
+            if ((gap_key_combo(gap) == 0U) && (gap_trick_text(gap) == 0U) && gap->element_list()->extent() == 0) {
                 done = true;
             } else {
                 done = false;
-                if ((gap_key_combo(gap) &&
+                if (((gap_key_combo(gap) != 0U) &&
                      gap_trick_count(gap) < key_combo_count(points_held_, gap_key_combo(gap), gap_spin(gap),
-                                                            gap_perfect(gap), gap_taps(gap))) ||
-                    (gap_trick_text(gap) &&
+                                                            static_cast<uint32_t>(gap_perfect(gap)), gap_taps(gap))) ||
+                    ((gap_trick_text(gap) != 0U) &&
                      gap_trick_count(gap) < get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap),
-                                                            gap_perfect(gap), gap_taps(gap))) ||
+                                                            static_cast<uint32_t>(gap_perfect(gap)), gap_taps(gap))) ||
                     (gap->element_list()->extent() > 0 &&
                      tricks_array_count(points_held_, gap->element_list(), gap_tricks_count(gap)) > 0)) {
                     done = true;
@@ -539,7 +540,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         }
         gap_tally_ref()->set_gap_positions(text, {.pos = gap_start_pos(gap), .dir = gap_start_dir(gap)});
         int points = 0;
-        if (params->fetch_int_value(kScore, &points, 0) && entity()->is_local_skater()) {
+        if (params->fetch_int_value(kScore, &points, 0) && (entity()->is_local_skater() != 0U)) {
             add_gap_score(points_held_, coloured.data(), points, kGapScoreKind);
             core::down_cast<MoveExecutor>(entity()->fetch_module(kTrick))->set_bailed(true);
             gap_tally_ref()->register_gap_hit(text);
@@ -574,7 +575,7 @@ int RiderGapTracker::invoke_method_by_name(uint32_t name, script::Struct* params
     switch (name) {
     case kDuplicateTrigger: {
         const int node = script->list_link();
-        if (!node) {
+        if (node == 0) {
             return 1;
         }
         const int links = static_cast<int>(level_nodes::get_link_count(static_cast<uint32_t>(node)));

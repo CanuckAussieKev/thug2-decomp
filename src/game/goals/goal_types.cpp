@@ -130,15 +130,15 @@ void ContestObjective::restore_save_block(script::Struct* data)
     // (the first value's local is the argument's slot: a missing gotBronze leaves the pointer - set)
     int got = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
     data->fetch_int_value(kGotBronze, &got, 0);
-    if (got) {
+    if (got != 0) {
         has_third_place_ = true;
     }
     data->fetch_int_value(kGotSilver, &got, 0);
-    if (got) {
+    if (got != 0) {
         has_third_place_ = true; // (the original sets gotBronze for each medal)
     }
     data->fetch_int_value(kGotGold, &got, 0);
-    if (got) {
+    if (got != 0) {
         has_third_place_ = true;
     }
     int given = 0; // (the original's local is left as it was when reward_given is missing)
@@ -274,7 +274,7 @@ bool ShootVideoObjective::target_in_view()
         centre[i] = centre[i] + object->at_point()[i];
     }
     // (0x0048C490: the sphere hidden from the camera)
-    if (render::engine::sphere_visible_in_one_viewport(&centre, kSphereRadius)) {
+    if (render::engine::sphere_visible_in_one_viewport(&centre, kSphereRadius) != 0) {
         return false;
     }
     auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
@@ -312,7 +312,7 @@ bool ShootVideoObjective::tick_frame()
         }
         return Objective::tick_frame();
     }
-    if (checkpoints_ && checkpoints_passed_ >= checkpoints_) {
+    if ((checkpoints_ != 0) && checkpoints_passed_ >= checkpoints_) {
         void* manager = objective_board();
         return complete_objective(manager, get_objective_key());
     }

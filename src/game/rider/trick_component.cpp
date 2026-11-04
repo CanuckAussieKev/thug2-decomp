@@ -136,7 +136,7 @@ int compare_no_case(const char* a, const char* b)
         if (y >= 'A' && y <= 'Z') {
             y += 'a' - 'A';
         }
-        if (x != y || !x) {
+        if (x != y || (x == 0)) {
             return x - y;
         }
     }
@@ -495,7 +495,8 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
     if (set_map) {
         flag_spent(kAllBitsSet);
         // (the original hands its own three stack arguments over as the map)
-        const std::array<uint32_t, 3> map = {{button, twice, set_map}};
+        const std::array<uint32_t, 3> map = {
+            {button, static_cast<unsigned int>(twice), static_cast<unsigned int>(set_map)}};
         set_button_map(map);
     }
     return true;
@@ -611,7 +612,7 @@ bool MoveExecutor::is_trick_entry(script::Struct* trick)
     }
     uint32_t structure = 0;
     trick_lists_->read_hash_value(name, &structure, 0);
-    if (structure) {
+    if (structure != 0U) {
         return script::read_sub_struct(structure) != nullptr;
     }
     int value = 0;
@@ -625,7 +626,7 @@ bool MoveExecutor::trick_named(script::Struct* trick, const char* name)
     if (trick->read_hash_value(kTrickSlot, &alias, 0)) {
         uint32_t structure = 0;
         trick_lists_->read_hash_value(alias, &structure, 0);
-        if (structure) {
+        if (structure != 0U) {
             trick = script::read_sub_struct(structure);
             if (!trick) {
                 return false;
@@ -639,7 +640,7 @@ bool MoveExecutor::trick_named(script::Struct* trick, const char* name)
     }
     const char* trick_name = nullptr;
     params->fetch_text(kName, &trick_name, 0);
-    return trick_name && compare_no_case(trick_name, name) == 0;
+    return (trick_name != nullptr) && compare_no_case(trick_name, name) == 0;
 }
 
 // 0x0051F010
@@ -1256,7 +1257,7 @@ void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
 // 0x00521A10
 void MoveExecutor::queue_all_done_tricks()
 {
-    if (manual_list_ && score_->special_active()) {
+    if ((manual_list_ != 0U) && score_->special_active()) {
         queue_done_tricks(manual_list_, true, list_used_);
     }
     for (int i = 0; i < extra_list_count_; ++i) {

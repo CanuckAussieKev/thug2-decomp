@@ -131,7 +131,7 @@ void SkaterPhysicsModule::do_ground_physics()
         perfect_cheat(kPerfectSkitch, balance_->skitch());
     } else if (kind == kNoseManual || kind == kManual) {
         braking_ = 0;
-        if (motoskateboard_) {
+        if (motoskateboard_ != 0U) {
             crouch_stats_ = 1;
             if (can_push_off()) {
                 push_off();
@@ -153,7 +153,7 @@ void SkaterPhysicsModule::do_ground_physics()
         const maths::Vec4& v = entity()->vel();
         step = {.x = t * v.x, .y = t * v.y, .z = t * v.z, .w = t * v.w};
     }
-    if (bit_mark(this, PoseFlag::kSkitching)) {
+    if (bit_mark(this, PoseFlag::kSkitching) != 0U) {
         const objects::RideTracker* tracker = get_tracker(this);
         if (tracker && tracker->entity().get_pull()) {
             void* skitched = tracker->entity().get_pull();
@@ -168,7 +168,7 @@ void SkaterPhysicsModule::do_ground_physics()
     if (objects::RideTracker* tracker = get_tracker(this)) {
         if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
             stop_riding(this);
-        } else if (!bit_mark(this, PoseFlag::kSkitching)) {
+        } else if (bit_mark(this, PoseFlag::kSkitching) == 0U) {
             objects::GameEntity* o = object_of(this);
             o->at_point() += get_tracker(this)->carried();
             entity()->old_pos() = entity()->at_point();
@@ -189,18 +189,18 @@ void SkaterPhysicsModule::do_ground_physics()
     }
 
     // Still on the ground.
-    if (!powerslide_) {
+    if (powerslide_ == 0U) {
         turn_on_ground();
     }
     if (bike && state_of(this) == kGround) {
         thaw_bmx::manual_pitch(this);             // (not original: THAW 0x005E54BA)
     }
     collision_events::checkpoint(this, "turned"); // (not original)
-    if (!lock_velocity_) {
+    if (lock_velocity_ == 0U) {
         get_along_facing(&entity()->vel());
     }
     collision_events::checkpoint(this, "along-facing-4FF590"); // (not original)
-    if (!bit_mark(this, PoseFlag::kSkitching)) {
+    if (bit_mark(this, PoseFlag::kSkitching) == 0U) {
         test_lateral_hits();
         lean_push_off_wall();
     }
@@ -208,7 +208,7 @@ void SkaterPhysicsModule::do_ground_physics()
     // (not original: THAW 0x005CCDD0 returns at once on the bike: rolling backwards faster
     // than Skater_Flip_Speed (1) the skater is turned round to ride fakie, the bike isn't - it rolls on backwards in
     // THAW's backwards balance, bike_backwards_balance_trick)
-    if (!lock_velocity_ && !bike) {
+    if ((lock_velocity_ == 0U) && !bike) {
         turn_round_if_backwards();
     }
     collision_events::checkpoint(this, "turn-round-4FF920"); // (not original)
@@ -234,11 +234,11 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         p.y = step.y + p.y;
         p.z = step.z + p.z;
         p.w = step.w + p.w;
-        if (!bit_mark(this, PoseFlag::kSkitching)) {
+        if (bit_mark(this, PoseFlag::kSkitching) == 0U) {
             check_wall_ahead();
         }
         collision_events::checkpoint(this, "wall-ahead-check"); // (not original)
-        if (bit_mark(this, PoseFlag::kSkitching)) {
+        if (bit_mark(this, PoseFlag::kSkitching) != 0U) {
             // Skitching: a feeler from 36 above to 200 below, along the up, for the ground's terrain.
             const objects::GameEntity* object = object_of(this);
             const maths::Vec4& up = core::at(object->basis_frame().row, 1);

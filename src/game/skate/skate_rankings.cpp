@@ -167,8 +167,9 @@ void fill_elimination_ranking()
         online::ScoreEntry* entry = new_entry();
         text::copy_unbounded(entry->text().data(), info->rider()->fetch_shown_name());
         entry->set_team_score(reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident()));
-        entry->set_shade(static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team() + 2 : 0);
-        entry->set_priority(info->eliminated_time() ? static_cast<int>(info->eliminated_time()) : kNotEliminatedPriority);
+        entry->set_shade((static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0U) ? info->team() + 2 : 0);
+        entry->set_priority((info->eliminated_time() != 0U) ? static_cast<int>(info->eliminated_time())
+                                                            : kNotEliminatedPriority);
         lists::append_vertex(list.head(), entry); // (inlined there)
     }
     uint32_t id = kFirstLine;
@@ -208,10 +209,10 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Script
         }
         return static_cast<uint32_t>(net->get_entrant_points(info->skater()->ident()));
     };
-    if (static_cast<uint8_t>(goals::game_mode()->is_squad_match())) {
+    if (static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0U) {
         // The teams with players, by their scores; under each its players, then its total.
         for (int team = 0; team < goals::game_mode()->current_num_teams(); ++team) {
-            if (!net->count_team_players(team)) {
+            if (net->count_team_players(team) == 0) {
                 continue;
             }
             online::ScoreEntry* entry = new_entry();
@@ -241,7 +242,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Script
                 std::array<char, kScoreTextBytes> text{};
                 // "\c%d> %s" (the own player's) / "\c%d%s"
                 text::format_to(text, "\\c%d%s%s", entry->shade(),
-                                static_cast<uint8_t>(info->is_own_player()) ? "> " : "", info->label().data());
+                                (static_cast<uint8_t>(info->is_own_player()) != 0U) ? "> " : "", info->label().data());
                 add_player_line(text.data(), false);
                 add_score_line([&](std::span<char> shown) { format_score(shown, score, 0, false); }, kFirstLine + line,
                                false, true);

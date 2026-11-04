@@ -146,10 +146,10 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
         if (!info) {
             continue;
         }
-        if (info->team() == exclude_team && !info->is_carrying_flag()) {
+        if (info->team() == exclude_team && (info->is_carrying_flag() == 0)) {
             continue;
         }
-        if (info->team() != exclude_team && info->is_carrying_flag()) {
+        if (info->team() != exclude_team && (info->is_carrying_flag() != 0)) {
             continue;
         }
         const double dx = static_cast<double>(skater->at_point().x) - object->at_point().x;

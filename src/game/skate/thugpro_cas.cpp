@@ -110,7 +110,7 @@ CasCheck& cas_check()
 bool is_file(const std::string& path)
 {
     const DWORD attributes = GetFileAttributesA(path.c_str());
-    return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+    return attributes != INVALID_FILE_ATTRIBUTES && ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U);
 }
 
 // A path as the game folder keeps it: lower case, '\', without a leading "data\".
@@ -126,7 +126,7 @@ std::string get_relative(const char* path)
     return out;
 }
 
-bool is_path(const char* text) { return std::strchr(text, '/') || std::strchr(text, '\\'); }
+bool is_path(const char* text) { return (std::strchr(text, '/') != nullptr) || (std::strchr(text, '\\') != nullptr); }
 
 // The ways the game asks for a part's file: as named, .xbx after it, an image's .img.xbx.
 std::vector<std::string> get_candidates(const char* path)
@@ -230,7 +230,7 @@ bool is_part_list(script::Array* array)
     }
     auto* first = array->struct_at(0);
     uint32_t desc = 0;
-    return first && first->read_hash_value(kDescId, &desc, 0);
+    return (first != nullptr) && first->read_hash_value(kDescId, &desc, 0);
 }
 
 std::vector<uint8_t> read_whole_file(const std::string& path)
@@ -245,7 +245,7 @@ std::vector<uint8_t> read_whole_file(const std::string& path)
     if (size != INVALID_FILE_SIZE && size < kMaxFileMegabytes << kMegabyteShift) {
         data.resize(size);
         DWORD read = 0;
-        if (!ReadFile(file.get(), data.data(), size, &read, nullptr) || read != size) {
+        if ((ReadFile(file.get(), data.data(), size, &read, nullptr) == FALSE) || read != size) {
             data.clear();
         }
     }
@@ -257,12 +257,12 @@ std::string install_folder()
     std::array<char, MAX_PATH> folder = {};
     GetPrivateProfileStringA("features", "thugpro_folder", "", folder.data(), sizeof(folder),
                              game_folder_path("thug2-decomp.ini").c_str());
-    if (core::at(folder, 0)) {
+    if (core::at(folder, 0) != '\0') {
         return folder.data();
     }
     std::array<char, MAX_PATH> local = {};
     const DWORD length = GetEnvironmentVariableA("LOCALAPPDATA", local.data(), sizeof(local));
-    if (!length || length >= sizeof(local)) {
+    if ((length == 0U) || length >= sizeof(local)) {
         return "";
     }
     return std::string(local.data()) + "\\THUG Pro";
@@ -281,10 +281,10 @@ std::vector<uint8_t> expand_lzss(std::span<const uint8_t> in, size_t length, siz
     uint32_t flags = 0;
     while (out.size() < size && i < length) {
         flags >>= 1;
-        if (!(flags & kLzssFlagsMarker)) {
+        if ((flags & kLzssFlagsMarker) == 0U) {
             flags = core::at(in, i++) | kLzssFlagsFill;
         }
-        if (flags & 1) {
+        if ((flags & 1) != 0U) {
             if (i >= length) {
                 break;
             }
@@ -334,7 +334,7 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
         uint16_t name_size = 0;
         std::memcpy(&name_size, std::span<const uint8_t>(archive).subspan(offset + kEntryNameSizeOffset, 2).data(), 2);
         const size_t body = offset + 16 + name_size;
-        const size_t stored = compressed ? compressed : size;
+        const size_t stored = (compressed != 0U) ? compressed : size;
         if (body > archive.size() || stored > archive.size() - body) {
             return false;
         }
@@ -347,8 +347,10 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
                 continue;
             }
             const std::span<const uint8_t> data = std::span<const uint8_t>(archive).subspan(body, stored);
-            std::vector<uint8_t> file = compressed ? expand_lzss(data, stored, size)
-                                                   : std::vector<uint8_t>(data.begin(), data.begin() + static_cast<std::ptrdiff_t>(size));
+            std::vector<uint8_t> file =
+                (compressed != 0U)
+                    ? expand_lzss(data, stored, size)
+                    : std::vector<uint8_t>(data.begin(), data.begin() + static_cast<std::ptrdiff_t>(size));
             if (file.size() == size) { // (a file that doesn't decompress to its size is left out)
                 out->emplace_back(key, std::move(file));
             }
@@ -455,7 +457,7 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
 bool file_path(const char* relative, std::array<char, file::kOverlayPathSize>& path)
 {
     const std::set<std::string>* served = thugpro_cas_state().served_.load();
-    if (!served || !relative || !served->contains(path_key(relative))) {
+    if ((served == nullptr) || (relative == nullptr) || !served->contains(path_key(relative))) {
         return false;
     }
     const std::string full = thugpro_cas_state().data_ + relative;
@@ -483,7 +485,7 @@ void load_once()
     }
     cas_check().done_ = true;
     const int setting = config_int("features", "thugpro_parts", 1);
-    if (!setting) {
+    if (setting == 0) {
         get_log("THUGPRO CAS (TP-R10): off ([features] thugpro_parts=0) - a THUGPRO player's own parts fall back to "
                 "THUG2's");
         return;

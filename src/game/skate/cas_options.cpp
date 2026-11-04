@@ -60,7 +60,7 @@ Struct* find_cas_option(CasPart cas_part, bool /*unused*/)
     const auto part = cas_part.part;
     const auto descriptor_id = cas_part.descriptor_id_;
     Array* list = script::fetch_list(part);
-    if (!descriptor_id) {
+    if (descriptor_id == 0U) {
         return nullptr;
     }
     uint32_t found = descriptor_id; // (the argument's own word: kept from option to option)
@@ -86,7 +86,7 @@ void get_matching_cas_options(CasFilter cas_filter, std::span<Struct*> out, int*
         Struct* option = current_option(list, static_cast<uint32_t>(i));
         int allowed = 0;
         option->fetch_int_value(kPickPermitted, &allowed, 1);
-        if (!allowed) {
+        if (allowed == 0) {
             continue;
         }
         uint32_t option_filter = 0;
@@ -112,13 +112,13 @@ Struct* pick_random_cas_option(CasFilter cas_filter)
     for (int i = 0; i < size; ++i) {
         Struct* option = current_option(list, static_cast<uint32_t>(i));
         const int allow = allow_random(option);
-        if (filter) {
+        if (filter != 0U) {
             uint32_t option_filter = 0;
             if (option->read_hash_value(kFilter, &option_filter, 0) && option_filter != filter) {
                 continue;
             }
         }
-        if (!allow) {
+        if (allow == 0) {
             continue;
         }
         core::at(options, count) = option;
@@ -158,7 +158,7 @@ Struct* get_cas_option_by_index(checksums::Name part_name, int index, checksums:
     const uint32_t part = part_name.value();
     Array* list = script::fetch_list(part);
     const int size = static_cast<int>(list->extent());
-    if (!filter) {
+    if (filter == 0U) {
         for (int i = 0; i < size; ++i) {
             Struct* option = current_option(list, static_cast<uint32_t>(i));
             int rolled_slot = -1;
@@ -174,7 +174,7 @@ Struct* get_cas_option_by_index(checksums::Name part_name, int index, checksums:
             const int allow = allow_random(option);
             uint32_t option_filter = 0;
             option->read_hash_value(kFilter, &option_filter, 0);
-            if (allow && (option_filter == filter || option_filter == 0)) {
+            if ((allow != 0) && (option_filter == filter || option_filter == 0)) {
                 if (index <= 0) {
                     return option;
                 }

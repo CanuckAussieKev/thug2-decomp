@@ -99,7 +99,7 @@ void RailAuthoring::tick_frame()
         {.button = 0x1A0, .script = kRailEditorX}, {.button = 0x180, .script = kRailEditorTriangle}, {.button = 0x160, .script = kRailEditorSquare}, {.button = 0x140, .script = kRailEditorCircle}}};
     for (const Press& press : kPresses) {
         objects::ControlButton* button = get_button(input_ptr_, press.button);
-        if (button->fired()) {
+        if (button->fired() != 0U) {
             button->reset_activation();
             script::launch_script(press.script, nullptr, entity(), false, nullptr);
         }
@@ -142,7 +142,7 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         ++count;
     }
-    if (count) {
+    if (count != 0) {
         gsl::owner<script::Array*> rails = script::new_array();
         rails->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
         uint32_t i = 0;
@@ -281,7 +281,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
             return head ? 1 : 0;
         }
         ParkBuilderMode::fabricate(false);
-        if (!park_editing::ParkBuilderMode::is_park_full()) {
+        if (park_editing::ParkBuilderMode::is_park_full() == 0) {
             if (EditedRailPoint* p = active_node_->append_rail_vertex()) {
                 p->at_point() = pos;
                 p->set_level_y(static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point())));

@@ -132,7 +132,7 @@ void RiderRemoteSync::update_ground_lighting()
     start.w = static_cast<float>((static_cast<double>(up.w) * kLightingRise) + start.w);
     start.y = static_cast<float>(static_cast<double>(start.y) + kLightingAbove);
     end.y = static_cast<float>(static_cast<double>(end.y) - kLightingBelow);
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         return;
     }
     if (pose_->cur_phase() != kStateRail && feeler.is_hit_triangle_collision()) {
@@ -176,7 +176,7 @@ void RiderRemoteSync::settle_onto_floor()
     end.w = static_cast<float>(static_cast<double>(down_w) + pos.w);
     feeler.change_strand(&start, &end);
     feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         return;
     }
 
@@ -365,7 +365,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     }
     feeler.change_strand(&from, &to);
     feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
-    if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater()) {
+    if ((feeler.get_hit_shape(true, false) == 0) || (skater->is_local_skater() == 0U)) {
         return;
     }
     // Another wall: turned round by what's left of a half turn, and halved.
@@ -406,7 +406,7 @@ void RiderRemoteSync::tick_frame()
     interpolate();
     // Extrapolated when this machine plays (not observing or waiting) in a game that wants it.
     auto* player = static_cast<online::PlayerRecord*>(net_manager->get_own_player());
-    if (!player->is_observer() && !player->is_scouting_level()) {
+    if ((player->is_observer() == 0) && (player->is_scouting_level() == 0)) {
         void* game_mode = static_cast<void*>(goals::game_mode());
         const bool extrapolate = online::net_game_state().online_hub()->players_can_collide() ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
@@ -437,14 +437,14 @@ void RiderRemoteSync::tick_frame()
     // Driving in or out: the scripts told (with the vehicle's control type when it starts).
     const uint8_t driving = pose_->in_vehicle();
     const uint32_t steer_kind = past_frames_->vehicle_control_type();
-    if ((driving && steer_kind) || (!driving && was_driving_)) {
+    if (((driving != 0U) && (steer_kind != 0U)) || ((driving == 0U) && (was_driving_ != 0U))) {
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params) {
             params = new (params) script::Struct;
         }
         params->put_name_key(checksums::Name{kSkaterId}, entity()->ident());
         uint32_t script = kStopDrivingScript;
-        if (driving) {
+        if (driving != 0U) {
             params->put_name_key(checksums::Name{kControlType}, steer_kind);
             script = kStartDrivingScript;
         }
@@ -459,7 +459,7 @@ void RiderRemoteSync::tick_frame()
     // The looping sound: on while skating, its speed and state.
     auto* sound = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound));
     if (pose_->physics_mode() != objects::RiderPoseState::PhysicsMode::kSkating) {
-        if (sound->on()) {
+        if (sound->on() != 0U) {
             sound->hold_off(true);
             sound->set_on(0);
         }

@@ -240,7 +240,7 @@ void FootMovement::update_camera_override()
     case kAnimWait: {
         camera->set_override(true);
         // (while hang-moving, the hang move's facing)
-        camera->forced_heading() = anim_waiting_ ? transition_facing_ : facing;
+        camera->forced_heading() = (anim_waiting_ != 0) ? transition_facing_ : facing;
         camera->set_override_rate(kCameraRate);
         return;
     }
@@ -456,7 +456,7 @@ void FootMovement::go_to_air_for(void* /*unused*/) { go_to_air(); }
 // 0x0052D4B0
 void FootMovement::tick_frame()
 {
-    if (jump_held_ && !input_->pad_primary().stick_click_left().held_down()) {
+    if (jump_held_ && (input_->pad_primary().stick_click_left().held_down() == 0U)) {
         jump_held_ = false;
     }
     const uint32_t previous_anim = anim_state_;
@@ -630,7 +630,7 @@ void FootMovement::update_air()
     }
 
     // Grabbing a ledge or a ladder (not again within rehang_delay of letting go of one).
-    if (pad->shoulder_right_a().held_down() && !jump_held_) {
+    if ((pad->shoulder_right_a().held_down() != 0U) && !jump_held_) {
         const int previous = previous_state_;
         bool grab = true;
         if (previous == 2 || previous == 3 || previous == 4) {
@@ -644,7 +644,7 @@ void FootMovement::update_air()
         }
     }
     clear_current_cache();
-    if (pad->button_wedge().held_down() && try_grind()) {
+    if ((pad->button_wedge().held_down() != 0U) && try_grind()) {
         return;
     }
     if (skater::try_walk_acid_drop(this)) { // (an acid drop)
@@ -674,7 +674,7 @@ void FootMovement::update_air()
     feeler->change_origin(&top);
     const maths::Vec4 bottom = entity()->at_point() - up;
     feeler->change_finish(&bottom);
-    if (feeler->get_hit_shape(true, false) && feeler->hit_object_alive()) {
+    if ((feeler->get_hit_shape(true, false) != 0) && feeler->hit_object_alive()) {
         ride_->ride_on(feeler->get_hit_object());
     }
     vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -748,7 +748,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
     render::ProbeRay* feeler = &storage;
     feeler->line().start = *from;
     feeler->line().end = *to;
-    if (!feeler->get_hit_shape(true, false)) {
+    if (feeler->get_hit_shape(true, false) == 0) {
         release_hit(feeler);
         return;
     }
@@ -766,7 +766,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         rest.flatten_onto_plane(feeler->surface_dir());
         feeler->line().start = position;
         feeler->line().end = rest + position;
-        if (feeler->get_hit_shape(true, false)) {
+        if (feeler->get_hit_shape(true, false) != 0) {
             put_off(&position, feeler, kSlideGap);
         } else {
             position = feeler->line().end;
@@ -835,7 +835,8 @@ void FootMovement::settle_onto_floor()
     feeler->line().start.y += walk_parameter(kSnapUpHeight);
     feeler->line().end = position;
     feeler->line().end.y -= walk_parameter(kSnapDownHeight);
-    if (feeler->get_hit_shape(true, false) && !(core::any(feeler->hit().face_flags_ & render::FaceFlag::kNotSkatable))) {
+    if ((feeler->get_hit_shape(true, false) != 0) &&
+        !(core::any(feeler->hit().face_flags_ & render::FaceFlag::kNotSkatable))) {
         // Onto the ground (a big step told to the object as an event); a step up, or down more than 3, goes into
         // the step smoothing's height.
         const float step = feeler->contact_pos().y - position.y;
@@ -874,7 +875,7 @@ void FootMovement::settle_onto_floor()
     }
 
     // No ground (or only a wall): off the wall, then off the edge - unless a hang, a drop or a ladder takes over.
-    if (feeler->get_hit_shape(true, false)) {
+    if (feeler->get_hit_shape(true, false) != 0) {
         put_off(&position, feeler, kWallGap);
     }
     if (feeler_hit_) {
@@ -884,7 +885,7 @@ void FootMovement::settle_onto_floor()
             return;
         }
     }
-    if (input_->pad_primary().button_wedge().held_down()) {
+    if (input_->pad_primary().button_wedge().held_down() != 0U) {
         maths::Vec4& old_position = old_pos_;
         if (position == old_position) {
             old_position.y += kNudge; // (so the two differ)
@@ -920,7 +921,7 @@ void FootMovement::get_begin(bool on_ground)
         change_phase(1);
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
-        if (core_physics_->state()->flag(PoseFlag::kVertAir).on && !(upright_time_ == 0.0F)) {
+        if ((core_physics_->state()->flag(PoseFlag::kVertAir).on != 0U) && !(upright_time_ == 0.0F)) {
             maths::Vec4 forward = core::at(entity()->basis_frame().row, 2);
             forward.rotate_about_axis(upright_axis_, upright_angle_);
             const double boost = walk_parameter(kInitialVertVelBoost);
@@ -932,7 +933,7 @@ void FootMovement::get_begin(bool on_ground)
             velocity.z += z;
             velocity.w += w;
         }
-        if (!core_physics_->state()->flag(PoseFlag::kVertAir).on) {
+        if (core_physics_->state()->flag(PoseFlag::kVertAir).on == 0U) {
             jump_unsteered_ = true;
         }
         // The heading: the velocity flattened, else the forward axis flattened, else the up axis reversed and
@@ -965,8 +966,8 @@ void FootMovement::get_begin(bool on_ground)
         leave_ride(&entity()->vel(), &entity()->vel().y);
         leap_duration_ = 0.0F;
         pushing_ = false;
-        off_vert_ =
-            core_physics_->state()->flag(PoseFlag::kVertAir).on || core_physics_->state()->flag(PoseFlag::kNoAcidDrop).on;
+        off_vert_ = (core_physics_->state()->flag(PoseFlag::kVertAir).on != 0U) ||
+                    (core_physics_->state()->flag(PoseFlag::kNoAcidDrop).on != 0U);
     }
     curb_offset_ = 0.0F;
     leave_for_ = 0;
@@ -1090,7 +1091,7 @@ void FootMovement::get_jump()
 // 0x0052BC70
 bool FootMovement::try_barrier_jump()
 {
-    if (core_physics_->state()->flag(PoseFlag::kBailing).on) {
+    if (core_physics_->state()->flag(PoseFlag::kBailing).on != 0U) {
         return false;
     }
     static const std::array<int, 3> kAhead = {{0, 1, 6}}; // the contacts ahead: straight on and either side of it
@@ -1142,7 +1143,7 @@ bool FootMovement::try_barrier_jump()
         end.y = static_cast<float>(static_cast<double>(reach) * direction.y) + start.y;
         end.z = static_cast<float>(static_cast<double>(reach) * direction.z) + start.z;
         end.w = static_cast<float>((static_cast<double>(reach) * direction.w) + start.w);
-        contact.clear = !feeler->get_hit_shape(true, false);
+        contact.clear = (feeler->get_hit_shape(true, false) == 0);
         if (contact.clear) {
             clear = true;
         }
@@ -1178,7 +1179,7 @@ bool FootMovement::try_barrier_jump()
             start.y = start.y - step;
             end.y = end.y - step;
             --tries;
-            hit = feeler->get_hit_shape(true, false);
+            hit = (feeler->get_hit_shape(true, false) != 0);
         }
         top = std::min(top, start.y);
     }
@@ -1258,7 +1259,7 @@ bool FootMovement::update_contacts()
                    .w = reach + position.w};
         }
         auto& contact = contact_at(this, i);
-        contact.hit = feeler->get_hit_shape(true, false);
+        contact.hit = (feeler->get_hit_shape(true, false) != 0);
         if (!contact.hit) {
             continue;
         }
@@ -1318,7 +1319,7 @@ bool FootMovement::update_contacts()
         } else {
             barrier_timed_ = false;
         }
-        if (input_->pad_primary().shoulder_right_a().held_down() && !jump_held_ && climb_onto_bottom(true)) {
+        if ((input_->pad_primary().shoulder_right_a().held_down() != 0U) && !jump_held_ && climb_onto_bottom(true)) {
             release_hit(feeler);
             return false;
         }

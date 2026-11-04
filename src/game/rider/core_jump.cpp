@@ -116,12 +116,12 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
             step = !step;
         }
     }
-    if (!trigger_script) {
+    if (trigger_script == 0U) {
         return;
     }
     uint32_t name = 0; // (the original's is a stale stack word - a node pointer - if a node had no Name)
     script->read_hash_value(kName, &name, 1);
-    set_flag(this, PoseFlag::kFirstTimeOnRail, name != last_rail_script_);
+    set_flag(this, PoseFlag::kFirstTimeOnRail, static_cast<uint8_t>(name != last_rail_script_));
     rail_script_node_ = name;
     last_rail_script_ = name;
     const objects::Entity* ride_object = nullptr;
@@ -171,8 +171,8 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     const int max_tense = script::fetch_int_value(kChargeCapMs);
     int& tense = jump_charge_ms_;
     tense = std::min(tense, max_tense);
-    const bool from_vert =
-        bit_mark(this, PoseFlag::kVertAir) || (state_of(this) == kGround && bit_mark(this, PoseFlag::kOnVert));
+    const bool from_vert = (bit_mark(this, PoseFlag::kVertAir) != 0U) ||
+                           (state_of(this) == kGround && (bit_mark(this, PoseFlag::kOnVert) != 0U));
     const auto& names = core::at(core::at(kJumpSpeed, params->has_bare_flag(kBonelessHeight)), from_vert);
     objects::GameEntity* object = object_of(this);
     const float most = scaled_physics(object, core::at(names, 0));
@@ -183,7 +183,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
 
     set_flag(this, PoseFlag::kCrouched, 0);
     maths::Vec4& velocity = entity()->vel();
-    if (bit_mark(this, PoseFlag::kVertAir) && velocity.y < 0.0F) {
+    if ((bit_mark(this, PoseFlag::kVertAir) != 0U) && velocity.y < 0.0F) {
         // Off vert, going down: pushed off the ramp (along +0x58) instead; no longer on vert.
         const maths::Vec4& away = drawn_normal_;
         const float z = speed * away.z;
@@ -221,7 +221,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     if (state == kRail || (state == kAir && old_state_ == kRail)) {
         turn_for_rail_jump();
     }
-    if (point_rail_spin_) {
+    if (point_rail_spin_ != 0U) {
         trigger_rail_script(kJumpEvents);
     }
     if (bike) {
@@ -251,7 +251,7 @@ void SkaterPhysicsModule::begin_skitch()
 // 0x00509990
 void SkaterPhysicsModule::end_skitch()
 {
-    if (!bit_mark(this, PoseFlag::kSkitching)) {
+    if (bit_mark(this, PoseFlag::kSkitching) == 0U) {
         return;
     }
     set_flag(this, PoseFlag::kSkitching, 0);

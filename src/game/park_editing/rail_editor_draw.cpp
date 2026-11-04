@@ -567,7 +567,7 @@ float EditedRailPoint::ground_height(const Vec4* position)
     Vec4 end = {.x = position->x, .y = static_cast<float>(static_cast<double>(position->y) - kGroundProbe), .z = position->z,
                 .w = position->w};
     feeler.change_finish(&end);
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         const float height = feeler.contact_pos().y;
         feeler.entity().get_release();
         return height;
@@ -591,10 +591,10 @@ void EditedRailPoint::spotlight(bool flash, bool include_end_posts)
                         .b = static_cast<uint8_t>(script::fetch_int_value(kBadB))};
     // Too long a segment either side: everything in the bad colour.
     bool too_long = false;
-    if (following_ && rail_too_far(&at_point_, &following_->at_point_)) {
+    if (following_ && (rail_too_far(&at_point_, &following_->at_point_) != 0)) {
         too_long = true;
     }
-    if (preceding_ && rail_too_far(&at_point_, &preceding_->at_point_)) {
+    if (preceding_ && (rail_too_far(&at_point_, &preceding_->at_point_) != 0)) {
         too_long = true;
     }
     auto corner_ok = [](const EditedRailPoint* p) {
@@ -765,8 +765,8 @@ void RailAuthoring::draw_dotted_line(const Vec4* position)
         return;
     }
     uint32_t source = kDottedGreen;
-    if (rail_too_far(&head->at_point(), position)) {
-        if (rail_out_of_reach(&head->at_point(), position)) {
+    if (rail_too_far(&head->at_point(), position) != 0) {
+        if (rail_out_of_reach(&head->at_point(), position) != 0) {
             delete_dotted_line();
             return;
         }

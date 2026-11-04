@@ -241,7 +241,7 @@ void note_feeler_query(const void* feeler, FeelerResult feeler_result)
     if (get_mode() == 0) {
         return;
     }
-    if (hit) {
+    if (hit != 0) {
         log_hit(feeler, caller);
     }
 }

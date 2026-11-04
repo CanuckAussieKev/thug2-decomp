@@ -229,7 +229,7 @@ void SkaterPhysicsModule::step_wall_ride()
         p.w = hit.w + point.w;
         p.x = hit.x + point.x;
         p.y = hit.y + point.y;
-        if (hit_wall_ && !(std::fabs(along_wall) < kAlongWallMin)) {
+        if ((hit_wall_ != 0U) && !(std::fabs(along_wall) < kAlongWallMin)) {
             // Round a corner: the new wall.
             wall_normal_ = hit;
             turn_to_normal(wall_normal_);
@@ -295,7 +295,7 @@ void SkaterPhysicsModule::step_wall_ride()
         entity()->vel().align_to_plane(wall_normal_);
         turn_to_normal(wall_normal_);
         display_matrix_ = entity()->basis_frame();
-        if (!hit_wall_) {
+        if (hit_wall_ == 0U) {
             // Not a wall to ride: pushed away from it into the air.
             add_scaled(entity()->vel(), wall_normal_, kPushAway);
             turn_to_normal(kUpAxis);
@@ -333,7 +333,7 @@ void SkaterPhysicsModule::step_wall_ride()
         }
     }
 
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down()) {
+    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (input_->pad_primary().pos_x().held_down() != 0U)) {
         set_flag(this, PoseFlag::kCrouched, 1);
     }
     // Jumping off: out from the wall and up, upright.

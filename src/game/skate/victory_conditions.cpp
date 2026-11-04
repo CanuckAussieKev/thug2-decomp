@@ -45,7 +45,7 @@ uint32_t skater_count(modules::Skate* skate)
     if (node->is_head() || !node) { // (read before the null check, as in the original)
         return 0;
     }
-    for (bool again = true; again; again = !node->is_head() && node) {
+    for (bool again = true; again; again = !node->is_head() && (node != nullptr)) {
         node = node->next();
         ++count;
     }
@@ -164,7 +164,7 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
             if (goal->parents()->objective_key_ != 0 || !goal->is_picked()) {
                 continue;
             }
-            if (goal->stage_flag_set(static_cast<int>(skater->ident()))) {
+            if (goal->stage_flag_set(static_cast<int>(skater->ident())) != 0) {
                 continue;
             }
             missing = true;
@@ -194,14 +194,14 @@ bool SoleSurvivorWin::rule_satisfied()
 bool SoleSurvivorWin::has_won_match(uint32_t player)
 {
     auto* score = get_rider_at(modules::Skate::sole(), player)->get_points_total();
-    return score && total_score(score) > 0;
+    return (score != nullptr) && total_score(score) > 0;
 }
 
 // 0x005766E0
 bool EliminationVictoryCondition::rule_satisfied()
 {
     PlayerRecord* player = find_own_player_record();
-    return player && is_eliminated(player);
+    return (player != nullptr) && is_eliminated(player);
 }
 
 // 0x00576700
@@ -224,7 +224,7 @@ bool CollectAllObjectsVictoryCondition::rule_satisfied()
     for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
         total += player->num_placed();
     }
-    if (!total) {
+    if (total == 0) {
         return false;
     }
     for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {

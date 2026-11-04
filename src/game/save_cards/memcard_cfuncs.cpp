@@ -58,12 +58,12 @@ namespace save_cards {
 // overflowing (the original's count, card->get_free_blocks(), is unclamped).
 int32_t free_disk_blocks(SaveCard* card)
 {
-    if (!card->present()) {
+    if (card->present() == 0U) {
         return 0;
     }
     ULARGE_INTEGER free_space;
     ULARGE_INTEGER total_space;
-    if (!GetDiskFreeSpaceExA(nullptr, &free_space, &total_space, nullptr)) {
+    if (GetDiskFreeSpaceExA(nullptr, &free_space, &total_space, nullptr) == FALSE) {
         return 0;
     }
     uint64_t blocks = free_space.QuadPart >> kBlockShift;
@@ -368,7 +368,7 @@ bool get_summary_info(script::Struct* params, script::Script* script)
     params->read_hash_value(0U, &type, 0);
     int vault_data = 0;
     params->fetch_int_value(kVaultData, &vault_data, 0);
-    if (vault_data) {
+    if (vault_data != 0) {
         write_summary(save_cards_state().kept_params(), *script->args().get(), save_cards_state().kept_type());
         return true;
     }
@@ -414,7 +414,8 @@ bool switch_to_temp_pools_if_they_exist(script::Struct* /*params*/, script::Scri
 // 0x005A74F0
 bool switch_to_regular_pools(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (script::component_pools().current() || script::struct_pools().current() || script::vector_pools().current()) {
+    if ((script::component_pools().current() != 0) || (script::struct_pools().current() != 0) ||
+        (script::vector_pools().current() != 0)) {
         --script::component_pools().current();
         --script::struct_pools().current();
         --script::vector_pools().current();

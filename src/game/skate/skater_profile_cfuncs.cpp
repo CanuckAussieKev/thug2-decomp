@@ -67,7 +67,7 @@ bool set_option(script::Struct* params, Option option, bool on)
     modules::Skate* skate = modules::Skate::sole();
     switch (option) {
     case kVibration:
-        skate->change_rumble(player, on); // 0x00567C30
+        skate->change_rumble(player, static_cast<int>(on)); // 0x00567C30
         break;
     case kAutoKick:
         skate->set_auto_eject(player, on); // 0x00567C00
@@ -337,7 +337,7 @@ bool cfunc_reset_skaters(script::Struct* params, script::Script* /*script*/)
     uint32_t node = 0;
     params->read_hash_value(kNodeName, &node, 0);
     const bool walking = params->has_bare_flag(kRestartWalking);
-    modules::Skate::sole()->reset_skaters({.node = node, .walking = walking});
+    modules::Skate::sole()->reset_skaters({.node = node, .walking = static_cast<uint32_t>(walking)});
     return true;
 }
 
@@ -401,7 +401,7 @@ bool cfunc_toggle_always_special(script::Struct* params, script::Script* /*scrip
         } else if (off) {
             special = false;
         } else {
-            special = special == 0;
+            special = !special;
         }
     }
     return true;
@@ -597,7 +597,7 @@ bool cfunc_unlock_skater(script::Struct* params, script::Script* /*script*/)
     script::Struct* info = objects::profile_roster()->get_template(name)->details_params();
     int hidden = 1;
     info->fetch_int_value(kIsHidden, &hidden, 1);
-    if (hidden) {
+    if (hidden != 0) {
         info->put_int(checksums::Name{kIsHidden}, 0);
     }
     return true;

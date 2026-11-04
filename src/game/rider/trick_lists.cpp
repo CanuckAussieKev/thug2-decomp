@@ -26,7 +26,7 @@ void init_node(memory::ListNode& node, void* data)
 } // namespace
 
 // 0x00578670
-void TrickNameEntry::set_flag() { done_ = true; }
+void TrickNameEntry::set_flag() { done_ = 1U; }
 
 // 0x00578740
 TrickListEntry::TrickListEntry()
@@ -53,7 +53,7 @@ TrickListEntry::~TrickListEntry()
 TrickListEntry* TrickListEntry::teardown(unsigned int flags)
 {
     this->~TrickListEntry();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -75,7 +75,7 @@ TrickNameEntry::~TrickNameEntry()
 TrickNameEntry* TrickNameEntry::teardown(unsigned int flags)
 {
     this->~TrickNameEntry();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;

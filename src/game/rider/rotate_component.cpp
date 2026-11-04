@@ -167,7 +167,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
         right.y = -right.y;
         right.z = -right.z;
         core_matrix_from_object(core_physics_);
-        core_physics_->set_rail_backwards(core_physics_->rail_backwards() ? 0 : 1);
+        core_physics_->set_rail_backwards((core_physics_->rail_backwards() != 0U) ? 0 : 1);
         return 1;
     }
     core_matrix_from_object(core_physics_);

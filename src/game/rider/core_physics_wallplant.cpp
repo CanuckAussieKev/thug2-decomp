@@ -114,13 +114,13 @@ bool SkaterPhysicsModule::wall_above_hit()
 // 0x00507500
 bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
 {
-    if (on_vehicle_) {
+    if (on_vehicle_ != 0U) {
         int allowed = 0;
         if (!object_of(this)->read_int_tag(kCanWallplant, &allowed)) {
             return false;
         }
     }
-    if (model_rotating_ || static_cast<uint8_t>(physics_control_->board_missing())) {
+    if ((model_rotating_ != 0U) || (static_cast<uint8_t>(physics_control_->board_missing()) != 0U)) {
         return false;
     }
 
@@ -264,7 +264,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             return false;
         }
     }
-    if (entity()->vel().y > 0.0F && input_->pad_primary().button_wedge().held_down() && !wall_above_hit()) {
+    if (entity()->vel().y > 0.0F && (input_->pad_primary().button_wedge().held_down() != 0U) && !wall_above_hit()) {
         return false;
     }
     // (not original: THAW 0x005DBB9E - no sticker slap on the bike)
@@ -317,7 +317,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         const maths::Vec4& normal = feeler_.surface_dir();
         feeler->line().start = point;
         feeler->line().end = point + script::fetch_float(kDistanceFromWall) * normal;
-        if (feeler->get_hit_shape(true, false)) {
+        if (feeler->get_hit_shape(true, false) != 0) {
             entity()->at_point() = point + kFromWall * normal;
         } else {
             entity()->at_point() = feeler->line().end;
@@ -348,7 +348,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
 // 0x00508140
 bool SkaterPhysicsModule::start_wall_ride()
 {
-    if (on_vehicle_ || !hit_wall_) {
+    if ((on_vehicle_ != 0U) || (hit_wall_ == 0U)) {
         return false;
     }
     // (not original: THAW 0x005D6FAF - on the bike square held starts one too)

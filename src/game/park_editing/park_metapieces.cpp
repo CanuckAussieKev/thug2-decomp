@@ -177,7 +177,7 @@ int PieceGroup::count_pieces()
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const uint32_t name = piece_name(i);
         const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(name, nullptr);
-        if (entry->flag_bits_ & kSector) { // a single piece
+        if ((entry->flag_bits_ & kSector) != 0U) { // a single piece
             ++count;
         } else {
             count += static_cast<int>(entry->filled_slots_);
@@ -202,7 +202,7 @@ void PieceGroup::set_quarter_turns(int rot)
 {
     const int turn = (rot - quarter_turns_) & 3;
     quarter_turns_ = rot;
-    if (turn & 1) { // a quarter turn: width and length swap
+    if ((turn & 1) != 0) { // a quarter turn: width and length swap
         const uint8_t w = cell_footprint_.w;
         cell_footprint_.w = cell_footprint_.l;
         cell_footprint_.l = w;
@@ -283,7 +283,7 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
     if (cells.z + cells.l <= z_start || std::cmp_greater_equal(cells.z, z_end)) {
         return false;
     }
-    if (!static_cast<uint8_t>(precise)) {
+    if (static_cast<uint8_t>(precise) == 0U) {
         return true;
     }
     // Precisely (when any piece is flagged setsFloor): by the cells of the pieces that are NOT flagged.
@@ -335,7 +335,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
 {
     const auto half_w = static_cast<float>(static_cast<double>(cell_footprint_.w) * kGridPitch * 0.5);
     const auto half_l = static_cast<float>(static_cast<double>(cell_footprint_.l) * kGridStepAlong * 0.5);
-    if (!filled_slots_) {
+    if (filled_slots_ == 0U) {
         return;
     }
     const auto radians = static_cast<float>(static_cast<double>(angle) * kRadiansPerDegree);
@@ -374,7 +374,7 @@ void PieceGroup::spotlight(int on, int gap)
 {
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         auto* piece = placed_piece(i);
-        if (piece->flag_bits() & ParkTile::kCloned) {
+        if ((piece->flag_bits() & ParkTile::kCloned) != 0U) {
             piece->set_highlight(on != 0, gap != 0);
         }
     }
@@ -503,7 +503,7 @@ void grow_to_take(CellBox& cells, const CellBox* pos)
 
 void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor)
 {
-    auto* source = (piece->flag_bits() & ParkPiece::kSource) ? core::down_cast<TileTemplate>(piece) : nullptr;
+    auto* source = ((piece->flag_bits() & ParkPiece::kSource) != 0U) ? core::down_cast<TileTemplate>(piece) : nullptr;
     NamedSlot* entry = &slot(static_cast<int>(filled_slots()++));
     if (!source) {
         return; // (counted all the same)
@@ -543,7 +543,7 @@ NamedSlot* PieceBlueprint::get_entry(NamedSlot* out, int index)
     for (uint32_t i = 0; i < filled_slots(); ++i) {
         const NamedSlot* outer = &slot(static_cast<int>(i));
         PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(outer->piece, nullptr);
-        if (entry->flag_bits() & kSector) { // a single piece
+        if ((entry->flag_bits() & kSector) != 0U) { // a single piece
             if (n == index) {
                 *out = *outer;
                 return out;

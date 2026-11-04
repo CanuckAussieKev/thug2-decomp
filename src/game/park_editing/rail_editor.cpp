@@ -96,7 +96,7 @@ void free_pool(memory::PoolPair& pair)
     if (!pool) {
         return;
     }
-    if (get_owned(pair, pair.current())) {
+    if (get_owned(pair, pair.current()) != 0U) {
         memory::dealloc(pool->memory().data());
         memory::Hub::dealloc(pool);
     }
@@ -166,7 +166,7 @@ void EditedRailPoint::delete_post() { remove_scene_sector(post_); }
 // 0x004F4140
 void EditedRailPoint::get_pack(std::array<uint16_t, kPackedPointWords>& record) const
 {
-    core::at(record, 4) = has_post_;
+    core::at(record, 4) = static_cast<unsigned short>(has_post_);
     if (level_y_ < 0.0F) {
         core::at(record, 3) = 0;
     } else {

@@ -85,16 +85,17 @@ void SkaterPhysicsModule::apply_friction(float friction)
 bool SkaterPhysicsModule::should_brake()
 {
     const objects::PadInputModule* input = input_;
-    if (!auto_kick_ && !input->pad_primary().button_box().held_down() && speed_of(entity()->vel()) < kSlow) {
+    if ((auto_kick_ == 0U) && (input->pad_primary().button_box().held_down() == 0U) &&
+        speed_of(entity()->vel()) < kSlow) {
         return true;
     }
-    if (!input->pad_primary().btn_down().held_down() || !can_brake_) {
+    if ((input->pad_primary().btn_down().held_down() == 0U) || (can_brake_ == 0U)) {
         return false;
     }
     if (speed_of(entity()->vel()) < kSlow) {
         return true;
     }
-    if (!input->pad_primary().right_side().held_down() && !input->pad_primary().left_side().held_down()) {
+    if ((input->pad_primary().right_side().held_down() == 0U) && (input->pad_primary().left_side().held_down() == 0U)) {
         return true;
     }
     const objects::GameEntity* object = object_of(this);
@@ -119,17 +120,17 @@ bool SkaterPhysicsModule::may_turn_on_slope()
 bool SkaterPhysicsModule::can_push_off()
 {
     const objects::PadInputModule* input = input_;
-    if (no_kick_) {
+    if (no_kick_ != 0U) {
         return false;
     }
-    if (!auto_kick_ && !input->pad_primary().button_box().held_down()) {
+    if ((auto_kick_ == 0U) && (input->pad_primary().button_box().held_down() == 0U)) {
         return false;
     }
-    if (input->pad_primary().btn_down().held_down()) {
+    if (input->pad_primary().btn_down().held_down() != 0U) {
         return false;
     }
     auto speed = static_cast<float>(speed_of(entity()->vel()));
-    const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || crouch_stats_;
+    const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || (crouch_stats_ != 0U);
     auto limit = static_cast<float>(stat_value(object_of(this), crouched ? kPushSpeedCrouched : kKickoffSpeed));
     return !(limit < speed);
 }
@@ -139,7 +140,7 @@ void SkaterPhysicsModule::push_off()
 {
     objects::GameEntity* object = object_of(this);
     maths::Vec4 direction;
-    if (lock_velocity_) {
+    if (lock_velocity_ != 0U) {
         direction = object->vel();
         const maths::Vec4& v = direction;
         const double speed = std::sqrt(((static_cast<double>(v.z) * v.z) + (static_cast<double>(v.y) * v.y)) +
@@ -152,7 +153,7 @@ void SkaterPhysicsModule::push_off()
     } else {
         direction = core::at(object->basis_frame().row, 2);
     }
-    const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || crouch_stats_;
+    const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || (crouch_stats_ != 0U);
     auto push = static_cast<float>(stat_value(object, crouched ? kPushCrouched : kPush));
     const double frame = frame_length_;
     auto x = static_cast<float>(static_cast<double>(direction.x) * push * frame);
@@ -222,7 +223,7 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
         end.z = static_cast<float>(static_cast<float>(normal.z * static_cast<double>(kNormalFeeler)) + position.z);
         end.w = static_cast<float>((normal.w * static_cast<double>(kNormalFeeler)) + position.w);
         render::ProbeRay feeler(&position, &end);
-        if (feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) != 0) {
             normal = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
         }
     }
@@ -270,7 +271,7 @@ void SkaterPhysicsModule::update_ground_normal()
 // 0x004FEBA0
 void SkaterPhysicsModule::start_vert_air()
 {
-    if (!state_->flag(PoseFlag::kOnVert).on) {
+    if (state_->flag(PoseFlag::kOnVert).on == 0U) {
         set_timed_flag(this, PoseFlag::kVertAir, 0);
         return;
     }

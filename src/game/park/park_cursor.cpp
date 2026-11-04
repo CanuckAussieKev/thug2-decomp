@@ -233,7 +233,7 @@ bool BuildPointer::remove_gap_half()
     // The pieces that had gaps are told to look again.
     manager = park_owner();
     for (auto* node = manager->concrete_metas(); node; node = node->following()) {
-        if (get_meta_flags(node_meta(node)) & kMetaHasGap) {
+        if ((get_meta_flags(node_meta(node)) & kMetaHasGap) != 0U) {
             as_meta(node_meta(node))->spotlight(1, 1);
         }
     }
@@ -261,13 +261,13 @@ bool BuildPointer::change_gap(GapChange gap_change)
     }
     GapRecord copy = *gap;
     bool changed = false;
-    if (turn) {
+    if (turn != 0) {
         core::at(copy.quarter_turns(), half) -= turn;
         core::at(copy.reach_left(), half) = 0;
         core::at(copy.reach_right(), half) = 0;
         changed = true;
     }
-    if (left) {
+    if (left != 0) {
         core::at(copy.reach_left(), half) += left;
         if (core::at(copy.reach_left(), half) < 0) {
             core::at(copy.reach_left(), half) = 0;
@@ -276,7 +276,7 @@ bool BuildPointer::change_gap(GapChange gap_change)
         }
         changed = true;
     }
-    if (right) {
+    if (right != 0) {
         core::at(copy.reach_right(), half) += right;
         core::at(copy.reach_right(), half) = std::max(core::at(copy.reach_right(), half), 0);
         core::at(copy.reach_right(), half) = std::min(core::at(copy.reach_right(), half), kMaxReach);
@@ -450,7 +450,7 @@ void ParkLayout::commission(uint32_t level)
     if (level == kTopDownLevel) {
         memory::Hub::get_pull()->leave_heap_scope();
     }
-    const int theme = (flag_bits() & 2) ? map_.shell_size() : 0;
+    const int theme = ((flag_bits() & 2) != 0U) ? map_.shell_size() : 0;
     builder_->load_pieces({.level = level, .unused = theme});
     set_up_abstract_metas();
     set_up_road_mask();

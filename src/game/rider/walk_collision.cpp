@@ -120,7 +120,7 @@ void FootMovement::update_curb_float()
                          .y = static_cast<float>((static_cast<double>(reach_y) + pos.y) + kHalf),
                          .z = static_cast<float>((static_cast<double>(ahead.z) * reach) + pos.z),
                          .w = 0.0F};
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         return;
     }
     const float distance = feeler.reach();
@@ -133,7 +133,7 @@ void FootMovement::update_curb_float()
     feeler.line().end = over;
     feeler.line().start = over;
     feeler.line().start.y = static_cast<float>(static_cast<double>(walk_parameter(kSnapUpHeight)) + pos.y);
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         return;
     }
 
@@ -174,7 +174,7 @@ void FootMovement::check_ceiling()
     maths::Vec4& pos = pos_;
     feeler.line().start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHeadClearance), .z = pos.z, .w = pos.w};
     feeler.line().end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + top), .z = pos.z, .w = pos.w};
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         return;
     }
 
@@ -194,7 +194,7 @@ void FootMovement::check_ceiling()
     vel.y = 0.0F;
     back.project_onto(normal);
     feeler.line().end = {.x = back.x + pos.x, .y = back.y + pos.y, .z = back.z + pos.z, .w = back.w + pos.w};
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         pos = {.x = feeler.contact_pos().x + feeler.surface_dir().x, .y = feeler.contact_pos().y + feeler.surface_dir().y,
                .z = feeler.contact_pos().z + feeler.surface_dir().z, .w = feeler.contact_pos().w + feeler.surface_dir().w};
     } else {
@@ -208,7 +208,7 @@ void FootMovement::check_sticker_slap()
 {
     // X and the pad's +0x20 button (btn_down_) both down, the latter within 30 ms.
     auto* pad = &input_->pad_primary();
-    if (!pad->pos_x().held_down() || !pad->btn_down().held_down()) {
+    if ((pad->pos_x().held_down() == 0U) || (pad->btn_down().held_down() == 0U)) {
         return;
     }
     if (static_cast<uint32_t>(pad->btn_down().get_held_millis()) > kButtonHeldMs) {
@@ -226,7 +226,7 @@ void FootMovement::check_sticker_slap()
                          .y = (reach * facing.y) + start.y,
                          .z = (reach * facing.z) + start.z,
                          .w = static_cast<float>((static_cast<double>(reach) * facing.w) + start.w)};
-    if (!feeler.get_hit_shape(false, false)) {
+    if (feeler.get_hit_shape(false, false) == 0) {
         return;
     }
 
@@ -265,7 +265,7 @@ void FootMovement::update_ground_below()
     const maths::Vec4 point = {.x = pos.x + offset.x, .y = y, .z = pos.z + offset.z, .w = pos.w + offset.w};
     down.line().start = {.x = point.x, .y = static_cast<float>(static_cast<double>(y) + kOne), .z = point.z, .w = point.w};
     down.line().end = {.x = point.x, .y = static_cast<float>(static_cast<double>(y) - depth), .z = point.z, .w = point.w};
-    const bool below = down.get_hit_shape(true, false);
+    const bool below = down.get_hit_shape(true, false) != 0;
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     render::ProbeRay shade;
@@ -281,7 +281,7 @@ void FootMovement::update_ground_below()
     }
     // The model shaded by the face hit (its vertex value).
     auto shade_model = [this](render::ProbeRay* feeler) { model_->apply_brightness(feeler, true, kOne); };
-    if (shade.get_hit_shape(true, false)) {
+    if (shade.get_hit_shape(true, false) != 0) {
         shade_model(&shade);
     } else if (below) {
         shade_model(&down);
@@ -357,7 +357,7 @@ void FootMovement::ease_critical_point_offset()
     maths::Vec4& pos = pos_;
     feeler.line().start = {.x = old.x + old_pos.x, .y = old.y + old_pos.y, .z = old.z + old_pos.z, .w = old.w + old_pos.w};
     feeler.line().end = {.x = pos.x + offset.x, .y = pos.y + offset.y, .z = pos.z + offset.z, .w = pos.w + offset.w};
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         const maths::Vec4 adjustment =
             (feeler.contact_pos() + kAdjustClearance * feeler.surface_dir()) - feeler.line().end;
         pos += adjustment;
@@ -391,7 +391,7 @@ void FootMovement::plan_jump_over_obstruction()
     start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kWalkerHeight));
     end = start;
     end.y = static_cast<float>(static_cast<double>(end.y) + walk_parameter(kJumpObstructionCheckHeight));
-    if (!feeler.get_hit_shape(false, false)) {
+    if (feeler.get_hit_shape(false, false) == 0) {
         return;
     }
     // ... meets something: the same jump_obstruction_check_back further back must be clear.
@@ -404,7 +404,7 @@ void FootMovement::plan_jump_over_obstruction()
         v->z = static_cast<float>(v->z - (static_cast<double>(back) * facing.z));
         v->w = static_cast<float>(v->w - (static_cast<double>(back) * facing.w));
     }
-    if (feeler.get_hit_shape(false, false)) {
+    if (feeler.get_hit_shape(false, false) != 0) {
         return;
     }
 
@@ -430,7 +430,7 @@ void FootMovement::try_wallplant()
 {
     // X down, not rising, high enough, not just wallplanted, not just after leaving the ground...
     auto* pad = &input_->pad_primary();
-    if (!pad->pos_x().held_down() || up_speed_ > 0.0F) {
+    if ((pad->pos_x().held_down() == 0U) || up_speed_ > 0.0F) {
         return;
     }
     if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground()) {
@@ -551,7 +551,7 @@ bool FootMovement::try_grind()
         return false;
     }
     render::ProbeRay feeler(&pos, &point);
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         const double dz = static_cast<double>(point.z) - feeler.contact_pos().z;
         const double dy = static_cast<double>(point.y) - feeler.contact_pos().y;
         const double dx = static_cast<double>(point.x) - feeler.contact_pos().x;
@@ -559,7 +559,7 @@ bool FootMovement::try_grind()
             return false;
         }
     }
-    if (script::fetch_int_value(kOutputTrackingLines)) {
+    if (script::fetch_int_value(kOutputTrackingLines) != 0) {
         debug::printf(kTrackingFormat, 2, static_cast<double>(old_pos.x), static_cast<double>(old_pos.y),
                       static_cast<double>(old_pos.z), static_cast<double>(pos.x), static_cast<double>(pos.y),
                       static_cast<double>(pos.z));

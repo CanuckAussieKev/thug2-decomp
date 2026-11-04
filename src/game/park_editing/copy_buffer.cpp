@@ -108,7 +108,7 @@ void ClipboardEntry::fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centr
         width = size.w;
         length = size.l;
     }
-    if (((cursor->quarter_turns() + quarter_turns_) & 3) & 1) {
+    if ((((cursor->quarter_turns() + quarter_turns_) & 3) & 1) != 0) {
         area->w = length;
         area->l = width;
     } else {
@@ -176,7 +176,7 @@ void ClipboardEntry::graft(GraftPlace graft_place, BuildPointer* cursor)
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     fetch_extent(&area, centre_x, centre_z, cursor);
     int top = y_ + height;
-    if (piece_group_ && (piece_group_->flag_bits() & PieceGroup::kBuiltShell)) {
+    if (piece_group_ && ((piece_group_->flag_bits() & PieceGroup::kBuiltShell) != 0U)) {
         top += piece_group_->cell_footprint().h;
     }
     if (top >= kFloorTopLimit) {
@@ -195,7 +195,7 @@ void ClipboardEntry::graft(GraftPlace graft_place, BuildPointer* cursor)
         flat = false;
         floor = manager->get_ground_level(area, &flat);
     }
-    if (piece_group_ && !(piece_group_->flag_bits() & PieceGroup::kBuiltShell)) {
+    if (piece_group_ && ((piece_group_->flag_bits() & PieceGroup::kBuiltShell) == 0U)) {
         PieceGroup* meta = manager->make_placed_piece(piece_group_, 0);
         meta->set_quarter_turns((cursor->quarter_turns() + quarter_turns_) & 3);
         manager->place_meta_piece_in_park(area, meta);
@@ -220,7 +220,7 @@ void ClipboardEntry::glow_overlapping_pieces(uint8_t centre_x, uint8_t centre_z,
     const MapListHolder metas(ParkLayout::singleton()->collect_pieces_in_region(area));
     for (const MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
-        if (!(meta->flag_bits() & PieceGroup::kBuiltShell)) {
+        if ((meta->flag_bits() & PieceGroup::kBuiltShell) == 0U) {
             meta->spotlight(on, 0);
         }
     }

@@ -142,12 +142,12 @@ void EditedGoal::drop_point_to_ground(int index)
     render::ProbeRay feeler;
     feeler.change_origin(&start);
     feeler.change_finish(&end);
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         // Missed: again from higher up.
         start.y = start.y + kDropHeight;
         feeler.change_origin(&start);
         feeler.change_finish(&end);
-        if (!feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) == 0) {
             return;
         }
     }
@@ -261,7 +261,7 @@ void EditedGoal::write_key_combo_sets(script::Struct* out)
         const KeyComboSet& set = core::at(key_combo_sets_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_int(checksums::Name{kSetIndex}, set.set);
-        if (set.must_be_flawless_) {
+        if (set.must_be_flawless_ != 0U) {
             entry->put_name_key(checksums::Name{0U}, kRequirePerfect);
         }
         entry->put_int(checksums::Name{kSpin}, set.spin * kSpinUnitDegrees);
@@ -300,13 +300,13 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
             } else {
                 entry->append_structure_if_any(structure_element(combos, j));
             }
-            if (set.tap_total_) {
+            if (set.tap_total_ != 0U) {
                 entry->put_int(checksums::Name{kNumTaps}, set.tap_total_);
             }
-            if (set.must_be_flawless_) {
+            if (set.must_be_flawless_ != 0U) {
                 entry->put_name_key(checksums::Name{0U}, kRequirePerfect);
             }
-            if (twist_rate_) {
+            if (twist_rate_ != 0) {
                 entry->put_int(checksums::Name{kRandomSpin}, twist_rate_);
             }
             result->set_cell(index++, script::Cell::of(entry));
@@ -369,7 +369,7 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
                 gaps->set_element(static_cast<uint32_t>(i), core::at(gaps_, i));
             }
             out->append_array_ref(kRequiredGaps, gaps);
-        } else if (num_gaps_) {
+        } else if (num_gaps_ != 0U) {
             gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, script::QbValueKind::kInteger);
             for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
                 gaps->set_element(static_cast<uint32_t>(i), core::at(gaps_, i));
@@ -471,10 +471,10 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         break;
     }
     write_specific_params(out, 1);
-    if (core::at(summary_text_, 0)) {
+    if (core::at(summary_text_, 0) != '\0') {
         out->append_word(kGoalDeScription, summary_text_.data());
     }
-    if (core::at(win_message_, 0)) {
+    if (core::at(win_message_, 0) != '\0') {
         // The win message's dialog: a copy of the global template array with the text and the pro's node.
         script::Array* source = script::fetch_list(kEditedGoalSuccessCamAnims);
         gsl::owner<script::Array*> dialog = script::new_array();
@@ -488,10 +488,10 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     }
     get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
     out->append_word(kGoalName, park_editing_state().created_goal_name().data());
-    if (core::at(label_, 0)) {
+    if (core::at(label_, 0) != '\0') {
         out->append_word(kViewGoalsText, label_.data());
     }
-    if (core::at(ped_name_, 0)) {
+    if (core::at(ped_name_, 0) != '\0') {
         out->append_word(kFullName, ped_name_.data());
     }
     out->put_int(checksums::Name{kTime}, time_limit_);
@@ -509,7 +509,7 @@ void EditedGoal::export_to_struct(script::Struct* out)
     get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
     out->put_name_key(checksums::Name{kGoalId}, checksums::hash_from_text(park_editing_state().created_goal_name().data()));
     out->put_int(checksums::Name{kTimeLimit}, time_limit_);
-    out->put_int(checksums::Name{kWonGoal}, won_);
+    out->put_int(checksums::Name{kWonGoal}, static_cast<int>(won_));
     out->put_name_key(checksums::Name{kControlType}, control_type_);
     out->append_word(kViewGoalsText, label_.data());
     out->append_word(kGoalDeScription, summary_text_.data());
@@ -520,7 +520,7 @@ void EditedGoal::export_to_struct(script::Struct* out)
     get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", level_goal_number_);
     out->put_name_key(checksums::Name{kProName}, checksums::hash_from_text(name.data()));
     write_specific_params(out, 0);
-    if (!vertex_total_) {
+    if (vertex_total_ == 0U) {
         return;
     }
     gsl::owner<script::Array*> points = new_array_of(vertex_total_, script::QbValueKind::kStruct);

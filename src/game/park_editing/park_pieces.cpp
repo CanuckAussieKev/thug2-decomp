@@ -88,7 +88,7 @@ void ParkPiece::get_footprint_size(CellBox* dims)
 
 maths::Vec4* ParkPiece::get_dims_turned(maths::Vec4* out, int rot)
 {
-    ParkPiece* source = (flag_bits_ & kSource) ? this : core::down_cast<ParkTile>(this)->blend_source();
+    ParkPiece* source = ((flag_bits_ & kSource) != 0U) ? this : core::down_cast<ParkTile>(this)->blend_source();
     // (The original asks the source three times, once per component; it's a plain getter. Its w: the source's when
     // the turn is odd, a stack leftover when it's even - the source's here.)
     maths::Vec4 size;

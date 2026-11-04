@@ -100,7 +100,7 @@ void LetterMatch::begin_timed_session() { cur_standing_ = core::at(statuses(), k
 bool LetterMatch::state_matches(script::Struct* params) const
 {
     for (const uint32_t status : statuses()) {
-        if (!status) {
+        if (status == 0U) {
             break;
         }
         if (params->has_bare_flag(status)) {
@@ -122,7 +122,7 @@ text::Chars LetterMatch::get_letter_string(int player)
 {
     std::array<char, kWordBufferBytes> word{};
     dup_from(word.data(), word_.data());
-    if (std::strlen(word.data())) {
+    if (std::strlen(word.data()) != 0U) {
         auto letters = static_cast<uint32_t>(core::at(letters_, player));
         for (uint32_t i = 0; i < std::strlen(word.data()); ++i) {
             if (i >= letters) {
@@ -172,7 +172,7 @@ int LetterMatch::fetch_next_live_rider() const
         }
     }
     debug::printf("new skater id = %d\n", id);  // "new skater id = %d\n"
-    if (script::fetch_int_value("debug_horse")) { // "debug_horse"
+    if (script::fetch_int_value("debug_horse") != 0) { // "debug_horse"
         return 0;
     }
     return id;

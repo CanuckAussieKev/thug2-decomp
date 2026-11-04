@@ -168,7 +168,7 @@ void GoalManager::get_bail()
         }
         if (goal->is_tetris()) {
             int flag = 0;
-            if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && flag) {
+            if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && (flag != 0)) {
                 goal->fetch_args()->put_int(checksums::Name{kTrickMarker}, 0);
             }
         } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
@@ -187,7 +187,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);
         const uint32_t pro = goal->skater();
-        if (skater && pro != skater) {
+        if ((skater != 0U) && pro != skater) {
             continue;
         }
         const uint32_t id = goal->get_objective_key();
@@ -251,7 +251,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
             list->set_cell(index++, script::Cell::of(copy));
             element = next;
         }
-        if (skater) {
+        if (skater != 0U) {
             out->append_array_ref(kViewGoalsInfo, list);
             script::free_struct(by_pro);
             script::free_struct(info);
@@ -312,7 +312,7 @@ bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script
     int level = 0;
     params->fetch_int_value(0U, &level, 1);
     GoalManager* manager = get_objective_board();
-    const int flag = params->has_bare_flag(kBeatenInLevelFlag);
+    const int flag = static_cast<int>(params->has_bare_flag(kBeatenInLevelFlag));
     script->args()->put_int(checksums::Name{kClearedCount}, manager->count_cleared_in_stage(level, flag));
     return true;
 }

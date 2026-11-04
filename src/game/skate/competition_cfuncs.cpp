@@ -322,7 +322,7 @@ bool cfunc_set_score_accumulation(script::Struct* params, script::Script* /*scri
     int on = 1;
     params->fetch_int_value(0U, &on, 0);
     set_game_mode_flag(kSetAccumulateScore, on != 0);
-    set_game_mode_flag(kApplyPointHold, !on && params->has_bare_flag(kFreezeScore));
+    set_game_mode_flag(kApplyPointHold, (on == 0) && params->has_bare_flag(kFreezeScore));
     return true;
 }
 
@@ -332,7 +332,7 @@ bool cfunc_add_bonus(script::Struct* params, script::Script* /*script*/)
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
-    if (skater->is_local_skater()) {
+    if (skater->is_local_skater() != 0U) {
         modules::PointTally* score = get_score_of(skater);
         int bonus = 0;
         params->fetch_int_value(0U, &bonus, 0);
@@ -347,7 +347,7 @@ bool cfunc_get_bonus_value(script::Struct* params, script::Script* script)
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
-    if (skater->is_local_skater()) {
+    if (skater->is_local_skater() != 0U) {
         script->args()->put_int(checksums::Name{kBonus}, get_bonus(get_score_of(skater)));
     }
     return true;

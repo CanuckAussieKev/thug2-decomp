@@ -229,7 +229,8 @@ void ParkLayout::set_up_abstract_metas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
                 const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
-                core::down_cast<PieceBlueprint>(meta)->add_meta_piece(part, &pos, {.rot = rot, .sets_floor_ = entry->has_bare_flag(kRiser)});
+                core::down_cast<PieceBlueprint>(meta)->add_meta_piece(
+                    part, &pos, {.rot = rot, .sets_floor_ = static_cast<uint8_t>(entry->has_bare_flag(kRiser))});
             }
         }
         if (desc->read_hash_value("name", &meta->name_key(), 0)) {
@@ -280,7 +281,7 @@ void ParkLayout::set_up_abstract_metas()
 
 void ParkLayout::write_compressed_map()
 {
-    if (flag_bits_ & kMapNewerThanPark) {
+    if ((flag_bits_ & kMapNewerThanPark) != 0U) {
         return;
     }
     ParkMap& map = map_;
@@ -309,7 +310,8 @@ void ParkLayout::write_compressed_map()
     for (const MapListNode* node = concrete_metas_; node; node = node->following()) {
         const PieceGroup* meta = node->get_piece_group()->get_cast();
         const uint32_t flags = meta->flag_bits();
-        if ((flags & PieceGroup::kBuiltShell) || (flags & PieceGroup::kFence) || !(flags & PieceGroup::kInPark)) {
+        if (((flags & PieceGroup::kBuiltShell) != 0U) || ((flags & PieceGroup::kFence) != 0U) ||
+            ((flags & PieceGroup::kInPark) == 0U)) {
             continue;
         }
         const CellBox at = meta->cell_footprint();
@@ -366,7 +368,7 @@ void ParkLayout::write_compressed_map()
     }
     map.set_gap_count(static_cast<uint16_t>(gaps_written));
     map.set_extent(static_cast<uint16_t>(out.position()));
-    if (!(flag_bits_ & (kMapValid | kMapNewerThanPark))) {
+    if ((flag_bits_ & (kMapValid | kMapNewerThanPark)) == 0U) {
         flag_bits_ |= kMapNotSavedLocal;
     }
     flag_bits_ = (flag_bits_ & ~kMapNewerThanPark) | kMapValid | kMapInSync;
@@ -518,7 +520,7 @@ void ParkLayout::clear_compressed_map()
     map.set_extent(static_cast<uint16_t>(used));
     map.set_checksum(checksum);
     map.set_gap_count(0);
-    if (!(flag_bits_ & (kMapValid | kMapNewerThanPark))) {
+    if ((flag_bits_ & (kMapValid | kMapNewerThanPark)) == 0U) {
         flag_bits_ |= kMapNotSavedLocal;
     }
     flag_bits_ = (flag_bits_ & ~kMapNewerThanPark) | kMapValid | kMapInSync;
@@ -538,7 +540,7 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         pos.w = 1;
         pos.h = 1;
         pos.l = 1;
-        const MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, true));
+        const MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, 1U));
         if (!metas.list()) {
             return false;
         }
@@ -601,7 +603,7 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
 {
     std::array<PieceGroup*, 2> halves{}; // (unset for a half with nothing there, as in the original)
     for (int half = 0; half < gap->halves_placed(); ++half) {
-        const MapListHolder metas(get_intersecting_metas(core::at(gap->at_point(), half), 0, nullptr, true));
+        const MapListHolder metas(get_intersecting_metas(core::at(gap->at_point(), half), 0, nullptr, 1U));
         if (metas.list()->following()) {
             print_map_list(metas.list());
         }
@@ -615,7 +617,7 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
             }
         }
         PieceGroup* meta = core::at(halves, half);
-        meta->spotlight(false, 0);
+        meta->spotlight(0, 0);
         meta->flag_bits() &= ~PieceGroup::kHighlightable;
     }
     int index = 0;

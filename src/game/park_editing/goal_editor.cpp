@@ -256,7 +256,8 @@ int ObjectiveAuthoring::count_complete_goals(uint32_t level)
 {
     int count = 0;
     for (const EditedGoal& goal : goals_) {
-        if (goal.taken_count() && (!level || goal.level() == level) && goal.vertex_total() >= goal.min_points()) {
+        if (goal.taken_count() && ((level == 0U) || goal.level() == level) &&
+            goal.vertex_total() >= goal.min_points()) {
             ++count;
         }
     }
@@ -373,7 +374,8 @@ void ObjectiveAuthoring::drop_objective(EditedGoal* goal)
 void ObjectiveAuthoring::update_camera_collision()
 {
     const EditedGoal* goal = active_node_;
-    const int kind = goal->vertex_total() ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
+    const int kind =
+        (goal->vertex_total() != 0U) ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
     if (kind != kPointPro && kind != kPointStart) {
         view_cam(view_camera_)->set_simple_collision(true);
         return;
@@ -407,7 +409,7 @@ void ObjectiveAuthoring::run_cursor_script()
 void ObjectiveAuthoring::refresh_cursor()
 {
     const EditedGoal* goal = active_node_;
-    int kind = goal->vertex_total() ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
+    int kind = (goal->vertex_total() != 0U) ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
     const char* model = nullptr;
     if (kind == kPointStart) {
         model = "gameobjects\\p1_cursor\\p1_cursor.mdl";
@@ -422,7 +424,7 @@ void ObjectiveAuthoring::refresh_cursor()
     }
     script::Struct params;
     goal = active_node_;
-    kind = goal->vertex_total() ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
+    kind = (goal->vertex_total() != 0U) ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
     if (kind == kPointPro) {
         params.put_name_key(checksums::Name{kType}, kPed);
     } else if (kind == kPointCheckpoint) {
@@ -479,7 +481,7 @@ void ObjectiveAuthoring::place_park_goals_on_ground()
 // 0x004EA470
 void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
 {
-    if (park_only) {
+    if (park_only != 0) {
         clear_park_goals();
     } else {
         clear_level_goals();
@@ -527,7 +529,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
     uint32_t left = goals ? goals->extent() : 0; // (Not original: none - the original read through null)
     uint32_t next = 0;
     for (EditedGoal& goal : goals_) {
-        if (!left) {
+        if (left == 0U) {
             break;
         }
         if (goal.taken_count()) {
@@ -550,7 +552,7 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
             ++count;
         }
     }
-    if (!count) {
+    if (count == 0U) {
         return;
     }
     gsl::owner<script::Array*> goals = script::new_array();
@@ -615,12 +617,12 @@ namespace {
 bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float height)
 {
     const EditedGoal* goal = editor->active_node();
-    if (goal->vertex_total() && core::at(goal->path_vertices(), goal->current_point()).kind == kPointStart &&
+    if ((goal->vertex_total() != 0U) && core::at(goal->path_vertices(), goal->current_point()).kind == kPointStart &&
         editor->point_near_any_goal(pos, height, checksums::Name{goal->level()}, 0)) {
         return true;
     }
     goal = editor->active_node();
-    if (!goal->vertex_total() || core::at(goal->path_vertices(), goal->current_point()).kind == kPointPro) {
+    if ((goal->vertex_total() == 0U) || core::at(goal->path_vertices(), goal->current_point()).kind == kPointPro) {
         return editor->point_near_any_goal(pos, height, checksums::Name{goal->level()}, 1);
     }
     return false;
@@ -642,7 +644,7 @@ void ObjectiveAuthoring::tick_frame()
         return;
     }
     objects::ControlButton* place = get_button(input_ptr_, kPlaceButtonOffset);
-    if (place->fired()) {
+    if (place->fired() != 0U) {
         place->reset_activation();
         const objects::EditorViewModule* camera = view_cam(view_camera_);
         const maths::Vec4 pos = camera->cursor();
@@ -661,7 +663,7 @@ void ObjectiveAuthoring::tick_frame()
         }
     }
     objects::ControlButton* back = get_button(input_ptr_, kBackButtonOffset);
-    if (back->fired()) {
+    if (back->fired() != 0U) {
         back->reset_activation();
         const objects::EditorViewModule* camera = view_cam(view_camera_);
         const maths::Vec4 pos = camera->cursor();
@@ -704,14 +706,15 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
         level = kParkEditorLevel;
     }
     const int count = count_complete_goals(level);
-    if (!count) {
+    if (count == 0) {
         return true;
     }
     gsl::owner<script::Array*> goals = script::new_array();
     goals->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
-        if (!goal.taken_count() || (level && goal.level() != level) || goal.vertex_total() < goal.min_points()) {
+        if (!goal.taken_count() || ((level != 0U) && goal.level() != level) ||
+            goal.vertex_total() < goal.min_points()) {
             continue;
         }
         gsl::owner<script::Struct*> entry = script::new_struct();

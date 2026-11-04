@@ -65,7 +65,8 @@ uint32_t structure_buffer_size(script::Struct* structure, uint32_t maximum)
 }
 void write_structure(script::Struct* structure, void* buffer, uint32_t size, int a)
 {
-    script::emit_into_buffer(structure, static_cast<uint8_t*>(buffer), size, a, nullptr); // (the original's callback: 0)
+    script::emit_into_buffer(structure, static_cast<uint8_t*>(buffer), size, a != 0,
+                             nullptr); // (the original's callback: 0)
 }
 void read_structure(script::Struct* structure, void* buffer, size_t size)
 {
@@ -105,7 +106,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
     params->fetch_int_value(kMaxPlayers, &max_players, 0);
     sole()->builder_->set_player_cap(max_players);
 
-    const uint16_t map_size = (flag_bits_ & kMapLoaded) ? map_.shell_size() : 0;
+    const uint16_t map_size = ((flag_bits_ & kMapLoaded) != 0U) ? map_.shell_size() : 0;
     if (park_built_) {
         write_compressed_map();
     }

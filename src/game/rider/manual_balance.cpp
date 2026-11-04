@@ -127,7 +127,7 @@ void Balance::prepare_all(GameEntity* skater)
 // 0x005798A0
 void Balance::get_reset()
 {
-    if (script::fetch_int_value(kShowBalanceIndicator)) {
+    if (script::fetch_int_value(kShowBalanceIndicator) != 0) {
         script::launch_script(kResetBalanceIndicator, nullptr, nullptr, false, nullptr);
     }
     reset_state(this);
@@ -153,7 +153,7 @@ void Balance::show_meter() { show_meter_ = true; }
 // 0x00579950
 Balance::Balance()
 {
-    if (script::fetch_int_value(kShowBalanceIndicator)) {
+    if (script::fetch_int_value(kShowBalanceIndicator) != 0) {
         script::launch_script(kResetBalanceIndicator, nullptr, nullptr, false, nullptr);
     }
     reset_state(this);
@@ -227,7 +227,7 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
         const uint32_t balance = get_trick_type(balance_trick_);
         if (balance == kNosemanual) {
             lean_speed_ = -repeat_min;
-        } else if (balance != kManual && maths::rnd(2)) {
+        } else if (balance != kManual && (maths::rnd(2) != 0)) {
             lean_speed_ = -lean_speed_;
         }
     }
@@ -253,7 +253,7 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
 void Balance::tick_frame()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    if (!left_button_ || !right_press_) {
+    if ((left_button_ == 0U) || (right_press_ == 0U)) {
         return;
     }
     auto* net = online::net_game_state().online_hub();
@@ -337,7 +337,7 @@ void Balance::tick_frame()
         bool flip = flip_;
         if (mirrored_) {
             auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_->fetch_module(kSkaterCorePhysics));
-            if (core->state()->flag(PoseFlag::kFlipped).on) {
+            if (core->state()->flag(PoseFlag::kFlipped).on != 0U) {
                 flip = !flip;
             }
         }
@@ -348,7 +348,7 @@ void Balance::tick_frame()
         }
     }
     auto shown = lean_ * -kLeanToUnits;
-    if (hide_display_ || !get_trick_type(balance_trick_)) {
+    if (hide_display_ || (get_trick_type(balance_trick_) == 0U)) {
         return;
     }
     const bool up_down =

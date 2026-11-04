@@ -200,7 +200,7 @@ bool cfunc_clear_player_face_texture(script::Struct* params, script::Script* /*s
 bool cfunc_player_face_is_valid(script::Struct* params, script::Script* /*script*/)
 {
     const gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
-    return face && face->is_sound();
+    return (face != nullptr) && face->is_sound();
 }
 
 // 0x005AF750 / 0x005AF7D0 / 0x005AF850 / 0x005AF8D0: RefreshSkaterColors / Scale / Visibility / UV profile=<n>

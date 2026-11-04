@@ -280,7 +280,7 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         started_ = true;
         return 1;
     case kAdjustBalance: {
-        if (!trick_) {
+        if (trick_ == 0U) {
             return 1;
         }
         float time_add = 0.0F;

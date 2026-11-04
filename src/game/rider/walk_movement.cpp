@@ -310,7 +310,7 @@ void FootMovement::update_control()
         if (core::at(pad->polar(), 1).length == 0.0F) {
             magnitude = 0.0F;
             full = false;
-        } else if (state_ == 0 && !pad->pos_x().held_down()) {
+        } else if (state_ == 0 && (pad->pos_x().held_down() == 0U)) {
             magnitude = walk_parameter(kWalkPoint);
             full = true;
         } else {
@@ -491,7 +491,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                                      .z = (ahead_z * reach) + start.z,
                                      .w = none + start.w};
                 // (the original reads wall_rotate_factor through 0x0043DA70)
-                if (feeler.get_hit_shape(false, false)) {
+                if (feeler.get_hit_shape(false, false) != 0) {
                     turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
                 }
             }

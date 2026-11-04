@@ -74,7 +74,7 @@ void RiderPhysicsTweaks::tick_frame()
             flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + clock_offset();
         }
     }
-    if (!core_ptr_->state()->flag(PoseFlag::kSkitching).on) {
+    if (core_ptr_->state()->flag(PoseFlag::kSkitching).on == 0U) {
         check_inside_moving_object();
     }
     keep_above_ground();
@@ -96,7 +96,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
     feeler.change_origin(&start);
     const maths::Vec4 end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), .z = pos.z, .w = pos.w};
     feeler.change_finish(&end);
-    if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive()) {
+    if ((feeler.get_hit_shape(true, false) != 0) && feeler.hit_object_alive()) {
         ride_->ride_on(feeler.get_hit_object());
     }
     if (core_ptr_->state()->cur_phase() == 4) {
@@ -124,7 +124,7 @@ void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
     } else {
         feeler.line().end = feeler.line().start;
     }
-    if (feeler.get_hit_shape(false, false)) {
+    if (feeler.get_hit_shape(false, false) != 0) {
         mesh_instance_->apply_brightness(&feeler, true, 1.0F);
     } else if (hit) {
         mesh_instance_->apply_brightness(ground, true, 1.0F);

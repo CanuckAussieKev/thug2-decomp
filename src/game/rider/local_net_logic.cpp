@@ -105,7 +105,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;
     for (int k = 0; k < kTimedFlagCount; ++k) {
-        if (core::at(core->timed_flags(), k).on) {
+        if (core::at(core->timed_flags(), k).on != 0U) {
             controls |= 1U << k;
         } else {
             controls &= ~(1U << k);
@@ -181,7 +181,7 @@ void RiderHostSync::send_update()
     if (on_server) {
         // (a copy of the server's own skater's position, written and never read: the original's static)
         uint32_t& guard = local_net_logic_state().local_net_guard_;
-        if (!(guard & 1)) {
+        if ((guard & 1) == 0U) {
             guard |= 1;
         }
         local_net_logic_state().local_net_position_ = entity()->at_point();
@@ -190,14 +190,14 @@ void RiderHostSync::send_update()
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
-        if (flags & (1U << k)) {
+        if ((flags & (1U << k)) != 0U) {
             stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = online::kObjectUpdatePoseBits});
         }
         core::at(sent_pos_, k) = value;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle(now.angles[k]);
-        if (flags & (online::kObjectUpdateAngleFieldBase << k)) {
+        if ((flags & (online::kObjectUpdateAngleFieldBase << k)) != 0U) {
             stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = online::kObjectUpdatePoseBits});
         }
         core::at(sent_angles_, k) = value;
@@ -206,24 +206,27 @@ void RiderHostSync::send_update()
     auto signed_byte = [](uint8_t value) {
         return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value)));
     };
-    if (flags & online::kObjectUpdateHasState) {
+    if ((flags & online::kObjectUpdateHasState) != 0U) {
         sent_value_7c_ = now.value_7c_;
         sent_flag75_ = now.flag75;
         sent_state_ = now.state;
         sent_flag74_ = now.flag74;
         sent_flag76_ = now.flag76;
-        stream.write_bits({.value = signed_byte(now.flag74 ? static_cast<uint8_t>(now.state | online::kObjectUpdateFlag74Mask) : now.state), .count = 4});
+        stream.write_bits(
+            {.value = signed_byte((now.flag74 != 0U) ? static_cast<uint8_t>(now.state | online::kObjectUpdateFlag74Mask)
+                                                     : now.state),
+             .count = 4});
         stream.write_bits({.value = signed_byte(now.value_7c_), .count = online::kObjectUpdateValue7cBits});
         stream.write_bits({.value = signed_byte(now.flag75), .count = 1});
         stream.write_bits({.value = signed_byte(now.flag76), .count = 1});
     }
-    if (flags & online::kObjectUpdateHasControls) {
+    if ((flags & online::kObjectUpdateHasControls) != 0U) {
         sent_controls_ = now.controls;
         sent_value_6c_ = now.value_6c_;
         stream.write_bits({.value = now.controls, .count = online::kObjectUpdateControlsBits});
         stream.write_bits({.value = now.value_6c_, .count = 3});
     }
-    if (flags & online::kObjectUpdateHasWord) {
+    if ((flags & online::kObjectUpdateHasWord) != 0U) {
         sent_value80_ = now.value80;
         stream.write_bits({.value = now.value80, .count = online::kObjectUpdateWordBits});
     }

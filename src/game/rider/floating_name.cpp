@@ -115,7 +115,7 @@ void RiderOverheadTag::tick_frame()
     }
     const online::PlayerRecord* player = find_player_slot_by_obj(entity()->ident());
     auto* skater = core::down_cast<Rider>(entity());
-    if (!skater->get_flag_2c_4() || (entity()->composite_flags() & kCompositeFlagHidden)) {
+    if (!skater->get_flag_2c_4() || ((entity()->composite_flags() & kCompositeFlagHidden) != 0U)) {
         if (label) {
             run_with_label_id({.name = kDestroyObjectLabel, .label_id_ = label_id_});
         }

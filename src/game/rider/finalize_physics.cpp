@@ -76,7 +76,7 @@ void RiderPhysicsCommit::tick_frame()
     objects::RiderPoseState* state = pose_;
     // Out of a lip trick (the physics' +0x256: the frame began in one) straight up: into the air with hardly any speed
     // across the ground. Kept while in the air.
-    if (core->frame_began_in_lip() && state->cur_phase() != kStateLip) {
+    if ((core->frame_began_in_lip() != 0U) && state->cur_phase() != kStateLip) {
         state->set_lip_straight_up(0);
         if (state->cur_phase() == kStateAir && std::fabs(entity()->vel().x) < kStillSpeed &&
             std::fabs(entity()->vel().z) < kStillSpeed) {

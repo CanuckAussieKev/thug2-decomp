@@ -92,12 +92,12 @@ void ParkLayout::set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty)
 
 bool ParkLayout::has_local_park_copy() const
 {
-    return (flag_bits_ & (kMapValid | kMapNewerThanPark)) && !(flag_bits_ & kMapNotSavedLocal);
+    return ((flag_bits_ & (kMapValid | kMapNewerThanPark)) != 0U) && ((flag_bits_ & kMapNotSavedLocal) == 0U);
 }
 
 int ParkLayout::get_shell_size()
 {
-    if (flag_bits_ & kMapInSync) {
+    if ((flag_bits_ & kMapInSync) != 0U) {
         return map_.shell_size();
     }
     return 0;
@@ -141,7 +141,7 @@ void ParkLayout::rebuild_park_geometry(int how)
 uint32_t ParkLayout::get_shell_checksum()
 {
     std::array<char, kShellNameSize> name{};
-    if ((flag_bits_ & kMapInSync) && map_.shell_size() != 0) {
+    if (((flag_bits_ & kMapInSync) != 0U) && map_.shell_size() != 0) {
         text::format_to(name, "sk5ed%d_shell", map_.shell_size() + 1); // 0x0064F650
     } else {
         std::memcpy(name.data(), "sk5ed_shell", kShellNameBytes); // 0x0064F644
@@ -178,7 +178,7 @@ void ParkLayout::get_map_info(const ParkMap* map, MapInfoOut info)
     *num_gaps = map->gap_count();
     *num_metas = map->piece_count();
     *theme = map->shell_size();
-    *unknown18 = map->theme() ? map->theme() : kDefault; // Default
+    *unknown18 = (map->theme() != 0U) ? map->theme() : kDefault; // Default
 }
 
 void ParkLayout::restore_floor_heights()
@@ -309,8 +309,8 @@ void ParkLayout::destroy_gap_manager_copy()
 void ParkLayout::highlight_gap_pieces(bool on, GapDetails* gap)
 {
     for (const MapListNode* node = concrete_metas_; node; node = node->following()) {
-        if (node->get_piece_group()->get_cast()->flag_bits() & PieceGroup::kHighlightable) {
-            node->get_piece_group()->get_cast()->spotlight(on, 1);
+        if ((node->get_piece_group()->get_cast()->flag_bits() & PieceGroup::kHighlightable) != 0U) {
+            node->get_piece_group()->get_cast()->spotlight(static_cast<int>(on), 1);
         }
     }
     builder_->set_pieces_highlighted(0);

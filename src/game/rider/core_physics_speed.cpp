@@ -124,7 +124,7 @@ void SkaterPhysicsModule::apply_ground_friction()
 {
     objects::GameEntity* object = object_of(this);
     // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
-    if (!auto_kick_ && !state_->flag(PoseFlag::kBailing).on &&
+    if ((auto_kick_ == 0U) && (state_->flag(PoseFlag::kBailing).on == 0U) &&
         rolling_friction_ == tuning_float_lookup(kCoastDrag, object) && !thaw_bmx::live_now(this)) {
         return;
     }
@@ -138,7 +138,7 @@ void SkaterPhysicsModule::apply_ground_friction()
 // 0x005021D0
 void SkaterPhysicsModule::start_riding_hit_object()
 {
-    if (state_->flag(PoseFlag::kSkitching).on) {
+    if (state_->flag(PoseFlag::kSkitching).on != 0U) {
         return;
     }
     objects::MovingSurfaceModule* ride = ride_;

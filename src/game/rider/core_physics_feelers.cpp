@@ -111,10 +111,10 @@ bool SkaterPhysicsModule::probe_touches_zone(render::FaceFlag ignore, render::Fa
     feeler->change_strand(&probe_start_, &probe_end_);
     feeler->set_excluded({.ignore = ignore, .require = require});
     auto hit = static_cast<uint8_t>(feeler->get_hit_shape(true, false));
-    if (!hit) {
+    if (hit == 0U) {
         return false;
     }
-    if (feeler_.hit().object_checksum_ && feeler_.hit().face_flag40_) {
+    if ((feeler_.hit().object_checksum_ != 0U) && (feeler_.hit().face_flag40_ != 0U)) {
         feeler_.hit().unknown38 = 0;
     }
     const render::FaceFlag flags = feeler_.hit().face_flags_;
@@ -150,8 +150,8 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
     const RailNode* last = rail_node_;
     auto same_rail = [&] { return last == node || last == node->last_value() || last == node->succ(); };
     // In the air after a grind: not the same rail (or its neighbours) again.
-    if (flags->cur_phase() == 1 && flags->flag(PoseFlag::kFromAcidDrop).on &&
-        flags->flag(PoseFlag::kJumpedOffRail).on && same_rail()) {
+    if (flags->cur_phase() == 1 && (flags->flag(PoseFlag::kFromAcidDrop).on != 0U) &&
+        (flags->flag(PoseFlag::kJumpedOffRail).on != 0U) && same_rail()) {
         return false;
     }
 
@@ -187,7 +187,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
     }
 
     // The same rail: only after the wait since leaving it.
-    if (!state_->flag(PoseFlag::kLipToAir).on &&
+    if ((state_->flag(PoseFlag::kLipToAir).on == 0U) &&
         get_since(static_cast<uint32_t>(rail_time_)) <= static_cast<uint32_t>(rail_wait_)) {
         return false;
     }
@@ -199,7 +199,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
         return false;
     }
     // (On a vert wall, only while moving up.)
-    if (flags->flag(PoseFlag::kVertWall).on && !(entity()->vel().y > 0.0F)) {
+    if ((flags->flag(PoseFlag::kVertWall).on != 0U) && !(entity()->vel().y > 0.0F)) {
         return false;
     }
     return true;
@@ -273,7 +273,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
                 return 0;
             }
         }
-        return hit_vert_ ? 1 : 0;
+        return (hit_vert_ != 0U) ? 1 : 0;
     }
     // Across the skater: from `across` to one side (lowered) to as far to the other.
     const float across = tuning_float_lookup(kSidewaysShift, object);
@@ -303,7 +303,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
     if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return 0;
     }
-    return hit_vert_ ? 1 : 0;
+    return (hit_vert_ != 0U) ? 1 : 0;
 }
 
 // 0x005013E0
@@ -364,7 +364,7 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
 int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     if (name == kLedge) {
-        return on_ledge_ ? 1 : 0;
+        return (on_ledge_ != 0U) ? 1 : 0;
     }
     if (name != kObjMoveToNode) {
         // Not original - THAW's bike member functions (SkaterOnBike, IsSkaterOnBike...: game/rider/thaw_bmx.h)
@@ -386,7 +386,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     safe_pos_ = entity()->at_point();
     entity()->old_pos() = entity()->at_point();
     object_of(this)->mark_jumped_ahead(true);
-    if (entity()->is_local_skater()) {
+    if (entity()->is_local_skater() != 0U) {
         // (the skater's camera follows at once)
         void* camera = core::down_cast<objects::Rider>(object_of(this))->get_skater_camera();
         if (camera) {
@@ -397,7 +397,8 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         floor_feeler_.hit().face_flag40_ = 0;
         entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         physics::change_phase(this, 0);
-        set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity())->goofy());
+        set_timed_flag(this, PoseFlag::kFlipped,
+                       static_cast<uint8_t>(!core::down_cast<objects::Rider>(entity())->goofy()));
         core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
             ->apply_flip_to_anims();
     } else if (params->has_bare_flag(kOrient)) {
@@ -439,7 +440,7 @@ void SkaterPhysicsModule::find_nearest_wall_side()
         end.y = static_cast<float>((distance * row.y) + start.y);
         end.z = static_cast<float>((distance * row.z) + start.z);
         end.w = static_cast<float>((distance * row.w) + start.w);
-        if (feeler.get_hit_shape(true, false) && feeler.reach() < nearest) {
+        if ((feeler.get_hit_shape(true, false) != 0) && feeler.reach() < nearest) {
             nearest = feeler.reach();
             nearest_wall_side_ = side.side;
         }

@@ -49,7 +49,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
         in_place = false;
         count = static_cast<int>(nodes->extent());
         index = &count;
-        if (!count) {
+        if (count == 0) {
             nodes->configure_size_kind(kGoalNodeCount, script::QbValueKind::kStruct);
         } else {
             nodes->rescale(nodes->extent() + kGoalNodeCount);

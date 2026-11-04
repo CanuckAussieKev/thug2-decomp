@@ -439,7 +439,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
             int built = 0;
             entry->fetch_int_value(kGapLevel, &saved_level, 1);
             entry->fetch_int_value(kGapsBuilt, &built, 1);
-            if (!built) {
+            if (built == 0) {
                 continue;
             }
             script::Array* list = nullptr;
@@ -454,7 +454,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
                 gap->fetch_int_value(kGapCount, &got, 0);
                 gap->fetch_int_value(kGapScore, &score, 0);
                 checklist->register_gap_entry(name, {.count = got, .score = score});
-                if (got) {
+                if (got != 0) {
                     script::VectorValue pos{};
                     script::VectorValue dir{};
                     gap->fetch_vec(kGapPos, &pos, 0);
@@ -568,7 +568,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                 gap->put_int(checksums::Name{kGapScore}, checklist->get_gap_points(i));
                 maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
                 maths::Vec4 dir = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-                if (checklist->count_gaps_found(i)) {
+                if (checklist->count_gaps_found(i) != 0) {
                     checklist->get_gap_positions(i, {.pos = &pos, .dir = &dir});
                 }
                 gap->put_vec3(checksums::Name{kGapPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
@@ -581,7 +581,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     }
     gsl::owner<script::Array*> visited = alloc_script_array(kLevels, script::QbValueKind::kInteger);
     for (int level = 0; level < kLevels; ++level) {
-        visited->set_element(static_cast<uint32_t>(level), core::at(visited_, level));
+        visited->set_element(static_cast<uint32_t>(level), static_cast<uint32_t>(core::at(visited_, level)));
     }
     gsl::owner<script::Struct*> career = script::new_struct();
     career->append_array_ref(kGoalListName, goals);

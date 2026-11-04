@@ -105,7 +105,7 @@ void LetterGameObjective::land()
         spot->read_hash_value(kFlag, &flag, 1);
         int set = 0;
         goal_flags()->fetch_int_value(flag, &set, 1);
-        if (set) {
+        if (set != 0) {
             continue;
         }
         if (!spot->fetch_int_value(kScore, &score, 0)) {
@@ -201,7 +201,7 @@ bool OnlineObjective::wants_to_end()
     }
     online::Hub* net = online::online_hub();
     PlayerSearch search;
-    if (!net->count_players()) {
+    if (net->count_players() == 0) {
         return true;
     }
     if (core::any(cur_phase() & Objective::State::kNoTimeLimit)) {

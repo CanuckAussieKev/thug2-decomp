@@ -32,9 +32,9 @@ void SkaterPhysicsModule::tick_frame()
         thaw_bmx::begin_frame(this);
     }
     landed_this_frame_ = 0;
-    frame_began_in_lip_ = state_of(this) == kLip;
+    frame_began_in_lip_ = static_cast<uint8_t>(state_of(this) == kLip);
     frame_began_in_drop_ = bit_mark(this, PoseFlag::kAcidDrop);
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down()) {
+    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (input_->pad_primary().pos_x().held_down() != 0U)) {
         set_flag(this, PoseFlag::kCrouched, 1);
     }
     clamp_skater_speed();
@@ -88,12 +88,13 @@ void SkaterPhysicsModule::tick_frame()
     update_special_time();
     collision_events::checkpoint(this, "update-rest"); // (not original)
 
-    const uint8_t in_air =
-        state_of(this) == kAir && bit_mark(this, PoseFlag::kVertAir) && !bit_mark(this, PoseFlag::kAcidDrop);
+    const auto in_air = static_cast<uint8_t>(state_of(this) == kAir && (bit_mark(this, PoseFlag::kVertAir) != 0U) &&
+                                             (bit_mark(this, PoseFlag::kAcidDrop) == 0U));
     uint8_t& air_from_jump = vert_air_announced_;
     if (air_from_jump != in_air) {
-        air_from_jump = !air_from_jump;
-        static_cast<objects::Entity*>(object_of(this))->announce(air_from_jump ? kEnteredAir : kLeftAir, nullptr, 0.0F);
+        air_from_jump = static_cast<uint8_t>(air_from_jump == 0U);
+        static_cast<objects::Entity*>(object_of(this))
+            ->announce((air_from_jump != 0U) ? kEnteredAir : kLeftAir, nullptr, 0.0F);
     }
     if (state_of(this) != kAir) {
         late_wallplant_frames_ = 0;

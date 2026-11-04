@@ -145,7 +145,7 @@ void BuildPointer::shift_by(int dx, int dz)
     } else {
         const ParkLayout* manager = park_owner_;
         for (MapListNode* node = manager->concrete_metas(); node; node = node->following()) {
-            if (node->get_placed_piece()->flag_bits() & PieceGroup::kHighlightable) {
+            if ((node->get_placed_piece()->flag_bits() & PieceGroup::kHighlightable) != 0U) {
                 node->get_placed_piece()->spotlight(1, 1);
             }
         }
@@ -422,7 +422,7 @@ void BuildPointer::change_piece(uint32_t checksum)
     destroy_cursor_meta();
     // (an unknown checksum is read through a null metapiece, as in the original)
     PieceGroup* source = park_owner_->find_piece_template(checksum);
-    if (source->flag_bits() & PieceGroup::kRailPlacement) {
+    if ((source->flag_bits() & PieceGroup::kRailPlacement) != 0U) {
         cell_footprint_.w = 1;
         cell_footprint_.h = 1;
         cell_footprint_.l = 1;
@@ -432,14 +432,14 @@ void BuildPointer::change_piece(uint32_t checksum)
         cell_footprint_.w = piece_group_->cell_footprint().w;
         cell_footprint_.h = piece_group_->cell_footprint().h;
         cell_footprint_.l = piece_group_->cell_footprint().l;
-        if (quarter_turns_ & 1) {
+        if ((quarter_turns_ & 1) != 0) {
             swap_width_and_length(cell_footprint_);
         }
     }
     drop_area_marquee();
 
     const uint32_t flags = source->flag_bits();
-    if (flags & PieceGroup::kGap) {
+    if ((flags & PieceGroup::kGap) != 0U) {
         if (mode_sel_ != BuildPointer::Mode::kGap) {
             mode_sel_ = BuildPointer::Mode::kGap;
             on_mode_changed();
@@ -447,9 +447,9 @@ void BuildPointer::change_piece(uint32_t checksum)
         return;
     }
     BuildPointer::Mode mode = BuildPointer::Mode::kRegular;
-    if (flags & PieceGroup::kMarqueeTool) {
+    if ((flags & PieceGroup::kMarqueeTool) != 0U) {
         mode = BuildPointer::Mode::kAreaSelect;
-    } else if (flags & PieceGroup::kRailPlacement) {
+    } else if ((flags & PieceGroup::kRailPlacement) != 0U) {
         mode = BuildPointer::Mode::kRailPlacement;
     }
     if (mode_sel_ != mode) {

@@ -151,8 +151,8 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
     const float steepest = rail_ascent_sine();
     for (int index = 0; index < rails->num(); ++index) {
         const objects::GrindPoint* node = &core::at(rails->node_run(), index);
-        if ((node->flag_bits() & objects::kRailFlagLadder) || !(node->flag_bits() & objects::kRailFlagActive) ||
-            !node->succ()) {
+        if (((node->flag_bits() & objects::kRailFlagLadder) != 0U) ||
+            ((node->flag_bits() & objects::kRailFlagActive) == 0U) || !node->succ()) {
             continue;
         }
         maths::Vec4 a;
@@ -318,7 +318,7 @@ objects::ControlButton* tow_button(SkaterPhysicsModule* core) { return &core->in
 bool tire_tapping(const SkaterPhysicsModule* core)
 {
     const BikeState* state = state_of(core, false);
-    return state && state->tire_tap_;
+    return (state != nullptr) && state->tire_tap_;
 }
 
 namespace {
@@ -332,16 +332,16 @@ namespace {
 void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
 {
     objects::RiderPoseState* flags = core->state();
-    if (flags->flag(PoseFlag::kAcidDrop).on) {
+    if (flags->flag(PoseFlag::kAcidDrop).on != 0U) {
         state.tap_armed_ = false;
         return;
     }
-    const bool not_vert = !flags->flag(PoseFlag::kVertAir).on;
+    const bool not_vert = flags->flag(PoseFlag::kVertAir).on == 0U;
     if (not_vert) {
         state.tap_armed_ = false;
     }
     const objects::PadSnapshot* pad = &core->input()->pad_primary();
-    const bool held = pad->shoulder_right_a().held_down() && (state.stick_up_.down || state.stick_down_.down);
+    const bool held = (pad->shoulder_right_a().held_down() != 0U) && (state.stick_up_.down || state.stick_down_.down);
     if (!state.tap_armed_ && !held) {
         return;
     }
@@ -429,7 +429,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
 void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
 {
     objects::RiderPoseState* flags = core->state();
-    if (flags->flag(PoseFlag::kBailing).on) {
+    if (flags->flag(PoseFlag::kBailing).on != 0U) {
         state.tire_tap_ = false;
         state.tap_ledge_ = false;
         return;
@@ -439,7 +439,7 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     maths::Vec4& velocity = object->vel();
     maths::Vec4& position = object->at_point();
     const objects::PadSnapshot* pad = &core->input()->pad_primary();
-    const bool held = pad->shoulder_right_a().held_down() && (state.stick_up_.down || state.stick_down_.down);
+    const bool held = (pad->shoulder_right_a().held_down() != 0U) && (state.stick_up_.down || state.stick_down_.down);
     if (held || state.tap_ledge_) {
         velocity = bike::tire_tap_velocity(velocity);
         const bike::TapStep step = bike::tire_tap_step(position, state.tap_point_);
@@ -521,7 +521,7 @@ void manual_pose(SkaterPhysicsModule* core)
             return;
         }
         bool flip = balance->flip();
-        if (balance->mirrored() && core->state()->flag(PoseFlag::kFlipped).on) {
+        if (balance->mirrored() && (core->state()->flag(PoseFlag::kFlipped).on != 0U)) {
             flip = !flip;
         }
         fraction = bike::balance_wobble(balance->lean(), flip);
@@ -541,7 +541,7 @@ void* shadow_companion_of(const void* caster_model, const void* rider_model, voi
     if (!caster_model || caster_model != rider_model || !bike_model) {
         return nullptr;
     }
-    return (bike_model_flags & 0x2) && !(bike_model_flags & 0x4) ? bike_model : nullptr;
+    return ((bike_model_flags & 0x2) != 0) && ((bike_model_flags & 0x4) == 0) ? bike_model : nullptr;
 }
 
 } // namespace bike
@@ -592,7 +592,7 @@ int play_flip(objects::GameEntity* object)
     } else if (object != bike_of(skater)) {
         return -1;
     }
-    return skater->core_physics()->state()->is_on(PoseFlag::kFlipped) ? 1 : 0;
+    return (skater->core_physics()->state()->is_on(PoseFlag::kFlipped) != 0U) ? 1 : 0;
 }
 
 void flip_anims_to_flag(SkaterPhysicsModule* core)

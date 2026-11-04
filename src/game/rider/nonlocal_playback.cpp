@@ -144,7 +144,7 @@ void RiderRemoteSync::interpolate()
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
     auto* player = (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
-    if (!player->has_finished_joining()) {
+    if (player->has_finished_joining() == 0) {
         player->set_finished_joining();
     }
     const int count = past_frames_->state_count();
@@ -239,17 +239,17 @@ void RiderRemoteSync::interpolate()
     play_pos_ = skater->at_point();
     auto* state = pose_;
     state->change_phase(to->state);
-    pose_->set_in_trick_move(to->flag74 != 0);
+    pose_->set_in_trick_move(static_cast<uint8_t>(to->flag74 != 0));
     state->set_surface_kind(to->value_7c_);
     state->set_physics_mode(to->flag75 != 0 ? objects::RiderPoseState::PhysicsMode::kWalking : objects::RiderPoseState::PhysicsMode::kSkating);
-    pose_->set_in_vehicle(to->flag76 != 0);
+    pose_->set_in_vehicle(static_cast<uint8_t>(to->flag76 != 0));
     core::down_cast<RiderSessionEnd>(run_over_)->set_flag_bits(to->value_6c_); // (0x00407A70)
     // The timed flags (each a bool and the time it last changed) from the state's bits.
     const uint32_t bits = to->value68;
     for (int i = 0; i < kPoseFlagCount; ++i) {
-        pose_->set_flag(static_cast<PoseFlag>(i), (bits & (1U << i)) != 0);
+        pose_->set_flag(static_cast<PoseFlag>(i), static_cast<uint8_t>((bits & (1U << i)) != 0));
     }
-    if (pose_->flag(PoseFlag::kAcidDrop).on) {
+    if (pose_->flag(PoseFlag::kAcidDrop).on != 0U) {
         pose_->drop_velocity() = skater->vel();
     } else {
         pose_->drop_velocity() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -341,7 +341,7 @@ void RiderRemoteSync::get_extrapolate()
     }
     feeler.change_strand(&from, &to);
     feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         deflect_from_wall(&feeler.surface_dir(), &feeler.contact_pos());
     }
 }
@@ -390,7 +390,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     // active and turning less than Rail_Corner_Leave_Angle (both flattened).
     bool stopped = false;
     GrindPoint* beyond = sign > 0.0F ? next->succ() : node->last_value();
-    if (!beyond || !(beyond->flag_bits() & kRailActive)) {
+    if (!beyond || ((beyond->flag_bits() & kRailActive) == 0U)) {
         stopped = true;
     } else {
         maths::Vec4 here{};
@@ -436,7 +436,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     if (distance > static_cast<double>(length) + kRailEndSlack) {
         overshoot = static_cast<float>(distance - length);
         // (quirk kept: going forward, the segment's own end is checked for being active, not the node beyond it)
-        if (!beyond || !((sign > 0.0F ? next : beyond)->flag_bits() & kRailActive)) {
+        if (!beyond || (((sign > 0.0F ? next : beyond)->flag_bits() & kRailActive) == 0U)) {
             return nullptr;
         }
         if (sign > 0.0F) {
@@ -628,7 +628,7 @@ void RiderRemoteSync::play_history_events()
                 mesh_set_->set_pivot({.x = 0.0F, .y = kModelPivotHeight, .z = 0.0F, .w = 1.0F});
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
-                    if (msg->spin_axes_ & (1U << bit)) {
+                    if ((msg->spin_axes_ & (1U << bit)) != 0U) {
                         append_one(core::at(mesh_set_->twist_rate(), bit), {.period = static_cast<float>(msg->spin_period_), .start = static_cast<uint32_t>(time), .base = msg->spin_start_, .range = msg->spin_range_, .power = msg->spin_power_}, msg->spin_hold_, false);
                     }
                 }

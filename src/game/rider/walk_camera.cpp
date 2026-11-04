@@ -273,11 +273,11 @@ void FootView::tick_frame()
     if (!skater_) {
         return;
     }
-    if (physics_control_ && physics_control_->pose()->in_vehicle()) {
+    if (physics_control_ && (physics_control_->pose()->in_vehicle() != 0U)) {
         entity()->composite_flags() |= kCompositeFlagPaused;
         return;
     }
-    if (skater_->composite_flags() & kCompositeFlagTeleported) {
+    if ((skater_->composite_flags() & kCompositeFlagTeleported) != 0U) {
         instant_frames_ = 3;
     }
     bool instant = false;

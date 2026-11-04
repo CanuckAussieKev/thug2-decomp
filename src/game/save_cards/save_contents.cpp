@@ -133,7 +133,7 @@ void write_global_info(Struct* global)
     if (os_layer() == 4) {
         sound->put_name_key(checksums::Name{kCurrentSoundtrack}, script::get_symbol_value("current_soundtrack"));
     }
-    if (audio::random_track_order()) {
+    if (audio::random_track_order() != 0) {
         sound->put_name_key(checksums::Name{0U}, kRandomMode);
     }
     options->append_struct_ref(kSoundOptions, sound);
@@ -222,7 +222,7 @@ void read_save_header(Struct* global, Script* script)
         for (int i = 0; i < kControllers; ++i) {
             auto* controller = controllers->struct_at(static_cast<uint32_t>(i));
             // the skate module's setters (no source yet): vibration, autokick, spin taps
-            skate->change_rumble(i, controller->has_bare_flag(kVibrationOn));
+            skate->change_rumble(i, static_cast<int>(controller->has_bare_flag(kVibrationOn)));
             skate->set_auto_eject(i, controller->has_bare_flag(kAutokickOn));
             skate->set_turn_tap_count(i, controller->has_bare_flag(kSpinTapsOn));
         }
@@ -244,10 +244,10 @@ void read_save_header(Struct* global, Script* script)
         career->read_hash_value(kLastGameMode, &last_mode, 0);
     }
     Struct* results = script->args().get();
-    if (last_level) {
+    if (last_level != 0U) {
         results->put_name_key(checksums::Name{kLastLevelLoadScript}, last_level);
     }
-    if (last_mode) {
+    if (last_mode != 0U) {
         results->put_name_key(checksums::Name{kLastGameMode}, last_mode);
     }
 
@@ -356,19 +356,19 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
         return;
     case kSaveOptionsAndPros: {
         uint32_t& sections = sections_to_apply_when_loading();
-        if (sections & 1) {
+        if ((sections & 1) != 0U) {
             debug::printf("APPLY_GLOBAL_INFO\n"); // "APPLY_GLOBAL_INFO\n"
             Struct* global = nullptr;
             contents->read_sub_struct(kGlobalInfo, &global, 1);
             read_save_header(global, script);
         }
-        if (sections & 2) {
+        if ((sections & 2) != 0U) {
             debug::printf("APPLY_STORY\n"); // "APPLY_STORY\n"
             Struct* story = nullptr;
             contents->read_sub_struct(kStory, &story, 1);
             apply_goal_manager_params(story);
         }
-        if (sections & kSectionCustomSkater) {
+        if ((sections & kSectionCustomSkater) != 0U) {
             debug::printf("APPLY_CUSTOM_SKATER\n"); // "APPLY_CUSTOM_SKATER\n"
             Struct* custom_skater = nullptr;
             contents->read_sub_struct(kCustomSkater, &custom_skater, 1);
@@ -378,7 +378,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             profiles->read_custom_skater(custom_skater, keep);
             loaded_custom_skater = true;
         }
-        if (sections & 4) {
+        if ((sections & 4) != 0U) {
             debug::printf("APPLY_STORY_SKATER\n"); // "APPLY_STORY_SKATER\n"
             Struct* story_skater = nullptr;
             contents->read_sub_struct(kStorySkater, &story_skater, 1);

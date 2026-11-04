@@ -220,7 +220,7 @@ objects::Rider* Skate::get_home_rider()
 {
     for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         auto* skater = static_cast<objects::Rider*>(skater_node(i)->data()); // (no check: as the original)
-        if (skater->is_local_skater()) {
+        if (skater->is_local_skater() != 0U) {
             return skater;
         }
     }
@@ -248,12 +248,12 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
         board->flag_as_dead();
         entity_hub_handle()->flush_dead_objects();
     }
-    if (!skater->is_local_skater()) {
+    if (skater->is_local_skater() == 0U) {
         const script::StructPtr params = script::make_struct();
         params->put_name_key(checksums::Name{kSkaterId}, skater->ident());
         script::launch_script(kRemoveClientSkater, params.get(), nullptr, false, nullptr);
     }
-    if (skater->is_local_skater() && skater->view_slot() == 0) {
+    if ((skater->is_local_skater() != 0U) && skater->view_slot() == 0) {
         // The local player's created tricks and stat goals kept for the skater that replaces it.
         memory::destroy_then_clear(skate_module_skaters_state().cat_info_);
         debug::printf("CAT: Storing Created Trick data\n"); // "CAT: Storing Created Trick data\n"
@@ -275,12 +275,12 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     online::Hub* net = online::online_hub();
     if (local) {
         objects::RiderIdentity* source = objects::profile_roster()->fetch_account(
-            static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) ? viewport : 0);
+            (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) ? viewport : 0);
         profile->appearance()->copy_from(source->appearance());
         script::launch_script(kShowPanelStuff, nullptr, nullptr, false, nullptr);
         objects::Rider* skater = get_home_rider();
         if (skater) {
-            if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
+            if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) {
                 if (skater->ident() == id) {
                     return skater;
                 }
@@ -321,19 +321,19 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
         memory::make_owned<objects::Rider>(viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local,
                                            objects::Rider::RiderSlot{.id = id, .skater_number_ = heap}, 1);
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
-    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
+    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) {
         const script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kPlayer}, 0);
         script::launch_script(kModelApplyCustomLogos, params.get(), nullptr, false, nullptr);
     }
-    if (!skater->is_local_skater()) {
+    if (skater->is_local_skater() == 0U) {
         script::launch_script(kClientSkaterInit, nullptr, skater, false, nullptr);
     }
     auto* node = skater->get_skater_link();
     node->set_priority(static_cast<int>(skater->ident()));
     riders_.insert_by_unique_order(node);
     bind_controllers();
-    if (skater->is_local_skater() && skater->view_slot() == 0) {
+    if ((skater->is_local_skater() != 0U) && skater->view_slot() == 0) {
         if (skate_module_skaters_state().cat_info_) {
             debug::printf("CAT: Restoring Created Tricks\n"); // "CAT: Restoring Created Tricks\n"
             skater->load_cat_info(skate_module_skaters_state().cat_info_.get());
@@ -345,7 +345,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
             memory::destroy_then_clear(skate_module_skaters_state().stat_target_info_);
         }
     }
-    if (skater->ident() == 1 && static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
+    if (skater->ident() == 1 && (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U)) {
         core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     }
     memory::pop_mem_profile();
@@ -383,12 +383,12 @@ int Skate::find_free_rider_heap(bool local)
 void Skate::set_skater_shadow(objects::Rider* skater)
 {
     auto* shadow = core::down_cast<objects::GroundShadowModule>(skater->fetch_module(kShadow));
-    int type = render::view_setup().hq_shadows() ? 1 : 2;
+    int type = (render::view_setup().hq_shadows() != 0U) ? 1 : 2;
     memory::enter_heap_scope(rider_heap_at(skater->get_skater_number()));
-    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
+    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) {
         type = 2;
     }
-    if (!skater->is_local_skater()) {
+    if (skater->is_local_skater() == 0U) {
         type = 2;
     }
     script::StructPtr params = script::make_struct();
@@ -406,7 +406,7 @@ void Skate::bind_controllers()
 {
     for (uint32_t i = 0; i < kSkaterSlotCount; ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (!skater || !skater->is_local_skater()) {
+        if (!skater || (skater->is_local_skater() == 0U)) {
             continue;
         }
         const int number = skater->get_skater_number();
@@ -448,7 +448,7 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
     if (!net->in_net_game() && goals::game_mode()->get_starting_rider_count() <= 1) {
         return found(objects::get_spawn_node(checksums::Name{kPlayer1}, static_cast<int>(skater_id), 0));
     }
-    if (static_cast<uint8_t>(goals::game_mode()->is_squad_match())) {
+    if (static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0U) {
         if (goals::game_mode()->get_name_key() == kNetLobby) {
             return found(objects::get_spawn_node(checksums::Name{kTeam}, 0, 0));
         }
@@ -490,9 +490,9 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
 // 0x00566370
 void Skate::teleport_to_spawn(objects::Rider* skater, uint32_t node, uint32_t walking)
 {
-    if (!node) {
+    if (node == 0U) {
         node = warp_to_restart(skater->ident());
-        if (!node) {
+        if (node == 0U) {
             return;
         }
     }
@@ -506,9 +506,9 @@ void Skate::reset_skaters(SpawnChoice spawn_choice)
     const auto walking = spawn_choice.walking;
     for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i); // (no check: as the original)
-        if (skater->is_local_skater()) {
-            const uint32_t at = node ? node : warp_to_restart(skater->ident());
-            if (at) {
+        if (skater->is_local_skater() != 0U) {
+            const uint32_t at = (node != 0U) ? node : warp_to_restart(skater->ident());
+            if (at != 0U) {
                 skater->jump_to_spawn({.node = at, .walking = walking});
             }
         }
@@ -534,7 +534,7 @@ void Skate::tidy_up()
             continue;
         }
         skater->object_flags() |= 2; // (kept through the flush below)
-        if (skater->is_local_skater()) {
+        if (skater->is_local_skater() != 0U) {
             skater->relaunch(0, 1);
             movies_->clear_movies();
         }
@@ -596,7 +596,7 @@ void Skate::change_level(uint32_t level)
 void Skate::restart_level()
 {
     run_over_ = false;
-    if ((count_riders() || online::online_hub()->in_net_game()) && level_launched_) {
+    if (((count_riders() != 0) || online::online_hub()->in_net_game()) && level_launched_) {
         career_->begin_level(-1);
         stubs::do_nothing(); // (a compiled-out call on the trick object manager)
     }
@@ -690,7 +690,7 @@ void Skate::test_rider_contacts()
     PlayerSearch search;
     as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(king->ident())))->give_crown(true);
     for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true)) {
-        if (static_cast<uint8_t>(as_player(player)->is_own_player())) {
+        if (static_cast<uint8_t>(as_player(player)->is_own_player()) != 0U) {
             continue;
         }
         net::NetMessageInfo desc;
@@ -780,7 +780,7 @@ bool Skate::all_skaters_idle()
             continue;
         }
         idle = false;
-        if (skater->is_local_skater()) {
+        if (skater->is_local_skater() != 0U) {
             end_run->end_run(false);
         }
     }
@@ -812,7 +812,8 @@ void Skate::set_turn_tap_count(int player, bool on)
 {
     core::at(participants_, player).spin_taps_ = on;
     if (objects::GameEntity* skater = get_rider_at(player)) {
-        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->set_tap_spin(on);
+        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))
+            ->set_tap_spin(static_cast<uint8_t>(on));
     }
 }
 
@@ -821,7 +822,8 @@ void Skate::set_auto_eject(int player, bool on)
 {
     core::at(participants_, player).auto_kick_ = on;
     if (objects::GameEntity* skater = get_rider_at(player)) {
-        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->set_auto_kick(on);
+        core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))
+            ->set_auto_kick(static_cast<uint8_t>(on));
     }
 }
 
@@ -933,9 +935,9 @@ void Skate::run_frame_logic()
 {
     gfx::tod_manager()->tick_frame();
     objects::next_suspend_frame();
-    if (!objects::simulation_halted() && !objects::view_mode()) {
+    if (!objects::simulation_halted() && (objects::view_mode() == 0)) {
         stubs::do_nothing();
-        if (movies_->total_of()) {
+        if (movies_->total_of() != 0) {
             if (movies_->obtain_active_lens()) {
                 render::choose_camera(0, static_cast<gfx::ViewCam*>(movies_->obtain_active_lens()));
             }
@@ -948,7 +950,7 @@ void Skate::run_frame_logic()
             script::launch_script(kRestoreSkaterCamera, nullptr, nullptr, false, nullptr);
             movie_camera_ = false;
         }
-        if (object_movies_->total_of()) {
+        if (object_movies_->total_of() != 0) {
             object_movies_->tick_frame();
         }
     }
@@ -979,8 +981,8 @@ void Skate::run_frame_logic()
                 objects::proximity_notify(2, second, &core::down_cast<objects::GameEntity>(second)->at_point(), 2);
             }
         }
-    } else if (static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) && stored_viewport_count() == 1 &&
-               viewport_camera(0)) {
+    } else if ((static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) != 0U) &&
+               stored_viewport_count() == 1 && viewport_camera(0)) {
         objects::proximity_notify(1, nullptr, viewport_camera(0)->fetch_location(), 1);
     }
     if (stage_switched_) {
@@ -988,7 +990,7 @@ void Skate::run_frame_logic()
     }
     // An unplugged controller: the dialog after controller_unplugged_frame_count frames (leaving a net game).
     const int changing = script::fetch_int_value(kIsChangingLevels);
-    if (!script::fetch_int_value(kCheckForUnpluggedControllers) || changing || !watch_for_unplug_) {
+    if ((script::fetch_int_value(kCheckForUnpluggedControllers) == 0) || (changing != 0) || !watch_for_unplug_) {
         return;
     }
     if (!find_element(kRootWindow) || find_element(kUnpluggedDialogAnchor)) {
@@ -998,7 +1000,7 @@ void Skate::run_frame_logic()
     const objects::PadInputModule::Responder* device = nullptr;
     for (int i = 0; i < kSkaterSlotCount; ++i) {
         auto* skater = core::down_cast<objects::Rider>(get_rider_at(i));
-        if (!skater || !skater->is_local_skater()) {
+        if (!skater || (skater->is_local_skater() == 0U)) {
             continue;
         }
         device = skater->pad_input()->handler();
@@ -1020,7 +1022,7 @@ void Skate::run_frame_logic()
                 Expects(params != nullptr);
                 params->put_name_key(checksums::Name{0U}, kLeavingNetGame);
                 leave_server();
-                if (static_cast<uint8_t>(net->is_client_side())) {
+                if (static_cast<uint8_t>(net->is_client_side()) != 0U) {
                     net->remove_players();
                     net->disconnect_clients();
                 }
@@ -1046,7 +1048,7 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     Skate* skate = task->content();
     online::Hub* net = online::online_hub();
     skate->run_frame_logic();
-    if (net->get_on_server() && skate->count_riders()) {
+    if (net->get_on_server() && (skate->count_riders() != 0)) {
         skate->test_rider_contacts();
     }
     if (goals::game_mode()->get_name_key() != kNetKing && goals::game_mode()->get_name_key() != kKing) {
@@ -1065,8 +1067,9 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     score->set_grand_total(total -
                            ftol(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * static_cast<double>(-kMillisecondsPerFrame)));
     const int target = goals::game_mode()->get_first_condition_value();
-    const int current = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? net->get_squad_points(king->team())
-                                                                                : score->get_total_score();
+    const int current = (static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0U)
+                            ? net->get_squad_points(king->team())
+                            : score->get_total_score();
     modules::Skate::timer_beep({.time_left_ = static_cast<float>(static_cast<double>(target - current) *
                                                                  static_cast<double>(kMillisecondsToSeconds)),
                                 .start_time_ = kKingBeepStartTime,

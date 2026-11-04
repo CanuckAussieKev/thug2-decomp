@@ -115,7 +115,7 @@ void collect_names(script::Struct* params, int& count, std::span<uint32_t> array
 void exit_combo(MoveExecutor* self)
 {
     const modules::PointTally* score = self->get_score();
-    if (!truncate(static_cast<double>(score->pot()) * score->multiplier())) {
+    if (truncate(static_cast<double>(score->pot()) * score->multiplier()) == 0) {
         return;
     }
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
@@ -157,7 +157,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kReleased: {
         uint32_t button = 0;
         params->read_hash_value(0U, &button, 0);
-        if (!button) {
+        if (button == 0U) {
             return 0;
         }
         return is_pad_held(this, button) ? 0 : 1;
@@ -176,9 +176,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kClearPanelLanded: {
         modules::PointTally* score = score_;
-        if (entity()->is_local_skater()) {
+        if (entity()->is_local_skater() != 0U) {
             char* deferred = &core::at(deferred_name_, 0);
-            if (*deferred) {
+            if (*deferred != '\0') {
                 const bool on_rail = core_physics_->landed_from_air_vert() != 0;
                 if (spin_counts(this, on_rail)) {
                     score_trick(this, deferred, deferred_score_, deferred_flags_);
@@ -192,7 +192,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             pay_out_queued_gaps();
             score->land();
             spin_total_ = 0.0F;
-            skater_state_->set_in_trick_move(false);
+            skater_state_->set_in_trick_move(0U);
             stats_manager_->announce_met_goals();
         }
         entity()->announce(kSkaterLanded, nullptr, 0.0F);
@@ -281,7 +281,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             if (frame_clock::get_time() - event->time >= static_cast<uint32_t>(duration)) {
                 break;
             }
-            if (event->flags & mask) {
+            if ((event->flags & mask) != 0U) {
                 event->flags &= ~mask;
             }
             if (--index < 0) {
@@ -349,7 +349,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kClearPanelBailed: {
-        if (entity()->is_local_skater()) {
+        if (entity()->is_local_skater() != 0U) {
             exit_combo(this);
             score_->get_bail(false);
         }
@@ -415,7 +415,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 if (skater::thaw_bmx::is_switched_on()) {
                     const int held = skater::thaw_bmx::trick_stick_held(this, buttons->fetch_part(i));
                     if (held >= 0) {
-                        if (held) {
+                        if (held != 0) {
                             return 1;
                         }
                         continue;
@@ -429,7 +429,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         }
         uint32_t button = 0;
         params->read_hash_value(0U, &button, 0);
-        if (!button) {
+        if (button == 0U) {
             return 0;
         }
         return is_pad_held(this, button) ? 1 : 0;
@@ -449,7 +449,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         } else if (params->fetch_int_value(kAddSpin, &add_spin, 0) && same_trick_shown(this, score)) {
             const double spin = static_cast<double>(add_spin) + spin_total_;
             spin_total_ = static_cast<float>(spin);
-            if (entity()->is_local_skater()) {
+            if (entity()->is_local_skater() != 0U) {
                 score->advance_turn(truncate(spin));
             }
         } else {
@@ -482,11 +482,11 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             if (params->has_bare_flag(kNoSwitch)) {
                 flags |= modules::kTrickKindHigh;
             }
-            if (entity()->is_local_skater()) {
+            if (entity()->is_local_skater() != 0U) {
                 auto* core = core_physics_;
                 if (core->state()->cur_phase() == 4) {
                     const int trick_score = trick_score_;
-                    if (trick_score) {
+                    if (trick_score != 0) {
                         const float multiplier = score->robot_factor();
                         debug::printf(
                             "RAIL score %d * %2.3f = %d\n", trick_score, static_cast<double>(multiplier),
@@ -496,9 +496,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 }
                 const char* trick_name = &core::at(trick_name_, 0);
                 score_trick(this, trick_name, trick_score_, flags);
-                if (*trick_name) {
+                if (*trick_name != '\0') {
                     entity()->announce(kSkaterTrickDisplayed, nullptr, 0.0F);
-                    const bool special = core->state()->flag(PoseFlag::kVertAir).on;
+                    const bool special = core->state()->flag(PoseFlag::kVertAir).on != 0U;
                     if ((!special && !static_cast<bool>(core->landed_from_air_vert())) || spin_counts(this, true)) {
                         score_spin(this, truncate(spin_total_));
                     }
@@ -509,7 +509,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             }
             core::at(deferred_name_, 0) = 0;
         }
-        if (core::at(trick_name_, 0)) {
+        if (core::at(trick_name_, 0) != '\0') {
             starting_special_ = false;
         }
         return 1;

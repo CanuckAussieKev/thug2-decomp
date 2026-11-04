@@ -121,7 +121,7 @@ bool cfunc_skater_speed_greater_than(script::Struct* params, script::Script* /*s
         return false;
     }
     objects::GameEntity* skater = get_home_rider();
-    return skater && speed_of(skater) > speed;
+    return (skater != nullptr) && speed_of(skater) > speed;
 }
 
 bool cfunc_skater_speed_less_than(script::Struct* params, script::Script* /*script*/)
@@ -131,7 +131,7 @@ bool cfunc_skater_speed_less_than(script::Struct* params, script::Script* /*scri
         return false;
     }
     objects::GameEntity* skater = get_home_rider();
-    return skater && speed_of(skater) < speed;
+    return (skater != nullptr) && speed_of(skater) < speed;
 }
 
 // 0x005AC6D0 / 0x005AC720: SkaterLastScoreLandedGreaterThan / less_than <score> (0 if missing) - the local skater's
@@ -144,7 +144,7 @@ bool cfunc_skater_last_score_landed_greater_than(script::Struct* params, script:
         return false;
     }
     modules::PointTally* score = get_score_of(skater);
-    return score && last_score_landed(score) > value;
+    return (score != nullptr) && last_score_landed(score) > value;
 }
 
 bool cfunc_skater_last_score_landed_less_than(script::Struct* params, script::Script* /*script*/)
@@ -155,7 +155,7 @@ bool cfunc_skater_last_score_landed_less_than(script::Struct* params, script::Sc
         return false;
     }
     modules::PointTally* score = get_score_of(skater);
-    return score && last_score_landed(score) < value;
+    return (score != nullptr) && last_score_landed(score) < value;
 }
 
 // 0x005AC770: SkaterGetLastScoreLanded - the local skater's last trick's score as last_score_landed (false without).
@@ -354,7 +354,7 @@ bool cfunc_skater_total_score_greater_than(script::Struct* params, script::Scrip
         return false;
     }
     modules::PointTally* score = get_score_of(skater);
-    return score && total_score(score) > value;
+    return (score != nullptr) && total_score(score) > value;
 }
 
 bool cfunc_skater_total_score_less_than(script::Struct* params, script::Script* /*script*/)
@@ -365,7 +365,7 @@ bool cfunc_skater_total_score_less_than(script::Struct* params, script::Script* 
         return false;
     }
     modules::PointTally* score = get_score_of(skater);
-    return score && total_score(score) < value;
+    return (score != nullptr) && total_score(score) < value;
 }
 
 // 0x005ACFF0: SkaterCurrentScorePotGreaterThan <score> [point_scale=<n>] - the local skater's score pot above score
@@ -381,7 +381,7 @@ bool cfunc_skater_current_score_pot_greater_than(script::Struct* params, script:
         return false;
     }
     modules::PointTally* score = get_score_of(skater);
-    return score && score_pot(score) > value;
+    return (score != nullptr) && score_pot(score) > value;
 }
 
 bool cfunc_skater_current_score_pot_less_than(script::Struct* params, script::Script* /*script*/)
@@ -392,7 +392,7 @@ bool cfunc_skater_current_score_pot_less_than(script::Struct* params, script::Sc
         return false;
     }
     modules::PointTally* score = get_score_of(skater);
-    return score && score_pot(score) < value;
+    return (score != nullptr) && score_pot(score) < value;
 }
 
 // 0x005AD0D0: SkaterGetScoreInfo - the local skater's scorepot, totalscore and lastscorelanded. (Without a local
@@ -417,7 +417,8 @@ bool cfunc_in_first_place(script::Struct* /*params*/, script::Script* script)
     int better = 0;
     int best = 0;
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
-    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater()) {
+    if (!local || local->is_eliminated() || (local->is_scouting_level() != 0) || (local->is_observer() != 0) ||
+        !local->skater()) {
         return false;
     }
     const int mine = total_score(component_score_of(local->skater()));
@@ -432,7 +433,7 @@ bool cfunc_in_first_place(script::Struct* /*params*/, script::Script* script)
         if (total_score(score) > mine) {
             ++better;
         }
-        if (!player->is_own_player() && total_score(score) > best) {
+        if ((player->is_own_player() == 0) && total_score(score) > best) {
             best = total_score(score);
         }
     }
@@ -452,7 +453,8 @@ bool cfunc_in_last_place(script::Struct* /*params*/, script::Script* script)
     int worse = 0;
     int lowest = -1;
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
-    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater()) {
+    if (!local || local->is_eliminated() || (local->is_scouting_level() != 0) || (local->is_observer() != 0) ||
+        !local->skater()) {
         return false;
     }
     const int mine = total_score(component_score_of(local->skater()));
@@ -467,7 +469,7 @@ bool cfunc_in_last_place(script::Struct* /*params*/, script::Script* script)
         if (total_score(score) < mine) {
             ++worse;
         }
-        if (player->is_own_player()) {
+        if (player->is_own_player() != 0) {
             continue;
         }
         const int total = total_score(score);
@@ -493,7 +495,8 @@ bool cfunc_in_second_to_last_place(script::Struct* /*params*/, script::Script* s
     int worse = 0;
     int lowest = -1;
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
-    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater()) {
+    if (!local || local->is_eliminated() || (local->is_scouting_level() != 0) || (local->is_observer() != 0) ||
+        !local->skater()) {
         return false;
     }
     const int mine = total_score(component_score_of(local->skater()));
@@ -567,7 +570,7 @@ bool cfunc_get_skater_id(script::Struct* params, script::Script* script)
     int index = 0;
     const objects::GameEntity* skater =
         params->fetch_int_value(kSkater, &index, 0) ? get_rider_at(index) : get_home_rider();
-    if (!skater || !skater->is_local_skater()) {
+    if (!skater || (skater->is_local_skater() == 0U)) {
         return false;
     }
     script->args()->put_name_key(checksums::Name{kObjId}, skater->ident());
@@ -606,7 +609,7 @@ bool cfunc_get_skater_sex(script::Struct* params, script::Script* script)
 bool cfunc_get_current_skater_id(script::Struct* /*params*/, script::Script* script)
 {
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
-    if (!object || !object->is_local_skater()) {
+    if (!object || (object->is_local_skater() == 0U)) {
         return false;
     }
     const uint32_t id = object->ident();

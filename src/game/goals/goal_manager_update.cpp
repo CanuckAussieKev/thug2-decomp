@@ -62,7 +62,7 @@ int count_active(memory::ListNode* head)
         return 0;
     }
     int count = 0;
-    for (bool again = true; again; again = node->data() != memory::ListNode::head_marker() && node) {
+    for (bool again = true; again; again = node->data() != memory::ListNode::head_marker() && (node != nullptr)) {
         node = node->next();
         ++count;
     }
@@ -131,7 +131,8 @@ void GoalManager::revoke_every_clear()
     if (!net->in_net_game()) {
         goal_data_->get_clear();
     }
-    if (count_live_goals(false) == 0 && !static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr))) {
+    if (count_live_goals(false) == 0 &&
+        (static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) == 0U)) {
         script::launch_script(kShowGoalPoints, nullptr, nullptr, false, nullptr);
     }
 }

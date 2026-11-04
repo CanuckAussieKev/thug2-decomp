@@ -126,7 +126,7 @@ CellBox& saved_area()
 {
     uint32_t& guard = park_editor_cfuncs_state().saved_grid_guard_;
     CellBox& saved = park_editor_cfuncs_state().saved_grid_dims_;
-    if (!(guard & 1)) {
+    if ((guard & 1) == 0U) {
         guard |= 1;
         saved.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
     }
@@ -285,7 +285,7 @@ bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script* /
 bool cfunc_get_park_editor_time_of_day_script(script::Struct* /*params*/, script::Script* script)
 {
     const uint32_t tod = get_editor()->lighting_script();
-    if (!tod) {
+    if (tod == 0U) {
         return false;
     }
     script->args()->put_name_key(checksums::Name{kTodScript}, tod);

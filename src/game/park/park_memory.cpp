@@ -100,7 +100,7 @@ void delete_pool(memory::PoolPair& pair)
     if (!pool) {
         return;
     }
-    if (pool_made_here(pair)) {
+    if (pool_made_here(pair) != 0U) {
         memory::dealloc(pool->memory().data()); // ~Pool (0x005BA4E0)
         memory::Hub::dealloc(pool);
     }
@@ -184,7 +184,7 @@ void remove_dma(uint32_t segment_kind)
 void add_piece_dma(const PieceGroup* meta)
 {
     // (the original read the metapiece's +0x0C flags and +0x38 name through a view of its own)
-    if (meta->flag_bits() & PieceGroup::kFence) {
+    if ((meta->flag_bits() & PieceGroup::kFence) != 0U) {
         return;
     }
     const uint32_t type = meta->name_key();
@@ -197,7 +197,7 @@ void add_piece_dma(const PieceGroup* meta)
 // 0x0059E1E0
 void remove_piece_dma(const PieceGroup* meta)
 {
-    if (!(meta->flag_bits() & PieceGroup::kFence) && (meta->flag_bits() & PieceGroup::kInPark)) {
+    if (((meta->flag_bits() & PieceGroup::kFence) == 0U) && ((meta->flag_bits() & PieceGroup::kInPark) != 0U)) {
         remove_dma(meta->name_key());
     }
 }

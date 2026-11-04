@@ -106,7 +106,7 @@ bool Objective::invoke_hook_script(uint32_t name)
 // 0x00554AC0
 void Objective::attach_upper_link(uint32_t id)
 {
-    if (!parents_->objective_key_) {
+    if (parents_->objective_key_ == 0U) {
         parents_->objective_key_ = id;
         return;
     }
@@ -119,11 +119,11 @@ void Objective::attach_upper_link(uint32_t id)
 // 0x00554B40
 void Objective::attach_child(uint32_t id)
 {
-    if (!sub_nodes_->objective_key_) {
+    if (sub_nodes_->objective_key_ == 0U) {
         sub_nodes_->objective_key_ = id;
         return;
     }
-    for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
+    for (const GoalEdge* link = sub_nodes_; link && (link->objective_key_ != 0U); link = link->succ_) {
         if (link->objective_key_ == id) {
             return;
         }
@@ -149,7 +149,7 @@ void Objective::uninitialize(bool children, int depth)
         return;
     }
     void* manager = objective_board();
-    for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
+    for (const GoalEdge* link = sub_nodes_; link && (link->objective_key_ != 0U); link = link->succ_) {
         get_goal(manager, link->objective_key_, 1)->uninitialize(children, depth + 1);
     }
 }
@@ -172,7 +172,7 @@ bool Objective::lose()
 bool Objective::has_run_out()
 {
     online::Hub* net = online::online_hub();
-    if (!local_skater() || !net->count_players()) {
+    if (!local_skater() || (net->count_players() == 0)) {
         return true;
     }
     if (core::any(cur_phase_ & Objective::State::kNoTimeLimit)) {
@@ -190,7 +190,7 @@ bool Objective::is_expired_at_end_of_run(bool force)
         return true;
     }
     objects::RiderSessionEnd* end_run = end_run_of(skater);
-    if (!net->count_players()) {
+    if (net->count_players() == 0) {
         return true;
     }
     if (core::any(cur_phase_ & Objective::State::kNoTimeLimit)) {
@@ -278,7 +278,7 @@ bool Objective::register_gap_hit(uint32_t gap)
     }
     const char* trick = kEmptyString;
     args_->fetch_text(kDemandedTrick, &trick, 0);
-    if (*trick) {
+    if (*trick != '\0') {
         objects::GameEntity* skater = local_skater();
         if (!skater) {
             return false;
@@ -287,7 +287,8 @@ bool Objective::register_gap_hit(uint32_t gap)
         const uint32_t name = checksums::hash_from_text(trick);
         const uint32_t backside = checksums::fold_text_into_checksum(kBsPrefix, trick);
         const uint32_t frontside = checksums::fold_text_into_checksum(kFsPrefix, trick);
-        if (!get_trick_count(score, name) && !get_trick_count(score, backside) && !get_trick_count(score, frontside)) {
+        if ((get_trick_count(score, name) == 0) && (get_trick_count(score, backside) == 0) &&
+            (get_trick_count(score, frontside) == 0)) {
             return false;
         }
     }
@@ -332,7 +333,7 @@ bool Objective::step_to_next_waypoint()
         uint32_t id = 0;
         args_->read_hash_value(kGoalIdName, &id, 1);
         waypoint->put_name_key(checksums::Name{kGoalIdChecksum}, id);
-        if (!num_flags_set_) {
+        if (num_flags_set_ == 0) {
             waypoint->put_name_key(checksums::Name{kNoName}, kFirstSpot);
         }
         if (args_->has_bare_flag(kQuickStart)) {
@@ -384,11 +385,11 @@ bool Objective::did_trick_string()
         // (the original copies into its 128 bytes unbounded)
         std::array<char, kTrickNameSize> name{};
         text::format_to(name, "FS %s", trick);
-        if (get_trick_count(score, checksums::hash_from_text(name.data()))) {
+        if (get_trick_count(score, checksums::hash_from_text(name.data())) != 0) {
             return true;
         }
         text::format_to(name, "BS %s", trick);
-        if (get_trick_count(score, checksums::hash_from_text(name.data()))) {
+        if (get_trick_count(score, checksums::hash_from_text(name.data())) != 0) {
             return true;
         }
     }
@@ -402,7 +403,7 @@ uint32_t Objective::get_top_objective_key()
 {
     void* manager = objective_board();
     const Objective* goal = this;
-    while (goal->parents_ && goal->parents_->objective_key_) {
+    while (goal->parents_ && (goal->parents_->objective_key_ != 0U)) {
         goal = get_goal(manager, goal->parents_->objective_key_, 1);
     }
     uint32_t id = 0;
@@ -430,7 +431,7 @@ void Objective::mark_won()
         flag_bits_ |= Objective::Flags::kWon;
     }
     void* manager = objective_board();
-    for (const GoalEdge* link = parents_; link && link->objective_key_; link = link->succ_) {
+    for (const GoalEdge* link = parents_; link && (link->objective_key_ != 0U); link = link->succ_) {
         get_goal(manager, link->objective_key_, 1)->mark_won();
     }
 }
@@ -442,10 +443,13 @@ void Objective::set_stage_flag(int bit) { stage_flags_ |= 1U << (bit & kStageFla
 void Objective::set_net_stage_flag(int bit) { net_stage_flags_ |= 1U << (bit & kStageFlagMask); }
 
 // 0x00555690
-int Objective::stage_flag_set(int bit) const { return (stage_flags_ & (1U << (bit & kStageFlagMask))) ? 1 : 0; }
+int Objective::stage_flag_set(int bit) const { return ((stage_flags_ & (1U << (bit & kStageFlagMask))) != 0U) ? 1 : 0; }
 
 // 0x005556B0
-int Objective::net_stage_flag_set(int bit) const { return (net_stage_flags_ & (1U << (bit & kStageFlagMask))) ? 1 : 0; }
+int Objective::net_stage_flag_set(int bit) const
+{
+    return ((net_stage_flags_ & (1U << (bit & kStageFlagMask))) != 0U) ? 1 : 0;
+}
 
 // 0x005556D0
 void Objective::set_launch_altitude()

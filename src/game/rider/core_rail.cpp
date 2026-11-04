@@ -70,7 +70,7 @@ double dot3(const maths::Vec4& a, const maths::Vec4& v)
 }
 
 // A node rails go on from (flag 4 - its >> 2 & 1).
-bool continues(const objects::GrindPoint* node) { return (node->flag_bits() >> 2) & 1; }
+bool continues(const objects::GrindPoint* node) { return ((node->flag_bits() >> 2) & 1) != 0U; }
 
 // The corner from segment `a` (to - from) into segment `b` (level): turning less than Rail_Corner_Leave_Angle.
 bool gentle_corner(maths::Vec4 a, maths::Vec4 b)
@@ -122,8 +122,9 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     auto alignment = static_cast<float>(std::cos(static_cast<double>(angle) * kDegrees));
     maths::Vec4 point;
     objects::GrindPoint* found = nullptr;
-    bool onto = rail_manager_->find_grind_rail(&start, &stop, &point, &found, rail_node_, {.min_alignment_ = alignment, .side = side}) && found &&
-                found != rail_node_ && found->succ();
+    bool onto = rail_manager_->find_grind_rail(&start, &stop, &point, &found, rail_node_,
+                                               {.min_alignment_ = alignment, .side = side}) &&
+                (found != nullptr) && found != rail_node_ && (found->succ() != nullptr);
     if (onto && !in_park_editor()) {
         // (Not this rail's next or last node.)
         auto* current = rail_node_;
@@ -259,7 +260,7 @@ void SkaterPhysicsModule::step_grind_move()
     }
     const float after = sign_of(dot3(along, entity()->vel()));
     if (before != after) {
-        rail_backwards_ = !rail_backwards_;
+        rail_backwards_ = static_cast<uint8_t>(rail_backwards_ == 0U);
     }
 
     // The segment to go on to that way (its node flagged 4, the corner gentle enough) - or none.
@@ -416,7 +417,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
 
     // The facing: along the rail (the other way round with +0x34C); the display facing (+0x38) turned 0.3 of the way
     // to it, the display and the object's matrices built around them (level rights).
-    const float way = rail_backwards_ ? -sign : sign;
+    const float way = (rail_backwards_ != 0U) ? -sign : sign;
     const maths::Vec4 facing = {.x = direction.x * way, .y = direction.y * way, .z = direction.z * way, .w = way * direction.w};
     maths::Vec4& display = core::at(display_matrix_.row, 2);
     maths::Vec4 turned;

@@ -442,7 +442,7 @@ void EditedGoal::read_key_combo_sets(script::Struct* params)
         value = 0;
         entry->fetch_int_value(kNumTaps, &value, 0);
         set.tap_total_ = static_cast<uint8_t>(value);
-        set.must_be_flawless_ = entry->has_bare_flag(kRequirePerfect);
+        set.must_be_flawless_ = static_cast<uint8_t>(entry->has_bare_flag(kRequirePerfect));
     }
 }
 

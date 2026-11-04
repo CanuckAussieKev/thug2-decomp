@@ -415,7 +415,7 @@ void AttributeTracker::announce_met_goals()
             text = 0;
             break;
         }
-        if (text) {
+        if (text != 0U) {
             params->append_word(kTextName, script::fetch_text(text));
         }
         params->put_int(checksums::Name{kGotIt}, 1);
@@ -478,8 +478,9 @@ void AttributeTracker::tick_frame()
     cur_phase_ = kStateOther;
     const RiderPoseState* control_state = physics_control_->pose();
     const maths::Vec4& pos = entity()->at_point();
-    if (!control_state->in_vehicle() && control_state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating) {
-        if (skater_state_->flag(PoseFlag::kVertAir).on) {
+    if ((control_state->in_vehicle() == 0U) &&
+        control_state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating) {
+        if (skater_state_->flag(PoseFlag::kVertAir).on != 0U) {
             cur_phase_ = kStateLaunched;
             if (last_state_ != kStateLaunched) {
                 air_phase_ = 1;
@@ -516,9 +517,9 @@ void AttributeTracker::tick_frame()
             air_best_ = 0;
         }
 
-        if (physics_state == 1 && !skater_state_->flag(PoseFlag::kVertAir).on) {
+        if (physics_state == 1 && (skater_state_->flag(PoseFlag::kVertAir).on == 0U)) {
             cur_phase_ = kStateAir;
-            if (last_state_ != kStateAir && !skater_state_->flag(PoseFlag::kBailing).on) {
+            if (last_state_ != kStateAir && (skater_state_->flag(PoseFlag::kBailing).on == 0U)) {
                 jump_phase_ = 1;
                 jump_start_ = pos;
             }

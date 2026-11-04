@@ -131,7 +131,7 @@ void GoalManager::show_goal_points()
 // 0x00557E70
 void GoalManager::reset_goal_data(uint32_t flag)
 {
-    if (flag) {
+    if (flag != 0U) {
         args_->erase_module(flag);
     } else {
         args_->get_clear();
@@ -140,10 +140,11 @@ void GoalManager::reset_goal_data(uint32_t flag)
     while (component) {
         script::Component* next = goal_data_->step_to_entry(component);
         // (no flag: every goal erased; with one, the goal manager's parameters refilled and the goals with the flag erased)
-        if (flag && component->name == kGoalManagerParams) {
+        if ((flag != 0U) && component->name == kGoalManagerParams) {
             component->value.structure()->get_clear();
             component->value.structure()->put_sub_struct(kSkillTiers, args_);
-        } else if (!flag || (component->value.structure() && component->value.structure()->has_bare_flag(flag))) {
+        } else if ((flag == 0U) ||
+                   (component->value.structure() && component->value.structure()->has_bare_flag(flag))) {
             goal_data_->erase_module(component->name);
         }
         component = next;
@@ -295,7 +296,7 @@ void GoalManager::prepare_every_objective()
         }
         const GoalEdge* parents = goal->parents();
         script::Struct* params = goal->fetch_args();
-        if (parents->objective_key_) {
+        if (parents->objective_key_ != 0U) {
             continue;
         }
         if (game_mode()->get_name_key() == kClassic || !goal->has_won() ||
@@ -443,14 +444,14 @@ void GoalManager::open_up_objective(uint32_t id) { goals_.get_pull(id)->get_unlo
 int GoalManager::has_beaten_goal(uint32_t id)
 {
     if (Objective* goal = goals_.get_pull(id)) {
-        return goal->has_won();
+        return static_cast<int>(goal->has_won());
     }
     int beaten = 0;
     script::Struct* data = nullptr;
     if (goal_data_->read_sub_struct(id, &data, 0)) {
         data->fetch_int_value(kAlreadyWon, &beaten, 1);
     }
-    return beaten != 0;
+    return static_cast<int>(beaten != 0);
 }
 
 // 0x00558960
@@ -500,7 +501,7 @@ int GoalManager::count_cleared_by_player(int bit)
     int count = 0;
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal) && goal->stage_flag_set(bit)) {
+        if (has_no_parent(goal) && (goal->stage_flag_set(bit) != 0)) {
             ++count;
         }
     }
@@ -513,7 +514,7 @@ int GoalManager::num_goals_net_beaten_by(int bit)
     int count = 0;
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal) && goal->net_stage_flag_set(bit)) {
+        if (has_no_parent(goal) && (goal->net_stage_flag_set(bit) != 0)) {
             ++count;
         }
     }
@@ -562,7 +563,7 @@ void GoalManager::play_objective_voice_line(script::Struct* params)
     const Objective* goal = goals_.get_pull(name);
     uint32_t stream = 0;
     params->read_hash_value(kVo, &stream, 0);
-    if (stream) {
+    if (stream != 0U) {
         goal->ped()->play_stream(stream, true, 0, false);
         return;
     }
@@ -576,14 +577,14 @@ void GoalManager::play_objective_voice_line(script::Struct* params)
 int GoalManager::is_goal_blocked(uint32_t id)
 {
     if (Objective* goal = goals_.get_pull(id)) {
-        return goal->is_latched();
+        return static_cast<int>(goal->is_latched());
     }
     int locked = 0;
     script::Struct* data = nullptr;
     if (goal_data_->read_sub_struct(id, &data, 0)) {
         data->fetch_int_value(kIsLocked, &locked, 1);
     }
-    return locked != 0;
+    return static_cast<int>(locked != 0);
 }
 
 // 0x00558D90
@@ -631,10 +632,11 @@ void GoalManager::build_goal_tree()
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         const uint32_t id = goal->get_objective_key();
-        for (const GoalEdge* link = goal->sub_nodes(); link && link->objective_key_; link = link->succ_) {
+        for (const GoalEdge* link = goal->sub_nodes(); link && (link->objective_key_ != 0U); link = link->succ_) {
             Objective* child = goals_.get_pull(link->objective_key_); // (one not in the table is read through null)
             bool linked = false;
-            for (const GoalEdge* parent = child->parents(); parent && parent->objective_key_; parent = parent->succ_) {
+            for (const GoalEdge* parent = child->parents(); parent && (parent->objective_key_ != 0U);
+                 parent = parent->succ_) {
                 if (parent->objective_key_ == id) {
                     linked = true;
                     break;
@@ -760,7 +762,7 @@ int count_active(memory::ListNode* head)
         return 0;
     }
     int count = 0;
-    for (bool again = true; again; again = node->data() != memory::ListNode::head_marker() && node) {
+    for (bool again = true; again; again = node->data() != memory::ListNode::head_marker() && (node != nullptr)) {
         node = node->next();
         ++count;
     }
@@ -774,7 +776,7 @@ memory::ListNode* GoalListHead::get_node_at(int index) { return lists::node_at(l
 // 0x0055DBF0
 Objective* GoalManager::get_engaged_objective(int index)
 {
-    if (!count_active(&active_goals_.list_link())) {
+    if (count_active(&active_goals_.list_link()) == 0) {
         return nullptr;
     }
     return static_cast<Objective*>(active_goals_.get_node_at(index)->data());
@@ -786,7 +788,7 @@ int GoalManager::count_live_goals(bool all)
     int counted = 0;
     const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
-        Objective* goal = count_active(&active_goals_.list_link())
+        Objective* goal = (count_active(&active_goals_.list_link()) != 0)
                               ? static_cast<Objective*>(active_goals_.get_node_at(i)->data())
                               : nullptr;
         Expects(goal != nullptr);

@@ -114,7 +114,7 @@ int sanitise(script::Struct* appearance)
             break;
         }
         const uint32_t to = get_fallback(c->name, list);
-        if (!to) {
+        if (to == 0U) {
             get_log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours, nothing fits: taken out",
                     c->name, desc);
             remove.push_back(c->name);

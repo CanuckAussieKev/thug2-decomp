@@ -76,7 +76,7 @@ Objective* name_then_goal(script::Struct* params)
 bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script* script)
 {
     const char* type = nullptr;
-    params->fetch_text(kGoalType, &type, true);
+    params->fetch_text(kGoalType, &type, 1);
     const char* level = nullptr;
     level_params_ref()->fetch_text(kLevel, &level, 1);
     std::array<char, kNameSize> name{};
@@ -233,8 +233,8 @@ bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Sc
     core::at(text, 0) = 0;
     int length = 0;
     const core::CStringCursor at(prefix); // (an empty one reads 0 after its end where the original read what follows)
-    if (at[1]) {
-        for (bool again = true; again; again = at[static_cast<std::size_t>(length) + 1]) {
+    if (at[1] != '\0') {
+        for (bool again = true; again; again = (at[static_cast<std::size_t>(length) + 1] != '\0')) {
             core::at(text, length) = at[static_cast<std::size_t>(length)];
             ++length;
         }
@@ -390,7 +390,7 @@ bool cfunc_goal_manager_get_goal_animations(script::Struct* params, script::Scri
     const Objective* goal = get_objective_board()->goals().get_pull(name);
     const uint32_t animations = goal->ped()->get_objective_anim_sets(type);
     script->args()->erase_module(kProStuff);
-    if (animations) {
+    if (animations != 0U) {
         script->args()->put_name_key(checksums::Name{kProStuff}, animations);
     }
     return true;

@@ -202,7 +202,7 @@ void GapRegistry::fire_gap(int index, script::Script* script)
         uint32_t name = kEndGap;
         if (i == 0) {
             uint32_t flags = core::at(gaps_ptr_, index)->details_.cancel_flags();
-            if (!flags) {
+            if (flags == 0U) {
                 flags = static_cast<uint32_t>(script::fetch_int_value(kCancelGround));
             }
             params->put_name_key(checksums::Name{kCombinedFlags}, flags);

@@ -121,7 +121,7 @@ void preload_meshes(uint32_t array_name)
         auto* entry = list->struct_at(i);
         int allow_random = 0;
         entry->fetch_int_value(kAllowRandom, &allow_random, 0); // allow_random
-        if (!allow_random) {
+        if (allow_random == 0) {
             continue;
         }
         const char* mesh = nullptr;
@@ -147,7 +147,7 @@ bool cfunc_add_goal_editor_nodes_to_level_node_array(Struct* /*params*/, Script*
 bool cfunc_current_skater_is_pro(Struct* params, Script* /*script*/)
 {
     objects::RiderIdentity* profile = skate_profile(params);
-    return profile && profile->is_pro();
+    return (profile != nullptr) && profile->is_pro();
 }
 
 // 0x005AAB80

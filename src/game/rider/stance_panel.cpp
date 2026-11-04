@@ -59,15 +59,15 @@ int RiderStanceDisplay::get_stance()
 {
     auto* core = static_cast<ObjectModule*>(core_physics_);
     const uint8_t flip = core_physics_->state()->flag(PoseFlag::kFlipped).on;
-    const bool reversed = core::down_cast<Rider>(core->entity())->goofy() != 0;
+    const bool reversed = core::down_cast<Rider>(core->entity())->goofy();
     const bool flipped = reversed ? flip != 0 : flip == 0;
-    if (press_amount_) {
+    if (press_amount_ != 0U) {
         return flipped ? 3 : 4;
     }
     if (flipped) {
-        return nollie_ ? 1 : 2;
+        return (nollie_ != 0U) ? 1 : 2;
     }
-    return nollie_ ? 0 : kHidden;
+    return (nollie_ != 0U) ? 0 : kHidden;
 }
 
 // 0x00519230
@@ -98,7 +98,7 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
 {
     switch (name) {
     case kNollieOn:
-        if (!nollie_) {
+        if (nollie_ == 0U) {
             nollie_ = 1;
             entity()->announce(kSkaterEnterNollie, nullptr, 0.0F);
         }
@@ -110,9 +110,9 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
         }
         return 1;
     case kInNollie:
-        return nollie_ ? 1 : 0;
+        return (nollie_ != 0U) ? 1 : 0;
     case kPressureOn:
-        if (!press_amount_) {
+        if (press_amount_ == 0U) {
             press_amount_ = 1;
             entity()->announce(kSkaterEnterPressure, nullptr, 0.0F);
         }
@@ -124,7 +124,7 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
         }
         return 1;
     case kInPressure:
-        return press_amount_ ? 1 : 0;
+        return (press_amount_ != 0U) ? 1 : 0;
     default:
         return 2;
     }

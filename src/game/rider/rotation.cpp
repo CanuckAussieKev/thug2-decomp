@@ -121,11 +121,11 @@ void SkaterPhysicsModule::get_spin()
 {
     objects::PadSnapshot* pad = &input_->pad_primary();
     objects::GameEntity* object = entity();
-    if (no_spin_) {
+    if (no_spin_ != 0U) {
         return;
     }
     objects::RiderPoseState* flags = state_;
-    if (flags->flag(PoseFlag::kAcidDrop).on && flags->flag(PoseFlag::kSpin).on) {
+    if ((flags->flag(PoseFlag::kAcidDrop).on != 0U) && (flags->flag(PoseFlag::kSpin).on != 0U)) {
         state_->set_flag(PoseFlag::kSpin, 0);
     }
 
@@ -133,17 +133,17 @@ void SkaterPhysicsModule::get_spin()
     float speed = 0.0F;
     float& queued = queued_spin_;
     auto frame_length = [this] { return static_cast<double>(frame_length_); };
-    if (tap_spin_) {
+    if (tap_spin_ != 0U) {
         // Each tap queues half a turn (unless the other button is down).
-        if (pad->shoulder_left_a().fired()) {
+        if (pad->shoulder_left_a().fired() != 0U) {
             take_press(&pad->shoulder_left_a());
-            if (!pad->shoulder_right_a().held_down()) {
+            if (pad->shoulder_right_a().held_down() == 0U) {
                 queued = static_cast<float>(static_cast<double>(queued) + maths::kPi);
             }
         }
-        if (pad->shoulder_right_a().fired()) {
+        if (pad->shoulder_right_a().fired() != 0U) {
             take_press(&pad->shoulder_right_a());
-            if (!pad->shoulder_left_a().held_down()) {
+            if (pad->shoulder_left_a().held_down() == 0U) {
                 queued = static_cast<float>(static_cast<double>(queued) - maths::kPi);
             }
         }
@@ -165,7 +165,7 @@ void SkaterPhysicsModule::get_spin()
         // the skater can no longer be turned to face the ramp.
         objects::ControlButton* left = &pad->shoulder_left_a();
         objects::ControlButton* right = &pad->shoulder_right_a();
-        if (left->held_down() && !right->held_down()) {
+        if ((left->held_down() != 0U) && (right->held_down() == 0U)) {
             float held = get_held_seconds(left);
             if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
                 speed = static_cast<float>(stat_value(object, kSpinSpeed));
@@ -176,7 +176,7 @@ void SkaterPhysicsModule::get_spin()
                 }
             }
         }
-        if (right->held_down() && !left->held_down()) {
+        if ((right->held_down() != 0U) && (left->held_down() == 0U)) {
             float held = get_held_seconds(right);
             if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
                 speed = static_cast<float>(-stat_value(object, kSpinSpeed));
@@ -190,16 +190,16 @@ void SkaterPhysicsModule::get_spin()
     }
 
     // The second pair of spin buttons: the speed ramps up from 0 at one held time to full at another.
-    if (!state_->flag(PoseFlag::kNoSecondSpin).on && !spinning) {
+    if ((state_->flag(PoseFlag::kNoSecondSpin).on == 0U) && !spinning) {
         int held = 0;
-        if (pad->left_side().held_down()) {
+        if (pad->left_side().held_down() != 0U) {
             speed = static_cast<float>(stat_value(object, kSpinSpeed));
             held = get_held_time(&pad->left_side());
             if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held)) {
                 state_->set_flag(PoseFlag::kSpin, 0);
             }
         }
-        if (pad->right_side().held_down()) {
+        if (pad->right_side().held_down() != 0U) {
             speed = static_cast<float>(-stat_value(object, kSpinSpeed));
             held = get_held_time(&pad->right_side());
             if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held)) {
@@ -220,7 +220,7 @@ void SkaterPhysicsModule::get_spin()
     if (speed == 0.0F) {
         // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
         flags = state_;
-        if (flags->flag(PoseFlag::kVertAir).on && flags->flag(PoseFlag::kSpin).on) {
+        if ((flags->flag(PoseFlag::kVertAir).on != 0U) && (flags->flag(PoseFlag::kSpin).on != 0U)) {
             const float tilt = maths::confine(core::at(object->basis_frame().row, 2).y, -1.0F, 1.0F);
             auto angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
             if (tuning_float_lookup(kFaceRampMaxTilt, 1, object) * kRadiansPerDegree > angle) {
@@ -243,7 +243,7 @@ void SkaterPhysicsModule::get_spin()
         }
     }
 
-    last_spin_backside_ = speed > 0.0F;
+    last_spin_backside_ = static_cast<uint8_t>(speed > 0.0F);
     auto step = static_cast<float>(static_cast<double>(speed) * frame_length());
     body_transform(object).yaw_locally(step);
     display_matrix_.yaw_locally(step);
@@ -252,7 +252,7 @@ void SkaterPhysicsModule::get_spin()
     // Shown as an integer (the C runtime's _ftol2: truncated) - except when the flags say not to and the total
     // is short of a whole turn by more than the snap (360 - snap + 0.1).
     flags = state_;
-    if (flags->flag(PoseFlag::kVertAir).on && !flags->flag(PoseFlag::kAcidDrop).on) {
+    if ((flags->flag(PoseFlag::kVertAir).on != 0U) && (flags->flag(PoseFlag::kAcidDrop).on == 0U)) {
         auto size = static_cast<float>(std::fabs(static_cast<double>(total)));
         const double snap = 360.0F - tuning_float_lookup(kRotationSnap, 1, object) + 0.1F;
         if (!(snap <= size)) {
@@ -281,17 +281,18 @@ void SkaterPhysicsModule::break_vert(bool force)
     const bool bike = thaw_bmx::live_now(this);
     if (bike) {
         jump_held = thaw_bmx::vert_push_held(this, tuning_int_lookup(kBreakVertJumpTime, 1, object));
-    } else if (pad->up_dir().held_down()) {
+    } else if (pad->up_dir().held_down() != 0U) {
         const int limit = tuning_int_lookup(kBreakVertJumpTime, 1, object);
-        jump_held = get_held_time(&pad->up_dir()) > limit && !pad->left_side().held_down() &&
-                    !pad->right_side().held_down() && !pad->button_box().held_down() && !pad->button_round().held_down();
+        jump_held = get_held_time(&pad->up_dir()) > limit && (pad->left_side().held_down() == 0U) &&
+                    (pad->right_side().held_down() == 0U) && (pad->button_box().held_down() == 0U) &&
+                    (pad->button_round().held_down() == 0U);
     }
-    if (!jump_held && !triggers() && !transfer_blocked_ && !force) {
+    if (!jump_held && !triggers() && (transfer_blocked_ == 0U) && !force) {
         return;
     }
 
     auto& velocity = object->vel();
-    if (triggers() || transfer_blocked_ || (bike && thaw_bmx::vert_tap_held(this))) {
+    if (triggers() || (transfer_blocked_ != 0U) || (bike && thaw_bmx::vert_tap_held(this))) {
         if (try_spine_transfer()) {
             display_matrix_ = body_transform(object);
             return;

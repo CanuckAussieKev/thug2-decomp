@@ -92,11 +92,11 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
         std::array<uint8_t, kVictimSlotCount> stolen = {};
         uint32_t count = get_trick_objects()->log_trick_objects(objects, stolen, skater_id, static_cast<uint32_t>(score));
         objects = objects.first(count);
-        if (!count) {
+        if (count == 0U) {
             return;
         }
         for (int victim = 0; victim < kVictimSlotCount; ++victim) {
-            if (!core::at(stolen, victim)) {
+            if (core::at(stolen, victim) == 0U) {
                 continue;
             }
             online::TagStolenMessage stolen_message;
@@ -109,7 +109,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
             auto* thief = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater_id)));
             auto* robbed = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(victim)));
             // (not between players of one team)
-            if (static_cast<uint8_t>(get_game_mode()->is_squad_match()) && robbed && thief &&
+            if ((static_cast<uint8_t>(get_game_mode()->is_squad_match()) != 0U) && robbed && thief &&
                 robbed->team() == thief->team()) {
                 continue;
             }
@@ -153,7 +153,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
         desc.set_byte_count(static_cast<uint16_t>(observed_writer.position()));
         desc.set_ident(online::MessageId::kObservedTrickObjects);
         for (void* info = net->begin_player_walk(&search, true); info; info = net->step_player_walk(&search, true)) {
-            if (static_cast<uint8_t>(as_player(info)->is_observer())) {
+            if (static_cast<uint8_t>(as_player(info)->is_observer()) != 0U) {
                 server->send_bulk_message(as_player(info)->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()},
                                           data.data(), kTrickObjBuffer, online::MessageGroup::kGame, true, false);
             }
@@ -163,7 +163,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
             return;
         }
     }
-    const int owner = static_cast<uint8_t>(get_game_mode()->is_squad_match())
+    const int owner = (static_cast<uint8_t>(get_game_mode()->is_squad_match()) != 0U)
                           ? as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater_id)))->team()
                           : skater_id;
     for (const uint32_t name : objects) {

@@ -70,7 +70,7 @@ constexpr float kRise = 24.0F;            // 0x00645EE8
 bool SkaterPhysicsModule::walking_state(objects::RiderPoseState::PhysicsMode state)
 {
     const auto* pose = physics_control_->pose();
-    return !pose->in_vehicle() && pose->physics_mode() == state;
+    return (pose->in_vehicle() == 0U) && pose->physics_mode() == state;
 }
 
 // The time to fall back to `height` below the start of a jump of upward speed `upward` (the gravity flag +0x78
@@ -121,7 +121,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     float reach = kSearchReach;
     float lift = 0.0F;
     if (walking_state(objects::RiderPoseState::PhysicsMode::kWalking)) {
-        if (!static_cast<uint32_t>(walk_->get_state())) {
+        if (static_cast<uint32_t>(walk_->get_state()) == 0U) {
             reach = script::fetch_float(kWalkSearchDistance);
             lift = kWalkLift;
         } else {
@@ -176,7 +176,8 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const auto w = static_cast<float>(sw + base.w);
         feeler.line().start = {.x = x, .y = y + lift, .z = z, .w = w};
         feeler.line().end = {.x = x, .y = static_cast<float>(y - static_cast<double>(kFeelerDepth)), .z = z, .w = w};
-        if (feeler.get_hit_shape(true, false) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)) &&
+        if ((feeler.get_hit_shape(true, false) != 0) &&
+            (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)) &&
             std::fabs(feeler.surface_dir().y) < kMaxWallY) {
             maths::Vec4 flat = {
                 .x = feeler.surface_dir().x, .y = 0.0F, .z = feeler.surface_dir().z, .w = feeler.surface_dir().w};
@@ -248,7 +249,8 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const float upward = velocity->y;
         velocity->y = upward > least ? upward : least;
     }
-    if (!walking_state(objects::RiderPoseState::PhysicsMode::kWalking) || static_cast<uint32_t>(walk_->get_state())) {
+    if (!walking_state(objects::RiderPoseState::PhysicsMode::kWalking) ||
+        (static_cast<uint32_t>(walk_->get_state()) != 0U)) {
         // At most twice that.
         const double most = static_cast<double>(tuning_float_lookup(kPopSpeed, object)) * 2.0;
         const float upward = velocity->y;
@@ -307,11 +309,11 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         maths::Vec4& end = feeler.line().end;
         end = {.x = static_cast<float>(ax + position->x), .y = static_cast<float>(static_cast<double>(ay) + y), .z = position->z + az,
                .w = position->w + aw};
-        if (!feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) == 0) {
             // Nothing on the way up to the arc's middle: nothing on the way down from there to the point either?
             feeler.line().start = feeler.line().end;
             feeler.line().end = {.x = hit.x, .y = hit.y + 1.0F, .z = hit.z, .w = hit.w};
-            if (!feeler.get_hit_shape(true, false)) {
+            if (feeler.get_hit_shape(true, false) == 0) {
                 drop->point = hit;
                 drop->normal = normal;
                 drop->hit_height_ = hit_height;
@@ -365,7 +367,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     set_timed_flag(this, PoseFlag::kFromAcidDrop, 1);
     set_timed_flag(this, PoseFlag::kVertWall, 0);
     set_timed_flag(this, PoseFlag::kSpin, 0);
-    drop_object_hit_ = drop->object_hit_;
+    drop_object_hit_ = static_cast<uint8_t>(drop->object_hit_);
     entity()->vel().x = 0.0F;
     entity()->vel().z = 0.0F;
     const maths::Mat4 start = entity()->basis_frame();
@@ -498,7 +500,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
                           .w = static_cast<float>(static_cast<double>(ahead.w) + position.w)};
     feeler.line().end = feeler.line().start;
     feeler.line().end.y = static_cast<float>(feeler.line().end.y - static_cast<double>(kFeelerDepth));
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         return false;
     }
     const float wall_x = feeler.contact_pos().x;
@@ -518,10 +520,11 @@ bool SkaterPhysicsModule::try_spine_transfer()
     target_normal = aim.normal;
     if (!found) {
         const objects::PadInputModule* input = input_;
-        if (!input->pad_primary().left_side().held_down() == !input->pad_primary().right_side().held_down()) {
+        if ((input->pad_primary().left_side().held_down() == 0U) ==
+            (input->pad_primary().right_side().held_down() == 0U)) {
             return false;
         }
-        if (input->pad_primary().left_side().held_down()) {
+        if (input->pad_primary().left_side().held_down() != 0U) {
             look = {.x = static_cast<float>(static_cast<double>(back.x) + -normal.z),
                     .y = back.y,
                     .z = static_cast<float>(static_cast<double>(back.z) + normal.x),
@@ -572,7 +575,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     // Nothing in the way to it: the transfer (blocked: flagged for break_vert, which tries again).
     feeler.line().start = position;
     feeler.line().end = {.x = target.x, .y = position.y, .z = target.z, .w = target.w};
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         transfer_blocked_ = 1;
         return true;
     }
@@ -645,7 +648,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     set_timed_flag(this, PoseFlag::kFromAcidDrop, 0);
     set_timed_flag(this, PoseFlag::kVertWall, 0);
     set_timed_flag(this, PoseFlag::kLeftVert, 0);
-    drop_object_hit_ = object_hit;
+    drop_object_hit_ = static_cast<uint8_t>(object_hit);
     return true;
 }
 

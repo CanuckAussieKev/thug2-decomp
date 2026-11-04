@@ -95,7 +95,7 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
 // 0x005186E0
 void RiderPointKeeper::tick_frame()
 {
-    if (!entity()->is_local_skater()) {
+    if (entity()->is_local_skater() == 0U) {
         hold_off(true);
         return;
     }

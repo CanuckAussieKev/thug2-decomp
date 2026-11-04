@@ -60,7 +60,7 @@ void lend_pool(memory::PoolPair& pair, memory::SlabBank* pool)
 void take_back_pool(memory::PoolPair& pair)
 {
     if (memory::SlabBank* pool = core::at(pair.pools(), pair.current())) {
-        if (pool_owned(pair)) {
+        if (pool_owned(pair) != 0U) {
             delete_pool(pool);
         }
         core::at(pair.pools(), pair.current()) = nullptr;
@@ -91,7 +91,7 @@ void ParkRailString::append_spot(ParkRailPoint* point)
 // 0x0058B040
 int ParkRailString::count_segments() const
 {
-    if (flag_bits_ & kLoop) {
+    if ((flag_bits_ & kLoop) != 0) {
         return vertex_total_;
     }
     int points = 0;

@@ -169,7 +169,8 @@ bool cfunc_preload_models(script::Struct* /*params*/, script::Script* /*script*/
         text::Chars path;
         path = model_path(model, ".mdl");
         gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
-        ingest_mesh(nx_model, path.c_str(), 0, 1, 0, node->has_bare_flag(kAllowReplaceTex), 0, 1, 0);
+        ingest_mesh(nx_model, path.c_str(), 0, 1, 0, static_cast<uint32_t>(node->has_bare_flag(kAllowReplaceTex)), 0, 1,
+                    0);
         if (!node->has_bare_flag(kNoCollision)) {
             const char* file = path.c_str();
             std::array<char, kNameBytes> name{};
@@ -207,7 +208,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script* /*script*
     if (online::net_game_state().online_hub()->in_net_game()) {
         return false;
     }
-    if (script::fetch_int_value(kNoPedestrians)) {
+    if (script::fetch_int_value(kNoPedestrians) != 0) {
         return false;
     }
     memory::push_mem_profile("Random Ped Parts");
@@ -344,7 +345,7 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* 
     std::array<script::Struct*, kMatchingCapacity> matching{};
     int count = 0;
     matching_options(part, 0, matching, &count);
-    if (count) {
+    if (count != 0) {
         get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
     } else {
         matching_options(part, kLight, matching, &count);
@@ -360,7 +361,7 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* 
     for (int n = 0; n < wanted; ++n) {
         int allowed = 0;
         script::Struct* option = nullptr;
-        for (bool again = true; again; again = !allowed) {
+        for (bool again = true; again; again = (allowed == 0)) {
             option = get_element(list, static_cast<uint32_t>(maths::rnd(static_cast<int>(size))));
             option->fetch_int_value(kPickPermitted, &allowed, 1);
         }

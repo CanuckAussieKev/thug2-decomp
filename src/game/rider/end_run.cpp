@@ -60,7 +60,7 @@ void RiderSessionEnd::tick_frame()
         hold_off(true);
         return;
     }
-    if (is_local_skater(entity()) && (flag_bits_ & kEndRunDone) && !server_told_run_ended()) {
+    if (is_local_skater(entity()) && ((flag_bits_ & kEndRunDone) != 0U) && !server_told_run_ended()) {
         tell_server_run_ended();
     }
 }
@@ -70,7 +70,7 @@ int RiderSessionEnd::invoke_method_by_name(uint32_t name, script::Struct* /*para
 {
     switch (name) {
     case kIsInEndOfRun:
-        return (flag_bits_ & kEndRunStarted) && !(flag_bits_ & kEndRunDone) ? 1 : 0;
+        return ((flag_bits_ & kEndRunStarted) != 0U) && ((flag_bits_ & kEndRunDone) == 0U) ? 1 : 0;
     case kGoalEndOfRunStarted:
         flag_bits_ |= kEndRunGoalStarted;
         return 1;
@@ -112,7 +112,7 @@ void RiderSessionEnd::end_run(bool force)
         flag_bits_ &= ~kEndRunDone;
         return;
     }
-    if (!(flag_bits_ & kEndRunForced) && !(flag_bits_ & kEndRunDone)) {
+    if (((flag_bits_ & kEndRunForced) == 0U) && ((flag_bits_ & kEndRunDone) == 0U)) {
         flag_bits_ |= kEndRunForced;
         if (is_local_skater(entity())) {
             script::launch_script(kForceEndOfRun, nullptr, entity(), false, nullptr);

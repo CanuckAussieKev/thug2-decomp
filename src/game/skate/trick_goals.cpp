@@ -310,7 +310,7 @@ bool integer_or_flag(script::Struct* params, uint32_t name)
 {
     int value = 0;
     params->fetch_int_value(name, &value, 0);
-    return value || params->has_bare_flag(name);
+    return (value != 0) || params->has_bare_flag(name);
 }
 } // namespace
 
@@ -367,12 +367,12 @@ void FallingTricksGoal::update_alphas()
         }
         frontend::UiWidget* element = element_by_id(manager, t.element);
         bool done = false;
-        if (!check_given || check) {
-            if (t.key_combo_) {
+        if (!check_given || (check != 0)) {
+            if (t.key_combo_ != 0U) {
                 done = key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) > 0;
-            } else if (t.trick) {
+            } else if (t.trick != 0U) {
                 done = get_trick_count(score, t.trick, t.spin, t.perfect, 1) > 0 ||
-                       t.trick2 && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) > 0;
+                       (t.trick2 != 0U) && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) > 0;
             }
         }
         change_opacity(element, done ? faded : unfaded);
@@ -465,7 +465,7 @@ void FallingTricksGoal::drop_move_entry(int index)
     ++completed;
     int interval = 0;
     args()->fetch_int_value(kAccelerationInterval, &interval, 0);
-    if (interval && completed % interval == 0) {
+    if ((interval != 0) && completed % interval == 0) {
         float percent = 0.0F;
         args()->fetch_float(kAccelerationPercent, &percent, 0);
         int time = 0;
@@ -608,10 +608,10 @@ void FallingTricksGoal::add_tricks(int count)
                     auto* extra_trick = script::fetch_list(extra)->struct_at(0);
                     extra_trick->read_sub_struct(kParams, &trick_params, 1);
                 }
-                trick_params->fetch_text(kName, &trick_text, true);
+                trick_params->fetch_text(kName, &trick_text, 1);
             }
             core::at(text, 0) = '\0';
-            if (t.spin) {
+            if (t.spin != 0) {
                 THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect) {
                     text::format_to(text, "Perfect ");
@@ -648,7 +648,7 @@ void FallingTricksGoal::add_tricks(int count)
         change_owner(manager, {.parent = container, .child = text_element});
         script::free_struct(params);
 
-        if (key_combo_text || key_combo) {
+        if (key_combo_text || (key_combo != 0U)) {
             script::Struct* texts = script::read_sub_struct(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
             if (!key_combo_text) {
                 texts->fetch_text(key_combo, &key_combo_text, 0);
@@ -706,13 +706,13 @@ void FallingTricksGoal::check_combos()
         int done = 0;
         for (const StackedTrickEntry& t : tricks_) {
             const bool in_group = !t.free && t.group == group;
-            if (t.key_combo_) {
+            if (t.key_combo_ != 0U) {
                 if (in_group && key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) > 0) {
                     ++done;
                 }
-            } else if (t.trick) {
+            } else if (t.trick != 0U) {
                 if ((in_group && get_trick_count(score, t.trick, t.spin, t.perfect, t.taps) > 0) ||
-                    (t.trick2 && in_group && get_trick_count(score, t.trick2, t.spin, t.perfect, t.taps) > 0)) {
+                    ((t.trick2 != 0U) && in_group && get_trick_count(score, t.trick2, t.spin, t.perfect, t.taps) > 0)) {
                     ++done;
                 }
             }
@@ -742,7 +742,7 @@ bool FallingTricksGoal::tick_frame()
 {
     int wait = 0;
     args()->fetch_int_value(kTrickAddDelay, &wait, 0);
-    if (wait) {
+    if (wait != 0) {
         return base_update(this);
     }
     int stop_time = 1;
@@ -832,7 +832,7 @@ void FallingTricksGoal::check_tricks()
 {
     int check = 0;
     if (args()->fetch_int_value(kNoAlphaCheck, &check, 0)) {
-        if (!check) {
+        if (check == 0) {
             return;
         }
         args()->put_int(checksums::Name{kNoAlphaCheck}, 0);
@@ -850,11 +850,11 @@ void FallingTricksGoal::check_tricks()
             continue;
         }
         bool done = false;
-        if (t.trick) {
+        if (t.trick != 0U) {
             done = get_trick_count(score, t.trick, t.spin, t.perfect, 1) != 0 ||
-                   t.trick2 && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) != 0;
+                   (t.trick2 != 0U) && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) != 0;
         } else {
-            done = t.key_combo_ && key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) != 0;
+            done = (t.key_combo_ != 0U) && key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) != 0;
         }
         if (!done) {
             continue;
@@ -1230,10 +1230,10 @@ void TrickBeatGoal::add_tricks(int count)
                     auto* extra_trick = script::fetch_list(extra)->struct_at(0);
                     extra_trick->read_sub_struct(kParams, &trick_params, 1);
                 }
-                trick_params->fetch_text(kName, &trick_text, true);
+                trick_params->fetch_text(kName, &trick_text, 1);
             }
             core::at(text, 0) = '\0';
-            if (t.spin) {
+            if (t.spin != 0) {
                 THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect) {
                     text::format_to(text, "Perfect ");
@@ -1268,7 +1268,7 @@ void TrickBeatGoal::add_tricks(int count)
         change_owner(manager, {.parent = container, .child = text_element});
         script::free_struct(params);
 
-        if (key_combo_text || key_combo) {
+        if (key_combo_text || (key_combo != 0U)) {
             script::Struct* texts = script::read_sub_struct(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
             if (!key_combo_text) {
                 texts->fetch_text(key_combo, &key_combo_text, 0);
@@ -1311,7 +1311,7 @@ bool TrickBeatGoal::tick_frame()
 {
     int wait = 0;
     args()->fetch_int_value(kTrickAddDelay, &wait, 0);
-    if (wait) {
+    if (wait != 0) {
         return base_update(this);
     }
     if (is_operative() && !is_frozen() && completed_ >= total_to_win_) {
@@ -1409,7 +1409,7 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
     auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore));
     modules::PointTally* score = score_component->points_held();
     // Only while the skater is in the air (+0xE0) or has points pending.
-    if (!state->in_trick_move() && pending_points(score) <= 0) {
+    if ((state->in_trick_move() == 0U) && pending_points(score) <= 0) {
         return;
     }
     if (!is_operative()) {

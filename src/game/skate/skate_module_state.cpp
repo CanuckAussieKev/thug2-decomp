@@ -345,7 +345,7 @@ bool Skate::cfunc_set_game_type(script::Struct* params, script::Script* /*script
 {
     Skate* skate = sole();
     uint32_t type = 0;
-    params->read_hash_value(0U, &type, true);
+    params->read_hash_value(0U, &type, 1);
     skate->match_style_ = type;
     return true;
 }
@@ -385,7 +385,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script* /*script*
         online::PlayerRecord* info = as_player(player);
         net::NetMessageInfo desc;
         uint32_t now = frame_clock::get_time();
-        if (!static_cast<uint8_t>(info->is_own_player()) && level == kLoadSk5EdGameplay) {
+        if ((static_cast<uint8_t>(info->is_own_player()) == 0U) && level == kLoadSk5EdGameplay) {
             void* map = park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data();
             int handle = info->get_link_handle();
             server->send_bulk_message(handle, {.msg_id_ = online::MessageId::kParkMap, .size = kParkMapMessageBytes}, map, "level data", online::MessageGroup::kGame, false,
@@ -402,7 +402,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script* /*script*
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(online::MessageGroup::kGame);
         server->put_on_outbox(info->get_link_handle(), &desc);
-        if (!static_cast<uint8_t>(info->is_own_player()) && online::Hub::has_created_goals()) {
+        if ((static_cast<uint8_t>(info->is_own_player()) == 0U) && online::Hub::has_created_goals()) {
             net->prepare_created_goals(level);
             void* goals = net->get_created_goals_message();
             const uint32_t size = net->get_created_goals_size();
@@ -435,7 +435,7 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script* /*script
     online::Hub* net = online::online_hub();
     Skate* skate = sole();
     uint32_t level = 0;
-    if (!params->read_hash_value(0U, &level, false)) {
+    if (!params->read_hash_value(0U, &level, 0)) {
         const char* name = nullptr;
         if (params->fetch_text(0U, &name, 1)) {
             std::array<char, kScriptNameBytes> script{};
@@ -501,7 +501,7 @@ prefs::Preferences* Skate::get_player_options(uint32_t name)
 prefs::Preferences* Skate::get_preferences_from_params(script::Struct* params)
 {
     uint32_t name = 0;
-    params->read_hash_value(kPrefs, &name, true);
+    params->read_hash_value(kPrefs, &name, 1);
     return get_player_options(name); // (inlined there)
 }
 
@@ -520,7 +520,7 @@ int Skate::in_net_game_level() const
 // 0x00565700
 bool Skate::in_front_end_or_net_mode() const
 {
-    if (static_cast<uint8_t>(online::online_hub()->is_network_game())) {
+    if (static_cast<uint8_t>(online::online_hub()->is_network_game()) != 0U) {
         return true;
     }
     return pending_level_ == kLoadMainMenu || pending_level_ == kLoadCas;

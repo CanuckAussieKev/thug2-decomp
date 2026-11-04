@@ -79,7 +79,7 @@ void SkaterPhysicsModule::step_coping_move()
         }
         balance_->lip().tick_frame();
     }
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down()) {
+    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (input_->pad_primary().pos_x().held_down() != 0U)) {
         set_flag(this, PoseFlag::kCrouched, 1);
     }
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
@@ -109,7 +109,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         set_physics_state(kAir);
         old_state_ = kAir;
         set_flag(this, PoseFlag::kNoSecondSpin, 1);
-        if (static_cast<uint8_t>(walk_->off_vert())) {
+        if (static_cast<uint8_t>(walk_->off_vert()) != 0U) {
             set_flag(this, PoseFlag::kNoAcidDrop, 1);
         }
     }

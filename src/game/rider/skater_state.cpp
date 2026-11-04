@@ -179,12 +179,12 @@ bool RiderPoseState::in_bail_state(script::Struct* /*params*/, script::Script* /
 // 0x005194D0
 bool RiderPoseState::on_foot(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return !in_vehicle_ && physics_mode_ == PhysicsMode::kWalking;
+    return (in_vehicle_ == 0U) && physics_mode_ == PhysicsMode::kWalking;
 }
 // 0x005194F0
 bool RiderPoseState::skating(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return !in_vehicle_ && physics_mode_ == PhysicsMode::kSkating;
+    return (in_vehicle_ == 0U) && physics_mode_ == PhysicsMode::kSkating;
 }
 // 0x00519510
 bool RiderPoseState::get_driving(script::Struct* /*params*/, script::Script* /*script*/) const

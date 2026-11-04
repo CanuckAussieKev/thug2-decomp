@@ -203,7 +203,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
     case kSpecialItemExists: {
         int slot = 0;
         if (params->fetch_int_value(kIndex, &slot, 0)) {
-            return core::at(items_, slot) != nullptr;
+            return static_cast<int>(core::at(items_, slot) != nullptr);
         }
         for (const GameEntity* item : items_) {
             if (item) {

@@ -83,7 +83,7 @@ uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
         if (!gap || core::at(gap->pieces_, get_half(this, slot)) != piece) {
             continue;
         }
-        if ((slot & 1) && script::fetch_int_value("PrintGaps")) {
+        if (((slot & 1) != 0) && (script::fetch_int_value("PrintGaps") != 0)) {
             Gap* record = core::at(gaps_ptr_, slot);
             debug::printf("Editor Gap %d points: %s\n", record->details_.points_held(), record->details_.text().data());
         }

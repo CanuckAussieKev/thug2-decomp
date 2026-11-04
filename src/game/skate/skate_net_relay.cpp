@@ -256,7 +256,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             const objects::Rider* skater = skater_of(other);
             auto* history = get_history(skater);
             const int states = history->state_count();
-            if (!states) {
+            if (states == 0) {
                 continue;
             }
             const uint16_t newest = core::at(history->states(), (states - 1) % objects::RiderFrameLog::kEntries).time;
@@ -268,12 +268,12 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
                 break;
             }
         }
-        if (!count) {
+        if (count == 0) {
             continue;
         }
         out.feed_.write_bits({.value = mask, .count = online::kPlayerSlotCount});
         for (int i = 0; i < online::kPlayerSlotCount; ++i) {
-            if (!(mask & (1U << i))) {
+            if ((mask & (1U << i)) == 0U) {
                 continue;
             }
             write_object_update(static_cast<objects::Entity*>(skater_of(by_object_id(i))), &out);
@@ -281,7 +281,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
         }
         out.feed_.drain();
         const int size = out.feed_.get_byte_count();
-        if (size) {
+        if (size != 0) {
             net::NetMessageInfo desc;
             desc.set_content(buffer.data());
             desc.set_byte_count(static_cast<uint16_t>(size));
@@ -470,7 +470,7 @@ int SkateNet::handle_relay_nearby(net::InboundMsgCtx* context)
         if (player == sender) {
             continue;
         }
-        if (!player->is_observer()) {
+        if (player->is_observer() == 0) {
             const objects::Rider* to = skater_of(player);
             if (!to) {
                 continue;
@@ -558,7 +558,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         }
         goals::MatchRules* mode = goals::game_mode();
         const int collected =
-            mode->is_squad_match() ? net->get_squad_points(collector->team()) : score_total(score);
+            (mode->is_squad_match() != 0) ? net->get_squad_points(collector->team()) : score_total(score);
         net::NetMessageInfo desc;
         std::array<uint8_t, 2> left{};
         if (collected == total) {
@@ -568,7 +568,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             desc.set_ident(online::MessageId::kHuntCollectEnd);
             get_sequence(desc, online::MessageGroup::kGame);
             for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
-                if (!player->is_own_player()) {
+                if (player->is_own_player() == 0) {
                     enqueue(server, player, &desc);
                 }
             }
@@ -584,11 +584,12 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             } else if (score_total(score) == total - 1 && !commands::cfunc_in_split_screen_game(nullptr, nullptr)) {
                 count = 1;
             }
-            if (count) {
+            if (count != 0U) {
                 desc = net::NetMessageInfo();
                 net::AppHost* server = server_app();
-                core::at(left, 0) = goals::game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team())
-                                                            : static_cast<uint8_t>(skater_of(collector)->ident());
+                core::at(left, 0) = (goals::game_mode()->is_squad_match() != 0)
+                                        ? static_cast<uint8_t>(collector->team())
+                                        : static_cast<uint8_t>(skater_of(collector)->ident());
                 core::at(left, 1) = count;
                 desc.set_content(left.data());
                 desc.set_ident(online::MessageId::kHuntItemsLeft);
@@ -601,7 +602,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         }
     }
     // the object picked up: told to the collector's team mates
-    if (goals::game_mode()->is_squad_match()) {
+    if (goals::game_mode()->is_squad_match() != 0) {
         net::NetMessageInfo desc;
         net::AppHost* server = server_app();
         for (PlayerRecord* player = search.get_first(false); player; player = search.get_next(false)) {
@@ -627,7 +628,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
         return 4;
     }
     if (dropper->num_placed() > kHuntPlacementsPerPlayer ||
-        (dropper->num_placed() == kHuntPlacementsPerPlayer && !dropper->is_own_player())) {
+        (dropper->num_placed() == kHuntPlacementsPerPlayer && (dropper->is_own_player() == 0))) {
         return 4;
     }
     util::ByteReader reader(context->body(), context->body_size());
@@ -635,10 +636,10 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
     if (!online::read_hunt_position(reader, position)) { // NOT ORIGINAL: too short - dropped
         return 4;
     }
-    if (!dropper->is_own_player()) {
+    if (dropper->is_own_player() == 0) {
         core::at(dropper->placed(), dropper->num_placed()) = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = core::at(position, 3)};
     }
-    if (!dropper->is_own_player()) {
+    if (dropper->is_own_player() == 0) {
         ++dropper->num_placed();
     }
     int dropped = 0;
@@ -717,16 +718,16 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             if (!reader.ok()) { // NOT ORIGINAL: too short - dropped
                 return 4;
             }
-            if (parts & 1) {
+            if ((parts & 1) != 0U) {
                 skater_of(player)->show_board_element(kHatLogo);
             }
-            if (parts & 2) {
+            if ((parts & 2) != 0U) {
                 skater_of(player)->show_board_element(kFrontLogo);
             }
-            if (parts & 4) {
+            if ((parts & 4) != 0U) {
                 skater_of(player)->show_board_element(kBackLogo);
             }
-            if (parts & kPartDeckGraphic) {
+            if ((parts & kPartDeckGraphic) != 0U) {
                 skater_of(player)->show_board_element(kDeckGraphic);
             }
         }
@@ -737,7 +738,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
         net::AppHost* app = context->receiver_app();
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             net::NetMessageInfo desc;
-            if (other->is_own_player() || other == player || other->conn()->get_link_speed_class() == 1) {
+            if ((other->is_own_player() != 0) || other == player || other->conn()->get_link_speed_class() == 1) {
                 continue;
             }
             auto id = static_cast<uint8_t>(skater_of(player)->ident());
@@ -785,7 +786,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     } else {
         // (a client: the player's object id first; NOT ORIGINAL: an empty one dropped - the original's size went
         // round)
-        if (!size) {
+        if (size == 0U) {
             return 4;
         }
         const uint8_t id = *data;
@@ -814,7 +815,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
         PlayerRecord* sender = by_connection(context->sender_conn());
         sender->set_face_texture_data(context->body(), context->body_size());
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
-            if (other->is_own_player() || other == sender) {
+            if ((other->is_own_player() != 0) || other == sender) {
                 continue;
             }
             // (NOT ORIGINAL: no more than the kept copy holds - the original streamed 0x4499 bytes of it whatever
@@ -956,18 +957,19 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
             {std::bit_cast<float>(0x3D4CCCCDU), std::bit_cast<float>(0x3DCCCCCDU), std::bit_cast<float>(kWobble1On),
              0.0F}}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
         core::at(message->wobble_details_, 0) = core::at(kFirst, bits & 3);
-        core::at(message->wobble_details_, 1) = (bits >> 2 & 1)
-                                          ? std::bit_cast<float>(kWobble1On)
-                                          : std::bit_cast<float>(kWobble1Off); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
-        core::at(message->wobble_details_, 2) = (bits >> 3 & 1)
-                                          ? std::bit_cast<float>(kWobble2On)
-                                          : std::bit_cast<float>(kWobble2Off); // 20 / 0.0022 (0x006486AC / 0x006486B0)
-        core::at(message->wobble_details_, 3) = (bits >> 4 & 1)
-                                          ? std::bit_cast<float>(kWobble3On)
-                                          : std::bit_cast<float>(kWobble3Off); // 10 / 0.0017 (0x00646710 / 0x006486A8)
-        core::at(message->wobble_details_, 4) = (bits >> kWobble4Shift & 1)
-                                          ? std::bit_cast<float>(kWobble4On)
-                                          : std::bit_cast<float>(kWobble4Off); // 1 / 1.5 (0x006453A8 / 0x00646744)
+        core::at(message->wobble_details_, 1) =
+            ((bits >> 2 & 1) != 0U) ? std::bit_cast<float>(kWobble1On)
+                                    : std::bit_cast<float>(kWobble1Off); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
+        core::at(message->wobble_details_, 2) =
+            ((bits >> 3 & 1) != 0U) ? std::bit_cast<float>(kWobble2On)
+                                    : std::bit_cast<float>(kWobble2Off); // 20 / 0.0022 (0x006486AC / 0x006486B0)
+        core::at(message->wobble_details_, 3) =
+            ((bits >> 4 & 1) != 0U) ? std::bit_cast<float>(kWobble3On)
+                                    : std::bit_cast<float>(kWobble3Off); // 10 / 0.0017 (0x00646710 / 0x006486A8)
+        core::at(message->wobble_details_, 4) =
+            ((bits >> kWobble4Shift & 1) != 0U)
+                ? std::bit_cast<float>(kWobble4On)
+                : std::bit_cast<float>(kWobble4Off); // 1 / 1.5 (0x006453A8 / 0x00646744)
         break;
     }
     case online::MessageId::kLoopType: {
@@ -1150,7 +1152,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
         return 4;
     }
     int owner = 0;
-    if (goals::game_mode()->is_squad_match()) {
+    if (goals::game_mode()->is_squad_match() != 0) {
         PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(message->player));
         if (!player) { // NOT ORIGINAL: no such player - dropped (the original read through null)
             return 4;
@@ -1478,11 +1480,11 @@ void Skate::broadcast_points(bool final)
         desc.set_content(bytes.data());
         desc.set_ident(skate_net::MessageId::kScores);
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-        if (final || cheats) {
+        if (final || (cheats != 0U)) {
             get_sequence(desc, online::MessageGroup::kGame);
         }
         enqueue(server_app(), player, &desc);
-        if (player->is_own_player() || !player->has_finished_joining()) {
+        if ((player->is_own_player() != 0) || (player->has_finished_joining() == 0)) {
             continue;
         }
         // the cheats' check (0x80): 8 bytes, the second word whatever the stack held (zero here)

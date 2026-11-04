@@ -111,7 +111,8 @@ constexpr float kInch = 12.0F;                    // 0x0064546C (feet to inches)
 
 void* ingest_skin(const char* name, bool a, bool b, bool c)
 {
-    return static_cast<render::TextureSet*>(render::engine_parts().particle_texture_dict())->ingest_skin(name, a, b, c);
+    return static_cast<render::TextureSet*>(render::engine_parts().particle_texture_dict())
+        ->ingest_skin(name, static_cast<uint32_t>(a), static_cast<uint32_t>(b), c);
 }
 render::BitmapTexture* copy_texture(uint32_t key, void* texture)
 {
@@ -269,7 +270,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     }
     online::PlaceTag tag;
     tag.object_id = static_cast<int8_t>(entity()->ident());
-    tag.sticker = sticker != 0;
+    tag.sticker = sticker;
     for (int i = 0; i < 4; ++i) {
         core::at(tag.start, i) = start[i];
         core::at(tag.end, i) = end[i];
@@ -389,7 +390,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     const float ahead_z = facing.z * reach;
     const double ahead_w = static_cast<double>(facing.w) * reach;
     feeler.line().end = {.x = from.x + ahead_x, .y = from.y + ahead_y, .z = from.z + ahead_z, .w = static_cast<float>(ahead_w + from.w)};
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         debug::printf("No contact found for sticker?\n"); // "No contact found for sticker?"
         return false;
     }
@@ -429,7 +430,8 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 bool TaggingControlComponent::try_tagging()
 {
     const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity()->fetch_module(kSkaterPhysicsControl))->pose();
-    if (state->in_vehicle() || state->physics_mode() != objects::RiderPoseState::PhysicsMode::kWalking || blocked_) {
+    if ((state->in_vehicle() != 0U) || state->physics_mode() != objects::RiderPoseState::PhysicsMode::kWalking ||
+        blocked_) {
         return false;
     }
     if (cooldown_ > 0.0F) {
@@ -445,12 +447,12 @@ bool TaggingControlComponent::try_tagging()
     }
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
     ObjectModule* skeleton = entity()->fetch_module(kSkeleton);
-    uint32_t bone = core->state()->flag(PoseFlag::kFlipped).on ? kBonePalmL : kBonePalmR;
+    uint32_t bone = (core->state()->flag(PoseFlag::kFlipped).on != 0U) ? kBonePalmL : kBonePalmR;
     if (core::down_cast<Rider>(entity())->label() == kSkaterShrek) {
         bone = kBoneHead;
     }
     auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary().button_wedge();
-    const bool tapped = button->held_down() && static_cast<uint32_t>(button->get_held_millis()) < 100U;
+    const bool tapped = (button->held_down() != 0U) && static_cast<uint32_t>(button->get_held_millis()) < 100U;
     if (!tapped && (!pending_ || countdown_ != 0)) {
         return true;
     }
@@ -489,7 +491,7 @@ bool TaggingControlComponent::try_tagging()
         const float ahead_x = dx * reach;
         feeler.line().end = {.x = joint_world.x + ahead_x, .y = joint_world.y + rise, .z = joint_world.z + ahead_z,
                             .w = static_cast<float>(static_cast<double>(reach) + joint_world.w)};
-        if (feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) != 0) {
             core::at(hits, i) = feeler.contact_pos();
             core::at(distances, i) = std::fabs(feeler.reach());
             found = true;
@@ -527,7 +529,7 @@ bool TaggingControlComponent::try_tagging()
         const float ahead_x = dx * distance;
         feeler.line().end = {.x = joint_world.x + ahead_x, .y = joint_world.y + ahead_y, .z = joint_world.z + ahead_z,
                             .w = static_cast<float>(static_cast<double>(distance) + joint_world.w)};
-        if (feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) != 0) {
             break;
         }
         distance = static_cast<float>(distance + kDistanceBias);

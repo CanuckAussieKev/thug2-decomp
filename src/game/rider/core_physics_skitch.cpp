@@ -56,13 +56,13 @@ int closest_tow_point(void* skitch, maths::Vec4* point, maths::Vec4* from)
 // 0x00503EC0
 void SkaterPhysicsModule::try_start_skitch()
 {
-    if (on_vehicle_) {
+    if (on_vehicle_ != 0U) {
         return;
     }
     objects::ControlButton* button = &input_->pad_primary().up_dir();
     // (not original: THAW 0x005D33A7 - on the bike R2 held, not up)
     objects::ControlButton* hold = thaw_bmx::live_now(this) ? thaw_bmx::tow_button(this) : button;
-    if (state_->flag(PoseFlag::kSkitching).on || !hold->held_down()) {
+    if ((state_->flag(PoseFlag::kSkitching).on != 0U) || (hold->held_down() == 0U)) {
         return;
     }
     auto held = static_cast<uint32_t>(time_since_press(hold));
@@ -118,27 +118,27 @@ void SkaterPhysicsModule::get_skitch()
 
     // A press of either pair of buttons moves to the next skitch point along the car, one way or the other.
     float direction = 0.0F;
-    if (pad->shoulder_left_a().fired()) {
+    if (pad->shoulder_left_a().fired() != 0U) {
         take_press(&pad->shoulder_left_a());
         direction = 1.0F;
     }
-    if (pad->shoulder_right_a().fired()) {
+    if (pad->shoulder_right_a().fired() != 0U) {
         take_press(&pad->shoulder_right_a());
         direction = -1.0F;
     }
-    if (pad->shoulder_left_b().fired()) {
+    if (pad->shoulder_left_b().fired() != 0U) {
         take_press(&pad->shoulder_left_b());
         direction = 1.0F;
     }
     bool move = false;
-    if (pad->shoulder_right_b().fired()) {
+    if (pad->shoulder_right_b().fired() != 0U) {
         take_press(&pad->shoulder_right_b());
         direction = -1.0F;
         move = true;
     } else {
         move = direction != 0.0F;
     }
-    if (move && (!skitch_moving_ || direction != skitch_direction_)) {
+    if (move && ((skitch_moving_ == 0U) || direction != skitch_direction_)) {
         // Further and further along the skater's side (6 at a time, short of 120) until another point is nearest.
         float reach = kSkitchStep;
         double next = 0.0;
@@ -171,7 +171,7 @@ void SkaterPhysicsModule::get_skitch()
 
     // Held at the skitch point, Skitch_Offset behind it along the car; while moving to a new one, pulled towards it
     // at skitch_suck_speed (let go of when 180 or more away).
-    if (!ride_->ride() || !state_->flag(PoseFlag::kSkitching).on) {
+    if (!ride_->ride() || (state_->flag(PoseFlag::kSkitching).on == 0U)) {
         return;
     }
     maths::Vec4 point;
@@ -183,7 +183,7 @@ void SkaterPhysicsModule::get_skitch()
     const maths::Vec4 back = -core::at(car->basis_frame().row, 2);
     const float offset = script::fetch_float(kSkitchOffset);
     const maths::Vec4 target = point + offset * back;
-    if (skitch_moving_) {
+    if (skitch_moving_ != 0U) {
         const maths::Vec4 moved = ride_->ride()->carried(); // (the ride's last move)
         entity()->at_point() += moved;
         maths::Vec4 toward = target - entity()->at_point();

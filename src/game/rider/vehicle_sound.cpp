@@ -193,7 +193,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     auto speed = static_cast<float>(get_pace(entity()->vel()) * kToMph);
-    if (!input_->pad_primary().pos_x().held_down() || input_->pad_primary().btn_down().held_down()) {
+    if ((input_->pad_primary().pos_x().held_down() == 0U) || (input_->pad_primary().btn_down().held_down() != 0U)) {
         speed = static_cast<float>(get_rate(kIdleEngineEffectiveSpeedFactor) * static_cast<double>(speed));
     }
 
@@ -245,7 +245,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
     // pitch range; eased.
     const int gear = gear_;
-    const double low = gear ? core::at(gear_steps_, gear - 1).up_at_ : 0.0;
+    const double low = (gear != 0) ? core::at(gear_steps_, gear - 1).up_at_ : 0.0;
     const double across = (static_cast<double>(speed_) - low) / (static_cast<double>(core::at(gear_steps_, gear).up_at_) - low);
     auto target = static_cast<float>(
         ((static_cast<double>(core::at(gear_steps_, gear).high_rpm_) - core::at(gear_steps_, gear).low_rpm_) * across) +
@@ -267,7 +267,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     const float high_pitch = get_setting(settings_, 0x9F46344A);
     const float low_pitch = get_setting(settings_, 0x2660AF3B);
     auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * rpm) + low_pitch);
-    if (!engine_sound_) {
+    if (engine_sound_ == 0U) {
         engine_sound_ =
             sound::AudioMixer::emit_sound(engine_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
     } else {
@@ -280,7 +280,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0F;
-    if (input_->pad_primary().btn_down().held_down() && core_physics_->state()->cur_phase() == 0) {
+    if ((input_->pad_primary().btn_down().held_down() != 0U) && core_physics_->state()->cur_phase() == 0) {
         const double speed = get_pace(entity()->vel());
         if (!(0.0 > speed)) {
             skid = static_cast<float>(speed);
@@ -304,13 +304,13 @@ void SkaterVehicleSoundComponent::update_skid()
     const float low_pitch = get_setting(settings_, 0x76F8F76E);
     auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * level) + low_pitch);
     if (!volume.is_audio_off()) {
-        if (!skid_sound_) {
+        if (skid_sound_ == 0U) {
             skid_sound_ =
                 sound::AudioMixer::emit_sound(skid_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
         } else {
             sound::AudioMixer::set_sound_params_scaled(skid_sound_, &volume, pitch);
         }
-    } else if (skid_sound_) {
+    } else if (skid_sound_ != 0U) {
         sound::AudioMixer::stop_sound(skid_sound_);
         skid_sound_ = 0;
     }
@@ -327,7 +327,7 @@ void SkaterVehicleSoundComponent::update_unused()
 bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* params, script::Script* /*script*/)
 {
     params->read_hash_value(0U, &settings_name_, 0);
-    if (engine_sound_) {
+    if (engine_sound_ != 0U) {
         sound::AudioMixer::stop_sound(engine_sound_);
     }
     engine_sound_ = 0;
@@ -343,7 +343,7 @@ bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* para
 // 0x0051B820
 bool SkaterVehicleSoundComponent::no_skater_vehicle_sounds(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (engine_sound_) {
+    if (engine_sound_ != 0U) {
         sound::AudioMixer::stop_sound(engine_sound_);
     }
     engine_sound_ = 0;
@@ -359,7 +359,7 @@ bool SkaterVehicleSoundComponent::no_skater_vehicle_sounds(script::Struct* /*par
 bool SkaterVehicleSoundComponent::stop_skater_vehicle_sounds(script::Struct* /*params*/,
                                                              script::Script* /*script*/) const
 {
-    if (engine_sound_) {
+    if (engine_sound_ != 0U) {
         sound::AudioMixer::stop_sound(engine_sound_);
     }
     return true;

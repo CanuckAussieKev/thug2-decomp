@@ -63,7 +63,7 @@ FileLoad* new_file(HANDLE handle, SaveCard* card)
 FileLoad* FileLoad::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -89,14 +89,15 @@ bool FileLoad::drain()
 int FileLoad::emit_out(const void* data, int size)
 {
     DWORD written = 0;
-    return WriteFile(hdl_, data, static_cast<DWORD>(size), &written, nullptr) ? static_cast<int>(written) : 0;
+    return (WriteFile(hdl_, data, static_cast<DWORD>(size), &written, nullptr) != FALSE) ? static_cast<int>(written)
+                                                                                         : 0;
 }
 
 // 0x005BC880
 int FileLoad::get_take_in(void* buffer, int size)
 {
     DWORD read = 0;
-    return ReadFile(hdl_, buffer, static_cast<DWORD>(size), &read, nullptr) ? static_cast<int>(read) : 0;
+    return (ReadFile(hdl_, buffer, static_cast<DWORD>(size), &read, nullptr) != FALSE) ? static_cast<int>(read) : 0;
 }
 
 // 0x005BC8B0
@@ -166,12 +167,12 @@ const char* SaveCard::convert_filename(const char* name)
 // 0x005BC790
 int SaveCard::get_free_blocks() const
 {
-    if (!present_) {
+    if (present_ == 0U) {
         return 0;
     }
     ULARGE_INTEGER available;
     ULARGE_INTEGER total;
-    if (!GetDiskFreeSpaceExA(nullptr, &available, &total, nullptr)) {
+    if (GetDiskFreeSpaceExA(nullptr, &available, &total, nullptr) == FALSE) {
         return 0;
     }
     return static_cast<int>((available.LowPart >> kBlockShift) + (available.HighPart << kHighPartBlockShift));
@@ -187,8 +188,8 @@ bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
     if (search == INVALID_HANDLE_VALUE) {
         return true;
     }
-    for (bool again = true; again; again = FindNextFileA(search, &found)) {
-        if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+    for (bool again = true; again; again = (FindNextFileA(search, &found) != FALSE)) {
+        if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0U) {
             continue;
         }
         FileLoad* file = new_file(nullptr, this);

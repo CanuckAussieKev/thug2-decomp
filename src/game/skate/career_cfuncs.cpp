@@ -207,7 +207,7 @@ bool cfunc_get_flag(script::Struct* params, script::Script* /*script*/)
     int level = 0;
     params->fetch_int_value(kLevel, &level, 0);
     objects::RiderStoryProgress* career = get_career();
-    if (level) {
+    if (level != 0) {
         return career->fetch_marker(flag, level);
     }
     return career->fetch_marker(flag, -1);

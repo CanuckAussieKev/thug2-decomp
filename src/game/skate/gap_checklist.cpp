@@ -91,7 +91,7 @@ GapEntry::~GapEntry()
 GapEntry* GapEntry::teardown(unsigned int flags)
 {
     this->~GapEntry();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -150,11 +150,11 @@ void GapTally::add_gap_from_node(script::Struct* params, const uint8_t* /*call*/
     params->fetch_int_value(kScore, &score, 0);
     const char* text = "";
     params->fetch_text(kText, &text, 0);
-    if (score && *text) {
+    if ((score != 0) && (*text != '\0')) {
         register_gap_entry(text, {.count = 0, .score = score});
         return;
     }
-    if (script::fetch_int_value(kPrintGaps)) {
+    if (script::fetch_int_value(kPrintGaps) != 0) {
         debug::printf("(Name '%s' Score %d - not in checklist)\n", text, score);
     }
 }
@@ -172,7 +172,7 @@ void GapTally::get_build()
     manager->enter_heap_scope(manager->script_heap());
     building() = this;
     built_ = true;
-    if (script::fetch_int_value("PrintGaps")) {
+    if (script::fetch_int_value("PrintGaps") != 0) {
         debug::printf("\nGAP LIST\n--------------------------------------\n");
     }
     level_nodes::for_each_node_script_call({.param = kTriggerScript, .target = kEndGap}, &add_gap_from_node_callback);
@@ -238,7 +238,7 @@ int GapTally::total_of()
 bool GapTally::all_got()
 {
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
-        if (!gap->num()) {
+        if (gap->num() == 0) {
             return false;
         }
     }
@@ -262,7 +262,7 @@ bool GapTally::get_gap_totals(script::Struct* /*params*/, script::Script* script
     int collected = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         ++total;
-        if (gap->num()) {
+        if (gap->num() != 0) {
             ++collected;
         }
     }
@@ -319,7 +319,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     int got = 0;
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {
-        if (gap->num()) {
+        if (gap->num() != 0) {
             ++got;
         }
         gsl::owner<script::Struct*> item = script::new_struct();
@@ -371,7 +371,7 @@ void GapTally::pay_out_queued_gaps()
     int8_t new_gaps = 0;
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {
-        if (gap->pending()) {
+        if (gap->pending() != 0) {
             GoalManager* goals = get_objective_board(); // the goal manager
             if (goals->has_active_gap_goal()) {
                 goals->register_gap_hit(index);

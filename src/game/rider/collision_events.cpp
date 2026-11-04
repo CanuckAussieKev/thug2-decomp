@@ -230,7 +230,7 @@ uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::
 std::string get_level_name()
 {
     const uint32_t load = current_load_state();
-    if (!load) {
+    if (load == 0U) {
         return "-";
     }
     std::string name = get_name_of(load);
@@ -244,12 +244,13 @@ std::string get_level_name()
 std::string file_stamp(const std::string& path)
 {
     WIN32_FILE_ATTRIBUTE_DATA data = {};
-    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data)) {
+    if (GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data) == FALSE) {
         return {};
     }
     FILETIME local;
     SYSTEMTIME t;
-    if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t)) {
+    if ((FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) == FALSE) ||
+        (FileTimeToSystemTime(&local, &t) == FALSE)) {
         return {};
     }
     std::array<char, kFileTextBytes> text{};
@@ -325,7 +326,7 @@ bool quiet_spot(const std::array<float, 3>& at, int* repeats)
 {
     const DWORD now = GetTickCount();
     for (Spot& spot : spot_ring().spots_) {
-        if (!spot.time) {
+        if (spot.time == 0U) {
             continue;
         }
         const float dx = core::at(spot.at, 0) - std::get<0>(at);
@@ -340,13 +341,13 @@ bool quiet_spot(const std::array<float, 3>& at, int* repeats)
         }
         *repeats = spot.repeats;
         spot.repeats = 0;
-        spot.time = now ? now : 1;
+        spot.time = (now != 0U) ? now : 1;
         return false;
     }
     Spot& spot = core::at(spot_ring().spots_, spot_ring().spot_next_);
     spot_ring().spot_next_ = (spot_ring().spot_next_ + 1) % static_cast<int>(sizeof(spot_ring().spots_) / sizeof(core::at(spot_ring().spots_, 0)));
     spot.at = at;
-    spot.time = now ? now : 1;
+    spot.time = (now != 0U) ? now : 1;
     spot.repeats = 0;
     *repeats = 0;
     return false;
@@ -886,7 +887,7 @@ void end_frame(SkaterPhysicsModule* component)
         for (int i = 0; i < kPadButtonCount; ++i) {
             if (const objects::ControlButton* button =
                     input->pad_primary().button_at_offset(static_cast<uint32_t>(i) * kPadButtonStride);
-                button && button->held_down()) {
+                button && (button->held_down() != 0U)) {
                 s.buttons = static_cast<uint16_t>(s.buttons | (1U << i));
             }
         }
@@ -899,7 +900,7 @@ void end_frame(SkaterPhysicsModule* component)
     copy3(s.ground_normal_, component->floor_normal());
     s.ground = face_of(component->floor_feeler());
     s.ground_ray_ = line_of(component->floor_feeler());
-    if (collision_events_state().sample_total_) {
+    if (collision_events_state().sample_total_ != 0) {
         const Sample& last = sample_at(0);
         const float dx = core::at(s.pos, 0) - core::at(last.pos, 0);
         const float dy = core::at(s.pos, 1) - core::at(last.pos, 1);
@@ -929,7 +930,7 @@ std::string flag_names(uint16_t flags)
                                            "invisible",      "0x2000",       "0x4000",         "0x8000"}};
     std::string out;
     for (int bit = 0; bit < kPadButtonCount; ++bit) {
-        if (!(flags & (1U << bit))) {
+        if ((flags & (1U << bit)) == 0U) {
             continue;
         }
         if (!out.empty()) {
@@ -946,7 +947,7 @@ std::string pad_button_labels(uint16_t mask)
                                            "r2", "r3",   "circle", "square", "triangle", "x",  "start", "select"}};
     std::string out;
     for (int bit = 0; bit < kPadButtonCount; ++bit) {
-        if (!(mask & (1U << bit))) {
+        if ((mask & (1U << bit)) == 0U) {
             continue;
         }
         if (!out.empty()) {
@@ -1030,9 +1031,9 @@ std::string format_detail(const Detail& d)
     }
     if (d.edge >= 0) {
         text::format_to(text, " edge=%d edge_dist=%.1f open_edge=%s", d.edge, d.edge_distance_,
-                        d.edge_open_ < 0 ? std::string_view("-").data()
-                        : d.edge_open_   ? std::string_view("1").data()
-                                         : std::string_view("0").data());
+                        d.edge_open_ < 0      ? std::string_view("-").data()
+                        : (d.edge_open_ != 0) ? std::string_view("1").data()
+                                              : std::string_view("0").data());
         line += text.data();
     } else {
         line += " edge=- edge_dist=- open_edge=-";

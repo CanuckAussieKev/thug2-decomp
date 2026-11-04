@@ -102,7 +102,7 @@ RiderRollingAudio::RiderRollingAudio() { set_kind_tag(kSkaterLoopingSound); }
 // 0x00513AB0
 void RiderRollingAudio::stop_sound()
 {
-    if (sound_id_) {
+    if (sound_id_ != 0U) {
         sound::AudioMixer::stop_sound(sound_id_);
         sound_id_ = 0;
     }
@@ -160,7 +160,7 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
         }
         return 1;
     case kTurnOff:
-        if (on_) {
+        if (on_ != 0U) {
             hold_off(true);
             on_ = 0;
         }
@@ -170,8 +170,9 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
         script::Struct* tags = entity()->tag_table();
         const RiderPoseState* state = physics_control_->pose();
         script::Struct* anim_tags = nullptr;
-        if (tags && !state->in_vehicle() && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating && tags->read_sub_struct(kAnimTags, &anim_tags, 0) &&
-            anim_tags->has_bare_flag(kWalkToSkateTransition)) {
+        if (tags && (state->in_vehicle() == 0U) &&
+            state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating &&
+            tags->read_sub_struct(kAnimTags, &anim_tags, 0) && anim_tags->has_bare_flag(kWalkToSkateTransition)) {
             hold_off(false);
             on_ = 1;
         }
@@ -185,7 +186,7 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
 // 0x00513BB0
 void RiderRollingAudio::tick_frame()
 {
-    if (!on_) {
+    if (on_ == 0U) {
         hold_off(true);
         return;
     }
@@ -196,9 +197,9 @@ void RiderRollingAudio::tick_frame()
     int bike = -1;
     if (skater::thaw_bmx::is_switched_on()) {
         using skater::thaw_bmx::BikeSound;
-        BikeSound kind = cur_phase_ == kStateGround                                 ? BikeSound::kRoll
-                         : cur_phase_ == kStateRail && !sliding_ && !no_rail_sound_ ? BikeSound::kGrind
-                                                                                    : BikeSound::kAir;
+        BikeSound kind = cur_phase_ == kStateGround                                               ? BikeSound::kRoll
+                         : cur_phase_ == kStateRail && (sliding_ == 0U) && (no_rail_sound_ == 0U) ? BikeSound::kGrind
+                                                                                                  : BikeSound::kAir;
         bike = skater::thaw_bmx::bike_sound_of(entity(), kind, &sound_);
         if (bike >= 0) {
             have_sound_ = static_cast<uint8_t>(bike);
@@ -208,24 +209,24 @@ void RiderRollingAudio::tick_frame()
     // The sound for the state, chosen again when something changed.
     switch (bike >= 0 ? -1 : cur_phase_) {
     case kStateGround:
-        if (sound_changed_) {
+        if (sound_changed_ != 0U) {
             have_sound_ = terrain_sound(&sound_, surface_type_, sound_table(kTableWheelroll)) ? 1 : 0;
             sound_changed_ = 0;
         }
         break;
     case kStateAir:
-        if (sound_changed_) {
+        if (sound_changed_ != 0U) {
             have_sound_ = 1;
             sound_ = air_sound();
             sound_changed_ = 0;
         }
         break;
     case kStateRail:
-        if (no_rail_sound_) {
+        if (no_rail_sound_ != 0U) {
             have_sound_ = 0;
         } else {
-            const uint32_t table = sliding_ ? kTableSlide : kTableGrind;
-            if (sound_changed_) {
+            const uint32_t table = (sliding_ != 0U) ? kTableSlide : kTableGrind;
+            if (sound_changed_ != 0U) {
                 have_sound_ = terrain_sound(&sound_, surface_type_, sound_table(table)) ? 1 : 0;
                 sound_changed_ = 0;
             }
@@ -234,11 +235,11 @@ void RiderRollingAudio::tick_frame()
     default:
         break;
     }
-    if (sound_id_ && (!have_sound_ || playing_checksum_ != sound_name_key(&sound_))) {
+    if ((sound_id_ != 0U) && ((have_sound_ == 0U) || playing_checksum_ != sound_name_key(&sound_))) {
         sound::AudioMixer::stop_sound(sound_id_);
         sound_id_ = 0;
     }
-    if (!have_sound_) {
+    if (have_sound_ == 0U) {
         return;
     }
 
@@ -254,7 +255,7 @@ void RiderRollingAudio::tick_frame()
     last_pos_ = entity()->at_point();
 
     float pitch = 0.0F;
-    if (cur_phase_ == kStateAir && sound_id_) {
+    if (cur_phase_ == kStateAir && (sound_id_ != 0U)) {
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
         if (lean_pitch_angle_ > air_pitch_floor_) {
             lean_pitch_angle_ =
@@ -267,7 +268,7 @@ void RiderRollingAudio::tick_frame()
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
-        if (core && core->point_rail_spin()) {
+        if (core && (core->point_rail_spin() != 0U)) {
             speed_ratio_ = kCapsizedFraction;
         }
         if (speed_ratio_ > 0.0F) {
@@ -288,18 +289,18 @@ void RiderRollingAudio::tick_frame()
         stop_sound();
         return;
     }
-    if (!sound_id_) {
+    if (sound_id_ == 0U) {
         core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);
         prev_pitch_value_ = pitch;
         sound_id_ = sound::AudioMixer::emit_sound(sound_name_key(&sound_), &volume, {.pitch = pitch, .unique_id_ = 0},
                                                   nullptr, 0); // (the original passed the entry's address: unused)
-        if (sound_id_) {
+        if (sound_id_ != 0U) {
             playing_checksum_ = sound_name_key(&sound_);
         }
         return;
     }
     // Playing: updated when the volume (its first channel) or the pitch moved by more than a half.
-    if (!force_update_ &&
+    if ((force_update_ == 0U) &&
         !(std::fabs(static_cast<double>(core::at(volume.lanes(), 0)) - core::at(prev_levels_.lanes(), 0)) >
           kChangeThreshold) &&
         !(std::fabs(static_cast<double>(pitch) - prev_pitch_value_) > kChangeThreshold)) {

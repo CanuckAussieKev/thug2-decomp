@@ -132,7 +132,7 @@ void RiderBoardPhysics::seal()
 void RiderBoardPhysics::set_frozen(bool paused)
 {
     is_halted_ = paused;
-    if (!paused && (entity()->composite_flags() & kCompositeFlagSuspended)) {
+    if (!paused && ((entity()->composite_flags() & kCompositeFlagSuspended) != 0U)) {
         return;
     }
     switch (pose_->physics_mode()) {
@@ -232,7 +232,7 @@ void RiderBoardPhysics::tick_frame()
     default:
         break;
     }
-    if (!(static_cast<ObjectModule*>(core_physics_)->flag_bits() & kComponentFlagSuspended)) {
+    if ((static_cast<ObjectModule*>(core_physics_)->flag_bits() & kComponentFlagSuspended) == 0U) {
         set_frozen(true);
     }
 }

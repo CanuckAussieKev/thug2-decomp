@@ -235,7 +235,7 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
     }
     onto_rail(point, false);
     set_rail_terrain();
-    if (!on_vehicle_) {
+    if (on_vehicle_ == 0U) {
         play_land_sound();
     }
 
@@ -268,7 +268,7 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
     rail_wait_ = static_cast<int>(script::fetch_float(kRailRegrabDelay));
     set_flag(this, PoseFlag::kLipToAir, 0);
     object_of(this)->vel().change_heading(kick);
-    if (trigger_script) {
+    if (trigger_script != 0U) {
         trigger_rail_node(kKickEvents);
     }
     set_physics_state(kAir);
@@ -281,13 +281,13 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
 void SkaterPhysicsModule::spin_on_point_rail(const maths::Vec4* point)
 {
     point_rail_spin_ = 1;
-    natas_counter_clockwise_ = input_->pad_primary().shoulder_right_a().held_down() != 0;
+    natas_counter_clockwise_ = static_cast<uint8_t>(input_->pad_primary().shoulder_right_a().held_down() != 0);
     if (!clear_to_point(point, true)) {
         return;
     }
     onto_rail(point, true);
     set_surface_kind(rail_node_->surface_type());
-    if (!on_vehicle_) {
+    if (on_vehicle_ == 0U) {
         play_land_sound();
     }
     maths::Vec4& v = object_of(this)->vel();
@@ -363,7 +363,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     if (!clear_to_point(point, false)) {
         return;
     }
-    if (bit_mark(this, PoseFlag::kFromAcidDrop)) {
+    if (bit_mark(this, PoseFlag::kFromAcidDrop) != 0U) {
         // (From an acid drop: its hold velocity added.)
         debug::printf("M:%s:%i: %s\n", "mponents\\SkaterCorePhysicsComponent.cpp", kSourceLineAcidHoldA,
                       "GRINDING FROM ACID DROP"); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
@@ -398,7 +398,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     }
     trigger_rail_script(kGrindEvents);
     onto_rail(point, false);
-    if (get_since(static_cast<uint32_t>(physics_control_->switch_time())) != 0 && !on_vehicle_) {
+    if (get_since(static_cast<uint32_t>(physics_control_->switch_time())) != 0 && (on_vehicle_ == 0U)) {
         play_land_sound();
     }
 
@@ -470,8 +470,8 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     start.x -= twice.x, start.y -= twice.y, start.z -= twice.z, start.w -= twice.w;
     stop.x -= twice.x, stop.y -= twice.y, stop.z -= twice.z, stop.w -= twice.w;
     const bool right_hit = get_feel(this, render::FaceFlag::kNotCollidable, render::kNoFaceFlags);
-    bad_ledge_ = (left_hit && !left_side) || (right_hit && left_side);
-    on_ledge_ = left_hit || right_hit;
+    bad_ledge_ = static_cast<uint8_t>((left_hit && !left_side) || (right_hit && left_side));
+    on_ledge_ = static_cast<uint8_t>(left_hit || right_hit);
     if (thaw_bmx::live_now(
             this)) { // (not original: THAW 0x005E27F5 - on the bike, a bad ledge on that side: the other side)
         left_side = thaw_bmx::grind_side(this, left_side, bad_ledge_ != 0);
@@ -495,7 +495,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
             rail_backwards_ = 1;
         }
     } else {
-        const float turned = bit_mark(this, PoseFlag::kFlipped) ? -across_right : across_right;
+        const float turned = (bit_mark(this, PoseFlag::kFlipped) != 0U) ? -across_right : across_right;
         if (turned < 0.0F) {
             rail_backwards_ = 1;
         }
@@ -537,7 +537,8 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
 
     if (!node->last_value() && !node->succ()) {
         // A point rail: a spin when a spin button is held, long enough after the last one; else a kick.
-        if (input->pad_primary().shoulder_right_a().held_down() || input->pad_primary().shoulder_left_a().held_down()) {
+        if ((input->pad_primary().shoulder_right_a().held_down() != 0U) ||
+            (input->pad_primary().shoulder_left_a().held_down() != 0U)) {
             const int elapsed = static_cast<int>(get_since(static_cast<uint32_t>(natas_spin_time_)));
             if (!(static_cast<double>(script::fetch_float(kNatasDelay)) * kMillisecondsPerSecond > static_cast<float>(elapsed))) {
                 spin_on_point_rail(point);
@@ -551,7 +552,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     // A lip trick: going up, upright (the up within the horizontal angle), facing up, on a ramp near vertical, the
     // skater's right near level (the allow angle - its override for nodes flagged 1).
     auto allow = static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipAllowAngle)) * kDegrees));
-    if (node->flag_bits() & 1) {
+    if ((node->flag_bits() & 1) != 0U) {
         allow =
             static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipAllowAngleOverride)) * kDegrees));
     }
@@ -560,14 +561,14 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     auto ramp_vert =
         static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kLipRampVertAngle)) * kDegrees));
     bool lip = true;
-    if (!allow_lip_no_grind_) {
+    if (allow_lip_no_grind_ == 0U) {
         const objects::GameEntity* object = object_of(this);
         lip = object->vel().y > 0.0F && std::fabs(core::at(object->basis_frame().row, 1).y) < horizontal &&
               core::at(object->basis_frame().row, 2).y > 0.0F && std::fabs(floor_normal_.y) < ramp_vert &&
               std::fabs(core::at(object->basis_frame().row, 0).y) < allow;
     }
     // (not original: THAW 0x005E1B31 - no lip trick on the bike)
-    if (lip && !no_lip_trick && !on_vehicle_ && !thaw_bmx::live_now(this)) {
+    if (lip && !no_lip_trick && (on_vehicle_ == 0U) && !thaw_bmx::live_now(this)) {
         start_lip_trick(point);
     } else {
         grind_along_rail(point, from_object);
@@ -586,7 +587,8 @@ void SkaterPhysicsModule::try_grind(bool always)
     if (state_of(this) != kAir && !always) {
         return;
     }
-    if (bit_mark(this, PoseFlag::kBailing) || no_rail_tricks_ || !input_->pad_primary().button_wedge().held_down()) {
+    if ((bit_mark(this, PoseFlag::kBailing) != 0U) || (no_rail_tricks_ != 0U) ||
+        (input_->pad_primary().button_wedge().held_down() == 0U)) {
         return;
     }
     if (get_since(wallplant_time_) < static_cast<uint32_t>(script::fetch_int_value(kDisallowGrind))) {

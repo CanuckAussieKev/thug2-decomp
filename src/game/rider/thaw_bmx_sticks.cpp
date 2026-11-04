@@ -53,7 +53,7 @@ PadSticks& sticks_of(const void* pad)
 {
     PadSticks& sticks = get_pads()[pad];
     for (int i = 0; i < kStickButtonCount; ++i) {
-        if (!core::at(sticks.buttons, i).label()) {
+        if (core::at(sticks.buttons, i).label() == 0U) {
             core::at(sticks.buttons, i).set_label(stick_button_name(i));
         }
     }
@@ -122,7 +122,7 @@ uint32_t stick_directions(std::span<const uint8_t> data)
 uint32_t stick_button_name(int index)
 {
     static std::array<uint32_t, kStickButtonCount> names = {};
-    if (!core::at(names, index)) {
+    if (core::at(names, index) == 0U) {
         core::at(names, index) = get_name(core::at(kPadNames, index));
     }
     return core::at(names, index);
@@ -137,7 +137,7 @@ void update_pad_sticks(const void* pad, std::span<const uint8_t> data)
     const uint32_t bits = !data.empty() ? stick_directions(data) : 0;
     // (THAW 0x596CA0: each a button down while its byte is set - full pressure)
     for (int i = 0; i < kStickButtonCount; ++i) {
-        core::at(sticks.buttons, i).tick_frame((bits >> i) & 1 ? kPressedValue : 0);
+        core::at(sticks.buttons, i).tick_frame((((bits >> i) & 1) != 0U) ? kPressedValue : 0);
     }
 }
 
@@ -165,7 +165,7 @@ uint32_t trick_stick_name(bool right, int direction)
         return 0;
     }
     uint32_t& name = core::at(core::at(names, right ? 1 : 0), direction - 1);
-    if (!name) {
+    if (name == 0U) {
         name = get_name(core::at(core::at(kStickTrickTable, right ? 1 : 0), direction - 1));
     }
     return name;
@@ -184,7 +184,7 @@ void update_trick_sticks(void* trick_component)
     if (riding) {
         const PadSticks& sticks = sticks_of(trick_pad(trick));
         for (int i = 0; i < kStickButtonCount; ++i) {
-            if (core::at(sticks.buttons, i).held_down()) {
+            if (core::at(sticks.buttons, i).held_down() != 0U) {
                 bits |= 1U << i;
             }
         }
@@ -201,13 +201,13 @@ void update_trick_sticks(void* trick_component)
             continue;
         }
         // (THAW 0x471D20 sets the eight in order, as THUG2's d-pad: the lower-numbered change first)
-        if (was && (!now || was < now)) {
+        if ((was != 0) && ((now == 0) || was < now)) {
             add_stick_event(trick, trick_stick_name(s == 1, was), false);
         }
-        if (now) {
+        if (now != 0) {
             add_stick_event(trick, trick_stick_name(s == 1, now), true);
         }
-        if (was && now && was > now) {
+        if ((was != 0) && (now != 0) && was > now) {
             add_stick_event(trick, trick_stick_name(s == 1, was), false);
         }
     }
@@ -247,7 +247,7 @@ bool bike_press_may_count(uint32_t last_button, uint32_t button, bool right_stic
 bool get_right_stick_centred(const void* trick_component)
 {
     const BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
-    return !state || state->right_stick_centred_;
+    return (state == nullptr) || state->right_stick_centred_;
 }
 
 LookInputs d_pad_look_inputs(bool up, bool down, bool left, bool right, bool invert)

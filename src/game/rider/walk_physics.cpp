@@ -354,7 +354,7 @@ bool FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4*
     feeler->line().start.y = static_cast<float>(static_cast<double>(height) + height + feeler->line().start.y);
     feeler->line().end = *position;
     feeler->line().end.y = feeler->line().end.y - walk_parameter(kStandPosSearchDepth);
-    if (feeler->get_hit_shape(true, false)) {
+    if (feeler->get_hit_shape(true, false) != 0) {
         *out = feeler->contact_pos();
         return true;
     }
@@ -369,7 +369,7 @@ bool FootMovement::walk_ground(script::Struct* /*params*/, script::Script* /*scr
 bool FootMovement::walk_scale_anim_speed(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kOff)) {
-        if (anim_speed_scaling_) {
+        if (anim_speed_scaling_ != 0) {
             anim_speed_scaling_ = 0;
             float one = 0.0F;
             uint32_t bits = 1;
