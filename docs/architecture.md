@@ -91,6 +91,17 @@ sequence (`app/startup_init.cpp`) is in `app/` for the same reason. The engine's
 day creating an object from a node, the colour cycles setting a node's colour) go through hooks installed by
 `commands::install_node_hooks` (`engine/script/node_hooks.h`).
 
+**Where the object components live**: `engine/objects` is the object framework (the entity, its modules and their
+manager, the model, skeleton, animation blender, sound, collision, motion, rigid body, input, camera, cutscene and
+node components) and the components that need nothing of the game. The components that are the game's own - the
+drivable vehicle (`vehicle_*`), the peds (`ped_logic*`, `avoid`), the projectiles, the trick objects and the park
+editor's camera - are `game/world`; the walk component's hanging and ladder code is `game/rider/walk_hang` beside the
+rest of the walk component (its interpolation helper, which animation uses too, stays in `engine/objects/walk_lerp`).
+Namespaces are as they were (`objects::`). The component registry - the 81 component types in the original's order,
+which `spawn_module` searches - is `app/component_types.cpp`, called by the start-up. The framework files that still
+ask the game (the session root, the rider, THAW's BMX, the front end) are the baseline's `engine -> game` lines, for
+round 9b.
+
 **The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
 **The boundary layer** is where the game meets bytes it doesn't lay out itself. Only there do byte layouts matter;

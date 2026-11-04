@@ -43,8 +43,8 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 
 ```
 src/
-  app/        main, WinMain, the start-up and the game's main, the exe's extensions (extensions.cpp) (the
-              composition: may include anything)
+  app/        main, WinMain, the start-up and the game's main, the exe's extensions (extensions.cpp), the command
+              table and the component registry (the composition: may include anything)
   platform/   the window and its events, crash reports, the run log, settings, the registry, code addresses (the
               Win32 / DirectSound / SDL / GameSpy side; library thug2_platform)
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
@@ -57,7 +57,9 @@ src/
   engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network transport, pad input, ui (the
               original's screen elements and our UI fonts), ext (the extension points)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
-              network session; the transport stays in engine/net)
+              network session; the transport stays in engine/net), commands (the game's script commands), world
+              (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park
+              editor's camera)
   frontend/   the new front end and the mouse menus
   editor/     the level editor
   devtools/   the developer tools (screenshot key, test-automation channel, restart tester, start level, test view)
