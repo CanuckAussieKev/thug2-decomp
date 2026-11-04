@@ -757,135 +757,123 @@ double joystick_stick_value(const DIJOYSTATE2* state, int negative, int positive
     return value;
 }
 
-// 0x005F5BC0
-int read_pad(int port, sio::PadSnapshot* pad)
+namespace {
+
+// The mouse's controls (with the key bindings mode): its sticks, pressure buttons and buttons.
+void read_mouse_controls(const DIMOUSESTATE2* mouse, const PortControls& controls, sio::PadSnapshot* pad)
 {
-    --port;
-    read_keyboard();
-    DIJOYSTATE2* joystick = read_joystick(port);
-    DIMOUSESTATE2* mouse = read_mouse();
-    pad->buttons = 0;
-    for (int16_t& stick : pad->sticks) {
-        stick = 0;
+    // The sticks: each mouse axis's movement scaled twice - x 6553.4 within the stick's range, then x 32767 -
+    // and only the low 16 bits kept.
+    const auto& mouse_map = controls.mouse;
+    auto stick = [&](StickKeys keys, bool reversed) {
+        const int index = keys.index;
+        const int negative = keys.negative;
+        const int positive = keys.positive;
+        auto value = static_cast<int16_t>(truncate(mouse_stick_value(mouse, negative, positive) * kStickMax));
+        if (value != 0) {
+            core::at(pad->sticks, index) = static_cast<int16_t>(reversed ? -value : value);
+        }
+    };
+    stick({.index = 0, .negative = core::at(mouse_map, 2), .positive = core::at(mouse_map, 3)}, mouse_invert_x());
+    stick({.index = 1, .negative = core::at(mouse_map, 0), .positive = core::at(mouse_map, 1)}, mouse_invert_y());
+    stick({.index = 2,
+           .negative = core::at(mouse_map, kSlotStick2Negative),
+           .positive = core::at(mouse_map, kSlotStick2Positive)},
+          mouse_invert_x());
+    stick({.index = 3, .negative = core::at(mouse_map, 4), .positive = core::at(mouse_map, kSlotStick3Positive)},
+          mouse_invert_y());
+    for (int i = 0; i < 4; ++i) {
+        if (mouse_control_down(mouse, core::at(mouse_map, kSlotPressureLow + i))) {
+            get_press(pad, i);
+        }
     }
-    std::memset(pad->pressure.data(), 0, sizeof(pad->pressure));
-    if (!joystick && !has_key_bindings(port) && !has_mouse_bindings(port)) {
-        return 0;
+    for (int i = 0; i < 4; ++i) {
+        if (mouse_control_down(mouse, core::at(mouse_map, kSlotPressureHigh + i))) {
+            get_press(pad, 4 + i);
+        }
     }
-    const PortControls& controls = core::at(get_controls(), port);
+    for (int i = 0; i < 4; ++i) {
+        if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit0 + i))) {
+            pad->buttons |= static_cast<uint16_t>(1 << i);
+        }
+    }
+    if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit4))) {
+        pad->buttons |= kPadBit4;
+    }
+    if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit5))) {
+        pad->buttons |= kPadBit5;
+    }
+    if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit6))) {
+        pad->buttons |= kPadBit6;
+    }
+    if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit7))) {
+        pad->buttons |= kPadBit7;
+    }
+}
 
-    if (mouse && pad_mode_setting() == kPadKeyBindings) {
-        // The sticks: each mouse axis's movement scaled twice - x 6553.4 within the stick's range, then x 32767 -
-        // and only the low 16 bits kept.
-        const auto& mouse_map = controls.mouse;
-        auto stick = [&](StickKeys keys, bool reversed) {
-            const int index = keys.index;
-            const int negative = keys.negative;
-            const int positive = keys.positive;
-            auto value = static_cast<int16_t>(truncate(mouse_stick_value(mouse, negative, positive) * kStickMax));
-            if (value != 0) {
-                core::at(pad->sticks, index) = static_cast<int16_t>(reversed ? -value : value);
-            }
-        };
-        stick({.index = 0, .negative = core::at(mouse_map, 2), .positive = core::at(mouse_map, 3)}, mouse_invert_x());
-        stick({.index = 1, .negative = core::at(mouse_map, 0), .positive = core::at(mouse_map, 1)}, mouse_invert_y());
-        stick({.index = 2,
-               .negative = core::at(mouse_map, kSlotStick2Negative),
-               .positive = core::at(mouse_map, kSlotStick2Positive)},
-              mouse_invert_x());
-        stick({.index = 3, .negative = core::at(mouse_map, 4), .positive = core::at(mouse_map, kSlotStick3Positive)},
-              mouse_invert_y());
-        for (int i = 0; i < 4; ++i) {
-            if (mouse_control_down(mouse, core::at(mouse_map, kSlotPressureLow + i))) {
-                get_press(pad, i);
-            }
+// The joystick's controls: its sticks, pressure buttons and buttons.
+void read_joystick_controls(const DIJOYSTATE2* joystick, const PortControls& controls, sio::PadSnapshot* pad)
+{
+    // The sticks (a larger push than the mouse's wins), the pressure buttons, the d-pad (axes only: a button
+    // there never counts) and the other buttons.
+    const auto& gamepad = controls.gamepad;
+    auto stick = [&](StickKeys keys, float scale) {
+        const int index = keys.index;
+        const int negative = keys.negative;
+        const int positive = keys.positive;
+        auto value = static_cast<int16_t>(truncate(joystick_stick_value(joystick, negative, positive) * scale));
+        if (value != 0 &&
+            std::abs(static_cast<int>(core::at(pad->sticks, index))) < std::abs(static_cast<int>(value))) {
+            core::at(pad->sticks, index) = value;
         }
-        for (int i = 0; i < 4; ++i) {
-            if (mouse_control_down(mouse, core::at(mouse_map, kSlotPressureHigh + i))) {
-                get_press(pad, 4 + i);
-            }
-        }
-        for (int i = 0; i < 4; ++i) {
-            if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit0 + i))) {
-                pad->buttons |= static_cast<uint16_t>(1 << i);
-            }
-        }
-        if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit4))) {
-            pad->buttons |= kPadBit4;
-        }
-        if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit5))) {
-            pad->buttons |= kPadBit5;
-        }
-        if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit6))) {
-            pad->buttons |= kPadBit6;
-        }
-        if (mouse_control_down(mouse, core::at(mouse_map, kSlotBit7))) {
-            pad->buttons |= kPadBit7;
+    };
+    stick({.index = 0, .negative = core::at(gamepad, 2), .positive = core::at(gamepad, 3)}, kStickMax);
+    stick({.index = 1, .negative = core::at(gamepad, 0), .positive = core::at(gamepad, 1)}, kStickMaxReversed);
+    stick({.index = 2,
+           .negative = core::at(gamepad, kSlotStick2Negative),
+           .positive = core::at(gamepad, kSlotStick2Positive)},
+          kStickMax);
+    stick({.index = 3, .negative = core::at(gamepad, 4), .positive = core::at(gamepad, kSlotStick3Positive)},
+          kStickMaxReversed);
+    for (int i = 0; i < 4; ++i) {
+        if (joystick_control_down(joystick, core::at(gamepad, kSlotPressureLow + i))) {
+            get_press(pad, i);
         }
     }
+    for (int i = 0; i < 4; ++i) {
+        if (joystick_control_down(joystick, core::at(gamepad, kSlotPressureHigh + i))) {
+            get_press(pad, 4 + i);
+        }
+    }
+    if (joystick_axis(joystick, core::at(gamepad, kSlotBit0)) < -kAxisPressThreshold) {
+        pad->buttons |= 1;
+    }
+    if (joystick_axis(joystick, core::at(gamepad, kSlotBit1)) > kAxisPressThreshold) {
+        pad->buttons |= 2;
+    }
+    if (joystick_axis(joystick, core::at(gamepad, kSlotBit2)) < -kAxisPressThreshold) {
+        pad->buttons |= 4;
+    }
+    if (joystick_axis(joystick, core::at(gamepad, kSlotBit3)) > kAxisPressThreshold) {
+        pad->buttons |= kPadBit3;
+    }
+    if (joystick_control_down(joystick, core::at(gamepad, kSlotBit4))) {
+        pad->buttons |= kPadBit4;
+    }
+    if (joystick_control_down(joystick, core::at(gamepad, kSlotBit5))) {
+        pad->buttons |= kPadBit5;
+    }
+    if (joystick_control_down(joystick, core::at(gamepad, kSlotBit6))) {
+        pad->buttons |= kPadBit6;
+    }
+    if (joystick_control_down(joystick, core::at(gamepad, kSlotBit7))) {
+        pad->buttons |= kPadBit7;
+    }
+}
 
-    if (joystick) {
-        // The sticks (a larger push than the mouse's wins), the pressure buttons, the d-pad (axes only: a button
-        // there never counts) and the other buttons.
-        const auto& gamepad = controls.gamepad;
-        auto stick = [&](StickKeys keys, float scale) {
-            const int index = keys.index;
-            const int negative = keys.negative;
-            const int positive = keys.positive;
-            auto value = static_cast<int16_t>(truncate(joystick_stick_value(joystick, negative, positive) * scale));
-            if (value != 0 &&
-                std::abs(static_cast<int>(core::at(pad->sticks, index))) < std::abs(static_cast<int>(value))) {
-                core::at(pad->sticks, index) = value;
-            }
-        };
-        stick({.index = 0, .negative = core::at(gamepad, 2), .positive = core::at(gamepad, 3)}, kStickMax);
-        stick({.index = 1, .negative = core::at(gamepad, 0), .positive = core::at(gamepad, 1)}, kStickMaxReversed);
-        stick({.index = 2,
-               .negative = core::at(gamepad, kSlotStick2Negative),
-               .positive = core::at(gamepad, kSlotStick2Positive)},
-              kStickMax);
-        stick({.index = 3, .negative = core::at(gamepad, 4), .positive = core::at(gamepad, kSlotStick3Positive)},
-              kStickMaxReversed);
-        for (int i = 0; i < 4; ++i) {
-            if (joystick_control_down(joystick, core::at(gamepad, kSlotPressureLow + i))) {
-                get_press(pad, i);
-            }
-        }
-        for (int i = 0; i < 4; ++i) {
-            if (joystick_control_down(joystick, core::at(gamepad, kSlotPressureHigh + i))) {
-                get_press(pad, 4 + i);
-            }
-        }
-        if (joystick_axis(joystick, core::at(gamepad, kSlotBit0)) < -kAxisPressThreshold) {
-            pad->buttons |= 1;
-        }
-        if (joystick_axis(joystick, core::at(gamepad, kSlotBit1)) > kAxisPressThreshold) {
-            pad->buttons |= 2;
-        }
-        if (joystick_axis(joystick, core::at(gamepad, kSlotBit2)) < -kAxisPressThreshold) {
-            pad->buttons |= 4;
-        }
-        if (joystick_axis(joystick, core::at(gamepad, kSlotBit3)) > kAxisPressThreshold) {
-            pad->buttons |= kPadBit3;
-        }
-        if (joystick_control_down(joystick, core::at(gamepad, kSlotBit4))) {
-            pad->buttons |= kPadBit4;
-        }
-        if (joystick_control_down(joystick, core::at(gamepad, kSlotBit5))) {
-            pad->buttons |= kPadBit5;
-        }
-        if (joystick_control_down(joystick, core::at(gamepad, kSlotBit6))) {
-            pad->buttons |= kPadBit6;
-        }
-        if (joystick_control_down(joystick, core::at(gamepad, kSlotBit7))) {
-            pad->buttons |= kPadBit7;
-        }
-    }
-
-    const int mode = pad_mode_setting();
-    if (mode == kPadNoKeys) {
-        return 0;
-    }
+// The port's own keys.
+void read_port_keys(const PortControls& controls, int port, sio::PadSnapshot* pad)
+{
     auto stick = [&](AxisKey axis_key, int16_t value) {
         const int index = axis_key.index;
         const int key = axis_key.key;
@@ -893,47 +881,54 @@ int read_pad(int port, sio::PadSnapshot* pad)
             core::at(pad->sticks, index) = value;
         }
     };
-    if (mode != kPadDefaultKeys && !(mode == kPadDefaultKeysPort0 && port == 0)) {
-        // The port's keys (action 12 has none: Escape is the button 0x10, on port 0 only).
-        const auto& keys = controls.keys;
-        stick({.index = 0, .key = core::at(keys, 2)}, -kStickFull);
-        stick({.index = 0, .key = core::at(keys, 3)}, kStickFull);
-        stick({.index = 1, .key = core::at(keys, 0)}, kStickFull);
-        stick({.index = 1, .key = core::at(keys, 1)}, -kStickFull);
-        stick({.index = 2, .key = core::at(keys, kSlotStick2Negative)}, -kStickFull);
-        stick({.index = 2, .key = core::at(keys, kSlotStick2Positive)}, kStickFull);
-        stick({.index = 3, .key = core::at(keys, 4)}, kStickFull);
-        stick({.index = 3, .key = core::at(keys, kSlotStick3Positive)}, -kStickFull);
-        for (int i = 0; i < 4; ++i) {
-            if (get_key_down(core::at(keys, kSlotBit0 + i))) {
-                pad->buttons |= static_cast<uint16_t>(1 << i);
-            }
+    // The port's keys (action 12 has none: Escape is the button 0x10, on port 0 only).
+    const auto& keys = controls.keys;
+    stick({.index = 0, .key = core::at(keys, 2)}, -kStickFull);
+    stick({.index = 0, .key = core::at(keys, 3)}, kStickFull);
+    stick({.index = 1, .key = core::at(keys, 0)}, kStickFull);
+    stick({.index = 1, .key = core::at(keys, 1)}, -kStickFull);
+    stick({.index = 2, .key = core::at(keys, kSlotStick2Negative)}, -kStickFull);
+    stick({.index = 2, .key = core::at(keys, kSlotStick2Positive)}, kStickFull);
+    stick({.index = 3, .key = core::at(keys, 4)}, kStickFull);
+    stick({.index = 3, .key = core::at(keys, kSlotStick3Positive)}, -kStickFull);
+    for (int i = 0; i < 4; ++i) {
+        if (get_key_down(core::at(keys, kSlotBit0 + i))) {
+            pad->buttons |= static_cast<uint16_t>(1 << i);
         }
-        for (int i = 0; i < 4; ++i) {
-            if (get_key_down(core::at(keys, kSlotPressureHigh + i))) {
-                get_press(pad, 4 + i);
-            }
-        }
-        if (get_key_down(core::at(keys, kSlotBit6))) {
-            pad->buttons |= kPadBit6;
-        }
-        if (get_key_down(core::at(keys, kSlotBit7))) {
-            pad->buttons |= kPadBit7;
-        }
-        if (get_key_down(DIK_ESCAPE) && port == 0) {
-            pad->buttons |= kPadBit4;
-        }
-        for (int i = 0; i < 4; ++i) {
-            if (get_key_down(core::at(keys, kSlotPressureLow + i))) {
-                get_press(pad, i);
-            }
-        }
-        if (get_key_down(core::at(keys, kSlotBit5))) {
-            pad->buttons |= kPadBit5;
-        }
-        return 0;
     }
+    for (int i = 0; i < 4; ++i) {
+        if (get_key_down(core::at(keys, kSlotPressureHigh + i))) {
+            get_press(pad, 4 + i);
+        }
+    }
+    if (get_key_down(core::at(keys, kSlotBit6))) {
+        pad->buttons |= kPadBit6;
+    }
+    if (get_key_down(core::at(keys, kSlotBit7))) {
+        pad->buttons |= kPadBit7;
+    }
+    if (get_key_down(DIK_ESCAPE) && port == 0) {
+        pad->buttons |= kPadBit4;
+    }
+    for (int i = 0; i < 4; ++i) {
+        if (get_key_down(core::at(keys, kSlotPressureLow + i))) {
+            get_press(pad, i);
+        }
+    }
+    if (get_key_down(core::at(keys, kSlotBit5))) {
+        pad->buttons |= kPadBit5;
+    }
+}
 
+void read_default_keys(sio::PadSnapshot* pad)
+{
+    auto stick = [&](AxisKey axis_key, int16_t value) {
+        const int index = axis_key.index;
+        const int key = axis_key.key;
+        if (get_key_down(key)) {
+            core::at(pad->sticks, index) = value;
+        }
+    };
     // The default keys: the arrows, Space, Enter and Escape (as set), S X / Z C, Home End Delete PgDn, Q W E R,
     // Backspace, - = 1 2, 3 4. Enter and Escape are a pressure button or the button 0x10 / 0x20 (any other value:
     // the byte that far into the pressures).
@@ -987,6 +982,45 @@ int read_pad(int port, sio::PadSnapshot* pad)
     if (get_key_down(DIK_4)) {
         pad->buttons |= kPadBit7;
     }
+}
+
+} // namespace
+
+// 0x005F5BC0
+int read_pad(int port, sio::PadSnapshot* pad)
+{
+    --port;
+    read_keyboard();
+    const DIJOYSTATE2* joystick = read_joystick(port);
+    const DIMOUSESTATE2* mouse = read_mouse();
+    pad->buttons = 0;
+    for (int16_t& stick : pad->sticks) {
+        stick = 0;
+    }
+    std::memset(pad->pressure.data(), 0, sizeof(pad->pressure));
+    if (!joystick && !has_key_bindings(port) && !has_mouse_bindings(port)) {
+        return 0;
+    }
+    const PortControls& controls = core::at(get_controls(), port);
+
+    if (mouse && pad_mode_setting() == kPadKeyBindings) {
+        read_mouse_controls(mouse, controls, pad);
+    }
+
+    if (joystick) {
+        read_joystick_controls(joystick, controls, pad);
+    }
+
+    const int mode = pad_mode_setting();
+    if (mode == kPadNoKeys) {
+        return 0;
+    }
+    if (mode != kPadDefaultKeys && !(mode == kPadDefaultKeysPort0 && port == 0)) {
+        read_port_keys(controls, port, pad);
+        return 0;
+    }
+
+    read_default_keys(pad);
     return 0;
 }
 
