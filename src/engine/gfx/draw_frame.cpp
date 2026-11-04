@@ -17,7 +17,6 @@
 #include "engine/ext/extension.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/mat4.h"
-#include "frontend/new_frontend.h"
 #include "devtools/test_view.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/draw2d.h"
@@ -787,12 +786,10 @@ void draw_world()
         // drawn outside the fitted area.
         draw_2d_with_black_bars();
         // Not original - the extensions (engine/ext/extension.h; the level editor: the hovered and selected objects
-        // outlined over everything).
+        // outlined over everything; then the new front end - [features] new_frontend - over everything while it's up
+        // in the front end).
         // Original behaviour: nothing more is drawn.
         ext::draw_over_frame();
-        // Not original either - the new front end ([features] new_frontend, frontend/new_frontend.h): over
-        // everything while it's up in the front end.
-        frontend::new_frontend::blit();
         change_fog(fog);
     }
     full_screen_viewport();

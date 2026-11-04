@@ -4,6 +4,7 @@
 
 #include "editor/level_editor_extension.h"
 #include "engine/ext/extension.h"
+#include "frontend/new_frontend_extension.h"
 
 namespace app {
 
@@ -12,6 +13,7 @@ namespace app {
 void register_extensions()
 {
     ext::add(frontend::level_editor::extension());
+    ext::add(frontend::new_frontend::extension());
 }
 
 void register_added_script_commands() {}

@@ -14,7 +14,6 @@
 #include "engine/memory/mem.h"
 #include "engine/ext/extension.h"
 #include "engine/memory/task_list.h"
-#include "frontend/new_frontend.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
@@ -143,8 +142,7 @@ void Hub::reset_device_if_lost()
     // Not original - the extensions (engine/ext/extension.h; the level editor's UI: ImGui's default-pool objects
     // dropped before the reset, made again on its next frame).
     // Original behaviour: only the game's own.
-    ext::device_lost();
-    frontend::new_frontend::device_lost(); // (not original either: the new front end's - frontend/new_frontend.h)
+    ext::device_lost(); // (then the new front end's)
     release_device_objects();
     if (render::renderer().d3d_device()->Reset(present_parameters()) < 0) {
         return;

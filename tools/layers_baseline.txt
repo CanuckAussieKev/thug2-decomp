@@ -11,14 +11,12 @@ src/devtools/start_level.cpp -> src/editor/level_editor_layout.h
 src/devtools/start_level.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor_play.cpp -> src/frontend/mouse_menus.h
-src/engine/file/data_overlay.cpp -> src/frontend/new_frontend.h
 src/engine/file/data_overlay.cpp -> src/game/skate/thugpro_cas.h
 src/engine/gfx/cag_cfuncs.cpp -> src/game/rider/tagging.h
 src/engine/gfx/cag_cfuncs.cpp -> src/game/skate/profile_manager.h
 src/engine/gfx/cag_cfuncs.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/draw_frame.cpp -> src/devtools/screenshot.h
 src/engine/gfx/draw_frame.cpp -> src/devtools/test_view.h
-src/engine/gfx/draw_frame.cpp -> src/frontend/new_frontend.h
 src/engine/gfx/draw_frame.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/engine.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/engine_texture_projection.cpp -> src/game/skate/skate_module.h
@@ -284,7 +282,6 @@ src/engine/pad_input/device.cpp -> src/game/skate/profile_manager.h
 src/engine/pad_input/sdl_input.cpp -> src/devtools/automation.h
 src/engine/pad_input/sdl_input.cpp -> src/devtools/screenshot.h
 src/engine/pad_input/sdl_input.cpp -> src/frontend/mouse_menus.h
-src/engine/pad_input/sdl_input.cpp -> src/frontend/new_frontend.h
 src/engine/pad_input/sdl_input.cpp -> src/game/rider/thaw_bmx.h
 src/engine/render/probe_ray.cpp -> src/game/rider/debug_collision.h
 src/engine/script/game_cfuncs.cpp -> src/game/front_end/front_end.h
@@ -365,11 +362,9 @@ src/engine/script/world_cfuncs.cpp -> src/game/rider/rider.h
 src/engine/script/world_cfuncs.cpp -> src/game/skate/skate_module.h
 src/engine/sys/debug_mode.cpp -> src/game/front_end/front_end.h
 src/engine/sys/mlp.cpp -> src/devtools/screenshot.h
-src/engine/sys/mlp.cpp -> src/frontend/new_frontend.h
 src/engine/sys/mlp.cpp -> src/game/skate/skate_module.h
 src/engine/sys/mlp.cpp -> src/game/skate/thugpro_cas.h
 src/engine/sys/model_viewer.cpp -> src/game/front_end/front_end.h
-src/engine/ui/screen_element_manager.cpp -> src/frontend/new_frontend.h
 src/formats/check/format_check.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check.cpp -> src/wire/message_ids.h
 src/formats/check/format_check.cpp -> src/wire/net_wire.h

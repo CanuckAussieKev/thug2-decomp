@@ -322,6 +322,7 @@ add_executable(thug2 WIN32
     src/frontend/mouse_menus.cpp
     src/engine/file/data_overlay.cpp
     src/frontend/new_frontend.cpp
+    src/frontend/new_frontend_extension.cpp
     src/frontend/new_frontend_draw.cpp
     src/frontend/new_frontend_game.cpp
     src/frontend/new_frontend_mirror.cpp

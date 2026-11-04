@@ -13,7 +13,7 @@
 #include <vector>
 #include <array>
 
-#include "frontend/new_frontend.h"
+#include "engine/ext/extension.h"
 #include "engine/gfx/hd_ui.h"
 #include "game/skate/thugpro_cas.h"
 #include "platform/run_log.h"
@@ -124,7 +124,7 @@ bool get_overlay_path(const char* name, std::array<char, file::kOverlayPathSize>
     }
     std::array<const char*, 4> folders{};
     const int count =
-        kOverlay && full.empty() ? search_folders(anteara_mod(), new_frontend::is_switched_on(), folders) : 0;
+        kOverlay && full.empty() ? search_folders(anteara_mod(), ext::uses_front_end_overlay(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
         const std::string candidate = get_folder() + "\\" + core::at(folders, i) + relative.data();
         if (is_file(candidate)) {

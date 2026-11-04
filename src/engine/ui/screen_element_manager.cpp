@@ -12,7 +12,7 @@
 
 #include "engine/memory/mem.h"
 #include "engine/objects/signal.h"
-#include "frontend/new_frontend.h"
+#include "engine/ext/extension.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/text_element.h"
 #include "engine/objects/entity.h"
@@ -331,10 +331,11 @@ void UiTree::tick_frame()
     if (!tree_root_) {
         return;
     }
-    // Not original - the new front end (frontend/new_frontend.h): the original's elements hidden or shown for this
-    // frame before they are laid out - a menu restyled by ours is never drawn as the game made it, not even a frame.
+    // Not original - the extensions (engine/ext/extension.h; the new front end: the original's elements hidden or
+    // shown for this frame before they are laid out - a menu restyled by ours is never drawn as the game made it, not
+    // even a frame).
     // Original behaviour: the tree laid out as the scripts left it.
-    frontend::new_frontend::before_screen_layout();
+    ext::before_screen_layout();
     lock_tree(1);
     tree_root_->update_layout();
     lock_tree(0);

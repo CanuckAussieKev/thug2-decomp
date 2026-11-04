@@ -19,7 +19,6 @@
 #include "devtools/automation.h"
 #include "engine/ext/extension.h"
 #include "frontend/mouse_menus.h"
-#include "frontend/new_frontend.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/pad_input/device.h"
@@ -937,9 +936,9 @@ void handle_input_event(SDL_Event* event)
         return;
     case SDL_KEYDOWN:
         sdl_input_state().using_keyboard_ = true;
-        // (not original: Enter / F1-F4 aren't the game's special keys while the new front end has the keyboard -
-        // frontend/new_frontend.h)
-        if (!frontend::new_frontend::blocks_game_input()) {
+        // (not original: Enter / F1-F4 aren't the game's special keys while an extension has the keyboard -
+        // engine/ext/extension.h; the new front end)
+        if (!ext::game_input_blocked()) {
             key_pressed(event->key.keysym.sym);
         }
         return;
@@ -1189,10 +1188,9 @@ void init_sdl_input()
     os_layer::register_event_handler(handle_input_event);
     // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
     mouse_menus::prepare_all();
-    // (not PartyMod's either - the extensions, engine/ext/extension.h: the level editor's mouse and Escape key)
+    // (not PartyMod's either - the extensions, engine/ext/extension.h: the level editor's mouse and Escape key, the
+    // new front end's input - nothing when it's off)
     ext::prepare_input();
-    // (nor the new front end's input - frontend/new_frontend.h; nothing when it's off)
-    frontend::new_frontend::prepare_all();
     // (nor the screenshot key - devtools/screenshot.h)
     sys::screenshot::prepare_all();
 }
@@ -1231,20 +1229,21 @@ void process_sdl_device(InputPort* device)
     }
     core::at(data, kControlExtraButtons) = 0;
 
-    // Not original - the new front end (frontend/new_frontend.h): while it's up (and until the keys that chose for it
-    // are let go) it has the keyboard and the controllers - the game reads nothing pressed.
+    // Not original - an extension that blocks the game's input (engine/ext/extension.h; the new front end: while it's
+    // up, and until the keys that chose for it are let go, it has the keyboard and the controllers) - the game reads
+    // nothing pressed.
     // Original behaviour: the keyboard and the controller always read.
-    const bool new_frontend = frontend::new_frontend::blocks_game_input();
+    const bool blocked = ext::game_input_blocked();
     if (device->port_no() == 0) {
         set_usable(device, true);
         set_connected(device, true);
-        if (!get_keyboard_on_screen() && !new_frontend) {
+        if (!get_keyboard_on_screen() && !blocked) {
             poll_keyboard(device);
         }
     }
     auto port = static_cast<uint32_t>(device->port_no());
     if (port < kMaxPlayers && core::at(sdl_input_state().players_, port).controller &&
-        (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !new_frontend) {
+        (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !blocked) {
         poll_controller(device, core::at(sdl_input_state().players_, port).controller);
     }
     // (not original: the buttons the test-automation channel presses - devtools/automation.h)
