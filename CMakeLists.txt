@@ -647,6 +647,7 @@ add_executable(thug2 WIN32
     src/engine/render/probe_ray.cpp
     src/engine/render/coll_tests.cpp
     src/engine/render/coll_tri.cpp
+    src/game/online/transport_hooks.cpp
     src/engine/net/chat.cpp
     src/engine/net/stats.cpp
     src/engine/net/buddy_man.cpp

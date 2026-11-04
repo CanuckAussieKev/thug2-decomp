@@ -18,7 +18,6 @@
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
-#include "engine/net/net_guards.h"
 #include "engine/net/net_manager.h"
 #include "formats/byte_stream.h"
 #include "engine/memory/arena_alloc.h"
@@ -35,7 +34,15 @@ constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length fi
 
 void construct_context(InboundMsgCtx* context) { *context = InboundMsgCtx(); }
 
+ReceivedMessageCheck& received_message_check()
+{
+    static ReceivedMessageCheck check{nullptr};
+    return check;
+}
+
 } // namespace
+
+void set_received_message_check(ReceivedMessageCheck check) { received_message_check() = check; }
 
 // 0x0045A590
 NoteHandler* NoteHandler::teardown(unsigned int flags)
@@ -101,10 +108,13 @@ NoteHandler* Router::append_listener(wire::MessageId id, HandlerSlotValue code, 
 // 0x0045A750
 int Router::dispatch_msg(InboundMsgCtx* context)
 {
-    // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R8, net_guards.h).
-    const int guarded = online::guards::check_received_message(context);
-    if (guarded >= 0) {
-        return guarded;
+    // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R8, net_guards.h): the check the
+    // session code installed, if any.
+    if (received_message_check() != nullptr) {
+        const int guarded = received_message_check()(context);
+        if (guarded >= 0) {
+            return guarded;
+        }
     }
     lists::Hunt<NoteHandler> search;
     const NoteHandler* next = nullptr;

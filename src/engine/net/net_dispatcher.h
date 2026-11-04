@@ -134,4 +134,10 @@ public:
     int invoke_handlers_for_msg(Conn* conn, uint32_t flags);
 };
 
+// NOT ORIGINAL - a check on every received message, run before its handlers (the session code installs it: the
+// THUGPRO guards). -1: dispatch the message as usual (it may have been changed in place); otherwise the dispatch's
+// result, nothing run. Not set: every message is dispatched.
+using ReceivedMessageCheck = int (*)(InboundMsgCtx* context);
+void set_received_message_check(ReceivedMessageCheck check);
+
 } // namespace net

@@ -6,11 +6,6 @@
 
 #include <array>
 #include <cstdint>
-#include "engine/net/gamenet_commands.h"
-#include "engine/net/gamenet_manager.h"
-#include "engine/net/gamenet_lobby.h"
-#include "engine/net/server_list.h"
-#include "engine/net/gamenet_game_cfuncs.h"
 #include "engine/net/net_manager.h"
 
 namespace net {

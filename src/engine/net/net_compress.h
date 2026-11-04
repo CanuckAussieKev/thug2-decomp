@@ -26,4 +26,9 @@ int rle_decompress(std::span<const uint8_t> input, std::span<uint8_t> output, in
 // smaller than the data. Debug output gives the sizes.
 uint8_t* compress_message(wire::MessageId* msg_id, uint16_t* length, const void* data, char method);
 
+// NOT ORIGINAL - the question "is the THUGPRO peer mode on?" (compress_message sends LZSS as LZHAM then), answered by
+// the session code, which installs it. Not set: off.
+using PeerModeQuery = bool (*)();
+void set_peer_mode_query(PeerModeQuery query);
+
 } // namespace net

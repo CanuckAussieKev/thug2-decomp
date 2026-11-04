@@ -19,6 +19,7 @@
 #include "engine/sys/startup_init.h"
 #include "app/extensions.h"
 #include "app/winmain.h"
+#include "game/online/transport_hooks.h"
 
 namespace {
 
@@ -52,6 +53,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // NOT ORIGINAL: the extensions (the editor, the new front end, the dev tools) registered before any of the
     // original's code runs (app/extensions.h).
     app::register_extensions();
+    // NOT ORIGINAL: the online session's hooks into the network transport (game/online/transport_hooks.h).
+    online::install_transport_hooks();
     sys::run_startup_initialisers();
     return sys::win_main(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
 }

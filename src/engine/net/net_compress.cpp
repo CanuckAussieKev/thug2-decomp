@@ -15,7 +15,6 @@
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/net/net_lzham.h"
-#include "engine/net/thugpro_peer.h"
 #include "engine/util/lzss.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"
@@ -31,7 +30,15 @@ constexpr int kRunCode = 0x80;    // a run of n bytes: 0x80 + n - 2
 constexpr int kMethodRle = 1;
 constexpr int kMethodLzss = 2;
 
+PeerModeQuery& peer_mode_query()
+{
+    static PeerModeQuery query{nullptr};
+    return query;
+}
+
 } // namespace
+
+void set_peer_mode_query(PeerModeQuery query) { peer_mode_query() = query; }
 
 // 0x00454A60
 int rle_compress(std::span<const uint8_t> input, std::span<uint8_t> output)
@@ -160,7 +167,7 @@ uint8_t* compress_message(wire::MessageId* msg_id, uint16_t* length, const void*
     // NOT ORIGINAL: in the THUGPRO peer mode LZSS goes as THUGPRO's LZHAM. THUGPRO's receivers don't expand LZSS
     // (its patch over handle_compressed_messages' method test), and its senders turn THUG2's two LZSS messages - the join
     // request (80) and player create (34) - into LZHAM (TP-R11).
-    if (method == kMethodLzss && online::thugpro::peer_mode()) {
+    if (method == kMethodLzss && peer_mode_query() != nullptr && peer_mode_query()()) {
         method = static_cast<char>(lzham::kMethod);
     }
     // The whole message - id, length, data - is compressed.
