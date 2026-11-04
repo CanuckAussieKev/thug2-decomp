@@ -278,9 +278,9 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, 
         const V3 corner = get_at(end_point, foot);
         for (size_t i = 0; i + 1 < profile.size(); ++i) {
             const V3 point = get_at(end_point + out * core::at(profile, i).first, foot + core::at(profile, i).second);
-            const V3 other_point =
+            const V3 next_point =
                 get_at(end_point + out * core::at(profile, i + 1).first, foot + core::at(profile, i + 1).second);
-            b->get_tri({.a = corner, .b = point, .c = other_point}, away, kFlagWall);
+            b->get_tri({.a = corner, .b = point, .c = next_point}, away, kFlagWall);
         }
     }
 }
@@ -669,9 +669,9 @@ bool read_record(const std::string& text, Spec* out)
 
 std::string fresh_name(const std::vector<Spec>& specs)
 {
-    for (int count = 1;; ++count) {
+    for (int suffix = 1;; ++suffix) {
         std::array<char, 32> name{};
-        text::format_to(name, "ed_ground%02d", count);
+        text::format_to(name, "ed_ground%02d", suffix);
         const bool taken = std::ranges::any_of(specs, [&](const Spec& spec) { return spec.name == name.data(); });
         if (!taken) {
             return name.data();

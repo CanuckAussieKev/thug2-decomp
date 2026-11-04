@@ -162,7 +162,7 @@ bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from,
 constexpr float kLadderMin = 24.0F, kLadderOut = 4.0F;
 bool ladder_top(V3 foot, V3 from, V3 dir, V3* top);
 // Whether the segment a-b (either way) is p-q, each within `tolerance` on every axis.
-bool same_segment(V3 a, V3 b, V3 point, V3 other_point, float tolerance);
+bool same_segment(V3 a, V3 b, V3 other_a, V3 other_b, float tolerance);
 
 // The links of chain nodes by name: what the operations below change.
 using Graph = std::map<uint32_t, std::vector<uint32_t>>;

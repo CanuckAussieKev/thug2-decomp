@@ -475,9 +475,8 @@ void draw_item(ItemId id, const State& state, float scale, Output* out)
         const float bar = ImGui::GetTextLineHeight() * 0.6F;
         const float top = at.y + ((frame - bar) * 0.5F);
         ImDrawList* draw = ImGui::GetWindowDrawList();
-        const uint32_t current_colour = state.budget_argb_;
-        const ImU32 colour =
-            IM_COL32((current_colour >> 16) & 0xFF, (current_colour >> 8) & 0xFF, current_colour & 0xFF, 255);
+        const uint32_t budget_argb = state.budget_argb_;
+        const ImU32 colour = IM_COL32((budget_argb >> 16) & 0xFF, (budget_argb >> 8) & 0xFF, budget_argb & 0xFF, 255);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width, top + bar), IM_COL32(60, 62, 66, 255), kBudgetBarRounding);
         const float fill = std::clamp(state.budget_fill_, 0.0F, 1.0F);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + (width * fill), top + bar), colour, kBudgetBarRounding);

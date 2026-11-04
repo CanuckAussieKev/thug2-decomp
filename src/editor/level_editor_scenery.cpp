@@ -333,8 +333,8 @@ const char* meshes_movable(render::PcGeom* geom)
         if (buffers > std::size(mesh->vertex_buffers())) {
             return "odd vertex buffers";
         }
-        for (uint32_t current_buffer = 0; current_buffer < buffers; ++current_buffer) {
-            const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), current_buffer);
+        for (uint32_t buffer_index = 0; buffer_index < buffers; ++buffer_index) {
+            const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), buffer_index);
             if (!buffer || !buffer->data()) {
                 return "no vertex copy";
             }

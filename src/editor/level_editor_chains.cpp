@@ -455,8 +455,8 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         if (std::ranges::find(seen, "pos") == seen.end()) {
             return false;
         }
-        for (const Point& other_point : state->points) {
-            if (same_text(other_point.name, chain_point.name.c_str())) {
+        for (const Point& existing_point : state->points) {
+            if (same_text(existing_point.name, chain_point.name.c_str())) {
                 return false;
             }
         }
@@ -900,13 +900,13 @@ bool ladder_top(V3 foot, V3 from, V3 dir, V3* top)
     return true;
 }
 
-bool same_segment(V3 a, V3 b, V3 point, V3 other_point, float tolerance)
+bool same_segment(V3 a, V3 b, V3 other_a, V3 other_b, float tolerance)
 {
     auto near = [tolerance](V3 x, V3 y) {
         return std::fabs(x.x - y.x) <= tolerance && std::fabs(x.y - y.y) <= tolerance &&
                std::fabs(x.z - y.z) <= tolerance;
     };
-    return (near(a, point) && near(b, other_point)) || (near(a, other_point) && near(b, point));
+    return (near(a, other_a) && near(b, other_b)) || (near(a, other_b) && near(b, other_a));
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -2287,15 +2287,15 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
     if (from != 0U) {
         chain_point.like = from;
         bool added = false;
-        for (const Point& other_point : state.points) {
-            if (name_hash(other_point.name) == from) {
+        for (const Point& source_point : state.points) {
+            if (name_hash(source_point.name) == from) {
                 // (an added point: its own template and terrain - the layout makes them in one go - its cluster and
                 // whether it's grindable on flat ground; a ledge's hang side)
-                chain_point.like = other_point.like;
-                chain_point.terrain = other_point.terrain;
-                chain_point.cluster = other_point.cluster;
-                chain_point.grind_flat_ = other_point.grind_flat_;
-                chain_point.hang = other_point.hang;
+                chain_point.like = source_point.like;
+                chain_point.terrain = source_point.terrain;
+                chain_point.cluster = source_point.cluster;
+                chain_point.grind_flat_ = source_point.grind_flat_;
+                chain_point.hang = source_point.hang;
                 added = true;
             }
         }

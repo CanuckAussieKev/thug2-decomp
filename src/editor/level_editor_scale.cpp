@@ -91,8 +91,8 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
 {
     std::array<double, 3> out{};
     for (int axis = 0; axis < 3; ++axis) {
-        const double current_factor = get_axis(factor, axis);
-        if (!(current_factor > 0.0) || !std::isfinite(current_factor)) {
+        const double axis_factor = get_axis(factor, axis);
+        if (!(axis_factor > 0.0) || !std::isfinite(axis_factor)) {
             core::at(out, axis) = 1.0;
             continue;
         }
@@ -104,15 +104,15 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
             low = std::max(low, kMin / scale);
             high = std::min(high, limit / scale);
         }
-        core::at(out, axis) = allowed_on_axis(current_factor, low, high);
+        core::at(out, axis) = allowed_on_axis(axis_factor, low, high);
     }
     if (uniform) {
         // (the factor asked for is the same on every axis: the one nearest 1 is what all of them allow)
-        const double current_factor = get_axis(factor, 0);
+        const double asked_factor = get_axis(factor, 0);
         double common = core::at(out, 0);
         for (int axis = 1; axis < 3; ++axis) {
             common =
-                current_factor >= 1.0 ? std::min(common, core::at(out, axis)) : std::max(common, core::at(out, axis));
+                asked_factor >= 1.0 ? std::min(common, core::at(out, axis)) : std::max(common, core::at(out, axis));
         }
         core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = common;
     }
@@ -474,8 +474,8 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                          .list_count_ = mesh->position_count(),
                          .list = mesh->positions(),
                          .list_copy_ = {}};
-        for (int current_buffer = 0; std::cmp_less(current_buffer, mesh->vertex_buffer_count()); ++current_buffer) {
-            render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), current_buffer);
+        for (int buffer_index = 0; std::cmp_less(buffer_index, mesh->vertex_buffer_count()); ++buffer_index) {
+            render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), buffer_index);
             if (!buffer || !buffer->data() ||
                 buffer->size() < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride()) {
                 return nullptr;
@@ -483,12 +483,12 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
             std::vector<float> positions(3U * mesh->vertex_count());
             std::vector<float> normals(copy.normal_offset_ >= 0 ? 3U * mesh->vertex_count() : 0U);
             const std::span<const uint8_t> vertex_run(buffer->data(), size_t{mesh->vertex_count()} * mesh->stride());
-            for (uint32_t current_vertex = 0; current_vertex < mesh->vertex_count(); ++current_vertex) {
+            for (uint32_t vertex_index = 0; vertex_index < mesh->vertex_count(); ++vertex_index) {
                 const std::span<const uint8_t> vertex =
-                    vertex_run.subspan(size_t{current_vertex} * mesh->stride(), mesh->stride());
-                std::memcpy(&core::at(positions, 3U * current_vertex), vertex.data(), kPositionBytes);
+                    vertex_run.subspan(size_t{vertex_index} * mesh->stride(), mesh->stride());
+                std::memcpy(&core::at(positions, 3U * vertex_index), vertex.data(), kPositionBytes);
                 if (copy.normal_offset_ >= 0) {
-                    std::memcpy(&core::at(normals, 3U * current_vertex),
+                    std::memcpy(&core::at(normals, 3U * vertex_index),
                                 vertex.subspan(static_cast<size_t>(copy.normal_offset_)).data(), kPositionBytes);
                 }
             }
@@ -750,10 +750,10 @@ V3 object_limit(objects::GameEntity* object)
     }
     const ObjectEntry* entry = entry_of(object);
     auto narrow = [&limit](const render::TriMeshSource* data, V3 scale) {
-        const V3 current_limit = collision_limit(data, scale);
-        limit = {.x = std::min(limit.x, current_limit.x),
-                 .y = std::min(limit.y, current_limit.y),
-                 .z = std::min(limit.z, current_limit.z)};
+        const V3 mesh_limit = collision_limit(data, scale);
+        limit = {.x = std::min(limit.x, mesh_limit.x),
+                 .y = std::min(limit.y, mesh_limit.y),
+                 .z = std::min(limit.z, mesh_limit.z)};
     };
     if (entry) {
         for (const ObjectEntry::Tri& tri : entry->tris) {

@@ -280,11 +280,11 @@ bool family_of_word(const std::string& word, nodes::Family* family)
     } else if (w == "piece" || w == "pieces") {
         w = "scenery";
     }
-    for (int current_family = 0; current_family < nodes::kFamilies; ++current_family) {
-        std::string name = get_lower(nodes::family_name(static_cast<nodes::Family>(current_family)));
+    for (int family_index = 0; family_index < nodes::kFamilies; ++family_index) {
+        std::string name = get_lower(nodes::family_name(static_cast<nodes::Family>(family_index)));
         const std::string singular = !name.empty() && name.back() == 's' ? name.substr(0, name.size() - 1) : name;
         if (w == name || w == singular) {
-            *family = static_cast<nodes::Family>(current_family);
+            *family = static_cast<nodes::Family>(family_index);
             return true;
         }
     }
@@ -504,7 +504,7 @@ private:
     State state;
 
 public:
-    explicit OrganizeStep(State current_state) : state(std::move(current_state)) {}
+    explicit OrganizeStep(State saved_state) : state(std::move(saved_state)) {}
     void get_restore() override { level_editor_organize_state().state_ = state; }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
@@ -574,7 +574,7 @@ bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
     std::array<V3, kBoxCornerCount> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
     bool any = false;
-    Rect2 current_rect = {.x0 = 0, .y0 = 0, .x1 = 0, .y1 = 0};
+    Rect2 screen_rect = {.x0 = 0, .y0 = 0, .x1 = 0, .y1 = 0};
     for (const V3& corner : corners) {
         float x = 0.0F;
         float y = 0.0F;
@@ -585,15 +585,15 @@ bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
             continue;
         }
         if (!any) {
-            current_rect = {.x0 = x, .y0 = y, .x1 = x, .y1 = y};
+            screen_rect = {.x0 = x, .y0 = y, .x1 = x, .y1 = y};
         }
-        current_rect = {.x0 = std::min(current_rect.x0, x),
-                        .y0 = std::min(current_rect.y0, y),
-                        .x1 = std::max(current_rect.x1, x),
-                        .y1 = std::max(current_rect.y1, y)};
+        screen_rect = {.x0 = std::min(screen_rect.x0, x),
+                       .y0 = std::min(screen_rect.y0, y),
+                       .x1 = std::max(screen_rect.x1, x),
+                       .y1 = std::max(screen_rect.y1, y)};
         any = true;
     }
-    *rect = current_rect;
+    *rect = screen_rect;
     return any;
 }
 
@@ -823,14 +823,14 @@ void make_group(const std::string& wanted)
     }
     // (a name of its own: "Group 2" when "Group" is taken)
     const std::string base = name;
-    for (int count = 2;; ++count) {
+    for (int suffix = 2;; ++suffix) {
         const bool taken =
             std::ranges::any_of(level_editor_organize_state().state_.groups,
-                                [&](const GroupSet& current_group_set) { return current_group_set.name == name; });
+                                [&](const GroupSet& existing_group) { return existing_group.name == name; });
         if (!taken) {
             break;
         }
-        name = base + " " + std::to_string(count);
+        name = base + " " + std::to_string(suffix);
     }
     group_set.name = name;
     State next = level_editor_organize_state().state_;
@@ -939,11 +939,11 @@ void add_to_group(int index)
 
 bool in_group(const std::string& group, const nodes::Elem& node)
 {
-    for (const GroupSet& current_group : level_editor_organize_state().state_.groups) {
-        if (get_lower(current_group.name).compare(0, group.size(), get_lower(group)) != 0) {
+    for (const GroupSet& group_set : level_editor_organize_state().state_.groups) {
+        if (get_lower(group_set.name).compare(0, group.size(), get_lower(group)) != 0) {
             continue;
         }
-        for (const Member& member : current_group.members) {
+        for (const Member& member : group_set.members) {
             if (member.id == node.name) {
                 return true;
             }
@@ -1104,7 +1104,7 @@ void select_similar(Similar by)
         for (const uint32_t id : sectors ? selectable_sectors() : selectable_objects()) {
             Thing thing = thing_of(id, sectors);
             if (std::ranges::any_of(chosen,
-                                    [&](const Thing& current_thing) { return alike(current_thing, thing, by); })) {
+                                    [&](const Thing& chosen_thing) { return alike(chosen_thing, thing, by); })) {
                 out.push_back(id);
             }
         }
@@ -1125,11 +1125,11 @@ void select_similar(Similar by)
         int count = 0;
         for (const nodes::Elem& other_elem : nodes::get_all()) {
             Thing thing;
-            Thing current_thing;
+            Thing other_thing;
             thing.family = elem.family, thing.cls = elem.cls, thing.type = elem.type;
-            current_thing.family = other_elem.family, current_thing.cls = other_elem.cls,
-            current_thing.type = other_elem.type;
-            count += alike(thing, current_thing, by == Similar::kMesh ? Similar::kKindTag : by) ? 1 : 0;
+            other_thing.family = other_elem.family, other_thing.cls = other_elem.cls,
+            other_thing.type = other_elem.type;
+            count += alike(thing, other_thing, by == Similar::kMesh ? Similar::kKindTag : by) ? 1 : 0;
         }
         const std::string family = nodes::family_name(elem.family);
         outliner_search() = get_lower(family) + ":";

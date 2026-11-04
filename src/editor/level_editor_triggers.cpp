@@ -1134,18 +1134,18 @@ std::vector<uint8_t> proxim_body(ProximScripts scripts)
 std::vector<uint8_t> proxim_qb_file(const std::vector<ProximScript>& scripts)
 {
     std::vector<uint8_t> out;
-    for (const ProximScript& current_script : scripts) {
+    for (const ProximScript& proxim_script : scripts) {
         out.push_back(script::token_byte(script::QbToken::kScriptStart));
-        put_name(&out, get_checksums(proxim_script_name(current_script.node).c_str()));
+        put_name(&out, get_checksums(proxim_script_name(proxim_script.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body =
-            proxim_body({.enter = current_script.enter, .exit = current_script.exit, .own = current_script.own});
+            proxim_body({.enter = proxim_script.enter, .exit = proxim_script.exit, .own = proxim_script.own});
         out.insert(out.end(), body.begin(), body.end());
         out.push_back(script::token_byte(script::QbToken::kScriptEnd));
         out.push_back(0x01);
     }
-    for (const ProximScript& current_script : scripts) {
-        std::string name = proxim_script_name(current_script.node);
+    for (const ProximScript& proxim_script : scripts) {
+        std::string name = proxim_script_name(proxim_script.node);
         out.push_back(script::token_byte(script::QbToken::kChecksumName));
         get_put4(&out, get_checksums(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
@@ -2060,17 +2060,17 @@ void note_undo()
 // A node for a spec at `pos` / `yaw` in the overlay (false: `message`).
 node_create::Spec node_spec(const Spec& spec, V3 pos, float yaw)
 {
-    node_create::Spec current_spec;
-    current_spec.name = spec.name;
-    current_spec.cls = "GenericNode";
-    current_spec.type = "ed_trigger";
-    current_spec.pos = pos;
-    current_spec.angles = {.x = 0.0F, .y = yaw, .z = 0.0F};
+    node_create::Spec overlay_spec;
+    overlay_spec.name = spec.name;
+    overlay_spec.cls = "GenericNode";
+    overlay_spec.type = "ed_trigger";
+    overlay_spec.pos = pos;
+    overlay_spec.angles = {.x = 0.0F, .y = yaw, .z = 0.0F};
     node_create::Prop script = {.type = node_create::Prop::kName, .key = "TriggerScript"};
     script.text = get_script_name(spec);
-    current_spec.extra.push_back(script);
-    current_spec.owned = true;
-    return current_spec;
+    overlay_spec.extra.push_back(script);
+    overlay_spec.owned = true;
+    return overlay_spec;
 }
 
 bool name_taken(const std::string& name) { return spec_index(name) >= 0 || node_create::name_taken(name); }
@@ -2360,24 +2360,24 @@ void set_spec(const std::string& name, const Spec& spec, bool undo)
     if (undo) {
         note_undo();
     }
-    Spec current_spec = spec;
-    current_spec.name = core::at(level_editor_triggers_state().specs_, index).name;
-    current_spec.size = clamp_size(current_spec.size);
-    current_spec.text = clean_text(current_spec.text);
+    Spec stored_spec = spec;
+    stored_spec.name = core::at(level_editor_triggers_state().specs_, index).name;
+    stored_spec.size = clamp_size(stored_spec.size);
+    stored_spec.text = clean_text(stored_spec.text);
     // (a gap's name, score and flags are the same at both ends)
-    if (current_spec.kind == Kind::kGapStart || current_spec.kind == Kind::kGapEnd) {
+    if (stored_spec.kind == Kind::kGapStart || stored_spec.kind == Kind::kGapEnd) {
         for (Spec& other : level_editor_triggers_state().specs_) {
-            if (&other != &core::at(level_editor_triggers_state().specs_, index) && !current_spec.gap.empty() &&
+            if (&other != &core::at(level_editor_triggers_state().specs_, index) && !stored_spec.gap.empty() &&
                 same_text(other.gap, core::at(level_editor_triggers_state().specs_, index).gap) &&
                 (other.kind == Kind::kGapStart || other.kind == Kind::kGapEnd)) {
-                other.gap = current_spec.gap;
-                other.text = current_spec.text;
-                other.score = current_spec.score;
-                other.flags = current_spec.flags;
+                other.gap = stored_spec.gap;
+                other.text = stored_spec.text;
+                other.score = stored_spec.score;
+                other.flags = stored_spec.flags;
             }
         }
     }
-    core::at(level_editor_triggers_state().specs_, index) = current_spec;
+    core::at(level_editor_triggers_state().specs_, index) = stored_spec;
 }
 
 void begin_edit() { note_undo(); }
@@ -2768,10 +2768,11 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         if (added.spec.kind == Kind::kGapStart) {
             const int other = partner(level_editor_triggers_state().specs_, spec_index(added.spec.name));
             if (other >= 0) {
-                for (const Added& current_added : level_editor_triggers_state().added_) {
-                    if (current_added.alive && same_text(current_added.spec.name,
-                                                         core::at(level_editor_triggers_state().specs_, other).name)) {
-                        paint.get_arrow(added.pos, current_added.pos,
+                for (const Added& partner_trigger : level_editor_triggers_state().added_) {
+                    if (partner_trigger.alive &&
+                        same_text(partner_trigger.spec.name,
+                                  core::at(level_editor_triggers_state().specs_, other).name)) {
+                        paint.get_arrow(added.pos, partner_trigger.pos,
                                         get_dim(kind_colour(Kind::kGapEnd), kGapArrowAlpha));
                     }
                 }
@@ -3174,23 +3175,22 @@ bool begin_resize(int handle, V3 origin, V3 dir)
         return false;
     }
     const Added* added = shape.trigger ? alive_named(stored_selected_node()) : nullptr;
-    ResizeDrag current_resize_drag;
-    current_resize_drag.name = added ? added->spec.name : std::string();
-    current_resize_drag.node = stored_selected_node();
-    current_resize_drag.handle = handle;
-    current_resize_drag.pos0 = shape.pos;
-    current_resize_drag.size0 = shape.size;
-    current_resize_drag.yaw = shape.yaw;
-    current_resize_drag.proxim = !shape.trigger;
-    current_resize_drag.sphere = shape.sphere;
-    current_resize_drag.start = handle_point(shape.pos, shape.yaw, shape.size, handle);
-    current_resize_drag.direction = handle_direction({.yaw = shape.yaw, .handle = handle});
-    if (!closest_on_axis({.origin = current_resize_drag.start, .dir = current_resize_drag.direction},
-                         {.origin = origin, .dir = dir}, &current_resize_drag.s0)) {
+    ResizeDrag drag;
+    drag.name = added ? added->spec.name : std::string();
+    drag.node = stored_selected_node();
+    drag.handle = handle;
+    drag.pos0 = shape.pos;
+    drag.size0 = shape.size;
+    drag.yaw = shape.yaw;
+    drag.proxim = !shape.trigger;
+    drag.sphere = shape.sphere;
+    drag.start = handle_point(shape.pos, shape.yaw, shape.size, handle);
+    drag.direction = handle_direction({.yaw = shape.yaw, .handle = handle});
+    if (!closest_on_axis({.origin = drag.start, .dir = drag.direction}, {.origin = origin, .dir = dir}, &drag.s0)) {
         return false; // (looking along the axis: no grip on it)
     }
-    current_resize_drag.on = true;
-    resize_drag() = current_resize_drag;
+    drag.on = true;
+    resize_drag() = drag;
     note_undo(); // (the state before: one undo step, taken by the editor next frame)
     return true;
 }
@@ -3357,9 +3357,8 @@ void get_restore(const State& state)
         if (!spec.owned || spec_index(spec.name) < 0) {
             continue;
         }
-        const bool keep = std::ranges::any_of(state.nodes, [&](const node_create::Spec& current_spec) {
-            return same_text(current_spec.name, spec.name);
-        });
+        const bool keep = std::ranges::any_of(
+            state.nodes, [&](const node_create::Spec& state_node) { return same_text(state_node.name, spec.name); });
         if (!keep) {
             node_create::Spec removed;
             int at = 0;
@@ -3447,17 +3446,17 @@ int get_apply(const std::vector<Placed>& placed, std::string* message)
         scan_level();
     }
     int made = 0;
-    for (const Placed& current_placed : placed) {
-        if (spec_index(current_placed.spec.name) >= 0 || node_create::name_taken(current_placed.spec.name)) {
+    for (const Placed& placed_trigger : placed) {
+        if (spec_index(placed_trigger.spec.name) >= 0 || node_create::name_taken(placed_trigger.spec.name)) {
             get_log("level editor: the layout's trigger %s is there already - skipped",
-                    current_placed.spec.name.c_str());
+                    placed_trigger.spec.name.c_str());
             continue;
         }
-        if (!node_create::fabricate(node_spec(current_placed.spec, current_placed.pos, current_placed.yaw), -1,
+        if (!node_create::fabricate(node_spec(placed_trigger.spec, placed_trigger.pos, placed_trigger.yaw), -1,
                                     message)) {
             continue;
         }
-        level_editor_triggers_state().specs_.push_back(current_placed.spec);
+        level_editor_triggers_state().specs_.push_back(placed_trigger.spec);
         ++made;
     }
     get_sync();

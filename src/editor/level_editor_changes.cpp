@@ -327,11 +327,11 @@ std::string without(const std::string& layout_text, int line)
         return layout_text;
     }
     std::string out;
-    for (int count = 0; std::cmp_less(count, lines.size()); ++count) {
-        if (count == line) {
+    for (int line_index = 0; std::cmp_less(line_index, lines.size()); ++line_index) {
+        if (line_index == line) {
             continue;
         }
-        out += core::at(lines, count);
+        out += core::at(lines, line_index);
         out += '\n';
     }
     return out;

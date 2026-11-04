@@ -78,10 +78,10 @@ void get_accent_rgb(int accent, std::span<float, 3> rgb)
         {0.80F, 0.22F, 0.26F}, // red
         {0.10F, 0.60F, 0.62F}, // teal
     }};
-    const auto& current_rgb = core::at(kRgb, std::clamp(accent, 0, kAccentCount - 1));
-    core::at(rgb, 0) = core::at(current_rgb, 0);
-    core::at(rgb, 1) = core::at(current_rgb, 1);
-    core::at(rgb, 2) = core::at(current_rgb, 2);
+    const auto& accent_rgb = core::at(kRgb, std::clamp(accent, 0, kAccentCount - 1));
+    core::at(rgb, 0) = core::at(accent_rgb, 0);
+    core::at(rgb, 1) = core::at(accent_rgb, 1);
+    core::at(rgb, 2) = core::at(accent_rgb, 2);
 }
 
 const char* accent_name(int accent)

@@ -234,9 +234,9 @@ bool read_record(std::istringstream& in, Note* out)
 
 std::string fresh_name(const std::vector<Note>& notes)
 {
-    for (int count = 1;; ++count) {
+    for (int suffix = 1;; ++suffix) {
         std::array<char, 32> name{};
-        text::format_to(name, "%s%02d", kStem, count);
+        text::format_to(name, "%s%02d", kStem, suffix);
         if (std::ranges::none_of(notes, [&](const Note& note) { return note.name == name.data(); })) {
             return name.data();
         }
@@ -350,8 +350,8 @@ bool get_matches(const std::string& text, const char* filter)
     }
     std::string haystack = text;
     std::string needle = filter;
-    auto lower = [](std::string* current_text) {
-        for (char& character : *current_text) {
+    auto lower = [](std::string* subject) {
+        for (char& character : *subject) {
             character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
         }
     };
@@ -555,8 +555,8 @@ void pane(PaneArea area, float scale)
     if (ImGui::IsItemEdited()) {
         const std::string text = level_editor_notes_state().edit_text_.data();
         level_editor_notes_state().queue_.emplace_back([name, text] {
-            if (Note* current_note = get_find(name)) {
-                current_note->text = text;
+            if (Note* found_note = get_find(name)) {
+                found_note->text = text;
             }
         });
     }
@@ -572,12 +572,12 @@ void pane(PaneArea area, float scale)
                                ImVec2(kColourButtonSize * scale, kColourButtonSize * scale))) {
             const uint32_t rgb = core::at(kColours, colour_index);
             level_editor_notes_state().queue_.emplace_back([name, rgb] {
-                Note* current_note = get_find(name);
-                if (!current_note || current_note->colour == rgb) {
+                Note* found_note = get_find(name);
+                if (!found_note || found_note->colour == rgb) {
                     return;
                 }
                 push_undo();
-                current_note->colour = rgb;
+                found_note->colour = rgb;
             });
         }
         if (on) {
@@ -596,16 +596,16 @@ void pane(PaneArea area, float scale)
     if (ImGui::DragFloat3("##pos", pos.data(), kPositionDragStep, 0.0F, 0.0F, "%.0f")) {
         const V3 to = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2)};
         level_editor_notes_state().queue_.emplace_back([name, to] {
-            if (Note* current_note = get_find(name)) {
-                current_note->pos = to;
+            if (Note* found_note = get_find(name)) {
+                found_note->pos = to;
             }
         });
     }
     held();
     if (ImGui::Button("Go to")) {
         level_editor_notes_state().queue_.emplace_back([name] {
-            if (const Note* current_note = get_find(name)) {
-                go_to_point(current_note->pos, kGoToDistance);
+            if (const Note* found_note = get_find(name)) {
+                go_to_point(found_note->pos, kGoToDistance);
             }
         });
     }
@@ -613,12 +613,12 @@ void pane(PaneArea area, float scale)
     if (ImGui::Button("Move here")) {
         level_editor_notes_state().queue_.emplace_back([name] {
             V3 at{};
-            Note* current_note = get_find(name);
-            if (!current_note || !view_point(&at)) {
+            Note* found_note = get_find(name);
+            if (!found_note || !view_point(&at)) {
                 return;
             }
             push_undo();
-            current_note->pos = at;
+            found_note->pos = at;
         });
     }
     if (ImGui::IsItemHovered()) {
@@ -632,7 +632,7 @@ void pane(PaneArea area, float scale)
             }
             push_undo();
             std::erase_if(level_editor_notes_state().notes_,
-                          [&](const Note& current_note) { return current_note.name == name; });
+                          [&](const Note& stored_note) { return stored_note.name == name; });
             level_editor_notes_state().selected_.clear();
             hud::get_message("Deleted note " + name);
         });

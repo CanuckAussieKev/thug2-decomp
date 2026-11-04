@@ -274,16 +274,16 @@ bool begin_offscreen(int size, colour::Packed argb_colour)
     if (FAILED(offscreen().texture->GetSurfaceLevel(0, &surface))) {
         return false;
     }
-    Offscreen& current_offscreen = offscreen();
-    device->GetRenderTarget(0, &current_offscreen.saved_target_);
-    device->GetDepthStencilSurface(&current_offscreen.saved_depth_);
-    device->GetViewport(&current_offscreen.saved_viewport_);
+    Offscreen& offscreen_state = offscreen();
+    device->GetRenderTarget(0, &offscreen_state.saved_target_);
+    device->GetDepthStencilSurface(&offscreen_state.saved_depth_);
+    device->GetViewport(&offscreen_state.saved_viewport_);
     for (int i = 0; i < 3; ++i) {
-        device->GetTransform(core::at(kSavedTransforms, i), &core::at(current_offscreen.saved_transforms_, i));
+        device->GetTransform(core::at(kSavedTransforms, i), &core::at(offscreen_state.saved_transforms_, i));
     }
     device->SetRenderTarget(0, surface);
     surface->Release();
-    device->SetDepthStencilSurface(current_offscreen.depth);
+    device->SetDepthStencilSurface(offscreen_state.depth);
     const D3DVIEWPORT9 viewport = {.X = 0,
                                    .Y = 0,
                                    .Width = static_cast<DWORD>(size),
@@ -291,33 +291,33 @@ bool begin_offscreen(int size, colour::Packed argb_colour)
                                    .MinZ = 0.0F,
                                    .MaxZ = 1.0F};
     device->SetViewport(&viewport);
-    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (current_offscreen.stencil ? D3DCLEAR_STENCIL : 0),
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (offscreen_state.stencil ? D3DCLEAR_STENCIL : 0),
                   argb, 1.0F, 0);
-    current_offscreen.active = true;
+    offscreen_state.active = true;
     return true;
 }
 
 void end_offscreen()
 {
-    Offscreen& current_offscreen = offscreen();
+    Offscreen& offscreen_state = offscreen();
     IDirect3DDevice9* device = render::renderer().d3d_device();
-    if (!current_offscreen.active || !device) {
+    if (!offscreen_state.active || !device) {
         return;
     }
-    device->SetRenderTarget(0, current_offscreen.saved_target_);
-    device->SetDepthStencilSurface(current_offscreen.saved_depth_);
-    device->SetViewport(&current_offscreen.saved_viewport_); // (after the target: setting one resets the viewport)
+    device->SetRenderTarget(0, offscreen_state.saved_target_);
+    device->SetDepthStencilSurface(offscreen_state.saved_depth_);
+    device->SetViewport(&offscreen_state.saved_viewport_); // (after the target: setting one resets the viewport)
     for (int i = 0; i < 3; ++i) {
-        device->SetTransform(core::at(kSavedTransforms, i), &core::at(current_offscreen.saved_transforms_, i));
+        device->SetTransform(core::at(kSavedTransforms, i), &core::at(offscreen_state.saved_transforms_, i));
     }
-    if (current_offscreen.saved_target_) {
-        current_offscreen.saved_target_->Release();
+    if (offscreen_state.saved_target_) {
+        offscreen_state.saved_target_->Release();
     }
-    if (current_offscreen.saved_depth_) {
-        current_offscreen.saved_depth_->Release();
+    if (offscreen_state.saved_depth_) {
+        offscreen_state.saved_depth_->Release();
     }
-    current_offscreen.saved_target_ = current_offscreen.saved_depth_ = nullptr;
-    current_offscreen.active = false;
+    offscreen_state.saved_target_ = offscreen_state.saved_depth_ = nullptr;
+    offscreen_state.active = false;
 }
 
 uint64_t offscreen_texture() { return offscreen().texture ? get_texture_id(offscreen().texture) : 0; }

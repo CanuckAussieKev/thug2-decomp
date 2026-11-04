@@ -651,9 +651,8 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
     if (!faces.empty()) {
         entry.companion = std::make_unique<Companion>(checksum, faces);
         entry.companion->get_object()->geometry()->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
-        for (const Taken& current_taken : taken) {
-            current_taken.geometry->set_face_flags(current_taken.face,
-                                                   current_taken.flags | render::FaceFlag::kNotCollidable);
+        for (const Taken& taken_face : taken) {
+            taken_face.geometry->set_face_flags(taken_face.face, taken_face.flags | render::FaceFlag::kNotCollidable);
         }
         entry.taken = std::move(taken);
         ++generation();

@@ -192,44 +192,43 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         }
         return;
     }
-    ground::Spec& current_spec = goal_form().draft_;
-    int mode = current_spec.lower ? 1 : 0;
+    ground::Spec& draft = goal_form().draft_;
+    int mode = draft.lower ? 1 : 0;
     ImGui::RadioButton("Raise", &mode, 0);
     ImGui::SameLine();
     ImGui::RadioButton("Lower", &mode, 1);
-    current_spec.lower = mode == 1;
-    ImGui::DragFloat(current_spec.lower ? "Depth" : "Height", &current_spec.height, 1.0F, ground::kMinHeight,
-                     ground::kCeilingY, "%.0f");
-    std::array<float, 4> rect = {{current_spec.x0, current_spec.z0, current_spec.x1, current_spec.z1}};
+    draft.lower = mode == 1;
+    ImGui::DragFloat(draft.lower ? "Depth" : "Height", &draft.height, 1.0F, ground::kMinHeight, ground::kCeilingY,
+                     "%.0f");
+    std::array<float, 4> rect = {{draft.x0, draft.z0, draft.x1, draft.z1}};
     if (ImGui::DragFloat4("x0 z0 x1 z1", rect.data(), 1.0F, 0.0F, 0.0F, "%.0f")) {
-        current_spec.x0 = core::at(rect, 0), current_spec.z0 = core::at(rect, 1), current_spec.x1 = core::at(rect, 2),
-        current_spec.z1 = core::at(rect, 3);
+        draft.x0 = core::at(rect, 0), draft.z0 = core::at(rect, 1), draft.x1 = core::at(rect, 2),
+        draft.z1 = core::at(rect, 3);
     }
-    ImGui::DragFloat("Ground at", &current_spec.base, 1.0F, 0.0F, 0.0F, "%.1f");
+    ImGui::DragFloat("Ground at", &draft.base, 1.0F, 0.0F, 0.0F, "%.1f");
     static const std::array<const char*, 4> kSideNames = {{"-X side", "+X side", "-Z side", "+Z side"}};
     for (int side = 0; side < 4; ++side) {
         ImGui::PushID(side);
-        if (ImGui::BeginCombo(core::at(kSideNames, side), ramp_name(core::at(current_spec.ramps, side)))) {
+        if (ImGui::BeginCombo(core::at(kSideNames, side), ramp_name(core::at(draft.ramps, side)))) {
             for (int row = 0; row < 3; ++row) {
                 auto ramp = static_cast<ground::Ramp>(row);
-                if (ImGui::Selectable(ramp_name(ramp), core::at(current_spec.ramps, side) == ramp)) {
-                    core::at(current_spec.ramps, side) = ramp;
+                if (ImGui::Selectable(ramp_name(ramp), core::at(draft.ramps, side) == ramp)) {
+                    core::at(draft.ramps, side) = ramp;
                 }
             }
             ImGui::EndCombo();
         }
         ImGui::PopID();
     }
-    ImGui::DragFloat("Ramp length", &current_spec.length, 1.0F, 0.0F, ground::kMaxLength,
-                     current_spec.length > 0.0F ? "%.0f" : "auto");
+    ImGui::DragFloat("Ramp length", &draft.length, 1.0F, 0.0F, ground::kMaxLength,
+                     draft.length > 0.0F ? "%.0f" : "auto");
     if (ImGui::IsItemHovered()) {
         gui::tooltip("0: automatic");
     }
     ImGui::DragFloat("Grid", &goal_form().grid_, 1.0F, 0.0F, kGridSpacingMax,
                      goal_form().grid_ > 0.0F ? "%.0f" : "off");
-    gui::text_disabled("Material: %s", (current_spec.material != 0U)
-                                           ? object_edit::caption(current_spec.material).c_str()
-                                           : "(automatic)");
+    gui::text_disabled("Material: %s",
+                       (draft.material != 0U) ? object_edit::caption(draft.material).c_str() : "(automatic)");
     if (ImGui::Button("Use Selected Material")) {
         goal_form().queue_.emplace_back([] {
             const std::vector<uint32_t>& selection = scenery::get_selection();
@@ -245,7 +244,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
             }
         });
     }
-    if (current_spec.lower) {
+    if (draft.lower) {
         gui::text_disabled("Pits need floor pieces inside the rectangle");
     }
     if (!goal_form().form_message_.empty()) {
@@ -279,7 +278,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
             std::array<char, kPieceRowSize> row{};
             text::format_to(row, "%s  %s %.0f x %.0f, %.0f", spec.name.c_str(), spec.lower ? "pit" : "platform",
                             spec.x1 - spec.x0, spec.z1 - spec.z0, spec.height);
-            if (ImGui::Selectable(row.data(), goal_form().editing_ && spec.name == current_spec.name)) {
+            if (ImGui::Selectable(row.data(), goal_form().editing_ && spec.name == draft.name)) {
                 const std::string name = spec.name;
                 goal_form().queue_.emplace_back([name] {
                     if (const ground::Spec* found = ground::get_find(name)) {

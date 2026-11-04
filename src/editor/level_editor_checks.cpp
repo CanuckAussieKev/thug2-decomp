@@ -1019,7 +1019,7 @@ void fix(const Issue& issue)
     case Rule::kLayoutRecord: {
         push_module_undo(std::make_shared<LayoutRecords>(level_editor_checks_state().layout_issues_));
         std::erase_if(level_editor_checks_state().layout_issues_,
-                      [&](const Issue& other_issue) { return other_issue.key == issue.key; });
+                      [&](const Issue& listed_issue) { return listed_issue.key == issue.key; });
         hud::get_message("Record removed");
         get_log("level editor: problems - layout record dropped: %s", issue.record.c_str());
         break;
@@ -1070,7 +1070,7 @@ void note_layout_applied(const layout::FileLoad& file)
         issue.text = what + " not found in the level: " + issue.record;
         issue.key = issue_key(Rule::kLayoutRecord, subject, issue.record);
         if (std::ranges::none_of(level_editor_checks_state().layout_issues_,
-                                 [&](const Issue& other_issue) { return other_issue.key == issue.key; })) {
+                                 [&](const Issue& listed_issue) { return listed_issue.key == issue.key; })) {
             level_editor_checks_state().layout_issues_.push_back(issue);
         }
     };

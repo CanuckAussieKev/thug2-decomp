@@ -2795,17 +2795,17 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         if (shape == nodes::Shape::kChain) {
             constexpr float kChainCutoff = 4000.0F;
             for (const int link : elem.links) {
-                const nodes::Elem& other_elem = core::at(nodes, link);
-                if (!other_elem.has_pos_) {
+                const nodes::Elem& linked_elem = core::at(nodes, link);
+                if (!linked_elem.has_pos_) {
                     continue;
                 }
-                const V3 other_delta = other_elem.pos - level_editor_state().pos_;
+                const V3 linked_delta = linked_elem.pos - level_editor_state().pos_;
                 if (!is_selected && !is_hovered && distance > kChainCutoff &&
-                    view_cam::apparent(std::sqrt(get_dot(other_delta, other_delta))) > kChainCutoff) {
+                    view_cam::apparent(std::sqrt(get_dot(linked_delta, linked_delta))) > kChainCutoff) {
                     continue;
                 }
                 V3 point_a = elem.pos;
-                V3 point_b = other_elem.pos;
+                V3 point_b = linked_elem.pos;
                 if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &point_a, &point_b)) {
                     continue;
                 }

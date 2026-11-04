@@ -426,9 +426,9 @@ void star(ImDrawList* draw, ImVec2 centre, StarLook star_look, bool filled)
     std::array<ImVec2, kStarPoints> points;
     for (int i = 0; i < kStarPoints; ++i) {
         const float angle = -1.5707963F + (0.62831853F * static_cast<float>(i));
-        const float current_radius = ((i & 1) != 0) ? radius * 0.45F : radius;
+        const float point_radius = ((i & 1) != 0) ? radius * 0.45F : radius;
         core::at(points, i) =
-            ImVec2(centre.x + (std::cos(angle) * current_radius), centre.y + (std::sin(angle) * current_radius));
+            ImVec2(centre.x + (std::cos(angle) * point_radius), centre.y + (std::sin(angle) * point_radius));
     }
     if (filled) {
         // (the inner pentagon and the five points' triangles: ImGui fills convex shapes only)
@@ -548,9 +548,9 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     }
 
     auto request = [&](ui::Request::Kind kind, int value) {
-        ui::Request current_request{.kind = kind};
-        current_request.value = value;
-        requests->push_back(current_request);
+        ui::Request pending_request{.kind = kind};
+        pending_request.value = value;
+        requests->push_back(pending_request);
     };
     int hovered = -1;
     ImGui::BeginChild("##items", ImVec2(0.0F, height), ImGuiChildFlags_Borders);
@@ -650,15 +650,15 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
                 const uint64_t key = get_key(tab, core::at(items, index).id);
-                const int current_cell =
+                const int thumb_cell =
                     cells_state().get_take({.key = key, .frame = level_editor_thumbs_state().frame_});
                 wanted.push_back(key);
-                if (current_cell >= 0 && (texture != 0U) && (core::at(cells_state().drawn(), current_cell) != 0U)) {
+                if (thumb_cell >= 0 && (texture != 0U) && (core::at(cells_state().drawn(), thumb_cell) != 0U)) {
                     float u0 = 0.0F;
                     float v0 = 0.0F;
                     float u1 = 0.0F;
                     float v1 = 0.0F;
-                    cell_uv(current_cell, {.x0 = &u0, .y0 = &v0, .x1 = &u1, .y1 = &v1});
+                    cell_uv(thumb_cell, {.x0 = &u0, .y0 = &v0, .x1 = &u1, .y1 = &v1});
                     draw->AddImage(static_cast<ImTextureID>(texture), point_a, point_b, ImVec2(u0, v0), ImVec2(u1, v1));
                 } else {
                     draw->AddRectFilled(point_a, point_b, IM_COL32(42, 44, 48, 255));

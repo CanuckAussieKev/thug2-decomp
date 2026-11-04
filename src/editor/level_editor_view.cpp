@@ -666,11 +666,11 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         polygons.push_back(poly);
         if (style.edge && lines) {
             for (int k = 0; k < count; ++k) {
-                const int current_count = (k + 1) % count;
+                const int next_index = (k + 1) % count;
                 const ui::Seg line = {.ax = core::at(poly.x, k),
                                       .ay = core::at(poly.y, k),
-                                      .bx = core::at(poly.x, current_count),
-                                      .by = core::at(poly.y, current_count),
+                                      .bx = core::at(poly.x, next_index),
+                                      .by = core::at(poly.y, next_index),
                                       .argb = style.edge,
                                       .thickness = style.thickness};
                 if (style.dashed) {

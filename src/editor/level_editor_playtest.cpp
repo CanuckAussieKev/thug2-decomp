@@ -235,9 +235,9 @@ std::vector<GapChange> GapTracker::tick_frame(const std::vector<GapRead>& now)
     }
     for (const GapRead& gap_read : now) {
         const GapRead* old = nullptr;
-        for (const GapRead& current_gap_read : last) {
-            if (current_gap_read.name == gap_read.name) {
-                old = &current_gap_read;
+        for (const GapRead& last_gap_read : last) {
+            if (last_gap_read.name == gap_read.name) {
+                old = &last_gap_read;
                 break;
             }
         }
@@ -381,9 +381,9 @@ bool parse(const std::string& text, LevelTrails* trails)
 {
     std::istringstream in(text);
     std::string line;
-    auto trim = [](std::string& current_text) {
-        while (!current_text.empty() && (current_text.back() == '\r' || current_text.back() == '\n')) {
-            current_text.pop_back();
+    auto trim = [](std::string& trimmed) {
+        while (!trimmed.empty() && (trimmed.back() == '\r' || trimmed.back() == '\n')) {
+            trimmed.pop_back();
         }
     };
     if (!std::getline(in, line)) {
@@ -410,11 +410,11 @@ bool parse(const std::string& text, LevelTrails* trails)
                 continue;
             }
             fields.read(visible);
-            Run current_run;
-            current_run.number = number;
-            current_run.seconds = seconds;
-            current_run.visible = visible != 0;
-            out.runs().push_back(current_run);
+            Run loaded_run;
+            loaded_run.number = number;
+            loaded_run.seconds = seconds;
+            loaded_run.visible = visible != 0;
+            out.runs().push_back(loaded_run);
             out.set_next_number(std::max(out.next_number(), number + 1));
             run = &out.runs().back();
         } else if (line.starts_with("s ") && run) {
@@ -1145,16 +1145,16 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         const float thickness = latest ? 2.0F : 1.25F;
         for (size_t i = 1; i < run.samples_.size() && (budget != 0U); ++i) {
             const Sample& sample = core::at(run.samples_, i - 1);
-            const Sample& current_sample = core::at(run.samples_, i);
-            if (current_sample.jump) {
+            const Sample& next_sample = core::at(run.samples_, i);
+            if (next_sample.jump) {
                 continue;
             }
             const V3 da = sample.pos - camera;
-            const V3 db = current_sample.pos - camera;
+            const V3 db = next_sample.pos - camera;
             if (get_dot(da, da) > kFar * kFar && get_dot(db, db) > kFar * kFar) {
                 continue;
             }
-            line(sample.pos, current_sample.pos, (motion_colour(current_sample.motion) & kRgbMask) | alpha, thickness);
+            line(sample.pos, next_sample.pos, (motion_colour(next_sample.motion) & kRgbMask) | alpha, thickness);
             --budget;
         }
         // The run's start.

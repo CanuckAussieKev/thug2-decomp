@@ -149,7 +149,7 @@ std::string write_record(const Props& props)
 
 bool read_record(std::istringstream& in, Props* props)
 {
-    Props current_props;
+    Props parsed;
     std::string field;
     while (in >> field) {
         const size_t equals = field.find('=');
@@ -159,41 +159,41 @@ bool read_record(std::istringstream& in, Props* props)
         const std::string key = field.substr(0, equals);
         const std::string value = field.substr(equals + 1);
         if (key == "name") {
-            if (!fields::unescape(value, &current_props.name) || current_props.name.empty() ||
-                current_props.name.size() > kMaxLevelNameLength) {
+            if (!fields::unescape(value, &parsed.name) || parsed.name.empty() ||
+                parsed.name.size() > kMaxLevelNameLength) {
                 return false;
             }
         } else if (key == "start") {
-            if (!fields::parse_name("0x" + value, &current_props.start) || value.size() != kStartHexDigits ||
-                (current_props.start == 0U)) {
+            if (!fields::parse_name("0x" + value, &parsed.start) || value.size() != kStartHexDigits ||
+                (parsed.start == 0U)) {
                 return false;
             }
         } else if (key == "tod") {
-            if (!tod_from_name(value, &current_props.tod)) {
+            if (!tod_from_name(value, &parsed.tod)) {
                 return false;
             }
         } else if (key == "time") {
             if (value != "0" && value != "1") {
                 return false;
             }
-            current_props.time = value == "1" ? 1 : 0;
+            parsed.time = value == "1" ? 1 : 0;
         } else if (key == "ambient") {
-            if (!read_ints(value, current_props.ambient, 3)) {
+            if (!read_ints(value, parsed.ambient, 3)) {
                 return false;
             }
-            current_props.has_ambient_ = true;
+            parsed.has_ambient_ = true;
         } else if (key == "fog") {
-            if (!read_ints(value, current_props.fog, kFogValues)) {
+            if (!read_ints(value, parsed.fog, kFogValues)) {
                 return false;
             }
-            current_props.has_fog_ = true;
+            parsed.has_fog_ = true;
         } else if (key == "sky") {
-            if (!fields::unescape(value, &current_props.sky) || !valid_sky(current_props.sky)) {
+            if (!fields::unescape(value, &parsed.sky) || !valid_sky(parsed.sky)) {
                 return false;
             }
         } // (another key: a later version's - skipped)
     }
-    *props = current_props;
+    *props = parsed;
     return true;
 }
 
@@ -427,25 +427,24 @@ bool level_defaults(Props* props)
     if (!level) {
         return false;
     }
-    Props current_props;
+    Props level_props;
     const char* name = nullptr;
     if (level->fetch_text(checksums::hash_from_text("name"), &name, 0) && name) {
-        current_props.name = name;
+        level_props.name = name;
     }
     const char* sky = nullptr;
     if (level->fetch_text(checksums::hash_from_text("sky"), &sky, 0) && sky) {
-        current_props.sky = sky;
+        level_props.sky = sky;
     }
     uint32_t state = 0;
-    current_props.tod = 1; // (load_level: afternoon when the level names none)
+    level_props.tod = 1; // (load_level: afternoon when the level names none)
     if (level->read_hash_value(checksums::hash_from_text("tod_state"), &state, 0)) {
         for (int i = 0; i < kStates; ++i) {
-            current_props.tod =
-                state == checksums::hash_from_text(core::at(kTimeOfDayLabels, i)) ? i : current_props.tod;
+            level_props.tod = state == checksums::hash_from_text(core::at(kTimeOfDayLabels, i)) ? i : level_props.tod;
         }
     }
     int value = 1;
-    current_props.time =
+    level_props.time =
         level->fetch_int_value(checksums::hash_from_text("tod_manager_active"), &value, 0) && value == 0 ? 0 : 1;
     // (map4) The ambient light and fog the level shows: the time-of-day manager's current state's - where the engine's
     // come from - with the level structure's ed_ keys (a bake's) over them.
@@ -453,15 +452,15 @@ bool level_defaults(Props* props)
     if (manager && manager->params_set()) {
         gfx::TodParams now = manager->get_tod_params(-1);
         get_override(Props{}, level_editor_level_props_state().level_, &now);
-        current_props.has_ambient_ = true;
-        core::at(current_props.ambient, 0) = now.ambient_red_;
-        core::at(current_props.ambient, 1) = now.ambient_green_;
-        core::at(current_props.ambient, 2) = now.ambient_blue_;
-        current_props.has_fog_ = true;
+        level_props.has_ambient_ = true;
+        core::at(level_props.ambient, 0) = now.ambient_red_;
+        core::at(level_props.ambient, 1) = now.ambient_green_;
+        core::at(level_props.ambient, 2) = now.ambient_blue_;
+        level_props.has_fog_ = true;
         std::array<int, kFogValues> fog = {{now.fog_red_, now.fog_green_, now.fog_blue_, now.fog_alpha_, now.fog_dist_}};
-        std::memcpy(current_props.fog.data(), fog.data(), sizeof(fog));
+        std::memcpy(level_props.fog.data(), fog.data(), sizeof(fog));
     }
-    *props = current_props;
+    *props = level_props;
     return true;
 }
 
@@ -492,8 +491,8 @@ const std::vector<std::string>& skies()
             continue;
         }
         bool there = false;
-        for (const std::string& current_sky : level_editor_level_props_state().skies_) {
-            there = there || _stricmp(current_sky.c_str(), sky) == 0;
+        for (const std::string& known_sky : level_editor_level_props_state().skies_) {
+            there = there || _stricmp(known_sky.c_str(), sky) == 0;
         }
         if (!there) {
             level_editor_level_props_state().skies_.emplace_back(sky);

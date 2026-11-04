@@ -40,7 +40,7 @@ namespace frontend::level_editor::ux3 {
 namespace {
 
 constexpr float kHalf = 0.5F; // half
-// Layout, at scale 1 (current_s() multiplies them): the floating windows, the palette and the rows.
+// Layout, at scale 1 (ui_scale() multiplies them): the floating windows, the palette and the rows.
 constexpr std::size_t kQuerySize = 128;
 constexpr std::size_t kFilterSize = 64; // the Changes and Keys filters
 constexpr std::size_t kHistoryRowSize = 200;
@@ -102,7 +102,7 @@ constexpr ImVec4 kAccent(0.82F, 0.34F, 0.11F, 0.85F);
 constexpr ImVec4 kKeyColour(1.0F, 0.78F, 0.45F, 1.0F);
 constexpr ImVec4 kMuted(0.6F, 0.61F, 0.63F, 1.0F);
 
-float current_s() { return stored_fonts().scale > 0.0F ? stored_fonts().scale : 1.0F; }
+float ui_scale() { return stored_fonts().scale > 0.0F ? stored_fonts().scale : 1.0F; }
 
 // The right end of the window's content (local x), a scrollbar's room left.
 float get_right_edge()
@@ -174,7 +174,7 @@ void get_palette()
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kPaletteTop), ImGuiCond_Always,
                             kTopCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kPaletteWidth * current_s(), 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kPaletteWidth * ui_scale(), 0.0F));
     ImGui::Begin("Command Search###ux3palette", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize);
@@ -220,7 +220,7 @@ void get_palette()
         "##results",
         ImVec2(0.0F, (row_height *
                       std::min<float>(kPaletteMaxRows, std::max<float>(1.0F, static_cast<float>(found.size())))) +
-                         (kPalettePadding * current_s())));
+                         (kPalettePadding * ui_scale())));
     int run = -1;
     for (int result_index = 0; std::cmp_less(result_index, found.size()); ++result_index) {
         const int index = core::at(found, result_index).second;
@@ -246,7 +246,7 @@ void get_palette()
             gui::tooltip("%s%s", act_step.tip.c_str(),
                          act_step.kind == actions::Kind::kDetailsOf ? "\n(mouse gesture)" : "");
         }
-        ImGui::SameLine(0.0F, kRowGap * current_s());
+        ImGui::SameLine(0.0F, kRowGap * ui_scale());
         gui::text_colored(kMuted, "%s", act_step.category.c_str());
         const std::string keys = actions::get_keys_text(index);
         if (!keys.empty()) {
@@ -254,7 +254,7 @@ void get_palette()
                 ImGui::PushFont(stored_fonts().mono);
             }
             const float width = ImGui::CalcTextSize(keys.c_str()).x;
-            ImGui::SameLine(std::max(ImGui::GetCursorPosX() + (kButtonGap * current_s()), get_right_edge() - width));
+            ImGui::SameLine(std::max(ImGui::GetCursorPosX() + (kButtonGap * ui_scale()), get_right_edge() - width));
             gui::text_colored(kKeyColour, "%s", keys.c_str());
             if (stored_fonts().mono) {
                 ImGui::PopFont();
@@ -294,8 +294,8 @@ void history_window()
     const ImGuiIO& io = ImGui::GetIO();
     if (!begin_floating(
             "Undo history###ux3history", &open,
-            {.pos = ImVec2(io.DisplaySize.x - (kHistoryRightOffset * current_s()), kFloatingTop * current_s()),
-             .size = ImVec2(kHistoryWidth * current_s(), kHistoryHeight * current_s())})) {
+            {.pos = ImVec2(io.DisplaySize.x - (kHistoryRightOffset * ui_scale()), kFloatingTop * ui_scale()),
+             .size = ImVec2(kHistoryWidth * ui_scale(), kHistoryHeight * ui_scale())})) {
         ImGui::End();
         return;
     }
@@ -364,8 +364,8 @@ void changes_window()
     const ImGuiIO& io = ImGui::GetIO();
     if (!begin_floating(
             "Changes###ux3changes", &open,
-            {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kChangesOffset * current_s()), kFloatingTop * current_s()),
-             .size = ImVec2(kChangesWidth * current_s(), kChangesHeight * current_s())})) {
+            {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kChangesOffset * ui_scale()), kFloatingTop * ui_scale()),
+             .size = ImVec2(kChangesWidth * ui_scale(), kChangesHeight * ui_scale())})) {
         ImGui::End();
         return;
     }
@@ -397,14 +397,14 @@ void changes_window()
         for (const ChangeRow* row : in) {
             ImGui::PushID(row->entry.line);
             const float buttons = ImGui::CalcTextSize("Go to  Revert").x + (4.0F * ImGui::GetStyle().FramePadding.x) +
-                                  (12.0F * current_s());
+                                  (12.0F * ui_scale());
             ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x - buttons);
             ImGui::TextUnformatted(row->entry.summary.c_str());
             ImGui::PopTextWrapPos();
             if (ImGui::IsItemHovered()) {
                 gui::tooltip("%s", row->record.c_str());
             }
-            ImGui::SameLine(get_right_edge() - buttons + (kApplyGap * current_s()));
+            ImGui::SameLine(get_right_edge() - buttons + (kApplyGap * ui_scale()));
             ImGui::BeginDisabled(row->entry.id == 0);
             if (ImGui::SmallButton("Go to")) {
                 go_to(*row);
@@ -442,10 +442,9 @@ void keys_window()
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    if (!begin_floating(
-            "Keys###ux3keys", &open,
-            {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kKeysOffset * current_s()), kKeysTop * current_s()),
-             .size = ImVec2(kKeysWidth * current_s(), io.DisplaySize.y * kKeysHeightFraction)})) {
+    if (!begin_floating("Keys###ux3keys", &open,
+                        {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kKeysOffset * ui_scale()), kKeysTop * ui_scale()),
+                         .size = ImVec2(kKeysWidth * ui_scale(), io.DisplaySize.y * kKeysHeightFraction)})) {
         ImGui::End();
         return;
     }
@@ -480,8 +479,8 @@ void snapshots_window()
     const ImGuiIO& io = ImGui::GetIO();
     if (!begin_floating(
             "Layout snapshots###ux3snapshots", &open,
-            {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kSnapshotsOffset * current_s()), kSnapshotsTop * current_s()),
-             .size = ImVec2(kSnapshotsWidth * current_s(), kSnapshotsHeight * current_s())})) {
+            {.pos = ImVec2((io.DisplaySize.x * kHalf) - (kSnapshotsOffset * ui_scale()), kSnapshotsTop * ui_scale()),
+             .size = ImVec2(kSnapshotsWidth * ui_scale(), kSnapshotsHeight * ui_scale())})) {
         ImGui::End();
         return;
     }
@@ -494,7 +493,7 @@ void snapshots_window()
     gui::text_disabled("Named versions of the layout");
     gui::text("Active: %s", active.empty() ? "(none)" : active.c_str());
     ImGui::Separator();
-    ImGui::SetNextItemWidth(kSnapshotNameWidth * current_s());
+    ImGui::SetNextItemWidth(kSnapshotNameWidth * ui_scale());
     const bool enter = ImGui::InputTextWithHint("##name", "Name", snapshots().snapshot_name_.data(), sizeof(snapshots().snapshot_name_),
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
@@ -521,7 +520,7 @@ void snapshots_window()
             ImGui::TextUnformatted(name.c_str());
         }
         ImGui::SameLine(get_right_edge() - ImGui::CalcTextSize("Switch to  Delete").x -
-                        (kSnapshotButtonsGap * current_s()));
+                        (kSnapshotButtonsGap * ui_scale()));
         if (ImGui::SmallButton(is_active ? "Reload" : "Switch to")) {
             get_queue([name] {
                 std::string message;
@@ -757,8 +756,9 @@ void help_from_registry()
     if (!ImGui::BeginTable("##registry", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
         return;
     }
-    ImGui::TableSetupColumn("##category", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpNameColumnWidth * current_s());
-    ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpKeysColumnWidth * current_s());
+    ImGui::TableSetupColumn("##category", ImGuiTableColumnFlags_WidthFixed,
+                            ui_layout::kHelpNameColumnWidth * ui_scale());
+    ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpKeysColumnWidth * ui_scale());
     ImGui::TableSetupColumn("##what", ImGuiTableColumnFlags_WidthStretch);
     for (const std::string& category : categories) {
         bool first = true;
@@ -798,7 +798,7 @@ void keys_section()
 {
     const std::vector<actions::ActStep>& all = actions::get_all();
     gui::text_disabled("Click a key to rebind, + to add, right-click to remove");
-    ImGui::SetNextItemWidth(kRebindFieldWidth * current_s());
+    ImGui::SetNextItemWidth(kRebindFieldWidth * ui_scale());
     ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", keys_filter().data(), sizeof(keys_filter()));
     ImGui::SameLine();
     if (ImGui::SmallButton("Reset all") && ImGui::GetIO().KeyShift) {
@@ -816,9 +816,9 @@ void keys_section()
     ImGui::Separator();
     ImGui::BeginChild("##keys");
     if (ImGui::BeginTable("##keytable", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
-        ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthFixed, kBindingNameColumnWidth * current_s());
+        ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthFixed, kBindingNameColumnWidth * ui_scale());
         ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableSetupColumn("##reset", ImGuiTableColumnFlags_WidthFixed, kResetColumnWidth * current_s());
+        ImGui::TableSetupColumn("##reset", ImGuiTableColumnFlags_WidthFixed, kResetColumnWidth * ui_scale());
         std::string category;
         for (int i = 0; std::cmp_less(i, all.size()); ++i) {
             const actions::ActStep& act_step = core::at(all, i);
@@ -960,7 +960,7 @@ void bunches()
 float toggles_width()
 {
     const float glyph = ImGui::CalcTextSize("W").x;
-    return (kToggleCount * (glyph + (kToggleGap * current_s()))) + (kToggleGap * current_s());
+    return (kToggleCount * (glyph + (kToggleGap * ui_scale()))) + (kToggleGap * ui_scale());
 }
 
 void row_toggles(const nodes::Elem& node, float x)
@@ -979,16 +979,16 @@ void row_toggles(const nodes::Elem& node, float x)
         {.on = "L", .off = "L", .state = locked, .tip = "Locked against changes"},
         {.on = "S", .off = "S", .state = selectable, .tip = "Selectable in the view"},
     }};
-    const float step = ImGui::CalcTextSize("W").x + (6.0F * current_s());
+    const float step = ImGui::CalcTextSize("W").x + (6.0F * ui_scale());
     for (int tab = 0; tab < 3; ++tab) {
-        ImGui::SameLine(x + (kToggleGap * current_s()) + (step * static_cast<float>(tab)));
+        ImGui::SameLine(x + (kToggleGap * ui_scale()) + (step * static_cast<float>(tab)));
         const FlipOver& toggle = core::at(toggles, tab);
         // (lit when on: the lock orange; the eye and selectable light; off: dim)
         ImGui::PushID(tab);
         ImGui::PushStyleColor(ImGuiCol_Text,
                               toggle.state ? (tab == 1 ? kLockOnColour : kToggleOnColour) : kToggleOffColour);
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0F, 0.0F, 0.0F, 0.0F));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kToggleFramePadding * current_s(), 0.0F));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kToggleFramePadding * ui_scale(), 0.0F));
         const bool clicked = ImGui::SmallButton(toggle.state ? toggle.on : toggle.off);
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
@@ -1137,10 +1137,10 @@ void inspector_section(const ui::ShapeMesh& model)
         const std::string text = fields::get_format(row.value, fields::get_name_of);
         bool all = true;
         bool mixed = false;
-        for (size_t count = 1; count < rows.size() && all; ++count) {
-            auto it = std::find_if(core::at(rows, count).begin(), core::at(rows, count).end(),
-                                   [&](const fields::Row& current_row) { return current_row.key == row.key; });
-            all = it != core::at(rows, count).end() && it->editable && it->value.kind == row.value.kind;
+        for (size_t node_index = 1; node_index < rows.size() && all; ++node_index) {
+            auto it = std::find_if(core::at(rows, node_index).begin(), core::at(rows, node_index).end(),
+                                   [&](const fields::Row& candidate_row) { return candidate_row.key == row.key; });
+            all = it != core::at(rows, node_index).end() && it->editable && it->value.kind == row.value.kind;
             mixed = mixed || (all && !fields::same_value(it->value, row.value));
         }
         if (all) {
@@ -1155,30 +1155,30 @@ void inspector_section(const ui::ShapeMesh& model)
     if (!ImGui::BeginTable("##shared", 2, ImGuiTableFlags_SizingFixedFit)) {
         return;
     }
-    ImGui::TableSetupColumn("##k", ImGuiTableColumnFlags_WidthFixed, kFieldColumnWidth * current_s());
+    ImGui::TableSetupColumn("##k", ImGuiTableColumnFlags_WidthFixed, kFieldColumnWidth * ui_scale());
     ImGui::TableSetupColumn("##v", ImGuiTableColumnFlags_WidthStretch);
     if (shared_view().shared_.size() != shared.size()) {
         shared_view().shared_.assign(shared.size(), SharedEdit{});
     }
     for (size_t i = 0; i < shared.size(); ++i) {
-        const Shared& current_shared = core::at(shared, i);
+        const Shared& shared_field = core::at(shared, i);
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
-        gui::text_disabled("%s", fields::get_name_text(current_shared.key, fields::get_name_of).c_str());
+        gui::text_disabled("%s", fields::get_name_text(shared_field.key, fields::get_name_of).c_str());
         ImGui::TableNextColumn();
-        ImGui::PushID(static_cast<int>(current_shared.key));
+        ImGui::PushID(static_cast<int>(shared_field.key));
         SharedEdit& edit = core::at(shared_view().shared_, i);
         const ImGuiID id = ImGui::GetID("##value");
         // (the value shown afresh unless it's being typed in)
-        if (shared_view().shared_active_ != id || edit.key != current_shared.key) {
-            edit.key = current_shared.key;
-            text::format_to(edit.text, "%s", current_shared.mixed ? "" : current_shared.text.c_str());
+        if (shared_view().shared_active_ != id || edit.key != shared_field.key) {
+            edit.key = shared_field.key;
+            text::format_to(edit.text, "%s", shared_field.mixed ? "" : shared_field.text.c_str());
         }
         ImGui::SetNextItemWidth(-1.0F);
         if (stored_fonts().mono) {
             ImGui::PushFont(stored_fonts().mono);
         }
-        const bool enter = ImGui::InputTextWithHint("##value", current_shared.mixed ? "mixed" : "", edit.text.data(),
+        const bool enter = ImGui::InputTextWithHint("##value", shared_field.mixed ? "mixed" : "", edit.text.data(),
                                                     sizeof(edit.text), ImGuiInputTextFlags_EnterReturnsTrue);
         if (stored_fonts().mono) {
             ImGui::PopFont();
@@ -1189,13 +1189,13 @@ void inspector_section(const ui::ShapeMesh& model)
             shared_view().shared_active_ = 0;
         }
         if (ImGui::IsItemHovered()) {
-            gui::tooltip("%s - %s", fields::kind_name(current_shared.kind),
-                         current_shared.mixed ? "mixed values" : "same on all");
+            gui::tooltip("%s - %s", fields::kind_name(shared_field.kind),
+                         shared_field.mixed ? "mixed values" : "same on all");
         }
         if (enter) {
             FieldSet set;
-            set.key = current_shared.key;
-            set.kind = static_cast<int>(current_shared.kind);
+            set.key = shared_field.key;
+            set.kind = static_cast<int>(shared_field.kind);
             set.text = edit.text.data();
             const std::vector<uint32_t>& targets = nodes;
             get_queue(([targets, set] {

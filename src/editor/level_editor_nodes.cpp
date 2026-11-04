@@ -188,9 +188,9 @@ SpawnPointKind restart_type_bit(uint32_t type)
         {.checksum = name_hash("KingOfTheHill"), .bit = SpawnPointKind::kKing},
         {.checksum = name_hash("Generic"), .bit = SpawnPointKind::kGeneric},
     });
-    for (const auto& current_type : kTypes) {
-        if (current_type.checksum == type) {
-            return current_type.bit;
+    for (const auto& type_entry : kTypes) {
+        if (type_entry.checksum == type) {
+            return type_entry.bit;
         }
     }
     return SpawnPointKind::kNone;
@@ -493,8 +493,8 @@ void get_scan()
         if (!structure || !structure->fetch_list(kLinks, &links, 0) || !links) {
             continue;
         }
-        for (uint32_t length = 0; length < links->extent(); ++length) {
-            auto it = by_name().find(links->fetch_part(length));
+        for (uint32_t link_index = 0; link_index < links->extent(); ++link_index) {
+            auto it = by_name().find(links->fetch_part(link_index));
             if (it != by_name().end()) {
                 node.links.push_back(it->second);
             }

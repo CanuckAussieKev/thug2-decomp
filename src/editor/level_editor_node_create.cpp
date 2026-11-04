@@ -96,13 +96,13 @@ const std::array<const char*, kTeams> kTeamNames = {{"Red", "Blue", "Green", "Ye
 // The team a name-driven node's name or type ends in ("Red"...; -1: none).
 int team_of(const std::string& text)
 {
-    std::string current_text = text;
-    if (ends_with(current_text, "_Base")) {
-        current_text.resize(current_text.size() - kBaseSuffixLength);
+    std::string team_name = text;
+    if (ends_with(team_name, "_Base")) {
+        team_name.resize(team_name.size() - kBaseSuffixLength);
     }
     for (int i = 0; i < kTeams; ++i) {
         const std::string suffix = std::string("_") + core::at(kTeamNames, i);
-        if (ends_with(current_text, suffix.c_str())) {
+        if (ends_with(team_name, suffix.c_str())) {
             return i;
         }
     }
@@ -290,9 +290,9 @@ const char* name_stem(Kind kind)
 
 std::string fresh_name(const std::string& stem, const std::function<bool(const std::string&)>& taken)
 {
-    for (int count = 1; count < kMaxNameNumber; ++count) {
+    for (int suffix = 1; suffix < kMaxNameNumber; ++suffix) {
         std::array<char, kNumberTextSize> number{};
-        text::format_to(number, "%02d", count);
+        text::format_to(number, "%02d", suffix);
         std::string name = stem + number.data();
         if (!taken(name)) {
             return name;
@@ -473,13 +473,13 @@ int append_one(LinkChain* list, const Spec& spec)
 
 bool get_take(LinkChain* list, const std::string& name, Spec* spec, int* index)
 {
-    const int current_index = get_index_of(*list, name);
-    if (current_index < 0) {
+    const int list_index = get_index_of(*list, name);
+    if (list_index < 0) {
         return false;
     }
-    *spec = core::at((*list), current_index);
-    *index = current_index;
-    list->erase(list->begin() + current_index);
+    *spec = core::at((*list), list_index);
+    *index = list_index;
+    list->erase(list->begin() + list_index);
     return true;
 }
 
@@ -834,14 +834,14 @@ void kill_live(const Spec& spec)
 // A spec's place as its structure has it now.
 Spec with_place(const Spec& spec, script::Struct* node)
 {
-    Spec current_spec = spec;
+    Spec placed_spec = spec;
     maths::Vec4 pos;
     maths::Vec4 angles;
     level_nodes::fetch_place(node, &pos);
     level_nodes::read_turn_angles(node, &angles);
-    current_spec.pos = {.x = pos.x, .y = pos.y, .z = pos.z};
-    current_spec.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
-    return current_spec;
+    placed_spec.pos = {.x = pos.x, .y = pos.y, .z = pos.z};
+    placed_spec.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
+    return placed_spec;
 }
 
 void get_forget()

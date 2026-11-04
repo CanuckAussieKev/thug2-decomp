@@ -116,33 +116,33 @@ Resolved settle_up(const std::vector<Met>& met)
 {
     std::vector<const Met*> order;
     order.reserve(met.size());
-    for (const Met& current_met : met) {
-        order.push_back(&current_met);
+    for (const Met& met_entry : met) {
+        order.push_back(&met_entry);
     }
     std::ranges::stable_sort(order, [](const Met* a, const Met* b) { return a->t < b->t; });
     Resolved resolved;
     bool searching = true; // (a plain click's search: until the first occluding entry)
-    for (const Met* current_met : order) {
-        if (!current_met->locked && current_met->passed && (resolved.passed == 0U)) {
-            resolved.passed = current_met->id;
-            resolved.passed_t_ = current_met->t;
+    for (const Met* met_entry : order) {
+        if (!met_entry->locked && met_entry->passed && (resolved.passed == 0U)) {
+            resolved.passed = met_entry->id;
+            resolved.passed_t_ = met_entry->t;
         }
         if (!searching) {
             continue;
         }
-        if (!current_met->locked && !current_met->passed) {
+        if (!met_entry->locked && !met_entry->passed) {
             // (a pickable piece: taken - it is what occludes the rest, if it does; a see-through pickable one can't be
             // taken without occluding, as no pickable piece is see-through)
-            resolved.take = current_met->id;
-            resolved.take_t_ = current_met->t;
-            if (current_met->occludes && !resolved.blocked) {
+            resolved.take = met_entry->id;
+            resolved.take_t_ = met_entry->t;
+            if (met_entry->occludes && !resolved.blocked) {
                 resolved.blocked = true;
-                resolved.block_t_ = current_met->t;
+                resolved.block_t_ = met_entry->t;
             }
             searching = false;
-        } else if (current_met->occludes) {
+        } else if (met_entry->occludes) {
             resolved.blocked = true;
-            resolved.block_t_ = current_met->t;
+            resolved.block_t_ = met_entry->t;
             searching = false;
         }
     }
@@ -241,23 +241,23 @@ bool ray_triangle(Ray ray, V3 a, V3 b, V3 corner_c, float* hit_distance)
     // (Moller and Trumbore's test)
     const V3 e1 = b - a;
     const V3 e2 = corner_c - a;
-    const V3 point = perpendicular(dir, e2);
-    const float det = get_dot(e1, point);
+    const V3 dir_cross_e2 = perpendicular(dir, e2);
+    const float det = get_dot(e1, dir_cross_e2);
     if (std::fabs(det) < kParallelEpsilon) {
         return false;
     }
     const float inv = 1.0F / det;
     const V3 to_origin = origin - a;
-    const float u = get_dot(to_origin, point) * inv;
+    const float u = get_dot(to_origin, dir_cross_e2) * inv;
     if (u < 0.0F || u > 1.0F) {
         return false;
     }
-    const V3 other_point = perpendicular(to_origin, e1);
-    const float v = get_dot(dir, other_point) * inv;
+    const V3 origin_cross_e1 = perpendicular(to_origin, e1);
+    const float v = get_dot(dir, origin_cross_e1) * inv;
     if (v < 0.0F || u + v > 1.0F) {
         return false;
     }
-    const float hit = get_dot(e2, other_point) * inv;
+    const float hit = get_dot(e2, origin_cross_e1) * inv;
     if (!(hit > 0.0F)) {
         return false;
     }

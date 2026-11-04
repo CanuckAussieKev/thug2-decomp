@@ -285,7 +285,7 @@ struct Step : ModuleStep {
         // (those not in the step: removed; those in it: made, or put where the step has them)
         for (const ViewCam& view_cam : now) {
             const bool keep = std::ranges::any_of(
-                cameras, [&](const ViewCam& other_cam) { return same_text(other_cam.name, view_cam.name); });
+                cameras, [&](const ViewCam& listed_cam) { return same_text(listed_cam.name, view_cam.name); });
             if (!keep) {
                 node_create::Spec removed;
                 int at = -1;

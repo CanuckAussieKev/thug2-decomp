@@ -76,14 +76,14 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
     }
     if (ImGui::BeginMenu("Gizmos")) {
         const uint32_t families = model.nodes.families;
-        for (int current_family = 0; current_family < nodes::kFamilies; ++current_family) {
-            auto family = static_cast<nodes::Family>(current_family);
+        for (int family_index = 0; family_index < nodes::kFamilies; ++family_index) {
+            auto family = static_cast<nodes::Family>(family_index);
             if (nodes::shape_of(family) == nodes::Shape::kNone) {
                 continue; // (scenery: its own geometry shows it)
             }
             const bool on = (families & nodes::get_bit(family)) != 0;
             std::array<char, kFamilyItemSize> item{};
-            text::format_to(item, "%s##fam%d", nodes::family_name(family), current_family);
+            text::format_to(item, "%s##fam%d", nodes::family_name(family), family_index);
             if (ImGui::MenuItem(item.data(), nullptr, on)) {
                 ui::Request request{.kind = ui::Request::Kind::kFamilies};
                 request.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);

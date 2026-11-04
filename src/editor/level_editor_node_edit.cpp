@@ -446,8 +446,8 @@ void get_forget(uint32_t name)
 void reset_all()
 {
     const std::vector<Touched> touched = stored_touched();
-    for (const Touched& current_touched : touched) {
-        assign_value(current_touched.name, current_touched.origin);
+    for (const Touched& touched_node : touched) {
+        assign_value(touched_node.name, touched_node.origin);
     }
 }
 

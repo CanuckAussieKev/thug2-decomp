@@ -274,10 +274,10 @@ float box_segment_distance(const Aabb& box, V3 a, V3 b, V3* nearest)
     auto at = [&](float fraction) { return a + (b - a) * fraction; };
     auto distance = [&](float fraction) {
         const V3 point = at(fraction);
-        const V3 other_point = {.x = std::clamp(point.x, box.min.x, box.max.x),
-                                .y = std::clamp(point.y, box.min.y, box.max.y),
-                                .z = std::clamp(point.z, box.min.z, box.max.z)};
-        const V3 delta = point - other_point;
+        const V3 in_box = {.x = std::clamp(point.x, box.min.x, box.max.x),
+                           .y = std::clamp(point.y, box.min.y, box.max.y),
+                           .z = std::clamp(point.z, box.min.z, box.max.z)};
+        const V3 delta = point - in_box;
         return std::sqrt(get_dot(delta, delta));
     };
     // (the distance from a convex box along a line is convex: a ternary search finds its least)
@@ -1687,7 +1687,7 @@ void add_edges(const Painter& painter)
     const std::vector<Run>& runs = edge_runs();
     const auto [x, y] = edit::get_cursor();
     level_editor_arrange_state().edge_hover_ = run_at(
-        runs, [&](V3 other_point, float* px, float* py) { return painter.get_pixel(other_point, px, py); },
+        runs, [&](V3 world_point, float* px, float* py) { return painter.get_pixel(world_point, px, py); },
         {.x = x, .y = y}, kEdgePickReach * static_cast<float>(core::at(painter.viewport, 3)) / kReferenceViewHeight);
     for (size_t run_index = 0; run_index < runs.size(); ++run_index) {
         const bool lit = ints::as_signed(run_index) == level_editor_arrange_state().edge_hover_;

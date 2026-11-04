@@ -658,9 +658,9 @@ void family_chips(const ShapeMesh& model)
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(kChipSpacing * level_editor_ui_state().scale_, kChipSpacing * level_editor_ui_state().scale_));
     const auto& counts = nodes::get_counts();
     const float right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x;
-    for (int current_family = 0; current_family < nodes::kFamilies; ++current_family) {
-        auto family = static_cast<nodes::Family>(current_family);
-        if (core::at(counts, current_family) == 0) {
+    for (int family_index = 0; family_index < nodes::kFamilies; ++family_index) {
+        auto family = static_cast<nodes::Family>(family_index);
+        if (core::at(counts, family_index) == 0) {
             continue;
         }
         const bool on = (model.nodes.families & nodes::get_bit(family)) != 0;
@@ -679,7 +679,7 @@ void family_chips(const ShapeMesh& model)
         }
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered()) {
-            gui::tooltip("%d %s - click to %s", core::at(counts, current_family), name, on ? "hide" : "show");
+            gui::tooltip("%d %s - click to %s", core::at(counts, family_index), name, on ? "hide" : "show");
         }
     }
     ImGui::PopStyleVar(2);
@@ -729,9 +729,9 @@ void get_outliner(const ShapeMesh& model)
     const bool follow = selected != ui_cache().last_selected_ && selected >= 0; // (picked in the view: shown here)
     ui_cache().last_selected_ = selected;
     static std::vector<int> shown;
-    for (int current_family = 0; current_family < nodes::kFamilies; ++current_family) {
-        auto family = static_cast<nodes::Family>(current_family);
-        const std::vector<int>& members = core::at(ui_cache().cache_.by_family_, current_family);
+    for (int family_index = 0; family_index < nodes::kFamilies; ++family_index) {
+        auto family = static_cast<nodes::Family>(family_index);
+        const std::vector<int>& members = core::at(ui_cache().cache_.by_family_, family_index);
         if (members.empty() || ((model.nodes.families & nodes::get_bit(family)) == 0U)) {
             continue;
         }
@@ -753,7 +753,7 @@ void get_outliner(const ShapeMesh& model)
             ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
         }
         std::array<char, kFamilyHeaderSize> header{};
-        text::format_to(header, "%s###family%d", nodes::family_name(family), current_family);
+        text::format_to(header, "%s###family%d", nodes::family_name(family), family_index);
         const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
         ImGui::SameLine();
         ImGui::PushFont(level_editor_ui_state().mono_);
@@ -1903,24 +1903,24 @@ bool route_event(const SDL_Event* event, bool editor_capture)
     };
     switch (event->type) {
     case SDL_MOUSEMOTION: {
-        const ui_layout::Route current_route =
+        const ui_layout::Route mouse_route =
             route(static_cast<float>(event->motion.x), static_cast<float>(event->motion.y));
-        if (current_route.mouse_to_ui_ || (level_editor_ui_state().ui_buttons_ != 0U)) {
+        if (mouse_route.mouse_to_ui_ || (level_editor_ui_state().ui_buttons_ != 0U)) {
             ui_backend::process_event(event);
         }
         return true; // (the editor keeps the position and the look's movement; mouse_to_editor says if it may pick)
     }
     case SDL_MOUSEBUTTONDOWN: {
         const uint32_t bit = 1U << (event->button.button & 31);
-        const ui_layout::Route current_route =
+        const ui_layout::Route mouse_route =
             route(static_cast<float>(event->button.x), static_cast<float>(event->button.y));
-        if (!current_route.mouse_to_editor_) {
+        if (!mouse_route.mouse_to_editor_) {
             level_editor_ui_state().ui_buttons_ |= bit;
             ui_backend::process_event(event);
             return false;
         }
         level_editor_ui_state().editor_buttons_ |= bit;
-        if (current_route.mouse_to_ui_) {
+        if (mouse_route.mouse_to_ui_) {
             ui_backend::process_event(event); // (ImGui loses its focus and hover; the editor has the click)
         }
         return true;
@@ -1937,9 +1937,8 @@ bool route_event(const SDL_Event* event, bool editor_capture)
         return true;
     }
     case SDL_MOUSEWHEEL: {
-        const ui_layout::Route current_route =
-            route(level_editor_ui_state().mouse_x_, level_editor_ui_state().mouse_y_);
-        if (!current_route.mouse_to_editor_) {
+        const ui_layout::Route mouse_route = route(level_editor_ui_state().mouse_x_, level_editor_ui_state().mouse_y_);
+        if (!mouse_route.mouse_to_editor_) {
             ui_backend::process_event(event);
             return false;
         }
