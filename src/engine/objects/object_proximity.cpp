@@ -11,13 +11,11 @@
 #include "engine/memory/mem.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/skate_module.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "game/rider/vehicle_sound.h"
-#include "game/rider/rider.h"
 
 namespace objects {
 namespace {
@@ -101,7 +99,7 @@ ObjectProximityComponent::~ObjectProximityComponent() = default;
 // 0x004EC3C0
 double ObjectProximityComponent::local_skater_distance_squared(uint32_t* skater_id)
 {
-    auto* skater = modules::Skate::sole()->get_home_rider();
+    GameEntity* skater = game_hooks().home_rider();
     if (!skater || skater == entity()) {
         return far_away();
     }
@@ -113,10 +111,9 @@ double ObjectProximityComponent::local_skater_distance_squared(uint32_t* skater_
 float ObjectProximityComponent::nearest_skater_distance_squared(uint32_t* skater_id)
 {
     float nearest = far_away();
-    modules::Skate* skate = modules::Skate::sole();
-    const int count = skate->count_riders();
+    const int count = game_hooks().rider_count();
     for (int i = 0; i < count; ++i) {
-        const GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
+        const GameEntity* skater = game_hooks().rider_at(i);
         if (!skater || skater == entity()) {
             continue;
         }

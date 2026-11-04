@@ -16,7 +16,7 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/assets/resource_registry.h"
-#include "game/skate/skate_module.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -289,9 +289,9 @@ void create_suspend_task()
 // 0x00434420
 void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
 {
-    // The camera the distances are measured from: the skate module's (a flag that turns the checks off, then the
-    // position).
-    const modules::Skate* camera = modules::Skate::sole();
+    // The camera the distances are measured from: the skate module's viewer position, none when it has no camera (the
+    // original reads its flag for each component; nothing in the loop changes it).
+    const maths::Vec4* viewer = game_hooks().suspend_viewer();
     auto* component = core::down_cast<DormancyModule>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
         component->set_distance_squared(0.0F);
@@ -301,12 +301,12 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
             --component->frames_before_check();
             continue;
         }
-        if (!camera->no_camera() && !component->never_suspend()) {
+        if (viewer && !component->never_suspend()) {
             if (component->frames_before_lod() != 0) {
                 --component->frames_before_lod();
             } else {
                 const maths::Vec4& pos = component->entity()->at_point();
-                const maths::Vec4& at = camera->viewer_pos();
+                const maths::Vec4& at = *viewer;
                 const double dx = static_cast<double>(pos.x) - at.x;
                 const double dy = static_cast<double>(pos.y) - at.y;
                 const double dz = static_cast<double>(pos.z) - at.z;

@@ -488,6 +488,7 @@ add_executable(thug2 WIN32
     src/engine/objects/movie_cfuncs.cpp
     src/engine/objects/anim_movies.cpp
     src/game/world/trick_objects.cpp
+    src/game/world/object_hooks.cpp
     src/engine/objects/rail_manager.cpp
     src/game/skate/profile_manager.cpp
     src/game/skate/highscores.cpp
@@ -807,6 +808,7 @@ add_executable(thug2 WIN32
     src/engine/objects/velocity_component.cpp
     src/engine/objects/vibration_component.cpp
     src/engine/objects/wait_and_die.cpp
+    src/engine/objects/game_hooks.cpp
     src/game/world/vehicle_sound.cpp
     src/game/world/vehicle_component.cpp
     src/game/world/vehicle_physics.cpp

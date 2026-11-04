@@ -8,13 +8,12 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "game/park_editing/park_editor.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/skate_module_calls.h"
 #include "engine/script/cfuncs_scene.h"
 #include "engine/gfx/engine.h"
 #include "base/core/down_cast.h"
@@ -25,8 +24,6 @@
 namespace commands {
 
 namespace {
-
-using namespace skate_calls;
 
 constexpr uint32_t kUseGameCamera = 0x0C567FA2;        // (name unknown) PlaySkaterCamAnim: the game's camera taken over
 constexpr uint32_t kSkaterId = 0x5B24FAAA;             // SkaterId
@@ -49,8 +46,8 @@ constexpr uint32_t kRestoreSkaterCamera = 0x15674315;  // Restore_skater_camera
 constexpr uint32_t kToggle = 0xDA155274;               // toggle
 
 // The skate module's movie managers: +0x368 skater camera animations and cutscenes, +0x36C object animations.
-objects::VideoHub* camera_movies() { return modules::Skate::sole()->movies().get(); }
-objects::VideoHub* object_movies() { return modules::Skate::sole()->object_movies().get(); }
+objects::VideoHub* camera_movies() { return objects::game_hooks().camera_movies(); }
+objects::VideoHub* object_movies() { return objects::game_hooks().object_movies(); }
 
 // The skater a camera command names: SkaterId=<object id>, else skater=<n> (0) of the skate module.
 objects::Entity* named_skater(script::Struct* params)
@@ -61,7 +58,7 @@ objects::Entity* named_skater(script::Struct* params)
     }
     int index = 0;
     params->fetch_int_value(kSkater, &index, 0);
-    return get_rider_at(index);
+    return objects::game_hooks().rider_at(index);
 }
 // (the composite object's +0xBC: a local skater)
 bool is_host_local(objects::Entity* object) { return core::down_cast<objects::GameEntity>(object)->is_local_skater() != 0; }
@@ -198,7 +195,7 @@ bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Script* /*script
         skater = objects::find_object(id);
     } else {
         int index = 0;
-        skater = params->fetch_int_value(kSkater, &index, 0) ? get_rider_at(index) : get_home_rider();
+        skater = params->fetch_int_value(kSkater, &index, 0) ? objects::game_hooks().rider_at(index) : objects::game_hooks().home_rider();
     }
     if (skater && is_host_local(skater)) {
         if (params->has_bare_flag(kCurrent)) {
@@ -213,8 +210,8 @@ bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Script* /*script
         }
     }
     if (camera_movies()->total_of() == 0) {
-        if (park_editing::ParkBuilderMode::sole()->editor_state() == kEdit) {
-            park_editing::ParkBuilderMode::switch_camera();
+        if (objects::game_hooks().park_editor_state() == kEdit) {
+            objects::game_hooks().park_editor_camera();
         } else {
             script::launch_script(kRestoreSkaterCamera, nullptr, nullptr, false, nullptr);
         }

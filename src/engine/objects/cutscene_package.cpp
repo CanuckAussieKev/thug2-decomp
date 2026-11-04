@@ -18,8 +18,7 @@
 #include "engine/gfx/model_appearance.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/scene_lights.h"
-#include "game/rider/rider.h"
-#include "game/skate/skate_module.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "base/core/checksums.h"
@@ -269,7 +268,7 @@ void CinematicEntry::stop()
     get_run(kKillCutsceneCameraHud);
     get_run(kFlushDeadObjects);
     memory::Hub::get_pull()->delete_cutscene_heaps();
-    auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
+    auto* skater = game_hooks().home_rider();
     if (skater) {
         const script::StructPtr flag = script::make_struct();
         flag->put_name_key(checksums::Name{kUnnamed}, kFlagParam);

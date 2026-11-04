@@ -15,8 +15,7 @@
 #include "engine/objects/node_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/profile_manager.h"
-#include "game/skate/skate_module.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/memory/arena_alloc.h"
@@ -186,7 +185,7 @@ void VideoHub::keep_camera(Movie* movie)
     if (stored_simulation_halted()) { // (the game paused)
         return;
     }
-    if (modules::Skate::sole()->level() == kLoadMainMenu) {
+    if (game_hooks().current_level() == kLoadMainMenu) {
         return;
     }
     assign_camera_fields(&viewer_, movie->viewer());
@@ -387,10 +386,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     keep_camera_ = false;
     // An object camera animation / skater camera's context: the skater's profile (0x00564FC0): its appearance and
     // its details (+0x5C).
-    auto skater_context = [](bool skater) {
-        RiderIdentity* profile = modules::Skate::fetch_account(0);
-        return CutsceneSkater{.appearance = profile->appearance(), .details = profile->details_params(), .skater = skater};
-    };
+    auto skater_context = [](bool skater) { return game_hooks().cutscene_skater(skater); };
     auto new_object_camera = [](const CutsceneSkater* context) -> gsl::owner<Movie*> { return new CinematicEntry(context); };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
         const assets::Resource* asset = assets::asset_manager()->obtain_loaded_item(name, 0);

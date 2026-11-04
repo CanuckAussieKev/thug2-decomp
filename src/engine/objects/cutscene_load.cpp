@@ -9,8 +9,7 @@
 #include "engine/gfx/model_appearance.h"
 #include "engine/gfx/rig.h"
 #include "base/maths/vec4.h"
-#include "game/rider/rider.h"
-#include "game/skate/skate_module.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
@@ -141,7 +140,7 @@ void CinematicTable::refresh_objects()
             script::launch_script(kRefreshScript, params, object, false, nullptr);
         }
     }
-    auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
+    auto* skater = game_hooks().home_rider();
     if (skater) {
         script::launch_script(kRefreshScript, params, skater, false, nullptr);
     }

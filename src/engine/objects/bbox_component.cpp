@@ -15,7 +15,7 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/skate_module.h"
+#include "engine/objects/game_hooks.h"
 #include "base/maths/fwd.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
@@ -210,9 +210,9 @@ bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
 // 0x0041AE20
 bool CbBoxComponent::any_skater_near(Rect2* rect, float reach_squared, const maths::Vec4* point)
 {
-    const int count = modules::Skate::sole()->count_riders();
+    const int count = game_hooks().rider_count();
     for (int i = 0; i < count; ++i) {
-        GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
+        GameEntity* skater = game_hooks().rider_at(i);
         if (skater == entity()) {
             continue;
         }

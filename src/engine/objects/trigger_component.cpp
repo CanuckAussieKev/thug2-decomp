@@ -12,7 +12,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/skate_module.h"
+#include "engine/objects/game_hooks.h"
 #include "platform/run_log.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -198,7 +198,7 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
     if (script == 0U) {
         return false;
     }
-    if (modules::Skate::should_be_absent(node) != 0) {
+    if (game_hooks().node_left_out(node) != 0) {
         return false;
     }
     uint32_t& recorded = events_;
