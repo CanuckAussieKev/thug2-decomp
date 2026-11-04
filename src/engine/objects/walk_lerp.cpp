@@ -3,6 +3,8 @@
 
 #include "engine/objects/walk_lerp.h"
 
+#include "base/maths/vec4.h"
+
 // 0x0043D990
 maths::Vec4* walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float blend)
 {
