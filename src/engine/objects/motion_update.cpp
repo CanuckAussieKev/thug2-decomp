@@ -76,14 +76,14 @@ void get_back(const GameEntity* object, std::span<float, 4> back)
 // The node a path follower is headed for (kMotionFollowingPath and a follower), or 0; and its last node.
 uint32_t path_node(const KinematicsModule* motion)
 {
-    if (!(motion->motion_flags() & kMotionFollowingPath) || !motion->path_follower()) {
+    if (((motion->motion_flags() & kMotionFollowingPath) == 0U) || !motion->path_follower()) {
         return 0;
     }
     return motion->path_follower()->list_link();
 }
 uint32_t path_last_node(const KinematicsModule* motion)
 {
-    if (!(motion->motion_flags() & kMotionFollowingPath) || !motion->path_follower()) {
+    if (((motion->motion_flags() & kMotionFollowingPath) == 0U) || !motion->path_follower()) {
         return 0;
     }
     return motion->path_follower()->last_node();
@@ -97,27 +97,27 @@ uint32_t path_last_node(const KinematicsModule* motion)
 void KinematicsModule::tick_frame()
 {
     step_seconds_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    if (motion_flags_) {
-        if (motion_flags_ & kMotionHovering) {
+    if (motion_flags_ != 0U) {
+        if ((motion_flags_ & kMotionHovering) != 0U) {
             entity()->at_point().y = hover_base_;
             update_hover();
         }
-        if (motion_flags_ & kMotionRotateAxes) {
+        if ((motion_flags_ & kMotionRotateAxes) != 0U) {
             update_rotations();
         }
-        if (motion_flags_ & kMotionTurning) {
+        if ((motion_flags_ & kMotionTurning) != 0U) {
             update_turn();
         }
-        if (motion_flags_ & kMotionMoving) {
+        if ((motion_flags_ & kMotionMoving) != 0U) {
             if (update_move_to()) {
                 motion_flags_ &= ~kMotionMoving;
             }
-        } else if (motion_flags_ & kMotionFollowingPath) {
+        } else if ((motion_flags_ & kMotionFollowingPath) != 0U) {
             update_path();
-        } else if (motion_flags_ & kMotionFollowingLeader) {
+        } else if ((motion_flags_ & kMotionFollowingLeader) != 0U) {
             update_follow_leader();
         }
-        if (motion_flags_ & kMotionJumping) {
+        if ((motion_flags_ & kMotionJumping) != 0U) {
             update_jump();
             entity()->at_point() = jump_pos_;
         }
@@ -165,7 +165,7 @@ bool KinematicsModule::update_move_to()
     maths::Vec4& pos = entity()->at_point();
     if (done >= move_distance_) {
         pos = move_target_;
-        if (move_arrive_node_) {
+        if (move_arrive_node_ != 0U) {
             arrive_at_node(move_arrive_node_);
         }
         entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -199,18 +199,19 @@ void KinematicsModule::update_path()
     update_path_speed();
     if (!(path_speed_ == 0.0F)) {
         maths::Mat4& matrix = entity()->basis_frame();
-        const maths::Vec4* along = (motion_flags2_ & kMotion2NoPathHeading) ? nullptr : &core::at(matrix.row, 2);
+        const maths::Vec4* along =
+            ((motion_flags2_ & kMotion2NoPathHeading) != 0U) ? nullptr : &core::at(matrix.row, 2);
         if (path_follower_->tick_frame(static_cast<float>(static_cast<double>(step_seconds_) * path_speed_), along)) {
             motion_flags_ &= ~kMotionFollowingPath;
             path_speed_ = 0.0F;
         }
-        if (!(motion_flags2_ & kMotion2NoPathHeading)) {
+        if ((motion_flags2_ & kMotion2NoPathHeading) == 0U) {
             path_follower_->get_heading(&core::at(matrix.row, 2));
-            if ((motion_flags2_ & kMotion2LevelHeading) && !(core::at(matrix.row, 2).y == 0.0F)) {
+            if (((motion_flags2_ & kMotion2LevelHeading) != 0U) && !(core::at(matrix.row, 2).y == 0.0F)) {
                 core::at(matrix.row, 2).y = 0.0F;
                 core::at(matrix.row, 2).make_unit();
             }
-            if (!(motion_flags2_ & kMotion2StickToGround)) {
+            if ((motion_flags2_ & kMotion2StickToGround) == 0U) {
                 core::at(matrix.row, 0) = maths::cross_vec(core::at(matrix.row, 1), core::at(matrix.row, 2));
                 core::at(matrix.row, 0).make_unit();
                 core::at(matrix.row, 2) = maths::cross_vec(core::at(matrix.row, 0), core::at(matrix.row, 1));
@@ -219,10 +220,10 @@ void KinematicsModule::update_path()
         }
         const float height = entity()->at_point().y;
         entity()->at_point() = path_follower_->at_point();
-        if (motion_flags2_ & kMotion2StickToGround) {
+        if ((motion_flags2_ & kMotion2StickToGround) != 0U) {
             entity()->at_point().y = height;
             stick_to_ground();
-        } else if (motion_flags2_ & kMotion2ConstantHeight) {
+        } else if ((motion_flags2_ & kMotion2ConstantHeight) != 0U) {
             entity()->at_point().y = height;
         }
     }
@@ -277,11 +278,11 @@ void KinematicsModule::follow_path_linked(script::Struct* params, script::Script
 {
     const uint32_t node = params->has_bare_flag(kOriginalNode) ? own_node_name_ : list_link_;
     const uint32_t links = level_nodes::get_link_count(node);
-    if (!links) {
+    if (links == 0U) {
         return;
     }
     uint32_t next = 0;
-    if (static_cast<int>(links) > 1 && (motion_flags2_ & kMotion2RandomLinks)) {
+    if (static_cast<int>(links) > 1 && ((motion_flags2_ & kMotion2RandomLinks) != 0U)) {
         next = level_nodes::fetch_link(node, maths::rnd(static_cast<int>(links)));
     } else {
         next = level_nodes::fetch_link(node, 0);

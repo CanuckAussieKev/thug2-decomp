@@ -79,7 +79,7 @@ void update_timeline(AnimTimeline* t) { t->tick_frame(); }
 void start_asset(void* anim) { static_cast<void>(static_cast<gfx::JointClipFrames*>(anim)->arm_events()); }
 void step_asset(void* anim, float from, float to, gfx::ViewCam* camera, bool first)
 {
-    static_cast<gfx::JointClipFrames*>(anim)->fire_events(from, to, camera, first);
+    static_cast<gfx::JointClipFrames*>(anim)->fire_events(from, to, camera, static_cast<int>(first));
 }
 
 float seconds_per_frame() { return kAnimMoviesSecondsPerFrame; } // 1/60
@@ -310,7 +310,7 @@ void CameraAnimMovie::place_camera()
     const std::span<float, 16> m(mat->data(), 16);
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     for (const auto& handler : modules::front_end_instance()->pad_listeners()) {
-        if (handler->control_data()->makes() & kMakesPoseFlag) {
+        if ((handler->control_data()->makes() & kMakesPoseFlag) != 0U) {
             check_done(true);
         }
     }
@@ -456,7 +456,7 @@ void ObjectAnimMovie::tick_frame()
         std::memcpy(&object->basis_frame(), matrix.data(), sizeof(matrix));    // its matrix
         std::memcpy(&object->display_matrix(), matrix.data(), sizeof(matrix)); // and its display matrix
         std::memcpy(&object->at_point(), gfx::quad_at(positions, static_cast<size_t>(i)).data(), kQuadBytes); // its position
-        if (script::fetch_int_value(kMoviecamDebug)) {
+        if (script::fetch_int_value(kMoviecamDebug) != 0) {
             debug::printf("Object %s @ time %f:  ", script::find_checksum_name_or_unknown(name),
                           static_cast<double>(timeline_.ongoing()));
             object->at_point().echo_out(); // (printed)

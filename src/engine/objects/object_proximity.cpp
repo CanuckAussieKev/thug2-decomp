@@ -157,7 +157,7 @@ void ObjectProximityComponent::tick_frame()
             data->put_name_key(checksums::Name{kColObjId}, id);
             data->put_int(checksums::Name{kIntId}, static_cast<int>(id));
             event(kObjectInRadius, data);
-            if (!(entity()->object_flags() & kObjectFlagDead)) {
+            if ((entity()->object_flags() & kObjectFlagDead) == 0U) {
                 event(kAnyObjectInRadius, data);
             }
             delete_data(data);
@@ -177,7 +177,7 @@ void ObjectProximityComponent::tick_frame()
         if (distance == 0.0F) {
             distance = nearest_skater_distance_squared(&id);
         }
-        if (distance >= outer_radius_squared_ && !(entity()->object_flags() & kObjectFlagDead)) {
+        if (distance >= outer_radius_squared_ && ((entity()->object_flags() & kObjectFlagDead) == 0U)) {
             gsl::owner<script::Struct*> data = new_data();
             data->put_name_key(checksums::Name{kRadiusEventObject}, id);
             data->put_int(checksums::Name{kOutIntId}, static_cast<int>(id));
@@ -192,7 +192,7 @@ void ObjectProximityComponent::tick_frame()
         if (distance <= inner_avoid_radius_squared_) {
             gsl::owner<script::Struct*> data = new_data();
             data->put_name_key(checksums::Name{kColObjId}, id);
-            if (!(entity()->object_flags() & kObjectFlagDead)) {
+            if ((entity()->object_flags() & kObjectFlagDead) == 0U) {
                 event(kObjectInAvoidRadius, data);
             }
             delete_data(data);
@@ -202,7 +202,7 @@ void ObjectProximityComponent::tick_frame()
         if (distance == 0.0F) {
             distance = static_cast<float>(local_skater_distance_squared(&id));
         }
-        if (distance >= outer_avoid_radius_squared_ && !(entity()->object_flags() & kObjectFlagDead)) {
+        if (distance >= outer_avoid_radius_squared_ && ((entity()->object_flags() & kObjectFlagDead) == 0U)) {
             event(kObjectOutofAvoidRadius, nullptr);
         }
     }

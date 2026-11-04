@@ -110,13 +110,14 @@ void FreeLookModule::turn_to(LookTurn look_turn)
 // 0x004E4060
 void FreeLookModule::tick_frame()
 {
-    PadSnapshot* pad = script::fetch_int_value(kSecondPad) ? &input_ptr_->pad_secondary() : &input_ptr_->pad_primary();
-    if (!script::fetch_int_value(kNoButton) && pad->button_choose().fired()) {
+    PadSnapshot* pad =
+        (script::fetch_int_value(kSecondPad) != 0) ? &input_ptr_->pad_secondary() : &input_ptr_->pad_primary();
+    if ((script::fetch_int_value(kNoButton) == 0) && (pad->button_choose().fired() != 0U)) {
         pad->button_choose().reset_activation();
         script::launch_script(entity()->ident() == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
                               nullptr);
     }
-    if (pad->stick_click_right().fired()) {
+    if (pad->stick_click_right().fired() != 0U) {
         locked_ = !locked_;
         pad->stick_click_right().reset_activation();
     }

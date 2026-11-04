@@ -159,7 +159,7 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
     }
     int shadow = 0;
     params->fetch_int_value(kShadowVolume, &shadow, 0);
-    mesh_instance_->activate_shadow_volume(shadow != 0);
+    mesh_instance_->activate_shadow_volume(static_cast<uint8_t>(shadow != 0));
     set_up_mesh(params);
 }
 
@@ -179,7 +179,7 @@ void MeshInstanceModule::tick_frame()
         return;
     }
     const uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits() : 0;
-    if (!mesh_instance_ || !(model_flags & 2) || (model_flags & 4)) {
+    if (!mesh_instance_ || ((model_flags & 2) == 0) || ((model_flags & 4) != 0)) {
         return; // (not active, or hidden)
     }
     get_draw_matrix(&matrix);
@@ -206,7 +206,7 @@ void MeshInstanceModule::change_mesh(render::RenderModel* model)
     // (the model it had isn't deleted: the caller has it - the model swap hands it to the other component)
     memory::let_go(mesh_instance_);
     mesh_instance_.reset(model);
-    if (entity()->composite_flags() & kCompositeFlagFinalized) {
+    if ((entity()->composite_flags() & kCompositeFlagFinalized) != 0U) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get())) {
             update_lights_brightness(model_lights(mesh_instance_.get()));
@@ -228,8 +228,8 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
     }
     gfx::ModelAssembler builder(via_resource_store, tex_dict_offset); // (destroyed at the end)
     builder.get_build(static_cast<gfx::ModelLook*>(profile), model, skeleton,
-                      build_script ? build_script : kDefaultBuildScript);
-    if (entity()->composite_flags() & kCompositeFlagFinalized) {
+                      (build_script != 0U) ? build_script : kDefaultBuildScript);
+    if ((entity()->composite_flags() & kCompositeFlagFinalized) != 0U) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get())) {
             update_lights_brightness(model_lights(mesh_instance_.get()));
@@ -237,7 +237,7 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
     }
     maths::Vec4 sphere;
     enclosing_ball_ = *model->fetch_bound_sphere(&sphere);
-    if (script::fetch_int_value(kBoneVolumesOn)) {
+    if (script::fetch_int_value(kBoneVolumesOn) != 0) {
         init_bone_volumes();
     }
 }
@@ -343,7 +343,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             } else if (params->fetch_list(kGeoms, &geoms, 0)) {
                 for (uint32_t i = 0; i < geoms->extent(); ++i) {
                     mesh_label = geoms->fetch_part(i);
-                    if (!mesh_label) {
+                    if (mesh_label == 0U) {
                         continue;
                     }
                     render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
@@ -363,7 +363,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             }
         } else {
             const char* file = nullptr;
-            if (params->fetch_text(kModel, &file, false) || params->fetch_text(kModelName, &file, false)) {
+            if (params->fetch_text(kModel, &file, 0) || params->fetch_text(kModelName, &file, 0)) {
                 // A model file (unless it's the "none" name).
                 if (checksums::hash_from_text(file) != kNoModel) {
                     std::array<char, kPathBytes> path{};
@@ -388,7 +388,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             }
         }
     }
-    if (entity()->composite_flags() & kCompositeFlagFinalized) {
+    if ((entity()->composite_flags() & kCompositeFlagFinalized) != 0U) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get())) {
             update_lights_brightness(model_lights(mesh_instance_.get()));
@@ -396,7 +396,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
     }
     maths::Vec4 sphere;
     enclosing_ball_ = *mesh_instance_->fetch_bound_sphere(&sphere);
-    if (script::fetch_int_value(kBoneVolumesOn)) {
+    if (script::fetch_int_value(kBoneVolumesOn) != 0) {
         init_bone_volumes();
     }
 }

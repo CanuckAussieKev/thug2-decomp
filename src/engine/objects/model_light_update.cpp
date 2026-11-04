@@ -103,7 +103,7 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     } else {
         again.line().end = {.x = start.x, .y = start.y - kDepth, .z = start.z, .w = start.w};
     }
-    if (again.get_hit_shape(false, false)) {
+    if (again.get_hit_shape(false, false) != 0) {
         mesh_instance_->apply_brightness(&again, lerp, rate);
         brightness_ = static_cast<float>(again.get_hit_vertex_value());
     } else if (hit) {
@@ -115,18 +115,18 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
 // 0x004230B0
 void MeshLightingModule::tick_frame()
 {
-    if (!(light_flags_ & kModelLightSampled)) {
+    if ((light_flags_ & kModelLightSampled) == 0U) {
         get_sample(false, 1.0F);
         light_flags_ |= kModelLightSampled;
         return;
     }
-    if (gap_time_ && counter_++ < gap_time_) {
+    if ((gap_time_ != 0U) && counter_++ < gap_time_) {
         static_cast<render::ModelLights*>(model_nx::model_lights(mesh_instance_->mesh_instance().get()))
             ->move_brightness({.target = brightness_, .step = kLerpRate});
         return;
     }
     counter_ = 0;
-    if (light_flags_ & kModelLightOnce) {
+    if ((light_flags_ & kModelLightOnce) != 0U) {
         hold_off(true);
     } else {
         get_sample(true, 1.0F);

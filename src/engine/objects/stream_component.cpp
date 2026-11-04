@@ -76,7 +76,7 @@ AudioStreamModule::AudioStreamModule() { set_kind_tag(kType); }
 AudioStreamModule::~AudioStreamModule()
 {
     for (const uint32_t stream : streams_) {
-        if (stream) {
+        if (stream != 0U) {
             audio::halt_stream(stream);
         }
     }
@@ -118,7 +118,7 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
 {
     bool room = false;
     for (const uint32_t stream : streams_) {
-        room = room || !stream;
+        room = room || (stream == 0U);
     }
     if (!room) {
         return false;
@@ -211,7 +211,7 @@ bool AudioStreamModule::obj_remove_stream(script::Struct* params, script::Script
 bool AudioStreamModule::obj_stop_stream(script::Struct* /*params*/, script::Script* /*script*/)
 {
     for (uint32_t& stream : streams_) {
-        if (stream) {
+        if (stream != 0U) {
             audio::halt_stream(stream);
             stream = 0;
         }

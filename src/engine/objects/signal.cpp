@@ -98,7 +98,7 @@ int event_controller(Signal* event)
 // 0x00460150
 void Signal::teardown()
 {
-    if ((flag_bits_ & kFlagOwnsData) && payload_) {
+    if (((flag_bits_ & kFlagOwnsData) != 0U) && payload_) {
         free_struct(memory::owned_element(payload_)); // (kFlagOwnsData: the event's)
     }
 }
@@ -159,7 +159,7 @@ int SignalRouteTable::list_wait_table(SignalRouteTable* table)
             debug::printf("  Type     : %s\n", script::find_checksum_name_or_unknown(entry.type));
             debug::printf("  Script   : %s\n", script::find_checksum_name_or_unknown(entry.script));
             debug::printf("  Group    : %s\n", script::find_checksum_name_or_unknown(entry.group));
-            debug::printf("  Exception: %s\n", (entry.flags & TableRow::kFlagReplacesRunning) ? "yes" : "no");
+            debug::printf("  Exception: %s\n", ((entry.flags & TableRow::kFlagReplacesRunning) != 0) ? "yes" : "no");
             if (entry.params) {
                 debug::printf("  Params   :\n");
                 script::dump_to_log(entry.params, kDumpDepth);
@@ -174,7 +174,7 @@ void SignalRouteTable::enter_wait_board(Script* script) const
 {
     for (int i = 0; i < num_; ++i) {
         const TableRow& entry = core::at(entries(), i);
-        if (entry.type && entry.script && entry.script != kNullScript) {
+        if ((entry.type != 0U) && (entry.script != 0U) && entry.script != kNullScript) {
             tracker_add_listener(entry.type, script);
         }
     }
@@ -281,7 +281,7 @@ void SignalRouteTable::remove_group(Script* script, uint32_t group) const
     for (int i = 0; i < num_; ++i) {
         TableRow& entry = core::at(rows, i);
         if (entry.group == group || group == kAllGroups) {
-            if (entry.type) {
+            if (entry.type != 0U) {
                 tracker_remove_listener(entry.type, script);
             }
             entry.script = kNullScript;
@@ -295,8 +295,8 @@ void SignalRouteTable::remove_marked(Script* script) const
 {
     for (int i = 0; i < num_; ++i) {
         TableRow& entry = core::at(entries(), i);
-        if (entry.flags & TableRow::kFlagMarked) {
-            if (entry.type) {
+        if ((entry.flags & TableRow::kFlagMarked) != 0) {
+            if (entry.type != 0U) {
                 tracker_remove_listener(entry.type, script);
             }
             entry.script = kNullScript;
@@ -317,7 +317,7 @@ void SignalRouteTable::compact()
             ++removed;
         }
     }
-    if (!removed) {
+    if (removed == 0) {
         return;
     }
     const int live = num_ - removed;
@@ -386,8 +386,9 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         if (!handler->read_hash_value(kGroupName, &entry.group, 0)) {
             entry.group = kDefaultGroup;
         }
-        entry.flags = static_cast<uint8_t>((entry.flags & ~(TableRow::kFlagReplacesRunning | TableRow::kFlagMarked)) |
-                                           (handler->has_bare_flag(kExceptionFlag) & TableRow::kFlagReplacesRunning));
+        entry.flags = static_cast<uint8_t>(
+            (entry.flags & ~(TableRow::kFlagReplacesRunning | TableRow::kFlagMarked)) |
+            (static_cast<int>(handler->has_bare_flag(kExceptionFlag)) & TableRow::kFlagReplacesRunning));
         entry.type = type->value.word();
         entry.script = script->value.word();
         altered_ = true;
@@ -429,10 +430,10 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                 params = entry->params;
             }
 
-            if (entry->flags & TableRow::kFlagReplacesRunning) {
+            if ((entry->flags & TableRow::kFlagReplacesRunning) != 0) {
                 // An exception: first the script's OnExceptionRun script (once) as an interrupt, given an
                 // unnamed checksum 1 (the exception bit); then the handler replaces what the script runs.
-                if (script->get_on_exception_script()) {
+                if (script->get_on_exception_script() != 0U) {
                     gsl::owner<Struct*> exception_params = script::new_struct();
                     exception_params->add_component_of_type(0, script::QbValueKind::kName,
                                                             entry->flags & TableRow::kFlagReplacesRunning);
@@ -449,7 +450,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                     script->tick_frame();
                 }
             } else if (const Entity* object = script->entity().get_pull();
-                       object && (object->object_flags() & objects::kObjectFlagSpawnHandlers)) {
+                       object && ((object->object_flags() & objects::kObjectFlagSpawnHandlers) != 0U)) {
                 // A new spawned script on the object, run at once (a C function as handler returns no script:
                 // null is used [bug: crash]).
                 Script* spawned =

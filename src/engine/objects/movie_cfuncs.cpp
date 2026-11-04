@@ -119,7 +119,7 @@ bool cfunc_set_skater_cam_anim_skippable(script::Struct* params, script::Script*
         const uint32_t name = movie_key_from_params(params, 0);
         int skippable = 0;
         params->fetch_int_value(kSkippable, &skippable, 0);
-        camera_movies()->movie_call_468f_40(checksums::Name{name}, skippable != 0);
+        camera_movies()->movie_call_468f_40(checksums::Name{name}, static_cast<uint32_t>(skippable != 0));
     }
     return true;
 }
@@ -131,7 +131,7 @@ bool cfunc_set_skater_cam_anim_should_pause(script::Struct* params, script::Scri
         const uint32_t name = movie_key_from_params(params, 0);
         int pause = 0;
         params->fetch_int_value(kShouldPause, &pause, 0);
-        camera_movies()->movie_call_468f_50(checksums::Name{name}, pause != 0);
+        camera_movies()->movie_call_468f_50(checksums::Name{name}, static_cast<uint32_t>(pause != 0));
     }
     return true;
 }
@@ -141,7 +141,7 @@ bool cfunc_set_skater_cam_anim_should_pause(script::Struct* params, script::Scri
 bool cfunc_get_current_skater_cam_anim_name(script::Struct* /*params*/, script::Script* script)
 {
     const uint32_t name = camera_movies()->get_playing_name();
-    if (name) {
+    if (name != 0U) {
         script->args()->put_name_key(checksums::Name{kCurrentAnimName}, name);
         return true;
     }
@@ -280,7 +280,8 @@ bool cfunc_pause_cutscene(script::Struct* params, script::Script* /*script*/)
     if (params->has_bare_flag(kToggle)) {
         camera_movies()->playing_2c();
     } else {
-        camera_movies()->playing30(pause); // (the original's upper three bytes of the word are whatever was there)
+        camera_movies()->playing30(
+            static_cast<uint32_t>(pause)); // (the original's upper three bytes of the word are whatever was there)
     }
     return true;
 }
@@ -308,7 +309,7 @@ bool cfunc_set_object_anim_skippable(script::Struct* params, script::Script* /*s
     const uint32_t name = movie_key_from_params(params, 0);
     int skippable = 0;
     params->fetch_int_value(kSkippable, &skippable, 0);
-    object_movies()->movie_call_468f_40(checksums::Name{name}, skippable != 0);
+    object_movies()->movie_call_468f_40(checksums::Name{name}, static_cast<uint32_t>(skippable != 0));
     return true;
 }
 
@@ -317,7 +318,7 @@ bool cfunc_set_object_anim_should_pause(script::Struct* params, script::Script* 
     const uint32_t name = movie_key_from_params(params, 0);
     int pause = 0;
     params->fetch_int_value(kShouldPause, &pause, 0);
-    object_movies()->movie_call_468f_50(checksums::Name{name}, pause != 0);
+    object_movies()->movie_call_468f_50(checksums::Name{name}, static_cast<uint32_t>(pause != 0));
     return true;
 }
 

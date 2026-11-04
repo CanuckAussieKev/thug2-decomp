@@ -155,7 +155,8 @@ void PadRumbleModule::change_gadget(sio::InputPort* device)
 // 0x0043D6F0
 bool PadRumbleModule::vibrate(script::Struct* params, script::Script* /*script*/)
 {
-    if (!params->has_bare_flag(kOff) && (simulation_halted() || (entity()->composite_flags() & kCompositeFlagPaused))) {
+    if (!params->has_bare_flag(kOff) &&
+        (simulation_halted() || ((entity()->composite_flags() & kCompositeFlagPaused) != 0U))) {
         return true;
     }
     if (!active_) {

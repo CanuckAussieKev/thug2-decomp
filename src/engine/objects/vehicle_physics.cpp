@@ -269,7 +269,7 @@ void DrivableModule::apply_gravity()
         gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kGravity;
     }
     force_.y = static_cast<float>(force_.y - gravity);
-    if (debug_mode_) {
+    if (debug_mode_ != 0) {
         const maths::Vec4 down{
             .x = at_point_.x,
             .y = static_cast<float>((-static_cast<double>(kGravity) / inv_mass_ * 0.05F) + at_point_.y),
@@ -663,20 +663,20 @@ void DrivableModule::update_wheel_contacts()
         feeler.line().start = wheel.feeler_start_;
         feeler.line().end = wheel.feeler_end_;
         feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
-        if (feeler.get_hit_shape(false, false)) {
+        if (feeler.get_hit_shape(false, false) != 0) {
             if (wheel.state == DrivableModule::WheelState::kInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
+                if (cut_short_ || ((entity()->object_flags() & kObjectFlagDead) != 0U)) {
                     return; // (the feeler's destructor lets go of its object)
                 }
             } else if (feeler.hit().object != wheel.feeler.hit().object) {
                 // Onto another collision object: off the old, onto the new.
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
+                if (cut_short_ || ((entity()->object_flags() & kObjectFlagDead) != 0U)) {
                     return;
                 }
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
+                if (cut_short_ || ((entity()->object_flags() & kObjectFlagDead) != 0U)) {
                     return;
                 }
             }
@@ -691,7 +691,7 @@ void DrivableModule::update_wheel_contacts()
         } else {
             if (wheel.state != DrivableModule::WheelState::kInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
+                if (cut_short_ || ((entity()->object_flags() & kObjectFlagDead) != 0U)) {
                     return;
                 }
             }
@@ -701,9 +701,9 @@ void DrivableModule::update_wheel_contacts()
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
         if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff) {
             feeler.set_excluded({.ignore = render::kNoFaceFlags, .require = render::kTriggerVolumeFaceFlags});
-            if (feeler.get_hit_shape(false, false)) {
+            if (feeler.get_hit_shape(false, false) != 0) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
-                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
+                if (cut_short_ || ((entity()->object_flags() & kObjectFlagDead) != 0U)) {
                     return;
                 }
             }
@@ -802,9 +802,9 @@ void DrivableModule::read_controls()
     // also brakes while moving backwards and tells the object it has stopped (0xCBAA3476).
     bool pressed = false;
     bool other = false;
-    if (input.button_box().held_down()) {
+    if (input.button_box().held_down() != 0U) {
         pressed = true;
-    } else if (can_dismount_ && input.button_wedge().held_down()) {
+    } else if (can_dismount_ && (input.button_wedge().held_down() != 0U)) {
         pressed = true;
         other = true;
     } else {
@@ -869,7 +869,7 @@ void DrivableModule::update_skater()
     }
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
     objects::RiderPoseState* flags = core->state();
-    const float steering = flags->flag(PoseFlag::kFlipped).on ? display_steering_ : -display_steering_;
+    const float steering = (flags->flag(PoseFlag::kFlipped).on != 0U) ? display_steering_ : -display_steering_;
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_ptr_);
     const double duration = blender->fetch_value(rider_anim_name_);
     auto frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);

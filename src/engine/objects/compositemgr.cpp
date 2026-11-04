@@ -412,7 +412,7 @@ int& coim_integer1() { return compositemgr_state().coim_integer1_; } // (2 until
 void destroy_coim_heap()
 {
     debug::printf("Destroying COIM heap\n");
-    if (instance_count()) {
+    if (instance_count() != 0) {
         MaterializeNode* head = instance_list_head();
         MaterializeNode* node = head ? head->next : nullptr;
         if (node != head) {
@@ -448,7 +448,7 @@ void destroy_coim_heap()
 bool create_coim_heap(uint32_t size)
 {
     destroy_coim_heap();
-    if (size) {
+    if (size != 0U) {
         coim_region() = std::make_unique<memory::MemoryArena>(size);
         coim_heap() = memory::Hub::get_pull()->add_heap(coim_region().get(), 1, "COIMHeap");
         coim_heap()->set_unknown64(true);
@@ -473,7 +473,7 @@ void init_coim(int a, uint32_t heap_size, int b, int c)
 // 0x0045F1C0
 void resize_coim_heap(uint32_t size)
 {
-    if (size) {
+    if (size != 0U) {
         create_coim_heap(size);
     } else {
         destroy_coim_heap();

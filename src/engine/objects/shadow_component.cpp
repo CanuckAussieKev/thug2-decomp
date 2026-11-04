@@ -67,7 +67,7 @@ render::RenderModel* model_of(ObjectModule* component)
     return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
 }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
-void set_model_shadow(render::RenderModel* model, bool on) { model->activate_shadow(on); }
+void set_model_shadow(render::RenderModel* model, bool on) { model->activate_shadow(static_cast<uint8_t>(on)); }
 // 0x00493040 (not rewritten yet): the model's hierarchy (0x50-byte objects from +0x50; the root's matrix at +0x10).
 const render::HierarchyNode* hierarchy_of(render::RenderModel* model)
 {
@@ -117,7 +117,7 @@ void GroundShadowModule::refresh_shadow()
         return;
     }
     const uint8_t flags = model->flag_bits();
-    if (!(flags & 0x2) || (flags & 0x4)) {
+    if (((flags & 0x2) == 0) || ((flags & 0x4) != 0)) {
         shadow_handle_->hide();
         return;
     }

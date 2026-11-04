@@ -145,7 +145,7 @@ void ShotImpactModule::tick_frame()
         auto* owner =
             (net->find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
         auto* victim = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
-        if (!victim->can_be_hit_again()) {
+        if (victim->can_be_hit_again() == 0) {
             continue;
         }
         modules::PointTally* score = get_score_of(skater);
@@ -169,7 +169,7 @@ void ShotImpactModule::tick_frame()
         net::NetMessageInfo msg;
         net::AppHost* server = net->host();
         get_kill(entity());
-        if (on_collide_script_) {
+        if (on_collide_script_ != 0U) {
             const maths::Vec4 pos = entity()->at_point();
             const script::StructPtr params = script::make_struct();
             params->put_vec3(checksums::Name{kPos}, script::VectorValue{.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w});
@@ -206,7 +206,7 @@ void ShotImpactModule::tick_frame()
             score->set_grand_total(score->get_total_score() - score_taken());
             return;
         }
-        if (score->get_total_score() > 0 && !victim->is_own_player()) {
+        if (score->get_total_score() > 0 && (victim->is_own_player() == 0)) {
             script::StructPtr params = script::make_struct();
             params->append_word(kName, core::down_cast<Rider>(skater)->fetch_shown_name());
             script::launch_script(kAnnounceElimination, params.get(), nullptr, false, nullptr);
@@ -244,7 +244,7 @@ void ProjectileProximityComponent::tick_frame()
         rider_ref_ = local_skater();
         return;
     }
-    if (!entity()->ident()) {
+    if (entity()->ident() == 0U) {
         return;
     }
     if (!ped_logic_) {

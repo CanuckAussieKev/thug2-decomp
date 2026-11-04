@@ -48,7 +48,7 @@ inline bool fetch_magnification(maths::Vec4* scale, void* params)
     return gfx::scale_from_args(scale, static_cast<script::Struct*>(params));
 }
 inline void change_scale(render::RenderModel* model, maths::Vec4* scale) { model->change_scale(scale); }
-inline void allow_resizing(render::RenderModel* model, bool on) { model->allow_resizing(on); }
+inline void allow_resizing(render::RenderModel* model, bool on) { model->allow_resizing(static_cast<uint8_t>(on)); }
 // The model's lights' brightness from the level's (0x0048E660).
 inline void update_lights_brightness(void* lights)
 {

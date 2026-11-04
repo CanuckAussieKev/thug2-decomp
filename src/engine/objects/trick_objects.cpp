@@ -152,7 +152,7 @@ uint32_t TrickSpotHub::log_trick_objects(std::span<uint32_t> objects, std::span<
     auto count = static_cast<uint32_t>(objects.size());
     debug::printf("RequestLogTrick called\n");
     count = std::min(count, kMaxLoggedClusters); // (ours: the original's mask overran here)
-    if (count) {
+    if (count != 0U) {
         std::memset(dirty_clusters().data(), 0, count);
     }
     for (uint32_t i = 0; i < count; ++i) {
@@ -211,7 +211,7 @@ uint32_t TrickSpotHub::log_trick_objects(std::span<uint32_t> objects, std::span<
     // The list compacted to the objects whose cluster changed hands.
     uint32_t kept = 0;
     for (uint32_t i = 0; i < count; ++i) {
-        if (core::at(dirty_clusters(), i)) {
+        if (core::at(dirty_clusters(), i) != 0U) {
             core::at(objects, kept++) = core::at(objects, i);
         }
     }
@@ -288,7 +288,7 @@ bool TrickObjectCluster::add_object(uint32_t name)
     object->list_link().make_node(object);
     object->set_label(name);
     clear_sector_color(find_sector(name));
-    if (!game_config::from_cd() && script::fetch_int_value("show_all_trick_objects")) {
+    if (!game_config::from_cd() && (script::fetch_int_value("show_all_trick_objects") != 0)) {
         static_cast<void>(object->set_graffiti_color(2));
     }
     // Last in the list (before the head).
@@ -401,7 +401,7 @@ bool HitClusterLog::append_one(uint32_t object_name)
 {
     const uint32_t listed = ints::as_unsigned(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
     const TrickObjectCluster* cluster = stored_trick_spot_hub()->get_object_cluster(object_name);
-    if (!cluster || !cluster->label()) {
+    if (!cluster || (cluster->label() == 0U)) {
         return false;
     }
     for (uint32_t i = 0; i < listed; ++i) {
@@ -423,7 +423,7 @@ uint32_t HitClusterLog::copy_cluster_names(std::span<uint32_t> out, uint32_t max
     uint32_t bytes = 0;
     for (uint32_t i = 0; i < listed; ++i) {
         auto* cluster = static_cast<TrickObjectCluster*>(manager->object_clusters().fetch_entry(core::at(items_, i)));
-        if (cluster && cluster->label()) {
+        if (cluster && (cluster->label() != 0U)) {
             core::at(out, bytes / 4) = core::at(items_, i);
             bytes += 4;
         }
@@ -441,7 +441,7 @@ void TrickSpot::destroy_body() { list_link_.uncouple(); }
 TrickSpot* TrickSpot::teardown(unsigned int flags)
 {
     destroy_body();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -625,7 +625,7 @@ TrickSpotHub* acquire_trick_object_manager(bool create)
 TrickObjectCluster* TrickObjectCluster::teardown(unsigned int flags)
 {
     this->~TrickObjectCluster();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -677,7 +677,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
             return;
         }
         for (int victim = 0; victim < online::kPlayerSlotCount; ++victim) {
-            if (!core::at(stolen, victim)) {
+            if (core::at(stolen, victim) == 0U) {
                 continue;
             }
             net::NetMessageInfo stolen_desc;
@@ -728,7 +728,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
         desc.set_ident(online::MessageId::kObservedTrickObjects);
         for (online::PlayerRecord* info = net->begin_player_walk(&search, true); info;
              info = net->step_player_walk(&search, true)) {
-            if (info->is_observer()) {
+            if (info->is_observer() != 0) {
                 server->send_bulk_message(info->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
                                           "TrickObj Buffer", online::MessageGroup::kGame, true, false);
             }
@@ -752,7 +752,7 @@ void TrickSpotHub::give_free_clusters(int player)
     FreeClusterList list{};
     list.count = 0;
     clusters_.run_hook<&list_free_cluster>(&list);
-    if (list.count) {
+    if (list.count != 0U) {
         score_trick_objects(player, kObjectScore, std::span<uint32_t>(list.names).first(list.count), true);
     }
 }

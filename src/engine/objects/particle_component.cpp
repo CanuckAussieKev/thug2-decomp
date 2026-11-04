@@ -535,10 +535,10 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
-    if (params->read_hash_value(kUpdateBrightnessFrom, &model, 0) && model) {
+    if (params->read_hash_value(kUpdateBrightnessFrom, &model, 0) && (model != 0U)) {
         mesh_instance_ = core::down_cast<GameEntity>(find_object(model))->fetch_module(kModel);
     }
-    if (p.emit_script()) {
+    if (p.emit_script() != 0U) {
         script::Struct* script_params = nullptr;
         params->read_sub_struct(kParams, &script_params, 0);
         entity()->start_script_task(p.emit_script(), 0, false, false, script_params);
@@ -603,7 +603,7 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* /
         const maths::Vec4& at = core::at(effect_handle_->args().at_point(), 0);
         feeler.line().start = {.x = at.x, .y = static_cast<float>(at.y + 1.0F), .z = at.z, .w = at.w};
         feeler.line().end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - kGroundProbeDepth), .z = at.z, .w = at.w};
-        if (feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) != 0) {
             value = static_cast<float>(feeler.get_hit_vertex_value() * kVertexValueFactor);
         }
         if (effect_handle_) {

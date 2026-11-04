@@ -106,7 +106,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     } else {
         lock_flags_ &= ~kLockFlagAngles;
     }
-    if (lock_flags_ & kLockFlagAngles) {
+    if ((lock_flags_ & kLockFlagAngles) != 0) {
         maths::Vec4 angles;
         level_nodes::read_turn_angles(params, &angles);
         angles_to_matrix(&orientation_turn_, &angles);
@@ -120,10 +120,10 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
 // 0x0041FF90
 void PinnedObjectModule::tick_frame()
 {
-    if (!(lock_flags_ & kLockFlagLocked)) {
+    if ((lock_flags_ & kLockFlagLocked) == 0) {
         return;
     }
-    if (!(lock_flags_ & kLockFlagNoRotate)) {
+    if ((lock_flags_ & kLockFlagNoRotate) == 0) {
         update_lock();
         return;
     }

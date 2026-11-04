@@ -229,7 +229,7 @@ void PadInputModule::handler_code2(Responder* handler)
 // 0x0041F090
 void PadInputModule::update_pad(const pad_input::Payload* data)
 {
-    if (entity()->composite_flags() & kCompositeFlagPaused) {
+    if ((entity()->composite_flags() & kCompositeFlagPaused) != 0U) {
         return;
     }
     update_events(data->incident());
@@ -247,7 +247,7 @@ void PadInputModule::update_pad(const pad_input::Payload* data)
 // 0x0041F100
 void PadInputModule::update_pad2(const pad_input::Payload* data)
 {
-    if (entity()->composite_flags() & kCompositeFlagPaused) {
+    if ((entity()->composite_flags() & kCompositeFlagPaused) != 0U) {
         return;
     }
     const bool blocked = is_input_blocked();
@@ -318,12 +318,12 @@ void PadInputModule::read_button_state(std::span<const uint8_t> data, int index,
         }
     }
     const bool events_on = input_events_ && !disabled_ && !net_disabled_;
-    if (core::at(data, index)) {
-        if (!(last_events_ & bit) && events_on) {
+    if (core::at(data, index) != 0U) {
+        if (((last_events_ & bit) == 0U) && events_on) {
             entity()->post_own_event(down, nullptr);
         }
         events_ |= bit;
-    } else if ((last_events_ & bit) && events_on) {
+    } else if (((last_events_ & bit) != 0U) && events_on) {
         entity()->post_own_event(up, nullptr);
     }
 }
@@ -463,7 +463,7 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script* /*s
     }
     auto milliseconds = static_cast<uint32_t>(get_truncated(scaled));
     const ControlButton* button = pad_primary_.read_button(name);
-    if (button && button->held_down() && ints::as_unsigned(button->get_held_millis()) > milliseconds) {
+    if (button && (button->held_down() != 0U) && ints::as_unsigned(button->get_held_millis()) > milliseconds) {
         return 1;
     }
     return 0;

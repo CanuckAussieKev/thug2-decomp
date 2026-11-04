@@ -131,7 +131,7 @@ CinematicTable::CinematicTable() : bundle_ptr_(nullptr), call_args_(make_struct(
 // 0x00464780
 void CinematicTable::refresh_objects()
 {
-    if (!flag_34b_0_ || script::fetch_int_value(kRefreshGlobal) == 0) {
+    if ((flag_34b_0_ == 0U) || script::fetch_int_value(kRefreshGlobal) == 0) {
         return;
     }
     gsl::owner<script::Struct*> params = make_struct();
@@ -232,7 +232,7 @@ void CinematicTable::add_objects(script::Struct* params)
                 params2->put_int(checksums::Name{kMaleParam}, male);
             }
             params2->put_name_key(checksums::Name{kModelFile}, model_file);
-        } else if (!flag_34b_0_) {
+        } else if (flag_34b_0_ == 0U) {
             add = false;
         } else {
             params2->put_name_key(checksums::Name{kPlayingCutsceneKey}, 0);
@@ -243,10 +243,10 @@ void CinematicTable::add_objects(script::Struct* params)
             if (!part) {
                 part = appearance_part(skater_appearance_, kPartB);
             }
-            bool hidden = part && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
+            bool hidden = (part != nullptr) && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
             if (!hidden) {
                 part = appearance_part(skater_appearance_, kPartC);
-                hidden = part && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
+                hidden = (part != nullptr) && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
             }
             if (hidden) {
                 has_skater = false;
@@ -254,7 +254,7 @@ void CinematicTable::add_objects(script::Struct* params)
             }
         }
         if (add) {
-            if (skeleton) {
+            if (skeleton != 0U) {
                 params2->put_name_key(checksums::Name{kSkeleton}, skeleton);
                 params2->put_int(checksums::Name{kSkeletonParam}, 0);
             }
@@ -299,7 +299,7 @@ void CinematicTable::add_objects(script::Struct* params)
             entry.animation = nullptr;
             entry.parent = nullptr;
             entry.anim_index_ = -1;
-            if (anim) {
+            if (anim != 0U) {
                 for (int j = 0; j < animation_count_; ++j) {
                     if (core::at(animations_, j).name != anim) {
                         continue;
@@ -413,7 +413,7 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     uint32_t saturation_name = kS;
     uint32_t value_name = kV;
     part->fetch_int_value(kUseDefaultHsv, &use_other, 0);
-    if (use_other) {
+    if (use_other != 0) {
         part = static_cast<script::Struct*>(appearance_part(skater_appearance_, part_name));
         hue_name = kDefaultH;
         saturation_name = kDefaultS;

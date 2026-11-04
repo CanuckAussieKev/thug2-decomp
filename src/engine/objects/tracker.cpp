@@ -307,7 +307,7 @@ Entity* EventWaitBoard::look_up_by_nickname(uint32_t alias)
 uint32_t EventWaitBoard::fetch_distinct_id()
 {
     uint32_t checksum = 0;
-    for (bool again = true; again; again = entity_list_->fetch_entry(checksum)) {
+    for (bool again = true; again; again = (entity_list_->fetch_entry(checksum) != nullptr)) {
         std::array<char, kAutoNameBytes> name{};
         text::format_to(name, "autoid%d", next_auto_id_++); // "autoid%d"
         if (next_auto_id_ >= kMaxAutoId) {
@@ -518,7 +518,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             --listener->busy();
         }
         const uint32_t event_target = event.aim_point();
-        if (event_target != kNoObjectId && !(event.flag_bits() & Signal::kFlagHandled)) {
+        if (event_target != kNoObjectId && ((event.flag_bits() & Signal::kFlagHandled) == 0U)) {
             if (Entity* object = look_up_object(event_target)) {
                 forward_trigger(object, &event);
             } else {
@@ -613,7 +613,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             }
         }
     }
-    if (!(event.flag_bits() & Signal::kFlagHandled)) {
+    if ((event.flag_bits() & Signal::kFlagHandled) == 0U) {
         log_.add_row({.type = event.kind_tag(), .target = event.aim_point(), .source = event.from_where(), .script = 0, .how = 3, .kind = SignalTrace::Kind::kHandled});
     }
     --launch_depth_;

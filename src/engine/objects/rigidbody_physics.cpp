@@ -342,7 +342,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
     if (!(speed > bounce_callback_threshold_)) {
         return;
     }
-    if (bounce_script_) {
+    if (bounce_script_ != 0U) {
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params) {
             params = new (params) script::Struct;
@@ -420,7 +420,7 @@ void BodyDynamicsModule::resolve_contacts()
         }
         if (++round == kMaxRounds) {
             // Stuck: the script, or no velocity at all.
-            if (script_d0_) {
+            if (script_d0_ != 0U) {
                 entity()->spawn_script(script_d0_, callback_params_ptr_, 0, false)->tick_frame();
                 return;
             }
@@ -599,7 +599,7 @@ void BodyDynamicsModule::tick_frame()
     const float frame = get_narrow(frame_clock::get_slomo_frame_seconds());
     if (push_cooldown_ > kZero) {
         push_cooldown_ = get_sub(push_cooldown_, frame);
-    } else if (!(flag_bits_ & kFlagNoPlayerCollision)) {
+    } else if ((flag_bits_ & kFlagNoPlayerCollision) == 0U) {
         feel_pushers();
     }
     if (die_timer_ >= kZero) {
@@ -662,7 +662,7 @@ void BodyDynamicsModule::tick_frame()
     if (find_contacts()) {
         resolve_contacts();
     }
-    if (spring_count_) {
+    if (spring_count_ != 0U) {
         apply_springs();
     }
     damp();

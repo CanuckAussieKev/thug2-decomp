@@ -185,7 +185,7 @@ void ProximNode::change_live(bool active)
         if (entity_key_ != 0) {
             // its objects killed
             for (int id = 0; entities_ != 0; ++id) {
-                if (entities_ & 1) {
+                if ((entities_ & 1) != 0U) {
                     if (Entity* object = entity_for_id(entity_key_ + id)) {
                         flag_as_dead(object);
                     }
@@ -195,7 +195,7 @@ void ProximNode::change_live(bool active)
         } else if (ProximityRegistry* manager = stored_proximity_hub()) {
             // the exit script for each skater inside
             for (int id = 0; is_within_ != 0; ++id) {
-                if (is_within_ & 1) {
+                if ((is_within_ & 1) != 0U) {
                     Entity* object = entity_for_id(id);
                     manager->entering_ = false;
                     manager->in_script_ = true;
@@ -367,7 +367,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     node->set_active(true);
     int id = 0;
     for (Entity* skater = entity_for_id(0); skater && id < kSkaterSlots; skater = entity_for_id(++id)) {
-        if (core::down_cast<GameEntity>(skater)->is_local_skater()) {
+        if (core::down_cast<GameEntity>(skater)->is_local_skater() != 0U) {
             node->get_is_within() |= 1U << id;
         }
     }
@@ -387,7 +387,7 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
             continue;
         }
         const bool inside = node->is_within(point);
-        if (node->outside() & mask) {
+        if ((node->outside() & mask) != 0U) {
             if (!inside) {
                 continue;
             }
@@ -442,7 +442,7 @@ int get_restart_nodes(uint32_t type, std::span<uint32_t> out, uint32_t start)
 {
     int count = 0;
     level_nodes::start_node_walk(start);
-    if (start) {
+    if (start != 0U) {
         level_nodes::get_next_node();
     }
     for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {

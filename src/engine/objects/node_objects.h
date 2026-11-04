@@ -125,7 +125,7 @@ private:
     memory::ListNode list_link_{};              // +0x04 in the manager's queue (data = this)
     gsl::owner<gfx::ViewCam*> viewer_;       // +0x14
     bool flag18_{false};                        // +0x18 (0xEB300C29; held at its end)
-    uint8_t flag19_{false};                     // +0x19 (0x8DDE72C0; a flag, any byte: skippable)
+    uint8_t flag19_{0U};                        // +0x19 (0x8DDE72C0; a flag, any byte: skippable)
     bool is_finished_{};         // +0x1A
     uint8_t flag_1b_{};          // +0x1B (a flag, any byte: plays while paused)
     bool flag_1c_{false};        // +0x1C (0xB8CA12C5)

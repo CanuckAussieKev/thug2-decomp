@@ -68,7 +68,7 @@ bool get_ground_hit(std::array<maths::Vec4, 3>& triangle, const maths::Vec4* end
         return true;
     }
     render::ProbeRay feeler;
-    if (!feeler.get_collision_along(start, end, false)) {
+    if (feeler.get_collision_along(start, end, false) == 0) {
         return false;
     }
     // (the face hit becomes the triangle tried first next time)
@@ -117,7 +117,7 @@ void KinematicsModule::update_jump()
             auto above = static_cast<float>(static_cast<double>(w) + 1.0F);
             feeler.line().start = {.x = x, .y = static_cast<float>(static_cast<double>(y) + jump_col_above_), .z = z, .w = above};
             feeler.line().end = {.x = x, .y = static_cast<float>(static_cast<double>(y) + -jump_col_below_), .z = z, .w = above};
-            if (feeler.get_hit_shape(true, false)) {
+            if (feeler.get_hit_shape(true, false) != 0) {
                 motion_flags_ &= ~kMotionJumping;
             }
         }
@@ -269,7 +269,7 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*
         // (no speed or time: there at once)
         entity()->at_point() = move_target_;
         motion_flags_ &= ~kMotionMoving;
-        if (node && params->has_bare_flag(kOrient)) {
+        if ((node != 0U) && params->has_bare_flag(kOrient)) {
             face_node(level_nodes::fetch_vertex(node, true));
         }
         return true;
@@ -306,7 +306,7 @@ void KinematicsModule::glide_to_node(script::Struct* params, script::Script* scr
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
-    if (!name) {
+    if (name == 0U) {
         return;
     }
     maths::Vec4 pos;
@@ -338,7 +338,7 @@ void KinematicsModule::move_to_link(script::Struct* params, script::Script* scri
 {
     int link = 0;
     const int links = static_cast<int>(level_nodes::get_link_count(list_link_));
-    if (!links) {
+    if (links == 0) {
         return;
     }
     if (params->fetch_int_value(kLinkNum, &link, 0)) {

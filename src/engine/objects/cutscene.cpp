@@ -97,10 +97,10 @@ void CinematicTable::check_skip()
     }
     const modules::FrontEndInputHandler* handler = core::at(modules::front_end_instance()->pad_listeners(), 0).get();
     auto* device = handler->dev();
-    if (!device->is_attached() || !device->is_usable()) {
+    if (!device->is_attached() || (device->is_usable() == 0U)) {
         return;
     }
-    if (handler->control_data()->makes() & (kButtonX | kButtonStart)) {
+    if ((handler->control_data()->makes() & (kButtonX | kButtonStart)) != 0U) {
         clock_ = end_time_;
         skipped_ = true;
     }
@@ -132,17 +132,17 @@ void CinematicTable::update_subtitles()
 }
 
 // 0x00463A50
-void CinematicEntry::push_option_state() { set_unused_option(!flag_5d_); }
+void CinematicEntry::push_option_state() { set_unused_option(static_cast<uint32_t>(!flag_5d_)); }
 
 // 0x00463A60
 void CinematicEntry::update_option_state()
 {
     if (flag_5d_) {
         if (unknown60_ == -1) {
-            set_unused_option(false);
+            set_unused_option(0U);
         }
     } else if (unknown60_ == -1) {
-        set_unused_option(true);
+        set_unused_option(1U);
         unknown60_ = script::fetch_int_value(kSlot12Global);
     }
 }

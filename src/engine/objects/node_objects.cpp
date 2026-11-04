@@ -193,7 +193,7 @@ void VideoEntry::configure_from_data(script::Struct* params)
     }
     int value = 0;
     params->fetch_int_value(kSkippable, &value, 0);
-    flag19_ = value != 0;
+    flag19_ = static_cast<uint8_t>(value != 0);
     flag18_ = params->has_bare_flag(kPlayHold);
     value = 0;
     params->fetch_int_value(kAllowPause, &value, 0);
@@ -209,7 +209,7 @@ gsl::owner<script::Struct*> VideoEntry::get_settings() const
     }
     Expects(settings != nullptr);
     settings->put_int(checksums::Name{kSkippable}, flag19_);
-    settings->put_int(checksums::Name{kAllowPause}, flag_1c_);
+    settings->put_int(checksums::Name{kAllowPause}, static_cast<int>(flag_1c_));
     return settings;
 }
 
@@ -219,7 +219,7 @@ bool VideoEntry::check_done(bool playing)
     if (!playing) {
         is_finished_ = true;
     }
-    if (flag19_) {
+    if (flag19_ != 0U) {
         is_finished_ = true;
     }
     return is_finished_;

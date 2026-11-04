@@ -45,14 +45,14 @@ GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::V
     down.line().end = {.x = point->x, .y = get_sum(point->y, kFeelerBottom), .z = point->z, .w = point->w};
     render::ProbeRay up;
     for (int tries = 1;;) {
-        if (!down.get_hit_shape(true, false) || !down.hit_object_alive()) {
+        if ((down.get_hit_shape(true, false) == 0) || !down.hit_object_alive()) {
             return nullptr;
         }
         // (nothing between the point and just over the hit: it's what the point is on)
         up.line().start = *point;
         up.line().end = {.x = down.contact_pos().x, .y = get_sum(down.contact_pos().y, kNudge), .z = down.contact_pos().z,
                         .w = down.contact_pos().w};
-        if (!up.get_hit_shape(true, false)) {
+        if (up.get_hit_shape(true, false) == 0) {
             *hit = down.contact_pos();
             return down.get_hit_object();
         }

@@ -55,7 +55,8 @@ void compose_object_transform(ObjectModule* model, maths::Mat4* out)
 // Whether the target's model is to be followed: a model with its +0x234 set, or a skater.
 bool follow_model(ObjectModule* model, GameEntity* target)
 {
-    return (model && core::down_cast<MeshInstanceModule>(model)->level_object()) || target->ident() < kFirstNonSkaterId;
+    return ((model != nullptr) && core::down_cast<MeshInstanceModule>(model)->level_object()) ||
+           target->ident() < kFirstNonSkaterId;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
@@ -95,7 +96,7 @@ void PinnedObjectModule::update_lock()
     maths::Vec4 pos = entity()->at_point();         // where it goes
     maths::Vec4 extra = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}; // added to it when there's no lag
     maths::Vec4 local{};
-    if (bone_) {
+    if (bone_ != 0U) {
         // On a bone: its orientation, and its "at" towards its parent.
         const ObjectModule* skeleton_component = target->fetch_module(kSkeleton);
         void* skeleton = skeleton_component ? skeleton_of(target->fetch_module(kSkeleton)) : nullptr;
@@ -156,7 +157,7 @@ void PinnedObjectModule::update_lock()
         }
     }
     GameEntity* object = entity();
-    if (lock_flags_ & kLockFlagLag) {
+    if ((lock_flags_ & kLockFlagLag) != 0) {
         // Part of the way there (the roundings where the original stores).
         const float lag = lag_;
         const double dx = static_cast<double>(pos.x) - object->at_point().x;
@@ -184,7 +185,7 @@ void PinnedObjectModule::update_lock()
         object->at_point() = {.x = extra.x + pos.x, .y = extra.y + pos.y, .z = extra.z + pos.z, .w = extra.w + pos.w};
     }
     entity()->vel() = target->vel();
-    if (lock_flags_ & kLockFlagAngles) {
+    if ((lock_flags_ & kLockFlagAngles) != 0) {
         matrix_multiply(&entity()->basis_frame(), &entity()->basis_frame(), &orientation_turn_);
     }
     entity()->display_matrix() = entity()->basis_frame();

@@ -91,7 +91,7 @@ Entity::~Entity()
 // 0x00460930
 void Entity::dispose_when_free()
 {
-    if (!(object_flags_ & kObjectFlagLocked)) {
+    if ((object_flags_ & kObjectFlagLocked) == 0U) {
         delete this;
     }
 }
@@ -474,7 +474,7 @@ bool Entity::obj_remove_tags(Struct* params, Script* /*script*/)
 bool Entity::obj_flag_not_set(Struct* params, Script* script) const
 {
     const uint32_t mask = get_flag_mask(params, script);
-    if (!mask) {
+    if (mask == 0U) {
         return false;
     }
     return (flag_bits_ & mask) == 0;
@@ -488,7 +488,7 @@ bool Entity::obj_clear_flag(Struct* params, Script* script)
         return true;
     }
     const uint32_t mask = get_flag_mask(params, script);
-    if (!mask) {
+    if (mask == 0U) {
         return false;
     }
     flag_bits_ &= ~mask;
@@ -499,7 +499,7 @@ bool Entity::obj_clear_flag(Struct* params, Script* script)
 bool Entity::obj_set_flag(Struct* params, Script* script)
 {
     const uint32_t mask = get_flag_mask(params, script);
-    if (!mask) {
+    if (mask == 0U) {
         return false;
     }
     flag_bits_ |= mask;
@@ -511,7 +511,7 @@ bool Entity::obj_flag_set(Struct* params, Script* script)
 {
     const uint32_t flags = flag_bits_;
     const uint32_t mask = get_flag_mask(params, script);
-    if (!mask) {
+    if (mask == 0U) {
         return false;
     }
     if (params->has_bare_flag(kClear)) {
@@ -571,7 +571,7 @@ void get_unlock(Entity* object, void* /*data*/) { object->object_flags() &= ~kOb
 // 0x00460AA0
 void dispose_when_free(Entity* object, void* /*data*/)
 {
-    if (!(object->object_flags() & kObjectFlagLocked)) {
+    if ((object->object_flags() & kObjectFlagLocked) == 0U) {
         gsl::owner<decltype(object)> owned = memory::owned_element(object); // (the manager's)
         delete owned;
     }

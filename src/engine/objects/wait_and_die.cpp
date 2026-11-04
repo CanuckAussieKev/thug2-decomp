@@ -50,7 +50,7 @@ void WaitAndDieComponent::tick_frame()
     const int start = outset_;
     const int clock = frame_clock::game_clock_elapsed();
     elapsed_ = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(start));
-    if (wait_for_) {
+    if (wait_for_ != 0U) {
         if (!find_object(wait_for_)) {
             die(entity());
         }

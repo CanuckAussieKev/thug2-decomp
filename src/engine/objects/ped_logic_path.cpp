@@ -245,7 +245,7 @@ void PedestrianBrainModule::choose_node_after()
             }
         }
     }
-    if (chosen) {
+    if (chosen != 0U) {
         node_after_ = chosen;
         level_nodes::fetch_place(chosen, &node_after_pos_);
     }
@@ -384,7 +384,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         auto angle = static_cast<float>(maths::read_turn_angle(core::at(saved_matrix_.row, 2), up));
         vert_rotation_target_ = static_cast<float>(static_cast<double>(script::fetch_float(kSpineSlop)) + angle);
     }
-    if (flag_bits_ & (kPedFlagSpinning | kPedFlagVertRotating)) {
+    if ((flag_bits_ & (kPedFlagSpinning | kPedFlagVertRotating)) != 0U) {
         jump_matrix_ = saved_matrix_;
         spin_elapsed_ = 0.0F;
         spin_time_ = static_cast<float>(static_cast<double>(script::fetch_float(kVertTimeSlop)) * jump_time);
@@ -456,7 +456,7 @@ void PedestrianBrainModule::start_grind(script::Struct* node)
 // 0x004F1B10
 void PedestrianBrainModule::end_grind(script::Struct* /*params*/)
 {
-    if (flag_bits_ & kPedFlagGrinding) {
+    if ((flag_bits_ & kPedFlagGrinding) != 0U) {
         flag_bits_ &= ~kPedFlagGrinding;
         change_phase(kStateGrindOff, kTable, nullptr);
     }
@@ -562,7 +562,7 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
         flag_bits_ &= ~kPedFlagMoving;
         params->put_name_key(checksums::Name{0U}, kIsVert);
     }
-    params->put_int(checksums::Name{kIsJumping}, (motion->motion_flags() & kMotionFlagBailing) ? 1 : 0);
+    params->put_int(checksums::Name{kIsJumping}, ((motion->motion_flags() & kMotionFlagBailing) != 0U) ? 1 : 0);
     if (node->has_bare_flag(kJumpToNextNode)) {
         flag_bits_ = (flag_bits_ & ~kPedFlagMoving) | kPedFlagJumpingToNode;
     }
@@ -573,7 +573,7 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
 // 0x004F1E80
 bool PedestrianBrainModule::bail_from_grind()
 {
-    if (!(flag_bits_ & kPedFlagGrinding)) {
+    if ((flag_bits_ & kPedFlagGrinding) == 0U) {
         return false;
     }
     flag_bits_ = (flag_bits_ & ~kPedFlagGrinding) | kPedFlagGrindBailing;
@@ -598,7 +598,7 @@ bool PedestrianBrainModule::bail_from_grind()
 // 0x004F2340
 void PedestrianBrainModule::do_skate_action(script::Struct* node)
 {
-    if (flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing)) {
+    if ((flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing)) != 0U) {
         return;
     }
     uint32_t action = 0;
@@ -657,7 +657,7 @@ void PedestrianBrainModule::reach_waypoint()
     const uint32_t reached = next_node_;
     const uint32_t left = list_link_;
     flag_bits_ &= ~(kPedFlagVertLast | kPedFlagVertAfter);
-    if (flag_bits_ & kPedFlagVertNext) {
+    if ((flag_bits_ & kPedFlagVertNext) != 0U) {
         flag_bits_ |= kPedFlagVertLast;
     }
     next_node_ = node_after_;
@@ -682,7 +682,7 @@ void PedestrianBrainModule::reach_waypoint()
         if (action == kVertGrab || action == kJump) {
             uint32_t reached_action = 0;
             if (level_nodes::fetch_vertex(list_link_, true)->read_hash_value(kSkateAction, &reached_action, 1) &&
-                reached_action != kGrind && !(flag_bits_ & (kPedFlagGrinding | kPedFlagVertLast))) {
+                reached_action != kGrind && ((flag_bits_ & (kPedFlagGrinding | kPedFlagVertLast)) == 0U)) {
                 flag_bits_ |= kPedFlagCrouch;
             }
         }

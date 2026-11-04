@@ -140,12 +140,12 @@ void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
 {
     switch (script->suspend_reason()) {
     case script::BlockReason::kMove:
-        if (!(motion_flags_ & kMotionMoveMask)) {
+        if ((motion_flags_ & kMotionMoveMask) == 0U) {
             script->stop_waiting();
         }
         break;
     case script::BlockReason::kJump:
-        if (!(motion_flags_ & kMotionJumping)) {
+        if ((motion_flags_ & kMotionJumping) == 0U) {
             script->stop_waiting();
         }
         break;
@@ -155,7 +155,7 @@ void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
         }
         break;
     case script::BlockReason::kRotate:
-        if (!(motion_flags_ & kMotionRotateMask)) {
+        if ((motion_flags_ & kMotionRotateMask) == 0U) {
             script->stop_waiting();
         }
         break;
@@ -226,7 +226,7 @@ bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::S
 bool KinematicsModule::obj_get_random_link(script::Struct* /*params*/, script::Script* script) const
 {
     const uint32_t links = level_nodes::get_link_count(list_link_);
-    if (links) {
+    if (links != 0U) {
         script->args()->put_int(checksums::Name{kLink}, maths::rnd(static_cast<int>(links)) + 1);
     }
     return true;
@@ -264,10 +264,11 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script* /*scrip
 bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* script)
 {
     float speed = 0.0F;
-    if (motion_flags_ & kMotionMoving) {
+    if ((motion_flags_ & kMotionMoving) != 0U) {
         speed = move_speed_;
     } else if (entity()->fetch_module(kLockObj) &&
-               (core::down_cast<PinnedObjectModule>(entity()->fetch_module(kLockObj))->lock_flags() & kLockFlagLocked)) {
+               ((core::down_cast<PinnedObjectModule>(entity()->fetch_module(kLockObj))->lock_flags() &
+                 kLockFlagLocked) != 0)) {
         auto dx = static_cast<float>(static_cast<double>(entity()->at_point().x) - entity()->old_pos().x);
         auto dy = static_cast<float>(static_cast<double>(entity()->at_point().y) - entity()->old_pos().y);
         auto dz = static_cast<float>(static_cast<double>(entity()->at_point().z) - entity()->old_pos().z);

@@ -80,7 +80,7 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
     uint32_t mode = 0;
     params->read_hash_value(kCollisionMode, &mode, 0);
     const int type = render::shape_type_from_checksum(mode);
-    if (!type) {
+    if (type == 0) {
         return;
     }
     uint32_t cls = 0;

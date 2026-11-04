@@ -121,7 +121,7 @@ void KinematicsModule::rotate_about_axis_by(script::Struct* params, AxisSign axi
         if (params->fetch_float(kSpeed, &max_speed, 0)) {
             max_speed = static_cast<float>(static_cast<double>(max_speed) * kDegrees);
         }
-        if (!(motion_flags_ & bit)) {
+        if ((motion_flags_ & bit) == 0U) {
             speed = 0.0F;
         }
         speed_param = nullptr;
@@ -135,7 +135,7 @@ void KinematicsModule::rotate_about_axis_by(script::Struct* params, AxisSign axi
     if (target == 0.0F && deceleration == 0.0F) {
         motion_flags2_ |= forever;
     }
-    if (!(motion_flags2_ & forever)) {
+    if ((motion_flags2_ & forever) == 0U) {
         set_rotation_direction(axis);
     }
     motion_flags_ |= bit;
@@ -145,7 +145,7 @@ void KinematicsModule::rotate_about_axis_by(script::Struct* params, AxisSign axi
 bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script* /*script*/)
 {
     float sign = 1.0F;
-    if (motion_flags_ & kMotionLookingAt) {
+    if ((motion_flags_ & kMotionLookingAt) != 0U) {
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
     }
     if (params->has_bare_flag(kMaxCoords)) {
@@ -159,7 +159,7 @@ bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script* /*scrip
 bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script* /*script*/)
 {
     int axis = 1;
-    if (motion_flags_ & kMotionLookingAt) {
+    if ((motion_flags_ & kMotionLookingAt) != 0U) {
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
     }
     if (params->has_bare_flag(kMaxCoords)) {
@@ -173,7 +173,7 @@ bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script* /*scrip
 bool KinematicsModule::obj_rot_z(script::Struct* params, script::Script* /*script*/)
 {
     int axis = 2;
-    if (motion_flags_ & kMotionLookingAt) {
+    if ((motion_flags_ & kMotionLookingAt) != 0U) {
         motion_flags_ &= ~(kMotionLookingAt | kMotionRotateAxes);
     }
     if (params->has_bare_flag(kMaxCoords)) {
@@ -234,7 +234,7 @@ bool KinematicsModule::update_axis_rotation(int axis)
         speed = static_cast<float>(static_cast<double>(speed) - slowing);
     }
     auto step = static_cast<float>(static_cast<double>(speed) * step_seconds_);
-    if (!(motion_flags2_ & (kMotion2RotateForeverX << axis))) {
+    if ((motion_flags2_ & (kMotion2RotateForeverX << axis)) == 0U) {
         const float target = get_axis(rot_target_, axis);
         float& done = get_axis(rot_done_, axis);
         const bool before = target > done;
@@ -254,7 +254,7 @@ void KinematicsModule::update_rotations()
 {
     for (int axis = 0; axis < 3; ++axis) {
         const uint32_t bit = 1U << axis;
-        if ((motion_flags_ & bit) && update_axis_rotation(axis)) {
+        if (((motion_flags_ & bit) != 0U) && update_axis_rotation(axis)) {
             motion_flags_ &= ~bit;
         }
     }
@@ -343,7 +343,7 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
     int acceleration = 0;
     int axes = 2; // (y)
     float time = 0.0F;
-    if (!(motion_flags_ & kMotionLookingAt)) {
+    if ((motion_flags_ & kMotionLookingAt) == 0U) {
         motion_flags_ = (motion_flags_ & ~kMotionRotateAxes) | kMotionLookingAt;
         motion_flags2_ &= ~(kMotion2RotateForeverX * kRotateForeverAxes);
     }
@@ -355,11 +355,12 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
     }
     bool turning = false;
     for (int axis = 0; axis < 3; ++axis) {
-        if (!(axes & (1 << axis))) {
+        if ((axes & (1 << axis)) == 0) {
             continue;
         }
-        if (!setup_look_axis(target, &entity()->at_point(),
-                             {.reference_axis_ = (axis != 2) + 1, .axis = axis, .threshold = threshold})) {
+        if (!setup_look_axis(
+                target, &entity()->at_point(),
+                {.reference_axis_ = static_cast<int>(axis != 2) + 1, .axis = axis, .threshold = threshold})) {
             continue;
         }
         if (!(time == 0.0F)) {
@@ -385,7 +386,7 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
 void KinematicsModule::look_at_node_linked(script::Struct* params, script::Script* /*script*/)
 {
     const int links = static_cast<int>(level_nodes::get_link_count(list_link_));
-    if (!links) {
+    if (links == 0) {
         return;
     }
     int link = 1;
@@ -404,7 +405,7 @@ void KinematicsModule::look_at_node(script::Struct* params, script::Script* /*sc
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
-    if (!name) {
+    if (name == 0U) {
         return;
     }
     maths::Vec4 pos;

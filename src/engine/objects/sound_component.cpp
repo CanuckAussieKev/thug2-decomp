@@ -153,7 +153,7 @@ int AudioEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* par
 void AudioEmitterModule::keep_looping_sound(const sound::PlaybackProps* props, uint32_t time)
 {
     for (WaitingSound& waiting : waiting_) {
-        if (waiting.props.checksum) {
+        if (waiting.props.checksum != 0U) {
             continue;
         }
         // (the original copies 0x30 bytes - 4 past the props - then overwrites them with the time)
@@ -217,7 +217,7 @@ void AudioEmitterModule::update_waiting_sounds()
     const uint32_t now = frame_clock::get_time();
     for (WaitingSound& waiting : waiting_) {
         sound::PlaybackProps& props = waiting.props;
-        if (!props.checksum) {
+        if (props.checksum == 0U) {
             continue;
         }
         update_props(&props);
@@ -231,7 +231,7 @@ void AudioEmitterModule::update_waiting_sounds()
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
             SoundParams params = {.pitch = props.pitch2, .volume = props.volume2, .dropoff = props.dropoff, .falloff = static_cast<int>(props.falloff)};
             const uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, this, false, true);
-            if (!id) {
+            if (id == 0U) {
                 continue;
             }
             if (sound::PlaybackProps* playing = sound::AudioMixer::get_positional_props(this, id, false)) {
@@ -294,7 +294,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
     } else {
         spewer_ = nullptr;
     }
-    if (!sound) {
+    if (sound == 0U) {
         // The sound set for a type (Obj_SetSound). (Read into the parameters' own argument slot.)
         int type = -1;
         params->fetch_int_value("Type", &type, 0);
@@ -302,7 +302,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
             return;
         }
         sound = core::at(sound_cues_, type); // (type 8 reads the first waiting sound's checksum, as the original)
-        if (!sound) {
+        if (sound == 0U) {
             return;
         }
     }
@@ -352,7 +352,7 @@ void AudioEmitterModule::assign_sound_cue(script::Struct* params)
     uint32_t sound = 0;
     params->fetch_int_value(kTypeName, &type, 0); // type
     params->read_hash_value(0U, &sound, 0);
-    if (type != -1 && sound && type <= kSoundTypeCount) {
+    if (type != -1 && (sound != 0U) && type <= kSoundTypeCount) {
         core::at(sound_cues_, type) = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
     }
 }

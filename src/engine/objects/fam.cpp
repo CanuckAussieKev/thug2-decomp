@@ -87,7 +87,7 @@ FamComponent::~FamComponent() = default;
 // 0x0041D2C0
 void FamComponent::unload_fam()
 {
-    if (!fam_) {
+    if (fam_ == 0U) {
         return;
     }
     script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
@@ -131,14 +131,14 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_level
     if (!audio::stream_exists(name)) {
         return false;
     }
-    if (feed_) {
+    if (feed_ != 0U) {
         script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
         audio::halt_stream(feed_);
         feed_ = 0;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::Name{kStreamChecksum}, name);
-    if (volume) {
+    if (volume != 0) {
         params->put_int(checksums::Name{kVol}, volume);
     }
     if (!stream_only) {
@@ -174,7 +174,7 @@ int FamComponent::obj_play_fam(script::Struct* params, script::Script* /*script*
 // 0x0041D280
 int FamComponent::obj_stop_last_fam(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (feed_) {
+    if (feed_ != 0U) {
         script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
         audio::halt_stream(feed_);
         feed_ = 0;

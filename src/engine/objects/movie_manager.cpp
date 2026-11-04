@@ -149,7 +149,7 @@ bool VideoHub::any_movies() { return total_of() != 0; }
 // 0x0057A360
 Movie* VideoHub::get_movie(int index)
 {
-    if (!total_of()) {
+    if (total_of() == 0) {
         return nullptr;
     }
     return movie_at(&movies_, index);
@@ -161,7 +161,7 @@ Movie* VideoHub::find_movie(uint32_t name)
     for (int i = 0; i < total_of(); ++i) {
         // (the movie at i, walked to inline)
         Movie* movie = nullptr;
-        if (total_of()) {
+        if (total_of() != 0) {
             int left = i;
             for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
                 if (left-- == 0) {
@@ -200,7 +200,7 @@ VideoHub::VideoHub() { movies_.make_head(); }
 // 0x0057A530
 gfx::ViewCam* VideoHub::obtain_active_lens()
 {
-    if (total_of()) {
+    if (total_of() != 0) {
         Movie* playing = movie_at(&movies_, 0);
         if (playing && has_camera(playing)) {
             gfx::ViewCam* const lens = playing->viewer(); // (the movie's)
@@ -216,7 +216,7 @@ void VideoHub::stop_all()
     for (int i = 0; i < total_of(); ++i) {
         // (the movie at i, walked to inline; none: a null one - unreachable)
         Movie* movie = nullptr;
-        if (total_of()) {
+        if (total_of() != 0) {
             int left = i;
             for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
                 if (left-- == 0) {
@@ -233,7 +233,7 @@ void VideoHub::stop_all()
 void VideoHub::clear_movies()
 {
     if (movies_.prev() != &movies_) {
-        keep_camera(total_of() ? movie_at(&movies_, 0) : nullptr);
+        keep_camera((total_of() != 0) ? movie_at(&movies_, 0) : nullptr);
     }
     lists::delete_each<Movie>(&movies_, [](Movie* movie) { // (0x0057A2F0)
         gsl::owner<Movie*> owned = memory::owned_element(movie); // (the list's)
@@ -256,7 +256,7 @@ void VideoHub::end_movie(Movie* movie)
     const uint64_t frame = frame_clock::get_draw_frame();
     // (the original passed the 64-bit frame to this %ld: only its low word was printed)
     debug::printf("Details have been removed %ld\n", static_cast<uint32_t>(frame));
-    if (end_script) {
+    if (end_script != 0U) {
         script::launch_script(end_script, params, nullptr, false, nullptr);
     }
     if (params) {
@@ -277,11 +277,11 @@ bool VideoHub::end_movies(bool skippable)
         }
     } else {
         Movie* movie = first();
-        while (movie && movie->flag19()) {
+        while (movie && (movie->flag19() != 0U)) {
             end_movie(movie);
             // (the first one now, walked to inline)
             movie = nullptr;
-            if (total_of() && !is_head(movies_.next()) && movies_.next()) {
+            if ((total_of() != 0) && !is_head(movies_.next()) && movies_.next()) {
                 movie = static_cast<Movie*>(movies_.next()->data());
             }
             ended = true;
@@ -302,10 +302,10 @@ bool VideoHub::end_movies(bool skippable)
 bool VideoHub::movie_call_468f_40(checksums::Name movie_name, uint32_t value)
 {
     const uint32_t name = movie_name.value();
-    if (!total_of()) {
+    if (total_of() == 0) {
         return false;
     }
-    if (!name) {
+    if (name == 0U) {
         get_details(get_movie(0))->set_flag19(static_cast<uint8_t>(value)); // (the setter takes the low byte)
         return true;
     }
@@ -319,10 +319,10 @@ bool VideoHub::movie_call_468f_40(checksums::Name movie_name, uint32_t value)
 bool VideoHub::movie_call_468f_50(checksums::Name movie_name, uint32_t value)
 {
     const uint32_t name = movie_name.value();
-    if (!total_of()) {
+    if (total_of() == 0) {
         return false;
     }
-    if (!name) {
+    if (name == 0U) {
         get_details(get_movie(0))->set_flag_1b(static_cast<uint8_t>(value)); // (the setter takes the low byte)
         return true;
     }
@@ -335,10 +335,10 @@ bool VideoHub::movie_call_468f_50(checksums::Name movie_name, uint32_t value)
 // 0x0057AA20
 bool VideoHub::is_movie_gone(uint32_t name)
 {
-    if (!total_of()) {
+    if (total_of() == 0) {
         return true;
     }
-    if (!name) {
+    if (name == 0U) {
         return false;
     }
     return find_movie(name) == nullptr;
@@ -347,11 +347,11 @@ bool VideoHub::is_movie_gone(uint32_t name)
 // 0x0057AA70
 bool VideoHub::movie_flag18(uint32_t name)
 {
-    if (!total_of()) {
+    if (total_of() == 0) {
         return false;
     }
     Movie* movie = nullptr;
-    if (name) {
+    if (name != 0U) {
         movie = find_movie(name);
         if (!movie) {
             return false;
@@ -369,7 +369,7 @@ bool VideoHub::kill_movie(uint32_t name)
     if (!movie) {
         return false;
     }
-    const Movie* playing = total_of() ? movie_at(&movies_, 0) : nullptr;
+    const Movie* playing = (total_of() != 0) ? movie_at(&movies_, 0) : nullptr;
     if (movie == playing) {
         end_movies(false);
         return true;
@@ -409,9 +409,9 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     } else if (type == kCutscene) {
         movie = new CameraAnimMovie;
     } else if (type == kSkaterCamera) {
-        if (total_of()) {
+        if (total_of() != 0) {
             for (int i = 0; i < total_of(); ++i) {
-                Movie* each = total_of() ? movie_at(&movies_, i) : nullptr;
+                Movie* each = (total_of() != 0) ? movie_at(&movies_, i) : nullptr;
                 get_name_of(each); // (its name read: compiled-out debug output)
             }
             clear_movies();
@@ -445,7 +445,7 @@ bool VideoHub::tick_frame()
         for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
         }
     }
-    if (!total_of()) {
+    if (total_of() == 0) {
         return false;
     }
     Movie* movie = movie_at(&movies_, 0);
@@ -453,7 +453,7 @@ bool VideoHub::tick_frame()
         return false;
     }
     // (not paused, or the view mode; paused, only a movie without flag 0x1B)
-    if (!stored_simulation_halted() || stored_view_mode() != 0 || !movie->flag_1b()) {
+    if (!stored_simulation_halted() || stored_view_mode() != 0 || (movie->flag_1b() == 0U)) {
         movie->tick_frame();
     }
     if (movie->is_finished()) {
@@ -465,10 +465,10 @@ bool VideoHub::tick_frame()
 // 0x0057AF60
 gsl::owner<script::Struct*> VideoHub::movie_value(uint32_t name)
 {
-    if (!total_of()) {
+    if (total_of() == 0) {
         return nullptr;
     }
-    Movie* movie = name ? find_movie(name) : get_movie(0);
+    Movie* movie = (name != 0U) ? find_movie(name) : get_movie(0);
     if (!movie) {
         return nullptr;
     }
@@ -478,7 +478,7 @@ gsl::owner<script::Struct*> VideoHub::movie_value(uint32_t name)
 // 0x0057AFC0
 bool VideoHub::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    Movie* movie = total_of() ? movie_at(&movies_, 0) : nullptr;
+    Movie* movie = (total_of() != 0) ? movie_at(&movies_, 0) : nullptr;
     Expects(movie != nullptr);
     if (movie->invoke_method_by_name(name, params, script)) {
         return true;
@@ -489,7 +489,7 @@ bool VideoHub::invoke_method_by_name(uint32_t name, script::Struct* params, scri
 // 0x0057B030
 uint32_t VideoHub::get_playing_name()
 {
-    if (!total_of()) {
+    if (total_of() == 0) {
         return 0;
     }
     Movie* movie = movie_at(&movies_, 0);
@@ -499,7 +499,7 @@ uint32_t VideoHub::get_playing_name()
 // 0x0057B070
 bool VideoHub::playing_flag24()
 {
-    if (!total_of()) {
+    if (total_of() == 0) {
         return true;
     }
     Movie* movie = movie_at(&movies_, 0);

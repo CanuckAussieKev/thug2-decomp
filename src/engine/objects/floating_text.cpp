@@ -101,12 +101,12 @@ FloatingTextComponent::~FloatingTextComponent()
 // 0x0041E2B0
 void FloatingTextComponent::configure_from_data(script::Struct* params)
 {
-    if (!ident_) {
+    if (ident_ == 0U) {
         ident_ = entity()->ident() - kIdBase;
     }
     const char* text = nullptr;
     if (params->fetch_text(kString, &text, 0)) {
-        if (!*text) {
+        if (*text == '\0') {
             end_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset());
         } else {
             copy_text(text_, text); // (the original: the game's strncpy, 0x006239E0)
@@ -133,13 +133,13 @@ void FloatingTextComponent::tick_frame()
 {
     auto* model =
         static_cast<render::RenderModel*>(core::down_cast<objects::MeshInstanceModule>(mesh_instance_)->mesh_instance().get());
-    if (!model || !(model->flag_bits() & 2) || (model->flag_bits() & 4)) {
+    if (!model || ((model->flag_bits() & 2) == 0) || ((model->flag_bits() & 4) != 0)) {
         return;
     }
-    if (!core::at(text_, 0)) {
+    if (core::at(text_, 0) == '\0') {
         return;
     }
-    if (end_time_ && end_time_ < ints::as_unsigned(frame_clock::game_clock_elapsed() + clock_offset())) {
+    if ((end_time_ != 0U) && end_time_ < ints::as_unsigned(frame_clock::game_clock_elapsed() + clock_offset())) {
         core::at(text_, 0) = 0;
         end_time_ = 0;
     }

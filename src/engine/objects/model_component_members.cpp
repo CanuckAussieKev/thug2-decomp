@@ -187,7 +187,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjClearVisibility: {
         // The viewports the model is drawn in (a bit each).
         int viewport = 0;
-        params->fetch_int_value(kViewport, &viewport, false);
+        params->fetch_int_value(kViewport, &viewport, 0);
         const uint32_t bit = 1U << viewport;
         const uint32_t mask = mesh_instance_->fetch_shown();
         mesh_instance_->toggle_shown(name == kObjSetVisibility ? mask | bit : mask & ~bit);
@@ -331,7 +331,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             sent.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
             sent.power = power;
             sent.object_id = static_cast<uint8_t>(entity()->ident());
-            sent.hold = hold;
+            sent.hold = static_cast<uint8_t>(hold);
             sent.axes = axes;
             std::array<uint8_t, online::kSpinModelSize> data{};
             util::ByteWriter writer(data.data(), sizeof(data));
@@ -382,7 +382,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->read_hash_value(0U, &geom, 1);
         }
         const char* file = nullptr;
-        params->fetch_text(kModel, &file, true);
+        params->fetch_text(kModel, &file, 1);
         load_asset(mesh_instance_.get(), checksums::hash_from_text(file), geom, false);
         break;
     }
@@ -436,8 +436,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             int h = 0;
             int s = 0;
             int v = 0;
-            if (params->fetch_int_value(kH, &h, false) && params->fetch_int_value(kS, &s, false) &&
-                params->fetch_int_value(kV, &v, false)) {
+            if (params->fetch_int_value(kH, &h, 0) && params->fetch_int_value(kS, &s, 0) &&
+                params->fetch_int_value(kV, &v, 0)) {
                 mesh_instance_->set_geom_color_hsv(checksums::Name{kAll}, static_cast<float>(h),
                                                    static_cast<float>(static_cast<double>(s) * kPercent),
                                                    static_cast<float>(static_cast<double>(v) * kPercent));
@@ -449,8 +449,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             int r = 0;
             int g = 0;
             int b = 0;
-            if (params->fetch_int_value(kR, &r, false) && params->fetch_int_value(kG, &g, false) &&
-                params->fetch_int_value(kB, &b, false)) {
+            if (params->fetch_int_value(kR, &r, 0) && params->fetch_int_value(kG, &g, 0) &&
+                params->fetch_int_value(kB, &b, 0)) {
                 mesh_instance_->change_tint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b),
                                             static_cast<uint8_t>(kFullByte));
             }
@@ -485,8 +485,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
                 auto* entry = array->struct_at(i);
                 const char* src = nullptr;
                 const char* dest = nullptr;
-                entry->fetch_text(kSrc, &src, true);
-                entry->fetch_text(kDest, &dest, true);
+                entry->fetch_text(kSrc, &src, 1);
+                entry->fetch_text(kDest, &dest, 1);
                 uint32_t in = kAll;
                 entry->read_hash_value(kIn, &in, 0);
                 if (mesh_instance_.get() && mesh_instance_->swap_texture(in, src, dest)) {
@@ -496,8 +496,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         } else {
             const char* src = nullptr;
             const char* dest = nullptr;
-            params->fetch_text(kSrc, &src, true);
-            params->fetch_text(kDest, &dest, true);
+            params->fetch_text(kSrc, &src, 1);
+            params->fetch_text(kDest, &dest, 1);
             uint32_t in = kAll;
             params->read_hash_value(kIn, &in, 0);
             if (mesh_instance_.get() && mesh_instance_->swap_texture(in, src, dest)) {
@@ -509,26 +509,26 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjReplaceSpriteTexture: {
         // (dest: a checksum here, passed on as the name)
         const char* src = nullptr;
-        params->fetch_text(kSrc, &src, true);
+        params->fetch_text(kSrc, &src, 1);
         uint32_t dest = 0;
         params->read_hash_value(kDest, &dest, 1);
         uint32_t in = kAll;
         params->read_hash_value(kIn, &in, 0);
-        result = mesh_instance_.get() && mesh_instance_->replace_texture_with(in, src, dest);
+        result = (mesh_instance_ != nullptr) && mesh_instance_->replace_texture_with(in, src, dest);
         break;
     }
     case kObjTestModelCollision:
     case kObjGetBoneVolume: {
         if (name == kObjTestModelCollision) {
             uint32_t arg = 0;
-            params->read_hash_value(kCollisionArg, &arg, false);
+            params->read_hash_value(kCollisionArg, &arg, 0);
             script::Struct* line_params = nullptr;
-            if (params->read_sub_struct(kLine, &line_params, false)) {
+            if (params->read_sub_struct(kLine, &line_params, 0)) {
                 maths::Seg line{maths::Vec4{}, maths::Vec4{}};
                 line_params->fetch_vec(kStart, &line.start, 1);
                 line_params->fetch_vec(kEnd, &line.end, 1);
                 const int hit = test_collision(&line, render::BoneLineTest{.bone = arg});
-                if (hit) {
+                if (hit != 0) {
                     script->args()->put_name_key(checksums::Name{kCollisionResult}, static_cast<uint32_t>(hit));
                 }
             }

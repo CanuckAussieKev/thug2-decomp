@@ -86,7 +86,7 @@ void CinematicTable::mark_loaded_models()
             object->put_name_key(checksums::Name{kUnnamed}, kKeepSkeleton);
         }
     }
-    if (flag_34b_0_) {
+    if (flag_34b_0_ != 0U) {
         add_objects(call_args_);
     }
 }
@@ -95,13 +95,13 @@ void CinematicTable::mark_loaded_models()
 bool CinematicTable::finish_loading(int /*unused*/)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(flag_34b_0_ ? manager->cinematic_low_heap() : manager->bottom_up_heap());
+    manager->enter_heap_scope((flag_34b_0_ != 0U) ? manager->cinematic_low_heap() : manager->bottom_up_heap());
     load_from_bundle();
     mark_loaded_models();
     add_cutscene_lights();
     memory::Hub::get_pull()->leave_heap_scope();
     bundle_ptr_.reset();
-    if (flag_34b_0_ && !ready_) {
+    if ((flag_34b_0_ != 0U) && !ready_) {
         // the music: waiting for its stream to be ready, then started
         for (;;) {
             audio::tick_frame();
@@ -131,18 +131,18 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
         skater_details_ = nullptr;
         flag_34b_0_ = 0;
     }
-    if (flag_34b_0_) {
+    if (flag_34b_0_ != 0U) {
         audio::stop_music();
     }
     stubs::return_true(); // (0x005B6570: a jump to the shared stub, true)
     const char* name = cutscene_name_from_path(path);
-    if (flag_34b_0_) {
+    if (flag_34b_0_ != 0U) {
         std::memcpy(shot_name().data(), name, std::strlen(name) + 1);
     } else {
         std::memcpy(shot_name().data(), "dummy", kDummyNameBytes); // (the game's 0x0064799C)
     }
     label_ = checksums::hash_from_text(name);
-    if (flag_34b_0_) {
+    if (flag_34b_0_ != 0U) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
         std::array<char, kStreamNameBytes> stream{};
         text::format_to(stream, "%s_%s", name, skater_model_name(skater_details_));
@@ -153,14 +153,14 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
                 ready_ = true;
             }
         }
-        if (flag_34b_0_) {
+        if (flag_34b_0_ != 0U) {
             set_up_cutscene_heaps();
         }
     }
     objects_shared().set_cutscene_playing(true);
     memory::Hub* manager = memory::Hub::get_pull();
-    memory::Arena* file_heap = flag_34b_0_ ? manager->cinematic_low_heap() : manager->bottom_up_heap();
-    memory::Arena* asset_heap = flag_34b_0_ ? manager->cinematic_high_heap() : manager->top_down_heap();
+    memory::Arena* file_heap = (flag_34b_0_ != 0U) ? manager->cinematic_low_heap() : manager->bottom_up_heap();
+    memory::Arena* asset_heap = (flag_34b_0_ != 0U) ? manager->cinematic_high_heap() : manager->top_down_heap();
     manager->enter_heap_scope(file_heap);
     bundle_ptr_ = std::make_unique<file::AssetBundle>();
     bundle_ptr_->set_heaps({.file_heap_ = file_heap, .asset_heap_ = asset_heap});
@@ -179,7 +179,7 @@ bool CinematicTable::is_loaded()
     if (ready_flag_) {
         return true;
     }
-    if (flag_34b_0_) {
+    if (flag_34b_0_ != 0U) {
         if (!bundle_ptr_->is_loaded()) {
             return false;
         }
@@ -197,7 +197,7 @@ bool CinematicTable::is_loaded()
 void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
 {
     const bool fixed = script::fetch_int_value(kFixedTime) != 0;
-    if (!flag_34b_0_) {
+    if (flag_34b_0_ == 0U) {
         previous_clock_ = clock_;
         clock_ = static_cast<float>(frame_clock::get_frame_seconds() + clock_);
     } else {
@@ -219,7 +219,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
     update_object_poses();
     update_object_transforms();
     show_hidden_objects();
-    if (!flag_34b_0_) {
+    if (flag_34b_0_ == 0U) {
         return;
     }
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
@@ -249,7 +249,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
 void CinematicTable::perform(void* camera, script::Struct* params)
 {
     objects_shared().set_cutscene_playing(true);
-    if (!flag_34b_0_) {
+    if (flag_34b_0_ == 0U) {
         ready_ = true;
         tick_frame(camera, params);
         return;
@@ -271,10 +271,10 @@ void CinematicEntry::tick_frame()
     if (!content_) {
         return;
     }
-    if (!owns_data_) {
+    if (owns_data_ == 0U) {
         if (!begun_) {
             content_->restart_objects();
-            if (begin_script_) {
+            if (begin_script_ != 0U) {
                 get_run(begin_script_);
             }
         }
@@ -285,7 +285,7 @@ void CinematicEntry::tick_frame()
     if (!content_->is_loaded()) {
         return;
     }
-    if (!begun_ && begin_script_) {
+    if (!begun_ && (begin_script_ != 0U)) {
         get_run(begin_script_);
         begun_ = true;
     }
@@ -314,14 +314,14 @@ bool CinematicEntry::is_finished()
     if (flag18() || !content_) {
         return false;
     }
-    return content_->is_loaded() && content_->is_finished();
+    return content_->is_loaded() && (content_->is_finished() != 0);
 }
 
 // 0x004680B0
 bool CinematicEntry::has_camera()
 {
     CinematicTable* data = content_;
-    return data && data->flag_34b_0() && data->is_loaded() && data->ready();
+    return (data != nullptr) && (data->flag_34b_0() != 0U) && data->is_loaded() && data->ready();
 }
 
 } // namespace objects

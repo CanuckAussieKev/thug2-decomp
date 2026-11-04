@@ -200,7 +200,7 @@ void ObjectModule::operator delete(void* memory) { memory::Hub::dealloc(memory);
 // 0x0045D740 (0x0045D780 the deleting one)
 ObjectModule::~ObjectModule()
 {
-    if (flag_bits_ & kComponentFlagScriptWaiting) {
+    if ((flag_bits_ & kComponentFlagScriptWaiting) != 0U) {
         script::component_destroyed_all_scripts(this);
     }
 }
@@ -259,24 +259,24 @@ GameEntity::~GameEntity()
 // 0x0045D920
 void GameEntity::tick_frame()
 {
-    if (composite_flags_ & kCompositeFlagPaused) {
+    if ((composite_flags_ & kCompositeFlagPaused) != 0U) {
         return;
     }
-    if (!(composite_flags_ & kCompositeFlagSuspended)) {
+    if ((composite_flags_ & kCompositeFlagSuspended) == 0U) {
         if (own_script()) {
             own_script()->tick_frame();
         }
-        if (object_flags() & kObjectFlagDead) {
+        if ((object_flags() & kObjectFlagDead) != 0U) {
             return;
         }
         own_update();
     }
     for (ObjectModule* component = attached_modules_; component; component = component->following()) {
-        if (component->flag_bits() & kComponentFlagSuspended) {
+        if ((component->flag_bits() & kComponentFlagSuspended) != 0U) {
             continue;
         }
         component->tick_frame();
-        if (object_flags() & kObjectFlagDead) {
+        if ((object_flags() & kObjectFlagDead) != 0U) {
             break;
         }
     }
@@ -328,7 +328,7 @@ void GameEntity::mark_jumped_ahead(bool teleport_components)
 }
 
 // 0x0045E500
-bool GameEntity::should_update_scripts() { return !(composite_flags_ & kCompositeFlagPaused); }
+bool GameEntity::should_update_scripts() { return (composite_flags_ & kCompositeFlagPaused) == 0U; }
 
 // 0x0045D7C0
 void GameEntity::flag_as_dead()

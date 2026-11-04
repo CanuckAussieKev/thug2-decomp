@@ -85,7 +85,7 @@ void ProximityComponent::tick_frame()
             line.start = head;
             line.end = {.x = head.x, .y = static_cast<float>(static_cast<double>(head.y) + skater_radius()), .z = head.z, .w = head.w};
             maths::Capsule capsule(line, 0.0F);
-            if (!is_within_) {
+            if (is_within_ == 0) {
                 capsule.radius = inner_radius_;
                 if (capsule.contains_point(entity()->at_point(), nullptr)) {
                     inside = 1;
@@ -104,7 +104,7 @@ void ProximityComponent::tick_frame()
         return;
     }
     is_within_ = inside;
-    launch_script(inside ? enter_script_ : dismount_script_, get_skater());
+    launch_script((inside != 0) ? enter_script_ : dismount_script_, get_skater());
 }
 
 // 0x0042B850

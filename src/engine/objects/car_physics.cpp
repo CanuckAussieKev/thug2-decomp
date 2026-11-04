@@ -212,7 +212,7 @@ void AutomobileDynamicsModule::update_angles()
     const float speed = motion_speed(motion_);
     auto acceleration = static_cast<float>(static_cast<double>(speed) - last_speed_);
     last_speed_ = speed;
-    if (script::fetch_int_value(kReadGlobalsEveryUpdate)) {
+    if (script::fetch_int_value(kReadGlobalsEveryUpdate) != 0) {
         min_tilt_ = script::fetch_float(kMinTilt);
         max_tilt_ = script::fetch_float(kMaxTilt);
         tilt_rate_ = script::fetch_float(kTiltRate);
@@ -290,7 +290,7 @@ void AutomobileDynamicsModule::tick_frame()
     if (suspend_suspended(suspend_)) {
         return;
     }
-    if (entity()->object_flags() & 1) {
+    if ((entity()->object_flags() & 1) != 0U) {
         return;
     }
     if (!suspend_should_update(suspend_, nullptr)) {

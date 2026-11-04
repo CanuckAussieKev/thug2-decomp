@@ -903,12 +903,12 @@ void DrivableModule::tick_frame()
         }
         if (!passive_) {
             collide();
-            if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
+            if (cut_short_ || ((entity()->object_flags() & kObjectFlagDead) != 0U)) {
                 return;
             }
         }
         update_wheel_contacts();
-        if (cut_short_ || (entity()->object_flags() & kObjectFlagDead)) {
+        if (cut_short_ || ((entity()->object_flags() & kObjectFlagDead) != 0U)) {
             return;
         }
         update_steering();
@@ -1011,7 +1011,7 @@ void DrivableModule::debug_draw()
 {
     // Each wheel's tyre (two rims of twelve spokes and the tread between them, coloured by its grip state) and its
     // axle; then (two spheres, compiled out as well) the centre of mass and the position. Nothing else is touched.
-    if (!debug_mode_) {
+    if (debug_mode_ == 0) {
         return;
     }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
@@ -1057,7 +1057,7 @@ void DrivableModule::debug_draw()
             maths::build_axis_angle_matrix(steer, up, wheel.steering);
             std::array<maths::Vec4, 2> ends{};
             for (int e = 0; e < 2; ++e) {
-                const float side = e ? kBelow : -kBelow;
+                const float side = (e != 0) ? kBelow : -kBelow;
                 const maths::Vec4 local{.x = (core::at(steer.row, 0).x * side) + wheel.offset.x,
                                         .y = (core::at(steer.row, 0).y * side) + wheel.offset.y + wheel.y,
                                         .z = (core::at(steer.row, 0).z * side) + wheel.offset.z,
@@ -1097,7 +1097,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
                             .w = static_cast<float>(static_cast<double>(pos.w) + 1.0)};
     const maths::Vec4 end{.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) - kBelow), .z = pos.z, .w = start.w};
     render::ProbeRay feeler(&start, &end);
-    if (feeler.get_hit_shape(false, false)) {
+    if (feeler.get_hit_shape(false, false) != 0) {
         pos.y = static_cast<float>(static_cast<double>(feeler.contact_pos().y) - above);
     }
     // The node marks the fixed axle (the first fixed wheel from the last): back along the node's facing by its place.

@@ -104,24 +104,24 @@ Entity* ObjectHubBase::look_up_entity(uint32_t id) { return get_tracker()->look_
 void ObjectHubBase::for_each(ObjectCallback callback, void* data)
 {
     uint32_t bit = 1;
-    while (walking_ & bit) {
+    while ((walking_ & bit) != 0U) {
         bit <<= 1;
     }
     walking_ |= bit;
     for (memory::ListNode* node = get_next_node(&entities_); node && node->data(); node = get_next_node(node)) {
         static_cast<Entity*>(node->data())->visited_mask() &= ~bit;
     }
-    for (bool again = true; again; again = restart_walks_ & bit) {
+    for (bool again = true; again; again = ((restart_walks_ & bit) != 0U)) {
         restart_walks_ &= ~bit;
         memory::ListNode* node = get_next_node(&entities_);
         Entity* object = object_of(node);
         while (object) {
             memory::ListNode* next_node = get_next_node(node);
             Entity* next = object_of(next_node);
-            if (!(object->visited_mask() & bit)) {
+            if ((object->visited_mask() & bit) == 0U) {
                 object->visited_mask() |= bit;
                 callback(object, data);
-                if (restart_walks_ & bit) {
+                if ((restart_walks_ & bit) != 0U) {
                     break;
                 }
             }
@@ -167,7 +167,7 @@ void MiscHub::flush_dead_objects()
     if (node->data() == memory::ListNode::head_marker() || !node) {
         return;
     }
-    for (bool again = true; again; again = node) {
+    for (bool again = true; again; again = (node != nullptr)) {
         memory::ListNode* next = get_next_node(node);
         node->prev()->set_next(node->next());
         node->next()->set_prev(node->prev());

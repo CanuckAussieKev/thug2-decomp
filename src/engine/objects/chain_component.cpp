@@ -188,7 +188,7 @@ ChainComponent::ChainComponent()
 // 0x00429790 (0x00429910 the deleting one)
 ChainComponent::~ChainComponent()
 {
-    if (chains_.size()) {
+    if (chains_.size() != 0) {
         for (Elem* node = get_first(chains_.head()); node != chains_.head();) {
             if (Chain* chain = node->value) {
                 for (int i = Chain::kMaxLinks - 1; i >= 0; --i) {
@@ -626,7 +626,7 @@ void ChainComponent::tick_frame()
             link.last_pos() = link.at_point();
             link.at_point() = link.next_pos();
         }
-        if (!(entity()->composite_flags() & kCompositeFlagHidden) && !invisible_) {
+        if (((entity()->composite_flags() & kCompositeFlagHidden) == 0U) && !invisible_) {
             chain->update_lines();
         } else {
             for (uint32_t i = 1; i < ints::as_unsigned(chain->links()); ++i) {

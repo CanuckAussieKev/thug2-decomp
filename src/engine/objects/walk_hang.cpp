@@ -356,7 +356,7 @@ double objects::FootMovement::run_speed() const
 double objects::FootMovement::hang_height_offset()
 {
     const render::RenderModel* model = model_->mesh_instance().get();
-    if (!(model->flag_bits() & kModelScaledFlag)) { // (kModelScaled)
+    if ((model->flag_bits() & kModelScaledFlag) == 0) { // (kModelScaled)
         return 0.0;
     }
     const float fraction = model->size_factor().y;
@@ -437,13 +437,13 @@ bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const RailHit& 
     line.start.y = static_cast<float>(static_cast<double>(line.start.y) - origin + critical_point_up());
     const float up = get_param(kHangObstructionFeelerUp);
     line.end.y = up + line.end.y;
-    if (feeler->get_hit_shape(true, false)) {
+    if (feeler->get_hit_shape(true, false) != 0) {
         return false;
     }
     const maths::Vec4 start = line.start;
     line.start = line.end;
     line.end = start;
-    return !feeler->get_hit_shape(true, false);
+    return feeler->get_hit_shape(true, false) == 0;
 }
 
 // 0x0043DFC0
@@ -611,7 +611,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
         const float rise = no_rise + ground.y;
         probe.line().end = {.x = out_x + ground.x, .y = static_cast<float>(static_cast<double>(rise) + height), .z = out_z + ground.z,
                            .w = ground.w + half_push};
-        if (probe.get_hit_shape(true, false)) {
+        if (probe.get_hit_shape(true, false) != 0) {
             return false;
         }
     }
@@ -625,7 +625,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     const float obstruction = get_param(kPullUpObstructionHeight);
     probe.line().start.y = static_cast<float>(static_cast<double>(probe.line().start.y) + obstruction + top);
     probe.line().end = {.x = ground.x, .y = ground.y + 1.0F, .z = ground.z, .w = ground.w};
-    if (probe.get_hit_shape(true, false)) {
+    if (probe.get_hit_shape(true, false) != 0) {
         return false;
     }
 
@@ -659,7 +659,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
 // 0x0043EC40
 bool objects::FootMovement::drop_to_hang()
 {
-    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on) {
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on != 0U) {
         return false;
     }
     const float factor = get_param(kDropToHangSpeedFactor);
@@ -808,20 +808,20 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     // sideways at the hang point's height, at the side height and at half of it
     line.end = line.start;
     add_scaled(get_param(kHangMoveCollisionSideLength), sideways);
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         return true;
     }
     line.end = line.start;
     line.end.y = line.end.y + get_param(kHangMoveCollisionSideHeight);
     add_scaled(get_param(kHangMoveCollisionSideLength), sideways);
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         return true;
     }
     line.end = line.start;
     line.end.y =
         static_cast<float>((static_cast<double>(get_param(kHangMoveCollisionSideHeight)) * kHalfF) + line.end.y);
     add_scaled(get_param(kHangMoveCollisionSideLength), sideways);
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         return true;
     }
     // down at the critical point, out from the wall, sideways and one more along the segment
@@ -836,7 +836,7 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     line.end.y = line.end.y + onward.y;
     line.end.z = line.end.z + onward.z;
     line.end.w = line.end.w + onward.w;
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         return true;
     }
     // half the side height down, out and sideways (each step rounded: the original's vector operators)
@@ -946,7 +946,7 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     maths::Seg& line = feeler->line();
     line.start = pos_;
     line.end = critical;
-    if (!feeler->get_hit_shape(true, false)) {
+    if (feeler->get_hit_shape(true, false) == 0) {
         return true;
     }
     if (state_ != 0) {
@@ -954,12 +954,12 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     }
     line.end = pos_;
     line.end.y = get_param(kHopObstructionFeelerUp) + line.end.y;
-    if (feeler->get_hit_shape(true, false)) {
+    if (feeler->get_hit_shape(true, false) != 0) {
         return false;
     }
     line.start = line.end;
     line.end = critical;
-    return !feeler->get_hit_shape(true, false);
+    return feeler->get_hit_shape(true, false) == 0;
 }
 
 // 0x00440130
@@ -1048,7 +1048,7 @@ void objects::FootMovement::shimmy(float move)
         render::ProbeRay feeler;
         feeler.line().start = old_critical;
         feeler.line().end = critical;
-        if (feeler.get_hit_shape(true, false)) {
+        if (feeler.get_hit_shape(true, false) != 0) {
             pos = old_pos;
             along = old_along;
             start = old_start;
@@ -1103,7 +1103,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     // a one-sided rail (flag 0x80: hung from one side, 0x40: the other) turns it round
     bool on_right = (static_cast<double>(direction.x) * out.z) - (static_cast<double>(direction.z) * out.x) > 0.0;
     const uint32_t flags = rail->node->flag_bits();
-    if (((flags & kFlagRight) && on_right) || ((flags & kFlagLeft) && !on_right)) {
+    if ((((flags & kFlagRight) != 0U) && on_right) || (((flags & kFlagLeft) != 0U) && !on_right)) {
         flip();
         on_right = !on_right;
     }
@@ -1121,8 +1121,8 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     feeler.set_hit_cache(&cache);
     rail->along = along;
     if (!hang_clear(&feeler, on_rail, record)) {
-        if ((state_ != 1 && away) || ((flags & kFlagRight) && !on_right) || ((flags & kFlagLeft) && on_right) ||
-            (flip(), !hang_clear(&feeler, on_rail, record))) {
+        if ((state_ != 1 && away) || (((flags & kFlagRight) != 0U) && !on_right) ||
+            (((flags & kFlagLeft) != 0U) && on_right) || (flip(), !hang_clear(&feeler, on_rail, record))) {
             return false;
         }
     }
@@ -1146,7 +1146,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     line.end.y = static_cast<float>((static_cast<double>(length) * out.y) + line.end.y);
     line.end.z = static_cast<float>((static_cast<double>(length) * out.z) + line.end.z);
     line.end.w = static_cast<float>((static_cast<double>(length) * out.w) + line.end.w);
-    rail->anim = feeler.get_hit_shape(true, false) ? kAnimWall : kAnimSwing;
+    rail->anim = (feeler.get_hit_shape(true, false) != 0) ? kAnimWall : kAnimSwing;
     return true;
 }
 
@@ -1192,7 +1192,7 @@ void objects::FootMovement::update_hang()
             if (pull_up(&target)) {
                 return;
             }
-        } else if (walk::turned_round(&input->pad_primary())) {
+        } else if (walk::turned_round(&input->pad_primary()) != 0) {
             // turned round: let go
             change_phase(1);
             object_of(this)->post_own_event(kSkaterExitHang, nullptr);
@@ -1375,7 +1375,7 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
     render::ProbeRay feeler;
     feeler.line().start = pos_;
     feeler.line().end = ladder->point;
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         return false;
     }
     ladder->facing = at;
@@ -1464,7 +1464,7 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
                          .y = ladder->point.y - by,
                          .z = ladder->point.z - bz,
                          .w = static_cast<float>(ladder->point.w - (static_cast<double>(at.w) * kLadderStep))};
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         return false;
     }
     ladder->facing = at;
@@ -1511,7 +1511,7 @@ void objects::FootMovement::climb_off_top()
 // 0x00441DE0
 bool objects::FootMovement::climb_onto_bottom(bool button)
 {
-    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on) {
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on != 0U) {
         return false;
     }
     const float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
@@ -1538,7 +1538,7 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
 // 0x00441FC0
 bool objects::FootMovement::climb_onto_top()
 {
-    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on) {
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on != 0U) {
         return false;
     }
     const float height = get_param(kMaxVertSnapDistance);

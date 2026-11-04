@@ -167,7 +167,7 @@ void BodyDynamicsModule::seal()
 // 0x0042BE90
 void BodyDynamicsModule::sleep()
 {
-    if (settle_script_) {
+    if (settle_script_ != 0U) {
         entity()->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
     }
     vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -271,7 +271,7 @@ void BodyDynamicsModule::check_sleep()
         return;
     }
     sleep();
-    if ((flag_bits_ & kFlagDieUponSettling) &&
+    if (((flag_bits_ & kFlagDieUponSettling) != 0U) &&
         !(maths::get_distance_squared(at_point_, wake_pos_) < kSettledDistanceSqr)) {
         die_timer_ = kDieAfterSettling;
     }
@@ -431,7 +431,7 @@ void BodyDynamicsModule::feel_pushers()
 
         wake();
         push_cooldown_ = push_cooldown_time_;
-        if (collide_script_) {
+        if (collide_script_ != 0U) {
             entity()->spawn_script(collide_script_, callback_params_ptr_, 0, false)->tick_frame();
         }
         hide_sector(checksums::fold_text_into_checksum(entity()->ident(), "_Shadow"));

@@ -111,7 +111,7 @@ Channel* masked(memory::ListNode* node) { return is_head(node) ? nullptr : as_ch
 // The next channel after `channel` (or the head).
 memory::ListNode* get_next(Channel* channel) { return get_link(channel)->next(); }
 // The walks' end test: the head or null.
-bool is_over(memory::ListNode* node) { return is_head(node) || !node; }
+bool is_over(memory::ListNode* node) { return is_head(node) || (node == nullptr); }
 
 uint32_t& ident_no(Channel* channel)
 {
@@ -489,7 +489,7 @@ bool AnimBlenderComponent::all_channels_flag29()
 {
     bool all = true;
     for (memory::ListNode* node = lanes_.next(); !is_over(node); node = node->next()) {
-        all = all && ((as_channel(node)->flag_bits() >> kAllChannelsFlagBit) & 1);
+        all = all && (((as_channel(node)->flag_bits() >> kAllChannelsFlagBit) & 1) != 0U);
     }
     return all;
 }
@@ -502,7 +502,7 @@ bool AnimBlenderComponent::model_ready()
         return false;
     }
     const uint8_t flags = thing->flag_bits();
-    return (flags & 2) && !(flags & 4);
+    return ((flags & 2) != 0) && ((flags & 4) == 0);
 }
 
 // 0x00419730

@@ -164,7 +164,7 @@ bool CinematicEntry::read_in(script::Struct* params)
 {
     std::array<char, kFileNameBytes> file_name = {"none"}; // (from the game's 0x0064797C)
     uint32_t name = 0;
-    if (owns_data_) {
+    if (owns_data_ != 0U) {
         const char* path = nullptr;
         params->fetch_text(kCutsceneName, &path, 1);
         name = checksums::hash_from_text(cutscene_name_from_path(path));
@@ -183,7 +183,7 @@ bool CinematicEntry::read_in(script::Struct* params)
     begin_script_ = checksums::fold_text_into_checksum(name, "_begin");
     end_script_ = checksums::fold_text_into_checksum(name, "_end");
     bool loaded = false;
-    if (!owns_data_) {
+    if (owns_data_ == 0U) {
         content_ = static_cast<CinematicTable*>(get_assets()->get_asset_data(name, 0));
         loaded = content_ != nullptr;
     } else {
@@ -245,11 +245,11 @@ bool CinematicEntry::read_in(script::Struct* params)
 // 0x00466A10
 void CinematicEntry::stop()
 {
-    if (!owns_data_) {
+    if (owns_data_ == 0U) {
         if (content_) {
             content_->destroy_objects();
         }
-        if (end_script_) {
+        if (end_script_ != 0U) {
             get_run(end_script_);
         }
         print_cutscene_details(this);
@@ -263,7 +263,7 @@ void CinematicEntry::stop()
         content_ = nullptr;
     }
     render::clear_scene_light_queue();
-    if (end_script_) {
+    if (end_script_ != 0U) {
         get_run(end_script_);
     }
     get_run(kKillCutsceneCameraHud);
@@ -307,9 +307,9 @@ CinematicTable::~CinematicTable()
         discard_loaded_item(core::at(assets_, i));
         core::at(assets_, i) = 0;
     }
-    if (flag_34b_0_) {
+    if (flag_34b_0_ != 0U) {
         audio::stop_music();
-        if (flag_34b_0_) {
+        if (flag_34b_0_ != 0U) {
             get_run(kCutsceneKillObjects);
             std::array<char, kFileNameBytes> file_name{};
             text::format_to(file_name, "%08x.qb", label_);
@@ -338,7 +338,7 @@ void CinematicTable::load_from_bundle()
             script::decode_from_bytes(call_args_, static_cast<const uint8_t*>(data), entry->size);
             break;
         case kTypeQb:
-            if (flag_34b_0_) {
+            if (flag_34b_0_ != 0U) {
                 std::array<char, kFileNameBytes> file_name{};
                 text::format_to(file_name, "%08x.qb", label_);
                 script::load_qb_data(file_name.data(), std::span<uint8_t>(static_cast<uint8_t*>(data), entry->size), 1, 0, 0);
@@ -404,7 +404,7 @@ void CinematicTable::load_from_bundle()
         bundle_ptr_->free_asset(entry->name, entry->type);
     }
     if (!call_args_->fetch_float(kEndTime, &end_time_, 0)) {
-        end_time_ = (flag_34b_0_ ? camera_anim_ : anim_list_)->duration();
+        end_time_ = ((flag_34b_0_ != 0U) ? camera_anim_ : anim_list_)->duration();
     }
 }
 
@@ -419,7 +419,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
     const file::AssetBundle::TableRow* textures = bundle_ptr_->find_entry(entry->name, kTypeTextures, 1);
     const uint32_t texture_size = textures->size;
     const uint32_t textures_name = textures->type + textures->name;
-    const uint8_t is_model = entry->type == kTypeModel;
+    const auto is_model = static_cast<uint8_t>(entry->type == kTypeModel);
     params.cas_data_ = nullptr;
     params.cas_size_ = 0;
     params.has_cas_ = is_model;

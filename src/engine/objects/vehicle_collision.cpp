@@ -68,7 +68,7 @@ void light_from_feeler(ObjectModule* model, render::ProbeRay* feeler, bool b, fl
 
 bool get_interrupted(const DrivableModule* vehicle)
 {
-    return vehicle->cut_short() || (vehicle->entity()->object_flags() & kObjectFlagDead);
+    return vehicle->cut_short() || ((vehicle->entity()->object_flags() & kObjectFlagDead) != 0U);
 }
 
 } // namespace
@@ -157,7 +157,7 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
             contact->normal.x = static_cast<float>(x);
             contact->normal.y = static_cast<float>(y);
             contact->depth = static_cast<float>(get_penetration(contact, collider));
-            if (debug_mode_) {
+            if (debug_mode_ != 0) {
                 const maths::Vec4 tip{
                     .x = static_cast<float>((static_cast<double>(contact->normal.x) * 72.0F) + contact->point.x),
                     .y = static_cast<float>((static_cast<double>(contact->normal.y) * 72.0F) + contact->point.y),
@@ -180,7 +180,7 @@ bool DrivableModule::normal_faces_away(const Contact* contact) const
         (((static_cast<double>(p.z) - at_point_.z) * n.z) + ((static_cast<double>(p.y) - at_point_.y) * n.y)) +
         ((static_cast<double>(p.x) - at_point_.x) * n.x);
     const bool away = along >= 0.0;
-    if (debug_mode_ && away) {
+    if ((debug_mode_ != 0) && away) {
         const maths::Vec4 tip{.x = static_cast<float>((static_cast<double>(n.x) * 48.0F) + p.x),
                               .y = static_cast<float>((static_cast<double>(n.y) * 48.0F) + p.y),
                               .z = static_cast<float>(static_cast<double>(static_cast<float>(n.z * 48.0F)) + p.z),
@@ -199,7 +199,7 @@ void DrivableModule::move_by(const maths::Vec4* move)
                           .z = static_cast<float>(static_cast<double>(at_point_.z) + move->z),
                           .w = static_cast<float>(static_cast<double>(at_point_.w) + move->w)};
     render::ProbeRay feeler(&at_point_, &end);
-    if (feeler.get_hit_shape(false, false)) {
+    if (feeler.get_hit_shape(false, false) != 0) {
         // Going through something: put just off the surface, the rest of the move reflected, the momentum into it
         // turned back by half again.
         debug::printf(kDebugFormat, kDebugFile, kSourceLineLessThanUberFrig, "less than uber frig"); // "less than uber frig"
@@ -248,7 +248,7 @@ void DrivableModule::move_by(const maths::Vec4* move)
     feeler.line().start = at_point_;
     feeler.line().end = at_point_;
     feeler.line().end.y = static_cast<float>(static_cast<double>(at_point_.y) - kDropTest);
-    if (!feeler.get_hit_shape(false, false)) {
+    if (feeler.get_hit_shape(false, false) == 0) {
         debug::printf(kDebugFormat, kDebugFile, kSourceLineUberFrig, "uber frig"); // "uber frig"
         at_point_ = saved;
     } else {
@@ -517,7 +517,7 @@ void DrivableModule::collide()
                 }
             }
         }
-        if (debug_mode_) {
+        if (debug_mode_ != 0) {
             rect.debug_draw(kDebugWhite, kDebugWhite, kDebugWhite, 1);
         }
         feeler.line().start = at_point_;
@@ -539,7 +539,7 @@ void DrivableModule::collide()
                                     .z = static_cast<float>(static_cast<double>(feeler.line().end.z) - rect.rect().side_a_.z),
                                     .w = static_cast<float>(static_cast<double>(feeler.line().end.w) - rect.rect().side_a_.w)};
             }
-            if (feeler.get_hit_shape(false, false)) {
+            if (feeler.get_hit_shape(false, false) != 0) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
                 if (get_interrupted(this)) {
                     return;
@@ -563,7 +563,7 @@ void DrivableModule::collide()
                     }
                 }
             }
-            if (debug_mode_) {
+            if (debug_mode_ != 0) {
                 feeler.debug_draw(kDebugWhite, kDebugWhite, kDebugWhite, 1);
             }
         }

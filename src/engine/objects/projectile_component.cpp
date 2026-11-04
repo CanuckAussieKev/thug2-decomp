@@ -118,7 +118,7 @@ void ProjectileComponent::check_triggers()
         const GroundPoint tip = probe_tip(i, {.x = pos.x, .z = pos.z});
         feeler.line().end.x = tip.x;
         feeler.line().end.z = tip.z;
-        if (feeler.get_hit_shape(true, false) && trigger_ptr_->probe_touches_zone(touch_events(), &feeler)) {
+        if ((feeler.get_hit_shape(true, false) != 0) && trigger_ptr_->probe_touches_zone(touch_events(), &feeler)) {
             rest_ = kRestFrames;
         }
     }

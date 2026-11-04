@@ -108,7 +108,7 @@ void ActivationZoneModule::tick_frame()
     if (last_pos_.x == pos.x && last_pos_.y == pos.y && last_pos_.z == pos.z && last_pos_.w == pos.w) {
         return;
     }
-    if (object->composite_flags() & kCompositeFlagTeleported) {
+    if ((object->composite_flags() & kCompositeFlagTeleported) != 0U) {
         last_pos_ = pos;
         return;
     }
@@ -195,16 +195,16 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
     }
     uint32_t script = 0;
     node->read_hash_value(kTriggerScript, &script, 0);
-    if (!script) {
+    if (script == 0U) {
         return false;
     }
-    if (modules::Skate::should_be_absent(node)) {
+    if (modules::Skate::should_be_absent(node) != 0) {
         return false;
     }
     uint32_t& recorded = events_;
     recorded = 0;
     for (const int event : events) { // (the mask of the events, up to three)
-        if (event) {
+        if (event != 0) {
             recorded += 1U << (event & kShiftCountMask);
         }
     }
@@ -218,7 +218,7 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
 // 0x00434BF0
 bool ActivationZoneModule::probe_touches_zone(const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
-    if (!feeler->hit().face_flag40_ || !feeler->hit().object_checksum_) {
+    if ((feeler->hit().face_flag40_ == 0U) || (feeler->hit().object_checksum_ == 0U)) {
         return false;
     }
     if (feeler->get_tested_owner()) {
@@ -245,7 +245,7 @@ void ActivationZoneModule::trigger_hits(const std::array<int, 3>& events, const 
     const render::RectHits& hits = feeler->hits();
     const int count = hits.count;
     for (int i = count - 1; i >= 0; --i) {
-        if (!core::at(hits.hits, i).face_flag40_) {
+        if (core::at(hits.hits, i).face_flag40_ == 0U) {
             continue;
         }
         const uint32_t name = core::at(hits.hits, i).checksum;

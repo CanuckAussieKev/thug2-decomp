@@ -54,7 +54,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // render::RenderModel (not rewritten yet): hide it (0x00494B70), a geom hidden or shown (0x00494800), its texture `src`
 // replaced (0x00493E80), geom `index` (0x00494640), the bone volumes (0x00492FC0) and a line tested against them
 // (0x004939E0), and its lights (+0x2C, the folded getter 0x00532EB0).
-void model_hide(render::RenderModel* model, bool hide) { model->conceal(hide); }
+void model_hide(render::RenderModel* model, bool hide) { model->conceal(static_cast<uint8_t>(hide)); }
 void model_hide_geom(render::RenderModel* model, uint32_t name, bool hide) { model->conceal_mesh(name, hide); }
 bool model_replace_texture(render::RenderModel* model, uint32_t mesh, const char* src, uint32_t dest)
 {
@@ -132,17 +132,18 @@ void send_to_server(GameEntity* object, MessageHead message_head, void* data)
 // 0x00420590
 double bearing(ModelSpin& spin)
 {
-    if (!(spin.flag_bits_ & kModelSpinOn)) {
+    if ((spin.flag_bits_ & kModelSpinOn) == 0) {
         return 0.0;
     }
-    const int elapsed = spin.flag_bits_ & kModelSpinRealTime ? static_cast<int>(frame_clock::get_time() - spin.outset_)
-                                                        : frame_clock::game_clock_time_since(static_cast<int>(spin.outset_));
+    const int elapsed = ((spin.flag_bits_ & kModelSpinRealTime) != 0)
+                            ? static_cast<int>(frame_clock::get_time() - spin.outset_)
+                            : frame_clock::game_clock_time_since(static_cast<int>(spin.outset_));
     auto t = static_cast<double>(elapsed);
     if (elapsed < 0) {
         t += kTwoTo32; // (as unsigned)
     }
     if (t > spin.period_) { // (a NaN period never ends)
-        if (spin.flag_bits_ & kModelSpinHold) {
+        if ((spin.flag_bits_ & kModelSpinHold) != 0) {
             return static_cast<double>(spin.range_) + spin.base_;
         }
         spin.flag_bits_ &= ~kModelSpinOn;
@@ -181,7 +182,7 @@ void append_one(ModelSpinAxis& axis, SpinWave spin_wave, bool hold,
     const auto range = spin_wave.range;
     const auto power = spin_wave.power;
     for (ModelSpin& spin : axis.spins_) {
-        if (spin.flag_bits_ & kModelSpinOn) {
+        if ((spin.flag_bits_ & kModelSpinOn) != 0) {
             continue;
         }
         spin.period_ = period;
@@ -206,7 +207,7 @@ float bearing(ModelSpinAxis& axis)
     }
     axis.active_ = false;
     for (ModelSpin& spin : axis.spins_) {
-        if (spin.flag_bits_ & kModelSpinOn) {
+        if ((spin.flag_bits_ & kModelSpinOn) != 0) {
             axis.active_ = true;
             angle = static_cast<float>(bearing(spin) + angle);
         }
@@ -315,7 +316,7 @@ void MeshInstanceModule::rebuild_from_profile(void* profile, uint32_t build_scri
 // 0x00420110
 bool MeshInstanceModule::swap_texture(uint32_t mesh, const char* src, uint32_t dest)
 {
-    return mesh_instance_.get() && model_replace_texture(mesh_instance_.get(), mesh, src, dest);
+    return (mesh_instance_ != nullptr) && model_replace_texture(mesh_instance_.get(), mesh, src, dest);
 }
 
 // 0x004202A0
@@ -397,7 +398,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     sent.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
     sent.power = power;
     sent.object_id = static_cast<uint8_t>(entity()->ident());
-    sent.hold = hold;
+    sent.hold = static_cast<uint8_t>(hold);
     sent.axes = axes;
     std::array<uint8_t, online::kSpinModelSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));

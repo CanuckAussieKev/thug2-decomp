@@ -252,7 +252,7 @@ bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*
     for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(kParticle); component;
          component = component->next_of_type()) {
         objects::GameEntity* object = component->entity();
-        if (!(object->object_flags() & objects::kObjectFlagDead) && particle_group(component) == group) {
+        if (((object->object_flags() & objects::kObjectFlagDead) == 0U) && particle_group(component) == group) {
             flag_as_dead(object);
         }
     }
@@ -276,7 +276,7 @@ bool cfunc_get_node(script::Struct* params, script::Script* script)
 bool cfunc_get_node_name(script::Struct* /*params*/, script::Script* script)
 {
     const objects::Entity* object = script->entity().get_pull();
-    if (!object || !object->ident()) {
+    if (!object || (object->ident() == 0U)) {
         return false;
     }
     script->args()->put_name_key(checksums::Name{kNodeName}, object->ident());
@@ -286,7 +286,7 @@ bool cfunc_get_node_name(script::Struct* /*params*/, script::Script* script)
 // 0x004498C0: GetTriggerNodeName: nodename = the node the script was spawned for. False if none.
 bool cfunc_get_trigger_node_name(script::Struct* /*params*/, script::Script* script)
 {
-    if (!script->list_link()) {
+    if (script->list_link() == 0) {
         return false;
     }
     script->args()->put_name_key(checksums::Name{kNodeName}, static_cast<uint32_t>(script->list_link()));
@@ -353,7 +353,7 @@ bool cfunc_orient(script::Struct* params, script::Script* /*script*/)
     maths::Mat4& matrix = object->basis_frame();
     angles_to_matrix(&matrix, &angles);
     core::at(matrix.row, 3) = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
-    if (bone) {
+    if (bone != 0U) {
         maths::Mat4 joint_mat;
         read_joint_matrix(skeleton_of(relative_to->fetch_module(kSkeleton)), bone, &joint_mat);
         matrix_multiply(&matrix, &matrix, &joint_mat);

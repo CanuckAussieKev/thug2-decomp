@@ -156,7 +156,7 @@ render::EmitterInstance* start_subsystem(uint32_t name, uint32_t type, int max, 
 {
     return static_cast<render::FlexibleParticleManager*>(render::flexible_particle_manager())
         ->start_subsystem(name, type, max, max_streams, texture, blend_mode, unknowna605b89f, segments, unknown4e0a65ee,
-                          history, perm, use_global_color_modulation, model);
+                          history, perm != 0, use_global_color_modulation, model);
 }
 void destroy_system_now(uint32_t name)
 {
@@ -270,7 +270,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     const bool use_global_color_modulation = params->has_bare_flag(kUseGlobalColorModulation);
     // A permanent system of this name, if there's one; else a new one, named by the component's address.
     bool found = false;
-    if (perm) {
+    if (perm != 0) {
         system_.assign_value(find_system(label_));
         found = system_.get_pull() != nullptr;
     }
@@ -308,7 +308,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     if (update_brightness) {
         uint32_t object_id = unknown28_;
         params->read_hash_value(kObjId, &object_id, 0);
-        if (object_id) {
+        if (object_id != 0U) {
             brightness_model_ = core::down_cast<GameEntity>(find_object(object_id))->fetch_module(kModel);
         }
     }
@@ -397,7 +397,7 @@ void FlexibleParticleComponent::tick_frame()
             idle_system(system_.get_pull());
         }
     }
-    if (entity()->composite_flags() & kCompositeFlagHidden) {
+    if ((entity()->composite_flags() & kCompositeFlagHidden) != 0U) {
         system_.get_pull()->set_unknown12f(false);
         system_.get_pull()->set_unknown130(false);
     }
@@ -510,7 +510,7 @@ int FlexibleParticleComponent::destroy_system(uint32_t /*unused*/, script::Struc
 {
     int if_empty = 0;
     params->fetch_int_value(kIfEmpty, &if_empty, 0);
-    if (if_empty) {
+    if (if_empty != 0) {
         destroy_system_when_empty(label_);
     } else {
         destroy_system_now(label_);

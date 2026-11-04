@@ -96,10 +96,7 @@ render::RenderModel* model_of(ObjectModule* component)
 {
     return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
 }
-void change_model_enabled(render::RenderModel* model, bool active)
-{
-    model->change_live(active);
-}
+void change_model_enabled(render::RenderModel* model, bool active) { model->change_live(static_cast<uint8_t>(active)); }
 
 } // namespace
 
@@ -143,7 +140,7 @@ void DormancyModule::configure_from_data(script::Struct* params)
     if (params->has_bare_flag(kNeverSuspend)) {
         never_suspend_ = true;
     }
-    if (script::fetch_int_value(kNoLod)) {
+    if (script::fetch_int_value(kNoLod) != 0) {
         set_no_lod(lod_distances_.data());
         return;
     }
@@ -227,7 +224,7 @@ void DormancyModule::refresh_shown_state()
         return;
     }
     bool visible = false;
-    if (!(entity()->object_flags() & kEntityHiddenBit)) {
+    if ((entity()->object_flags() & kEntityHiddenBit) == 0U) {
         render::RenderModel* model = model_of(mesh_instance_);
         if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2) || modules::viewport_count() > 1 ||
             core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object()) {
@@ -247,7 +244,7 @@ void DormancyModule::refresh_shown_state()
         }
     }
     const uint8_t flags = model_of(mesh_instance_)->flag_bits();
-    const bool shown = (flags & 0x2) && !(flags & 0x4);
+    const bool shown = ((flags & 0x2) != 0) && ((flags & 0x4) == 0);
     change_model_enabled(model_of(mesh_instance_), visible);
     if (visible && !shown) {
         mesh_instance_->tick_frame();
@@ -298,13 +295,13 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
     while (component) {
         component->set_distance_squared(0.0F);
         component->set_far(false);
-        if (component->frames_before_check()) {
+        if (component->frames_before_check() != 0) {
             // (the original goes round again with the same component: its frames all counted down at once)
             --component->frames_before_check();
             continue;
         }
         if (!camera->no_camera() && !component->never_suspend()) {
-            if (component->frames_before_lod()) {
+            if (component->frames_before_lod() != 0) {
                 --component->frames_before_lod();
             } else {
                 const maths::Vec4& pos = component->entity()->at_point();
@@ -325,7 +322,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
             object->hold_off(false);
         }
         if (ObjectModule* model = component->mesh_instance()) {
-            if (component->frames_before_lod()) {
+            if (component->frames_before_lod() != 0) {
                 if (model_of(model)) {
                     change_model_enabled(model_of(model), true);
                 }

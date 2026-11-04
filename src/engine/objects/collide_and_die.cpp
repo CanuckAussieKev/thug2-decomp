@@ -119,14 +119,14 @@ void ImpactDestructModule::tick_frame()
         end.w = object->at_point().w + along_w;
         feeler.change_origin(&start);
         feeler.change_finish(&end);
-        if (feeler.get_hit_shape(true, false) && !fading_out_) {
+        if ((feeler.get_hit_shape(true, false) != 0) && !fading_out_) {
             if (ObjectModule* projectile = entity()->fetch_module(kProjectileCollision)) {
                 projectile_hit(projectile);
             }
             fading_out_ = true;
             death_time_ =
                 static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset + static_cast<int>(kDyingTime));
-            if (on_collide_script_) {
+            if (on_collide_script_ != 0U) {
                 maths::Vec4 point = feeler.contact_pos();
                 gsl::owner<script::Struct*> params = script::spawn_param_bag();
                 if (params) {

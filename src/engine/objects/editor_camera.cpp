@@ -218,11 +218,11 @@ bool script_flagged(uint32_t name)
 // 0x004E5320
 void flag_scripted_hit(render::ProbeRay* feeler)
 {
-    if (!feeler->hit().face_flag40_) {
+    if (feeler->hit().face_flag40_ == 0U) {
         return;
     }
     const uint32_t node_name = feeler->hit().object_checksum_;
-    if (!node_name) {
+    if (node_name == 0U) {
         return;
     }
     script::Struct* node = level_nodes::fetch_vertex(node_name, false);
@@ -231,7 +231,7 @@ void flag_scripted_hit(render::ProbeRay* feeler)
     }
     uint32_t script = 0;
     node->read_hash_value(kTriggerScript, &script, 0);
-    if (!script) {
+    if (script == 0U) {
         return;
     }
     get_seen_count() = 0;
@@ -341,7 +341,7 @@ bool EditorViewModule::ground_height(maths::Vec4 start, maths::Vec4 end, float* 
         return true;
     }
     flag_scripted_hit(feeler.as_feeler());
-    if (get_flagged()) {
+    if (get_flagged() != 0U) {
         return false;
     }
     if (feeler.get_normal().y < kMaxSlope) {
@@ -480,7 +480,7 @@ void EditorViewModule::tick_frame()
             lower = (buttons & kButtonLowerB) != 0;
         }
     } else if (controller == kControllerXbox) {
-        if (buttons & kButtonShift) {
+        if ((buttons & kButtonShift) != 0U) {
             zoom_in = (buttons & kButtonLowerB) != 0;
             zoom_out = (buttons & kButtonRaiseA) != 0;
         } else {
@@ -597,18 +597,18 @@ void EditorViewModule::tick_frame()
     auto side = static_cast<float>(static_cast<double>(core::at(pad.stick(), 2)) * kStickScale);
     double ahead = static_cast<double>(core::at(pad.stick(), 3)) * kStickScale;
     if (std::fabs(side) < kDeadZone) {
-        if (pad.left_side().held_down()) {
+        if (pad.left_side().held_down() != 0U) {
             side = -kMoveStep;
         }
-        if (pad.right_side().held_down()) {
+        if (pad.right_side().held_down() != 0U) {
             side = kMoveStep;
         }
     }
     if (std::fabs(ahead) < kDeadZone) {
-        if (pad.up_dir().held_down()) {
+        if (pad.up_dir().held_down() != 0U) {
             ahead = -kMoveStep;
         }
-        if (pad.btn_down().held_down()) {
+        if (pad.btn_down().held_down() != 0U) {
             ahead = kMoveStep;
         }
     }

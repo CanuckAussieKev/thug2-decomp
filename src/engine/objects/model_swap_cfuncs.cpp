@@ -193,7 +193,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct* /*params*/, script:
             ++remaining;
         }
     }
-    if (!remaining) {
+    if (remaining == 0) {
         return true;
     }
     for (;;) {

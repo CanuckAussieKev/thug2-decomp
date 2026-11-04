@@ -124,13 +124,13 @@ void ControlButton::tick_frame(int pressure)
     }
     press_amount_ = pressure;
     if (pressure > kPressedAbove) {
-        if (!held_down_) {
+        if (held_down_ == 0U) {
             press_time_ = get_clock();
             fired_ = 1;
         }
         held_down_ = 1;
     } else {
-        if (held_down_) {
+        if (held_down_ != 0U) {
             release_time_ = get_clock();
             let_go_ = 1;
         }
@@ -141,12 +141,12 @@ void ControlButton::tick_frame(int pressure)
 // 0x0046B8B0
 void ControlButton::set_held_down(uint8_t down)
 {
-    if (down) {
-        if (!held_down_) {
+    if (down != 0U) {
+        if (held_down_ == 0U) {
             press_time_ = get_clock();
             fired_ = 1;
         }
-    } else if (held_down_) {
+    } else if (held_down_ != 0U) {
         let_go_ = 1;
     }
     held_down_ = down;
@@ -284,11 +284,11 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
             static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 2)), -static_cast<double>(core::at(stick_, 3))));
     } else {
         // the d-pad stands in for a centred stick
-        const uint8_t up = core::at(data, 6) != 0;
-        const uint8_t down = core::at(data, 7) != 0;
-        const uint8_t left = core::at(data, 5) != 0;
-        const uint8_t right = core::at(data, 4) != 0;
-        if (up || down || left || right) {
+        const auto up = static_cast<uint8_t>(core::at(data, 6) != 0);
+        const auto down = static_cast<uint8_t>(core::at(data, 7) != 0);
+        const auto left = static_cast<uint8_t>(core::at(data, 5) != 0);
+        const auto right = static_cast<uint8_t>(core::at(data, 4) != 0);
+        if ((up != 0U) || (down != 0U) || (left != 0U) || (right != 0U)) {
             core::at(polar_, 1).angle = d_pad_angle(up, down, left, right);
             core::at(polar_, 1).length = kDpadLength;
         } else {

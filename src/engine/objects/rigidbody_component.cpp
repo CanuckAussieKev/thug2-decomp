@@ -420,7 +420,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     }
 
     // The shape: the contacts or spheres given, else Box (the default), Pyramid, Cylinder or Triangle.
-    int shape = contact_count_ ? 4 : 0;
+    int shape = (contact_count_ != 0U) ? 4 : 0;
     if (params->has_entry_named(kContacts)) { // contacts
         script::Array* contacts = nullptr;
         params->fetch_list(kContacts, &contacts, 0);

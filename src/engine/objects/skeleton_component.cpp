@@ -203,7 +203,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
     const auto lifetime = decal_shape.lifetime;
     const auto dropdown_length = decal_shape.dropdown_length_;
     maths::Vec4 from;
-    if (!bone) {
+    if (bone == 0U) {
         from = *start;
     } else {
         get_bone_position(bone, &from);

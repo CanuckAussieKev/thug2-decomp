@@ -297,7 +297,7 @@ gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params) co
 // 0x004641A0
 void CinematicTable::show_hidden_objects() const
 {
-    if (!flag_34b_0_) {
+    if (flag_34b_0_ == 0U) {
         return;
     }
     script::Array* hidden = script::fetch_list(kCutsceneHideList);
@@ -321,7 +321,7 @@ void CinematicTable::show_hidden_objects() const
 // 0x00464220
 void CinematicTable::refresh_viewer(void* camera)
 {
-    if (!flag_34b_0_) {
+    if (flag_34b_0_ == 0U) {
         return;
     }
     static_cast<gfx::ViewCam*>(camera)->remember_prev_pos();

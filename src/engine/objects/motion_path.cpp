@@ -140,10 +140,10 @@ bool KinematicsModule::picks_random_link() const { return (motion_flags2_ & kMot
 // 0x00423530
 void KinematicsModule::update_path_speed()
 {
-    if (!(motion_flags_ & kMotionFlagOnPath)) {
+    if ((motion_flags_ & kMotionFlagOnPath) == 0U) {
         return;
     }
-    if (motion_flags2_ & kMotionPathStopping) {
+    if ((motion_flags2_ & kMotionPathStopping) != 0U) {
         if (path_stop_covered_ >= path_stop_distance_) {
             return; // (NaN goes on)
         }
@@ -188,13 +188,13 @@ void KinematicsModule::update_path_speed()
 // 0x00423160
 int KinematicsModule::is_moving_from_script(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return (motion_flags_ & kMotionFlagMoving) ? 1 : 0;
+    return ((motion_flags_ & kMotionFlagMoving) != 0U) ? 1 : 0;
 }
 
 // 0x00423170
 int KinematicsModule::is_rotating_from_script(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return (motion_flags_ & kMotionFlagRotating) ? 1 : 0;
+    return ((motion_flags_ & kMotionFlagRotating) != 0U) ? 1 : 0;
 }
 
 // 0x00423180

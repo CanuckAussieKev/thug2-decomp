@@ -267,7 +267,7 @@ void PedestrianBrainModule::push_position()
 void PedestrianBrainModule::set_sound_state(int state)
 {
     if (auto* looping = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound))) {
-        looping->sound_changed() |= looping->cur_phase() != state;
+        looping->sound_changed() |= static_cast<int>(looping->cur_phase() != state);
         looping->set_cur_phase(state);
     }
     if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound))) {
@@ -279,7 +279,7 @@ void PedestrianBrainModule::set_sound_state(int state)
 void PedestrianBrainModule::set_sound_terrain(uint8_t terrain)
 {
     if (auto* looping = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound))) {
-        looping->sound_changed() |= looping->surface_type() != terrain;
+        looping->sound_changed() |= static_cast<int>(looping->surface_type() != terrain);
         looping->set_surface_type(terrain);
     }
     if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound))) {
@@ -291,17 +291,17 @@ void PedestrianBrainModule::set_sound_terrain(uint8_t terrain)
 // 0x004EDD00
 bool PedestrianBrainModule::hide_board(int hide)
 {
-    if (!(flag_bits_ & kPedFlagBoardHideable)) {
+    if ((flag_bits_ & kPedFlagBoardHideable) == 0U) {
         return false;
     }
     if (auto* model = core::down_cast<MeshInstanceModule>(entity()->fetch_module(kModel))) {
-        if (hide) {
-            if (!(flag_bits_ & kPedFlagBoardHidden)) {
+        if (hide != 0) {
+            if ((flag_bits_ & kPedFlagBoardHidden) == 0U) {
                 model->conceal_mesh(kBoard, true, true);
                 flag_bits_ |= kPedFlagBoardHidden;
                 return true;
             }
-        } else if (flag_bits_ & kPedFlagBoardHidden) {
+        } else if ((flag_bits_ & kPedFlagBoardHidden) != 0U) {
             model->conceal_mesh(kBoard, false, true);
             flag_bits_ &= ~kPedFlagBoardHidden;
         }
@@ -323,10 +323,10 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
 {
     int ped_init = 0;
     entity()->read_int_tag(kPedInit, &ped_init);
-    if (!ped_init) {
+    if (ped_init == 0) {
         return false;
     }
-    if (!table && !entity()->read_hash_tag(kUniqueStateTable, &table)) {
+    if ((table == 0U) && !entity()->read_hash_tag(kUniqueStateTable, &table)) {
         table = kPedStateLogicTable;
     }
     script::Struct* table_struct = script::read_sub_struct(table);
@@ -396,7 +396,7 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
 // 0x004F2240
 void PedestrianBrainModule::activate_aux_script(uint32_t script, script::Struct* params)
 {
-    if (!script) {
+    if (script == 0U) {
         return;
     }
     if (!aux_script_) {
@@ -416,13 +416,13 @@ void PedestrianBrainModule::activate_aux_script(uint32_t script, script::Struct*
 // 0x004F1E10
 bool PedestrianBrainModule::get_bail()
 {
-    if (get_motion(entity())->motion_flags() & kMotionFlagBailing) {
+    if ((get_motion(entity())->motion_flags() & kMotionFlagBailing) != 0U) {
         return false;
     }
     if (stored_max_velocity_ > 0.0F) {
         get_motion(entity())->set_path_max_speed(stored_max_velocity_);
     }
-    change_phase((flag_bits_ & kPedFlagGrinding) ? kStateBailGrind : kStateBail, kSkaterPedStateTable, nullptr);
+    change_phase(((flag_bits_ & kPedFlagGrinding) != 0U) ? kStateBailGrind : kStateBail, kSkaterPedStateTable, nullptr);
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     return true;
 }
@@ -482,7 +482,7 @@ bool PedestrianBrainModule::ped_get_logic_state(script::Struct* /*params*/, scri
 // 0x004F24B0
 bool PedestrianBrainModule::ped_start_moving(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (flag_bits_ & kPedFlagStopping) {
+    if ((flag_bits_ & kPedFlagStopping) != 0U) {
         activate_aux_script(kStartMoving, nullptr);
         flag_bits_ &= ~kPedFlagStopping;
     }
@@ -518,7 +518,7 @@ bool PedestrianBrainModule::ped_set_is_grinding(script::Struct* params, script::
 {
     int grinding = 0;
     params->fetch_int_value(0U, &grinding, 1);
-    if (grinding) {
+    if (grinding != 0) {
         flag_bits_ |= kPedFlagGrinding;
     } else {
         flag_bits_ &= ~kPedFlagGrinding;
@@ -533,12 +533,12 @@ bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::S
     int bailing = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
     params->fetch_int_value(0U, &bailing, 1);
     if (params->has_bare_flag(kGrind)) {
-        if (bailing) {
+        if (bailing != 0) {
             flag_bits_ |= kPedFlagGrindBailing;
         } else {
             flag_bits_ &= ~kPedFlagGrindBailing;
         }
-    } else if (bailing) {
+    } else if (bailing != 0) {
         flag_bits_ |= kPedFlagBailing;
     } else {
         flag_bits_ &= ~kPedFlagBailing;
@@ -605,7 +605,7 @@ bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Sc
     // (The value is read over the `params` argument: missing - it's asserted - it stays that pointer.)
     int skater = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
     params->fetch_int_value(0U, &skater, 1);
-    if (!skater) {
+    if (skater == 0) {
         kind_ = 0;
         return true;
     }

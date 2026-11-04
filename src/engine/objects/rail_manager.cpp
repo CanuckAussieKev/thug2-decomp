@@ -289,12 +289,12 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     const maths::Vec4 plus = {.x = add(across_x, at_x), .y = add(across_y, high_y), .z = add(across_z, at_z), .w = add(across_w, at_w)};
     // Anything across it (either way): not clear.
     feeler.change_strand(&plus, &minus);
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         feeler.entity().get_release();
         return false;
     }
     std::swap(feeler.line().start, feeler.line().end); // (0x0057C210: the two halves swapped)
-    if (feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) != 0) {
         feeler.entity().get_release();
         return false;
     }
@@ -302,7 +302,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     maths::Vec4 top = plus;
     maths::Vec4 bottom = {.x = plus.x, .y = static_cast<float>(plus.y - kRailDrop), .z = plus.z, .w = static_cast<float>(plus.w + 1.0)};
     feeler.change_strand(&top, &bottom);
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         feeler.entity().get_release();
         return true;
     }
@@ -312,7 +312,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     top = minus;
     bottom = {.x = minus.x, .y = static_cast<float>(minus.y - kRailDrop), .z = minus.z, .w = static_cast<float>(minus.w + 1.0)};
     feeler.change_strand(&top, &bottom);
-    if (!feeler.get_hit_shape(true, false)) {
+    if (feeler.get_hit_shape(true, false) == 0) {
         return true;
     }
     const double height_two = static_cast<double>(feeler.contact_pos().y) - base;
@@ -423,11 +423,11 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
                             .z = static_cast<float>(static_cast<double>(at_z) - across_z),
                             .w = static_cast<float>(static_cast<double>(at_w) - dw)};
     feeler.change_strand(&from, &to);
-    const bool hit_one_way = feeler.get_hit_shape(true, false);
+    const bool hit_one_way = feeler.get_hit_shape(true, false) != 0;
     const maths::Vec4 start = feeler.line().start;
     feeler.line().start = feeler.line().end;
     feeler.line().end = start;
-    const bool hit_other_way = feeler.get_hit_shape(true, false);
+    const bool hit_other_way = feeler.get_hit_shape(true, false) != 0;
     int side = 0;
     if (hit_one_way != hit_other_way) {
         side = hit_one_way ? -1 : 1;
@@ -556,7 +556,7 @@ void GrindRailHub::remove_overlaps() const
         const auto hi_y = static_cast<float>(a->upper_limit().y + 16.0);
         const auto hi_z = static_cast<float>(a->upper_limit().z + 16.0);
         for (int j = i + 1; j < num_; ++j) {
-            if (!(a->flag_bits() & kRailFlagActive)) {
+            if ((a->flag_bits() & kRailFlagActive) == 0U) {
                 break;
             }
             GrindPoint* b = &core::at(node_run(), j);
@@ -598,8 +598,8 @@ void GrindRailHub::remove_overlaps() const
             if (get_overlap(p.z, q.z, r.z, s.z) > kRailJoinDistance) {
                 ++matches;
             }
-            int same = nearly_equal4(p.x, q.x, r.x, s.x, kRailJoinTolerance) ? 1 : 0;
-            if (nearly_equal4(p.z, q.z, r.z, s.z, kRailJoinTolerance)) {
+            int same = (nearly_equal4(p.x, q.x, r.x, s.x, kRailJoinTolerance) != 0) ? 1 : 0;
+            if (nearly_equal4(p.z, q.z, r.z, s.z, kRailJoinTolerance) != 0) {
                 ++same;
             }
             if (same + matches < 2) {
@@ -643,7 +643,7 @@ void GrindRailHub::change_live(checksums::Name rail, int active, bool entire_rai
     if (entire_rail) {
         // This node and every one after it.
         for (; node; node = node->succ()) {
-            if (active) {
+            if (active != 0) {
                 node->flag_bits() |= kRailFlagActive;
             } else {
                 node->flag_bits() &= ~kRailFlagActive;
@@ -651,7 +651,7 @@ void GrindRailHub::change_live(checksums::Name rail, int active, bool entire_rai
         }
         return;
     }
-    if (active) {
+    if (active != 0) {
         node->flag_bits() |= kRailFlagActive;
     } else {
         node->flag_bits() &= ~kRailFlagActive;
@@ -676,7 +676,7 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
     auto radius_squared = static_cast<float>(static_cast<double>(radius) * radius);
     for (int index = num_; index != 0;) {
         GrindPoint* node = &core::at(node_run(), --index);
-        if (!(node->flag_bits() & kRailFlagLadder) || !(node->flag_bits() & kRailFlagActive)) {
+        if (((node->flag_bits() & kRailFlagLadder) == 0U) || ((node->flag_bits() & kRailFlagActive) == 0U)) {
             continue;
         }
         if (std::fabs(static_cast<double>(node->at_point().x) - pos->x) > radius ||
@@ -731,7 +731,8 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
     auto snap_squared = static_cast<float>(snap * snap);
     for (int index = 0; index < num_; ++index) {
         GrindPoint* node = &core::at(node_run(), index);
-        if (!(node->flag_bits() & kRailFlagLadder) || !(node->flag_bits() & kRailFlagActive) || !node->succ()) {
+        if (((node->flag_bits() & kRailFlagLadder) == 0U) || ((node->flag_bits() & kRailFlagActive) == 0U) ||
+            !node->succ()) {
             continue;
         }
         // (the tests as the original's: NaN passes them)
@@ -804,8 +805,8 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
     auto margin_squared = static_cast<float>(static_cast<double>(margin) * margin);
     for (int index = 0; index < num_; ++index) {
         GrindPoint* node = &core::at(node_run(), index);
-        if ((node->flag_bits() & kRailFlagLadder) || (node->flag_bits() & kRailFlagNoClimbing) ||
-            !(node->flag_bits() & kRailFlagActive) || !node->succ()) {
+        if (((node->flag_bits() & kRailFlagLadder) != 0U) || ((node->flag_bits() & kRailFlagNoClimbing) != 0U) ||
+            ((node->flag_bits() & kRailFlagActive) == 0U) || !node->succ()) {
             continue;
         }
         // (the tests as the original's: NaN passes them)
@@ -884,7 +885,7 @@ bool GrindRailHub::find_joining_rail(const GrindPoint* from, uint32_t exclude_fl
         if (node == from) {
             continue;
         }
-        if (next && (node->flag_bits() & kRailFlagActive) && !(exclude_flags & node->flag_bits())) {
+        if (next && ((node->flag_bits() & kRailFlagActive) != 0U) && ((exclude_flags & node->flag_bits()) == 0U)) {
             maths::Vec4 node_world;
             maths::Vec4 next_world;
             get_absolute_pos(&next_world, next);
@@ -895,7 +896,7 @@ bool GrindRailHub::find_joining_rail(const GrindPoint* from, uint32_t exclude_fl
             }
         }
         const GrindPoint* prev = node->last_value();
-        if (prev && (prev->flag_bits() & kRailFlagActive) && !(exclude_flags & prev->flag_bits())) {
+        if (prev && ((prev->flag_bits() & kRailFlagActive) != 0U) && ((exclude_flags & prev->flag_bits()) == 0U)) {
             maths::Vec4 prev_world;
             maths::Vec4 node_world;
             get_absolute_pos(&node_world, node);
@@ -928,7 +929,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
             ++num_;
         }
     }
-    if (!num_) {
+    if (num_ == 0) {
         return;
     }
     memory::Hub* manager = memory::Hub::get_pull();
@@ -999,11 +1000,11 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
                 slot = (slot + 1) & mask;
                 other = &core::at(node_run(), entry(slot));
             }
-            if (!node->succ() || (other->flag_bits() & kRailFlagDefaultLine)) {
+            if (!node->succ() || ((other->flag_bits() & kRailFlagDefaultLine) != 0U)) {
                 node->set_succ(other);
                 box_of(&node->at_point(), &other->at_point(), &node->lower_limit(), &node->upper_limit());
             }
-            if (!other->last_value() || (node->flag_bits() & kRailFlagDefaultLine)) {
+            if (!other->last_value() || ((node->flag_bits() & kRailFlagDefaultLine) != 0U)) {
                 other->last_value() = node;
             }
         }
@@ -1036,7 +1037,8 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
     maths::Vec4 best_point;
     for (int index = 0; index < num_; ++index) {
         GrindPoint* node = &core::at(node_run(), index);
-        if ((node->flag_bits() & kRailFlagClimbing) || node == exclude || !(node->flag_bits() & kRailFlagActive)) {
+        if (((node->flag_bits() & kRailFlagClimbing) != 0U) || node == exclude ||
+            ((node->flag_bits() & kRailFlagActive) == 0U)) {
             continue;
         }
         // (the tests as the original's: NaN passes them)
@@ -1073,7 +1075,7 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             }
             auto score = static_cast<float>((kAlignmentBias - static_cast<double>(alignment)) * distance);
             auto reach = static_cast<float>((kAlignmentReach - alignment) * distance);
-            if (side) {
+            if (side != 0) {
                 const maths::Vec4 direction = *end - *start;
                 if (node->get_wall_side(&direction) != side) {
                     score = score + score;

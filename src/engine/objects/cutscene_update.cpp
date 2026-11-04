@@ -118,10 +118,10 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
         object->put_name_key(checksums::Name{kSkeleton}, core::at(entry, 2));
         object->put_name_key(checksums::Name{kAnim}, core::at(entry, 3));
         const uint32_t flags = core::at(entry, 4);
-        if (flags >> kFlagBitHidden & 1) {
+        if ((flags >> kFlagBitHidden & 1) != 0U) {
             object->put_name_key(checksums::Name{kUnnamed}, kIsSkaterMarker);
         }
-        if (flags >> kFlagBitLast & 1) {
+        if ((flags >> kFlagBitLast & 1) != 0U) {
             object->put_name_key(checksums::Name{kUnnamed}, kSkaterFlag2);
         }
         objects->set_cell(static_cast<uint32_t>(i), script::Cell::of(object));
@@ -136,7 +136,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
     previous_clock_ = clock_;
     if (script::fetch_int_value(kFixedTime) != 0) {
         clock_ = static_cast<float>(objects_shared().cutscene_fixed_frame() * static_cast<double>(kFrame));
-    } else if (unknown3474_) {
+    } else if (unknown3474_ != 0U) {
         // a fixed step a frame (looping back at the end)
         const double time = (static_cast<double>(unknown3470_) * kStep) + clock_;
         clock_ = static_cast<float>(time);
@@ -151,7 +151,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
         const uint64_t vblanks = frame_clock::fetch_retrace_count() - vblanks_ - paused_vblanks_;
         clock_ = vblank_seconds(vblanks, rate);
     }
-    if (!flag_34b_0_) {
+    if (flag_34b_0_ == 0U) {
         return;
     }
     // the camera and object animations come in parts: the next part when this one's over
@@ -212,7 +212,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
 {
     if (ObjectModule* component = object->fetch_module(kModelModuleName)) {
         void* model = model_of(component);
-        if (static_cast<render::RenderModel*>(model)->flag_bits() & 4) { // (hidden)
+        if ((static_cast<render::RenderModel*>(model)->flag_bits() & 4) != 0) { // (hidden)
             return;
         }
         if (core::down_cast<MeshInstanceModule>(component)->level_object()) {
@@ -320,7 +320,7 @@ void CinematicTable::update_object_transforms()
             std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().cutscene_translations(), static_cast<size_t>(entry.anim_index_)).data(), kQuadBytes);
             update_stand_in(object);
         }
-        if (script::fetch_int_value(kDebugBoxes)) {
+        if (script::fetch_int_value(kDebugBoxes) != 0) {
             const std::array<float, 8> box = {{1.0F, 10.0F, 1.0F, 1.0F, -1.0F, -1.0F, -1.0F, 1.0F}};
             debug_draw_box(&object->display_matrix(), &object->at_point(), box.data(), 0, 1, 0, kBoxColour);
         }
@@ -330,7 +330,7 @@ void CinematicTable::update_object_transforms()
 // 0x00466450
 void CinematicTable::restart_objects()
 {
-    if (flag_34b_0_) {
+    if (flag_34b_0_ != 0U) {
         return;
     }
     clock_ = 0.0F;
@@ -354,7 +354,7 @@ CinematicEntry::~CinematicEntry()
         params->get_clear();
         script::delete_struct(params);
     }
-    if (owns_data_) {
+    if (owns_data_ != 0U) {
         if (content_) {
             auto* assets = assets::asset_manager();
             assets::Resource* asset = assets->obtain_loaded_item(asset_, 1);

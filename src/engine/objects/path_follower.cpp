@@ -193,7 +193,7 @@ int PathFollower::compute_arc()
     bend_point_.y = static_cast<float>(cy + bend_point_.y);
     bend_point_.z = static_cast<float>(cz + bend_point_.z);
     bend_point_.w = static_cast<float>(static_cast<double>(cw) + bend_point_.w);
-    if (flag_bits_ & kFlagCorner) {
+    if ((flag_bits_ & kFlagCorner) != 0U) {
         return 0;
     }
     if (short_of == 0.0F) {
@@ -355,7 +355,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
     case PathFollower::Phase::kStraight: {
         const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
-        if (flag_bits_ & kFlagLastNode) {
+        if ((flag_bits_ & kFlagLastNode) != 0U) {
             if (!(along >= byte_count_)) { // (unordered too, as the original's comparisons below)
                 refresh_placement();
                 return false;
@@ -388,7 +388,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
     case PathFollower::Phase::kArc: {
         const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
-        if ((flag_bits_ & kFlagTellNode) && along >= static_cast<double>(arc_length_) * kHalf) {
+        if (((flag_bits_ & kFlagTellNode) != 0U) && along >= static_cast<double>(arc_length_) * kHalf) {
             const uint32_t passed = last_node_;
             flag_bits_ &= ~kFlagTellNode;
             node_passed(path_component(owner_), passed);
@@ -425,7 +425,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         const maths::Vec4 into = segment_origin_ - center_;
         const maths::Vec4 next = bend_point_ - segment_origin_;
         float blend = t * kHalfF;
-        if (blend >= kHalfF && (flag_bits_ & kFlagTellNode)) {
+        if (blend >= kHalfF && ((flag_bits_ & kFlagTellNode) != 0U)) {
             const uint32_t passed = last_node_;
             flag_bits_ &= ~kFlagTellNode;
             node_passed(path_component(owner_), passed);
