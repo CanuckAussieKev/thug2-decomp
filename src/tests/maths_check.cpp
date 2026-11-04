@@ -1819,11 +1819,10 @@ void run(int count, std::mt19937_64& random)
 // NOT ORIGINAL - D3DX9's matrix product (d3dx9_43.dll, which the game called until stage 11) against the plain C++
 // that replaced it, maths::matrix_multiply: random matrices of the game's coordinate, unit and tiny (denormal
 // product) scales, each also multiplied in place (the result written over a, and over b).
-void matrix_product(int count, int seed)
+void matrix_product(int count, std::mt19937_64& random)
 {
     constexpr float kTinyScale = 1.0e-20F;
     using Matrix = std::array<float, maths::kMatrixFloats>;
-    std::mt19937_64 random(static_cast<uint64_t>(seed));
     std::uniform_real_distribution<float> coordinate(-kCoordinateRange, kCoordinateRange);
     std::uniform_real_distribution<float> unit(-1.0F, 1.0F);
     Tally t_product("matrix_multiply (D3DX)", 'f');
@@ -1881,7 +1880,8 @@ int main(int argc, char** argv)
     run(count, random);
     _controlfp_s(&previous, _PC_53, _MCW_PC);
     text::print("D3DX9's matrix product (d3dx9_43.dll's SSE version) against the plain C++\n");
-    matrix_product(count, seed);
+    std::mt19937_64 matrix_random(static_cast<uint64_t>(seed)); // (its own sequence, from the start)
+    matrix_product(count, matrix_random);
     return 0;
 #else
     (void)argc;
