@@ -22,17 +22,16 @@
 #include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "editor/level_editor_scenery.h"
-#include "render_d3d9/sub_mesh.h"
+#include "engine/gfx/mesh_records.h"
 #include "base/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_tri.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
-#include "render_d3d9/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "engine/gfx/sector.h"
-#include "render_d3d9/geom.h"
+#include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene.h"
 #include "base/core/down_cast.h"
 #include "engine/gfx/vertex_view.h"
@@ -263,7 +262,7 @@ void Companion::update_box()
 
 namespace {
 
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
+render::Geom* geom_of(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
 render::StaticCollider* coll_of(render::WorldCell* sector)
 {
     return core::down_cast<render::StaticCollider>(sector->hit_body());
@@ -280,7 +279,7 @@ struct Taken {
 struct TableRow {
     render::WorldScene* scene = nullptr;
     render::WorldCell* sector = nullptr;
-    render::PcGeom* geom = nullptr;
+    render::Geom* geom = nullptr;
     void* grid = nullptr;
     std::unique_ptr<Companion> companion; // (null: nothing belongs to it)
     std::vector<Taken> taken;
@@ -306,17 +305,17 @@ bool is_switched_on()
 
 // A piece's triangles as drawn: its meshes' first index buffer as a strip (billboards left out, as picking does).
 template <typename F>
-void for_each_strip(render::PcGeom* geom, F fn)
+void for_each_strip(render::Geom* geom, F fn)
 {
-    const std::span<render::MeshRef*> meshes = geom->meshes() ? geom->mesh_run() : std::span<render::MeshRef*>();
-    const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; !meshes.empty() && i < count && i < kMeshScanLimit; ++i) {
-        const render::MeshRef* mesh = core::at(meshes, i);
+    const scenery::GeomMeshes meshes = scenery::meshes_of(geom);
+    for (uint32_t i = 0; i < meshes.count && i < kMeshScanLimit; ++i) {
+        const render::MeshData* mesh = meshes.at(i);
         if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag)) {
             continue;
         }
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
-        const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+        const render::VertexBufferData* vertices =
+            mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        const render::IndexBufferData* indices = core::at(mesh->index_buffers(), 0);
         if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes) {
             continue;
         }
@@ -325,7 +324,7 @@ void for_each_strip(render::PcGeom* geom, F fn)
     }
 }
 
-float geom_distance(render::PcGeom* geom, V3 point, float best)
+float geom_distance(render::Geom* geom, V3 point, float best)
 {
     for_each_strip(geom, [&](const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
                              uint32_t index_count) {
@@ -336,7 +335,7 @@ float geom_distance(render::PcGeom* geom, V3 point, float best)
 }
 
 // The farthest of a face's corners from a piece, found no farther than `limit` (past it: the limit's next float).
-float face_distance(render::PcGeom* geom, const FaceCopy& face, float limit)
+float face_distance(render::Geom* geom, const FaceCopy& face, float limit)
 {
     float worst = 0.0F;
     const float over = std::nextafter(limit, std::numeric_limits<float>::infinity());
@@ -451,13 +450,13 @@ const std::map<uint32_t, uint32_t>& get_named_objects()
 
 struct Other {
     uint32_t checksum;
-    render::PcGeom* geom;
+    render::Geom* geom;
     V3 min, max;
 };
 
 // A face of no piece's name near piece `geom`'s own: inside its box, near its own triangles, and nearer them than
 // any other solid piece near it.
-bool belongs_here(const FaceCopy& face, render::PcGeom* geom, V3 min, V3 max, const std::vector<Other>& others)
+bool belongs_here(const FaceCopy& face, render::Geom* geom, V3 min, V3 max, const std::vector<Other>& others)
 {
     if (!face_inside(face, min, max)) {
         return false;
@@ -484,7 +483,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
 {
     std::vector<FaceCopy> faces;
     render::WorldCell* sector = scenery::sector_of(checksum);
-    render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
+    render::Geom* geom = sector ? geom_of(sector) : nullptr;
     V3 min{};
     V3 max{};
     if (!geom || scenery::get_see_through(checksum) || !current_bounds(checksums::Name{checksum}, kNear, &min, &max)) {
@@ -507,7 +506,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
                 info->sources.emplace_back(other, sector);
                 return;
             }
-            render::PcGeom* geom = geom_of(sector);
+            render::Geom* geom = geom_of(sector);
             if (other == info->self || !geom || scenery::is_clone(other) || scenery::get_see_through(other)) {
                 return;
             }
@@ -647,7 +646,7 @@ TableRow* get_find(uint32_t checksum)
     return &it->second;
 }
 
-void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::PcGeom* geom,
+void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::Geom* geom,
                 const std::vector<FaceCopy>& faces, std::vector<Taken> taken)
 {
     TableRow& entry = entries()[checksum];
@@ -668,7 +667,7 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
 
 } // namespace
 
-void ensure(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::PcGeom* geom)
+void ensure(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::Geom* geom)
 {
     if (!is_switched_on() || get_find(checksum)) {
         return;
@@ -721,7 +720,7 @@ std::shared_ptr<std::vector<FaceCopy>> prepare_copy(uint32_t source)
 }
 
 void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, render::WorldScene* scene,
-                 render::WorldCell* sector, render::PcGeom* geom)
+                 render::WorldCell* sector, render::Geom* geom)
 {
     if (!faces || faces->empty() || !scene || !sector || !geom) {
         return;

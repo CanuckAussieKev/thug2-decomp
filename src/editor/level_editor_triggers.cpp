@@ -1414,7 +1414,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* trigger)
     trigger->faces.clear();
     trigger->face_count_ = 0;
     trigger->all_trigger_ = true;
-    trigger->wall = static_cast<render::PcGeom*>(sector->geom_handle()) == nullptr; // (no geometry: collision only)
+    trigger->wall = static_cast<render::Geom*>(sector->geom_handle()) == nullptr; // (no geometry: collision only)
     trigger->bounds_low_ = {.x = tri->bounds().min.x, .y = tri->bounds().min.y, .z = tri->bounds().min.z};
     trigger->bounds_high_ = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
     bool any = false;

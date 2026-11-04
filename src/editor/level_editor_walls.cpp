@@ -18,7 +18,6 @@
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
-#include "render_d3d9/geom.h"
 #include "base/core/format.h"
 
 namespace frontend::level_editor::walls {
@@ -109,7 +108,7 @@ int get_combined(const std::vector<bool>& offs)
 
 namespace {
 
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
+render::Geom* geom_of(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
 
 // The sector's level collision (StaticCollider) and its geometry, whether on or off.
 render::HitMesh* coll_of(render::WorldCell* sector)
@@ -123,7 +122,7 @@ bool flag_off(render::HitMesh* coll) { return (coll->flag_bits() & 4) != 0; }
 // WorldCell::change_live (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
 void change_live(render::WorldCell* sector, bool active) { sector->change_live(active); }
 // The geometry's is_operative (0x0048DE70, as WorldCell::is_operative 0x0049E9E0 asks it).
-bool geom_active(render::PcGeom* geom) { return geom->is_operative(); }
+bool geom_active(render::Geom* geom) { return geom->is_operative(); }
 
 bool same_v(const maths::Vec4& a, const maths::Vec4& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
@@ -198,7 +197,7 @@ void put_switch(Track* track)
         }
         return;
     }
-    render::PcGeom* geom = geom_of(track->sector);
+    render::Geom* geom = geom_of(track->sector);
     if (!geom || !geom_active(geom)) {
         return; // (hidden: off with the piece - shown again, Tick puts the switch back)
     }
@@ -391,7 +390,7 @@ void tick()
         if (track.wall || !track.off || !at_hand(entry.first, track)) {
             continue;
         }
-        render::PcGeom* geom = geom_of(track.sector);
+        render::Geom* geom = geom_of(track.sector);
         if (geom && geom_active(geom) && !flag_off(track.coll)) {
             track.coll->flag_bits() |= 4;
         }

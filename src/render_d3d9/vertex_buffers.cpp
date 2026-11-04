@@ -14,6 +14,7 @@
 #include <gsl/assert>
 #include <gsl/pointers>
 
+#include "engine/gfx/mesh_records.h"
 #include "base/core/raw_view.h"
 #include "render_d3d9/d3d9_handles.h"
 #include "engine/gfx/gpu_handles.h"
@@ -191,7 +192,10 @@ void VertexBuffer::recreate()
 
 // 0x004D4270
 IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
-    : size_(bytes), usage_(usage_flags), format_(index_format), indices_(static_cast<uint16_t*>(alloc_block(bytes)))
+    : IndexBufferData({.bytes = bytes,
+                       .usage = usage_flags,
+                       .format = index_format,
+                       .indices = static_cast<uint16_t*>(alloc_block(bytes))})
 {
     buffer_device().CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
                     D3DPOOL_DEFAULT, d3d9::out(&buffer_), nullptr);

@@ -1,6 +1,7 @@
 // A scene's mesh list and materials: see mesh_list.h.
 
 #include "render_d3d9/mesh_list.h"
+#include "engine/gfx/mesh_records.h"
 #include "render_d3d9/d3d9_handles.h"
 
 #include <windows.h>
@@ -49,7 +50,7 @@ bool get_transparent(const MaterialRef* material)
 }
 uint16_t& load_index(MeshRef* mesh) { return mesh->load_index(); }
 uint16_t& get_index_count(MeshRef* mesh) { return core::at(mesh->index_counts(), 0); }
-IdxStore*& index_buffer_of(MeshRef* mesh) { return core::at(mesh->index_buffers(), 0); }
+IndexBufferData*& index_buffer_of(MeshRef* mesh) { return core::at(mesh->index_buffers(), 0); }
 
 // The index buffers (not rewritten yet; thiscall): Lock gives the indices (a copy kept in memory).
 uint16_t* lock_indices(void* buffer)

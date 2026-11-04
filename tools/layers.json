@@ -1,5 +1,5 @@
 {
-    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_d3d9) are included by app/ only - and by the editor, until its own Direct3D code (the ImGui backend, the preview's and the ground's drawing) goes behind the engine's interfaces.",
+    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_d3d9) are included by app/ only: the editor and the front end reach the graphics backend through the engine's interfaces (render::Device, render::UiBackend).",
     "strict": ["base", "platform", "formats", "wire", "engine", "render_d3d9", "game"],
     "libraries": {
         "base": {
@@ -21,7 +21,7 @@
         },
         "editor": {
             "folders": ["src/editor/"],
-            "allowed": ["base", "platform", "formats", "wire", "engine", "game", "render_d3d9"]
+            "allowed": ["base", "platform", "formats", "wire", "engine", "game"]
         },
         "devtools": {
             "folders": ["src/devtools/"],

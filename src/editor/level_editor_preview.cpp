@@ -17,16 +17,11 @@
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_backend.h"
-#include "render_d3d9/geom.h"
-#include "engine/gfx/surface_material.h"
-#include "render_d3d9/sub_mesh.h"
-#include "render_d3d9/pc_billboards.h"
-#include "render_d3d9/draw_frame.h"
-#include "render_d3d9/render_state.h"
+#include "engine/gfx/engine_geom.h"
+#include "engine/gfx/render_device.h"
 #include "base/maths/mat4.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
-#include "render_d3d9/pc_instance.h"
 #include "base/core/ints.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
@@ -45,9 +40,6 @@ namespace {
 constexpr float kZoomStep = 1.2F;           // the orbit's zoom change per wheel step
 constexpr float kTinySine = 1e-4F;          // below this the framing angle is too narrow to divide by
 constexpr float kTinySineReciprocal = 1e4F; // and the distance is capped to this multiple
-constexpr int kNotCulledFlag = 8; // draw_one_instance's flag: not culled
-constexpr uint32_t kMeshDrawnFlag = 0x40; // the mesh flag a drawn mesh has
-constexpr uint32_t kMeshSkipFlags = 0x210; // the mesh flags that keep a mesh out of the preview
 constexpr double kLongestFrameSeconds = 0.1; // the orbit's turn uses at most this much of a frame
 constexpr float kBoundsPadding = 4.0F;       // added around the object's bounds
 constexpr std::size_t kSizeTextSize = 96; // the "w x h x d" line
@@ -127,57 +119,6 @@ LevelEditorPreviewState& level_editor_preview_state()
     return state.get();
 }
 
-// The renderer's calls (not rewritten yet; thiscall / cdecl).
-void set_material(render::MaterialRef* material) { material->hand_in(); }
-void draw_mesh(render::MeshRef* mesh) { mesh->render(); }
-// 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
-void draw_instance(render::Singleton* instance) { render::draw_one_instance(instance, kNotCulledFlag); }
-// 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
-void update_frustum() { render::billboard_pool().setup_axes(); }
-
-// A geometry's meshes as the world pass draws them: shown and not hidden; opaque ones first, then the transparent.
-void draw_meshes(render::PcGeom* geom)
-{
-    const std::span<render::MeshRef*> meshes = geom->mesh_run();
-    const uint32_t count = geom->mesh_count();
-    if (!geom->meshes()) {
-        return;
-    }
-    const render::MaterialRef* current = nullptr;
-    for (int pass = 0; pass < 2; ++pass) {
-        for (uint32_t i = 0; i < count && i < kMeshScanLimit; ++i) {
-            render::MeshRef* mesh = core::at(meshes, i);
-            if (!mesh) {
-                continue;
-            }
-            const uint32_t flags = mesh->flags();
-            if (((flags & kMeshDrawnFlag) == 0U) || ((flags & kMeshSkipFlags) != 0U)) {
-                continue;
-            }
-            render::MaterialRef* material = mesh->material();
-            const bool transparent = (material != nullptr) && ((core::at(material->pass_flags(), 0) & 0x40) != 0U);
-            if (transparent != (pass == 1)) {
-                continue;
-            }
-            if (material != current) {
-                current = material;
-                set_material(material);
-            }
-            draw_mesh(mesh);
-        }
-    }
-}
-
-// An object's geometry: through its instance when it has one, else its meshes.
-void draw_geometry(render::PcGeom* geom)
-{
-    if (auto* instance = geom->instance()) {
-        draw_instance(instance);
-    } else {
-        draw_meshes(geom);
-    }
-}
-
 // A subject's box where it is (false: gone).
 bool box_of(Kind kind, uint32_t id, OrientedBox* box)
 {
@@ -196,19 +137,20 @@ bool subject_box(OrientedBox* box) { return box_of(level_editor_preview_state().
 void draw_subject(Kind kind, uint32_t id)
 {
     if (kind == Kind::kSector) {
-        if (render::PcGeom* geom = scenery::sector_geometry(id)) {
-            draw_meshes(geom);
+        // (a sector: its meshes, as the world pass draws them - render::Device::draw_preview_geom)
+        if (render::Geom* geom = scenery::sector_geometry(id)) {
+            render::device().draw_preview_geom(geom, false);
         }
         return;
     }
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     for (int i = 0; object && i < kMaxGeometries; ++i) {
-        auto* geom = static_cast<render::PcGeom*>(object_edit::get_geometry(object, i));
+        auto* geom = static_cast<render::Geom*>(object_edit::get_geometry(object, i));
         if (!geom) {
             break;
         }
-        if (scenery::tintable(geom)) { // (the PC geometry class: its fields as read here)
-            draw_geometry(geom);
+        if (scenery::tintable(geom)) { // (the PC geometry class: through its instance when it has one, else its meshes)
+            render::device().draw_preview_geom(geom, true);
         }
     }
 }
@@ -292,16 +234,13 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     core::at(orientation.row, 2) = {.x = eye.frame.back.x, .y = eye.frame.back.y, .z = eye.frame.back.z, .w = 0.0F};
     core::at(orientation.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     const maths::Vec4 position = {.x = eye.pos.x, .y = eye.pos.y, .z = eye.pos.z, .w = 1.0F};
-    render::choose_camera(&orientation, &position, {.angle = kAngle, .aspect = kSquareAspect, .zoom = 1.0F}, false);
-    render::set_world_transform(nullptr);
-    render::change_phase(render::RenderStateId::kZWrite, 1);
-    render::change_phase(render::RenderStateId::kZTest, 1);
+    render::device().begin_preview_view(&orientation, &position,
+                                        {.angle = kAngle, .aspect = kSquareAspect, .zoom = 1.0F});
     draw_subject(kind, id);
     // Put back: the camera's globals, the frustum from them, no instance's lights taken as set (0x007825BC: the
     // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
     render::renderer().restore_view(saved);
-    update_frustum();
-    render::set_last_bones(nullptr);
+    render::device().end_preview_view();
     return true;
 }
 

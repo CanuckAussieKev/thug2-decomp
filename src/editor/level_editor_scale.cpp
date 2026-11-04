@@ -18,8 +18,9 @@
 #include <utility>
 #include <array>
 
+#include "engine/gfx/render_device.h"
 #include "editor/level_editor.h"
-#include "render_d3d9/sub_mesh.h"
+#include "engine/gfx/mesh_records.h"
 #include "engine/gfx/model.h"
 #include "engine/render/coll_movable.h"
 #include "engine/render/coll_obj.h"
@@ -31,7 +32,7 @@
 #include "engine/render/coll_line.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
-#include "render_d3d9/geom.h"
+#include "engine/gfx/engine_geom.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"
 #include "engine/gfx/vertex_view.h"
@@ -394,11 +395,11 @@ namespace {
 // position list (+0xAC / +0xB0 - moved with the mesh by MeshRef::move_to, not turned by turn_y: rewritten the same way,
 // scaled).
 struct MeshCopy {
-    render::MeshRef* mesh;
+    render::MeshData* mesh;
     uint16_t vertex_count_;
     uint8_t stride;
     int normal_offset_;
-    std::vector<render::VertexBuffer*> buffers;
+    std::vector<render::VertexBufferData*> buffers;
     std::vector<uint8_t*> data;
     std::vector<std::vector<float>> positions; // (per buffer: x, y, z a vertex)
     std::vector<std::vector<float>> normals;   // (per buffer, when normalOffset >= 0)
@@ -417,16 +418,10 @@ render::TriMeshSource* collision_data(render::WorldCell* sector)
 }
 
 // The mesh's vertex format (+0x38: a Direct3D FVF, or a built-in vertex shader's handle).
-uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf(); }
+uint32_t vertex_format(const render::MeshData* mesh) { return mesh->fvf(); }
 
 // The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as MeshRef::move_to).
-void upload(render::VertexBuffer* buffer)
-{
-    buffer->set_lock_offset(0);
-    buffer->set_lock_size(buffer->size());
-    buffer->set_lock_flags(0);
-    buffer->get_unlock();
-}
+void upload(render::VertexBufferData* buffer) { render::device().upload_vertex_buffer(buffer); }
 
 // The largest of a per-axis scale (a sphere's radius grows by it).
 float get_largest(V3 scale) { return std::max({scale.x, scale.y, scale.z}); }
@@ -434,8 +429,8 @@ float get_largest(V3 scale) { return std::max({scale.x, scale.y, scale.z}); }
 } // namespace
 
 struct Original {
-    render::PcGeom* geom{};
-    render::MeshRef** mesh_list_{};
+    render::Geom* geom{};
+    const void* mesh_list_{}; // (the geom's mesh array: render::Device::geom_mesh_list)
     uint32_t mesh_count_{};
     int quarters{};
     V3 position{};
@@ -444,20 +439,19 @@ struct Original {
     CollisionCopy collision;
 };
 
-std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom* geom, int quarters, V3 position)
+std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::Geom* geom, int quarters, V3 position)
 {
     auto original = std::make_shared<Original>();
     original->geom = geom;
-    original->mesh_list_ = geom->meshes();
-    original->mesh_count_ = geom->mesh_count();
+    original->mesh_list_ = render::device().geom_mesh_list(geom);
+    original->mesh_count_ = render::device().geom_mesh_count(geom);
     original->quarters = quarters;
     original->position = position;
     if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > kMeshCountLimit) {
         return nullptr;
     }
-    const std::span<render::MeshRef*> mesh_run(original->mesh_list_, original->mesh_count_);
     for (uint32_t i = 0; i < original->mesh_count_; ++i) {
-        render::MeshRef* mesh = core::at(mesh_run, i);
+        render::MeshData* mesh = render::device().geom_mesh(geom, i);
         if (!mesh || mesh->stride() < kPositionBytes || mesh->vertex_buffer_count() > 3) {
             return nullptr;
         }
@@ -475,7 +469,7 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                          .list = mesh->positions(),
                          .list_copy_ = {}};
         for (int buffer_index = 0; std::cmp_less(buffer_index, mesh->vertex_buffer_count()); ++buffer_index) {
-            render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), buffer_index);
+            render::VertexBufferData* buffer = core::at(mesh->vertex_buffers(), buffer_index);
             if (!buffer || !buffer->data() ||
                 buffer->size() < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride()) {
                 return nullptr;
@@ -511,17 +505,17 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
     return original;
 }
 
-bool reassemble(const Original& original, render::WorldCell* sector, render::PcGeom* geom, int quarters, V3 position,
+bool reassemble(const Original& original, render::WorldCell* sector, render::Geom* geom, int quarters, V3 position,
                 V3 scale, int quarters0)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
-    if (geom != original.geom || geom->meshes() != original.mesh_list_ || geom->mesh_count() != original.mesh_count_) {
+    if (geom != original.geom || render::device().geom_mesh_list(geom) != original.mesh_list_ ||
+        render::device().geom_mesh_count(geom) != original.mesh_count_) {
         return false;
     }
-    const std::span<render::MeshRef*> mesh_run(original.mesh_list_, original.mesh_count_);
     for (uint32_t i = 0; i < original.mesh_count_; ++i) {
         const MeshCopy& copy = core::at(original.meshes, i);
-        const render::MeshRef* mesh = core::at(mesh_run, i);
+        const render::MeshData* mesh = render::device().geom_mesh(geom, i);
         if (mesh != copy.mesh || mesh->vertex_count() != copy.vertex_count_ || mesh->stride() != copy.stride ||
             mesh->vertex_buffer_count() != copy.buffers.size() || mesh->positions() != copy.list ||
             mesh->position_count() != copy.list_count_) {
@@ -541,7 +535,7 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
 
     const RebuildFrame frame = frame_for(original.quarters, original.position, quarters0, quarters, position, scale);
     for (const MeshCopy& copy : original.meshes) {
-        render::MeshRef* mesh = copy.mesh;
+        render::MeshData* mesh = copy.mesh;
         for (size_t buffer = 0; buffer < copy.buffers.size(); ++buffer) {
             rewrite_positions(core::at(copy.buffers, buffer)->data(), copy.stride, copy.vertex_count_,
                               core::at(copy.positions, buffer).data(), frame.from, frame.to, frame.turns,

@@ -349,7 +349,7 @@ void MeshRef::build_collision()
     if ((position_count_ != 0U) || (core::at(index_counts_, 0) == 0U)) {
         return;
     }
-    VertexBuffer* vb = core::at(vertex_buffers_, 0);
+    VertexBuffer* vb = vertex_store(0);
     const gpu::VertexView vertices(vb->data(), stride_, vertex_count_); // (locked read-only, inline)
     vb->set_lock_offset(0);
     vb->set_lock_size(vb->size());
@@ -360,7 +360,7 @@ void MeshRef::build_collision()
     for (uint32_t i = 0; i < vertex_count_; ++i) {
         std::ranges::copy(vertices.float3(i), position_run.subspan(3U * i, 3).begin());
     }
-    core::at(vertex_buffers_, 0)->get_unlock();
+    vertex_store(0)->get_unlock();
     const std::span<uint16_t> strip = core::at(index_buffers_, 0)->index_run();
     auto* found_block = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2U) * kTriangleIndexBytes));
     const std::span<uint16_t> found(found_block, (core::at(index_counts_, 0) - 2U) * 3U);
@@ -383,7 +383,7 @@ void MeshRef::build_collision()
         core::at(out, 2) = third;
         ++count;
     }
-    core::at(index_buffers_, 0)->get_unlock();
+    index_store(0)->get_unlock();
     if (count != 0U) {
         triangles_ = static_cast<uint16_t*>(alloc_block(count * kTriangleIndexBytesU));
         core::copy_into(std::span<const uint16_t>(found.first(3U * count)),

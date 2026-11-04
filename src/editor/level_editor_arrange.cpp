@@ -39,12 +39,11 @@
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_snap.h"
 #include "editor/level_editor_ui.h"
-#include "render_d3d9/sub_mesh.h"
+#include "engine/gfx/mesh_records.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "render_d3d9/vertex_buffers.h"
 #include "platform/run_log.h"
-#include "render_d3d9/geom.h"
+#include "engine/gfx/engine_geom.h"
 #include "base/core/ints.h"
 #include "base/core/down_cast.h"
 #include "engine/gfx/vertex_view.h"
@@ -1048,20 +1047,19 @@ LevelEditorArrangeState& level_editor_arrange_state()
 // A sector's drawn triangles where it is now (its meshes' first index buffers as strips - as picking reads them).
 void sector_triangles(uint32_t checksum, std::vector<V3>* out)
 {
-    const render::PcGeom* geom = scenery::sector_geometry(checksum);
+    const render::Geom* geom = scenery::sector_geometry(checksum);
     if (!geom) {
         return;
     }
-    const std::span<render::MeshRef*> meshes = geom->meshes() ? geom->mesh_run() : std::span<render::MeshRef*>();
-    const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; !meshes.empty() && i < count && i < kMaxMeshesRead && out->size() < kMaxTrianglesRead; ++i) {
-        render::MeshRef* mesh = core::at(meshes, i);
+    const scenery::GeomMeshes meshes = scenery::meshes_of(geom);
+    for (uint32_t i = 0; i < meshes.count && i < kMaxMeshesRead && out->size() < kMaxTrianglesRead; ++i) {
+        render::MeshData* mesh = meshes.at(i);
         if (!mesh || mesh->billboard() || ((mesh->flags() & kMeshSharedFlags) != 0U)) {
             continue;
         }
-        render::VertexBuffer* vertices =
+        render::VertexBufferData* vertices =
             (mesh->vertex_buffer_count() != 0U) ? core::at(mesh->vertex_buffers(), 0) : nullptr;
-        const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+        const render::IndexBufferData* indices = core::at(mesh->index_buffers(), 0);
         if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes) {
             continue;
         }

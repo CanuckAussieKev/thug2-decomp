@@ -32,6 +32,7 @@
 
 #include "base/core/checksums.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/render_camera.h"
 #include "base/maths/rect.h"
 #include "engine/gfx/view_modes.h"
 
@@ -40,6 +41,7 @@ class ViewCam;
 }
 namespace maths {
 class BBox;
+class Mat4;
 class Vec4;
 }
 namespace sys::screenshot {
@@ -67,6 +69,10 @@ struct Flash;
 struct TextureSplats;
 struct SplatParams;
 class Typeface;
+struct MeshData;
+struct InstanceData;
+struct VertexBufferData;
+struct IndexBufferData;
 
 // What the scene's PostLoad packs the sectors' vertices into (one vertex buffer).
 struct VertexArena {
@@ -244,6 +250,30 @@ public:
     // Lines over the frame, a pair of vertices each, in the vertices' colours: no texture, no pixel shader, the
     // renderer's cached state kept and the texture stage it changes put back after (the editor's old HUD).
     virtual void draw_screen_lines(std::span<const ScreenLineVertex> vertices) = 0;
+    // A PC geom's meshes (geom.h's PcGeom; their records: mesh_records.h): how many it holds, one of them, and their
+    // array's address (null: none; it changes when the meshes are made again) - 0 / null for a geom of another kind.
+    [[nodiscard]] virtual uint32_t geom_mesh_count(const Geom* geom) = 0;
+    [[nodiscard]] virtual MeshData* geom_mesh(const Geom* geom, uint32_t index) = 0;
+    [[nodiscard]] virtual const void* geom_mesh_list(const Geom* geom) = 0;
+    // A PC geom's instance (its record's first part; null: none, or another kind) and its own active flag.
+    [[nodiscard]] virtual InstanceData* geom_instance(const Geom* geom) = 0;
+    [[nodiscard]] virtual bool geom_active(const Geom* geom) = 0;
+    // Buffers for a sector's mesh as MeshRef::replicate makes them (render_d3d9/sub_mesh.h; null without memory): a
+    // vertex buffer of `bytes` (a copy in memory and the card's), an index buffer of `bytes`; their copies written to the
+    // card; each destroyed (the card's buffer released, the copy and itself freed).
+    virtual gsl::owner<VertexBufferData*> create_vertex_buffer(uint32_t bytes) = 0;
+    virtual gsl::owner<IndexBufferData*> create_index_buffer(uint32_t bytes) = 0;
+    virtual void upload_vertex_buffer(VertexBufferData* buffer) = 0;
+    virtual void upload_index_buffer(IndexBufferData* buffer) = 0;
+    virtual void release_vertex_buffer(gsl::owner<VertexBufferData*> buffer) = 0;
+    virtual void release_index_buffer(gsl::owner<IndexBufferData*> buffer) = 0;
+    // The Add palette's preview, drawn into the UI backend's target: the camera chosen (`orientation`, `position`, the
+    // lens; the renderer's view saved first by the caller) with no world transform and the depth written and tested;
+    // a geom drawn - through its instance when `through_instance` and it has one, else its shown meshes, opaque ones
+    // first; then the frustum made again from the camera put back, and no instance's bones taken as set.
+    virtual void begin_preview_view(const maths::Mat4* orientation, const maths::Vec4* position, CameraLens lens) = 0;
+    virtual void draw_preview_geom(Geom* geom, bool through_instance) = 0;
+    virtual void end_preview_view() = 0;
 
 protected:
     ~Device() = default;

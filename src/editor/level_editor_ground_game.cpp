@@ -1,9 +1,5 @@
 // NOT ORIGINAL - the level editor's raised / lowered ground: the game side (ours). See level_editor_ground.h.
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -19,7 +15,7 @@
 #include <utility>
 #include <array>
 
-#include "render_d3d9/d3d9_handles.h"
+#include "engine/gfx/render_device.h"
 #include "editor/level_editor.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/engine_geom.h"
@@ -32,14 +28,11 @@
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/gfx/engine_scene.h"
-#include "render_d3d9/sub_mesh.h"
+#include "engine/gfx/mesh_records.h"
 #include "engine/gfx/sector.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
-#include "render_d3d9/vertex_buffers.h"
 #include "platform/run_log.h"
-#include "platform/crt.h"
-#include "render_d3d9/geom.h"
 #include "engine/gfx/surface_material.h"
 #include "base/core/down_cast.h"
 #include "engine/gfx/vertex_view.h"
@@ -56,8 +49,6 @@ namespace frontend::level_editor::ground {
 
 namespace {
 
-constexpr uint32_t kIndexStoreBytes = 0x18; // the index store object's size
-constexpr uint32_t kIndexStoreMode = 0x65;  // the index store's mode argument
 constexpr std::size_t kLineTextSize = 96;
 constexpr std::size_t kMaxIndexedVertices = 0xFFFF; // faces index the vertices with 16 bits
 constexpr uint32_t kVertexBytes = 12;       // a collision vertex: three floats
@@ -75,11 +66,11 @@ constexpr float kGroundFaceReach = 30.0F;
 constexpr float kTileInsideMargin = 25.0F;
 constexpr std::size_t kReportTextSize = 320;
 
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
+render::Geom* geom_of(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
 gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body(); }
-std::span<render::MeshRef*> meshes_of(render::PcGeom* geom) { return geom->mesh_run(); }
-uint32_t mesh_count_of(render::PcGeom* geom) { return geom->mesh_count(); }
-uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf(); }
+scenery::GeomMeshes meshes_of(render::Geom* geom) { return scenery::meshes_of(geom); }
+uint32_t mesh_count_of(render::Geom* geom) { return render::device().geom_mesh_count(geom); }
+uint32_t vertex_format(const render::MeshData* mesh) { return mesh->fvf(); }
 
 render::WorldCell* lookup_sector(render::WorldScene* scene, uint32_t checksum)
 {
@@ -98,34 +89,19 @@ render::StaticCollider* static_of(render::WorldCell* sector)
     return core::down_cast<render::StaticCollider>(coll);
 }
 
-// The buffers as MeshRef::Replicate (sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and
-// an index buffer (the C runtime's malloc 0x00624031, constructor 0x004D4270).
-gsl::owner<render::VertexBuffer*> new_vertex_buffer(uint32_t size) { return render::new_vertex_buffer(size, 0, 0); }
-void upload_vertices(render::VertexBuffer* buffer)
+// The buffers as MeshRef::Replicate (render_d3d9/sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy
+// and the card's) and an index buffer (the C runtime's malloc 0x00624031, constructor 0x004D4270) - the graphics
+// backend's (render::Device::create_vertex_buffer ...).
+gsl::owner<render::VertexBufferData*> new_vertex_buffer(uint32_t size)
 {
-    buffer->set_lock_offset(0);
-    buffer->set_lock_size(buffer->size());
-    buffer->set_lock_flags(0);
-    buffer->get_unlock();
+    return render::device().create_vertex_buffer(size);
 }
-gsl::owner<render::IdxStore*> new_index_buffer(uint32_t bytes)
+void upload_vertices(render::VertexBufferData* buffer) { render::device().upload_vertex_buffer(buffer); }
+gsl::owner<render::IndexBufferData*> new_index_buffer(uint32_t bytes)
 {
-    gsl::owner<void*> memory = crt::alloc_block(kIndexStoreBytes);
-    if (!memory) {
-        return nullptr;
-    }
-    return memory::construct_in<render::IdxStore>(memory, bytes, 0, kIndexStoreMode);
+    return render::device().create_index_buffer(bytes);
 }
-void upload_indices(render::IdxStore* buffer)
-{
-    auto* d3d = render::d3d9::object(buffer->buffer());
-    void* locked = nullptr;
-    if (!d3d || FAILED(d3d->Lock(0, 0, &locked, 0))) {
-        return;
-    }
-    std::memcpy(locked, buffer->indices(), buffer->size());
-    d3d->Unlock();
-}
+void upload_indices(render::IndexBufferData* buffer) { render::device().upload_index_buffer(buffer); }
 
 // --- state ---
 
@@ -226,15 +202,15 @@ public:
 };
 
 // The copy's other meshes: nothing drawn (their strips all one index - degenerate), centred on the piece.
-void blank_other_meshes(render::PcGeom* geom, std::span<render::MeshRef*> meshes, V3 centre)
+void blank_other_meshes(render::Geom* geom, const scenery::GeomMeshes& meshes, V3 centre)
 {
     for (uint32_t i = 1; i < mesh_count_of(geom); ++i) {
-        render::MeshRef* other = core::at(meshes, i);
+        render::MeshData* other = meshes.at(i);
         if (!other) {
             continue;
         }
         for (int k = 0; k < kBoxCorners; ++k) {
-            render::IdxStore* buffer = core::at(other->index_buffers(), k);
+            render::IndexBufferData* buffer = core::at(other->index_buffers(), k);
             if ((core::at(other->index_counts(), k) == 0U) || !buffer || !buffer->indices()) {
                 continue;
             }
@@ -253,13 +229,13 @@ void blank_other_meshes(render::PcGeom* geom, std::span<render::MeshRef*> meshes
 // The generated piece written into a copy of its donor (see the header). False and why.
 bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std::string* why)
 {
-    render::PcGeom* geom = geom_of(sector);
+    render::Geom* geom = geom_of(sector);
     if (!render::is_pc_geom(geom) || mesh_count_of(geom) == 0) {
         *why = "the copy has no drawn geometry";
         return false;
     }
-    const std::span<render::MeshRef*> meshes = meshes_of(geom);
-    render::MeshRef* first = core::at(meshes, 0);
+    const scenery::GeomMeshes meshes = meshes_of(geom);
+    render::MeshData* first = meshes.at(0);
     Layout layout;
     if (!first || !layout_for({.fvf = vertex_format(first), .stride = first->stride()}, &layout) || first->vertex_buffer_count() < 1 ||
         first->vertex_buffer_count() > 3) {
@@ -282,10 +258,11 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     std::vector<uint8_t> data(static_cast<size_t>(count) * first->stride());
     write_vertices(mesh, layout, first->stride(), colour::Packed{spec.colour}, data);
     for (int buffer_index = 0; std::cmp_less(buffer_index, first->vertex_buffer_count()); ++buffer_index) {
-        gsl::owner<render::VertexBuffer*> buffer = new_vertex_buffer(static_cast<uint32_t>(data.size())); // (the mesh's)
+        gsl::owner<render::VertexBufferData*> buffer =
+            new_vertex_buffer(static_cast<uint32_t>(data.size())); // (the mesh's)
         if (!buffer || !buffer->data()) {
             if (buffer) {
-                buffer->teardown(); // (made without its copy: given back)
+                render::device().release_vertex_buffer(buffer); // (made without its copy: given back)
             }
             *why = "no vertex buffer";
             return false;
@@ -296,15 +273,15 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     }
     first->set_vertex_count(static_cast<uint16_t>(count));
     int level = -1; // (each level of detail's slot: the buffer is stored through the slot itself)
-    for (render::IdxStore*& slot : first->index_buffers()) {
+    for (render::IndexBufferData*& slot : first->index_buffers()) {
         ++level;
         if (level > 0 && (core::at(first->index_counts(), level) == 0U)) {
             continue;
         }
-        gsl::owner<render::IdxStore*> buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
+        gsl::owner<render::IndexBufferData*> buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
         if (!buffer || !buffer->indices()) {
             if (buffer) {
-                buffer->teardown(); // (made without its copy: given back)
+                render::device().release_index_buffer(buffer); // (made without its copy: given back)
             }
             *why = "no index buffer";
             return false;
@@ -328,8 +305,9 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     first->set_radius(std::sqrt(get_dot(half, half)));
     // The other meshes: nothing drawn (their strips all one index - degenerate).
     blank_other_meshes(geom, meshes, centre);
-    geom->bounds().min.x = mesh.min.x, geom->bounds().min.y = mesh.min.y, geom->bounds().min.z = mesh.min.z;
-    geom->bounds().max.x = mesh.max.x, geom->bounds().max.y = mesh.max.y, geom->bounds().max.z = mesh.max.z;
+    maths::BBox& bounds = *geom->fetch_bounds(); // (its box as loaded)
+    bounds.min.x = mesh.min.x, bounds.min.y = mesh.min.y, bounds.min.z = mesh.min.z;
+    bounds.max.x = mesh.max.x, bounds.max.y = mesh.max.y, bounds.max.z = mesh.max.z;
 
     // The collision: new arrays (memory::alloc - the game frees them with memory::Dealloc, TriMeshSource::destruct), floats,
     // 10-byte faces, one leaf listing every face.
@@ -497,18 +475,18 @@ const char* why_not_donor(uint32_t checksum)
     if (pool().contains(checksum)) {
         return "a generated piece";
     }
-    render::PcGeom* geom = geom_of(sector);
+    render::Geom* geom = geom_of(sector);
     if (!render::is_pc_geom(geom)) {
         return "nothing drawn";
     }
-    if (geom->instance()) {
+    if (render::device().geom_instance(geom)) {
         return "an instance";
     }
     const uint32_t meshes = mesh_count_of(geom);
-    if (!geom->meshes() || meshes == 0 || meshes > kMaxMeshes) {
+    if (!render::device().geom_mesh_list(geom) || meshes == 0 || meshes > kMaxMeshes) {
         return "no meshes (or too many)";
     }
-    const render::MeshRef* first = core::at(meshes_of(geom), 0);
+    const render::MeshData* first = meshes_of(geom).at(0);
     Layout layout;
     if (!first || first->billboard() || ((first->flags() & kSharedMeshFlags) != 0U)) {
         return "a billboard or shared mesh";
@@ -582,7 +560,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     spec->material = chosen;
     // What it looks like: its first mesh's average colour, how many units a texture repeat spans, its commonest terrain.
     render::WorldCell* sector = lookup_sector(scenery::main_scene(), chosen);
-    const render::MeshRef* mesh = core::at(meshes_of(geom_of(sector)), 0);
+    const render::MeshData* mesh = meshes_of(geom_of(sector)).at(0);
     Layout layout;
     layout_for({.fvf = vertex_format(mesh), .stride = mesh->stride()}, &layout);
     const uint8_t* data = core::at(mesh->vertex_buffers(), 0)->data();
@@ -605,7 +583,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
         }
         spec->colour = colour;
     }
-    const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+    const render::IndexBufferData* indices = core::at(mesh->index_buffers(), 0);
     if (indices && indices->indices() && core::at(mesh->index_counts(), 0) >= 3) {
         double world = 0.0;
         double texture = 0.0;

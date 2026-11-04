@@ -11,6 +11,7 @@
 #include <cstring>
 #include <span>
 
+#include "engine/gfx/mesh_records.h"
 #include "engine/memory/manager.h"
 #include "base/maths/vec4.h"
 #include "render_d3d9/pc_instance.h"
@@ -195,7 +196,7 @@ void send_lights()
 
 // 0x004D1030
 Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths::Mat4* bone_matrices)
-    : transform_(*matrix), bones_(bone_matrices), bone_count_(count), scene_(list), next_(instances())
+    : InstanceData({.transform = matrix, .bones = bone_matrices, .bone_count = count}), scene_(list), next_(instances())
 {
     instances() = this;
     if (bones_ && bones_on_device(scene_) <= 0) {

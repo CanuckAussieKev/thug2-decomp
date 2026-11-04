@@ -270,7 +270,7 @@ std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, std::span
 
 namespace {
 
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
+render::Geom* geom_of(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
 gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body(); }
 
 // The sector's collision geometry, whether its collision is on or off (StaticCollider; `off`: its flag 4 - the game's

@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "engine/gfx/render_device.h"
 #include "editor/level_editor.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checksums.h"
@@ -31,7 +32,7 @@
 #include "editor/level_editor_shared_coll.h"
 #include "editor/level_editor_walls.h"
 #include "engine/gfx/engine_scene.h"
-#include "render_d3d9/sub_mesh.h"
+#include "engine/gfx/mesh_records.h"
 #include "engine/gfx/sector.h"
 #include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
@@ -39,14 +40,11 @@
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
-#include "render_d3d9/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "game/skate/skate_module.h"
-#include "render_d3d9/render_state.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_geom.h"
-#include "render_d3d9/geom.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/lists/key_map.h"
 #include "engine/objects/rail_manager.h"
@@ -286,25 +284,28 @@ render::WorldCell* find_sector(uint32_t checksum, render::WorldScene** scene_out
 }
 
 // (On PC every sector's geometry is a PcGeom - as PcSector reads it.)
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
+render::Geom* geom_of(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
 gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body(); }
 uint32_t& flags_of(render::WorldCell* sector) { return sector->flag_bits(); }
 int quarters_of(render::WorldCell* sector) { return sector->rot_y(); }
 
 // The PC geometry of level scenery (not an instance), active.
-bool plain_geom(render::PcGeom* geom) { return render::is_pc_geom(geom) && (geom->instance() == nullptr); }
+bool plain_geom(render::Geom* geom)
+{
+    return render::is_pc_geom(geom) && (render::device().geom_instance(geom) == nullptr);
+}
 
 // Its box as loaded.
-bool geom_box(render::PcGeom* geom, V3* min, V3* max)
+bool geom_box(render::Geom* geom, V3* min, V3* max)
 {
-    const maths::BBox& box = geom->bounds();
+    const maths::BBox& box = *geom->fetch_bounds();
     *min = {.x = box.min.x, .y = box.min.y, .z = box.min.z};
     *max = {.x = box.max.x, .y = box.max.y, .z = box.max.z};
     return min->x <= max->x && min->y <= max->y && min->z <= max->z;
 }
 
 // The geometry's world position (0x004B46A0: the first mesh's; 0 when never moved).
-V3 geom_position(render::PcGeom* geom)
+V3 geom_position(render::Geom* geom)
 {
     const maths::Vec4* v = geom->get_absolute_point();
     return {.x = v->x, .y = v->y, .z = v->z};
@@ -312,18 +313,18 @@ V3 geom_position(render::PcGeom* geom)
 
 // The meshes' vertices can be moved: each vertex buffer has its own CPU copy (data) holding exactly the mesh's
 // vertices (vertex_count_ of stride bytes) - what MeshRef::change_place walks and uploads.
-const char* meshes_movable(render::PcGeom* geom)
+const char* meshes_movable(render::Geom* geom)
 {
-    render::MeshRef* const* meshes = geom->meshes();
-    const uint32_t count = geom->mesh_count();
-    if (!meshes || count == 0) {
+    const GeomMeshes meshes = meshes_of(geom);
+    const uint32_t count = meshes.count;
+    if (count == 0) {
         return "no meshes";
     }
     if (count > kMeshScanLimit) {
         return "odd mesh count";
     }
     for (uint32_t i = 0; i < count; ++i) {
-        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
+        const render::MeshData* mesh = meshes.at(i);
         if (!mesh) {
             return "no mesh";
         }
@@ -334,7 +335,7 @@ const char* meshes_movable(render::PcGeom* geom)
             return "odd vertex buffers";
         }
         for (uint32_t buffer_index = 0; buffer_index < buffers; ++buffer_index) {
-            const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), buffer_index);
+            const render::VertexBufferData* buffer = core::at(mesh->vertex_buffers(), buffer_index);
             if (!buffer || !buffer->data()) {
                 return "no vertex copy";
             }
@@ -352,7 +353,7 @@ struct Track {
     uint32_t checksum;
     render::WorldScene* scene;
     render::WorldCell* sector;
-    render::PcGeom* geom;
+    render::Geom* geom;
     V3 min0, max0;
     int quarters0;
     V3 position0;
@@ -401,7 +402,7 @@ Track* track_of(uint32_t checksum)
     if (!sector) {
         return nullptr;
     }
-    render::PcGeom* geom = geom_of(sector);
+    render::Geom* geom = geom_of(sector);
     if (!plain_geom(geom)) {
         return nullptr;
     }
@@ -432,7 +433,7 @@ Track* track_of(uint32_t checksum)
 }
 
 // A sector's box now, without making a track for it.
-bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
+bool current_box(uint32_t checksum, render::Geom* geom, OrientedBox* box)
 {
     auto it = tracks_state().find(checksum);
     if (it != tracks_state().end() && it->second.geom == geom) {
@@ -774,7 +775,7 @@ void select_rails()
 }
 
 // Where the editor has put a sector (none yet: where the level has it).
-Placement placement_of(uint32_t checksum, render::PcGeom* geom)
+Placement placement_of(uint32_t checksum, render::Geom* geom)
 {
     auto it = tracks_state().find(checksum);
     if (it != tracks_state().end() && it->second.geom == geom) {
@@ -783,8 +784,8 @@ Placement placement_of(uint32_t checksum, render::PcGeom* geom)
     return {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
 }
 
-bool geom_see_through(render::PcGeom* geom); // (below)
-float geom_level_share(uint32_t checksum, render::PcGeom* geom);
+bool geom_see_through(render::Geom* geom); // (below)
+float geom_level_share(uint32_t checksum, render::Geom* geom);
 
 bool same_placement(const Placement& a, const Placement& b)
 {
@@ -1027,10 +1028,10 @@ std::vector<uint32_t> group_of(uint32_t checksum)
     std::vector<GroupPiece>& pieces =
         build.pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
     for_each_sector(build.scene, [&](uint32_t other, render::WorldCell* sector) {
-        render::PcGeom* geom = geom_of(sector);
+        render::Geom* geom = geom_of(sector);
         V3 min{};
         V3 max{};
-        if (!plain_geom(geom) || !geom->active() || !geom_box(geom, &min, &max) ||
+        if (!plain_geom(geom) || !render::device().geom_active(geom) || !geom_box(geom, &min, &max) ||
             !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement)) {
             return;
         }
@@ -1095,14 +1096,13 @@ bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
 // The ray against a geometry's meshes as drawn (their vertex copies are where the sector is now: moving it moves
 // them): each mesh's first index buffer as a triangle strip; a billboard (turned to the camera when drawn) by its
 // sphere.
-bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* hit_distance)
+bool ray_meshes(render::Geom* geom, V3 origin, V3 dir, float max_t, float* hit_distance)
 {
-    auto* const* meshes = geom->meshes();
-    const uint32_t count = geom->mesh_count();
+    const GeomMeshes meshes = meshes_of(geom);
     bool found = false;
     float best = max_t;
-    for (uint32_t i = 0; meshes && i < count && i < kMeshScanLimit; ++i) {
-        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
+    for (uint32_t i = 0; i < meshes.count && i < kMeshScanLimit; ++i) {
+        const render::MeshData* mesh = meshes.at(i);
         if (!mesh) {
             continue;
         }
@@ -1115,9 +1115,9 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* hit
             }
             continue;
         }
-        const render::VertexBuffer* vertices =
+        const render::VertexBufferData* vertices =
             (mesh->vertex_buffer_count() != 0U) ? core::at(mesh->vertex_buffers(), 0) : nullptr;
-        const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+        const render::IndexBufferData* indices = core::at(mesh->index_buffers(), 0);
         if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes) {
             continue;
         }
@@ -1134,15 +1134,16 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* hit
 
 // Whether a geometry's meshes are all see-through (Picking::material_see_through: the material's +0x20 - the first
 // pass's flags, 0x40 the scene's transparent sort - and +0x80, its blend mode; the scene loader 0x004D3390 fills both).
-bool geom_see_through(render::PcGeom* geom)
+bool geom_see_through(render::Geom* geom)
 {
-    auto* const* meshes = geom->meshes();
-    const uint32_t count = geom->mesh_count();
-    if (!meshes || count == 0 || count > kMeshScanLimit) {
+    const GeomMeshes meshes = meshes_of(geom);
+    const uint32_t count = meshes.count;
+    if (count == 0 || count > kMeshScanLimit) {
         return false;
     }
     for (uint32_t i = 0; i < count; ++i) {
-        const render::MaterialRef* material = core::at(std::span<render::MeshRef* const>(meshes, count), i) ? core::at(std::span<render::MeshRef* const>(meshes, count), i)->material() : nullptr;
+        const render::MeshData* mesh = meshes.at(i);
+        const render::MaterialRef* material = mesh ? mesh->material() : nullptr;
         if (!material || !picking::material_see_through({.pass_flags_ = core::at(material->pass_flags(), 0),
                                                          .blend_mode_ = core::at(material->blend_modes(), 0)})) {
             return false;
@@ -1153,29 +1154,28 @@ bool geom_see_through(render::PcGeom* geom)
 
 // The level part of a geometry's upward-facing surface (its meshes' first index buffers as strips, as ray_meshes reads
 // them; billboards left out), measured once a piece while the editor runs (moves and quarter turns don't change it).
-std::unordered_map<uint32_t, std::pair<render::PcGeom*, float>>& level_shares()
+std::unordered_map<uint32_t, std::pair<render::Geom*, float>>& level_shares()
 {
-    static std::unordered_map<uint32_t, std::pair<render::PcGeom*, float>> value;
+    static std::unordered_map<uint32_t, std::pair<render::Geom*, float>> value;
     return value;
 }
 
-float geom_level_share(uint32_t checksum, render::PcGeom* geom)
+float geom_level_share(uint32_t checksum, render::Geom* geom)
 {
     auto it = level_shares().find(checksum);
     if (it != level_shares().end() && it->second.first == geom) {
         return it->second.second;
     }
     picking::TopArea area;
-    auto* const* meshes = geom->meshes();
-    const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; meshes && i < count && i < kMeshScanLimit; ++i) {
-        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
+    const GeomMeshes meshes = meshes_of(geom);
+    for (uint32_t i = 0; i < meshes.count && i < kMeshScanLimit; ++i) {
+        const render::MeshData* mesh = meshes.at(i);
         if (!mesh || mesh->billboard() || ((mesh->flags() & kMeshHiddenFlag) != 0U)) {
             continue;
         }
-        const render::VertexBuffer* vertices =
+        const render::VertexBufferData* vertices =
             (mesh->vertex_buffer_count() != 0U) ? core::at(mesh->vertex_buffers(), 0) : nullptr;
-        const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+        const render::IndexBufferData* indices = core::at(mesh->index_buffers(), 0);
         if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes) {
             continue;
         }
@@ -1198,14 +1198,14 @@ bool get_see_through(uint32_t checksum)
 float get_level_share(uint32_t checksum)
 {
     render::WorldCell* sector = find_sector(checksum, nullptr);
-    render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
+    render::Geom* geom = sector ? geom_of(sector) : nullptr;
     return plain_geom(geom) ? geom_level_share(checksum, geom) : 1.0F;
 }
 
 bool get_passed(uint32_t checksum, V3 camera)
 {
     render::WorldCell* sector = find_sector(checksum, nullptr);
-    render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
+    render::Geom* geom = sector ? geom_of(sector) : nullptr;
     if (!plain_geom(geom)) {
         return false;
     }
@@ -1228,7 +1228,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     // (without `layers`: nothing past the first occluding piece that isn't locked can matter - a plain click stops at
     // it, and Alt takes it or something nearer)
     float stop = max_t;
-    auto note = [&](uint32_t checksum, render::PcGeom* geom, float fraction, bool collision) {
+    auto note = [&](uint32_t checksum, render::Geom* geom, float fraction, bool collision) {
         if (view::hidden_sector(checksum)) { // (H: level_editor_view.h - not shown, not met)
             return;
         }
@@ -1265,8 +1265,8 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     // collision, and the drawn parts of pieces with it that their collision doesn't cover.
     for_each_scene([&](render::WorldScene* scene) {
         for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
-            render::PcGeom* geom = geom_of(sector);
-            if (!plain_geom(geom) || !geom->active()) {
+            render::Geom* geom = geom_of(sector);
+            if (!plain_geom(geom) || !render::device().geom_active(geom)) {
                 return;
             }
             OrientedBox box{};
@@ -1341,14 +1341,14 @@ const char* why_not_movable(uint32_t checksum)
     if (ground::is_piece(checksum)) {
         return "generated ground piece: edit with the Ground Tool"; // (UX9)
     }
-    render::PcGeom* geom = geom_of(sector);
+    render::Geom* geom = geom_of(sector);
     if (!geom) {
         return "collision only";
     }
     if (!render::is_pc_geom(geom)) {
         return "odd geometry";
     }
-    if (geom->instance()) {
+    if (render::device().geom_instance(geom)) {
         return "an instance";
     }
     OrientedBox box{};
@@ -1471,11 +1471,10 @@ void log_meshes()
     if (!debug_enabled() || level_editor_scenery_state().selection_.empty()) {
         return;
     }
-    const render::PcGeom* geom = sector_geometry(core::at(level_editor_scenery_state().selection_, 0));
-    render::MeshRef* const* meshes = geom ? geom->meshes() : nullptr;
-    const uint32_t count = geom ? geom->mesh_count() : 0;
-    for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
-        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
+    const render::Geom* geom = sector_geometry(core::at(level_editor_scenery_state().selection_, 0));
+    const GeomMeshes meshes = meshes_of(geom); // (none without a geom)
+    for (uint32_t i = 0; i < meshes.count && i < 4; ++i) {
+        const render::MeshData* mesh = meshes.at(i);
         const render::MaterialRef* material = mesh->material();
         const auto& colour = mesh->color();
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
@@ -1926,14 +1925,15 @@ uint32_t get_duplicate(uint32_t source)
     auto shared_faces = shared_collision::prepare_copy(source);
     const uint32_t made = scene->clone_sector_named(source, scene, 0, true, 0);
     render::WorldCell* copy = (made != 0U) ? lookup_sector(scene, made) : nullptr;
-    render::PcGeom* geom = copy ? geom_of(copy) : nullptr;
-    if (!render::is_pc_geom(geom) || geom->instance()) {
+    render::Geom* geom = copy ? geom_of(copy) : nullptr;
+    if (!render::is_pc_geom(geom) || render::device().geom_instance(geom)) {
         get_log("level editor: copy of %s: %s", caption(source).c_str(),
                 (made != 0U) ? "not a plain sector" : "not made");
         return 0;
     }
-    geom->bounds().min.x = min.x, geom->bounds().min.y = min.y, geom->bounds().min.z = min.z;
-    geom->bounds().max.x = max.x, geom->bounds().max.y = max.y, geom->bounds().max.z = max.z;
+    maths::BBox& bounds = *geom->fetch_bounds(); // (its box as loaded)
+    bounds.min.x = min.x, bounds.min.y = min.y, bounds.min.z = min.z;
+    bounds.max.x = max.x, bounds.max.y = max.y, bounds.max.z = max.z;
     // (the collision's flags are copied with it: a source whose collision is switched off by itself - level_editor_walls.h
     // - gives a copy with collision on, as a layout makes copies again)
     if (gsl::owner<render::HitMesh*> coll = coll_of(copy); coll && is_operative(copy)) {
@@ -1988,8 +1988,9 @@ std::vector<uint32_t> movable_pieces()
         return pieces;
     }
     for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
-        render::PcGeom* geom = geom_of(sector);
-        if (plain_geom(geom) && geom->active() && !is_clone(checksum) && !why_not_movable(checksum)) {
+        render::Geom* geom = geom_of(sector);
+        if (plain_geom(geom) && render::device().geom_active(geom) && !is_clone(checksum) &&
+            !why_not_movable(checksum)) {
             pieces.push_back(checksum);
         }
     });
@@ -2047,7 +2048,16 @@ void get_reset()
     level_shares().clear();
 }
 
-render::PcGeom* sector_geometry(uint32_t checksum)
+GeomMeshes meshes_of(const render::Geom* geom)
+{
+    render::Device& device = render::device();
+    const void* list = device.geom_mesh_list(geom);
+    return {.geom = geom, .count = (list != nullptr) ? device.geom_mesh_count(geom) : 0U, .list = list};
+}
+
+render::MeshData* GeomMeshes::at(uint32_t index) const { return render::device().geom_mesh(geom, index); }
+
+render::Geom* sector_geometry(uint32_t checksum)
 {
     render::WorldCell* sector = find_sector(checksum, nullptr);
     return sector ? geom_of(sector) : nullptr;
@@ -2072,8 +2082,8 @@ namespace {
 // mesh's flags' bit 4, its colour) - what PcGeom::change_tint (0x004B48B0) writes.
 struct Saved {
     TintOwner owner;
-    render::PcGeom* geom;
-    render::Singleton* instance;
+    render::Geom* geom;
+    render::InstanceData* instance;
     uint32_t instance_flag_;
     std::array<uint8_t, 4> instance_colour_;
     struct MeshColour {
@@ -2089,18 +2099,23 @@ std::vector<Saved>& stored_tinted()
     return tinted.get();
 }
 
-Saved save_colour(TintOwner owner, render::PcGeom* geom)
+Saved save_colour(TintOwner owner, render::Geom* geom)
 {
-    Saved saved = {.owner = owner, .geom = geom, .instance = geom->instance(), .instance_flag_ = 0, .instance_colour_ = {}, .meshes = {}, .used = true};
+    Saved saved = {.owner = owner,
+                   .geom = geom,
+                   .instance = render::device().geom_instance(geom),
+                   .instance_flag_ = 0,
+                   .instance_colour_ = {},
+                   .meshes = {},
+                   .used = true};
     if (saved.instance) {
         saved.instance_flag_ = saved.instance->flags() & 4;
         std::memcpy(saved.instance_colour_.data(), saved.instance->color().data(), 4);
         return saved;
     }
-    render::MeshRef* const* meshes = geom->meshes();
-    const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; meshes && i < count && i < kMeshScanLimit; ++i) {
-        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
+    const GeomMeshes meshes = meshes_of(geom);
+    for (uint32_t i = 0; i < meshes.count && i < kMeshScanLimit; ++i) {
+        const render::MeshData* mesh = meshes.at(i);
         saved.meshes.push_back({.flag = mesh->flags() & 4, .color = {core::at(mesh->color(), 0), core::at(mesh->color(), 1), core::at(mesh->color(), 2)}});
     }
     return saved;
@@ -2109,20 +2124,20 @@ Saved save_colour(TintOwner owner, render::PcGeom* geom)
 void restore_colour(const Saved& saved)
 {
     if (saved.instance) {
-        if (saved.geom->instance() != saved.instance) {
+        if (render::device().geom_instance(saved.geom) != saved.instance) {
             return;
         }
         saved.instance->flags() = (saved.instance->flags() & ~4U) | saved.instance_flag_;
         std::memcpy(saved.instance->color().data(), saved.instance_colour_.data(), 4);
         return;
     }
-    render::MeshRef* const* meshes = saved.geom->meshes();
-    const uint32_t count = saved.geom->mesh_count();
-    if (!meshes || count != saved.meshes.size()) {
+    const GeomMeshes meshes = meshes_of(saved.geom);
+    const uint32_t count = meshes.count;
+    if (meshes.list == nullptr || count != saved.meshes.size()) {
         return;
     }
     for (uint32_t i = 0; i < count; ++i) {
-        render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
+        render::MeshData* mesh = meshes.at(i);
         mesh->flags() = (mesh->flags() & ~4U) | core::at(saved.meshes, i).flag;
         std::memcpy(mesh->color().data(), core::at(saved.meshes, i).color.data(), sizeof(mesh->color()));
     }
@@ -2135,7 +2150,7 @@ void get_tint(TintOwner owner, void* geom, uint32_t rgba)
     if (!tintable(geom)) {
         return;
     }
-    auto* pc_geom = static_cast<render::PcGeom*>(geom);
+    auto* pc_geom = static_cast<render::Geom*>(geom);
     auto it = std::ranges::find_if(stored_tinted(), [&](const Saved& saved) { return saved.geom == pc_geom; });
     if (it == stored_tinted().end()) {
         stored_tinted().push_back(save_colour(owner, pc_geom));

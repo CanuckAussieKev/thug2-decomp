@@ -7,6 +7,7 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/gfx/mesh_records.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -26,27 +27,10 @@ struct SceneRef;
 struct PcScene;
 class PcMesh;
 
-constexpr std::size_t kSingletonBonesOffset = 0x44;
-constexpr std::size_t kSingletonColorOffset = 0x4D;
-constexpr std::size_t kSingletonSceneOffset = 0x58;
-constexpr std::size_t kSingletonBytes = 0x64;
-
-// An instance (0x64 bytes, constructor 0x004D1030): a mesh list drawn with a transform of its own and bone matrices,
-// on the instances' list (0x007825C0).
-struct Singleton {
-    // The fields other code reads and sets.
-    uint32_t& flags() { return flags_; }
-    [[nodiscard]] uint32_t flags() const { return flags_; }
-    maths::Mat4& transform() { return transform_; }
-    [[nodiscard]] const maths::Mat4& transform() const { return transform_; }
-    void set_transform(const maths::Mat4& value) { transform_ = value; }
-    [[nodiscard]] maths::Mat4* bones() const { return bones_; }
-    void set_bones(maths::Mat4* value) { bones_ = value; }
-    void set_bone_count(int value) { bone_count_ = value; }
-    [[nodiscard]] bool active() const { return active_; }
-    void set_active(bool value) { active_ = value; }
-    std::array<uint8_t, 4>& color() { return color_; }
-    [[nodiscard]] const std::array<uint8_t, 4>& color() const { return color_; }
+// An instance (0x64 bytes, constructor 0x004D1030): its record (engine/gfx/mesh_records.h: flags, transform, bones,
+// colour), its model and mesh list drawn with them, on the instances' list (0x007825C0).
+struct Singleton : InstanceData {
+    // The fields other code reads and sets (the rest: the record's, mesh_records.h).
     [[nodiscard]] RenderModel* model() const { return model_; }
     void set_model(RenderModel* value) { model_ = value; }
     [[nodiscard]] SceneRef* scene() const { return scene_; }
@@ -54,14 +38,6 @@ struct Singleton {
     [[nodiscard]] uint32_t viewports() const { return viewports_; }
 
 private:
-    uint32_t flags_{0};       // 1: owns its mesh list and bones; 2: lit (every mesh asks for it; set by the
-                             // constructor); 4: coloured
-    maths::Mat4 transform_{}; // +0x04
-    maths::Mat4* bones_;    // +0x44
-    int bone_count_;       // +0x48
-    bool active_{true};     // +0x4C
-    std::array<uint8_t, 4> color_{};    // +0x4D: RGBA (0x80 each: unchanged)
-    std::array<uint8_t, 3> pad51{};
     RenderModel* model_{nullptr}; // +0x54
     SceneRef* scene_;    // +0x58: its mesh list (the bounding sphere at +0x64)
     Singleton* next_;    // +0x5C
@@ -87,8 +63,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Singleton, bones_) == kSingletonBonesOffset && offsetof(Singleton, color_) == kSingletonColorOffset &&
-                          offsetof(Singleton, scene_) == kSingletonSceneOffset && sizeof(Singleton) == kSingletonBytes,
+        constexpr std::size_t kSceneOffset = 0x58;
+        constexpr std::size_t kBytes = 0x64;
+        static_assert(offsetof(Singleton, scene_) == kSceneOffset && sizeof(Singleton) == kBytes,
                       "layout must match the original");
     }
 };

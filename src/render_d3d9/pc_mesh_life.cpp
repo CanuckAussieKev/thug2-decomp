@@ -111,7 +111,7 @@ long MeshRef::apply_vertex_colors()
     if (!per_vertex_bytes_) {
         return 0;
     }
-    VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
+    VertexBuffer* vb = vertex_store(current_vertex_buffer_);
     vb->set_lock_size(vb->size());
     vb->set_lock_offset(0);
     vb->set_lock_flags(0);
@@ -124,7 +124,7 @@ long MeshRef::apply_vertex_colors()
             vertices.set_word(i, color_offset_, core::at(colors, index - 1)); // (the vertex's colour word)
         }
     }
-    return core::at(vertex_buffers_, current_vertex_buffer_)->get_unlock();
+    return vertex_store(current_vertex_buffer_)->get_unlock();
 }
 
 // 0x004D4D30
@@ -185,7 +185,7 @@ void MeshRef::clean_strip()
         first = second;
         second = third;
     }
-    core::at(index_buffers_, 0)->get_unlock();
+    index_store(0)->get_unlock();
 }
 
 // 0x004D5900
@@ -208,13 +208,13 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
     if (arena) {
         arena->size += (bytes + kArenaAlignSlack) & ~kArenaAlignMask;
     }
-    VertexBuffer* vb = core::at(vertex_buffers_, 0);
+    VertexBuffer* vb = vertex_store(0);
     uint8_t* data = vb->data(); // (locked whole, inline)
     vb->set_lock_offset(0);
     vb->set_lock_size(vb->size());
     vb->set_lock_flags(0);
     std::memcpy(data, vertices, bytes);
-    core::at(vertex_buffers_, 0)->get_unlock();
+    vertex_store(0)->get_unlock();
 }
 
 // 0x004D67F0
@@ -305,9 +305,9 @@ MeshRef::~MeshRef()
         memory::Hub::dealloc(transform);
     }
     if ((flags_ & 1) == 0U) { // (its own buffers, not another mesh's)
-        for (IdxStore*& ib : index_buffers_) {
+        for (IndexBufferData*& ib : index_buffers_) {
             if (ib) {
-                ib->teardown();
+                static_cast<IdxStore*>(ib)->teardown();
             }
             ib = nullptr;
         }
@@ -336,18 +336,18 @@ MeshRef::~MeshRef()
                 if (stream == d3d9::object(core::at(vertex_buffers_, i)->buffer())) {
                     d3d9::state().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 }
-                core::at(vertex_buffers_, i)->teardown();
+                vertex_store(i)->teardown();
                 core::at(vertex_buffers_, i) = nullptr;
             }
             if (core::at(extra_buffers_, i)) {
                 if (stream == d3d9::object(core::at(extra_buffers_, i)->buffer())) {
                     d3d9::state().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 }
-                core::at(extra_buffers_, i)->teardown(); // (left pointing at it: cleared with the rest below)
+                extra_store(i)->teardown(); // (left pointing at it: cleared with the rest below)
             }
         }
         if (last_buffer_) {
-            last_buffer_->teardown();
+            static_cast<VertexBuffer*>(last_buffer_)->teardown();
             last_buffer_ = nullptr;
         }
     }

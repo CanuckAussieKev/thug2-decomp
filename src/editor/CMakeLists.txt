@@ -83,6 +83,3 @@ add_library(thug2_editor STATIC
 target_link_libraries(thug2_editor PUBLIC thug2_game imgui)
 # The sibling edge tools/layers_baseline.txt lists (editor -> frontend: the mouse menus).
 target_link_libraries(thug2_editor PRIVATE thug2_frontend)
-# The Direct3D 9 backend (tools/layers.json: the editor's one link past the game): its ImGui backend, its preview's and
-# its ground's drawing still call it, until they go behind the engine's interfaces.
-target_link_libraries(thug2_editor PRIVATE thug2_render_d3d9)

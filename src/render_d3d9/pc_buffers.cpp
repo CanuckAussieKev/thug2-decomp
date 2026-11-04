@@ -39,7 +39,10 @@ std::array<float, kPixelShaderConstantFloats>& saved_pixel_shader_constants()
 } // namespace
 
 // 0x004D3FC0
-VertexBuffer* MeshRef::fetch_vertex_store(int index) { return core::at(vertex_buffers_, index); }
+VertexBuffer* MeshRef::fetch_vertex_store(int index)
+{
+    return static_cast<VertexBuffer*>(core::at(vertex_buffers_, index));
+}
 
 // 0x004D3FD0
 void MeshRef::set_vertex_buffer(int index, VertexBuffer* vb) { core::at(vertex_buffers_, index) = vb; }
@@ -47,7 +50,7 @@ void MeshRef::set_vertex_buffer(int index, VertexBuffer* vb) { core::at(vertex_b
 // 0x004D3E50
 void MeshRef::move_into_arena(VertexArena* arena)
 {
-    VertexBuffer* vb = core::at(vertex_buffers_, 0);
+    auto* vb = static_cast<VertexBuffer*>(core::at(vertex_buffers_, 0));
     if (vb->buffer()) {
         return; // (the original adds 0x1F & ~0x1F - nothing - to the arena's offset)
     }

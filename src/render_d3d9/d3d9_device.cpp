@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 
+#include "engine/gfx/render_camera.h"
 #include "base/core/checksums.h"
 #include "base/core/down_cast.h"
 #include "base/core/no_destroy.h"
@@ -223,6 +224,41 @@ public:
     {
         editor_support::draw_screen_lines(vertices);
     }
+    [[nodiscard]] uint32_t geom_mesh_count(const Geom* geom) override { return editor_support::geom_mesh_count(geom); }
+    [[nodiscard]] MeshData* geom_mesh(const Geom* geom, uint32_t index) override
+    {
+        return editor_support::geom_mesh(geom, index);
+    }
+    [[nodiscard]] const void* geom_mesh_list(const Geom* geom) override { return editor_support::geom_mesh_list(geom); }
+    [[nodiscard]] InstanceData* geom_instance(const Geom* geom) override { return editor_support::geom_instance(geom); }
+    [[nodiscard]] bool geom_active(const Geom* geom) override { return editor_support::geom_active(geom); }
+    gsl::owner<VertexBufferData*> create_vertex_buffer(uint32_t bytes) override
+    {
+        return editor_support::create_vertex_buffer(bytes);
+    }
+    gsl::owner<IndexBufferData*> create_index_buffer(uint32_t bytes) override
+    {
+        return editor_support::create_index_buffer(bytes);
+    }
+    void upload_vertex_buffer(VertexBufferData* buffer) override { editor_support::upload_vertex_buffer(buffer); }
+    void upload_index_buffer(IndexBufferData* buffer) override { editor_support::upload_index_buffer(buffer); }
+    void release_vertex_buffer(gsl::owner<VertexBufferData*> buffer) override
+    {
+        editor_support::release_vertex_buffer(buffer);
+    }
+    void release_index_buffer(gsl::owner<IndexBufferData*> buffer) override
+    {
+        editor_support::release_index_buffer(buffer);
+    }
+    void begin_preview_view(const maths::Mat4* orientation, const maths::Vec4* position, CameraLens lens) override
+    {
+        editor_support::begin_preview_view(orientation, position, lens);
+    }
+    void draw_preview_geom(Geom* geom, bool through_instance) override
+    {
+        editor_support::draw_preview_geom(geom, through_instance);
+    }
+    void end_preview_view() override { editor_support::end_preview_view(); }
 };
 
 } // namespace

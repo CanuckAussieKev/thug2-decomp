@@ -2,6 +2,7 @@
 // double precision where it keeps them in registers).
 
 #include "render_d3d9/sub_mesh.h"
+#include "engine/gfx/mesh_records.h"
 #include "render_d3d9/d3d9_handles.h"
 
 #include <windows.h>
@@ -99,7 +100,7 @@ void get_identity(std::span<float, maths::kMatrixFloats> elements)
 // 0x004D6D40
 void MeshRef::add_vertex_buffers(int count)
 {
-    VertexBuffer* first = core::at(vertex_buffers_, 0);
+    VertexBuffer* first = vertex_store(0);
     const uint8_t* source = get_lock(first, kLockReadOnly);
     for (int i = 0; i < count; ++i) {
         gsl::owner<VertexBuffer*> buffer = new_vertex_buffer(vertex_count_ * stride_); // (the mesh's)
@@ -108,7 +109,7 @@ void MeshRef::add_vertex_buffers(int count)
         std::memcpy(data, source, vertex_count_ * stride_);
         get_unlock(buffer);
     }
-    get_unlock(core::at(vertex_buffers_, 0));
+    get_unlock(vertex_store(0));
     vertex_buffer_count_ = static_cast<uint8_t>(count + 1);
 }
 
@@ -127,7 +128,7 @@ void MeshRef::move_to(const maths::Vec4* position)
     core::at(transform_floats(), maths::kMatTz) = position->z;
     core::at(transform_floats(), maths::kMatTw) = position->w;
     for (int buffer = 0; std::cmp_less(buffer, vertex_buffer_count_); ++buffer) {
-        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, buffer), 0), stride_, vertex_count_);
+        const gpu::VertexWriter vertices(get_lock(vertex_store(buffer), 0), stride_, vertex_count_);
         for (uint32_t vertex = 0; vertex < vertex_count_; ++vertex) {
             auto point = vertices.view().point<maths::Vec4>(vertex);
             point.x = dx + point.x;
@@ -135,7 +136,7 @@ void MeshRef::move_to(const maths::Vec4* position)
             point.z = dz + point.z;
             vertices.set_point(vertex, 0, point);
         }
-        get_unlock(core::at(vertex_buffers_, buffer));
+        get_unlock(vertex_store(buffer));
     }
     for (uint32_t k = 0; k < position_count_; ++k) {
         core::at(position_floats(), (3 * k) + 0) = dx + core::at(position_floats(), (3 * k) + 0);
@@ -158,7 +159,7 @@ void MeshRef::turn_y(int turns)
         get_identity(transform_floats());
     }
     for (int buffer = 0; std::cmp_less(buffer, vertex_buffer_count_); ++buffer) {
-        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, buffer), 0), stride_, vertex_count_);
+        const gpu::VertexWriter vertices(get_lock(vertex_store(buffer), 0), stride_, vertex_count_);
         // (the transform's position re-read for every vertex, as the original does)
         switch (turns) {
         case 1:
@@ -215,7 +216,7 @@ void MeshRef::turn_y(int turns)
         default:
             break;
         }
-        get_unlock(core::at(vertex_buffers_, buffer));
+        get_unlock(vertex_store(buffer));
     }
 }
 
@@ -230,13 +231,13 @@ MeshRef* MeshRef::replicate(bool share)
     } else {
         gsl::owner<VertexBuffer*> made = new_vertex_buffer(copy->vertex_count_ * copy->stride_); // (the copy's)
         core::at(copy->vertex_buffers_, 0) = made;
-        const uint8_t* source = get_lock(core::at(vertex_buffers_, 0), kLockReadOnly);
-        uint8_t* data = get_lock(core::at(copy->vertex_buffers_, 0), 0);
+        const uint8_t* source = get_lock(vertex_store(0), kLockReadOnly);
+        uint8_t* data = get_lock(copy->vertex_store(0), 0);
         std::memcpy(data, source, copy->vertex_count_ * copy->stride_);
-        get_unlock(core::at(vertex_buffers_, 0));
-        get_unlock(core::at(copy->vertex_buffers_, 0));
+        get_unlock(vertex_store(0));
+        get_unlock(copy->vertex_store(0));
         int lod = -1; // (each level of detail: the copy's buffer is stored through its slot)
-        for (IdxStore*& slot : copy->index_buffers_) {
+        for (IndexBufferData*& slot : copy->index_buffers_) {
             ++lod;
             if (core::at(copy->index_counts_, lod) == 0U) {
                 continue;
@@ -244,10 +245,10 @@ MeshRef* MeshRef::replicate(bool share)
             gsl::owner<IdxStore*> buffer = new_index_buffer(core::at(copy->index_counts_, lod) * 2);
             slot = buffer;
             Expects(buffer != nullptr); // (out of memory: the original copied to address 0)
-            IdxStore* from = core::at(index_buffers_, lod);
+            IdxStore* from = index_store(lod);
             std::memcpy(buffer->indices(), from->indices(), core::at(copy->index_counts_, lod) * 2);
             upload_indices(from); // (the original's too)
-            upload_indices(slot);
+            upload_indices(buffer); // (the slot's)
         }
         copy->unknowna4_ = unknowna4_;
         copy->unknowna8_ = unknowna8_;
@@ -294,10 +295,10 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     }
 
     // The quad's plane from its first triangle.
-    VertexBuffer* buffer = core::at(vertex_buffers_, 0);
+    VertexBuffer* buffer = vertex_store(0);
     uint8_t* data = get_lock(buffer, kLockReadOnly);
     const gpu::VertexWriter vertices(data, stride_, vertex_count_);
-    IdxStore* indices = core::at(index_buffers_, 0);
+    IdxStore* indices = index_store(0);
     const auto p0 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 0));
     const auto p1 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 1));
     const auto p2 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 2));

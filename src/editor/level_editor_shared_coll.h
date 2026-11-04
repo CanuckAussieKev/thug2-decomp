@@ -13,7 +13,7 @@
 #include "engine/render/coll_obj.h"
 
 namespace render {
-class PcGeom;
+class Geom;
 class WorldCell;
 struct WorldScene;
 } // namespace render
@@ -128,7 +128,7 @@ private:
 // The piece's companion made if it has none yet (its faces gathered; the originals turned off) - while the piece is
 // still where the editor first found it (before its first move: apply_track calls it first). Nothing when the setting
 // is off ([editor] shared_collision=0) or no face belongs to it.
-void ensure(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::PcGeom* geom);
+void ensure(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::Geom* geom);
 // The companion (if any) placed with the piece.
 void get_place(uint32_t checksum, const Placement& placement);
 // The piece's track started again where it is (level_editor_scenery.cpp's track_of): its companion's base is now.
@@ -140,7 +140,7 @@ void change_live(uint32_t checksum, bool active);
 // it does - `Finish`.
 std::shared_ptr<std::vector<FaceCopy>> prepare_copy(uint32_t source);
 void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, render::WorldScene* scene,
-                 render::WorldCell* sector, render::PcGeom* geom);
+                 render::WorldCell* sector, render::Geom* geom);
 // The scene's companions put in its collision grid / moved there (after UpdateSuperSectors).
 void finalise(render::WorldScene* scene);
 // How many pieces have a companion, and their faces (the HUD's debug line, the log).

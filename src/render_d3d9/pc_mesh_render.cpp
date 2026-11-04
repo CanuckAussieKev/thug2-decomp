@@ -132,7 +132,7 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 
 // The index buffers and their counts by level (the original read a level past the eighth on into the fields after
 // them: here it stops the game with a report).
-IdxStore* index_buffer_at(MeshRef* mesh, int level) { return core::at(mesh->index_buffers(), level); }
+IdxStore* index_buffer_at(MeshRef* mesh, int level) { return mesh->index_store(level); }
 uint16_t index_count_at(MeshRef* mesh, int level) { return core::at(mesh->index_counts(), level); }
 
 void count_draw(uint32_t primitives)
@@ -227,7 +227,7 @@ void MeshRef::render()
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
         }
     }
-    VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
+    VertexBuffer* vb = vertex_store(current_vertex_buffer_);
     if (per_vertex_data_ &&
         (unknown9c_ != renderer().frames_rendered() ||
          unknowna0_ != mesh_pass().current_instance())) { // (once a frame per instance)

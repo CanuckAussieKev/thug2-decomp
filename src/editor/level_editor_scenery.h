@@ -9,7 +9,8 @@
 
 namespace render {
 class HitMesh;
-class PcGeom;
+class Geom;
+struct MeshData;
 class WorldCell;
 struct WorldScene;
 } // namespace render
@@ -216,7 +217,17 @@ bool selection_moved(Placement* placement);
 void log_census();
 
 // The geometry of a sector (null: none).
-render::PcGeom* sector_geometry(uint32_t checksum);
+render::Geom* sector_geometry(uint32_t checksum);
+// A PC geom's meshes as the graphics backend lists them (render::Device::geom_mesh_count / geom_mesh / geom_mesh_list):
+// none without a mesh array (or for another kind of geom); `list` names the array (it changes when the meshes are made
+// again).
+struct GeomMeshes {
+    const render::Geom* geom = nullptr;
+    uint32_t count = 0;
+    const void* list = nullptr;
+    [[nodiscard]] render::MeshData* at(uint32_t index) const;
+};
+GeomMeshes meshes_of(const render::Geom* geom);
 // The sector of that checksum (null: none), and every sector of the level's scenes (skies left out) - the view
 // options (level_editor_view.h) read their collision and visibility.
 render::WorldCell* sector_of(uint32_t checksum);

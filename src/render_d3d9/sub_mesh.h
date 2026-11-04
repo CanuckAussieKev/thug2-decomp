@@ -5,7 +5,9 @@
 #include <array>
 #include <span>
 
+#include "base/core/checked_index.h"
 #include "base/maths/vec4.h"
+#include "engine/gfx/mesh_records.h"
 #include "render_d3d9/vertex_buffers.h"
 #include <gsl/pointers>
 
@@ -19,153 +21,13 @@ class FileStream;
 // themselves) is elsewhere and not rewritten yet.
 namespace render {
 
-constexpr std::size_t kIndexBufferSlots = 8;
-constexpr std::size_t kTransformFloats = 16;
-
-
 struct VertexArena; // (pc_scene.h)
 struct Singleton;   // (geom.h)
 struct SceneRef;    // (mesh_list.h)
-struct MaterialRef; // (surface_material.h)
 
 
-// A billboard (0x24 bytes): how it turns (0 / 1 towards the camera about any axis, 2 about `axis`), its pivot.
-struct Billboard {
-    uint32_t type;
-    std::array<float, 4> pivot;
-    std::array<float, 4> axis;
-};
-
-constexpr std::size_t kMeshRefMaterialOffset = 0x14;
-constexpr std::size_t kMeshRefVertexBufferCountOffset = 0x1A;
-constexpr std::size_t kMeshRefIndexCountsOffset = 0x24;
-constexpr std::size_t kMeshRefBillboardOffset = 0x4C;
-constexpr std::size_t kMeshRefIndexBuffersOffset = 0x54;
-constexpr std::size_t kMeshRefDepthOffset = 0x7C;
-constexpr std::size_t kMeshRefPerVertexBytesOffset = 0x8C;
-constexpr std::size_t kMeshRefPerVertexDataOffset = 0x94;
-constexpr std::size_t kMeshRefUnknowna4Offset = 0xA4;
-constexpr std::size_t kMeshRefPositionCountOffset = 0xAC;
-constexpr std::size_t kMeshRefTrianglesOffset = 0xB8;
-constexpr std::size_t kMeshRefVertexBuffersOffset = 0xCC;
-constexpr std::size_t kMeshRefPixelShaderOffset = 0x44;
-constexpr std::size_t kMeshRefBufferFlagsOffset = 0x78;
-constexpr std::size_t kMeshRefExtraBuffersOffset = 0xBC;
-constexpr std::size_t kMeshRefBytes = 0xD8;
-
-struct MeshRef {
-    // The fields other code reads and sets.
-    uint32_t& flags() { return flags_; }
-    [[nodiscard]] uint32_t flags() const { return flags_; }
-    std::array<float, 3>& centre() { return centre_; }
-    [[nodiscard]] const std::array<float, 3>& centre() const { return centre_; }
-    [[nodiscard]] float radius() const { return radius_; }
-    void set_radius(float value) { radius_ = value; }
-    [[nodiscard]] MaterialRef* material() const { return material_; }
-    void set_material(MaterialRef* value) { material_ = value; }
-    [[nodiscard]] uint8_t stride() const { return stride_; }
-    void set_stride(uint8_t value) { stride_ = value; }
-    [[nodiscard]] uint8_t vertex_buffer_count() const { return vertex_buffer_count_; }
-    void set_vertex_buffer_count(uint8_t value) { vertex_buffer_count_ = value; }
-    [[nodiscard]] uint8_t viewports() const { return viewports_; }
-    void set_viewports(uint8_t value) { viewports_ = value; }
-    [[nodiscard]] uint8_t color_offset() const { return color_offset_; }
-    void set_color_offset(uint8_t value) { color_offset_ = value; }
-    [[nodiscard]] uint8_t normal_offset() const { return normal_offset_; }
-    void set_normal_offset(uint8_t value) { normal_offset_ = value; }
-    [[nodiscard]] uint8_t uv_offset() const { return uv_offset_; }
-    void set_uv_offset(uint8_t value) { uv_offset_ = value; }
-    [[nodiscard]] uint8_t bone() const { return bone_; }
-    void set_bone(uint8_t value) { bone_ = value; }
-    uint16_t& load_index() { return load_index_; }
-    [[nodiscard]] uint16_t load_index() const { return load_index_; }
-    void set_load_index(uint16_t value) { load_index_ = value; }
-    [[nodiscard]] uint16_t vertex_count() const { return vertex_count_; }
-    void set_vertex_count(uint16_t value) { vertex_count_ = value; }
-    std::array<uint16_t, kIndexBufferSlots>& index_counts() { return index_counts_; }
-    [[nodiscard]] const std::array<uint16_t, kIndexBufferSlots>& index_counts() const { return index_counts_; }
-    uint32_t& fvf() { return fvf_; }
-    [[nodiscard]] uint32_t fvf() const { return fvf_; }
-    void set_fvf(uint32_t value) { fvf_ = value; }
-    void set_second_fvf(uint32_t value) { second_fvf_ = value; }
-    void*& pixel_shader() { return pixel_shader_; }
-    [[nodiscard]] void* pixel_shader() const { return pixel_shader_; }
-    [[nodiscard]] void* unknown48() const { return unknown48_; }
-    void set_unknown48(void* value) { unknown48_ = value; }
-    [[nodiscard]] Billboard* billboard() const { return billboard_; }
-    [[nodiscard]] uint32_t primitive_type() const { return primitive_type_; }
-    std::array<IdxStore*, kIndexBufferSlots>& index_buffers() { return index_buffers_; }
-    [[nodiscard]] const std::array<IdxStore*, kIndexBufferSlots>& index_buffers() const { return index_buffers_; }
-    void set_buffer_usage(uint32_t value) { buffer_usage_ = value; }
-    uint32_t& buffer_flags() { return buffer_flags_; }
-    [[nodiscard]] uint32_t buffer_flags() const { return buffer_flags_; }
-    [[nodiscard]] float depth() const { return depth_; }
-    void set_depth(float value) { depth_ = value; }
-    std::array<float, 3>& color() { return color_; }
-    [[nodiscard]] const std::array<float, 3>& color() const { return color_; }
-    [[nodiscard]] uint8_t* per_vertex_bytes() const { return per_vertex_bytes_; }
-    void set_per_vertex_bytes(uint8_t* value) { per_vertex_bytes_ = value; }
-    [[nodiscard]] uint8_t* per_vertex_data() const { return per_vertex_data_; }
-    [[nodiscard]] uint32_t unknowna4() const { return unknowna4_; }
-    [[nodiscard]] uint32_t position_count() const { return position_count_; }
-    void set_position_count(uint32_t value) { position_count_ = value; }
-    [[nodiscard]] float* positions() const { return positions_; }
-    [[nodiscard]] uint32_t triangle_count() const { return triangle_count_; }
-    void set_triangle_count(uint32_t value) { triangle_count_ = value; }
-    [[nodiscard]] uint16_t* triangles() const { return triangles_; }
-    std::array<VertexBuffer*, 3>& vertex_buffers() { return vertex_buffers_; }
-    [[nodiscard]] const std::array<VertexBuffer*, 3>& vertex_buffers() const { return vertex_buffers_; }
-
-private:
-    uint32_t flags_{0}; // 1: shares another mesh's buffers; 0x10: a billboard
-    std::array<float, 3> centre_{}; // the bounding sphere
-    float radius_{};
-    MaterialRef* material_{};
-    uint8_t stride_;                 // bytes per vertex
-    uint8_t current_vertex_buffer_{0}; // +0x19
-    uint8_t vertex_buffer_count_{1};   // +0x1A
-    uint8_t viewports_;              // +0x1B: a bit per viewport it shows in
-    uint8_t color_offset_{0};       // +0x1C: where in a vertex its colour is (0: none)
-    uint8_t normal_offset_{0};      // +0x1D: its normal
-    uint8_t uv_offset_{0};          // +0x1E: its first texture coordinates
-    uint8_t bone_{0};               // +0x1F: the bone it follows (0xFF: none)
-    uint16_t load_index_{};         // +0x20
-    uint16_t vertex_count_{};       // +0x22
-    std::array<uint16_t, kIndexBufferSlots> index_counts_{};    // +0x24
-    std::array<uint8_t, 4> unknown34{};
-    uint32_t fvf_; // +0x38: its vertex format (D3DFVF; 0x10 the normals: lit)
-    uint32_t second_fvf_{};           // +0x3C: the vertex format of the mesh's second type (written, never read)
-    std::array<uint8_t, 4> unknown40_{};
-    void* pixel_shader_;              // +0x44
-    void* unknown48_;                  // +0x48 (from the heap)
-    Billboard* billboard_;             // +0x4C
-    uint32_t primitive_type_;         // +0x50 (5 when constructed)
-    std::array<IdxStore*, kIndexBufferSlots> index_buffers_{};    // +0x54
-    uint32_t buffer_usage_{};         // +0x74: the vertex buffers' usage and flags
-    uint32_t buffer_flags_{};         // +0x78
-    float depth_{};                    // +0x7C (the render's)
-    std::array<float, 3> color_{};                 // +0x80: its colour (doubled when used: 0.5 leaves the passes as they are)
-    uint8_t* per_vertex_bytes_;       // +0x8C: a byte per vertex
-    float* transform;                 // +0x90: 16 floats, made on first use
-    uint8_t* per_vertex_data_;        // +0x94: 0x4C bytes per vertex
-    int unknown98;                    // +0x98: its one bone (-1: none)
-    int unknown9c_;                   // +0x9C: the frame (0x00786AC4) it was last skinned in
-    const Singleton* unknowna0_;      // +0xA0: and for which instance (0x007825B8)
-    uint32_t unknowna4_{}, unknowna8_{}; // +0xA4: texture coordinate sets; +0xA8: bones a vertex (1-3)
-    uint32_t position_count_;         // +0xAC
-    float* positions_;                 // +0xB0: three floats each
-    uint32_t triangle_count_;         // +0xB4
-    uint16_t* triangles_;              // +0xB8: three indices each
-    std::array<VertexBuffer*, 3> extra_buffers_{}; // +0xBC: destroyed with it (each beside its vertex buffer)
-    VertexBuffer* last_buffer_;       // +0xC8: destroyed with it
-    std::array<VertexBuffer*, 3> vertex_buffers_{}; // +0xCC
-
-public:
-
-    // NOT ORIGINAL - the transform's 16 floats and the positions (three each) as runs.
-    [[nodiscard]] std::span<float, kTransformFloats> transform_floats() const { return std::span<float, kTransformFloats>(transform, kTransformFloats); }
-    [[nodiscard]] std::span<float> position_floats() const { return {positions_, static_cast<size_t>(position_count_) * 3}; }
-
+// A scene mesh: its record (engine/gfx/mesh_records.h) and what it does.
+struct MeshRef : MeshData {
     // 0x004D4BE0: construct - no buffers, one vertex buffer to come, shown (0x40) in every viewport, no bone,
     // primitive type 5.
     MeshRef();
@@ -241,18 +103,20 @@ private:
     // the last one there is.)
     int lod_level();
 
-    // The original's layout (checked inside the class: the members are private).
-    static void check_layout()
+public:
+    // NOT ORIGINAL - its buffers as the backend's own (the record holds them as records, mesh_records.h; every one is a
+    // VertexBuffer / IdxStore).
+    [[nodiscard]] VertexBuffer* vertex_store(size_t index) const
     {
-        static_assert(offsetof(MeshRef, material_) == kMeshRefMaterialOffset && offsetof(MeshRef, vertex_buffer_count_) == kMeshRefVertexBufferCountOffset &&
-                          offsetof(MeshRef, index_counts_) == kMeshRefIndexCountsOffset && offsetof(MeshRef, billboard_) == kMeshRefBillboardOffset &&
-                          offsetof(MeshRef, index_buffers_) == kMeshRefIndexBuffersOffset && offsetof(MeshRef, depth_) == kMeshRefDepthOffset &&
-                          offsetof(MeshRef, per_vertex_bytes_) == kMeshRefPerVertexBytesOffset && offsetof(MeshRef, per_vertex_data_) == kMeshRefPerVertexDataOffset &&
-                          offsetof(MeshRef, unknowna4_) == kMeshRefUnknowna4Offset && offsetof(MeshRef, position_count_) == kMeshRefPositionCountOffset &&
-                          offsetof(MeshRef, triangles_) == kMeshRefTrianglesOffset && offsetof(MeshRef, vertex_buffers_) == kMeshRefVertexBuffersOffset &&
-                          offsetof(MeshRef, pixel_shader_) == kMeshRefPixelShaderOffset && offsetof(MeshRef, buffer_flags_) == kMeshRefBufferFlagsOffset &&
-                          offsetof(MeshRef, extra_buffers_) == kMeshRefExtraBuffersOffset && sizeof(MeshRef) == kMeshRefBytes,
-                      "layout must match the original");
+        return static_cast<VertexBuffer*>(core::at(vertex_buffers(), index));
+    }
+    [[nodiscard]] IdxStore* index_store(size_t level) const
+    {
+        return static_cast<IdxStore*>(core::at(index_buffers(), level));
+    }
+    [[nodiscard]] VertexBuffer* extra_store(size_t index) const
+    {
+        return static_cast<VertexBuffer*>(core::at(extra_buffers_, index));
     }
 };
 

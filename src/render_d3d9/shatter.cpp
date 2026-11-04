@@ -214,7 +214,7 @@ void shatter_geom(PcGeom* geom)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
         const uint8_t* vertices = lock_vertices(vertex_buffer);
         const gpu::VertexView view(vertices, stride, mesh->vertex_count());
-        const std::span<const uint16_t> indices(lock_indices(core::at(mesh->index_buffers(), 0)), core::at(mesh->index_counts(), 0));
+        const std::span<const uint16_t> indices(lock_indices(mesh->index_store(0)), core::at(mesh->index_counts(), 0));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
         int count = 0;
         uint32_t first = core::at(indices, 0);
@@ -327,7 +327,7 @@ void shatter_geom(PcGeom* geom)
             // D3DX (linked library code): rotation = rotation * turn
             maths::matrix_multiply(&rotation, &rotation, &turn);
         }
-        core::at(mesh->index_buffers(), 0)->get_unlock(); // (unlocked)
+        mesh->index_store(0)->get_unlock(); // (unlocked)
         mesh->fetch_vertex_store(0)->get_unlock();
     }
 }

@@ -323,10 +323,10 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 continue;
             }
             uint8_t* vertices = nullptr;
-            core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, kLockDiscard);
+            mesh->vertex_store(0)->get_lock(0, 0, &vertices, kLockDiscard);
             const gpu::VertexView mesh_vertices(vertices, mesh->stride(), mesh->vertex_count());
             uint16_t* locked_indices = nullptr;
-            core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, kLockDiscard);
+            mesh->index_store(0)->get_lock(0, 0, &locked_indices, kLockDiscard);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));
             // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
             uint32_t index_a = !indices.empty() ? core::at(indices, 0) : 0U;
@@ -345,8 +345,8 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     return;
                 }
             }
-            core::at(mesh->index_buffers(), 0)->get_unlock(); // (unlocked)
-            core::at(mesh->vertex_buffers(), 0)->get_unlock();
+            mesh->index_store(0)->get_unlock(); // (unlocked)
+            mesh->vertex_store(0)->get_unlock();
         }
     }
 }

@@ -13,11 +13,10 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_scenery.h"
-#include "render_d3d9/sub_mesh.h"
+#include "engine/gfx/mesh_records.h"
 #include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
-#include "render_d3d9/geom.h"
-#include "render_d3d9/vertex_buffers.h"
+#include "engine/gfx/engine_geom.h"
 #include "engine/gfx/vertex_view.h"
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
@@ -146,20 +145,19 @@ std::vector<V3> sector_vertices(checksums::Name sector, size_t limit)
 {
     const uint32_t checksum = sector.value();
     std::vector<V3> out;
-    const render::PcGeom* geom = scenery::sector_geometry(checksum);
+    const render::Geom* geom = scenery::sector_geometry(checksum);
     if (!geom) {
         return out;
     }
     // (the geometry's meshes, +0x3C / +0x40 - as level_editor_scenery.cpp's ray_meshes reads them: each vertex's
     // position its first 12 bytes, where the sector is now)
-    const std::span<render::MeshRef*> meshes = geom->meshes() ? geom->mesh_run() : std::span<render::MeshRef*>();
-    const uint32_t count = geom->mesh_count();
-    for (uint32_t i = 0; !meshes.empty() && i < count && i < kMeshScanLimit && out.size() < limit; ++i) {
-        const render::MeshRef* mesh = core::at(meshes, i);
+    const scenery::GeomMeshes meshes = scenery::meshes_of(geom);
+    for (uint32_t i = 0; i < meshes.count && i < kMeshScanLimit && out.size() < limit; ++i) {
+        const render::MeshData* mesh = meshes.at(i);
         if (!mesh || mesh->billboard() || ((mesh->flags() & kMeshHiddenFlag) != 0U)) {
             continue;
         }
-        const render::VertexBuffer* vertices =
+        const render::VertexBufferData* vertices =
             (mesh->vertex_buffer_count() != 0U) ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         if (!vertices || !vertices->data() || mesh->stride() < kPositionBytes) {
             continue;
