@@ -173,7 +173,7 @@ bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 // The skate module's career (+0x20; null before the module is up).
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole() ? modules::Skate::sole()->career().get() : nullptr; }
 modules::FrontEnd* the_front_end() { return modules::front_end_instance().get(); }
-bool get_paused() { return the_front_end() && the_front_end()->is_halted(); }
+bool get_paused() { return (the_front_end() != nullptr) && the_front_end()->is_halted(); }
 bool loading_screen_up()
 {
     return render::loading_screen_shown() != 0 || render::renderer().loading_bar_timer() != 0 ||
@@ -183,7 +183,7 @@ bool loading_screen_up()
 bool is_script(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && symbol->type() == script::QbValueKind::kScriptBody;
+    return (symbol != nullptr) && symbol->type() == script::QbValueKind::kScriptBody;
 }
 
 // A script integer by name (-1: none).
@@ -210,7 +210,7 @@ std::string ini_string(const char* key, const char* fallback)
 bool is_file_present(const std::string& path)
 {
     const DWORD attributes = GetFileAttributesA(path.c_str());
-    return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+    return attributes != INVALID_FILE_ATTRIBUTES && ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U);
 }
 
 std::string windows_fonts()
@@ -261,7 +261,7 @@ paint::FontFiles resolve_fonts()
     const bool bahnschrift = lower.find("bahnschrift") != std::string::npos;
     files.condense =
         static_cast<float>(text::to_int(ini_string("display_condense", bahnschrift ? "84" : "100").c_str())) / 100.0F;
-    files.bold = text::to_int(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) ? kBoldWeight : 0.0F;
+    files.bold = (text::to_int(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) != 0) ? kBoldWeight : 0.0F;
     get_log("new front end: fonts - display %s (condensed %.0f%%%s), mono %s, body %s",
             files.display.empty() ? "(none)" : files.display.c_str(), files.condense * 100.0F,
             files.bold > 0 ? ", heavier" : "", files.mono.empty() ? "(none)" : files.mono.c_str(),
@@ -294,7 +294,8 @@ bool write_atomically(const std::string& path, std::string_view text)
     bool ok = std::fwrite(text.data(), 1, text.size(), file.get()) == text.size();
     ok = std::fflush(file.get()) == 0 && ok;
     file.reset(); // (closed before it's moved)
-    if (!ok || !MoveFileExA(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+    if (!ok ||
+        (MoveFileExA(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) == FALSE)) {
         DeleteFileA(temporary.c_str());
         return false;
     }
@@ -449,7 +450,7 @@ void update_session(float dt)
         session_state() = SessionState{};
         session_state().level = level;
     }
-    if (!level || level == kLoadMainMenu || get_paused() || level_editor::live_now()) {
+    if ((level == 0U) || level == kLoadMainMenu || get_paused() || level_editor::live_now()) {
         return;
     }
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
@@ -583,7 +584,7 @@ paint::Art load_image_file(const std::string& name)
     // palette reads the texels that follow)
     std::span<const uint8_t> palette;
     if (palettized) {
-        const size_t palette_bytes = palette_size ? palette_size : 0x400;
+        const size_t palette_bytes = (palette_size != 0U) ? palette_size : 0x400;
         if (left < palette_bytes) {
             return {};
         }
@@ -635,7 +636,7 @@ paint::Art art_for(const std::string& image)
         }
         CachedArt cached;
         cached.art = load_image_file(image);
-        cached.failed = !cached.art.texture;
+        cached.failed = (cached.art.texture == 0U);
         if (cached.failed) {
             get_log("new front end: no picture images\\%s.img.xbx", image.c_str());
         }
@@ -689,7 +690,7 @@ bool get_unlocked(const StageMap& level, bool game_rules)
     }
     const int flag = script_integer(level.seen_flag_.empty() ? level.flag : level.seen_flag_);
     objects::RiderStoryProgress* career = get_career();
-    return flag < 0 || !career || career->get_global_flag(flag);
+    return flag < 0 || (career == nullptr) || career->get_global_flag(flag);
 }
 
 std::vector<SectionView> get_views(bool game_rules = false)
@@ -760,7 +761,7 @@ void note_level_loaded()
         return;
     }
     new_frontend_state().last_load_ = load;
-    if (!load || load == kLoadMainMenu || !new_frontend_state().catalogue_ok_) {
+    if ((load == 0U) || load == kLoadMainMenu || !new_frontend_state().catalogue_ok_) {
         return;
     }
     for (const Section& section : new_frontend_state().catalogue_.sections()) {
@@ -1042,7 +1043,7 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
     }
     if (type_of(element) == text_type()) {
         const char* text = core::down_cast<const LabelWidget>(element)->chars();
-        if (text && *text) {
+        if (text && (*text != '\0')) {
             out->emplace_back(text);
         }
     }
@@ -1074,7 +1075,7 @@ void collect_texts_at(const UiWidget* element, std::vector<std::pair<std::string
     }
     if (type_of(element) == text_type()) {
         const char* text = core::down_cast<const LabelWidget>(element)->chars();
-        if (text && *text) {
+        if (text && (*text != '\0')) {
             out->emplace_back(text, absolute_y(element));
         }
     }
@@ -1409,7 +1410,7 @@ mirror::MenuRead read_stats(UiWidget* active)
     int selected_stat = -1;
     for (size_t column = 0; column < menus.size(); ++column) {
         const UiWidget* menu = core::at(menus, column);
-        const bool takes_pad = menu == active && !editing;
+        const bool takes_pad = menu == active && (editing == nullptr);
         const int selected = takes_pad ? mouse_menus::selected_index(menu) : -1;
         int index = 0;
         for (const UiWidget* child = first_child(menu); child && index < kMaxKeyboardChildren; child = get_next(child), ++index) {
@@ -1518,7 +1519,7 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
     for (size_t i = 0; i < texts.size() && i < kMaxTexts; ++i) {
         key += "|" + core::at(texts, i);
     }
-    if (!kOn || !menu || !logged.insert(key).second) {
+    if (!kOn || (menu == nullptr) || !logged.insert(key).second) {
         return;
     }
     const UiWidget* root = root_element();
@@ -1714,7 +1715,7 @@ bool dialog_up()
 bool net_level_select_up()
 {
     if (!new_frontend_state().catalogue_ok_ || new_frontend_state().catalogue_.sections().empty() ||
-        !current_load_state() || loading_screen_up()) {
+        (current_load_state() == 0U) || loading_screen_up()) {
         return false;
     }
     if (!game_screens::get_find(name_hash("level_select_anchor")) || !game_screens::get_find(name_hash("level_menu"))) {
@@ -1755,7 +1756,7 @@ mirror::View mirror_now()
         mirror::set_button_namer(pad_button_label_for);
     }
     // (online: restyled too unless [frontend] restyle_online=0 - tested by the user by hand, never by a tool)
-    if (!current_load_state() || loading_screen_up() || (game_screens::net_session() && !policy.online) ||
+    if ((current_load_state() == 0U) || loading_screen_up() || (game_screens::net_session() && !policy.online) ||
         level_editor::live_now()) {
         return {};
     }
@@ -2060,14 +2061,14 @@ void mirror_mouse(modules::FrontEnd* front_end)
             }
             break;
         case SDL_MOUSEWHEEL:
-            if (e.wheel.y) {
+            if (e.wheel.y != 0) {
                 StepContext context{.front_end_ = front_end, .horizontal = menu_mirror().mirror_.get_shown().horizontal};
                 send_step(&context, e.wheel.y > 0 ? -1 : 1);
             }
             break;
         // (the main menu's Continue - ours: the game's menu has no such item; every other key the game's menu takes)
         case SDL_KEYDOWN:
-            if (menu_mirror().mirror_.get_shown().main_menu_ && !e.key.repeat &&
+            if (menu_mirror().mirror_.get_shown().main_menu_ && (e.key.repeat == 0U) &&
                 (e.key.keysym.scancode == SDL_SCANCODE_X || e.key.keysym.scancode == SDL_SCANCODE_R)) {
                 continue_last_level(front_end);
                 return;
@@ -2220,7 +2221,7 @@ void update_mirror(float dt, bool allowed)
         menu_mirror().mirror_hits_.clear();
         // (what comes next - ours, another restyled screen, an original one - may take a few frames: the restyled
         // screen stays drawn meanwhile, never the original under it)
-        if (allowed && current_load_state() && !loading_screen_up()) {
+        if (allowed && (current_load_state() != 0U) && !loading_screen_up()) {
             screen_cover().cover_tracker_ = before;
             screen_cover().cover_scroll_ = menu_mirror().mirror_scroll_;
             start_cover(Cover::Over::kRestyled, "the restyled screen went");
@@ -2256,10 +2257,10 @@ void update_cover(float dt)
     const UiWidget* active = active_menu(&in_dialog);
     Cover::Now now;
     now.target_ready_ = menu_mirror().mirror_.get_up();
-    now.gameplay = !current_load_state() || loading_screen_up() || level_editor::live_now() ||
-                   (!in_front_end() && !get_paused() && !active);
+    now.gameplay = (current_load_state() == 0U) || loading_screen_up() || level_editor::live_now() ||
+                   (!in_front_end() && !get_paused() && (active == nullptr));
     now.screen = active;
-    now.left_original_ = active && !screen_cover().mirror_would_restyle_;
+    now.left_original_ = (active != nullptr) && !screen_cover().mirror_would_restyle_;
     const char* why = nullptr;
     if (!screen_cover().cover_.tick_frame(now, dt, &why)) {
         get_log("new front end: cover off - %s (%.2f s)", why ? why : "?", screen_cover().cover_.get_instant());
@@ -2586,7 +2587,7 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         }
         return;
     case SDL_MOUSEWHEEL:
-        if (e.wheel.y) {
+        if (e.wheel.y != 0) {
             run_action(front_end, menu_state().get_wheel(e.wheel.y));
         }
         return;
@@ -2649,8 +2650,8 @@ void edit_update(modules::FrontEnd* front_end, float dt)
         edit_session().edit_ = Edit::kDisengaged;
         return;
     }
-    const bool in_level =
-        current_load_state() && !in_front_end() && objects::find_object(kSkater) && !loading_screen_up();
+    const bool in_level = (current_load_state() != 0U) && !in_front_end() &&
+                          (objects::find_object(kSkater) != nullptr) && !loading_screen_up();
     if (!in_level) {
         edit_session().edit_frames_ = 0;
         return;
@@ -2818,7 +2819,7 @@ void tick_frame(modules::FrontEnd* front_end)
         const bool held = get_key_down(SDL_SCANCODE_RETURN) || get_key_down(SDL_SCANCODE_KP_ENTER) ||
                           get_key_down(SDL_SCANCODE_SPACE) || get_key_down(SDL_SCANCODE_ESCAPE) ||
                           get_key_down(SDL_SCANCODE_BACKSPACE) || new_frontend_state().buttons_down_ > 0 ||
-                          (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK);
+                          ((SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK) != 0U);
         if (!held || new_frontend_state().guard_time_ > kGuardSeconds) {
             new_frontend_state().guard_ = false;
         }
@@ -2855,17 +2856,19 @@ void tick_frame(modules::FrontEnd* front_end)
     // left as it is).
     bool in_dialog = false;
     const UiWidget* active = active_menu(&in_dialog);
-    const bool pause_active = !active || id_of_element(active) == name_hash("pause_vmenu");
+    const bool pause_active = (active == nullptr) || id_of_element(active) == name_hash("pause_vmenu");
     (void)pause_active;
     // (every menu is the game's, restyled - ours only for a screen a menu's item asked for, while that is up)
-    const bool usable = current_load_state() && !loading_screen_up() && !in_dialog && edit_session().edit_ == Edit::kDisengaged &&
-                        (new_frontend_state().open_screen_ != Screen::kMain || new_frontend_state().state_ == State::kShown);
+    const bool usable =
+        (current_load_state() != 0U) && !loading_screen_up() && !in_dialog &&
+        edit_session().edit_ == Edit::kDisengaged &&
+        (new_frontend_state().open_screen_ != Screen::kMain || new_frontend_state().state_ == State::kShown);
 
     switch (new_frontend_state().state_) {
     case State::kIdle:
     case State::kAway:
-        if (!current_load_state() ||
-            (!in_front_end() && anchor == Anchor::kNone && new_frontend_state().state_ == State::kAway && !get_paused())) {
+        if ((current_load_state() == 0U) || (!in_front_end() && anchor == Anchor::kNone &&
+                                             new_frontend_state().state_ == State::kAway && !get_paused())) {
             if (new_frontend_state().state_ != State::kIdle) {
                 change_phase(State::kIdle);
                 free_device_objects();
@@ -2904,12 +2907,13 @@ void tick_frame(modules::FrontEnd* front_end)
     if (menu_state().get_shown() == new_frontend_state().open_root_ && !menu_state().occupied()) {
         // (back from the screen a menu's item asked for: that menu - the game's, restyled - again, or the script it
         // gave for Back when its menu went - the skate shop's)
-        get_log("new front end: back from our screen%s", new_frontend_state().shown_back_ ? " - its back script" : "");
+        get_log("new front end: back from our screen%s",
+                (new_frontend_state().shown_back_ != 0U) ? " - its back script" : "");
         change_phase(State::kAway);
         if (menu_state().levels_purpose() == LevelsFor::kNet) { // (the game's select under ours until its script goes)
             start_cover(Cover::Over::kOurs, "back from a network game's level select");
         }
-        if (new_frontend_state().shown_back_) {
+        if (new_frontend_state().shown_back_ != 0U) {
             script::spawn_script(new_frontend_state().shown_back_, nullptr);
         }
         new_frontend_state().shown_back_ = 0;
@@ -2925,7 +2929,7 @@ void tick_frame(modules::FrontEnd* front_end)
         } else {
             change_phase(State::kAway);
             // (a dialog over the anchor, a sub-screen over the pause menu...: ours stays on screen until it is ready)
-            if (current_load_state() && !loading_screen_up()) {
+            if ((current_load_state() != 0U) && !loading_screen_up()) {
                 start_cover(Cover::Over::kOurs, "the original's screen changed under ours");
             }
         }
@@ -2996,7 +3000,8 @@ void before_screen_layout()
     }
     if (screen_cover().awaiting_front_end_) {
         screen_cover().await_time_ += dt;
-        const bool left_original = active_menu() && !screen_cover().mirror_would_restyle_ && screen_cover().hold_frames_ == 0;
+        const bool left_original =
+            (active_menu() != nullptr) && !screen_cover().mirror_would_restyle_ && screen_cover().hold_frames_ == 0;
         if (!front_end || menu_mirror().mirror_.get_up() || showing() || left_original || screen_cover().await_time_ > kAwaitAtMost) {
             get_log("new front end: the front end's first screen is up after %.2f s (%s)", screen_cover().await_time_,
                     menu_mirror().mirror_.get_up() || showing() ? "ours"
@@ -3137,7 +3142,8 @@ bool cfunc_show_new_frontend(script::Struct* params, script::Script* /*script*/)
         return false;
     }
     new_frontend_state().open_back_ = back;
-    get_log("new front end: %s asked for%s", get_screen_name(new_frontend_state().open_screen_), back ? " (with a back script)" : "");
+    get_log("new front end: %s asked for%s", get_screen_name(new_frontend_state().open_screen_),
+            (back != 0U) ? " (with a back script)" : "");
     return true;
 }
 } // namespace

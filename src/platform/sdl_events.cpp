@@ -43,7 +43,7 @@ void register_event_handler(EventHandler handler) { handlers()->push_back(handle
 void pump_sdl_events()
 {
     SDL_Event event;
-    while (SDL_PollEvent(&event)) {
+    while (SDL_PollEvent(&event) != 0) {
         for (EventHandler handler : *handlers()) {
             handler(&event);
         }

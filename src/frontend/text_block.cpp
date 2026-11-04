@@ -487,7 +487,7 @@ void ParagraphWidget::blend_towards(Struct* params)
 // 0x004B1EC0 (as many lines as were made: the original doesn't check for fewer children)
 void ParagraphWidget::tick_frame()
 {
-    if (!(object_flags() & kVisibleNow)) {
+    if ((object_flags() & kVisibleNow) == 0U) {
         return;
     }
     auto y = static_cast<float>((static_cast<double>(level_y()) - lines_height_) *

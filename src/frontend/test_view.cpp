@@ -69,7 +69,7 @@ bool ground_below(Vec3 point, float* y)
     render::ProbeRay* feeler = &ray_storage;
     const maths::Vec4 start = {.x = point.x, .y = point.y + kProbeAbove, .z = point.z, .w = 1.0F};
     const maths::Vec4 end = {.x = point.x, .y = point.y - kProbeBelow, .z = point.z, .w = 1.0F};
-    if (!feeler->get_collision_along(&start, &end, false)) {
+    if (feeler->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     *y = feeler->contact_pos().y;

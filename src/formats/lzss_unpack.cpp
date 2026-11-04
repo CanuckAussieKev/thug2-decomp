@@ -30,13 +30,13 @@ bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t 
     bool ok = true;
     for (;;) {
         flags >>= 1;
-        if (!(flags & kFlagsMarker)) {
+        if ((flags & kFlagsMarker) == 0U) {
             if (read == in_size) {
                 break;
             }
             flags = core::at(in, read++) | kFlagsFresh; // the high byte counts the 8 flags off
         }
-        if (flags & 1) {
+        if ((flags & 1) != 0U) {
             if (read == in_size) {
                 break;
             }

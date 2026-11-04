@@ -101,8 +101,8 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
         auto* gap = gaps->struct_at(i);
         const char* name = nullptr;
         int score = 0;
-        if (!gap || !gap->fetch_text(name_hash("name"), &name, 0) || !name || !*name ||
-            !gap->fetch_int_value(name_hash("score"), &score, 0) || !score) {
+        if (!gap || !gap->fetch_text(name_hash("name"), &name, 0) || !name || (*name == '\0') ||
+            !gap->fetch_int_value(name_hash("score"), &score, 0) || (score == 0)) {
             continue;
         }
         const int index = checklist->find_gap(name);
@@ -117,7 +117,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
     const int count = checklist->total_of();
     for (int i = 0; i < count; ++i) {
         goals::GapEntry* gap = checklist->get_gap(i);
-        if (gap && !gap->num()) {
+        if (gap && (gap->num() == 0)) {
             gap->num() = 1;
             gap->set_skater_start_dir(facing);
         }

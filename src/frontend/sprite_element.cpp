@@ -250,7 +250,7 @@ void ImageWidget::tick_frame()
     const bool outside = top < layout_top() || top > layout_bottom();
     const bool hidden = is_concealed();
     quad_->change_concealed(outside || hidden);
-    if (!(object_flags() & (kChildrenDirty | kVisibleNow))) {
+    if ((object_flags() & (kChildrenDirty | kVisibleNow)) == 0U) {
         return;
     }
     const uint32_t rgba = shown_colour(this);
@@ -260,14 +260,14 @@ void ImageWidget::tick_frame()
     const int width = get_truncated(span());
     quad_->change_extent({.width = static_cast<uint16_t>(width), .height = static_cast<uint16_t>(height)});
     quad_->set_flip(static_cast<bool>((object_flags() >> kFlipXBit) & 1), static_cast<bool>((object_flags() >> kFlipYBit) & 1));
-    quad_->change_spin((object_flags() & kFlag1000000) ? shown().angle : summed().angle);
+    quad_->change_spin(((object_flags() & kFlag1000000) != 0U) ? shown().angle : summed().angle);
     quad_->set_hot_spot({.x = just_x(), .y = just_y()});
     quad_->change_scale({.x = summed().scale_x_, .y = summed().scale_y_});
-    if (object_flags() & kPos3d) {
+    if ((object_flags() & kPos3d) != 0U) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth = 0;
         std::memcpy(&depth, &summed().z, 4);
-        depth += (object_flags() & kKeepScale) ? kKeepScaleDepth : 0U;
+        depth += ((object_flags() & kKeepScale) != 0U) ? kKeepScaleDepth : 0U;
         quad_->set_depth(depth);
         quad_->change_concealed((object_flags() & kOffScreen) != 0 || hidden);
     } else {
@@ -299,7 +299,7 @@ void* PanelWidget::fetch_screen_rect() const { return screen_region_; }
 // 0x004B21A0
 void PanelWidget::tick_frame()
 {
-    if (!(object_flags() & (kChildrenDirty | kVisibleNow))) {
+    if ((object_flags() & (kChildrenDirty | kVisibleNow)) == 0U) {
         return;
     }
     const int top = get_truncated(summed().y - ((static_cast<double>(just_y()) + get_one()) * get_half() * level_y()));

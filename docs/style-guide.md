@@ -68,6 +68,10 @@ keep the namespaces their headers had). The layers and their rules: docs/archite
 - Standard C++ only, buildable by MSVC and GCC: no inline assembly (the original's x87 maths is plain `<cmath>` -
   results may differ from the original's in the last bits, which is accepted), no compiler-specific keywords outside
   `src/platform/compiler.h`.
+- Conditions say what they test (readability-implicit-bool-conversion): a pointer stands alone (`if (p)`, `if (!p)` -
+  ES.87), everything else is compared: `n != 0`, `(flags & kBit) != 0U`, `*text != '\0'`, a Win32 BOOL `!= FALSE`,
+  an SDL_bool `!= SDL_FALSE`, a flag enum `core::any(flags & Flags::kA)`; a bool counted or stored as a number is
+  `static_cast<int>(b)`.
 - Where a rule seems not to fit, the code changes so that it does; no `NOLINT` (see "Exceptions").
 
 ## Exceptions

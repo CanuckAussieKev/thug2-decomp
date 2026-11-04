@@ -74,7 +74,7 @@ void WindowedList::find_menu()
         }
     }
     float space = -1.0F;
-    if (core::down_cast<MenuBase>(menu_)->get_regular_space(&space) && num_items_to_show_ >= 0) {
+    if ((core::down_cast<MenuBase>(menu_)->get_regular_space(&space) != 0) && num_items_to_show_ >= 0) {
         regular_space_ = space;
         window_length_ = static_cast<float>(static_cast<double>(num_items_to_show_) * space);
     } else {
@@ -211,7 +211,7 @@ void WindowedList::tick_frame()
     float before = 0.0F;
     float after = 0.0F; // the window's margins before / after the selected item
     ElementPtr selected;
-    if (chosen_item_id_) {
+    if (chosen_item_id_ != 0U) {
         selected.assign_value(menu_->find_child_with_id(chosen_item_id_, &index));
     } else {
         selected.assign_value(menu_->find_child_at_slot(0));

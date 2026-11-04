@@ -102,7 +102,7 @@ float bearing(const UiWidget* element) { return element->summed().angle; }
 bool flag_in_chain(const UiWidget* element, uint32_t flag)
 {
     for (; element; element = current_parent(element)) {
-        if (current_flags(element) & flag) {
+        if ((current_flags(element) & flag) != 0U) {
             return true;
         }
     }
@@ -227,7 +227,7 @@ struct Hunt {
 // Pre-order: a later find (deeper, or later in the tree) replaces an earlier one.
 void get_visit(Hunt& search, UiWidget* element, bool parent_accepts, int index, const Rect2& clip, bool clipped)
 {
-    if (current_flags(element) & kFlagHidden) {
+    if ((current_flags(element) & kFlagHidden) != 0U) {
         return;
     }
     if (get_alpha(element) < kMinAlpha) {
@@ -259,7 +259,7 @@ void get_visit(Hunt& search, UiWidget* element, bool parent_accepts, int index, 
 
 bool find_menu(UiWidget* element, MenuFilter accepts, bool vertical_only)
 {
-    if (current_flags(element) & kFlagHidden) {
+    if ((current_flags(element) & kFlagHidden) != 0U) {
         return false;
     }
     if (is_menu(element) && (!vertical_only || menu_runs_top_to_bottom(element)) && accepts(element)) {
@@ -438,7 +438,7 @@ bool find_item_at(UiWidget* root, float x, float y, MenuFilter accepts, Hit* out
 
 bool any_menu(UiWidget* root, MenuFilter accepts, bool vertical_only)
 {
-    return root && find_menu(root, accepts, vertical_only);
+    return (root != nullptr) && find_menu(root, accepts, vertical_only);
 }
 
 int step_selection(int target, int count, bool wraps, int (*read)(void* context),
@@ -765,7 +765,7 @@ void log_menu(UiWidget* menu)
 // nearest menu above it. At most a dozen.
 void log_elements_at(UiWidget* element, float x, float y, int& lines)
 {
-    if (current_flags(element) & kFlagHidden) {
+    if ((current_flags(element) & kFlagHidden) != 0U) {
         return;
     }
     const Cuboid box = element_box(element);
@@ -829,7 +829,7 @@ frontend::ElementPtr& pending_menu()
 
 void clear_pending(const char* why)
 {
-    if (stored_pending().active && stored_pending().choose_event_ && debug_enabled()) {
+    if (stored_pending().active && (stored_pending().choose_event_ != 0U) && debug_enabled()) {
         get_log("mouse: not choosing item %08X: %s", stored_pending().item_id_, why);
     }
     stored_pending().active = false;
@@ -852,7 +852,7 @@ TargetState advance_pending(modules::FrontEnd* front_end)
     // Nothing to send while the menu doesn't take pad events, or while it is on an item it passes over (its own
     // focus script moves on).
     UiWidget* current = child_at(menu, selected_index(menu));
-    const bool wait = !menu_takes_pad_events(menu) || (current && item_passed_over(current));
+    const bool wait = !menu_takes_pad_events(menu) || ((current != nullptr) && item_passed_over(current));
     return advance_target(stored_pending().target, wait, read_stepper, send_step, &stepper);
 }
 
@@ -867,12 +867,12 @@ bool settle_pending(modules::FrontEnd* front_end, TargetState state)
         clear_pending("its menu's selection didn't get there (or the menu / item is gone)");
         return false;
     }
-    if (event && debug_enabled()) {
+    if ((event != 0U) && debug_enabled()) {
         get_log("mouse: item %08X selected", stored_pending().item_id_);
     }
     stored_pending().active = false;
     pending_menu().get_release();
-    if (event) {
+    if (event != 0U) {
         const bool logging = log_events();
         log_events() = true;
         send_pad_event(front_end, event);
@@ -1061,7 +1061,8 @@ void tick_frame(modules::FrontEnd* front_end)
 
     // The front end, or a level's pause menu; never the park editor's own cursor.
     void* manager = frontend::UiTree::sole();
-    bool menus = manager && root_element(manager) && (render::current_level() == 0 || front_end->is_halted());
+    bool menus = (manager != nullptr) && (root_element(manager) != nullptr) &&
+                 (render::current_level() == 0 || front_end->is_halted());
     if (menus && in_park_editor() && !front_end->is_halted()) {
         menus = false;
     }
@@ -1070,11 +1071,11 @@ void tick_frame(modules::FrontEnd* front_end)
         static int s_last_menus = -1;
         static int s_last_paused = -1;
         if (static_cast<int>(menus) != s_last_menus || static_cast<int>(front_end->is_halted()) != s_last_paused) {
-            s_last_menus = menus;
-            s_last_paused = front_end->is_halted();
+            s_last_menus = static_cast<int>(menus);
+            s_last_paused = static_cast<int>(front_end->is_halted());
             get_log("mouse: menus %s (level %u, front end paused %d, element manager %d, root %d, park editor %d)",
                     menus ? "active" : "inactive", render::current_level(), front_end->is_halted(), manager != nullptr,
-                    manager && root_element(manager) != nullptr, in_park_editor());
+                    (manager != nullptr) && root_element(manager) != nullptr, in_park_editor());
         }
     }
     show_cursor(menus);
@@ -1104,7 +1105,7 @@ void tick_frame(modules::FrontEnd* front_end)
     for (int i = 0; i < input.left_clicks_; ++i) {
         get_click(front_end, x, y);
     }
-    if (input.right_clicks_ || input.wheel) {
+    if ((input.right_clicks_ != 0) || (input.wheel != 0)) {
         clear_pending("a right click or the wheel");
     }
     for (int i = 0; i < input.right_clicks_; ++i) {

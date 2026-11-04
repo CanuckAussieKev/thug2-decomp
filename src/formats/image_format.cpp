@@ -53,7 +53,8 @@ bool power_of_two(uint32_t n) { return (n & (n - 1)) == 0; }
 
 bool stored_plain(const ImageHeader& header, bool memory)
 {
-    const bool plain = !(header.width && power_of_two(header.width) && header.height && power_of_two(header.height));
+    const bool plain =
+        !((header.width != 0U) && power_of_two(header.width) && (header.height != 0U) && power_of_two(header.height));
     return plain || (memory && header.id == kUnswizzledId);
 }
 

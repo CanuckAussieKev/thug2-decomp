@@ -188,7 +188,7 @@ void SmearEffect::tick_frame()
 {
     const int now = static_cast<int>(frame_clock::get_time());
     double k = get_one();
-    if (remaining_) {
+    if (remaining_ != 0) {
         k = as_unsigned(now - last_time_) / as_unsigned(remaining_);
     }
     if (static_cast<uint32_t>(now - last_time_) < static_cast<uint32_t>(remaining_)) {
@@ -197,7 +197,7 @@ void SmearEffect::tick_frame()
         remaining_ = 0;
     }
     last_time_ = now;
-    if (remaining_) {
+    if (remaining_ != 0) {
         // (the settings' six floats, in order: the alpha pair, the bottom scales, the displacement)
         const auto approach = [k](std::array<float, 2>& current, const std::array<float, 2>& target) {
             for (int i = 0; i < 2; ++i) {
@@ -295,7 +295,7 @@ void LabelWidget::set_viewports()
     if (!window) {
         return;
     }
-    if (num_) {
+    if (num_ != 0) {
         text_viewport(object_at(texts_, num_, 0), window->fetch_screen_rect());
     }
     if (shadow_) {
@@ -307,7 +307,7 @@ void LabelWidget::set_viewports()
 void LabelWidget::change_caption(const char* text)
 {
     const size_t size = std::strlen(text) + 1;
-    const bool fits = chars_ && static_cast<int>(std::strlen(chars_)) >= static_cast<int>(size - 1);
+    const bool fits = (chars_ != nullptr) && static_cast<int>(std::strlen(chars_)) >= static_cast<int>(size - 1);
     if (!fits) {
         if (chars_) {
             memory::dealloc(chars_);
@@ -316,7 +316,7 @@ void LabelWidget::change_caption(const char* text)
     }
     core::Cursor<char> out(std::span<char>(chars_, size));
     core::CStringCursor in(text);
-    while (*in) {
+    while (*in != '\0') {
         char c = *in;
         if (c == '\\') {
             if (in[1] == '\\') {
@@ -346,7 +346,7 @@ void LabelWidget::change_caption(const char* text)
         read_string_param(typeface_, chars_, &measured);
         const float width = measured.width;
         const float height = measured.height;
-        if (!(object_flags() & kDimsLocked)) {
+        if ((object_flags() & kDimsLocked) == 0U) {
             fit_to_size(width, height, false);
         }
     }
@@ -621,8 +621,8 @@ void LabelWidget::tick_frame()
     }
     const float top = summed().top;
     const bool outside = top < layout_top() || top > layout_bottom();
-    const float shown_angle = (object_flags() & kFlag1000000) ? shown().angle : summed().angle;
-    if (num_) {
+    const float shown_angle = ((object_flags() & kFlag1000000) != 0U) ? shown().angle : summed().angle;
+    if (num_ != 0) {
         uint32_t shown = 0;
         std::memcpy(&shown, this->shown().rgba.data(), 4);
         void* t = object_at(texts_, num_, 0);
@@ -657,9 +657,9 @@ void LabelWidget::tick_frame()
         text_scale(t, summed().scale_x_, summed().scale_y_);
         change_glyph_text(t, chars_);
         bool hidden = false;
-        if (object_flags() & kPos3d) {
+        if ((object_flags() & kPos3d) != 0U) {
             text_depth(t, summed().z);
-            hidden = (object_flags() & kOffScreen) || is_concealed();
+            hidden = ((object_flags() & kOffScreen) != 0U) || is_concealed();
         } else {
             text_priority(t, z_priority());
             hidden = outside || is_concealed();
@@ -678,9 +678,9 @@ void LabelWidget::tick_frame()
             text_rotation(s, shown_angle, x, y);
             text_scale(s, summed().scale_x_, summed().scale_y_);
             change_glyph_text(s, chars_);
-            if (object_flags() & kPos3d) {
+            if ((object_flags() & kPos3d) != 0U) {
                 text_depth(s, summed().z);
-                text_hidden(s, (object_flags() & kOffScreen) || is_concealed());
+                text_hidden(s, ((object_flags() & kOffScreen) != 0U) || is_concealed());
             } else {
                 text_priority(s, static_cast<float>(static_cast<double>(z_priority()) - shadow_behind()));
                 text_hidden(s, outside || is_concealed());

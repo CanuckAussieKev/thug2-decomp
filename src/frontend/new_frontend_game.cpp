@@ -43,7 +43,7 @@ uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::
 
 uint32_t id_of(UiWidget* element) { return static_cast<objects::Entity*>(element)->ident(); }
 
-bool get_paused(modules::FrontEnd* front_end) { return front_end && front_end->is_halted(); }
+bool get_paused(modules::FrontEnd* front_end) { return (front_end != nullptr) && front_end->is_halted(); }
 
 } // namespace
 
@@ -102,7 +102,7 @@ bool net_session()
 
 UiWidget* get_find(uint32_t id)
 {
-    if (!UiTree::sole() || !id) {
+    if (!UiTree::sole() || (id == 0U)) {
         return nullptr;
     }
     ElementPtr holder;
@@ -113,7 +113,7 @@ UiWidget* get_find(uint32_t id)
 Anchor at_hand(modules::FrontEnd* front_end)
 {
     const uint32_t level = current_load_state();
-    if (!level || net_session() || level_editor::live_now()) {
+    if ((level == 0U) || net_session() || level_editor::live_now()) {
         return Anchor::kNone;
     }
     if (level == kLoadMainMenu) {
@@ -123,7 +123,7 @@ Anchor at_hand(modules::FrontEnd* front_end)
         if (get_find(name_hash("menu_cas"))) {
             return Anchor::kCreateModes;
         }
-        if (get_find(name_hash("ss_play_level")) && active_ruleset_label() == "singlesession") {
+        if ((get_find(name_hash("ss_play_level")) != nullptr) && active_ruleset_label() == "singlesession") {
             return Anchor::kSkateShop;
         }
         if (get_find(name_hash("main_vmenu"))) {

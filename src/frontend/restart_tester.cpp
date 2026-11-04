@@ -101,7 +101,9 @@ std::vector<Relaunch> level_restarts()
         node->fetch_text(restart_name, &label, 0);
         std::array<char, kHexTextSize> hex{};
         text::format_to(hex, "#%08X", name);
-        r.text = text ? text : (label && *label ? std::string(label) + " (" + hex.data() + ")" : std::string(hex.data()));
+        r.text =
+            text ? text
+                 : (label && (*label != '\0') ? std::string(label) + " (" + hex.data() + ")" : std::string(hex.data()));
         node->fetch_vec(pos, &r.pos, 0);
         script::Array* types = nullptr;
         if (node->fetch_list(types_key, &types, 0) && types) {
@@ -220,7 +222,7 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
     }
     const platform::KeyState keys = platform::keyboard_keys();
-    const bool down = !keys.empty() && core::at(keys, kKey);
+    const bool down = !keys.empty() && (core::at(keys, kKey) != 0U);
     const bool pressed = down && restart_tester_state().key_up_;
     restart_tester_state().key_up_ = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||

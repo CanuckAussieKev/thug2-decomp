@@ -68,7 +68,7 @@ void enforce_max_resolution()
     DEVMODEA mode;
     bool width_fits = false;
     bool height_fits = false;
-    for (DWORD i = 0; EnumDisplaySettingsA(nullptr, i, &mode); ++i) {
+    for (DWORD i = 0; EnumDisplaySettingsA(nullptr, i, &mode) != FALSE; ++i) {
         if (mode.dmPelsWidth >= ints::as_unsigned(sdl_window_state().client_width_)) {
             width_fits = true;
         }

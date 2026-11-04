@@ -70,7 +70,7 @@ bool audio_session_muted()
     BOOL muted = FALSE;
     const bool ok =
         with_session_volume([&muted](ISimpleAudioVolume* volume) { return SUCCEEDED(volume->GetMute(&muted)); });
-    return ok && muted;
+    return ok && (muted != FALSE);
 }
 
 } // namespace sound

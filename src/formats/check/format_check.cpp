@@ -100,10 +100,10 @@ struct Value {
 
 Name read_name(util::ByteReader& reader, uint8_t type)
 {
-    if (type & kShortNameForm) {
+    if ((type & kShortNameForm) != 0) {
         return {.form = kShortNameForm, .value = reader.u8()};
     }
-    if (type & kMediumNameForm) {
+    if ((type & kMediumNameForm) != 0) {
         return {.form = kMediumNameForm, .value = reader.u16()};
     }
     return {.form = 0, .value = reader.u32()};
@@ -520,8 +520,8 @@ void check_byte_stream()
     const auto text = std::to_array<char>({'a', 'b', 0, 'c', 'd'});
     util::ByteReader strings(text.data(), sizeof(text));
     const char* first = strings.c_string();
-    check(first && std::strcmp(first, "ab") == 0 && strings.position() == 3, "reader: a string");
-    check(!strings.c_string() && !strings.ok(), "reader: a string without its terminator fails");
+    check((first != nullptr) && std::strcmp(first, "ab") == 0 && strings.position() == 3, "reader: a string");
+    check((strings.c_string() == nullptr) && !strings.ok(), "reader: a string without its terminator fails");
 }
 
 // --- the net layer's own messages ------------------------------------------------------------------------------------
@@ -569,7 +569,7 @@ void check_wire_messages()
         reference.stream_id = kStreamIdSample;
         reference.checksum = kStreamChecksumSample;
         reference.msg_id = core::to_underlying(kStreamMessageIdSample);
-        if (piece_size) {
+        if (piece_size != 0U) {
             std::memcpy(reference.content.data(), piece.data(), piece_size);
         }
         const size_t reference_size = piece_size + 0x30;
@@ -605,7 +605,7 @@ void check_wire_messages()
         std::array<uint8_t, 4 + kStreamPieceCapacity> reference_piece{};
         int32_t id = kStreamIdSample;
         std::memcpy(reference_piece.data(), &id, 4);
-        if (piece_size) {
+        if (piece_size != 0U) {
             std::memcpy(std::span(reference_piece).subspan(4).data(), piece.data(), piece_size);
         }
         check(piece_writer.position() == piece_size + 4 &&
@@ -927,12 +927,12 @@ int run_checks(int argc, char** argv)
             check_save_file(path);
         }
     }
-    if (failures()) {
+    if (failures() != 0) {
         text::print("%d FAILED\n", failures());
     } else {
         text::print("all passed\n");
     }
-    return failures() ? 1 : 0;
+    return (failures() != 0) ? 1 : 0;
 }
 } // namespace
 

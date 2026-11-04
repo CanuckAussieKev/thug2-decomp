@@ -37,7 +37,7 @@ bool get_number(const std::string& text, double* out)
     }
     char* end = nullptr;
     *out = std::strtod(t.c_str(), &end);
-    return end && *end == '\0';
+    return (end != nullptr) && *end == '\0';
 }
 
 const std::vector<Choice>& off_on()

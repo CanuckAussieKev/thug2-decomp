@@ -364,7 +364,7 @@ bool read_rest_string(util::ByteReader& reader, char* out_text, size_t size)
     size_t length = 0;
     const std::span<const uint8_t> rest = reader.rest();
     const size_t remaining = rest.size();
-    while (length < remaining && core::at(rest, length)) {
+    while (length < remaining && (core::at(rest, length) != 0U)) {
         ++length;
     }
     const bool ended = length < remaining;

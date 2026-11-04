@@ -487,7 +487,7 @@ float get_measure(const Style& style, const TickCycle& frame, const char* text)
     while (p < end) {
         unsigned int c = 0;
         p = std::next(p, ImTextCharFromUtf8(&c, p, end));
-        if (!c) {
+        if (c == 0U) {
             break;
         }
         const ImFontGlyph* g = m.baked->font->FindGlyph(static_cast<ImWchar>(c));
@@ -515,11 +515,11 @@ void draw_text(ImDrawList* dl, const Style& style, const TickCycle& frame, maths
     const ImU32 colour = get_col(style.colour, style.alpha);
     const float top = baseline - (font->Ascent * m.k);
     for (int pass = 0; pass < (m.bold_px_ > 0.0F ? 2 : 1); ++pass) {
-        float pen = x + (pass ? m.bold_px_ : 0.0F);
+        float pen = x + ((pass != 0) ? m.bold_px_ : 0.0F);
         for (const char* p = s.c_str(); p < end;) {
             unsigned int c = 0;
             p = std::next(p, ImTextCharFromUtf8(&c, p, end));
-            if (!c) {
+            if (c == 0U) {
                 break;
             }
             const ImFontGlyph* g = font->FindGlyph(static_cast<ImWchar>(c));
@@ -644,7 +644,7 @@ void art_box(ImDrawList* dl, const Art& art, const maths::Rect& box, ArtLook loo
     const float y1 = box.y1;
     const float alpha = look.alpha;
     dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), get_col(kArtGround, alpha));
-    if (!art.texture) {
+    if (art.texture == 0U) {
         return;
     }
     Uv uv = cover_uv({.width = art.width, .height = art.height}, {.width = x1 - x0, .height = y1 - y0}, look.pan);
@@ -675,7 +675,7 @@ void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, ArtLook look)
         return;
     }
     const float x1 = kColumn + kScrimFeather;
-    if (art.texture) {
+    if (art.texture != 0U) {
         Uv uv = cover_uv({.width = art.width, .height = art.height}, {.width = kDesignWidth, .height = kDesignHeight}, look.pan);
         if (art.bottom_up_) {
             uv.v0 = 1.0F - uv.v0;
@@ -819,7 +819,7 @@ float get_header(Ctx& c, maths::Vec2 top_right, const char* left_text, bool back
         s.colour = kPaper;
     }
     draw_text(c.dl, s, *c.f, {.x = x, .y = base}, left_text);
-    if (right_text && *right_text) {
+    if (right_text && (*right_text != '\0')) {
         const Style r = mono12(kMuted);
         draw_text(c.dl, r, *c.f, {.x = c.f->get_x(right) - get_measure(r, *c.f, right_text), .y = base}, right_text);
     }
@@ -1131,11 +1131,12 @@ SideTitle pause_side(Ctx& c, Band band, float bottom)
     if (s.seconds >= 0.0F) {
         cols.push_back(std::string(text_tools::kTime) + " " + get_clock(s.seconds));
     }
-    SideTitle title{.top = records_row(c, cols, band, bottom) - kSideTitleLift,
-                    .kicker = std::string(text_tools::kTitlePaused) +
-                              (c.extras->level_kicker_.empty() ? std::string() : " \xE2\x80\x94 " + c.extras->level_kicker_),
-                    .name = c.extras->level_name_.empty() ? std::string(text_tools::kTitlePaused) : c.extras->level_name_,
-                    .colour = c.extras->level_colour_ ? c.extras->level_colour_ : Menu::kHouseYellow};
+    SideTitle title{
+        .top = records_row(c, cols, band, bottom) - kSideTitleLift,
+        .kicker = std::string(text_tools::kTitlePaused) +
+                  (c.extras->level_kicker_.empty() ? std::string() : " \xE2\x80\x94 " + c.extras->level_kicker_),
+        .name = c.extras->level_name_.empty() ? std::string(text_tools::kTitlePaused) : c.extras->level_name_,
+        .colour = (c.extras->level_colour_ != 0U) ? c.extras->level_colour_ : Menu::kHouseYellow};
     return title;
 }
 
@@ -1319,7 +1320,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
             }
             bottom -= kNoteLineBox + kNoteGap;
         }
-        if (spec.help && *spec.help) {
+        if (spec.help && (*spec.help != '\0')) {
             draw_text(c.dl, body, *c.f, {.x = c.f->get_x(left), .y = datum(body, *c.f, c.f->get_y(bottom - kHelpLineBox), kBodyLineHeight)}, spec.help);
             bottom -= kHelpLineBox + kHelpGap;
         }

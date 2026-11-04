@@ -146,7 +146,7 @@ std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
         const int compressed_size = static_cast<int>(word_at(bytes, offset + 4));
         const int name_size = static_cast<int16_t>(word_at(bytes, offset + 8) & 0xFFFF);
         const uint32_t checksum = word_at(bytes, offset + 12);
-        const int stored = compressed_size ? compressed_size : size;
+        const int stored = (compressed_size != 0) ? compressed_size : size;
         files.push_back({.offset = offset, .size = size, .compressed_size = compressed_size, .checksum = checksum, .name = text_at(bytes, offset + kReferenceRowSize)});
         offset += static_cast<size_t>(((stored + 3) & ~3) + name_size + static_cast<int>(kReferenceRowSize));
     }
@@ -171,7 +171,7 @@ size_t reference_decode(std::span<const uint8_t> in, std::span<uint8_t> out, int
             flags = core::at(in, read++) | kLzssFlagsReload;
             --size;
         }
-        if (flags & 1) {
+        if ((flags & 1) != 0U) {
             if (size == 0) {
                 return written;
             }
@@ -263,7 +263,7 @@ void check_archive(const std::string& name, const std::vector<uint8_t>& archive,
         check(checksums::hash_from_text(record.name) == record.checksum, what + ": the checksum is the name's");
         std::vector<uint8_t> unpacked;
         const uint8_t* data = record.data;
-        if (record.compressed_size) {
+        if (record.compressed_size != 0) {
             ++compressed;
             unpacked.resize(static_cast<size_t>(record.size));
             size_t written = 0;
@@ -517,8 +517,8 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
         image_format::kHeaderSize + (palettized ? header.palette_size : 0) + image_format::texel_size(header, plain);
     const size_t memory_size = image_format::kHeaderSize + (palettized ? image_format::kPaletteCapacity : 0) +
                                image_format::texel_size(header, image_format::stored_plain(header, true));
-    image_stats().file_size_as_loaded += file_size <= size;
-    image_stats().memory_size_as_loaded += memory_size <= size;
+    image_stats().file_size_as_loaded += static_cast<int>(file_size <= size);
+    image_stats().memory_size_as_loaded += static_cast<int>(memory_size <= size);
     // (the texels' padding may be missing at the file's end: fonts/TestTitleFont/testtitle.img's)
     check(file_size - 3 <= size, name + ": the file loader's bytes within the file");
 }
@@ -698,7 +698,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         skip(kMaterialChecksumsBytes);
         const uint32_t passes = word(4);
         skip(4 + 1 + 4 + 1 + 1 + 4);
-        if (word(1)) {
+        if (word(1) != 0U) {
             skip(kMaterialExtraWordsBytes);
         }
         const auto specular = std::bit_cast<float>(word(4));
@@ -709,17 +709,17 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
             skip(4);
             const uint32_t flags = word(4);
             skip(1 + kPassColourBytes + kPassBlendBytes + kPassAddressingBytes + kPassReflectionTilingBytes + 4);
-            if (flags & 1) {
+            if ((flags & 1) != 0U) {
                 skip(kUvWibbleBytes);
             }
-            if (pass == 0 && (flags & 2)) {
+            if (pass == 0 && ((flags & 2) != 0U)) {
                 const uint32_t anims = word(4);
                 for (uint32_t a = 0; a < anims && p.position() < end; ++a) {
                     const uint32_t keys = word(4);
                     skip(4 + (static_cast<size_t>(keys) * kColourKeyBytes));
                 }
             }
-            if (flags & kPassTextureAnimFlag) {
+            if ((flags & kPassTextureAnimFlag) != 0U) {
                 const int keys = static_cast<int>(word(4));
                 skip(kTextureAnimHeaderBytes + (static_cast<size_t>(keys) * kTextureKeyBytes));
             }
@@ -733,7 +733,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         const uint32_t flags = word(4);
         const uint32_t meshes = word(4);
         skip(kSectorBoxBytes + kSectorSphereBytes);
-        if (flags & kSectorBillboardFlag) {
+        if ((flags & kSectorBillboardFlag) != 0U) {
             skip(4 + kBillboardVectorBytes + kBillboardVectorBytes + kBillboardVectorBytes);
         }
         for (uint32_t i = 0; i < meshes && p.position() < end; ++i) {
@@ -757,12 +757,12 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
                     out->vertex_bytes += size;
                 }
                 skip(size);
-                if (scaled) {
+                if (scaled != 0U) {
                     skip(static_cast<size_t>(static_cast<int>(word(4))) * kScaledVertexRecordBytes);
                 }
             }
             skip(4 + 4 + 3);
-            if (word(1)) {
+            if (word(1) != 0U) {
                 skip(vertex_count);
             }
             const int levels = static_cast<int>(word(4));
@@ -829,7 +829,7 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
             vertex_bytes += body.vertices.size();
             // the vertices the loader draws or unpacks are within the first buffer
             uint32_t vertex_size = body.stride;
-            if (!core::at(body.vertex_types, 0)) {
+            if (core::at(body.vertex_types, 0) == 0U) {
                 ++scene_stats().skinned_meshes;
                 auto found = passes.find(mesh.material);
                 check(found != passes.end(), name + ": a skinned mesh's material is in the scene");
@@ -839,7 +839,7 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
             check(scene_format::vertices_fit(body, vertex_size),
                   name + ": sector " + std::to_string(i) + " mesh " + std::to_string(j) + "'s vertices fit");
             // the offsets in a vertex (the normal's, the colour's, the texture coordinates') within the stride
-            check(!core::at(body.vertex_types, 0) || scene_format::offsets_fit(body),
+            check((core::at(body.vertex_types, 0) == 0U) || scene_format::offsets_fit(body),
                   name + ": sector " + std::to_string(i) + " mesh " + std::to_string(j) + "'s offsets in a vertex");
         }
     }
@@ -940,7 +940,7 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
         return;
     }
     font_stats().glyphs += header.glyph_count;
-    font_stats().hd_pages += hd;
+    font_stats().hd_pages += static_cast<int>(hd);
     check(reader.remaining() == 0, name + ": the rectangles end at the file's end");
     for (int i = 0; i < header.glyph_count; ++i) {
         if (header.format == 1 && glyph_code(core::at(entries, i)) < 0) {
@@ -1009,7 +1009,7 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
         return;
     }
     ++wave_stats().format_sizes[wave.format_size()];
-    wave_stats().looping += wave.looping();
+    wave_stats().looping += static_cast<int>(wave.looping());
     if (wave.format_size() > wave_format::kFormatSize) {
         ++wave_stats().long_format;
     }
@@ -1094,7 +1094,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     anim_format::AnimLayout layout;
     const std::span<const uint8_t> image(base, size);
     const uint32_t flags = size >= 8 ? word_at(image, 4) : 0;
-    if (!(flags & anim_format::kFloatKeys) && !(flags & anim_format::kCompressed)) {
+    if (((flags & anim_format::kFloatKeys) == 0U) && ((flags & anim_format::kCompressed) == 0U)) {
         ++anim_stats().neither; // (the frame data loads nothing of it)
         return;
     }
@@ -1108,18 +1108,18 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     auto word = [image, keys](size_t index) { return word_at(image, static_cast<size_t>(keys) + (index * 4)); };
     const int bones = static_cast<int>(word(0));
     std::ptrdiff_t events = 0;
-    if (flags & anim_format::kFloatKeys) {
+    if ((flags & anim_format::kFloatKeys) != 0U) {
         ++anim_stats().float_keys;
         std::ptrdiff_t p = keys + kReferenceFloatKeysHeaderBytes;
-        if (flags & kReferenceBoneNamesFlag) {
+        if ((flags & kReferenceBoneNamesFlag) != 0U) {
             p += bones * 4;
         }
-        if (flags & kReferencePartialFlag) {
+        if ((flags & kReferencePartialFlag) != 0U) {
             p = reference_past_bone_bits(image, p);
         }
         const std::ptrdiff_t counts = p;
-        p = reference_aligned(p + (bones * ((flags & kReferenceWideCountsFlag) ? 4 : 2)));
-        const int key_size = (flags & 0x8000000) || (flags & 0x1000000) ? 16 : 8;
+        p = reference_aligned(p + (bones * (((flags & kReferenceWideCountsFlag) != 0U) ? 4 : 2)));
+        const int key_size = ((flags & 0x8000000) != 0U) || ((flags & 0x1000000) != 0U) ? 16 : 8;
         const std::ptrdiff_t rotation = p;
         const std::ptrdiff_t translation = p + (static_cast<int16_t>(word(1)) * key_size);
         p = translation + (static_cast<int16_t>(word(2)) * key_size);
@@ -1132,14 +1132,14 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
         ++anim_stats().compressed;
         std::ptrdiff_t p = keys + kReferencePackedKeysHeaderBytes + (bones * 2);
         p = reference_aligned(p + (bones * 2));
-        if (flags & kReferenceKeyTableFlag) {
+        if ((flags & kReferenceKeyTableFlag) != 0U) {
             p += kReferenceKeyTableBytes;
         }
-        if (flags & kReferencePartialFlag) {
+        if ((flags & kReferencePartialFlag) != 0U) {
             p = reference_past_bone_bits(image, p);
         }
         p = reference_aligned(p);
-        if (!(flags & kReferenceWideKeysFlag) && !(flags & kReferenceBoneNamesFlag)) {
+        if (((flags & kReferenceWideKeysFlag) == 0U) && ((flags & kReferenceBoneNamesFlag) == 0U)) {
             check(layout.rotation_keys == address + static_cast<uintptr_t>(p) &&
                       layout.translation_keys == address + static_cast<uintptr_t>(p) + word(4),
                   name + ": compressed keys as the original's arithmetic");
@@ -1188,7 +1188,7 @@ void check_stream_index(const std::filesystem::path& data)
     for (uint32_t i = 0; i < count; ++i) {
         stream_index_format::Entry entry;
         check(stream_index_format::read_entry(reader, &entry), "pcm.dat: entry " + std::to_string(i));
-        outside += !stream_index_format::within(entry, wad_size);
+        outside += static_cast<int>(!stream_index_format::within(entry, wad_size));
         // the original's reading in place: the entries from +4, 12 bytes each
         check(std::memcmp(std::span<const uint8_t>(file)
                               .subspan(4 + (static_cast<size_t>(i) * kStreamIndexEntryBytes), kStreamIndexEntryBytes)

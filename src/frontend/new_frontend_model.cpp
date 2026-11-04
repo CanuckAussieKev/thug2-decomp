@@ -85,7 +85,8 @@ private:
     }
     void get_space()
     {
-        while (look_at_ < text_->size() && std::isspace(static_cast<unsigned char>(core::at(*text_, look_at_)))) {
+        while (look_at_ < text_->size() &&
+               (std::isspace(static_cast<unsigned char>(core::at(*text_, look_at_))) != 0)) {
             ++look_at_;
         }
     }
@@ -255,7 +256,7 @@ private:
         if (literal("null")) {
             return true;
         }
-        if (c == '-' || std::isdigit(static_cast<unsigned char>(c))) {
+        if (c == '-' || (std::isdigit(static_cast<unsigned char>(c)) != 0)) {
             const char* start = std::next(text_->c_str(), static_cast<std::ptrdiff_t>(look_at_));
             char* end = nullptr;
             out->number = std::strtod(start, &end);
@@ -321,7 +322,7 @@ uint32_t parse_colour(const std::string& text, uint32_t fallback)
         return fallback;
     }
     for (size_t i = 1; i < kColourTextLength; ++i) {
-        if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i)))) {
+        if (std::isxdigit(static_cast<unsigned char>(core::at(text, i))) == 0) {
             return fallback;
         }
     }
@@ -412,9 +413,9 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
                 }
             }
             const Json* hide = l.get_pull("hide_when_locked");
-            level.hide_when_locked_ = hide && hide->kind == Json::Kind::kBool && hide->boolean;
+            level.hide_when_locked_ = (hide != nullptr) && hide->kind == Json::Kind::kBool && hide->boolean;
             const Json* generic = l.get_pull("generic_art");
-            level.generic_art_ = generic && generic->kind == Json::Kind::kBool && generic->boolean;
+            level.generic_art_ = (generic != nullptr) && generic->kind == Json::Kind::kBool && generic->boolean;
             if (level.name.empty() || level.load.empty()) {
                 return fail("a level of " + section.id + " has no name or load script");
             }

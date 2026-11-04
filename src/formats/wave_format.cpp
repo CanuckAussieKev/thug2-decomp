@@ -50,7 +50,7 @@ bool read_wave(util::ByteReader& reader, Wave* out)
             }
         }
     }
-    return reader.ok() && out->format_size() && out->has_data();
+    return reader.ok() && (out->format_size() != 0U) && out->has_data();
 }
 
 } // namespace wave_format

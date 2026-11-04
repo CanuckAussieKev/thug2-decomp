@@ -92,7 +92,7 @@ void run_crash_hook()
 [[noreturn]] void crash_end_process(unsigned exit_code)
 {
     static std::atomic<long> ending{0};
-    if (ending.exchange(1)) {
+    if (ending.exchange(1) != 0) {
         for (;;) {
             Sleep(INFINITE);
         }
@@ -112,8 +112,8 @@ namespace {
 bool module_of(uintptr_t address, std::array<char, MAX_PATH>& name, uintptr_t* offset)
 {
     HMODULE module = nullptr;
-    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                            cell::pointer<const char>(static_cast<uint32_t>(address)), &module) ||
+    if ((GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            cell::pointer<const char>(static_cast<uint32_t>(address)), &module) == FALSE) ||
         !module) {
         return false;
     }
@@ -130,13 +130,13 @@ bool module_of(uintptr_t address, std::array<char, MAX_PATH>& name, uintptr_t* o
 bool readable(uintptr_t address, size_t size, bool code)
 {
     MEMORY_BASIC_INFORMATION info;
-    if (!VirtualQuery(cell::pointer<void>(address), &info, sizeof(info)) || info.State != MEM_COMMIT) {
+    if ((VirtualQuery(cell::pointer<void>(address), &info, sizeof(info)) == 0U) || info.State != MEM_COMMIT) {
         return false;
     }
     const DWORD wanted = code ? (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)
                               : (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ |
                                  PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY);
-    return (info.Protect & wanted) && !(info.Protect & PAGE_GUARD) &&
+    return ((info.Protect & wanted) != 0U) && ((info.Protect & PAGE_GUARD) == 0U) &&
            address + size <= cell::address(info.BaseAddress) + info.RegionSize;
 }
 
@@ -315,7 +315,8 @@ int crt_report_hook(int type, char* message, int* return_value)
     if (message) {
         // Its line ends cut off in the C runtime's own buffer (the hook takes the report: nothing prints it after).
         const std::span<char> report(message, std::strlen(message));
-        for (size_t n = report.size(); n && (core::at(report, n - 1) == '\n' || core::at(report, n - 1) == '\r'); --n) {
+        for (size_t n = report.size();
+             (n != 0U) && (core::at(report, n - 1) == '\n' || core::at(report, n - 1) == '\r'); --n) {
             core::at(report, n - 1) = '\0';
         }
         strncpy_s(text.data(), text.size(), message, _TRUNCATE);

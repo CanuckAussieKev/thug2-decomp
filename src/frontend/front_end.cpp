@@ -272,13 +272,13 @@ uint32_t FrontEnd::auto_repeat(const PadRead& read)
     const uint32_t held = read.held;
     const int device_index = read.device;
     uint32_t event = 0;
-    if (held & kButtonLeft) {
+    if ((held & kButtonLeft) != 0U) {
         event = kPadLeft;
-    } else if (held & kButtonRight) {
+    } else if ((held & kButtonRight) != 0U) {
         event = kPadRight;
-    } else if (held & kReleaseEdge) {
+    } else if ((held & kReleaseEdge) != 0U) {
         event = kPadUp;
-    } else if (held & kPressEdge) {
+    } else if ((held & kPressEdge) != 0U) {
         event = kPadDown;
     }
     if (device_index == 0 && event == 0 && get_keyboard_on_screen()) {
@@ -308,11 +308,11 @@ uint32_t FrontEnd::auto_repeat(const PadRead& read)
 
     PadMapping& pad = core::at(pad_mappings_, device_index);
     if (pad.repeat_state_ == 0) {
-        if (event) { // first held: sent now, repeated after the delay
+        if (event != 0U) { // first held: sent now, repeated after the delay
             pad.repeat_timer_ = static_cast<uint32_t>(hold_repeat_ms_);
             pad.repeat_state_ = 1;
         }
-    } else if (event) {
+    } else if (event != 0U) {
         auto elapsed = static_cast<uint32_t>(ftol(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecond));
         pad.repeat_timer_ = elapsed < pad.repeat_timer_ ? pad.repeat_timer_ - elapsed : 0;
         if (pad.repeat_timer_ == 0) { // due: sent, then again after the rate
@@ -540,13 +540,13 @@ uint32_t FrontEnd::grab_control_event(const PadRead& read, int index)
     const int device_index = read.device;
     const uint32_t held = read.held;
     for (const PadPressRecord& entry : pad_event_queue_) {
-        if ((makes & (1U << (entry.button_ & kShiftMask))) && entry.incident_ != 0 && --index < 0) {
+        if (((makes & (1U << (entry.button_ & kShiftMask))) != 0U) && entry.incident_ != 0 && --index < 0) {
             return entry.incident_;
         }
     }
     // Start is pad_start (unless the global 0xF3E055E1 is set and the 0x100 button is down).
-    if (!((held & kStartSwapButton) && script::fetch_int_value(kSelectShift) != 0)) {
-        if ((makes & kStartButton) && index == 0) {
+    if (!(((held & kStartSwapButton) != 0U) && script::fetch_int_value(kSelectShift) != 0)) {
+        if (((makes & kStartButton) != 0U) && index == 0) {
             return kPadStart;
         }
     }
@@ -677,17 +677,17 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
             }
             const uint32_t repeated = front_end->auto_repeat(
                 {.makes = handler->control_data()->makes(), .held = handler->control_data()->buttons(), .device = handler->ordinal()});
-            if (repeated) {
+            if (repeated != 0U) {
                 event = repeated;
             }
         }
         const uint32_t pressed = front_end->grab_control_event(
             {.makes = handler->control_data()->makes(), .held = handler->control_data()->buttons(), .device = handler->ordinal()},
             index);
-        if (pressed) {
+        if (pressed != 0U) {
             event = pressed;
         }
-        if (!event) {
+        if (event == 0U) {
             return;
         }
         if (core::at(front_end->pad_mappings_, handler->ordinal()).mapping_ == 0 || front_end->block_menu_input_) {

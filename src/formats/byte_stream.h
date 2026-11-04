@@ -237,7 +237,7 @@ public:
         if (!has(count)) {
             return fail();
         }
-        if (count) {
+        if (count != 0U) {
             std::memcpy(rest().first(count).data(), data, count);
         }
         position_ += count;

@@ -254,8 +254,8 @@ bool cfunc_destroy_screen_element(script::Struct* params, script::Script* script
     }
     const int recurse = params->has_bare_flag("dont_recurse") ? 0 : 1; // dont_recurse
     const int keep = params->has_bare_flag("preserve_parent") ? 1 : 0; // preserve_parent
-    if (recurse || !keep) {
-        manager->dismantle_part(id, recurse, keep, script);
+    if ((recurse != 0) || (keep == 0)) {
+        manager->dismantle_part(id, recurse != 0, keep != 0, script);
     }
     return true;
 }
@@ -267,7 +267,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
     uint32_t name = 0;
-    params->read_hash_value(0U, &name, true);
+    params->read_hash_value(0U, &name, 1);
     uint32_t callback = 0;
     params->read_hash_value(kCallback, &callback, 0);
     Struct* script_params = nullptr;
@@ -568,7 +568,8 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         const bool full = line_width > 0.0F && static_cast<double>(word_width) + line_width > max_width;
         if (full || previous == 1 || std::strlen(word.data()) + line_length >= kLineWordSize) {
             // the line so far (without its trailing space) becomes an element
-            char* last = line_length ? &core::at(line, line_length - 1) : &core::at(word, sizeof(buffers.word) - 1);
+            char* last =
+                (line_length != 0) ? &core::at(line, line_length - 1) : &core::at(word, sizeof(buffers.word) - 1);
             if (*last == ' ') {
                 *last = 0;
             }

@@ -99,7 +99,7 @@ void manager_set_parent(void* manager, ElementPtr* parent, ElementPtr* child, in
 }
 void manager_destroy_element(void* manager, uint32_t id, int recurse, int unknown, script::Script* script)
 {
-    get_elements(manager)->dismantle_part(id, recurse, unknown, script);
+    get_elements(manager)->dismantle_part(id, recurse != 0, unknown != 0, script);
 }
 
 // A state's top left from its position: the justification point (-1..1 across the size) at x, y. Two operand
@@ -204,28 +204,28 @@ double UiWidget::get_layout_height() const { return static_cast<double>(level_y_
 // 0x004A8F00
 bool UiWidget::input_suppressed() const
 {
-    if (object_flags() & kBlockEvents) {
+    if ((object_flags() & kBlockEvents) != 0U) {
         return true;
     }
-    return container_.get_pull() && container_.get_pull()->input_suppressed();
+    return (container_.get_pull() != nullptr) && container_.get_pull()->input_suppressed();
 }
 
 // 0x004A8F20
 bool UiWidget::has_priority() const
 {
-    if (object_flags() & kPriority) {
+    if ((object_flags() & kPriority) != 0U) {
         return true;
     }
-    return container_.get_pull() && container_.get_pull()->has_priority();
+    return (container_.get_pull() != nullptr) && container_.get_pull()->has_priority();
 }
 
 // 0x004A8F40
 bool UiWidget::is_concealed() const
 {
-    if (object_flags() & kHidden) {
+    if ((object_flags() & kHidden) != 0U) {
         return true;
     }
-    return container_.get_pull() && container_.get_pull()->is_concealed();
+    return (container_.get_pull() != nullptr) && container_.get_pull()->is_concealed();
 }
 
 // 0x004A8680
@@ -241,7 +241,7 @@ void UiWidget::set_frozen(bool pause)
 // 0x004A8940
 void UiWidget::set_focus_sent(int sent)
 {
-    const int now = (object_flags() & kFocusSent) ? 1 : 0;
+    const int now = ((object_flags() & kFocusSent) != 0U) ? 1 : 0;
     if (sent == now) {
         return;
     }
@@ -408,7 +408,7 @@ void UiWidget::start_morph(int ms)
 // 0x004AA390
 void UiWidget::change_draw_depth(float z)
 {
-    if (!(object_flags() & kZPriority)) {
+    if ((object_flags() & kZPriority) == 0U) {
         object_flags() |= kVisibleNow;
         z_priority_ = z;
     }
@@ -585,12 +585,12 @@ void UiWidget::update_layout()
 {
     const int now = static_cast<int>(frame_clock::get_time());
     ++alias_count(); // (the object's use count while the pass runs)
-    if (!(object_flags() & kFocusSent)) {
+    if ((object_flags() & kFocusSent) == 0U) {
         object_flags() |= kFocusSent;
         launch_event(kFocusSentEvent, ident());
     }
     bool changed = false;
-    if (object_flags() & kPos3d) {
+    if ((object_flags() & kPos3d) != 0U) {
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
         render::ViewRegion* camera = render::fetch_current_view(0);
@@ -608,7 +608,7 @@ void UiWidget::update_layout()
             aim_point_.x = x;
             aim_point_.y = y;
             aim_point_.z = std::bit_cast<float>(depth);
-            if (!(object_flags() & kKeepScale)) {
+            if ((object_flags() & kKeepScale) == 0U) {
                 change_scale(scale, scale, true, false);
             }
             object_flags() &= ~kOffScreen;
@@ -616,8 +616,8 @@ void UiWidget::update_layout()
         top_left_scale_first(this, &aim_point_, {.width = span_, .height = level_y_});
         object_flags() |= kDirty;
     }
-    if ((object_flags() & kDirty) && !(object_flags() & kPaused)) {
-        if (morph_length_) {
+    if (((object_flags() & kDirty) != 0U) && ((object_flags() & kPaused) == 0U)) {
+        if (morph_length_ != 0) {
             auto elapsed = static_cast<uint32_t>(now - morph_start_);
             auto length = static_cast<uint32_t>(morph_length_);
             auto t = static_cast<float>(static_cast<double>(elapsed) / static_cast<double>(length));
@@ -671,12 +671,12 @@ void UiWidget::update_layout()
         changed = true;
     }
     const UiWidget* parent = container_.get_pull();
-    if (parent && (parent->object_flags() & kChildrenDirty)) {
+    if (parent && ((parent->object_flags() & kChildrenDirty) != 0U)) {
         changed = true;
     }
     object_flags() &= ~kChildrenDirty;
     if (changed) {
-        if (parent && !(object_flags() & kPos3d)) {
+        if (parent && ((object_flags() & kPos3d) == 0U)) {
             summed_.scale_x_ = static_cast<float>(static_cast<double>(parent->summed_.scale_x_) * shown_.scale_x_);
             summed_.scale_y_ = static_cast<float>(static_cast<double>(parent->summed_.scale_y_) * shown_.scale_y_);
             parent = container_.get_pull();
@@ -698,7 +698,7 @@ void UiWidget::update_layout()
     }
     tick_frame();
     object_flags() &= ~kVisibleNow;
-    if (object_flags() & kPauseAsked) {
+    if ((object_flags() & kPauseAsked) != 0U) {
         object_flags() |= kPaused;
     }
     for (UiWidget* child = eldest_.get_pull(); child; child = child->following_.get_pull()) {
@@ -907,12 +907,12 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
         void* manager = UiTree::sole();
         ElementPtr parent;
         parent.assign_value(container_.get_pull());
-        if (parent->object_flags() & kFocusSent) {
+        if ((parent->object_flags() & kFocusSent) != 0U) {
             parent->object_flags() &= ~kFocusSent;
             launch_event(kFocusClearedEvent, parent->ident());
         }
         manager_destroy_element(manager, ident(), 1, 0, script);
-        if (!(parent->object_flags() & kFocusSent)) {
+        if ((parent->object_flags() & kFocusSent) == 0U) {
             parent->object_flags() |= kFocusSent;
             launch_event(kFocusSentEvent, parent->ident());
         }

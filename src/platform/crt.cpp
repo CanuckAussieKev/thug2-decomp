@@ -109,7 +109,7 @@ double game_atof(const char* text)
         ++at;
         mantissa += digits();
     }
-    if (mantissa && (peek() == 'e' || peek() == 'E' || peek() == 'd' || peek() == 'D')) {
+    if ((mantissa != 0U) && (peek() == 'e' || peek() == 'E' || peek() == 'd' || peek() == 'D')) {
         take('e');
         ++at;
         if (peek() == '+' || peek() == '-') {
@@ -119,7 +119,7 @@ double game_atof(const char* text)
         digits();
     }
     core::at(number, n) = 0;
-    return mantissa ? std::strtod(number.data(), nullptr) : 0.0;
+    return (mantissa != 0U) ? std::strtod(number.data(), nullptr) : 0.0;
 }
 
 // --- qsort ---
@@ -285,7 +285,7 @@ int game_stricmp(const char* a, const char* b)
                 return ca < cb ? -1 : 1;
             }
         }
-        if (!ca) {
+        if (ca == 0U) {
             return 0;
         }
     }

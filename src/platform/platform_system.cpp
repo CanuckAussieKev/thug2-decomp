@@ -72,27 +72,28 @@ char find_cd_drive(const char* volume)
     std::array<char, 4> root = {{'A', ':', '\\', 0}};
     // (Drives left over when the letters run out count as found: the letter kept from before is given back.)
     DWORD drives = GetLogicalDrives();
-    if (drives) {
+    if (drives != 0U) {
         for (char letter = 'A'; letter <= 'Z'; ++letter) {
-            if (drives & 1) {
+            if ((drives & 1) != 0U) {
                 core::at(root, 0) = letter;
                 std::array<char, kVolumeNameSize> name{};
                 DWORD serial = 0;
                 if (GetDriveTypeA(root.data()) == DRIVE_CDROM &&
-                    GetVolumeInformationA(root.data(), name.data(), sizeof(name), &serial, nullptr, nullptr, nullptr, 0) &&
+                    (GetVolumeInformationA(root.data(), name.data(), sizeof(name), &serial, nullptr, nullptr, nullptr,
+                                           0) != FALSE) &&
                     std::strcmp(name.data(), volume) == 0) {
                     cd_drive_letter() = letter;
                     break;
                 }
             }
             drives >>= 1;
-            if (!drives) {
+            if (drives == 0U) {
                 break;
             }
         }
     }
     cd_drive_slash() = '\\';
-    if (!drives) {
+    if (drives == 0U) {
         cd_drive_letter() = 0;
     }
     return cd_drive_letter();
@@ -111,7 +112,7 @@ HWND create_game_window(const char* class_name, const char* title, maths::PixelP
     window_class.style = CS_CLASSDC;
     window_class.lpfnWndProc = window_proc;
     window_class.hInstance = instance;
-    if (icon) {
+    if (icon != 0) {
         window_class.hIcon = LoadIconA(instance, MAKEINTRESOURCEA(icon & 0xFFFF));
     }
     window_class.lpszClassName = class_name;
@@ -184,7 +185,7 @@ void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in)
     int index = 0;
     size_t read = 0;
     for (size_t i = 0; i < out.size(); ++i) {
-        const int nibble = (i & 1) ? core::at(in, read++) >> 4 : core::at(in, read) & 0xF;
+        const int nibble = ((i & 1) != 0U) ? core::at(in, read++) >> 4 : core::at(in, read) & 0xF;
         const int magnitude = nibble & 7;
         index += core::at(kIndexSteps, magnitude);
         if (index < 0) {
@@ -194,7 +195,7 @@ void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in)
         }
         const int step = core::at(kSteps, index);
         int change = (step * magnitude >> 2) + (step >> 3);
-        if (nibble >> 3) {
+        if ((nibble >> 3) != 0) {
             change = -change;
         }
         sample += change;
@@ -224,18 +225,18 @@ void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, TexelLayout 
         uint32_t y_bit = 1;
         uint32_t x = 0;
         uint32_t y = 0;
-        while (x_bits || y_bits) {
-            if (x_bits) {
+        while ((x_bits != 0U) || (y_bits != 0U)) {
+            if (x_bits != 0U) {
                 x_bits >>= 1;
-                if (i & bit) {
+                if ((i & bit) != 0U) {
                     x |= x_bit;
                 }
                 x_bit <<= 1;
                 bit <<= 1;
             }
-            if (y_bits) {
+            if (y_bits != 0U) {
                 y_bits >>= 1;
-                if (i & bit) {
+                if ((i & bit) != 0U) {
                     y |= y_bit;
                 }
                 y_bit <<= 1;

@@ -43,7 +43,7 @@ struct FileRecord {
 
 [[nodiscard]] inline uint32_t stored_size(const FileRecord& record)
 {
-    return static_cast<uint32_t>(record.compressed_size ? record.compressed_size : record.size);
+    return static_cast<uint32_t>((record.compressed_size != 0) ? record.compressed_size : record.size);
 }
 
 // The header; false if the archive is shorter or its count negative.

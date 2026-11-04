@@ -144,11 +144,11 @@ std::string get_lower(std::string text)
 
 bool is_identifier(const std::string& text)
 {
-    if (text.empty() || std::isdigit(static_cast<unsigned char>(::core::at(text, 0)))) {
+    if (text.empty() || (std::isdigit(static_cast<unsigned char>(::core::at(text, 0))) != 0)) {
         return false;
     }
     for (const char c : text) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
+        if ((std::isalnum(static_cast<unsigned char>(c)) == 0) && c != '_') {
             return false;
         }
     }
@@ -162,7 +162,7 @@ bool is_hex(const std::string& text)
         return false;
     }
     for (size_t i = 2; i < text.size(); ++i) {
-        if (!std::isxdigit(static_cast<unsigned char>(::core::at(text, i)))) {
+        if (std::isxdigit(static_cast<unsigned char>(::core::at(text, i))) == 0) {
             return false;
         }
     }
@@ -176,7 +176,7 @@ bool is_integer(const std::string& text)
         return false;
     }
     for (size_t i = start; i < text.size(); ++i) {
-        if (!std::isdigit(static_cast<unsigned char>(::core::at(text, i)))) {
+        if (std::isdigit(static_cast<unsigned char>(::core::at(text, i))) == 0) {
             return false;
         }
     }
@@ -189,7 +189,7 @@ bool is_float(const std::string& text)
     bool digits = false;
     bool point = false;
     for (size_t i = start; i < text.size(); ++i) {
-        if (std::isdigit(static_cast<unsigned char>(::core::at(text, i)))) {
+        if (std::isdigit(static_cast<unsigned char>(::core::at(text, i))) != 0) {
             digits = true;
         } else if (::core::at(text, i) == '.' && !point) {
             point = true;
@@ -422,7 +422,7 @@ std::string json_list(const std::vector<std::string>& items)
 {
     std::string out = "[";
     for (size_t i = 0; i < items.size(); ++i) {
-        out += (i ? ", " : "") + json_string(::core::at(items, i));
+        out += ((i != 0U) ? ", " : "") + json_string(::core::at(items, i));
     }
     return out + "]";
 }
@@ -783,7 +783,7 @@ std::string describe(const OrderCode& command)
     case Op::kCapture:
         return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
     case Op::kLogTricks:
-        return "logtricks" + (command.frames ? " " + std::to_string(command.frames) : std::string());
+        return "logtricks" + ((command.frames != 0) ? " " + std::to_string(command.frames) : std::string());
     case Op::kTrace:
         return "trace " + std::to_string(command.frames);
     }
@@ -864,7 +864,7 @@ int get_index_of(const UiWidget& menu, const UiWidget* item)
 bool hidden_in_chain(const UiWidget* element)
 {
     for (; element; element = current_parent(element)) {
-        if (element->object_flags() & UiWidget::kHidden) {
+        if ((element->object_flags() & UiWidget::kHidden) != 0U) {
             return true;
         }
     }
@@ -1028,7 +1028,7 @@ bool main_menu_up()
     }
     ElementPtr holder;
     UiWidget* menu = find_element(kMainVMenu, &holder);
-    return menu && is_menu(menu) && mouse_menus::menu_gets_pad_events(menu);
+    return (menu != nullptr) && is_menu(menu) && mouse_menus::menu_gets_pad_events(menu);
 }
 
 bool skater_present() { return objects::find_object(kSkater) != nullptr; }
@@ -1175,7 +1175,7 @@ uint64_t process_start()
     FILETIME exited;
     FILETIME kernel;
     FILETIME user;
-    if (!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user)) {
+    if (GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user) == FALSE) {
         return 0;
     }
     return file_time_value(created);
@@ -1193,7 +1193,7 @@ void poll_file(Runner& runner)
 {
     const std::string path = game_folder_path("thug2-decomp-commands.txt");
     WIN32_FILE_ATTRIBUTE_DATA info;
-    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &info)) {
+    if (GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &info) == FALSE) {
         runner.looked = true;
         return;
     }
@@ -1203,7 +1203,7 @@ void poll_file(Runner& runner)
         runner.looked = true;
         // (a file from before this run - written more than 10 s before the game started - isn't run)
         const uint64_t start = process_start();
-        if (start && time + (kStaleSeconds * kFileTimeTicksPerSecond) < start) {
+        if ((start != 0U) && time + (kStaleSeconds * kFileTimeTicksPerSecond) < start) {
             get_log("automation: %s is older than this run - not run", path.c_str());
             runner.size = runner.offset = size;
             runner.time = time;
@@ -1235,11 +1235,11 @@ void poll_file(Runner& runner)
     LARGE_INTEGER at;
     at.QuadPart = static_cast<LONGLONG>(runner.offset);
     std::string data;
-    if (SetFilePointerEx(file.get(), at, nullptr, FILE_BEGIN) && size > runner.offset &&
+    if ((SetFilePointerEx(file.get(), at, nullptr, FILE_BEGIN) != FALSE) && size > runner.offset &&
         size - runner.offset < (1U << kCommandFileLimitShift)) {
         data.resize(static_cast<size_t>(size - runner.offset));
         DWORD read = 0;
-        if (!ReadFile(file.get(), &::core::at(data, 0), static_cast<DWORD>(data.size()), &read, nullptr)) {
+        if (ReadFile(file.get(), &::core::at(data, 0), static_cast<DWORD>(data.size()), &read, nullptr) == FALSE) {
             read = 0;
         }
         data.resize(read);
@@ -1323,7 +1323,8 @@ gsl::owner<script::Struct*> make_params(const std::vector<Param>& params)
 bool script_exists(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && (symbol->type() == script::QbValueKind::kScriptBody || symbol->type() == script::QbValueKind::kNativeFunc);
+    return (symbol != nullptr) &&
+           (symbol->type() == script::QbValueKind::kScriptBody || symbol->type() == script::QbValueKind::kNativeFunc);
 }
 
 // Spawn a script (run's and -run's); "" if it ran, else why not.
@@ -1359,7 +1360,7 @@ bool menu_input_blocked(modules::FrontEnd* front_end)
         return true;
     }
     const modules::FrontEndInputHandler* handler = ::core::at(front_end->pad_listeners(), 0).get();
-    return !handler || !handler->dev();
+    return (handler == nullptr) || (handler->dev() == nullptr);
 }
 
 // Whether a pad press would be lost on the menus now: in the front end or the pause menu, menu input blocked, or a
@@ -1474,7 +1475,7 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
     // (nothing sent while the menu doesn't take pad events, the front end blocks menu input - SetButtonEventMappings
     // block_menu_input, TemporarilyDisableInput - or the menu is on an item it passes over by itself)
     const bool wait = !mouse_menus::menu_gets_pad_events(menu) || menu_input_blocked(front_end) ||
-                      (current && mouse_menus::item_passed_over(current)) ||
+                      ((current != nullptr) && mouse_menus::item_passed_over(current)) ||
                       (loading_screen_up() && !get_timed_out(runner, kPressWaitSeconds));
     if (wait && get_timed_out(runner, runner.command.seconds)) {
         get_fail(runner, "its menu " + get_name_of(ident_no(menu)) + " didn't take pad events", false);
@@ -1518,7 +1519,8 @@ bool condition_holds(const OrderCode& command)
         return frontend::new_frontend::automation_screen_up(command.target);
     case Condition::kInGame: {
         auto* front_end = modules::front_end_instance().get();
-        return current_load_state() && !in_front_end() && skater_present() && !(front_end && front_end->is_halted());
+        return (current_load_state() != 0U) && !in_front_end() && skater_present() &&
+               !((front_end != nullptr) && front_end->is_halted());
     }
     case Condition::kStageMap: {
         std::string name = command.target;
@@ -1688,7 +1690,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         return true;
     }
     case Op::kJumpTo: {
-        if (!current_load_state() || in_front_end() || !skater_present()) {
+        if ((current_load_state() == 0U) || in_front_end() || !skater_present()) {
             get_fail(runner, "not in a level with the skater", false);
             return true;
         }
@@ -1748,7 +1750,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         return true;
     }
     case Op::kLogTricks: {
-        if (!current_load_state() || in_front_end() || !skater_present()) {
+        if ((current_load_state() == 0U) || in_front_end() || !skater_present()) {
             get_fail(runner, "not in a level with the skater", false);
             return true;
         }
@@ -1916,11 +1918,11 @@ void write_status(Runner& runner)
     status.ready = runner.ready;
     status.main_menu_ = runner.menu_settled_;
     auto* front_end = modules::front_end_instance().get();
-    status.paused = front_end && front_end->is_halted();
+    status.paused = (front_end != nullptr) && front_end->is_halted();
     status.loading = loading_screen_up();
     const uint32_t load = current_load_state();
-    status.where = !load ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
-    status.level = load ? get_name_of(load) : "";
+    status.where = (load == 0U) ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
+    status.level = (load != 0U) ? get_name_of(load) : "";
     if (_strnicmp(status.level.c_str(), "load_", begin_level::kLoadPrefixLength) == 0) {
         status.level.erase(0, begin_level::kLoadPrefixLength);
     }
@@ -2087,7 +2089,7 @@ void add_pad_buttons(int port, std::span<uint8_t> data)
             continue;
         }
         ::core::at(data, button->byte) |= static_cast<uint8_t>(1U << button->bit);
-        if (button->pressure) {
+        if (button->pressure != 0U) {
             ::core::at(data, button->pressure) = kFullPressure;
         }
     }

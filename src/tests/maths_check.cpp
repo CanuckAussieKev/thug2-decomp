@@ -200,7 +200,7 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
     for (int k = 0; k < 4; ++k) {
         const auto value = static_cast<uint32_t>(maths::truncate_to_i64((core::at(to, core::at(kOrder, k)) * f) +
                                                                         (core::at(from, core::at(kOrder, k)) * rest)));
-        color = k ? (color << kBitsPerByte | value) : value;
+        color = (k != 0) ? (color << kBitsPerByte | value) : value;
     }
     return color;
 }
@@ -768,7 +768,7 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
             faddp st(1), st(0)
             fisttp value
         }
-        color = k ? (color << kBitsPerByte | static_cast<uint32_t>(value)) : static_cast<uint32_t>(value);
+        color = (k != 0) ? (color << kBitsPerByte | static_cast<uint32_t>(value)) : static_cast<uint32_t>(value);
     }
     __asm {
         fstp scratch
@@ -1513,7 +1513,7 @@ public:
         const double abs_difference = sample.difference;
         const double input = sample.input;
         ++runs_;
-        if (distance) {
+        if (distance != 0U) {
             ++differing_;
             if (distance > max_ulps_) {
                 max_ulps_ = distance;
@@ -1526,7 +1526,7 @@ public:
     {
         text::print("  %-26s %9llu runs  %9llu differ (%6.3f%%)  max %c%llu  |diff| %.3g  (at %.9g)\n", name_,
                     static_cast<unsigned long long>(runs_), static_cast<unsigned long long>(differing_),
-                    runs_ ? 100.0 * static_cast<double>(differing_) / static_cast<double>(runs_) : 0.0, unit_,
+                    (runs_ != 0U) ? 100.0 * static_cast<double>(differing_) / static_cast<double>(runs_) : 0.0, unit_,
                     static_cast<unsigned long long>(max_ulps_), max_abs_, worst_input_);
     }
 
@@ -1548,7 +1548,7 @@ void compare(Tally& tally, T fresh_value, T ref_value, double input)
 }
 void compare_bool(Tally& tally, bool a, bool b, double input)
 {
-    tally.add({.distance = a != b, .difference = static_cast<double>(a != b), .input = input});
+    tally.add({.distance = static_cast<uint64_t>(a != b), .difference = static_cast<double>(a != b), .input = input});
 }
 
 void run(int count, std::mt19937_64& random)
@@ -1705,7 +1705,7 @@ void run(int count, std::mt19937_64& random)
             const float w_ref = ref::wibble_offset(wibble, store_first);
             double d = std::fmod(std::fabs(static_cast<double>(w_fresh) - w_ref), kTextureWrap);
             d = std::min(d, kTextureWrap - d);
-            t_wibble_wrap.add({.distance = d != 0.0, .difference = d, .input = t});
+            t_wibble_wrap.add({.distance = static_cast<uint64_t>(d != 0.0), .difference = d, .input = t});
         }
         const uint64_t vb = vblanks(random);
         compare(t_vblank, fresh::vblank_seconds({.count = vb, .rate = kFrameRate}), ref::vblank_seconds({.count = vb, .rate = kFrameRate}), static_cast<double>(vb));

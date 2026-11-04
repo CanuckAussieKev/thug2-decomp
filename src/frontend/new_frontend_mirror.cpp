@@ -458,7 +458,7 @@ View get_build(const MenuRead& read, const Policy& policy)
         for (size_t i = 0; i < read.items.size(); ++i) {
             const ItemRead& item = core::at(read.items, i);
             const char* ours = pause_label(item.id);
-            std::string label = *ours ? std::string(ours) : std::string();
+            std::string label = (*ours != '\0') ? std::string(ours) : std::string();
             for (size_t k = 0; label.empty() && k < item.texts.size(); ++k) {
                 label = caption(clean_text(core::at(item.texts, k)));
             }

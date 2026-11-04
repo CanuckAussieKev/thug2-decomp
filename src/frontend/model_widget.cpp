@@ -534,12 +534,12 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
 // placed: hidden while the element is transparent.
 void ModelWidget::tick_frame()
 {
-    if (is_dead_ || !model_total_) {
+    if (is_dead_ || (model_total_ == 0)) {
         return;
     }
     bool on_layout = false;
     maths::Vec4 place = {};
-    if (anchor_object_) {
+    if (anchor_object_ != 0U) {
         objects::Entity* parent = objects::ObjectHubBase::look_up_entity(anchor_object_);
         if (parent) {
             basis_frame_.reset_to_identity();
@@ -551,7 +551,7 @@ void ModelWidget::tick_frame()
             script->entity().assign_value(static_cast<objects::Entity*>(this));
             is_dead_ = true;
         }
-    } else if (attach_to_name_) {
+    } else if (attach_to_name_ != 0U) {
         maths::Vec4 position;
         node_position(node_structure(attach_to_name_), &position);
         basis_frame_.reset_to_identity();
@@ -654,10 +654,11 @@ void ModelWidget::tick_frame()
                     break;
                 }
                 for (int c = 0; c < kBoxCorners; ++c) {
-                    const maths::Vec4 corner = {.x = (c & 1 ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
-                                                .y = (c & 2 ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
-                                                .z = (c & 4 ? box->max.z : box->min.z) + core::at(models_, i).offset.z,
-                                                .w = 1.0F};
+                    const maths::Vec4 corner = {
+                        .x = (((c & 1) != 0) ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
+                        .y = (((c & 2) != 0) ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
+                        .z = (((c & 4) != 0) ? box->max.z : box->min.z) + core::at(models_, i).offset.z,
+                        .w = 1.0F};
                     const maths::Vec4 e = corner * local;
                     core::at(corners,
                              count++) = {.x = e.x * scale.x, .y = e.y * scale.y, .z = e.z * scale.z, .w = 1.0F};

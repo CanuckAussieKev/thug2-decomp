@@ -251,7 +251,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
         path->read_hash_value(0U, &id, 0);
         int index = -1;
         path->fetch_int_value(0U, &index, 0);
-        if (id) {
+        if (id != 0U) {
             ElementPtr found;
             if (!resolving_) {
                 fetch_part(&found, id, 0);
@@ -316,7 +316,7 @@ ElementPtr* UiTree::resolve_element(ElementPtr* out, script::Struct* params, uin
 {
     uint32_t id = 0;
     if (resolve_id(params, name, &id)) {
-        return fetch_part(out, id, assert);
+        return fetch_part(out, id, static_cast<int>(assert));
     }
     out->preceding_ = out->following_ = nullptr;
     out->target_ = nullptr;
@@ -352,7 +352,7 @@ void UiTree::lock_tree(int lock)
     std::array<UiWidget*, kStackDepth> stack{};
     core::at(stack, 0) = tree_root_.get_pull();
     int count = 1;
-    while (count) {
+    while (count != 0) {
         UiWidget* element = core::at(stack, --count);
         if (lock == 1) {
             ++element->alias_count();

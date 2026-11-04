@@ -190,12 +190,13 @@ std::string_view file_name_of(const char* path)
 std::string file_time(const char* path)
 {
     WIN32_FILE_ATTRIBUTE_DATA data = {};
-    if (!GetFileAttributesExA(path, GetFileExInfoStandard, &data)) {
+    if (GetFileAttributesExA(path, GetFileExInfoStandard, &data) == FALSE) {
         return {};
     }
     FILETIME local;
     SYSTEMTIME t;
-    if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t)) {
+    if ((FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) == FALSE) ||
+        (FileTimeToSystemTime(&local, &t) == FALSE)) {
         return {};
     }
     std::array<char, kFileInfoTextSize> text{};
@@ -247,25 +248,25 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     HMODULE dll = nullptr;
     std::array<char, MAX_PATH> dll_path = {""};
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           static_cast<LPCSTR>(code_address(&gather_sections)), &dll)) {
+                           static_cast<LPCSTR>(code_address(&gather_sections)), &dll) != FALSE) {
         GetModuleFileNameA(dll, dll_path.data(), MAX_PATH);
     }
     build.fields.push_back(
-        {.key = "dll",
-         .value = core::at(dll_path, 0) ? std::string(file_name_of(dll_path.data())) : ""});
-    build.fields.push_back({.key = "dll file", .value = core::at(dll_path, 0) ? file_time(dll_path.data()) : ""});
+        {.key = "dll", .value = (core::at(dll_path, 0) != '\0') ? std::string(file_name_of(dll_path.data())) : ""});
+    build.fields.push_back(
+        {.key = "dll file", .value = (core::at(dll_path, 0) != '\0') ? file_time(dll_path.data()) : ""});
     build.fields.push_back({.key = "dll commit", .value = THUG2_BUILD_COMMIT});
     sections.push_back(build);
 
     Section game{.title = "game", .fields = {}};
     const uint32_t load = current_load_state();
-    const bool in_level = load && load != kLoadMainMenu;
+    const bool in_level = (load != 0U) && load != kLoadMainMenu;
     const bool loading = loading_screen_up();
-    game.fields.push_back({.key = "where", .value = !load ? "starting up" : in_level ? "level" : "front end"});
-    game.fields.push_back({.key = "level load script", .value = load ? get_name_of(load) : ""});
+    game.fields.push_back({.key = "where", .value = (load == 0U) ? "starting up" : in_level ? "level" : "front end"});
+    game.fields.push_back({.key = "level load script", .value = (load != 0U) ? get_name_of(load) : ""});
     const uint32_t scene =
         frontend::level_editor::scenery::world_scene_key(frontend::level_editor::scenery::main_scene());
-    game.fields.push_back({.key = "scene", .value = scene ? get_name_of(scene) : ""});
+    game.fields.push_back({.key = "scene", .value = (scene != 0U) ? get_name_of(scene) : ""});
     game.fields.push_back({.key = "game mode", .value = active_ruleset_label()});
     const modules::FrontEnd* front_end = the_front_end();
     game.fields.push_back({.key = "paused", .value = front_end ? (front_end->is_halted() ? "yes" : "no") : ""});
@@ -315,7 +316,7 @@ void show_message(const std::string& text)
     }
     // A panel message (as the restart tester's), once the game's scripts are up.
     static const uint32_t kScript = checksums::hash_from_text("create_panel_message");
-    if (!current_load_state() || !script::script_exists(kScript)) {
+    if ((current_load_state() == 0U) || !script::script_exists(kScript)) {
         return;
     }
     auto crc = [](const char* name) { return checksums::hash_from_text(name); };
@@ -428,7 +429,7 @@ std::string get_folder()
     std::error_code error;
     std::filesystem::create_directories(std::filesystem::path(folder), error);
     const DWORD attributes = GetFileAttributesA(folder.c_str());
-    if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+    if (attributes == INVALID_FILE_ATTRIBUTES || ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U)) {
         get_log("screenshot: can't make the folder %s", folder.c_str());
         return {};
     }
@@ -531,7 +532,7 @@ bool write_new_file(const std::string& path, const void* data, size_t size)
         return false;
     }
     DWORD written = 0;
-    return WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
+    return (WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) != FALSE) && written == size;
 }
 
 void write_series_frame(const std::shared_ptr<Series>& series, const TickCycle& frame, int number)
@@ -631,7 +632,7 @@ void tick_series(bool rendering)
 
 void handle_event(SDL_Event* event)
 {
-    if (event->type == SDL_KEYDOWN && !event->key.repeat &&
+    if (event->type == SDL_KEYDOWN && (event->key.repeat == 0U) &&
         static_cast<int>(event->key.keysym.scancode) == screenshot_state().key_) {
         screenshot_state().requested_ = true;
     }
@@ -669,14 +670,14 @@ void prepare_all()
     const int fallback = default_key(snipping);
     auto by_name = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
     screenshot_state().key_ = parse_key(setting.data(), fallback, by_name);
-    if (core::at(setting, 0) && parse_key(setting.data(), 0, by_name) == 0) {
+    if ((core::at(setting, 0) != '\0') && parse_key(setting.data(), 0, by_name) == 0) {
         get_log("screenshot key: [Keybinds] Screenshot=%s isn't a key - using the default", setting.data());
     }
-    get_log("screenshot key: %s (scan code %d%s) - saves to %s", SDL_GetScancodeName(static_cast<SDL_Scancode>(screenshot_state().key_)),
-            screenshot_state().key_,
-            core::at(setting, 0) ? ", [Keybinds] Screenshot"
-            : snipping ? ", F12: Windows' Snipping Tool takes Print Screen"
-                       : "",
+    get_log("screenshot key: %s (scan code %d%s) - saves to %s",
+            SDL_GetScancodeName(static_cast<SDL_Scancode>(screenshot_state().key_)), screenshot_state().key_,
+            (core::at(setting, 0) != '\0') ? ", [Keybinds] Screenshot"
+            : snipping                     ? ", F12: Windows' Snipping Tool takes Print Screen"
+                                           : "",
             folder_path().c_str());
     if (snipping && screenshot_state().key_ == kPrintScreen) {
         get_log(
@@ -690,7 +691,7 @@ void before_present(bool rendering)
 {
     // Not original either - a frame series (start_series), also with the key off.
     tick_series(rendering);
-    if (!screenshot_state().key_ && !screenshot_state().requested_ && !screenshot_job().job_ &&
+    if ((screenshot_state().key_ == 0) && !screenshot_state().requested_ && !screenshot_job().job_ &&
         screenshot_job().message_.empty()) { // (key off: only request_event_shot's and show_notice's)
         return;
     }
@@ -757,7 +758,7 @@ std::string start_series(int frames, const std::string& folder)
     std::error_code error;
     std::filesystem::create_directories(std::filesystem::path(path), error);
     const DWORD attributes = GetFileAttributesA(path.c_str());
-    if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+    if (attributes == INVALID_FILE_ATTRIBUTES || ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U)) {
         return "can't make the folder " + path;
     }
     auto series = std::make_shared<Series>();

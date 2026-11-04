@@ -167,7 +167,7 @@ void MenuBase::move_selection(int direction, bool stay, bool grid_x)
 void MenuBase::get_step(int direction)
 {
     int grid_index = -1;
-    if (chosen_item_id_) {
+    if (chosen_item_id_ != 0U) {
         UiWidget* item = nullptr;
         {
             ElementPtr found;
@@ -179,7 +179,7 @@ void MenuBase::get_step(int direction)
         get_launch(kUnfocus, chosen_item_id_, nullptr);
     }
     move_selection(direction, false, true);
-    if (chosen_item_id_) {
+    if (chosen_item_id_ != 0U) {
         send_focus(checksums::Name{chosen_item_id_}, controller_, grid_index);
     }
 }
@@ -221,7 +221,7 @@ void MenuBase::arrange()
             total = static_cast<float>(static_cast<double>(total) - item_gap_);
         }
     }
-    if (object_flags() & kDimsLocked) {
+    if ((object_flags() & kDimsLocked) != 0U) {
         // the size only grows
         if (vertical_) {
             if (total > level_y()) {
@@ -279,7 +279,7 @@ void MenuBase::arrange()
                         offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
                 }
                 offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
-                if (item->object_flags() & kDirty) {
+                if ((item->object_flags() & kDirty) != 0U) {
                     object_flags() |= kDirty;
                 }
             }
@@ -288,7 +288,7 @@ void MenuBase::arrange()
     if (chosen_item_id_ == 0 && eldest() && focused_) {
         selected_index_ = 0;
         move_selection(1, true, true);
-        if (chosen_item_id_) {
+        if (chosen_item_id_ != 0U) {
             send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
         }
     }
@@ -309,7 +309,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
     if (event->kind_tag() == kFocusSentEvent) {
         // find the selected item again (by id, else by index), lay the items out
         bool refocus = false;
-        if (chosen_item_id_) {
+        if (chosen_item_id_ != 0U) {
             int index = 0;
             ElementPtr item;
             item.assign_value(find_child_with_id(chosen_item_id_, &index));
@@ -334,7 +334,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         }
         if (refocus && focused_) {
             move_selection(1, true, true);
-            if (chosen_item_id_) {
+            if (chosen_item_id_ != 0U) {
                 send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
             }
         }
@@ -376,9 +376,9 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
             }
         }
         focused_ = true;
-        if (chosen_item_id_) {
+        if (chosen_item_id_ != 0U) {
             move_selection(1, true, false);
-            if (chosen_item_id_) {
+            if (chosen_item_id_ != 0U) {
                 get_launch(kFocus, chosen_item_id_, event->payload());
             }
         }
@@ -386,7 +386,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
     }
     if (event->kind_tag() == kUnfocus && focused_) {
         focused_ = false;
-        if (chosen_item_id_) {
+        if (chosen_item_id_ != 0U) {
             get_launch(kUnfocus, chosen_item_id_, nullptr);
         }
         event->set_event_handled(ident(), 0);
@@ -432,7 +432,7 @@ bool GroupWidget::pass_event_to_script(objects::Signal* event)
         return false;
     }
     if (event->kind_tag() == kFocus || event->kind_tag() == kUnfocus) {
-        if (focusable_child_) {
+        if (focusable_child_ != 0U) {
             Struct data;
             data.put_int(checksums::Name{kController}, objects::event_controller(event));
             get_launch(event->kind_tag(), focusable_child_, &data);

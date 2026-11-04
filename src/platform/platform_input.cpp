@@ -391,7 +391,7 @@ bool get_key_down(int code)
         return false;
     }
     if (code == DIK_ESCAPE) {
-        return core::at(get_keys(), DIK_ESCAPE) && !core::at(last_keys(), DIK_ESCAPE);
+        return (core::at(get_keys(), DIK_ESCAPE) != 0U) && (core::at(last_keys(), DIK_ESCAPE) == 0U);
     }
     return core::at(get_keys(), code) != 0;
 }
@@ -421,7 +421,7 @@ BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device
     range.lMax = kJoystickAxisRange;
     joystick->SetProperty(DIPROP_RANGE, &range.diph);
     const int port = core::at(platform_state().joysticks(), 1) == joystick ? 1 : 0;
-    if ((object->dwFlags & DIDOI_FFACTUATOR) && core::at(platform_state().force_axis_counts(), port) < 2) {
+    if (((object->dwFlags & DIDOI_FFACTUATOR) != 0U) && core::at(platform_state().force_axis_counts(), port) < 2) {
         const uint32_t count = core::at(platform_state().force_axis_counts(), port);
         core::at(platform_state().force_resolutions(), (2 * port) + count) = object->dwFFForceResolution;
         core::at(platform_state().force_axis_counts(), port) = count + 1;
@@ -537,25 +537,25 @@ void load_registry_options(const char* key)
         place_at_range(value);
     }
     if (RegQueryValueExA(options, "options", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
-        if (value & 1) {
+        if ((value & 1) != 0U) {
             render::view_setup().set_fog_setting(true);
         }
-        if (value & 2) {
+        if ((value & 2) != 0U) {
             render::view_setup().set_hq_shadows(1);
         }
-        if (value & 4) {
+        if ((value & 4) != 0U) {
             platform_state().set_options38_and39(static_cast<uint16_t>((platform_state().options38_and39() & kHighByteMask) | 1)); // (its low byte)
         }
-        if (value & kOptionOptions39) {
+        if ((value & kOptionOptions39) != 0U) {
             platform_state().set_options38_and39(static_cast<uint16_t>((platform_state().options38_and39() & kLowByteMask) | kHighByteOne)); // (its high byte)
         }
-        if (value & kOptionOption37) {
+        if ((value & kOptionOption37) != 0U) {
             platform_state().set_option37(1);
         }
-        if (value & kOptionAntialiasing) {
+        if ((value & kOptionAntialiasing) != 0U) {
             render::renderer().set_antialiasing(true);
         }
-        if (value & kOptionDistanceClipping) {
+        if ((value & kOptionDistanceClipping) != 0U) {
             render::view_setup().set_distance_clipping(true);
         }
     }
@@ -710,14 +710,14 @@ double mouse_stick_value(const DIMOUSESTATE2* state, int negative, int positive)
 {
     double value = 0.0;
     if (negative >= 4 && negative <= kLastMouseButton) {
-        if (core::at(state->rgbButtons, negative - 4) & kButtonDownMask) {
+        if ((core::at(state->rgbButtons, negative - 4) & kButtonDownMask) != 0) {
             value = -1.0;
         }
     } else if (negative >= 1 && negative <= 3) {
         value = mouse_axis_stick(state, negative);
     }
     if (positive >= 4 && positive <= kLastMouseButton) {
-        return (core::at(state->rgbButtons, positive - 4) & kButtonDownMask) ? value + 1.0 : value;
+        return ((core::at(state->rgbButtons, positive - 4) & kButtonDownMask) != 0) ? value + 1.0 : value;
     }
     if (positive >= 1 && positive <= 3) {
         return mouse_axis_stick(state, positive); // (in place of the first)
@@ -730,14 +730,14 @@ double joystick_stick_value(const DIJOYSTATE2* state, int negative, int positive
 {
     double value = 0.0;
     if (negative >= kFirstJoystickButton && negative <= kLastJoystickButton) {
-        if (core::at(state->rgbButtons, negative - kFirstJoystickButton)) {
+        if (core::at(state->rgbButtons, negative - kFirstJoystickButton) != 0U) {
             value = -1.0;
         }
     } else if (negative >= 1 && negative <= kLastJoystickAxis) {
         value = joystick_axis(state, negative) * static_cast<double>(kJoystickStickScale);
     }
     if (positive >= kFirstJoystickButton && positive <= kLastJoystickButton) {
-        return core::at(state->rgbButtons, positive - kFirstJoystickButton) ? value + 1.0 : value;
+        return (core::at(state->rgbButtons, positive - kFirstJoystickButton) != 0U) ? value + 1.0 : value;
     }
     if (positive >= 1 && positive <= kLastJoystickAxis) {
         return joystick_axis(state, positive) * static_cast<double>(kJoystickStickScale); // (in place of the first)
