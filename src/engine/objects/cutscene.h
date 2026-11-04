@@ -38,6 +38,7 @@ constexpr std::size_t kAnimationCapacity = 256;
 constexpr std::size_t kAssetCapacity = 512;
 
 class GameEntity;
+class ObjectModule;
 
 // 0x00465510 (stdcall): a cutscene's binary objects table (version, count, then {name, model, skeleton, anim,
 // flags} each) as `params`' 0x40E32C3C and array 0x4DE5330C. True.
@@ -140,6 +141,18 @@ public:
     // 0x004648D0: the objects of `params`' array 0x4DE5330C made (their models, skeletons, animations; the
     // skater's from its profile and appearance), linked to their parents and the level objects they stand in for.
     void add_objects(script::Struct* params);
+    // An object of add_objects' array as read (cutscene_load.cpp).
+    struct CutsceneObject {
+        uint32_t name{};
+        uint32_t kind{};
+        uint32_t model{};
+        uint32_t skeleton{};
+        uint32_t anim{};
+        bool is_skater{};
+        bool is_skater2{};
+        bool special{};
+        uint32_t model_file{};
+    };
 
     // An animation it loaded (12 bytes).
     struct AnimationEntry {
@@ -163,6 +176,13 @@ public:
     ObjectEntry* find_entry(uint32_t name);
     static void copy_skeleton(ObjectEntry& from, ObjectEntry& to);
     void apply_skater_look(ObjectEntry& entry);
+    // add_objects' steps (cutscene_load.cpp).
+    bool object_params(script::Struct* object, CutsceneObject& item, script::Struct* params2);
+    [[nodiscard]] bool skater_part_hidden() const;
+    void lend_level_model(ObjectModule* stand_in);
+    void attach_animation(ObjectEntry& entry, uint32_t anim);
+    void make_cutscene_object(const CutsceneObject& item, script::Struct* params2);
+    void link_cutscene_objects();
     // 0x004656E0: the cutscene's clock (from the frame counter when 0x0C00425A is set, a fixed step when +0x3474,
     // else the vblanks); with +0x34B0, past the camera animation's end the next camera / object animation parts
     // and every object's next animation part.

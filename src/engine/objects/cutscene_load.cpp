@@ -150,6 +150,57 @@ void CinematicTable::refresh_objects()
     script::find_symbol(kRefreshGlobal)->value().set_integer(0);
 }
 
+namespace {
+
+// An object of the cutscene's array: its name, kind, model, skeleton, animation, the skater marks, the model
+// file (version 2: the name's; a player object wants the skater script run).
+void read_cutscene_object(script::Struct* object, int version, CinematicTable::CutsceneObject& item, bool& wants_skater)
+{
+    uint32_t& name = item.name;
+    uint32_t& kind = item.kind;
+    uint32_t& model = item.model;
+    uint32_t& skeleton = item.skeleton;
+    uint32_t& anim = item.anim;
+    bool& is_skater = item.is_skater;
+    bool& is_skater2 = item.is_skater2;
+    bool& special = item.special;
+    uint32_t& model_file = item.model_file;
+    if (version >= 2) {
+        object->read_hash_value(kName, &name, 1);
+        object->read_hash_value(kKind, &kind, 1);
+        object->read_hash_value(kSkeleton, &skeleton, 0);
+        model = name;
+        model_file = name + kModelFileOffset;
+        anim = name;
+        is_skater = object->has_bare_flag(kIsSkaterMarker);
+        if (is_skater) {
+            is_skater2 = kind == kSecondSkaterKind;
+            special = false;
+            if (is_skater2) {
+                skeleton = kHeadCasMale01;
+            }
+        } else {
+            is_skater2 = kind == kPlayerObject;
+            special = is_skater2;
+            if (is_skater2) {
+                wants_skater = true;
+                skeleton = kTHPS6Human;
+            }
+        }
+    } else {
+        object->read_hash_value(kName, &name, 1);
+        object->read_hash_value(kModel, &model, 1);
+        model_file = model + kModelFileOffset;
+        object->read_hash_value(kSkeleton, &skeleton, 1);
+        object->read_hash_value(kAnim, &anim, 1);
+        is_skater = object->has_bare_flag(kIsSkaterMarker);
+        is_skater2 = object->has_bare_flag(kSkaterFlag2);
+        special = model == kSkater || model == kPlayer;
+    }
+}
+
+} // namespace
+
 // 0x004648D0
 void CinematicTable::add_objects(script::Struct* params)
 {
@@ -162,158 +213,21 @@ void CinematicTable::add_objects(script::Struct* params)
     for (uint32_t i = 0; i < objects->extent(); ++i) {
         script::Struct* object = objects->struct_at(i);
         gsl::owner<script::Struct*> params2 = make_struct();
-        uint32_t name = 0;
-        uint32_t kind = 0;
-        uint32_t model = 0;
-        uint32_t skeleton = 0;
-        uint32_t anim = 0;
-        bool is_skater = false;
-        bool is_skater2 = false;
-        bool special = false;
-        uint32_t model_file = 0;
-        if (version >= 2) {
-            object->read_hash_value(kName, &name, 1);
-            object->read_hash_value(kKind, &kind, 1);
-            object->read_hash_value(kSkeleton, &skeleton, 0);
-            model = name;
-            model_file = name + kModelFileOffset;
-            anim = name;
-            is_skater = object->has_bare_flag(kIsSkaterMarker);
-            if (is_skater) {
-                is_skater2 = kind == kSecondSkaterKind;
-                special = false;
-                if (is_skater2) {
-                    skeleton = kHeadCasMale01;
-                }
-            } else {
-                is_skater2 = kind == kPlayerObject;
-                special = is_skater2;
-                if (is_skater2) {
-                    wants_skater = true;
-                    skeleton = kTHPS6Human;
-                }
-            }
-        } else {
-            object->read_hash_value(kName, &name, 1);
-            object->read_hash_value(kModel, &model, 1);
-            model_file = model + kModelFileOffset;
-            object->read_hash_value(kSkeleton, &skeleton, 1);
-            object->read_hash_value(kAnim, &anim, 1);
-            is_skater = object->has_bare_flag(kIsSkaterMarker);
-            is_skater2 = object->has_bare_flag(kSkaterFlag2);
-            special = model == kSkater || model == kPlayer;
-        }
-        if (is_skater2 && is_skater) {
+        CutsceneObject item;
+        read_cutscene_object(object, version, item, wants_skater);
+        if (item.is_skater2 && item.is_skater) {
             has_skater = true;
         }
-        const bool skater = is_skater && is_skater2;
-        bool add = true;
-        if (!special) {
-            const void* asset = assets::asset_manager()->get_asset_data(model_file, 0);
-            if (!asset && !skater) {
-                params2->put_name_key(checksums::Name{kUnnamed}, kNoModelFile);
-            }
-            if (object->has_bare_flag(kKeepSkeleton)) {
-                params2->put_name_key(checksums::Name{kUnnamed}, kKeepSkeleton);
-            } else {
-                skeleton = 0;
-                anim = 0;
-            }
-            if (skater) {
-                const gfx::FaceSkin* face = appearance_face(skater_appearance_);
-                if (face && face->is_sound()) {
-                    ++model_file;
-                }
-                int male = 0;
-                skater_details_->fetch_int_value(kMale, &male, 1);
-                if (male == 0) {
-                    model_file += 2;
-                }
-                params2->put_int(checksums::Name{kMaleParam}, male);
-            }
-            params2->put_name_key(checksums::Name{kModelFile}, model_file);
-        } else if (flag_34b_0_ == 0U) {
-            add = false;
-        } else {
-            params2->put_name_key(checksums::Name{kPlayingCutsceneKey}, 0);
-        }
+        const bool skater = item.is_skater && item.is_skater2;
+        bool add = object_params(object, item, params2);
         if (add && skater) {
-            // the skater's object isn't made when a part of its appearance is hidden
-            void* part = appearance_part(skater_appearance_, kPartA);
-            if (!part) {
-                part = appearance_part(skater_appearance_, kPartB);
-            }
-            bool hidden = (part != nullptr) && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
-            if (!hidden) {
-                part = appearance_part(skater_appearance_, kPartC);
-                hidden = (part != nullptr) && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
-            }
-            if (hidden) {
+            if (skater_part_hidden()) {
                 has_skater = false;
                 add = false;
             }
         }
         if (add) {
-            if (skeleton != 0U) {
-                params2->put_name_key(checksums::Name{kSkeleton}, skeleton);
-                params2->put_int(checksums::Name{kSkeletonParam}, 0);
-            }
-            ObjectEntry& entry = core::at(entities_, object_count_);
-            gsl::owner<GameEntity*> made = create_object(params2); // (the entry's: the cutscene's end deletes it)
-            entry.object = made;
-            ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
-            if (stand_in) {
-                const maths::Vec4 offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 150.0F};
-                model_set_offset(model_of(stand_in), &offset);
-                if (stands_in(stand_in)) {
-                    // the level object's model lends its settings (saved once) and is hidden
-                    auto* level = core::down_cast<GameEntity>(find_object(stand_in_id(stand_in)));
-                    ObjectModule* level_model = level->fetch_module(kModelModuleName);
-                    void* model2 = model_of(level_model);
-                    if (!lent_saved_) {
-                        maths::Vec4 saved{};
-                        lent_sphere_ = *static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(&saved);
-                        const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits();
-                        lent_3c_ = flags >> 2 & 1;
-                        lent_3d_ = flags >> 3 & 1;
-                        lent_pos_ = level->at_point();
-                        lent_saved_ = true;
-                    }
-                    const maths::Vec4 offset2 = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 150.0F};
-                    model_set_offset(model2, &offset2);
-                    static_cast<render::RenderModel*>(model2)->conceal(0);
-                    static_cast<render::RenderModel*>(model2)->allow_resizing(0);
-                    maths::Mat4* mine = static_cast<render::RenderModel*>(model2)->fetch_skinning_palette();
-                    maths::Mat4* theirs =
-                        static_cast<render::RenderModel*>(model_of(stand_in))->fetch_skinning_palette();
-                    static_cast<render::RenderModel*>(model2)->upload_skinning_palette(theirs);
-                    static_cast<render::RenderModel*>(model_of(stand_in))->upload_skinning_palette(mine);
-                    core::down_cast<MeshInstanceModule>(level_model)->get_update_brightness();
-                }
-                stand_in->hold_off(true);
-            }
-            entry.name = name;
-            entry.object->change_serial(name);
-            entry.skeleton = skeleton;
-            entry.active = special;
-            entry.animation = nullptr;
-            entry.parent = nullptr;
-            entry.anim_index_ = -1;
-            if (anim != 0U) {
-                for (int j = 0; j < animation_count_; ++j) {
-                    if (core::at(animations_, j).name != anim) {
-                        continue;
-                    }
-                    AnimationEntry* animation = &core::at(animations_, j);
-                    entry.animation = animation;
-                    gsl::owner<render::FrameSource*> frames{memory::make_owned<render::FrameSource>()}; // (the table's)
-                    animation->source = frames;
-                    animation->source->play_clip(anim);
-                    animation->source->set_done(true);
-                    break;
-                }
-            }
-            ++object_count_;
+            make_cutscene_object(item, params2);
         }
         free_struct(params2);
     }
@@ -321,6 +235,152 @@ void CinematicTable::add_objects(script::Struct* params)
         script::launch_script(kSkaterScript, nullptr, nullptr, false, nullptr);
     }
 
+    link_cutscene_objects();
+}
+
+// The object's parameters: its model file (the skater's by its look and profile), the skeleton kept or not; a
+// stand-in only while playing a cutscene. Whether it is made.
+bool CinematicTable::object_params(script::Struct* object, CutsceneObject& item, script::Struct* params2)
+{
+    const bool skater = item.is_skater && item.is_skater2;
+    bool add = true;
+    uint32_t& skeleton = item.skeleton;
+    uint32_t& anim = item.anim;
+    const bool& special = item.special;
+    uint32_t& model_file = item.model_file;
+    if (!special) {
+        const void* asset = assets::asset_manager()->get_asset_data(model_file, 0);
+        if (!asset && !skater) {
+            params2->put_name_key(checksums::Name{kUnnamed}, kNoModelFile);
+        }
+        if (object->has_bare_flag(kKeepSkeleton)) {
+            params2->put_name_key(checksums::Name{kUnnamed}, kKeepSkeleton);
+        } else {
+            skeleton = 0;
+            anim = 0;
+        }
+        if (skater) {
+            const gfx::FaceSkin* face = appearance_face(skater_appearance_);
+            if (face && face->is_sound()) {
+                ++model_file;
+            }
+            int male = 0;
+            skater_details_->fetch_int_value(kMale, &male, 1);
+            if (male == 0) {
+                model_file += 2;
+            }
+            params2->put_int(checksums::Name{kMaleParam}, male);
+        }
+        params2->put_name_key(checksums::Name{kModelFile}, model_file);
+    } else if (flag_34b_0_ == 0U) {
+        add = false;
+    } else {
+        params2->put_name_key(checksums::Name{kPlayingCutsceneKey}, 0);
+    }
+    return add;
+}
+
+// Whether a part of the skater's appearance is hidden (its object isn't made then).
+bool CinematicTable::skater_part_hidden() const
+{
+    // the skater's object isn't made when a part of its appearance is hidden
+    void* part = appearance_part(skater_appearance_, kPartA);
+    if (!part) {
+        part = appearance_part(skater_appearance_, kPartB);
+    }
+    bool hidden = (part != nullptr) && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
+    if (!hidden) {
+        part = appearance_part(skater_appearance_, kPartC);
+        hidden = (part != nullptr) && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
+    }
+    return hidden;
+}
+
+// The level object a stand-in replaces: its model lends its settings (saved once), swaps skinning palettes with the
+// stand-in's, and is hidden.
+void CinematicTable::lend_level_model(ObjectModule* stand_in)
+{
+    // the level object's model lends its settings (saved once) and is hidden
+    auto* level = core::down_cast<GameEntity>(find_object(stand_in_id(stand_in)));
+    ObjectModule* level_model = level->fetch_module(kModelModuleName);
+    void* model2 = model_of(level_model);
+    if (!lent_saved_) {
+        maths::Vec4 saved{};
+        lent_sphere_ = *static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(&saved);
+        const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits();
+        lent_3c_ = flags >> 2 & 1;
+        lent_3d_ = flags >> 3 & 1;
+        lent_pos_ = level->at_point();
+        lent_saved_ = true;
+    }
+    const maths::Vec4 offset2 = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 150.0F};
+    model_set_offset(model2, &offset2);
+    static_cast<render::RenderModel*>(model2)->conceal(0);
+    static_cast<render::RenderModel*>(model2)->allow_resizing(0);
+    maths::Mat4* mine = static_cast<render::RenderModel*>(model2)->fetch_skinning_palette();
+    maths::Mat4* theirs = static_cast<render::RenderModel*>(model_of(stand_in))->fetch_skinning_palette();
+    static_cast<render::RenderModel*>(model2)->upload_skinning_palette(theirs);
+    static_cast<render::RenderModel*>(model_of(stand_in))->upload_skinning_palette(mine);
+    core::down_cast<MeshInstanceModule>(level_model)->get_update_brightness();
+}
+
+// The animation the object plays (a frame source of the table's made for it).
+void CinematicTable::attach_animation(ObjectEntry& entry, uint32_t anim)
+{
+    for (int j = 0; j < animation_count_; ++j) {
+        if (core::at(animations_, j).name != anim) {
+            continue;
+        }
+        AnimationEntry* animation = &core::at(animations_, j);
+        entry.animation = animation;
+        gsl::owner<render::FrameSource*> frames{memory::make_owned<render::FrameSource>()}; // (the table's)
+        animation->source = frames;
+        animation->source->play_clip(anim);
+        animation->source->set_done(true);
+        break;
+    }
+}
+
+// The object made from its parameters: its stand-in model, its name, skeleton and animation.
+void CinematicTable::make_cutscene_object(const CutsceneObject& item, script::Struct* params2)
+{
+    const uint32_t name = item.name;
+    const uint32_t skeleton = item.skeleton;
+    const uint32_t anim = item.anim;
+    const bool special = item.special;
+    if (skeleton != 0U) {
+        params2->put_name_key(checksums::Name{kSkeleton}, skeleton);
+        params2->put_int(checksums::Name{kSkeletonParam}, 0);
+    }
+    ObjectEntry& entry = core::at(entities_, object_count_);
+    gsl::owner<GameEntity*> made = create_object(params2); // (the entry's: the cutscene's end deletes it)
+    entry.object = made;
+    ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
+    if (stand_in) {
+        const maths::Vec4 offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 150.0F};
+        model_set_offset(model_of(stand_in), &offset);
+        if (stands_in(stand_in)) {
+            lend_level_model(stand_in);
+        }
+        stand_in->hold_off(true);
+    }
+    entry.name = name;
+    entry.object->change_serial(name);
+    entry.skeleton = skeleton;
+    entry.active = special;
+    entry.animation = nullptr;
+    entry.parent = nullptr;
+    entry.anim_index_ = -1;
+    if (anim != 0U) {
+        attach_animation(entry, anim);
+    }
+    ++object_count_;
+}
+
+// The objects that stand in for level objects take those's skeletons, their models' strip flags, their parents
+// and the skater's look; their animation index.
+void CinematicTable::link_cutscene_objects()
+{
     // the objects that stand in for level objects (and their children) take those's skeletons
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = core::at(entities_, i);
