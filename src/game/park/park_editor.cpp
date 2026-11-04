@@ -57,12 +57,12 @@ void free_node_chain(CellChainScratch& temp) { temp.teardown(); }
 void ParkLayout::rebuild_park(uint32_t how)
 {
     set_up_lights();
-    if (!((flag_bits() & ParkLayout::kMapValid) | ParkLayout::kMapNewerThanPark) && floor_built()) {
+    if (((flag_bits() & (ParkLayout::kMapValid | ParkLayout::kMapNewerThanPark)) == 0U) && floor_built()) {
         write_compressed_map();
     }
     destroy_concrete_metas(0);
     clear_stats();
-    if (how == kNewPark || !(flag_bits() & 2)) {
+    if (how == kNewPark || ((flag_bits() & 2) == 0U)) {
         // An empty grid.
         for (auto& column : floor_) {
             for (auto& cell : column) {
@@ -122,7 +122,7 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
     if (metas.list()) {
         for (MapListNode* node = metas.list(); node; node = node->following()) {
             PieceGroup* meta = node_meta(node);
-            if (get_meta_flags(meta) & kMetaFloor) {
+            if ((get_meta_flags(meta) & kMetaFloor) != 0U) {
                 continue;
             }
             if (skip_restarts && meta->is_spawn_marker()) {
@@ -131,7 +131,7 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
             if (only_within && !meta->fits_inside_region(&area)) {
                 continue;
             }
-            if (skip_locked && (get_meta_flags(meta) & kMetaLocked)) {
+            if (skip_locked && ((get_meta_flags(meta) & kMetaLocked) != 0U)) {
                 continue;
             }
             call_destroy_concrete_meta(this, meta, 1);
@@ -162,7 +162,7 @@ void ParkLayout::clear_area(CellBox area)
     CellChainScratch metas{get_metas_within(this, area)};
     for (MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node_meta(node);
-        if (get_meta_flags(meta) & kMetaFloor) {
+        if ((get_meta_flags(meta) & kMetaFloor) != 0U) {
             continue;
         }
         const CellBox at = meta_footprint(meta);
