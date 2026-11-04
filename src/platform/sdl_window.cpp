@@ -14,15 +14,11 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-#include "frontend/automation.h"
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
-#include "platform/sdl_events.h"
 #include "platform/process_flags.h"
 #include "base/core/ints.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/renderer.h"
-#include "engine/gfx/engine_parts.h"
 
 namespace sys {
 
@@ -104,26 +100,6 @@ int window_position()
     return static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(display - 1));
 }
 
-void handle_window_event(SDL_Event* event)
-{
-    if (event->type != SDL_WINDOWEVENT) {
-        return;
-    }
-    if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-        render::engine_parts().set_device_lost(false);
-        // Not PartyMod's - with the test-automation channel on (frontend/automation.h) the game keeps drawing in
-        // the background, so a test's picture of its window (PrintWindow) shows the frame now, not the last one
-        // drawn before the window lost the focus (the main loop draws nothing while the flag is off).
-        // Original behaviour (PartyMod v1.0.4): Focused() = false always.
-        if (!frontend::automation::is_switched_on()) {
-            set_app_active(false);
-        }
-    } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
-        render::engine_parts().set_device_lost(true);
-        set_app_active(true);
-    }
-}
-
 } // namespace
 
 bool& get_windowed() { return sdl_window_state().windowed_; }
@@ -131,10 +107,9 @@ int& get_window_width() { return sdl_window_state().client_width_; }
 int& get_window_height() { return sdl_window_state().client_height_; }
 SDL_Window* sdl_window() { return sdl_window_state().window_; }
 
-void create_sdl_window()
+HWND create_sdl_window()
 {
     load_window_settings();
-    os_layer::register_event_handler(handle_window_event);
     SDL_Init(SDL_INIT_VIDEO);
 
     uint32_t flags = sdl_window_state().windowed_ ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
@@ -162,10 +137,10 @@ void create_sdl_window()
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
     SDL_GetWindowWMInfo(sdl_window_state().window_, &info);
-    render::renderer().set_game_window(std::bit_cast<WindowsWmInfo>(info).window);
     set_app_active(true);
 
     SDL_ShowCursor(0);
+    return std::bit_cast<WindowsWmInfo>(info).window;
 }
 
 } // namespace sys

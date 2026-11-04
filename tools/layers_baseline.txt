@@ -457,8 +457,6 @@ src/platform/platform_input.cpp -> src/engine/gfx/renderer.h
 src/platform/platform_input.cpp -> src/engine/gfx/view_cam.h
 src/platform/platform_input.cpp -> src/engine/gfx/view_setup.h
 src/platform/platform_input.cpp -> src/engine/pad_input/device.h
-src/platform/platform_system.cpp -> src/engine/audio/music_player.h
-src/platform/platform_system.cpp -> src/engine/gfx/renderer.h
 src/platform/screenshot.cpp -> src/editor/level_editor.h
 src/platform/screenshot.cpp -> src/editor/level_editor_hud.h
 src/platform/screenshot.cpp -> src/editor/level_editor_scenery.h
@@ -476,9 +474,6 @@ src/platform/screenshot.cpp -> src/frontend/front_end.h
 src/platform/screenshot.cpp -> src/game/rider/rider.h
 src/platform/screenshot.cpp -> src/game/skate/game_mode.h
 src/platform/screenshot.cpp -> src/game/skate/skate_module.h
-src/platform/sdl_window.cpp -> src/engine/gfx/engine_parts.h
-src/platform/sdl_window.cpp -> src/engine/gfx/renderer.h
-src/platform/sdl_window.cpp -> src/frontend/automation.h
 src/platform/stopwatch.cpp -> src/engine/gfx/engine.h
 src/platform/stopwatch.cpp -> src/engine/sys/game_config.h
 src/wire/gamenet_messages.cpp -> src/formats/byte_stream.h

@@ -11,10 +11,8 @@
 #include <span>
 
 #include "platform/mute_audio.h"
-#include "engine/audio/music_player.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/renderer.h"
 #include "base/maths/rect.h"
 
 namespace os_layer {
@@ -50,8 +48,6 @@ char& cd_drive_slash() { return platform_system_state().cd_drive_slash_; }
 // How far the window's frame reaches left of / above its inside (negated AdjustWindowRect's left / top).
 int& get_frame_left() { return platform_system_state().frame_left_; }
 int& frame_top() { return platform_system_state().frame_top_; }
-
-IDirectSound8* direct_sound() { return static_cast<IDirectSound8*>(audio::get_sound_device()); }
 
 // IMA ADPCM's tables (0x0068E0C0, 0x0068E0E0).
 const std::array<int, 8> kIndexSteps = {{-1, -1, -1, -1, 2, 4, 6, 8}};
@@ -144,33 +140,31 @@ HWND create_game_window(const char* class_name, const char* title, maths::PixelP
         frame_height = GetSystemMetrics(SM_CYSCREEN);
     }
     SetLastError(0);
-    render::renderer().set_game_window(CreateWindowExA(ex_style, class_name, title, style, x, y, frame_width, frame_height, nullptr,
-                                    nullptr, instance, nullptr));
-    return render::renderer().game_window();
+    return CreateWindowExA(ex_style, class_name, title, style, x, y, frame_width, frame_height, nullptr, nullptr, instance,
+                           nullptr);
 }
 
 // 0x005F59D0
-void init_direct_sound(HWND window)
+IDirectSound8* init_direct_sound(HWND window)
 {
     IDirectSound8* device = nullptr;
     DirectSoundCreate8(nullptr, &device, nullptr);
-    audio::set_sound_device(device);
-    if (direct_sound()) {
-        direct_sound()->SetCooperativeLevel(window, DSSCL_PRIORITY);
+    if (device) {
+        device->SetCooperativeLevel(window, DSSCL_PRIORITY);
     }
     // NOT ORIGINAL: [features] mute_audio=1 - the process's audio session muted before anything plays
     // (platform/mute_audio.h)
     if (sound::audio_muted()) {
         sound::set_audio_session_muted(true);
     }
+    return device;
 }
 
 // 0x005F5A00
-void release_direct_sound()
+void release_direct_sound(IDirectSound8* device)
 {
-    if (direct_sound()) {
-        direct_sound()->Release();
-        audio::set_sound_device(nullptr);
+    if (device) {
+        device->Release();
     }
     // NOT ORIGINAL: unmuted again, or Windows would keep the session muted for the exe's next run
     if (sound::audio_muted()) {

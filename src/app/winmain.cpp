@@ -19,7 +19,10 @@
 #include <string>
 #include <string_view>
 
+#include <SDL2/SDL.h>
+
 #include "base/core/dbg.h"
+#include "engine/audio/music_player.h"
 #include "engine/memory/manager.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/net/gamenet_qr2.h"
@@ -40,6 +43,7 @@
 #include "platform/sdl_window.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/script/game_cfuncs.h"
+#include "frontend/automation.h"
 #include "base/core/parse_number.h"
 #include "base/core/pointer_cell.h"
 #include "base/core/checked_index.h"
@@ -166,8 +170,13 @@ void c_exit() { crt::c_exit(); }                              // _cexit: atexit 
 
 // The platform layer's parts without source yet.
 char find_cd_drive(const char* volume) { return os_layer::find_cd_drive(volume); }
-void init_direct_sound(HWND window) { os_layer::init_direct_sound(window); }
-void release_direct_sound() { os_layer::release_direct_sound(); }
+// (the DirectSound device kept in the audio's state: audio::get_sound_device)
+void init_direct_sound(HWND window) { audio::set_sound_device(os_layer::init_direct_sound(window)); }
+void release_direct_sound()
+{
+    os_layer::release_direct_sound(static_cast<IDirectSound8*>(audio::get_sound_device()));
+    audio::set_sound_device(nullptr);
+}
 void release_direct_3d() { os_layer::release_direct_3d(); }
 // A key's name (at most 14 characters), by its scan code (the table at 0x007D42F8).
 void set_key_name(unsigned scan_code, const wchar_t* name)
@@ -187,6 +196,28 @@ const std::array<std::array<uint32_t, 24>, 3> kDefaultBindings = {{
     {2, 2, 1, 1, 0x0B, 0x0C, 0x0D, 0x0E},
     {},
 }};
+
+// The SDL window's focus events (sdl_window.h): the game's focus flag (0x007CCBE4) and whether the device may be
+// recreated (0x00786AB4: off while the window is in the background).
+void handle_window_event(SDL_Event* event)
+{
+    if (event->type != SDL_WINDOWEVENT) {
+        return;
+    }
+    if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+        render::engine_parts().set_device_lost(false);
+        // Not PartyMod's - with the test-automation channel on (frontend/automation.h) the game keeps drawing in
+        // the background, so a test's picture of its window (PrintWindow) shows the frame now, not the last one
+        // drawn before the window lost the focus (the main loop draws nothing while the flag is off).
+        // Original behaviour (PartyMod v1.0.4): Focused() = false always.
+        if (!frontend::automation::is_switched_on()) {
+            set_app_active(false);
+        }
+    } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+        render::engine_parts().set_device_lost(true);
+        set_app_active(true);
+    }
+}
 
 } // namespace
 
@@ -366,7 +397,8 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     //     char title[26] = <the title>;
     //     create_game_window(<the title> as the class name, title, 100, {.width = 100, .height = 640}, 480, get_window_proc 0x004E16B0,
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
-    create_sdl_window();
+    os_layer::register_event_handler(handle_window_event);
+    render::renderer().set_game_window(create_sdl_window());
     os_layer::process_window_events();
     if (!render::renderer().game_window()) {
         return 0;
