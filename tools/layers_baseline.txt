@@ -12,12 +12,7 @@ src/engine/file/data_overlay.cpp -> src/game/skate/thugpro_cas.h
 src/engine/gfx/anim_channel.cpp -> src/game/online/gamenet_manager.h
 src/engine/gfx/anim_channel.cpp -> src/game/online/net_game_state.h
 src/engine/gfx/anim_channel.cpp -> src/game/online/player_info.h
-src/engine/gfx/draw_frame.cpp -> src/game/skate/skate_module.h
-src/engine/gfx/engine.cpp -> src/game/skate/skate_module.h
-src/engine/gfx/engine_texture_projection.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/model_appearance.cpp -> src/game/skate/cas_options.h
-src/engine/gfx/particle_system.cpp -> src/game/skate/skate_module.h
-src/engine/gfx/particle_system_update.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/screen.cpp -> src/game/skate/career.h
 src/engine/gfx/screen.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/tod_manager.cpp -> src/game/front_end/front_end.h

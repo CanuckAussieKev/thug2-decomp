@@ -133,3 +133,12 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* script);
 inline constexpr std::array<int, 24> kModeMaps{{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1}};
 
 } // namespace render
+
+// The number of viewports the screen mode shows (set_screen_mode sets it; the frame, the particles, the suspension and
+// the skate module read it). Named in modules:: as the skate module, which used to hold it, named it.
+namespace modules {
+
+int viewport_count();
+void set_viewport_count(int value);
+
+} // namespace modules

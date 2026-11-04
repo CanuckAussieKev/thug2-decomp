@@ -29,7 +29,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/objects/particle_component.h"
-#include "game/skate/skate_module.h"
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/weather.h"
 #include <gsl/pointers>

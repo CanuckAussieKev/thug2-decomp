@@ -21,7 +21,6 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/texture_projection_component.h"
-#include "game/skate/skate_module.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"

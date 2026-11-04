@@ -21,7 +21,6 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/skate_module.h"
 #include "engine/gfx/flexible_particle_manager.h"
 #include "platform/crt.h"
 #include "base/core/checked_index.h"

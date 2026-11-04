@@ -335,7 +335,4 @@ private:
 // 0x00567C70: elimiskate's rankings (FillRankingScreen's: by the time each player was knocked out).
 void fill_elimination_ranking();
 
-int viewport_count();
-void set_viewport_count(int value);
-
 } // namespace modules

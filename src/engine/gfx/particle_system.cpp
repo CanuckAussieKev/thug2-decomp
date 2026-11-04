@@ -25,7 +25,6 @@
 #include "base/maths/mat4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/skate_module.h"
 #include "base/core/checked_index.h"
 #include "base/maths/vec4.h"
 #include "base/core/checksums.h"

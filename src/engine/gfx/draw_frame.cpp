@@ -45,7 +45,6 @@
 #include "engine/gfx/engine.h"
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/weather.h"
-#include "game/skate/skate_module.h"
 #include "base/core/checked_index.h"
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/renderer.h"

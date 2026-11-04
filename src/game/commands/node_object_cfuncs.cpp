@@ -49,6 +49,7 @@
 #include "engine/gfx/scene_lights.h"
 #include "engine/gfx/sector.h"
 #include "game/skate/skate_module.h"
+#include "engine/gfx/viewport.h"
 #include "engine/script/script_startup.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/compositemgr.h"

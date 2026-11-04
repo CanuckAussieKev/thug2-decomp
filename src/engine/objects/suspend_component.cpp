@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/assets/resource_registry.h"
 #include "game/skate/skate_module.h"
+#include "engine/gfx/viewport.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"

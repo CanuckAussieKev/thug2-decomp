@@ -387,3 +387,20 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* /*script*/)
 }
 
 } // namespace render
+
+namespace modules {
+
+namespace {
+
+int& stored_viewport_count()
+{
+    static int viewport_count{};
+    return viewport_count;
+}
+
+} // namespace
+
+int viewport_count() { return stored_viewport_count(); }
+void set_viewport_count(int value) { stored_viewport_count() = value; }
+
+} // namespace modules

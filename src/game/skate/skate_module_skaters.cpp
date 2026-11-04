@@ -98,16 +98,7 @@ constexpr float kKingBeepStartTime = 10.0F; // the timer beeps start this many s
 constexpr float kKingBeepRate = 10.0F;
 constexpr int kHighScoreLevelCount = 0x15;
 
-int& stored_viewport_count()
-{
-    static int viewport_count{};
-    return viewport_count;
-}
-
 } // namespace
-
-int viewport_count() { return stored_viewport_count(); }
-void set_viewport_count(int value) { stored_viewport_count() = value; }
 
 namespace {
 // NOT ORIGINAL grouping - skate_module_skaters.cpp's state (the original's globals). Made on first use, never destroyed
@@ -961,7 +952,7 @@ void Skate::run_frame_logic()
     }
     // The proximity nodes told where the players (and their cameras) are.
     if (get_home_rider()) {
-        const int screens = stored_viewport_count();
+        const int screens = viewport_count();
         if (screens == 1) {
             if (viewport_camera(0)) {
                 const maths::Vec4* camera = viewport_camera(0)->fetch_location();
@@ -982,7 +973,7 @@ void Skate::run_frame_logic()
             }
         }
     } else if ((static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) != 0U) &&
-               stored_viewport_count() == 1 && viewport_camera(0)) {
+               viewport_count() == 1 && viewport_camera(0)) {
         objects::proximity_notify(1, nullptr, viewport_camera(0)->fetch_location(), 1);
     }
     if (stage_switched_) {
