@@ -246,13 +246,41 @@ add_library(thug2_wire STATIC
 )
 target_link_libraries(thug2_wire PUBLIC thug2_formats)
 
+# The platform layer (src/platform): the OS and SDK side - the SDL window and its event pump, the run log and crash
+# reports, the C runtime's game-visible parts, the settings file, the registry, DirectSound's set-up, Bink, Winsock,
+# the GameSpy SDK's glue, D3DX and the screenshot files. It includes nothing of the project but base (tools/layers.ts
+# checks it); what the game does on its events and with its devices is passed in or handed back by app/ (WinMain,
+# the start-up).
+add_library(thug2_platform STATIC
+    src/platform/bink.cpp
+    src/platform/crash.cpp
+    src/platform/crt.cpp
+    src/platform/d3dx.cpp
+    src/platform/debug_log.cpp
+    src/platform/gamespy.cpp
+    src/platform/mute_audio.cpp
+    src/platform/output_sinks.cpp
+    src/platform/platform_config.cpp
+    src/platform/platform_system.cpp
+    src/platform/process_flags.cpp
+    src/platform/registry.cpp
+    src/platform/run_log.cpp
+    src/platform/screenshot_files.cpp
+    src/platform/sdl_events.cpp
+    src/platform/sdl_window.cpp
+    src/platform/sockets.cpp
+)
+target_include_directories(thug2_platform PRIVATE "${stb_SOURCE_DIR}")
+# sdl2: the window and its events; dsound, ole32: DirectSound and the audio session (mute_audio); ws2_32: Winsock;
+# d3d9, winmm: crt.h's imports; d3dx9: d3dx.cpp; gamespy_sdk: gamespy.cpp; stb_image_write: the PNG files
+target_link_libraries(thug2_platform PUBLIC thug2_base sdl2 ws2_32 dsound ole32 d3d9 d3dx9 winmm gamespy_sdk stb_image_write)
+target_compile_options(thug2_platform PRIVATE /we4150)
+
 # --- The game ----------------------------------------------------------------------------------------------------
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
 # (its Data folder, binkw32.dll): README.md "Building and running".
 add_executable(thug2 WIN32
     src/app/main.cpp
-    src/platform/run_log.cpp
-    src/platform/crash.cpp
     src/engine/assets/resource_entry.cpp
     src/engine/assets/asset_types.cpp
     src/engine/assets/resource_registry.cpp
@@ -300,7 +328,6 @@ add_executable(thug2 WIN32
     src/editor/level_editor.cpp
     src/frontend/restart_tester.cpp
     src/devtools/screenshot.cpp
-    src/platform/screenshot_files.cpp
     src/engine/gfx/screenshot_capture.cpp
     src/frontend/career_complete.cpp
     src/frontend/test_view.cpp
@@ -559,7 +586,6 @@ add_executable(thug2 WIN32
     src/engine/gfx/pc_material_load.cpp
     src/engine/gfx/render_state.cpp
     src/engine/gfx/renderer.cpp
-    src/platform/d3dx.cpp
     src/engine/gfx/occlusion.cpp
     src/engine/gfx/shadow_base.cpp
     src/engine/gfx/mesh_list.cpp
@@ -672,7 +698,6 @@ add_executable(thug2 WIN32
     src/engine/net/service.cpp
     src/engine/net/online_hosts.cpp
     src/engine/net/online_identity.cpp
-    src/platform/gamespy.cpp
     src/engine/net/thugpro_compat.cpp
     src/engine/net/net_guards.cpp
     src/engine/net/thugpro_join.cpp
@@ -713,7 +738,6 @@ add_executable(thug2 WIN32
     src/engine/sound/sfx.cpp
     src/engine/sound/sound_cfuncs.cpp
     src/engine/sound/sfx_voices.cpp
-    src/platform/mute_audio.cpp
     src/engine/sound/surface_kind.cpp
     src/engine/gfx/anim_blend.cpp
     src/engine/gfx/anim_timeline.cpp
@@ -843,19 +867,9 @@ add_executable(thug2 WIN32
     src/engine/gfx/pc_d3d_resources.cpp
     src/engine/pad_input/direct_input.cpp
     src/engine/pad_input/direct_input_state.cpp
-    src/platform/platform_system.cpp
     src/engine/pad_input/pad_cfuncs.cpp
     src/engine/sys/debug_mode.cpp
-    src/platform/platform_config.cpp
-    src/platform/crt.cpp
-    src/platform/bink.cpp
-    src/platform/sockets.cpp
-    src/platform/debug_log.cpp
-    src/platform/output_sinks.cpp
     src/app/pc_setup.cpp
-    src/platform/sdl_events.cpp
-    src/platform/sdl_window.cpp
-    src/platform/registry.cpp
     src/engine/sys/stopwatch.cpp
     src/app/startup.cpp
     src/engine/sys/mlp.cpp
@@ -863,7 +877,6 @@ add_executable(thug2 WIN32
     src/engine/sys/system_cfuncs.cpp
     src/engine/sys/game_module.cpp
     src/app/winmain.cpp
-    src/platform/process_flags.cpp
     src/engine/sys/startup_init.cpp
     src/game/save_cards/memcard.cpp
     src/game/save_cards/save_cards_state.cpp
@@ -946,7 +959,7 @@ target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
+target_link_libraries(thug2 PRIVATE thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md);
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
 target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
