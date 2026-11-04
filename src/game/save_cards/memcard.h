@@ -2,10 +2,10 @@
 
 #include <cstdint>
 
-#include <windows.h>
 #include <array>
 
 #include "engine/memory/arena_alloc.h"
+#include "engine/file/disk.h"
 
 // Memory cards on the PC: saves are files under "Save\" (the console code's card/file interface, backed by
 // Win32 files). One manager (reference counted) holds the one card.
@@ -44,7 +44,7 @@ struct FileLoad {
     void set_year(uint16_t value) { year_ = value; }
     void set_extent(uint32_t value) { extent_ = value; }
     void set_unknown48(uint16_t value) { unknown48_ = value; }
-    void set_hdl(const HANDLE& value) { hdl_ = value; }
+    void set_hdl(fs::DiskFile* value) { hdl_ = value; }
     void set_save_device(SaveCard* value) { save_device_ = value; }
 
 private:
@@ -56,19 +56,19 @@ private:
     uint32_t extent_;
     uint16_t unknown48_;
     std::array<uint8_t, kUnknown4aBytes> unknown4a_;
-    HANDLE hdl_;
+    fs::DiskFile* hdl_;
     SaveCard* save_device_;
 
 public:
 
     // A seek: the offset and where it is from (SEEK_SET / CUR / END).
     struct SeekTo {
-        LONG offset{};
+        int32_t offset{};
         int origin{};
     };
 
     // Origin: 0 from the start, 1 from the current position, else from the end. Returns the new position.
-    DWORD seek_to(SeekTo seek);
+    uint32_t seek_to(SeekTo seek);
     bool drain();
     // The bytes written / read, or 0 on failure.
     int emit_out(const void* data, int size);

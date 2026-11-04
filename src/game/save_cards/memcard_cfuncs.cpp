@@ -12,6 +12,7 @@
 #include <span>
 
 #include "base/core/dbg.h"
+#include "engine/file/disk.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "base/core/stubs.h"
@@ -61,12 +62,11 @@ int32_t free_disk_blocks(SaveCard* card)
     if (card->present() == 0U) {
         return 0;
     }
-    ULARGE_INTEGER free_space;
-    ULARGE_INTEGER total_space;
-    if (GetDiskFreeSpaceExA(nullptr, &free_space, &total_space, nullptr) == FALSE) {
+    uint64_t free_space = 0;
+    if (!fs::disk().free_space(&free_space)) {
         return 0;
     }
-    uint64_t blocks = free_space.QuadPart >> kBlockShift;
+    uint64_t blocks = free_space >> kBlockShift;
     constexpr uint64_t kLimit = INT32_MAX - UINT16_MAX * 2; // (a number that leaves room for a bit of maths)
     blocks = std::min(blocks, kLimit);
     return static_cast<int32_t>(blocks);

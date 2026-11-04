@@ -6,8 +6,9 @@
 #include <string_view>
 #include <cstring>
 #include <array>
-#include <iterator>
 
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "game/save_cards/save_types.h"
@@ -23,6 +24,7 @@ namespace {
 constexpr size_t kPathBufferBytes = 128;
 constexpr size_t kFilenameBufferBytes = 320;
 constexpr int kCardPresent = 0x75; // what the save device's presence is set to
+constexpr int kHighWordShift = 32;
 
 // NOT ORIGINAL grouping - memcard.cpp's state (the original's globals). Made on first use, never destroyed
 // (memcard_state()).
@@ -45,7 +47,7 @@ std::array<char, kFilenameBufferBytes>& filename_buffer() { return memcard_state
 int& ref_tally() { return memcard_state().memcard_references_; }
 
 // A new (zeroed) file object: its own one-item list, no handle yet.
-FileLoad* new_file(HANDLE handle, SaveCard* card)
+FileLoad* new_file(fs::DiskFile* handle, SaveCard* card)
 {
     auto* file = static_cast<FileLoad*>(memory::alloc_zeroed(sizeof(FileLoad)));
     if (!file) {
@@ -70,43 +72,42 @@ FileLoad* FileLoad::teardown(unsigned int flags)
 }
 
 // 0x005BC800
-DWORD FileLoad::seek_to(SeekTo seek)
+uint32_t FileLoad::seek_to(SeekTo seek)
 {
     const auto offset = seek.offset;
     const auto origin = seek.origin;
-    DWORD method = FILE_END; // (0: from the start, 1: from here, anything else: from the end)
+    fs::Origin from = fs::Origin::kEnd; // (0: from the start, 1: from here, anything else: from the end)
     if (origin == 0) {
-        method = FILE_BEGIN;
+        from = fs::Origin::kBegin;
     } else if (origin == 1) {
-        method = FILE_CURRENT;
+        from = fs::Origin::kCurrent;
     }
-    return SetFilePointer(hdl_, offset, nullptr, method);
+    return fs::disk().seek(hdl_, offset, from);
 }
 
 // 0x005BC840
 bool FileLoad::drain()
 {
-    FlushFileBuffers(hdl_);
+    fs::disk().flush(hdl_);
     return true;
 }
 
 // 0x005BC850
 int FileLoad::emit_out(const void* data, int size)
 {
-    DWORD written = 0;
-    return (WriteFile(hdl_, data, static_cast<DWORD>(size), &written, nullptr) != FALSE) ? static_cast<int>(written)
-                                                                                         : 0;
+    uint32_t written = 0;
+    return fs::disk().write(hdl_, data, static_cast<uint32_t>(size), &written) ? static_cast<int>(written) : 0;
 }
 
 // 0x005BC880
 int FileLoad::get_take_in(void* buffer, int size)
 {
-    DWORD read = 0;
-    return (ReadFile(hdl_, buffer, static_cast<DWORD>(size), &read, nullptr) != FALSE) ? static_cast<int>(read) : 0;
+    uint32_t read = 0;
+    return fs::disk().read(hdl_, buffer, static_cast<uint32_t>(size), &read, nullptr) ? static_cast<int>(read) : 0;
 }
 
 // 0x005BC8B0
-bool FileLoad::shut() { return CloseHandle(hdl_) != 0; }
+bool FileLoad::shut() { return fs::disk().close(hdl_); }
 
 // 0x005BC9B0
 FileLoad* SaveCard::unseal(const char* name, int mode, int /*unused*/)
@@ -119,34 +120,31 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int /*unused*/)
         const char character = i < text.size() ? core::at(text, i) : '\0';
         core::at(path, i) = character == '/' ? '\\' : character;
     }
-    DWORD access = 0;
-    DWORD disposition = 0;
+    fs::OpenSpec spec{.access = fs::Access::kRead, .sharing = fs::Sharing::kNone,
+                      .disposition = fs::Disposition::kOpenExisting, .hint = fs::Hint::kNormal};
     switch (mode) {
     case 1:
-        access = GENERIC_READ;
-        disposition = OPEN_EXISTING;
+        spec.access = fs::Access::kRead;
         break;
     case 2:
-        access = GENERIC_WRITE;
-        disposition = OPEN_EXISTING;
+        spec.access = fs::Access::kWrite;
         break;
     case 3:
-        access = GENERIC_READ | GENERIC_WRITE;
-        disposition = OPEN_EXISTING;
+        spec.access = fs::Access::kReadWrite;
         break;
     case 4:
-        access = GENERIC_WRITE;
-        disposition = CREATE_NEW;
+        spec.access = fs::Access::kWrite;
+        spec.disposition = fs::Disposition::kCreateNew;
         break;
     case kOpenWriteAlways:
-        access = GENERIC_WRITE;
-        disposition = OPEN_ALWAYS;
+        spec.access = fs::Access::kWrite;
+        spec.disposition = fs::Disposition::kOpenAlways;
         break;
     default:
         return nullptr;
     }
-    HANDLE handle = CreateFileA(path.data(), access, 0, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (handle == INVALID_HANDLE_VALUE) {
+    fs::DiskFile* handle = fs::disk().open(path.data(), spec);
+    if (handle == fs::no_file()) {
         // (the error is always 0 here: this never happens)
         if (fault_ == kErrorDiskFull) {
             fault_ = 2;
@@ -154,13 +152,13 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int /*unused*/)
         return nullptr;
     }
     FileLoad* file = new_file(handle, this);
-    WIN32_FILE_ATTRIBUTE_DATA attributes; // (asked for, not used)
-    GetFileAttributesExA(path.data(), GetFileExInfoStandard, &attributes);
+    fs::FileStat attributes; // (asked for, not used)
+    fs::disk().stat(path.data(), &attributes);
     return file;
 }
 
 // 0x005BC770
-bool SaveCard::remove_file(const char* name) { return DeleteFileA(name) != 0; }
+bool SaveCard::remove_file(const char* name) { return fs::disk().remove(name); }
 
 // 0x005BC740
 const char* SaveCard::convert_filename(const char* name)
@@ -175,12 +173,13 @@ int SaveCard::get_free_blocks() const
     if (present_ == 0U) {
         return 0;
     }
-    ULARGE_INTEGER available;
-    ULARGE_INTEGER total;
-    if (GetDiskFreeSpaceExA(nullptr, &available, &total, nullptr) == FALSE) {
+    uint64_t available = 0;
+    if (!fs::disk().free_space(&available)) {
         return 0;
     }
-    return static_cast<int>((available.LowPart >> kBlockShift) + (available.HighPart << kHighPartBlockShift));
+    const auto low = static_cast<uint32_t>(available);
+    const auto high = static_cast<uint32_t>(available >> kHighWordShift);
+    return static_cast<int>((low >> kBlockShift) + (high << kHighPartBlockShift));
 }
 
 // 0x005BCAE0
@@ -188,37 +187,30 @@ bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
 {
     const char* path = path_buffer().data();
     text::format_to(path_buffer(), "Save\\%s", pattern); // (the original: up to MAX_PATH into the 128 bytes)
-    WIN32_FIND_DATAA found;
-    HANDLE search = FindFirstFileA(path, &found);
-    if (search == INVALID_HANDLE_VALUE) {
-        return true;
-    }
-    for (bool again = true; again; again = (FindNextFileA(search, &found) != FALSE)) {
-        if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0U) {
-            continue;
+    fs::list(path, [&](const fs::Found& found) {
+        if (found.folder) {
+            return true;
         }
         FileLoad* file = new_file(nullptr, this);
         // (no bounds: a long name runs into the fields after it, as in the original)
-        std::memcpy(file->label().data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
-        FILETIME local;
-        SYSTEMTIME time;
-        FileTimeToLocalFileTime(&found.ftLastWriteTime, &local);
-        FileTimeToSystemTime(&local, &time);
-        file->set_year(time.wYear);
-        file->set_month(static_cast<uint8_t>(time.wMonth));
-        file->set_day(static_cast<uint8_t>(time.wDay));
-        file->set_hour(static_cast<uint8_t>(time.wHour));
-        file->set_minute(static_cast<uint8_t>(time.wMinute));
-        file->set_second(static_cast<uint8_t>(time.wSecond));
-        file->set_extent(found.nFileSizeLow);
+        std::memcpy(file->label().data(), found.name, std::strlen(found.name) + 1);
+        fs::LocalTime time;
+        fs::disk().local_time(found.write_time, &time);
+        file->set_year(time.year);
+        file->set_month(static_cast<uint8_t>(time.month));
+        file->set_day(static_cast<uint8_t>(time.day));
+        file->set_hour(static_cast<uint8_t>(time.hour));
+        file->set_minute(static_cast<uint8_t>(time.minute));
+        file->set_second(static_cast<uint8_t>(time.second));
+        file->set_extent(found.size_low);
         file->set_unknown48(0);
         // At the end of the list.
         file->list_link().set_prev(list->prev());
         file->list_link().set_next(list);
         list->prev()->set_next(&file->list_link());
         list->set_prev(&file->list_link());
-    }
-    FindClose(search);
+        return true;
+    });
     return true;
 }
 

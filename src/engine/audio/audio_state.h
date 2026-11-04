@@ -10,6 +10,7 @@
 #include <windows.h>
 
 #include "engine/audio/music_player.h"
+#include "engine/file/disk.h"
 #include "engine/audio/stream.h"
 #include "engine/audio/stream_files.h"
 
@@ -100,15 +101,15 @@ MusicState& music_state();
 // start-up). Made on first use, never destroyed (wad_state()).
 class WadState {
 public:
-    void*& wad_file() { return wad_file_; }
-    [[nodiscard]] void* wad_file() const { return wad_file_; }
+    fs::DiskFile*& wad_file() { return wad_file_; }
+    [[nodiscard]] fs::DiskFile* wad_file() const { return wad_file_; }
     WadEntry*& wad_entries() { return wad_entries_; }
     [[nodiscard]] WadEntry* wad_entries() const { return wad_entries_; }
     [[nodiscard]] void* stream_lock() const { return stream_lock_; }
     void set_stream_lock(void* value) { stream_lock_ = value; }
 
 private:
-    void* wad_file_{INVALID_HANDLE_VALUE};
+    fs::DiskFile* wad_file_{fs::no_file()};
     WadEntry* wad_entries_{};
     void* stream_lock_{}; // a mutex (HANDLE), made at start-up
 };

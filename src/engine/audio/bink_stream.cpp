@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "base/core/checked_index.h"
+#include "engine/file/disk.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/audio/audio_device.h"
@@ -150,8 +151,8 @@ void BinkStream::destruct()
     media::MovieHeader* bink = bink_;
     bink_ = nullptr;
     media::movie().close(bink); // (even with none open)
-    if (file_ref_ != INVALID_HANDLE_VALUE && !shared_file_) {
-        CloseHandle(file_ref_);
+    if (file_ref_ != fs::no_file() && !shared_file_) {
+        fs::disk().close(file_ref_);
     }
     if (wad_entry_ >= 0) {
         CachedStreamFile& entry = wad_file(wad_entry_);
@@ -224,11 +225,11 @@ Result WadStream::start_read()
     played_ = 0;
     unknown10_ = 0;
     *async_ctl_ = platform::read_from(*async_ctl_, from_wad_ ? shift_ : 0, async_ctl_->hEvent);
-    if (ReadFile(file_ref_, octets_, kReadChunkBytes, nullptr, async_ctl_) != FALSE) {
+    if (fs::disk().read(file_ref_, octets_, kReadChunkBytes, nullptr, async_ctl_)) {
         read_done_ = true;
         return 0;
     }
-    const DWORD error = GetLastError();
+    const DWORD error = fs::disk().last_error();
     if (error == ERROR_IO_PENDING) {
         return 0;
     }
@@ -259,7 +260,7 @@ Result WadStream::unseal(FileBuffer file_buffer)
     auto* const buffer = file_buffer.buffer;
     unknown50_ = 0;
     file_ref_ = file;
-    if (file == INVALID_HANDLE_VALUE) {
+    if (file == fs::no_file()) {
         // HRESULT_FROM_WIN32(GetLastError()), the macro calling it twice
         if (static_cast<int>(GetLastError()) <= 0) {
             return static_cast<Result>(GetLastError());

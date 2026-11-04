@@ -30,6 +30,8 @@
 #include "engine/script/nodes.h"
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
 #include "engine/objects/compositemgr.h"
@@ -705,16 +707,19 @@ bool fetch_place(script::Struct* structure, script::VectorValue* out)
     return structure->fetch_vec(kPosition, out, 0) || structure->fetch_vec(kPos, out, 0);
 }
 
-// The game's C runtime (library code, called through the game).
-gsl::owner<void*> game_fopen(const char* name, const char* mode) { return crt::get_fopen(name, mode); }
-int game_fseek(void* file, long offset, int origin) { return crt::get_fseek(static_cast<FILE*>(file), offset, origin); }
-long game_ftell(void* file) { return crt::get_ftell(static_cast<FILE*>(file)); }
-gsl::owner<void*> game_malloc(size_t size) { return crt::alloc_block(size); }
-size_t game_fread(void* buffer, size_t size, size_t count, void* file)
+// The game's C runtime (library code, called through the game; its files are the disk's streams, engine/file/disk.h).
+fs::DiskStream* game_fopen(const char* name, const char* mode)
 {
-    return crt::get_fread(buffer, size, count, static_cast<FILE*>(file));
+    return fs::disk().open_stream(name, mode, fs::StreamSharing::kAll);
 }
-int game_fclose(gsl::owner<void*> file) { return crt::get_fclose(memory::adopt<FILE*>(file)); }
+int game_fseek(fs::DiskStream* file, long offset, int origin) { return fs::disk().stream_seek(file, offset, origin); }
+long game_ftell(fs::DiskStream* file) { return fs::disk().stream_tell(file); }
+gsl::owner<void*> game_malloc(size_t size) { return crt::alloc_block(size); }
+size_t game_fread(void* buffer, size_t size, size_t count, fs::DiskStream* file)
+{
+    return fs::disk().stream_read(file, buffer, size, count);
+}
+int game_fclose(fs::DiskStream* file) { return fs::disk().stream_close(file); }
 void game_free(gsl::owner<void*> memory) { crt::dealloc(memory); }
 double game_atof(const char* text) { return crt::get_atof(text); }
 
@@ -910,7 +915,7 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script* /*scr
     std::array<char, kPathSize> path{};
     THUG2_MSVC_WARNING(suppress : 4996)    // (unbounded: as in the original)
     text::format_to(path, "faces\\%s", name);               // "faces\%s"
-    gsl::owner<void*> file = game_fopen(path.data(), "rb"); // "rb"
+    fs::DiskStream* file = game_fopen(path.data(), "rb"); // "rb"
     if (!file) {
         return false;
     }
@@ -1028,21 +1033,15 @@ bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script* /*scr
 // Faces\*.img files with names up to 90 characters. False if there are none.
 bool cfunc_add_faces_to_menu(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    WIN32_FIND_DATAA found;
-    HANDLE search = FindFirstFileA("Faces\\*.img", &found); // "Faces\*.img"
-    if (search == INVALID_HANDLE_VALUE) {
-        return false;
-    }
     int count = 0;
-    for (bool again = true; again; again = count < kMaxFilesListed && (FindNextFileA(search, &found) != FALSE)) {
-        if (((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0U) &&
-            std::strlen(std::data(found.cFileName)) <= kMaxFileNameLength) {
+    return fs::list("Faces\\*.img", [&](const fs::Found& found) { // "Faces\*.img"
+        if (!found.folder && std::strlen(found.name) <= kMaxFileNameLength) {
             constexpr size_t kFileSize = 0x110;
             std::array<char, kFileSize> file{};
             constexpr size_t kNameSize = 0xC8;
             std::array<char, kNameSize> name{};
-            std::memcpy(file.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
-            std::memcpy(name.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
+            std::memcpy(file.data(), found.name, std::strlen(found.name) + 1);
+            std::memcpy(name.data(), found.name, std::strlen(found.name) + 1);
             if (std::strlen(name.data()) > 4) {
                 core::at(name, std::strlen(name.data()) - 4) = '\0';
             }
@@ -1052,9 +1051,8 @@ bool cfunc_add_faces_to_menu(script::Struct* /*params*/, script::Script* /*scrip
             script::launch_script("add_item_to_face_menu", item.get(), nullptr, false); // "add_item_to_face_menu"
             ++count;
         }
-    }
-    FindClose(search);
-    return true;
+        return count < kMaxFilesListed;
+    });
 }
 
 } // namespace commands

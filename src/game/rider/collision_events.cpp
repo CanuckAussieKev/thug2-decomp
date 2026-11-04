@@ -24,6 +24,7 @@
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
+#include "engine/file/disk.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
@@ -244,21 +245,19 @@ std::string get_level_name()
 // A file's size and time ("<size>@YYYY-MM-DDTHH:MM:SS", local time), "" if it isn't there.
 std::string file_stamp(const std::string& path)
 {
-    WIN32_FILE_ATTRIBUTE_DATA data = {};
-    if (GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data) == FALSE) {
+    fs::FileStat data;
+    if (!fs::disk().stat(path.c_str(), &data)) {
         return {};
     }
-    FILETIME local;
-    SYSTEMTIME system_time;
-    if ((FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) == FALSE) ||
-        (FileTimeToSystemTime(&local, &system_time) == FALSE)) {
+    fs::LocalTime system_time;
+    if (!fs::disk().local_time(data.write_time, &system_time)) {
         return {};
     }
     std::array<char, kFileTextBytes> text{};
     text::format_to(text, "%llu@%04u-%02u-%02uT%02u:%02u:%02u",
-                    (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow,
-                    system_time.wYear, system_time.wMonth, system_time.wDay, system_time.wHour, system_time.wMinute,
-                    system_time.wSecond);
+                    static_cast<unsigned long long>(data.size), unsigned{system_time.year},
+                    unsigned{system_time.month}, unsigned{system_time.day}, unsigned{system_time.hour},
+                    unsigned{system_time.minute}, unsigned{system_time.second});
     return text.data();
 }
 

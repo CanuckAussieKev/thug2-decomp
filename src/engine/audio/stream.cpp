@@ -12,6 +12,7 @@
 #include <vector>
 #include <array>
 
+#include "engine/file/disk.h"
 #include "base/core/checked_index.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
@@ -34,6 +35,7 @@ WadState& wad_state()
 namespace {
 constexpr size_t kWadNameSize = 0x22;
 constexpr size_t kOverlappedSlots = 256;
+constexpr uint32_t kSizeUnknown = 0xFFFFFFFFU; // a size that couldn't be read (Win32's INVALID_FILE_SIZE)
 constexpr int kIoPollMs = 5;
 
 // The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
@@ -74,7 +76,7 @@ HANDLE& thread_handle() { return stream_io_state().thread_handle_; }
 bool& stop_thread() { return stream_io_state().stop_thread_; }
 
 // pcm.wad (opened for streaming) and pcm.dat's index of it.
-HANDLE& get_wad_file() { return wad_state().wad_file(); }
+fs::DiskFile*& get_wad_file() { return wad_state().wad_file(); }
 WadEntry*& wad_entries() { return wad_state().wad_entries(); }
 uint32_t& wad_entry_count() { return stream_io_state().wad_entry_count_; }
 
@@ -274,21 +276,24 @@ void init_platform()
     std::memset(&music_slot(), 0, sizeof(StreamSlot));
     std::memset(stream_slots().data(), 0, kStreamSlots * sizeof(StreamSlot));
     user_soundtrack_count();
-    get_wad_file() = CreateFileA(R"(data\streams\pcm\pcm.wad)", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-                                 FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, nullptr);
-    HANDLE index = CreateFileA(R"(data\streams\pcm\pcm.dat)", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-                               FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
-    if (index != INVALID_HANDLE_VALUE) {
+    get_wad_file() = fs::disk().open(R"(data\streams\pcm\pcm.wad)",
+                                     {.access = fs::Access::kRead, .sharing = fs::Sharing::kRead,
+                                      .disposition = fs::Disposition::kOpenExisting,
+                                      .hint = fs::Hint::kOverlappedUnbuffered});
+    fs::DiskFile* index = fs::disk().open(R"(data\streams\pcm\pcm.dat)",
+                                          {.access = fs::Access::kRead, .sharing = fs::Sharing::kRead,
+                                           .disposition = fs::Disposition::kOpenExisting, .hint = fs::Hint::kSequential});
+    if (index != fs::no_file()) {
         // Not original - the index read whole and through stream_index_format.h: a count past the entries the file
         // holds is cut to them (the original took it as it came and read short, the rest of the table left as it
         // was), and an entry outside pcm.wad is dropped (it would be streamed from past the file).
-        const DWORD size = GetFileSize(index, nullptr);
-        std::vector<uint8_t> contents(size == INVALID_FILE_SIZE ? 0 : size);
-        DWORD read = 0;
-        if (!contents.empty() && (ReadFile(index, contents.data(), size, &read, nullptr) == FALSE)) {
+        const uint32_t size = fs::disk().size(index);
+        std::vector<uint8_t> contents(size == kSizeUnknown ? 0 : size);
+        uint32_t read = 0;
+        if (!contents.empty() && !fs::disk().read(index, contents.data(), size, &read, nullptr)) {
             read = 0;
         }
-        CloseHandle(index);
+        fs::disk().close(index);
         contents.resize(read);
         util::ByteReader reader(contents.data(), contents.size());
         uint32_t count = 0;
@@ -299,9 +304,9 @@ void init_platform()
             reader = util::ByteReader(contents.data(), contents.size());
             reader.skip(4);
         }
-        LARGE_INTEGER wad_size{};
-        if (get_wad_file() == INVALID_HANDLE_VALUE || (GetFileSizeEx(get_wad_file(), &wad_size) == FALSE)) {
-            wad_size.QuadPart = 0;
+        uint64_t wad_bytes = 0;
+        if (get_wad_file() == fs::no_file() || !fs::disk().size64(get_wad_file(), &wad_bytes)) {
+            wad_bytes = 0;
         }
         wad_entries() = static_cast<WadEntry*>(memory::alloc(count * sizeof(WadEntry)));
         const std::span<WadEntry> table(wad_entries(), count);
@@ -309,7 +314,7 @@ void init_platform()
         for (uint32_t i = 0; i < count; ++i) {
             stream_index_format::Entry entry;
             stream_index_format::read_entry(reader, &entry);
-            if (!stream_index_format::within(entry, static_cast<uint64_t>(wad_size.QuadPart))) {
+            if (!stream_index_format::within(entry, wad_bytes)) {
                 debug::printf("pcm.dat: stream %08x outside pcm.wad, dropped\n", entry.checksum);
                 continue;
             }

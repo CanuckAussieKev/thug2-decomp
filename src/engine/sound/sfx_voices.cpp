@@ -13,8 +13,6 @@
 #include <span>
 #include <vector>
 
-#include <share.h>
-
 #include <windows.h>
 
 #include <array>
@@ -25,7 +23,9 @@
 #include "engine/memory/mem.h"
 #include "formats/wave_format.h"
 #include "formats/byte_stream.h"
-#include "engine/file/data_overlay.h"
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
+#include "engine/file/file_system.h"
 #include "engine/gfx/view_cam.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -38,14 +38,12 @@
 #include "engine/sys/game_config.h"
 #include "platform/platform_system.h"
 #include "engine/sys/stopwatch.h"
-#include "platform/unique_handle.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/sound/sound_state.h"
 #include "engine/gfx/renderer.h"
 #include "base/core/checksums.h"
-#include "engine/file/file_load.h"
 #include "base/core/span_copy.h"
 
 namespace sound {
@@ -732,11 +730,11 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
 {
     // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., engine/file/data_overlay.h - THAW's
     // BMX sounds, tools/pipeline/thaw_bmx/convert.ts).
-    std::array<char, file::kOverlayPathSize> overlay{};
-    if (frontend::data_overlay::get_overlay_path(file_name, overlay)) {
+    std::array<char, fs::kLoosePathSize> overlay{};
+    if (fs::file_system().loose_override(file_name, overlay)) {
         file_name = overlay.data();
     }
-    util::UniqueFile file(_fsopen(file_name, "rb", _SH_DENYNO)); // (fopen)
+    fs::OwnedStream file = fs::open_stream(file_name, "rb"); // (fopen)
     if (!file) {
         return false;
     }
@@ -745,12 +743,12 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
     // data chunk, and decoded the format's bytes-a-second's worth of samples whatever the data held): a file cut
     // short, without its format or data, or with less data than it decodes is not loaded.
     std::vector<uint8_t> contents;
-    std::fseek(file.get(), 0, SEEK_END);
-    const long length = std::ftell(file.get());
-    std::fseek(file.get(), 0, SEEK_SET);
+    fs::disk().stream_seek(file.get(), 0, SEEK_END);
+    const long length = fs::disk().stream_tell(file.get());
+    fs::disk().stream_seek(file.get(), 0, SEEK_SET);
     if (length > 0) {
         contents.resize(static_cast<size_t>(length));
-        contents.resize(std::fread(contents.data(), 1, contents.size(), file.get()));
+        contents.resize(fs::disk().stream_read(file.get(), contents.data(), 1, contents.size()));
     }
     file.reset();
     util::ByteReader reader(contents.data(), contents.size());

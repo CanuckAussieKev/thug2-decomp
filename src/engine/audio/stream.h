@@ -8,6 +8,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/all_ones.h"
+#include "engine/file/disk.h"
 #include "base/core/checksums.h"
 
 namespace media {
@@ -54,7 +55,7 @@ constexpr size_t kBinkStreamBytes = 0x1C0;
 constexpr size_t kStreamSlotBytes = 0x14;
 constexpr int kSurroundLanes = 5;         // a surround stream's volume levels
 
-using Hdl = void*;   // a Win32 HANDLE
+using Hdl = fs::DiskFile*; // a file opened by path (engine/file/disk.h: the system's handle)
 using Result = long; // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRESULT_FROM_WIN32(...))
 
 // A raw stream from pcm.wad (0xA8 bytes): reads the file in 8 KB pieces with overlapped ReadFile. On PC nothing
@@ -110,7 +111,7 @@ struct WadStream {
     [[nodiscard]] bool stop_requested() const { return stop_requested_; }
 
 private:
-    Hdl file_ref_{platform::all_ones_pointer()}; // +0x00 INVALID_HANDLE_VALUE when closed
+    Hdl file_ref_{fs::no_file()}; // +0x00 INVALID_HANDLE_VALUE when closed
     uint32_t unknown04_{0};                   // +0x04
     OVERLAPPED* async_ctl_{}; // +0x08 (from the ring, 0x004535E0; never set for these on PC)
     bool reading_{};           // +0x0C
@@ -198,7 +199,7 @@ struct BinkStream {
     void set_stop_requested(bool value) { stop_requested_ = value; }
 
 private:
-    Hdl file_ref_{platform::all_ones_pointer()}; // +0x00 INVALID_HANDLE_VALUE: none
+    Hdl file_ref_{fs::no_file()}; // +0x00 INVALID_HANDLE_VALUE: none
     uint32_t unknown04_{0};                   // +0x04
     OVERLAPPED* async_ctl_; // +0x08 (from the ring, 0x004535E0)
     int wad_entry_{-1};      // +0x0C the pcm.wad entry open (0x0069CADC), -1: none

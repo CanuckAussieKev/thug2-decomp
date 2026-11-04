@@ -96,7 +96,7 @@ const char* save_folder() { return game_config::get_path_prefix(); }
 bool delete_card_file(SaveCard* /*card*/, const char* /*name*/) { return save_cards::SaveCard::always_true(0); }
 
 // A save file's handle deleted (its scalar deleting destructor).
-void DeleteFile(FileLoad* file) { file->teardown(1); }
+void delete_file_handle(FileLoad* file) { file->teardown(1); }
 
 // The pool pairs the temporary pools belong to: components, structures, vectors.
 
@@ -313,7 +313,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
     script->args().get()->put_int("total_file_size", save_blocks(checksums::Name{type}, size));
     file->drain();
     file->shut();
-    DeleteFile(file);
+    delete_file_handle(file);
     return true;
 }
 
@@ -503,7 +503,7 @@ void describe_listed_file(Struct* entry, SaveCard* card, std::array<char, kSaveD
             }
         }
         opened->shut();
-        DeleteFile(opened);
+        delete_file_handle(opened);
     }
 }
 
@@ -830,7 +830,7 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
         if (!file->shut()) {
             saved = false;
         }
-        DeleteFile(file);
+        delete_file_handle(file);
     }
     if (summary) {
         summary->get_clear();

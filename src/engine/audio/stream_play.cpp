@@ -1,6 +1,7 @@
 // The PC's streamed audio: loading, starting, stopping and the volumes of the music and the three streams.
 
 #include "engine/audio/stream.h"
+#include "engine/file/disk.h"
 
 #include <windows.h>
 
@@ -28,7 +29,7 @@ constexpr size_t kPathSize = 256;
 constexpr int kMaxSeekDistance = 5;              // frames a seek can be off before the movie jumps
 
 HANDLE stream_lock() { return wad_state().stream_lock(); }
-HANDLE get_wad_file() { return wad_state().wad_file(); }
+fs::DiskFile* get_wad_file() { return wad_state().wad_file(); }
 
 // NOT ORIGINAL grouping - the last music track and streams played and their read buffers. Made on first use, never
 // destroyed (stream_play_state()).
@@ -107,7 +108,7 @@ void halt(StreamSlot& slot)
 } // namespace
 
 // The original calls 0x0047C790, a linker-folded `return -1` (also sound::group_count).
-Hdl open_user_track(int /*unused*/, int /*unused*/) { return INVALID_HANDLE_VALUE; }
+Hdl open_user_track(int /*unused*/, int /*unused*/) { return fs::no_file(); }
 
 // --- The music ---------------------------------------------------------------------------------------------
 
@@ -181,7 +182,7 @@ bool play_user_track(int soundtrack, int track)
     }
     music.fabricate(0, false, 1);
     Hdl file = open_user_track(soundtrack, track);
-    if (file == INVALID_HANDLE_VALUE || !music.wad()) {
+    if (file == fs::no_file() || !music.wad()) {
         return false;
     }
     if (music.wad()->unseal({.file = file, .buffer = user_track_buffer().data()}) != 0) {

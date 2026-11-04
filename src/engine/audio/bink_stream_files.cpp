@@ -14,6 +14,7 @@
 #include "engine/audio/stream.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
+#include "engine/file/disk.h"
 #include "engine/media/movie.h"
 #include "base/core/checked_index.h"
 #include "engine/memory/mem.h"
@@ -43,14 +44,17 @@ bool& stream_files_ready()
 }
 uint32_t& stream_file_uses() { return stream_file_state().stream_file_uses(); }
 
-// The game's C runtime (its heap and files; until the runtime is linked).
-gsl::owner<FILE*> crt_fopen(const char* path, const char* mode) { return crt::get_fopen(path, mode); }
-int crt_fseek(FILE* file, long offset, int origin) { return crt::get_fseek(file, offset, origin); }
-size_t crt_fread(void* buffer, size_t size, size_t count, FILE* file)
+// The game's C runtime (its heap; its files are the disk's streams, engine/file/disk.h).
+fs::DiskStream* crt_fopen(const char* path, const char* mode)
 {
-    return crt::get_fread(buffer, size, count, file);
+    return fs::disk().open_stream(path, mode, fs::StreamSharing::kAll);
 }
-int crt_fclose(gsl::owner<FILE*> file) { return crt::get_fclose(file); }
+int crt_fseek(fs::DiskStream* file, long offset, int origin) { return fs::disk().stream_seek(file, offset, origin); }
+size_t crt_fread(void* buffer, size_t size, size_t count, fs::DiskStream* file)
+{
+    return fs::disk().stream_read(file, buffer, size, count);
+}
+int crt_fclose(fs::DiskStream* file) { return fs::disk().stream_close(file); }
 gsl::owner<void*> get_crt_malloc(size_t size) { return crt::alloc_block(size); }
 void get_crt_free(gsl::owner<void*> block) { crt::dealloc(block); }
 
@@ -96,7 +100,7 @@ int load_stream_file(uint32_t key, const char* path, FileSpan file_span)
     if (slot == -1) {
         return -1;
     }
-    gsl::owner<FILE*> in = crt_fopen(path, "rb"); // "rb"
+    fs::DiskStream* in = crt_fopen(path, "rb"); // "rb"
     if (!in) {
         return -1;
     }
