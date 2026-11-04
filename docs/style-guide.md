@@ -56,7 +56,8 @@ src/
   engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, media (the movie codec's
               interface), network transport, pad input, ui (the
               original's screen elements and our UI fonts), ext (the extension points); pad input's sources are
-              the input seam (engine/pad_input/input_source.h: SDL's is engine/pad_input/sdl_input) (library
+              the input seam (engine/pad_input/input_source.h: SDL's is engine/pad_input/sdl_input); the files'
+              sources and the disk are the file system seam (engine/file/file_system.h, disk.h) (library
               thug2_engine)
   render_d3d9/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
               textures, materials, shaders, screen effects, 2D and text, movies' frames, the loading screen) and the
@@ -68,6 +69,8 @@ src/
               implements media::Movie (library thug2_media_bink, included and linked by app/ only)
   input_dinput/ the original's DirectInput side: its keyboard, joysticks and mouse, the pad read, the device set-up;
               an input::Source (library thug2_input_dinput, included and linked by app/ only)
+  fs_win32/   the operating system's files, Win32's: files by path, streams, folders; it implements fs::Disk under
+              the file system's sources (library thug2_fs_win32, included and linked by app/ only)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
               network session; the transport stays in engine/net), commands (the game's script commands), world
               (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park

@@ -13,6 +13,7 @@ game/                       skating, the rider, goals, parks, saves, the online 
 render_d3d9/                the graphics backend: Direct3D 9 (the original's PC platform layer); only app/ includes it
 audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
 input_dinput/               the original's DirectInput side, an input source; only app/ includes it
+fs_win32/                   the operating system's files (Win32's), under the file system; only app/ includes it
 engine/                     memory, lists, files, assets, script, objects, renderer, audio, media, network transport, pad input,
                             ui (the original's screen elements), ext (the extension points)
 -------------------------   the boundary: where bytes come from outside the game
@@ -146,8 +147,8 @@ headers are part of its own), and reaches every one of them through those links:
 thug2_base  <-  thug2_formats  <-  thug2_wire
             <-  thug2_platform
 thug2_platform + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
-thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink, thug2_input_dinput (the backends: linked by
-                  the exe alone)
+thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink, thug2_input_dinput, thug2_fs_win32 (the
+                  backends: linked by the exe alone)
 every library  <-  thug2 (src/app: thug2-decomp.exe)
 ```
 
@@ -308,11 +309,46 @@ everything above it uses the game's own types and may change them freely.
   SDL source includes `platform/keyboard.h`, and only it and app/ register with the platform's pump
   (tools/input_headers.test.ts; the screenshot key's sidecar, a dev tool's note of the mouse over the window, is the
   one exception). An editor exe adds the same sources (DirectInput's, SDL's) without the automation channel's.
+- **The file system seam** (`engine/file/file_system.h`, `disk.h`): where files come from.
+  - The game's data files ("levels\foun\foun.qb", "data/...") come from `fs::Source`s, which `app/main.cpp` adds to
+    `fs::file_system()` in the order the game looks in them: the data overlay's folder (ours, first:
+    `file::overlay_source()`), the loaded .pre archives while the pre manager exists (`file::archive_source()`), the
+    Data folder on disk (`file::data_folder_source()`, last: it handles every call that reaches it). The original's
+    FileLoad:: calls (`engine/file/file_load.h`: `file::unseal`, `shut`, `get_take_in`, `emit_out`, `seek_to`,
+    `get_file_size`, `is_present`, 0x005B9E00-0x005BA010) are the façade the game calls; each goes down the chain until a
+    source handles it - the archives say so through their "handled" flag (`file::archive_handled()`), as the original's
+    archive manager did. A call on an open file is offered down the chain too, since a handle doesn't say whose it is:
+    the overlay's and the Data folder's handles are both disk files, so the overlay leaves the calls on its files to the
+    Data folder's disk calls, which the archives are asked before (they find the handle isn't theirs). The readers that
+    take a file from an archive unless the overlay has its own (`packs::read_in`, `load_file_into`, the asynchronous
+    open, the sound waves) ask `loose_override` (a loose copy of a source before the archives: the overlay's); the
+    platform's asynchronous open asks `loose_path` (the overlay's copy, else the Data folder's path). The names are the
+    game's: the overlay matches them lower-cased with '/' as '\' (logging "data overlay: X read from Y (asked for as Z)"
+    the first time it serves a file), the archives by the checksum of the name with '/' as '\', the Data folder as
+    `file::make_disk_path` builds it. A call per source per open, read, seek, size or close - never per byte.
+  - Under the loose sources, and under everything else that opens a file by path - the asynchronous reads, the sound
+    streams (pcm.wad's overlapped reads) and waves, the stream files' cache, the save files, the face pictures, and the
+    files our tools keep in the game folder (the level editor's layouts, autosaves, snapshots, bookmarks and trails, the
+    new front end's state and fonts, screenshots, the test-automation channel's files) - is `fs::Disk`
+    (`engine/file/disk.h`): a file opened by path with the access, sharing and creation its caller asked for, read,
+    written, sized, moved and closed by its handle (`fs::DiskFile*`, the system's own handle); a buffered stream (the C
+    runtime's: what fopen gave, its sharing kept - fopen's, `_fsopen(_SH_DENYWR)`'s or `fopen_s`'s); a path's kind and
+    times, folders made, files removed, moved over others and listed, the free space. Each method is the call the game
+    made at that place, with the same arguments; whatever buffering the caller had, it keeps (a stream's, a whole file
+    in one read). Owners and whole-file helpers are in `engine/file/disk_files.h` (`fs::OwnedFile`, `OwnedStream`,
+    `read_text` / `write_text` as std::fstream read and wrote, `print_to`, `list`). `app/main.cpp` installs Win32's
+    (`src/fs_win32`, static library `thug2_fs_win32`, on the engine: `fs::win32::disk()`) first thing in WinMain; a
+    std::filesystem / POSIX one could stand in for a GCC build.
+  - What stays in the platform layer: the run log (`platform/run_log`, opened before anything is installed), the ini
+    (`thug2-decomp.ini` through the Win32 profile API: `config_int` and the callers' own `GetPrivateProfileString` /
+    `WritePrivateProfileString`) and the crash reports, which must work while the game is failing. Only `fs_win32/`,
+    `platform/` and the offline checks (`src/tests`) call the file functions (Win32's, the C runtime's streams,
+    std::fstream, std::filesystem), and only app/ installs the disk and adds the sources (tools/file_calls.test.ts).
 - `platform/`: the operating system and the SDKs - the SDL window and its event pump, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`);
   Winsock with IPv4 addresses and byte buffers (`sockets.h`), the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), the Windows audio session API
-  (`mute_audio.h`), the owners of Win32 and C runtime handles (`unique_handle.h`) and the sinks behind the base
-  layer's output (`output_sinks.h`).
+  (`mute_audio.h`), the run log and the ini (`run_log.h`) and the sinks behind the base layer's output
+  (`output_sinks.h`). Files are the file system's (`fs::Disk`, "The file system seam").
 
 `formats/` depends only on the standard library and `base/` (`ints.h`, `checksums.h`, `pointer_cell.h`, `raw_view.h`);
 `wire/` also on `formats/` (the byte stream). They build and are checked without the game.
