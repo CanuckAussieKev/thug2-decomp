@@ -43,9 +43,9 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 
 ```
 src/
-  app/main.cpp
-  platform/   window, input devices, timers, crash reports, settings, code addresses (the Win32 / Direct3D /
-              DirectSound / SDL / GameSpy side)
+  app/        main, WinMain, the start-up and the game's main (the composition: may include anything)
+  platform/   the window and its events, crash reports, the run log, settings, the registry, code addresses (the
+              Win32 / DirectSound / SDL / GameSpy side; library thug2_platform)
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
               sounds, saves, custom parks (library thug2_formats)
   wire/       the network messages and their framing (library thug2_wire)
@@ -57,10 +57,11 @@ src/
   game/       skating, the rider, goals, parks, saves
   frontend/   menus and screens
   editor/     the level editor
+  devtools/   the developer tools (the screenshot key)
 ```
 
-`engine/` doesn't include `game/`, `frontend/` or `editor/`; `formats/` and `wire/` include nothing of the game but
-`base/` (they build as libraries of their own, on `thug2_base`); `base/` includes nothing but the standard library
+`engine/` doesn't include `game/`, `frontend/` or `editor/`; `formats/`, `wire/` and `platform/` include nothing of the
+game but `base/` (they build as libraries of their own, on `thug2_base`); `base/` includes nothing but the standard library
 and GSL. One folder is one namespace (formats and wire
 keep the namespaces their headers had). The layers and their rules: docs/architecture.md.
 

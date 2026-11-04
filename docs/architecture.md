@@ -6,12 +6,13 @@ The game is one executable (`thug2-decomp.exe`, CMake target `thug2`) built from
 include the layers below it, never the ones above.
 
 ```
-editor/  frontend/          the level editor; menus and screens
+app/                        main, WinMain, the start-up, the game's main: the composition (may include anything)
+editor/  frontend/  devtools/   the level editor; menus and screens; the developer tools (the screenshot key)
 game/                       skating, the rider, goals, parks, saves
 engine/                     memory, lists, files, assets, script, objects, renderer, audio, network, pad input
 -------------------------   the boundary: where bytes come from outside the game
 formats/  wire/  gpu/       file formats; network messages; GPU buffers
-platform/                   Win32, Direct3D, DirectSound, DirectInput, SDL, the GameSpy SDK, code addresses
+platform/                   Win32, the SDL window, DirectSound's set-up, the GameSpy SDK, crash reports, code addresses
 -------------------------
 base/                       checksums, formatting, text, checked indexing, maths, the bit stream (no OS, no SDK)
 ```
@@ -25,6 +26,20 @@ hands to a sink the platform installs first thing in WinMain (`platform/output_s
 (`base/core/dbg.h`) and error lines into thug2-decomp.log (`base/core/log_sink.h`). The game's heaps are
 `engine/memory` (they use the run log, the C runtime's heap and the game config), and what is built on them stays in
 the engine (`engine/lists`' chains and maps, `engine/util`'s LZSS compressor and text store).
+
+**The platform layer** (`src/platform`, static library `thug2_platform`) is the OS and the SDKs, and includes only
+`base/` and their headers. It doesn't call up: what the game does on the platform's events, and where it keeps the
+platform's devices, is wired by `app/`. The SDL event pump calls the handlers registered with it (the quit request is
+the start-up's, `app/pc_setup.cpp`; the window's focus WinMain's); `sys::create_sdl_window` returns the window's
+handle and `os_layer::init_direct_sound` the DirectSound device, which WinMain keeps in the renderer and the audio's
+state; the base layer's sinks are installed by `app/main.cpp`. What uses the engine's state is the engine's: the frame
+clock (`engine/sys/stopwatch`, `game_clock`), the renderer's Direct3D buffers and queries
+(`engine/gfx/pc_d3d_resources`), and the original's DirectInput side - its pad read, the registry options and input
+set-up (`engine/pad_input/direct_input`, `input_setup`).
+
+**The composition** (`src/app`): `main.cpp`, WinMain (`winmain.cpp`: the command line, the window, the devices),
+PartyMod's start-up (`pc_setup.cpp`) and the game's main (`startup.cpp`: the singletons, modules and the main loop).
+It may include every layer. `src/devtools` (the screenshot key) sits beside the editor and the new front end.
 
 **The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `engine/net`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
@@ -48,8 +63,7 @@ everything above it uses the game's own types and may change them freely.
   written again after a device reset, torn down. Game code sees the buffers' API, not the device; it reads and writes
   vertices by attribute through `gpu::VertexView` / `VertexWriter` (`vertex_view.h`: a stride and offsets, never the
   bytes themselves).
-- `platform/`: the operating system and the SDKs - the window and input (SDL, DirectInput), Direct3D's device,
-  DirectSound, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
+- `platform/`: the operating system and the SDKs - the SDL window and its event pump, DirectSound's set-up, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
   Winsock with IPv4 addresses and byte buffers (`sockets.h`), Direct3D's matrices over the game's (`d3d_matrix.h`),
   the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), D3DX
