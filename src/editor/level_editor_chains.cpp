@@ -376,175 +376,239 @@ bool is_record(const std::string& kind)
            kind == "grindflat" || kind == "railspeed";
 }
 
+namespace {
+
+// A point record's fields (key=value), each read into the point; false when its value is wrong.
+bool read_point_pos(const std::string& value, Point& chain_point) { return read_triple(value, &chain_point.pos); }
+bool read_point_like(const std::string& value, Point& chain_point) { return parse_hex(value, &chain_point.like); }
+bool read_point_terrain(const std::string& value, Point& chain_point)
+{
+    if (!valid_word(value)) {
+        return false;
+    }
+    chain_point.terrain = value;
+    return true;
+}
+bool read_point_links(const std::string& value, Point& chain_point) { return parse_names(value, &chain_point.links); }
+bool read_point_facing(const std::string& value, Point& chain_point) { return read_float(value, &chain_point.facing); }
+bool read_point_cluster(const std::string& value, Point& chain_point) { return parse_hex(value, &chain_point.cluster); }
+bool read_point_grind_flat(const std::string& value, Point& chain_point)
+{
+    if (value != "0" && value != "1") {
+        return false;
+    }
+    chain_point.grind_flat_ = value == "1";
+    return true;
+}
+// (a ClimbingNode's: Ledge - a ladder's Type isn't written)
+bool read_point_type(const std::string& value, Point& chain_point)
+{
+    if (!same_text(value, "Ledge") || !same_text(chain_point.cls, "ClimbingNode")) {
+        return false;
+    }
+    chain_point.type = "Ledge";
+    return true;
+}
+bool read_point_hang(const std::string& value, Point& chain_point)
+{
+    if (value == hang_word(kHangLeft)) {
+        chain_point.hang = kHangLeft;
+    } else if (value == hang_word(kHangRight)) {
+        chain_point.hang = kHangRight;
+    } else {
+        return false;
+    }
+    return true;
+}
+bool read_point_speed(const std::string& value, Point& chain_point)
+{
+    return read_float(value, &chain_point.speed) && chain_point.speed >= kSpeedMin && chain_point.speed <= kSpeedMax &&
+           same_text(chain_point.cls, "RailNode");
+}
+
+struct PointField {
+    const char* key;
+    bool (*read)(const std::string& value, Point& chain_point);
+};
+constexpr auto kPointFields = std::to_array<PointField>({
+    {.key = "pos", .read = read_point_pos},
+    {.key = "like", .read = read_point_like},
+    {.key = "terrain", .read = read_point_terrain},
+    {.key = "links", .read = read_point_links},
+    {.key = "facing", .read = read_point_facing},
+    {.key = "cluster", .read = read_point_cluster},
+    {.key = "grindflat", .read = read_point_grind_flat},
+    {.key = "type", .read = read_point_type},
+    {.key = "hang", .read = read_point_hang},
+    {.key = "speed", .read = read_point_speed},
+});
+
+// point <name> <class> key=value...: every key once, pos= given, a name no other point has.
+bool read_point_record(std::istringstream& in, State* state)
+{
+    Point chain_point;
+    if (!(in >> chain_point.name >> chain_point.cls) || !valid_word(chain_point.name) ||
+        !is_chain_class(chain_point.cls)) {
+        return false;
+    }
+    std::vector<std::string> seen;
+    std::string field;
+    while (in >> field) {
+        const size_t equals = field.find('=');
+        if (equals == std::string::npos || equals == 0) {
+            return false;
+        }
+        const std::string key = field.substr(0, equals);
+        const std::string value = field.substr(equals + 1);
+        if (std::ranges::find(seen, key) != seen.end()) {
+            return false;
+        }
+        seen.push_back(key);
+        const auto reader =
+            std::ranges::find_if(kPointFields, [&](const PointField& point_field) { return key == point_field.key; });
+        if (reader != kPointFields.end() && !reader->read(value, chain_point)) {
+            return false;
+        } // (others: a later version's - skipped)
+    }
+    if (std::ranges::find(seen, "pos") == seen.end()) {
+        return false;
+    }
+    for (const Point& existing_point : state->points) {
+        if (same_text(existing_point.name, chain_point.name.c_str())) {
+            return false;
+        }
+    }
+    state->points.push_back(chain_point);
+    return true;
+}
+
+// links <name> <names or ->: once per point.
+bool read_links_record(std::istringstream& in, State* state)
+{
+    LinkEdit link_edit = {};
+    std::string value;
+    if (!read_hex_word(in, &link_edit.name) || !(in >> value)) {
+        return false;
+    }
+    if (value != "-" && !parse_names(value, &link_edit.links)) {
+        return false;
+    }
+    for (const LinkEdit& other : state->links) {
+        if (other.name == link_edit.name) {
+            return false;
+        }
+    }
+    state->links.push_back(link_edit);
+    sort_by_name(&state->links);
+    return true;
+}
+
+// drop <name> (a second one changes nothing).
+bool read_drop_record(std::istringstream& in, State* state)
+{
+    uint32_t name = 0;
+    if (!read_hex_word(in, &name)) {
+        return false;
+    }
+    if (std::ranges::find(state->dropped, name) == state->dropped.end()) {
+        state->dropped.push_back(name);
+        std::ranges::sort(state->dropped);
+    }
+    return true;
+}
+
+// terrain <name> <terrain>: once per point.
+bool read_terrain_record(std::istringstream& in, State* state)
+{
+    TerrainEdit terrain_edit = {};
+    if (!read_hex_word(in, &terrain_edit.name) || !(in >> terrain_edit.terrain) || !valid_word(terrain_edit.terrain)) {
+        return false;
+    }
+    for (const TerrainEdit& other : state->terrains) {
+        if (other.name == terrain_edit.name) {
+            return false;
+        }
+    }
+    state->terrains.push_back(terrain_edit);
+    sort_by_name(&state->terrains);
+    return true;
+}
+
+// facing <name> <angle>: once per point.
+bool read_facing_record(std::istringstream& in, State* state)
+{
+    FacingEdit facing_edit = {};
+    std::string value;
+    if (!read_hex_word(in, &facing_edit.name) || !(in >> value) || !read_float(value, &facing_edit.facing)) {
+        return false;
+    }
+    for (const FacingEdit& other : state->facings) {
+        if (other.name == facing_edit.name) {
+            return false;
+        }
+    }
+    state->facings.push_back(facing_edit);
+    sort_by_name(&state->facings);
+    return true;
+}
+
+// grindflat <name> (a second one changes nothing).
+bool read_grind_flat_record(std::istringstream& in, State* state)
+{
+    uint32_t name = 0;
+    if (!read_hex_word(in, &name)) {
+        return false;
+    }
+    if (std::ranges::find(state->grind_flat_, name) == state->grind_flat_.end()) {
+        state->grind_flat_.push_back(name);
+        std::ranges::sort(state->grind_flat_);
+    }
+    return true;
+}
+
+// railspeed <name> <rate>: once per point, the rate in range.
+bool read_rail_speed_record(std::istringstream& in, State* state)
+{
+    SpeedEdit speed_edit = {};
+    std::string value;
+    if (!read_hex_word(in, &speed_edit.name) || !(in >> value) || !read_float(value, &speed_edit.rate) ||
+        !(speed_edit.rate >= kSpeedMin && speed_edit.rate <= kSpeedMax)) {
+        return false;
+    }
+    for (const SpeedEdit& other : state->speeds) {
+        if (other.name == speed_edit.name) {
+            return false;
+        }
+    }
+    state->speeds.push_back(speed_edit);
+    sort_by_name(&state->speeds);
+    return true;
+}
+
+} // namespace
+
 bool read_record(const std::string& kind, std::istringstream& in, State* state)
 {
     if (kind == "point") {
-        Point chain_point;
-        if (!(in >> chain_point.name >> chain_point.cls) || !valid_word(chain_point.name) ||
-            !is_chain_class(chain_point.cls)) {
-            return false;
-        }
-        std::vector<std::string> seen;
-        std::string field;
-        while (in >> field) {
-            const size_t equals = field.find('=');
-            if (equals == std::string::npos || equals == 0) {
-                return false;
-            }
-            const std::string key = field.substr(0, equals);
-            const std::string value = field.substr(equals + 1);
-            if (std::ranges::find(seen, key) != seen.end()) {
-                return false;
-            }
-            seen.push_back(key);
-            if (key == "pos") {
-                if (!read_triple(value, &chain_point.pos)) {
-                    return false;
-                }
-            } else if (key == "like") {
-                if (!parse_hex(value, &chain_point.like)) {
-                    return false;
-                }
-            } else if (key == "terrain") {
-                if (!valid_word(value)) {
-                    return false;
-                }
-                chain_point.terrain = value;
-            } else if (key == "links") {
-                if (!parse_names(value, &chain_point.links)) {
-                    return false;
-                }
-            } else if (key == "facing") {
-                if (!read_float(value, &chain_point.facing)) {
-                    return false;
-                }
-            } else if (key == "cluster") {
-                if (!parse_hex(value, &chain_point.cluster)) {
-                    return false;
-                }
-            } else if (key == "grindflat") {
-                if (value != "0" && value != "1") {
-                    return false;
-                }
-                chain_point.grind_flat_ = value == "1";
-            } else if (key == "type") {
-                // (a ClimbingNode's: Ledge - a ladder's Type isn't written)
-                if (!same_text(value, "Ledge") || !same_text(chain_point.cls, "ClimbingNode")) {
-                    return false;
-                }
-                chain_point.type = "Ledge";
-            } else if (key == "hang") {
-                if (value == hang_word(kHangLeft)) {
-                    chain_point.hang = kHangLeft;
-                } else if (value == hang_word(kHangRight)) {
-                    chain_point.hang = kHangRight;
-                } else {
-                    return false;
-                }
-            } else if (key == "speed") {
-                if (!read_float(value, &chain_point.speed) ||
-                    !(chain_point.speed >= kSpeedMin && chain_point.speed <= kSpeedMax) ||
-                    !same_text(chain_point.cls, "RailNode")) {
-                    return false;
-                }
-            } // (others: a later version's - skipped)
-        }
-        if (std::ranges::find(seen, "pos") == seen.end()) {
-            return false;
-        }
-        for (const Point& existing_point : state->points) {
-            if (same_text(existing_point.name, chain_point.name.c_str())) {
-                return false;
-            }
-        }
-        state->points.push_back(chain_point);
-        return true;
+        return read_point_record(in, state);
     }
     if (kind == "links") {
-        LinkEdit link_edit = {};
-        std::string value;
-        if (!read_hex_word(in, &link_edit.name) || !(in >> value)) {
-            return false;
-        }
-        if (value != "-" && !parse_names(value, &link_edit.links)) {
-            return false;
-        }
-        for (const LinkEdit& other : state->links) {
-            if (other.name == link_edit.name) {
-                return false;
-            }
-        }
-        state->links.push_back(link_edit);
-        sort_by_name(&state->links);
-        return true;
+        return read_links_record(in, state);
     }
     if (kind == "drop") {
-        uint32_t name = 0;
-        if (!read_hex_word(in, &name)) {
-            return false;
-        }
-        if (std::ranges::find(state->dropped, name) == state->dropped.end()) {
-            state->dropped.push_back(name);
-            std::ranges::sort(state->dropped);
-        }
-        return true;
+        return read_drop_record(in, state);
     }
     if (kind == "terrain") {
-        TerrainEdit terrain_edit = {};
-        if (!read_hex_word(in, &terrain_edit.name) || !(in >> terrain_edit.terrain) ||
-            !valid_word(terrain_edit.terrain)) {
-            return false;
-        }
-        for (const TerrainEdit& other : state->terrains) {
-            if (other.name == terrain_edit.name) {
-                return false;
-            }
-        }
-        state->terrains.push_back(terrain_edit);
-        sort_by_name(&state->terrains);
-        return true;
+        return read_terrain_record(in, state);
     }
     if (kind == "facing") {
-        FacingEdit facing_edit = {};
-        std::string value;
-        if (!read_hex_word(in, &facing_edit.name) || !(in >> value) || !read_float(value, &facing_edit.facing)) {
-            return false;
-        }
-        for (const FacingEdit& other : state->facings) {
-            if (other.name == facing_edit.name) {
-                return false;
-            }
-        }
-        state->facings.push_back(facing_edit);
-        sort_by_name(&state->facings);
-        return true;
+        return read_facing_record(in, state);
     }
     if (kind == "grindflat") {
-        uint32_t name = 0;
-        if (!read_hex_word(in, &name)) {
-            return false;
-        }
-        if (std::ranges::find(state->grind_flat_, name) == state->grind_flat_.end()) {
-            state->grind_flat_.push_back(name);
-            std::ranges::sort(state->grind_flat_);
-        }
-        return true;
+        return read_grind_flat_record(in, state);
     }
     if (kind == "railspeed") {
-        SpeedEdit speed_edit = {};
-        std::string value;
-        if (!read_hex_word(in, &speed_edit.name) || !(in >> value) || !read_float(value, &speed_edit.rate) ||
-            !(speed_edit.rate >= kSpeedMin && speed_edit.rate <= kSpeedMax)) {
-            return false;
-        }
-        for (const SpeedEdit& other : state->speeds) {
-            if (other.name == speed_edit.name) {
-                return false;
-            }
-        }
-        state->speeds.push_back(speed_edit);
-        sort_by_name(&state->speeds);
-        return true;
+        return read_rail_speed_record(in, state);
     }
     return false;
 }
