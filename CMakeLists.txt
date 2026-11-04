@@ -46,7 +46,7 @@ endif()
 # --- D3DX9 --------------------------------------------------------------------------------------------------
 # Microsoft's NuGet package Microsoft.DXSDK.D3DX 9.29.952.8 (the DirectX SDK June 2010's d3dx9_43.dll, import library
 # and headers; its licence is summarised in THIRD_PARTY_NOTICES.md). A .nupkg is a zip: downloaded under a .zip name
-# and checked against its SHA-256. src/platform/d3dx.cpp is the one place that calls it.
+# and checked against its SHA-256. src/render_d3d9/d3dx.cpp is the one place that calls it.
 FetchContent_Declare(d3dx9
     URL https://www.nuget.org/api/v2/package/Microsoft.DXSDK.D3DX/9.29.952.8
     URL_HASH SHA256=ead0906ae8a26c18a7525da7490127a2110f7c58f18293738283e30e97c6ea4b

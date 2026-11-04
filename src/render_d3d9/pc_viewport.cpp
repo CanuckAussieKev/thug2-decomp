@@ -4,12 +4,12 @@
 #include <cstdint>
 
 #include "render_d3d9/pc_viewport.h"
-#include "platform/d3dx.h"
 
 #include <windows.h>
 
 #include <d3d9.h>
 
+#include "base/maths/view_transforms.h"
 #include "engine/memory/mem.h"
 #include "render_d3d9/render_state.h"
 #include "engine/gfx/viewport.h"
@@ -67,7 +67,8 @@ PcViewportState& pc_viewport_state()
 
 namespace {
 
-void xform(float* out, const float* v, const void* matrix) { d3dx::vec4_transform(out, v, matrix); }
+// (the original's D3DX)
+void xform(float* out, const float* v, const maths::Mat4* matrix) { maths::transform_vec4(out, v, matrix->data()); }
 
 // The queries' states: colour writes off, no z writes, no texture, the vertex colour's shader.
 void begin_query_draw(uint32_t fvf)

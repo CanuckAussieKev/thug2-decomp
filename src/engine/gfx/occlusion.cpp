@@ -1,9 +1,9 @@
 // Occlusion polygons and view culling: see occlusion.h. The plane maths follows the original's x87 code: some
 // intermediate values stay in double precision (in registers), the rest are rounded to floats where it stored them.
 
+#include "base/maths/view_transforms.h"
 #include "base/core/within.h"
 #include "engine/gfx/occlusion.h"
-#include "platform/d3dx.h"
 
 #include <cstddef>
 #include <cmath>
@@ -62,7 +62,7 @@ std::span<const float> world_transform()
     return renderer().current_world_transform() ? std::span<const float>(renderer().current_world_transform(), maths::kMatrixFloats) : std::span<const float>();
 }
 // The view matrix (0x00786BD0) and the view's clip values.
-const void* view_matrix_data() { return renderer().view_matrix().data(); }
+const float* view_matrix_data() { return renderer().view_matrix().data(); }
 float near_plane_depth() { return renderer().render_camera().near_z_; }
 float far_clip() { return renderer().render_camera().far_z_; }
 // The frustum's side planes as (cos, sin) pairs: horizontal 0x00786E20 / 0x00786E28, vertical 0x00786E24 / 0x00786E2C.
@@ -71,8 +71,8 @@ float vertical_cos() { return renderer().view_shape().sin_y_; }
 float side_sin() { return renderer().view_shape().cos_x_; }
 float vertical_sin() { return renderer().view_shape().cos_y_; }
 
-// D3DXVec3Transform (linked library code; stdcall): (x, y, z, 1) x matrix.
-void xform(float* out, const float* point, const void* matrix) { d3dx::vec3_transform(out, point, matrix); }
+// D3DXVec3Transform (linked library code; stdcall) in the original: (x, y, z, 1) x matrix (view_transforms.h).
+void xform(float* out, const float* point, const float* matrix) { maths::transform_point(out, point, matrix); }
 
 // The C runtime's qsort (the game's, so equal occluders end up in the same order).
 void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const void*, const void*))

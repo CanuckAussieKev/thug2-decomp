@@ -18,7 +18,7 @@ const DIRECT3D_HEADERS = new Set([
     "render_d3d9/pc_d3d_resources.h",
     "render_d3d9/d3d9_handles.h",
     "render_d3d9/d3d_matrix.h",
-    "platform/d3dx_jpg.h",
+    "render_d3d9/d3dx_jpg.h",
     "render_d3d9/imgui_texture_id.h",
 ]);
 
@@ -87,9 +87,23 @@ test("only app/ picks the Direct3D 9 device", () => {
 // only render_d3d9/ includes their headers, and only app/ picks Direct3D 9's UI backend.
 test("only render_d3d9/ includes ImGui's backends; only app/ picks the UI backend", () => {
     const backends = including(/^\s*#\s*include\s*"backends\/imgui_impl_\w+\.h"/m);
-    assert.deepEqual(backends.filter((name) => !name.startsWith("render_d3d9/")), []);
+    assert.deepEqual(
+        backends.filter((name) => !name.startsWith("render_d3d9/")),
+        [],
+    );
     const pickers = including(/^\s*#\s*include\s*"render_d3d9\/d3d9_ui_backend\.h"/m);
     const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/d3d9_ui_backend.cpp");
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the UI backend");
+});
+
+// D3DX9 is the Direct3D 9 backend's alone (its shader assembly and JPEG writer; its maths is base/maths/view_transforms.h
+// since stage 11 round 16) - and the maths check's reference.
+test("only render_d3d9/ (and the maths check) includes D3DX", () => {
+    const users = including(/^\s*#\s*include\s*<d3dx9\w*\.h>/m);
+    assert.deepEqual(
+        users.filter((name) => !name.startsWith("render_d3d9/") && name !== "tests/maths_check_d3dx.cpp"),
+        [],
+    );
+    assert.ok(users.includes("render_d3d9/d3dx.cpp"), "render_d3d9/d3dx.cpp calls D3DX");
 });

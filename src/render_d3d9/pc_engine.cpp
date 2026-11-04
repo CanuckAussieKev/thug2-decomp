@@ -46,7 +46,7 @@
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/rect.h"
-#include "platform/d3dx_jpg.h"
+#include "render_d3d9/d3dx_jpg.h"
 
 namespace render {
 

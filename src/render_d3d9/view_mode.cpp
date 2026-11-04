@@ -2,7 +2,7 @@
 
 #include "render_d3d9/view_mode.h"
 #include "engine/gfx/view_modes.h"
-#include "platform/d3dx.h"
+#include "render_d3d9/d3dx.h"
 
 #include <windows.h>
 

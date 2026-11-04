@@ -7,7 +7,6 @@ add_library(thug2_platform STATIC
     bink.cpp
     crash.cpp
     crt.cpp
-    d3dx.cpp
     debug_log.cpp
     gamespy.cpp
     mute_audio.cpp
@@ -24,8 +23,8 @@ add_library(thug2_platform STATIC
 )
 target_include_directories(thug2_platform PRIVATE "${stb_SOURCE_DIR}")
 # sdl2: the window and its events; dsound, ole32: DirectSound and the audio session (mute_audio); ws2_32: Winsock;
-# d3d9, winmm: crt.h's imports; d3dx9: d3dx.cpp; gamespy_sdk: gamespy.cpp; stb_image_write: the PNG files
-target_link_libraries(thug2_platform PUBLIC thug2_base sdl2 ws2_32 dsound ole32 d3d9 d3dx9 winmm gamespy_sdk stb_image_write)
+# d3d9, winmm: crt.h's imports; gamespy_sdk: gamespy.cpp; stb_image_write: the PNG files
+target_link_libraries(thug2_platform PUBLIC thug2_base sdl2 ws2_32 dsound ole32 d3d9 winmm gamespy_sdk stb_image_write)
 # crt.cpp and sockets.cpp call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock
 # marks them deprecated unless this is defined.
 set_source_files_properties(crt.cpp sockets.cpp PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)

@@ -2,8 +2,8 @@
 // values in registers, floats where it stores them.
 
 #include "render_d3d9/pc_billboards.h"
+#include "base/maths/view_transforms.h"
 #include "render_d3d9/d3d9_handles.h"
-#include "platform/d3dx.h"
 
 #include <windows.h>
 
@@ -437,7 +437,7 @@ void BillboardBatch::render()
         }
         break;
     }
-    auto transpose = d3dx::matrix_transpose; // (D3DX)
+    auto transpose = [](float* out, const float* matrix) { maths::matrix_transpose(out, matrix); }; // (the D3DX)
     std::array<float, maths::kMatrixFloats> projection{};
     std::array<float, maths::kMatrixFloats> view{};
     std::array<float, maths::kMatrixFloats> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};

@@ -214,7 +214,7 @@ everything above it uses the game's own types and may change them freely.
     and their own headers: `render_d3d9/d3d9_state.h` (the renderer's Direct3D objects - Direct3D itself, the device,
     the depth surfaces, the back buffer, the screen copies -, `render::d3d9::state()`; the backend-free rest of the
     renderer's state is `render::Renderer`, `engine/gfx/renderer.h`), `device_d3d.h`, `pc_d3d_resources.h`,
-    `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's), `platform/d3dx_jpg.h` and the editor's ImGui
+    `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's), `render_d3d9/d3dx_jpg.h` and the editor's ImGui
     texture id (`platform/imgui_texture_id.h`).
 - `platform/`: the operating system and the SDKs - the SDL window and its event pump, DirectSound's set-up, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),

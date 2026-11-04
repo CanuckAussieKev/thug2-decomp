@@ -2,9 +2,9 @@
 // where it keeps values in registers, floats where it stores them.
 
 #include "render_d3d9/pc_texture_projection.h"
+#include "base/maths/view_transforms.h"
 #include "base/core/cursor.h"
 #include "render_d3d9/geom.h"
-#include "platform/d3dx.h"
 
 #include <windows.h>
 
@@ -71,7 +71,7 @@ int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 void transform_coord(float* out, const float* v, const maths::Mat4* matrix)
 {
-    d3dx::vec3_transform_coord(out, v, matrix); // (D3DX)
+    maths::transform_coord(out, v, matrix->data()); // (the original's D3DX)
 }
 
 // The vertex stack (0x006FC4A0) the splitter works on.

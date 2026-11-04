@@ -1,9 +1,9 @@
 // Shadows: see shadow_base.h.
 
 #include "render_d3d9/shadow_base.h"
+#include "base/maths/view_transforms.h"
 #include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/d3d9_handles.h"
-#include "platform/d3dx.h"
 
 #include <windows.h>
 
@@ -148,18 +148,22 @@ ShadowCompanionFn& shadow_companion()
     return shadow_companion;
 }
 
+// (the original's D3DX: base/maths/view_transforms.h)
 void matrix_inverse(float* out, float* determinant, const float* matrix)
 {
-    d3dx::matrix_inverse(out, determinant, matrix);
+    maths::matrix_inverse(out, determinant, matrix);
 }
-void transform_coord(float* out, const float* v, const void* matrix) { d3dx::vec3_transform_coord(out, v, matrix); }
+void transform_coord(float* out, const float* v, const void* matrix)
+{
+    maths::transform_coord(out, v, static_cast<const float*>(matrix));
+}
 void matrix_look_at(float* out, const float* eye, const float* at, const float* up)
 {
-    d3dx::matrix_look_at_rh(out, eye, at, up);
+    maths::matrix_look_at_rh(out, eye, at, up);
 }
 void matrix_ortho(float* out, float width, float height, float near_z, float far_z)
 {
-    d3dx::matrix_ortho_rh(out, width, height, near_z, far_z);
+    maths::matrix_ortho_rh(out, width, height, near_z, far_z);
 }
 
 // The models' meshes (not rewritten yet; thiscall).

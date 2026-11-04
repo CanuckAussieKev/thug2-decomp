@@ -2,11 +2,11 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "render_d3d9/draw_frame.h"
+#include "base/maths/view_transforms.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/render_camera.h"
 #include "render_d3d9/device_d3d.h"
 #include "render_d3d9/d3d9_handles.h"
-#include "platform/d3dx.h"
 #include "render_d3d9/pc_scene.h"
 #include "render_d3d9/view_mode.h"
 #include "render_d3d9/wireframe.h"
@@ -139,18 +139,18 @@ void draw_primitive_up(int type, unsigned int count, const void* vertices, unsig
     d3d9::state().d3d_device()->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
 }
 
-// --- D3DX (linked library code; stdcall) ----------------------------------------------------------------------
+// --- the original's D3DX (linked library code; stdcall): base/maths/view_transforms.h -----------------------------
 
 void matrix_look_at(maths::Mat4* out, const float* eye, const float* at, const float* up)
 {
-    d3dx::matrix_look_at_rh(out, eye, at, up);
+    maths::matrix_look_at_rh(out->data(), eye, at, up);
 }
 void matrix_perspective(maths::Mat4* out, float width, float height, float near_z, float far_z)
 {
-    d3dx::matrix_perspective_rh(out, width, height, near_z, far_z);
+    maths::matrix_perspective_rh(out->floats(), width, height, near_z, far_z);
 }
-void matrix_scaling(maths::Mat4* out, float x, float y, float z) { d3dx::matrix_scaling(out, x, y, z); }
-void matrix_rotation_y(maths::Mat4* out, float angle) { d3dx::matrix_rotation_y(out, angle); }
+void matrix_scaling(maths::Mat4* out, float x, float y, float z) { maths::matrix_scaling(out->floats(), x, y, z); }
+void matrix_rotation_y(maths::Mat4* out, float angle) { maths::matrix_rotation_y(out->floats(), angle); }
 
 // atan2(y, x) - pi/2 (the pi/2 a float), rounded once to float.
 float atan2_less_quarter_turn(float y, float x)

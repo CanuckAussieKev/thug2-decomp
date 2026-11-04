@@ -2,11 +2,11 @@
 // x87 code: double precision where it keeps values in registers, floats where it stores them.
 
 #include "render_d3d9/texture_splats.h"
+#include "base/maths/view_transforms.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/engine_splats.h"
 #include "base/core/cursor.h"
 #include "render_d3d9/geom.h"
-#include "platform/d3dx.h"
 
 #include <windows.h>
 
@@ -417,16 +417,16 @@ int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 // D3DX (linked library code).
 void transform_coord(float* out, const float* v, const maths::Mat4* matrix)
 {
-    d3dx::vec3_transform_coord(out, v, matrix);
+    maths::transform_coord(out, v, matrix->data());
 }
-void normalize3(float* v) { d3dx::vec3_normalize(v, v); }
+void normalize3(float* v) { maths::normalize3(v, v); }
 void get_look_at(maths::Mat4* out, const float* eye, const float* at, const float* up)
 {
-    d3dx::matrix_look_at_rh(out, eye, at, up);
+    maths::matrix_look_at_rh(out->data(), eye, at, up);
 }
 void ortho(maths::Mat4* out, float width, float height, float near_z, float far_z)
 {
-    d3dx::matrix_ortho_rh(out, width, height, near_z, far_z);
+    maths::matrix_ortho_rh(out->floats(), width, height, near_z, far_z);
 }
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { maths::matrix_multiply(out, a, b); }
 

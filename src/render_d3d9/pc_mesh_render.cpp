@@ -11,11 +11,11 @@
 #include <array>
 #include <span>
 
+#include "base/maths/view_transforms.h"
 #include "render_d3d9/d3d9_handles.h"
 #include "render_d3d9/device.h"
 #include "base/maths/mat4.h"
 #include "render_d3d9/vertex_buffers.h"
-#include "platform/d3dx.h"
 #include "render_d3d9/geom.h"
 #include "engine/gfx/surface_material.h"
 #include "render_d3d9/sub_mesh.h"
@@ -50,16 +50,20 @@ constexpr int kByteMax = 255;
 
 namespace {
 
-// D3DX (the statically linked library's, through its thunks).
+// The original's D3DX (the statically linked library's, through its thunks): base/maths/view_transforms.h, mat4.h
+// (16 floats a matrix: Direct3D's or the game's).
 void transform_coord(float* out, const float* v, const maths::Mat4& matrix)
 {
-    d3dx::vec3_transform_coord(out, v, &matrix);
+    maths::transform_coord(out, v, matrix.data());
 }
 void transform_normal(float* out, const float* v, const maths::Mat4& matrix)
 {
-    d3dx::vec3_transform_normal(out, v, &matrix);
+    maths::transform_normal(out, v, matrix.data());
 }
-void matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_multiply(out, a, b); }
+void matrix_multiply(void* out, const void* a, const void* b)
+{
+    maths::matrix_multiply(static_cast<float*>(out), static_cast<const float*>(a), static_cast<const float*>(b));
+}
 
 // A vertex's skinning data (0x4C bytes): its position, normal, colour, texture coordinates, bones and weights.
 struct SkinVertex {

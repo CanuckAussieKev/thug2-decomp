@@ -2,7 +2,7 @@
 
 #include "render_d3d9/pixel_shaders.h"
 #include "engine/gfx/mesh_formats.h"
-#include "platform/d3dx.h"
+#include "render_d3d9/d3dx.h"
 
 #include <windows.h>
 
