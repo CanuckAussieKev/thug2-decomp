@@ -26,7 +26,6 @@
 #include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/objects/entity.h"
@@ -37,7 +36,7 @@
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
 #include "base/core/checked_index.h"
-#include "game/online/net_game_state.h"
+#include "engine/net/session_query.h"
 #include "wire/message_ids.h"
 #include <gsl/pointers>
 
@@ -77,11 +76,11 @@ bool object_runs_scripts(objects::Entity* object) { return object->should_update
 // The object's id (sent to the other players).
 uint32_t current_object_id(objects::Entity* object) { return object->ident(); }
 
-// The network game (online::Hub 0x007CCE14).
+// The network game (online::Hub 0x007CCE14, through engine/net/session_query.h).
 // 0x0044E4F0: whether a network game is on.
-bool in_net_game(online::Hub* net) { return net->in_net_game(); }
+bool in_net_game() { return ::net::manager_in_net_game(); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).
-void* fetch_patron(online::Hub* net, int index) { return net->fetch_patron(index); }
+void* fetch_patron(int index) { return ::net::client_app(index); }
 // NetLink::NetMessageInfo (net_app.h): a message to be sent; the constructor 0x004549F0 sets the defaults.
 using ::net::NetMessageInfo;
 void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
@@ -196,7 +195,7 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
             copy->merge_structure(callback_params);
         }
     }
-    if (replicate_flag && in_net_game(online::online_hub())) {
+    if (replicate_flag && in_net_game()) {
         send_spawn_script_message(name, nullptr, node, permanent);
     }
     return script;
@@ -291,8 +290,7 @@ void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Str
 // 0x00473350
 void send_run_script_message(uint32_t name, Struct* params, objects::Entity* object)
 {
-    online::Hub* net = online::online_hub();
-    if (!in_net_game(net)) {
+    if (!in_net_game()) {
         return;
     }
     NetMessageInfo desc;
@@ -305,7 +303,7 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_run_script(writer, message);
     const int size = emit_into_buffer(params, writer.cursor(), static_cast<int>(online::kRunScriptParamsSize));
-    void* client = fetch_patron(net, 0);
+    void* client = fetch_patron(0);
     desc.set_content(data.data());
     desc.set_byte_count(static_cast<uint16_t>(size + online::kRunScriptHeaderSize));
     desc.set_ident(online::MessageId::kSpawnScript);
@@ -317,8 +315,7 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
 // 0x00473420
 void send_spawn_script_message(uint32_t name, objects::Entity* object, int node, bool permanent)
 {
-    online::Hub* net = online::online_hub();
-    if (!in_net_game(net)) {
+    if (!in_net_game()) {
         return;
     }
     NetMessageInfo desc;
@@ -332,7 +329,7 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
     std::array<uint8_t, online::kSpawnScriptSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_spawn_script(writer, message);
-    void* client = fetch_patron(net, 0);
+    void* client = fetch_patron(0);
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
     desc.set_ident(online::MessageId::kSpawnScript);

@@ -14,7 +14,7 @@
 #include "engine/lists/key_map.h"
 #include "base/maths/random.h"
 #include "base/maths/vec4.h"
-#include "game/online/gamenet_manager.h"
+#include "engine/net/session_query.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/script/param_struct.h"
@@ -26,7 +26,6 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "game/online/net_game_state.h"
 #include <gsl/pointers>
 #include <string_view>
 #include <gsl/assert>
@@ -396,7 +395,6 @@ void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position,
         return;
     }
     const sound::AudioMixer* sounds = sound_manager();
-    void* net = online::net_game_state().online_hub();
     Struct* sound_actions = nullptr;
     if (!get_terrain_structure_into(&sound_actions, terrain, kSoundActions)) {
         return;
@@ -414,7 +412,9 @@ void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position,
     }
     if (propagate) {
         net::NetMessageInfo desc;
-        auto* client = core::down_cast<net::Guest>(static_cast<online::Hub*>(net)->fetch_patron(0));
+        // (the network manager's first client app: 0x00532EA0 on 0x007CCE14, read before the terrain's sound actions
+        // in the original - nothing between changes it; engine/net/session_query.h)
+        auto* client = core::down_cast<net::Guest>(net::client_app(0));
         // (the message a propagated terrain sound sends: wire/play_messages.h)
         online::TerrainSound message;
         message.table = table;

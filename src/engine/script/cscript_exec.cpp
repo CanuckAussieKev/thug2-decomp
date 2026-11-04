@@ -43,7 +43,7 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "game/online/gamenet_manager.h"
+#include "engine/net/session_query.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cache.h"
 #include "engine/script/cell.h"
@@ -58,7 +58,6 @@
 #include "platform/run_log.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "game/online/net_game_state.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -101,9 +100,9 @@ objects::ObjectModule* fetch_module(objects::Entity* object, uint32_t type)
 }
 // The object named `name` (GameObjects::find_object: the object tracker's), or null.
 objects::Entity* find_object(uint32_t name) { return objects::find_object(name); }
-// 0x0044E4F0 on online::Hub (0x007CCE14): called where a member function has no object to run on, its
-// result unused - what is left of a compiled-out assert.
-void no_object_check() { online::net_game_state().online_hub()->in_net_game(); }
+// 0x0044E4F0 on online::Hub (0x007CCE14; engine/net/session_query.h): called where a member function has no object
+// to run on, its result unused - what is left of a compiled-out assert.
+void no_object_check() { ::net::manager_in_net_game(); }
 
 // A component made and freed around one expression / switch value.
 void delete_component(Component* component)

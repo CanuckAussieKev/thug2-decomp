@@ -24,10 +24,9 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"
 #include "base/maths/maths.h"
-#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
-#include "game/online/player_info.h"
+#include "engine/net/session_query.h"
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/objects/anim_blender.h"
@@ -44,7 +43,6 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
-#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>
@@ -254,21 +252,6 @@ void delete_all_timelines(memory::ListNode* head)
 objects::GameEntity* get_owner(BlendChannel* channel)
 {
     return channel->owner_ptr();
-}
-
-// The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
-// isn't this machine's player's skater.
-online::PlayerRecord* find_own_player_record(uint32_t object_id)
-{
-    auto* player = (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));
-    if (!player || (player->is_own_player() == 0)) {
-        return nullptr;
-    }
-    return player;
-}
-net::Guest* client_of(online::PlayerRecord* player)
-{
-    return core::down_cast<net::Guest>(online::online_hub()->fetch_patron(static_cast<int>(player->get_skater_view_slot())));
 }
 
 void post_out(net::Guest* app, net::NetMessageInfo& message, online::MessageId id, void* data, uint16_t length, bool singular)
@@ -589,9 +572,8 @@ void BlendChannel::fetch_pose(int index, Stance* pose, float* weight)
 bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*/, bool send)
 {
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(object_id)) {
+        if (net::Guest* app = nullptr; net::own_player_client(object_id, &app)) {
             net::NetMessageInfo message;
-            net::Guest* app = client_of(player);
             std::array<uint8_t, 2> data = {{static_cast<uint8_t>(object_id), static_cast<uint8_t>(flip)}};
             post_out(app, message, MessageId::kFlip, data.data(), 2, false);
         }
@@ -604,7 +586,7 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
 // 0x0047DD80
 void BlendChannel::toggle_flipped()
 {
-    const net::AppHost* app = online::online_hub()->fetch_patron(0);
+    const net::AppHost* app = net::client_app(0);
     const uint32_t unused = app->clock();
     set_flipped(get_owner(this)->ident(), ((flag_bits_ >> kFlippedFlagBit) & 1) == 0U, unused, true);
 }
@@ -676,8 +658,7 @@ bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
 void BlendChannel::choose_wobble_goal(float target, bool send)
 {
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
-            net::Guest* app = client_of(player);
+        if (net::Guest* app = nullptr; net::own_player_client(get_owner(this)->ident(), &app)) {
             if (target < 0.0F) {
                 target = 0.0F;
             } else if (target > 1.0F) {
@@ -706,8 +687,7 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
 void BlendChannel::set_wobble_details(std::span<const float, kWobbleDetailCount> details, bool send)
 {
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
-            net::Guest* app = client_of(player);
+        if (net::Guest* app = nullptr; net::own_player_client(get_owner(this)->ident(), &app)) {
             // Which of its known values each detail has (0x00645D6C... - the server sends those).
             uint8_t bits = 0;
             if (core::at(details, 0) == kWobbleBaseStepSlow) {
@@ -749,8 +729,7 @@ void BlendChannel::set_wobble_details(std::span<const float, kWobbleDetailCount>
 void BlendChannel::change_repeat_mode(int loop_type, bool send)
 {
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
-            net::Guest* app = client_of(player);
+        if (net::Guest* app = nullptr; net::own_player_client(get_owner(this)->ident(), &app)) {
             std::array<uint8_t, 2> data = {{static_cast<uint8_t>(get_owner(this)->ident()), static_cast<uint8_t>(loop_type)}};
             if (last_loop_type() != loop_type) {
                 net::NetMessageInfo message;
@@ -784,8 +763,8 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         return;
     }
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
-            if (net::Guest* app = client_of(player)) {
+        if (net::Guest* app = nullptr; net::own_player_client(get_owner(this)->ident(), &app)) {
+            if (app != nullptr) {
                 net::NetMessageInfo message;
                 online::AnimSpeedMessage sent;
                 sent.speed_bits = std::bit_cast<uint32_t>(speed);
@@ -908,9 +887,8 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
         anim = kDefault;
     }
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
+        if (net::Guest* app = nullptr; net::own_player_client(get_owner(this)->ident(), &app)) {
             net::NetMessageInfo message;
-            net::Guest* app = client_of(player);
             // loop type, object, anim, then the times, blend period and speed x 4096 as shorts
             online::PlayAnimMessage sent;
             sent.loop_type = static_cast<uint8_t>(loop_type);

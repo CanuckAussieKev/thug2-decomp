@@ -23,6 +23,9 @@ Hub*& objects_hub()
 }
 
 bool objects_in_net_game() { return objects_hub()->in_net_game(); }
+// The network manager as it is now (0x007CCE14).
+bool manager_in_net_game() { return online_hub()->in_net_game(); }
+net::AppHost* client_app(int index) { return online_hub()->fetch_patron(index); }
 
 // The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
 // machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
@@ -42,7 +45,10 @@ bool own_player_client(uint32_t object_id, net::Guest** app)
 void install_session_queries(Hub* hub)
 {
     objects_hub() = hub;
-    net::install_session_queries({.in_net_game = &objects_in_net_game, .own_player_client = &own_player_client});
+    net::install_session_queries({.in_net_game = &objects_in_net_game,
+                                  .own_player_client = &own_player_client,
+                                  .manager_in_net_game = &manager_in_net_game,
+                                  .client_app = &client_app});
 }
 
 } // namespace online

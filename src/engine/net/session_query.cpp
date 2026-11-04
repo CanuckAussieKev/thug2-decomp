@@ -25,4 +25,14 @@ bool own_player_client(uint32_t object_id, Guest** app)
     return installed_queries().own_player_client != nullptr && installed_queries().own_player_client(object_id, app);
 }
 
+bool manager_in_net_game()
+{
+    return installed_queries().manager_in_net_game != nullptr && installed_queries().manager_in_net_game();
+}
+
+AppHost* client_app(int index)
+{
+    return installed_queries().client_app != nullptr ? installed_queries().client_app(index) : nullptr;
+}
+
 } // namespace net
