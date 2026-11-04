@@ -830,6 +830,28 @@ std::string link_record(const Placed& placed)
     return out.str();
 }
 
+namespace {
+
+// A record's flags=a,b,c: each a valid name; false at the first that isn't (the ones before it kept).
+bool read_flags(const std::string& value, std::vector<std::string>* flags)
+{
+    bool ok = true;
+    size_t at = 0;
+    while (ok && at <= value.size()) {
+        size_t comma = value.find(',', at);
+        if (comma == std::string::npos) {
+            comma = value.size();
+        }
+        const std::string flag = value.substr(at, comma - at);
+        ok = valid_name(flag);
+        flags->push_back(flag);
+        at = comma + 1;
+    }
+    return ok;
+}
+
+} // namespace
+
 bool read_record(const std::string& line, Placed* placed)
 {
     *placed = Placed{};
@@ -903,18 +925,7 @@ bool read_record(const std::string& line, Placed* placed)
             ok = once(&have_gap) && valid_name(value);
             spec.gap = value;
         } else if (key == "flags") {
-            ok = once(&have_flags);
-            size_t at = 0;
-            while (ok && at <= value.size()) {
-                size_t comma = value.find(',', at);
-                if (comma == std::string::npos) {
-                    comma = value.size();
-                }
-                const std::string flag = value.substr(at, comma - at);
-                ok = valid_name(flag);
-                spec.flags.push_back(flag);
-                at = comma + 1;
-            }
+            ok = once(&have_flags) && read_flags(value, &spec.flags);
         } else if (key == "score") {
             char* end = nullptr;
             const long score = std::strtol(value.c_str(), &end, 10);
@@ -1814,7 +1825,8 @@ void sync_proxims()
     }
 }
 
-void get_sync()
+// What each spec is now: alive where its node is, its problem, its calls, a breakable's box and state.
+void sync_added()
 {
     // What each spec is now.
     level_editor_triggers_state().added_.clear();
@@ -1839,23 +1851,12 @@ void get_sync()
         }
         level_editor_triggers_state().added_.push_back(added);
     }
-    // Their scripts (every spec's: a deleted one's undo brings its node back naming it). The game's loader defines
-    // them (an unchanged script is left as it is).
-    std::vector<Spec> scripted;
-    for (const Added& added : level_editor_triggers_state().added_) {
-        Spec spec = added.spec;
-        if (added.problem) {
-            spec.kind = Kind::kOther; // (an empty script: it does nothing yet)
-        }
-        scripted.push_back(spec);
-    }
-    std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : qb_file(scripted);
-    bool redefined = false;
-    if (file != trigger_edit().defined_ && !file.empty()) {
-        script::load_qb_data(kFileName.data(), file, 0, 0, 0);
-        trigger_edit().defined_ = file;
-        redefined = true;
-    }
+}
+
+// The boxes: one for each alive trigger, where its node is (none in a network session or a career-type mode -
+// Guard).
+void sync_boxes()
+{
     // The boxes: one for each alive trigger, where its node is (none in a network session or a career-type mode -
     // Guard).
     const bool network = layout::get_refused();
@@ -1896,6 +1897,12 @@ void get_sync()
             place_box(&*it, added.pos, added.yaw, added.spec.size);
         }
     }
+}
+
+// The level's triggers an alive editable copy stands in for: switched off (through level_editor_walls.h - the
+// collision switch's one owner: WorldCell::change_live for a wall), on again once no copy stands in for them.
+void sync_replaced()
+{
     // The level's triggers an alive editable copy stands in for: switched off (through level_editor_walls.h - the
     // collision switch's one owner: WorldCell::change_live for a wall), on again once no copy stands in for them.
     std::vector<uint32_t> replaced;
@@ -1921,7 +1928,12 @@ void get_sync()
         }
         level_editor_triggers_state().turned_off_.push_back(sector);
     }
-    refresh_level();
+}
+
+// The gap list: built again as the level's load builds it (or when the scripts were defined again); the editor's
+// gaps no longer there taken out.
+void sync_gaps(bool redefined)
+{
     // The gap list: built again as the level's load builds it; the editor's gaps no longer there taken out.
     std::vector<std::pair<std::string, int>> wanted;
     for (const Added& added : level_editor_triggers_state().added_) {
@@ -1946,6 +1958,32 @@ void get_sync()
             trigger_edit().gaps_added_ = wanted;
         }
     }
+}
+
+void get_sync()
+{
+    sync_added();
+    // Their scripts (every spec's: a deleted one's undo brings its node back naming it). The game's loader defines
+    // them (an unchanged script is left as it is).
+    std::vector<Spec> scripted;
+    for (const Added& added : level_editor_triggers_state().added_) {
+        Spec spec = added.spec;
+        if (added.problem) {
+            spec.kind = Kind::kOther; // (an empty script: it does nothing yet)
+        }
+        scripted.push_back(spec);
+    }
+    std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : qb_file(scripted);
+    bool redefined = false;
+    if (file != trigger_edit().defined_ && !file.empty()) {
+        script::load_qb_data(kFileName.data(), file, 0, 0, 0);
+        trigger_edit().defined_ = file;
+        redefined = true;
+    }
+    sync_boxes();
+    sync_replaced();
+    refresh_level();
+    sync_gaps(redefined);
     sync_proxims();
 }
 
@@ -2673,6 +2711,55 @@ bool get_node_pos(uint32_t name, V3* pos)
 } // namespace
 
 namespace {
+
+// One of the editor's triggers: its box (grey when it has a problem), the arrow to what it links to (a gap's to
+// its end) and its label.
+template <class Label>
+void draw_added_trigger(Painter& paint, const Added& added, Label& label)
+{
+    const OrientedBox box = box_of(added.pos, added.yaw, added.spec.size);
+    const uint32_t colour = added.problem ? 0xC0A0A0A0U : kind_colour(added.spec.kind);
+    paint.cuboid(box, colour, kOverlayLineThickness);
+    V3 target{};
+    if (!added.problem &&
+        (added.spec.kind == Kind::kJumpTo || added.spec.kind == Kind::kKill || added.spec.kind == Kind::kViewCam) &&
+        get_node_pos(checksum_of(added.spec.target), &target)) {
+        paint.get_arrow(added.pos, target,
+                        get_dim(colour, added.spec.kind == Kind::kKill ? kKillArrowAlpha : kLinkArrowAlpha));
+    }
+    if (added.spec.kind == Kind::kGapStart) {
+        const int other = partner(level_editor_triggers_state().specs_, spec_index(added.spec.name));
+        if (other >= 0) {
+            for (const Added& partner_trigger : level_editor_triggers_state().added_) {
+                if (partner_trigger.alive &&
+                    same_text(partner_trigger.spec.name, core::at(level_editor_triggers_state().specs_, other).name)) {
+                    paint.get_arrow(added.pos, partner_trigger.pos,
+                                    get_dim(kind_colour(Kind::kGapEnd), kGapArrowAlpha));
+                }
+            }
+        }
+    }
+    std::string text = added.spec.name + ": " + kind_name(added.spec.kind);
+    if (added.spec.kind == Kind::kKill || added.spec.kind == Kind::kJumpTo) {
+        text += " -> " + added.spec.target;
+    } else if (added.spec.kind == Kind::kScripts) {
+        text += " " + added.spec.script;
+    } else if (added.spec.kind == Kind::kGapStart || added.spec.kind == Kind::kGapEnd) {
+        text += " \"" + added.spec.text + "\"";
+    } else if (added.spec.kind == Kind::kBoost) {
+        text += " " + std::to_string(added.spec.strength);
+    } else if (added.spec.kind == Kind::kBreak || added.spec.kind == Kind::kViewCam) {
+        text += " " + added.spec.target;
+    }
+    if (added.problem) {
+        text += " (not active)";
+    }
+    label({.x = added.pos.x, .y = added.pos.y + (added.spec.size.y * kHalf), .z = added.pos.z}, colour, text);
+}
+
+} // namespace
+
+namespace {
 void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z);
 } // namespace
 
@@ -2751,60 +2838,28 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         if (!added.alive) {
             continue;
         }
-        const OrientedBox box = box_of(added.pos, added.yaw, added.spec.size);
-        const uint32_t colour = added.problem ? 0xC0A0A0A0U : kind_colour(added.spec.kind);
-        paint.cuboid(box, colour, kOverlayLineThickness);
-        V3 target{};
-        if (!added.problem &&
-            (added.spec.kind == Kind::kJumpTo || added.spec.kind == Kind::kKill || added.spec.kind == Kind::kViewCam) &&
-            get_node_pos(checksum_of(added.spec.target), &target)) {
-            paint.get_arrow(added.pos, target,
-                            get_dim(colour, added.spec.kind == Kind::kKill ? kKillArrowAlpha : kLinkArrowAlpha));
-        }
-        if (added.spec.kind == Kind::kGapStart) {
-            const int other = partner(level_editor_triggers_state().specs_, spec_index(added.spec.name));
-            if (other >= 0) {
-                for (const Added& partner_trigger : level_editor_triggers_state().added_) {
-                    if (partner_trigger.alive &&
-                        same_text(partner_trigger.spec.name,
-                                  core::at(level_editor_triggers_state().specs_, other).name)) {
-                        paint.get_arrow(added.pos, partner_trigger.pos,
-                                        get_dim(kind_colour(Kind::kGapEnd), kGapArrowAlpha));
-                    }
-                }
-            }
-        }
-        std::string text = added.spec.name + ": " + kind_name(added.spec.kind);
-        if (added.spec.kind == Kind::kKill || added.spec.kind == Kind::kJumpTo) {
-            text += " -> " + added.spec.target;
-        } else if (added.spec.kind == Kind::kScripts) {
-            text += " " + added.spec.script;
-        } else if (added.spec.kind == Kind::kGapStart || added.spec.kind == Kind::kGapEnd) {
-            text += " \"" + added.spec.text + "\"";
-        } else if (added.spec.kind == Kind::kBoost) {
-            text += " " + std::to_string(added.spec.strength);
-        } else if (added.spec.kind == Kind::kBreak || added.spec.kind == Kind::kViewCam) {
-            text += " " + added.spec.target;
-        }
-        if (added.problem) {
-            text += " (not active)";
-        }
-        label({.x = added.pos.x, .y = added.pos.y + (added.spec.size.y * kHalf), .z = added.pos.z}, colour, text);
+        draw_added_trigger(paint, added, label);
     }
 }
 
-void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, ExtrasPick extras_pick, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
+namespace {
+
+// A label at a world point, if it's on screen.
+void add_label(Painter& paint, std::vector<ui::Overlay::OverlayText>* texts, V3 at, uint32_t argb,
+               const std::string& text)
 {
-    const auto near_z = extras_pick.near_z_;
-    const auto selected_node = extras_pick.selected_node_;
-    Painter paint = {.camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z, .lines = lines};
-    auto label = [&](V3 at, uint32_t argb, const std::string& text) {
-        float x = 0.0F;
-        float y = 0.0F;
-        if (paint.get_to_pixel(at, &x, &y)) {
-            texts->push_back({.x = x, .y = y, .argb = argb, .text = text});
-        }
-    };
+    float x = 0.0F;
+    float y = 0.0F;
+    if (paint.get_to_pixel(at, &x, &y)) {
+        texts->push_back({.x = x, .y = y, .argb = argb, .text = text});
+    }
+}
+
+// Rail speed-ups near the camera: chevrons along each segment pointing uphill (where they speed the skater up),
+// 60 apart, and their rates.
+void draw_speed_ups(Painter& paint, V3 camera, std::vector<ui::Overlay::OverlayText>* texts)
+{
+    auto label = [&](V3 at, uint32_t argb, const std::string& text) { add_label(paint, texts, at, argb, text); };
     const V3 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
     // Rail speed-ups: chevrons along each segment pointing uphill (where they speed the skater up), 60 apart.
     for (const chains::SpeedSegment& speed_segment : chains::speed_segments(camera, 3000.0F)) {
@@ -2840,60 +2895,113 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             label(middle + up * kSpeedUpLabelLift, colour, text.data());
         }
     }
+}
+
+// A proximity node (near the camera, or the selected one): a sphere's three rings or a box's edges, and what it runs.
+void draw_proxim_node(Painter& paint, V3 camera, std::vector<ui::Overlay::OverlayText>* texts, uint32_t node,
+                      bool is_selected)
+{
+    auto label = [&](V3 at, uint32_t argb, const std::string& text) { add_label(paint, texts, at, argb, text); };
+    const V3 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    const objects::ProximNode* proxim_node = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
+    if (!proxim_node) {
+        return;
+    }
+    const V3 at = {.x = proxim_node->at_point().x, .y = proxim_node->at_point().y, .z = proxim_node->at_point().z};
+    const V3 delta = at - camera;
+    if (!is_selected && get_dot(delta, delta) > kProximDrawDistance * kProximDrawDistance) {
+        return;
+    }
+    const uint32_t colour = is_selected ? 0xFFFFB060U : 0xC0F08A3CU;
+    V3 top = at;
+    if (proxim_node->form() == objects::ProximShape::kSphere && proxim_node->radius() > 0.0F) {
+        constexpr int kSides = 32;
+        const std::array<std::array<V3, 2>, 3> axes = {{{{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 0, .z = 1}}},
+                                                        {{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 1, .z = 0}}},
+                                                        {{{.x = 0, .y = 1, .z = 0}, {.x = 0, .y = 0, .z = 1}}}}};
+        for (const auto& plane : axes) {
+            V3 previous = at + core::at(plane, 0) * proxim_node->radius();
+            for (int i = 1; i <= kSides; ++i) {
+                const float angle = 2.0F * 3.14159265F * static_cast<float>(i) / kSides;
+                const V3 next = at + core::at(plane, 0) * (proxim_node->radius() * std::cos(angle)) +
+                                core::at(plane, 1) * (proxim_node->radius() * std::sin(angle));
+                paint.get_seg(previous, next, colour, 1.0F);
+                previous = next;
+            }
+        }
+        top = at + up * proxim_node->radius();
+    } else if (proxim_node->form() == objects::ProximShape::kBox) {
+        const V3 min = {.x = proxim_node->box().min.x, .y = proxim_node->box().min.y, .z = proxim_node->box().min.z};
+        const V3 max = {.x = proxim_node->box().max.x, .y = proxim_node->box().max.y, .z = proxim_node->box().max.z};
+        const OrientedBox box = {.origin = {.x = 0.0F, .y = 0.0F, .z = 0.0F},
+                                 .axes = {{{.x = 1.0F, .y = 0.0F, .z = 0.0F},
+                                           {.x = 0.0F, .y = 1.0F, .z = 0.0F},
+                                           {.x = 0.0F, .y = 0.0F, .z = 1.0F}}},
+                                 .min = min,
+                                 .max = max};
+        paint.cuboid(box, colour, kProximBoxThickness);
+        top = {.x = (min.x + max.x) * kHalf, .y = max.y, .z = (min.z + max.z) * kHalf};
+    }
+    if (const ProximEdit* proxim_edit = proxim_of(node)) {
+        std::string text = "Proximity";
+        if (!proxim_edit->enter.empty()) {
+            text += "  in: " + proxim_edit->enter;
+        }
+        if (!proxim_edit->exit.empty()) {
+            text += "  out: " + proxim_edit->exit;
+        }
+        label(top + up * kProximLabelLift, colour, text);
+    }
+}
+
+// A breakable: cracks over the piece's box (each face's middle, five jagged rays) and its state.
+void draw_breakable(Painter& paint, const Added& added, std::vector<ui::Overlay::OverlayText>* texts)
+{
+    auto label = [&](V3 at, uint32_t argb, const std::string& text) { add_label(paint, texts, at, argb, text); };
+    const V3 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    const uint32_t colour = added.broken ? 0x90A0A0A0U : 0xFFE8F4FFU;
+    const V3 half = added.spec.size * 0.5F;
+    const std::array<V3, 4> normals = {
+        {{.x = 1, .y = 0, .z = 0}, {.x = -1, .y = 0, .z = 0}, {.x = 0, .y = 0, .z = 1}, {.x = 0, .y = 0, .z = -1}}};
+    for (const V3& normal : normals) {
+        const V3 across = {.x = normal.z, .y = 0.0F, .z = -normal.x};
+        const float width = (std::fabs(across.x) * half.x) + (std::fabs(across.z) * half.z);
+        const V3 centre = added.pos + V3{.x = normal.x * half.x, .y = 0.0F, .z = normal.z * half.z};
+        for (int ray = 0; ray < kCrackRays; ++ray) {
+            const float angle = 0.6F + (static_cast<float>(ray) * 1.26F);
+            V3 previous = centre;
+            for (int step = 1; step <= 3; ++step) {
+                const float reach = static_cast<float>(step) / 3.0F;
+                const float jag = ((step & 1) != 0) ? 0.18F : -0.12F;
+                const V3 next = centre + across * (std::cos(angle + jag) * width * 0.8F * reach) +
+                                up * (std::sin(angle + jag) * half.y * 0.8F * reach);
+                paint.get_seg(previous, next, colour, kCrackThickness);
+                previous = next;
+            }
+        }
+    }
+    label(added.pos + up * (half.y + kBreakLabelLift), colour,
+          std::string(added.broken ? "broken (back in the editor)" : "breaks when hit") +
+              (added.spec.sound.empty() ? "" : "  " + added.spec.sound));
+}
+
+} // namespace
+
+void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport,
+                ExtrasPick extras_pick, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
+{
+    const auto near_z = extras_pick.near_z_;
+    const auto selected_node = extras_pick.selected_node_;
+    Painter paint = {
+        .camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z, .lines = lines};
+    const V3 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    draw_speed_ups(paint, camera, texts);
     // Proximity nodes: the edited ones and the selected one - a sphere's three rings, a box's edges.
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     const uint32_t selected =
         selected_node >= 0 && std::cmp_less(selected_node, nodes.size()) ? core::at(nodes, selected_node).name : 0;
     auto draw_proxim = [&](uint32_t node, bool is_selected) {
-        const objects::ProximNode* proxim_node = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
-        if (!proxim_node) {
-            return;
-        }
-        const V3 at = {.x = proxim_node->at_point().x, .y = proxim_node->at_point().y, .z = proxim_node->at_point().z};
-        const V3 delta = at - camera;
-        if (!is_selected && get_dot(delta, delta) > kProximDrawDistance * kProximDrawDistance) {
-            return;
-        }
-        const uint32_t colour = is_selected ? 0xFFFFB060U : 0xC0F08A3CU;
-        V3 top = at;
-        if (proxim_node->form() == objects::ProximShape::kSphere && proxim_node->radius() > 0.0F) {
-            constexpr int kSides = 32;
-            const std::array<std::array<V3, 2>, 3> axes = {{{{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 0, .z = 1}}}, {{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 1, .z = 0}}}, {{{.x = 0, .y = 1, .z = 0}, {.x = 0, .y = 0, .z = 1}}}}};
-            for (const auto& plane : axes) {
-                V3 previous = at + core::at(plane, 0) * proxim_node->radius();
-                for (int i = 1; i <= kSides; ++i) {
-                    const float angle = 2.0F * 3.14159265F * static_cast<float>(i) / kSides;
-                    const V3 next = at + core::at(plane, 0) * (proxim_node->radius() * std::cos(angle)) +
-                                    core::at(plane, 1) * (proxim_node->radius() * std::sin(angle));
-                    paint.get_seg(previous, next, colour, 1.0F);
-                    previous = next;
-                }
-            }
-            top = at + up * proxim_node->radius();
-        } else if (proxim_node->form() == objects::ProximShape::kBox) {
-            const V3 min = {
-                .x = proxim_node->box().min.x, .y = proxim_node->box().min.y, .z = proxim_node->box().min.z};
-            const V3 max = {
-                .x = proxim_node->box().max.x, .y = proxim_node->box().max.y, .z = proxim_node->box().max.z};
-            const OrientedBox box = {.origin = {.x = 0.0F, .y = 0.0F, .z = 0.0F},
-                                     .axes = {{{.x = 1.0F, .y = 0.0F, .z = 0.0F},
-                                               {.x = 0.0F, .y = 1.0F, .z = 0.0F},
-                                               {.x = 0.0F, .y = 0.0F, .z = 1.0F}}},
-                                     .min = min,
-                                     .max = max};
-            paint.cuboid(box, colour, kProximBoxThickness);
-            top = {.x = (min.x + max.x) * kHalf, .y = max.y, .z = (min.z + max.z) * kHalf};
-        }
-        if (const ProximEdit* proxim_edit = proxim_of(node)) {
-            std::string text = "Proximity";
-            if (!proxim_edit->enter.empty()) {
-                text += "  in: " + proxim_edit->enter;
-            }
-            if (!proxim_edit->exit.empty()) {
-                text += "  out: " + proxim_edit->exit;
-            }
-            label(top + up * kProximLabelLift, colour, text);
-        }
+        draw_proxim_node(paint, camera, texts, node, is_selected);
     };
     for (const ProximEdit& stored_proxim : stored_proxims()) {
         if (stored_proxim.node != selected) {
@@ -2914,29 +3022,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             continue;
         }
         if (added.spec.kind == Kind::kBreak) {
-            const uint32_t colour = added.broken ? 0x90A0A0A0U : 0xFFE8F4FFU;
-            const V3 half = added.spec.size * 0.5F;
-            const std::array<V3, 4> normals = {{{.x = 1, .y = 0, .z = 0}, {.x = -1, .y = 0, .z = 0}, {.x = 0, .y = 0, .z = 1}, {.x = 0, .y = 0, .z = -1}}};
-            for (const V3& normal : normals) {
-                const V3 across = {.x = normal.z, .y = 0.0F, .z = -normal.x};
-                const float width = (std::fabs(across.x) * half.x) + (std::fabs(across.z) * half.z);
-                const V3 centre = added.pos + V3{.x = normal.x * half.x, .y = 0.0F, .z = normal.z * half.z};
-                for (int ray = 0; ray < kCrackRays; ++ray) {
-                    const float angle = 0.6F + (static_cast<float>(ray) * 1.26F);
-                    V3 previous = centre;
-                    for (int step = 1; step <= 3; ++step) {
-                        const float reach = static_cast<float>(step) / 3.0F;
-                        const float jag = ((step & 1) != 0) ? 0.18F : -0.12F;
-                        const V3 next = centre + across * (std::cos(angle + jag) * width * 0.8F * reach) +
-                                        up * (std::sin(angle + jag) * half.y * 0.8F * reach);
-                        paint.get_seg(previous, next, colour, kCrackThickness);
-                        previous = next;
-                    }
-                }
-            }
-            label(added.pos + up * (half.y + kBreakLabelLift), colour,
-                  std::string(added.broken ? "broken (back in the editor)" : "breaks when hit") +
-                      (added.spec.sound.empty() ? "" : "  " + added.spec.sound));
+            draw_breakable(paint, added, texts);
         } else if (added.spec.kind == Kind::kBoost) {
             const V3 base = added.pos + up * (added.spec.size.y * 0.5F);
             paint.get_arrow(base, base + up * (static_cast<float>(added.spec.strength) * kBoostArrowScale),
