@@ -3,7 +3,7 @@
 // on the FPU stack are worked in double.
 
 #include "engine/objects/collide_and_die.h"
-#include "game/world/projectile_components.h"
+#include "engine/objects/game_hooks.h"
 
 #include <cstdint>
 #include <gsl/pointers>
@@ -39,9 +39,6 @@ constexpr float kAbove = 24.0F;       // 0x00645EE8
 
 // The object dies.
 void get_kill(GameEntity* object) { object->flag_as_dead(); }
-
-// The projectile collision component's 0x004F2F40 (no source yet): told of the hit.
-void projectile_hit(ObjectModule* projectile) { core::down_cast<ShotImpactModule>(projectile)->mark_hit(); }
 
 } // namespace
 
@@ -108,7 +105,7 @@ void ImpactDestructModule::tick_frame()
         feeler.change_finish(&end);
         if ((feeler.get_hit_shape(true, false) != 0) && !fading_out_) {
             if (ObjectModule* projectile = entity()->fetch_module(kProjectileCollision)) {
-                projectile_hit(projectile);
+                game_hooks().projectile_hit(projectile); // (the projectile collision component told)
             }
             fading_out_ = true;
             death_time_ =

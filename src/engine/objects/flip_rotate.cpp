@@ -14,8 +14,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
-#include "game/rider/flip_and_rotate.h"
-#include "base/core/down_cast.h"
+#include "engine/objects/game_hooks.h"
 #include "base/core/checked_index.h"
 #include <algorithm>
 
@@ -63,7 +62,7 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
     gfx::RigData* bones = skeleton->payload();
     auto* object = fetch_subject();
     ObjectModule* flip_and_rotate = object->fetch_module(kSkaterFlipAndRotate);
-    if (flip_and_rotate && core::down_cast<RiderSpinAndFlip>(flip_and_rotate)->deck_turned()) {
+    if (flip_and_rotate && game_hooks().deck_turned(flip_and_rotate)) {
         const int bone = skeleton->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
             maths::QuatRotation& rotation = core::at(pose->rotations, bone);

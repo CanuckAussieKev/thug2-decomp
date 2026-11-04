@@ -19,13 +19,10 @@
 #include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/smtptr.h"
-#include "game/world/trick_objects.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"
-#include "game/skate/skate_module.h"
-#include "game/rider/walk_physics.h"
-#include "game/park_editing/park_editor.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "base/core/checksums.h"
@@ -244,7 +241,7 @@ void set_rail_clear_override(RailClearOverride override) { rail_clear_override()
 // 0x0057C600
 bool rail_clear(maths::Vec4 a, maths::Vec4 b)
 {
-    if (park_editing::ParkBuilderMode::sole()->editor_state() == kOff) { // (the park editor's)
+    if (game_hooks().park_editor_state() == kOff) { // (the park editor's)
         return true;
     }
     if (rail_clear_override() &&
@@ -625,7 +622,7 @@ void GrindRailHub::remove_overlaps() const
 // 0x0057D7A0
 void GrindRailHub::remove_overlaps_if_not_park() const
 {
-    if (park_editing::ParkBuilderMode::sole()->editor_state() == kOff) { // (the park editor's level)
+    if (game_hooks().park_editor_state() == kOff) { // (the park editor's level)
         return;
     }
     remove_overlaps();
@@ -697,14 +694,13 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
         maths::Mat4 matrix;
         if (up) {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, node);
-            if (static_cast<FootMovement*>(checker)->check_ladder_bottom(
-                    &node->at_point(), &other->at_point(), orientation, result)) {
+            if (game_hooks().walk.ladder_bottom(checker, &node->at_point(), &other->at_point(), orientation, result)) {
                 *found = node;
                 return true;
             }
         } else {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, other);
-            if (objects::FootMovement::check_ladder_top(&other->at_point(), &node->at_point(), orientation, result)) {
+            if (game_hooks().walk.ladder_top(&other->at_point(), &node->at_point(), orientation, result)) {
                 *found = other;
                 return true;
             }
@@ -768,16 +764,15 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
         if (node->at_point().y < next->at_point().y) {
             // Climbing up from this node.
             const maths::Mat4* orientation = get_climb_matrix(&matrix, node);
-            if (!static_cast<FootMovement*>(checker)->check_ladder_line(&node->at_point(), &next->at_point(),
-                                                                        orientation, &on_rail, along_rail, &record)) {
+            if (!game_hooks().walk.ladder_line(checker, &node->at_point(), &next->at_point(), orientation, &on_rail,
+                                               along_rail, &record)) {
                 continue;
             }
             *found = node;
         } else {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, next);
-            if (!static_cast<FootMovement*>(checker)->check_ladder_line(
-                    &next->at_point(), &node->at_point(), orientation, &on_rail, static_cast<float>(1.0 - along_rail),
-                    &record)) {
+            if (!game_hooks().walk.ladder_line(checker, &next->at_point(), &node->at_point(), orientation, &on_rail,
+                                               static_cast<float>(1.0 - along_rail), &record)) {
                 continue;
             }
             *found = next;
@@ -861,8 +856,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         const maths::Vec4* rail_at = to_world(&rail_world, &on_rail);
         const maths::Vec4* next_pos = get_absolute_pos(&next_at, next);
         const maths::Vec4* node_pos = get_absolute_pos(&node_at, node);
-        if (!static_cast<FootMovement*>(checker)->check_rail(node_pos, next_pos, rail_at, line_at, along_rail, &record,
-                                                             false)) {
+        if (!game_hooks().walk.rail(checker, node_pos, next_pos, rail_at, line_at, along_rail, &record, false)) {
             continue;
         }
         best = distance_squared;
@@ -920,7 +914,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
 {
     node_array_ = nodes;
     auto skipped = [](script::Struct* node) { // (the skate module's 0x00565BB0: a node this game leaves out)
-        return modules::Skate::should_be_absent(node) != 0;
+        return game_hooks().node_left_out(node) != 0;
     };
     auto is_rail = [](script::Struct* node) {
         uint32_t node_class = 0;
@@ -981,9 +975,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
             node->read_hash_value(kName, &node_name, 1);
             uint32_t cluster = node_name;
             node->read_hash_value(kCluster, &cluster, 1);
-            auto* trick_objects = trick_spot_hub();
-            trick_objects->add_cluster(cluster);
-            trick_objects->add_object_to_cluster(node_name, cluster);
+            game_hooks().add_trick_object(node_name, cluster);
         }
         ++adding_;
     }
