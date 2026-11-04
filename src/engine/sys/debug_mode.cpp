@@ -12,7 +12,7 @@
 #include "base/core/checksums.h"
 #include "engine/script/cell.h"
 #include "engine/script/names.h"
-#include "game/front_end/front_end.h"
+#include "engine/sys/game_hooks.h"
 #include "engine/ext/extension.h"
 #include "engine/gfx/screen.h"
 #include "engine/script/cscript.h"
@@ -133,7 +133,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed_tab = squeezed(tab, keys);
     const bool pressed_t = squeezed(t_key, keys);
     const bool pressed_home = squeezed(home, keys);
-    if ((ext::game_owner() != nullptr) || (front_end && front_end->is_halted()) || render::current_level() == 0) {
+    if ((ext::game_owner() != nullptr) || (front_end && game_hooks().front_end_halted(front_end)) || render::current_level() == 0) {
         return;
     }
     if (!started()) {

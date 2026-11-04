@@ -20,9 +20,7 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/screen.h"
-#include "game/online/gamenet_manager.h"
-#include "game/online/thugpro_compat.h"
-#include "game/skate/skate_module.h"
+#include "engine/sys/game_hooks.h"
 #include "engine/file/thugpro_cas.h"
 #include "engine/pad_input/device.h"
 #include "platform/sdl_events.h"
@@ -74,7 +72,8 @@ MlpState& mlp_state()
 int& skipped_in_a_row() { return mlp_state().skipped_in_a_row_; }
 int& skipped_total() { return mlp_state().skipped_total_; }
 
-void service_network() { online::Hub::service_game_spy(); }
+// (the online session's GameSpy service, the skate module's rail debugging: engine/sys/game_hooks.h)
+void service_network() { sys::game_hooks().service_network(); }
 // Around a device Reset: the device objects released first (default pool) and made again after.
 void release_device_objects()
 {
@@ -96,7 +95,7 @@ void run_tasks(tasks::PileUp& list, bool profiling)
 }
 void begin_scene() { render::begin_frame_draw(); }      // the device's BeginScene
 void render_frame() { render::engine::render_frame(); } // the world, then the 2D
-void after_render() { modules::Skate::debug_rails(); }  // (uses the skate module)
+void after_render() { sys::game_hooks().after_render(); } // (uses the skate module)
 void end_scene() { render::engine::end_render(); }      // EndScene, Present
 
 uint8_t cinema_bars_on() { return render::renderer().render_camera().letterbox_active_; }
@@ -214,8 +213,9 @@ void Hub::get_main_loop()
         sio::read_keyboard();
         os_layer::process_window_events();
         service_network();
-        // Not original - THUGPRO's big-level positions in network games (TP-R6, game/online/thugpro_compat.h).
-        online::thugpro::refresh_position_scale();
+        // Not original - THUGPRO's big-level positions in network games (TP-R6, game/online/thugpro_compat.h, through
+        // engine/sys/game_hooks.h).
+        sys::game_hooks().refresh_position_scale();
         // Not original - THUGPRO's own CAS parts from the user's install, once the CAS lists are loaded (TP-R10).
         objects::thugpro_cas::load_once();
         if (!sys::app_active()) {

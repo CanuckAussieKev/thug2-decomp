@@ -24,6 +24,7 @@
 #include "game/front_end/pad_hooks.h"
 #include "game/online/transport_hooks.h"
 #include "game/skate/render_hooks.h"
+#include "game/skate/sys_hooks.h"
 #include "game/world/object_hooks.h"
 
 namespace {
@@ -70,6 +71,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     render::install_game_hooks();
     // NOT ORIGINAL: what the engine's input asks of the game (game/front_end/pad_hooks.h).
     sio::install_game_hooks();
+    // NOT ORIGINAL: what the engine's main loop and debug mode ask of the game (game/skate/sys_hooks.h).
+    sys::install_game_hooks();
     sys::run_startup_initialisers();
     return sys::win_main(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
 }

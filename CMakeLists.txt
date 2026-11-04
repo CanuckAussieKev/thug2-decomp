@@ -491,6 +491,7 @@ add_executable(thug2 WIN32
     src/game/world/object_hooks.cpp
     src/game/skate/render_hooks.cpp
     src/game/front_end/pad_hooks.cpp
+    src/game/skate/sys_hooks.cpp
     src/engine/objects/rail_manager.cpp
     src/game/skate/profile_manager.cpp
     src/game/skate/highscores.cpp
@@ -813,6 +814,7 @@ add_executable(thug2 WIN32
     src/engine/objects/game_hooks.cpp
     src/engine/gfx/game_hooks.cpp
     src/engine/pad_input/game_hooks.cpp
+    src/engine/sys/game_hooks.cpp
     src/game/world/vehicle_sound.cpp
     src/game/world/vehicle_component.cpp
     src/game/world/vehicle_physics.cpp
