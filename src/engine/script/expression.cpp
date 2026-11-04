@@ -433,6 +433,512 @@ bool ValueResolver::fetch_verdict(Component* result)
     return false;
 }
 
+namespace {
+
+// The two values an operator works on, and their kinds.
+struct Operands {
+    const Component* a{};
+    const Component* b{};
+    QbValueKind type_a{};
+    QbValueKind type_b{};
+};
+
+// Two arrays joined (an empty one: a copy of the other; the elements taken to be of the first array's type).
+void join_arrays(ValueResolver& resolver, const Operands& operands)
+{
+    const Component* operand_a = operands.a;
+    const Component* operand_b = operands.b;
+    const QbValueKind type_b = operands.type_b;
+    Component& result = get_result();
+    auto error = [&resolver](const char* message) { resolver.change_fault(message); };
+    if (!is_array(type_b)) {
+        error(
+            "Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
+        return;
+    }
+    gsl::owner<Array*> array = script::new_array();
+    set_result_type(QbValueKind::kArray);
+    result.value.set_array(array);
+    const uint32_t size_a = operand_a->value.array()->extent();
+    const uint32_t size_b = operand_b->value.array()->extent();
+    if (size_a == 0) {
+        duplicate_array(array, operand_b->value.array());
+    } else if (size_b == 0) {
+        duplicate_array(array, operand_a->value.array());
+    } else {
+        // (the elements are all taken to be of the first array's type)
+        const QbValueKind type = operand_a->value.array()->kind_tag();
+        array->configure_size_kind(size_a + size_b, type);
+        copy_array_elements(array->cells(), operand_a->value.array()->cells(), type);
+        copy_array_elements(array->cells().subspan(size_a), operand_b->value.array()->cells(), type);
+    }
+}
+
+// Addition: numbers, checksums, vectors, pairs, strings, structures (merged), arrays (joined).
+void add_values(ValueResolver& resolver, const Operands& operands)
+{
+    const Component* operand_a = operands.a;
+    const Component* operand_b = operands.b;
+    const QbValueKind type_a = operands.type_a;
+    const QbValueKind type_b = operands.type_b;
+    Component& result = get_result();
+    auto error = [&resolver](const char* message) { resolver.change_fault(message); };
+    switch (type_a) {
+    case QbValueKind::kInteger:
+        if (type_b == QbValueKind::kInteger) {
+            set_result_integer(static_cast<uint32_t>(operand_a->value.integer()) +
+                               static_cast<uint32_t>(operand_b->value.integer()));
+        } else if (type_b == QbValueKind::kFloat) {
+            set_result_float(as_double(operand_a->value.integer()) + as_double(operand_b->value.real()));
+        } else {
+            error("Second arg cannot be added to an integer"); // "Second arg cannot be added to an integer"
+        }
+        break;
+    case QbValueKind::kFloat:
+        if (type_b == QbValueKind::kInteger) {
+            set_result_float(as_double(operand_b->value.integer()) + as_double(operand_a->value.real()));
+        } else if (type_b == QbValueKind::kFloat) {
+            set_result_float(as_double(operand_a->value.real()) + as_double(operand_b->value.real()));
+        } else {
+            error("Second arg cannot be added to a float"); // "Second arg cannot be added to a float"
+        }
+        break;
+    case QbValueKind::kName:
+        // A checksum plus an integer or checksum is a checksum.
+        if (type_b == QbValueKind::kInteger || type_b == QbValueKind::kName) {
+            set_result_type(QbValueKind::kName);
+            result.value.set_word(operand_b->value.word() + operand_a->value.word());
+        } else {
+            error("Second arg cannot be added to a checksum"); // "Second arg cannot be added to a checksum"
+        }
+        break;
+    case QbValueKind::kVector:
+        if (type_b == QbValueKind::kVector) {
+            Vector* vector = new_result_vector();
+            vector->x() = operand_a->value.vector()->x() + operand_b->value.vector()->x();
+            result.value.vector()->y() = operand_a->value.vector()->y() + operand_b->value.vector()->y();
+            result.value.vector()->z() = operand_a->value.vector()->z() + operand_b->value.vector()->z();
+        } else {
+            error("Second arg cannot be added to a vector"); // "Second arg cannot be added to a vector"
+        }
+        break;
+    case QbValueKind::kPair:
+        if (type_b == QbValueKind::kPair) {
+            Pair* pair = new_result_pair();
+            pair->x() = operand_a->value.pair()->x() + operand_b->value.pair()->x();
+            result.value.pair()->y() = operand_a->value.pair()->y() + operand_b->value.pair()->y();
+        } else {
+            error("Second arg cannot be added to a pair"); // "Second arg cannot be added to a pair"
+        }
+        break;
+    case QbValueKind::kString:
+        if (type_b != QbValueKind::kString) {
+            error("Second arg cannot be added to a string"); // "Second arg cannot be added to a string"
+        } else if (!join_strings(operand_a->value.text(), operand_b->value.text(), QbValueKind::kString)) {
+            error("Result of string addition too long"); // "Result of string addition too long"
+        }
+        break;
+    case QbValueKind::kInlineText:
+        if (type_b != QbValueKind::kInlineText) {
+            error("Second arg cannot be added to a local-string"); // "Second arg cannot be added to a local-string"
+        } else if (!join_strings(operand_a->value.text(), operand_b->value.text(), QbValueKind::kInlineText)) {
+            error("Result of local-string addition too long"); // "Result of local-string addition too long"
+        }
+        break;
+    case QbValueKind::kStruct:
+    case QbValueKind::kStructRef:
+        if (is_structure(type_b)) {
+            Struct* structure = new_result_structure();
+            structure->append_structure_if_any(operand_a->value.structure());
+            result.value.structure()->append_structure_if_any(operand_b->value.structure());
+        } else {
+            error(
+                "Structure add operator requires 2nd arg to be a structure"); // "Structure add operator requires 2nd arg to be a structure"
+        }
+        break;
+    case QbValueKind::kArray:
+    case QbValueKind::kArrayRef:
+        join_arrays(resolver, operands);
+        break;
+    default:
+        error("Addition not supported for this type"); // "Addition not supported for this type"
+        break;
+    }
+}
+
+// A structure without a name (as a parameter or a flag), each name of an array of names, or another structure's
+// parameters (by name and type) and flags.
+void subtract_from_structure(ValueResolver& resolver, const Operands& operands)
+{
+    const Component* operand_a = operands.a;
+    const Component* operand_b = operands.b;
+    const QbValueKind type_b = operands.type_b;
+    const Component& result = get_result();
+    auto error = [&resolver](const char* message) { resolver.change_fault(message); };
+    if (type_b == QbValueKind::kName) {
+        // Without the name (as a parameter or a flag).
+        Struct* structure = new_result_structure();
+        structure->append_structure_if_any(operand_a->value.structure());
+        result.value.structure()->erase_module(operand_b->value.word());
+        result.value.structure()->remove_flag(operand_b->value.word());
+    } else if (is_array(type_b)) {
+        // Without each name in the array.
+        Array* names = operand_b->value.array();
+        if (names->kind_tag() != QbValueKind::kName && names->kind_tag() != QbValueKind::kNone) {
+            // "Subtracting an array from a structure requires the array to be an array of names"
+            error("Subtracting an array from a structure requires the array to be an array of names");
+            return;
+        }
+        Struct* structure = new_result_structure();
+        structure->append_structure_if_any(operand_a->value.structure());
+        for (uint32_t i = 0; i < names->extent(); ++i) {
+            result.value.structure()->erase_module(names->fetch_part(i));
+            result.value.structure()->remove_flag(names->fetch_part(i));
+        }
+    } else if (is_structure(type_b)) {
+        // Without each of the other structure's parameters (by name and type) and flags.
+        Struct* structure = new_result_structure();
+        structure->append_structure_if_any(operand_a->value.structure());
+        Struct* other = operand_b->value.structure();
+        for (Component* each = other->step_to_entry(nullptr); each; each = other->step_to_entry(each)) {
+            if (each->name != 0U) {
+                result.value.structure()->remove_component_of_type(each->name, value_kind(*each));
+            } else if (value_kind(*each) == QbValueKind::kName) {
+                result.value.structure()->erase_module(each->value.word());
+                result.value.structure()->remove_flag(each->value.word());
+            }
+        }
+    } else {
+        // "Structure minus operator requires 2nd arg to be a name, an array of names, or a structure"
+        error("Structure minus operator requires 2nd arg to be a name, an array of names, or a structure");
+    }
+}
+
+// Subtraction: numbers, pairs, vectors; a structure without a name, an array of names or another structure's members.
+void subtract_values(ValueResolver& resolver, const Operands& operands)
+{
+    const Component* operand_a = operands.a;
+    const Component* operand_b = operands.b;
+    const QbValueKind type_a = operands.type_a;
+    const QbValueKind type_b = operands.type_b;
+    const Component& result = get_result();
+    auto error = [&resolver](const char* message) { resolver.change_fault(message); };
+    switch (type_a) {
+    case QbValueKind::kInteger:
+        if (type_b == QbValueKind::kInteger) {
+            set_result_integer(static_cast<uint32_t>(operand_a->value.integer()) -
+                               static_cast<uint32_t>(operand_b->value.integer()));
+        } else if (type_b == QbValueKind::kFloat) {
+            set_result_float(as_double(operand_a->value.integer()) - as_double(operand_b->value.real()));
+        } else {
+            error(
+                "Second arg cannot be subtracted from an integer"); // "Second arg cannot be subtracted from an integer"
+        }
+        break;
+    case QbValueKind::kFloat:
+        if (type_b == QbValueKind::kInteger) {
+            set_result_float(as_double(operand_a->value.real()) - as_double(operand_b->value.integer()));
+        } else if (type_b == QbValueKind::kFloat) {
+            set_result_float(as_double(operand_a->value.real()) - as_double(operand_b->value.real()));
+        } else {
+            error("Second arg cannot be subtracted from a float"); // "Second arg cannot be subtracted from a float"
+        }
+        break;
+    case QbValueKind::kPair:
+        if (type_b == QbValueKind::kPair) {
+            Pair* pair = new_result_pair();
+            pair->x() = operand_a->value.pair()->x() - operand_b->value.pair()->x();
+            result.value.pair()->y() = operand_a->value.pair()->y() - operand_b->value.pair()->y();
+        } else {
+            error("Second arg cannot be subtracted from a pair"); // "Second arg cannot be subtracted from a pair"
+        }
+        break;
+    case QbValueKind::kVector:
+        if (type_b == QbValueKind::kVector) {
+            Vector* vector = new_result_vector();
+            vector->x() = operand_a->value.vector()->x() - operand_b->value.vector()->x();
+            result.value.vector()->y() = operand_a->value.vector()->y() - operand_b->value.vector()->y();
+            result.value.vector()->z() = operand_a->value.vector()->z() - operand_b->value.vector()->z();
+        } else {
+            error("Second arg cannot be subtracted from a vector"); // "Second arg cannot be subtracted from a vector"
+        }
+        break;
+    case QbValueKind::kStruct:
+    case QbValueKind::kStructRef:
+        subtract_from_structure(resolver, operands);
+        break;
+    default:
+        error("Subtraction not supported for this type"); // "Subtraction not supported for this type"
+        break;
+    }
+}
+
+// Multiplication: numbers, a vector or pair scaled, the cross product.
+void multiply_values(ValueResolver& resolver, const Operands& operands)
+{
+    const Component* operand_a = operands.a;
+    const Component* operand_b = operands.b;
+    const QbValueKind type_a = operands.type_a;
+    const QbValueKind type_b = operands.type_b;
+    const Component& result = get_result();
+    auto error = [&resolver](const char* message) { resolver.change_fault(message); };
+    switch (type_a) {
+    case QbValueKind::kInteger:
+        switch (type_b) {
+        case QbValueKind::kInteger:
+            set_result_integer(static_cast<uint32_t>(operand_b->value.integer()) *
+                               static_cast<uint32_t>(operand_a->value.integer()));
+            break;
+        case QbValueKind::kFloat:
+            set_result_float(as_double(operand_a->value.integer()) * as_double(operand_b->value.real()));
+            break;
+        case QbValueKind::kVector: {
+            Vector* vector = new_result_vector();
+            vector->x() =
+                get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.vector()->x()));
+            result.value.vector()->y() =
+                get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.vector()->y()));
+            result.value.vector()->z() =
+                get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.vector()->z()));
+            break;
+        }
+        case QbValueKind::kPair: {
+            Pair* pair = new_result_pair();
+            pair->x() = get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.pair()->x()));
+            result.value.pair()->y() =
+                get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.pair()->y()));
+            break;
+        }
+        default:
+            error("Second arg cannot be multiplied by an integer"); // "Second arg cannot be multiplied by an integer"
+            break;
+        }
+        break;
+    case QbValueKind::kFloat:
+        switch (type_b) {
+        case QbValueKind::kInteger:
+            set_result_float(as_double(operand_b->value.integer()) * as_double(operand_a->value.real()));
+            break;
+        case QbValueKind::kFloat:
+            set_result_float(as_double(operand_b->value.real()) * as_double(operand_a->value.real()));
+            break;
+        case QbValueKind::kVector: {
+            Vector* vector = new_result_vector();
+            vector->x() = operand_b->value.vector()->x() * operand_a->value.real();
+            result.value.vector()->y() = operand_b->value.vector()->y() * operand_a->value.real();
+            result.value.vector()->z() = operand_b->value.vector()->z() * operand_a->value.real();
+            break;
+        }
+        case QbValueKind::kPair: {
+            Pair* pair = new_result_pair();
+            pair->x() = operand_b->value.pair()->x() * operand_a->value.real();
+            result.value.pair()->y() = operand_b->value.pair()->y() * operand_a->value.real();
+            break;
+        }
+        default:
+            error("Second arg cannot be multiplied by a float"); // "Second arg cannot be multiplied by a float"
+            break;
+        }
+        break;
+    case QbValueKind::kPair:
+        if (type_b == QbValueKind::kInteger) {
+            Pair* pair = new_result_pair();
+            pair->x() = get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.pair()->x()));
+            result.value.pair()->y() =
+                get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.pair()->y()));
+        } else if (type_b == QbValueKind::kFloat) {
+            Pair* pair = new_result_pair();
+            pair->x() = operand_a->value.pair()->x() * operand_b->value.real();
+            result.value.pair()->y() = operand_a->value.pair()->y() * operand_b->value.real();
+        } else {
+            error("Pair cannot be multiplied by second arg"); // "Pair cannot be multiplied by second arg"
+        }
+        break;
+    case QbValueKind::kVector:
+        if (type_b == QbValueKind::kInteger) {
+            Vector* vector = new_result_vector();
+            vector->x() =
+                get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.vector()->x()));
+            result.value.vector()->y() =
+                get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.vector()->y()));
+            result.value.vector()->z() =
+                get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.vector()->z()));
+        } else if (type_b == QbValueKind::kFloat) {
+            Vector* vector = new_result_vector();
+            vector->x() = operand_a->value.vector()->x() * operand_b->value.real();
+            result.value.vector()->y() = operand_a->value.vector()->y() * operand_b->value.real();
+            result.value.vector()->z() = operand_a->value.vector()->z() * operand_b->value.real();
+        } else if (type_b == QbValueKind::kVector) {
+            // The cross product (each coordinate computed as the x87 does: in one go, then rounded).
+            const Vector* u = operand_a->value.vector();
+            const Vector* v = operand_b->value.vector();
+            Vector* vector = new_result_vector();
+            vector->x() = get_rounded((as_double(v->z()) * u->y()) - (as_double(v->y()) * u->z()));
+            result.value.vector()->y() = get_rounded((as_double(v->x()) * u->z()) - (as_double(v->z()) * u->x()));
+            result.value.vector()->z() = get_rounded((as_double(v->y()) * u->x()) - (as_double(v->x()) * u->y()));
+        } else {
+            error("Vector cannot be multiplied by second arg"); // "Vector cannot be multiplied by second arg"
+        }
+        break;
+    default:
+        error("Multiplication not supported for this type"); // "Multiplication not supported for this type"
+        break;
+    }
+}
+
+// Division (by zero refused): numbers, a vector or pair scaled down.
+void divide_values(ValueResolver& resolver, const Operands& operands)
+{
+    const Component* operand_a = operands.a;
+    const Component* operand_b = operands.b;
+    const QbValueKind type_a = operands.type_a;
+    const QbValueKind type_b = operands.type_b;
+    const Component& result = get_result();
+    auto error = [&resolver](const char* message) { resolver.change_fault(message); };
+    if (type_b == QbValueKind::kInteger) {
+        if (operand_b->value.integer() == 0) {
+            error("Integer division by zero"); // "Integer division by zero"
+            return;
+        }
+    } else if (type_b == QbValueKind::kFloat) {
+        if (std::fabs(operand_b->value.real()) < kEvalDivisorMinimum) {
+            error("Float division by zero"); // "Float division by zero"
+            return;
+        }
+    }
+    switch (type_a) {
+    case QbValueKind::kInteger:
+        if (type_b == QbValueKind::kInteger) {
+            set_result_integer(static_cast<uint32_t>(operand_a->value.integer() / operand_b->value.integer()));
+        } else if (type_b == QbValueKind::kFloat) {
+            set_result_float(as_double(operand_a->value.integer()) / as_double(operand_b->value.real()));
+        } else {
+            error("Integer cannot be divided by second arg"); // "Integer cannot be divided by second arg"
+        }
+        break;
+    case QbValueKind::kFloat:
+        if (type_b == QbValueKind::kInteger) {
+            set_result_float(as_double(operand_a->value.real()) / as_double(operand_b->value.integer()));
+        } else if (type_b == QbValueKind::kFloat) {
+            set_result_float(as_double(operand_a->value.real()) / as_double(operand_b->value.real()));
+        } else {
+            error("Float cannot be divided by second arg"); // "Float cannot be divided by second arg"
+        }
+        break;
+    case QbValueKind::kPair:
+        if (type_b == QbValueKind::kInteger) {
+            Pair* pair = new_result_pair();
+            pair->x() = get_rounded(as_double(operand_a->value.pair()->x()) / as_double(operand_b->value.integer()));
+            result.value.pair()->y() =
+                get_rounded(as_double(operand_a->value.pair()->y()) / as_double(operand_b->value.integer()));
+        } else if (type_b == QbValueKind::kFloat) {
+            Pair* pair = new_result_pair();
+            pair->x() = operand_a->value.pair()->x() / operand_b->value.real();
+            result.value.pair()->y() = operand_a->value.pair()->y() / operand_b->value.real();
+        } else {
+            error("Pair cannot be divided by second arg"); // "Pair cannot be divided by second arg"
+        }
+        break;
+    case QbValueKind::kVector:
+        if (type_b == QbValueKind::kInteger) {
+            Vector* vector = new_result_vector();
+            vector->x() =
+                get_rounded(as_double(operand_a->value.vector()->x()) / as_double(operand_b->value.integer()));
+            result.value.vector()->y() =
+                get_rounded(as_double(operand_a->value.vector()->y()) / as_double(operand_b->value.integer()));
+            result.value.vector()->z() =
+                get_rounded(as_double(operand_a->value.vector()->z()) / as_double(operand_b->value.integer()));
+        } else if (type_b == QbValueKind::kFloat) {
+            Vector* vector = new_result_vector();
+            vector->x() = operand_a->value.vector()->x() / operand_b->value.real();
+            result.value.vector()->y() = operand_a->value.vector()->y() / operand_b->value.real();
+            result.value.vector()->z() = operand_a->value.vector()->z() / operand_b->value.real();
+        } else {
+            error("Vector cannot be divided by second arg"); // "Vector cannot be divided by second arg"
+        }
+        break;
+    default:
+        error("Division not supported for this type"); // "Division not supported for this type"
+        break;
+    }
+}
+
+// The dot product of vectors or pairs; a structure's member.
+void dot_values(ValueResolver& resolver, const Operands& operands)
+{
+    const Component* operand_a = operands.a;
+    const Component* operand_b = operands.b;
+    const QbValueKind type_a = operands.type_a;
+    const QbValueKind type_b = operands.type_b;
+    Component& result = get_result();
+    auto error = [&resolver](const char* message) { resolver.change_fault(message); };
+    switch (type_a) {
+    case QbValueKind::kVector:
+        if (type_b == QbValueKind::kVector) {
+            const Vector* u = operand_a->value.vector();
+            const Vector* v = operand_b->value.vector();
+            set_result_float((as_double(v->z()) * u->z()) + (as_double(v->y()) * u->y()) +
+                             (as_double(v->x()) * u->x()));
+        } else {
+            error(
+                "Vector can only be dot producted with another vector"); // "Vector can only be dot producted with another vector"
+        }
+        break;
+    case QbValueKind::kPair:
+        if (type_b == QbValueKind::kPair) {
+            const Pair* u = operand_a->value.pair();
+            const Pair* v = operand_b->value.pair();
+            set_result_float((as_double(v->y()) * u->y()) + (as_double(v->x()) * u->x()));
+        } else {
+            error(
+                "Pair can only be dot producted with another pair"); // "Pair can only be dot producted with another pair"
+        }
+        break;
+    case QbValueKind::kStruct:
+    case QbValueKind::kStructRef:
+        // A structure's member: copied (a referenced structure's members are referred to).
+        if (type_b == QbValueKind::kName) {
+            if (const Component* member = operand_a->value.structure()->find_last_component(operand_b->value.word())) {
+                duplicate_component(&result, member, static_cast<int>(type_a == QbValueKind::kStructRef));
+            }
+        } else {
+            error(
+                "Structure dot operator requires 2nd arg to be a name"); // "Structure dot operator requires 2nd arg to be a name"
+        }
+        break;
+    default:
+        error("Dot product not supported for this type"); // "Dot product not supported for this type"
+        break;
+    }
+}
+
+// An array's element ([]).
+void index_array(ValueResolver& resolver, const Operands& operands)
+{
+    const Component* operand_a = operands.a;
+    const Component* operand_b = operands.b;
+    const QbValueKind type_a = operands.type_a;
+    const QbValueKind type_b = operands.type_b;
+    Component& result = get_result();
+    auto error = [&resolver](const char* message) { resolver.change_fault(message); };
+    if (!is_array(type_a)) {
+        error(
+            "Array element operator not supported for this type"); // "Array element operator not supported for this type"
+    } else if (type_b != QbValueKind::kInteger) {
+        error("[] index must be an integer"); // "[] index must be an integer"
+    } else if (operand_b->value.word() >= operand_a->value.array()->extent()) {
+        error("[] index out of range"); // "[] index out of range"
+    } else {
+        copy_array_element_to_component(operand_a->value.array(), operand_b->value.word(), &result,
+                                        static_cast<int>(type_a == QbValueKind::kArrayRef));
+        if ((result.type_and_flag_ & kComponentTypeBits) == 0) {
+            error("Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."
+        }
+    }
+}
+
+} // namespace
+
 // 0x0046D450
 void ValueResolver::execute()
 {
@@ -460,8 +966,8 @@ void ValueResolver::execute()
     result.value.set_word(0);
     const QbValueKind type_a = value_kind(*operand_a);
     const QbValueKind type_b = value_kind(*operand_b);
-    auto error = [&](const char* message) { change_fault(message); };
 
+    const Operands operands{.a = operand_a, .b = operand_b, .type_a = type_a, .type_b = type_b};
     switch (op) {
     case QbToken::kOr:
         set_result_type(QbValueKind::kInteger);
@@ -485,434 +991,27 @@ void ValueResolver::execute()
         break;
 
     case QbToken::kPlus:
-        switch (type_a) {
-        case QbValueKind::kInteger:
-            if (type_b == QbValueKind::kInteger) {
-                set_result_integer(static_cast<uint32_t>(operand_a->value.integer()) +
-                                   static_cast<uint32_t>(operand_b->value.integer()));
-            } else if (type_b == QbValueKind::kFloat) {
-                set_result_float(as_double(operand_a->value.integer()) + as_double(operand_b->value.real()));
-            } else {
-                error("Second arg cannot be added to an integer"); // "Second arg cannot be added to an integer"
-            }
-            break;
-        case QbValueKind::kFloat:
-            if (type_b == QbValueKind::kInteger) {
-                set_result_float(as_double(operand_b->value.integer()) + as_double(operand_a->value.real()));
-            } else if (type_b == QbValueKind::kFloat) {
-                set_result_float(as_double(operand_a->value.real()) + as_double(operand_b->value.real()));
-            } else {
-                error("Second arg cannot be added to a float"); // "Second arg cannot be added to a float"
-            }
-            break;
-        case QbValueKind::kName:
-            // A checksum plus an integer or checksum is a checksum.
-            if (type_b == QbValueKind::kInteger || type_b == QbValueKind::kName) {
-                set_result_type(QbValueKind::kName);
-                result.value.set_word(operand_b->value.word() + operand_a->value.word());
-            } else {
-                error("Second arg cannot be added to a checksum"); // "Second arg cannot be added to a checksum"
-            }
-            break;
-        case QbValueKind::kVector:
-            if (type_b == QbValueKind::kVector) {
-                Vector* vector = new_result_vector();
-                vector->x() = operand_a->value.vector()->x() + operand_b->value.vector()->x();
-                result.value.vector()->y() = operand_a->value.vector()->y() + operand_b->value.vector()->y();
-                result.value.vector()->z() = operand_a->value.vector()->z() + operand_b->value.vector()->z();
-            } else {
-                error("Second arg cannot be added to a vector"); // "Second arg cannot be added to a vector"
-            }
-            break;
-        case QbValueKind::kPair:
-            if (type_b == QbValueKind::kPair) {
-                Pair* pair = new_result_pair();
-                pair->x() = operand_a->value.pair()->x() + operand_b->value.pair()->x();
-                result.value.pair()->y() = operand_a->value.pair()->y() + operand_b->value.pair()->y();
-            } else {
-                error("Second arg cannot be added to a pair"); // "Second arg cannot be added to a pair"
-            }
-            break;
-        case QbValueKind::kString:
-            if (type_b != QbValueKind::kString) {
-                error("Second arg cannot be added to a string"); // "Second arg cannot be added to a string"
-            } else if (!join_strings(operand_a->value.text(), operand_b->value.text(), QbValueKind::kString)) {
-                error("Result of string addition too long"); // "Result of string addition too long"
-            }
-            break;
-        case QbValueKind::kInlineText:
-            if (type_b != QbValueKind::kInlineText) {
-                error("Second arg cannot be added to a local-string"); // "Second arg cannot be added to a local-string"
-            } else if (!join_strings(operand_a->value.text(), operand_b->value.text(), QbValueKind::kInlineText)) {
-                error("Result of local-string addition too long"); // "Result of local-string addition too long"
-            }
-            break;
-        case QbValueKind::kStruct:
-        case QbValueKind::kStructRef:
-            if (is_structure(type_b)) {
-                Struct* structure = new_result_structure();
-                structure->append_structure_if_any(operand_a->value.structure());
-                result.value.structure()->append_structure_if_any(operand_b->value.structure());
-            } else {
-                error(
-                    "Structure add operator requires 2nd arg to be a structure"); // "Structure add operator requires 2nd arg to be a structure"
-            }
-            break;
-        case QbValueKind::kArray:
-        case QbValueKind::kArrayRef: {
-            if (!is_array(type_b)) {
-                error(
-                    "Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
-                break;
-            }
-            gsl::owner<Array*> array = script::new_array();
-            set_result_type(QbValueKind::kArray);
-            result.value.set_array(array);
-            const uint32_t size_a = operand_a->value.array()->extent();
-            const uint32_t size_b = operand_b->value.array()->extent();
-            if (size_a == 0) {
-                duplicate_array(array, operand_b->value.array());
-            } else if (size_b == 0) {
-                duplicate_array(array, operand_a->value.array());
-            } else {
-                // (the elements are all taken to be of the first array's type)
-                const QbValueKind type = operand_a->value.array()->kind_tag();
-                array->configure_size_kind(size_a + size_b, type);
-                copy_array_elements(array->cells(), operand_a->value.array()->cells(), type);
-                copy_array_elements(array->cells().subspan(size_a), operand_b->value.array()->cells(), type);
-            }
-            break;
-        }
-        default:
-            error("Addition not supported for this type"); // "Addition not supported for this type"
-            break;
-        }
+        add_values(*this, operands);
         break;
 
     case QbToken::kMinus:
-        switch (type_a) {
-        case QbValueKind::kInteger:
-            if (type_b == QbValueKind::kInteger) {
-                set_result_integer(static_cast<uint32_t>(operand_a->value.integer()) -
-                                   static_cast<uint32_t>(operand_b->value.integer()));
-            } else if (type_b == QbValueKind::kFloat) {
-                set_result_float(as_double(operand_a->value.integer()) - as_double(operand_b->value.real()));
-            } else {
-                error(
-                    "Second arg cannot be subtracted from an integer"); // "Second arg cannot be subtracted from an integer"
-            }
-            break;
-        case QbValueKind::kFloat:
-            if (type_b == QbValueKind::kInteger) {
-                set_result_float(as_double(operand_a->value.real()) - as_double(operand_b->value.integer()));
-            } else if (type_b == QbValueKind::kFloat) {
-                set_result_float(as_double(operand_a->value.real()) - as_double(operand_b->value.real()));
-            } else {
-                error("Second arg cannot be subtracted from a float"); // "Second arg cannot be subtracted from a float"
-            }
-            break;
-        case QbValueKind::kPair:
-            if (type_b == QbValueKind::kPair) {
-                Pair* pair = new_result_pair();
-                pair->x() = operand_a->value.pair()->x() - operand_b->value.pair()->x();
-                result.value.pair()->y() = operand_a->value.pair()->y() - operand_b->value.pair()->y();
-            } else {
-                error("Second arg cannot be subtracted from a pair"); // "Second arg cannot be subtracted from a pair"
-            }
-            break;
-        case QbValueKind::kVector:
-            if (type_b == QbValueKind::kVector) {
-                Vector* vector = new_result_vector();
-                vector->x() = operand_a->value.vector()->x() - operand_b->value.vector()->x();
-                result.value.vector()->y() = operand_a->value.vector()->y() - operand_b->value.vector()->y();
-                result.value.vector()->z() = operand_a->value.vector()->z() - operand_b->value.vector()->z();
-            } else {
-                error(
-                    "Second arg cannot be subtracted from a vector"); // "Second arg cannot be subtracted from a vector"
-            }
-            break;
-        case QbValueKind::kStruct:
-        case QbValueKind::kStructRef:
-            if (type_b == QbValueKind::kName) {
-                // Without the name (as a parameter or a flag).
-                Struct* structure = new_result_structure();
-                structure->append_structure_if_any(operand_a->value.structure());
-                result.value.structure()->erase_module(operand_b->value.word());
-                result.value.structure()->remove_flag(operand_b->value.word());
-            } else if (is_array(type_b)) {
-                // Without each name in the array.
-                Array* names = operand_b->value.array();
-                if (names->kind_tag() != QbValueKind::kName && names->kind_tag() != QbValueKind::kNone) {
-                    // "Subtracting an array from a structure requires the array to be an array of names"
-                    error("Subtracting an array from a structure requires the array to be an array of names");
-                    break;
-                }
-                Struct* structure = new_result_structure();
-                structure->append_structure_if_any(operand_a->value.structure());
-                for (uint32_t i = 0; i < names->extent(); ++i) {
-                    result.value.structure()->erase_module(names->fetch_part(i));
-                    result.value.structure()->remove_flag(names->fetch_part(i));
-                }
-            } else if (is_structure(type_b)) {
-                // Without each of the other structure's parameters (by name and type) and flags.
-                Struct* structure = new_result_structure();
-                structure->append_structure_if_any(operand_a->value.structure());
-                Struct* other = operand_b->value.structure();
-                for (Component* each = other->step_to_entry(nullptr); each; each = other->step_to_entry(each)) {
-                    if (each->name != 0U) {
-                        result.value.structure()->remove_component_of_type(each->name, value_kind(*each));
-                    } else if (value_kind(*each) == QbValueKind::kName) {
-                        result.value.structure()->erase_module(each->value.word());
-                        result.value.structure()->remove_flag(each->value.word());
-                    }
-                }
-            } else {
-                // "Structure minus operator requires 2nd arg to be a name, an array of names, or a structure"
-                error("Structure minus operator requires 2nd arg to be a name, an array of names, or a structure");
-            }
-            break;
-        default:
-            error("Subtraction not supported for this type"); // "Subtraction not supported for this type"
-            break;
-        }
+        subtract_values(*this, operands);
         break;
 
     case QbToken::kMultiply:
-        switch (type_a) {
-        case QbValueKind::kInteger:
-            switch (type_b) {
-            case QbValueKind::kInteger:
-                set_result_integer(static_cast<uint32_t>(operand_b->value.integer()) *
-                                   static_cast<uint32_t>(operand_a->value.integer()));
-                break;
-            case QbValueKind::kFloat:
-                set_result_float(as_double(operand_a->value.integer()) * as_double(operand_b->value.real()));
-                break;
-            case QbValueKind::kVector: {
-                Vector* vector = new_result_vector();
-                vector->x() =
-                    get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.vector()->x()));
-                result.value.vector()->y() =
-                    get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.vector()->y()));
-                result.value.vector()->z() =
-                    get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.vector()->z()));
-                break;
-            }
-            case QbValueKind::kPair: {
-                Pair* pair = new_result_pair();
-                pair->x() =
-                    get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.pair()->x()));
-                result.value.pair()->y() =
-                    get_rounded(as_double(operand_a->value.integer()) * as_double(operand_b->value.pair()->y()));
-                break;
-            }
-            default:
-                error(
-                    "Second arg cannot be multiplied by an integer"); // "Second arg cannot be multiplied by an integer"
-                break;
-            }
-            break;
-        case QbValueKind::kFloat:
-            switch (type_b) {
-            case QbValueKind::kInteger:
-                set_result_float(as_double(operand_b->value.integer()) * as_double(operand_a->value.real()));
-                break;
-            case QbValueKind::kFloat:
-                set_result_float(as_double(operand_b->value.real()) * as_double(operand_a->value.real()));
-                break;
-            case QbValueKind::kVector: {
-                Vector* vector = new_result_vector();
-                vector->x() = operand_b->value.vector()->x() * operand_a->value.real();
-                result.value.vector()->y() = operand_b->value.vector()->y() * operand_a->value.real();
-                result.value.vector()->z() = operand_b->value.vector()->z() * operand_a->value.real();
-                break;
-            }
-            case QbValueKind::kPair: {
-                Pair* pair = new_result_pair();
-                pair->x() = operand_b->value.pair()->x() * operand_a->value.real();
-                result.value.pair()->y() = operand_b->value.pair()->y() * operand_a->value.real();
-                break;
-            }
-            default:
-                error("Second arg cannot be multiplied by a float"); // "Second arg cannot be multiplied by a float"
-                break;
-            }
-            break;
-        case QbValueKind::kPair:
-            if (type_b == QbValueKind::kInteger) {
-                Pair* pair = new_result_pair();
-                pair->x() =
-                    get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.pair()->x()));
-                result.value.pair()->y() =
-                    get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.pair()->y()));
-            } else if (type_b == QbValueKind::kFloat) {
-                Pair* pair = new_result_pair();
-                pair->x() = operand_a->value.pair()->x() * operand_b->value.real();
-                result.value.pair()->y() = operand_a->value.pair()->y() * operand_b->value.real();
-            } else {
-                error("Pair cannot be multiplied by second arg"); // "Pair cannot be multiplied by second arg"
-            }
-            break;
-        case QbValueKind::kVector:
-            if (type_b == QbValueKind::kInteger) {
-                Vector* vector = new_result_vector();
-                vector->x() =
-                    get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.vector()->x()));
-                result.value.vector()->y() =
-                    get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.vector()->y()));
-                result.value.vector()->z() =
-                    get_rounded(as_double(operand_b->value.integer()) * as_double(operand_a->value.vector()->z()));
-            } else if (type_b == QbValueKind::kFloat) {
-                Vector* vector = new_result_vector();
-                vector->x() = operand_a->value.vector()->x() * operand_b->value.real();
-                result.value.vector()->y() = operand_a->value.vector()->y() * operand_b->value.real();
-                result.value.vector()->z() = operand_a->value.vector()->z() * operand_b->value.real();
-            } else if (type_b == QbValueKind::kVector) {
-                // The cross product (each coordinate computed as the x87 does: in one go, then rounded).
-                const Vector* u = operand_a->value.vector();
-                const Vector* v = operand_b->value.vector();
-                Vector* vector = new_result_vector();
-                vector->x() = get_rounded((as_double(v->z()) * u->y()) - (as_double(v->y()) * u->z()));
-                result.value.vector()->y() = get_rounded((as_double(v->x()) * u->z()) - (as_double(v->z()) * u->x()));
-                result.value.vector()->z() = get_rounded((as_double(v->y()) * u->x()) - (as_double(v->x()) * u->y()));
-            } else {
-                error("Vector cannot be multiplied by second arg"); // "Vector cannot be multiplied by second arg"
-            }
-            break;
-        default:
-            error("Multiplication not supported for this type"); // "Multiplication not supported for this type"
-            break;
-        }
+        multiply_values(*this, operands);
         break;
 
     case QbToken::kDivide:
-        if (type_b == QbValueKind::kInteger) {
-            if (operand_b->value.integer() == 0) {
-                error("Integer division by zero"); // "Integer division by zero"
-                break;
-            }
-        } else if (type_b == QbValueKind::kFloat) {
-            if (std::fabs(operand_b->value.real()) < kEvalDivisorMinimum) {
-                error("Float division by zero"); // "Float division by zero"
-                break;
-            }
-        }
-        switch (type_a) {
-        case QbValueKind::kInteger:
-            if (type_b == QbValueKind::kInteger) {
-                set_result_integer(static_cast<uint32_t>(operand_a->value.integer() / operand_b->value.integer()));
-            } else if (type_b == QbValueKind::kFloat) {
-                set_result_float(as_double(operand_a->value.integer()) / as_double(operand_b->value.real()));
-            } else {
-                error("Integer cannot be divided by second arg"); // "Integer cannot be divided by second arg"
-            }
-            break;
-        case QbValueKind::kFloat:
-            if (type_b == QbValueKind::kInteger) {
-                set_result_float(as_double(operand_a->value.real()) / as_double(operand_b->value.integer()));
-            } else if (type_b == QbValueKind::kFloat) {
-                set_result_float(as_double(operand_a->value.real()) / as_double(operand_b->value.real()));
-            } else {
-                error("Float cannot be divided by second arg"); // "Float cannot be divided by second arg"
-            }
-            break;
-        case QbValueKind::kPair:
-            if (type_b == QbValueKind::kInteger) {
-                Pair* pair = new_result_pair();
-                pair->x() =
-                    get_rounded(as_double(operand_a->value.pair()->x()) / as_double(operand_b->value.integer()));
-                result.value.pair()->y() =
-                    get_rounded(as_double(operand_a->value.pair()->y()) / as_double(operand_b->value.integer()));
-            } else if (type_b == QbValueKind::kFloat) {
-                Pair* pair = new_result_pair();
-                pair->x() = operand_a->value.pair()->x() / operand_b->value.real();
-                result.value.pair()->y() = operand_a->value.pair()->y() / operand_b->value.real();
-            } else {
-                error("Pair cannot be divided by second arg"); // "Pair cannot be divided by second arg"
-            }
-            break;
-        case QbValueKind::kVector:
-            if (type_b == QbValueKind::kInteger) {
-                Vector* vector = new_result_vector();
-                vector->x() =
-                    get_rounded(as_double(operand_a->value.vector()->x()) / as_double(operand_b->value.integer()));
-                result.value.vector()->y() =
-                    get_rounded(as_double(operand_a->value.vector()->y()) / as_double(operand_b->value.integer()));
-                result.value.vector()->z() =
-                    get_rounded(as_double(operand_a->value.vector()->z()) / as_double(operand_b->value.integer()));
-            } else if (type_b == QbValueKind::kFloat) {
-                Vector* vector = new_result_vector();
-                vector->x() = operand_a->value.vector()->x() / operand_b->value.real();
-                result.value.vector()->y() = operand_a->value.vector()->y() / operand_b->value.real();
-                result.value.vector()->z() = operand_a->value.vector()->z() / operand_b->value.real();
-            } else {
-                error("Vector cannot be divided by second arg"); // "Vector cannot be divided by second arg"
-            }
-            break;
-        default:
-            error("Division not supported for this type"); // "Division not supported for this type"
-            break;
-        }
+        divide_values(*this, operands);
         break;
 
     case QbToken::kDot:
-        switch (type_a) {
-        case QbValueKind::kVector:
-            if (type_b == QbValueKind::kVector) {
-                const Vector* u = operand_a->value.vector();
-                const Vector* v = operand_b->value.vector();
-                set_result_float((as_double(v->z()) * u->z()) + (as_double(v->y()) * u->y()) +
-                                 (as_double(v->x()) * u->x()));
-            } else {
-                error(
-                    "Vector can only be dot producted with another vector"); // "Vector can only be dot producted with another vector"
-            }
-            break;
-        case QbValueKind::kPair:
-            if (type_b == QbValueKind::kPair) {
-                const Pair* u = operand_a->value.pair();
-                const Pair* v = operand_b->value.pair();
-                set_result_float((as_double(v->y()) * u->y()) + (as_double(v->x()) * u->x()));
-            } else {
-                error(
-                    "Pair can only be dot producted with another pair"); // "Pair can only be dot producted with another pair"
-            }
-            break;
-        case QbValueKind::kStruct:
-        case QbValueKind::kStructRef:
-            // A structure's member: copied (a referenced structure's members are referred to).
-            if (type_b == QbValueKind::kName) {
-                if (const Component* member =
-                        operand_a->value.structure()->find_last_component(operand_b->value.word())) {
-                    duplicate_component(&result, member, static_cast<int>(type_a == QbValueKind::kStructRef));
-                }
-            } else {
-                error(
-                    "Structure dot operator requires 2nd arg to be a name"); // "Structure dot operator requires 2nd arg to be a name"
-            }
-            break;
-        default:
-            error("Dot product not supported for this type"); // "Dot product not supported for this type"
-            break;
-        }
+        dot_values(*this, operands);
         break;
 
     case QbToken::kArrayStart:
-        if (!is_array(type_a)) {
-            error(
-                "Array element operator not supported for this type"); // "Array element operator not supported for this type"
-        } else if (type_b != QbValueKind::kInteger) {
-            error("[] index must be an integer"); // "[] index must be an integer"
-        } else if (operand_b->value.word() >= operand_a->value.array()->extent()) {
-            error("[] index out of range"); // "[] index out of range"
-        } else {
-            copy_array_element_to_component(operand_a->value.array(), operand_b->value.word(), &result,
-                                            static_cast<int>(type_a == QbValueKind::kArrayRef));
-            if ((result.type_and_flag_ & kComponentTypeBits) == 0) {
-                error(
-                    "Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."
-            }
-        }
+        index_array(*this, operands);
         break;
 
     default:
