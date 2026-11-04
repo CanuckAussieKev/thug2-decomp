@@ -188,7 +188,8 @@ target_compile_definitions(thug2_options INTERFACE WIN32_LEAN_AND_MEAN NOMINMAX 
 target_include_directories(thug2_options INTERFACE src)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md)
 # /w14062: an enumerator that a switch over its enum leaves out (a switch that lists every case has no default)
-target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
+# /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
+target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
 
 # The base layer (src/base): the OS-free helpers every layer uses - checksums, printf-style formatting, text, checked
 # indexing, the enum and pointer helpers (base/core), the maths (base/maths), two containers (base/lists), the bit
@@ -274,7 +275,6 @@ target_include_directories(thug2_platform PRIVATE "${stb_SOURCE_DIR}")
 # sdl2: the window and its events; dsound, ole32: DirectSound and the audio session (mute_audio); ws2_32: Winsock;
 # d3d9, winmm: crt.h's imports; d3dx9: d3dx.cpp; gamespy_sdk: gamespy.cpp; stb_image_write: the PNG files
 target_link_libraries(thug2_platform PUBLIC thug2_base sdl2 ws2_32 dsound ole32 d3d9 d3dx9 winmm gamespy_sdk stb_image_write)
-target_compile_options(thug2_platform PRIVATE /we4150)
 
 # --- The game ----------------------------------------------------------------------------------------------------
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
@@ -964,7 +964,6 @@ add_executable(thug2 WIN32
     src/engine/script/cfuncs_memory.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
-target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPUT_VERSION=0x0800)
 # The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
 # them deprecated unless this is defined.
 set_source_files_properties(
@@ -972,16 +971,13 @@ set_source_files_properties(
     src/engine/net/net_manager_apps.cpp src/engine/sys/model_viewer.cpp src/platform/crt.cpp src/platform/sockets.cpp
     src/app/winmain.cpp
     PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
-target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
+target_include_directories(thug2 PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
                                          "${CMAKE_BINARY_DIR}/editor_fonts")
 # (the UI fonts, compressed at build time: engine/ui/ui_fonts.cpp includes them; the generated build_info.h)
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports
 target_link_libraries(thug2 PRIVATE thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
-# /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md);
-# /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
-target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
@@ -996,27 +992,21 @@ add_executable(thug2_format_check
     src/tests/format_check.cpp
     src/tests/format_check_net.cpp
     src/tests/format_check_files.cpp)
-target_link_libraries(thug2_format_check PRIVATE thug2_wire thug2_formats)
-target_include_directories(thug2_format_check PRIVATE src)
-target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
+target_link_libraries(thug2_format_check PRIVATE thug2_wire)
 
 # NOT ORIGINAL - thug2_maths_check.exe: the plain C++ that replaced the x87 inline assembly compared with that
 # assembly over many inputs, and maths::matrix_multiply with D3DX's matrix product (src/tests/maths_check.cpp; the
 # reference half needs MSVC for 32-bit x86).
 add_executable(thug2_maths_check src/tests/maths_check.cpp src/tests/maths_check_d3dx.cpp)
-target_include_directories(thug2_maths_check PRIVATE src)
 # (d3dx9: D3DX's matrix product, the reference for maths::matrix_multiply; its DLL next to the check)
-target_link_libraries(thug2_maths_check PRIVATE thug2_base Microsoft.GSL::GSL d3dx9)
+target_link_libraries(thug2_maths_check PRIVATE thug2_base d3dx9)
 add_custom_command(TARGET thug2_maths_check POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_maths_check>/d3dx9_43.dll")
-target_compile_options(thug2_maths_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
 # NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (base/core/
 # parse_number.h) compared with the C runtime's over many texts (src/tests/parse_check.cpp).
 add_executable(thug2_parse_check src/tests/parse_check.cpp)
-target_include_directories(thug2_parse_check PRIVATE src)
-target_link_libraries(thug2_parse_check PRIVATE thug2_formats Microsoft.GSL::GSL)
-target_compile_options(thug2_parse_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
+target_link_libraries(thug2_parse_check PRIVATE thug2_formats)
 
 # NOT ORIGINAL - thug2_printf_check.exe: the printf-style formatting without C varargs (base/core/format.h) compared
 # with the C runtime's snprintf over every conversion, flag, width, precision and edge value (src/tests/printf_check.cpp).
