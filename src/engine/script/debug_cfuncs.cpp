@@ -19,7 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/script_startup.h"
 #include "engine/gfx/engine.h"
-#include "engine/gfx/engine_glue.h"
+#include "engine/gfx/render_device.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/game_config.h"
 #include "engine/objects/sound_component.h"
@@ -65,7 +65,7 @@ void load_qb_file(const char* name, bool level_specific) { script::load_qb_file(
 void unload_qb_file(uint32_t name) { script::unload_qb_file(name); }
 
 // A screenshot written to `name` (0x0048C100, a jump to 0x004B24E0).
-void take_screen_shot(const char* name, int flags) { render::screen_shot(name, flags); }
+void take_screen_shot(const char* name, int flags) { render::device().screen_shot(name, flags); }
 // The renderer's metrics display switched on / off (0x0048C0F0: the flag 0x006FA7D6 toggled).
 void toggle_metrics_display() { render::engine::toggle_metrics(); }
 

@@ -14,6 +14,7 @@
 #include "engine/file/asset_bundle.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/gfx/render_device.h"
 #include "engine/objects/cutscene.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/music_api.h"
@@ -239,7 +240,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         if (fixed && objects_shared().cutscene_fixed_frame() > 0) {
             std::array<char, kLineBytes> shot{};
             text::format_to(shot, "%s%04d", shot_name().data(), objects_shared().cutscene_fixed_frame() - 1);
-            render::screen_shot(shot.data(), 1); // (a screenshot)
+            render::device().screen_shot(shot.data(), 1); // (a screenshot)
         }
     }
     ++objects_shared().cutscene_fixed_frame();

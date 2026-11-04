@@ -11,8 +11,8 @@
 #include "base/core/dbg.h"
 #include "engine/file/archive.h"
 #include "engine/file/data_overlay.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/loading_console.h"
+#include "engine/gfx/render_device.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 
@@ -68,7 +68,7 @@ uint32_t archive_get_file_size(Hdl file) { return static_cast<uint32_t>(pre::get
 [[noreturn]] void fatal_file_error(DWORD error)
 {
     (void)error; // (pushed to it; unused)
-    render::show_disc_error();
+    render::device().show_disc_error();
 }
 
 // Never set anywhere in the exe: a leftover that would open files from another drive.

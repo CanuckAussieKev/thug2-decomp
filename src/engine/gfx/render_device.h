@@ -22,6 +22,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include <gsl/pointers>
 
@@ -34,6 +35,9 @@ class ViewCam;
 namespace maths {
 class BBox;
 class Vec4;
+}
+namespace sys::screenshot {
+struct TickCycle;
 }
 
 namespace render {
@@ -176,6 +180,24 @@ public:
     virtual void set_shadow_companion(void* (*companion)(void* caster_model)) = 0;
     // The sun's occlusion query: the pixels drawn, when its result is in (pc_viewport.h).
     virtual uint32_t occlusion_pixels() = 0;
+
+    // --- what is shown: the back buffer, the screens drawn and presented outside the frame ---
+    // The front buffer saved as a JPEG (engine_glue.h).
+    virtual void screen_shot(const char* name, int unused) = 0;
+    // The frame as it will be shown, copied (the screenshot key's: screenshot_capture.h).
+    virtual bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error) = 0;
+    // The back buffer's width the device was made with; whether the screen copies were made (device.h).
+    virtual uint32_t presented_width() = 0;
+    virtual bool screen_copies_made() = 0;
+    // The disc read error screen (device.h).
+    [[noreturn]] virtual void show_disc_error() = 0;
+    // The loading screen: its picture shown (drawn and presented at once), taken down, its second picture deleted;
+    // the bar's colours worked out, the bar filled over `seconds` (loading_screen.h, loading_bar.h).
+    virtual void show_loading_screen(const char* name, bool keep, bool black) = 0;
+    virtual void hide_loading_screen() = 0;
+    virtual void free_loading_screen_sprite() = 0;
+    virtual void update_loading_bar_colors() = 0;
+    virtual void show_progress_bar(float seconds) = 0;
 
 protected:
     ~Device() = default;

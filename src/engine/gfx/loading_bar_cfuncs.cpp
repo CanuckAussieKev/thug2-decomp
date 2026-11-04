@@ -6,11 +6,10 @@
 #include <cstring>
 #include <array>
 
-#include "engine/gfx/loading_bar.h"
-#include "engine/gfx/loading_screen.h"
 #include "engine/script/param_struct.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/gfx/render_device.h"
 
 namespace render {
 
@@ -46,7 +45,7 @@ bool choose_pair(script::Struct* params, uint32_t first, uint32_t second, int& s
     params->fetch_int_value(second, &second_value, 0);
     setting_a = first_value;
     setting_b = second_value;
-    update_loading_bar_colors();
+    device().update_loading_bar_colors();
     return true;
 }
 
@@ -62,7 +61,7 @@ bool change_colour(script::Struct* params, std::array<uint8_t, 4>& setting)
     std::array<uint8_t, 4> colour = {
         {static_cast<uint8_t>(red), static_cast<uint8_t>(green), static_cast<uint8_t>(blue), kHalfAlpha}};
     std::memcpy(setting.data(), colour.data(), sizeof(colour));
-    update_loading_bar_colors();
+    device().update_loading_bar_colors();
     return true;
 }
 
@@ -80,8 +79,8 @@ void set_loading_bar_time(float seconds)
         return;
     }
     loading_bar_seconds() = seconds;
-    update_loading_bar_colors();
-    show_progress_bar(seconds);
+    device().update_loading_bar_colors();
+    device().show_progress_bar(seconds);
 }
 
 // 0x004907A0
@@ -123,16 +122,16 @@ bool cfunc_set_loading_bar_border_color(script::Struct* params, script::Script* 
 // 0x00490890
 void display_loading_screen(const char* name, bool keep, bool black)
 {
-    free_loading_screen_sprite();
-    show_loading_screen(name, keep, black);
+    device().free_loading_screen_sprite();
+    device().show_loading_screen(name, keep, black);
     stored_loading_screen_shown() = 1U;
 }
 
 // 0x004908C0
 void remove_loading_screen()
 {
-    hide_loading_screen();
-    free_loading_screen_sprite();
+    device().hide_loading_screen();
+    device().free_loading_screen_sprite();
     stored_loading_screen_shown() = 0U;
 }
 

@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "base/core/checksums.h"
 #include "base/core/down_cast.h"
@@ -20,6 +21,8 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/flash.h"
+#include "engine/gfx/loading_bar.h"
+#include "engine/gfx/loading_screen.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pc_fog.h"
 #include "engine/gfx/pc_flexible_particles.h"
@@ -32,6 +35,7 @@
 #include "engine/gfx/primitive_states.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/scene_load.h"
+#include "engine/gfx/screenshot_capture.h"
 #include "engine/gfx/shadow_base.h"
 #include "engine/gfx/shatter.h"
 #include "engine/gfx/sub_mesh.h"
@@ -170,6 +174,24 @@ public:
         render::set_shadow_companion(companion);
     }
     uint32_t occlusion_pixels() override { return render::occlusion_pixels(); }
+
+    // --- what is shown ---
+    void screen_shot(const char* name, int unused) override { render::screen_shot(name, unused); }
+    bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error) override
+    {
+        return gfx::screenshot_capture::capture_back_buffer(out, error);
+    }
+    uint32_t presented_width() override { return render::presented_width(); }
+    bool screen_copies_made() override { return render::screen_copies_made(); }
+    [[noreturn]] void show_disc_error() override { render::show_disc_error(); }
+    void show_loading_screen(const char* name, bool keep, bool black) override
+    {
+        render::show_loading_screen(name, keep, black);
+    }
+    void hide_loading_screen() override { render::hide_loading_screen(); }
+    void free_loading_screen_sprite() override { render::free_loading_screen_sprite(); }
+    void update_loading_bar_colors() override { render::update_loading_bar_colors(); }
+    void show_progress_bar(float seconds) override { render::show_progress_bar(seconds); }
 };
 
 } // namespace

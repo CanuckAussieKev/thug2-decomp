@@ -28,7 +28,6 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/viewport.h"
-#include "engine/gfx/device.h"
 #include "base/core/down_cast.h"
 #include "base/core/format.h"
 #include "engine/gfx/view_setup.h"
@@ -308,7 +307,7 @@ bool cfunc_debug_line(Struct* params, Script* /*script*/)
 // the script's params. Always true.
 bool cfunc_get_pause_pos_by_resolution(Struct* /*params*/, Script* script)
 {
-    const float x = render::presented_width() == 640 ? 50.0F : 20.0F; // the back buffer's width
+    const float x = render::device().presented_width() == 640 ? 50.0F : 20.0F; // the back buffer's width
     script->args()->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = kPausePosY});
     return true;
 }

@@ -33,7 +33,7 @@
 #include "engine/ext/extension.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/gfx/screenshot_capture.h"
+#include "engine/gfx/render_device.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -462,7 +462,7 @@ void get_take()
 {
     TickCycle frame;
     std::string error;
-    if (!gfx::screenshot_capture::capture_back_buffer(&frame, &error)) {
+    if (!render::device().capture_back_buffer(&frame, &error)) {
         get_log("screenshot: not taken - %s", error.c_str());
         screenshot_job().message_ = "Screenshot failed: " + error;
         screenshot_job().message_since_ = SDL_GetTicks();
@@ -587,7 +587,7 @@ void take_series_frame()
     const std::shared_ptr<Series> series = stored_series();
     TickCycle frame;
     std::string error;
-    if (!gfx::screenshot_capture::capture_back_buffer(&frame, &error)) {
+    if (!render::device().capture_back_buffer(&frame, &error)) {
         const std::scoped_lock lock(series->mutex);
         if (series->error.empty()) {
             series->error = "frame " + std::to_string(series->taken + 1) + " not taken - " + error;
