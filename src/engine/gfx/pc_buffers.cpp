@@ -13,7 +13,7 @@
 #include "gpu/d3d9_handles.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/surface_material.h"
-#include "engine/gfx/pc_scene.h"
+#include "engine/gfx/render_device.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
 #include "gpu/vertex_buffers.h"

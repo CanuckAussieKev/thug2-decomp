@@ -20,7 +20,7 @@
 #include "engine/script/token_reader.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/gfx/tod_manager.h"
-#include "engine/gfx/loading_bar.h"
+#include "engine/gfx/render_constants.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 

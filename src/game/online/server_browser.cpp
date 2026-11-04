@@ -32,7 +32,7 @@
 #include "platform/crt.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/gfx/anim_blend.h"
-#include "engine/gfx/loading_bar.h"
+#include "engine/gfx/render_constants.h"
 #include "base/core/compiler.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checked_index.h"

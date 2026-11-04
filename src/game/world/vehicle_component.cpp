@@ -45,7 +45,7 @@
 #include "engine/objects/input_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/gfx/scene_load.h"
+#include "engine/gfx/engine_mesh.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"

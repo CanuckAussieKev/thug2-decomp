@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "platform/bink.h"
+#include "engine/gfx/engine_parts.h"
 #include "base/maths/rect.h"
 #include "base/maths/vec2.h"
 #include "gpu/gpu_handles.h"
@@ -41,8 +42,6 @@ bool play_movie(script::Struct* params, script::Script* script);
 // devtools/start_level.h).
 bool& skip_intro_movies();
 
-// A Bink movie (platform/bink.h).
-using Bink = bink::Movie;
 
 // 0x0044FDC0 (also reached by a jump at 0x0044F830): play data\movies\bik\<name>.bik (a path before the last
 // backslash in `name` is dropped) to its end, until the quit request, or until start or X is pressed on a pad
@@ -63,5 +62,4 @@ bool button_pressed_again(const std::array<uint8_t, kControlDataBytes>& control_
 
 // The movie player's and the window's flags (movie.cpp's record; the original's globals).
 
-inline constexpr float kOnePercent{0.01F};
 } // namespace render

@@ -21,6 +21,15 @@
 
 namespace render {
 
+// 0x004B2D30
+HierarchyNode::HierarchyNode()
+{
+    matrix_.row = {{{.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F},
+                    {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F},
+                    {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F},
+                    {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}}};
+}
+
 constexpr std::size_t kColExtensionBytes = 6; // ".col." and its terminator
 
 // 0x00490A60

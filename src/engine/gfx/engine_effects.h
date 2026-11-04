@@ -5,7 +5,7 @@
 #include <array>
 #include <span>
 
-#include "engine/gfx/texture_splats.h"
+#include "engine/gfx/engine_splats.h"
 #include "base/maths/vec4.h"
 
 // The engine's effects (Nx, platform-independent; each passes on to the PC code): fog settings, the level colour,
@@ -15,11 +15,28 @@
 // split triangles on (0x006FC4A0).
 #include "base/lists/object_set.h"
 
+namespace maths {
+class BBox;
+}
+
 namespace render {
 
 constexpr std::size_t kEffectDataBytes = 0x4000;
 
 class BitmapTexture;
+
+// A screen flash (0x24 bytes; made by add_flash, engine_effects.h).
+struct Flash {
+    int viewport;     // +0x00
+    std::array<uint8_t, 4> start; // +0x04: the colour it starts with (RGBA)
+    std::array<uint8_t, 4> end;   // +0x08: and ends with
+    std::array<uint8_t, 4> now; // +0x0C: the colour now (red, green, blue, alpha)
+    uint32_t flags;   // +0x10: bit 1 picks which of draw_flashes' passes draws it; 8: it goes on while paused
+    float duration;   // +0x14
+    float time_left_; // +0x18
+    float z;          // +0x1C
+    BitmapTexture* texture; // +0x20 (null: untextured; nothing sets one)
+};
 
 // The vertex stack (0x006FC4A0): how many bytes are on it, a vertex's size, the vertices.
 struct VertexStack {
@@ -160,5 +177,4 @@ void kill_all_effects();
 } // namespace engine
 
 struct SpawnedPoly;
-class PcShatter;
 } // namespace render

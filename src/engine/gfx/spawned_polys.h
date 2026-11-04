@@ -17,7 +17,7 @@ namespace render {
 
 class BitmapTexture;
 
-class PcPrimitive;
+class VertexRun;
 
 constexpr std::size_t kSpawnedPolyDimsOffset = 0x50;
 constexpr std::size_t kSpawnedPolyColoursOffset = 0x88;
@@ -51,8 +51,8 @@ struct SpawnedPoly {
     [[nodiscard]] float lifetime() const { return lifetime_; }
     [[nodiscard]] BitmapTexture* texture() const { return texture_; }
     void set_texture(BitmapTexture* value) { texture_ = value; }
-    [[nodiscard]] PcPrimitive* primitive() const { return primitive_; }
-    void set_primitive(PcPrimitive* value) { primitive_ = value; }
+    [[nodiscard]] VertexRun* primitive() const { return primitive_; }
+    void set_primitive(VertexRun* value) { primitive_ = value; }
     uint32_t& blend_mode() { return blend_mode_; }
     [[nodiscard]] uint32_t blend_mode() const { return blend_mode_; }
     [[nodiscard]] float align_h() const { return align_h_; }
@@ -73,7 +73,7 @@ private:
     float age_{};                    // +0x9C: seconds
     float lifetime_{};               // +0xA0
     BitmapTexture* texture_{};       // +0xA4 (null: untextured)
-    PcPrimitive* primitive_{};       // +0xA8 (the polygon's own: deleted with it)
+    VertexRun* primitive_{};       // +0xA8 (the polygon's own: deleted with it)
     uint32_t blend_mode_{kBlendName}; // +0xAC
     float align_h_{0.0F};             // +0xB0 (-1 left, 0 centre, 1 right)
     float align_v_{0.0F};             // +0xB4 (-1 top, 0 centre, 1 bottom)

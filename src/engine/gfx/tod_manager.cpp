@@ -35,7 +35,7 @@
 #include "engine/sys/stopwatch.h"
 #include "engine/script/degree_ratio.h"
 #include "engine/objects/anim_movies.h"
-#include "engine/gfx/movie.h"
+#include "engine/gfx/render_constants.h"
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/engine_glue.h"
 #include "base/core/down_cast.h"

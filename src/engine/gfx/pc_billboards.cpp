@@ -19,7 +19,7 @@
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
-#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_camera.h"
 #include "engine/gfx/render_state.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"

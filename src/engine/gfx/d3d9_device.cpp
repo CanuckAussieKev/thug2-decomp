@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 
 #include "base/core/checksums.h"
@@ -15,12 +16,15 @@
 #include "base/core/no_destroy.h"
 #include "base/maths/rect.h"
 #include "engine/gfx/bitmap_texture.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/device_d3d.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/gfx/pc_engine.h"
 #include "engine/gfx/flash.h"
+#include "engine/gfx/geom.h"
 #include "engine/gfx/loading_bar.h"
 #include "engine/gfx/loading_screen.h"
 #include "engine/gfx/pc_billboards.h"
@@ -28,9 +32,11 @@
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/gfx/pc_font.h"
 #include "engine/gfx/pc_lights.h"
+#include "engine/gfx/pc_mesh.h"  // IWYU pragma: keep - PcMesh to SubMesh
+#include "engine/gfx/pc_scene.h" // IWYU pragma: keep - PcScene to WorldScene
 #include "engine/gfx/pc_primitive.h"
-#include "engine/gfx/pc_scene.h"
 #include "engine/gfx/pc_texture.h"
+#include "engine/gfx/pc_texture_projection.h"
 #include "engine/gfx/pc_viewport.h"
 #include "engine/gfx/primitive_states.h"
 #include "engine/gfx/render_device.h"
@@ -85,17 +91,23 @@ public:
         return render::load_scene_from_file(name, textures, with_super_sectors, flag_8d, mesh_flag, arena);
     }
     bool unload_scene(WorldScene* scene) override { return render::unload_scene(scene); }
-    gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures) override
+    gsl::owner<SubMesh*> load_mesh_file(const char* name, TextureSet* textures) override
     {
         return render::load_mesh_file(name, textures);
     }
-    gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin,
+    gsl::owner<SubMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin,
                                               size_t skin_size, TextureSet* textures) override
     {
         return render::load_mesh_from_memory(checksum, data, size, skin, skin_size, textures);
     }
     gsl::owner<RenderModel*> spawn_model() override { return render::spawn_model(); }
     gsl::owner<Geom*> create_geom() override { return render::create_geom(); }
+    gsl::owner<VertexRun*> create_primitive(int own) override { return memory::make_owned<PcPrimitive>(own); }
+    gsl::owner<VertexRun*> make_primitive_at(std::span<std::byte> storage, int own) override
+    {
+        Expects(storage.size() >= sizeof(PcPrimitive));
+        return memory::construct_in<PcPrimitive>(storage.data(), own);
+    }
     gsl::owner<BillboardQuad*> build_sprite_quad() override { return render::build_sprite_quad(); }
     gsl::owner<TexturedQuad*> create_textured_quad() override { return render::create_textured_quad(); }
     gsl::owner<void*> create_render_target(maths::PixelSize size, uint8_t depth, int unused) override
@@ -109,10 +121,15 @@ public:
         return render::load_tex_dict_memory(checksum, data, size);
     }
     gsl::owner<TextureSet*> create_tex_dict(uint32_t checksum) override { return render::create_tex_dict(checksum); }
-    gsl::owner<PcViewport*> create_viewport(const std::array<float, 4>* rect, gfx::ViewCam* camera) override
+    uint32_t tex_dict_memory(const TextureSet* textures) override
+    {
+        return core::down_cast<const PcTexDict>(textures)->unknown10();
+    }
+    gsl::owner<ViewRegion*> create_viewport(const std::array<float, 4>* rect, gfx::ViewCam* camera) override
     {
         return render::create_viewport(rect, camera);
     }
+    gsl::owner<TextureProjection*> create_texture_projection() override { return new PcTextureProjection; }
     gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, checksums::Name kind,
                                                            int particle_cap, int max_streams, uint32_t texture,
                                                            uint32_t blend_mode, int fixed_alpha, int segments,
@@ -146,9 +163,12 @@ public:
 
     // --- effects ---
     void draw_flash(const Flash* flash) override { render::draw_flash(flash); }
-    void shatter_geom(PcGeom* geom) override { render::shatter_geom(geom); }
-    void update_shatter(PcShatter* shatter, float step) override { render::update_shatter(shatter, step); }
-    void draw_shatter(PcShatter* shatter) override { render::draw_shatter(shatter); }
+    void shatter_geom(Geom* geom) override { render::shatter_geom(core::down_cast<PcGeom>(geom)); }
+    void update_shatter(Shatter* shatter, float step) override
+    {
+        render::update_shatter(core::down_cast<PcShatter>(shatter), step);
+    }
+    void draw_shatter(Shatter* shatter) override { render::draw_shatter(core::down_cast<PcShatter>(shatter)); }
     void kill_all_shatters() override { render::kill_all_shatters(); }
     TextureSplats* create_texture_splat(void** sectors, HitMesh* const* objects, SplatParams* params) override
     {

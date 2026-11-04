@@ -71,6 +71,7 @@ add_library(thug2_engine STATIC
     audio/continue_music.cpp
     gfx/loading_bar.cpp
     gfx/loading_console.cpp
+    gfx/loading_console_panel.cpp
     gfx/draw_frame.cpp
     gfx/wireframe.cpp
     gfx/view_mode.cpp
@@ -78,6 +79,7 @@ add_library(thug2_engine STATIC
     gfx/view_cam.cpp
     gfx/world_scene.cpp
     gfx/engine_glue.cpp
+    gfx/pc_engine.cpp
     gfx/scene_load.cpp
     gfx/pc_font.cpp
     gfx/geom.cpp
@@ -107,6 +109,7 @@ add_library(thug2_engine STATIC
     gfx/particle_sets.cpp
     gfx/model.cpp
     gfx/model_geoms.cpp
+    gfx/hsv_colour.cpp
     gfx/sector.cpp
     gfx/engine_sprite.cpp
     gfx/screen_effects.cpp
@@ -168,6 +171,7 @@ add_library(thug2_engine STATIC
     gfx/texture_file.cpp
     gfx/hd_ui.cpp
     gfx/graphics_options.cpp
+    gfx/graphics_options_d3d.cpp
     pad_input/key_names.cpp
     objects/anim_blender.cpp
     objects/ride_tracker.cpp
@@ -355,7 +359,7 @@ add_library(thug2_engine STATIC
 # (the UI fonts, compressed at build time: ui/ui_fonts.cpp includes them)
 target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
 add_dependencies(thug2_engine editor_fonts)
-# imgui: the loading console's panel (gfx/loading_console.cpp); lzham: THUGPRO's compression method (net/net_lzham.cpp);
+# imgui: the loading console's panel (gfx/loading_console_panel.cpp); lzham: THUGPRO's compression method (net/net_lzham.cpp);
 # dinput8 / dxguid: DirectInput's data formats and effect GUIDs (pad_input/direct_input.cpp)
 target_link_libraries(thug2_engine PUBLIC thug2_gpu thug2_wire PRIVATE imgui lzham dinput8 dxguid)
 # The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks

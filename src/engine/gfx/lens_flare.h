@@ -10,7 +10,7 @@ namespace gfx {
 class ViewCam;
 }
 namespace render {
-class PcPrimitive;
+class VertexRun;
 } // namespace render
 namespace script {
 class Struct;
@@ -96,7 +96,7 @@ void hide_flare(script::Struct* params, script::Script* script);
 void unhide_flare(script::Struct* params, script::Script* script);
 // 0x00443180: the sun's quad facing `camera` at `position` (its corners' x y z into `corners`, 12 floats), and
 // `prim` given the sun's texture and set up to draw it.
-void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, std::array<float, kSunCornerFloats>& corners);
+void build_sun_quad(gfx::ViewCam* camera, render::VertexRun* quad, const maths::Vec4* position, std::array<float, kSunCornerFloats>& corners);
 // 0x00443780: the lens flare placed for the sun at `sun` on the screen (made by CreateLensFlare if there's no
 // container; nothing unless DoUpdateLensFlare is set; shown again if hidden).
 void show_flare(const maths::Vec4* sun, float time);

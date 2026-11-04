@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/gfx/render_device.h"
+
 #include <cstdint>
 #include <array>
 #include <span>
@@ -117,13 +119,6 @@ void set_world_transform(const float* matrix);
 
 // 0x004D3CA0 / 0x004D3CE0: the scaling the skinned meshes' loaders apply set (four values, 0x007865D0 - the last a
 // table of 16-byte bone scales, 0x007865DC) and on (0x007865CC) / off and cleared.
-// The skin scaling's settings (a cutscene's skinned model's colours, while it loads): the colour table's entries, the
-// table, and the colours (four floats a bone) the loaders scale the bones' positions by.
-struct SkinScaling {
-    std::span<const uint8_t> entries; // the colour table's entries (the original: its end and its start)
-    void* table = nullptr;
-    std::span<const float> colours; // four floats a bone
-};
 void set_skin_scaling(const SkinScaling* settings);
 void clear_skin_scaling();
 // 0x004D3ED0: the pixel shader a scene file's index names (0x007CA920-64; 0 and 1: none; past 0x12: the index

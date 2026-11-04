@@ -39,7 +39,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/gfx/scene_load.h"
+#include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/rig.h"
 #include "wire/net_wire.h"
 #include <gsl/pointers>

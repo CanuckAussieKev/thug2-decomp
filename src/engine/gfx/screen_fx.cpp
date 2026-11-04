@@ -12,7 +12,7 @@
 #include "gpu/d3d9_handles.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/primitive_states.h"
-#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_camera.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
 #include "base/core/checked_index.h"

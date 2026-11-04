@@ -18,7 +18,6 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/gfx/scene_load.h"
 #include "engine/objects/skeleton_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

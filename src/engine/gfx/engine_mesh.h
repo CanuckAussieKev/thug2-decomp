@@ -6,6 +6,7 @@
 
 #include "engine/memory/mem.h"
 #include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
 
 // The engine's mesh (render::SubMesh - the platform-independent part of the PC mesh, PcMesh in pc_mesh.h, its first 0xBC
 // bytes; vtable 0x006492E4): a skinned model's collision (from a .col file kept loaded by name) and its hierarchy.
@@ -15,8 +16,48 @@ constexpr std::size_t kCollisionNameSize = 0x80;
 
 struct TriMeshSource;
 
-struct HierarchyNode;
 class TextureSet;
+
+constexpr int kNoParent = 0xFFFF; // a sector without a parent in the hierarchy
+
+constexpr std::size_t kHierarchyNodeBoneSlotOffset = 0xA;
+constexpr std::size_t kHierarchyNodeMatrixOffset = 0x10;
+constexpr std::size_t kHierarchyNodeBytes = 0x50;
+
+// A model's hierarchy node (0x50 bytes; the scene's array at +0x74, its count at +0x78; read as they are from the
+// file): a checksum, its parent's, the parent's index (0xFFFF: none), a bone index and a matrix.
+struct HierarchyNode {
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    [[nodiscard]] uint16_t parent_index() const { return parent_index_; }
+    [[nodiscard]] uint8_t bone_slot() const { return bone_slot_; }
+    maths::Mat4& matrix() { return matrix_; }
+    [[nodiscard]] const maths::Mat4& matrix() const { return matrix_; }
+
+private:
+    uint32_t checksum_{0};
+    uint32_t parent_checksum_{0};
+    uint16_t parent_index_{kNoParent};
+    uint8_t bone_slot_{0};
+    uint8_t pad0b_{};
+    uint32_t unknown0c_{};
+    maths::Mat4 matrix_{}; // (relative to its parent)
+
+public:
+
+    // 0x004B2D30 (Ghidra never made it: the array constructor's callback): the checksums 0, no parent, bone 0, the
+    // identity matrix (+0x0C left).
+    HierarchyNode();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(HierarchyNode, bone_slot_) == kHierarchyNodeBoneSlotOffset && offsetof(HierarchyNode, matrix_) == kHierarchyNodeMatrixOffset &&
+                          sizeof(HierarchyNode) == kHierarchyNodeBytes,
+                      "layout must match the original");
+    }
+};
+
 
 constexpr std::size_t kSubMeshBoneCountOffset = 0xB0;
 constexpr std::size_t kSubMeshBoxOffset = 0x90;

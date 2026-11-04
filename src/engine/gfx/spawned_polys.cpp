@@ -10,7 +10,8 @@
 
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/gfx/pc_primitive.h"
+#include "engine/gfx/vertex_run.h"
+#include "engine/gfx/render_device.h"
 #include "base/lists/object_set.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -35,15 +36,15 @@ memory::PoolPair& spawned_poly_pools()
 namespace {
 
 // A corner's position and colour.
-void set_corner(PcPrimitive* primitive, int corner, const maths::Vec4& at)
+void set_corner(VertexRun* primitive, int corner, const maths::Vec4& at)
 {
-    primitive->change_place(corner, {.x = at.x, .y = at.y, .z = at.z});
+    primitive->place_vertex(corner, {.x = at.x, .y = at.y, .z = at.z});
 }
-void set_corner_colour(PcPrimitive* primitive, int corner, const std::array<uint8_t, 4>& colour)
+void set_corner_colour(VertexRun* primitive, int corner, const std::array<uint8_t, 4>& colour)
 {
     uint32_t rgba = 0;
     std::memcpy(&rgba, colour.data(), 4);
-    primitive->set_vertex_colour(corner, colour::Packed{rgba});
+    primitive->colour_vertex(corner, colour::Packed{rgba});
 }
 
 // Four corners turned by the polygon's matrix and moved to its position.
@@ -69,7 +70,7 @@ namespace engine {
 // 0x00492450
 void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
 {
-    auto* made = memory::make_owned<PcPrimitive>(1); // (the polygon's: deleted with it)
+    gsl::owner<VertexRun*> made = device().create_primitive(1); // (the polygon's: deleted with it)
     poly->set_primitive(made);
     maths::Mat4& matrix = poly->matrix();
     std::memset(&matrix, 0, sizeof(matrix));
@@ -117,14 +118,14 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
          {.x = static_cast<float>(right), .y = static_cast<float>(bottom), .z = 0.0F, .w = 0.0F},
          {.x = static_cast<float>(left), .y = static_cast<float>(bottom), .z = 0.0F, .w = 0.0F}}};
     place_corners(poly, corners);
-    PcPrimitive* primitive = poly->primitive();
+    VertexRun* primitive = poly->primitive();
     primitive->set_blend_mode(poly->blend_mode());
-    primitive->prepare_all({.layout_flags_ = layout, .primitive_type_ = 4, .count = 4}); // (through the jump 0x004A10A0)
+    primitive->lay_out({.layout_flags_ = layout, .primitive_type_ = 4, .count = 4}); // (through the jump 0x004A10A0)
     const std::array<std::array<float, 2>, 4> uvs = {{{0.0F, 0.0F}, {1.0F, 0.0F}, {1.0F, 1.0F}, {0.0F, 1.0F}}};
     for (int i = 0; i < 4; ++i) {
         set_corner_colour(poly->primitive(), i, core::at(poly->colours(), i));
         if ((layout & 2) != 0U) {
-            poly->primitive()->set_uv(i, {.x = core::at(core::at(uvs, i), 0), .y = core::at(core::at(uvs, i), 1)});
+            poly->primitive()->map_vertex(i, {.x = core::at(core::at(uvs, i), 0), .y = core::at(core::at(uvs, i), 1)});
         }
         set_corner(poly->primitive(), i, core::at(corners, i));
     }
@@ -147,7 +148,7 @@ void update_spawned_polys()
             // Done: its primitive destroyed, the polygon taken out and freed.
             poly->flags() |= 1;
             poly->set_age(0.0F);
-            gsl::owner<PcPrimitive*> primitive = memory::owned_element(poly->primitive());
+            gsl::owner<VertexRun*> primitive = memory::owned_element(poly->primitive());
             delete primitive;
             poly->set_primitive(nullptr);
             effects_state().spawned_polys().erase(poly);
@@ -205,7 +206,7 @@ void update_spawned_polys()
 void kill_all_spawned_polys()
 {
     effects_state().spawned_polys().for_each([](SpawnedPoly* poly) {
-        gsl::owner<PcPrimitive*> primitive = memory::owned_element(poly->primitive());
+        gsl::owner<VertexRun*> primitive = memory::owned_element(poly->primitive());
         delete primitive;
         poly->set_primitive(nullptr);
         effects_state().spawned_polys().erase(poly);

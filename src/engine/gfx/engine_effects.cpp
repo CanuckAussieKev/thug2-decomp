@@ -16,11 +16,10 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_scene_list.h"
-#include "engine/gfx/flash.h"
-#include "engine/gfx/shatter.h"
+#include "engine/gfx/engine_shatter.h"
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/gfx/texture_splats.h"
+#include "engine/gfx/engine_splats.h"
 #include "base/lists/object_set.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
@@ -296,7 +295,7 @@ void shatter_geom(void* geom)
 {
     // (the PC's shatter_geom - shatter.cpp - only reads the geom: the original also looked up the particles' texture
     // 0x007004BC and passed it, unused)
-    render::device().shatter_geom(static_cast<render::PcGeom*>(geom));
+    render::device().shatter_geom(static_cast<render::Geom*>(geom));
 }
 
 // --- texture splats ---
@@ -547,7 +546,7 @@ void update_shatters()
         return;
     }
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    effects_state().shatters().for_each([elapsed](PcShatter* shatter) {
+    effects_state().shatters().for_each([elapsed](Shatter* shatter) {
         const double left = static_cast<double>(shatter->lifetime()) - elapsed;
         shatter->set_lifetime(static_cast<float>(left));
         if (left <= 0.0) {
@@ -563,7 +562,7 @@ void update_shatters()
 // 0x004920E0
 void draw_shatters()
 {
-    effects_state().shatters().for_each([](PcShatter* shatter) { device().draw_shatter(shatter); });
+    effects_state().shatters().for_each([](Shatter* shatter) { device().draw_shatter(shatter); });
 }
 
 // --- flashes ---

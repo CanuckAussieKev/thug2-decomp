@@ -2,8 +2,6 @@
 
 #include "engine/gfx/pc_primitive.h"
 
-#include "gpu/vertex_view.h"
-
 #include <windows.h>
 
 #include <d3d9.h>
@@ -14,8 +12,8 @@
 #include <array>
 
 #include "engine/memory/manager.h"
-#include "engine/memory/mem.h"
 #include "engine/gfx/engine_primitive.h"
+#include "engine/gfx/vertex_run.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/render_state.h"
@@ -35,26 +33,24 @@
 namespace render {
 
 constexpr std::size_t kPrimitiveBufferBytes = 0x100;
-constexpr uint32_t kGreenAlphaMask = 0xFF00FF00U;
-constexpr int kByteMask = 0xFF;
-constexpr int kByte2Shift = 16;
 constexpr float kGrey = 0.5F;
-// The flexible vertex formats (D3DFVF_*) the primitives use.
-constexpr int kFvfColour = 0x42;
-constexpr int kFvfUv = 0x102;
-constexpr int kFvfColourUv = 0x142;
-constexpr int kFvfColourUvNormal = 0x152;
-// ... and their vertex sizes.
-constexpr int kPositionVertexBytes = 0xC;
-constexpr int kColourVertexBytes = 0x10;
-constexpr int kUvVertexBytes = 0x14;
-constexpr int kColourUvVertexBytes = 0x18;
-constexpr int kColourUvNormalVertexBytes = 0x24;
-constexpr int kRgbMask = 0xFFFFFF;
-constexpr uint32_t kHalfAlphaBits = 0x80000000;
-
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kBlend = 0x54628ED7U; // Blend
+
+using vertex_run::kColourVertexBytes;
+using vertex_run::kColourUvNormalVertexBytes;
+using vertex_run::kColourUvVertexBytes;
+using vertex_run::kFvfColour;
+using vertex_run::kFvfColourUv;
+using vertex_run::kFvfColourUvNormal;
+using vertex_run::kFvfUv;
+using vertex_run::kPositionVertexBytes;
+using vertex_run::kUvVertexBytes;
+using vertex_run::position_at;
+using vertex_run::vertex_at;
+using vertex_run::VertexColour;
+using vertex_run::VertexColourUv;
+using vertex_run::VertexNormalColourUv;
 
 namespace {
 // The game's buffer for the vertices of a primitive drawn without one of its own.
@@ -66,49 +62,10 @@ std::array<uint8_t, kPrimitiveBufferBytes>& primitive_vertex_buffer()
 
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
-// The vertex layouts by flexible vertex format (D3DFVF): XYZ (0x2) and XYZ | DIFFUSE (0x42) - positions and colours -,
-// XYZ | TEX1 (0x102), XYZ | DIFFUSE | TEX1 (0x142) and XYZ | NORMAL | DIFFUSE | TEX1 (0x152). Every layout starts with
-// the position.
-struct VertexColour {
-    std::array<float, 3> pos;
-    uint32_t colour; // BGRA
-};
-struct VertexColourUv {
-    std::array<float, 3> pos;
-    uint32_t colour;
-    float u, v;
-};
-struct VertexNormalColourUv {
-    std::array<float, 3> pos;
-    std::array<float, 3> normal;
-    uint32_t colour;
-    float u, v;
-};
-constexpr std::size_t kVertexColourBytes = 0x10;
-constexpr std::size_t kVertexColourUvBytes = 0x18;
-constexpr std::size_t kVertexNormalColourUvBytes = 0x24;
-
-static_assert(sizeof(VertexColour) == kVertexColourBytes && sizeof(VertexColourUv) == kVertexColourUvBytes && sizeof(VertexNormalColourUv) == kVertexNormalColourUvBytes,
-              "the Direct3D vertex layouts");
-
-// The vertex `index` in the layout V / its position (any layout, by the stride): gpu/vertex_view.h.
-template <typename V>
-V& vertex_at(std::span<uint8_t> vertices, int index)
-{
-    return gpu::record_at<V>(vertices, static_cast<size_t>(index));
-}
-std::span<float, 3> position_at(std::span<uint8_t> vertices, int stride, int index)
-{
-    return gpu::position_at(vertices, static_cast<size_t>(stride), static_cast<size_t>(index));
-}
-
-// RGBA with red and blue swapped (d_3d's BGRA).
-uint32_t get_swapped(uint32_t rgba) { return (rgba & kGreenAlphaMask) | (rgba & kByteMask) << kByte2Shift | (rgba >> kByte2Shift & kByteMask); }
-
 } // namespace
 
 // 0x004C5230
-PcPrimitive::PcPrimitive(int own) : Primitive(own)
+PcPrimitive::PcPrimitive(int own) : VertexRun(own)
 {
     // (material_ made first by its constructor)
     const uint32_t made = flag_bits() | 1;
@@ -160,53 +117,7 @@ void PcPrimitive::set_texture(const BitmapTexture* texture, int /*unused1*/, int
 void PcPrimitive::change_colour(uint32_t rgba) { colour_ = rgba; }
 
 // 0x004C5F00
-void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
-{
-    const auto layout_flags = primitive_layout.layout_flags_;
-    const auto primitive_type = primitive_layout.primitive_type_;
-    const auto count = primitive_layout.count;
-    vertex_format_ = 2;
-    if ((layout_flags & 1) != 0U) {
-        vertex_format_ = kFvfColour;
-    }
-    if ((layout_flags & 2) != 0U) {
-        vertex_format_ |= kFvfTex1;
-    }
-    if ((layout_flags & 4) != 0U) {
-        vertex_format_ |= kFvfNormal;
-    }
-    if (owns_vertices() == 1) {
-        int size = 0;
-        switch (vertex_format_) {
-        case 0x2:
-            size = kPositionVertexBytes;
-            break;
-        case kFvfColour:
-            size = kColourVertexBytes;
-            break;
-        case kFvfUv:
-            size = kUvVertexBytes;
-            break;
-        case kFvfColourUv:
-            size = kColourUvVertexBytes;
-            break;
-        case kFvfColourUvNormal:
-            size = kColourUvNormalVertexBytes;
-            break;
-        default:
-            break;
-        }
-        if (size != 0) {
-            // (the 0x102 layout_'s allocation is memory::alloc's inline; the others through it)
-            vertices_ = static_cast<uint8_t*>(memory::alloc(count * size));
-            stride_ = size;
-        }
-    }
-    vertex_count_ = count;
-    flag_bits() = (flag_bits() & ~1U) | 2;
-    layout_ = layout_flags;
-    type_ = primitive_type;
-}
+void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout) { lay_out(primitive_layout); }
 
 // 0x004C5320
 void PcPrimitive::end_setup()
@@ -297,15 +208,7 @@ void PcPrimitive::blit(std::span<const float> positions, std::span<const uint32_
 }
 
 // 0x004C5B20
-void PcPrimitive::change_place(int index, const maths::Vec4& place)
-{
-    const auto x = place.x;
-    const auto y = place.y;
-    const auto z = place.z;
-    core::at(position_at(vertex_bytes(), stride_, index), 0) = x;
-    core::at(position_at(vertex_bytes(), stride_, index), 1) = y;
-    core::at(position_at(vertex_bytes(), stride_, index), 2) = z;
-}
+void PcPrimitive::change_place(int index, const maths::Vec4& place) { place_vertex(index, place); }
 // 0x004C5B60
 void PcPrimitive::set_x(int index, float x) { core::at(position_at(vertex_bytes(), stride_, index), 0) = x; }
 // 0x004C5B80
@@ -331,32 +234,10 @@ void PcPrimitive::set_normal_y(int index, float y) { std::get<1>(vertex_at<Verte
 void PcPrimitive::set_normal_z(int index, float z) { std::get<2>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = z; }
 
 // 0x004C56E0
-void PcPrimitive::set_vertex_colour(int index, colour::Packed colour_word)
-{
-    const uint32_t rgba = colour_word.value();
-    const uint32_t bgra = get_swapped(rgba);
-    if (vertex_format_ == kFvfColour) {
-        vertex_at<VertexColour>(vertex_bytes(), index).colour = bgra;
-    } else if (vertex_format_ == kFvfColourUv) {
-        vertex_at<VertexColourUv>(vertex_bytes(), index).colour = (bgra & kRgbMask) | kHalfAlphaBits;
-    } else if (vertex_format_ == kFvfColourUvNormal) {
-        vertex_at<VertexNormalColourUv>(vertex_bytes(), index).colour = bgra;
-    }
-}
+void PcPrimitive::set_vertex_colour(int index, colour::Packed colour_word) { colour_vertex(index, colour_word); }
 
 // 0x004C5760
-void PcPrimitive::set_uv(int index, maths::Vec2 uv)
-{
-    const auto u = uv.x;
-    const auto v = uv.y;
-    if (vertex_format_ == kFvfColourUv) {
-        vertex_at<VertexColourUv>(vertex_bytes(), index).u = u;
-        vertex_at<VertexColourUv>(vertex_bytes(), index).v = v;
-    } else if (vertex_format_ == kFvfColourUvNormal) {
-        vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u = u;
-        vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v = v;
-    }
-}
+void PcPrimitive::set_uv(int index, maths::Vec2 uv) { map_vertex(index, uv); }
 // 0x004C57C0
 void PcPrimitive::choose_u(int index, float u)
 {

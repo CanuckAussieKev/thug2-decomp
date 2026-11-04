@@ -18,7 +18,6 @@
 #include "base/core/checksums.h"
 #include "base/core/dbg.h"
 #include "base/core/stubs.h"
-#include "engine/gfx/movie.h"
 #include "base/maths/random.h"
 #include "engine/audio/music_api.h"
 #include "engine/audio/stream.h"

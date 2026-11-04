@@ -40,7 +40,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "base/core/checked_index.h"
-#include "engine/gfx/render_state.h"
 #include "engine/gfx/render_device.h"
 #include "engine/memory/mem.h"
 #include "base/core/format.h"

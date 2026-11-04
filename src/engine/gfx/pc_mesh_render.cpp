@@ -21,7 +21,7 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/occlusion.h"
 #include "engine/gfx/pc_fog.h"
-#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_camera.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"

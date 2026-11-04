@@ -8,8 +8,6 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/model_internal.h"
-#include "engine/gfx/scene_load.h"
-#include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/bone_volumes.h"
 #include "engine/gfx/render_device.h"
 #include "base/maths/vec4.h"
@@ -197,7 +195,7 @@ uint32_t RenderModel::get_strip_break_flags()
             flags |= entry->scene->bone_count();
         } else if (entry->asset_name_ != 0U) {
             if (const auto* mesh =
-                    static_cast<const PcMesh*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1))) {
+                    static_cast<const SubMesh*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1))) {
                 flags |= mesh->bone_count();
             }
         }

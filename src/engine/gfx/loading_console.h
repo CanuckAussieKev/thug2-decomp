@@ -68,9 +68,26 @@ void note_script_call(uint32_t name, bool cfunction, script::Struct* params);
 // A line of the game log (thug2-decomp.log), filtered.
 void note_log_line(const char* line);
 
-// Drawn by the loading screen's frame (engine/gfx/loading_bar.cpp, 0x004B6FF0), inside its scene, with the loading
-// screen's lock held: the panel over the picture, the device's state put back after.
-void draw_panel();
+// The panel is the graphics backend's (loading_console_panel.h: its font, its layout, its timer, its drawing over the
+// loading screen); these are its ends, called at screen_shown / screen_hidden's points. app/ installs them at start-up
+// (install_panel), before any loading screen.
+struct PanelHooks {
+    void (*prepare)();                       // the font made (once: the first loading screen)
+    void (*restart_layout)();                // a new load: the panel laid out again on its first frame
+    void (*start)(bool freeze, bool blank);  // drawn by its own timer unless `freeze`
+    void (*stop)();                          // the timer stopped
+};
+void install_panel(const PanelHooks& hooks);
+
+// The clock the lines are timed by (seconds, the performance counter).
+double get_now();
+// The newest `line_count` lines (Ring::final_one), when the load began and the last line's time - taken together.
+struct Snapshot {
+    std::vector<std::string> lines;
+    double started = 0.0;
+    double last_activity = 0.0;
+};
+Snapshot take_snapshot(size_t line_count);
 
 // --- pure helpers, for the self-test ---
 constexpr size_t kLineWidth = 96;

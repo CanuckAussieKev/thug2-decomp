@@ -2,9 +2,11 @@
 
 #include "engine/gfx/lens_flare.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <memory>
 #include <span>
 
 #include "engine/memory/mem.h"
@@ -14,7 +16,7 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/engine_texture.h"
-#include "engine/gfx/pc_primitive.h"
+#include "engine/gfx/vertex_run.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
@@ -153,8 +155,24 @@ uint8_t issue_query(render::ViewRegion* camera, float left, float top, float rig
 // The sun's and the corona's quads: a PC primitive drawer on the stack (0x200 bytes kept for it), made with 2 (not
 // listed: drawn by hand) - its texture (through the jump 0x004A1090), its layout (0x004A10A0, given 3 4 4), the blend
 // mode (+0x0C: the folded setter 0x00428270), +0x14 set (the folded setter 0x00407A50), readied and drawn from arrays
-// - corners, colours, texture coordinates (draw_if_ready).
-using Prim = render::PcPrimitive;
+// - corners, colours, texture coordinates (draw_if_ready). NOT ORIGINAL: the graphics backend makes the drawer in the
+// stack bytes kept for it (render::Device::make_primitive_at); it is destroyed with the scope, as the original's.
+constexpr std::size_t kStackPrimitiveBytes = 0x200;
+class StackPrimitive {
+public:
+    explicit StackPrimitive(int own) : run_(render::device().make_primitive_at(storage_, own)) {}
+    ~StackPrimitive() { std::destroy_at(run_); }
+    StackPrimitive(const StackPrimitive&) = delete;
+    StackPrimitive& operator=(const StackPrimitive&) = delete;
+    StackPrimitive(StackPrimitive&&) = delete;
+    StackPrimitive& operator=(StackPrimitive&&) = delete;
+    [[nodiscard]] render::VertexRun& primitive() const { return *run_; }
+
+private:
+    alignas(std::max_align_t) std::array<std::byte, kStackPrimitiveBytes> storage_{};
+    gsl::owner<render::VertexRun*> run_;
+};
+using Prim = render::VertexRun;
 void blit_quad(Prim* quad, const std::array<float, kQuadCornerFloats>& corners, const std::array<colour::Bytes, 4>& colors, const std::array<float, kQuadUvFloats>& uvs)
 {
     std::array<uint32_t, 4> packed{};
@@ -396,7 +414,7 @@ void unhide_flare(Struct* /*params*/, script::Script* script)
 }
 
 // 0x00443180
-void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, std::array<float, kQuadCornerFloats>& corners)
+void build_sun_quad(gfx::ViewCam* camera, render::VertexRun* quad, const maths::Vec4* position, std::array<float, kQuadCornerFloats>& corners)
 {
     // facing the camera: its right axis reversed, then up and back from cross products
     maths::Mat4 facing{};
@@ -429,7 +447,7 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
         core::at(corners, (i * 3) + 2) = core::at(quad_corners, i).z;
     }
     quad->set_blend_mode(kBlend);
-    quad->prepare_all({.layout_flags_ = 3, .primitive_type_ = 4, .count = 4});
+    quad->lay_out({.layout_flags_ = 3, .primitive_type_ = 4, .count = 4});
     quad->set_blend_mode(kAdd);
     quad->set_unknown14(1U);
     quad->get_ready();
@@ -500,11 +518,11 @@ void render(gfx::ViewCam* camera)
     }
 
     // the sun, and a query for how much of it shows
-    Prim sun(2);
+    const StackPrimitive sun(2);
     std::array<float, kQuadCornerFloats> corners = {};
     const std::array<float, 8> uvs = {{0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F}};
-    build_sun_quad(camera, &sun, &sun_pos, corners);
-    blit_quad(&sun, corners, colors, uvs);
+    build_sun_quad(camera, &sun.primitive(), &sun_pos, corners);
+    blit_quad(&sun.primitive(), corners, colors, uvs);
     render::OcclusionRequest request{};
     request.callback = query_sun_visibility;
     request.data = 0;
@@ -523,16 +541,16 @@ void render(gfx::ViewCam* camera)
         if (fade < 1.0F) {
             const float left = 1.0F - fade;
             corner_colors(colors, left);
-            Prim corona(2);
+            const StackPrimitive corona(2);
             std::array<float, kQuadCornerFloats> corona_corners = {};
             const std::array<float, 8> corona_uvs = {{0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F}};
-            build_sun_quad(camera, &corona, &sun_pos, corona_corners);
+            build_sun_quad(camera, &corona.primitive(), &sun_pos, corona_corners);
             if (get_corona_texture()) {
-                corona.set_texture(get_corona_texture(), 0, 0);
+                corona.primitive().set_texture(get_corona_texture(), 0, 0);
             }
             set_prim_state(1, 2);
             set_prim_state(4, 0);
-            blit_quad(&corona, corona_corners, colors, corona_uvs);
+            blit_quad(&corona.primitive(), corona_corners, colors, corona_uvs);
         }
         if (!flare_hidden()) {
             gsl::owner<Struct*> params = new_params();
@@ -552,10 +570,10 @@ void render(gfx::ViewCam* camera)
         (void)brightness; // (worked out, not used)
         corner_colors(colors, kHalf);
         if (get_corona_texture()) {
-            sun.set_texture(get_corona_texture(), 0, 0);
+            sun.primitive().set_texture(get_corona_texture(), 0, 0);
         }
-        sun.set_blend_mode(kAdd);
-        blit_quad(&sun, corners, colors, uvs);
+        sun.primitive().set_blend_mode(kAdd);
+        blit_quad(&sun.primitive(), corners, colors, uvs);
         if (static_cast<double>(morph_in_time()) * kMillisecondsPerSecond < static_cast<double>(unseen)) {
             show_flare(&screen, 0.0F);
         } else {

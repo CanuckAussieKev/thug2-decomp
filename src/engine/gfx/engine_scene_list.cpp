@@ -15,7 +15,6 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/gfx/scene_load.h"
 #include "engine/gfx/texture_dict.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/vec4.h"
@@ -23,7 +22,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/gfx/pc_scene.h"
 #include <gsl/pointers>
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"

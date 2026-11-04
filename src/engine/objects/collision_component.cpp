@@ -25,7 +25,6 @@
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
 #include "base/core/down_cast.h"
-#include "engine/gfx/scene_load.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/engine_mesh.h"
 

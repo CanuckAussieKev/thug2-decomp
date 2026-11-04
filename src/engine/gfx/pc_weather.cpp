@@ -20,7 +20,7 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_scene_list.h"
-#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_camera.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/bitmap_texture.h"

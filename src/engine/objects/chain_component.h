@@ -10,7 +10,7 @@
 #include "engine/lists/pointer_ring.h"
 
 namespace render {
-class PcPrimitive;
+class VertexRun;
 } // namespace render
 
 namespace script {
@@ -37,8 +37,8 @@ struct ChainLink {
     void set_value40(float value) { value40_ = value; }
     [[nodiscard]] float byte_count() const { return byte_count_; }
     void set_byte_count(float value) { byte_count_ = value; }
-    [[nodiscard]] render::PcPrimitive* line_ptr() const { return line_ptr_; }
-    void set_line_ptr(render::PcPrimitive* value) { line_ptr_ = value; }
+    [[nodiscard]] render::VertexRun* line_ptr() const { return line_ptr_; }
+    void set_line_ptr(render::VertexRun* value) { line_ptr_ = value; }
 
 private:
     maths::Vec4 at_point_{}; // +0x00
@@ -48,7 +48,7 @@ private:
     float value40_{};        // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
     float byte_count_{};     // +0x44 the rest length to the link before it
     uint32_t unused48_{};    // +0x48
-    render::PcPrimitive* line_ptr_{nullptr}; // +0x4C the line drawn to the next link (the link's: destroy_body)
+    render::VertexRun* line_ptr_{nullptr}; // +0x4C the line drawn to the next link (the link's: destroy_body)
 };
 
 // A chain hung from a bone of its object to a bone of another object (0x684 bytes).

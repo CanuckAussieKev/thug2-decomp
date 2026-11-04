@@ -24,7 +24,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/cursor.h"
 #include "engine/script/degree_ratio.h"
-#include "engine/gfx/movie.h"
+#include "engine/gfx/render_constants.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/anim_movies.h"
 #include "base/maths/vec2.h"

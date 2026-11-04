@@ -18,7 +18,7 @@
 #include "game/online/gamenet_manager.h"
 #include "game/online/stats_man.h"
 #include "engine/script/param_struct.h"
-#include "engine/gfx/loading_bar.h"
+#include "engine/gfx/render_constants.h"
 #include "base/core/compiler.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>

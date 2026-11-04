@@ -4,7 +4,6 @@
 #include <span>
 
 #include "engine/memory/slab_bank.h"
-#include "engine/gfx/scene_load.h"
 #include "engine/gfx/spawned_polys.h"
 
 // The script system's start-up, 0x005A5660-0x005A5F6F: the counts of the script functions, loading and unloading

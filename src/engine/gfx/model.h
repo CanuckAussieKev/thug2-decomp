@@ -30,7 +30,7 @@ namespace render {
 struct HierarchyNode;
 
 class Geom;
-class PcMesh;
+class SubMesh;
 class TextureSet;
 class ModelLights;
 
@@ -53,7 +53,7 @@ struct ModelGeom {
     Geom* geom;             // +0x00: the engine's geom (CGeom; on PC a PcGeom; the model's list frees it)
     TextureSet* textures;   // +0x04: the mesh's texture dictionary (null for a geom added as it is)
     uint32_t name;          // +0x08: the geom's name (a checksum; 0: none)
-    PcMesh* scene;          // +0x0C: the mesh loaded from a model file (the model's own; null otherwise)
+    SubMesh* scene;          // +0x0C: the mesh loaded from a model file (the model's own; null otherwise)
     uint32_t asset_name_;   // +0x10: the asset manager's scene (its checksum; 0 otherwise)
     gfx::BoneVolumes* bone_volumes_; // +0x14: the bone volumes (the first geom's only)
 };

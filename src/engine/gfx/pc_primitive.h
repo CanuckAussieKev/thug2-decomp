@@ -6,6 +6,7 @@
 #include <array>
 
 #include "engine/gfx/engine_primitive.h"
+#include "engine/gfx/vertex_run.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/surface_material.h"
 #include "base/core/packed_colour.h"
@@ -13,9 +14,10 @@
 #include "base/maths/vec4.h"
 
 // The PC primitive drawer (Nx engine: the engine's class - constructor 0x0049C660, destructor body 0x0049C6A0 - over
-// it; lens_flare.cpp's Prim, the chain component's lines): a run of vertices in one of five layouts by flexible
-// vertex format, set vertex by vertex through its virtuals and drawn as lines, triangles or quads through the dynamic
-// vertex buffer with a material of its own.
+// it; the lens flare's quads, the spawned polygons, the chain component's lines): a run of vertices in one of five
+// layouts by flexible vertex format (vertex_run.h: the engine writes them vertex by vertex), set vertex by vertex
+// through its virtuals and drawn as lines, triangles or quads through the dynamic vertex buffer with a material of its
+// own. The engine makes them through render::Device (create_primitive, make_primitive_at).
 namespace render {
 
 constexpr uint32_t kNeutralColour = 0x80808080U; // grey: the colour that leaves a texture as it is
@@ -28,7 +30,7 @@ constexpr std::size_t kPcPrimitiveColourOffset = 0x14C;
 constexpr std::size_t kPcPrimitiveBytes = 0x158;
 
 // The PC primitive drawer (0x158 bytes, vtable 0x0064A628).
-class PcPrimitive final : public Primitive {
+class PcPrimitive final : public VertexRun {
 public:
     PcPrimitive(const PcPrimitive&) = delete;
     PcPrimitive& operator=(const PcPrimitive&) = delete;
@@ -97,22 +99,7 @@ public:
     int weigh(const Primitive* other) override;
 
 private:
-    uint32_t unknown20_{};   // +0x20
-
-public:
-    // NOT ORIGINAL - the vertices' bytes (vertex_count_ of stride_ each).
-    [[nodiscard]] std::span<uint8_t> vertex_bytes() const
-    {
-        return {vertices_, vertices_ ? static_cast<std::size_t>(vertex_count_) * static_cast<std::size_t>(stride_) : 0};
-    }
-
-private:
-    uint8_t* vertices_{nullptr}; // +0x24
-    uint32_t vertex_format_{2};  // +0x28: D3DFVF (2, 0x42, 0x102, 0x142, 0x152)
-    uint32_t layout_{};      // +0x2C: as given to prepare_all (1 colour, 2 texture, 4 normal)
-    int type_{};             // +0x30: 0 lines, 2 triangles, 4 quads (also the sort key, weigh)
-    int vertex_count_{0};    // +0x34
-    int stride_{};           // +0x38
+    // (+0x20 - +0x3B: the vertices, VertexRun's)
     MaterialRef material_;   // +0x3C (its constructor 0x004D1A90)
     uint32_t colour_{kNeutralColour}; // +0x14C
     std::array<uint8_t, kPrimitiveUnknown150Bytes> unknown150_{};

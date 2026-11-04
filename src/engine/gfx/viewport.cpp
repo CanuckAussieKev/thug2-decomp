@@ -10,7 +10,6 @@
 
 #include "base/core/dbg.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/gfx/pc_viewport.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/gfx/screen.h"
@@ -198,7 +197,7 @@ void create_viewports()
     for (int i = 0; i < kViewports; ++i) {
         const std::span<const float> table = std::span<const float>(kSplitLayouts).subspan(4 * static_cast<size_t>(i), 4);
         const std::array<float, 4> rect = {{core::at(table, 0), core::at(table, 1), core::at(table, 2), core::at(table, 3)}};
-        gsl::owner<PcViewport*> viewport = device().create_viewport(&rect, nullptr); // (the table's)
+        gsl::owner<ViewRegion*> viewport = device().create_viewport(&rect, nullptr); // (the table's)
         get_viewport(i) = viewport;
     }
 }

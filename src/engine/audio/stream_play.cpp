@@ -12,7 +12,7 @@
 #include <string_view>
 
 #include "base/core/checksums.h"
-#include "engine/gfx/movie.h"
+#include "engine/gfx/engine_parts.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 #include "platform/bink.h"

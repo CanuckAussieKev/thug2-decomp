@@ -24,7 +24,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
-#include "engine/gfx/loading_bar.h"
+#include "engine/gfx/render_constants.h"
 #include "engine/assets/resource_registry.h"
 #include "base/core/stubs.h"
 #include "game/goals/objective.h"

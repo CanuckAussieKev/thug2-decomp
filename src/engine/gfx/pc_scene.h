@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/gfx/render_device.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -22,13 +24,6 @@ namespace render {
 
 struct SceneRef;
 
-// What the scene's PostLoad packs the sectors' vertices into (one vertex buffer).
-struct VertexArena {
-    GpuVertexBuffer* buffer; // +0x00
-    uint32_t used; // +0x04
-    uint32_t size; // +0x08: bytes
-    void* data;    // +0x0C: while locked
-};
 
 constexpr std::size_t kPcSectorUnknown20Offset = 0x20;
 constexpr std::size_t kPcSectorBytes = 0x34;

@@ -11,7 +11,7 @@
 #include <array>
 #include <span>
 
-#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_camera.h"
 #include "base/maths/vec4.h"
 #include "platform/crt.h"
 #include "base/core/checked_index.h"

@@ -7,9 +7,20 @@
 
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/cutscene.h"
-#include "engine/gfx/scene_load.h"
+#include <gsl/pointers>
+#include "engine/memory/slab_bank.h"
+#include "base/core/no_destroy.h"
 
 namespace render {
+
+memory::PoolPair& frame_source_pools()
+{
+    static core::NoDestroy<memory::PoolPair> frame_source_pools;
+    return frame_source_pools.get();
+}
+
+// 0x004B3990
+gsl::owner<void*> create_frame_source() { return new FrameSource; }
 
 // 0x0048CF50
 void* get_anim_data(uint32_t checksum, int unused)

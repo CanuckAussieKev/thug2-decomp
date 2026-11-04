@@ -1,7 +1,8 @@
 // The chain component (GameObjects::ChainComponent, chain_component.h): ropes of links hung from an object's bones.
 
 #include "engine/objects/chain_component.h"
-#include "engine/gfx/pc_primitive.h"
+#include "engine/gfx/vertex_run.h"
+#include "engine/gfx/render_device.h"
 #include "engine/gfx/rig.h"
 
 #include <cmath>
@@ -86,13 +87,13 @@ void* carve(uint32_t size)
 }
 
 // A line's vertex colour and position.
-void set_line_colour(render::PcPrimitive* line, int vertex, uint32_t colour)
+void set_line_colour(render::VertexRun* line, int vertex, uint32_t colour)
 {
-    line->set_vertex_colour(vertex, colour::Packed{colour});
+    line->colour_vertex(vertex, colour::Packed{colour});
 }
-void set_line_vertex(render::PcPrimitive* line, int vertex, const maths::Vec4& pos)
+void set_line_vertex(render::VertexRun* line, int vertex, const maths::Vec4& pos)
 {
-    line->change_place(vertex, {.x = pos.x, .y = pos.y, .z = pos.z});
+    line->place_vertex(vertex, {.x = pos.x, .y = pos.y, .z = pos.z});
 }
 
 // The skeleton component's bone positions (no source yet): in the world (0x00432050), in the object (0x00431C60).
@@ -133,7 +134,7 @@ ChainLink::ChainLink() = default;
 void ChainLink::destroy_body()
 {
     if (line_ptr_) {
-        gsl::owner<render::PcPrimitive*> line = memory::owned_element(line_ptr_);
+        gsl::owner<render::VertexRun*> line = memory::owned_element(line_ptr_);
         delete line;
         line_ptr_ = nullptr;
     }
@@ -147,7 +148,7 @@ Chain::Chain() { start_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}; }
 void Chain::update_lines()
 {
     for (uint32_t i = 1; i < ints::as_unsigned(links_); ++i) {
-        render::PcPrimitive* line = core::at(chain_link_, i - 1).line_ptr();
+        render::VertexRun* line = core::at(chain_link_, i - 1).line_ptr();
         line->set_ready(true);
         set_line_colour(line, 0, kLineBlack);
         set_line_vertex(line, 0, core::at(chain_link_, i - 1).at_point());
@@ -277,10 +278,10 @@ void ChainComponent::configure_from_data(script::Struct* params)
                 continue;
             }
             // (a grey line to the next link)
-            auto* line = memory::make_owned<render::PcPrimitive>(1);
+            gsl::owner<render::VertexRun*> line = render::device().create_primitive(1);
             link.set_line_ptr(line);
             line->set_blend_mode(kLineBlend);
-            line->prepare_all({.layout_flags_ = 1, .primitive_type_ = 0, .count = 2}); // (through the jump 0x004A10A0)
+            line->lay_out({.layout_flags_ = 1, .primitive_type_ = 0, .count = 2}); // (through the jump 0x004A10A0)
             set_line_colour(line, 0, kLineGrey);
             set_line_vertex(line, 0, link.at_point());
             set_line_colour(line, 1, kLineGrey);

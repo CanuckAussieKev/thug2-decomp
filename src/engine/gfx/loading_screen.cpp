@@ -1,6 +1,7 @@
 // The loading screen: see loading_screen.h.
 
 #include "engine/gfx/engine_glue.h"
+#include "engine/gfx/pc_engine.h"
 #include "engine/gfx/loading_screen.h"
 #include "engine/gfx/engine_sprite.h"
 

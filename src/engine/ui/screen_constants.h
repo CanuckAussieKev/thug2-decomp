@@ -3,7 +3,6 @@
 #include "engine/objects/anim_movies.h"
 #include "engine/script/math_cfuncs.h"
 #include "engine/script/degree_ratio.h"
-#include "engine/gfx/movie.h"
 #include "engine/gfx/tod_manager.h"
 
 // The front end's (and the animation controller's) float constants from the original's read-only data, by name.

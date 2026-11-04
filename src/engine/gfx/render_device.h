@@ -23,11 +23,13 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 
 #include <gsl/pointers>
 
 #include "base/core/checksums.h"
+#include "gpu/gpu_handles.h"
 #include "base/maths/rect.h"
 
 namespace gfx {
@@ -46,23 +48,38 @@ namespace render {
 struct WorldScene;
 struct EmitterInstance;
 class TextureSet;
-struct VertexArena;
-class PcMesh;
+class SubMesh;
 class RenderModel;
 class Geom;
+class VertexRun;
 class BillboardQuad;
 class TexturedQuad;
 class ModelLights;
-class PcViewport;
+class ViewRegion;
+class TextureProjection;
 class BitmapTexture;
-class PcGeom;
-class PcShatter;
+class Shatter;
 class HitMesh;
-struct SkinScaling;
 struct Flash;
 struct TextureSplats;
 struct SplatParams;
 class Typeface;
+
+// What the scene's PostLoad packs the sectors' vertices into (one vertex buffer).
+struct VertexArena {
+    GpuVertexBuffer* buffer; // +0x00
+    uint32_t used; // +0x04
+    uint32_t size; // +0x08: bytes
+    void* data;    // +0x0C: while locked
+};
+
+// The skin scaling's settings (a cutscene's skinned model's colours, while it loads): the colour table's entries, the
+// table, and the colours (four floats a bone) the loaders scale the bones' positions by.
+struct SkinScaling {
+    std::span<const uint8_t> entries; // the colour table's entries (the original: its end and its start)
+    void* table = nullptr;
+    std::span<const float> colours; // four floats a bone
+};
 
 // The primitives' depth test (set_primitive_depth_test): the state's index and its value.
 struct DepthTest {
@@ -109,8 +126,8 @@ public:
                                                          VertexArena* arena) = 0;
     virtual bool unload_scene(WorldScene* scene) = 0;
     // Meshes from a scene file or from memory (scene_load.h).
-    virtual gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures) = 0;
-    virtual gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size,
+    virtual gsl::owner<SubMesh*> load_mesh_file(const char* name, TextureSet* textures) = 0;
+    virtual gsl::owner<SubMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size,
                                                       const void* skin, size_t skin_size, TextureSet* textures) = 0;
     // A model, a geom, a sprite, a textured quad, a render target with its texture (engine_glue.h), a model's lights
     // (pc_lights.h).
@@ -120,12 +137,21 @@ public:
     virtual gsl::owner<TexturedQuad*> create_textured_quad() = 0;
     virtual gsl::owner<void*> create_render_target(maths::PixelSize size, uint8_t depth, int unused) = 0;
     virtual gsl::owner<ModelLights*> spawn_model_lights() = 0;
+    // A primitive drawer (pc_primitive.h; `own` as the engine's constructor takes it): on the heap (the spawned polygons',
+    // the chains' lines), or made in `storage` on the caller's stack (the lens flare's quads: the original kept 0x200
+    // bytes there for one) and destroyed there by its virtual destructor.
+    virtual gsl::owner<VertexRun*> create_primitive(int own) = 0;
+    virtual gsl::owner<VertexRun*> make_primitive_at(std::span<std::byte> storage, int own) = 0;
     // Texture dictionaries: from a file, from memory, an empty one (pc_texture.h).
     virtual gsl::owner<TextureSet*> load_tex_dict_file(const char* name) = 0;
     virtual gsl::owner<TextureSet*> load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size) = 0;
     virtual gsl::owner<TextureSet*> create_tex_dict(uint32_t checksum) = 0;
+    // A dictionary's texture memory as the scene's info shows it (the PC dictionary's +0x10, which nothing sets: 0).
+    virtual uint32_t tex_dict_memory(const TextureSet* textures) = 0;
     // A viewport (pc_viewport.h), a flexible particle system (pc_flexible_particles.h).
-    virtual gsl::owner<PcViewport*> create_viewport(const std::array<float, 4>* rect, gfx::ViewCam* camera) = 0;
+    virtual gsl::owner<ViewRegion*> create_viewport(const std::array<float, 4>* rect, gfx::ViewCam* camera) = 0;
+    // A texture projection (pc_texture_projection.h; the texture projection component's).
+    virtual gsl::owner<TextureProjection*> create_texture_projection() = 0;
     virtual gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, checksums::Name kind,
                                                                    int particle_cap, int max_streams, uint32_t texture,
                                                                    uint32_t blend_mode, int fixed_alpha, int segments,
@@ -164,9 +190,9 @@ public:
     // A flash over its viewport (flash.h).
     virtual void draw_flash(const Flash* flash) = 0;
     // A geom's glass shattered, a shatter stepped and drawn, all of them gone (shatter.h).
-    virtual void shatter_geom(PcGeom* geom) = 0;
-    virtual void update_shatter(PcShatter* shatter, float step) = 0;
-    virtual void draw_shatter(PcShatter* shatter) = 0;
+    virtual void shatter_geom(Geom* geom) = 0;
+    virtual void update_shatter(Shatter* shatter, float step) = 0;
+    virtual void draw_shatter(Shatter* shatter) = 0;
     virtual void kill_all_shatters() = 0;
     // A texture splat set made on the sectors and objects hit, lit, and splats removed (texture_splats.h).
     virtual TextureSplats* create_texture_splat(void** sectors, HitMesh* const* objects, SplatParams* params) = 0;

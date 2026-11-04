@@ -17,7 +17,7 @@
 #include "engine/script/tokens.h"
 #include "engine/script/cscript.h"
 #include "engine/gfx/boned_anim_frame_data.h"
-#include "engine/gfx/movie.h"
+#include "engine/gfx/render_constants.h"
 #include "engine/sys/startup_init.h"
 #include "base/core/raw_view.h"
 #include "platform/code_address.h"

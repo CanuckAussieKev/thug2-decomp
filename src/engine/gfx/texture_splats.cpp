@@ -2,6 +2,7 @@
 // x87 code: double precision where it keeps values in registers, floats where it stores them.
 
 #include "engine/gfx/texture_splats.h"
+#include "engine/gfx/engine_splats.h"
 #include "base/core/cursor.h"
 #include "engine/gfx/geom.h"
 #include "platform/d3dx.h"
@@ -134,14 +135,6 @@ int oldest_slot(const TextureSplats& splats, uint32_t count)
         }
     }
     return oldest;
-}
-
-// 0x004B7F30
-void collapse_splat_triangle(TextureSplats* splats, int index)
-{
-    auto& triangle = core::at(splats->vertices, index);
-    core::at(triangle, 1) = core::at(triangle, 0);
-    core::at(triangle, 2) = core::at(triangle, 0);
 }
 
 // 0x004B87B0

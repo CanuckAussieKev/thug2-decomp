@@ -12,10 +12,8 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/memory/slab_bank.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/gfx/frame_source.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/mesh_list.h"
@@ -32,19 +30,12 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/texture_dict.h"
 #include "base/core/format.h"
-#include "base/core/no_destroy.h"
 
 namespace render {
 
 constexpr int kMaxSectorTableBits = 12;   // the sector table doubles in size up to 2^12 entries
 constexpr int kSectorRecordMinBytes = 0x38;
 constexpr std::size_t kMeshNameSize = 16;
-
-memory::PoolPair& frame_source_pools()
-{
-    static core::NoDestroy<memory::PoolPair> frame_source_pools;
-    return frame_source_pools.get();
-}
 
 namespace {
 
@@ -154,14 +145,6 @@ void free_hierarchy(HierarchyNode* nodes)
     }
 }
 
-// 0x004B2D30
-HierarchyNode::HierarchyNode()
-{
-    matrix_.row = {{{.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F},
-                    {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F},
-                    {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F},
-                    {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}}};
-}
 
 // 0x004B3490
 gsl::owner<PcScene*> load_scene_from_memory(const uint8_t* data, size_t size, const TextureSet* textures, bool with_super_sectors,
@@ -194,11 +177,9 @@ gsl::owner<PcScene*> load_scene_from_file(const char* name, const TextureSet* te
     return scene;
 }
 
-// 0x004B3990
-gsl::owner<void*> create_frame_source() { return new FrameSource; }
 
 // 0x004B3A20
-gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures)
+gsl::owner<SubMesh*> load_mesh_file(const char* name, TextureSet* textures)
 {
     gsl::owner<PcScene*> scene = load_scene_from_file(name, textures, false, false, false, nullptr); // (the mesh's, below)
     scene->set_checksum(checksums::hash_from_text(name));
@@ -212,7 +193,7 @@ gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures)
 }
 
 // 0x004B3AD0
-gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
+gsl::owner<SubMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
                               TextureSet* textures)
 {
     std::array<char, kMeshNameSize> name{};

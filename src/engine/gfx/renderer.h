@@ -8,7 +8,7 @@
 #include <span>
 
 #include "base/core/checked_index.h"
-#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_camera.h"
 #include "base/maths/mat4.h"
 #include "gpu/gpu_handles.h"
 

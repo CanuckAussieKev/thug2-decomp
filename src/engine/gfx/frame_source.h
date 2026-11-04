@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <array>
 
+#include <gsl/pointers>
+#include "engine/memory/slab_bank.h"
+
 // An animation frame source (Nx; 0x214 bytes in the original, from the frame sources' pools 0x006FA7F4): the animation
 // it plays, its search cursors into the animation's keys and the skeleton's bone masks; its frame data is the asset
 // manager's. (The original's vtable 0x00648A68 held only the deleting destructor and it has no subclass: no vtable
@@ -51,5 +54,10 @@ public:
 
 // 0x0048CF50: the asset manager's data for `checksum` (null for 0).
 void* get_anim_data(uint32_t checksum, int unused);
+
+// The frame sources' pools (0x006FA7F4).
+memory::PoolPair& frame_source_pools();
+// 0x004B3990: a new animation frame source (0x214 bytes from the frame sources' pools 0x006FA7F4; 0x0048CF70).
+gsl::owner<void*> create_frame_source();
 
 } // namespace render

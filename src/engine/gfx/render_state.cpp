@@ -14,7 +14,7 @@
 #include <span>
 
 #include "engine/gfx/device.h"
-#include "engine/gfx/graphics_options.h"
+#include "engine/gfx/graphics_options_d3d.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pixel_shaders.h"
 #include "engine/gfx/view_mode.h"

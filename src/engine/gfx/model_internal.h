@@ -10,10 +10,10 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/model.h"
-#include "engine/gfx/pc_lights.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/gfx/pc_mesh.h"
+#include "engine/gfx/engine_mesh.h"
+#include "engine/gfx/engine_model_lights.h"
 #include "base/core/packed_colour.h"
 #include <gsl/pointers>
 
@@ -25,7 +25,7 @@ constexpr int kShiftCountMask = 31; // x86 shifts a 32-bit value by the low five
 // (0x0048DDF0 first sets its +4 to 1 and its +0x10 - multicolour - to the flag), [8] colour cleared, [9] a material
 // pass coloured, [11] / [12] the viewport mask, [13] active, [27] the lights, [28] the bone matrices, [29] bones
 // copied, [30] the bones pointed at, [31] strips broken, [32] the shadow, [4] instance strips cleaned, [6] the colour.
-inline void load_geom(Geom* geom, PcMesh* scene, RenderModel* model, bool multicolor)
+inline void load_geom(Geom* geom, SubMesh* scene, RenderModel* model, bool multicolor)
 {
     geom->init_instance(scene, model, static_cast<int>(multicolor));
 }
@@ -56,7 +56,7 @@ inline bool is_geom_multicolor(Geom* geom) { return geom->multicolour() != 0; }
 // delete through slot 0: typed here); a texture dictionary unloaded (0x0049EFD0).
 inline void delete_geom_object(gsl::owner<Geom*> object) { delete object; }
 inline void discard_lights(gsl::owner<ModelLights*> lights) { delete lights; }
-inline void discard_mesh(gsl::owner<PcMesh*> mesh) { delete mesh; }
+inline void discard_mesh(gsl::owner<SubMesh*> mesh) { delete mesh; }
 inline void unload_textures(TextureSet* textures) { unload_tex_dict(textures); }
 
 // A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).

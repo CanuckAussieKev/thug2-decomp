@@ -24,14 +24,15 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_internal.h"
 #include "engine/gfx/particle_system.h"
-#include "engine/gfx/pc_texture.h"
+#include "engine/gfx/hsv_colour.h"
+#include "engine/gfx/engine_texture.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/pager_message.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/gfx/pc_mesh.h"
+#include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/render_device.h"
 #include "base/core/checked_index.h"
@@ -89,7 +90,7 @@ ModelGeom* new_entry(bool default_heap)
 }
 
 // A geom's own mesh deleted with its textures.
-void delete_own_scene(gsl::owner<PcMesh*> mesh)
+void delete_own_scene(gsl::owner<SubMesh*> mesh)
 {
     TextureSet* textures = mesh->textures();
     discard_mesh(mesh);
@@ -103,7 +104,7 @@ TextureSet* load_textures(const char* file_name, int tex_dict_offset, bool force
 {
     return load_model_textures(file_name, tex_dict_offset, static_cast<uint32_t>(force_tex_dict));
 }
-gsl::owner<PcMesh*> load_scene(const char* file_name, TextureSet* textures, int tex_dict_offset, bool shadow_volume)
+gsl::owner<SubMesh*> load_scene(const char* file_name, TextureSet* textures, int tex_dict_offset, bool shadow_volume)
 {
     return engine::load_model_file(file_name, textures, tex_dict_offset, shadow_volume);
 }
@@ -243,7 +244,7 @@ bool RenderModel::add_asset_geom(GeomNames geom_names, bool multicolor, bool def
     const auto asset_name = geom_names.asset_name_;
     const auto name = geom_names.name;
     flag_bits_ &= ~kModelSphereValid;
-    auto* scene = static_cast<PcMesh*>(assets::asset_manager()->get_asset_data(asset_name, 0));
+    auto* scene = static_cast<SubMesh*>(assets::asset_manager()->get_asset_data(asset_name, 0));
     ModelGeom* entry = new_entry(default_heap);
     if (!default_heap && !entry) {
         return false;
@@ -286,7 +287,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     if (!default_heap && !entry) {
         return false;
     }
-    PcMesh* scene = nullptr;
+    SubMesh* scene = nullptr;
     if (via_resource_store) {
         // The textures first ("<file without its .skin / .mdl>.tex"), then the file itself: the texture
         // dictionary's parameters (only these fields set - the rest as the stack left it in the original).
@@ -316,9 +317,9 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         skin_params.flag0 = (flag_bits_ >> kSkinFlagBit) & 1;
         skin_params.value = tex_dict_offset;
         if (by_name) {
-            scene = static_cast<PcMesh*>(assets->get_asset_data_by_name(file_name, 1));
+            scene = static_cast<SubMesh*>(assets->get_asset_data_by_name(file_name, 1));
         } else {
-            scene = static_cast<PcMesh*>(
+            scene = static_cast<SubMesh*>(
                 assets->fetch_or_load_resource(file_name, assets::ResourceKind::kNone, 0, checksums::hash_from_text(tex_name.data()), false, false,
                                                assets->get_permanent_by_default(), &skin_params, nullptr));
         }
@@ -328,7 +329,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     } else {
         memory::push_mem_profile(file_name);
         TextureSet* textures = load_textures(file_name, tex_dict_offset, force_tex_dict);
-        gsl::owner<PcMesh*> own_scene =
+        gsl::owner<SubMesh*> own_scene =
             load_scene(file_name, textures, tex_dict_offset, ((flag_bits_ >> kSkinFlagBit) & 1) != 0);
         scene = own_scene; // (the geom's own: delete_own_scene frees it)
         memory::pop_mem_profile();

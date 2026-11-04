@@ -17,7 +17,6 @@
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/model_utils.h"
-#include "engine/gfx/scene_load.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/objects/entity.h"

@@ -32,7 +32,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
-#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_camera.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "base/core/down_cast.h"

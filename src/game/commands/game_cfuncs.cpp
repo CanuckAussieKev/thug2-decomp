@@ -62,7 +62,6 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/face_texture.h"
 #include "platform/process_flags.h"
-#include "engine/gfx/movie.h"
 #include "platform/crt.h"
 #include "base/core/compiler.h"
 #include "engine/script/cfuncs_scene.h"

@@ -1,6 +1,7 @@
 // Shattering on PC: see shatter.h.
 
 #include "engine/gfx/shatter.h"
+#include "engine/gfx/engine_shatter.h"
 #include "base/core/cursor.h"
 #include "engine/gfx/geom.h"
 
@@ -98,9 +99,9 @@ void draw_shatter(PcShatter* shatter)
 // 0x004B9550
 void kill_all_shatters()
 {
-    effects_state().shatters().for_each([](PcShatter* shatter) {
+    effects_state().shatters().for_each([](Shatter* shatter) {
         effects_state().shatters().erase(shatter);
-        gsl::owner<PcShatter*> owned = memory::owned_element(shatter); // (the set's)
+        gsl::owner<Shatter*> owned = memory::owned_element(shatter); // (the set's)
         delete owned;
     });
 }

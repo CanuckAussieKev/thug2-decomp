@@ -7,7 +7,7 @@
 #include "engine/memory/mem.h"
 #include "engine/lists/chain_start.h"
 #include "engine/gfx/engine_texture_projection.h"
-#include "engine/gfx/pc_texture_projection.h"
+#include "engine/gfx/render_device.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/car_physics.h"
@@ -30,7 +30,7 @@ constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 
 // A projection (the renderer's, 0xC8 bytes; a list node with its checksum at +0x14): made (0x004C7E80), set up from
 // its structure (0x004A04C0) and updated from an object (0x0049FFE0).
-gsl::owner<render::TextureProjection*> new_projection() { return new render::PcTextureProjection; }
+gsl::owner<render::TextureProjection*> new_projection() { return render::device().create_texture_projection(); }
 
 bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 

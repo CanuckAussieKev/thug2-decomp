@@ -21,9 +21,8 @@
 #include "engine/render/coll_static.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/weather.h"
-#include "engine/gfx/pc_texture.h"
+#include "engine/gfx/render_device.h"
 #include "engine/memory/arena_alloc.h"
-#include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include <span>
@@ -208,7 +207,7 @@ void WorldScene::fetch_diagnostics(script::Struct* info)
     info->put_int(checksums::Name{kBasePolys}, slot33_again);
     info->put_int(checksums::Name{kBasePolys}, slot33_again);
     info->put_int(checksums::Name{kEnvMapPolys}, count_c_6f_0);
-    info->put_int(checksums::Name{kTextureMemory}, static_cast<int>(core::down_cast<PcTexDict>(texture_set_)->unknown10()));
+    info->put_int(checksums::Name{kTextureMemory}, static_cast<int>(device().tex_dict_memory(texture_set_)));
 }
 
 // 0x0049D4E0

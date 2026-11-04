@@ -2,6 +2,7 @@
 // contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "engine/gfx/movie.h"
+#include "engine/gfx/render_constants.h"
 
 #include <windows.h>
 

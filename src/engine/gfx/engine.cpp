@@ -20,7 +20,6 @@
 #include "engine/gfx/particle_sets.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/scene_lights.h"
-#include "engine/gfx/scene_load.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/viewport.h"
@@ -203,12 +202,12 @@ bool split_skin_name(const char* name, std::span<char> base)
 }
 
 // 0x0048C030
-gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin,
+gsl::owner<SubMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin,
                                            size_t skin_size, TextureSet* textures, int /*unused*/, uint32_t /*unused*/,
                                            uint32_t /*unused*/)
 {
     memory::push_mem_profile("model_data_buffer");
-    gsl::owner<PcMesh*> model = device().load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
+    gsl::owner<SubMesh*> model = device().load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
     memory::pop_mem_profile();
     return model;
 }
@@ -220,7 +219,7 @@ void build_scene_file_path(char* out, const char* name, uint32_t /*unused*/)
 }
 
 // 0x0048C3D0
-gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures, int /*unused*/, bool /*unused*/)
+gsl::owner<SubMesh*> load_model_file(const char* file_name, TextureSet* textures, int /*unused*/, bool /*unused*/)
 {
     std::array<char, kEnginePathSize> base{};
     const bool skinned = split_skin_name(file_name, base);
@@ -230,7 +229,7 @@ gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures,
     memory::push_mem_profile(path.data());
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
     // mesh load doesn't read them)
-    gsl::owner<PcMesh*> mesh = device().load_mesh_file(path.data(), textures);
+    gsl::owner<SubMesh*> mesh = device().load_mesh_file(path.data(), textures);
     memory::pop_mem_profile();
     return mesh;
 }

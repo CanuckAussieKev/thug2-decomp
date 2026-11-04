@@ -6,14 +6,15 @@
 
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
-#include "engine/gfx/loading_screen.h"
-#include "engine/gfx/text.h"
+#include "engine/gfx/engine_texture.h"
 #include "engine/gfx/window2d.h"
 #include "engine/lists/key_map.h"
 
 // NOT ORIGINAL - the 2D layer's state: the fonts, the free texts and windows, the glyphs' typeface, the loading bar and
 // the loading screen's picture (the original's globals).
 namespace render {
+
+struct TypefaceData;
 
 constexpr std::size_t kGlyphAliasChars = 32;
 constexpr std::size_t kFontSlotCount = 16;

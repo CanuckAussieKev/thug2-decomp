@@ -5,9 +5,9 @@
 
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_shadows.h"
-#include "engine/gfx/shatter.h"
+#include "engine/gfx/engine_shatter.h"
 #include "engine/gfx/spawned_polys.h"
-#include "engine/gfx/texture_splats.h"
+#include "engine/gfx/engine_splats.h"
 #include "base/lists/object_set.h"
 #include "base/maths/vec4.h"
 
@@ -34,7 +34,7 @@ public:
     lists::ObjectSet<SpawnedPoly>& spawned_polys() { return spawned_polys_; }
     [[nodiscard]] float shatter_velocity_scale() const { return shatter_velocity_scale_; }
     void set_shatter_velocity_scale(float value) { shatter_velocity_scale_ = value; }
-    lists::ObjectSet<PcShatter>& shatters() { return shatters_; }
+    lists::ObjectSet<Shatter>& shatters() { return shatters_; }
     VertexStack& vertex_stack() { return vertex_stack_; }
     [[nodiscard]] float split_area_limit() const { return split_area_limit_; }
     void set_split_area_limit(float value) { split_area_limit_ = value; }
@@ -65,7 +65,7 @@ private:
     float shatter_velocity_scale_{1.0F};
 
     // The glass shatters (shatter.cpp).
-    lists::ObjectSet<PcShatter> shatters_{};
+    lists::ObjectSet<Shatter> shatters_{};
 
     // The texture splats' vertices (texture_splats.cpp).
     VertexStack vertex_stack_;

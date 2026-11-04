@@ -16,7 +16,6 @@
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/anim_track.h"
-#include "engine/gfx/scene_load.h"
 #include "engine/gfx/spawned_polys.h"
 #include "engine/script/cell.h"
 #include "engine/script/load.h"

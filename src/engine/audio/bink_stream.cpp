@@ -12,7 +12,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
-#include "engine/gfx/movie.h"
+#include "engine/gfx/engine_parts.h"
 #include "platform/mute_audio.h"
 #include "platform/process_flags.h"
 #include "engine/audio/stream_files.h"

@@ -2,6 +2,7 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_camera.h"
 #include "engine/gfx/device_d3d.h"
 #include "gpu/d3d9_handles.h"
 #include "platform/d3dx.h"
@@ -43,6 +44,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/gfx/pc_engine.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/weather.h"

@@ -8,12 +8,13 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/loading_bar.h"
+#include "engine/gfx/render_constants.h"
 
 #include <windows.h>
 #include <d3d9.h>
 #include <array>
 
-#include "engine/gfx/loading_console.h"
+#include "engine/gfx/loading_console_panel.h"
 #include "engine/gfx/loading_screen.h"
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"

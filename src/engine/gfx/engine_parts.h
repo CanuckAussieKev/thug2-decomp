@@ -8,12 +8,15 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_scene_list.h"
-#include "engine/gfx/movie.h"
+#include "platform/bink.h"
 
 // NOT ORIGINAL - the engine's state: its managers (flexible particles, imposters, weather, screen effects), the scenes'
 // list and the collision scenes, the render mode and the drawing switches, the movie and window flags, the fog colour
 // and the game's texture dictionaries (the original's globals).
 namespace render {
+
+// A Bink movie (platform/bink.h).
+using Bink = bink::Movie;
 
 constexpr std::size_t kCollisionSceneCount = 16;
 

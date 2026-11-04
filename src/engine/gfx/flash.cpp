@@ -2,6 +2,8 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "engine/gfx/flash.h"
+#include "engine/gfx/engine_effects.h"
+#include "engine/gfx/engine_texture.h"
 
 #include <cstddef>
 #include <cstdint>

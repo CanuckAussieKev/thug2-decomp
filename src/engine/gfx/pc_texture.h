@@ -212,7 +212,5 @@ void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height,
                 float y_zoom);
 // 0x004C8180: RGB (0-1) to hue (degrees; -1 when black), saturation and value.
 void rgb_to_hsv(const std::array<float, 3>& rgb, std::array<float, 3>* hsv);
-// 0x004C82D0: and back.
-void hsv_to_rgb(const std::array<float, 3>& hsv, std::array<float, 3>* rgb);
 
 } // namespace render
