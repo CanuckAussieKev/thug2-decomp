@@ -21,11 +21,9 @@ src/engine/gfx/tod_manager.cpp -> src/game/skate/game_mode.h
 src/engine/gfx/tod_manager.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/viewport.cpp -> src/game/skate/skate_module.h
 src/engine/objects/anim_blender.cpp -> src/game/rider/thaw_bmx.h
-src/engine/objects/anim_movies.cpp -> src/game/front_end/front_end.h
 src/engine/objects/camera_lookaround.cpp -> src/game/rider/thaw_bmx.h
 src/engine/objects/collide_and_die.cpp -> src/game/world/projectile_components.h
 src/engine/objects/control_pad.cpp -> src/game/rider/thaw_bmx.h
-src/engine/objects/cutscene.cpp -> src/game/front_end/front_end.h
 src/engine/objects/flip_rotate.cpp -> src/game/rider/flip_and_rotate.h
 src/engine/objects/rail_manager.cpp -> src/game/park_editing/park_editor.h
 src/engine/objects/rail_manager.cpp -> src/game/rider/walk_physics.h

@@ -26,7 +26,8 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/compositemgr.h"
-#include "game/front_end/front_end.h"
+#include "engine/objects/game_hooks.h"
+#include "engine/pad_input/input_hub.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/car_physics.h"
 #include "base/core/down_cast.h"
@@ -312,8 +313,8 @@ void CameraAnimMovie::place_camera()
     maths::Mat4* mat = viewer()->fetch_mat();
     const std::span<float, 16> elements(mat->data(), 16);
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
-    for (const auto& handler : modules::front_end_instance()->pad_listeners()) {
-        if ((handler->control_data()->makes() & kMakesPoseFlag) != 0U) {
+    for (int i = 0; i < 2; ++i) { // (the front end's two controllers)
+        if ((game_hooks().front_end_pad(i)->control_data()->makes() & kMakesPoseFlag) != 0U) {
             check_done(true);
         }
     }

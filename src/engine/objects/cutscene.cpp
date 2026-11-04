@@ -12,7 +12,8 @@
 #include <array>
 
 #include "base/core/checksums.h"
-#include "game/front_end/front_end.h"
+#include "engine/objects/game_hooks.h"
+#include "engine/pad_input/input_hub.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"
@@ -95,7 +96,7 @@ void CinematicTable::check_skip()
     if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0F) {
         return;
     }
-    const modules::FrontEndInputHandler* handler = core::at(modules::front_end_instance()->pad_listeners(), 0).get();
+    const pad_input::InputHandler* handler = game_hooks().front_end_pad(0);
     auto* device = handler->dev();
     if (!device->is_attached() || (device->is_usable() == 0U)) {
         return;
