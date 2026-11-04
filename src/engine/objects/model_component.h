@@ -170,6 +170,15 @@ public:
     [[nodiscard]] bool level_object() const { return level_object_; }
 
 private:
+    // invoke_method_by_name's longer member functions (model_component_members.cpp).
+    void aim_light(script::Struct* params);
+    void stop_display_spins();
+    void spin_display(script::Struct* params);
+    void set_uv_params(script::Struct* params);
+    bool replace_textures(script::Struct* params);
+    void bone_volume(uint32_t name, script::Struct* params, script::Script* script);
+    void init_model_from_profile(script::Struct* params);
+
     maths::Vec4 enclosing_ball_{};  // +0x18 the model's (0x00492F30)
     maths::Vec4 pivot_{};           // +0x28 RotationOffset
     std::array<ModelSpinAxis, 3> twist_rate_{}; // +0x38 about X, Y, Z
