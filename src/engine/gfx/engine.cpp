@@ -18,8 +18,6 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/gfx/particle_sets.h"
-#include "engine/gfx/pc_billboards.h"
-#include "engine/gfx/pc_font.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/scene_lights.h"
 #include "engine/gfx/scene_load.h"
@@ -108,10 +106,10 @@ namespace engine {
 void prepare_all(uint32_t text_pool_size)
 {
     memory::push_mem_profile("sAllocTextPool");
-    allocate_text_pool(text_pool_size);
+    device().allocate_text_pool(text_pool_size);
     memory::pop_mem_profile();
     memory::push_mem_profile("sAllocWindow2DPool");
-    create_window_pool();
+    device().create_window_pool();
     memory::pop_mem_profile();
     set_screen_aspect_ratio(kAspectRatio);
     set_screen_angle(script::fetch_float(kCameraFov));
@@ -210,7 +208,7 @@ gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* dat
                                            uint32_t /*unused*/)
 {
     memory::push_mem_profile("model_data_buffer");
-    gsl::owner<PcMesh*> model = load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
+    gsl::owner<PcMesh*> model = device().load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
     memory::pop_mem_profile();
     return model;
 }
@@ -232,7 +230,7 @@ gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures,
     memory::push_mem_profile(path.data());
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
     // mesh load doesn't read them)
-    gsl::owner<PcMesh*> mesh = load_mesh_file(path.data(), textures);
+    gsl::owner<PcMesh*> mesh = device().load_mesh_file(path.data(), textures);
     memory::pop_mem_profile();
     return mesh;
 }
@@ -295,7 +293,7 @@ bool unload_scene(WorldScene* scene, int /*flags*/)
 {
     debug_before_delete();
     scene->unload_added_scene();
-    if (!render::unload_scene(scene)) { // (the platform's: the original passes `flags` on too - unused)
+    if (!render::device().unload_scene(scene)) { // (the platform's: the original passes `flags` on too - unused)
         return false;
     }
     gsl::owner<WorldScene*> owned = memory::owned_element(scene); // (the engine's scene list's)

@@ -20,6 +20,7 @@
 #include "base/lists/object_set.h"
 #include "base/maths/mat4.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/render_device.h"
 #include "base/maths/vec4.h"
 #include <gsl/pointers>
 
@@ -75,7 +76,7 @@ maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& dir
 
 // 0x004A19C0
 FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance)
-    : ShadowBase(1), bitmap_(static_cast<BitmapTexture*>(create_render_target(
+    : ShadowBase(1), bitmap_(static_cast<BitmapTexture*>(device().create_render_target(
                          {.width = kShadowMapSize, .height = kShadowMapSize}, kShadowMapDepth, kShadowMapDepth))),
       direction_(direction), reach_(distance)
 {
@@ -134,7 +135,7 @@ void BlobShadow::load_mesh(const char* name)
         delete_model(mesh_instance_);
         mesh_instance_ = nullptr;
     }
-    mesh_instance_ = spawn_model();
+    mesh_instance_ = device().spawn_model();
     std::array<char, kShadowFileNameSize> file_name = {};
     add_extension(name, ".mdl", file_name.data());
     mesh_instance_->add_file_geom(file_name.data(), 0, true, 0, false, false, true, false);

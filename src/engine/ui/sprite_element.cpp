@@ -25,6 +25,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "base/core/checksums.h"
 #include "engine/gfx/screen.h"
+#include "engine/gfx/render_device.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 
@@ -79,8 +80,8 @@ uint16_t texels_across(void* texture) { return render::texels_across(texture); }
 uint16_t texels_down(void* texture) { return render::texels_down(texture); }
 
 // The drawing pieces: made (cdecl), freed (cdecl), and their setters (thiscall).
-gsl::owner<render::TexturedQuad*> new_textured_piece() { return render::create_textured_quad(); }
-gsl::owner<render::BillboardQuad*> new_sprite(int unused) { return (void)unused, render::build_sprite_quad(); }
+gsl::owner<render::TexturedQuad*> new_textured_piece() { return render::device().create_textured_quad(); }
+gsl::owner<render::BillboardQuad*> new_sprite(int unused) { return (void)unused, render::device().build_sprite_quad(); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
 void* new_window2d(int x, int y, int w, int height)

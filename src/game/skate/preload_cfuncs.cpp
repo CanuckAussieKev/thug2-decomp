@@ -32,6 +32,7 @@
 #include "engine/gfx/model_builder.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/cas_options.h"
+#include "engine/gfx/render_device.h"
 #include "engine/objects/model_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
@@ -87,7 +88,7 @@ constexpr auto kPedPartLists = std::to_array<uint32_t>({0xF56A8CFB, 0x26D93E89, 
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
 gsl::owner<render::RenderModel*> spawn_render_model(int /*unused*/)
 {
-    return render::spawn_model();
+    return render::device().spawn_model();
 } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
 void delete_model(gsl::owner<render::RenderModel*> model) { delete model; }
 void ingest_mesh(render::RenderModel* model, const char* file, int a, int b, int tex_dict_offset, uint32_t force_tex_dict, int multicolor, int default_heap, int by_name)

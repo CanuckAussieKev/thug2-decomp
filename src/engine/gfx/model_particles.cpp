@@ -16,6 +16,7 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/particle_system_internal.h"
+#include "engine/gfx/render_device.h"
 #include "base/maths/mat4.h"
 #include "base/maths/quat_rotation.h"
 #include "platform/crt.h"
@@ -53,7 +54,7 @@ std::span<T> counted_words(void* memory, std::size_t count)
     return memory ? std::span<T>(static_cast<T*>(memory), count) : std::span<T>();
 }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
-gsl::owner<RenderModel*> spawn_render_model(int /*unused*/) { return render::spawn_model(); }
+gsl::owner<RenderModel*> spawn_render_model(int /*unused*/) { return render::device().spawn_model(); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 

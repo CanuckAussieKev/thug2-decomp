@@ -14,7 +14,6 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/viewport.h"
-#include "engine/gfx/pc_flexible_particles.h"
 #include "base/maths/vec4.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/movie_manager.h"
@@ -22,6 +21,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/gfx/render_device.h"
 #include "base/core/checksums.h"
 
 namespace render {
@@ -178,7 +178,7 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
                                                           bool perm, bool use_level_colour, const char* model)
 {
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
-    gsl::owner<EmitterInstance*> made = create_flexible_particles(checksums::Name{name}, checksums::Name{type}, particle_cap, max_streams, texture,
+    gsl::owner<EmitterInstance*> made = device().create_flexible_particles(checksums::Name{name}, checksums::Name{type}, particle_cap, max_streams, texture,
                                                                   blend_mode, fixed_alpha, segments, unknown, history, model);
     memory::Hub::get_pull()->leave_heap_scope();
     if (!made) {

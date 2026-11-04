@@ -29,6 +29,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/render_device.h"
 
 namespace render {
 
@@ -293,7 +294,8 @@ void get_scene_debug_info(script::Struct* info)
 // 0x0048CC80
 WorldScene* build_world_scene(const char* name, TextureSet* textures, bool with_super_sectors)
 {
-    auto* scene = static_cast<WorldScene*>(render::make_empty_scene(name, textures, with_super_sectors));
+    gsl::owner<WorldScene*> made = render::device().make_empty_scene(name, textures, with_super_sectors);
+    WorldScene* const scene = made; // (the scene list's)
     register_scene(scene, name, textures, 1, nullptr, 0);
     return scene;
 }
@@ -307,7 +309,8 @@ WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_s
     memory::push_mem_profile(file.data());
     VertexArena vertex_arena{};
     VertexArena* arena = renderer().stream_offset_supported() ? &vertex_arena : nullptr;
-    WorldScene* scene = load_scene_from_file(file.data(), textures, with_super_sectors, is_sky, mesh_flag, arena);
+    gsl::owner<WorldScene*> made = device().load_scene_from_file(file.data(), textures, with_super_sectors, is_sky, mesh_flag, arena);
+    WorldScene* const scene = made; // (the scene list's)
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, arena, unused);
     return scene;
@@ -318,7 +321,8 @@ WorldScene* load_named_scene_from_memory(const char* name, const uint8_t* data, 
                                          bool with_super_sectors, bool is_sky, bool mesh_flag, int unused)
 {
     memory::push_mem_profile("Scene Processing");
-    WorldScene* scene = render::load_scene_from_memory(data, size, textures, with_super_sectors, is_sky, mesh_flag);
+    gsl::owner<WorldScene*> made = render::device().load_scene_from_memory(data, size, textures, with_super_sectors, is_sky, mesh_flag);
+    WorldScene* const scene = made; // (the scene list's)
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, nullptr, unused);
     return scene;

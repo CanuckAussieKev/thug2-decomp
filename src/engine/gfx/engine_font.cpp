@@ -9,11 +9,10 @@
 #include "base/core/dbg.h"
 #include "base/core/str.h"
 #include "engine/gfx/font.h"
-#include "engine/gfx/pc_font.h"
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
-#include "base/core/down_cast.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/gfx/render_device.h"
 
 namespace render {
 
@@ -46,7 +45,7 @@ void unload_font(const char* name)
     }
     const uint32_t key = checksums::hash_from_text(name);
     screen_2d().font_table().erase_entry(key);
-    unload_pc_font(core::down_cast<PcFont>(core::at(slots, index).font));
+    device().unload_pc_font(core::at(slots, index).font);
     core::at(slots, index).font = nullptr;
 }
 

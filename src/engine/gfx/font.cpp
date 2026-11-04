@@ -13,7 +13,6 @@
 
 #include "base/core/checksums.h"
 #include "engine/gfx/glyphs.h"
-#include "engine/gfx/pc_font.h"
 #include "engine/lists/key_map.h"
 #include "engine/script/params.h"
 #include "engine/script/param_struct.h"
@@ -22,6 +21,7 @@
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/gfx/render_device.h"
 namespace render {
 
 constexpr uint32_t kGlyphAliasCount = 32;
@@ -45,7 +45,7 @@ bool& meta_button_map_loaded()
 // The loaded font named by this checksum, or null.
 Typeface* find_font(uint32_t checksum) { return get_font(checksum); }
 // Load a font file (fonts\<name>.fnt...).
-gsl::owner<Typeface*> load_font_file(const char* name) { return create_pc_font(name); }
+gsl::owner<Typeface*> load_font_file(const char* name) { return device().create_pc_font(name); }
 
 // render::Typeface's setters (the original reaches the font's virtual functions through shared tail jumps:
 // 0x004E3F90, 0x004A10A0, 0x00487D50).

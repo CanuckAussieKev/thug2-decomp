@@ -21,6 +21,7 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/sector.h"
+#include "engine/gfx/render_device.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/model_component.h"
@@ -82,7 +83,7 @@ gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects:
 // skeleton (0x00492DD0), shadow volume (0x00492E90), bounding sphere (0x00492F30), lights (+0x2C) made (0x00493BD0) or
 // taken away (0x00493C10), bone volumes (0x00492FC0 / 0x00492F90), placed (0x00493090) and its skinning updated
 // (0x00493410).
-gsl::owner<render::RenderModel*> spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
+gsl::owner<render::RenderModel*> spawn_render_model(int arg) { return (void)arg, render::device().spawn_model(); }
 void delete_model(gsl::owner<render::RenderModel*> model) { delete model; }
 render::ModelLights* model_lights(render::RenderModel* model) { return model->lights_ptr().get(); }
 render::Geom* clone_model_geom(render::Geom* geom, render::RenderModel* to)

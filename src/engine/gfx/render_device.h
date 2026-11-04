@@ -19,7 +19,33 @@
 //
 // Not installed, a call dereferences null: the device is installed before any of the original's code runs.
 
+#include <array>
+#include <cstddef>
+#include <cstdint>
+
+#include <gsl/pointers>
+
+#include "base/core/checksums.h"
+#include "base/maths/rect.h"
+
+namespace gfx {
+class ViewCam;
+}
+
 namespace render {
+
+struct WorldScene;
+struct EmitterInstance;
+class TextureSet;
+struct VertexArena;
+class PcMesh;
+class RenderModel;
+class Geom;
+class BillboardQuad;
+class TexturedQuad;
+class ModelLights;
+class PcViewport;
+class Typeface;
 
 class Device {
 public:
@@ -48,6 +74,44 @@ public:
     virtual void restore_device_objects() = 0;
     // The device reset with its present parameters; false if that failed (it is tried again next frame).
     virtual bool reset() = 0;
+
+    // --- resources: made (null without memory) and given back; as the engine's own types (the backend's objects
+    // derive from them) ---
+    // Scenes (engine_glue.h, scene_load.h): an empty one, one loaded from memory or a file, one's sectors let go.
+    virtual gsl::owner<WorldScene*> make_empty_scene(const char* name, TextureSet* textures, bool with_super_sectors) = 0;
+    virtual gsl::owner<WorldScene*> load_scene_from_memory(const uint8_t* data, size_t size, const TextureSet* textures,
+                                                           bool with_super_sectors, bool flag_8d, bool mesh_flag) = 0;
+    virtual gsl::owner<WorldScene*> load_scene_from_file(const char* name, const TextureSet* textures,
+                                                         bool with_super_sectors, bool flag_8d, bool mesh_flag,
+                                                         VertexArena* arena) = 0;
+    virtual bool unload_scene(WorldScene* scene) = 0;
+    // Meshes from a scene file or from memory (scene_load.h).
+    virtual gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures) = 0;
+    virtual gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size,
+                                                      const void* skin, size_t skin_size, TextureSet* textures) = 0;
+    // A model, a geom, a sprite, a textured quad, a render target with its texture (engine_glue.h), a model's lights
+    // (pc_lights.h).
+    virtual gsl::owner<RenderModel*> spawn_model() = 0;
+    virtual gsl::owner<Geom*> create_geom() = 0;
+    virtual gsl::owner<BillboardQuad*> build_sprite_quad() = 0;
+    virtual gsl::owner<TexturedQuad*> create_textured_quad() = 0;
+    virtual gsl::owner<void*> create_render_target(maths::PixelSize size, uint8_t depth, int unused) = 0;
+    virtual gsl::owner<ModelLights*> spawn_model_lights() = 0;
+    // Texture dictionaries: from a file, from memory, an empty one (pc_texture.h).
+    virtual gsl::owner<TextureSet*> load_tex_dict_file(const char* name) = 0;
+    virtual gsl::owner<TextureSet*> load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size) = 0;
+    virtual gsl::owner<TextureSet*> create_tex_dict(uint32_t checksum) = 0;
+    // A viewport (pc_viewport.h), a flexible particle system (pc_flexible_particles.h).
+    virtual gsl::owner<PcViewport*> create_viewport(const std::array<float, 4>* rect, gfx::ViewCam* camera) = 0;
+    virtual gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, checksums::Name kind,
+                                                                   int particle_cap, int max_streams, uint32_t texture,
+                                                                   uint32_t blend_mode, int fixed_alpha, int segments,
+                                                                   float unknown, int history, const char* model) = 0;
+    // Fonts and the texts' pool (pc_font.h), the 2D windows' pool (pc_billboards.h): made once at start-up.
+    virtual gsl::owner<Typeface*> create_pc_font(const char* name) = 0;
+    virtual void unload_pc_font(Typeface* font) = 0;
+    virtual void allocate_text_pool(uint32_t count) = 0;
+    virtual void create_window_pool() = 0;
 
 protected:
     ~Device() = default;

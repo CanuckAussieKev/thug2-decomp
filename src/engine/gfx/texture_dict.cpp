@@ -25,6 +25,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/render_device.h"
 
 namespace render {
 
@@ -316,7 +317,7 @@ TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint
         ++dict->share_count();
     } else {
         // (the original passes level, offset, a3 and a4 too: the PC's reads the name alone)
-        gsl::owner<TextureSet*> loaded = load_tex_dict_file(file.data()); // (the loaded table's)
+        gsl::owner<TextureSet*> loaded = device().load_tex_dict_file(file.data()); // (the loaded table's)
         dict = loaded;
         dict->set_checksum(key);
         loaded_tex_dicts().store_entry(key, dict);
@@ -335,7 +336,7 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
     if (!dict) {
         // (the original passes size, a3, offset, a5 and a6 too: the PC's reads the checksum and data alone - and,
         // not original, the size as its reader's bound)
-        gsl::owner<TextureSet*> loaded = load_tex_dict_memory(key, data, size); // (the loaded table's)
+        gsl::owner<TextureSet*> loaded = device().load_tex_dict_memory(key, data, size); // (the loaded table's)
         dict = loaded;
         dict->set_checksum(key);
         loaded_tex_dicts().store_entry(key, dict);
@@ -397,7 +398,7 @@ TextureSet* shared_tex_dict(const char* name)
         ++dict->share_count();
         return dict;
     }
-    gsl::owner<PcTexDict*> dict = create_tex_dict(checksum);
+    gsl::owner<TextureSet*> dict = device().create_tex_dict(checksum);
     loaded_tex_dicts().store_entry(checksum, dict);
     TextureSet* const listed = dict; // (the loaded table's)
     return listed;

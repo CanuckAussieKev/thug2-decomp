@@ -17,6 +17,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_appearance.h"
+#include "engine/gfx/render_device.h"
 #include <gsl/pointers>
 #include "base/core/format.h"
 
@@ -129,7 +130,7 @@ void preload_meshes(uint32_t array_name)
             continue;
         }
         // a model made (0x0048BFA0), the mesh added to it (0x004935E0), the model deleted (0x0048C3C0)
-        gsl::owner<render::RenderModel*> model = render::spawn_model();
+        gsl::owner<render::RenderModel*> model = render::device().spawn_model();
         model->add_file_geom(mesh, 0, true, 0, false, false, true, false);
         delete model;
     }

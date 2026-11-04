@@ -33,6 +33,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/render_device.h"
 #include "base/core/checked_index.h"
 #include "base/maths/maths.h"
 
@@ -250,7 +251,7 @@ bool RenderModel::add_asset_geom(GeomNames geom_names, bool multicolor, bool def
     entry->asset_name_ = asset_name;
     ++num_asset_geoms_;
     entry->scene = nullptr;
-    gsl::owner<Geom*> geom = create_geom(); // (the model's list frees it)
+    gsl::owner<Geom*> geom = device().create_geom(); // (the model's list frees it)
     entry->geom = geom;
     if (!default_heap && !entry->geom) {
         return false; // (the node isn't freed)
@@ -335,7 +336,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         ++num_file_geoms_;
         entry->asset_name_ = 0;
     }
-    gsl::owner<Geom*> geom = create_geom(); // (the model's list frees it)
+    gsl::owner<Geom*> geom = device().create_geom(); // (the model's list frees it)
     entry->geom = geom;
     if (!default_heap && !entry->geom) {
         return false; // (the node isn't freed)

@@ -23,6 +23,7 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/texture_dict.h"
+#include "engine/gfx/render_device.h"
 #include "engine/sys/game_config.h"
 #include "base/core/language.h"
 #include <gsl/pointers>
@@ -110,7 +111,7 @@ void add_scene_collision(void* scene, const char* add) { static_cast<render::Wor
 // again (0x0048C3C0).
 gsl::owner<render::RenderModel*> spawn_model(int /*unused*/)
 {
-    return render::spawn_model();
+    return render::device().spawn_model();
 } // (0x0048BFA0, a jump to 0x004B29C0)
 void load_model_file(render::RenderModel* model, const char* file, bool allow_replace_tex)
 {
