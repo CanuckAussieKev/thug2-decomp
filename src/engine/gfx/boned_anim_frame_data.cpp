@@ -1125,7 +1125,185 @@ bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void* /*unused*/, flo
 
 namespace {
 
-// The frame cache's time for a cursor (0x00480590 on the entry): its direction - negative when time went back.
+// What fetch_pose's bones share: the frames (each clamped in turn by the cache's keys - kept for the later bones), the
+// cache entry and its direction, the cursor, the source, the animation's flags.
+struct PoseFrames {
+    float quat_frame{};
+    float trans_frame{};
+    AnimCacheEntry* entry{};
+    bool forwards{true};
+    int cursor{};
+    FrameSource* source{};
+    uint32_t flag_bits{};
+};
+
+// One bone's keys in a run: from `start`, `size` bytes.
+struct BoneKeys {
+    std::span<const uint8_t> run;
+    size_t start{};
+    uint16_t size{};
+};
+
+// The rotation from the frame cache's pair of keys around the frame (the frame clamped to them); false when the cache
+// has none (or there is no cache).
+bool cached_rotation(PoseFrames& pose, int bone, std::span<float, 4> rotation)
+{
+    if (!pose.entry) {
+        return false;
+    }
+    uint8_t* first = nullptr;
+    uint8_t* second = nullptr;
+    const int found = pose.forwards ? pose.entry->find_quat_keys({.bone = bone, .frame = pose.quat_frame}, &first,
+                                                                 &second, pose.cursor)
+                                    : pose.entry->find_quat_keys_backwards({.bone = bone, .frame = pose.quat_frame},
+                                                                           &first, &second, pose.cursor);
+    if (found == -2) {
+        return false;
+    }
+    const int from = quat_key_time(first);
+    const int to = quat_key_time(second);
+    FloatKey key_a = anim_format::float_key_at(first);
+    const FloatKey key_b = anim_format::float_key_at(second);
+    if (from == to) {
+        interpolate_float_quat(rotation, &key_a, &key_b, 0.0F);
+    } else {
+        if (pose.quat_frame < static_cast<float>(from)) {
+            pose.quat_frame = static_cast<float>(from);
+        } else if (pose.quat_frame > static_cast<float>(to)) {
+            pose.quat_frame = static_cast<float>(to);
+        }
+        auto blend =
+            static_cast<float>((static_cast<double>(pose.quat_frame) - from) / (static_cast<double>(to) - from));
+        interpolate_float_quat(rotation, &key_a, &key_b, blend);
+    }
+    anim_format::store_float_key(first, key_a); // (its values flipped in place when needed)
+    return true;
+}
+
+// Decompressing: from the bone's start (or where the source left it) to the pair around the frame.
+void decompressed_rotation(const PoseFrames& pose, const BoneKeys& keys, int bone, std::span<float, 4> rotation,
+                           std::span<const uint8_t> key_table)
+{
+    FrameSource* source = pose.source;
+    const KeyCursor end(keys.run, static_cast<std::ptrdiff_t>(keys.start + keys.size));
+    KeyCursor at(keys.run, static_cast<std::ptrdiff_t>(keys.start));
+    if (source && source->resume() && core::at(source->quat_at(), bone)) {
+        at = KeyCursor(keys.run, core::at(source->quat_at(), bone) - keys.run.data());
+    }
+    ShortKey short_a{};
+    ShortKey short_b{};
+    float blend = 0.0F;
+    for (;;) {
+        if (source) {
+            core::at(source->quat_at(), bone) = at.rest().data();
+        }
+        at = decompress_quat_key(at, &short_a, pose.flag_bits, key_table);
+        if (at >= end) {
+            short_b = short_a;
+            blend = 0.0F;
+            break;
+        }
+        decompress_quat_key(at, &short_b, pose.flag_bits, key_table);
+        auto from = static_cast<float>(quat_key_time(short_a.time));
+        auto to = static_cast<float>(quat_key_time(short_b.time));
+        if (pose.quat_frame >= from && pose.quat_frame <= to) {
+            blend =
+                static_cast<float>((static_cast<double>(pose.quat_frame) - from) / (static_cast<double>(to) - from));
+            break;
+        }
+    }
+    interpolate_short_quat(rotation, &short_a, &short_b, blend);
+}
+
+// The translation from the frame cache's pair of keys around the frame (before the first key: left as it was; added
+// to what was there with flags 0x4000 and 0x20000); false when the cache has none (or there is no cache).
+bool cached_translation(PoseFrames& pose, int bone, std::span<float, 4> translation)
+{
+    if (!pose.entry) {
+        return false;
+    }
+    uint8_t* first = nullptr;
+    uint8_t* second = nullptr;
+    const int found =
+        pose.forwards
+            ? pose.entry->find_trans_keys({.bone = bone, .frame = pose.trans_frame}, &first, &second, pose.cursor)
+            : pose.entry->find_trans_keys_backwards(bone, pose.trans_frame, &first, &second, pose.cursor);
+    if (found == -2) {
+        return false;
+    }
+    auto from = static_cast<float>(trans_key_time(first));
+    auto to = static_cast<float>(trans_key_time(second));
+    const bool add = ((pose.flag_bits & 0x4000) != 0U) && ((pose.flag_bits & 0x20000) != 0U);
+    const std::array<float, 4> before{core::at(translation, 0), core::at(translation, 1), core::at(translation, 2),
+                                      core::at(translation, 3)};
+    const FloatKey key_a = anim_format::float_key_at(first);
+    const FloatKey key_b = anim_format::float_key_at(second);
+    auto add_before = [&] {
+        for (int i = 0; i < 4; ++i) {
+            core::at(translation, i) += core::at(before, i);
+        }
+    };
+    if (from == to) {
+        interpolate_float_trans(translation, &key_a, &key_b, 0.0F);
+        if (add) {
+            add_before();
+        }
+    } else if (pose.trans_frame >= from) { // (before the first key: left as it was)
+        pose.trans_frame = maths::confine(pose.trans_frame, from, to);
+        auto blend =
+            static_cast<float>((static_cast<double>(pose.trans_frame) - from) / (static_cast<double>(to) - from));
+        interpolate_float_trans(translation, &key_a, &key_b, blend);
+        if (add) {
+            add_before();
+        }
+    }
+    return true;
+}
+
+// Decompressing the translation: from the bone's start (or where the source left it) to the pair around the frame
+// (the frame before a key: that key alone); added to what was there when querying with no translation keys.
+void decompressed_translation(const PoseFrames& pose, const BoneKeys& keys, int bone, std::span<float, 4> translation)
+{
+    FrameSource* source = pose.source;
+    const KeyCursor end(keys.run, static_cast<std::ptrdiff_t>(keys.start + keys.size));
+    KeyCursor at(keys.run, static_cast<std::ptrdiff_t>(keys.start));
+    if (source && source->resume() && core::at(source->trans_at(), bone)) {
+        at = KeyCursor(keys.run, core::at(source->trans_at(), bone) - keys.run.data());
+    }
+    ShortKey short_a{};
+    ShortKey short_b{};
+    float blend = 0.0F;
+    for (;;) {
+        if (source) {
+            core::at(source->trans_at(), bone) = at.rest().data();
+        }
+        at = decompress_trans_key(at, &short_a);
+        if (at >= end) {
+            short_b = short_a;
+            break;
+        }
+        decompress_trans_key(at, &short_b);
+        const int from = trans_key_time(short_a.time);
+        if (!(static_cast<float>(from) <= pose.trans_frame)) { // (the frame before this key: this key alone)
+            short_b = short_a;
+            break;
+        }
+        const int to = trans_key_time(short_b.time);
+        if (static_cast<float>(to) >= pose.trans_frame) {
+            blend =
+                static_cast<float>((static_cast<double>(pose.trans_frame) - from) / (static_cast<double>(to) - from));
+            break;
+        }
+    }
+    std::array<float, 4> before{};
+    std::memcpy(before.data(), translation.data(), sizeof(before));
+    interpolate_short_trans(translation, &short_a, &short_b, blend);
+    if (((pose.flag_bits & kFlagQuerying) != 0U) && ((pose.flag_bits & kFlagNoTransKeys) != 0U)) {
+        for (int i = 0; i < 4; ++i) {
+            core::at(translation, i) = core::at(before, i) + core::at(translation, i);
+        }
+    }
+}
 
 } // namespace
 
@@ -1133,8 +1311,9 @@ namespace {
 bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations,
                                  std::span<uint8_t> valid, float time, int cursor, FrameSource* source)
 {
-    auto quat_frame = static_cast<float>(static_cast<double>(time) * kClipFrameRate);
-    float trans_frame = quat_frame; // (each clamped in turn by the cache's keys - kept for the later bones)
+    PoseFrames pose{.cursor = cursor, .source = source, .flag_bits = flag_bits_};
+    pose.quat_frame = static_cast<float>(static_cast<double>(time) * kClipFrameRate);
+    pose.trans_frame = pose.quat_frame;
     // (each bone's keys from where the bone before's end in the runs, its size's bytes)
     const std::span<const uint8_t> quat_run = rotation_key_run();
     const std::span<const uint8_t> trans_run = translation_key_run();
@@ -1142,18 +1321,18 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
     const std::span<const uint16_t> trans_sizes = translation_sizes();
     size_t quat_data = 0;
     size_t trans_data = 0;
-    bool forwards = true;
     const uint32_t mask = source && source->resume() ? 1U << (source->mask_bit() & 31) : 0U;
     if (cache_slot_) {
         uint32_t& counter = cache_use_counter();
         cache_slot_->set_last_used(counter++);
+        // (the frame cache's time for the cursor, 0x00480590 on the entry: its direction - negative when time went back)
         if (cursor != -1 &&
             cache_slot_->set_slot_time(
                 {.index = cursor, .time = static_cast<int16_t>(static_cast<int>(static_cast<int64_t>(time)))}) < 0) {
-            forwards = false;
+            pose.forwards = false;
         }
     }
-    AnimCacheEntry* entry = cache_slot_;
+    pose.entry = cache_slot_;
     const std::span<const uint32_t> bone_masks =
         (mask != 0U) && source->bone_masks()
             ? std::span<const uint32_t>(source->bone_masks(), static_cast<size_t>(bone_count_))
@@ -1176,146 +1355,15 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
             if (quat_size == 0) {
                 core::at(rotation, 0) = core::at(rotation, 1) = core::at(rotation, 2) = 0.0F;
                 core::at(rotation, 3) = 1.0F;
-            } else {
-                bool done = false;
-                if (cache_slot_) {
-                    uint8_t* first = nullptr;
-                    uint8_t* second = nullptr;
-                    const int found = forwards
-                                          ? entry->find_quat_keys({.bone = bone, .frame = quat_frame}, &first, &second, cursor)
-                                          : entry->find_quat_keys_backwards({.bone = bone, .frame = quat_frame}, &first, &second, cursor);
-                    if (found != -2) {
-                        const int from = quat_key_time(first);
-                        const int to = quat_key_time(second);
-                        FloatKey key_a = anim_format::float_key_at(first);
-                        const FloatKey key_b = anim_format::float_key_at(second);
-                        if (from == to) {
-                            interpolate_float_quat(rotation, &key_a, &key_b, 0.0F);
-                        } else {
-                            if (quat_frame < static_cast<float>(from)) {
-                                quat_frame = static_cast<float>(from);
-                            } else if (quat_frame > static_cast<float>(to)) {
-                                quat_frame = static_cast<float>(to);
-                            }
-                            auto blend = static_cast<float>((static_cast<double>(quat_frame) - from) /
-                                                            (static_cast<double>(to) - from));
-                            interpolate_float_quat(rotation, &key_a, &key_b, blend);
-                        }
-                        anim_format::store_float_key(first, key_a); // (its values flipped in place when needed)
-                        done = true;
-                    }
-                }
-                if (!done) {
-                    // Decompressing: from the bone's start (or where the source left it) to the pair around the frame.
-                    const KeyCursor end(quat_run, static_cast<std::ptrdiff_t>(quat_data + quat_size));
-                    KeyCursor at(quat_run, static_cast<std::ptrdiff_t>(quat_data));
-                    if (source && source->resume() && core::at(source->quat_at(), bone)) {
-                        at = KeyCursor(quat_run, core::at(source->quat_at(), bone) - quat_run.data());
-                    }
-                    ShortKey short_a{};
-                    ShortKey short_b{};
-                    float blend = 0.0F;
-                    for (;;) {
-                        if (source) {
-                            core::at(source->quat_at(), bone) = at.rest().data();
-                        }
-                        at = decompress_quat_key(at, &short_a, flag_bits_, own_key_table());
-                        if (at >= end) {
-                            short_b = short_a;
-                            blend = 0.0F;
-                            break;
-                        }
-                        decompress_quat_key(at, &short_b, flag_bits_, own_key_table());
-                        auto from = static_cast<float>(quat_key_time(short_a.time));
-                        auto to = static_cast<float>(quat_key_time(short_b.time));
-                        if (quat_frame >= from && quat_frame <= to) {
-                            blend = static_cast<float>((static_cast<double>(quat_frame) - from) /
-                                                       (static_cast<double>(to) - from));
-                            break;
-                        }
-                    }
-                    interpolate_short_quat(rotation, &short_a, &short_b, blend);
-                }
+            } else if (!cached_rotation(pose, bone, rotation)) {
+                decompressed_rotation(pose, {.run = quat_run, .start = quat_data, .size = quat_size}, bone, rotation,
+                                      own_key_table());
             }
             // The translation (none for a bone without keys when flag 0x20000 says so).
-            if (!(((flag_bits_ & kFlagNoTransKeys) != 0U) && trans_size == 0)) {
-                bool done = false;
-                if (cache_slot_) {
-                    uint8_t* first = nullptr;
-                    uint8_t* second = nullptr;
-                    const int found =
-                        forwards ? entry->find_trans_keys({.bone = bone, .frame = trans_frame}, &first, &second, cursor)
-                                 : entry->find_trans_keys_backwards(bone, trans_frame, &first, &second, cursor);
-                    if (found != -2) {
-                        auto from = static_cast<float>(trans_key_time(first));
-                        auto to = static_cast<float>(trans_key_time(second));
-                        const bool add = ((flag_bits_ & 0x4000) != 0U) && ((flag_bits_ & 0x20000) != 0U);
-                        const std::array<float, 4> before{core::at(translation, 0), core::at(translation, 1), core::at(translation, 2),
-                                                          core::at(translation, 3)};
-                        const FloatKey key_a = anim_format::float_key_at(first);
-                        const FloatKey key_b = anim_format::float_key_at(second);
-                        auto add_before = [&] {
-                            for (int i = 0; i < 4; ++i) {
-                                core::at(translation, i) += core::at(before, i);
-                            }
-                        };
-                        if (from == to) {
-                            interpolate_float_trans(translation, &key_a, &key_b, 0.0F);
-                            if (add) {
-                                add_before();
-                            }
-                        } else if (trans_frame >= from) { // (before the first key: left as it was)
-                            trans_frame = maths::confine(trans_frame, from, to);
-                            auto blend = static_cast<float>((static_cast<double>(trans_frame) - from) /
-                                                            (static_cast<double>(to) - from));
-                            interpolate_float_trans(translation, &key_a, &key_b, blend);
-                            if (add) {
-                                add_before();
-                            }
-                        }
-                        done = true;
-                    }
-                }
-                if (!done) {
-                    const KeyCursor end(trans_run, static_cast<std::ptrdiff_t>(trans_data + trans_size));
-                    KeyCursor at(trans_run, static_cast<std::ptrdiff_t>(trans_data));
-                    if (source && source->resume() && core::at(source->trans_at(), bone)) {
-                        at = KeyCursor(trans_run, core::at(source->trans_at(), bone) - trans_run.data());
-                    }
-                    ShortKey short_a{};
-                    ShortKey short_b{};
-                    float blend = 0.0F;
-                    for (;;) {
-                        if (source) {
-                            core::at(source->trans_at(), bone) = at.rest().data();
-                        }
-                        at = decompress_trans_key(at, &short_a);
-                        if (at >= end) {
-                            short_b = short_a;
-                            break;
-                        }
-                        decompress_trans_key(at, &short_b);
-                        const int from = trans_key_time(short_a.time);
-                        if (!(static_cast<float>(from) <= trans_frame)) { // (the frame before this key: this key alone)
-                            short_b = short_a;
-                            break;
-                        }
-                        const int to = trans_key_time(short_b.time);
-                        if (static_cast<float>(to) >= trans_frame) {
-                            blend = static_cast<float>((static_cast<double>(trans_frame) - from) /
-                                                       (static_cast<double>(to) - from));
-                            break;
-                        }
-                    }
-                    std::array<float, 4> before{};
-                    std::memcpy(before.data(), translation.data(), sizeof(before));
-                    interpolate_short_trans(translation, &short_a, &short_b, blend);
-                    if (((flag_bits_ & kFlagQuerying) != 0U) && ((flag_bits_ & kFlagNoTransKeys) != 0U)) {
-                        for (int i = 0; i < 4; ++i) {
-                            core::at(translation, i) = core::at(before, i) + core::at(translation, i);
-                        }
-                    }
-                }
+            if (!(((flag_bits_ & kFlagNoTransKeys) != 0U) && trans_size == 0) &&
+                !cached_translation(pose, bone, translation)) {
+                decompressed_translation(pose, {.run = trans_run, .start = trans_data, .size = trans_size}, bone,
+                                         translation);
             }
         }
         quat_data += quat_size;
