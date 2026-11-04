@@ -30,7 +30,7 @@
 #include "platform/platform_cfuncs.h"
 #include "devtools/screenshot.h"
 #include "platform/sdl_events.h"
-#include "platform/platform_input.h"
+#include "engine/pad_input/direct_input.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"

@@ -1,12 +1,12 @@
 // The keyboard's key names: see key_names.h.
 
-#include "platform/key_names.h"
+#include "engine/pad_input/key_names.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <array>
 
-#include "platform/platform_input.h"
+#include "engine/pad_input/direct_input.h"
 
 namespace sys {
 

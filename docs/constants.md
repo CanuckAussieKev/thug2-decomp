@@ -55,7 +55,7 @@ The index below lists each kind of shared constant or enum and the header that h
 | pi and a full turn | `base/maths/trig.h` (`maths::kPi`, `maths::kTwoPi`) |
 | A flat 4 x 4 matrix's float count and element indices | `base/maths/mat4.h` (`maths::kMatrixFloats`, `kMatXx` ... `kMatTw`) |
 | Units (inches per foot), double-to-integer limits | `base/maths/maths.h` |
-| Key binding slots, ports, the draw distance setting | `platform/platform_input.h` |
+| Key binding slots, ports, the draw distance setting | `engine/pad_input/direct_input.h` |
 | Pad button masks, control data layout | `engine/pad_input/input_hub.h`, `engine/pad_input/device.h` |
 | Sound and music limits | `engine/sound/sfx.h`, `engine/audio/music_player.h` |
 | The level editor's view, colour channels, box corners, mesh walk, text limits | `editor/level_editor.h` |

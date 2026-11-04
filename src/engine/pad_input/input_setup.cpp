@@ -1,20 +1,20 @@
 // The Win32 platform layer: input set-up, rumble and the window's message pump, with PartyMod's SDL input and
 // window (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
-#include "platform/platform.h"
+#include "engine/pad_input/input_setup.h"
 
 #include <cstdint>
 #include <cstring>
 
 #include "engine/gfx/settings.h"
 #include "engine/pad_input/sdl_input.h"
-#include "platform/platform_input.h"
+#include "engine/pad_input/direct_input.h"
 #include "platform/sdl_events.h"
 #include "engine/gfx/view_cam.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
-#include "platform/platform_state.h"
+#include "engine/pad_input/direct_input_state.h"
 
 namespace os_layer {
 

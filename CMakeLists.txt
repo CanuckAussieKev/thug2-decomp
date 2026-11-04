@@ -574,7 +574,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/texture_file.cpp
     src/engine/gfx/hd_ui.cpp
     src/engine/gfx/graphics_options.cpp
-    src/platform/key_names.cpp
+    src/engine/pad_input/key_names.cpp
     src/engine/objects/anim_blender.cpp
     src/engine/objects/ride_tracker.cpp
     src/engine/objects/avoid.cpp
@@ -839,10 +839,10 @@ add_executable(thug2 WIN32
     src/game/rider/thaw_bmx_sticks.cpp
     src/game/rider/thaw_bmx_tricks.cpp
     src/game/rider/trick_component.cpp
-    src/platform/platform.cpp
+    src/engine/pad_input/input_setup.cpp
     src/engine/gfx/pc_d3d_resources.cpp
-    src/platform/platform_input.cpp
-    src/platform/platform_state.cpp
+    src/engine/pad_input/direct_input.cpp
+    src/engine/pad_input/direct_input_state.cpp
     src/platform/platform_system.cpp
     src/platform/platform_cfuncs.cpp
     src/engine/sys/debug_mode.cpp
@@ -945,7 +945,7 @@ target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY
 # (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them; the generated build_info.h)
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
-# formats and effect GUIDs (platform/platform_input.cpp); d3d9, winmm: platform/crt.h's imports
+# formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports
 target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md);
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error

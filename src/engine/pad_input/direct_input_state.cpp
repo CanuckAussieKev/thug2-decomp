@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the platform layer's state its files share: the graphics options and draw distance read from the registry, DirectInput, the joysticks with their rumble effects and force resolutions, and the joysticks' last two states (platform_state.h): made on first use, never destroyed.
 
-#include "platform/platform_state.h"
+#include "engine/pad_input/direct_input_state.h"
 
 #include "base/core/no_destroy.h"
 

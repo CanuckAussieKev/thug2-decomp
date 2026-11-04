@@ -50,7 +50,7 @@
 #include "game/skate/highscores.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/thaw_bmx.h"
-#include "platform/key_names.h"
+#include "engine/pad_input/key_names.h"
 #include "engine/sys/mlp.h"
 #include "engine/sys/game_module.h"
 #include "app/pc_setup.h"

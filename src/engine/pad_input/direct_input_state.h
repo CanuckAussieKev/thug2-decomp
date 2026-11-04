@@ -2,7 +2,7 @@
 
 #include <array>
 #include <cstdint>
-#include "platform/platform_input.h"
+#include "engine/pad_input/direct_input.h"
 
 // NOT ORIGINAL - the platform layer's state its files share: the graphics options and draw distance read from the
 // registry, DirectInput, the joysticks with their rumble effects and force resolutions, and the joysticks' last two

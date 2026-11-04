@@ -1,6 +1,6 @@
 // The Win32 platform layer's DirectInput side: see platform_input.h.
 
-#include "platform/platform_input.h"
+#include "engine/pad_input/direct_input.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -21,7 +21,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
-#include "platform/platform_state.h"
+#include "engine/pad_input/direct_input_state.h"
 #include "platform/registry.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (wcscpy: the original's own, into its fixed buffers)
