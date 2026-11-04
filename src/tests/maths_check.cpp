@@ -25,6 +25,7 @@
 #include "base/core/format.h"
 #include "base/maths/mat4.h"
 #include "tests/maths_check_d3dx.h"
+#include "base/maths/view_transforms.h"
 #endif
 
 namespace {
@@ -1860,6 +1861,149 @@ void matrix_product(int count, std::mt19937_64& random)
     t_over_b.print();
 }
 
+// NOT ORIGINAL - D3DX9's vector transforms and viewing matrices (d3dx9_43.dll, which the renderer called until stage 11
+// round 16) against the plain C++ that replaced them (base/maths/view_transforms.h): coordinates, unit vectors and
+// matrices of the game's scales, viewing parameters of its ranges. Run with the x87 at 53 bits and at 24 (the game's
+// thread: D3DX's x87 code rounds as the control word says; its SSE code doesn't care).
+void view_maths(int count, std::mt19937_64& random)
+{
+    using Matrix = std::array<float, maths::kMatrixFloats>;
+    using Vector3 = std::array<float, 3>;
+    using Vector4 = std::array<float, 4>;
+    constexpr float kAngleRange = 7.0F;
+    constexpr float kUpTilt = 0.2F;
+    constexpr float kSizeMin = 0.01F;
+    constexpr float kSizeMax = 2000.0F;
+    constexpr float kNearMin = 0.1F;
+    constexpr float kNearMax = 20.0F;
+    constexpr float kOrthoNearMin = -100.0F;
+    constexpr float kDepthMin = 1.0F;
+    constexpr float kDepthMax = 100000.0F;
+    constexpr float kTinyScale = 1.0e-20F;
+    constexpr int kTranslationFirst = 12; // a matrix's translation row: floats 12-14
+    constexpr int kTranslationEnd = 15;
+    constexpr std::array<int, 3> kLastColumn = {{3, 7, 11}}; // a matrix's last column but its w
+    std::uniform_real_distribution<float> coordinate(-kCoordinateRange, kCoordinateRange);
+    std::uniform_real_distribution<float> unit(-1.0F, 1.0F);
+    std::uniform_real_distribution<float> angle(-kAngleRange, kAngleRange);
+    std::uniform_real_distribution<float> tilt(-kUpTilt, kUpTilt);
+    std::uniform_real_distribution<float> size(kSizeMin, kSizeMax);
+    std::uniform_real_distribution<float> near_z(kNearMin, kNearMax);
+    std::uniform_real_distribution<float> ortho_near(kOrthoNearMin, kNearMax);
+    std::uniform_real_distribution<float> depth(kDepthMin, kDepthMax);
+    // A matrix: a unit-scale 3x3, a translation of coordinates, and (half of them) the affine last column 0, 0, 0, 1 -
+    // else a projective one with a positive w.
+    auto draw_matrix = [&](int index) {
+        Matrix drawn{};
+        for (int k = 0; k < maths::kMatrixFloats; ++k) {
+            core::at(drawn, k) = (k >= kTranslationFirst && k < kTranslationEnd) ? coordinate(random) : unit(random);
+        }
+        if (index % 2 == 0) {
+            for (const int slot : kLastColumn) {
+                core::at(drawn, slot) = 0.0F;
+            }
+            core::at(drawn, kTranslationEnd) = 1.0F;
+        } else {
+            core::at(drawn, kTranslationEnd) = size(random);
+        }
+        return drawn;
+    };
+    auto compare_all = [](Tally& tally, std::span<const float> fresh, std::span<const float> want, double input) {
+        for (size_t k = 0; k < fresh.size(); ++k) {
+            compare(tally, core::at(fresh, k), core::at(want, k), input);
+        }
+    };
+    Tally t_point("vec3_transform", 'f');
+    Tally t_coord("vec3_transform_coord", 'f');
+    Tally t_normal("vec3_transform_normal", 'f');
+    Tally t_vec4("vec4_transform", 'f');
+    Tally t_normalize("vec3_normalize", 'f');
+    Tally t_transpose("matrix_transpose", 'f');
+    Tally t_scaling("matrix_scaling", 'f');
+    Tally t_rotation("matrix_rotation_y", 'f');
+    Tally t_inverse("matrix_inverse", 'f');
+    Tally t_determinant("matrix_inverse determinant", 'f');
+    Tally t_invertible("matrix_inverse invertible", 'b');
+    Tally t_look("matrix_look_at_rh", 'f');
+    Tally t_perspective("matrix_perspective_rh", 'f');
+    Tally t_ortho("matrix_ortho_rh", 'f');
+    for (int index = 0; index < count; ++index) {
+        const Matrix matrix = draw_matrix(index);
+        const int scale = index % 3; // coordinates, unit vectors, tiny ones
+        auto draw = [&]() {
+            const float drawn = scale == 0 ? coordinate(random) : unit(random);
+            return scale == 2 ? drawn * kTinyScale : drawn;
+        };
+        const Vector3 v = {{draw(), draw(), draw()}};
+        const Vector4 v4 = {{draw(), draw(), draw(), unit(random)}};
+        Vector4 fresh4{};
+        Vector4 want4{};
+        Vector3 fresh3{};
+        Vector3 want3{};
+        maths::transform_point(fresh4, v, matrix);
+        tests::d3dx_vec3_transform(want4, v, matrix);
+        compare_all(t_point, fresh4, want4, core::at(v, 0));
+        maths::transform_coord(fresh3, v, matrix);
+        tests::d3dx_vec3_transform_coord(want3, v, matrix);
+        compare_all(t_coord, fresh3, want3, core::at(v, 0));
+        maths::transform_normal(fresh3, v, matrix);
+        tests::d3dx_vec3_transform_normal(want3, v, matrix);
+        compare_all(t_normal, fresh3, want3, core::at(v, 0));
+        maths::transform_vec4(fresh4, v4, matrix);
+        tests::d3dx_vec4_transform(want4, v4, matrix);
+        compare_all(t_vec4, fresh4, want4, core::at(v4, 0));
+        maths::normalize3(fresh3, v);
+        tests::d3dx_vec3_normalize(want3, v);
+        compare_all(t_normalize, fresh3, want3, core::at(v, 0));
+
+        Matrix fresh{};
+        Matrix want{};
+        maths::matrix_transpose(fresh, matrix);
+        tests::d3dx_matrix_transpose(want, matrix);
+        compare_all(t_transpose, fresh, want, core::at(matrix, 0));
+        maths::matrix_scaling(fresh, core::at(v, 0), core::at(v, 1), core::at(v, 2));
+        tests::d3dx_matrix_scaling(want, core::at(v, 0), core::at(v, 1), core::at(v, 2));
+        compare_all(t_scaling, fresh, want, core::at(v, 0));
+        const float turn = angle(random);
+        maths::matrix_rotation_y(fresh, turn);
+        tests::d3dx_matrix_rotation_y(want, turn);
+        compare_all(t_rotation, fresh, want, turn);
+        float fresh_determinant = 0.0F;
+        float want_determinant = 0.0F;
+        fresh = {};
+        want = {};
+        const bool fresh_made = maths::matrix_inverse(fresh, &fresh_determinant, matrix);
+        const bool want_made = tests::d3dx_matrix_inverse(want, &want_determinant, matrix);
+        compare_bool(t_invertible, fresh_made, want_made, core::at(matrix, 0));
+        compare(t_determinant, fresh_determinant, want_determinant, core::at(matrix, 0));
+        compare_all(t_inverse, fresh, want, core::at(matrix, 0));
+
+        const Vector3 eye = {{coordinate(random), coordinate(random), coordinate(random)}};
+        const Vector3 at = {{coordinate(random), coordinate(random), coordinate(random)}};
+        const Vector3 up = index % 2 == 0 ? Vector3{{0.0F, 1.0F, 0.0F}} : Vector3{{tilt(random), 1.0F, tilt(random)}};
+        maths::matrix_look_at_rh(fresh, eye, at, up);
+        tests::d3dx_matrix_look_at_rh(want, {.eye = eye, .at = at, .up = up});
+        compare_all(t_look, fresh, want, core::at(eye, 0));
+        const float width = size(random);
+        const float height = size(random);
+        const float zn = near_z(random);
+        const float zf = zn + depth(random);
+        maths::matrix_perspective_rh(fresh, width, height, zn, zf);
+        tests::d3dx_matrix_perspective_rh(want, width, height, zn, zf);
+        compare_all(t_perspective, fresh, want, zn);
+        const float ortho_zn = ortho_near(random);
+        const float ortho_zf = ortho_zn + depth(random);
+        maths::matrix_ortho_rh(fresh, width, height, ortho_zn, ortho_zf);
+        tests::d3dx_matrix_ortho_rh(want, width, height, ortho_zn, ortho_zf);
+        compare_all(t_ortho, fresh, want, ortho_zn);
+    }
+    for (const Tally* tally : {&t_point, &t_coord, &t_normal, &t_vec4, &t_normalize, &t_transpose, &t_scaling,
+                               &t_rotation, &t_inverse, &t_determinant, &t_invertible, &t_look, &t_perspective,
+                               &t_ortho}) {
+        tally->print();
+    }
+}
+
 #endif // the x87 reference
 
 } // namespace
@@ -1882,6 +2026,15 @@ int main(int argc, char** argv)
     text::print("D3DX9's matrix product (d3dx9_43.dll's SSE version) against the plain C++\n");
     std::mt19937_64 matrix_random(static_cast<uint64_t>(seed)); // (its own sequence, from the start)
     matrix_product(count, matrix_random);
+    // (stage 11 round 16: the vector and viewing maths; one sequence, from the start, for both precisions)
+    text::print("D3DX9's vector and viewing maths against the plain C++, x87 at 53 bits\n");
+    std::mt19937_64 view_random(static_cast<uint64_t>(seed));
+    view_maths(count, view_random);
+    _controlfp_s(&previous, _PC_24, _MCW_PC);
+    text::print("D3DX9's vector and viewing maths against the plain C++, x87 at 24 bits (the game's thread)\n");
+    std::mt19937_64 view_random_24(static_cast<uint64_t>(seed));
+    view_maths(count, view_random_24);
+    _controlfp_s(&previous, _PC_53, _MCW_PC);
     return 0;
 #else
     (void)argc;

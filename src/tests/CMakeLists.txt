@@ -12,7 +12,8 @@ target_link_libraries(thug2_format_check PRIVATE thug2_wire)
 # assembly over many inputs, and maths::matrix_multiply with D3DX's matrix product (src/tests/maths_check.cpp; the
 # reference half needs MSVC for 32-bit x86).
 add_executable(thug2_maths_check maths_check.cpp maths_check_d3dx.cpp)
-# (d3dx9: D3DX's matrix product, the reference for maths::matrix_multiply; its DLL next to the check)
+# (d3dx9: D3DX9's own maths, the reference for maths::matrix_multiply and base/maths/view_transforms.h; its DLL next to
+# the check)
 target_link_libraries(thug2_maths_check PRIVATE thug2_base d3dx9)
 add_custom_command(TARGET thug2_maths_check POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_maths_check>/d3dx9_43.dll")

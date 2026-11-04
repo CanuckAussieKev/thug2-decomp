@@ -20,6 +20,7 @@ add_library(thug2_base STATIC
     maths/vec4.cpp
     maths/vector_rotate_z.cpp
     maths/vector_transform.cpp
+    maths/view_transforms.cpp
     util/bitstream.cpp
     util/bps.cpp
 )
