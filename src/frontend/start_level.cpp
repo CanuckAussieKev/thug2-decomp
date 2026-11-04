@@ -29,7 +29,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
-#include "platform/winmain.h"
+#include "platform/process_flags.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "base/core/format.h"
@@ -52,7 +52,7 @@ bool is_script(uint32_t name)
 }
 
 // The command line as the process got it (the game's own parsing cuts the process's buffer into words later: a 0
-// after the first word - platform/winmain.h).
+// after the first word - platform/process_flags.h).
 const std::string& command_line() { return sys::startup_command_line(); }
 
 std::string from_ini(const char* key)

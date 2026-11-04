@@ -26,7 +26,7 @@
 
 #include "base/core/checksums.h"
 #include "engine/script/cell.h"
-#include "platform/winmain.h"
+#include "platform/process_flags.h"
 #include "base/core/parse_number.h"
 #include "frontend/front_end.h"
 #include "frontend/mouse_menus.h"
@@ -2121,7 +2121,7 @@ void write_status(Runner& runner)
 }
 
 // The command line as the process got it (the game's own parsing cuts the process's buffer into words later: a 0
-// after the first word - platform/winmain.h).
+// after the first word - platform/process_flags.h).
 const std::string& command_line() { return sys::startup_command_line(); }
 
 // -run <script>, --run <script> or --run=<script> ("" if none).

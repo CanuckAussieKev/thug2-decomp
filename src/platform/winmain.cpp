@@ -33,6 +33,7 @@
 #include "platform/platform_d3d.h"
 #include "platform/platform_input.h"
 #include "platform/platform_system.h"
+#include "platform/process_flags.h"
 #include "platform/crt.h"
 #include "platform/registry.h"
 #include "platform/sdl_window.h"
@@ -188,43 +189,6 @@ const std::array<std::array<uint32_t, 24>, 3> kDefaultBindings = {{
 
 } // namespace
 
-namespace {
-
-bool& stored_internet_game_host()
-{
-    static bool internet_game_host{};
-    return internet_game_host;
-}
-
-} // namespace
-
-bool internet_game_host() { return stored_internet_game_host(); }
-
-namespace {
-
-bool& stored_joining_internet_game()
-{
-    static bool joining_internet_game{};
-    return joining_internet_game;
-}
-
-} // namespace
-
-bool joining_internet_game() { return stored_joining_internet_game(); }
-
-namespace {
-
-bool& stored_app_active()
-{
-    static bool app_active{};
-    return app_active;
-}
-
-} // namespace
-
-bool app_active() { return stored_app_active(); }
-void set_app_active(bool value) { stored_app_active() = value; }
-
 // 0x004E16B0
 LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
@@ -238,10 +202,10 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
         // (the game's window, not the message's)
         if (LOWORD(w_param) == WA_ACTIVE || LOWORD(w_param) == WA_CLICKACTIVE) {
             ShowWindow(render::renderer().game_window(), SW_MAXIMIZE);
-            stored_app_active() = true; // active
+            set_app_active(true); // active
         } else {
             ShowWindow(render::renderer().game_window(), SW_MINIMIZE);
-            stored_app_active() = false;
+            set_app_active(false);
             render::engine_parts().set_device_lost(true); // the device is taken as lost (reset when active again)
             InvalidateRect(nullptr, nullptr, TRUE);
         }
@@ -296,7 +260,7 @@ void read_network_params(const char* command_line)
     };
 
     if (find("-HOST ")) {
-        stored_internet_game_host() = true; // hosting a game
+        set_internet_game_host(true); // hosting a game
     }
     if (const auto at = find("-HOSTNAME")) {
         copy_value(after(*at, kHostNameValueAt), commands::hosted_game_name(), kHostedGameNameMax); // the hosted game's name
@@ -307,7 +271,7 @@ void read_network_params(const char* command_line)
     if (const auto at = find("-PPASS")) {
         copy_value(after(*at, kPpassValueAt), online::command_line_password(), kCommandPasswordMax);
     }
-    if (!stored_internet_game_host()) {
+    if (!internet_game_host()) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
         // character after it is skipped, normally a space.)
@@ -321,7 +285,7 @@ void read_network_params(const char* command_line)
                 }
             }
             online::net_game_state().set_command_line_server(address);
-            stored_joining_internet_game() = true; // joining a game
+            set_joining_internet_game(true); // joining a game
         }
     }
     // (The numbers are compared unsigned: a negative one counts as too big.)
@@ -347,7 +311,7 @@ void read_network_params(const char* command_line)
     if (const auto at = find("-PASSWORD")) {
         char* password = commands::network_password().data();
         copy_value(after(*at, kPasswordValueAt), commands::network_password(), kNetworkPasswordMax);
-        if (stored_joining_internet_game()) {
+        if (joining_internet_game()) {
             // Joining: it's the server's password (moved to where the join looks for it).
             std::memcpy(online::pending_password().data(), password, std::strlen(password) + 1); // (strcpy)
             std::memset(password, 0, kNetworkPasswordBytes);
@@ -362,19 +326,9 @@ bool& allow_multiple_instances()
     return allow;
 }
 
-namespace {
-std::string& startup_command_line_copy()
-{
-    static std::string value;
-    return value;
-}
-} // namespace
-
-const std::string& startup_command_line() { return startup_command_line_copy(); }
-
 int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_line, int /*show*/)
 {
-    startup_command_line_copy() = GetCommandLineA(); // (before anything parses it)
+    set_startup_command_line(GetCommandLineA()); // (before anything parses it)
     // (the reference build's own patch loads a DLL here - LoadLibraryA(<the name at 0x0064B198>) in a code cave (0x005480A1)
     // called in place of gsi_start_available_check, which the cave then jumps to. PartyMod is part of the game's
     // source here, so nothing is loaded.)

@@ -18,7 +18,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
-#include "platform/winmain.h"
+#include "platform/process_flags.h"
 #include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 

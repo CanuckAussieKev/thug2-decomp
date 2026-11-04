@@ -34,7 +34,7 @@
 #include "platform/platform.h"
 #include "platform/mute_audio.h"
 #include "platform/run_log.h"
-#include "platform/winmain.h"
+#include "platform/process_flags.h"
 #include "platform/bink.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"

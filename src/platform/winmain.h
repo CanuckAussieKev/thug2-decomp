@@ -2,8 +2,6 @@
 
 #include <windows.h>
 
-#include <string>
-
 namespace sys {
 
 // 0x004E2680: the program's entry point (called by the C runtime's start-up). Unless another copy of the game
@@ -16,9 +14,6 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE previous, char* command_line, 
 // thug2-decomp.ini [features] allow_multiple_instances (default 0): WinMain skips its already-running check. Read from
 // the ini once; self-tests set it for their run.
 bool& allow_multiple_instances();
-// NOT ORIGINAL - the process's command line as it was when the program started (GetCommandLineA's text, copied at the
-// top of win_main: the game's own parsing cuts that buffer into words later - a 0 after the first word).
-const std::string& startup_command_line();
 
 // 0x004E16B0: the game's window procedure (the window WinMain made before PartyMod; its SDL window has its own).
 // Closing or destroying the window quits (PostQuitMessage, the quit flag); activation maximises the game's
@@ -34,10 +29,5 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
 void parse_network_params(const char* command_line);
 // parse_network_params without the test stage (what the tests call).
 void read_network_params(const char* command_line);
-
-bool internet_game_host();
-bool joining_internet_game();
-bool app_active();
-void set_app_active(bool value);
 
 } // namespace sys

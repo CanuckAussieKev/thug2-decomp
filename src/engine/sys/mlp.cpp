@@ -29,7 +29,7 @@
 #include "platform/platform.h"
 #include "platform/screenshot.h"
 #include "platform/stopwatch.h"
-#include "platform/winmain.h"
+#include "platform/process_flags.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/draw_frame.h"
 #include "base/core/no_destroy.h"

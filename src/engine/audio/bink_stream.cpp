@@ -14,7 +14,7 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/movie.h"
 #include "platform/mute_audio.h"
-#include "platform/winmain.h"
+#include "platform/process_flags.h"
 #include "engine/audio/stream_files.h"
 #include "platform/bink.h"
 #include "engine/audio/audio_state.h"

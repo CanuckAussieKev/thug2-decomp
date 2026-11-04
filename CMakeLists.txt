@@ -863,6 +863,7 @@ add_executable(thug2 WIN32
     src/engine/sys/system_cfuncs.cpp
     src/engine/sys/game_module.cpp
     src/platform/winmain.cpp
+    src/platform/process_flags.cpp
     src/engine/sys/startup_init.cpp
     src/game/save_cards/memcard.cpp
     src/game/save_cards/save_cards_state.cpp
