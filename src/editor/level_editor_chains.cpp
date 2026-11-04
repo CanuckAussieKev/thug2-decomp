@@ -1511,6 +1511,59 @@ void register_trick_objects()
     trick_state() = want;
 }
 
+// The rebuilt rail nodes indexed by name and switched on / off: dropped points off (their state noted first),
+// shown ones back as they were.
+void set_dropped_states(std::span<objects::GrindPoint> nodes, std::unordered_map<uint32_t, int>& index)
+{
+    const int count = static_cast<int>(nodes.size());
+    for (int i = 0; i < count; ++i) {
+        objects::GrindPoint* node = &core::at(nodes, i);
+        index.emplace(node->label(), i);
+        node->set_succ(node->last_value() = nullptr);
+        const bool dropped = std::ranges::find(stored_dropped(), node->label()) != stored_dropped().end();
+        auto was = drop_active().find(node->label());
+        if (dropped) {
+            if (was == drop_active().end()) {
+                drop_active()[node->label()] = (node->flag_bits() & objects::kRailFlagActive) != 0;
+            }
+            node->flag_bits() &= ~objects::kRailFlagActive;
+        } else if (was != drop_active().end()) {
+            node->flag_bits() = was->second ? node->flag_bits() | objects::kRailFlagActive
+                                            : node->flag_bits() & ~objects::kRailFlagActive;
+            drop_active().erase(was);
+        }
+    }
+}
+
+// The links, as add_from_node_array makes them: a node's next is its first link (or a DefaultLine one), the linked
+// node's previous likewise. Dropped points take no part.
+void link_rail_nodes(std::span<objects::GrindPoint> nodes, const std::unordered_map<uint32_t, int>& index)
+{
+    const int count = static_cast<int>(nodes.size());
+    auto is_dropped = [&](uint32_t name) {
+        return std::ranges::find(stored_dropped(), name) != stored_dropped().end();
+    };
+    for (int i = 0; i < count; ++i) {
+        objects::GrindPoint* node = &core::at(nodes, i);
+        if (is_dropped(node->label())) {
+            continue;
+        }
+        for (const uint32_t link : own_links(look_up_node_params(node->label()))) {
+            auto it = index.find(link);
+            if (it == index.end() || is_dropped(link)) {
+                continue;
+            }
+            objects::GrindPoint* other = &core::at(nodes, it->second);
+            if (!node->succ() || ((other->flag_bits() & objects::kRailFlagDefaultLine) != 0U)) {
+                node->set_succ(other);
+            }
+            if (!other->last_value() || ((node->flag_bits() & objects::kRailFlagDefaultLine) != 0U)) {
+                other->last_value() = node;
+            }
+        }
+    }
+}
+
 } // namespace
 
 void rebuild_rails()
@@ -1570,45 +1623,10 @@ void rebuild_rails()
     rails->set_adding(count);
     // On / off: dropped points off (their state noted first), shown ones back as they were.
     std::unordered_map<uint32_t, int> index;
-    for (int i = 0; i < count; ++i) {
-        objects::GrindPoint* node = &core::at(nodes, i);
-        index.emplace(node->label(), i);
-        node->set_succ(node->last_value() = nullptr);
-        const bool dropped = std::ranges::find(stored_dropped(), node->label()) != stored_dropped().end();
-        auto was = drop_active().find(node->label());
-        if (dropped) {
-            if (was == drop_active().end()) {
-                drop_active()[node->label()] = (node->flag_bits() & objects::kRailFlagActive) != 0;
-            }
-            node->flag_bits() &= ~objects::kRailFlagActive;
-        } else if (was != drop_active().end()) {
-            node->flag_bits() = was->second ? node->flag_bits() | objects::kRailFlagActive
-                                           : node->flag_bits() & ~objects::kRailFlagActive;
-            drop_active().erase(was);
-        }
-    }
+    set_dropped_states(nodes, index);
     // The links, as add_from_node_array makes them: a node's next is its first link (or a DefaultLine one), the linked
     // node's previous likewise. Dropped points take no part.
-    auto is_dropped = [&](uint32_t name) { return std::ranges::find(stored_dropped(), name) != stored_dropped().end(); };
-    for (int i = 0; i < count; ++i) {
-        objects::GrindPoint* node = &core::at(nodes, i);
-        if (is_dropped(node->label())) {
-            continue;
-        }
-        for (const uint32_t link : own_links(look_up_node_params(node->label()))) {
-            auto it = index.find(link);
-            if (it == index.end() || is_dropped(link)) {
-                continue;
-            }
-            objects::GrindPoint* other = &core::at(nodes, it->second);
-            if (!node->succ() || ((other->flag_bits() & objects::kRailFlagDefaultLine) != 0U)) {
-                node->set_succ(other);
-            }
-            if (!other->last_value() || ((node->flag_bits() & objects::kRailFlagDefaultLine) != 0U)) {
-                other->last_value() = node;
-            }
-        }
-    }
+    link_rail_nodes(nodes, index);
     for (int i = 0; i < count; ++i) {
         cuboid(&core::at(nodes, i));
     }
@@ -3365,6 +3383,92 @@ const char* get_waiting()
     return nullptr;
 }
 
+namespace {
+
+// A ledge's hang side: an added point's own, else the node's HangLeft / HangRight.
+void read_ledge_hang(const nodes::Elem& node, uint32_t name, View& view)
+{
+    if (node.added) {
+        for (const Point& chain_point : added_points()) {
+            if (name_hash(chain_point.name) == name) {
+                view.hang = chain_point.hang;
+            }
+        }
+    } else if (script::Struct* params = look_up_node_params(name)) {
+        static const uint32_t kLeft = name_hash("HangLeft");
+        static const uint32_t kRight = name_hash("HangRight");
+        if (params->has_bare_flag(kLeft)) {
+            view.hang = kHangLeft;
+        } else if (params->has_bare_flag(kRight)) {
+            view.hang = kHangRight;
+        } else {
+            view.hang = 0;
+        }
+    }
+}
+
+// A rail's settings: its speed-up (the editor's, the level's), its own script's speed, its trick-object cluster,
+// flat grinding and terrain.
+void read_rail_view(const nodes::Elem& node, uint32_t name, View& view)
+{
+    auto speed = extras_state().find(name);
+    auto level_speed = level_speeds().find(name);
+    if (speed != extras_state().end()) {
+        view.speed = speed->second.speed;
+    } else if (level_speed != level_speeds().end()) {
+        view.speed = level_speed->second;
+    } else {
+        view.speed = 0.0F;
+    }
+    script::Struct* own = look_up_node_params(name);
+    uint32_t script = 0;
+    auto applied = speed_applied().find(name);
+    if (applied != speed_applied().end()) {
+        script = applied->second.original_script_;
+    } else if (own) {
+        own->read_hash_value(kTriggerScriptKey, &script, 0);
+    }
+    if (script != 0U) {
+        const triggers::Calls calls = triggers::script_calls(script);
+        view.level_speed_ = calls.rail_speed_;
+        view.level_rate_ = calls.rail_rate_;
+    }
+    auto extras = extras_state().find(name);
+    if (node.added) {
+        view.can_trick_object_ = true;
+        view.trick_object_ = extras != extras_state().end() && (extras->second.cluster != 0U);
+        if (view.trick_object_) {
+            view.cluster = object_edit::caption(extras->second.cluster);
+        }
+        view.grind_flat_ = extras != extras_state().end() && extras->second.grind_flat_;
+    } else {
+        view.trick_object_ = node.trick_object_;
+        static const uint32_t kCluster = name_hash("Cluster");
+        static const uint32_t kFlag = name_hash("ed_grind_flat");
+        script::Struct* params = look_up_node_params(name);
+        uint32_t cluster = name;
+        if (params) {
+            params->read_hash_value(kCluster, &cluster, 0);
+        }
+        if (view.trick_object_) {
+            view.cluster = object_edit::caption(cluster);
+        }
+        view.grind_flat_ = std::ranges::find(level_flat(), name) != level_flat().end() ||
+                           ((params != nullptr) && params->has_bare_flag(kFlag));
+    }
+    if (const objects::GrindPoint* rail = rail_node_named(name)) {
+        for (size_t i = 0; i < view.terrains.size(); ++i) {
+            uint8_t value = 0;
+            if (terrain_byte(core::at(view.terrains, i), &value) && value == rail->surface_type()) {
+                view.terrain = static_cast<int>(i);
+                break;
+            }
+        }
+    }
+}
+
+} // namespace
+
 View view_of(uint32_t name)
 {
     View view;
@@ -3419,79 +3523,10 @@ View view_of(uint32_t name)
     view.can_link_ = view.can_extend_;
     view.can_delete_ = true;
     if (view.ledge) {
-        if (node.added) {
-            for (const Point& chain_point : added_points()) {
-                if (name_hash(chain_point.name) == name) {
-                    view.hang = chain_point.hang;
-                }
-            }
-        } else if (script::Struct* params = look_up_node_params(name)) {
-            static const uint32_t kLeft = name_hash("HangLeft");
-            static const uint32_t kRight = name_hash("HangRight");
-            if (params->has_bare_flag(kLeft)) {
-                view.hang = kHangLeft;
-            } else if (params->has_bare_flag(kRight)) {
-                view.hang = kHangRight;
-            } else {
-                view.hang = 0;
-            }
-        }
+        read_ledge_hang(node, name, view);
     }
     if (view.rail) {
-        auto speed = extras_state().find(name);
-        auto level_speed = level_speeds().find(name);
-        if (speed != extras_state().end()) {
-            view.speed = speed->second.speed;
-        } else if (level_speed != level_speeds().end()) {
-            view.speed = level_speed->second;
-        } else {
-            view.speed = 0.0F;
-        }
-        script::Struct* own = look_up_node_params(name);
-        uint32_t script = 0;
-        auto applied = speed_applied().find(name);
-        if (applied != speed_applied().end()) {
-            script = applied->second.original_script_;
-        } else if (own) {
-            own->read_hash_value(kTriggerScriptKey, &script, 0);
-        }
-        if (script != 0U) {
-            const triggers::Calls calls = triggers::script_calls(script);
-            view.level_speed_ = calls.rail_speed_;
-            view.level_rate_ = calls.rail_rate_;
-        }
-        auto extras = extras_state().find(name);
-        if (node.added) {
-            view.can_trick_object_ = true;
-            view.trick_object_ = extras != extras_state().end() && (extras->second.cluster != 0U);
-            if (view.trick_object_) {
-                view.cluster = object_edit::caption(extras->second.cluster);
-            }
-            view.grind_flat_ = extras != extras_state().end() && extras->second.grind_flat_;
-        } else {
-            view.trick_object_ = node.trick_object_;
-            static const uint32_t kCluster = name_hash("Cluster");
-            static const uint32_t kFlag = name_hash("ed_grind_flat");
-            script::Struct* params = look_up_node_params(name);
-            uint32_t cluster = name;
-            if (params) {
-                params->read_hash_value(kCluster, &cluster, 0);
-            }
-            if (view.trick_object_) {
-                view.cluster = object_edit::caption(cluster);
-            }
-            view.grind_flat_ = std::ranges::find(level_flat(), name) != level_flat().end() ||
-                               ((params != nullptr) && params->has_bare_flag(kFlag));
-        }
-        if (const objects::GrindPoint* rail = rail_node_named(name)) {
-            for (size_t i = 0; i < view.terrains.size(); ++i) {
-                uint8_t value = 0;
-                if (terrain_byte(core::at(view.terrains, i), &value) && value == rail->surface_type()) {
-                    view.terrain = static_cast<int>(i);
-                    break;
-                }
-            }
-        }
+        read_rail_view(node, name, view);
     }
     return view;
 }
