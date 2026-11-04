@@ -5,7 +5,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/packed_colour.h"
 #include "engine/maths/vec2.h"
 #include "engine/maths/vec4.h"

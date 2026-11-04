@@ -4,9 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"

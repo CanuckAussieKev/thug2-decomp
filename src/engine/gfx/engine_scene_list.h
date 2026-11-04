@@ -4,7 +4,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 
 namespace maths {
 struct Seg;

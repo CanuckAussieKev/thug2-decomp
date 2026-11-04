@@ -12,7 +12,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/str.h"
 #include "engine/sys/game_config.h"
 #include "engine/lists/dynamic_table.h"

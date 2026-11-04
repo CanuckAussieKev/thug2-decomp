@@ -13,8 +13,8 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/maths/mat4.h"
 #include "gpu/vertex_buffers.h"
@@ -24,7 +24,7 @@
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/model.h"
 #include "engine/core/ints.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include <span>
 #include "gpu/vertex_view.h"

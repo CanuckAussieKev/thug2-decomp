@@ -1,6 +1,6 @@
-// NOT ORIGINAL - the script pools' sizes (engine/core/memory_sizes.h). Pool sizes as THUGPRO's.
+// NOT ORIGINAL - the script pools' sizes (engine/memory/memory_sizes.h). Pool sizes as THUGPRO's.
 
-#include "engine/core/memory_sizes.h"
+#include "engine/memory/memory_sizes.h"
 
 #include <algorithm>
 #include <cstdint>

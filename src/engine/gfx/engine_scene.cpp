@@ -13,7 +13,7 @@
 #include <new>
 
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/sector.h"

@@ -9,9 +9,9 @@
 #include <gsl/assert>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "platform/stopwatch.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/checked_index.h"

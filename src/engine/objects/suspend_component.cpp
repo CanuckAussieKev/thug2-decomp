@@ -6,8 +6,8 @@
 #include <memory>
 #include <span>
 
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/model.h"

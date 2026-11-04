@@ -13,7 +13,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/maths/trig.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/pc_billboards.h"

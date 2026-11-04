@@ -7,7 +7,7 @@
 #include <array>
 
 #include "engine/core/checked_index.h"
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/career.h"

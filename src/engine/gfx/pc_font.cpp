@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <span>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/text.h"
 #include "engine/core/down_cast.h"

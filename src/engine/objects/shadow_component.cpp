@@ -9,7 +9,7 @@
 #include <gsl/assert>
 
 #include "engine/assets/resource_registry.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_shadows.h"
 #include "engine/gfx/model.h"
 #include "engine/maths/mat4.h"

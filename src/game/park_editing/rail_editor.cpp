@@ -13,9 +13,9 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "formats/byte_stream.h"

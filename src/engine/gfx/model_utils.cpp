@@ -11,8 +11,8 @@
 
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/text_store.h"
+#include "engine/memory/manager.h"
+#include "engine/util/text_store.h"
 #include "engine/gfx/model.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/compositemgr.h"

@@ -6,11 +6,11 @@
 #include <array>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/manager.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/manager.h"
 #include "platform/gamespy.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/maths/vec4.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/buddy_status.h"

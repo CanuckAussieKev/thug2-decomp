@@ -2,7 +2,7 @@
 
 #include "engine/net/net_lists.h"
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/core/checked_index.h"
 
 namespace net {

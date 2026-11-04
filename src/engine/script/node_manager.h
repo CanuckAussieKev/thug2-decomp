@@ -6,7 +6,7 @@
 #include <gsl/pointers>
 #include <array>
 #include <span>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/checksums.h"
 
 // The node arrays the level's objects come from (level_nodes::CNodeManager, a reference-counted singleton at

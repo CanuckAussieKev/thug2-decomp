@@ -15,7 +15,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/memory_report.h"
+#include "engine/memory/memory_report.h"
 #include "engine/file/file_load.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor.h"

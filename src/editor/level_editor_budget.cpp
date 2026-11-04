@@ -11,11 +11,11 @@
 #include <vector>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/memory_sizes.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/memory_sizes.h"
+#include "engine/memory/slab_bank.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_node_create.h"
 #include "editor/level_editor_nodes.h"
@@ -147,7 +147,7 @@ std::string added_text(const Meter& meter)
 namespace {
 
 // The script pools (Scripts::CreateScriptPools): their pool pairs and names (the counts are the pools' own -
-// ours are bigger than the original's: engine/core/memory_sizes.h).
+// ours are bigger than the original's: engine/memory/memory_sizes.h).
 struct PoolInfo {
     memory::PoolPair& (*pair)(); // (a function: the globals are set up after this table)
     const char* name;

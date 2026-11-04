@@ -18,7 +18,7 @@
 #include <span>
 
 #include "engine/maths/vec4.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>

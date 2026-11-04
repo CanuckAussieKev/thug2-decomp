@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/task_list.h"
 #include <gsl/pointers>
 #include <array>
 

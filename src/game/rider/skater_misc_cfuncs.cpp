@@ -8,7 +8,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/random.h"
 #include "engine/maths/vec4.h"

@@ -12,7 +12,7 @@
 #include "editor/level_editor_layout.h"
 #include "engine/script/params.h"
 #include <gsl/pointers>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/format.h"
 
 namespace render {

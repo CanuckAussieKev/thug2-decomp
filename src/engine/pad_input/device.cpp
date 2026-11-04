@@ -15,16 +15,16 @@
 #include <new>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
 #include "frontend/screen_element.h"
 #include "game/skate/profile_manager.h"
 #include "platform/platform.h"
 #include "platform/platform_input.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/stubs.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "engine/lists/list_walk.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/music_api.h"

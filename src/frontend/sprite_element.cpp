@@ -7,7 +7,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_sprite.h"
 #include "engine/gfx/texture_dict.h"

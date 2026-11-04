@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/script/param_struct.h"

@@ -6,8 +6,8 @@
 #include <gsl/pointers>
 #include <array>
 #include <span>
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
 
 // The engine's flexible particle manager (Nx; the one at 0x006FA7C0 - the flexible particle component's systems are
 // made, found and destroyed through it): its systems in a list, on a heap of their own (or a temporary one a

@@ -1,11 +1,11 @@
-#include "engine/core/text_store.h"
+#include "engine/util/text_store.h"
 
 #include <algorithm>
 #include <cstring>
 #include <iterator>
 #include <new>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include <span>
 #include "engine/core/checked_index.h"
 

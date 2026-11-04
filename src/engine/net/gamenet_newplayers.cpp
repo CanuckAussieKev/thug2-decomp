@@ -7,10 +7,10 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/core/enum_ops.h"
 #include "platform/gamespy.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
@@ -37,7 +37,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/str.h"
 #include "engine/net/net_game_state.h"

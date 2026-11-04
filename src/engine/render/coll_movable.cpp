@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <new>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"

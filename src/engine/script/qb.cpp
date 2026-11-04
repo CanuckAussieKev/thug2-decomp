@@ -13,10 +13,10 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/memory_sizes.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/memory_sizes.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/maths/random.h"
 #include "engine/script/cache.h"
 #include "engine/script/names.h"
@@ -478,7 +478,7 @@ void allocate_permanent_string_heap(const memory::sizes::Pools& sizes)
 // 0x0046F520
 void create_script_pools()
 {
-    // Not original - the counts are ours (engine/core/memory_sizes.h: pool sizes as THUGPRO's, thug2-decomp.ini
+    // Not original - the counts are ours (engine/memory/memory_sizes.h: pool sizes as THUGPRO's, thug2-decomp.ini
     // [memory]); the script region they come from is grown to match (memory::Hub::InitStandardHeaps).
     // Original behaviour: CScriptCacheEntry 300, CComponent 86000, CStruct 19800, CVector 9500, CPair 800, CArray
     // 7000, CSymbolTableEntry 12500, CScript 300, CStoredRandom 100, the string heap 190000 bytes / 7000 strings.

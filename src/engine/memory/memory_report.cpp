@@ -1,6 +1,6 @@
-// NOT ORIGINAL - the memory a level takes, logged (engine/core/memory_report.h).
+// NOT ORIGINAL - the memory a level takes, logged (engine/memory/memory_report.h).
 
-#include "engine/core/memory_report.h"
+#include "engine/memory/memory_report.h"
 
 #include <windows.h>
 
@@ -14,9 +14,9 @@
 #include <memory>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/manager.h"
-#include "engine/core/memory_sizes.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/memory_sizes.h"
 #include "platform/run_log.h"
 #include "engine/core/format.h"
 

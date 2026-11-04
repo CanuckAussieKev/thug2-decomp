@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/maths/vec2.h"
 #include <gsl/pointers>

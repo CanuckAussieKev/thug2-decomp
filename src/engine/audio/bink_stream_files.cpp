@@ -16,7 +16,7 @@
 #include "platform/crt.h"
 #include "platform/bink.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/audio/audio_state.h"
 #include "engine/core/no_destroy.h"
 

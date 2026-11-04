@@ -23,9 +23,9 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "formats/wave_format.h"
 #include "formats/byte_stream.h"
 #include "frontend/data_overlay.h"

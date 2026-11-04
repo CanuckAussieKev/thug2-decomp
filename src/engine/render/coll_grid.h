@@ -9,7 +9,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/core/checked_index.h"
 

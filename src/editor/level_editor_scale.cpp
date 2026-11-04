@@ -32,7 +32,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/geom.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"

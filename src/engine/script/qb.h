@@ -5,10 +5,10 @@
 #include <array>
 #include <span>
 #include "engine/core/enum_ops.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/script/cell.h"
 #include "engine/script/tokens.h"
-#include "engine/core/memory_sizes.h"
+#include "engine/memory/memory_sizes.h"
 
 // Compiled scripts (.qb bytecode): reading and skipping tokens, and setting up the script system's pools.
 //

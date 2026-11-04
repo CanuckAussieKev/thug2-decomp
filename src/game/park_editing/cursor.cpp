@@ -8,10 +8,10 @@
 #include <new>
 #include <gsl/assert>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/core/checked_index.h"

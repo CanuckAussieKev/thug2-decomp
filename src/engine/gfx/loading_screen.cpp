@@ -18,7 +18,7 @@
 #include <array>
 #include <iterator>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/loading_bar.h"
 #include "engine/gfx/pc_texture.h"

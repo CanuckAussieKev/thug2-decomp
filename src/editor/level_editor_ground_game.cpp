@@ -23,7 +23,7 @@
 #include "engine/core/enum_ops.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "editor/level_editor_ground.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_objects.h"

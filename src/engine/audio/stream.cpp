@@ -14,7 +14,7 @@
 
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "formats/stream_index_format.h"
 #include "formats/byte_stream.h"
 #include "engine/sys/startup_init.h"

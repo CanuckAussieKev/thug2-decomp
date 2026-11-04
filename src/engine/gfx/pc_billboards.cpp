@@ -13,8 +13,8 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
@@ -22,7 +22,7 @@
 #include "engine/gfx/render_state.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "engine/core/span_copy.h"

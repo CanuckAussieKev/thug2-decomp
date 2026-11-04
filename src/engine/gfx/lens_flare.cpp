@@ -7,7 +7,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_cfuncs.h"
 #include "frontend/screen_element_manager.h"

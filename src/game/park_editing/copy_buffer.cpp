@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor.h"

@@ -8,7 +8,7 @@
 
 #include "engine/core/enum_ops.h"
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "frontend/menu_element.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"

@@ -8,7 +8,7 @@
 #include <array>
 #include <string_view>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "game/goals/goal_manager.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"

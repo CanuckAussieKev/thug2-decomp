@@ -10,10 +10,10 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/member_code.h"
 #include "engine/script/tokens.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include <gsl/pointers>
 
-// A running script (Scripts::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, engine/core/memory_sizes.h) and the list of all of them.
+// A running script (Scripts::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, engine/memory/memory_sizes.h) and the list of all of them.
 //
 // A script runs compiled .qb code (see qb.h) one statement at a time from its program counter until it has to
 // wait or it ends; Update does that once (the callers decide when: the spawned scripts every frame, objects'

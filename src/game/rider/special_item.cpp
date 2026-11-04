@@ -7,7 +7,7 @@
 #include <array>
 
 #include "wire/message_ids.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"

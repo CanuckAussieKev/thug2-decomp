@@ -285,7 +285,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `pad` | 0 | Controller mode |
 | `tips_seen` | 0 | The first-run tips have been shown |
 
-**`[memory]`** - the script pools' sizes (bigger than THUG2's so big converted levels fit - `src/engine/core/memory_sizes.h`)
+**`[memory]`** - the script pools' sizes (bigger than THUG2's so big converted levels fit - `src/engine/memory/memory_sizes.h`)
 
 | Key | Default | THUG2's |
 |---|---|---|

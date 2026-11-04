@@ -8,8 +8,8 @@
 #include "game/skate/game_mode.h"
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/script/param_struct.h"
 #include "game/goals/objective.h"
 #include "engine/net/gamenet_manager.h"

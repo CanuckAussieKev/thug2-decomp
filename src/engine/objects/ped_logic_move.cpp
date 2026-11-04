@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/objects/smtptr.h"
 #include "game/rider/rider.h"
 #include "engine/maths/maths.h"

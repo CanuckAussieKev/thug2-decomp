@@ -6,7 +6,7 @@
 #include <memory>
 
 #include <gsl/pointers>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 
 // The records (0x0057ECD0-0x0057FE27): each level's high scores, best combos and (some levels) arcade scores - tables
 // of records kept sorted, best first - and its longest combo, grind, lip trick and manual; the game's records are

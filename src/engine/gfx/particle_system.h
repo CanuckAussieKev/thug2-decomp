@@ -7,7 +7,7 @@
 
 #include "engine/core/packed_colour.h"
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/smtptr.h"

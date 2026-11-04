@@ -14,7 +14,7 @@
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/vec4.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor.h"

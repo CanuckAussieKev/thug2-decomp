@@ -11,7 +11,7 @@
 
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/movie.h"
 #include "platform/mute_audio.h"
 #include "platform/winmain.h"

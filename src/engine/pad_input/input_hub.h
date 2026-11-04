@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <memory>
 
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include <gsl/pointers>
 #include <array>
 

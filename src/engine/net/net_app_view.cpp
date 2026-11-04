@@ -3,7 +3,7 @@
 #include "engine/net/net_app.h"
 #include "wire/message_ids.h"
 #include "engine/core/enum_ops.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 
 #include <winsock2.h>
 #include <windows.h>
@@ -17,14 +17,14 @@
 #include <span>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_app_view.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
 #include "engine/net/net_messages.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"

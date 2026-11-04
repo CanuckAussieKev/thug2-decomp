@@ -11,8 +11,8 @@
 #include <string_view>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/file/packs.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"

@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/text_store.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/util/text_store.h"
 #include "engine/maths/vec4.h"
 
 // Two kinds of list entries the skater's trick code (0x00512000-) keeps (each a lists::Elem of its own type with a

@@ -4,14 +4,14 @@
 
 #include <new>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_static.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

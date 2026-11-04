@@ -7,9 +7,9 @@
 #include <initializer_list>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/objects/control_pad.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"

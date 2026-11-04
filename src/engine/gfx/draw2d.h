@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 
 // The 2D draw list (Nx engine, PC): screen texts and sprites are kept in one list sorted by priority (0x007CC248,
 // lowest first) and drawn in that order by draw_2d. The base of GlyphRun (text.h) and QuadSprite (billboard_quad.h).

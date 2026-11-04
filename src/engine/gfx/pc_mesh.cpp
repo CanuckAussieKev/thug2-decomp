@@ -10,8 +10,8 @@
 
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/core/str.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/engine.h"

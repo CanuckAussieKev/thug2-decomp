@@ -18,7 +18,7 @@
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 #include <gsl/pointers>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "platform/crt.h"
 
 namespace net {

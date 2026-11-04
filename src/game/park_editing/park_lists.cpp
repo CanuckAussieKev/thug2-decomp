@@ -7,8 +7,8 @@
 
 #include "game/park_editing/park.h"
 
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "game/park/park_memory.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

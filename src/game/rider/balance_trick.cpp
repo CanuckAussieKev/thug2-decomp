@@ -9,7 +9,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

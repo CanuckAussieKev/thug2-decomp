@@ -11,8 +11,8 @@
 #include <span>
 
 #include "engine/core/checked_index.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "editor/level_editor_layout.h"
 #include "engine/script/cell.h"
 #include "engine/script/param_struct.h"

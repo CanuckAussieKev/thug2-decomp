@@ -6,7 +6,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/file/async.h"
 #include "formats/bundle_format.h"
 #include "engine/file/packs.h"

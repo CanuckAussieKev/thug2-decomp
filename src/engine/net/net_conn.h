@@ -10,7 +10,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/net/net_latency.h"
 #include "engine/net/net_lists.h"
 #include "engine/net/net_messages.h"

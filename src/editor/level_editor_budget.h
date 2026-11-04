@@ -19,7 +19,7 @@
 //   node arrays     20      CNodeManager's arrays (AddNodeArray 0x0045D520) - the level's, the editor's overlay...
 //   script pools            Scripts::CreateScriptPools (qb.cpp) - every node is a CStruct of CComponents, vectors and
 //                           arrays from these (pool pairs, items in use / items - the pools' own counts; ours are
-//                           bigger, engine/core/memory_sizes.h; the original's in brackets):
+//                           bigger, engine/memory/memory_sizes.h; the original's in brackets):
 //                           CStruct 64000 (19800, 0x006F3614), CComponent 360000 (86000, 0x006F2338), CVector 48000
 //                           (9500, 0x006F3654), CArray 26000 (7000, 0x006F22B4), CSymbolTableEntry 45000 (12500,
 //                           0x006F362C), CScript 1200 (300, 0x006F3548); HashItem 56000 (10000)

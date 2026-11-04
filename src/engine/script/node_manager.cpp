@@ -10,9 +10,9 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/memory_sizes.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/memory_sizes.h"
 #include "engine/objects/path_manager.h"
 #include "engine/script/node_prefixes.h"
 #include "engine/script/names.h"

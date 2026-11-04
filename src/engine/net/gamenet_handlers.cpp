@@ -11,7 +11,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/net/gamenet_game_cfuncs.h"
 #include "engine/net/gamenet_handler_util.h"

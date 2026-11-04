@@ -15,9 +15,9 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/core/stubs.h"
 #include "engine/script/cell.h"
 #include "game/goals/goal_manager.h"

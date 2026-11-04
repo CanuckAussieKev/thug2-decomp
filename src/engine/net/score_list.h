@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 
 // The network game's score list (the net_score_1 ... net_score_8 lines): online::Hub::get_squad_points /
 // get_entrant_points (gamenet_manager.h) and the task that fills the lines.

@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
 

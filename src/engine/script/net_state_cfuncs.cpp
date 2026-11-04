@@ -10,10 +10,10 @@
 #include <array>
 
 #include "engine/core/enum_ops.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/core/stubs.h"
 #include "platform/crt.h"
 #include "engine/net/gamenet_handler_util.h"

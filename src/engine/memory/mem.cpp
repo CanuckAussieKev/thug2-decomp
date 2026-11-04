@@ -1,8 +1,8 @@
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 
 #include <cstring>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 
 namespace memory {
 

@@ -7,8 +7,8 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/script/param_struct.h"
 #include "formats/byte_stream.h"
 #include "engine/core/ints.h"

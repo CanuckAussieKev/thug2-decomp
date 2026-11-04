@@ -7,8 +7,8 @@
 
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
 #include "engine/core/checksums.h"
 #include "engine/net/player_info.h"

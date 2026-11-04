@@ -14,7 +14,7 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/render/collision_state.h"
 #include "engine/core/no_destroy.h"

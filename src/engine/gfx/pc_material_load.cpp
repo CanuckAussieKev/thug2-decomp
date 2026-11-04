@@ -7,7 +7,7 @@
 #include <new>
 
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/scene_file_stream.h"
 #include "formats/scene_format.h"

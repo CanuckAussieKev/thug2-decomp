@@ -19,8 +19,8 @@
 #include <initializer_list>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/projected_vertex.h"
 #include "engine/gfx/surface_material.h"

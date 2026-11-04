@@ -9,7 +9,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/rig.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/shape_tests.h"

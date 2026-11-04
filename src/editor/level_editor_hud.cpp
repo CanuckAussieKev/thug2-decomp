@@ -19,7 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 

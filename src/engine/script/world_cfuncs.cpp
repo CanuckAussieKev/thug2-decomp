@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"

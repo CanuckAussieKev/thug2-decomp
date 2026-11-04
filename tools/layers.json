@@ -2,7 +2,15 @@
     "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins, so the OS-free core folders of engine/ are 'base' until they move.",
     "libraries": {
         "base": {
-            "folders": ["src/engine/core/", "src/engine/maths/", "src/engine/lists/", "src/engine/util/"],
+            "folders": [
+                "src/engine/core/",
+                "src/engine/maths/",
+                "src/engine/lists/dynamic_table.h",
+                "src/engine/lists/object_set.h",
+                "src/engine/util/bitstream.",
+                "src/engine/util/bps.",
+                "src/engine/util/com_ptr.h"
+            ],
             "allowed": []
         },
         "platform": { "folders": ["src/platform/"], "allowed": ["base"] },

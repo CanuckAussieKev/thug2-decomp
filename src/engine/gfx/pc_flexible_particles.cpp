@@ -12,8 +12,8 @@
 #include <cstring>
 #include <span>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/particle_types.h"

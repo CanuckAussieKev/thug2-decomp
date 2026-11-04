@@ -10,8 +10,8 @@
 #include <span>
 
 #include "engine/core/enum_ops.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/core/checksums.h"
 #include "engine/gfx/screen.h"
 #include "engine/maths/mat4.h"

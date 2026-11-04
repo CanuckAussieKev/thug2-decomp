@@ -19,9 +19,9 @@
 #include <vector>
 
 #include "editor/level_editor.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "editor/level_editor_clusters.h"
 #include "editor/level_editor_ground.h"
 #include "editor/level_editor_picking.h"

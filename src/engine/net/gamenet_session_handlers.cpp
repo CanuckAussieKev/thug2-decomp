@@ -11,8 +11,8 @@
 
 #include "engine/net/player_info.h"
 #include "engine/core/enum_ops.h"
-#include "engine/core/manager.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/gamenet_commands.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_handlers.h"
@@ -48,7 +48,7 @@
 #include "engine/net/gamenet_lists.h"
 #include "wire/play_messages.h"
 #include "engine/core/ints.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

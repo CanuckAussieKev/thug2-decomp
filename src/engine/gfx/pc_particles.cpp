@@ -14,8 +14,8 @@
 #include <span>
 
 #include "engine/core/cursor.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/occlusion.h"
 #include "engine/gfx/particle_sets.h"

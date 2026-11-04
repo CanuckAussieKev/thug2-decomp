@@ -8,8 +8,8 @@
 #include <new>
 
 #include "engine/gfx/engine_geom.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_scene.h"
@@ -22,7 +22,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/weather.h"
 #include "engine/gfx/pc_texture.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

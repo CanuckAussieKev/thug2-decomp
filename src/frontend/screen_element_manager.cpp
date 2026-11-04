@@ -10,7 +10,7 @@
 #include <memory>
 #include <gsl/assert>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/objects/signal.h"
 #include "frontend/new_frontend.h"
 #include "frontend/screen_element.h"
@@ -21,7 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/objects/entity_hub.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"

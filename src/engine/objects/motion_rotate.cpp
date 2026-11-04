@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/objects/motion.h"
@@ -15,7 +15,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/maths/vec4.h"

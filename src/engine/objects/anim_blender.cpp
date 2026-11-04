@@ -10,8 +10,8 @@
 #include <gsl/assert>
 
 #include "engine/core/checked_index.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/rig.h"
@@ -32,7 +32,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {

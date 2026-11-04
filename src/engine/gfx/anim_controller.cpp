@@ -10,8 +10,8 @@
 #include <cstring>
 #include <new>
 
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/gfx/boned_anim_frame_data.h"

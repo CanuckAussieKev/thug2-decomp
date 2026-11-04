@@ -13,8 +13,8 @@
 #include <array>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/pc_lights.h"
 #include "engine/maths/vec4.h"
 #include "engine/sys/startup_init.h"

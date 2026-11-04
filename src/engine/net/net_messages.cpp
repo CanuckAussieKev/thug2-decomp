@@ -7,8 +7,8 @@
 #include <cstring>
 
 #include "wire/message_ids.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/net/net_app_view.h"
 #include "engine/net/net_compress.h"
 namespace net {

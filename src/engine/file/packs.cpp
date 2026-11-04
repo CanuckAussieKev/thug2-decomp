@@ -14,7 +14,7 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"

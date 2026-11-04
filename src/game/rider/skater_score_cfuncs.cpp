@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"

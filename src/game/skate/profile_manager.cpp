@@ -4,9 +4,9 @@
 
 #include <cstdint>
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/text_store.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/util/text_store.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/face_texture.h"

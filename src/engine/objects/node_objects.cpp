@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <new>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/objects/bbox_component.h"

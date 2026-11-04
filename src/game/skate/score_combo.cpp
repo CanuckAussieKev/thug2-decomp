@@ -13,8 +13,8 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/dynamic_table.h"
 #include "engine/lists/lookup_table.h"
 #include "engine/net/gamenet_manager.h"

@@ -61,7 +61,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/maths/vec4.h"

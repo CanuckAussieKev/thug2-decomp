@@ -10,12 +10,12 @@
 #include <span>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_effects.h"

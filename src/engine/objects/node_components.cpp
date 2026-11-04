@@ -10,8 +10,8 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/objects/node_objects.h"
 #include "engine/objects/rail_manager.h"

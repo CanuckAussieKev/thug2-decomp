@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "engine/core/enum_ops.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "engine/gfx/view_cam.h"

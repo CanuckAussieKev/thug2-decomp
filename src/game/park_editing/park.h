@@ -23,9 +23,9 @@
 #include "formats/park_map_format.h"
 #include "game/park_editing/park_rails.h"
 #include "engine/maths/vec4.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/assets/resource_entry.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>

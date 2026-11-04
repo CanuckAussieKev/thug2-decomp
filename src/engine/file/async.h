@@ -3,8 +3,8 @@
 #include <memory>
 #include <cstdint>
 
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/sys/game_module.h"
 
 namespace pre {

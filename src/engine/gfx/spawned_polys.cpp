@@ -8,8 +8,8 @@
 #include <new>
 #include <array>
 
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/gfx/pc_primitive.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"

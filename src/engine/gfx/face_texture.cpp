@@ -11,8 +11,8 @@
 #include <array>
 
 #include "engine/gfx/engine_texture.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/script/param_struct.h"

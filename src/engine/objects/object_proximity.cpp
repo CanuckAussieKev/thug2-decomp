@@ -8,7 +8,7 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"

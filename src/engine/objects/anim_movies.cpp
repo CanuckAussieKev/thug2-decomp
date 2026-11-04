@@ -11,8 +11,8 @@
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/view_cam.h"

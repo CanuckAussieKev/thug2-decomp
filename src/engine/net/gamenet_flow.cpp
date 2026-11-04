@@ -9,7 +9,7 @@
 #include "engine/pad_input/input_hub.h"
 #include "engine/core/enum_ops.h"
 #include "engine/core/stubs.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/gamenet_observer.h" // IWYU pragma: keep - the observer templates instantiated here need pad_input::Responder
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"

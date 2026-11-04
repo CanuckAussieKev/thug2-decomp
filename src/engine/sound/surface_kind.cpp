@@ -10,7 +10,7 @@
 
 #include "wire/message_ids.h"
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/random.h"
 #include "engine/maths/vec4.h"

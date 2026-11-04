@@ -78,7 +78,7 @@
 #include "game/skate/point_tally.h"
 #include "platform/unique_handle.h"
 #include "engine/core/parse_number.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

@@ -5,7 +5,7 @@
 
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/sound/sfx.h"
 
 namespace sound {

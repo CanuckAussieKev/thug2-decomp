@@ -12,13 +12,13 @@
 #include <array>
 #include <string_view>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/net/buddy_status.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/maths/mat4.h"
 #include "engine/net/net_app.h"

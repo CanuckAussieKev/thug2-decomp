@@ -26,8 +26,8 @@
 
 #include "editor/level_editor.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_node_create.h"

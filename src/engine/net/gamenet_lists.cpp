@@ -2,7 +2,7 @@
 
 #include "engine/net/gamenet_lists.h"
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 
 namespace online {
 

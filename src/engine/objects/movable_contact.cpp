@@ -2,8 +2,8 @@
 
 #include "engine/objects/movable_contact.h"
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/ride_tracker.h"

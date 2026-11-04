@@ -12,8 +12,8 @@
 #include <span>
 
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/core/stubs.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard.h"

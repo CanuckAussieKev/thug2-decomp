@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/gamenet_lobby.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/server_list.h"
@@ -20,7 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/script/fwd.h"
-#include "engine/core/fwd.h"
+#include "engine/memory/fwd.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
 #include "engine/net/score_list.h"

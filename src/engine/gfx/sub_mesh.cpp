@@ -15,7 +15,7 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/vec4.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"

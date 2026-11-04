@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/text_store.h"
+#include "engine/util/text_store.h"
 
 namespace script {
 class Struct;

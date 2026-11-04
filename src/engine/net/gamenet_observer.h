@@ -7,8 +7,8 @@
 
 #include <cstdint>
 
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
 #include "engine/pad_input/input_hub.h"

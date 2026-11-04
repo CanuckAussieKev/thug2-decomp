@@ -8,7 +8,7 @@
 
 #include "engine/core/dbg.h"
 #include "platform/gamespy.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_handlers.h"
 #include "engine/net/gamenet_manager.h"

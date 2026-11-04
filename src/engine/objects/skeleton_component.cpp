@@ -9,8 +9,8 @@
 #include <array>
 
 #include "engine/assets/resource_registry.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"

@@ -3,7 +3,7 @@
 // NOT ORIGINAL - the collision queries' state shared between their files (the original's globals). The header is the
 // render subsystem's own: other subsystems use its functions (set_current_cache).
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 
 namespace render {
 

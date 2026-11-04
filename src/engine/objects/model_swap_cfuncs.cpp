@@ -4,9 +4,9 @@
 
 #include <cstdint>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/rig.h"

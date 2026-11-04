@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "editor/level_editor_career.h"
 #include "engine/maths/vec4.h"
 #include "engine/script/cell.h"

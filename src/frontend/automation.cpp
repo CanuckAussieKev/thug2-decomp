@@ -108,7 +108,7 @@ constexpr int kFullPressure = 0xFF;
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/format.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;     // "system" (the menus' pad events' target and source)

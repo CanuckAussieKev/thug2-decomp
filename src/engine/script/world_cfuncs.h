@@ -2,7 +2,7 @@
 
 #include <gsl/pointers>
 #include <memory>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 
 namespace script {
 class Struct;

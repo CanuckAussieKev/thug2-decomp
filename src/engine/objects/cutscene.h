@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 
 namespace script {
 class Array;

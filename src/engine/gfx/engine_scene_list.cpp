@@ -11,7 +11,7 @@
 
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_scene.h"
@@ -22,7 +22,7 @@
 #include "engine/render/coll_grid.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/gfx/pc_scene.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"

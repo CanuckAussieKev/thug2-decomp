@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"

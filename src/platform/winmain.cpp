@@ -20,7 +20,7 @@
 #include <string_view>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/net/gamenet_qr2.h"
 #include "engine/net/gamenet_manager.h"

@@ -10,7 +10,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/anim_blend.h"
 #include "formats/anim_format.h"

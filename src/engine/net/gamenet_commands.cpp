@@ -5,9 +5,9 @@
 #include <cstdint>
 #include "engine/net/service.h"
 #include <array>
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "platform/gamespy.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/net/gamenet_commands.h"
 #include "engine/net/gamenet_handler_util.h"

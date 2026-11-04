@@ -11,13 +11,13 @@
 #include <span>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/shape_tests.h"

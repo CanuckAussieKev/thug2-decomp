@@ -10,7 +10,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_world.h"
 #include "engine/core/checked_index.h"

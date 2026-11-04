@@ -6,8 +6,8 @@
 
 #include "engine/gfx/model_builder.h"
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/face_texture.h"

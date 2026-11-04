@@ -16,8 +16,8 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/surface_material.h"

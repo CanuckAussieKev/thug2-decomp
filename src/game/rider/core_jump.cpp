@@ -7,7 +7,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"

@@ -15,9 +15,9 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/online_text.h"
@@ -32,7 +32,7 @@
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include <gsl/assert>

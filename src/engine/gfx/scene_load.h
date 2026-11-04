@@ -2,7 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include <gsl/pointers>
 #include <array>
 #include "engine/maths/mat4.h"

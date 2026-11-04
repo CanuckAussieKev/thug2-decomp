@@ -6,8 +6,8 @@
 #include <array>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
 #include "engine/net/net_app_view.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"

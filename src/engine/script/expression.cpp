@@ -2,7 +2,7 @@
 
 #include "engine/script/qb.h"
 #include "engine/core/enum_ops.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/no_destroy.h"

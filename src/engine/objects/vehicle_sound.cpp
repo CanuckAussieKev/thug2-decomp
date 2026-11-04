@@ -9,7 +9,7 @@
 #include <gsl/pointers>
 #include <gsl/assert>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/sound_component.h"
 #include "engine/objects/vehicle_component.h"

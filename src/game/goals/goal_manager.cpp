@@ -8,7 +8,7 @@
 #include <initializer_list>
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/stubs.h"
 #include "engine/lists/lookup_table.h"
 #include "game/goals/objective.h"
@@ -33,7 +33,7 @@
 #include "game/rider/trick_component.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"

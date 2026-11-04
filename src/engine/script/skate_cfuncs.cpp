@@ -10,7 +10,7 @@
 
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/script/cscript.h"
 #include "engine/script/node_prefixes.h"
 #include "engine/script/nodes.h"

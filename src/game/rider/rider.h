@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/text_store.h"
+#include "engine/util/text_store.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"

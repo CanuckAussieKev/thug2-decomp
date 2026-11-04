@@ -8,8 +8,8 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/core/stubs.h"
 #include "engine/file/asset_bundle.h"
 #include "engine/gfx/view_cam.h"

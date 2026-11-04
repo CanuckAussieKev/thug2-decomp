@@ -4,8 +4,8 @@
 #include <memory>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
 #include <gsl/pointers>
 
 // The engine's own entry points (render::CEngine's statics, cdecl) at 0x0048BF20-0x0048C74F: starting it, a frame's

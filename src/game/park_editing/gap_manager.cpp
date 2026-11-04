@@ -4,8 +4,8 @@
 
 #include <cstdint>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "game/park_editing/park.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

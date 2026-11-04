@@ -3,7 +3,7 @@
 // The world's collision as a line query sees it: the static objects in the scenes' collision grids, and the list of
 // movable collision objects (cars, level objects...).
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_line.h"
 

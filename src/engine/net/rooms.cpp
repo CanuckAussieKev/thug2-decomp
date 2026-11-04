@@ -14,9 +14,9 @@
 #include <memory>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/online_identity.h"
@@ -29,7 +29,7 @@
 #include "engine/core/stubs.h"
 #include "game/goals/objective.h"
 #include "engine/script/fwd.h"
-#include "engine/core/fwd.h"
+#include "engine/memory/fwd.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
 #include "platform/gamespy.h"
@@ -40,7 +40,7 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/parse_number.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"

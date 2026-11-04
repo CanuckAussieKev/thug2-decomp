@@ -9,8 +9,8 @@
 #include "engine/gfx/anim_track.h"
 #include "engine/gfx/custom_anim_key.h"
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/objects/entity.h"

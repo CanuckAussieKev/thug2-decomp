@@ -9,8 +9,8 @@
 #include <array>
 #include <span>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/viewport.h"
@@ -19,7 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/core/checksums.h"

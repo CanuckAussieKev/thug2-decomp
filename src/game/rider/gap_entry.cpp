@@ -9,10 +9,10 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
-#include "engine/core/text_store.h"
+#include "engine/memory/mem.h"
+#include "engine/util/text_store.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/movie_manager.h"

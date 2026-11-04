@@ -18,9 +18,9 @@
 #include <vector>
 
 #include "editor/level_editor.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/maths/vec4.h"

@@ -7,8 +7,8 @@
 #include <new>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/text_store.h"
+#include "engine/memory/manager.h"
+#include "engine/util/text_store.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/trick_objects.h"
 #include "engine/script/cscript.h"

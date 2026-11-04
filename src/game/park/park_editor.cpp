@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park/park_memory.h"

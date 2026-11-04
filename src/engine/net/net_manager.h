@@ -6,10 +6,10 @@
 #include <cstdint>
 #include <memory>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/net/net_messages.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include <gsl/pointers>
 #include <array>
 

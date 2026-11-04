@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include <gsl/pointers>
 
 namespace script {

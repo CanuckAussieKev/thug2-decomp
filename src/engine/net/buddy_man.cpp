@@ -18,11 +18,11 @@
 #include <string_view>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/core/stubs.h"
 #include "engine/core/str.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "engine/lists/list_walk.h"
 #include "engine/maths/random.h"
 #include "engine/net/buddy_status.h"
@@ -40,7 +40,7 @@
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "engine/script/fwd.h"
-#include "engine/core/fwd.h"
+#include "engine/memory/fwd.h"
 #include "engine/net/fwd.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -48,7 +48,7 @@
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include <gsl/assert>

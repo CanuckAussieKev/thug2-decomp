@@ -7,7 +7,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 
 namespace render {
 class ProbeRay;

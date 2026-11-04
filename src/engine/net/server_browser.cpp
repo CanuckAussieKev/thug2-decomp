@@ -10,9 +10,9 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/maths/random.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
@@ -34,7 +34,7 @@
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/loading_bar.h"
 #include "platform/compiler.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"

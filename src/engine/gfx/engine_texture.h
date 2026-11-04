@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec2.h"
 

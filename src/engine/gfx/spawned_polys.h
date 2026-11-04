@@ -6,7 +6,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/gfx/engine_primitive.h"
 #include <gsl/pointers>
 

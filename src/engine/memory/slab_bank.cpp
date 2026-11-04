@@ -1,4 +1,4 @@
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 
 #include "engine/core/str.h"
 
@@ -12,7 +12,7 @@
 
 #include <gsl/assert>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
 
@@ -65,7 +65,7 @@ void* SlabBank::carve()
     if (taken_count_ > peak_used_) {
         peak_used_ = taken_count_;
         // Not original either - a pool reaching 80 % is logged once per pool (which pools a big level comes near:
-        // the script pools' sizes are ours, engine/core/memory_sizes.h).
+        // the script pools' sizes are ours, engine/memory/memory_sizes.h).
         if (static_cast<int64_t>(taken_count_) * kFifths == static_cast<int64_t>(num_) * kFourFifths && num_ >= kMinNearlyFullItems &&
             core::at(label_, 0) != '\0') {
             static std::array<const SlabBank*, kNearlyFullPoolSlots> g_nearly_full;

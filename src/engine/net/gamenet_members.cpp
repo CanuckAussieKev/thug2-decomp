@@ -11,9 +11,9 @@
 
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "platform/gamespy.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "engine/maths/random.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -49,7 +49,7 @@
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"

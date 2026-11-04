@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_manager.h"

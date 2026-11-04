@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
 
 // Tasks: callbacks kept in priority-ordered lists that the main loop runs each frame (the main loop's logic and
 // display task stacks, the input handlers, the file and network managers' tasks...).

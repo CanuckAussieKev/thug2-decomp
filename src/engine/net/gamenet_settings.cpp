@@ -10,7 +10,7 @@
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fixed fields)
 
 #include "engine/net/service.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "platform/gamespy.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_lobby.h"

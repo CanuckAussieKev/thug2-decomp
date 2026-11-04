@@ -7,8 +7,8 @@
 #include <cstring>
 #include <utility>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_app.h"
 #include "engine/core/ints.h"

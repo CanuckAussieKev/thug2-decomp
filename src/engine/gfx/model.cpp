@@ -17,7 +17,7 @@
 #include <cstddef>
 #include <gsl/pointers>
 #include <span>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 
 namespace render {
 

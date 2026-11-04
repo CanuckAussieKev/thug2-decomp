@@ -18,7 +18,7 @@
 
 #include "engine/core/cursor.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/str.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/engine_text.h"

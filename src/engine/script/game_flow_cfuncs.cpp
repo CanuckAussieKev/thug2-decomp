@@ -24,7 +24,7 @@
 #include "engine/net/net_lists.h"
 #include "game/skate/career.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/core/stubs.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/file/packs.h"

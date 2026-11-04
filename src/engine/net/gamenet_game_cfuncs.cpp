@@ -8,8 +8,8 @@
 #include <array>
 
 #include "engine/core/enum_ops.h"
-#include "engine/core/manager.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/gamenet_observer.h"

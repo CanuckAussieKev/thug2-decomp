@@ -15,8 +15,8 @@
 #include <vector>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/mesh_list.h"

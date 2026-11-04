@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/chain_start.h"
 #include "engine/gfx/engine_texture_projection.h"
 #include "engine/gfx/pc_texture_projection.h"
@@ -16,7 +16,7 @@
 #include "engine/script/fwd.h"
 #include "engine/objects/camera_lookaround.h"
 #include <gsl/pointers>
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 
 namespace objects {
 

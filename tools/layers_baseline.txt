@@ -4,14 +4,6 @@ src/editor/level_editor.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor_play.cpp -> src/frontend/front_end.h
 src/editor/level_editor_play.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor_playtest.cpp -> src/frontend/front_end.h
-src/engine/core/arena.cpp -> src/engine/script/cfuncs_engine.h
-src/engine/core/arena_alloc.h -> src/platform/all_ones.h
-src/engine/core/dump_text.cpp -> src/engine/file/file_load.h
-src/engine/core/manager.cpp -> src/engine/sys/game_config.h
-src/engine/core/manager.cpp -> src/platform/crt.h
-src/engine/core/memory_report.cpp -> src/platform/run_log.h
-src/engine/core/memory_sizes.cpp -> src/platform/run_log.h
-src/engine/core/slab_bank.cpp -> src/platform/run_log.h
 src/engine/file/async.cpp -> src/frontend/data_overlay.h
 src/engine/file/file_load.cpp -> src/frontend/data_overlay.h
 src/engine/file/packs.cpp -> src/frontend/data_overlay.h
@@ -462,6 +454,7 @@ src/game/skate/trick_goals.cpp -> src/frontend/screen_element.h
 src/game/skate/trick_goals.cpp -> src/frontend/screen_element_manager.h
 src/game/skate/trick_goals.cpp -> src/frontend/text_element.h
 src/gpu/vertex_buffers.cpp -> src/engine/gfx/renderer.h
+src/gpu/vertex_buffers.cpp -> src/engine/memory/mem.h
 src/platform/game_clock.cpp -> src/engine/objects/control_pad.h
 src/platform/pc_setup.cpp -> src/engine/gfx/glyphs.h
 src/platform/pc_setup.cpp -> src/engine/gfx/settings.h
@@ -512,6 +505,7 @@ src/platform/winmain.cpp -> src/engine/gfx/engine_parts.h
 src/platform/winmain.cpp -> src/engine/gfx/loading_bar_cfuncs.h
 src/platform/winmain.cpp -> src/engine/gfx/loading_console.h
 src/platform/winmain.cpp -> src/engine/gfx/renderer.h
+src/platform/winmain.cpp -> src/engine/memory/manager.h
 src/platform/winmain.cpp -> src/engine/net/gamenet_manager.h
 src/platform/winmain.cpp -> src/engine/net/gamenet_qr2.h
 src/platform/winmain.cpp -> src/engine/net/net_game_state.h

@@ -5,7 +5,7 @@
 #include <array>
 #include <memory>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
 
@@ -33,7 +33,7 @@ public:
     static Hub* get_pull();
     static Hub*& sole();
 
-    // 0x005BBC00: the 64 MB block (ours bigger: engine/core/memory_sizes.h), the main region and its two heaps (in static storage).
+    // 0x005BBC00: the 64 MB block (ours bigger: engine/memory/memory_sizes.h), the main region and its two heaps (in static storage).
     Hub();
     // The rest of the standard heaps (front end, network, script, skater info, theme, skater, named texture heaps).
     void init_standard_heaps();

@@ -149,7 +149,7 @@ exceptions, all in one place:
   `operator[]` (the unchecked-container check's `ExcludeClasses`). Locals of `std::array` type are value-initialised
   (`{}`). All five array / index checks are on.
 - **Ownership**: an owner is a smart pointer by type - `std::unique_ptr<T>` for objects made with `new`
-  (`std::make_unique`), `memory::HeapUnique<T>` (`engine/core/mem.h`) for objects constructed in a block from the
+  (`std::make_unique`), `memory::HeapUnique<T>` (`engine/memory/mem.h`) for objects constructed in a block from the
   game's heaps (`memory::construct_in`: its destructor, then the block given back). The singletons' globals are
   owners and so are members whose class frees what they hold (`std::unique_ptr` / `StructPtr` members); an accessor
   or getter returns `.get()` - never the owner itself. Teardown in the original's
@@ -196,7 +196,7 @@ exceptions, all in one place:
   ends the game) or, for texts from outside the game (other players, the online service), `text::copy_cut` (cut to
   fit) - `engine/core/str.h`; no `strcpy` / `strcat`.
 - **`const` wherever nothing changes** (`misc-const-correctness`): locals and what pointers point at. Placement new
-  goes through `memory::construct_in` / `construct_value_in` / `construct_global_in` (`engine/core/mem.h`) and the
+  goes through `memory::construct_in` / `construct_value_in` / `construct_global_in` (`engine/memory/mem.h`) and the
   original's unbounded inline copies through `text::copy_unbounded` / `append_unbounded` (`engine/core/str.h`), so
   the check sees the writes. `src/tests/maths_check.cpp`'s x87 reference declares the locals its inline assembly
   writes with `AsmFloat` / `AsmDouble` / ... (the check's `AllowedTypes`); the ones it only reads are const.

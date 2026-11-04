@@ -10,10 +10,10 @@
 #include <array>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/manager.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/manager.h"
 #include "engine/core/cursor.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/str.h"
 #include "frontend/model_widget.h"
 #include "frontend/menu_element.h"

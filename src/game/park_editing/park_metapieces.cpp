@@ -11,7 +11,7 @@
 
 #include "game/park_editing/park.h"
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/vec4.h"
 #include "engine/script/cell.h"
 #include "game/park_editing/park_nx.h"

@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/checksums.h"
 

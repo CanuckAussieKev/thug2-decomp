@@ -10,7 +10,7 @@
 #include <winsock2.h>
 
 #include "wire/message_ids.h"
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"

@@ -14,10 +14,10 @@
 #include <cstring>
 #include <new>
 #include <vector>
-#include "engine/core/manager.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/lists/key_map.h"

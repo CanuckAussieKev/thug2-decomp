@@ -11,8 +11,8 @@
 #include <cstring>
 #include <iterator>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"

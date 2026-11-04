@@ -10,8 +10,8 @@
 #include <span>
 
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
 #include "frontend/data_overlay.h"

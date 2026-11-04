@@ -9,8 +9,8 @@
 #include <new>
 #include <gsl/assert>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"

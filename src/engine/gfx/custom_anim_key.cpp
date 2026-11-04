@@ -6,7 +6,7 @@
 
 #include "engine/gfx/custom_anim_key.h"
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"

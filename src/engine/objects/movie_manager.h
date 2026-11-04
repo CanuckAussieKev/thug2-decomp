@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/node_objects.h"

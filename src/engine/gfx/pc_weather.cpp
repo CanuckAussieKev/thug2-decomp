@@ -17,8 +17,8 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"

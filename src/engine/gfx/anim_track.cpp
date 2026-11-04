@@ -10,7 +10,7 @@
 #include <new>
 #include <vector>
 
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/flip_rotate.h"

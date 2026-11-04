@@ -5,12 +5,12 @@
 #include <memory>
 #include <new>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/manager.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/manager.h"
 #include "engine/net/gamenet_handler_util.h" // IWYU pragma: keep - the detail namespace (using-directive)
 #include "platform/gamespy.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/chat.h"
 #include "engine/net/gamenet_handlers.h"
@@ -23,7 +23,7 @@
 #include "engine/script/preferences.h"
 #include "platform/crt.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/fwd.h"
+#include "engine/memory/fwd.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"

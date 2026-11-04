@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include <gsl/pointers>
 #include <array>
 

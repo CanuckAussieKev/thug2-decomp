@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/core/enum_ops.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/maths/random.h"
@@ -32,7 +32,7 @@
 #include "engine/net/stats_man.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"

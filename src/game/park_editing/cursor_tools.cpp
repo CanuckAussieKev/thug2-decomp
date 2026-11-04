@@ -8,7 +8,7 @@
 
 #include "game/park_editing/park.h"
 
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"

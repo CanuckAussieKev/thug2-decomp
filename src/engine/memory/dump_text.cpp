@@ -1,6 +1,6 @@
 // The memory dump's text buffer (0x0059ED60): the pool-usage dump (0x00448330) writes its lines through it.
 
-#include "engine/core/dump_text.h"
+#include "engine/memory/dump_text.h"
 
 #include <cstring>
 #include <array>

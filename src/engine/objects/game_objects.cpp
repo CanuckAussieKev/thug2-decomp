@@ -5,8 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/mem.h"
-#include "engine/core/text_store.h"
+#include "engine/memory/mem.h"
+#include "engine/util/text_store.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"

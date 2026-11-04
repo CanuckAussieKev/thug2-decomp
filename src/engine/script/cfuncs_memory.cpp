@@ -7,13 +7,13 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/dump_text.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/dump_text.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/core/stubs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/scene_load.h"

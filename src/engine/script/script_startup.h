@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <span>
 
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/gfx/spawned_polys.h"
 

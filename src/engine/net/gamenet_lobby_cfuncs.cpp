@@ -8,8 +8,8 @@
 #include <array>
 
 #include "engine/core/checked_index.h"
-#include "engine/core/manager.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_handler_util.h" // IWYU pragma: keep - the detail namespace (using-directive)
 #include "engine/net/gamenet_lobby.h"
@@ -28,7 +28,7 @@
 #include "engine/net/stats_man.h"
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 

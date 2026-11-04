@@ -7,7 +7,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/script/cell.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"

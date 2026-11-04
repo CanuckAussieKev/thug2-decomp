@@ -23,8 +23,8 @@
 #include <span>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
@@ -34,7 +34,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/lists/chain_start.h"
 #include "engine/core/format.h"

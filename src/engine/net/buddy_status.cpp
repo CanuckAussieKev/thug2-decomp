@@ -8,9 +8,9 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_handler_util.h" // IWYU pragma: keep - the detail namespace (using-directive)
 #include "engine/net/gamenet_manager.h"

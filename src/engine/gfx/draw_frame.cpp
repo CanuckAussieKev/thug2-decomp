@@ -15,7 +15,7 @@
 #include <array>
 
 #include "editor/level_editor.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/maths/mat4.h"
 #include "frontend/new_frontend.h"
 #include "frontend/test_view.h"

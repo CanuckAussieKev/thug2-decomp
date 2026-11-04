@@ -7,7 +7,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/raw_view.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/script/param_struct.h"
 #include "engine/lists/lookup_table.h"

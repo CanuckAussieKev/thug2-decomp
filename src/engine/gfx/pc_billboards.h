@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/gfx/window2d.h"
 
 // The PC billboards (the manager at 0x00775B80): the billboard meshes gathered by material into batches, each with

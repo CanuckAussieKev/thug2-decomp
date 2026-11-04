@@ -7,8 +7,8 @@
 #include <new>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/core/str.h"
 #include "engine/script/cell.h"
 #include "engine/script/cscript.h"
@@ -17,7 +17,7 @@
 #include "game/skate/career.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>

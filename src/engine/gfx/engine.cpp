@@ -9,7 +9,7 @@
 #include <span>
 
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/str.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_glue.h"
@@ -35,7 +35,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "platform/compiler.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/format.h"
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"

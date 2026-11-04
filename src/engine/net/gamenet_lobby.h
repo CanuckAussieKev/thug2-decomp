@@ -10,7 +10,7 @@
 #include <memory>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 
 namespace script {
 class Script;

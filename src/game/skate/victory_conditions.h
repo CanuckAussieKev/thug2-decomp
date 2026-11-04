@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include <gsl/pointers>
 
 // goals::WinRule: how a game mode is won - a goal's victory_conditions entries (type= highest_score,

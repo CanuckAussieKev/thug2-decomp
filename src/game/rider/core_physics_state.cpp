@@ -8,8 +8,8 @@
 #include <new>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/render/coll_cache.h"

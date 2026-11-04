@@ -8,7 +8,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include <gsl/pointers>
 
 namespace script {

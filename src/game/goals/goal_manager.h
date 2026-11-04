@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/lists/lookup_table.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>

@@ -5,8 +5,8 @@
 
 #include "engine/lists/lookup_table.h"
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 
 namespace lists {
 

@@ -9,9 +9,9 @@
 #include <string_view>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/anim_cache.h"

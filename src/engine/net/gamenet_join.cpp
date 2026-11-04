@@ -18,9 +18,9 @@
 #include "engine/core/format.h"
 #include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
 #include "platform/gamespy.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/task_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/chat.h"
 #include "engine/net/gamenet_handlers.h"

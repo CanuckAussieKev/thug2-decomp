@@ -22,8 +22,8 @@
 #include <vector>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
 #include "engine/script/cell.h"

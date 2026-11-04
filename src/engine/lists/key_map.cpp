@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cstdint>
 #include <new>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 namespace lists {
 
 

@@ -13,8 +13,8 @@
 #include <cstring>
 #include <span>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/manager.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/manager.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
@@ -27,7 +27,7 @@
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include <gsl/pointers>
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/renderer.h"
 #include "engine/maths/mat4.h"
 #include "engine/core/raw_view.h"

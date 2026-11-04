@@ -6,7 +6,7 @@
 
 #include <cmath>
 #include <cstdint>
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "formats/park_map_format.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/piece_menu.h"
@@ -29,7 +29,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "game/park_editing/park_editing_state.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"

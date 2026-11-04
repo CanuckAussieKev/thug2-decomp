@@ -11,7 +11,7 @@
 #include <string_view>
 
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/audio/music_player.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_config.h"

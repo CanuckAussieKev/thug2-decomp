@@ -6,7 +6,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/script/names.h"

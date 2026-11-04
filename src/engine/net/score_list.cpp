@@ -7,7 +7,7 @@
 #include <array>
 
 #include "engine/core/enum_ops.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "frontend/screen_element.h"
 #include "engine/lists/chain_start.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -22,7 +22,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
-#include "engine/core/fwd.h"
+#include "engine/memory/fwd.h"
 #include "engine/net/fwd.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -32,7 +32,7 @@
 #include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
 #include "platform/compiler.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

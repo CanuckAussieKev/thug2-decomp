@@ -15,7 +15,7 @@
 #include <array>
 #include <vector>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"

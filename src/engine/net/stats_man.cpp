@@ -11,10 +11,10 @@
 #include <memory>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/core/str.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "engine/lists/chain_start.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -32,7 +32,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

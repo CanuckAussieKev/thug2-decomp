@@ -10,7 +10,7 @@
 
 #include <d3d9.h>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport.h"
 #include "engine/maths/vec4.h"

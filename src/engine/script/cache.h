@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <new>
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/sys/game_module.h"
 #include <gsl/pointers>
 
@@ -25,7 +25,7 @@ constexpr size_t kScriptCacheEntryBytes = 0x14;
 // bytes, is smaller than the script, and while 100 or more entries are in use in the entry pool. (With no unused
 // entry left to drop and still too little room, the original reads through a null pointer - kept.)
 struct ScriptCacheEntry {
-    // 0x00475AC0: from the current pool of 0x006F3560 (300 items in the original, 1200 ours - engine/core/memory_sizes.h; null when it's full), or the default heap
+    // 0x00475AC0: from the current pool of 0x006F3560 (300 items in the original, 1200 ours - engine/memory/memory_sizes.h; null when it's full), or the default heap
     // when there's no pool.
     static void* operator new(size_t size) noexcept;
     // 0x00475B00: back to whichever pool holds it, or the heap.

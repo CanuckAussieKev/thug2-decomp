@@ -13,7 +13,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor_internal.h"

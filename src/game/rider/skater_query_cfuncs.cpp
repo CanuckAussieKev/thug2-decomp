@@ -8,7 +8,7 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"

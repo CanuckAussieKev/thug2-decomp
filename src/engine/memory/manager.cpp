@@ -1,4 +1,4 @@
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -6,10 +6,10 @@
 #include <cstring>
 #include <new>
 
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
-#include "engine/core/memory_sizes.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/memory_sizes.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
 #include <gsl/pointers>
@@ -532,7 +532,7 @@ Hub::Hub() : network_extras_zone_(nullptr), online_zone_(nullptr), cinematic_zon
         named.used = false;
     }
 
-    // Not original - the block is 64 MB and what the bigger script pools take more (engine/core/memory_sizes.h:
+    // Not original - the block is 64 MB and what the bigger script pools take more (engine/memory/memory_sizes.h:
     // pool sizes as THUGPRO's), so every heap in it keeps the room it had.
     // Original behaviour: 64 MB (0x4000000).
     const uint32_t block_size = sizes::main_block_size();
@@ -584,7 +584,7 @@ void Hub::init_standard_heaps()
     front_end_heap_ = add_heap(front_end_region_.get(), MemSource::kGrowUp, "FrontEnd");
     debug::printf("Setup mp_frontend_heap at %p\n", front_end_heap_);
 
-    // Not original - grown by what the bigger script pools take more (engine/core/memory_sizes.h: pool sizes as
+    // Not original - grown by what the bigger script pools take more (engine/memory/memory_sizes.h: pool sizes as
     // THUGPRO's; the room left for scripts stays the original's).
     // Original behaviour: 0x434770 bytes.
     script_region_ = memory::take_unique<Zone>(new_alloc_region(sizes::script_region_size()));

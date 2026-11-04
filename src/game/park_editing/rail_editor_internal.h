@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "engine/gfx/engine_geom.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/gfx/sector.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/raw_view.h"

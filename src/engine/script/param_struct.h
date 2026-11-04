@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <span>
 #include <vector>
-#include "engine/core/slab_bank.h"
+#include "engine/memory/slab_bank.h"
 #include <gsl/pointers>
 #include "engine/core/checksums.h"
 #include "engine/core/enum_ops.h"

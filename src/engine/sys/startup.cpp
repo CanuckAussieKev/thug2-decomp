@@ -11,12 +11,12 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/core/memory_sizes.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/memory_sizes.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/core/stubs.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/file/async.h"
 #include "engine/file/archive.h"
@@ -135,7 +135,7 @@ int game_main(int argc, char** argv)
         script::create_symbol_table();
         memory::pop_mem_profile();
         memory::push_mem_profile("Hash Item Pool Manager");
-        // Not original - the HashItem pool's size is ours (engine/core/memory_sizes.h: pool sizes as THUGPRO's;
+        // Not original - the HashItem pool's size is ours (engine/memory/memory_sizes.h: pool sizes as THUGPRO's;
         // the main block grows to match). Original behaviour: 10000 items.
         memory::slot_pool_setup::set_up({.index = 0, .count = memory::sizes::at_hand().hash_items_});
         memory::pop_mem_profile();

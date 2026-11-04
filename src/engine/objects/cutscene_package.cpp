@@ -23,7 +23,7 @@
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/core/dbg.h"
 #include "engine/file/asset_bundle.h"
 #include "formats/bundle_format.h"
@@ -42,7 +42,7 @@
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/gfx/render_state.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/objects/objects_shared.h"

@@ -5,7 +5,7 @@
 #include <new>
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
 #include "engine/objects/signal.h"
 #include "platform/all_ones.h"

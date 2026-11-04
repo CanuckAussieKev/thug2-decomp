@@ -11,9 +11,9 @@
 #include <new>
 
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "editor/level_editor_ui.h"
-#include "engine/core/task_list.h"
+#include "engine/memory/task_list.h"
 #include "frontend/new_frontend.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"

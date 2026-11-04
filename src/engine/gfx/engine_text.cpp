@@ -9,8 +9,8 @@
 #include <cstring>
 #include <span>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/maths/vec2.h"
 #include <gsl/pointers>

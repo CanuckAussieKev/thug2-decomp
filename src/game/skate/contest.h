@@ -11,7 +11,7 @@
 #include <array>
 
 #include "engine/core/checked_index.h"
-#include "engine/core/text_store.h"
+#include "engine/util/text_store.h"
 #include "engine/core/raw_view.h"
 
 namespace script {

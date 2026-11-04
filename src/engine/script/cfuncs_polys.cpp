@@ -8,9 +8,9 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
-#include "engine/core/slab_bank.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/lists/key_map.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

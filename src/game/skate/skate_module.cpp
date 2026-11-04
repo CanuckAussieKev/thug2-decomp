@@ -1,7 +1,7 @@
 // The skate module (modules::Skate): the singleton and its skater count (skate_module.h).
 
 #include "game/skate/skate_module.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 namespace modules {
 
 // 0x0041AD90

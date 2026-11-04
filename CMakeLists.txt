@@ -232,22 +232,22 @@ add_executable(thug2 WIN32
     src/engine/assets/resource_entry.cpp
     src/engine/assets/asset_types.cpp
     src/engine/assets/resource_registry.cpp
-    src/engine/core/arena_alloc.cpp
+    src/engine/memory/arena_alloc.cpp
     src/engine/core/dbg.cpp
     src/engine/core/log_sink.cpp
     src/engine/util/lzss.cpp
-    src/engine/core/dump_text.cpp
-    src/engine/core/arena.cpp
-    src/engine/core/manager.cpp
-    src/engine/core/mem.cpp
-    src/engine/core/memory_sizes.cpp
-    src/engine/core/memory_report.cpp
-    src/engine/core/slab_bank.cpp
+    src/engine/memory/dump_text.cpp
+    src/engine/memory/arena.cpp
+    src/engine/memory/manager.cpp
+    src/engine/memory/mem.cpp
+    src/engine/memory/memory_sizes.cpp
+    src/engine/memory/memory_report.cpp
+    src/engine/memory/slab_bank.cpp
     src/engine/core/single_instance.cpp
     src/engine/core/stubs.cpp
-    src/engine/core/task_list.cpp
+    src/engine/memory/task_list.cpp
     src/engine/core/str.cpp
-    src/engine/core/text_store.cpp
+    src/engine/util/text_store.cpp
     src/engine/file/asset_bundle.cpp
     src/frontend/model_widget.cpp
     src/game/park_editing/cursor.cpp

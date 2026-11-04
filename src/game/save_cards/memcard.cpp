@@ -8,8 +8,8 @@
 #include <array>
 #include <iterator>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "game/save_cards/save_types.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

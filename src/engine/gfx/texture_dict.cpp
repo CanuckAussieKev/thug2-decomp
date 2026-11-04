@@ -13,8 +13,8 @@
 #include <span>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_texture.h"

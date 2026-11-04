@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include <gsl/assert>
 
 // The game's std::list<T*> (MSVC 7.1's: an allocated sentinel node linked round with the elements, and a count; the

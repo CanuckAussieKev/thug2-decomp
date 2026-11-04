@@ -6,7 +6,7 @@
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/lists/chain_start.h"
 #include "engine/gfx/viewport.h"
 #include "engine/script/fwd.h"
@@ -19,7 +19,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/entity.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>

@@ -12,7 +12,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/core/str.h"
 #include "engine/sys/game_config.h"
 #include "engine/script/cscript.h"

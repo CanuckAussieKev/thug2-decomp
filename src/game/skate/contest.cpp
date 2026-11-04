@@ -10,7 +10,7 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/text_store.h"
+#include "engine/util/text_store.h"
 #include "engine/maths/random.h"
 #include "engine/script/cell.h"
 #include "engine/script/cscript.h"

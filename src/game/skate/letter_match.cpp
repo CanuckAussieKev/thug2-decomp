@@ -9,7 +9,7 @@
 #include "engine/core/dbg.h"
 #include "engine/core/str.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/text_store.h"
+#include "engine/util/text_store.h"
 #include "engine/maths/random.h"
 #include "engine/objects/proximity.h"
 #include "engine/script/param_struct.h"

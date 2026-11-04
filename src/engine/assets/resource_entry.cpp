@@ -6,7 +6,7 @@
 
 #include "engine/file/async.h"
 #include "engine/script/node_manager.h"
-#include "engine/core/arena_alloc.h"
+#include "engine/memory/arena_alloc.h"
 
 namespace assets {
 

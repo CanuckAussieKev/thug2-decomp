@@ -10,7 +10,7 @@
 #include "game/park_editing/park_scene.h"
 
 #include "engine/assets/resource_entry.h"
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "game/park_editing/park.h"

@@ -6,8 +6,8 @@
 
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/arena_alloc.h"
-#include "engine/core/mem.h"
+#include "engine/memory/arena_alloc.h"
+#include "engine/memory/mem.h"
 #include "engine/core/enum_ops.h"
 #include "engine/net/service.h"
 #include "wire/gamenet_messages.h"

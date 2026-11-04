@@ -10,7 +10,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/compositemgr.h"

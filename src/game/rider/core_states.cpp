@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "engine/core/manager.h"
+#include "engine/memory/manager.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/movable_contact.h"

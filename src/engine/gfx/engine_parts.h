@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "engine/core/mem.h"
+#include "engine/memory/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_scene_list.h"
