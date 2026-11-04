@@ -11,7 +11,6 @@
 
 #include "base/core/format.h"
 #include "platform/code_address.h"
-#include "base/core/compiler.h"
 #include <gsl/pointers>
 #include <new>
 
@@ -42,20 +41,11 @@ void* get_host_by_name(const char* name);    // gethostbyname (a hostent*)
 // gethostbyname's first IPv4 address, its bytes in network order as a word (0xFFFFFFFF: none).
 uint32_t host_first_address(const char* name);
 
-// --- The C runtime: its heap, files and exit ---
+// --- The C runtime: its heap and exit (its files are the disk's, engine/file/disk.h) ---
 // (operator new / delete without exceptions: the same C runtime heap as malloc / free, null when out of memory; blocks
 // from alloc_block go back through dealloc only)
 inline gsl::owner<void*> alloc_block(size_t size) { return ::operator new(size, std::nothrow); }
 inline void dealloc(gsl::owner<void*> memory) { ::operator delete(memory); }
-THUG2_MSVC_WARNING(suppress : 4996) // (std::fopen: MSVC calls it unsafe)
-inline gsl::owner<FILE*> get_fopen(const char* path, const char* mode) { return std::fopen(path, mode); }
-inline int get_fclose(gsl::owner<FILE*> file) { return std::fclose(file); }
-inline size_t get_fread(void* buffer, size_t size, size_t count, FILE* file)
-{
-    return std::fread(buffer, size, count, file);
-}
-inline int get_fseek(FILE* file, long offset, int origin) { return std::fseek(file, offset, origin); }
-inline long get_ftell(FILE* file) { return std::ftell(file); }
 // The game's exit() at a fatal error (no Direct3D device, a texture that can't be made) - not original: the C
 // streams flushed and the process ended without the C runtime's shutdown (std::quick_exit). The original's exit() ran
 // its atexit functions, which freed nothing the game still used; ours would run the static owners' destructors (the
