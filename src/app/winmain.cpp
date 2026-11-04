@@ -35,7 +35,7 @@
 #include "app/pc_setup.h"
 #include "engine/pad_input/input_setup.h"
 #include "render_d3d9/device.h"
-#include "engine/pad_input/direct_input.h"
+#include "engine/pad_input/port_controls.h"
 #include "platform/platform_system.h"
 #include "platform/process_flags.h"
 #include "platform/crt.h"

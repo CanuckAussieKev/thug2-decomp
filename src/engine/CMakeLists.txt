@@ -249,8 +249,8 @@ add_library(thug2_engine STATIC
     pad_input/input_source.cpp
     pad_input/sdl_input.cpp
     pad_input/input_setup.cpp
-    pad_input/direct_input.cpp
-    pad_input/direct_input_state.cpp
+    pad_input/port_controls.cpp
+    pad_input/options_state.cpp
     pad_input/pad_cfuncs.cpp
     sys/debug_mode.cpp
     sys/stopwatch.cpp
@@ -306,9 +306,8 @@ add_library(thug2_engine STATIC
 # (the UI fonts, compressed at build time: ui/ui_fonts.cpp includes them)
 target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
 add_dependencies(thug2_engine editor_fonts)
-# lzham: THUGPRO's compression method (net/net_lzham.cpp); dinput8 / dxguid: DirectInput's data formats and effect
-# GUIDs (pad_input/direct_input.cpp)
-target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE lzham dinput8 dxguid)
+# lzham: THUGPRO's compression method (net/net_lzham.cpp)
+target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE lzham)
 # The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
 # them deprecated unless this is defined.
 set_source_files_properties(net/net_manager.cpp net/net_manager_apps.cpp sys/model_viewer.cpp

@@ -27,6 +27,7 @@
 #include "engine/media/movie.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
+#include "input_dinput/dinput_source.h"
 #include "devtools/automation.h"
 #include "media_bink/bink_movie.h"
 #include "render_d3d9/d3d9_device.h"
@@ -101,9 +102,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): Bink's (the player's
     // binkw32.dll).
     media::install_movie(media::bink::movie());
-    // NOT ORIGINAL: the input sources (engine/pad_input/input_source.h), in the order each port's poll reads them: SDL's
+    // NOT ORIGINAL: the input sources (engine/pad_input/input_source.h), in the original's order: DirectInput's (the
+    // keyboard read once a frame, the joysticks, the original's pad read - none made since PartyMod's input), SDL's
     // game controllers and keyboard, then the test-automation channel's pressed buttons (a dev tool: nothing pressed
     // unless the workspace's [features] automation is on).
+    input::add_source(input::dinput::keyboard());
     input::add_source(sio::sdl_source());
     input::add_source(frontend::automation::input_source());
     // NOT ORIGINAL: the loading console's panel, which that backend draws (engine/gfx/loading_console.h).

@@ -3,7 +3,6 @@
 
 #include "engine/pad_input/device.h"
 #include <windows.h>
-#include <dinput.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -21,7 +20,7 @@
 #include "engine/ui/screen_element.h"
 #include "engine/pad_input/input_setup.h"
 #include "platform/sdl_events.h"
-#include "engine/pad_input/direct_input.h"
+#include "engine/pad_input/port_controls.h"
 #include "engine/memory/mem.h"
 #include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
@@ -56,8 +55,6 @@ constexpr int kFullRumble = 0xFF;
 constexpr int kRumbleLevelShift = 8;
 constexpr size_t kNameBytes = 256;
 constexpr size_t kKeyboardCharCapacity = 16;
-constexpr size_t kKeyboardStateBytes = 256;
-constexpr int kKeyboardStateSize = 256;
 constexpr int kTypedEnter = 0x19;
 constexpr int kTypedBackspace = 0x18;
 constexpr int kTypedEscape = 0x1A;
@@ -119,9 +116,9 @@ constexpr int kParkEditorTriggerElement = 0x31631B98; // the park editor's trigg
 
 namespace {
 
-// The platform layer: a port's DirectInput joystick read for this frame (none: null), and whether the port has
-// any keyboard bindings (the keyboard counts as a pad then).
-bool poll_joystick(int port) { return os_layer::read_joystick(port) != nullptr; }
+// The platform layer: a port's DirectInput joystick read for this frame (an input source's pad: input::has_pad),
+// and whether the port has any keyboard bindings (the keyboard counts as a pad then).
+bool poll_joystick(int port) { return input::has_pad(port); }
 bool has_key_bindings(int port) { return os_layer::has_key_bindings(port); }
 bool pad_present(int port) { return poll_joystick(port) || has_key_bindings(port); }
 
@@ -379,16 +376,15 @@ void InputPort::stop_actuators()
 
 namespace {
 
-// NOT ORIGINAL grouping - the keyboard's buffers, characters and key names, the device manager's references. Made on
-// first use, never destroyed (keyboard_device_state()).
+// NOT ORIGINAL grouping - the keyboard's characters and key names, the device manager's references (the keyboard's
+// state buffers are its DirectInput source's: input_dinput/dinput_source.cpp). Made on first use, never destroyed
+// (keyboard_device_state()).
 struct KeyboardState {
-    int keyboard_buffer_{2};
     uint32_t manager_references_{};
     uint32_t keyboard_char_count_{};
     std::array<char, kNameBytes> key_name_result_{};
     std::array<char, kNameBytes> name_buffer_{};
     std::array<int, kKeyboardCharCapacity> keyboard_chars_{};
-    std::array<std::array<uint8_t, kKeyboardStateBytes>, 2> keyboard_state_{};
 };
 
 KeyboardState& keyboard_device_state()
@@ -397,36 +393,16 @@ KeyboardState& keyboard_device_state()
     return state.get();
 }
 
-// Which of the two state buffers is current (2 at start: clear both first).
-int& keyboard_buffer() { return keyboard_device_state().keyboard_buffer_; }
-
-std::array<std::array<uint8_t, kKeyboardStateBytes>, 2>& keyboard_state() { return keyboard_device_state().keyboard_state_; }
 uint32_t& keyboard_char_count() { return keyboard_device_state().keyboard_char_count_; }
 std::array<int, kKeyboardCharCapacity>& keyboard_chars() { return keyboard_device_state().keyboard_chars_; }
 } // namespace
 
-// 0x005BDD60
+// 0x005BDD60: the typed characters forgotten, then each input source's state for the frame (the original's
+// DirectInput keyboard into one of its two buffers: input_dinput/dinput_source.cpp).
 void read_keyboard()
 {
     keyboard_char_count() = 0;
-    if (keyboard_buffer() == 2) {
-        std::memset(keyboard_state().data(), 0, sizeof(keyboard_state()));
-        keyboard_buffer() = 1;
-    }
-    IDirectInputDevice8A* keyboard = os_layer::keyboard_device();
-    if (!keyboard) {
-        return;
-    }
-    keyboard_buffer() = keyboard_buffer() == 0 ? 1 : 0;
-    const HRESULT result = keyboard->GetDeviceState(256, core::at(keyboard_state(), keyboard_buffer()).data());
-    if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED) {
-        return;
-    }
-    if (SUCCEEDED(os_layer::keyboard_device()->Acquire())) {
-        os_layer::keyboard_device()->GetDeviceState(kKeyboardStateSize, core::at(keyboard_state(), keyboard_buffer()).data());
-    } else {
-        std::memset(core::at(keyboard_state(), keyboard_buffer()).data(), 0, kKeyboardStateSize);
-    }
+    input::read_frame();
 }
 
 // 0x005BDD30
@@ -788,13 +764,13 @@ namespace {
 // (0x007CE5D8), editing when its state is "edit" (0x7ECA21E5).
 
 // The platform layer: the pad mode and the default keys' Enter / Escape (os_layer::set_pad_mode...), its window
-// message pump, the pad read and whether a DirectInput key is down.
-void set_pad_mode(int mode) { os_layer::set_pad_mode(mode); }
-void set_default_enter_control(int control) { os_layer::set_default_enter_control(control); }
-void set_default_escape_control(int control) { os_layer::set_default_escape_control(control); }
+// message pump, the pad read and whether a DirectInput key is down (through the input sources: DirectInput's,
+// input_dinput/dinput_source.h).
+void set_pad_mode(int mode) { input::set_pad_mode(mode); }
+void set_default_keys(input::DefaultKeys keys) { input::set_default_keys(keys); }
 void pump_window_messages() { os_layer::process_window_events(); }
-void read_pad_state(int port, PadSnapshot* state) { os_layer::read_pad(port + 1, state); }
-bool get_key_down(int code) { return os_layer::get_key_down(code); }
+void read_pad_state(int port, PadSnapshot* state) { input::read_pad(port, state); }
+bool get_key_down(int code) { return input::key_down(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4; through
 // engine/pad_input/game_hooks.h).
 int get_menu_port() { return game_hooks().menu_port(); }
@@ -862,8 +838,7 @@ void InputPort::pull_data(int /*unused*/)
 
     // In menus only the port the front end listens to (or port 0, or both on the skater select) reads.
     const int menu_port = get_menu_port();
-    set_default_enter_control(0);  // (the pressure button 0)
-    set_default_escape_control(1); // (the pressure button 1)
+    set_default_keys({.enter = 0, .escape = 1}); // (the pressure buttons 0 and 1)
     if (typing) {
         set_pad_mode(2);
     } else if (menu_mode) {

@@ -38,11 +38,38 @@ void add_source(Source& source)
     core::at(registry().sources_, registry().count_++) = &source;
 }
 
+bool devices_made()
+{
+    for (Source* source : sources()) {
+        if (source->devices_made()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void start()
 {
     for (Source* source : sources()) {
         source->start();
     }
+}
+
+void read_frame()
+{
+    for (Source* source : sources()) {
+        source->read_frame();
+    }
+}
+
+bool has_pad(int port)
+{
+    for (Source* source : sources()) {
+        if (source->has_pad(port)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void begin_poll(int port)
@@ -66,6 +93,40 @@ void rumble(int port, uint16_t high, uint16_t low)
             return;
         }
     }
+}
+
+void set_pad_mode(int mode)
+{
+    for (Source* source : sources()) {
+        source->set_pad_mode(mode);
+    }
+}
+
+void set_default_keys(DefaultKeys keys)
+{
+    for (Source* source : sources()) {
+        source->set_default_keys(keys);
+    }
+}
+
+void read_pad(int port, sio::PadSnapshot* pad)
+{
+    for (Source* source : sources()) {
+        if (source->read_pad(port, pad)) {
+            return;
+        }
+    }
+}
+
+bool key_down(int code)
+{
+    for (Source* source : sources()) {
+        bool down = false;
+        if (source->key_down(code, &down)) {
+            return down;
+        }
+    }
+    return false;
 }
 
 } // namespace input

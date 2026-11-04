@@ -13,7 +13,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
-#include "engine/pad_input/direct_input.h"
+#include "engine/pad_input/port_controls.h"
 
 namespace render {
 

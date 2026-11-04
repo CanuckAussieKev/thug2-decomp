@@ -28,7 +28,7 @@
 #include "engine/sys/debug_mode.h"
 #include "engine/pad_input/pad_cfuncs.h"
 #include "platform/sdl_events.h"
-#include "engine/pad_input/direct_input.h"
+#include "engine/pad_input/port_controls.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 

@@ -9,12 +9,11 @@
 #include "engine/gfx/settings.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/ext/extension.h"
-#include "engine/pad_input/direct_input.h"
+#include "engine/pad_input/port_controls.h"
 #include "engine/gfx/view_cam.h"
-#include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
-#include "engine/pad_input/direct_input_state.h"
+#include "engine/pad_input/options_state.h"
 
 namespace os_layer {
 
@@ -45,42 +44,31 @@ bool init_input(HINSTANCE instance, HWND window, const char* config)
     if (!window) {
         return false;
     }
-    auto& direct_input = platform_state().direct_input();
-    if (direct_input) {
+    // (DirectInput made: the input source that has it - input_dinput/dinput_source.h)
+    if (input::devices_made()) {
         return true;
     }
-    // Per port: the joysticks (0x007D6318), their device state, the force-feedback effects (0x007D6668) and
-    // the motors' ranges and kinds; the key bindings (-1: none); the graphics options (0x007D6434...).
-    core::at(platform_state().joysticks(), 0) = nullptr;
-    std::memset(os_layer::platform_state().joystick_states().data(), 0, sizeof(os_layer::platform_state().joystick_states()));
-    core::at(platform_state().joysticks(), 1) = nullptr;
-    std::memset(os_layer::platform_state().last_joystick_states().data(), 0, sizeof(os_layer::platform_state().last_joystick_states()));
-    core::at(platform_state().effects(), 0) = nullptr;
-    core::at(platform_state().force_resolutions(), 0) = 0;
-    core::at(platform_state().effects(), 1) = nullptr;
-    core::at(platform_state().force_resolutions(), 1) = 0;
-    core::at(platform_state().force_resolutions(), 2) = 0;
-    core::at(platform_state().force_resolutions(), 3) = 0;
+    // The key bindings (-1: none); the graphics options (0x007D6434...). (The original also clears here, per port,
+    // the joysticks (0x007D6318), their device state, the force-feedback effects (0x007D6668) and the motors' ranges
+    // and kinds: DirectInput's input source does, when the sources start below.)
     std::memset(os_layer::get_controls().data(), kFillAllOnes, sizeof(os_layer::get_controls()));
     render::renderer().set_antialiasing(false);
     render::view_setup().set_hq_shadows(0);
     render::view_setup().set_fog_setting(false);
-    platform_state().set_option37(0);
-    core::at(platform_state().force_axis_counts(), 0) = 0;
+    options_state().set_option37(0);
     // (the original clears dwords here across byte-sized settings; each is written by name)
-    platform_state().set_options38_and39(0);
+    options_state().set_options38_and39(0);
     render::view_setup().set_distance_clipping(false);
-    platform_state().set_unknown643b(0);
-    core::at(platform_state().force_axis_counts(), 1) = 0;
+    options_state().set_unknown643b(0);
     render::renderer().set_resolution_setting(0);
-    platform_state().set_distance_setting(0);
+    options_state().set_distance_setting(0);
     gfx::set_draw_distance_setting(0);
     // Originally from PartyMod Fixes: the graphics settings from thug2-decomp.ini in place of the original's loader 0x005F34D0(config).
     render::write_graphics_settings();
     // Originally from PartyMod Fixes: SDL input (game controllers, the key bindings) in place of the original's
     //     DirectInput8Create(instance, 0x800, IID_IDirectInput8A, &direct_input, nullptr);
     //     direct_input->EnumDevices(0, 0x005F31D0 /* adds each joystick */, nullptr, DIEDFL_ATTACHEDONLY);
-    // - the input sources started (engine/pad_input/input_source.h: SDL's).
+    // - the input sources started (engine/pad_input/input_source.h: DirectInput's state cleared, then SDL's).
     input::start();
     // (not PartyMod's - the extensions, engine/ext/extension.h: the mouse_menus feature's mouse events when it's on,
     // the level editor's mouse and Escape key, the new front end's input - nothing when it's off - and the screenshot

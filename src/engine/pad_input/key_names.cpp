@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/pad_input/direct_input.h"
+#include "engine/pad_input/port_controls.h"
 
 namespace sys {
 

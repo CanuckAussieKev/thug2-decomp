@@ -206,8 +206,9 @@ static_assert(offsetof(PadSnapshot, sticks) == kPadSnapshotSticksOffset && sizeo
 // The platform layer's motor control (os_layer::set_actuators, 0x005F3A50: PartyMod's): levels 0-65535.
 void set_actuators(int port, int left, int right);
 
-// The keyboard (DirectInput): 0x005BDD60 reads its state once a frame into one of two 256-byte buffers;
-// typed characters are queued elsewhere (key_input).
+// The keyboard (DirectInput): 0x005BDD60, once a frame, forgets the typed characters and has each input source read
+// its devices for the frame (the DirectInput keyboard's state into one of two 256-byte buffers -
+// input_dinput/dinput_source.h); typed characters are queued elsewhere (key_input).
 void read_keyboard();
 // 0x005BDD30 (also reached by a jump at 0x005BCC40): the typed characters, one byte each; returns how many.
 int get_keyboard_chars(std::span<char> out);
