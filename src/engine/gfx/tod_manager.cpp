@@ -16,7 +16,6 @@
 #include "engine/gfx/sector.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "game/park_editing/park_editor.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_scene_list.h"
@@ -30,8 +29,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/node_hooks.h"
-#include "game/skate/game_mode.h"
-#include "game/skate/skate_module.h"
+#include "engine/gfx/game_hooks.h"
 #include "engine/script/node_prefixes.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
@@ -40,7 +38,6 @@
 #include "engine/gfx/movie.h"
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/engine_glue.h"
-#include "game/front_end/front_end.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
@@ -198,11 +195,12 @@ void set_level_color(std::span<const float, 4> color)
 }
 void set_bloom_structure(script::Struct* params) { render::screen_effects()->set_bloom_params(params, 0); }
 // Whether this is a multiplayer game (a network game, or more than one local player): the lights stay as set.
-bool is_multiplayer() { return (modules::Skate::is_multiplayer() & 1) != 0; }
+// (the skate module, the game mode, the front end and the park editor through engine/gfx/game_hooks.h)
+bool is_multiplayer() { return render::game_hooks().multiplayer(); }
 // The game mode's name (modules::Skate's game mode 0x007CE470).
-uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
+uint32_t active_ruleset_label() { return render::game_hooks().game_mode_name(); }
 // The front end (0x007CE464): +0x30 paused.
-bool is_game_halted() { return modules::front_end_instance()->is_halted(); }
+bool is_game_halted() { return render::game_hooks().game_halted(); }
 // Obj's create_from_node (0x005A32A0): the object of node `name` made.
 void create_from_node(uint32_t name) { script::create_object_from_node(name); }
 
@@ -216,7 +214,7 @@ render::WorldScene* sky_scene() { return render::get_sky_scene(); }
 // The scene of the level being played (the park editor's shell checksum, looked up by 0x0048C700).
 render::WorldScene* level_scene()
 {
-    const uint32_t name = park_editing::ParkBuilderMode::get_shell_checksum();
+    const uint32_t name = render::game_hooks().park_shell();
     return static_cast<render::WorldScene*>(render::engine::find_scene(name));
 }
 // A scene's own colour (the original's vtable +0x20: slot 8, the "ignore one argument" stub in both the engine's and

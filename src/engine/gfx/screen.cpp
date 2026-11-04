@@ -10,8 +10,7 @@
 #include "engine/script/params.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
-#include "game/skate/career.h"
-#include "game/skate/skate_module.h"
+#include "engine/gfx/game_hooks.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
@@ -60,14 +59,8 @@ uint32_t get_back_buffer_height() { return static_cast<uint32_t>(renderer().back
 
 } // namespace
 
-uint8_t current_level()
-{
-    const modules::Skate* skate = modules::Skate::sole();
-    if (!skate) {
-        return 0;
-    }
-    return static_cast<uint8_t>(skate->career()->level()); // (its low byte, as the original reads it)
-}
+// (the skate module's career: engine/gfx/game_hooks.h)
+uint8_t current_level() { return game_hooks().career_level(); }
 
 float desired_aspect_ratio()
 {
