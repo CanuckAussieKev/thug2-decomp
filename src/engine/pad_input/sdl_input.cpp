@@ -17,7 +17,7 @@
 
 #include "base/core/format.h"
 #include "devtools/automation.h"
-#include "editor/level_editor.h"
+#include "engine/ext/extension.h"
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend.h"
 #include "engine/ui/screen_element.h"
@@ -800,12 +800,12 @@ void poll_keyboard(InputPort* device)
     auto down = [keys](SDL_Scancode key) { return get_key_down(keys, static_cast<uint8_t>(key)) != 0; };
     auto menu_down = [](uint8_t state) { return sdl_input_state().in_menu_ && state == 1; };
 
-    // Not original - the level editor (editor/level_editor.h) flies on W/A/S/D/Q/E/Shift/Ctrl/Space: while it
-    // runs, the keyboard gives the game only the Pause key (Start: leaves the editor), once it has been up since the
-    // editor started; nothing else.
+    // Not original - an extension that owns the game (engine/ext/extension.h; the level editor flies on
+    // W/A/S/D/Q/E/Shift/Ctrl/Space): while it does, the keyboard gives the game only the Pause key (Start: leaves the
+    // editor), once it has been up since the editor started; nothing else.
     // Original behaviour: every binding is read.
-    if (frontend::level_editor::live_now()) {
-        if (frontend::level_editor::pass_pause_key(core::at(keys, sdl_input_state().keys_.menu) != 0)) {
+    if (ext::Extension* owner = ext::game_owner()) {
+        if (owner->pass_pause_key(core::at(keys, sdl_input_state().keys_.menu) != 0)) {
             core::at(data, kControlButtonsHigh) |= 1 << 3;
         }
         return;
@@ -1189,8 +1189,8 @@ void init_sdl_input()
     os_layer::register_event_handler(handle_input_event);
     // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
     mouse_menus::prepare_all();
-    // (not PartyMod's either - the level editor: its mouse and Escape key)
-    frontend::level_editor::prepare_all();
+    // (not PartyMod's either - the extensions, engine/ext/extension.h: the level editor's mouse and Escape key)
+    ext::prepare_input();
     // (nor the new front end's input - frontend/new_frontend.h; nothing when it's off)
     frontend::new_frontend::prepare_all();
     // (nor the screenshot key - devtools/screenshot.h)

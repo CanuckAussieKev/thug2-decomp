@@ -166,7 +166,6 @@ constexpr double kEditedSeconds = 5.0;
 constexpr int kMaxRailLogs = 8;             // misplaced rail points logged at most
 constexpr float kGroundProbeDepth = 5000.0F;
 constexpr float kTinyForwardLength = 0.0001F;
-constexpr float kDefaultNearPlane = 2.0F;
 constexpr std::size_t kPlaceTextSize = 64;
 constexpr int kHintRefreshFrames = 6;       // the key hints are made again every this many frames
 constexpr std::size_t kHintTextSize = 200;
@@ -3802,9 +3801,9 @@ float adjust_view_angle(gfx::ViewCam* camera, float angle)
     return level_editor_state().active_ && camera && camera == level_editor_state().camera_ ? view_cam::adjust_view_angle(angle) : angle;
 }
 
-float get_near_plane(gfx::ViewCam* camera)
+float get_near_plane(gfx::ViewCam* camera, float near_z)
 {
-    return level_editor_state().active_ && camera && camera == level_editor_state().camera_ ? view_cam::get_near_plane() : kDefaultNearPlane;
+    return level_editor_state().active_ && camera && camera == level_editor_state().camera_ ? view_cam::get_near_plane() : near_z;
 }
 
 void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const uint32_t, 4> viewport)

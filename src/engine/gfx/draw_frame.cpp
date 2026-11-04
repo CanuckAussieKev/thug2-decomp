@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <array>
 
-#include "editor/level_editor.h"
+#include "engine/ext/extension.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/mat4.h"
 #include "frontend/new_frontend.h"
@@ -574,10 +574,10 @@ void draw_viewport(int index)
     if (!camera) {
         return;
     }
-    // Not original - the level editor (editor/level_editor.h): while it runs, the first viewport's camera is put
-    // where the editor flies.
+    // Not original - the extensions (engine/ext/extension.h; the level editor: while it runs, the first viewport's
+    // camera is put where the editor flies).
     // Original behaviour: the camera is drawn where the game put it.
-    frontend::level_editor::place_camera(static_cast<gfx::ViewCam*>(camera));
+    ext::place_camera(static_cast<gfx::ViewCam*>(camera), index);
     // Not original - the automation channel's camera lock (devtools/test_view.h): viewport 0's camera held at a pose.
     // Original behaviour: the camera is drawn where the game put it.
     frontend::test_view::place_camera(static_cast<gfx::ViewCam*>(camera), index);
@@ -605,27 +605,35 @@ void draw_viewport(int index)
     clear_world_transform();
     const float aspect = view->fetch_width_over_height();
 
-    // Not original - the level editor's ortho views (editor/level_editor_camera.h): its camera's field of view
-    // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
+    // Not original - the extensions (engine/ext/extension.h; the level editor's ortho views: its camera's field of
+    // view narrowed and the near plane brought up for the world's passes - the sky's keeps the near plane).
     // Original behaviour: the camera's own angle, the near plane at 2.
-    auto* editor_camera = static_cast<gfx::ViewCam*>(camera);
-    const float editor_near = frontend::level_editor::get_near_plane(static_cast<gfx::ViewCam*>(camera));
+    auto* view_camera = static_cast<gfx::ViewCam*>(camera);
+    const float world_near = ext::near_plane(view_camera, kDefaultNearZ);
 
     // The world: every scene but the sky.
     {
-        const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
-        stored_near_z() = editor_near;
+        const float angle = ext::view_angle(view_camera, camera_angle(camera));
+        stored_near_z() = world_near;
         const maths::Vec4* position = viewer_location(camera);
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
-        // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
+        // Not original - the extensions (engine/ext/extension.h): the view's projection noted (the level editor's
+        // mouse ray and outlines).
         // Original behaviour: nothing.
         const DeviceViewport& drawn = renderer().device_viewport();
-        frontend::level_editor::note_view(static_cast<gfx::ViewCam*>(camera), angle, aspect, std::array<uint32_t, 4>{drawn.x, drawn.y, drawn.width, drawn.height});
-        // Not original - the screenshot key's sidecar (devtools/screenshot.h): the camera noted.
         const maths::Mat4* frame = cam_orientation(camera);
-        const std::array<float, 3> at = {{position->x, position->y, position->z}};
-        const std::array<float, 3> forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}};
-        sys::screenshot::note_view(index, at, forward);
+        const ext::ViewNote note = {
+            .camera = view_camera,
+            .viewport = index,
+            .angle = angle,
+            .aspect = aspect,
+            .rect = {{drawn.x, drawn.y, drawn.width, drawn.height}},
+            .position = {{position->x, position->y, position->z}},
+            .forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}},
+        };
+        ext::view_drawn(note);
+        // Not original - the screenshot key's sidecar (devtools/screenshot.h): the camera noted.
+        sys::screenshot::note_view(index, note.position, note.forward);
     }
     for_each_scene([&](PcScene* scene) {
         if (scene->is_sky()) {
@@ -654,7 +662,7 @@ void draw_viewport(int index)
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
         const maths::Vec4 origin = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-        const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
+        const float angle = ext::view_angle(view_camera, camera_angle(camera));
         stored_near_z() = kDefaultNearZ;
         choose_camera(cam_orientation(camera), &origin, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, true);
     }
@@ -699,9 +707,9 @@ void draw_viewport(int index)
 
     // The world again, for the later passes.
     {
-        const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
+        const float angle = ext::view_angle(view_camera, camera_angle(camera));
         const maths::Vec4* position = viewer_location(camera);
-        stored_near_z() = editor_near;
+        stored_near_z() = world_near;
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
         stored_near_z() = kDefaultNearZ;
     }
@@ -739,10 +747,10 @@ void draw_viewport(int index)
 // 0x004B2D80
 void draw_world()
 {
-    // Not original - the level editor (editor/level_editor.h): its frame (flying, picking, dragging) - it runs
-    // while the game is paused.
+    // Not original - the extensions (engine/ext/extension.h; the level editor: its frame - flying, picking,
+    // dragging - which runs while the game is paused).
     // Original behaviour: nothing.
-    frontend::level_editor::tick_frame();
+    ext::before_draw_world();
     renderer().count_frame(); // frames rendered
     if (!engine_parts().loading_screen_up()) { // (nothing while the device is lost)
         renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
@@ -778,9 +786,10 @@ void draw_world()
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
         draw_2d_with_black_bars();
-        // Not original - the level editor: the hovered and selected objects outlined over everything.
+        // Not original - the extensions (engine/ext/extension.h; the level editor: the hovered and selected objects
+        // outlined over everything).
         // Original behaviour: nothing more is drawn.
-        frontend::level_editor::blit();
+        ext::draw_over_frame();
         // Not original either - the new front end ([features] new_frontend, frontend/new_frontend.h): over
         // everything while it's up in the front end.
         frontend::new_frontend::blit();

@@ -11,7 +11,7 @@
 #include "base/core/checksums.h"
 #include "base/maths/vec4.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
+#include "engine/ext/extension.h"
 #include "engine/gfx/screen.h"
 #include "base/maths/mat4.h"
 #include "engine/render/probe_ray.h"
@@ -318,7 +318,7 @@ void register_parked_functions()
 
 void update_parked(modules::FrontEnd* front_end)
 {
-    if ((front_end && front_end->is_halted()) || frontend::level_editor::live_now()) {
+    if ((front_end && front_end->is_halted()) || (ext::game_owner() != nullptr)) {
         return;
     }
     const objects::Rider* skater = local_skater();

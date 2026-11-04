@@ -9,7 +9,7 @@
 #include "base/core/checksums.h"
 #include "base/core/dbg.h"
 #include "base/core/str.h"
-#include "editor/level_editor_layout.h"
+#include "engine/ext/extension.h"
 #include "engine/script/params.h"
 #include <gsl/pointers>
 #include "engine/memory/mem.h"
@@ -87,8 +87,9 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
     debug::printf("... done\n");
     description->get_clear();
 
-    // Not original - the level editor's saved layouts (level_editor_layout.h): put back once the level is up.
-    frontend::level_editor::layout::on_scene_loaded(name, is_net);
+    // Not original - the extensions (engine/ext/extension.h; the level editor's saved layouts: put back once the
+    // level is up).
+    ext::scene_loaded(name, is_net);
     return true;
 }
 

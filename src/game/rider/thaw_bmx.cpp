@@ -17,7 +17,7 @@
 #include "engine/memory/mem.h"
 #include "base/maths/vec4.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
+#include "engine/ext/extension.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/shadow_base.h"
 #include "engine/gfx/texture_cfuncs.h"
@@ -468,7 +468,7 @@ void tick_frame(modules::FrontEnd* front_end)
                       (core::at(keys, thaw_bmx_state().key_) != 0U);
     const bool pressed = down && thaw_bmx_state().key_up_;
     thaw_bmx_state().key_up_ = !down;
-    if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
+    if (!pressed || frame_loop::frames_run() == 0 || (ext::game_owner() != nullptr) ||
         (front_end && front_end->is_halted()) || render::current_level() == 0) {
         return;
     }

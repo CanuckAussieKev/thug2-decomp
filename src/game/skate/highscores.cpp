@@ -13,7 +13,7 @@
 #include "base/core/checked_index.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "editor/level_editor_layout.h"
+#include "engine/ext/extension.h"
 #include "engine/script/cell.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
@@ -447,7 +447,7 @@ bool update_records(bool edited_copy)
 // 0x005AEBC0
 bool cfunc_update_records(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return update_records(frontend::level_editor::layout::editing_copy());
+    return update_records(ext::plays_edited_copy()); // (NOT ORIGINAL: an edited copy's records kept apart - engine/ext)
 }
 
 // 0x005AEBD0

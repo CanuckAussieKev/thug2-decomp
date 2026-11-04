@@ -13,7 +13,7 @@
 #include "engine/script/cell.h"
 #include "engine/script/names.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
+#include "engine/ext/extension.h"
 #include "engine/gfx/screen.h"
 #include "engine/script/cscript.h"
 #include "engine/sys/mlp.h"
@@ -133,7 +133,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed_tab = squeezed(tab, keys);
     const bool pressed_t = squeezed(t_key, keys);
     const bool pressed_home = squeezed(home, keys);
-    if (frontend::level_editor::live_now() || (front_end && front_end->is_halted()) || render::current_level() == 0) {
+    if ((ext::game_owner() != nullptr) || (front_end && front_end->is_halted()) || render::current_level() == 0) {
         return;
     }
     if (!started()) {
@@ -179,7 +179,7 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
     auto* const left_y = sticks.left_y_;
     auto* const right_x = sticks.right_x_;
     auto* const right_y = sticks.right_y_;
-    if (!is_switched_on() || frontend::level_editor::live_now()) {
+    if (!is_switched_on() || (ext::game_owner() != nullptr)) {
         return false;
     }
     const platform::KeyState keys = platform::keyboard_keys();

@@ -220,9 +220,10 @@ void place_camera(gfx::ViewCam* camera);
 // outlines). `viewport`: the device viewport (x, y, width, height in back buffer pixels).
 void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const uint32_t, 4> viewport);
 // Called by the renderer for a viewport's camera (render::draw_viewport): its field of view (degrees) and near plane - the
-// game's own, except for the editor's camera in an ortho view (level_editor_camera.h: a long lens from far back).
+// game's own (`angle`, `near_z`), except for the editor's camera in an ortho view (level_editor_camera.h: a long lens
+// from far back).
 float adjust_view_angle(gfx::ViewCam* camera, float angle);
-float get_near_plane(gfx::ViewCam* camera);
+float get_near_plane(gfx::ViewCam* camera, float near_z);
 // After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
 void blit();
 // For the screenshot sidecar (devtools/screenshot.h): what the editor shows now - its mode, the level, its camera,

@@ -17,6 +17,7 @@
 #include "platform/output_sinks.h"
 #include "platform/run_log.h"
 #include "engine/sys/startup_init.h"
+#include "app/extensions.h"
 #include "app/winmain.h"
 
 namespace {
@@ -48,6 +49,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     log_open();
     get_log("thug2-decomp standalone");
     load_system_direct_input();
+    // NOT ORIGINAL: the extensions (the editor, the new front end, the dev tools) registered before any of the
+    // original's code runs (app/extensions.h).
+    app::register_extensions();
     sys::run_startup_initialisers();
     return sys::win_main(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
 }

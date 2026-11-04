@@ -12,7 +12,7 @@
 
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
-#include "editor/level_editor_ui.h"
+#include "engine/ext/extension.h"
 #include "engine/memory/task_list.h"
 #include "frontend/new_frontend.h"
 #include "engine/gfx/device.h"
@@ -140,10 +140,10 @@ void Hub::reset_device_if_lost()
     if (render::renderer().d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) { // (not yet: it can't be reset)
         return;
     }
-    // Not original - the level editor's UI (editor/level_editor_ui.h): ImGui's default-pool objects dropped before
-    // the reset (made again on its next frame).
+    // Not original - the extensions (engine/ext/extension.h; the level editor's UI: ImGui's default-pool objects
+    // dropped before the reset, made again on its next frame).
     // Original behaviour: only the game's own.
-    frontend::level_editor::ui::device_lost();
+    ext::device_lost();
     frontend::new_frontend::device_lost(); // (not original either: the new front end's - frontend/new_frontend.h)
     release_device_objects();
     if (render::renderer().d3d_device()->Reset(present_parameters()) < 0) {

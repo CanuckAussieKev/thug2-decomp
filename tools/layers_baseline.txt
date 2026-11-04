@@ -18,7 +18,6 @@ src/engine/gfx/cag_cfuncs.cpp -> src/game/skate/profile_manager.h
 src/engine/gfx/cag_cfuncs.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/draw_frame.cpp -> src/devtools/screenshot.h
 src/engine/gfx/draw_frame.cpp -> src/devtools/test_view.h
-src/engine/gfx/draw_frame.cpp -> src/editor/level_editor.h
 src/engine/gfx/draw_frame.cpp -> src/frontend/new_frontend.h
 src/engine/gfx/draw_frame.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/engine.cpp -> src/game/skate/skate_module.h
@@ -37,7 +36,6 @@ src/engine/gfx/tod_manager.cpp -> src/game/park_editing/park_editor.h
 src/engine/gfx/tod_manager.cpp -> src/game/skate/game_mode.h
 src/engine/gfx/tod_manager.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/viewport.cpp -> src/game/skate/skate_module.h
-src/engine/gfx/world_scene.cpp -> src/editor/level_editor_layout.h
 src/engine/net/buddy_man.cpp -> src/game/goals/objective.h
 src/engine/net/chat.cpp -> src/game/rider/rider.h
 src/engine/net/chat.cpp -> src/game/skate/skate_module.h
@@ -286,7 +284,6 @@ src/engine/pad_input/device.cpp -> src/game/park_editing/park_editor.h
 src/engine/pad_input/device.cpp -> src/game/skate/profile_manager.h
 src/engine/pad_input/sdl_input.cpp -> src/devtools/automation.h
 src/engine/pad_input/sdl_input.cpp -> src/devtools/screenshot.h
-src/engine/pad_input/sdl_input.cpp -> src/editor/level_editor.h
 src/engine/pad_input/sdl_input.cpp -> src/frontend/mouse_menus.h
 src/engine/pad_input/sdl_input.cpp -> src/frontend/new_frontend.h
 src/engine/pad_input/sdl_input.cpp -> src/game/rider/thaw_bmx.h
@@ -367,10 +364,8 @@ src/engine/script/trick_cfuncs.cpp -> src/game/skate/profile_manager.h
 src/engine/script/trick_cfuncs.cpp -> src/game/skate/skate_module.h
 src/engine/script/world_cfuncs.cpp -> src/game/rider/rider.h
 src/engine/script/world_cfuncs.cpp -> src/game/skate/skate_module.h
-src/engine/sys/debug_mode.cpp -> src/editor/level_editor.h
 src/engine/sys/debug_mode.cpp -> src/game/front_end/front_end.h
 src/engine/sys/mlp.cpp -> src/devtools/screenshot.h
-src/engine/sys/mlp.cpp -> src/editor/level_editor_ui.h
 src/engine/sys/mlp.cpp -> src/frontend/new_frontend.h
 src/engine/sys/mlp.cpp -> src/game/skate/skate_module.h
 src/engine/sys/mlp.cpp -> src/game/skate/thugpro_cas.h
@@ -399,10 +394,7 @@ src/frontend/new_frontend_game.cpp -> src/editor/level_editor.h
 src/game/front_end/front_end.cpp -> src/devtools/automation.h
 src/game/front_end/front_end.cpp -> src/frontend/mouse_menus.h
 src/game/rider/collision_events.cpp -> src/devtools/screenshot.h
-src/game/rider/thaw_bmx.cpp -> src/editor/level_editor.h
-src/game/rider/thaw_bmx_parked.cpp -> src/editor/level_editor.h
 src/game/skate/career.cpp -> src/editor/level_editor_career.h
-src/game/skate/highscores.cpp -> src/editor/level_editor_layout.h
 src/gpu/vertex_buffers.cpp -> src/engine/gfx/renderer.h
 src/gpu/vertex_buffers.cpp -> src/engine/memory/mem.h
 src/wire/gamenet_messages.cpp -> src/formats/byte_stream.h
