@@ -377,7 +377,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
 void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
 {
     auto* const params = trick_params_in.params;
-    auto* const trick_params = trick_params_in.trick_params_;
+    auto* const extra_params = trick_params_in.trick_params_;
     skater_state_->set_in_trick_move(0U);
     starting_special_ = false;
     int& head = queue_first_;
@@ -413,7 +413,7 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
         entity()->own_script()->preempt(first, params);
     }
     auto* trick = script::fetch_list(array)->struct_at(index);
-    if (try_trick(trick, 0, trick_params)) {
+    if (try_trick(trick, 0, extra_params)) {
         return;
     }
     uint32_t slot = 0;
@@ -427,7 +427,7 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
         // A created trick: CreateATrick with its index.
         gsl::owner<script::Struct*> create_params = script::new_struct();
         create_params->put_int(checksums::Name{kTrickIndex}, created);
-        create_params->append_structure_if_any(trick_params);
+        create_params->append_structure_if_any(extra_params);
         Entity* object = entity();
         object->replace_script(kCreateATrick, create_params);
         if (create_params) {
@@ -443,12 +443,12 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
     if (mapped == 0U) {
         return;
     }
-    script::Struct* structure = script::read_sub_struct(mapped);
-    if (!structure) {
+    script::Struct* mapped_trick = script::read_sub_struct(mapped);
+    if (!mapped_trick) {
         return;
     }
-    tell_goal_manager(structure);
-    try_trick(structure, 0, trick_params);
+    tell_goal_manager(mapped_trick);
+    try_trick(mapped_trick, 0, extra_params);
 }
 
 // 0x005228B0

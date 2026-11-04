@@ -277,13 +277,13 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     if (index < 0 || index >= ints::as_signed(slots->extent())) {
         return false;
     }
-    uint32_t name = trick->trick();
+    uint32_t trick_checksum = trick->trick();
     uint32_t keys = trick->keys();
     if (trick->is_vacant()) {
-        name = keys = kEmptyTrick;
+        trick_checksum = keys = kEmptyTrick;
     }
     auto* slot = slots->struct_at(static_cast<uint32_t>(index));
-    slot->add_component_of_type(kTrickSlot, script::QbValueKind::kName, name);
+    slot->add_component_of_type(kTrickSlot, script::QbValueKind::kName, trick_checksum);
     slot->add_component_of_type(kTrickKeys, script::QbValueKind::kName, keys);
     if (trick->flag()) {
         slot->put_int(checksums::Name{kTrickMarker}, 1);

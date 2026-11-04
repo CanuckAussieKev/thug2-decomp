@@ -117,13 +117,13 @@ float ramp_length(const Spec& spec, int side)
 std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape)
 {
     const auto radius = shape.radius;
-    const auto height = shape.height;
+    const auto shape_height = shape.height;
     auto segments = shape.segments;
     std::vector<std::pair<float, float>> points;
     segments = std::max(segments, 1);
     // An arc of `radius`: its foot (out `radius` sin(top), up 0) to the angle reaching min(height, radius) - vertical
     // when the full quarter; d = R (sin top - sin t), y = R (1 - cos t).
-    const float rise = std::min(height, radius);
+    const float rise = std::min(shape_height, radius);
     const double top = std::acos(std::max(-1.0, std::min(1.0, 1.0 - (static_cast<double>(rise) / radius))));
     for (int i = 0; i <= segments; ++i) {
         const double fraction = top * i / segments;
@@ -135,8 +135,8 @@ std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape)
         }
         points.emplace_back(drop, y);
     }
-    if (height > radius + kRadiusMargin) {
-        points.emplace_back(0.0F, height);
+    if (shape_height > radius + kRadiusMargin) {
+        points.emplace_back(0.0F, shape_height);
     }
     return points;
 }

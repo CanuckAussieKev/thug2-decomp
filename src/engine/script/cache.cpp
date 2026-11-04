@@ -167,21 +167,21 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     }
 
     const StoredScript stored = read_stored_script(symbol->value().code());
-    const uint32_t size = stored.size_;
+    const uint32_t code_length = stored.size_;
     const uint32_t stored_size = stored.stored_size_;
-    make_room(static_cast<int>(size), name);
+    make_room(static_cast<int>(code_length), name);
     gsl::owner<script::ScriptCacheEntry*> entry{memory::make_owned_value<ScriptCacheEntry>()};
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap());
-    auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
+    auto* code = static_cast<uint8_t*>(memory::alloc_block(code_length));
     memory::Hub::get_pull()->leave_heap_scope();
-    const std::span<uint8_t> script(code, size);
+    const std::span<uint8_t> script(code, code_length);
     note_code_block(script);
-    if (stored_size < size) {
-        // (not original: bounded by the script's size - lzss::unpack, decode's bytes for valid code)
-        lzss::unpack(stored.code_.data(), stored_size, code, size, nullptr);
+    if (stored_size < code_length) {
+        // (not original: bounded by the script's length - lzss::unpack, decode's bytes for valid code)
+        lzss::unpack(stored.code_.data(), stored_size, code, code_length, nullptr);
     } else {
-        std::ranges::copy(stored.code_.first(size), script.begin());
+        std::ranges::copy(stored.code_.first(code_length), script.begin());
     }
     prepare_script_tokens(script);
     // (a null entry - the pool full - is written through, as in the original)

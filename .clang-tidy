@@ -42,6 +42,7 @@ Checks:
   - 'readability-simplify-boolean-expr'
   - 'readability-static-accessed-through-instance'
   - 'readability-static-definition-in-anonymous-namespace'
+  - 'readability-suspicious-call-argument'
   - 'readability-uppercase-literal-suffix'
   - 'readability-use-concise-preprocessor-directives'
   - 'readability-use-std-min-max'

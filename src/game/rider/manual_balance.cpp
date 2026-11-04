@@ -171,7 +171,7 @@ void Balance::halt()
 }
 
 // 0x00579A00
-void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
+void Balance::kickoff(BalanceKickoff balance_kickoff, bool check_flipped, bool backwards)
 {
     const auto left_button = balance_kickoff.left_button_;
     const auto right_button = balance_kickoff.right_button_;
@@ -181,8 +181,8 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
     trick_ = trick;
     clock_ = 0.0F;
     pushed_ = false;
-    mirrored_ = flipped;
-    flip_ = flip;
+    check_flipped_ = check_flipped;
+    backwards_ = backwards;
     const uint32_t type = get_trick_type(balance_trick_);
     if (type == kGrind || type == kSlide) {
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_->fetch_module(kSkaterCorePhysics));
@@ -334,8 +334,8 @@ void Balance::tick_frame()
     }
     // The balance meter (the anim blender's).
     if (show_meter_) {
-        bool flip = flip_;
-        if (mirrored_) {
+        bool flip = backwards_;
+        if (check_flipped_) {
             auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_->fetch_module(kSkaterCorePhysics));
             if (core->state()->flag(PoseFlag::kFlipped).on != 0U) {
                 flip = !flip;

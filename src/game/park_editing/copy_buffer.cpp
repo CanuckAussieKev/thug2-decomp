@@ -59,9 +59,9 @@ void* follow_rail_link(void* rail) { return *static_cast<void**>(rail); }
 // (0x004F4370); two transforms with an origin, a position and an angle (0x004F61C0, 0x004F6210); hidden (0x004F4220,
 // 0x004F41C0); its destructor body (0x004F70F0); its pool pair (0x007CCD40).
 int rail_point_count(void* rail) { return static_cast<EditedRail*>(rail)->rail_point_total(); }
-void duplicate_rail_path(void* rail, void* from)
+void duplicate_rail_path(void* copy, void* from)
 {
-    static_cast<EditedRail*>(rail)->copy_from(static_cast<const EditedRail*>(from));
+    static_cast<EditedRail*>(copy)->copy_from(static_cast<const EditedRail*>(from));
 }
 void place_rail(void* rail, maths::Vec4* corner, maths::Vec4* cursor, float angle)
 {

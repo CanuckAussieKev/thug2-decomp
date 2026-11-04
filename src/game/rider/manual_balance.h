@@ -39,7 +39,7 @@ public:
     // shorter than half a second); the last lean speed repeated harder (at least Repeat_Min; a new manual: random
     // side, a nose manual's to the back); the lean repeated (Lean_Repeat_Multiplier, plus the cheese); kept within
     // Lean_Bail_Angle; the cheese, the start time.
-    void kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip);
+    void kickoff(BalanceKickoff balance_kickoff, bool check_flipped, bool backwards);
     // 0x00579CC0: one frame (while started): the cheese wears off; the score's trick time (0x00564270); the time
     // goes on; the lean speeds up (its physics: 0x06851748, 0xA9FEF5AB, 0xB6A634F3); the buttons push it back
     // (Lean_Push - not before the "no input" time 0x07DA1621 has passed or a button was let go); with no button,
@@ -71,8 +71,8 @@ public:
     [[nodiscard]] uint32_t right_press() const { return right_press_; }
     void set_rail(int value) { rail_ = value; }
     void set_show_meter(bool value) { show_meter_ = value; }
-    [[nodiscard]] bool mirrored() const { return mirrored_; }
-    [[nodiscard]] bool flip() const { return flip_; }
+    [[nodiscard]] bool check_flipped() const { return check_flipped_; }
+    [[nodiscard]] bool backwards() const { return backwards_; }
 
 private:
     GameEntity* skater_{};              // +0x04
@@ -95,8 +95,8 @@ private:
     int rail_{};             // +0x50 the rail of the last grind (-1: none)
     bool show_meter_{};      // +0x54
     bool hide_display_{};    // +0x55
-    bool mirrored_{};        // +0x56
-    bool flip_{};            // +0x57
+    bool check_flipped_{};   // +0x56 DoFlipCheck: the meter turned round when the skater is flipped
+    bool backwards_{};       // +0x57 PlayRangeAnimBackwards: the meter drawn the other way round
 };
 
 } // namespace objects

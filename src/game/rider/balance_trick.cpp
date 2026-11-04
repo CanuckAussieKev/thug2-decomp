@@ -348,7 +348,7 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
             return 1;
         }
         trick_ = type;
-        const bool do_flip = params->has_bare_flag(kDoFlipCheck);
+        const bool check_flipped = params->has_bare_flag(kDoFlipCheck);
         const bool backwards = params->has_bare_flag(kPlayRangeAnimBackwards);
         const bool clear_cheese = params->has_bare_flag(kClearCheese);
         Balance* balance = at_hand();
@@ -359,7 +359,8 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
             balance->get_reset();
         }
         balance->keep_best_time();
-        balance->kickoff({.left_button_ = button_a, .right_button_ = button_b, .trick = static_cast<uint32_t>(tweak)}, do_flip, backwards);
+        balance->kickoff({.left_button_ = button_a, .right_button_ = button_b, .trick = static_cast<uint32_t>(tweak)},
+                         check_flipped, backwards);
         return 1;
     }
     default:

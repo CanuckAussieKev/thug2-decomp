@@ -520,8 +520,8 @@ void manual_pose(SkaterPhysicsModule* core)
         if (!balance) {
             return;
         }
-        bool flip = balance->flip();
-        if (balance->mirrored() && (core->state()->flag(PoseFlag::kFlipped).on != 0U)) {
+        bool flip = balance->backwards();
+        if (balance->check_flipped() && (core->state()->flag(PoseFlag::kFlipped).on != 0U)) {
             flip = !flip;
         }
         fraction = bike::balance_wobble(balance->lean(), flip);
