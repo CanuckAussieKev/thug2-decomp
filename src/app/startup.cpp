@@ -30,7 +30,7 @@
 #include "base/maths/random.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/net/net_manager.h"
-#include "engine/objects/component_types.h"
+#include "app/component_types.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/path_manager.h"

@@ -323,7 +323,7 @@ export interface Members {
 
 export function extract(exe: Exe, names: ReadonlyMap<number, string>): Members {
     const starts = functionStarts(exe);
-    // (names no THUG2 script uses, checked by their checksums: src/engine/objects/component_types.cpp's)
+    // (names no THUG2 script uses, checked by their checksums: src/app/component_types.cpp's)
     const known = new Map(OTHER_NAMES.map((n) => [checksum(n), n]));
     const label = (type: number): string => (known.get(type) ?? names.get(type) ?? hex8(type)).toLowerCase();
     const comps = components(exe);

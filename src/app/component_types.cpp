@@ -1,6 +1,6 @@
 // The component types every composite object can be made of, registered with the composite object manager.
 
-#include "engine/objects/component_types.h"
+#include "app/component_types.h"
 
 #include <cstdint>
 #include <array>

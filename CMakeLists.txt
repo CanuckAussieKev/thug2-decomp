@@ -618,7 +618,7 @@ add_executable(thug2 WIN32
     src/engine/objects/matrix_component.cpp
     src/engine/objects/camera_lookaround.cpp
     src/engine/objects/camera_util.cpp
-    src/engine/objects/component_types.cpp
+    src/app/component_types.cpp
     src/game/park_editing/goal_editor_util.cpp
     src/game/park_editing/edited_goal.cpp
     src/game/park_editing/edited_goal_io.cpp
