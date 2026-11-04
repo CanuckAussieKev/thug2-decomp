@@ -158,6 +158,177 @@ int Hub::get_entrant_points(uint32_t id)
     return points_of(get_score_of(player));
 }
 
+namespace {
+
+// The game's kind for the score lines: not the lobby, king of the hill, a scavenger hunt with its goal active.
+struct ScoreMode {
+    bool not_lobby{};
+    bool hill_mode{};
+    bool scavenger_hunt{};
+};
+
+// A line per team with players: the team's name, its players' marks.
+void add_team_lines(Hub* manager, lists::Foremost& list, PlayerSearch& search)
+{
+    std::array<ScoreEntry*, 4> teams{};
+    for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
+        if (manager->count_team_players(team) <= 0) {
+            continue;
+        }
+        const uint32_t name = team < 4 ? core::at(kTeamNames, team) : 0;
+        ScoreEntry* entry = new_entry();
+        core::at(teams, team) = entry;
+        text::copy_into(entry->text(), script::fetch_text(name));
+        entry->set_king(false);
+        entry->set_local(false);
+        entry->set_has_flag(false);
+        entry->flag_bits() = 0;
+        entry->set_shade(team + 2);
+        entry->set_team_score(manager->get_squad_points(team));
+    }
+    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
+         player = step_roster_sweep(manager, &search, false)) {
+        if (!has_score_line(player)) {
+            continue;
+        }
+        if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
+            constexpr size_t kMarkedSize = 64;
+            std::array<char, kMarkedSize> marked{};
+            text::format_to(marked, "> %s", core::at(teams, player->team())->text().data());
+            text::copy_into(core::at(teams, player->team())->text(), marked.data());
+        }
+        if (core::any(player->flag_bits() & PlayerFlag::kKing)) {
+            core::at(teams, player->team())->set_king(true);
+        }
+        if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
+            core::at(teams, player->team())->set_local(true);
+        }
+        if (core::any(player->flag_bits() & PlayerFlag::kCarryingFlags)) {
+            core::at(teams, player->team())->set_has_flag(true);
+            core::at(teams, player->team())->flag_bits() |= flag_bit(player);
+        }
+    }
+    for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
+        if (manager->count_team_players(team) <= 0) {
+            continue;
+        }
+        ScoreEntry* entry = core::at(teams, team);
+        entry->set_priority(entry->team_score());
+        list.append_vertex(entry); // (inlined in the original)
+    }
+}
+
+// A line per player.
+void add_player_lines(Hub* manager, lists::Foremost& list, PlayerSearch& search, const ScoreMode& mode)
+{
+    const bool not_lobby = mode.not_lobby;
+    const bool scavenger_hunt = mode.scavenger_hunt;
+    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
+         player = step_roster_sweep(manager, &search, false)) {
+        if (!has_score_line(player)) {
+            continue;
+        }
+        ScoreEntry* entry = new_entry();
+        if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
+            text::format_to(entry->text(), "> %s", player->label().data());
+        } else {
+            text::copy_into(entry->text(), player->label().data());
+        }
+        entry->set_king(core::any(player->flag_bits() & PlayerFlag::kKing));
+        entry->set_local(core::any(player->flag_bits() & PlayerFlag::kLocal));
+        if (is_squad_match()) {
+            entry->set_shade(player->team() + 2);
+        } else {
+            entry->set_shade(static_cast<int>(get_skater_id(player->skater())) + 2);
+        }
+        if (core::any(player->flag_bits() & PlayerFlag::kCarryingFlags)) {
+            entry->set_has_flag(true);
+            entry->flag_bits() |= flag_bit(player);
+        }
+        if (!not_lobby) {
+            get_append(&list, entry);
+        } else {
+            entry->set_priority(scavenger_hunt ? kHuntObjectCount - player->num_placed()
+                                               : manager->get_entrant_points(get_skater_id(player->skater())));
+            list.append_vertex(entry);
+        }
+    }
+}
+
+constexpr size_t kPrefixSize = 64;
+constexpr size_t kTextSize = 128;
+
+// A line's prefix: the crown's abbreviation for the king, the flags' styles for a flag carrier.
+void line_prefix(const ScoreEntry* entry, std::array<char, kPrefixSize>& prefix)
+{
+    core::at(prefix, 0) = '\0';
+    if (entry->king()) {
+        text::format_data_to(prefix,
+                             script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
+    } else if (entry->has_flag()) {
+        if ((entry->flag_bits() & 1) != 0U) {
+            text::append_into(prefix, "\\s0");
+        }
+        if ((entry->flag_bits() & kEntryStyle1) != 0U) {
+            text::append_into(prefix, "\\s1");
+        }
+        if ((entry->flag_bits() & kEntryStyle2) != 0U) {
+            text::append_into(prefix, "\\s2");
+        }
+        if ((entry->flag_bits() & kEntryStyle3) != 0U) {
+            text::append_into(prefix, "\\s3");
+        }
+    } else {
+        core::at(prefix, 0) = '\0';
+    }
+}
+
+// A line's text: the lobby's name, king of the hill's time, a hunt's name, else the score.
+void line_text(const ScoreEntry* entry, const std::array<char, kPrefixSize>& prefix, const ScoreMode& mode,
+               std::array<char, kTextSize>& text)
+{
+    if (!mode.not_lobby) {
+        text::format_to(text, "\\c%d%s", entry->shade(), entry->text().data());
+    } else if (mode.hill_mode) {
+        const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority()) / 1000);
+        if (seconds < kSecondsPerHour) {
+            text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade(), entry->text().data(),
+                            entry->shade(), seconds / kSecondsPerMinute, seconds % kSecondsPerMinute);
+        } else {
+            text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade(),
+                            entry->text().data(), entry->shade(), seconds / kSecondsPerHour,
+                            seconds % kSecondsPerHour / kSecondsPerMinute, seconds % kSecondsPerMinute);
+        }
+    } else if (mode.scavenger_hunt && !entry->local()) {
+        text::format_to(text, "%s\\c%d %s", prefix.data(), entry->shade(), entry->text().data());
+    } else {
+        text::format_to(text, "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade(), entry->text().data(),
+                        entry->shade(), entry->priority());
+    }
+}
+
+// The score line `line` shown (its element's text, UpdateScore run).
+void show_line(int line, const std::array<char, kTextSize>& text)
+{
+    const uint32_t id = line < 8 ? core::at(kScoreLines, line) : 0;
+    script::StructPtr params = script::make_struct();
+    params->append_word(kText, script::QbValueKind::kString, text.data());
+    params->add_component_of_type(kId, script::QbValueKind::kName, id);
+    frontend::UiWidget* element = nullptr;
+    {
+        frontend::ElementPtr found;
+        frontend::fetch_part(&found, id);
+        element = found.get_pull();
+    }
+    if (element) {
+        element->change_traits(params.get());
+    }
+    get_run(kUpdateScore, params.get());
+    params.reset();
+}
+
+} // namespace
+
 // 0x00544780
 void score_broadcast_tick(tasks::Task<Hub>* task)
 {
@@ -167,13 +338,12 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     lists::Foremost list{};
     list.list_link().make_head();
     PlayerSearch search;
-    const bool not_lobby = get_game_type() != kNetLobby;
-    const bool hill_mode = get_game_type() == kNetKing || get_game_type() == kKing;
-    bool scavenger_hunt = false;
+    ScoreMode mode{.not_lobby = get_game_type() != kNetLobby,
+                   .hill_mode = get_game_type() == kNetKing || get_game_type() == kKing};
     if (get_game_type() == kNetScavengerHunt) {
         goals::Objective* goal = objective_board()->get_goal(kScavenger, 0);
         if (goal && goal->is_operative()) {
-            scavenger_hunt = true; // (the goal is active)
+            mode.scavenger_hunt = true; // (the goal is active)
         }
     }
     const uint32_t now = frame_clock::get_time();
@@ -185,83 +355,10 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     score_sync_stamp_slot() = now;
     get_run(kClearScores);
 
-    if (not_lobby && manager->show_team_scores()) {
-        // A line per team with players: the team's name, its players' marks.
-        std::array<ScoreEntry*, 4> teams{};
-        for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
-            if (manager->count_team_players(team) <= 0) {
-                continue;
-            }
-            const uint32_t name = team < 4 ? core::at(kTeamNames, team) : 0;
-            ScoreEntry* entry = new_entry();
-            core::at(teams, team) = entry;
-            text::copy_into(entry->text(), script::fetch_text(name));
-            entry->set_king(false);
-            entry->set_local(false);
-            entry->set_has_flag(false);
-            entry->flag_bits() = 0;
-            entry->set_shade(team + 2);
-            entry->set_team_score(manager->get_squad_points(team));
-        }
-        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player; player = step_roster_sweep(manager, &search, false)) {
-            if (!has_score_line(player)) {
-                continue;
-            }
-            if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
-                constexpr size_t kMarkedSize = 64;
-                std::array<char, kMarkedSize> marked{};
-                text::format_to(marked, "> %s", core::at(teams, player->team())->text().data());
-                text::copy_into(core::at(teams, player->team())->text(), marked.data());
-            }
-            if (core::any(player->flag_bits() & PlayerFlag::kKing)) {
-                core::at(teams, player->team())->set_king(true);
-            }
-            if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
-                core::at(teams, player->team())->set_local(true);
-            }
-            if (core::any(player->flag_bits() & PlayerFlag::kCarryingFlags)) {
-                core::at(teams, player->team())->set_has_flag(true);
-                core::at(teams, player->team())->flag_bits() |= flag_bit(player);
-            }
-        }
-        for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
-            if (manager->count_team_players(team) <= 0) {
-                continue;
-            }
-            ScoreEntry* entry = core::at(teams, team);
-            entry->set_priority(entry->team_score());
-            list.append_vertex(entry); // (inlined in the original)
-        }
+    if (mode.not_lobby && manager->show_team_scores()) {
+        add_team_lines(manager, list, search);
     } else {
-        // A line per player.
-        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player; player = step_roster_sweep(manager, &search, false)) {
-            if (!has_score_line(player)) {
-                continue;
-            }
-            ScoreEntry* entry = new_entry();
-            if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
-                text::format_to(entry->text(), "> %s", player->label().data());
-            } else {
-                text::copy_into(entry->text(), player->label().data());
-            }
-            entry->set_king(core::any(player->flag_bits() & PlayerFlag::kKing));
-            entry->set_local(core::any(player->flag_bits() & PlayerFlag::kLocal));
-            if (is_squad_match()) {
-                entry->set_shade(player->team() + 2);
-            } else {
-                entry->set_shade(static_cast<int>(get_skater_id(player->skater())) + 2);
-            }
-            if (core::any(player->flag_bits() & PlayerFlag::kCarryingFlags)) {
-                entry->set_has_flag(true);
-                entry->flag_bits() |= flag_bit(player);
-            }
-            if (!not_lobby) {
-                get_append(&list, entry);
-            } else {
-                entry->set_priority(scavenger_hunt ? kHuntObjectCount - player->num_placed() : manager->get_entrant_points(get_skater_id(player->skater())));
-                list.append_vertex(entry);
-            }
-        }
+        add_player_lines(manager, list, search, mode);
     }
 
     // The lines, best first.
@@ -269,65 +366,14 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         list.list_link().next()->data() == memory::ListNode::head_marker() ? nullptr : list.list_link().next();
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data()) : nullptr;
     for (int line = 0; entry; ++line) {
-        constexpr size_t kPrefixSize = 64;
         std::array<char, kPrefixSize> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
-        core::at(prefix, 0) = '\0';
-        if (entry->king()) {
-            text::format_data_to(prefix,
-                                 script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
-        } else if (entry->has_flag()) {
-            if ((entry->flag_bits() & 1) != 0U) {
-                text::append_into(prefix, "\\s0");
-            }
-            if ((entry->flag_bits() & kEntryStyle1) != 0U) {
-                text::append_into(prefix, "\\s1");
-            }
-            if ((entry->flag_bits() & kEntryStyle2) != 0U) {
-                text::append_into(prefix, "\\s2");
-            }
-            if ((entry->flag_bits() & kEntryStyle3) != 0U) {
-                text::append_into(prefix, "\\s3");
-            }
-        } else {
-            core::at(prefix, 0) = '\0';
-        }
+        line_prefix(entry, prefix);
         cursor = cursor->next()->data() == memory::ListNode::head_marker() ? nullptr : cursor->next();
         auto* following = cursor ? static_cast<ScoreEntry*>(cursor->data()) : nullptr;
 
-        constexpr size_t kTextSize = 128;
         std::array<char, kTextSize> text{}; // (64 in the original: the longest king of the hill lines overran it)
-        if (!not_lobby) {
-            text::format_to(text, "\\c%d%s", entry->shade(), entry->text().data());
-        } else if (hill_mode) {
-            const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority()) / 1000);
-            if (seconds < kSecondsPerHour) {
-                text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade(), entry->text().data(),
-                                entry->shade(), seconds / kSecondsPerMinute, seconds % kSecondsPerMinute);
-            } else {
-                text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade(),
-                                entry->text().data(), entry->shade(), seconds / kSecondsPerHour, seconds % kSecondsPerHour / kSecondsPerMinute, seconds % kSecondsPerMinute);
-            }
-        } else if (scavenger_hunt && !entry->local()) {
-            text::format_to(text, "%s\\c%d %s", prefix.data(), entry->shade(), entry->text().data());
-        } else {
-            text::format_to(text, "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade(), entry->text().data(),
-                            entry->shade(), entry->priority());
-        }
-        const uint32_t id = line < 8 ? core::at(kScoreLines, line) : 0;
-        script::StructPtr params = script::make_struct();
-        params->append_word(kText, script::QbValueKind::kString, text.data());
-        params->add_component_of_type(kId, script::QbValueKind::kName, id);
-        frontend::UiWidget* element = nullptr;
-        {
-            frontend::ElementPtr found;
-            frontend::fetch_part(&found, id);
-            element = found.get_pull();
-        }
-        if (element) {
-            element->change_traits(params.get());
-        }
-        get_run(kUpdateScore, params.get());
-        params.reset();
+        line_text(entry, prefix, mode, text);
+        show_line(line, text);
         entry->teardown(1); // (deleted: out of the list)
         entry = following;
     }
