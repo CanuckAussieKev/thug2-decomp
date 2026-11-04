@@ -394,7 +394,6 @@ src/frontend/new_frontend_game.cpp -> src/editor/level_editor.h
 src/game/front_end/front_end.cpp -> src/devtools/automation.h
 src/game/front_end/front_end.cpp -> src/frontend/mouse_menus.h
 src/game/rider/collision_events.cpp -> src/devtools/screenshot.h
-src/game/skate/career.cpp -> src/editor/level_editor_career.h
 src/gpu/vertex_buffers.cpp -> src/engine/gfx/renderer.h
 src/gpu/vertex_buffers.cpp -> src/engine/memory/mem.h
 src/wire/gamenet_messages.cpp -> src/formats/byte_stream.h

@@ -8,14 +8,17 @@ namespace goals {
 class GapTally;
 }
 
-// NOT ORIGINAL - the level editor and the career save (ours; see level_editor.h). An edited copy of a level
-// (level_editor_layout.h) is a level of its own: playing it must never change the user's career.
+// NOT ORIGINAL - the level editor and the career save (ours; see editor/level_editor.h). An edited copy of a level
+// (editor/level_editor_layout.h) is a level of its own: playing it must never change the user's career. A game
+// feature that the editor drives: the editor calls get_edited_copy, the career calls career_replaced and save_view,
+// and the editor's gaps are asked of the extensions (engine/ext/extension.h: added_gaps). (The namespace is the
+// editor's, as it was before the move.)
 //
 // The career's gap checklists (one per level, GameObjects::RiderStoryProgress +0x63C; the skate module's 0x005656C0 is the current
 // level's) are what the save keeps of gaps: the game save's builder (0x005A7560, the memory card / save game's
 // structure) calls the career's write_to_structure (0x00585550, ours: src/game/skate/career.cpp - also the script command
 // GetCareerSaveInfo, 0x00585E20), which writes each built checklist's gaps (name, times landed, score, the skater's
-// start position / direction). The editor adds its gaps to the current level's checklist (level_editor_triggers.h: the
+// start position / direction). The editor adds its gaps to the current level's checklist (editor/level_editor_triggers.h: the
 // game's own Build), and gaps landed in an edited copy count in that checklist like any other. So:
 //   - when the level becomes its edited copy (get_edited_copy(true): the layout put in place, the editor opened in it, a
 //     switch in place), the current level's checklist is copied first - the BASELINE: its gaps (names, scores, times

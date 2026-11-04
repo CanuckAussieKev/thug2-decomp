@@ -1,14 +1,14 @@
-// NOT ORIGINAL - the level editor and the career save (ours; level_editor_career.h).
+// NOT ORIGINAL - the level editor and the career save (ours; edited_copy_career.h).
 
-#include "editor/level_editor_career.h"
+#include "game/skate/edited_copy_career.h"
 
 #include <algorithm>
 #include <string>
 #include <vector>
 #include <array>
 
-#include "editor/level_editor_triggers.h"
 #include "base/maths/vec4.h"
+#include "engine/ext/extension.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
@@ -40,10 +40,10 @@ Checklist for_save(const Checklist& live, const Checklist* baseline, const std::
 
 namespace {
 
-// NOT ORIGINAL grouping - level_editor_career.cpp's state (were globals). Made on first use, never destroyed
+// NOT ORIGINAL grouping - edited_copy_career.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_career_state()).
 struct LevelEditorCareerState {
-    // The baseline (level_editor_career.h) and the checklist it is of.
+    // The baseline (edited_copy_career.h) and the checklist it is of.
     bool on_{};
     goals::GapTally* of_{};
     Checklist baseline_{};
@@ -149,7 +149,7 @@ bool save_view(goals::GapTally* checklist, Checklist* out)
 {
     std::vector<std::string> editor_gaps;
     std::vector<std::string> level_gaps;
-    const bool editor = triggers::get_editor_gaps(checklist, &editor_gaps, &level_gaps);
+    const bool editor = ext::added_gaps(checklist, &editor_gaps, &level_gaps);
     const bool baseline =
         level_editor_career_state().on_ && (checklist != nullptr) && checklist == level_editor_career_state().of_;
     if (!baseline && !editor) {

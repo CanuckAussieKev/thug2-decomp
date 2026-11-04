@@ -39,7 +39,7 @@
 #include "editor/level_editor_walls.h"
 #include "base/core/checksums.h"
 #include "editor/level_editor.h"
-#include "editor/level_editor_career.h"
+#include "game/skate/edited_copy_career.h"
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_objects.h"
@@ -1530,7 +1530,7 @@ void switch_in_place(int to)
     std::string message;
     if (to > 0 && !layout_save().edited_copy_) {
         layout_save().edited_copy_ = true;
-        career::get_edited_copy(true); // (the career's gap list kept as it is first - level_editor_career.h)
+        career::get_edited_copy(true); // (the career's gap list kept as it is first - game/skate/edited_copy_career.h)
         read_in(&message);
         get_log("level editor: switched to the edited copy in place (%s)", message.c_str());
     } else if (to < 0 && layout_save().edited_copy_) {
@@ -1693,7 +1693,7 @@ void tick()
         return;
     }
     layout_save().edited_copy_ = true;
-    career::get_edited_copy(true); // (the career's gap list kept as it is first - level_editor_career.h)
+    career::get_edited_copy(true); // (the career's gap list kept as it is first - game/skate/edited_copy_career.h)
     std::string message;
     read_in(&message);
     level_props::on_edited_copy_up(level_props::at_hand()); // (its start, if it names one)
@@ -1873,7 +1873,7 @@ bool enter_edited_copy(std::string* message)
         return true;
     }
     layout_save().edited_copy_ = true;
-    career::get_edited_copy(true); // (the career's gap list kept as it is first - level_editor_career.h)
+    career::get_edited_copy(true); // (the career's gap list kept as it is first - game/skate/edited_copy_career.h)
     level_editor_layout_state().pending_ = false;             // (put in place here, not again by Tick)
     std::string loaded;
     if (has_saved_layout() && read_in(&loaded)) {

@@ -300,7 +300,7 @@ struct ModeFlags {
 // free skate (1 or 2 players) and single session only - a whitelist, so a mode nobody thought of is refused. (Single
 // session records high scores at the end of a high score run: UpdateRecords - game/skate/highscores.h - records nothing
 // while the edited copy is loaded. Gaps landed in free skate and single session go into the career's gap list as
-// anywhere: editor/level_editor_career.h keeps them out of the save.)
+// anywhere: game/skate/edited_copy_career.h keeps them out of the save.)
 const char* mode_refusal(const ModeFlags& mode);
 
 // The game side.

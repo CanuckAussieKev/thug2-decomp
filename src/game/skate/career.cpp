@@ -9,7 +9,7 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "editor/level_editor_career.h"
+#include "game/skate/edited_copy_career.h"
 #include "base/maths/vec4.h"
 #include "engine/script/cell.h"
 #include "engine/script/cscript.h"
@@ -536,7 +536,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
         goals::GapTally* checklist = core::at(gaps_, level);
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_int(checksums::Name{kGapLevel}, level);
-        // NOT ORIGINAL: an edited copy's checklist (level_editor_career.h) is written as before the edited copy - never
+        // NOT ORIGINAL: an edited copy's checklist (edited_copy_career.h) is written as before the edited copy - never
         // the editor's gaps, nor gaps landed in it.
         frontend::level_editor::career::Checklist view;
         if (frontend::level_editor::career::save_view(checklist, &view)) {

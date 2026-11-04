@@ -379,7 +379,7 @@ add_executable(thug2 WIN32
     src/editor/level_editor_triggers_ui.cpp
     src/editor/level_editor_entities.cpp
     src/editor/level_editor_entities_ui.cpp
-    src/editor/level_editor_career.cpp
+    src/game/skate/edited_copy_career.cpp
     src/editor/level_editor_extension.cpp
     src/editor/level_editor_preview.cpp
     src/editor/level_editor_overlays.cpp
