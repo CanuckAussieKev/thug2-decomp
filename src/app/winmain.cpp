@@ -4,7 +4,6 @@
 #include "app/winmain.h"
 #include "platform/gamespy.h"
 
-#include <winsock2.h>
 #include <windows.h>
 
 #include <cstddef>
@@ -24,6 +23,7 @@
 #include "base/core/dbg.h"
 #include "engine/audio/audio_device.h"
 #include "engine/audio/music_player.h"
+#include "engine/net/transport.h"
 #include "engine/memory/manager.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "game/online/gamenet_qr2.h"
@@ -310,10 +310,10 @@ void read_network_params(const char* command_line)
         if (const auto at = find("-CONNECT")) {
             const char* server = command_line_server_name().data();
             copy_value(after(*at, kConnectValueAt), command_line_server_name(), kServerNameMax);
-            uint32_t address = inet_addr(server);
-            if (address == INADDR_NONE) {
-                if (const hostent* host = gethostbyname(server)) {
-                    std::memcpy(&address, *host->h_addr_list, sizeof(address));
+            uint32_t address = net::transport().parse_address(server);
+            if (address == net::kNoAddress) {
+                if (const net::HostEntry* host = net::transport().find_host(server)) {
+                    address = net::transport().host_first_address(host);
                 }
             }
             online::net_game_state().set_command_line_server(address);

@@ -12,9 +12,6 @@ add_executable(thug2 WIN32
     command_table.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
-# winmain.cpp calls Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
-# them deprecated unless this is defined.
-set_source_files_properties(winmain.cpp PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
 # Every layer, highest first (the libraries bring the system and third-party libraries they need).
 target_link_libraries(thug2 PRIVATE thug2_frontend thug2_editor thug2_devtools thug2_game thug2_render_d3d9
                                     thug2_audio_dsound thug2_media_bink thug2_input_dinput thug2_fs_win32 thug2_net_winsock

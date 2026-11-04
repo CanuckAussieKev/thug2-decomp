@@ -1,8 +1,6 @@
 // The GameSpy lobby's script commands: NAT negotiation started / cancelled, leaving the lobby, a cancelled connect,
 // the quiet mode, whether this player may host (0x005403E0-0x00540750). See gamenet_lobby.h.
 
-#include <winsock2.h>
-
 #include <algorithm>
 #include <cstdint>
 #include <array>
@@ -16,6 +14,7 @@
 #include "platform/gamespy.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
+#include "engine/net/transport.h"
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
@@ -79,7 +78,7 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script* /*scrip
     params->read_hash_value(kCookie, &cookie, 0);
     lobby->set_nat_cookie(static_cast<int>(cookie));
     net::AppHost* client = manager->start_client_session(false, false, true, 0);
-    game_spy::peer_send_nat_negotiate_cookie(lobby->remote(), static_cast<uint32_t>(inet_addr(address)), port,
+    game_spy::peer_send_nat_negotiate_cookie(lobby->remote(), net::transport().parse_address(address), port,
                                              lobby->nat_cookie()); // the cookie to the host
     const int error = game_spy::nat_begin_with_socket(
         client->get_socket(), lobby->nat_cookie(), kClientNatIndex,

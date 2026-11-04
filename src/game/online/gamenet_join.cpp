@@ -32,6 +32,7 @@
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
 #include "engine/net/net_manager.h"
+#include "engine/net/transport.h"
 #include "game/online/player_info.h"
 #include "game/online/server_list.h"
 #include "game/online/stats_man.h"
@@ -157,7 +158,7 @@ std::array<char, kPasswordSize>& join_password()
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
-uint32_t current_local_address() { return crt::get_inet_addr(net::Hub::fetch_own_address()); }
+uint32_t current_local_address() { return net::transport().parse_address(net::Hub::fetch_own_address()); }
 
 void set_ready_state(Hub* hub, bool ready) { hub->set_ready_state(ready); }
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }

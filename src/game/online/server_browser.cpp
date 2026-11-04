@@ -2,8 +2,6 @@
 // and GameSpy's game listing callback. GameSpy's server browsing (SBServer) calls are library code, called by
 // address; what each returns is said where it's used.
 
-#include <winsock2.h>
-
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -30,6 +28,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
+#include "engine/net/transport.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/render_constants.h"
@@ -277,7 +276,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         if (manager->presence_service()->authenticated()) { // (0x005480B0: logged in to presence)
             manager->lobby_service()->change_host_name(server->label().data());
         }
-        const char* ip = crt::get_inet_ntoa(server->remote_ip());
+        const char* ip = net::transport().address_text(server->remote_ip());
         if (!server->can_reach()) {
             reply->add_component_of_type(kCookie, script::QbValueKind::kName, maths::rnd(kCookieRange) * maths::rnd(kCookieRange));
         }

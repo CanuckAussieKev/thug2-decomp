@@ -15,7 +15,6 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "base/core/stubs.h"
-#include "platform/crt.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/net/net_client.h"
@@ -23,6 +22,7 @@
 #include "engine/net/net_lists.h"
 #include "engine/net/net_manager.h"
 #include "engine/net/net_metrics.h"
+#include "engine/net/transport.h"
 #include "game/rider/rider.h"
 #include "game/online/player_info.h"
 #include "engine/objects/entity.h"
@@ -116,7 +116,7 @@ memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 uint32_t game_mode_players() { return static_cast<uint32_t>(goals::game_mode()->get_starting_rider_count()); }
 
 // inet_addr through the game's import (0x005BEAAE).
-uint32_t get_inet_addr(const char* address) { return crt::get_inet_addr(address); }
+uint32_t get_inet_addr(const char* address) { return net::transport().parse_address(address); }
 
 } // namespace
 
@@ -612,8 +612,12 @@ bool cfunc_game_is_over(script::Struct* /*params*/, script::Script* /*script*/)
 
 namespace {
 
-// gethostbyname through the game's import (0x005BEABA).
-uint32_t host_first_address(const char* name) { return crt::host_first_address(name); }
+// gethostbyname through the game's import (0x005BEABA): the host's first address, or none.
+uint32_t host_first_address(const char* name)
+{
+    const net::HostEntry* host = net::transport().find_host(name);
+    return host ? net::transport().host_first_address(host) : kNoAddress;
+}
 } // namespace
 
 // 0x005A28A0: TryJoinInternetGame: the server chosen in the list (0x0067EFB8, unless -1) looked for; a join is being

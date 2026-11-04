@@ -4,7 +4,6 @@
 #include "game/online/buddy_man.h"
 #include "platform/gamespy.h"
 
-#include <winsock2.h>
 #include <windows.h>
 
 #include <cstddef>
@@ -57,7 +56,7 @@
 #include "game/online/net_game_state.h"
 #include "base/core/gathered_call.h"
 #include "game/online/online_identity.h"
-#include "platform/crt.h"
+#include "engine/net/transport.h"
 
 namespace {
 constexpr int kGpCallbackError = 0;
@@ -815,7 +814,7 @@ bool join_buddy(script::Struct* params, script::Script* /*script*/)
     gp_set_status(man, kStatusPlaying, text, status.data());
     pop_heap();
     script::StructPtr join = script::make_struct();
-    const char* dotted = crt::get_inet_ntoa(static_cast<uint32_t>(ip));
+    const char* dotted = net::transport().address_text(static_cast<uint32_t>(ip));
     join->add_component_of_type(0, script::QbValueKind::kInteger, static_cast<uint32_t>(port));
     join->append_word(0, script::QbValueKind::kString, dotted);
     if (!same_address) {

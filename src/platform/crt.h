@@ -14,7 +14,7 @@
 #include <gsl/pointers>
 #include <new>
 
-// The C runtime and the system libraries (Windows, DirectX, Winsock, Bink) the game calls: the linked library, or -
+// The C runtime and the system libraries (Windows, DirectX, Bink) the game calls: the linked library, or -
 // where the compiler's library behaves differently from the game's - our own version of the game's (qsort's order of
 // equal elements, rand's sequence, _stricmp's result). Bink has no import library: its functions are
 // looked up by name (library_function).
@@ -33,13 +33,6 @@ F library_function(Dll dll, const char* name)
 {
     return function_at<F>(library_function(dll, name));
 }
-
-// --- Winsock ---
-uint32_t get_inet_addr(const char* address); // inet_addr
-const char* get_inet_ntoa(uint32_t address); // inet_ntoa (the address in network order)
-void* get_host_by_name(const char* name);    // gethostbyname (a hostent*)
-// gethostbyname's first IPv4 address, its bytes in network order as a word (0xFFFFFFFF: none).
-uint32_t host_first_address(const char* name);
 
 // --- The C runtime: its heap and exit (its files are the disk's, engine/file/disk.h) ---
 // (operator new / delete without exceptions: the same C runtime heap as malloc / free, null when out of memory; blocks

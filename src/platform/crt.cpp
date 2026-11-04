@@ -1,13 +1,10 @@
-#include <winsock2.h>
 #include <windows.h>
 
 #include "platform/crt.h"
-#include "base/core/all_ones.h"
 #include "platform/code_address.h"
 #include "base/core/checked_index.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <process.h>
@@ -16,14 +13,9 @@
 #include <span>
 #include <string_view>
 #include <utility>
-#include "base/core/raw_view.h"
 
 namespace crt {
 
-// host_first_address: the address bytes in the order of a little-endian word.
-constexpr int kShiftByte1 = 8;
-constexpr int kShiftByte2 = 16;
-constexpr int kShiftByte3 = 24;
 // game_qsort: the stack of ranges still to sort, and the size up to which a range is sorted by insertion.
 constexpr std::size_t kQsortStackDepth = 30;
 constexpr std::size_t kInsertionSortLimit = 8;
@@ -51,24 +43,6 @@ unsigned linked_time(unsigned* out)
 
 } // namespace
 
-uint32_t get_inet_addr(const char* address) { return static_cast<uint32_t>(inet_addr(address)); }
-const char* get_inet_ntoa(uint32_t address)
-{
-    in_addr in{};
-    in.s_addr = address;
-    return inet_ntoa(in);
-}
-void* get_host_by_name(const char* name) { return gethostbyname(name); }
-uint32_t host_first_address(const char* name)
-{
-    const hostent* host = gethostbyname(name);
-    if (!host) {
-        return platform::kAllOnes;
-    }
-    const std::span<const uint8_t> first(raw::bytes(*host->h_addr_list), 4); // (Winsock's char* address bytes)
-    return core::at(first, 0) | core::at(first, 1) << kShiftByte1 | core::at(first, 2) << kShiftByte2 |
-           static_cast<uint32_t>(core::at(first, 3)) << kShiftByte3;
-}
 
 void c_exit() { _cexit(); }
 unsigned get_instant() { return linked_time(nullptr); }

@@ -244,6 +244,3 @@ add_library(thug2_game STATIC
     rider/walk_hang.cpp
 )
 target_link_libraries(thug2_game PUBLIC thug2_engine)
-# online/gamenet_lobby_cfuncs.cpp calls Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa,
-# gethostbyname): Winsock marks them deprecated unless this is defined.
-set_source_files_properties(online/gamenet_lobby_cfuncs.cpp PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
