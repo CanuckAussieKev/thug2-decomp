@@ -34,7 +34,9 @@ std::string unlit_shader_source(const std::string& source)
     if (!source.starts_with("ps.") || version_end == std::string::npos) {
         return {};
     }
-    auto is_name = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
+    auto is_name = [](char character) {
+        return std::isalnum(static_cast<unsigned char>(character)) || character == '_';
+    };
     const std::string constant = "c" + std::to_string(kUnlitConstant);
     for (size_t at = source.find(constant); at != std::string::npos; at = source.find(constant, at + 1)) {
         const bool before = at == 0 || !is_name(core::at(source, at - 1));
@@ -49,14 +51,15 @@ std::string unlit_shader_source(const std::string& source)
     bool changed = false;
     bool comment = false;
     for (size_t i = 0; i < source.size(); ++i) {
-        const char c = core::at(source, i);
-        if (c == '\n') {
+        const char character = core::at(source, i);
+        if (character == '\n') {
             comment = false;
-        } else if (c == ';') {
+        } else if (character == ';') {
             comment = true;
         }
-        const bool v0 = !comment && c == 'v' && i + 1 < source.size() && core::at(source, i + 1) == '0' &&
-                        (i == 0 || !is_name(core::at(source, i - 1))) && (i + 2 >= source.size() || !is_name(core::at(source, i + 2)));
+        const bool v0 = !comment && character == 'v' && i + 1 < source.size() && core::at(source, i + 1) == '0' &&
+                        (i == 0 || !is_name(core::at(source, i - 1))) &&
+                        (i + 2 >= source.size() || !is_name(core::at(source, i + 2)));
         if (v0) {
             const bool alpha =
                 i + 3 < source.size() && core::at(source, i + 2) == '.' && (core::at(source, i + 3) == 'a' || core::at(source, i + 3) == 'w');
@@ -67,7 +70,7 @@ std::string unlit_shader_source(const std::string& source)
                 continue;
             }
         }
-        out += c;
+        out += character;
     }
     if (!changed) {
         return source;

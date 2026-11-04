@@ -120,54 +120,78 @@ void Sparkle::prepare_all(const SparkleConfig* params)
 // radius; the original's x87 code rounds some of the sums to floats and keeps others at 53 bits - followed term by term.
 void Sparkle::update_bounds()
 {
-    const SparkleConfig& p = args_;
+    const SparkleConfig& config = args_;
     std::array<std::array<float, 3>, 3> hb{};
     std::array<float, 3> hr{};
-    std::array<float, 3> s{};
+    std::array<float, 3> size{};
     for (int i = 0; i < 3; ++i) {
-        core::at(core::at(hb, i), 0) = core::at(p.box(), i).x * kHalf;
-        core::at(core::at(hb, i), 1) = core::at(p.box(), i).y * kHalf;
-        core::at(core::at(hb, i), 2) = core::at(p.box(), i).z * kHalf;
-        core::at(hr, i) = core::at(p.radius(), i) * kHalf;
-        core::at(s, i) = core::at(p.extent(), i);
+        core::at(core::at(hb, i), 0) = core::at(config.box(), i).x * kHalf;
+        core::at(core::at(hb, i), 1) = core::at(config.box(), i).y * kHalf;
+        core::at(core::at(hb, i), 2) = core::at(config.box(), i).z * kHalf;
+        core::at(hr, i) = core::at(config.radius(), i) * kHalf;
+        core::at(size, i) = core::at(config.extent(), i);
     }
     std::array<maths::Vec4, 3> lo{};
     std::array<maths::Vec4, 3> hi{};
     for (int i = 0; i < 3; ++i) {
-        const maths::Vec4& at = core::at(p.at_point(), i);
-        core::at(lo, i).x = current_round(current_round(current_round(static_cast<double>(at.x) - core::at(core::at(hb, i), 0)) - core::at(s, i)) - core::at(hr, i));
-        core::at(lo, i).y = current_round(current_round(current_round(static_cast<double>(at.y) - core::at(core::at(hb, i), 1)) - core::at(s, i)) - core::at(hr, i));
-        core::at(lo, i).z = current_round(current_round(current_round(static_cast<double>(at.z) - core::at(core::at(hb, i), 2)) - core::at(s, i)) - core::at(hr, i));
-        core::at(lo, i).w = current_round(current_round(current_round(static_cast<double>(core::at(s, i)) - core::at(hr, i)) - core::at(s, i)) - core::at(hr, i));
+        const maths::Vec4& at = core::at(config.at_point(), i);
+        core::at(lo, i).x = current_round(
+            current_round(current_round(static_cast<double>(at.x) - core::at(core::at(hb, i), 0)) - core::at(size, i)) -
+            core::at(hr, i));
+        core::at(lo, i).y = current_round(
+            current_round(current_round(static_cast<double>(at.y) - core::at(core::at(hb, i), 1)) - core::at(size, i)) -
+            core::at(hr, i));
+        core::at(lo, i).z = current_round(
+            current_round(current_round(static_cast<double>(at.z) - core::at(core::at(hb, i), 2)) - core::at(size, i)) -
+            core::at(hr, i));
+        core::at(lo, i).w = current_round(
+            current_round(current_round(static_cast<double>(core::at(size, i)) - core::at(hr, i)) - core::at(size, i)) -
+            core::at(hr, i));
     }
     {
-        const maths::Vec4& at = core::at(p.at_point(), 0);
-        core::at(hi, 0).x =
-            current_round((static_cast<double>(current_round(static_cast<double>(core::at(core::at(hb, 0), 0)) + at.x)) + core::at(s, 0)) + core::at(hr, 0));
-        core::at(hi, 0).y = current_round(((static_cast<double>(at.y) + core::at(core::at(hb, 0), 1)) + core::at(s, 0)) + core::at(hr, 0));
-        core::at(hi, 0).z = current_round(static_cast<double>(current_round(
-                                    core::at(s, 0) + static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, 0), 2))))) +
-                                core::at(hr, 0));
-        core::at(hi, 0).w = current_round(static_cast<double>(current_round(
-                                    core::at(s, 0) + static_cast<double>(current_round(static_cast<double>(core::at(hr, 0)) + core::at(s, 0))))) +
-                                core::at(hr, 0));
+        const maths::Vec4& at = core::at(config.at_point(), 0);
+        core::at(hi, 0).x = current_round(
+            (static_cast<double>(current_round(static_cast<double>(core::at(core::at(hb, 0), 0)) + at.x)) +
+             core::at(size, 0)) +
+            core::at(hr, 0));
+        core::at(hi, 0).y = current_round(
+            ((static_cast<double>(at.y) + core::at(core::at(hb, 0), 1)) + core::at(size, 0)) + core::at(hr, 0));
+        core::at(hi, 0).z = current_round(
+            static_cast<double>(current_round(
+                core::at(size, 0) +
+                static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, 0), 2))))) +
+            core::at(hr, 0));
+        core::at(hi, 0).w = current_round(
+            static_cast<double>(current_round(
+                core::at(size, 0) +
+                static_cast<double>(current_round(static_cast<double>(core::at(hr, 0)) + core::at(size, 0))))) +
+            core::at(hr, 0));
     }
     for (int i = 1; i < 3; ++i) {
-        const maths::Vec4& at = core::at(p.at_point(), i);
-        core::at(hi, i).x = current_round(current_round(current_round(static_cast<double>(core::at(core::at(hb, i), 0)) + at.x) + core::at(s, i)) + core::at(hr, i));
-        core::at(hi, i).y = current_round(current_round(current_round(static_cast<double>(at.y) + core::at(core::at(hb, i), 1)) + core::at(s, i)) + core::at(hr, i));
-        core::at(hi, i).z =
-            current_round((core::at(s, i) + static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, i), 2)))) + core::at(hr, i));
-        core::at(hi, i).w = current_round(static_cast<double>(current_round(core::at(s, i) + (static_cast<double>(core::at(hr, i)) + core::at(s, i)))) + core::at(hr, i));
+        const maths::Vec4& at = core::at(config.at_point(), i);
+        core::at(hi, i).x = current_round(
+            current_round(current_round(static_cast<double>(core::at(core::at(hb, i), 0)) + at.x) + core::at(size, i)) +
+            core::at(hr, i));
+        core::at(hi, i).y = current_round(
+            current_round(current_round(static_cast<double>(at.y) + core::at(core::at(hb, i), 1)) + core::at(size, i)) +
+            core::at(hr, i));
+        core::at(hi, i).z = current_round(
+            (core::at(size, i) +
+             static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, i), 2)))) +
+            core::at(hr, i));
+        core::at(hi, i).w =
+            current_round(static_cast<double>(current_round(
+                              core::at(size, i) + (static_cast<double>(core::at(hr, i)) + core::at(size, i)))) +
+                          core::at(hr, i));
     }
     maths::Vec4 low{};
     maths::Vec4 high{};
     maths::Vec4 curve{};
     low = *min_of(&core::at(lo, 0), &core::at(lo, 2), &curve);
     high = *max_of(&core::at(hi, 0), &core::at(hi, 2), &curve);
-    if (p.use_mid()) { // (the paths go through the mid: their extremes on the way)
-        const float life = p.lifetime();
-        const float mid_time = current_round(static_cast<double>(life) * p.mid_percent() * 0.01F);
+    if (config.use_mid()) { // (the paths go through the mid: their extremes on the way)
+        const float life = config.lifetime();
+        const float mid_time = current_round(static_cast<double>(life) * config.mid_percent() * 0.01F);
         maths::Vec4 extreme{};
         curve_extremes(&extreme, core::at(lo, 0), core::at(lo, 1), core::at(lo, 2), mid_time, life);
         low = *min_of(&low, &extreme, &curve);
@@ -264,8 +288,8 @@ void Sparkle::set_emit_script(checksums::Name script_name, uint32_t object_id)
 EffectsDirector::EffectsDirector()
 {
     systems_.make();
-    for (float& c : shade_) {
-        c = 1.0F;
+    for (float& channel : shade_) {
+        channel = 1.0F;
     }
 }
 

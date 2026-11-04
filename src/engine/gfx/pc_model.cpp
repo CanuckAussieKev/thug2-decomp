@@ -68,14 +68,14 @@ maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
             continue;
         }
         // Both: the sphere around the two - its centre half way between their far sides.
-        const double t = static_cast<double>(dw) / distance;
+        const double fraction = static_cast<double>(dw) / distance;
         const double sum_x = static_cast<double>(other.x) + sphere.x;
         const double sum_y = static_cast<double>(other.y) + sphere.y;
         auto sum_z = static_cast<float>(static_cast<double>(other.z) + sphere.z);
         auto sum_w = static_cast<float>(static_cast<double>(other.w) + sphere.w);
-        auto offset_y = static_cast<float>(dy * t);
-        auto offset_z = static_cast<float>(dz * t);
-        auto x = static_cast<float>((dx * t) + sum_x);
+        auto offset_y = static_cast<float>(dy * fraction);
+        auto offset_z = static_cast<float>(dz * fraction);
+        auto x = static_cast<float>((dx * fraction) + sum_x);
         auto y = static_cast<float>(offset_y + sum_y);
         sphere.z = static_cast<float>((static_cast<double>(offset_z) + sum_z) * kHalf);
         sphere.x = static_cast<float>(static_cast<double>(x) * kHalf);

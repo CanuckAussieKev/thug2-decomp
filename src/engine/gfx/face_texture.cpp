@@ -125,9 +125,9 @@ void stack_on(render::BitmapTexture* texture, int point, int axis, int amount, b
 {
     texture->squash({.position = static_cast<uint16_t>(point), .vertical = axis, .amount = amount}, use_colour, colour);
 }
-void shift_hsv(render::BitmapTexture* texture, float h, float s, float v)
+void shift_hsv(render::BitmapTexture* texture, float hue, float saturation, float v)
 {
-    texture->shift_hue_sat_value({.hue = h, .saturation = s, .value = v}, false);
+    texture->shift_hue_sat_value({.hue = hue, .saturation = saturation, .value = v}, false);
 }
 uint16_t get_width(render::BitmapTexture* texture) { return texture->fetch_breadth(); }
 uint16_t get_height(render::BitmapTexture* texture) { return texture->fetch_tallness(); }
@@ -346,7 +346,7 @@ int FaceSkin::write_to(std::span<uint8_t> buffer)
     std::memcpy(out.subspan(kTexelEdge, sizeof(path_vertices_)).data(), &path_vertices_, sizeof(path_vertices_));
     std::transform(overlay_name_.begin(), overlay_name_.begin() + static_cast<std::ptrdiff_t>(length + 1),
                    out.subspan(kTexelEdge + sizeof(path_vertices_)).begin(),
-                   [](char c) { return static_cast<uint8_t>(c); });
+                   [](char character) { return static_cast<uint8_t>(character); });
     return static_cast<int>(total);
 }
 
@@ -366,7 +366,7 @@ std::size_t FaceSkin::read_from(std::span<const uint8_t> buffer)
     const auto name_length = static_cast<std::size_t>(std::distance(rest.begin(), terminator));
     const std::size_t length = std::min(name_length, overlay_name_.size() - 1);
     std::transform(rest.begin(), rest.begin() + static_cast<std::ptrdiff_t>(length), overlay_name_.begin(),
-                   [](uint8_t c) { return static_cast<char>(c); });
+                   [](uint8_t character) { return static_cast<char>(character); });
     core::at(overlay_name_, length) = '\0';
     return kHead + name_length + 1;
 }

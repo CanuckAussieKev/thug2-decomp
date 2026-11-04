@@ -91,11 +91,11 @@ uint32_t& random_a() { return pc_particles_state().particle_random_a_; }
 uint32_t& random_b() { return pc_particles_state().particle_random_b_; }
 uint32_t& random_c() { return pc_particles_state().particle_random_c_; }
 // A step: a' = b a + c, b' = (b ^ a') + (a' >> 4), c' = c + (a' >> 3) - 0x10101010 (arithmetic shifts).
-void random_step(uint32_t& a, uint32_t& b, uint32_t& c)
+void random_step(uint32_t& a, uint32_t& b, uint32_t& seed_c)
 {
-    a = (b * a) + c;
+    a = (b * a) + seed_c;
     b = (b ^ a) + static_cast<uint32_t>(static_cast<int32_t>(a) >> 4);
-    c = c + static_cast<uint32_t>(static_cast<int32_t>(a) >> 3) - kBrightnessBias;
+    seed_c = seed_c + static_cast<uint32_t>(static_cast<int32_t>(a) >> 3) - kBrightnessBias;
 }
 // The number a step makes: 1 to 2 (a's low 16 bits, their top 14).
 double random_scale(uint32_t a)
@@ -192,19 +192,19 @@ float get_mid_time(const PcParticleSystem* system)
 
 // The camera's across and up directions from the view matrix's third column (a, b, c): r = (a, b, c) x (0, 1, 0)
 // and u = r x (a, b, c), each normalised when it has a length.
-void camera_axes(std::span<float, 3> r, std::span<float, 3> u)
+void camera_axes(std::span<float, 3> right, std::span<float, 3> u)
 {
-    const double a = core::at(renderer().view_matrix().row, 0).z;
-    const double b = core::at(renderer().view_matrix().row, 1).z;
-    const double c = core::at(renderer().view_matrix().row, 2).z;
-    const double b0 = b * 0.0F;
-    core::at(r, 0) = static_cast<float>(b0 - c);
-    core::at(r, 1) = static_cast<float>((c * 0.0F) - (a * 0.0F));
-    core::at(r, 2) = static_cast<float>(a - b0);
-    core::at(u, 0) = static_cast<float>((core::at(r, 1) * c) - (core::at(r, 2) * b));
-    core::at(u, 1) = static_cast<float>((core::at(r, 2) * a) - (c * core::at(r, 0)));
-    core::at(u, 2) = static_cast<float>((b * core::at(r, 0)) - (core::at(r, 1) * a));
-    for (const std::span<float, 3> w : {r, u}) {
+    const double row0_z = core::at(renderer().view_matrix().row, 0).z;
+    const double row1_z = core::at(renderer().view_matrix().row, 1).z;
+    const double row2_z = core::at(renderer().view_matrix().row, 2).z;
+    const double b0 = row1_z * 0.0F;
+    core::at(right, 0) = static_cast<float>(b0 - row2_z);
+    core::at(right, 1) = static_cast<float>((row2_z * 0.0F) - (row0_z * 0.0F));
+    core::at(right, 2) = static_cast<float>(row0_z - b0);
+    core::at(u, 0) = static_cast<float>((core::at(right, 1) * row2_z) - (core::at(right, 2) * row1_z));
+    core::at(u, 1) = static_cast<float>((core::at(right, 2) * row0_z) - (row2_z * core::at(right, 0)));
+    core::at(u, 2) = static_cast<float>((row1_z * core::at(right, 0)) - (core::at(right, 1) * row0_z));
+    for (const std::span<float, 3> w : {right, u}) {
         const double length = std::sqrt((static_cast<double>(core::at(w, 0)) * core::at(w, 0)) +
                                         (static_cast<double>(core::at(w, 2)) * core::at(w, 2)) +
                                         (static_cast<double>(core::at(w, 1)) * core::at(w, 1)));
@@ -232,24 +232,24 @@ static_assert(sizeof(ParticleVertex) == kParticleVertexBytes, "layout must match
 // 0x004BB040
 void get_skip(ParticleBurst& burst, int particles)
 {
-    uint32_t a = core::at(burst.seed, 0);
-    uint32_t b = core::at(burst.seed, 1);
-    uint32_t c = core::at(burst.seed, 2);
-    random_a() = a;
-    random_b() = b;
-    random_c() = c;
+    uint32_t seed_a = core::at(burst.seed, 0);
+    uint32_t seed_b = core::at(burst.seed, 1);
+    uint32_t seed_c = core::at(burst.seed, 2);
+    random_a() = seed_a;
+    random_b() = seed_b;
+    random_c() = seed_c;
     int steps = particles * 4;
     if (steps > 0) {
         for (; steps != 0; --steps) {
-            random_step(a, b, c);
+            random_step(seed_a, seed_b, seed_c);
         }
-        random_c() = c;
-        random_b() = b;
-        random_a() = a;
+        random_c() = seed_c;
+        random_b() = seed_b;
+        random_a() = seed_a;
     }
-    core::at(burst.seed, 2) = c;
-    core::at(burst.seed, 0) = a;
-    core::at(burst.seed, 1) = b;
+    core::at(burst.seed, 2) = seed_c;
+    core::at(burst.seed, 0) = seed_a;
+    core::at(burst.seed, 1) = seed_b;
 }
 
 // 0x004BCE90
@@ -411,9 +411,9 @@ void PcParticleSystem::draw(bool advance)
 
     set_material_states(material);
     change_material_layer(material, 0);
-    std::array<float, 3> r{};
+    std::array<float, 3> right{};
     std::array<float, 3> u{};
-    camera_axes(r, u);
+    camera_axes(right, u);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), nullptr);
     std::array<std::array<float, 4>, 3> colour_table{};
@@ -426,7 +426,7 @@ void PcParticleSystem::draw(bool advance)
 
     const std::span<ParticleBurst> ring = burst_ring();
     auto place = static_cast<std::size_t>(oldest - ring.data());
-    for (int b = 0; b < live; ++b, ++place) {
+    for (int particle = 0; particle < live; ++particle, ++place) {
         if (place == ring.size()) {
             place = 0;
         }
@@ -449,44 +449,45 @@ void PcParticleSystem::draw(bool advance)
             room = std::min<uint32_t>(room, kMaxRoom);
             uint32_t quads = 0;
             if (index < burst->count) {
-                double t = age;
+                double age_now = age;
                 for (;;) {
-                    auto t2 = static_cast<float>(t * t);
-                    uint32_t a = random_a();
+                    auto t2 = static_cast<float>(age_now * age_now);
+                    uint32_t seed_a = random_a();
                     uint32_t bb = random_b();
-                    uint32_t c = random_c();
-                    random_step(a, bb, c);
-                    const double s1 = random_scale(a);
-                    random_step(a, bb, c);
-                    auto s2 = static_cast<float>(random_scale(a));
-                    random_step(a, bb, c);
-                    const double s3 = random_scale(a);
-                    random_step(a, bb, c);
-                    auto s4 = static_cast<float>(random_scale(a));
-                    random_a() = a;
+                    uint32_t seed_c = random_c();
+                    random_step(seed_a, bb, seed_c);
+                    const double s1 = random_scale(seed_a);
+                    random_step(seed_a, bb, seed_c);
+                    auto s2 = static_cast<float>(random_scale(seed_a));
+                    random_step(seed_a, bb, seed_c);
+                    const double s3 = random_scale(seed_a);
+                    random_step(seed_a, bb, seed_c);
+                    auto s4 = static_cast<float>(random_scale(seed_a));
+                    random_a() = seed_a;
                     random_b() = bb;
-                    random_c() = c;
+                    random_c() = seed_c;
 
                     // The colour: start to end, or through the mid.
                     const std::array<float, 4>* from = &core::at(colour_table, 0);
                     const std::array<float, 4>* to = &core::at(colour_table, 2);
                     double fraction = 0.0;
                     if (args().colour_use_mid()) {
-                        if (t > colour_mid) {
-                            fraction = (t - colour_mid) / (static_cast<double>(args().lifetime()) - colour_mid);
+                        if (age_now > colour_mid) {
+                            fraction = (age_now - colour_mid) / (static_cast<double>(args().lifetime()) - colour_mid);
                             from = &core::at(colour_table, 1);
                         } else {
-                            fraction = t / colour_mid;
+                            fraction = age_now / colour_mid;
                             to = &core::at(colour_table, 1);
                         }
                     } else {
-                        fraction = t / args().lifetime();
+                        fraction = age_now / args().lifetime();
                     }
-                    auto channel = [&](int k) {
-                        return static_cast<uint32_t>(
-                                   truncate((((static_cast<double>(core::at(*to, k)) - core::at(*from, k)) * fraction) +
-                                             core::at(*from, k)) *
-                                            kByteMaxFloat)) &
+                    auto channel = [&](int component) {
+                        return static_cast<uint32_t>(truncate(
+                                   (((static_cast<double>(core::at(*to, component)) - core::at(*from, component)) *
+                                     fraction) +
+                                    core::at(*from, component)) *
+                                   kByteMaxFloat)) &
                                kByteMask;
                     };
                     const uint32_t alpha = channel(3);
@@ -496,42 +497,44 @@ void PcParticleSystem::draw(bool advance)
                     const uint32_t colour = alpha << 24 | red << 16 | green << 8 | blue;
 
                     // The spread at t, times its random numbers.
-                    auto spread_x =
-                        static_cast<float>(static_cast<double>(static_cast<float>((t * spread.b.x) + spread.a.x)) +
-                                           (static_cast<double>(t2) * spread.c.x));
-                    const double spread_y = (t * spread.b.y) + spread.a.y + (t2 * static_cast<double>(spread.c.y));
-                    const double spread_z = static_cast<double>(static_cast<float>(
-                                                static_cast<double>(static_cast<float>(t * spread.b.z)) + spread.a.z)) +
-                                            static_cast<float>(t2 * static_cast<double>(spread.c.z));
-                    auto spread_w =
-                        static_cast<float>(static_cast<double>(static_cast<float>(
-                                               static_cast<double>(static_cast<float>(t * spread.b.w)) + spread.a.w)) +
-                                           static_cast<float>(t2 * static_cast<double>(spread.c.w)));
+                    auto spread_x = static_cast<float>(
+                        static_cast<double>(static_cast<float>((age_now * spread.b.x) + spread.a.x)) +
+                        (static_cast<double>(t2) * spread.c.x));
+                    const double spread_y =
+                        (age_now * spread.b.y) + spread.a.y + (t2 * static_cast<double>(spread.c.y));
+                    const double spread_z =
+                        static_cast<double>(static_cast<float>(
+                            static_cast<double>(static_cast<float>(age_now * spread.b.z)) + spread.a.z)) +
+                        static_cast<float>(t2 * static_cast<double>(spread.c.z));
+                    auto spread_w = static_cast<float>(
+                        static_cast<double>(static_cast<float>(
+                            static_cast<double>(static_cast<float>(age_now * spread.b.w)) + spread.a.w)) +
+                        static_cast<float>(t2 * static_cast<double>(spread.c.w)));
                     auto offset_x = static_cast<float>(spread_x * s1);
                     auto offset_y = static_cast<float>(spread_y * s2);
                     const double offset_z = spread_z * s3;
                     const double offset_w = static_cast<double>(spread_w) * s4;
                     // The path at t.
                     auto path_x =
-                        static_cast<float>(static_cast<double>(static_cast<float>((t * path.b.x) + path.a.x)) +
+                        static_cast<float>(static_cast<double>(static_cast<float>((age_now * path.b.x) + path.a.x)) +
                                            (static_cast<double>(t2) * path.c.x));
-                    const double path_y = (t * path.b.y) + path.a.y + (t2 * static_cast<double>(path.c.y));
+                    const double path_y = (age_now * path.b.y) + path.a.y + (t2 * static_cast<double>(path.c.y));
                     const double path_z = static_cast<double>(static_cast<float>(
-                                              static_cast<double>(static_cast<float>(t * path.b.z)) + path.a.z)) +
+                                              static_cast<double>(static_cast<float>(age_now * path.b.z)) + path.a.z)) +
                                           static_cast<float>(t2 * static_cast<double>(path.c.z));
-                    auto path_w =
-                        static_cast<float>(static_cast<double>(static_cast<float>(
-                                               static_cast<double>(static_cast<float>(t * path.b.w)) + path.a.w)) +
-                                           static_cast<float>(t2 * static_cast<double>(path.c.w)));
+                    auto path_w = static_cast<float>(
+                        static_cast<double>(static_cast<float>(
+                            static_cast<double>(static_cast<float>(age_now * path.b.w)) + path.a.w)) +
+                        static_cast<float>(t2 * static_cast<double>(path.c.w)));
                     auto centre_x = static_cast<float>(static_cast<double>(path_x) + offset_x);
                     auto centre_y = static_cast<float>(path_y + offset_y);
                     auto centre_z = static_cast<float>(path_z + offset_z);
                     const double size = static_cast<double>(path_w) + offset_w;
 
                     // The quad: (centre - r - ... ) corners, its texture 0..1.
-                    const double across_x = core::at(r, 0) * size;
-                    auto across_y = static_cast<float>(core::at(r, 1) * size);
-                    auto across_z = static_cast<float>(core::at(r, 2) * size);
+                    const double across_x = core::at(right, 0) * size;
+                    auto across_y = static_cast<float>(core::at(right, 1) * size);
+                    auto across_z = static_cast<float>(core::at(right, 2) * size);
                     auto up_x = static_cast<float>(core::at(u, 0) * size);
                     auto up_y = static_cast<float>(core::at(u, 1) * size);
                     auto up_z = static_cast<float>(core::at(u, 2) * size);
@@ -563,14 +566,14 @@ void PcParticleSystem::draw(bool advance)
                                  .u = 0.0F,
                                  .v = 1.0F};
                     vertex += 4;
-                    t = t - burst->period;
+                    age_now = age_now - burst->period;
                     ++quads;
                     ++index;
                     if (quads >= room - 1 || index >= burst->count) {
                         break;
                     }
                 }
-                age = static_cast<float>(t);
+                age = static_cast<float>(age_now);
             }
             remaining -= static_cast<int>(quads);
             os_layer::unlock_dynamic_vertices(quads * 4, sizeof(ParticleVertex));

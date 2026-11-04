@@ -153,19 +153,20 @@ maths::QuatRotation* angles_to_quat(maths::QuatRotation* out, const maths::Vec4*
 }
 
 // 0x00488020
-maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* q)
+maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* quat)
 {
-    const double asin_argument = -(((static_cast<double>(q->x) * q->z) - (static_cast<double>(q->w) * q->y)) * 2.0);
+    const double asin_argument =
+        -(((static_cast<double>(quat->x) * quat->z) - (static_cast<double>(quat->w) * quat->y)) * 2.0);
     const double y = std::asin(asin_argument);
-    const float ww = q->w * q->w;
-    const float xx = q->x * q->x;
-    const float yy = q->y * q->y;
-    const float zz = q->z * q->z;
-    const double z_num = ((static_cast<double>(q->w) * q->z) + (static_cast<double>(q->y) * q->x)) * 2.0;
+    const float ww = quat->w * quat->w;
+    const float xx = quat->x * quat->x;
+    const float yy = quat->y * quat->y;
+    const float zz = quat->z * quat->z;
+    const double z_num = ((static_cast<double>(quat->w) * quat->z) + (static_cast<double>(quat->y) * quat->x)) * 2.0;
     const double z_den = ((static_cast<double>(xx) + ww) - yy) - zz;
     auto z = static_cast<float>(std::atan2(z_num, z_den));
     out->w = 1.0F;
-    const double x_num = ((static_cast<double>(q->w) * q->x) + (static_cast<double>(q->y) * q->z)) * 2.0;
+    const double x_num = ((static_cast<double>(quat->w) * quat->x) + (static_cast<double>(quat->y) * quat->z)) * 2.0;
     const double x_den = ((static_cast<double>(ww) - xx) - yy) + zz;
     out->x = static_cast<float>(std::atan2(x_num, x_den));
     out->y = static_cast<float>(y);
@@ -258,17 +259,17 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
                     sign = -sign;
                 }
                 const double quarter = sign * static_cast<double>(kQuarterTurn);
-                const double s = std::sin(quarter);
-                const double c = std::cos(quarter);
+                const double sine = std::sin(quarter);
+                const double cosine = std::cos(quarter);
                 if (which <= 1) {
                     const double old_y = axis.y;
-                    axis.y = static_cast<float>((old_y * c) - (axis.z * s));
-                    axis.z = static_cast<float>((old_y * s) + (axis.z * c));
+                    axis.y = static_cast<float>((old_y * cosine) - (axis.z * sine));
+                    axis.z = static_cast<float>((old_y * sine) + (axis.z * cosine));
                 } else {
-                    auto sin_f = static_cast<float>(s);
+                    auto sin_f = static_cast<float>(sine);
                     const double old_x = axis.x;
-                    axis.x = static_cast<float>((c * old_x) - (static_cast<double>(axis.y) * sin_f));
-                    axis.y = static_cast<float>((sin_f * old_x) + (axis.y * c));
+                    axis.x = static_cast<float>((cosine * old_x) - (static_cast<double>(axis.y) * sin_f));
+                    axis.y = static_cast<float>((sin_f * old_x) + (axis.y * cosine));
                 }
             }
             maths::QuatRotation made{};
@@ -315,9 +316,10 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
                                   (static_cast<double>(pose.w) * last.w)) +
                                  (static_cast<double>(pose.y) * last.y);
         if (closeness < kEaseBelow) {
-            auto t = static_cast<float>(std::fabs(closeness) * kEaseFactor);
+            auto blend = static_cast<float>(std::fabs(closeness) * kEaseFactor);
             std::array<float, 4> eased{};
-            interpolate_rotation(eased, std::span<const float, 4>(last.data(), 4), std::span<float, 4>(pose.data(), 4), t);
+            interpolate_rotation(eased, std::span<const float, 4>(last.data(), 4), std::span<float, 4>(pose.data(), 4),
+                                 blend);
             pose = {.x = std::get<0>(eased), .y = std::get<1>(eased), .z = std::get<2>(eased), .w = std::get<3>(eased)};
         }
         last = pose;

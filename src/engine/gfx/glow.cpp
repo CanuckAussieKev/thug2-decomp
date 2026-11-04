@@ -87,7 +87,7 @@ Glow* next_glow()
 void set_quad(const Glow* glow, const std::array<float, 3>& u, const std::array<float, 3>& v, float size, colour::Packed colour_word)
 {
     const uint32_t colour = colour_word.value();
-    std::array<GlowVertex, 4>& q = glow_quad();
+    std::array<GlowVertex, 4>& quad = glow_quad();
     // (a corner's coordinate on an axis)
     auto coordinate = [](GlowVertex& corner, int axis) -> float& {
         return axis == 0 ? corner.x : axis == 1 ? corner.y : corner.z;
@@ -95,12 +95,12 @@ void set_quad(const Glow* glow, const std::array<float, 3>& u, const std::array<
     for (int i = 0; i < 3; ++i) {
         const double across = static_cast<double>(core::at(u, i)) * size;
         const double up = static_cast<double>(core::at(v, i)) * size;
-        coordinate(core::at(q, 0), i) = static_cast<float>((core::at(glow->position, i) - across) - up);
-        coordinate(core::at(q, 1), i) = static_cast<float>((core::at(glow->position, i) - across) + up);
-        coordinate(core::at(q, 2), i) = static_cast<float>((up + across) + core::at(glow->position, i));
-        coordinate(core::at(q, 3), i) = static_cast<float>((across + core::at(glow->position, i)) - up);
+        coordinate(core::at(quad, 0), i) = static_cast<float>((core::at(glow->position, i) - across) - up);
+        coordinate(core::at(quad, 1), i) = static_cast<float>((core::at(glow->position, i) - across) + up);
+        coordinate(core::at(quad, 2), i) = static_cast<float>((up + across) + core::at(glow->position, i));
+        coordinate(core::at(quad, 3), i) = static_cast<float>((across + core::at(glow->position, i)) - up);
     }
-    for (GlowVertex& corner : q) {
+    for (GlowVertex& corner : quad) {
         corner.colour = colour;
     }
 }
@@ -112,17 +112,17 @@ void update_glows(bool queries)
 {
     // The camera's across and up directions from the view matrix's third column (a, b, c): u = (b*0 - c, c*0 - a*0,
     // a - b*0) and v = u x (a, b, c), each then normalised.
-    const double a = core::at(renderer().view_matrix().row, 0).z;
-    const double b = core::at(renderer().view_matrix().row, 1).z;
-    const double c = core::at(renderer().view_matrix().row, 2).z;
+    const double row0_z = core::at(renderer().view_matrix().row, 0).z;
+    const double row1_z = core::at(renderer().view_matrix().row, 1).z;
+    const double row2_z = core::at(renderer().view_matrix().row, 2).z;
     std::array<float, 3> u{};
     std::array<float, 3> v{};
-    core::at(u, 0) = static_cast<float>((b * 0.0F) - c);
-    core::at(u, 1) = static_cast<float>((c * 0.0F) - (a * 0.0F));
-    core::at(u, 2) = static_cast<float>(a - (b * 0.0F));
-    core::at(v, 0) = static_cast<float>((core::at(u, 1) * c) - (core::at(u, 2) * b));
-    core::at(v, 1) = static_cast<float>((core::at(u, 2) * a) - (c * core::at(u, 0)));
-    core::at(v, 2) = static_cast<float>((b * core::at(u, 0)) - (core::at(u, 1) * a));
+    core::at(u, 0) = static_cast<float>((row1_z * 0.0F) - row2_z);
+    core::at(u, 1) = static_cast<float>((row2_z * 0.0F) - (row0_z * 0.0F));
+    core::at(u, 2) = static_cast<float>(row0_z - (row1_z * 0.0F));
+    core::at(v, 0) = static_cast<float>((core::at(u, 1) * row2_z) - (core::at(u, 2) * row1_z));
+    core::at(v, 1) = static_cast<float>((core::at(u, 2) * row0_z) - (row2_z * core::at(u, 0)));
+    core::at(v, 2) = static_cast<float>((row1_z * core::at(u, 0)) - (core::at(u, 1) * row0_z));
     for (std::array<float, 3>* w : {&u, &v}) {
         const double w0 = core::at(*w, 0);
         const double w1 = core::at(*w, 1);

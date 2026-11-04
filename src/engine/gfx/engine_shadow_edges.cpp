@@ -56,20 +56,20 @@ public:
 
     ShadowSilhouetteEdge& at(int index)
     {
-        const auto i = static_cast<size_t>(index);
-        return i < room_.size() ? core::at(room_, i) : core::at(beyond_, i - room_.size());
+        const auto slot = static_cast<size_t>(index);
+        return slot < room_.size() ? core::at(room_, slot) : core::at(beyond_, slot - room_.size());
     }
     // The slot for the edge number `index`.
     ShadowSilhouetteEdge& add(int index)
     {
-        const auto i = static_cast<size_t>(index);
-        if (i < room_.size()) {
-            return core::at(room_, i);
+        const auto slot = static_cast<size_t>(index);
+        if (slot < room_.size()) {
+            return core::at(room_, slot);
         }
-        if (beyond_.size() <= i - room_.size()) {
-            beyond_.resize(i - room_.size() + 1);
+        if (beyond_.size() <= slot - room_.size()) {
+            beyond_.resize(slot - room_.size() + 1);
         }
-        return core::at(beyond_, i - room_.size());
+        return core::at(beyond_, slot - room_.size());
     }
 
 private:
@@ -81,9 +81,9 @@ private:
 // its second face's corners; otherwise a new edge is added (past the end of the array if the estimate was short).
 void add_edge(EdgeStore& store, int& count, uint16_t from, uint16_t to, const maths::Vec4& normal)
 {
-    int i = 0;
-    for (; i < count; ++i) {
-        ShadowSilhouetteEdge& edge = store.at(i);
+    int index = 0;
+    for (; index < count; ++index) {
+        ShadowSilhouetteEdge& edge = store.at(index);
         if (core::at(edge.corners, 0).vertex == from && core::at(edge.corners, 2).vertex == to) {
             core::at(edge.corners, 1).vertex = from;
             core::at(edge.corners, 3).vertex = to;
@@ -97,7 +97,7 @@ void add_edge(EdgeStore& store, int& count, uint16_t from, uint16_t to, const ma
         core::at(edge.corners, 3).normal = normal;
         break;
     }
-    if (i != count) {
+    if (index != count) {
         return;
     }
     ShadowSilhouetteEdge& edge = store.add(count++);
@@ -146,21 +146,21 @@ void ShadowVolume::change_mesh(RenderModel* /*unused*/, const SubMesh* asset_dat
     EdgeStore store(std::span<ShadowSilhouetteEdge>(edges_->edges, estimate >= 1 ? static_cast<size_t>(estimate) : 0));
     if (model_key_) {
         const std::span<const TriMeshSource> mesh_run(meshes, static_cast<size_t>(get_mesh_count(asset_data)));
-        for (int m = 0; m < get_mesh_count(asset_data); ++m) {
-            const TriMeshSource& mesh = core::at(mesh_run, m);
+        for (int mesh_index = 0; mesh_index < get_mesh_count(asset_data); ++mesh_index) {
+            const TriMeshSource& mesh = core::at(mesh_run, mesh_index);
             if (get_skipped(mesh)) {
                 continue;
             }
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
-            for (int f = 0; std::cmp_less(f, mesh.tri_count()); ++f) {
-                const auto a = static_cast<uint16_t>(mesh.face_vertex(f, 0));
-                const auto b = static_cast<uint16_t>(mesh.face_vertex(f, 1));
-                const auto c = static_cast<uint16_t>(mesh.face_vertex(f, 2));
-                const maths::Vec4 normal = mesh.get_triangle_normal(f);
-                edges_->last_mesh_ = m;
-                add_edge(store, count, a, b, normal);
-                add_edge(store, count, b, c, normal);
-                add_edge(store, count, c, a, normal);
+            for (int face = 0; std::cmp_less(face, mesh.tri_count()); ++face) {
+                const auto vertex_a = static_cast<uint16_t>(mesh.face_vertex(face, 0));
+                const auto vertex_b = static_cast<uint16_t>(mesh.face_vertex(face, 1));
+                const auto vertex_c = static_cast<uint16_t>(mesh.face_vertex(face, 2));
+                const maths::Vec4 normal = mesh.get_triangle_normal(face);
+                edges_->last_mesh_ = mesh_index;
+                add_edge(store, count, vertex_a, vertex_b, normal);
+                add_edge(store, count, vertex_b, vertex_c, normal);
+                add_edge(store, count, vertex_c, vertex_a, normal);
             }
         }
     }

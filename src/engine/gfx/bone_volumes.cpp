@@ -110,8 +110,9 @@ double capsule_volume(const maths::Capsule& capsule)
     const double dy = static_cast<double>(capsule.line.end.y) - capsule.line.start.y;
     const double dz = static_cast<double>(capsule.line.end.z) - capsule.line.start.z;
     const double length = std::sqrt((dz * dz) + (dx * dx) + (dy * dy));
-    const double r = capsule.radius;
-    return (length * r * r * static_cast<double>(maths::kPi)) + (r * r * r * static_cast<double>(kSphereVolumeFactor));
+    const double radius = capsule.radius;
+    return (length * radius * radius * static_cast<double>(maths::kPi)) +
+           (radius * radius * radius * static_cast<double>(kSphereVolumeFactor));
 }
 
 // The array of `count` volumes, zeroed (no memory: a crash, as the original).
@@ -125,9 +126,9 @@ BoneVolume** new_volume_array(uint32_t count)
 } // namespace
 
 // 0x0048B330
-int intersects_segment(BoneVolume& volume, const maths::Seg* segment, float* s)
+int intersects_segment(BoneVolume& volume, const maths::Seg* segment, float* along)
 {
-    return volume.capsule_.intersects_segment(*segment, {.s = s, .t = nullptr, .squared_gap_ = nullptr});
+    return volume.capsule_.intersects_segment(*segment, {.s = along, .t = nullptr, .squared_gap_ = nullptr});
 }
 
 // 0x0048B350

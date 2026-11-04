@@ -40,8 +40,8 @@ struct Stance {
 
 // 0x0047D470: the rotation a fraction `t` of the way from `from` to `to` (the shorter way: `to` is negated first
 // when the two point apart), normalised. As the original, `to` is overwritten with the result too. Returns out.
-std::span<float, 4> interpolate_rotation(std::span<float, 4> out, std::span<const float, 4> from, std::span<float, 4> to,
-                                         float t);
+std::span<float, 4> interpolate_rotation(std::span<float, 4> out, std::span<const float, 4> from,
+                                         std::span<float, 4> to, float blend);
 
 // 0x0047D680: `count` poses mixed into the first by `weights` (weights[0] becomes 1 minus the others), `bones`
 // bones each; the result (the first pose) copied to `out` if that isn't it. The poses' rotations change on the way.

@@ -186,7 +186,8 @@ public:
 
     // 0x004CFB20: one character of a key name at *pen_x (advanced past it), at line height pen_y - plain, no
     // effects.
-    void draw_key_char(char c, float* pen_x, float pen_y);
+    void draw_key_char(char character, float* pen_x, float pen_y);
+
 private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

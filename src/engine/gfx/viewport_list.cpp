@@ -20,7 +20,7 @@ ViewRegion* get_viewport(int index) { return core::at(view_setup().viewports(), 
 } // namespace
 
 // 0x004A06D0
-ViewRegion* fetch_current_view(int n)
+ViewRegion* fetch_current_view(int view_number)
 {
     const std::span<const int> map = view_setup().mode_map();
     int shown = 0;
@@ -30,7 +30,7 @@ ViewRegion* fetch_current_view(int n)
         if (entry < 0) {
             continue;
         }
-        if (shown == n) {
+        if (shown == view_number) {
             return get_viewport(entry);
         }
         ++shown;

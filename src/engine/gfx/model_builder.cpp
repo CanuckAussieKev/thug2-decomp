@@ -155,9 +155,9 @@ bool face_texture_is_valid(FaceSkin* face) { return face->is_sound(); }
 // The scale a structure gives (not rewritten yet, cdecl: its scale - one value or a vector - or its x / y / z),
 // into `scale`. Whether it had one.
 bool fetch_magnification(maths::Vec4* scale, script::Struct* from) { return scale_from_args(scale, from); }
-bool fetch_script(script::Struct* s, uint32_t name, script::ParamScript* out, int assert)
+bool fetch_script(script::Struct* bag, uint32_t name, script::ParamScript* out, int assert)
 {
-    return s->fetch_script(name, out, assert);
+    return bag->fetch_script(name, out, assert);
 }
 
 // The compiled-out call on the appearance 0x30E2951D makes (the empty 0x005BAB90, one argument).
@@ -167,10 +167,10 @@ inline void unused_appearance_call(ModelLook* /*unused*/, int /*unused*/) {}
 float get_percent(int value) { return static_cast<float>(static_cast<double>(value) * kPercent); }
 float percent_of(float value) { return static_cast<float>(static_cast<double>(value) * kPercent); }
 // A colour added to a slot: h, s, v and use_default_hsv = 0.
-void add_colour(script::Struct* slot, int h, int s, int v)
+void add_colour(script::Struct* slot, int hue, int saturation, int v)
 {
-    slot->put_int(checksums::Name{kH}, h);
-    slot->put_int(checksums::Name{kS}, s);
+    slot->put_int(checksums::Name{kH}, hue);
+    slot->put_int(checksums::Name{kS}, saturation);
     slot->put_int(checksums::Name{kV}, v);
     slot->put_int(checksums::Name{kUseDefaultHsv}, 0);
 }
@@ -419,25 +419,27 @@ bool ModelAssembler::blend_tint_over(script::Struct* params)
         slot->fetch_int_value(kUseDefaultHsv, &use_default, 0);
     }
     if (use_default != 0) {
-        int h = 0;
-        int s = 0;
+        int hue = 0;
+        int saturation = 0;
         int v = 0;
         script::Struct* option = built_appearance()->get_part_option(part);
-        if (option && option->fetch_int_value(kDefaultH, &h, 0) && option->fetch_int_value(kDefaultS, &s, 0) &&
-            option->fetch_int_value(kDefaultV, &v, 0)) {
-            built_model()->set_color_from_script(params, static_cast<float>(h), get_percent(s), get_percent(v));
+        if (option && option->fetch_int_value(kDefaultH, &hue, 0) &&
+            option->fetch_int_value(kDefaultS, &saturation, 0) && option->fetch_int_value(kDefaultV, &v, 0)) {
+            built_model()->set_color_from_script(params, static_cast<float>(hue), get_percent(saturation),
+                                                 get_percent(v));
         } else {
             built_model()->clear_color_from_script(params);
         }
         return false;
     }
-    int h = 0;
-    int s = 0;
+    int hue = 0;
+    int saturation = 0;
     int v = 0;
-    if (!slot->fetch_int_value(kH, &h, 0) || !slot->fetch_int_value(kS, &s, 0) || !slot->fetch_int_value(kV, &v, 0)) {
+    if (!slot->fetch_int_value(kH, &hue, 0) || !slot->fetch_int_value(kS, &saturation, 0) ||
+        !slot->fetch_int_value(kV, &v, 0)) {
         return true;
     }
-    built_model()->set_color_from_script(params, static_cast<float>(h), get_percent(s), get_percent(v));
+    built_model()->set_color_from_script(params, static_cast<float>(hue), get_percent(saturation), get_percent(v));
     return true;
 }
 
@@ -503,15 +505,15 @@ bool ModelAssembler::propagate_head_color()
             return false;
         }
     }
-    int h = 0;
-    int s = 0;
+    int hue = 0;
+    int saturation = 0;
     int v = 0;
-    if (head->fetch_int_value(kH, &h, 0)) {
-        head->fetch_int_value(kS, &s, 0);
+    if (head->fetch_int_value(kH, &hue, 0)) {
+        head->fetch_int_value(kS, &saturation, 0);
         head->fetch_int_value(kV, &v, 0);
     } else if (script::Struct* option = built_appearance()->get_part_option(head_part)) {
-        option->fetch_int_value(kDefaultH, &h, 1);
-        option->fetch_int_value(kDefaultS, &s, 1);
+        option->fetch_int_value(kDefaultH, &hue, 1);
+        option->fetch_int_value(kDefaultS, &saturation, 1);
         option->fetch_int_value(kDefaultV, &v, 1);
     }
     uint32_t descriptor_id = 0;
@@ -519,27 +521,27 @@ bool ModelAssembler::propagate_head_color()
         if (script::Struct* torso = built_appearance()->get_part(kBareTorso)) {
             torso->read_hash_value(kDescId, &descriptor_id, 1);
             if (descriptor_id != kNone) {
-                add_colour(torso, h, s, v);
+                add_colour(torso, hue, saturation, v);
             }
         }
     }
     if (script::Struct* hands = built_appearance()->get_part(hands_part)) {
         hands->read_hash_value(kDescId, &descriptor_id, 1);
         if (descriptor_id == kHands) {
-            add_colour(hands, h, s, v);
+            add_colour(hands, hue, saturation, v);
         }
     }
     if (script::Struct* lower_legs = built_appearance()->get_part(lower_legs_part)) {
-        add_colour(lower_legs, h, s, v);
+        add_colour(lower_legs, hue, saturation, v);
     }
     script::Struct* shoes = built_appearance()->get_part_option(kShoes);
     if (shoes && shoes->has_bare_flag(kBareFeet)) {
         if (script::Struct* slot = built_appearance()->get_part(kShoes)) {
-            add_colour(slot, h, s, v);
+            add_colour(slot, hue, saturation, v);
         }
     }
     if (script::Struct* body = built_appearance()->get_part(kBody)) {
-        add_colour(body, h, s, v);
+        add_colour(body, hue, saturation, v);
     }
     return true;
 }

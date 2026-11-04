@@ -64,11 +64,11 @@ void look_along(gfx::ViewCam* camera, maths::Vec4 v)
 // The camera's place for a shadow at `position`: `distance` back along the light (the x product left unrounded).
 maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& direction, float distance)
 {
-    const double d = distance;
-    return {.x = static_cast<float>(position.x - (d * direction.x)),
-            .y = static_cast<float>(position.y - static_cast<float>(d * direction.y)),
-            .z = static_cast<float>(position.z - static_cast<float>(d * direction.z)),
-            .w = static_cast<float>(position.w - static_cast<float>(d * direction.w))};
+    const double distance_exact = distance;
+    return {.x = static_cast<float>(position.x - (distance_exact * direction.x)),
+            .y = static_cast<float>(position.y - static_cast<float>(distance_exact * direction.y)),
+            .z = static_cast<float>(position.z - static_cast<float>(distance_exact * direction.z)),
+            .w = static_cast<float>(position.w - static_cast<float>(distance_exact * direction.w))};
 }
 
 } // namespace

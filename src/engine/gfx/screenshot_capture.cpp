@@ -45,11 +45,11 @@ sys::screenshot::PixelFormat get_map(D3DFORMAT format)
 }
 
 template <typename T>
-void get_release(T*& p)
+void get_release(T*& pointer)
 {
-    if (p) {
-        p->Release();
-        p = nullptr;
+    if (pointer) {
+        pointer->Release();
+        pointer = nullptr;
     }
 }
 
@@ -111,10 +111,11 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
     out->pitch = row_bytes;
     out->format = format;
     out->bytes.resize(static_cast<size_t>(row_bytes) * desc.Height);
-    for (UINT y = 0; y < desc.Height; ++y) {
-        std::memcpy(std::span<uint8_t>(out->bytes).subspan(static_cast<size_t>(row_bytes) * y).data(),
-                    std::span<const uint8_t>(static_cast<const uint8_t*>(locked.pBits), static_cast<size_t>(locked.Pitch) * desc.Height)
-                        .subspan(static_cast<size_t>(locked.Pitch) * y)
+    for (UINT row = 0; row < desc.Height; ++row) {
+        std::memcpy(std::span<uint8_t>(out->bytes).subspan(static_cast<size_t>(row_bytes) * row).data(),
+                    std::span<const uint8_t>(static_cast<const uint8_t*>(locked.pBits),
+                                             static_cast<size_t>(locked.Pitch) * desc.Height)
+                        .subspan(static_cast<size_t>(locked.Pitch) * row)
                         .data(),
                     row_bytes);
     }

@@ -126,10 +126,10 @@ uint32_t color_byte(float value)
 {
     return static_cast<uint8_t>(maths::round_non_negative<int64_t>(static_cast<double>(value) * kByteMaxDouble));
 }
-uint32_t rgba_from_hsv(float h, float s, float v)
+uint32_t rgba_from_hsv(float hue, float saturation, float v)
 {
     std::array<float, 3> rgb{};
-    hsv_to_rgb({{h, s, v}}, &rgb);
+    hsv_to_rgb({{hue, saturation, v}}, &rgb);
     return color_byte(core::at(rgb, 0)) | (color_byte(core::at(rgb, 1)) << kByte1Shift) | (color_byte(core::at(rgb, 2)) << kByte2Shift) |
            kOpaqueAlphaBits;
 }
@@ -555,14 +555,14 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
 }
 
 // 0x00494010
-bool RenderModel::set_geom_color_hsv(checksums::Name geom, float h, float s, float v)
+bool RenderModel::set_geom_color_hsv(checksums::Name geom, float hue, float saturation, float v)
 {
     const uint32_t name = geom.value();
     const bool all = name == kAllGeoms;
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         if ((name == table_row(node)->name || all) && !is_geom_multicolor(get_geom(node))) {
-            set_geom_color(get_geom(node), rgba_from_hsv(h, s, v));
+            set_geom_color(get_geom(node), rgba_from_hsv(hue, saturation, v));
             any = true;
         }
     }
@@ -570,12 +570,12 @@ bool RenderModel::set_geom_color_hsv(checksums::Name geom, float h, float s, flo
 }
 
 // 0x00494200
-bool RenderModel::set_color_from_script(script::Struct* params, float h, float s, float v)
+bool RenderModel::set_color_from_script(script::Struct* params, float hue, float saturation, float v)
 {
     bool any = false;
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    const uint32_t rgba = rgba_from_hsv(h, s, v);
+    const uint32_t rgba = rgba_from_hsv(hue, saturation, v);
     const bool all = name == kAllGeoms;
     uint32_t material = 0; // (uninitialised in the original; kept from one geom and pass to the next)
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {

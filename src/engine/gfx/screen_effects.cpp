@@ -22,10 +22,10 @@ constexpr uint32_t kDofColourA = 0x0F3BF443, kDofColourB = 0xFC5C7D61;
 // An [r g b] array as RGBA bytes, alpha 0 (each element's low byte).
 uint32_t array_colour(script::Array* array)
 {
-    auto r = static_cast<uint8_t>(array->fetch_part(0));
-    auto g = static_cast<uint8_t>(array->fetch_part(1));
-    auto b = static_cast<uint8_t>(array->fetch_part(2));
-    return r | (g << kGreenShift) | (b << kBlueShift);
+    auto red = static_cast<uint8_t>(array->fetch_part(0));
+    auto green = static_cast<uint8_t>(array->fetch_part(1));
+    auto blue = static_cast<uint8_t>(array->fetch_part(2));
+    return red | (green << kGreenShift) | (blue << kBlueShift);
 }
 
 } // namespace
@@ -77,21 +77,21 @@ bool ScreenEffects::set_dof_params(script::Struct* params, script::Script* /*scr
     if (params->fetch_int_value(kOn, &on, 0)) {
         set_dof_on(on);
     }
-    float a = 0.0F;
-    if (params->fetch_float(kDofFloatA, &a, 0)) {
-        set_dof_value_a(a);
+    float dof_a = 0.0F;
+    if (params->fetch_float(kDofFloatA, &dof_a, 0)) {
+        set_dof_value_a(dof_a);
     }
-    float b = 0.0F;
-    if (params->fetch_float(kDofFloatB, &b, 0)) {
-        set_dof_value_b(a); // (the first float's: the original passes the wrong variable)
+    float dof_b = 0.0F;
+    if (params->fetch_float(kDofFloatB, &dof_b, 0)) {
+        set_dof_value_b(dof_a); // (the first float's: the original passes the wrong variable)
     }
-    float c = 0.0F;
-    if (params->fetch_float(kColour, &c, 0)) {
-        set_dof_value_c(c);
+    float dof_colour = 0.0F;
+    if (params->fetch_float(kColour, &dof_colour, 0)) {
+        set_dof_value_c(dof_colour);
     }
-    float d = 0.0F;
-    if (params->fetch_float(kDofFloatD, &d, 0)) {
-        set_dof_value_d(d);
+    float dof_d = 0.0F;
+    if (params->fetch_float(kDofFloatD, &dof_d, 0)) {
+        set_dof_value_d(dof_d);
     }
     script::Array* array = nullptr;
     if (params->fetch_list(kDofColourA, &array, 0)) {

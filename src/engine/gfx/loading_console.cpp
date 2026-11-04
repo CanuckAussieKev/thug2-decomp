@@ -142,9 +142,9 @@ void Ring::append_one(const char* text, double time)
     ++count;
 }
 
-std::vector<std::string> Ring::final_one(size_t n) const
+std::vector<std::string> Ring::final_one(size_t line_count) const
 {
-    auto shown = std::min<size_t>({n, count, kRingLines});
+    auto shown = std::min<size_t>({line_count, count, kRingLines});
     std::vector<std::string> out;
     out.reserve(shown);
     for (size_t i = shown; i > 0; --i) {
@@ -192,9 +192,9 @@ int progress_bar_pixels() { return render::screen_2d().gradient_width(); } // th
 double get_now()
 {
     static const double kFrequency = [] {
-        LARGE_INTEGER f;
-        QueryPerformanceFrequency(&f);
-        return static_cast<double>(f.QuadPart);
+        LARGE_INTEGER frequency;
+        QueryPerformanceFrequency(&frequency);
+        return static_cast<double>(frequency.QuadPart);
     }();
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
@@ -272,23 +272,32 @@ void build_font()
     const std::span<uint8_t> bits(static_cast<uint8_t*>(locked.pBits),
                                   static_cast<size_t>(locked.Pitch) * static_cast<size_t>(height));
     const std::span<const unsigned char> rgba_pixels(rgba, static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
-    for (int y = 0; y < height; ++y) {
-        const std::span<uint8_t> row = bits.subspan(static_cast<size_t>(y) * static_cast<size_t>(locked.Pitch));
-        const std::span<const unsigned char> in = rgba_pixels.subspan(static_cast<size_t>(y) * static_cast<size_t>(width) * 4);
-        for (int x = 0; x < width; ++x) {
+    for (int pixel_y = 0; pixel_y < height; ++pixel_y) {
+        const std::span<uint8_t> row = bits.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(locked.Pitch));
+        const std::span<const unsigned char> in =
+            rgba_pixels.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(width) * 4);
+        for (int pixel_x = 0; pixel_x < width; ++pixel_x) {
             const uint32_t texel =
-                static_cast<uint32_t>(core::at(in, (x * 4) + 3)) << 24 | 0x00FFFFFFU; // white, coverage as alpha
-            std::memcpy(row.subspan(static_cast<size_t>(x) * 4, sizeof(texel)).data(), &texel, sizeof(texel));
+                static_cast<uint32_t>(core::at(in, (pixel_x * 4) + 3)) << 24 | 0x00FFFFFFU; // white, coverage as alpha
+            std::memcpy(row.subspan(static_cast<size_t>(pixel_x) * 4, sizeof(texel)).data(), &texel, sizeof(texel));
         }
     }
     texture->UnlockRect(0);
-    for (int c = kFirstPrintable; c < kPrintableEnd; ++c) {
-        const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(c));
+    for (int character = kFirstPrintable; character < kPrintableEnd; ++character) {
+        const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(character));
         if (!glyph) {
             continue;
         }
-        core::at(console_font().glyphs_, c) = {.x0 = glyph->X0, .y0 = glyph->Y0, .x1 = glyph->X1, .y1 = glyph->Y1,       .u0 = glyph->U0,
-                       .v0 = glyph->V0, .u1 = glyph->U1, .v1 = glyph->V1, .advance = glyph->AdvanceX, .visible = glyph->Visible != 0};
+        core::at(console_font().glyphs_, character) = {.x0 = glyph->X0,
+                                                       .y0 = glyph->Y0,
+                                                       .x1 = glyph->X1,
+                                                       .y1 = glyph->Y1,
+                                                       .u0 = glyph->U0,
+                                                       .v0 = glyph->V0,
+                                                       .u1 = glyph->U1,
+                                                       .v1 = glyph->V1,
+                                                       .advance = glyph->AdvanceX,
+                                                       .visible = glyph->Visible != 0};
     }
     console_font().advance_ = core::at(console_font().glyphs_, 'M').advance;
     console_font().line_height_ = std::round(pixels * kLineHeightFactor);
@@ -323,35 +332,36 @@ ConsoleVertices& console_vertices()
 
 void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 {
-    const Vertex a{.x = x0,
-                   .y = y0,
-                   .z = 0.0F,
-                   .rhw = 1.0F,
-                   .color = color,
-                   .u = console_font().white_u_,
-                   .v = console_font().white_v_};
-    const Vertex b{.x = x1,
-                   .y = y0,
-                   .z = 0.0F,
-                   .rhw = 1.0F,
-                   .color = color,
-                   .u = console_font().white_u_,
-                   .v = console_font().white_v_};
-    const Vertex c{.x = x0,
-                   .y = y1,
-                   .z = 0.0F,
-                   .rhw = 1.0F,
-                   .color = color,
-                   .u = console_font().white_u_,
-                   .v = console_font().white_v_};
-    const Vertex d{.x = x1,
-                   .y = y1,
-                   .z = 0.0F,
-                   .rhw = 1.0F,
-                   .color = color,
-                   .u = console_font().white_u_,
-                   .v = console_font().white_v_};
-    console_vertices().vertices_.insert(console_vertices().vertices_.end(), {a, b, c, b, d, c});
+    const Vertex top_left{.x = x0,
+                          .y = y0,
+                          .z = 0.0F,
+                          .rhw = 1.0F,
+                          .color = color,
+                          .u = console_font().white_u_,
+                          .v = console_font().white_v_};
+    const Vertex top_right{.x = x1,
+                           .y = y0,
+                           .z = 0.0F,
+                           .rhw = 1.0F,
+                           .color = color,
+                           .u = console_font().white_u_,
+                           .v = console_font().white_v_};
+    const Vertex bottom_left{.x = x0,
+                             .y = y1,
+                             .z = 0.0F,
+                             .rhw = 1.0F,
+                             .color = color,
+                             .u = console_font().white_u_,
+                             .v = console_font().white_v_};
+    const Vertex bottom_right{.x = x1,
+                              .y = y1,
+                              .z = 0.0F,
+                              .rhw = 1.0F,
+                              .color = color,
+                              .u = console_font().white_u_,
+                              .v = console_font().white_v_};
+    console_vertices().vertices_.insert(console_vertices().vertices_.end(),
+                                        {top_left, top_right, bottom_left, top_right, bottom_right, bottom_left});
 }
 
 // Text from (x, y) (the line's top), at most `columns` characters.
@@ -360,20 +370,26 @@ void draw_text(maths::Vec2 pen, const char* text, size_t columns, colour::Packed
     float x = pen.x;
     const float y = pen.y;
     const uint32_t color = colour_word.value();
-    size_t i = 0;
-    for (core::CStringCursor at(text); (*at != '\0') && i < columns; ++at, ++i) {
-        auto c = static_cast<unsigned char>(*at);
-        const Glyph& glyph = core::at(console_font().glyphs_, c < kAsciiLimit ? c : '?');
+    size_t column = 0;
+    for (core::CStringCursor at(text); (*at != '\0') && column < columns; ++at, ++column) {
+        auto glyph_code = static_cast<unsigned char>(*at);
+        const Glyph& glyph = core::at(console_font().glyphs_, glyph_code < kAsciiLimit ? glyph_code : '?');
         if (glyph.visible) {
             const float x0 = x + glyph.x0 - 0.5F;
             const float y0 = y + glyph.y0 - 0.5F;
             const float x1 = x + glyph.x1 - 0.5F;
             const float y1 = y + glyph.y1 - 0.5F;
-            const Vertex a{.x = x0, .y = y0, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u0, .v = glyph.v0};
-            const Vertex b{.x = x1, .y = y0, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u1, .v = glyph.v0};
-            const Vertex cc{.x = x0, .y = y1, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u0, .v = glyph.v1};
-            const Vertex d{.x = x1, .y = y1, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u1, .v = glyph.v1};
-            console_vertices().vertices_.insert(console_vertices().vertices_.end(), {a, b, cc, b, d, cc});
+            const Vertex top_left{
+                .x = x0, .y = y0, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u0, .v = glyph.v0};
+            const Vertex top_right{
+                .x = x1, .y = y0, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u1, .v = glyph.v0};
+            const Vertex bottom_left{
+                .x = x0, .y = y1, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u0, .v = glyph.v1};
+            const Vertex bottom_right{
+                .x = x1, .y = y1, .z = 0.0F, .rhw = 1.0F, .color = color, .u = glyph.u1, .v = glyph.v1};
+            console_vertices().vertices_.insert(
+                console_vertices().vertices_.end(),
+                {top_left, top_right, bottom_left, top_right, bottom_right, bottom_left});
         }
         x += console_font().advance_;
     }

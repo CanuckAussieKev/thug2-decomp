@@ -330,12 +330,12 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
                 // the entries from j on moved up one by swaps (the one past the end - out[count] too - written)
                 for (uint32_t k = count; k > j; --k) {
                     std::swap(core::at(out, k), core::at(out, k - 1));
-                    const float f = core::at(falloffs, k);
+                    const float moved_falloff = core::at(falloffs, k);
                     core::at(falloffs, k) = core::at(falloffs, k - 1);
-                    core::at(falloffs, k - 1) = f;
-                    const int n = core::at(indexes, k);
+                    core::at(falloffs, k - 1) = moved_falloff;
+                    const int index = core::at(indexes, k);
                     core::at(indexes, k) = core::at(indexes, k - 1);
-                    core::at(indexes, k - 1) = n;
+                    core::at(indexes, k - 1) = index;
                 }
                 core::at(falloffs, j) = static_cast<float>(falloff);
                 core::at(indexes, j) = i;

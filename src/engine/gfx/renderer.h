@@ -134,9 +134,9 @@ public:
     void reset_transforms()
     {
         for (maths::Mat4* matrix : {&world_matrix_, &view_matrix_, &projection_matrix_}) {
-            const auto m = matrix->floats();
+            const auto elements = matrix->floats();
             for (int i = 0; i < maths::kMatrixFloats; ++i) {
-                core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
+                core::at(elements, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
             }
         }
     }
@@ -208,15 +208,15 @@ public:
     // A pass's colour (its constant's r, g, b) scaled by r, g, b, as the instance colour does.
     void scale_pass_colour(uint32_t pass, ColourScale scale)
     {
-        const auto r = scale.r;
-        const auto g = scale.g;
-        const auto b = scale.b;
+        const auto scale_red = scale.r;
+        const auto scale_green = scale.g;
+        const auto scale_blue = scale.b;
         float& c0 = core::at(ps_constant_bank_, 4 * pass);
         float& c1 = core::at(ps_constant_bank_, (4 * pass) + 1);
         float& c2 = core::at(ps_constant_bank_, (4 * pass) + 2);
-        c0 = static_cast<float>(r * c0);
-        c1 = static_cast<float>(g * c1);
-        c2 = static_cast<float>(b * c2);
+        c0 = static_cast<float>(scale_red * c0);
+        c1 = static_cast<float>(scale_green * c1);
+        c2 = static_cast<float>(scale_blue * c2);
     }
     [[nodiscard]] uint32_t instance_colour_on() const { return instance_colour_on_; }
     void set_instance_colour_on(uint32_t value) { instance_colour_on_ = value; }

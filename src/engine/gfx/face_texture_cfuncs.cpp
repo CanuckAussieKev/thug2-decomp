@@ -93,19 +93,19 @@ uint32_t pack_colour(int c0, int c1, int c2, int c3)
 // The four optional colour components (0x80 each by default) and whether any was given (every one is read).
 uint32_t read_colour(Struct* params, bool* given)
 {
-    std::array<int, 4> c = {{kNeutralChannel, kNeutralChannel, kNeutralChannel, kNeutralChannel}};
-    bool any = params->fetch_int_value(kColour0, &core::at(c, 0), 0);
-    if (params->fetch_int_value(kColour1, &core::at(c, 1), 0)) {
+    std::array<int, 4> channels = {{kNeutralChannel, kNeutralChannel, kNeutralChannel, kNeutralChannel}};
+    bool any = params->fetch_int_value(kColour0, &core::at(channels, 0), 0);
+    if (params->fetch_int_value(kColour1, &core::at(channels, 1), 0)) {
         any = true;
     }
-    if (params->fetch_int_value(kColour2, &core::at(c, 2), 0)) {
+    if (params->fetch_int_value(kColour2, &core::at(channels, 2), 0)) {
         any = true;
     }
-    if (params->fetch_int_value(kColour3, &core::at(c, 3), 0)) {
+    if (params->fetch_int_value(kColour3, &core::at(channels, 3), 0)) {
         any = true;
     }
     *given = any;
-    return pack_colour(core::at(c, 0), core::at(c, 1), core::at(c, 2), core::at(c, 3));
+    return pack_colour(core::at(channels, 0), core::at(channels, 1), core::at(channels, 2), core::at(channels, 3));
 }
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
@@ -234,18 +234,18 @@ bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script* /*scrip
     if (!texture) {
         return true;
     }
-    int r = 0; // (r, g and b uninitialised in the original when missing)
-    int g = 0;
-    int b = 0;
-    int a = kOpaqueAlpha;
-    params->fetch_int_value(kR, &r, 0);
-    params->fetch_int_value(kG, &g, 0);
-    params->fetch_int_value(kB, &b, 0);
-    params->fetch_int_value(kA, &a, 0);
+    int red = 0; // (r, g and b uninitialised in the original when missing)
+    int green = 0;
+    int blue = 0;
+    int alpha = kOpaqueAlpha;
+    params->fetch_int_value(kR, &red, 0);
+    params->fetch_int_value(kG, &green, 0);
+    params->fetch_int_value(kB, &blue, 0);
+    params->fetch_int_value(kA, &alpha, 0);
     int mode = 0;
     params->fetch_int_value(kTintMode, &mode, 0);
     const bool second = mode == 1;
-    texture->modulate(pack_colour(r, g, b, a), second);
+    texture->modulate(pack_colour(red, green, blue, alpha), second);
     return true;
 }
 
@@ -254,35 +254,35 @@ bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script* /*scrip
 // value stays at the x87's precision until stored. Always true.
 bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
 {
-    float r = 0.0F;
-    float g = 0.0F;
-    float b = 0.0F;
+    float red = 0.0F;
+    float green = 0.0F;
+    float blue = 0.0F;
     Array* hsv = nullptr;
     params->fetch_list(kHsv, &hsv, 1);
 
     constexpr float kSixtieth = 0x1.111112p-6F;  // 0x006463B8
     constexpr float kNinetieth = 0x1.6c16c2p-7F; // 0x00657CC4
     double hue = static_cast<int>(hsv->fetch_part(0)) * static_cast<double>(kSixtieth);
-    auto h = static_cast<float>(hue);
+    auto hue_deg = static_cast<float>(hue);
     if (!(hue < kHueSectors)) {
         hue -= kHueSectors;
         while (!(hue < kHueSectors)) {
             hue -= kHueSectors;
         }
-        h = static_cast<float>(hue);
+        hue_deg = static_cast<float>(hue);
     }
     if (hue < 0.0) {
         hue += kHueSectors;
         while (hue < 0.0) {
             hue += kHueSectors;
         }
-        h = static_cast<float>(hue);
+        hue_deg = static_cast<float>(hue);
     }
-    auto s = static_cast<float>(static_cast<int>(hsv->fetch_part(1)) * static_cast<double>(kNinetieth));
-    if (!(s > 0.0F)) {
-        s = kMinSaturation;
-    } else if (s > 1.0F) {
-        s = 1.0F;
+    auto saturation = static_cast<float>(static_cast<int>(hsv->fetch_part(1)) * static_cast<double>(kNinetieth));
+    if (!(saturation > 0.0F)) {
+        saturation = kMinSaturation;
+    } else if (saturation > 1.0F) {
+        saturation = 1.0F;
     }
     double v = static_cast<int>(hsv->fetch_part(2)) * static_cast<double>(kSixtieth);
     if (!(v > 0.0)) {
@@ -291,51 +291,51 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
         v = 1.0;
     }
 
-    const int sector = ftol(h);
-    const double f = h - static_cast<double>(sector);
-    auto p = static_cast<float>((1.0 - s) * v);
-    auto q = static_cast<float>((1.0 - (s * f)) * v);
-    auto t = static_cast<float>((1.0 - ((1.0 - f) * s)) * v);
+    const int sector = ftol(hue_deg);
+    const double fraction = hue_deg - static_cast<double>(sector);
+    auto low = static_cast<float>((1.0 - saturation) * v);
+    auto mid_falling = static_cast<float>((1.0 - (saturation * fraction)) * v);
+    auto mid_rising = static_cast<float>((1.0 - ((1.0 - fraction) * saturation)) * v);
     auto value = static_cast<float>(v);
     switch (static_cast<uint32_t>(ftol(static_cast<double>(sector)))) {
     case 0:
-        r = value;
-        g = t;
-        b = p;
+        red = value;
+        green = mid_rising;
+        blue = low;
         break;
     case 1:
-        r = q;
-        g = value;
-        b = p;
+        red = mid_falling;
+        green = value;
+        blue = low;
         break;
     case 2:
-        r = p;
-        g = value;
-        b = t;
+        red = low;
+        green = value;
+        blue = mid_rising;
         break;
     case 3:
-        r = p;
-        g = q;
-        b = value;
+        red = low;
+        green = mid_falling;
+        blue = value;
         break;
     case 4:
-        r = t;
-        g = p;
-        b = value;
+        red = mid_rising;
+        green = low;
+        blue = value;
         break;
     case kHueSectorMagenta:
-        r = value;
-        g = p;
-        b = q;
+        red = value;
+        green = low;
+        blue = mid_falling;
         break;
     default:
         break;
     }
 
     gsl::owner<Array*> rgb = new_colour_array(hsv);
-    rgb->set_element(0, static_cast<uint32_t>(ftol(static_cast<double>(r) * kRgbScale)));
-    rgb->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(g) * kRgbScale)));
-    rgb->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(b) * kRgbScale)));
+    rgb->set_element(0, static_cast<uint32_t>(ftol(static_cast<double>(red) * kRgbScale)));
+    rgb->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(green) * kRgbScale)));
+    rgb->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(blue) * kRgbScale)));
     script->args()->append_array_ref(kRgb, rgb);
     return true;
 }
@@ -344,54 +344,54 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
 // fourth element copied). Always true.
 bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
 {
-    float h = 0.0F;
+    float computed_hue = 0.0F;
     Array* rgb_array = nullptr;
     params->fetch_list(kRgb, &rgb_array, 1);
     constexpr float kScale = 1.0F / 128.0F; // 0x0064A2FC
-    auto r = static_cast<float>(static_cast<int>(rgb_array->fetch_part(0)) * static_cast<double>(kScale));
-    auto g = static_cast<float>(static_cast<int>(rgb_array->fetch_part(1)) * static_cast<double>(kScale));
-    auto b = static_cast<float>(static_cast<int>(rgb_array->fetch_part(2)) * static_cast<double>(kScale));
-    float max = r;
-    float min = r;
-    if (g < r) {
-        min = g;
+    auto red = static_cast<float>(static_cast<int>(rgb_array->fetch_part(0)) * static_cast<double>(kScale));
+    auto green = static_cast<float>(static_cast<int>(rgb_array->fetch_part(1)) * static_cast<double>(kScale));
+    auto blue = static_cast<float>(static_cast<int>(rgb_array->fetch_part(2)) * static_cast<double>(kScale));
+    float max = red;
+    float min = red;
+    if (green < red) {
+        min = green;
     }
-    max = std::max(max, g);
-    min = std::min(min, b);
-    max = std::max(max, b);
+    max = std::max(max, green);
+    min = std::min(min, blue);
+    max = std::max(max, blue);
     auto delta = static_cast<float>(static_cast<double>(max) - min);
 
-    float s = 0.0F;
+    float computed_saturation = 0.0F;
     double hue = 0.0;
     if (max == 0.0F) {
         hue = 0.0;
-        s = 0.0F;
+        computed_saturation = 0.0F;
     } else {
-        s = static_cast<float>(static_cast<double>(delta) / max);
-        if (s == 0.0F) {
+        computed_saturation = static_cast<float>(static_cast<double>(delta) / max);
+        if (computed_saturation == 0.0F) {
             hue = 0.0;
-        } else if (r == max) {
-            hue = (static_cast<double>(g) - b) / delta;
-        } else if (g == max) {
-            hue = ((static_cast<double>(b) - r) / delta) + kHueSectorGreenBlue;
-        } else if (b == max) {
-            hue = ((static_cast<double>(r) - g) / delta) + kHueSectorBlueRed;
+        } else if (red == max) {
+            hue = (static_cast<double>(green) - blue) / delta;
+        } else if (green == max) {
+            hue = ((static_cast<double>(blue) - red) / delta) + kHueSectorGreenBlue;
+        } else if (blue == max) {
+            hue = ((static_cast<double>(red) - green) / delta) + kHueSectorBlueRed;
         } else {
-            hue = h;
+            hue = computed_hue;
         }
     }
     hue *= kHueDegreesPerSector;
-    h = static_cast<float>(hue);
+    computed_hue = static_cast<float>(hue);
     if (hue < 0.0) {
-        h = static_cast<float>(static_cast<double>(h) + kHueFull);
+        computed_hue = static_cast<float>(static_cast<double>(computed_hue) + kHueFull);
     }
-    if (h > kHueFull) {
-        h = static_cast<float>(static_cast<double>(h) - kHueFull);
+    if (computed_hue > kHueFull) {
+        computed_hue = static_cast<float>(static_cast<double>(computed_hue) - kHueFull);
     }
 
     gsl::owner<Array*> hsv = new_colour_array(rgb_array);
-    hsv->set_element(0, static_cast<uint32_t>(ftol(h)));
-    hsv->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(s) * kSaturationScale)));
+    hsv->set_element(0, static_cast<uint32_t>(ftol(computed_hue)));
+    hsv->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(computed_saturation) * kSaturationScale)));
     hsv->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(max) * kValueScale)));
     script->args()->append_array_ref(kHsv, hsv);
     return true;

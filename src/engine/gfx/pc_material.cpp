@@ -94,11 +94,11 @@ constexpr uint32_t kPassExplicitUv = 0x4000;   // the UV wibble's matrix is set,
 uint32_t blend_key_colors(int num, int den, const std::array<uint8_t, 4>& from, const std::array<uint8_t, 4>& to)
 {
     static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
-    const double f = static_cast<double>(num) / den;
-    const double rest = 1.0 - f;
+    const double fraction = static_cast<double>(num) / den;
+    const double rest = 1.0 - fraction;
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
-        const auto value = static_cast<uint32_t>(maths::truncate_to_i64((core::at(to, core::at(kOrder, k)) * f) +
+        const auto value = static_cast<uint32_t>(maths::truncate_to_i64((core::at(to, core::at(kOrder, k)) * fraction) +
                                                                         (core::at(from, core::at(kOrder, k)) * rest)));
         color = (k != 0) ? (color << kBitsPerByte | value) : value;
     }
@@ -111,10 +111,10 @@ float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast
 // One axis of a UV wibble's offset: the phase-shifted sine times the amplitude plus the velocity's travel, plus 8,
 // less its whole part rounded down to a multiple of 16 - then 8 back the other way (added below 0, taken off
 // otherwise). The v axis is stored as a float before that last step, the u axis isn't.
-float wibble_offset(float t, float frequency, float phase, float amplitude, float velocity, bool store_first)
+float wibble_offset(float time, float frequency, float phase, float amplitude, float velocity, bool store_first)
 {
-    double value = (std::sin((static_cast<double>(t) * frequency) + phase) * amplitude) +
-                   (static_cast<double>(t) * velocity) + kWibbleWrap;
+    double value = (std::sin((static_cast<double>(time) * frequency) + phase) * amplitude) +
+                   (static_cast<double>(time) * velocity) + kWibbleWrap;
     const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0U);
     value -= whole;
     if (store_first) {
@@ -264,14 +264,15 @@ void MaterialRef::update_color_anims()
         const std::span<ColorKey> keys = key_run(anim);
         const int first = core::at(keys, 0).time;
         const int period = core::at(keys, anim.key_count_ - 1).time - first;
-        const int t = (period != 0) ? ((anim.phase_ + renderer().step_seconds()) % period) + first : 1;
+        const int time_now = (period != 0) ? ((anim.phase_ + renderer().step_seconds()) % period) + first : 1;
         int key = static_cast<int>(anim.key_count_) - 1;
-        while (key >= 0 && t < core::at(keys, key).time) {
+        while (key >= 0 && time_now < core::at(keys, key).time) {
             --key;
         }
         const ColorKey& from = core::at(keys, key);
         const ColorKey& to = core::at(keys, key + 1);
-        core::at(anim_colour_run(), i) = blend_key_colors(t - from.time, to.time - from.time, from.rgba, to.rgba);
+        core::at(anim_colour_run(), i) =
+            blend_key_colors(time_now - from.time, to.time - from.time, from.rgba, to.rgba);
     }
 }
 
@@ -292,13 +293,13 @@ void MaterialRef::update_texture_anims()
         const int first = core::at(keys, 0).time;
         const int period = core::at(keys, count - 1).time - first;
         const int phase = static_cast<int>(core::at(anim->phases, pass));
-        int t = ((now + phase) % period) + first;
+        int key_time = ((now + phase) % period) + first;
         const int loops = core::at(anim->loops, pass);
         if (loops > 0 && (now - first) / period >= loops) {
-            t = (((loops * period) + phase) % period) + first; // (held on the last loop's end)
+            key_time = (((loops * period) + phase) % period) + first; // (held on the last loop's end)
         }
         int key = count - 1;
-        while (key >= 0 && t < core::at(keys, key).time) {
+        while (key >= 0 && key_time < core::at(keys, key).time) {
             --key;
         }
         core::at(textures_, pass) = core::at(keys, key).texture;
@@ -311,15 +312,17 @@ void MaterialRef::update_uv_wibbles()
     if (!has_uv_wibble_) {
         return;
     }
-    const float t = wibble_time(frame_clock::get_time());
+    const float wave_time = wibble_time(frame_clock::get_time());
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {
         if (((core::at(pass_flags_, pass) & kPassUvWibble) == 0U) ||
             ((core::at(pass_flags_, pass) & kPassExplicitUv) != 0U)) {
             continue;
         }
         UvOscillator* w = core::at(uv_wibble_, pass);
-        const float u = wibble_offset(t, core::at(w->frequency(), 0), core::at(w->phase(), 0), core::at(w->amplitude(), 0), core::at(w->velocity(), 0), false);
-        const float v = wibble_offset(t, core::at(w->frequency(), 1), core::at(w->phase(), 1), core::at(w->amplitude(), 1), core::at(w->velocity(), 1), true);
+        const float u = wibble_offset(wave_time, core::at(w->frequency(), 0), core::at(w->phase(), 0),
+                                      core::at(w->amplitude(), 0), core::at(w->velocity(), 0), false);
+        const float v = wibble_offset(wave_time, core::at(w->frequency(), 1), core::at(w->phase(), 1),
+                                      core::at(w->amplitude(), 1), core::at(w->velocity(), 1), true);
         core::at(w->offset(), 0) = u;
         core::at(w->offset(), 1) = v;
     }
@@ -374,13 +377,13 @@ void MaterialRef::hand_in()
             renderer().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
         } else {
             if (view_setup().billboard_flag() != 0U) { // (the billboard flag: a static matrix's 2x2 part reset)
-                auto& m = pc_material_state().billboard_uv_matrix_;
-                core::at(m, 0) = 1.0F;
-                core::at(m, 1) = 0;
-                core::at(m, 3) = 0;
-                core::at(m, 4) = 0;
-                core::at(m, kUvScaleV) = 1.0F;
-                core::at(m, maths::kMatYw) = 0;
+                auto& uv_matrix = pc_material_state().billboard_uv_matrix_;
+                core::at(uv_matrix, 0) = 1.0F;
+                core::at(uv_matrix, 1) = 0;
+                core::at(uv_matrix, 3) = 0;
+                core::at(uv_matrix, 4) = 0;
+                core::at(uv_matrix, kUvScaleV) = 1.0F;
+                core::at(uv_matrix, maths::kMatYw) = 0;
             }
             DWORD transform_flags = 0;
             DWORD coordinates = 0;
@@ -508,10 +511,11 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         device_stage_state(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
         device_stage_state(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
         const std::span<const float, 3> factor = color ? std::span<const float, 3>(color, 3) : std::span<const float>(own).first<3>();
-        const uint32_t r = factor_channel(core::at(factor, 0));
-        const uint32_t g = factor_channel(core::at(factor, 1));
-        const uint32_t b = factor_channel(core::at(factor, 2));
-        renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kOpaqueAlphaBits | r << kByte2Shift | g << kByte1Shift | b);
+        const uint32_t red = factor_channel(core::at(factor, 0));
+        const uint32_t green = factor_channel(core::at(factor, 1));
+        const uint32_t blue = factor_channel(core::at(factor, 2));
+        renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR,
+                                                kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
         if (alpha_from_texture) {
             device_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         } else {

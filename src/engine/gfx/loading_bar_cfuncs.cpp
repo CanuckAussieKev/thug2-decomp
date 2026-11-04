@@ -40,12 +40,12 @@ namespace {
 // Two integers into two settings (each left unset when missing - the original's stack garbage; 0 here).
 bool choose_pair(script::Struct* params, uint32_t first, uint32_t second, int& setting_a, int& setting_b)
 {
-    int a = 0;
-    int b = 0;
-    params->fetch_int_value(first, &a, 0);
-    params->fetch_int_value(second, &b, 0);
-    setting_a = a;
-    setting_b = b;
+    int first_value = 0;
+    int second_value = 0;
+    params->fetch_int_value(first, &first_value, 0);
+    params->fetch_int_value(second, &second_value, 0);
+    setting_a = first_value;
+    setting_b = second_value;
     update_loading_bar_colors();
     return true;
 }
@@ -53,13 +53,14 @@ bool choose_pair(script::Struct* params, uint32_t first, uint32_t second, int& s
 // A colour from r, g, b (alpha 0x80).
 bool change_colour(script::Struct* params, std::array<uint8_t, 4>& setting)
 {
-    int r = 0;
-    int g = 0;
-    int b = 0; // (unset when missing in the original)
-    params->fetch_int_value(kRed, &r, 0);
-    params->fetch_int_value(kGreen, &g, 0);
-    params->fetch_int_value(kBlue, &b, 0);
-    std::array<uint8_t, 4> colour = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), kHalfAlpha}};
+    int red = 0;
+    int green = 0;
+    int blue = 0; // (unset when missing in the original)
+    params->fetch_int_value(kRed, &red, 0);
+    params->fetch_int_value(kGreen, &green, 0);
+    params->fetch_int_value(kBlue, &blue, 0);
+    std::array<uint8_t, 4> colour = {
+        {static_cast<uint8_t>(red), static_cast<uint8_t>(green), static_cast<uint8_t>(blue), kHalfAlpha}};
     std::memcpy(setting.data(), colour.data(), sizeof(colour));
     update_loading_bar_colors();
     return true;

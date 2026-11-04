@@ -287,9 +287,9 @@ void PcWeather::render_rain(maths::Vec2 centre)
     {
         const double frames_f = rain_frames();
         const double height = rain_height();
-        int t = 0;
-        for (int i = kSlotLastFrame - rain_frames(); i < kFrameTableEntries; ++i, ++t) {
-            core::at(fall, i) = ftol((height - (t / frames_f * height)) * kHeightFixedScale);
+        int frame = 0;
+        for (int i = kSlotLastFrame - rain_frames(); i < kFrameTableEntries; ++i, ++frame) {
+            core::at(fall, i) = ftol((height - (frame / frames_f * height)) * kHeightFixedScale);
         }
     }
     for (int i = 0; i < kFrameTableEntries; ++i) {
@@ -387,9 +387,9 @@ void PcWeather::render_snow(maths::Vec2 centre)
     {
         const double frames_f = snow_frames();
         const double height = snow_height();
-        int t = 0;
-        for (int i = kSlotLastFrame - snow_frames(); i < kFrameTableEntries; ++i, ++t) {
-            core::at(fall, i) = static_cast<float>(height - (t / frames_f * height));
+        int frame = 0;
+        for (int i = kSlotLastFrame - snow_frames(); i < kFrameTableEntries; ++i, ++frame) {
+            core::at(fall, i) = static_cast<float>(height - (frame / frames_f * height));
         }
     }
     for (int i = 0; i < kFrameTableEntries; ++i) {
@@ -516,12 +516,14 @@ void PcWeather::render_splashes(float x, float z)
         auto x1 = static_cast<float>(half + core::at(splash_x_, i));
         auto z0 = static_cast<float>(core::at(splash_z_, i) - half);
         auto z1 = static_cast<float>(half + core::at(splash_z_, i));
-        std::array<uint8_t, 4> c{};
+        std::array<uint8_t, 4> splash_bytes{};
         for (int k = 0; k < 4; ++k) {
-            core::at(c, k) = static_cast<uint8_t>(core::at(splash_colour(), k) * frames / splash_life()); // (fading with its frames)
+            core::at(splash_bytes, k) =
+                static_cast<uint8_t>(core::at(splash_colour(), k) * frames / splash_life()); // (fading with its frames)
         }
-        const uint32_t colour = static_cast<uint32_t>(core::at(c, 3)) << 24 | static_cast<uint32_t>(core::at(c, 2)) << 16 |
-                                static_cast<uint32_t>(core::at(c, 1)) << 8 | core::at(c, 0);
+        const uint32_t colour = static_cast<uint32_t>(core::at(splash_bytes, 3)) << 24 |
+                                static_cast<uint32_t>(core::at(splash_bytes, 2)) << 16 |
+                                static_cast<uint32_t>(core::at(splash_bytes, 1)) << 8 | core::at(splash_bytes, 0);
         const float y = core::at(splash_y_, i);
         out[0] = {.x = x0, .y = y, .z = z0, .colour = colour, .u = 0.0F, .v = 0.0F};
         out[1] = {.x = x1, .y = y, .z = z0, .colour = colour, .u = 1.0F, .v = 0.0F};
@@ -581,11 +583,11 @@ void PcWeather::tick_grid()
     memory::Hub::get_pull()->leave_heap_scope();
     ProbeRay feeler;
     int levels = 0;
-    for (int z = min_z, r = 0; z <= max_z; ++z, ++r) {
-        auto at_z = static_cast<float>(z << kCellShift);
-        for (int x = min_x; x <= max_x; ++x) {
-            const int index = (width * r) - min_x + x;
-            maths::Vec4 at = {.x = static_cast<float>(x << kCellShift), .y = kProbeHeight, .z = at_z, .w = 1.0F};
+    for (int cell_z = min_z, row = 0; cell_z <= max_z; ++cell_z, ++row) {
+        auto at_z = static_cast<float>(cell_z << kCellShift);
+        for (int cell_x = min_x; cell_x <= max_x; ++cell_x) {
+            const int index = (width * row) - min_x + cell_x;
+            maths::Vec4 at = {.x = static_cast<float>(cell_x << kCellShift), .y = kProbeHeight, .z = at_z, .w = 1.0F};
             feeler.change_origin(&at);
             at.y = -kProbeHeight;
             feeler.change_finish(&at);
@@ -616,10 +618,10 @@ void PcWeather::tick_grid()
     const auto height_at = [&](size_t index) {
         return index < grid.size() ? core::at(heights, core::at(grid, index)) : std::numeric_limits<int>::min();
     };
-    for (int r = 0; r < rows_count && min_z <= max_z; ++r) {
-        for (int x = min_x; x <= max_x; ++x) {
-            const auto index = static_cast<size_t>((width * r) - min_x + x);
-            const auto below = static_cast<size_t>((width * (r + 1)) - min_x + x);
+    for (int row = 0; row < rows_count && min_z <= max_z; ++row) {
+        for (int cell_x = min_x; cell_x <= max_x; ++cell_x) {
+            const auto index = static_cast<size_t>((width * row) - min_x + cell_x);
+            const auto below = static_cast<size_t>((width * (row + 1)) - min_x + cell_x);
             if (height_at(index + 1) > height_at(index)) {
                 core::at(grid, index) = core::at(grid, index + 1);
             }
@@ -635,29 +637,29 @@ void PcWeather::tick_grid()
     rows = pc_weather_state().weather_rows_;
     columns = pc_weather_state().weather_columns_;
     uint32_t offset = 0;
-    for (int r = 0; r <= depth; ++r) {
+    for (int row = 0; row <= depth; ++row) {
         uint16_t first = 0;
         auto last = static_cast<uint16_t>(width - 1);
         bool found = false;
-        for (int c = 0; c < width; ++c) {
-            const auto cell_index = static_cast<size_t>((width * r) + c);
+        for (int column = 0; column < width; ++column) {
+            const auto cell_index = static_cast<size_t>((width * row) + column);
             if (cell_index >= grid.size() || height_at(cell_index) == kNoGround) {
                 continue; // (the row past the last: no ground, the original read the heap there)
             }
             if (!found) {
-                first = static_cast<uint16_t>(c);
+                first = static_cast<uint16_t>(column);
                 found = true;
             } else {
-                last = static_cast<uint16_t>(c);
+                last = static_cast<uint16_t>(column);
             }
         }
         if (first < last) {
-            core::at(rows, r) = {.first = first, .last = last, .offset = static_cast<uint16_t>(offset)};
-            for (int c = first; std::cmp_less_equal(c, last); ++c) {
-                core::at(columns, static_cast<uint16_t>(offset++)) = core::at(grid, (width * r) + c);
+            core::at(rows, row) = {.first = first, .last = last, .offset = static_cast<uint16_t>(offset)};
+            for (int column = first; std::cmp_less_equal(column, last); ++column) {
+                core::at(columns, static_cast<uint16_t>(offset++)) = core::at(grid, (width * row) + column);
             }
         } else {
-            core::at(rows, r) = {.first = kEmptyRow, .last = 0, .offset = 0};
+            core::at(rows, row) = {.first = kEmptyRow, .last = 0, .offset = 0};
         }
     }
     memory::Hub::dealloc(grid_block);

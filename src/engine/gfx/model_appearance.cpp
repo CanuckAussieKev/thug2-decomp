@@ -212,15 +212,15 @@ void ModelLook::set_part(checksums::Name part_name, uint32_t descriptor_id, scri
     params->fetch_int_value(kUseDefaultHsv, &use_default_hsv, 0);
     if (use_default_hsv == 0) {
         // (asserted; missing, 0 - the original's h was what its stack slot held, `params` itself, s / v garbage)
-        int h = 0;
-        int s = 0;
+        int hue = 0;
+        int saturation = 0;
         int v = 0;
-        params->fetch_int_value(kH, &h, 1);
-        params->fetch_int_value(kS, &s, 1);
+        params->fetch_int_value(kH, &hue, 1);
+        params->fetch_int_value(kS, &saturation, 1);
         params->fetch_int_value(kV, &v, 1);
         slot->put_int(checksums::Name{kUseDefaultHsv}, 0);
-        slot->put_int(checksums::Name{kH}, h);
-        slot->put_int(checksums::Name{kS}, s);
+        slot->put_int(checksums::Name{kH}, hue);
+        slot->put_int(checksums::Name{kS}, saturation);
         slot->put_int(checksums::Name{kV}, v);
     }
     slot->put_name_key(checksums::Name{kDescId}, descriptor_id);

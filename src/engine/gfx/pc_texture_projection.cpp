@@ -68,9 +68,9 @@ uint32_t& batch_count()
 std::span<ProjectionBatch> get_batches() { return projection_batches(); }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
-void transform_coord(float* out, const float* v, const maths::Mat4* m)
+void transform_coord(float* out, const float* v, const maths::Mat4* matrix)
 {
-    d3dx::vec3_transform_coord(out, v, m); // (D3DX)
+    d3dx::vec3_transform_coord(out, v, matrix); // (D3DX)
 }
 
 // The vertex stack (0x006FC4A0) the splitter works on.
@@ -132,9 +132,9 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
     ProjectionBatch* batch = &core::at(get_batches(), count);
     MaterialRef* material = &batch->material();
     core::at(material->pass_flags(), 0) = kProjectionPassFlags; // (the pass's flags)
-    const int a = get_rand();
-    const int b = get_rand();
-    material->set_checksum(a * b);                                  // a random checksum
+    const int random_a = get_rand();
+    const int random_b = get_rand();
+    material->set_checksum(random_a * random_b);                   // a random checksum
     material->set_pass_count(1);                                   // one pass
     core::at(material->textures(), 0) = texture;
     material->set_two_sided(1);
@@ -193,15 +193,15 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
             core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, kLockDiscard);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));
             // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
-            uint32_t a = !indices.empty() ? core::at(indices, 0) : 0U;
-            uint32_t b = indices.size() > 1 ? core::at(indices, 1) : 0U;
+            uint32_t index_a = !indices.empty() ? core::at(indices, 0) : 0U;
+            uint32_t second = indices.size() > 1 ? core::at(indices, 1) : 0U;
             for (uint32_t strip = 2; strip < core::at(mesh->index_counts(), 0); ++strip) {
-                const uint32_t c = core::at(indices, strip);
-                const uint32_t ia = a;
-                const uint32_t ib = b;
-                const uint32_t ic = c;
-                a = b;
-                b = c;
+                const uint32_t third = core::at(indices, strip);
+                const uint32_t ia = index_a;
+                const uint32_t ib = second;
+                const uint32_t ic = third;
+                index_a = second;
+                second = third;
                 if (ia == ib || ia == ic || ib == ic) {
                     continue;
                 }

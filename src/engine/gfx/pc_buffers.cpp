@@ -64,23 +64,23 @@ void MeshRef::set_pixel_shader_colored()
     const uint32_t bytes = material_->pass_count() << 4; // 16 a pass
     auto& saved = saved_pixel_shader_constants();
     std::memcpy(saved.data(), renderer().ps_constants().data(), bytes);
-    double r = 0.0;
-    double g = 0.0;
-    double b = 0.0;
+    double red = 0.0;
+    double green = 0.0;
+    double blue = 0.0;
     if (renderer().instance_colour_on() != 0U) {
-        r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0F / kColourScale);
-        g = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0F / kColourScale);
-        b = core::at(renderer().instance_colour(), 2) * static_cast<double>(1.0F / kColourScale);
+        red = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0F / kColourScale);
+        green = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0F / kColourScale);
+        blue = core::at(renderer().instance_colour(), 2) * static_cast<double>(1.0F / kColourScale);
     } else {
-        r = static_cast<double>(core::at(color_, 0)) + core::at(color_, 0);
-        g = static_cast<double>(core::at(color_, 1)) + core::at(color_, 1);
-        b = static_cast<double>(core::at(color_, 2)) + core::at(color_, 2);
+        red = static_cast<double>(core::at(color_, 0)) + core::at(color_, 0);
+        green = static_cast<double>(core::at(color_, 1)) + core::at(color_, 1);
+        blue = static_cast<double>(core::at(color_, 2)) + core::at(color_, 2);
     }
     for (uint32_t pass = 0; pass < material_->pass_count(); ++pass) {
         if ((core::at(material_->pass_flags(), pass) & kPassFlagKeepColour) != 0U) { // (the colour isn't to be changed)
             continue;
         }
-        renderer().scale_pass_colour(pass, {.r = r, .g = g, .b = b});
+        renderer().scale_pass_colour(pass, {.r = red, .g = green, .b = blue});
     }
     renderer().set_pixel_shader_changed(1); // (the constants changed)
     set_pixel_shader_with_constants(pixel_shader_, material_->pass_count());

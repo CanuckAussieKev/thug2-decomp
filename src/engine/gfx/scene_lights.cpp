@@ -147,11 +147,11 @@ public:
         if (!(d2 < radius * radius)) {
             return;
         }
-        const double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength();
+        const double falloff = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength();
         const colour::Bytes colour = colour::bytes_of(light.shade());
-        r += core::at(colour, 0) * f;
-        g += core::at(colour, 1) * f;
-        b += core::at(colour, 2) * f;
+        r += core::at(colour, 0) * falloff;
+        g += core::at(colour, 1) * falloff;
+        b += core::at(colour, 2) * falloff;
         lit_ = true;
     }
     // A colour's RGB with the sums added (green and blue rounded to floats first, as the original stores them),
@@ -170,18 +170,18 @@ public:
 };
 
 // A position's offset from a light, squared: the original's two orders of summing.
-double offset_squared_zxy(const maths::Vec4& p, const maths::Vec4& l)
+double offset_squared_zxy(const maths::Vec4& point, const maths::Vec4& light_position)
 {
-    const double dx = static_cast<double>(p.x) - l.x;
-    const double dy = static_cast<double>(p.y) - l.y;
-    const double dz = static_cast<double>(p.z) - l.z;
+    const double dx = static_cast<double>(point.x) - light_position.x;
+    const double dy = static_cast<double>(point.y) - light_position.y;
+    const double dz = static_cast<double>(point.z) - light_position.z;
     return (dz * dz) + (dx * dx) + (dy * dy);
 }
-double offset_squared_zyx(const maths::Vec4& p, const maths::Vec4& l)
+double offset_squared_zyx(const maths::Vec4& point, const maths::Vec4& light_position)
 {
-    const double dx = static_cast<double>(p.x) - l.x;
-    const double dy = static_cast<double>(p.y) - l.y;
-    const double dz = static_cast<double>(p.z) - l.z;
+    const double dx = static_cast<double>(point.x) - light_position.x;
+    const double dy = static_cast<double>(point.y) - light_position.y;
+    const double dz = static_cast<double>(point.z) - light_position.z;
     return (dz * dz) + (dy * dy) + (dx * dx);
 }
 
@@ -308,14 +308,14 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     const std::span<uint32_t> colours(colours_block, static_cast<size_t>(count));
     get_vertices(geom, vertices);
     geom->fetch_tints(colours);
-    for (int v = 0; v < count; ++v) {
+    for (int vertex = 0; vertex < count; ++vertex) {
         Sums sums;
-        for (int l = 0; l < found; ++l) {
-            const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, l));
-            sums.append_one(light, offset_squared_zxy(core::at(vertices, v), light.at_point()));
+        for (int lamp = 0; lamp < found; ++lamp) {
+            const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, lamp));
+            sums.append_one(light, offset_squared_zxy(core::at(vertices, vertex), light.at_point()));
         }
         if (sums.lit()) {
-            core::at(colours, v) = sums.get_apply(core::at(colours, v));
+            core::at(colours, vertex) = sums.get_apply(core::at(colours, vertex));
         }
     }
     set_colours(geom, colours);
@@ -354,14 +354,14 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
         core::copy_into(in.first(count), out);
         return;
     }
-    for (uint32_t v = 0; v < count; ++v) {
+    for (uint32_t vertex = 0; vertex < count; ++vertex) {
         Sums sums;
-        for (int l = 0; l < found; ++l) {
-            const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, l));
-            sums.append_one(light, offset_squared_zyx(core::at(positions, v), light.at_point()));
+        for (int lamp = 0; lamp < found; ++lamp) {
+            const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, lamp));
+            sums.append_one(light, offset_squared_zyx(core::at(positions, vertex), light.at_point()));
         }
         if (sums.lit()) {
-            core::at(out, v) = sums.get_apply(core::at(in, v));
+            core::at(out, vertex) = sums.get_apply(core::at(in, vertex));
         }
     }
 }

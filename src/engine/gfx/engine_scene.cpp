@@ -59,9 +59,9 @@ inline void print_coll_static(const StaticCollider* /*unused*/) {}
 // A C string copied (unbounded, as the original's inlined strcpy).
 void copy_string(std::span<char> to, const char* from)
 {
-    std::size_t i = 0;
-    for (core::CStringCursor at(from);; ++at, ++i) {
-        core::at(to, i) = *at;
+    std::size_t length = 0;
+    for (core::CStringCursor at(from);; ++at, ++length) {
+        core::at(to, length) = *at;
         if (*at == '\0') {
             break;
         }

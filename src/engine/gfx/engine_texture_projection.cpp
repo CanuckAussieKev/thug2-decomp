@@ -187,27 +187,28 @@ void TextureProjection::update_matrix()
 // 0x0049FFE0
 void TextureProjection::tick_frame(objects::GameEntity* object)
 {
-    maths::Mat4 m{};
-    m = object->display_matrix();
+    maths::Mat4 matrix{};
+    matrix = object->display_matrix();
     const maths::Vec4& pos = object->at_point();
     double ox = shift_.x;
     double oy = shift_.y;
     double const oz = shift_.z;
     // the position: the object's plus the offset through its matrix (x kept at 53 bits but for the third row's
     // term; y, z, w rounded at each step; w's third term unrounded)
-    double x = (static_cast<double>(core::at(m.row, 0).x) * ox) + pos.x;
-    x += static_cast<double>(core::at(m.row, 1).x) * oy;
-    x += get_f(static_cast<double>(core::at(m.row, 2).x) * oz);
-    auto rounded = [&](int c) {
-        const float a = get_f(get_f(get_f(core::at(m.row, 0)[c] * ox) + static_cast<double>(pos[c])) +
-                              static_cast<double>(get_f(core::at(m.row, 1)[c] * oy)));
-        return a;
+    double x = (static_cast<double>(core::at(matrix.row, 0).x) * ox) + pos.x;
+    x += static_cast<double>(core::at(matrix.row, 1).x) * oy;
+    x += get_f(static_cast<double>(core::at(matrix.row, 2).x) * oz);
+    auto rounded = [&](int column) {
+        const float projected =
+            get_f(get_f(get_f(core::at(matrix.row, 0)[column] * ox) + static_cast<double>(pos[column])) +
+                  static_cast<double>(get_f(core::at(matrix.row, 1)[column] * oy)));
+        return projected;
     };
-    const float y = get_f(static_cast<double>(rounded(1)) + get_f(static_cast<double>(core::at(m.row, 2).y) * oz));
-    const float z = get_f(static_cast<double>(rounded(2)) + get_f(static_cast<double>(core::at(m.row, 2).z) * oz));
-    const float w = get_f(static_cast<double>(rounded(3)) + (static_cast<double>(core::at(m.row, 2).w) * oz));
+    const float y = get_f(static_cast<double>(rounded(1)) + get_f(static_cast<double>(core::at(matrix.row, 2).y) * oz));
+    const float z = get_f(static_cast<double>(rounded(2)) + get_f(static_cast<double>(core::at(matrix.row, 2).z) * oz));
+    const float w = get_f(static_cast<double>(rounded(3)) + (static_cast<double>(core::at(matrix.row, 2).w) * oz));
     anchor_point_ = {.x = get_f(x), .y = y, .z = z, .w = w};
-    world_direction_ = direction_ * m;
+    world_direction_ = direction_ * matrix;
 
     if (modules::viewport_count() == 1 && first_camera()) {
         const maths::Vec4* camera = viewer_location(first_camera());

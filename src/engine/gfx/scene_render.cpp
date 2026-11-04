@@ -226,9 +226,9 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
         return;
     }
     // The transparent meshes up to the flagged ones.
-    int i = scene->first_transparent();
-    for (; i < scene->first_flagged(); ++i) {
-        MeshRef* mesh = core::at(scene->mesh_run(), i);
+    int index = scene->first_transparent();
+    for (; index < scene->first_flagged(); ++index) {
+        MeshRef* mesh = core::at(scene->mesh_run(), index);
         if (!pass.get_visible(mesh)) {
             continue;
         }
@@ -239,8 +239,8 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
         // The flagged ones, sorted by depth.
         const int end = scene->first_flagged() + scene->flagged_count();
         int sorted = 0;
-        for (; i < end; ++i) {
-            MeshRef* mesh = core::at(scene->mesh_run(), i);
+        for (; index < end; ++index) {
+            MeshRef* mesh = core::at(scene->mesh_run(), index);
             if (!pass.get_visible(mesh)) {
                 continue;
             }
@@ -251,13 +251,13 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
         }
         if (sorted > 0) {
             get_qsort(get_sorted().data(), sorted, sizeof(DepthOrderedMesh), &compare_distances);
-            for (int s = 0; s < sorted; ++s) {
-                pass.blit(core::at(get_sorted(), s).mesh);
+            for (int sorted_index = 0; sorted_index < sorted; ++sorted_index) {
+                pass.blit(core::at(get_sorted(), sorted_index).mesh);
             }
         }
         // Then the rest.
-        for (; i < scene->mesh_count(); ++i) {
-            MeshRef* mesh = core::at(scene->mesh_run(), i);
+        for (; index < scene->mesh_count(); ++index) {
+            MeshRef* mesh = core::at(scene->mesh_run(), index);
             if (!pass.get_visible(mesh)) {
                 continue;
             }

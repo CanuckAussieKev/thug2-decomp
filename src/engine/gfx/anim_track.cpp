@@ -58,9 +58,12 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 
 // --- calls into code not rewritten here ---
 // An event's set-up, arming and firing.
-void set_up_event(TimedClipEvent* e, int frame, uint32_t type, Struct* params) { e->assign_value(frame, checksums::Name{type}, params); }
-void arm_event(TimedClipEvent* e, bool armed) { e->change_live(armed); }
-bool fire_event(TimedClipEvent* e, objects::GameEntity* object) { return e->process_if_active(object); }
+void set_up_event(TimedClipEvent* event, int frame, uint32_t type, Struct* params)
+{
+    event->assign_value(frame, checksums::Name{type}, params);
+}
+void arm_event(TimedClipEvent* event, bool armed) { event->change_live(armed); }
+bool fire_event(TimedClipEvent* event, objects::GameEntity* object) { return event->process_if_active(object); }
 
 // A script structure from the structures' pools, and back.
 

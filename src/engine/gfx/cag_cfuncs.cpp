@@ -152,13 +152,13 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
         workspace->get_offset(ftol(x), ftol(y), false, 0);
         Array* rgba = nullptr;
         info->fetch_list(kRgba, &rgba, 1);
-        auto a = static_cast<uint8_t>(ftol(rgba->fetch_float(3)));
-        auto b = static_cast<uint8_t>(ftol(rgba->fetch_float(2)));
-        auto g = static_cast<uint8_t>(ftol(rgba->fetch_float(1)));
-        auto r = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
-        const uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
+        auto alpha = static_cast<uint8_t>(ftol(rgba->fetch_float(3)));
+        auto blue = static_cast<uint8_t>(ftol(rgba->fetch_float(2)));
+        auto green = static_cast<uint8_t>(ftol(rgba->fetch_float(1)));
+        auto red = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
+        const uint32_t colour = red | green << 8 | blue << 16 | static_cast<uint32_t>(alpha) << 24;
         workspace->modulate(colour, false);
-        if (a < kOpaqueAlpha) {
+        if (alpha < kOpaqueAlpha) {
             translucent = true;
         }
         int layer = 0;

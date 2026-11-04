@@ -133,8 +133,11 @@ void MeshRef::fetch_place(maths::Vec4* out) const
         out->w = 1.0F;
         return;
     }
-    const std::span<float, 16> t = transform_floats();
-    *out = {.x = core::at(t, maths::kMatTx), .y = core::at(t, maths::kMatTy), .z = core::at(t, maths::kMatTz), .w = core::at(t, maths::kMatTw)}; // (the last row)
+    const std::span<float, 16> matrix_floats = transform_floats();
+    *out = {.x = core::at(matrix_floats, maths::kMatTx),
+            .y = core::at(matrix_floats, maths::kMatTy),
+            .z = core::at(matrix_floats, maths::kMatTz),
+            .w = core::at(matrix_floats, maths::kMatTw)}; // (the last row)
 }
 
 // 0x004D5760
@@ -148,12 +151,12 @@ gsl::owner<VertexBuffer*> new_vertex_buffer(uint32_t bytes, uint32_t usage, uint
 void MeshRef::clean_strip()
 {
     const std::span<uint16_t> strip = core::at(index_buffers_, 0)->index_run();
-    uint32_t a = core::at(strip, 0);
-    uint32_t b = core::at(strip, 1);
+    uint32_t first = core::at(strip, 0);
+    uint32_t second = core::at(strip, 1);
     uint32_t run = 0; // degenerate triangles in a row
     for (uint32_t i = 2; i < core::at(index_counts_, 0); ++i) {
-        const uint32_t c = core::at(strip, i);
-        if (a == b || a == c || b == c) {
+        const uint32_t third = core::at(strip, i);
+        if (first == second || first == third || second == third) {
             ++run;
         } else {
             if (run > kMaxDegenerateRun) { // (a long run of degenerates: cut to the four or five a strip join needs)
@@ -177,8 +180,8 @@ void MeshRef::clean_strip()
             }
             run = 0;
         }
-        a = b;
-        b = c;
+        first = second;
+        second = third;
     }
     core::at(index_buffers_, 0)->get_unlock();
 }

@@ -23,7 +23,7 @@ constexpr int kSamplerStageCount = 8;
 
 namespace {
 
-IDirect3DTexture9* get_d3d(const TextureRef* t) { return t->texture; }
+IDirect3DTexture9* get_d3d(const TextureRef* texture_ref) { return texture_ref->texture; }
 
 // The list (0x007CC254): doubly linked nodes.
 struct Elem {
@@ -203,16 +203,16 @@ void release_render_target_textures()
         renderer().d3d_device()->SetTexture(stage, nullptr); // (the cache isn't told)
     }
     for (const Elem* node = foremost(); node; node = node->next) {
-        TextureRef* t = node->texture;
-        if (!t->texture || !t->render_target_) {
+        TextureRef* texture_ref = node->texture;
+        if (!texture_ref->texture || !texture_ref->render_target_) {
             continue;
         }
-        get_d3d(t)->Release();
-        t->texture = nullptr;
-        if (t->surface) {
-            t->surface->Release();
+        get_d3d(texture_ref)->Release();
+        texture_ref->texture = nullptr;
+        if (texture_ref->surface) {
+            texture_ref->surface->Release();
         }
-        t->surface = nullptr;
+        texture_ref->surface = nullptr;
     }
 }
 
@@ -220,14 +220,14 @@ void release_render_target_textures()
 void restore_render_target_textures()
 {
     for (const Elem* node = foremost(); node; node = node->next) {
-        TextureRef* t = node->texture;
-        if (t->texture || !t->render_target_) {
+        TextureRef* texture_ref = node->texture;
+        if (texture_ref->texture || !texture_ref->render_target_) {
             continue;
         }
-        renderer().d3d_device()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
-                                    &t->texture, nullptr);
-        if (t->texture) {
-            get_d3d(t)->GetSurfaceLevel(0, &t->surface);
+        renderer().d3d_device()->CreateTexture(texture_ref->width, texture_ref->height, 1, D3DUSAGE_RENDERTARGET,
+                                               D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture_ref->texture, nullptr);
+        if (texture_ref->texture) {
+            get_d3d(texture_ref)->GetSurfaceLevel(0, &texture_ref->surface);
         }
     }
 }

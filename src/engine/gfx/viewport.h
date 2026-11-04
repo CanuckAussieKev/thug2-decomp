@@ -103,7 +103,7 @@ gfx::ViewCam* obtain_active_lens(int view);
 // 0x004A0970: view `view`'s camera set (nothing if the view isn't shown); its old one deleted if it was marked.
 void choose_camera(int view, gfx::ViewCam* camera);
 // 0x004A09C0: the camera of the n-th active viewport (0x004A06D0 - no check for none).
-gfx::ViewCam* fetch_live_camera(int n);
+gfx::ViewCam* fetch_live_camera(int view_number);
 // 0x004A09E0: of the active viewports' cameras, the one nearest `position` (null: none) and its distance (if
 // `distance` isn't null).
 gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance);

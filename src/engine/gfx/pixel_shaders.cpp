@@ -177,13 +177,13 @@ void compile_pixel_shaders()
             {.source = kConstantAlphaTextureAlpha.data(), .handle = kPixelShader940},
             {.source = kTextureConstantAlpha.data(), .handle = kPixelShader960},
         });
-        for (const Fixed& f : kFixed) {
-            assemble_shader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
+        for (const Fixed& fixed : kFixed) {
+            assemble_shader(fixed.source, static_cast<uint32_t>(std::strlen(fixed.source)), &shader, &errors);
             IDirect3DPixelShader9* made = nullptr;
             renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
-            hdl(f.handle) = made;
+            hdl(fixed.handle) = made;
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the source kept for its twin.
-            view_mode::note_shader_source(hdl(f.handle), f.source);
+            view_mode::note_shader_source(hdl(fixed.handle), fixed.source);
             if (shader) {
                 get_release(shader);
             }
@@ -267,47 +267,47 @@ void* generated_pixel_shader(const void* material)
         } else {
             reg = pass; // the texture itself
         }
-        const char* r = core::at(kRegisters, reg).data();
-        const char* p = core::at(kRegisters, previous).data();
+        const char* register_name = core::at(kRegisters, reg).data();
+        const char* previous_name = core::at(kRegisters, previous).data();
         switch (mode) {
         case 1:
-            text.append_one("mad r0.rgb,%s,%s.a,r0\n", r, r);
+            text.append_one("mad r0.rgb,%s,%s.a,r0\n", register_name, register_name);
             break;
         case 2:
-            text.append_one("mad r0.rgb,%s,c%d.a,r0\n", r, pass);
+            text.append_one("mad r0.rgb,%s,c%d.a,r0\n", register_name, pass);
             break;
         case 3:
-            text.append_one("mad r0.rgb,%s,-%s.a,r0\n", r, r);
+            text.append_one("mad r0.rgb,%s,-%s.a,r0\n", register_name, register_name);
             break;
         case 4:
-            text.append_one("mad r0.rgb,-%s,c%d.a,r0\n", r, pass);
+            text.append_one("mad r0.rgb,-%s,c%d.a,r0\n", register_name, pass);
             break;
         case kBlendModeAlpha:
-            text.append_one("lrp r0.rgb,%s.a,%s,r0\n", r, r);
+            text.append_one("lrp r0.rgb,%s.a,%s,r0\n", register_name, register_name);
             break;
         case kBlendModeFixBlend:
-            text.append_one("lrp r0.rgb,c%d.a,%s,r0\n", pass, r);
+            text.append_one("lrp r0.rgb,c%d.a,%s,r0\n", pass, register_name);
             break;
         case kBlendModeModulate:
-            text.append_one("mul r0.rgb,r0,%s.a\n", r);
+            text.append_one("mul r0.rgb,r0,%s.a\n", register_name);
             break;
         case kBlendModeFixModulate:
             text.append_one("mul r0.rgb,r0,c%d.a\n", pass);
             break;
         case kBlendModeBrighten:
-            text.append_one("mad r0.rgb,r0,%s.a,r0\n", r);
+            text.append_one("mad r0.rgb,r0,%s.a,r0\n", register_name);
             break;
         case kBlendModeFixBrighten:
             text.append_one("mad r0.rgb,r0,c%d.a,r0\n", pass);
             break;
         case kBlendModeVertexTexAlpha:
-            text.append_one("mul v1.rgb,v1,%s.a\n", r);
+            text.append_one("mul v1.rgb,v1,%s.a\n", register_name);
             break;
         case kBlendModeLerpPrevious:
-            text.append_one("lrp r0.rgb, %s.a, %s, r0\n", p, r);
+            text.append_one("lrp r0.rgb, %s.a, %s, r0\n", previous_name, register_name);
             break;
         case kBlendModeLerpFromPrevious:
-            text.append_one("lrp r0.rgb, %s.a, r0, %s\n", p, r);
+            text.append_one("lrp r0.rgb, %s.a, r0, %s\n", previous_name, register_name);
             break;
         default:
             break;

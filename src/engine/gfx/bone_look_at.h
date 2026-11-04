@@ -24,7 +24,7 @@ namespace gfx {
 // 0x00487F40 (cdecl): the rotation of these angles. Returns out.
 maths::QuatRotation* angles_to_quat(maths::QuatRotation* out, const maths::Vec4* angles);
 // 0x00488020 (cdecl): the angles of a rotation (w 1). Returns out.
-maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* q);
+maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* quat);
 // 0x00487EE0 (cdecl): `v` clamped (ClampVector::Confine) into `out`. Returns out.
 maths::Vec4* clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths::Vec4* min, const maths::Vec4* max);
 // A vector clamped.

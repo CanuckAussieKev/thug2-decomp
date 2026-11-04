@@ -47,18 +47,18 @@ void set_fog_distance(float start)
 // 0x004B8EE0
 void set_fog_color(uint32_t rgba)
 {
-    const uint32_t r = rgba & 0xFF;
-    const uint32_t g = (rgba >> 8) & 0xFF;
-    const uint32_t b = (rgba >> 16) & 0xFF;
-    const uint32_t a = rgba >> 24;
-    if ((a != 0U) && (renderer().fog_active() == 0U)) {
+    const uint32_t red = rgba & 0xFF;
+    const uint32_t green = (rgba >> 8) & 0xFF;
+    const uint32_t blue = (rgba >> 16) & 0xFF;
+    const uint32_t alpha = rgba >> 24;
+    if ((alpha != 0U) && (renderer().fog_active() == 0U)) {
         renderer().set_fog_active(1);
         if (!engine_parts().loading_screen_up()) {
             renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, 1);
         }
     }
     // the density (alpha / 128, 0-1) for the pixel shaders' fog constant (0x00786F0C)
-    double density = static_cast<double>(a) * (1.0 / kFogDensityScale);
+    double density = static_cast<double>(alpha) * (1.0 / kFogDensityScale);
     if (!(density < 1.0)) {
         density = 1.0;
     } else if (!(density > 0.0)) {
@@ -67,7 +67,7 @@ void set_fog_color(uint32_t rgba)
     renderer().set_ps_constant(kFogConstantRed, static_cast<float>(density));
     renderer().set_ps_constant(kFogConstantGreen, static_cast<float>(density));
     renderer().set_ps_constant(kFogConstantBlue, static_cast<float>(density));
-    const uint32_t color = (r << 16) | (g << 8) | b;
+    const uint32_t color = (red << 16) | (green << 8) | blue;
     engine_parts().set_fog_colour(color);
     renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, color);
 }

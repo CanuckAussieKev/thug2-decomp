@@ -54,8 +54,8 @@ float random_signed()
 // min + (max - min) times a random fraction.
 double random_between(float min, float max)
 {
-    const double t = static_cast<double>(get_rand()) * kRandomUnit;
-    return (t * (static_cast<double>(max) - min)) + min;
+    const double unit = static_cast<double>(get_rand()) * kRandomUnit;
+    return (unit * (static_cast<double>(max) - min)) + min;
 }
 
 void* viewport_camera(int viewport) { return fetch_live_camera(viewport); }
@@ -139,17 +139,17 @@ maths::Vec4 get_vector_or_xyz(script::Struct* params, uint32_t name)
 }
 
 // Sizes from the system's, scaled (unless the scale is exactly 1).
-void set_sizes(EmitterInstance* system, FlexibleParticle& p)
+void set_sizes(EmitterInstance* system, FlexibleParticle& particle)
 {
-    core::at(p.start_size_, 0) = core::at(system->extent(), 0);
-    core::at(p.start_size_, 1) = core::at(system->extent(), 1);
-    core::at(p.end_size_, 0) = core::at(system->extent(), 2);
-    core::at(p.end_size_, 1) = core::at(system->extent(), 3);
+    core::at(particle.start_size_, 0) = core::at(system->extent(), 0);
+    core::at(particle.start_size_, 1) = core::at(system->extent(), 1);
+    core::at(particle.end_size_, 0) = core::at(system->extent(), 2);
+    core::at(particle.end_size_, 1) = core::at(system->extent(), 3);
     if (std::bit_cast<uint32_t>(system->size_scale()) != kFloatOneBits) {
-        core::at(p.start_size_, 0) *= system->size_scale();
-        core::at(p.start_size_, 1) *= system->size_scale();
-        core::at(p.end_size_, 0) *= system->size_scale();
-        core::at(p.end_size_, 1) *= system->size_scale();
+        core::at(particle.start_size_, 0) *= system->size_scale();
+        core::at(particle.start_size_, 1) *= system->size_scale();
+        core::at(particle.end_size_, 0) *= system->size_scale();
+        core::at(particle.end_size_, 1) *= system->size_scale();
     }
 }
 
@@ -165,14 +165,14 @@ void EmitterInstance::get_emit(int count)
     const int total = count + first;
     particle_count_ = total > max_particles_ ? max_particles_ : total;
     const int last = particle_count_;
-    maths::Mat4 m{};
-    get_emit_matrix(&m);
+    maths::Mat4 matrix{};
+    get_emit_matrix(&matrix);
     for (int i = first; i < last; ++i) {
-        FlexibleParticle& p = core::at(particle_list_, i);
+        FlexibleParticle& particle = core::at(particle_list_, i);
         if (!moving_) {
-            set_sizes(this, p);
-            p.age = 0.0F;
-            p.lifetime = static_cast<float>(random_between(core::at(age_left_, 0), core::at(age_left_, 1)));
+            set_sizes(this, particle);
+            particle.age = 0.0F;
+            particle.lifetime = static_cast<float>(random_between(core::at(age_left_, 0), core::at(age_left_, 1)));
             for (int step = 0; step < get_num_vertex_lists(); ++step) {
                 const std::span<float, 3> pos = position_of(this, i, step);
                 core::at(pos, 0) = 0.0F;
@@ -182,22 +182,22 @@ void EmitterInstance::get_emit(int count)
             continue;
         }
         // the direction: a point on the disc of the spread about the third row
-        float a = random_signed();
-        float b = random_signed();
-        float c = random_signed();
+        float offset_a = random_signed();
+        float offset_b = random_signed();
+        float offset_c = random_signed();
         const double spread = static_cast<double>(angle_spread_) * 0.25F * maths::kPi;
-        const double x = a * spread;
-        const double y = spread * b;
+        const double x = offset_a * spread;
+        const double y = spread * offset_b;
         const double z = 1.0 - ((x * x) + (y * y));
-        auto zx = static_cast<float>(core::at(m.row, 2).x * z);
-        auto zy = static_cast<float>(core::at(m.row, 2).y * z);
-        auto zz = static_cast<float>(core::at(m.row, 2).z * z);
-        auto yx = static_cast<float>(core::at(m.row, 1).x * y);
-        auto yy = static_cast<float>(core::at(m.row, 1).y * y);
-        auto yz = static_cast<float>(core::at(m.row, 1).z * y);
-        auto xx = static_cast<float>(core::at(m.row, 0).x * x);
-        auto xy = static_cast<float>(core::at(m.row, 0).y * x);
-        const double xz = x * core::at(m.row, 0).z;
+        auto zx = static_cast<float>(core::at(matrix.row, 2).x * z);
+        auto zy = static_cast<float>(core::at(matrix.row, 2).y * z);
+        auto zz = static_cast<float>(core::at(matrix.row, 2).z * z);
+        auto yx = static_cast<float>(core::at(matrix.row, 1).x * y);
+        auto yy = static_cast<float>(core::at(matrix.row, 1).y * y);
+        auto yz = static_cast<float>(core::at(matrix.row, 1).z * y);
+        auto xx = static_cast<float>(core::at(matrix.row, 0).x * x);
+        auto xy = static_cast<float>(core::at(matrix.row, 0).y * x);
+        const double xz = x * core::at(matrix.row, 0).z;
         auto sum_y = static_cast<float>(static_cast<double>(xy) + yy);
         auto sum_z = static_cast<float>(xz + yz);
         auto dir_x = static_cast<float>((static_cast<double>(xx) + yx) + zx);
@@ -208,27 +208,28 @@ void EmitterInstance::get_emit(int count)
                                    static_cast<float>(dir_z * speed)}};
         // the position in the emit box (a new random point with the random spread; on its circle when circular)
         if (random_direction_) {
-            a = random_signed();
-            b = random_signed();
-            c = random_signed();
+            offset_a = random_signed();
+            offset_b = random_signed();
+            offset_c = random_signed();
         }
         if (circular_emit_) {
-            const double f = 1.0 / std::sqrt((static_cast<double>(b) * b) + (static_cast<double>(a) * a));
-            a = static_cast<float>(std::fabs(a) * f * a);
-            b = static_cast<float>(std::fabs(b) * f * b);
+            const double normaliser = 1.0 / std::sqrt((static_cast<double>(offset_b) * offset_b) +
+                                                      (static_cast<double>(offset_a) * offset_a));
+            offset_a = static_cast<float>(std::fabs(offset_a) * normaliser * offset_a);
+            offset_b = static_cast<float>(std::fabs(offset_b) * normaliser * offset_b);
         }
-        const double ax = static_cast<double>(a) * core::at(emit_range_, 0);
-        const double by = static_cast<double>(b) * core::at(emit_range_, 1);
-        const double cz = static_cast<double>(c) * core::at(emit_range_, 2);
-        auto czx = static_cast<float>(core::at(m.row, 2).x * cz);
-        auto czy = static_cast<float>(core::at(m.row, 2).y * cz);
-        auto czz = static_cast<float>(core::at(m.row, 2).z * cz);
-        auto byx = static_cast<float>(core::at(m.row, 1).x * by);
-        auto byy = static_cast<float>(core::at(m.row, 1).y * by);
-        const double byz = by * core::at(m.row, 1).z;
-        auto axz = static_cast<float>(core::at(m.row, 0).z * ax);
-        auto px = static_cast<float>((core::at(m.row, 0).x * ax) + byx);
-        auto py = static_cast<float>((core::at(m.row, 0).y * ax) + byy);
+        const double ax = static_cast<double>(offset_a) * core::at(emit_range_, 0);
+        const double by = static_cast<double>(offset_b) * core::at(emit_range_, 1);
+        const double cz = static_cast<double>(offset_c) * core::at(emit_range_, 2);
+        auto czx = static_cast<float>(core::at(matrix.row, 2).x * cz);
+        auto czy = static_cast<float>(core::at(matrix.row, 2).y * cz);
+        auto czz = static_cast<float>(core::at(matrix.row, 2).z * cz);
+        auto byx = static_cast<float>(core::at(matrix.row, 1).x * by);
+        auto byy = static_cast<float>(core::at(matrix.row, 1).y * by);
+        const double byz = by * core::at(matrix.row, 1).z;
+        auto axz = static_cast<float>(core::at(matrix.row, 0).z * ax);
+        auto px = static_cast<float>((core::at(matrix.row, 0).x * ax) + byx);
+        auto py = static_cast<float>((core::at(matrix.row, 0).y * ax) + byy);
         const double pz = static_cast<double>(axz) + byz;
         auto pos_x = static_cast<float>(static_cast<double>(px) + czx);
         auto pos_y = static_cast<float>(static_cast<double>(py) + czy);
@@ -240,8 +241,8 @@ void EmitterInstance::get_emit(int count)
             auto dz = static_cast<float>(dz53);
             const double length = ((dz53 * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx);
             if (!(length == 0.0)) {
-                const double r = static_cast<double>(get_rand()) * kRandomUnit;
-                const double u = (r + r - 1.0 + 1.0) * 0.5;
+                const double random_unit = static_cast<double>(get_rand()) * kRandomUnit;
+                const double u = (random_unit + random_unit - 1.0 + 1.0) * 0.5;
                 auto fx = static_cast<float>(dx * u);
                 auto fy = static_cast<float>(dy * u);
                 const double fz = u * dz;
@@ -252,13 +253,13 @@ void EmitterInstance::get_emit(int count)
             }
         }
         for (int k = 0; k < 3; ++k) {
-            core::at(p.force, k) = core::at(force_, k);
+            core::at(particle.force, k) = core::at(force_, k);
         }
-        set_sizes(this, p);
-        p.age = 0.0F;
-        p.lifetime = static_cast<float>(random_between(core::at(age_left_, 0), core::at(age_left_, 1)));
+        set_sizes(this, particle);
+        particle.age = 0.0F;
+        particle.lifetime = static_cast<float>(random_between(core::at(age_left_, 0), core::at(age_left_, 1)));
         for (int k = 0; k < 3; ++k) {
-            core::at(p.velocity, k) = core::at(velocity, k);
+            core::at(particle.velocity, k) = core::at(velocity, k);
         }
         for (int step = 0; step < get_num_vertex_lists(); ++step) {
             const std::span<float, 3> pos = position_of(this, i, step);
@@ -527,10 +528,10 @@ void EmitterInstance::tick_frame(float time, bool skip)
         unknown130_ = false;
         if (emit_rate_ == 0.0F) { // out of view and not emitting: the particles only age
             for (int i = 0; i < particle_count_; ++i) {
-                FlexibleParticle& p = core::at(particle_list_, i);
-                const double age = static_cast<double>(time) + p.age;
-                p.age = static_cast<float>(age);
-                if (age > p.lifetime) {
+                FlexibleParticle& particle = core::at(particle_list_, i);
+                const double age = static_cast<double>(time) + particle.age;
+                particle.age = static_cast<float>(age);
+                if (age > particle.lifetime) {
                     remove_particle(i, true);
                     --i;
                 }
@@ -558,11 +559,11 @@ void EmitterInstance::tick_frame(float time, bool skip)
     }
     auto dt = static_cast<float>(static_cast<double>(view_setup().frame_time_scale()) * time);
     for (int i = 0; i < particle_count_; ++i) {
-        FlexibleParticle& p = core::at(particle_list_, i);
-        p.age = static_cast<float>(static_cast<double>(time) + p.age);
+        FlexibleParticle& particle = core::at(particle_list_, i);
+        particle.age = static_cast<float>(static_cast<double>(time) + particle.age);
         for (int k = 0; k < 3; ++k) {
-            core::at(p.velocity, k) =
-                static_cast<float>((static_cast<double>(dt) * core::at(p.force, k)) + core::at(p.velocity, k));
+            core::at(particle.velocity, k) = static_cast<float>(
+                (static_cast<double>(dt) * core::at(particle.force, k)) + core::at(particle.velocity, k));
         }
         for (int step = get_num_vertex_lists() - 1; step > 0; --step) { // the history moves on a step
             const std::span<const float, 3> from = position_of(this, i, step - 1);
@@ -574,7 +575,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
         const std::span<float, 3> pos = position_of(this, i, 0);
         for (int k = 0; k < 3; ++k) {
             core::at(pos, k) =
-                static_cast<float>((static_cast<double>(dt) * core::at(p.velocity, k)) + core::at(pos, k));
+                static_cast<float>((static_cast<double>(dt) * core::at(particle.velocity, k)) + core::at(pos, k));
         }
     }
     for (int i = 0; i < particle_count_; ++i) { // the expired
@@ -594,18 +595,19 @@ void EmitterInstance::tick_frame(float time, bool skip)
 }
 
 // 0x00499EE0
-uint32_t* ModelParticles::lerp_colour(uint32_t* out, const colour::Bytes& from, const colour::Bytes& to, float t)
+uint32_t* ModelParticles::lerp_colour(uint32_t* out, const colour::Bytes& from, const colour::Bytes& to, float blend)
 {
     const double green = static_cast<double>(core::at(colour_scale(), 1)) * brightness();
     auto blue = static_cast<float>(static_cast<double>(core::at(colour_scale(), 2)) * brightness());
-    auto lerp = [&](int k) {
-        return static_cast<uint8_t>(truncate(static_cast<double>(core::at(to, k) - core::at(from, k)) * t) +
-                                    core::at(from, k));
+    auto lerp = [&](int channel) {
+        return static_cast<uint8_t>(
+            truncate(static_cast<double>(core::at(to, channel) - core::at(from, channel)) * blend) +
+            core::at(from, channel));
     };
-    const uint8_t r = lerp(0);
-    const uint8_t g = lerp(1);
-    const uint8_t b = lerp(2);
-    const uint8_t a = lerp(3);
+    const uint8_t red_byte = lerp(0);
+    const uint8_t green_byte = lerp(1);
+    const uint8_t offset_b = lerp(2);
+    const uint8_t offset_a = lerp(3);
     const double red = static_cast<double>(core::at(colour_scale(), 0)) * brightness();
     auto clamp = [](double value) {
         if (value < 0.0) {
@@ -615,7 +617,8 @@ uint32_t* ModelParticles::lerp_colour(uint32_t* out, const colour::Bytes& from, 
         }
         return static_cast<uint8_t>(truncate(value));
     };
-    std::array<uint8_t, 4> bytes = {{clamp(red * r), clamp(green * g), clamp(static_cast<double>(b) * blue), a}};
+    std::array<uint8_t, 4> bytes = {
+        {clamp(red * red_byte), clamp(green * green_byte), clamp(static_cast<double>(offset_b) * blue), offset_a}};
     std::memcpy(out, bytes.data(), 4);
     return out;
 }

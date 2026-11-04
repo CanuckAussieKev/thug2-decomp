@@ -132,14 +132,14 @@ bool inside_frustum(const std::array<float, 4>& view, float radius)
     if (static_cast<double>(radius) - core::at(view, 2) < near_plane_depth()) {
         return false;
     }
-    const double a = static_cast<double>(side_cos()) * core::at(view, 2);
-    const double b = static_cast<double>(side_sin()) * core::at(view, 0);
-    if (a - b > radius || radius < a + b) {
+    const double side_z = static_cast<double>(side_cos()) * core::at(view, 2);
+    const double side_x = static_cast<double>(side_sin()) * core::at(view, 0);
+    if (side_z - side_x > radius || radius < side_z + side_x) {
         return false;
     }
-    const double c = static_cast<double>(vertical_cos()) * core::at(view, 2);
-    const double d = static_cast<double>(vertical_sin()) * core::at(view, 1);
-    return !(d + c > radius || radius < c - d);
+    const double vertical_z = static_cast<double>(vertical_cos()) * core::at(view, 2);
+    const double vertical_y = static_cast<double>(vertical_sin()) * core::at(view, 1);
+    return !(vertical_y + vertical_z > radius || radius < vertical_z - vertical_y);
 }
 
 } // namespace
@@ -283,7 +283,7 @@ void collect_occluders(const maths::Vec4* eye, int frame)
     tick_cycle() = frame;
     sort_occluders();
     add_occluders();
-    const std::span<const float> e(eye->data(), 4);
+    const std::span<const float> eye_position(eye->data(), 4);
     using L = LengthOrder;
     using D = DotOrder;
     for (uint32_t i = 0; i < occluder_count(); ++i) {
@@ -294,21 +294,22 @@ void collect_occluders(const maths::Vec4* eye, int frame)
         const std::span<const float> p2 = core::at(poly.corners, 2);
         const std::span<const float> p3 = core::at(poly.corners, 3);
         // Which side of the polygon the eye is on decides the corners' order.
-        const double facing = (((static_cast<double>(core::at(e, 2)) - core::at(p0, 2)) * core::at(poly.normal, 2)) +
-                               ((static_cast<double>(core::at(e, 1)) - core::at(p0, 1)) * core::at(poly.normal, 1))) +
-                              ((static_cast<double>(core::at(e, 0)) - core::at(p0, 0)) * core::at(poly.normal, 0));
+        const double facing =
+            (((static_cast<double>(core::at(eye_position, 2)) - core::at(p0, 2)) * core::at(poly.normal, 2)) +
+             ((static_cast<double>(core::at(eye_position, 1)) - core::at(p0, 1)) * core::at(poly.normal, 1))) +
+            ((static_cast<double>(core::at(eye_position, 0)) - core::at(p0, 0)) * core::at(poly.normal, 0));
         if (facing >= 0.0) {
             set_plane(core::at(occluder.planes, 0), p0, p2, p3, L::kXzy, false, p0, D::kZyx);
-            set_plane(core::at(occluder.planes, 1), e, p0, p1, L::kXzy, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 2), e, p2, p3, L::kXzy, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 3), e, p1, p2, L::kXzy, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 4), e, p3, p0, L::kZyx, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 1), eye_position, p0, p1, L::kXzy, false, eye_position, D::kXyz);
+            set_plane(core::at(occluder.planes, 2), eye_position, p2, p3, L::kXzy, false, eye_position, D::kXyz);
+            set_plane(core::at(occluder.planes, 3), eye_position, p1, p2, L::kXzy, false, eye_position, D::kXyz);
+            set_plane(core::at(occluder.planes, 4), eye_position, p3, p0, L::kZyx, false, eye_position, D::kXyz);
         } else { // (also when it's not a number)
             set_plane(core::at(occluder.planes, 0), p0, p3, p2, L::kXzy, false, p0, D::kZyx);
-            set_plane(core::at(occluder.planes, 1), e, p1, p0, L::kZyx, true, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 2), e, p3, p2, L::kZyx, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 3), e, p2, p1, L::kXzy, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 4), e, p0, p3, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 1), eye_position, p1, p0, L::kZyx, true, eye_position, D::kXyz);
+            set_plane(core::at(occluder.planes, 2), eye_position, p3, p2, L::kZyx, false, eye_position, D::kXyz);
+            set_plane(core::at(occluder.planes, 3), eye_position, p2, p1, L::kXzy, false, eye_position, D::kXyz);
+            set_plane(core::at(occluder.planes, 4), eye_position, p0, p3, L::kXzy, false, eye_position, D::kXyz);
         }
     }
 }
@@ -340,9 +341,10 @@ bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test)
         Occluder& occluder = core::at(occluder_array(), i);
         int plane = 0;
         for (; plane < kFrustumPlanes; ++plane) {
-            const std::array<float, 4>& p = core::at(occluder.planes, plane);
-            const double distance =
-                (((z * core::at(p, 2)) + (x * core::at(p, 0))) + (y * core::at(p, 1))) - core::at(p, 3);
+            const std::array<float, 4>& plane_coefficients = core::at(occluder.planes, plane);
+            const double distance = (((z * core::at(plane_coefficients, 2)) + (x * core::at(plane_coefficients, 0))) +
+                                     (y * core::at(plane_coefficients, 1))) -
+                                    core::at(plane_coefficients, 3);
             if (distance >= limit) { // (not a number counts as behind)
                 break;
             }

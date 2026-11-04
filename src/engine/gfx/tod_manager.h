@@ -184,7 +184,7 @@ public:
     static void parse_params(script::Struct* structure, TodParams* out);
     // 0x00571340: `a` blended towards `b` by `t` (integers truncated). Fields +0x14..+0x24 and fog_on aren't set
     // by the original (stack garbage): here they're a's.
-    static TodParams get_lerp(TodParams a, TodParams b, float t);
+    static TodParams get_lerp(TodParams a, TodParams b, float fraction);
     // 0x00571E00: system `index`'s parameters now (blended while transitioning); -1: the first non-sky system.
     TodParams get_tod_params(int index);
     // 0x00571140: the current level colour (0x00BBGGRR) of the first non-sky system (GameObjects::CreateFromStructure

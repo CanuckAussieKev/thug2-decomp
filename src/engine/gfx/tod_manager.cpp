@@ -164,18 +164,18 @@ double get_fraction(TimeSpan span)
 }
 
 // A colour from three bytes (and the fourth).
-uint32_t get_rgba(int r, int g, int b, uint8_t a)
+uint32_t get_rgba(int red, int green, int b, uint8_t a)
 {
-    return static_cast<uint8_t>(r) | static_cast<uint8_t>(g) << kByte1Shift | static_cast<uint8_t>(b) << kByte2Shift |
-           static_cast<uint32_t>(a) << kByte3Shift;
+    return static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << kByte1Shift |
+           static_cast<uint8_t>(b) << kByte2Shift | static_cast<uint32_t>(a) << kByte3Shift;
 }
 // A colour from a script array [r g b] (elements truncated to bytes; the fourth byte 0).
 uint32_t color_from_array(script::Array* array)
 {
-    auto r = static_cast<uint8_t>(array->fetch_part(0));
-    auto g = static_cast<uint8_t>(array->fetch_part(1));
-    auto b = static_cast<uint8_t>(array->fetch_part(2));
-    return get_rgba(r, g, b, 0);
+    auto red = static_cast<uint8_t>(array->fetch_part(0));
+    auto green = static_cast<uint8_t>(array->fetch_part(1));
+    auto blue = static_cast<uint8_t>(array->fetch_part(2));
+    return get_rgba(red, green, blue, 0);
 }
 
 // The engine (not rewritten yet).
@@ -323,22 +323,25 @@ void CtodManager::get_level_color(uint32_t* out)
 {
     const TodSystem& system = system_at(this, current_system());
     if (!system.transitioning) {
-        const TodParams& p = system.current;
-        *out = (((p.lev_blue_ << kByte1Shift) + p.lev_green_) << kByte1Shift) + p.lev_red_;
+        const TodParams& params = system.current;
+        *out = (((params.lev_blue_ << kByte1Shift) + params.lev_green_) << kByte1Shift) + params.lev_red_;
         return;
     }
-    double t = 1.0;
+    double fraction = 1.0;
     if (system.transition_length_ != 0) {
-        t = get_fraction({.time = system.time, .length = system.transition_length_});
-        if (!(t <= get_one())) {
-            t = get_one();
+        fraction = get_fraction({.time = system.time, .length = system.transition_length_});
+        if (!(fraction <= get_one())) {
+            fraction = get_one();
         }
     }
-    const TodParams& a = system.current;
-    const TodParams& b = system.next;
-    const int blue = ftol((static_cast<double>(b.lev_blue_ - a.lev_blue_) * t) + a.lev_blue_);
-    const int green = ftol((static_cast<double>(b.lev_green_ - a.lev_green_) * t) + a.lev_green_);
-    const int red = ftol((static_cast<double>(b.lev_red_ - a.lev_red_) * t) + a.lev_red_);
+    const TodParams& current_params = system.current;
+    const TodParams& next_params = system.next;
+    const int blue = ftol((static_cast<double>(next_params.lev_blue_ - current_params.lev_blue_) * fraction) +
+                          current_params.lev_blue_);
+    const int green = ftol((static_cast<double>(next_params.lev_green_ - current_params.lev_green_) * fraction) +
+                           current_params.lev_green_);
+    const int red = ftol((static_cast<double>(next_params.lev_red_ - current_params.lev_red_) * fraction) +
+                         current_params.lev_red_);
     *out = (((blue << kByte1Shift) + green) << kByte1Shift) + red;
 }
 
@@ -359,55 +362,58 @@ void CtodManager::read_group(int index)
 }
 
 // 0x00571340
-TodParams CtodManager::get_lerp(TodParams a, TodParams b, float t)
+TodParams CtodManager::get_lerp(TodParams a, TodParams b, float fraction)
 {
-    auto integer = [t](int from, int to) { return ftol((static_cast<double>(to - from) * t) + from); };
-    auto real = [t](float from, float to) { return static_cast<float>(((static_cast<double>(to) - from) * t) + from); };
-    auto byte = [&](uint32_t from, uint32_t to, int shift) {
-        const int f = static_cast<int>(from >> shift & 0xFF);
-        const int g = static_cast<int>(to >> shift & 0xFF);
-        return static_cast<uint32_t>(static_cast<uint8_t>(integer(f, g))) << shift;
+    auto integer = [fraction](int from, int to) { return ftol((static_cast<double>(to - from) * fraction) + from); };
+    auto real = [fraction](float from, float to) {
+        return static_cast<float>(((static_cast<double>(to) - from) * fraction) + from);
     };
-    TodParams r = a; // (+0x14..+0x24 and fog_on: not set by the original - stack garbage)
-    r.lev_red_ = integer(a.lev_red_, b.lev_red_);
-    r.lev_green_ = integer(a.lev_green_, b.lev_green_);
-    r.lev_blue_ = integer(a.lev_blue_, b.lev_blue_);
-    r.sky_red_ = integer(a.sky_red_, b.sky_red_);
-    r.sky_green_ = integer(a.sky_green_, b.sky_green_);
-    r.sky_blue_ = integer(a.sky_blue_, b.sky_blue_);
-    r.fog_red_ = integer(a.fog_red_, b.fog_red_);
-    r.fog_green_ = integer(a.fog_green_, b.fog_green_);
-    r.fog_blue_ = integer(a.fog_blue_, b.fog_blue_);
-    r.fog_alpha_ = integer(a.fog_alpha_, b.fog_alpha_);
-    r.fog_dist_ = integer(a.fog_dist_, b.fog_dist_);
-    r.ambient_red_ = integer(a.ambient_red_, b.ambient_red_);
-    r.ambient_green_ = integer(a.ambient_green_, b.ambient_green_);
-    r.ambient_blue_ = integer(a.ambient_blue_, b.ambient_blue_);
-    r.ambient_mod_lo_ = real(a.ambient_mod_lo_, b.ambient_mod_lo_);
-    r.ambient_mod_hi_ = real(a.ambient_mod_hi_, b.ambient_mod_hi_);
-    r.heading0 = real(a.heading0, b.heading0);
-    r.pitch0 = real(a.pitch0, b.pitch0);
-    r.red0 = integer(a.red0, b.red0);
-    r.green0 = integer(a.green0, b.green0);
-    r.blue0 = integer(a.blue0, b.blue0);
-    r.mod_lo0_ = real(a.mod_lo0_, b.mod_lo0_);
-    r.mod_hi0_ = real(a.mod_hi0_, b.mod_hi0_);
-    r.heading_a_ = real(a.heading_a_, b.heading_a_);
-    r.pitch1 = real(a.pitch1, b.pitch1);
-    r.red1 = integer(a.red1, b.red1);
-    r.green1 = integer(a.green1, b.green1);
-    r.blue1 = integer(a.blue1, b.blue1);
-    r.mod_lo1_ = real(a.mod_lo1_, b.mod_lo1_);
-    r.mod_hi1_ = real(a.mod_hi1_, b.mod_hi1_);
-    r.bloom_on_ = a.bloom_on_;
-    r.bloom1 = integer(a.bloom1, b.bloom1);
-    r.bloom2 = integer(a.bloom2, b.bloom2);
+    auto byte = [&](uint32_t from, uint32_t to, int shift) {
+        const int from_channel = static_cast<int>(from >> shift & 0xFF);
+        const int to_channel = static_cast<int>(to >> shift & 0xFF);
+        return static_cast<uint32_t>(static_cast<uint8_t>(integer(from_channel, to_channel))) << shift;
+    };
+    TodParams result = a; // (+0x14..+0x24 and fog_on: not set by the original - stack garbage)
+    result.lev_red_ = integer(a.lev_red_, b.lev_red_);
+    result.lev_green_ = integer(a.lev_green_, b.lev_green_);
+    result.lev_blue_ = integer(a.lev_blue_, b.lev_blue_);
+    result.sky_red_ = integer(a.sky_red_, b.sky_red_);
+    result.sky_green_ = integer(a.sky_green_, b.sky_green_);
+    result.sky_blue_ = integer(a.sky_blue_, b.sky_blue_);
+    result.fog_red_ = integer(a.fog_red_, b.fog_red_);
+    result.fog_green_ = integer(a.fog_green_, b.fog_green_);
+    result.fog_blue_ = integer(a.fog_blue_, b.fog_blue_);
+    result.fog_alpha_ = integer(a.fog_alpha_, b.fog_alpha_);
+    result.fog_dist_ = integer(a.fog_dist_, b.fog_dist_);
+    result.ambient_red_ = integer(a.ambient_red_, b.ambient_red_);
+    result.ambient_green_ = integer(a.ambient_green_, b.ambient_green_);
+    result.ambient_blue_ = integer(a.ambient_blue_, b.ambient_blue_);
+    result.ambient_mod_lo_ = real(a.ambient_mod_lo_, b.ambient_mod_lo_);
+    result.ambient_mod_hi_ = real(a.ambient_mod_hi_, b.ambient_mod_hi_);
+    result.heading0 = real(a.heading0, b.heading0);
+    result.pitch0 = real(a.pitch0, b.pitch0);
+    result.red0 = integer(a.red0, b.red0);
+    result.green0 = integer(a.green0, b.green0);
+    result.blue0 = integer(a.blue0, b.blue0);
+    result.mod_lo0_ = real(a.mod_lo0_, b.mod_lo0_);
+    result.mod_hi0_ = real(a.mod_hi0_, b.mod_hi0_);
+    result.heading_a_ = real(a.heading_a_, b.heading_a_);
+    result.pitch1 = real(a.pitch1, b.pitch1);
+    result.red1 = integer(a.red1, b.red1);
+    result.green1 = integer(a.green1, b.green1);
+    result.blue1 = integer(a.blue1, b.blue1);
+    result.mod_lo1_ = real(a.mod_lo1_, b.mod_lo1_);
+    result.mod_hi1_ = real(a.mod_hi1_, b.mod_hi1_);
+    result.bloom_on_ = a.bloom_on_;
+    result.bloom1 = integer(a.bloom1, b.bloom1);
+    result.bloom2 = integer(a.bloom2, b.bloom2);
     // The bloom colours byte by byte; their fourth byte is 0x80.
-    r.bloom_strength_ = byte(a.bloom_strength_, b.bloom_strength_, 0) | byte(a.bloom_strength_, b.bloom_strength_, kByte1Shift) |
-                        byte(a.bloom_strength_, b.bloom_strength_, kByte2Shift) | kBloomAlphaBits;
-    r.bloom_color_ = byte(a.bloom_color_, b.bloom_color_, 0) | byte(a.bloom_color_, b.bloom_color_, kByte1Shift) |
-                     byte(a.bloom_color_, b.bloom_color_, kByte2Shift) | kBloomAlphaBits;
-    return r;
+    result.bloom_strength_ = byte(a.bloom_strength_, b.bloom_strength_, 0) |
+                             byte(a.bloom_strength_, b.bloom_strength_, kByte1Shift) |
+                             byte(a.bloom_strength_, b.bloom_strength_, kByte2Shift) | kBloomAlphaBits;
+    result.bloom_color_ = byte(a.bloom_color_, b.bloom_color_, 0) | byte(a.bloom_color_, b.bloom_color_, kByte1Shift) |
+                          byte(a.bloom_color_, b.bloom_color_, kByte2Shift) | kBloomAlphaBits;
+    return result;
 }
 
 // 0x00571A00
@@ -490,15 +496,15 @@ TodParams CtodManager::get_tod_params(int index)
     if (!system.transitioning) {
         return system.current;
     }
-    float t = 1.0F;
+    float blend = 1.0F;
     if (system.transition_length_ != 0) {
         const double fraction = get_fraction({.time = system.time, .length = system.transition_length_});
-        t = static_cast<float>(fraction);
+        blend = static_cast<float>(fraction);
         if (!(fraction <= get_one())) {
-            t = 1.0F;
+            blend = 1.0F;
         }
     }
-    return get_lerp(system.current, system.next, t);
+    return get_lerp(system.current, system.next, blend);
 }
 
 // 0x00571EF0
@@ -598,21 +604,24 @@ void CtodManager::next_state(int index)
 void CtodManager::update_sun()
 {
     const TodSystem& system = core::at(systems_, 0);
-    double t = 0.0;
+    double fraction = 0.0;
     if (system.transitioning) {
-        t = get_fraction({.time = system.time + system.state_length_, .length = system.transition_length_ + system.state_length_});
+        fraction = get_fraction(
+            {.time = system.time + system.state_length_, .length = system.transition_length_ + system.state_length_});
     } else {
-        t = get_fraction({.time = system.time, .length = system.state_length_ + system.transition_length_});
+        fraction = get_fraction({.time = system.time, .length = system.state_length_ + system.transition_length_});
     }
-    auto blend = [t](float from, float to) {
-        return static_cast<float>(((static_cast<double>(to) - from) * t) + from);
+    auto blend = [fraction](float from, float to) {
+        return static_cast<float>(((static_cast<double>(to) - from) * fraction) + from);
     };
-    const TodParams& a = system.current;
-    const TodParams& b = system.next;
+    const TodParams& current_params = system.current;
+    const TodParams& next_params = system.next;
     sun::Settings sun = {};
-    sun.theta = blend(a.sun_theta_, b.sun_theta_);
-    sun.phi = blend(a.sun_phi_, b.sun_phi_);
-    sun.color = {.x = blend(a.sun_red_, b.sun_red_), .y = blend(a.sun_green_, b.sun_green_), .z = blend(a.sun_blue_, b.sun_blue_),
+    sun.theta = blend(current_params.sun_theta_, next_params.sun_theta_);
+    sun.phi = blend(current_params.sun_phi_, next_params.sun_phi_);
+    sun.color = {.x = blend(current_params.sun_red_, next_params.sun_red_),
+                 .y = blend(current_params.sun_green_, next_params.sun_green_),
+                 .z = blend(current_params.sun_blue_, next_params.sun_blue_),
                  .w = kHalfAlphaF};
     sun.shown = system.state != kNight;
     sun::set_sun(&sun, kSunAngles | kSunColor | kSunShown);
@@ -755,17 +764,17 @@ void set_light_direction(int index, LightAngles angles)
 {
     const auto heading = angles.heading;
     const auto pitch = angles.pitch;
-    const double p = static_cast<double>(pitch) * degree_to_radian_conv();
-    const double sin_pitch = std::sin(p);
-    const double cos_pitch = std::cos(p);
+    const double pitch_radians = static_cast<double>(pitch) * degree_to_radian_conv();
+    const double sin_pitch = std::sin(pitch_radians);
+    const double cos_pitch = std::cos(pitch_radians);
     maths::Vec4 direction{};
     direction.w = 0.0F;
     direction.y = static_cast<float>((static_cast<double>(get_zero()) * cos_pitch) - sin_pitch);
     const double horizontal = cos_pitch + (sin_pitch * get_zero());
-    const double h = static_cast<double>(heading) * degree_to_radian_conv();
-    auto sin_heading = static_cast<float>(std::sin(h));
-    const double cos_heading = std::cos(h);
-    auto cos_heading_float = static_cast<float>(std::cos(h));
+    const double heading_radians = static_cast<double>(heading) * degree_to_radian_conv();
+    auto sin_heading = static_cast<float>(std::sin(heading_radians));
+    const double cos_heading = std::cos(heading_radians);
+    auto cos_heading_float = static_cast<float>(std::cos(heading_radians));
     direction.z = static_cast<float>((cos_heading * horizontal) + (static_cast<double>(sin_heading) * get_zero()));
     direction.x =
         static_cast<float>((horizontal * sin_heading) + (static_cast<double>(cos_heading_float) * get_zero()));
@@ -962,15 +971,15 @@ void CtodManager::update_system(int index)
     const double step = hundred() / static_cast<double>(system.parts);
     const int start = ftol(part * step);
     const int end = ftol((part + 1) * step);
-    float t = 1.0F;
+    float blend = 1.0F;
     if (system.transition_length_ != 0) {
         const double fraction = get_fraction({.time = system.time, .length = system.transition_length_});
-        t = static_cast<float>(fraction);
+        blend = static_cast<float>(fraction);
         if (!(fraction <= get_one())) {
-            t = 1.0F;
+            blend = 1.0F;
         }
     }
-    const TodParams params = get_lerp(system.current, system.next, t);
+    const TodParams params = get_lerp(system.current, system.next, blend);
     const uint32_t level_color = get_rgba(params.lev_red_, params.lev_green_, params.lev_blue_, 0x80);
     const uint32_t sky_color = get_rgba(params.sky_red_, params.sky_green_, params.sky_blue_, 0x80);
     const bool sky = system.sky;
@@ -996,7 +1005,7 @@ void CtodManager::update_system(int index)
 
     // The transition script: half-way through (evening's at once).
     const float threshold = system.state == kEvening ? get_zero() : get_half();
-    if (!system.script_run_ && t > threshold) {
+    if (!system.script_run_ && blend > threshold) {
         system.script_run_ = true;
         const script::StructPtr script_params = script::make_struct();
         script_params->put_name_key(checksums::Name{kCurrentTod}, system.state);
@@ -1053,8 +1062,8 @@ void CtodManager::refresh_all(bool temp_state)
         const bool sky = system.sky;
         script::Array* groups = nullptr;
         system.params->fetch_list(kGroups, &groups, 1);
-        for (int g = 0; g < system.group_count_; ++g) {
-            auto* group = groups->struct_at(static_cast<uint32_t>(g));
+        for (int group_index = 0; group_index < system.group_count_; ++group_index) {
+            auto* group = groups->struct_at(static_cast<uint32_t>(group_index));
             uint32_t light_group = 0;
             group->read_hash_value(kLightGroup, &light_group, 1);
             uint32_t reset_light_group = 0;
@@ -1189,9 +1198,9 @@ void CtodManager::set_tod_instant(uint32_t state)
     TodSystem& current = system_at(this, current_system());
     int remaining = current.transitioning ? current.transition_length_ - current.time
                                           : current.state_length_ - current.time + current.transition_length_;
-    for (uint32_t s = next_tod_state(current.state); s != state; s = next_tod_state(s)) {
+    for (uint32_t state_id = next_tod_state(current.state); state_id != state; state_id = next_tod_state(state_id)) {
         script::Struct* structure = nullptr;
-        current.params->read_sub_struct(s, &structure, 1);
+        current.params->read_sub_struct(state_id, &structure, 1);
         int length = 0;
         structure->fetch_int_value(kStateLength, &length, 1);
         remaining += current.transition_length_ + length;
@@ -1242,13 +1251,13 @@ bool CtodManager::can_set_tod_instant(uint32_t state) const
     if (!current.params) {
         return false;
     }
-    uint32_t s = next_tod_state(current.state);
-    for (int step = 0; step < 4 && (s != 0U); ++step, s = next_tod_state(s)) {
-        if (s == state) {
+    uint32_t state_id = next_tod_state(current.state);
+    for (int step = 0; step < 4 && (state_id != 0U); ++step, state_id = next_tod_state(state_id)) {
+        if (state_id == state) {
             return true;
         }
         script::Struct* structure = nullptr;
-        if (!current.params->read_sub_struct(s, &structure, 0) || !structure) {
+        if (!current.params->read_sub_struct(state_id, &structure, 0) || !structure) {
             return false;
         }
     }
@@ -1370,7 +1379,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     int index = -1;
     params->fetch_int_value(kSystemIndex, &index, 0);
     CtodManager* manager = tod_manager();
-    const TodParams p = manager->get_tod_params(index);
+    const TodParams tod_params = manager->get_tod_params(index);
     gsl::owner<script::Struct*> out = script::new_struct();
     out->put_int(checksums::Name{kActive}, static_cast<int>(manager->active()));
     int current = 0;
@@ -1378,50 +1387,50 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
         ++current;
     }
     out->put_name_key(checksums::Name{kCurrentStateName}, system_at(manager, current).state);
-    out->put_int(checksums::Name{kLevRed}, p.lev_red_);
-    out->put_int(checksums::Name{kLevGreen}, p.lev_green_);
-    out->put_int(checksums::Name{kLevBlue}, p.lev_blue_);
-    out->put_int(checksums::Name{kSkyRed}, p.sky_red_);
-    out->put_int(checksums::Name{kSkyGreen}, p.sky_green_);
-    out->put_int(checksums::Name{kSkyBlue}, p.sky_blue_);
-    out->put_int(checksums::Name{kFogOn}, p.fog_on_);
-    out->put_int(checksums::Name{kFogRed}, p.fog_red_);
-    out->put_int(checksums::Name{kFogGreen}, p.fog_green_);
-    out->put_int(checksums::Name{kFogBlue}, p.fog_blue_);
-    out->put_int(checksums::Name{kFogAlpha}, p.fog_alpha_);
-    out->put_int(checksums::Name{kFogDist}, p.fog_dist_);
-    out->put_int(checksums::Name{kAmbientRed}, p.ambient_red_);
-    out->put_int(checksums::Name{kAmbientGreen}, p.ambient_green_);
-    out->put_int(checksums::Name{kAmbientBlue}, p.ambient_blue_);
-    out->push_float(checksums::Name{kAmbientModLo}, p.ambient_mod_lo_);
-    out->push_float(checksums::Name{kAmbientModHi}, p.ambient_mod_hi_);
-    out->push_float(checksums::Name{kHeading0}, p.heading0);
-    out->push_float(checksums::Name{kPitch0}, p.pitch0);
-    out->put_int(checksums::Name{kRed0}, p.red0);
-    out->put_int(checksums::Name{kGreen0}, p.green0);
-    out->put_int(checksums::Name{kBlue0}, p.blue0);
-    out->push_float(checksums::Name{kModLo0}, p.mod_lo0_);
-    out->push_float(checksums::Name{kModHi0}, p.mod_hi0_);
-    out->push_float(checksums::Name{kHeading1}, p.heading_a_);
-    out->push_float(checksums::Name{kPitch1}, p.pitch1);
-    out->put_int(checksums::Name{kRed1}, p.red1);
-    out->put_int(checksums::Name{kGreen1}, p.green1);
-    out->put_int(checksums::Name{kBlue1}, p.blue1);
-    out->push_float(checksums::Name{kModLo1}, p.mod_lo1_);
-    out->push_float(checksums::Name{kModHi1}, p.mod_hi1_);
-    out->put_int(checksums::Name{kBloomOn}, p.bloom_on_);
-    out->put_int(checksums::Name{kBloom1}, p.bloom1);
-    out->put_int(checksums::Name{kBloom2}, p.bloom2);
+    out->put_int(checksums::Name{kLevRed}, tod_params.lev_red_);
+    out->put_int(checksums::Name{kLevGreen}, tod_params.lev_green_);
+    out->put_int(checksums::Name{kLevBlue}, tod_params.lev_blue_);
+    out->put_int(checksums::Name{kSkyRed}, tod_params.sky_red_);
+    out->put_int(checksums::Name{kSkyGreen}, tod_params.sky_green_);
+    out->put_int(checksums::Name{kSkyBlue}, tod_params.sky_blue_);
+    out->put_int(checksums::Name{kFogOn}, tod_params.fog_on_);
+    out->put_int(checksums::Name{kFogRed}, tod_params.fog_red_);
+    out->put_int(checksums::Name{kFogGreen}, tod_params.fog_green_);
+    out->put_int(checksums::Name{kFogBlue}, tod_params.fog_blue_);
+    out->put_int(checksums::Name{kFogAlpha}, tod_params.fog_alpha_);
+    out->put_int(checksums::Name{kFogDist}, tod_params.fog_dist_);
+    out->put_int(checksums::Name{kAmbientRed}, tod_params.ambient_red_);
+    out->put_int(checksums::Name{kAmbientGreen}, tod_params.ambient_green_);
+    out->put_int(checksums::Name{kAmbientBlue}, tod_params.ambient_blue_);
+    out->push_float(checksums::Name{kAmbientModLo}, tod_params.ambient_mod_lo_);
+    out->push_float(checksums::Name{kAmbientModHi}, tod_params.ambient_mod_hi_);
+    out->push_float(checksums::Name{kHeading0}, tod_params.heading0);
+    out->push_float(checksums::Name{kPitch0}, tod_params.pitch0);
+    out->put_int(checksums::Name{kRed0}, tod_params.red0);
+    out->put_int(checksums::Name{kGreen0}, tod_params.green0);
+    out->put_int(checksums::Name{kBlue0}, tod_params.blue0);
+    out->push_float(checksums::Name{kModLo0}, tod_params.mod_lo0_);
+    out->push_float(checksums::Name{kModHi0}, tod_params.mod_hi0_);
+    out->push_float(checksums::Name{kHeading1}, tod_params.heading_a_);
+    out->push_float(checksums::Name{kPitch1}, tod_params.pitch1);
+    out->put_int(checksums::Name{kRed1}, tod_params.red1);
+    out->put_int(checksums::Name{kGreen1}, tod_params.green1);
+    out->put_int(checksums::Name{kBlue1}, tod_params.blue1);
+    out->push_float(checksums::Name{kModLo1}, tod_params.mod_lo1_);
+    out->push_float(checksums::Name{kModHi1}, tod_params.mod_hi1_);
+    out->put_int(checksums::Name{kBloomOn}, tod_params.bloom_on_);
+    out->put_int(checksums::Name{kBloom1}, tod_params.bloom1);
+    out->put_int(checksums::Name{kBloom2}, tod_params.bloom2);
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::QbValueKind::kInteger);
-    array->set_element(0, p.bloom_strength_ & kByteMask);
-    array->set_element(1, p.bloom_strength_ >> kByte1Shift & kByteMask);
-    array->set_element(2, p.bloom_strength_ >> kByte2Shift & kByteMask);
+    array->set_element(0, tod_params.bloom_strength_ & kByteMask);
+    array->set_element(1, tod_params.bloom_strength_ >> kByte1Shift & kByteMask);
+    array->set_element(2, tod_params.bloom_strength_ >> kByte2Shift & kByteMask);
     out->append_array_value(kBloomStrength, array);
-    array->set_element(0, p.bloom_color_ & kByteMask);
-    array->set_element(1, p.bloom_color_ >> kByte1Shift & kByteMask);
-    array->set_element(2, p.bloom_color_ >> kByte2Shift & kByteMask);
+    array->set_element(0, tod_params.bloom_color_ & kByteMask);
+    array->set_element(1, tod_params.bloom_color_ >> kByte1Shift & kByteMask);
+    array->set_element(2, tod_params.bloom_color_ >> kByte2Shift & kByteMask);
     out->append_array_value(kBloomColor, array);
     script::release_array_storage(array);
     if (array) {

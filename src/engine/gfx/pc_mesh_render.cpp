@@ -49,8 +49,14 @@ constexpr int kByteMax = 255;
 namespace {
 
 // D3DX (the statically linked library's, through its thunks).
-void transform_coord(float* out, const float* v, const maths::Mat4& m) { d3dx::vec3_transform_coord(out, v, &m); }
-void transform_normal(float* out, const float* v, const maths::Mat4& m) { d3dx::vec3_transform_normal(out, v, &m); }
+void transform_coord(float* out, const float* v, const maths::Mat4& matrix)
+{
+    d3dx::vec3_transform_coord(out, v, &matrix);
+}
+void transform_normal(float* out, const float* v, const maths::Mat4& matrix)
+{
+    d3dx::vec3_transform_normal(out, v, &matrix);
+}
 void matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A vertex's skinning data (0x4C bytes): its position, normal, colour, texture coordinates, bones and weights.

@@ -31,7 +31,7 @@ text::Chars make_model_path(const char* name, const char* extension);
 // 0x00487A70: the same into `out`'s characters.
 void make_model_file_name(const char* name, const char* extension, char* out);
 // 0x00487AD0: the least of three (a NaN loses each comparison it's second in).
-float least_of(float a, float b, float c);
+float least_of(float a, float b, float third);
 // 0x00487B00: a scale from `scale` (a float: all three; or a vector), else from x / y / z (each one given). False
 // when there's none of them.
 bool scale_from_args(maths::Vec4* scale, script::Struct* params);

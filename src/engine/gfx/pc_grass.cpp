@@ -92,33 +92,35 @@ BitmapTexture* look_up_texture(TextureSet* dictionary, uint32_t checksum) { retu
 } // namespace
 
 // 0x004D08A0
-void set_up_animated_grass_material(MaterialRef* m)
+void set_up_animated_grass_material(MaterialRef* material)
 {
-    core::at(m->textures(), 0) = &pc_grass_state().grass_texture0_;
-    core::at(m->textures(), 1) = &pc_grass_state().grass_texture1_;
-    core::at(m->blend_modes(), 0) = kGrassBlendMode;
-    core::at(core::at(m->pass_color(), 0), 3) = kGrassAlpha;
-    m->set_pass_count(2);
-    core::at(m->pass_flags(), 1) = kGrassPass1Flags;
-    m->set_has_uv_wibble(false);
-    core::at(m->mip_lod_bias(), 0) = 0;
-    core::at(m->mip_lod_bias(), 1) = 0;
-    core::at(m->address_modes(), 0) = 0;
-    core::at(m->address_modes(), 1) = 0;
-    m->set_sort_flag(0);
-    m->set_sort_key(kGrassSortKey);
-    m->set_has_texture_anim(true);
-    core::at(m->pass_flags(), 0) = (core::at(m->pass_flags(), 0) & ~kGrassPass0ClearMask) | kGrassPass0Flags;
+    core::at(material->textures(), 0) = &pc_grass_state().grass_texture0_;
+    core::at(material->textures(), 1) = &pc_grass_state().grass_texture1_;
+    core::at(material->blend_modes(), 0) = kGrassBlendMode;
+    core::at(core::at(material->pass_color(), 0), 3) = kGrassAlpha;
+    material->set_pass_count(2);
+    core::at(material->pass_flags(), 1) = kGrassPass1Flags;
+    material->set_has_uv_wibble(false);
+    core::at(material->mip_lod_bias(), 0) = 0;
+    core::at(material->mip_lod_bias(), 1) = 0;
+    core::at(material->address_modes(), 0) = 0;
+    core::at(material->address_modes(), 1) = 0;
+    material->set_sort_flag(0);
+    material->set_sort_key(kGrassSortKey);
+    material->set_has_texture_anim(true);
+    core::at(material->pass_flags(), 0) =
+        (core::at(material->pass_flags(), 0) & ~kGrassPass0ClearMask) | kGrassPass0Flags;
     auto* anim = static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim)));
-    m->set_texture_anim(anim);
+    material->set_texture_anim(anim);
     core::at(anim->key_counts_, 0) = kKeyCount;
-    core::at(m->texture_anim()->phases, 0) = 0;
-    core::at(m->texture_anim()->loops, 0) = 0;
-    core::at(m->texture_anim()->keys, 0) = static_cast<TextureKey*>(memory::alloc(kKeyCount * sizeof(TextureKey)));
-    core::at(m->texture_anim()->keys, 1) = nullptr;
-    core::at(m->texture_anim()->keys, 2) = nullptr;
-    core::at(m->texture_anim()->keys, 3) = nullptr;
-    const std::span<TextureKey> keys(core::at(m->texture_anim()->keys, 0), 18);
+    core::at(material->texture_anim()->phases, 0) = 0;
+    core::at(material->texture_anim()->loops, 0) = 0;
+    core::at(material->texture_anim()->keys, 0) =
+        static_cast<TextureKey*>(memory::alloc(kKeyCount * sizeof(TextureKey)));
+    core::at(material->texture_anim()->keys, 1) = nullptr;
+    core::at(material->texture_anim()->keys, 2) = nullptr;
+    core::at(material->texture_anim()->keys, 3) = nullptr;
+    const std::span<TextureKey> keys(core::at(material->texture_anim()->keys, 0), 18);
     for (int k = 0; k < kKeyCount; ++k) { // (a frame every 1000 / 30 ms, through 17 textures)
         core::at(keys, k).time = k * kMillisecondsPerSecond / kGrassFramesPerSecond;
         core::at(keys, k).texture = &core::at(pc_grass_state().grass_texture_animation_, k % kTextureCycleModulus);
@@ -173,19 +175,19 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 // 0x004D0D30
 bool make_grass(PcGeom* geom, MeshRef* mesh)
 {
-    MaterialRef* m = mesh->material();
-    if (!m) {
+    MaterialRef* mesh_material = mesh->material();
+    if (!mesh_material) {
         return false;
     }
-    if ((core::at(m->pass_flags(), 0) & kAnimatedGrass) != 0U) {
+    if ((core::at(mesh_material->pass_flags(), 0) & kAnimatedGrass) != 0U) {
         return make_animated_grass(geom, mesh);
     }
-    int layers = static_cast<int>(m->unknown18());
+    int layers = static_cast<int>(mesh_material->unknown18());
     if (layers == 0) {
         return false;
     }
     layers = std::min(layers, kMaxLayers);
-    auto step = static_cast<float>(std::bit_cast<float>(m->unknown14()) / static_cast<double>(layers));
+    auto step = static_cast<float>(std::bit_cast<float>(mesh_material->unknown14()) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {
         memory::Hub::get_pull()->enter_heap_scope(memory::bottom_up_heap());
         MeshRef* copy = mesh->replicate(false);

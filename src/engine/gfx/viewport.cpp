@@ -84,11 +84,14 @@ int mode_viewport_count(int mode) { return core::at(kModeViewportCounts, mode); 
 std::span<const int> mode_map_of(int mode) { return std::span<const int>(kModeMaps).subspan(4 * static_cast<size_t>(mode)); }
 // The map's entry for view `i` (a mode's map is read ten entries on, past the table's end for the last modes: the
 // original read the words after the table there; here those views are not shown).
-int map_entry(std::span<const int> map, int i) { return static_cast<size_t>(i) < map.size() ? core::at(map, i) : -1; }
+int map_entry(std::span<const int> map, int index)
+{
+    return static_cast<size_t>(index) < map.size() ? core::at(map, index) : -1;
+}
 
 // The n-th mapped entry's viewport - the map's ten words are scanned (past the mode's four: the next modes'),
 // null when there's none.
-ViewRegion* current_view_slot(int n)
+ViewRegion* current_view_slot(int view_number)
 {
     const std::span<const int> map = view_setup().mode_map();
     int found = 0;
@@ -96,7 +99,7 @@ ViewRegion* current_view_slot(int n)
         if (map_entry(map, i) < 0) {
             continue;
         }
-        if (found == n) {
+        if (found == view_number) {
             return get_viewport(map_entry(map, i));
         }
         ++found;
@@ -223,9 +226,9 @@ void choose_camera(int view, gfx::ViewCam* camera)
 }
 
 // 0x004A09C0
-gfx::ViewCam* fetch_live_camera(int n)
+gfx::ViewCam* fetch_live_camera(int view_number)
 {
-    auto* viewport = fetch_current_view(n);
+    auto* viewport = fetch_current_view(view_number);
     return viewport->viewer().get_pull();
 }
 

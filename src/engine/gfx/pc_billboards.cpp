@@ -222,19 +222,19 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         std::memcpy(&y, from.rest().subspan(4, 4).data(), 4);
         std::memcpy(&z, from.rest().subspan(kZOffset, 4).data(), 4);
         from += kPositionBytes;
-        auto a = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 0));
-        auto b = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 1));
-        auto c = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 2));
+        auto partial_x = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 0));
+        auto partial_y = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 1));
+        auto partial_z = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 2));
         auto t2 = static_cast<float>(static_cast<double>(y) * core::at(y_axis, 2));
-        a = static_cast<float>((static_cast<double>(y) * core::at(y_axis, 0)) + a);
-        const double sum_y = (static_cast<double>(y) * core::at(y_axis, 1)) + b;
-        const double sum_z = static_cast<double>(c) + t2;
+        partial_x = static_cast<float>((static_cast<double>(y) * core::at(y_axis, 0)) + partial_x);
+        const double sum_y = (static_cast<double>(y) * core::at(y_axis, 1)) + partial_y;
+        const double sum_z = static_cast<double>(partial_z) + t2;
         auto t3 = static_cast<float>(static_cast<double>(z) * core::at(z_axis, 2));
-        a = static_cast<float>((static_cast<double>(z) * core::at(z_axis, 0)) + a);
+        partial_x = static_cast<float>((static_cast<double>(z) * core::at(z_axis, 0)) + partial_x);
         auto b2 = static_cast<float>((static_cast<double>(z) * core::at(z_axis, 1)) + sum_y);
         const double c2 = t3 + sum_z;
-        std::array<float, 3> out = {{static_cast<float>(static_cast<double>(px) + a),
-                        static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)}};
+        std::array<float, 3> out = {{static_cast<float>(static_cast<double>(px) + partial_x),
+                                     static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)}};
         std::memcpy(into.rest().first(kPositionBytes).data(), out.data(), kPositionBytes);
         into += kPositionBytes;
         if (has_table) {
@@ -298,10 +298,10 @@ BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 // 0x004CDAA0
 void BillboardSet::setup_axes()
 {
-    const std::span<const float, 16> m = renderer().view_matrix().floats();
-    const float vz = core::at(m, 10);
-    core::at(view_, 0) = core::at(m, 2);
-    core::at(view_, 1) = core::at(m, maths::kMatYz);
+    const std::span<const float, 16> view = renderer().view_matrix().floats();
+    const float vz = core::at(view, 10);
+    core::at(view_, 0) = core::at(view, 2);
+    core::at(view_, 1) = core::at(view, maths::kMatYz);
     core::at(view_, 3) = 1.0F;
     core::at(view_, 2) = vz;
     // right = forward x (0, 1, 0)
@@ -485,13 +485,13 @@ void BillboardBatch::render()
         MeshRef* mesh = static_cast<BillboardRec*>(node->data())->mesh;
         if ((mesh->flags() & kMeshActiveFlag) != 0U) {
             const auto& axis = mesh->billboard()->axis;
-            const auto& d = manager->view();
-            double rx = (static_cast<double>(core::at(d, 1)) * core::at(axis, 2)) -
-                        (static_cast<double>(core::at(d, 2)) * core::at(axis, 1));
-            auto ry = static_cast<float>((static_cast<double>(core::at(d, 2)) * core::at(axis, 0)) -
-                                         (static_cast<double>(core::at(d, 0)) * core::at(axis, 2)));
-            auto rz = static_cast<float>((static_cast<double>(core::at(d, 0)) * core::at(axis, 1)) -
-                                         (static_cast<double>(core::at(d, 1)) * core::at(axis, 0)));
+            const auto& view_array = manager->view();
+            double rx = (static_cast<double>(core::at(view_array, 1)) * core::at(axis, 2)) -
+                        (static_cast<double>(core::at(view_array, 2)) * core::at(axis, 1));
+            auto ry = static_cast<float>((static_cast<double>(core::at(view_array, 2)) * core::at(axis, 0)) -
+                                         (static_cast<double>(core::at(view_array, 0)) * core::at(axis, 2)));
+            auto rz = static_cast<float>((static_cast<double>(core::at(view_array, 0)) * core::at(axis, 1)) -
+                                         (static_cast<double>(core::at(view_array, 1)) * core::at(axis, 0)));
             const double length =
                 std::sqrt((rx * rx) + (static_cast<double>(rz) * rz) + (static_cast<double>(ry) * ry));
             if (length > 0.0F) {

@@ -398,26 +398,28 @@ uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, AnimCacheEntry::KeyCoun
 // 0x00480980
 AnimCacheEntry* ClipStore::add_row(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type)
 {
-    int i = 0;
-    for (;; ++i) {
-        const AnimCacheEntry* entry = core::at(slot_array_, i);
+    int index = 0;
+    for (;; ++index) {
+        const AnimCacheEntry* entry = core::at(slot_array_, index);
         if (entry->lookup_key() == key) {
             return nullptr;
         }
         if (entry->kind_tag() == 0) {
             break;
         }
-        if (i + 1 >= kEntries) {
+        if (index + 1 >= kEntries) {
             return nullptr;
         }
     }
-    const uint32_t allocated = core::at(slot_array_, i)->carve(key, bones, {.rotation = rotation_keys, .translation = translation_keys}, type);
+    const uint32_t allocated =
+        core::at(slot_array_, index)
+            ->carve(key, bones, {.rotation = rotation_keys, .translation = translation_keys}, type);
     taken_count_ += allocated;
     if (allocated == 0U) {
         return nullptr;
     }
     ++num_;
-    return core::at(slot_array_, i);
+    return core::at(slot_array_, index);
 }
 
 // 0x004806C0

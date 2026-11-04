@@ -107,10 +107,10 @@ void change_fog(bool on) { engine::enable_fog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
-void set_transform(int type, const maths::Mat4* m)
+void set_transform(int type, const maths::Mat4* matrix)
 {
     static_assert(sizeof(maths::Mat4) == sizeof(D3DMATRIX));
-    renderer().d3d_device()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix(m->data()));
+    renderer().d3d_device()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix(matrix->data()));
 }
 void set_render_target(void* surface) { renderer().d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
 void set_depth_stencil_surface(void* surface)

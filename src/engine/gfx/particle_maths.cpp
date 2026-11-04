@@ -32,11 +32,11 @@ float through_x87(float value)
 // unless `square` is positive.
 double get_lowest(float square, float linear, float start)
 {
-    double t = 0.0;
+    double root = 0.0;
     if (square > 0.0F) {
-        t = static_cast<double>(linear) / square * -kNegativeHalf;
+        root = static_cast<double>(linear) / square * -kNegativeHalf;
     }
-    return (((static_cast<double>(square) * t) + linear) * t) + start;
+    return (((static_cast<double>(square) * root) + linear) * root) + start;
 }
 
 } // namespace
@@ -44,21 +44,21 @@ double get_lowest(float square, float linear, float start)
 // 0x00494F10
 maths::Vec4* quadratic_lowest(maths::Vec4* out, const QuadraticPoints* points)
 {
-    const maths::Vec4& a = points->start;
-    const maths::Vec4& b = points->p1;
-    const maths::Vec4& c = points->p2;
+    const maths::Vec4& point_a = points->start;
+    const maths::Vec4& point_b = points->p1;
+    const maths::Vec4& point_c = points->p2;
     const double t1 = points->t1;
     const double t2 = points->t2;
     // The end's offset scaled by t1, the mid's by t2 (z through a float each time, x through one, y kept).
-    const double cx = static_cast<double>(c.x) - a.x;
-    const double cy = static_cast<double>(c.y) - a.y;
-    const float cz = get_store(static_cast<double>(c.z) - a.z);
+    const double cx = static_cast<double>(point_c.x) - point_a.x;
+    const double cy = static_cast<double>(point_c.y) - point_a.y;
+    const float cz = get_store(static_cast<double>(point_c.z) - point_a.z);
     const float cx_t = get_store(cx * t1);
     const double cy_t = cy * t1;
     const double cz_t = static_cast<double>(cz) * t1;
-    const double bx = static_cast<double>(b.x) - a.x;
-    const double by = static_cast<double>(b.y) - a.y;
-    const float bz = get_store(static_cast<double>(b.z) - a.z);
+    const double bx = static_cast<double>(point_b.x) - point_a.x;
+    const double by = static_cast<double>(point_b.y) - point_a.y;
+    const float bz = get_store(static_cast<double>(point_b.z) - point_a.z);
     const float bx_t = get_store(bx * t2);
     const double by_t = by * t2;
     const float bz_t = get_store(static_cast<double>(bz) * t2);
@@ -84,9 +84,9 @@ maths::Vec4* quadratic_lowest(maths::Vec4* out, const QuadraticPoints* points)
     const float square_y = get_store(static_cast<double>(ey) * scale);
     const float square_z = get_store(ez * scale);
     out->w = 0.0F;
-    const double x = get_lowest(square_x, linear_x, a.x);
-    const double y = get_lowest(square_y, linear_y, a.y);
-    const double z = get_lowest(square_z, linear_z, a.z);
+    const double x = get_lowest(square_x, linear_x, point_a.x);
+    const double y = get_lowest(square_y, linear_y, point_a.y);
+    const double z = get_lowest(square_z, linear_z, point_a.z);
     out->x = get_store(x);
     out->y = get_store(y);
     out->z = get_store(z);

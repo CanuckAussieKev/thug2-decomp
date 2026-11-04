@@ -86,7 +86,7 @@ constexpr double kTransUnit = 1.0 / 32.0;   // (0x006487CC)
 
 float get_scaled(int16_t value, double unit) { return static_cast<float>(value * unit); }
 
-uint16_t get_word(KeyCursor p) { return static_cast<uint16_t>(p[0] | (p[1] << kBitsPerByte)); }
+uint16_t get_word(KeyCursor cursor) { return static_cast<uint16_t>(cursor[0] | (cursor[1] << kBitsPerByte)); }
 uint16_t get_word(std::span<const uint8_t> bytes, size_t at)
 {
     return static_cast<uint16_t>(core::at(bytes, at) | (core::at(bytes, at + 1) << kBitsPerByte));
@@ -149,8 +149,8 @@ void cache_release(void* cache, JointClipFrames* data, int index)
     static_cast<ClipStore*>(cache)->remove_user(data, index);
 }
 // The events' arming and firing.
-void arm_event(UserClipKey* e, bool armed) { e->change_live(armed); }
-bool fire_event(UserClipKey* e, void* target) { return e->process_if_active(target); }
+void arm_event(UserClipKey* event, bool armed) { event->change_live(armed); }
+bool fire_event(UserClipKey* event, void* target) { return event->process_if_active(target); }
 
 uint16_t reference_bits(uint16_t bits, int change)
 {
@@ -217,8 +217,9 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
     // A short, a byte moved up, or (with the header's bit) a byte - in the 0x10000 form the w of that table entry.
     auto value = [&](uint16_t bit) -> int16_t {
         if (header & bit) {
-            const uint8_t b = *data++;
-            return (flags & kQuatTableWFlag) ? core::at(shared, (b * 4) + 3) : static_cast<int16_t>(b);
+            const uint8_t table_index = *data++;
+            return (flags & kQuatTableWFlag) ? core::at(shared, (table_index * 4) + 3)
+                                             : static_cast<int16_t>(table_index);
         }
         if (flags & kQuatByteValuesFlag) {
             return static_cast<int16_t>(*data++ << kBitsPerByte);
@@ -243,14 +244,15 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
     } else {
         if ((header & kKeyByteBitsMask) == 0) {
             // All three from a table entry.
-            const uint8_t b = *data++;
+            const uint8_t table_index = *data++;
             if ((flags & kQuatFileTableFlag) != 0U) {
                 for (int i = 0; i < 3; ++i) {
-                    core::at(out->value, i) = static_cast<int16_t>(get_word(table, (b * kFileTableEntryBytes) + (2 * i)));
+                    core::at(out->value, i) =
+                        static_cast<int16_t>(get_word(table, (table_index * kFileTableEntryBytes) + (2 * i)));
                 }
             } else {
                 for (int i = 0; i < 3; ++i) {
-                    core::at(out->value, i) = core::at(shared, (b * 4) + i);
+                    core::at(out->value, i) = core::at(shared, (table_index * 4) + i);
                 }
             }
         } else {
@@ -378,13 +380,13 @@ void get_short_trans(const ShortKey* key, std::span<float, 4> out)
 // --- between two keys ---------------------------------------------------------------------------------------
 
 // 0x00483B30
-void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, float t, bool floats)
+void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, float blend, bool floats)
 {
-    if (t == 0.0F) {
+    if (blend == 0.0F) {
         get_quat(a, out, floats);
         return;
     }
-    if (t == 1.0F) {
+    if (blend == 1.0F) {
         get_quat(b, out, floats);
         return;
     }
@@ -393,18 +395,18 @@ void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, flo
     std::array<float, 4> result{};
     get_quat(a, from, floats);
     get_quat(b, to, floats);
-    interpolate_rotation(result, from, to, t);
+    interpolate_rotation(result, from, to, blend);
     std::memcpy(out.data(), result.data(), sizeof(result));
 }
 
 // 0x00483C40
-void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, float t, bool floats)
+void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, float blend, bool floats)
 {
-    if (t == 0.0F) {
+    if (blend == 0.0F) {
         get_trans(a, out, floats);
         return;
     }
-    if (t == 1.0F) {
+    if (blend == 1.0F) {
         get_trans(b, out, floats);
         return;
     }
@@ -413,18 +415,18 @@ void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, fl
     maths::Vec4 result{};
     get_trans(a, std::span<float, 4>(from.data(), 4), floats);
     get_trans(b, std::span<float, 4>(to.data(), 4), floats);
-    const maths::Vec4* lerped = walk::get_lerp(&result, &from, &to, t);
+    const maths::Vec4* lerped = walk::get_lerp(&result, &from, &to, blend);
     std::memcpy(out.data(), lerped, sizeof(maths::Vec4));
 }
 
 // 0x00483E10
-void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float t)
+void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float blend)
 {
-    if (t == 0.0F) {
+    if (blend == 0.0F) {
         get_short_quat(a, out);
         return;
     }
-    if (t == 1.0F) {
+    if (blend == 1.0F) {
         get_short_quat(b, out);
         return;
     }
@@ -433,18 +435,18 @@ void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const Sh
     std::array<float, 4> result{};
     get_short_quat(a, from);
     get_short_quat(b, to);
-    interpolate_rotation(result, from, to, t);
+    interpolate_rotation(result, from, to, blend);
     std::memcpy(out.data(), result.data(), sizeof(result));
 }
 
 // 0x00484080
-void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float t)
+void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float blend)
 {
-    if (t == 0.0F) {
+    if (blend == 0.0F) {
         get_short_trans(a, out);
         return;
     }
-    if (t == 1.0F) {
+    if (blend == 1.0F) {
         get_short_trans(b, out);
         return;
     }
@@ -453,7 +455,7 @@ void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const S
     maths::Vec4 result{};
     get_short_trans(a, std::span<float, 4>(from.data(), 4));
     get_short_trans(b, std::span<float, 4>(to.data(), 4));
-    const maths::Vec4* lerped = walk::get_lerp(&result, &from, &to, t);
+    const maths::Vec4* lerped = walk::get_lerp(&result, &from, &to, blend);
     std::memcpy(out.data(), lerped, sizeof(maths::Vec4));
 }
 
@@ -466,33 +468,37 @@ uint32_t& cache_use_counter()
 } // namespace
 
 // 0x00483F10
-void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey* b, float t)
+void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey* b, float blend)
 {
-    if (t == 0.0F) {
+    if (blend == 0.0F) {
         std::memcpy(out.data(), a->value.data(), 4 * sizeof(float));
         return;
     }
-    if (t == 1.0F) {
+    if (blend == 1.0F) {
         std::memcpy(out.data(), b->value.data(), 4 * sizeof(float));
         return;
     }
-    const auto& p = a->value;
-    const auto& q = b->value;
+    const auto& from_value = a->value;
+    const auto& to_value = b->value;
     // (x87 at 53 bits, in the original's order: w, x, z, y)
-    double dot =
-        (static_cast<double>(core::at(p, 3)) * core::at(q, 3)) + (static_cast<double>(core::at(p, 0)) * core::at(q, 0));
-    dot += static_cast<double>(core::at(q, 2)) * core::at(p, 2);
-    dot += static_cast<double>(core::at(p, 1)) * core::at(q, 1);
+    double dot = (static_cast<double>(core::at(from_value, 3)) * core::at(to_value, 3)) +
+                 (static_cast<double>(core::at(from_value, 0)) * core::at(to_value, 0));
+    dot += static_cast<double>(core::at(to_value, 2)) * core::at(from_value, 2);
+    dot += static_cast<double>(core::at(from_value, 1)) * core::at(to_value, 1);
     if (dot < 0.0) {
         for (int i = 0; i < 4; ++i) {
             core::at(a->value, i) = -core::at(b->value, i);
         }
     }
     // x and w stay unrounded; y and z are rounded to floats on the way.
-    const double x = ((static_cast<double>(core::at(q, 0)) - core::at(p, 0)) * t) + core::at(p, 0);
-    auto y = static_cast<float>(((static_cast<double>(core::at(q, 1)) - core::at(p, 1)) * t) + core::at(p, 1));
-    auto z = static_cast<float>(((static_cast<double>(core::at(q, 2)) - core::at(p, 2)) * t) + core::at(p, 2));
-    const double w = ((static_cast<double>(core::at(q, 3)) - core::at(p, 3)) * t) + core::at(p, 3);
+    const double x =
+        ((static_cast<double>(core::at(to_value, 0)) - core::at(from_value, 0)) * blend) + core::at(from_value, 0);
+    auto y = static_cast<float>(((static_cast<double>(core::at(to_value, 1)) - core::at(from_value, 1)) * blend) +
+                                core::at(from_value, 1));
+    auto z = static_cast<float>(((static_cast<double>(core::at(to_value, 2)) - core::at(from_value, 2)) * blend) +
+                                core::at(from_value, 2));
+    const double w =
+        ((static_cast<double>(core::at(to_value, 3)) - core::at(from_value, 3)) * blend) + core::at(from_value, 3);
     double sum = (w * w) + (static_cast<double>(z) * z);
     sum += static_cast<double>(y) * y;
     sum += x * x;
@@ -508,17 +514,17 @@ void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey
 }
 
 // 0x00484170
-void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const FloatKey* b, float t)
+void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const FloatKey* b, float blend)
 {
-    if (t == 0.0F || t == 1.0F) {
-        const FloatKey* key = t == 0.0F ? a : b;
+    if (blend == 0.0F || blend == 1.0F) {
+        const FloatKey* key = blend == 0.0F ? a : b;
         std::memcpy(out.data(), key->value.data(), 3 * sizeof(float));
         core::at(out, 3) = 1.0F;
         return;
     }
     for (int i = 0; i < 3; ++i) {
         core::at(out, i) = static_cast<float>(
-            ((static_cast<double>(core::at(b->value, i)) - core::at(a->value, i)) * t) + core::at(a->value, i));
+            ((static_cast<double>(core::at(b->value, i)) - core::at(a->value, i)) * blend) + core::at(a->value, i));
     }
     core::at(out, 3) = 1.0F;
 }
@@ -1191,9 +1197,9 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                             } else if (quat_frame > static_cast<float>(to)) {
                                 quat_frame = static_cast<float>(to);
                             }
-                            auto t = static_cast<float>((static_cast<double>(quat_frame) - from) /
-                                                        (static_cast<double>(to) - from));
-                            interpolate_float_quat(rotation, &key_a, &key_b, t);
+                            auto blend = static_cast<float>((static_cast<double>(quat_frame) - from) /
+                                                            (static_cast<double>(to) - from));
+                            interpolate_float_quat(rotation, &key_a, &key_b, blend);
                         }
                         anim_format::store_float_key(first, key_a); // (its values flipped in place when needed)
                         done = true;
@@ -1206,29 +1212,29 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     if (source && source->resume() && core::at(source->quat_at(), bone)) {
                         at = KeyCursor(quat_run, core::at(source->quat_at(), bone) - quat_run.data());
                     }
-                    ShortKey a{};
-                    ShortKey b{};
-                    float t = 0.0F;
+                    ShortKey short_a{};
+                    ShortKey short_b{};
+                    float blend = 0.0F;
                     for (;;) {
                         if (source) {
                             core::at(source->quat_at(), bone) = at.rest().data();
                         }
-                        at = decompress_quat_key(at, &a, flag_bits_, own_key_table());
+                        at = decompress_quat_key(at, &short_a, flag_bits_, own_key_table());
                         if (at >= end) {
-                            b = a;
-                            t = 0.0F;
+                            short_b = short_a;
+                            blend = 0.0F;
                             break;
                         }
-                        decompress_quat_key(at, &b, flag_bits_, own_key_table());
-                        auto from = static_cast<float>(quat_key_time(a.time));
-                        auto to = static_cast<float>(quat_key_time(b.time));
+                        decompress_quat_key(at, &short_b, flag_bits_, own_key_table());
+                        auto from = static_cast<float>(quat_key_time(short_a.time));
+                        auto to = static_cast<float>(quat_key_time(short_b.time));
                         if (quat_frame >= from && quat_frame <= to) {
-                            t = static_cast<float>((static_cast<double>(quat_frame) - from) /
-                                                   (static_cast<double>(to) - from));
+                            blend = static_cast<float>((static_cast<double>(quat_frame) - from) /
+                                                       (static_cast<double>(to) - from));
                             break;
                         }
                     }
-                    interpolate_short_quat(rotation, &a, &b, t);
+                    interpolate_short_quat(rotation, &short_a, &short_b, blend);
                 }
             }
             // The translation (none for a bone without keys when flag 0x20000 says so).
@@ -1260,9 +1266,9 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                             }
                         } else if (trans_frame >= from) { // (before the first key: left as it was)
                             trans_frame = maths::confine(trans_frame, from, to);
-                            auto t = static_cast<float>((static_cast<double>(trans_frame) - from) /
-                                                        (static_cast<double>(to) - from));
-                            interpolate_float_trans(translation, &key_a, &key_b, t);
+                            auto blend = static_cast<float>((static_cast<double>(trans_frame) - from) /
+                                                            (static_cast<double>(to) - from));
+                            interpolate_float_trans(translation, &key_a, &key_b, blend);
                             if (add) {
                                 add_before();
                             }
@@ -1276,34 +1282,34 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     if (source && source->resume() && core::at(source->trans_at(), bone)) {
                         at = KeyCursor(trans_run, core::at(source->trans_at(), bone) - trans_run.data());
                     }
-                    ShortKey a{};
-                    ShortKey b{};
-                    float t = 0.0F;
+                    ShortKey short_a{};
+                    ShortKey short_b{};
+                    float blend = 0.0F;
                     for (;;) {
                         if (source) {
                             core::at(source->trans_at(), bone) = at.rest().data();
                         }
-                        at = decompress_trans_key(at, &a);
+                        at = decompress_trans_key(at, &short_a);
                         if (at >= end) {
-                            b = a;
+                            short_b = short_a;
                             break;
                         }
-                        decompress_trans_key(at, &b);
-                        const int from = trans_key_time(a.time);
+                        decompress_trans_key(at, &short_b);
+                        const int from = trans_key_time(short_a.time);
                         if (!(static_cast<float>(from) <= trans_frame)) { // (the frame before this key: this key alone)
-                            b = a;
+                            short_b = short_a;
                             break;
                         }
-                        const int to = trans_key_time(b.time);
+                        const int to = trans_key_time(short_b.time);
                         if (static_cast<float>(to) >= trans_frame) {
-                            t = static_cast<float>((static_cast<double>(trans_frame) - from) /
-                                                   (static_cast<double>(to) - from));
+                            blend = static_cast<float>((static_cast<double>(trans_frame) - from) /
+                                                       (static_cast<double>(to) - from));
                             break;
                         }
                     }
                     std::array<float, 4> before{};
                     std::memcpy(before.data(), translation.data(), sizeof(before));
-                    interpolate_short_trans(translation, &a, &b, t);
+                    interpolate_short_trans(translation, &short_a, &short_b, blend);
                     if (((flag_bits_ & kFlagQuerying) != 0U) && ((flag_bits_ & kFlagNoTransKeys) != 0U)) {
                         for (int i = 0; i < 4; ++i) {
                             core::at(translation, i) = core::at(before, i) + core::at(translation, i);

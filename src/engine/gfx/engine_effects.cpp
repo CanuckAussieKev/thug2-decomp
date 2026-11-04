@@ -602,10 +602,10 @@ void update_flashes()
             if (!(left > 0.0)) { // (NaN too)
                 dead = flash;
             } else {
-                const double t = left / flash->duration;
+                const double blend = left / flash->duration;
                 for (int i = 0; i < 4; ++i) {
-                    const int change = static_cast<int>(
-                        static_cast<int64_t>(static_cast<double>(core::at(flash->start, i) - core::at(flash->end, i)) * t));
+                    const int change = static_cast<int>(static_cast<int64_t>(
+                        static_cast<double>(core::at(flash->start, i) - core::at(flash->end, i)) * blend));
                     core::at(flash->now, i) = static_cast<uint8_t>(core::at(flash->end, i) + change);
                 }
             }

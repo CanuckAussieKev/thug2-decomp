@@ -179,8 +179,8 @@ void QuadSprite::draw()
                                            {.x = right, .y = top, .z = 0.0F, .w = 0.0F},
                                            {.x = right, .y = bottom, .z = 0.0F, .w = 0.0F}}};
         // (in the original's order: top left, top right, bottom left, bottom right)
-        for (const int i : {0, 2, 1, 3}) {
-            spin_around_z(core::at(corners, i), rotation);
+        for (const int corner : {0, 2, 1, 3}) {
+            spin_around_z(core::at(corners, corner), rotation);
         }
         // Still (nearly) upright or on its side: within 0.01 radians of a multiple of 90 degrees. (The menus' bottom
         // band is turned by pi + 0.001, so its corners don't line up exactly.)
@@ -202,10 +202,10 @@ void QuadSprite::draw()
             // (a turned sprite's own left corners can be on the right); each side reaching past its layout edge
             // goes to the screen's edge, as for upright sprites.
             std::array<int, 4> order = {{0, 1, 2, 3}};
-            for (int a = 0; a < 4; ++a) {
-                for (int b = a + 1; b < 4; ++b) {
-                    if (core::at(layout_x, core::at(order, b)) < core::at(layout_x, core::at(order, a))) {
-                        std::swap(core::at(order, a), core::at(order, b));
+            for (int outer = 0; outer < 4; ++outer) {
+                for (int inner = outer + 1; inner < 4; ++inner) {
+                    if (core::at(layout_x, core::at(order, inner)) < core::at(layout_x, core::at(order, outer))) {
+                        std::swap(core::at(order, outer), core::at(order, inner));
                     }
                 }
             }

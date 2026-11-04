@@ -32,16 +32,16 @@ constexpr float kFramesPerSecond = 60.0F;        // 0x00645EA0
 constexpr float kSecondsPerFrame = 1.0F / 60.0F; // 0x006463B8
 
 // The timeline's empty state (Reset and the constructor).
-void get_clear(AnimTimeline* t)
+void get_clear(AnimTimeline* timeline)
 {
-    t->set_outset(0.0F);
-    t->set_ongoing(0.0F);
-    t->set_finish(0.0F);
-    t->set_speed(0.0F);
-    t->set_direction(0);
-    t->set_repeat_mode(AnimTimeline::kCycle);
-    t->set_complete(false);
-    t->set_anim(kNoAnim);
+    timeline->set_outset(0.0F);
+    timeline->set_ongoing(0.0F);
+    timeline->set_finish(0.0F);
+    timeline->set_speed(0.0F);
+    timeline->set_direction(0);
+    timeline->set_repeat_mode(AnimTimeline::kCycle);
+    timeline->set_complete(false);
+    timeline->set_anim(kNoAnim);
 }
 
 } // namespace
@@ -201,20 +201,20 @@ void AnimTrack::delete_controllers()
 // 0x004818B0
 void AnimTrack::detach_anim_driver(AnimDriver* controller)
 {
-    int i = 0;
-    for (;; ++i) {
-        if (i >= controller_count_) {
+    int index = 0;
+    for (;; ++index) {
+        if (index >= controller_count_) {
             return;
         }
-        if (core::at(controller_list_, i) == controller) {
+        if (core::at(controller_list_, index) == controller) {
             break;
         }
     }
-    gsl::owner<AnimDriver*> owned = memory::owned_element(core::at(controller_list_, i)); // (the track's)
+    gsl::owner<AnimDriver*> owned = memory::owned_element(core::at(controller_list_, index)); // (the track's)
     delete owned;
-    core::at(controller_list_, i) = nullptr;
-    for (; i < controller_count_ - 1; ++i) {
-        core::at(controller_list_, i) = core::at(controller_list_, i + 1);
+    core::at(controller_list_, index) = nullptr;
+    for (; index < controller_count_ - 1; ++index) {
+        core::at(controller_list_, index) = core::at(controller_list_, index + 1);
     }
     --controller_count_;
 }

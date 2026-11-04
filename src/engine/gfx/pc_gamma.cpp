@@ -77,13 +77,13 @@ void build_gamma_ramp()
 }
 
 // 0x004D07B0
-void set_device_gamma(float r, float g, float b)
+void set_device_gamma(float red, float green, float b)
 {
-    r = clamp01(r);
-    g = clamp01(g);
+    red = clamp01(red);
+    green = clamp01(green);
     b = clamp01(b);
-    core::at(gammas(), 0) = static_cast<float>(static_cast<double>(r) + r + kGammaOffset);
-    core::at(gammas(), 1) = static_cast<float>(static_cast<double>(g) + g + kGammaOffset);
+    core::at(gammas(), 0) = static_cast<float>(static_cast<double>(red) + red + kGammaOffset);
+    core::at(gammas(), 1) = static_cast<float>(static_cast<double>(green) + green + kGammaOffset);
     core::at(gammas(), 2) = static_cast<float>(static_cast<double>(b) + b + kGammaOffset);
     build_gamma_ramp();
     D3DGAMMARAMP ramp{}; // (red, green, blue: the table's three runs)

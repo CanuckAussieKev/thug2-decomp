@@ -203,7 +203,7 @@ public:
     bool clear_geom_color(uint32_t name);
     // 0x00494010: the geoms `name` (or all) that aren't multicolour coloured from hue / saturation / value. Whether
     // any.
-    bool set_geom_color_hsv(checksums::Name geom, float h, float s, float v);
+    bool set_geom_color_hsv(checksums::Name geom, float hue, float saturation, float v);
     // 0x00494110 / 0x00494160 / 0x004941B0: each geom's material pass given UV offsets, a UV matrix, UV matrix
     // parameters (0x0048DFE0 / 0x0048DFF0 / 0x0048E000). Whether any geom did.
     bool choose_uv_shift(uint32_t material, int pass, float u, float v);
@@ -212,7 +212,7 @@ public:
     // 0x00494200: a script's colour (h, s, v): the geoms `name` (or all) that aren't multicolour coloured; the
     // multicolour ones' material passes (an array of structures of a material and a pass - materials=, else
     // material= with an array or one pass=) instead. Whether any.
-    bool set_color_from_script(script::Struct* params, float h, float s, float v);
+    bool set_color_from_script(script::Struct* params, float hue, float saturation, float v);
     // 0x00494450: the same, the colour cleared - the multicolour passes given 0x80808080.
     bool clear_color_from_script(script::Struct* params);
     // 0x00494730: the geom named `name` deleted and taken out of the list (its scene too, if it's the model's).
@@ -222,7 +222,7 @@ public:
     bool conceal_mesh(uint32_t name, bool hide);
     bool is_part_concealed(uint32_t name);
     // 0x004948D0: every geom coloured. Always true.
-    bool change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+    bool change_tint(uint8_t red, uint8_t green, uint8_t b, uint8_t a);
     // 0x00494930 / 0x00494970: the geoms' viewport masks together; each geom's set. (Always true.)
     uint32_t fetch_shown();
     bool toggle_shown(uint32_t mask);

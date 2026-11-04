@@ -363,8 +363,8 @@ int EmitterInstance::lod_particle_count(int count) const
     if (distance > lod_far_) {
         return lod_min_particles_;
     }
-    const double t = (static_cast<double>(lod_far_) - distance) / (static_cast<double>(lod_far_) - lod_near_);
-    const int lod = truncate((t * (max_particles_ - lod_min_particles_)) + lod_min_particles_);
+    const double fraction = (static_cast<double>(lod_far_) - distance) / (static_cast<double>(lod_far_) - lod_near_);
+    const int lod = truncate((fraction * (max_particles_ - lod_min_particles_)) + lod_min_particles_);
     return count < lod ? count : lod;
 }
 

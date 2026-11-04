@@ -241,33 +241,33 @@ void get_bloom()
     renderer().d3d_device()->SetPixelShaderConstantF(0, constant.data(), 1);
     draw_screen_quad(0, bright, quarter, {.x = 0.0F, .y = 0.0F}, kNeutralColour, false);
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.
-    IDirect3DTexture9* a = screen_copy(3);
-    IDirect3DTexture9* b = screen_copy(4);
+    IDirect3DTexture9* texture_a = screen_copy(3);
+    IDirect3DTexture9* texture_b = screen_copy(4);
     change_phase(RenderStateId::kAlphaBlend, 1);
     D3DSURFACE_DESC unused;
-    b->GetLevelDesc(0, &unused);
+    texture_b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap) {
-        draw_screen_quad(static_cast<uint32_t>(tap > 0), b, a, {.x = 0.0F, .y = tap_offset(tap)},
+        draw_screen_quad(static_cast<uint32_t>(tap > 0), texture_b, texture_a, {.x = 0.0F, .y = tap_offset(tap)},
                          tap_colour(tap_weight(tap)), true);
     }
-    b = screen_copy(4);
-    a = screen_copy(3);
+    texture_b = screen_copy(4);
+    texture_a = screen_copy(3);
     for (int tap = 0; tap < 4; ++tap) {
-        draw_screen_quad(static_cast<uint32_t>(tap > 0), a, b, {.x = tap_offset(tap), .y = 0.0F},
+        draw_screen_quad(static_cast<uint32_t>(tap > 0), texture_a, texture_b, {.x = tap_offset(tap), .y = 0.0F},
                          tap_colour(tap_weight(tap)), true);
     }
     draw_screen_quad(0, screen_copy(kScreenCopyBlurA), screen_copy(3), {.x = 0.0F, .y = 0.0F}, kNeutralColour, true);
-    b = screen_copy(kScreenCopyBlurB);
-    a = screen_copy(kScreenCopyBlurA);
-    b->GetLevelDesc(0, &unused);
+    texture_b = screen_copy(kScreenCopyBlurB);
+    texture_a = screen_copy(kScreenCopyBlurA);
+    texture_b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap) {
-        draw_screen_quad(static_cast<uint32_t>(tap > 0), b, a, {.x = 0.0F, .y = tap_offset(tap)},
+        draw_screen_quad(static_cast<uint32_t>(tap > 0), texture_b, texture_a, {.x = 0.0F, .y = tap_offset(tap)},
                          tap_colour(tap_weight(tap)), true);
     }
-    b = screen_copy(kScreenCopyBlurB);
-    a = screen_copy(kScreenCopyBlurA);
+    texture_b = screen_copy(kScreenCopyBlurB);
+    texture_a = screen_copy(kScreenCopyBlurA);
     for (int tap = 0; tap < 4; ++tap) {
-        draw_screen_quad(static_cast<uint32_t>(tap > 0), a, b, {.x = tap_offset(tap), .y = 0.0F},
+        draw_screen_quad(static_cast<uint32_t>(tap > 0), texture_a, texture_b, {.x = tap_offset(tap), .y = 0.0F},
                          tap_colour(tap_weight(tap)), true);
     }
     set_target(current_screen_copy(), renderer().z_buffer_surface());

@@ -288,9 +288,9 @@ Geom* RenderModel::get_geom_by_name(uint32_t name)
 // 0x00494640
 Geom* RenderModel::fetch_geom(int index)
 {
-    int i = 0;
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++i) {
-        if (index == i) {
+    int position = 0;
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++position) {
+        if (index == position) {
             return get_geom(node);
         }
     }
@@ -300,9 +300,9 @@ Geom* RenderModel::fetch_geom(int index)
 // 0x00494680
 uint32_t RenderModel::fetch_part_label(int index)
 {
-    int i = 0;
-    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++i) {
-        if (index == i) {
+    int position = 0;
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++position) {
+        if (index == position) {
             return table_row(node)->name;
         }
     }
@@ -312,9 +312,9 @@ uint32_t RenderModel::fetch_part_label(int index)
 // 0x004946C0
 TextureSet* RenderModel::get_geom_textures(int index)
 {
-    int i = 0;
-    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++i) {
-        if (index == i) {
+    int position = 0;
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++position) {
+        if (index == position) {
             return table_row(node)->textures;
         }
     }
@@ -398,10 +398,10 @@ bool RenderModel::is_part_concealed(uint32_t name)
 }
 
 // 0x004948D0
-bool RenderModel::change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+bool RenderModel::change_tint(uint8_t red, uint8_t green, uint8_t b, uint8_t a)
 {
     const uint32_t rgba =
-        r | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
+        red | (static_cast<uint32_t>(green) << 8) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         set_geom_color(get_geom(node), rgba);
     }

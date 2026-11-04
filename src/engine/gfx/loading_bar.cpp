@@ -97,7 +97,11 @@ void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t r
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-uint32_t opaque(const Rgb& c) { return kOpaqueAlphaBits | (c.r & kByteMask) << kByte2Shift | (c.g & kByteMask) << kByte1Shift | (c.b & kByteMask); }
+uint32_t opaque(const Rgb& colour)
+{
+    return kOpaqueAlphaBits | (colour.r & kByteMask) << kByte2Shift | (colour.g & kByteMask) << kByte1Shift |
+           (colour.b & kByteMask);
+}
 
 } // namespace
 

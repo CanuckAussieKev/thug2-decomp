@@ -164,9 +164,9 @@ void make_model_file_name(const char* name, const char* extension, char* out)
 }
 
 // 0x00487AD0
-float least_of(float a, float b, float c)
+float least_of(float a, float b, float third)
 {
-    const float least = b < c ? b : c;
+    const float least = b < third ? b : third;
     return a < least ? a : least;
 }
 

@@ -44,20 +44,20 @@ constexpr uint32_t kTurnBone = 0x9F173EEB;
 // out = a * b (D3DXMatrixMultiply, 0x005BFA8C).
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
-void set_identity(maths::Mat4& m)
+void set_identity(maths::Mat4& matrix)
 {
-    core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-    core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
-    core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
-    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 // A bone collapsed to a point: the identity's rotation rows replaced by (0, 0, 0, 1).
-void set_collapsed(maths::Mat4& m)
+void set_collapsed(maths::Mat4& matrix)
 {
-    set_identity(m);
-    core::at(m.row, 0) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    core::at(m.row, 1) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    set_identity(matrix);
+    core::at(matrix.row, 0) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(matrix.row, 1) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 bool zero_scale(const maths::Vec4& scale) { return scale.x == 0.0F && scale.y == 0.0F && scale.z == 0.0F; }
 
@@ -459,12 +459,13 @@ void Rig::blit(const maths::Mat4* world, uint32_t start_colour, uint32_t end_col
 }
 
 // 0x004A2F20
-void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::span<const float, 4> q, bool mirror, bool swap_z)
+void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::span<const float, 4> quat, bool mirror,
+                         bool swap_z)
 {
-    const double x = core::at(q, 0);
-    const double y = core::at(q, 1);
-    const double z = core::at(q, 2);
-    const double w = core::at(q, 3);
+    const double x = core::at(quat, 0);
+    const double y = core::at(quat, 1);
+    const double z = core::at(quat, 2);
+    const double w = core::at(quat, 3);
     const double xx = x * x;
     const double yy = y * y;
     const double zz = z * z;
@@ -474,37 +475,37 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::
     const double xw = static_cast<float>(-(x * w)); // (stored as floats)
     const double yw = static_cast<float>(-(y * w));
     const double zw = -(z * w); // (kept)
-    const std::span<float, 16> m(&core::at(out->row, 0).x, 16);
-    core::at(m, 0) = static_cast<float>(1.0 - ((zz + yy) + (zz + yy)));
-    core::at(m, 1) = static_cast<float>((zw + yx) + (zw + yx));
-    core::at(m, 2) = static_cast<float>((zx - yw) + (zx - yw));
-    core::at(m, 3) = 0.0F;
-    core::at(m, 4) = static_cast<float>((yx - zw) + (yx - zw));
-    core::at(m, maths::kMatYy) = static_cast<float>(1.0 - ((zz + xx) + (zz + xx)));
-    core::at(m, maths::kMatYz) = static_cast<float>((xw + zy) + (xw + zy));
-    core::at(m, maths::kMatYw) = 0.0F;
-    core::at(m, maths::kMatZx) = static_cast<float>((yw + zx) + (yw + zx));
-    core::at(m, maths::kMatZy) = static_cast<float>((zy - xw) + (zy - xw));
-    core::at(m, maths::kMatZz) = static_cast<float>(1.0 - ((yy + xx) + (yy + xx)));
-    core::at(m, maths::kMatZw) = 0.0F;
-    core::at(m, maths::kMatTx) = translation->x;
-    core::at(m, maths::kMatTy) = translation->y;
-    core::at(m, maths::kMatTz) = translation->z;
-    core::at(m, maths::kMatTw) = 1.0F;
+    const std::span<float, 16> elements(&core::at(out->row, 0).x, 16);
+    core::at(elements, 0) = static_cast<float>(1.0 - ((zz + yy) + (zz + yy)));
+    core::at(elements, 1) = static_cast<float>((zw + yx) + (zw + yx));
+    core::at(elements, 2) = static_cast<float>((zx - yw) + (zx - yw));
+    core::at(elements, 3) = 0.0F;
+    core::at(elements, 4) = static_cast<float>((yx - zw) + (yx - zw));
+    core::at(elements, maths::kMatYy) = static_cast<float>(1.0 - ((zz + xx) + (zz + xx)));
+    core::at(elements, maths::kMatYz) = static_cast<float>((xw + zy) + (xw + zy));
+    core::at(elements, maths::kMatYw) = 0.0F;
+    core::at(elements, maths::kMatZx) = static_cast<float>((yw + zx) + (yw + zx));
+    core::at(elements, maths::kMatZy) = static_cast<float>((zy - xw) + (zy - xw));
+    core::at(elements, maths::kMatZz) = static_cast<float>(1.0 - ((yy + xx) + (yy + xx)));
+    core::at(elements, maths::kMatZw) = 0.0F;
+    core::at(elements, maths::kMatTx) = translation->x;
+    core::at(elements, maths::kMatTy) = translation->y;
+    core::at(elements, maths::kMatTz) = translation->z;
+    core::at(elements, maths::kMatTw) = 1.0F;
     if (mirror) {
-        core::at(m, 0) = -core::at(m, 0);
+        core::at(elements, 0) = -core::at(elements, 0);
         if (swap_z) {
-            for (const int i : {5, 6, 8, 12}) {
-                core::at(m, i) = -core::at(m, i);
+            for (const int index : {5, 6, 8, 12}) {
+                core::at(elements, index) = -core::at(elements, index);
             }
         } else {
-            for (const int i : {1, 2, 4, 5, 6}) {
-                core::at(m, i) = -core::at(m, i);
+            for (const int index : {1, 2, 4, 5, 6}) {
+                core::at(elements, index) = -core::at(elements, index);
             }
         }
     } else if (swap_z) {
-        for (const int i : {1, 2, 4, 8, 12}) {
-            core::at(m, i) = -core::at(m, i);
+        for (const int index : {1, 2, 4, 8, 12}) {
+            core::at(elements, index) = -core::at(elements, index);
         }
     }
 }

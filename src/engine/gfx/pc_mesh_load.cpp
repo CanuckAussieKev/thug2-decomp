@@ -134,10 +134,10 @@ std::array<float, 3> scaled_position(const ScaledVertex& v)
     const float cx = core::at(v.r, 0) + (core::at(e2, 0) * core::at(v.c, 0));
     const float cy = core::at(v.r, 1) + (core::at(e2, 2) * core::at(v.c, 1));
     const float cz = core::at(v.r, 2) + (core::at(e2, 1) * core::at(v.c, 2));
-    const auto& s = v.weights;
-    return {(ax * core::at(s, 0)) + (bx * core::at(s, 1)) + (cx * core::at(s, 2)),
-            (ay * core::at(s, 0)) + (by * core::at(s, 1)) + (cy * core::at(s, 2)),
-            (az * core::at(s, 0)) + (bz * core::at(s, 1)) + (cz * core::at(s, 2))};
+    const auto& weights = v.weights;
+    return {(ax * core::at(weights, 0)) + (bx * core::at(weights, 1)) + (cx * core::at(weights, 2)),
+            (ay * core::at(weights, 0)) + (by * core::at(weights, 1)) + (cy * core::at(weights, 2)),
+            (az * core::at(weights, 0)) + (bz * core::at(weights, 1)) + (cz * core::at(weights, 2))};
 }
 
 // The vertex formats a scene file's type numbers name (0x00775B64-78; 0: none; past 6: the number itself).
@@ -280,31 +280,32 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
         return static_cast<int>(bits & kSignBit11 ? (bits & kMask11) - kRange11 : bits & kMask11);
     };
     for (int i = 0; std::cmp_less(i, vertex_count_); ++i) {
-        const auto n = static_cast<size_t>(i);
-        out.set_floats<3>(n, 0, in.float3(n, 0)); // the position
+        const auto vertex = static_cast<size_t>(i);
+        out.set_floats<3>(vertex, 0, in.float3(vertex, 0)); // the position
         if (suspect && i == kTraceVertex) {
             debug::printf("euh");
         }
-        const uint32_t normal = in.word(n, 0x18);
+        const uint32_t normal = in.word(vertex, 0x18);
         const uint32_t z = normal >> 22;
-        out.set_floats<3>(n, kOutNormalOffset,
+        out.set_floats<3>(vertex, kOutNormalOffset,
                           {static_cast<float>(unpack11(normal) * static_cast<double>(kUnpack11Scale)),
                            static_cast<float>(unpack11(normal >> kBitsPer11) * static_cast<double>(kUnpack11Scale)),
                            static_cast<float>(static_cast<int>(((z & kSignBit10) != 0U) ? z - kRange10 : z) *
                                               static_cast<double>(kUnpackZScale))});
-        out.set_word(n, kOutColourOffset, in.word(n, kInColourOffset)); // the colour
+        out.set_word(vertex, kOutColourOffset, in.word(vertex, kInColourOffset)); // the colour
         for (uint32_t set = 0; set < sets; ++set) {
-            out.set_floats<2>(n, kOutUvOffset + (kUvSetStride * set), in.float2(n, kInUvOffset + (kUvSetStride * set)));
+            out.set_floats<2>(vertex, kOutUvOffset + (kUvSetStride * set),
+                              in.float2(vertex, kInUvOffset + (kUvSetStride * set)));
         }
         for (size_t k = 0; k < 4; ++k) {
-            out.set_value(n, kOutBoneValuesOffset + k,
-                          static_cast<uint8_t>(in.value<int16_t>(n, kInBoneValuesOffset + (2 * k)) / 3));
+            out.set_value(vertex, kOutBoneValuesOffset + k,
+                          static_cast<uint8_t>(in.value<int16_t>(vertex, kInBoneValuesOffset + (2 * k)) / 3));
         }
-        const uint32_t weights = in.word(n, 0xC);
+        const uint32_t weights = in.word(vertex, 0xC);
         const uint32_t w = weights >> 22;
         const double third = static_cast<int>(((w & 0x200) != 0U) ? w - 0x400 : w) * static_cast<double>(kUnpackZScale);
         const auto second = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(kUnpack11Scale));
-        out.set_floats<3>(n, kOutWeightsOffset,
+        out.set_floats<3>(vertex, kOutWeightsOffset,
                           {static_cast<float>(unpack11(weights) * static_cast<double>(kUnpack11Scale)), second,
                            static_cast<float>(third)});
         if (bones < 2 && !(second == 0.0F)) {
@@ -363,21 +364,21 @@ void MeshRef::build_collision()
     const std::span<uint16_t> found(found_block, (core::at(index_counts_, 0) - 2U) * 3U);
     uint32_t count = 0;
     for (uint32_t k = 0; k < core::at(index_counts_, 0) - 2U; ++k) {
-        const uint16_t a = core::at(strip, k);
-        const uint16_t b = core::at(strip, k + 1);
-        const uint16_t c = core::at(strip, k + 2);
-        if (a == b || b == c || c == a) {
+        const uint16_t first = core::at(strip, k);
+        const uint16_t second = core::at(strip, k + 1);
+        const uint16_t third = core::at(strip, k + 2);
+        if (first == second || second == third || third == first) {
             continue;
         }
         const std::span<uint16_t> out = found.subspan(3U * count, 3);
         if ((k & 1) != 0U) { // (every other triangle of a strip winds the other way)
-            core::at(out, 0) = b;
-            core::at(out, 1) = a;
+            core::at(out, 0) = second;
+            core::at(out, 1) = first;
         } else {
-            core::at(out, 0) = a;
-            core::at(out, 1) = b;
+            core::at(out, 0) = first;
+            core::at(out, 1) = second;
         }
-        core::at(out, 2) = c;
+        core::at(out, 2) = third;
         ++count;
     }
     core::at(index_buffers_, 0)->get_unlock();

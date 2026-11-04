@@ -183,10 +183,11 @@ void send_lights()
     lamp_b.Direction.y = core::at(light_sets().light_constants(), kLampBDirectionY);
     lamp_b.Direction.z = core::at(light_sets().light_constants(), kLampBDirectionZ);
     renderer().d3d_device()->SetLight(1, &lamp_b);
-    const uint32_t r = get_channel(core::at(light_sets().light_constants(), 0));
-    const uint32_t g = get_channel(core::at(light_sets().light_constants(), 1));
-    const uint32_t b = get_channel(core::at(light_sets().light_constants(), 2));
-    renderer().d3d_device()->SetRenderState(D3DRS_AMBIENT, kOpaqueAlphaBits | r << kByte2Shift | g << kByte1Shift | b);
+    const uint32_t red = get_channel(core::at(light_sets().light_constants(), 0));
+    const uint32_t green = get_channel(core::at(light_sets().light_constants(), 1));
+    const uint32_t blue = get_channel(core::at(light_sets().light_constants(), 2));
+    renderer().d3d_device()->SetRenderState(D3DRS_AMBIENT,
+                                            kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
 }
 
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -373,9 +374,9 @@ void draw_instance_batch(BatchPass batch_pass)
             renderer().d3d_device()->LightEnable(0, TRUE);
             renderer().d3d_device()->LightEnable(1, TRUE);
             set_flag_786e_b4();
-            int i = 0;
-            for (; i < count; ++i) {
-                Singleton* instance = core::at(get_visible(), i);
+            int index = 0;
+            for (; index < count; ++index) {
+                Singleton* instance = core::at(get_visible(), index);
                 if (!skinned_by_shader(instance)) {
                     break;
                 }
@@ -388,8 +389,8 @@ void draw_instance_batch(BatchPass batch_pass)
             const std::array<float, 3> camera = {{core::at(renderer().render_camera().position, 0), core::at(renderer().render_camera().position, 1), core::at(renderer().render_camera().position, 2)}};
             const double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608U)) * 12.0F;
             auto near_squared = static_cast<float>(near_distance * near_distance);
-            for (; i < count; ++i) {
-                Singleton* instance = core::at(get_visible(), i);
+            for (; index < count; ++index) {
+                Singleton* instance = core::at(get_visible(), index);
                 const maths::Vec4& position = *get_position(instance);
                 const double dx = static_cast<double>(position.x) - core::at(camera, 0);
                 const double dy = static_cast<double>(position.y) - core::at(camera, 1);

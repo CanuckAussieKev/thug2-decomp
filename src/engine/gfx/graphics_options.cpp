@@ -62,30 +62,30 @@ struct SupportQuery {
 
 bool get_supported(int samples, void* context)
 {
-    auto* q = static_cast<SupportQuery*>(context);
+    auto* query = static_cast<SupportQuery*>(context);
     auto type = static_cast<D3DMULTISAMPLE_TYPE>(samples);
     DWORD colour_levels = 0;
     DWORD depth_levels = 0;
-    if (FAILED(q->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, q->colour, q->windowed, type,
-                                                  &colour_levels)) ||
-        FAILED(q->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, q->depth, q->windowed, type,
-                                                  &depth_levels))) {
+    if (FAILED(query->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, query->colour,
+                                                      query->windowed, type, &colour_levels)) ||
+        FAILED(query->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, query->depth, query->windowed,
+                                                      type, &depth_levels))) {
         return false;
     }
     const DWORD levels = colour_levels < depth_levels ? colour_levels : depth_levels;
     if (levels == 0) {
         return false;
     }
-    q->quality = levels;
+    query->quality = levels;
     return true;
 }
 
 template <typename T>
-void get_release(T*& p)
+void get_release(T*& pointer)
 {
-    if (p) {
-        p->Release();
-        p = nullptr;
+    if (pointer) {
+        pointer->Release();
+        pointer = nullptr;
     }
 }
 

@@ -126,7 +126,7 @@ public:
     // 0x004BF7F0 (vtable slot 1): drawn. No emission.
     void render() override;
     // (Inline in Render.)
-    static uint32_t fine_colour(uint32_t from, uint32_t to, double t);
+    static uint32_t fine_colour(uint32_t from, uint32_t to, double blend);
 };
 
 // The "line" type (0x148 bytes, vtable 0x0064A570; the engine's class 0x00499B80 -
@@ -194,7 +194,7 @@ public:
     // 0x004C1860 (vtable slot 1): drawn. No emission.
     void render() override;
     // (Inline in Render.)
-    uint32_t head_colour(uint32_t from, uint32_t to, float t);
+    uint32_t head_colour(uint32_t from, uint32_t to, float blend);
 };
 
 // The "shaded" type (0x138 bytes, vtable 0x0064A5AC; the engine's class 0x0049B660 - destructor body

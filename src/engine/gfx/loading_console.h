@@ -114,7 +114,7 @@ public:
     // Add `text` at `time`; the same text as the newest line counts that one up instead.
     void append_one(const char* text, double time);
     // The newest `n` lines' text ("[  1.2] text (x3)"), oldest first.
-    [[nodiscard]] std::vector<std::string> final_one(size_t n) const;
+    [[nodiscard]] std::vector<std::string> final_one(size_t line_count) const;
 };
 
 } // namespace gfx::loading_console

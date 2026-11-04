@@ -75,10 +75,10 @@ float two_pi() { return frontend::kTwoPi; }
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The base controller.
-void base_init(AnimDriver* c, Struct* params) { c->AnimDriver::configure_from_data(params); }
+void base_init(AnimDriver* driver, Struct* params) { driver->AnimDriver::configure_from_data(params); }
 // The object (the blend timeline's +0x64) and its skeleton (the Skeleton component's +0x18, or null).
-objects::GameEntity* object_of(AnimDriver* c) { return c->AnimDriver::fetch_subject(); }
-Rig* skeleton_of(AnimDriver* c) { return c->AnimDriver::fetch_rig(); }
+objects::GameEntity* object_of(AnimDriver* driver) { return driver->AnimDriver::fetch_subject(); }
+Rig* skeleton_of(AnimDriver* driver) { return driver->AnimDriver::fetch_rig(); }
 // The object's anim set (the animation blender component's 0x00419AB0) and an animation's length in it.
 uint32_t current_anim_set(objects::GameEntity* object)
 {
@@ -87,13 +87,16 @@ uint32_t current_anim_set(objects::GameEntity* object)
 }
 
 // The timeline's pieces (thiscall, not rewritten yet).
-float get_step(AnimTimeline* t) { return static_cast<float>(t->next_time()); }
-void passed_events(AnimTimeline* t, float from, float to) { core::down_cast<AnimTrack>(t)->fire_events(from, to); }
-void play_anim(AnimTimeline* t, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
+float get_step(AnimTimeline* timeline) { return static_cast<float>(timeline->next_time()); }
+void passed_events(AnimTimeline* timeline, float from, float to)
 {
-    t->play_anim(anim, start, end, loop_type, blend, speed);
+    core::down_cast<AnimTrack>(timeline)->fire_events(from, to);
 }
-bool is_accomplished(AnimTimeline* t) { return t->is_accomplished(); }
+void play_anim(AnimTimeline* timeline, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
+{
+    timeline->play_anim(anim, start, end, loop_type, blend, speed);
+}
+bool is_accomplished(AnimTimeline* timeline) { return timeline->is_accomplished(); }
 
 // Frame sources (0x0048BFC0 makes one, 0x0048BFD0 frees it) and their frames.
 gsl::owner<void*> new_source() { return render::create_frame_source(); }
@@ -150,15 +153,15 @@ struct PlayParams {
 PlayParams read_play_params(Struct* params)
 {
     // (the anim name goes in the argument's own slot: the params' address if missing - none here)
-    PlayParams p;
-    p.anim = 0;
-    params->read_hash_value(kAnimName, &p.anim, 1);
-    params->fetch_float(kStartTime, &p.start, 1);
-    params->fetch_float(kEndTime, &p.end, 1);
-    params->fetch_int_value(kRepeatMode, &p.loop_type_, 1);
-    params->fetch_float(kBlendPeriod, &p.blend, 1);
-    params->fetch_float(kSpeed, &p.speed, 1);
-    return p;
+    PlayParams play;
+    play.anim = 0;
+    params->read_hash_value(kAnimName, &play.anim, 1);
+    params->fetch_float(kStartTime, &play.start, 1);
+    params->fetch_float(kEndTime, &play.end, 1);
+    params->fetch_int_value(kRepeatMode, &play.loop_type_, 1);
+    params->fetch_float(kBlendPeriod, &play.blend, 1);
+    params->fetch_float(kSpeed, &play.speed, 1);
+    return play;
 }
 
 
@@ -218,9 +221,9 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 {
     switch (name) {
     case kPlayAnim: {
-        const PlayParams p = read_play_params(params);
-        play_anim(timeline_ptr(), p.anim, p.start, p.end, p.loop_type_, p.blend, p.speed);
-        frame_source_ = logged_source_frame_of(blend_source_, anim_set_, p.anim);
+        const PlayParams play = read_play_params(params);
+        play_anim(timeline_ptr(), play.anim, play.start, play.end, play.loop_type_, play.blend, play.speed);
+        frame_source_ = logged_source_frame_of(blend_source_, anim_set_, play.anim);
         frame_index_ = frame_index(frame_source_);
         return 1;
     }
@@ -388,9 +391,9 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
 {
     switch (name) {
     case kPlayAnim: {
-        const PlayParams p = read_play_params(params);
-        play_anim(timeline_ptr(), p.anim, p.start, p.end, p.loop_type_, p.blend, p.speed);
-        frame_source_ = source_frame_of(blend_source_, anim_set_ + p.anim);
+        const PlayParams play = read_play_params(params);
+        play_anim(timeline_ptr(), play.anim, play.start, play.end, play.loop_type_, play.blend, play.speed);
+        frame_source_ = source_frame_of(blend_source_, anim_set_ + play.anim);
         return 1;
     }
     case kInvalidateCache:
@@ -404,9 +407,9 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
             } else if (fraction > 1.0F) {
                 fraction = 1.0F;
             }
-            const AnimTimeline* t = timeline_ptr();
-            aim_point_ =
-                static_cast<float>(((static_cast<double>(t->finish()) - t->outset()) * fraction) + t->outset());
+            const AnimTimeline* timeline = timeline_ptr();
+            aim_point_ = static_cast<float>(
+                ((static_cast<double>(timeline->finish()) - timeline->outset()) * fraction) + timeline->outset());
         }
         return 1;
     }
@@ -437,31 +440,31 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
 // second's amplitude around amp_a, and the second (K2) the time around the target; within the timeline.
 float WobbleDriver::wobble_time()
 {
-    const AnimTimeline* t = timeline_ptr();
+    const AnimTimeline* timeline = timeline_ptr();
     float target = aim_point_;
     const float k1 = k1_;
     const float k2 = k2_;
-    const double scale =
-        (std::fabs(target - ((static_cast<double>(t->outset()) + t->finish()) * 0.5)) *
-         ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish()) - t->outset()) * 0.5))) +
-        1.0;
-    auto a = static_cast<float>(scale * amp_a_);
-    auto b = static_cast<float>(scale * amp_b_);
-    if (static_cast<double>(target) - a - b < t->outset()) {
-        target = static_cast<float>(static_cast<double>(b) + a + t->outset());
+    const double scale = (std::fabs(target - ((static_cast<double>(timeline->outset()) + timeline->finish()) * 0.5)) *
+                          ((static_cast<double>(spaz_factor_) - 1.0) /
+                           ((static_cast<double>(timeline->finish()) - timeline->outset()) * 0.5))) +
+                         1.0;
+    auto amplitude_a = static_cast<float>(scale * amp_a_);
+    auto amplitude_b = static_cast<float>(scale * amp_b_);
+    if (static_cast<double>(target) - amplitude_a - amplitude_b < timeline->outset()) {
+        target = static_cast<float>(static_cast<double>(amplitude_b) + amplitude_a + timeline->outset());
     }
-    if (static_cast<double>(target) + b + a > t->finish()) {
-        target = static_cast<float>(static_cast<double>(t->finish()) - a - b);
+    if (static_cast<double>(target) + amplitude_b + amplitude_a > timeline->finish()) {
+        target = static_cast<float>(static_cast<double>(timeline->finish()) - amplitude_a - amplitude_b);
     }
 
     double cycles = static_cast<double>(get_clock()) * k1;
     double phase = (cycles - (static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen)) * two_pi();
-    auto amplitude = static_cast<float>((std::sin(phase) * b) + a);
+    auto amplitude = static_cast<float>((std::sin(phase) * amplitude_b) + amplitude_a);
     cycles = static_cast<double>(get_clock()) * k2;
     phase = (cycles - (static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen)) * two_pi();
     double time = (std::sin(phase) * amplitude) + target;
-    time = std::max<double>(time, t->outset());
-    time = std::min<double>(time, t->finish());
+    time = std::max<double>(time, timeline->outset());
+    time = std::min<double>(time, timeline->finish());
     return static_cast<float>(time);
 }
 

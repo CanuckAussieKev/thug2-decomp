@@ -113,8 +113,8 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
     const uint32_t made = flag_bits() | 1;
     flag_bits() = made;
     core::at(material_.pass_flags(), 0) = 0;
-    const int r = get_rand();
-    material_.set_checksum(static_cast<uint32_t>(r * get_rand())); // (a sort key)
+    const int random_value = get_rand();
+    material_.set_checksum(static_cast<uint32_t>(random_value * get_rand())); // (a sort key)
     material_.set_pass_count(1);
     core::at(material_.textures(), 0) = nullptr;
     material_.set_two_sided(1);
@@ -141,8 +141,8 @@ void PcPrimitive::set_texture(const BitmapTexture* texture, int /*unused1*/, int
 {
     TextureImage* pc_texture = image_of(texture);
     core::at(material_.pass_flags(), 0) = pc_texture ? 4 : 0;
-    const int r = get_rand();
-    material_.set_checksum(static_cast<uint32_t>(r * get_rand()));
+    const int random_value = get_rand();
+    material_.set_checksum(static_cast<uint32_t>(random_value * get_rand()));
     material_.set_pass_count(1);
     core::at(material_.textures(), 0) = pc_texture;
     material_.set_two_sided(1);

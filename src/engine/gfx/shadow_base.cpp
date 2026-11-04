@@ -147,8 +147,11 @@ ShadowCompanionFn& shadow_companion()
 
 // D3DX (linked library code; stdcall).
 void matrix_multiply(float* out, const float* a, const float* b) { d3dx::matrix_multiply(out, a, b); }
-void matrix_inverse(float* out, float* determinant, const float* m) { d3dx::matrix_inverse(out, determinant, m); }
-void transform_coord(float* out, const float* v, const void* m) { d3dx::vec3_transform_coord(out, v, m); }
+void matrix_inverse(float* out, float* determinant, const float* matrix)
+{
+    d3dx::matrix_inverse(out, determinant, matrix);
+}
+void transform_coord(float* out, const float* v, const void* matrix) { d3dx::vec3_transform_coord(out, v, matrix); }
 void matrix_look_at(float* out, const float* eye, const float* at, const float* up)
 {
     d3dx::matrix_look_at_rh(out, eye, at, up);
@@ -168,10 +171,10 @@ void draw_mesh(void* mesh, int flags)
 // A scene mesh's draw (thiscall).
 void draw_scene_mesh(void* mesh) { static_cast<MeshRef*>(mesh)->render(); }
 
-void get_identity(std::span<float, maths::kMatrixFloats> m)
+void get_identity(std::span<float, maths::kMatrixFloats> matrix)
 {
     for (int i = 0; i < maths::kMatrixFloats; ++i) {
-        core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
+        core::at(matrix, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
     }
 }
 
@@ -250,15 +253,15 @@ void shadow_texture_matrix(const float* a, const float* b, float* out, const flo
     core::at(scale_bias, maths::kMatTx) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 1)) + 1.0) * kHalf);
     core::at(scale_bias, maths::kMatTy) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 0)) + 1.0) * kHalf);
     core::at(scale_bias, maths::kMatTw) = 1.0F;
-    std::array<float, maths::kMatrixFloats> m{};
+    std::array<float, maths::kMatrixFloats> matrix{};
     if (first) {
-        std::memcpy(m.data(), first, sizeof(m));
-        matrix_multiply(m.data(), m.data(), a);
+        std::memcpy(matrix.data(), first, sizeof(matrix));
+        matrix_multiply(matrix.data(), matrix.data(), a);
     } else {
-        std::memcpy(m.data(), a, sizeof(m));
+        std::memcpy(matrix.data(), a, sizeof(matrix));
     }
-    matrix_multiply(m.data(), m.data(), b);
-    matrix_multiply(out, m.data(), scale_bias.data());
+    matrix_multiply(matrix.data(), matrix.data(), b);
+    matrix_multiply(out, matrix.data(), scale_bias.data());
 }
 
 // 0x004DB9D0

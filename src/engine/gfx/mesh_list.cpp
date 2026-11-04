@@ -249,18 +249,18 @@ void SceneRef::detach_meshes(std::span<MeshRef* const> list)
     }
     // Close each gap. (A null left in the list before is taken as one; if none is found it never ends.)
     while (removed > 0) {
-        const int n = mesh_count_;
-        int j = 0;
-        while (j < mesh_count_ && (core::at(mesh_run(), j) != nullptr)) {
-            ++j;
+        const int count = mesh_count_;
+        int index = 0;
+        while (index < mesh_count_ && (core::at(mesh_run(), index) != nullptr)) {
+            ++index;
         }
-        if (j >= mesh_count_) {
+        if (index >= mesh_count_) {
             continue;
         }
-        if (j < n - 1) {
-            std::memmove(static_cast<void*>(mesh_run().subspan(static_cast<size_t>(j)).data()),
-                         static_cast<const void*>(mesh_run().subspan(static_cast<size_t>(j) + 1).data()),
-                         (n - j - 1) * sizeof(MeshRef*));
+        if (index < count - 1) {
+            std::memmove(static_cast<void*>(mesh_run().subspan(static_cast<size_t>(index)).data()),
+                         static_cast<const void*>(mesh_run().subspan(static_cast<size_t>(index) + 1).data()),
+                         (count - index - 1) * sizeof(MeshRef*));
         }
         --removed;
         --mesh_count_;
@@ -318,20 +318,20 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         if (!mesh) {
             continue;
         }
-        const uint32_t a = record.mesh_and_index_ & 0xFFFF;
-        const uint32_t b = record.indices & 0xFFFF;
-        const uint32_t c = record.indices >> 16;
+        const uint32_t index_a = record.mesh_and_index_ & 0xFFFF;
+        const uint32_t index_b = record.indices & 0xFFFF;
+        const uint32_t index_c = record.indices >> 16;
         const std::span<uint16_t> indices(lock_indices(index_buffer_of(mesh)), get_index_count(mesh));
-        uint32_t i = record.strip_index_;
-        uint32_t first = core::at(indices, i) & kIndexMask;
-        uint32_t second = core::at(indices, i + 1) & kIndexMask;
-        for (i += 2; i < get_index_count(mesh); ++i) {
-            const uint32_t third = core::at(indices, i) & 0x7FFF;
-            if (first == a && second == c && third == b) {
+        uint32_t position = record.strip_index_;
+        uint32_t first = core::at(indices, position) & kIndexMask;
+        uint32_t second = core::at(indices, position + 1) & kIndexMask;
+        for (position += 2; position < get_index_count(mesh); ++position) {
+            const uint32_t third = core::at(indices, position) & 0x7FFF;
+            if (first == index_a && second == index_c && third == index_b) {
                 if (mesh_index < kStripBreakLimit) {
                     ++core::at(breaks, mesh_index);
                 }
-                core::at(indices, i - 1) |= kIndexRepeatBit;
+                core::at(indices, position - 1) |= kIndexRepeatBit;
                 break;
             }
             first = second;
@@ -345,18 +345,18 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
             continue;
         }
         const std::span<const uint16_t> indices(lock_indices(index_buffer_of(mesh)), get_index_count(mesh));
-        uint32_t n = 0;
+        uint32_t written = 0;
         for (uint32_t i = 0; i < get_index_count(mesh); ++i) {
             const uint16_t value = core::at(indices, i) & 0x7FFF;
-            core::at(tri_strip_scratch(), n++) = value;
+            core::at(tri_strip_scratch(), written++) = value;
             if ((core::at(indices, i) & kIndexRepeatBit) != 0) { // repeated: a strip break
-                core::at(tri_strip_scratch(), n++) = value;
-                core::at(tri_strip_scratch(), n++) = value;
+                core::at(tri_strip_scratch(), written++) = value;
+                core::at(tri_strip_scratch(), written++) = value;
             }
         }
         release_index_buffer(index_buffer_of(mesh));
-        get_index_count(mesh) = static_cast<uint16_t>(n);
-        gsl::owner<IdxStore*> buffer = new_index_buffer(n * 2);
+        get_index_count(mesh) = static_cast<uint16_t>(written);
+        gsl::owner<IdxStore*> buffer = new_index_buffer(written * 2);
         index_buffer_of(mesh) = buffer;
         uint16_t* rebuilt = lock_indices(buffer);
         std::memcpy(rebuilt, tri_strip_scratch().data(), get_index_count(mesh) * 2);

@@ -402,7 +402,7 @@ public:
     // 0x00499EE0: the colour `t` of the way from `from` to `to` (RGBA bytes, each channel wrapping as a byte), its red,
     // green and blue then scaled by the colour scale times the brightness (clamped to 0-255; the blue's scale rounded
     // to a float first, as the original) - into *out, RGBA. Returns out.
-    uint32_t* lerp_colour(uint32_t* out, const colour::Bytes& from, const colour::Bytes& to, float t);
+    uint32_t* lerp_colour(uint32_t* out, const colour::Bytes& from, const colour::Bytes& to, float blend);
 };
 
 inline constexpr uint8_t kAllocAssertFlag{0};

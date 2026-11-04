@@ -174,7 +174,7 @@ uint32_t query_result(uint8_t /*unused*/)
     return render::occlusion_pixels();
 } // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
-void transform_in_place(maths::Vec4* v, const maths::Mat4* m) { v->multiply_by(*m); }
+void transform_in_place(maths::Vec4* v, const maths::Mat4* matrix) { v->multiply_by(*matrix); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

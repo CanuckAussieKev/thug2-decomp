@@ -143,7 +143,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
 void ModelParticles::render()
 {
     const std::span<RenderModel*> models(model_list_, model_count_);
-    auto model = [models](unsigned int i) { return core::at(models, i); };
+    auto model = [models](unsigned int index) { return core::at(models, index); };
     const int count = particle_count();
     if (count == 0) {
         for (unsigned int i = 0; i < drawn_models_; ++i) {
@@ -156,9 +156,9 @@ void ModelParticles::render()
         model(i)->change_live(0);
     }
     const std::span<maths::QuatRotation> rotations(static_cast<maths::QuatRotation*>(unknown_13c_ptr_), model_count_);
-    for (int p = 0; p < count; ++p) {
-        const FlexibleParticle& particle = core::at(particle_list(), p);
-        model(static_cast<unsigned int>(p))->change_live(1);
+    for (int particle_index = 0; particle_index < count; ++particle_index) {
+        const FlexibleParticle& particle = core::at(particle_list(), particle_index);
+        model(static_cast<unsigned int>(particle_index))->change_live(1);
         float life = particle.age / particle.lifetime;
         std::span<const uint32_t> from;
         std::span<const uint32_t> to;
@@ -177,43 +177,44 @@ void ModelParticles::render()
         }
         uint32_t colour = 0;
         colour = *lerp_colour(&colour, colour::bytes_of(core::at(from, 0)), colour::bytes_of(core::at(to, 0)), life);
-        model(static_cast<unsigned int>(p))
+        model(static_cast<unsigned int>(particle_index))
             ->change_tint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> kBitsPerByte),
-                          static_cast<uint8_t>(colour >> kBitsPerTwoBytes), static_cast<uint8_t>(colour >> kBitsPerThreeBytes));
+                          static_cast<uint8_t>(colour >> kBitsPerTwoBytes),
+                          static_cast<uint8_t>(colour >> kBitsPerThreeBytes));
         // the rotation moved by the velocity (w by its x too), then normalised
-        maths::QuatRotation& q = core::at(rotations, p);
-        q.x = static_cast<float>(static_cast<double>(core::at(particle.velocity, 0)) + q.x);
-        q.y = static_cast<float>(static_cast<double>(core::at(particle.velocity, 1)) + q.y);
-        q.z = static_cast<float>(static_cast<double>(core::at(particle.velocity, 2)) + q.z);
-        q.w = static_cast<float>(static_cast<double>(core::at(particle.velocity, 0)) + q.w);
-        const double x = q.x;
-        const double y = q.y;
-        const double z = q.z;
-        const double w = q.w;
+        maths::QuatRotation& rotation = core::at(rotations, particle_index);
+        rotation.x = static_cast<float>(static_cast<double>(core::at(particle.velocity, 0)) + rotation.x);
+        rotation.y = static_cast<float>(static_cast<double>(core::at(particle.velocity, 1)) + rotation.y);
+        rotation.z = static_cast<float>(static_cast<double>(core::at(particle.velocity, 2)) + rotation.z);
+        rotation.w = static_cast<float>(static_cast<double>(core::at(particle.velocity, 0)) + rotation.w);
+        const double x = rotation.x;
+        const double y = rotation.y;
+        const double z = rotation.z;
+        const double w = rotation.w;
         const double length = std::sqrt((((x * x) + (y * y)) + (z * z)) + (w * w));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
-            q.x = static_cast<float>(inverse * q.x);
-            q.y = static_cast<float>(inverse * q.y);
-            q.z = static_cast<float>(inverse * q.z);
-            q.w = static_cast<float>(inverse * q.w);
+            rotation.x = static_cast<float>(inverse * rotation.x);
+            rotation.y = static_cast<float>(inverse * rotation.y);
+            rotation.z = static_cast<float>(inverse * rotation.z);
+            rotation.w = static_cast<float>(inverse * rotation.w);
         }
         maths::Mat4 matrix;
-        for (int r = 0; r < 4; ++r) {
-            for (int c = 0; c < 4; ++c) {
-                core::at(matrix.row, r)[c] = r == c ? 1.0F : 0.0F;
+        for (int row_index = 0; row_index < 4; ++row_index) {
+            for (int column = 0; column < 4; ++column) {
+                core::at(matrix.row, row_index)[column] = row_index == column ? 1.0F : 0.0F;
             }
         }
-        q.fetch_mat(&matrix);
-        const std::span<const float, 3> position = place_at(position_array(), max_particles(), 0, p);
+        rotation.fetch_mat(&matrix);
+        const std::span<const float, 3> position = place_at(position_array(), max_particles(), 0, particle_index);
         core::at(matrix.row,
                  3) = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 1.0F};
-        const double shrink = static_cast<double>(p % 4) * kSizeStep;
+        const double shrink = static_cast<double>(particle_index % 4) * kSizeStep;
         const double size = static_cast<double>(core::at(particle.start_size_, 0)) - shrink;
         for (int k = 0; k < 3; ++k) {
             core::at(matrix.row, k)[k] = static_cast<float>(size * core::at(matrix.row, k)[k]);
         }
-        model(static_cast<unsigned int>(p))->render(&matrix, true, nullptr);
+        model(static_cast<unsigned int>(particle_index))->render(&matrix, true, nullptr);
     }
 }
 

@@ -131,7 +131,10 @@ bool use_button_glyph(int button)
 }
 
 // RGBA bytes (as stored) -> the vertex's ARGB: red and blue swap.
-uint32_t get_vertex_color(uint32_t c) { return (c & kByteMask) << kByte2Shift | (c & kGreenAlphaMask) | (c >> kByte2Shift & kByteMask); }
+uint32_t get_vertex_color(uint32_t colour)
+{
+    return (colour & kByteMask) << kByte2Shift | (colour & kGreenAlphaMask) | (colour >> kByte2Shift & kByteMask);
+}
 
 // The CRT's _ftol (0x006236FC): truncation; the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -142,31 +145,31 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 void TypefaceData::read_string_param(const char* text, maths::Size* size)
 {
     int total = 0;
-    core::CStringCursor p(text);
+    core::CStringCursor cursor(text);
     for (;;) {
         const Char* glyph = nullptr; // set by an escape that draws a glyph in place of the next character
         const TypefaceData* font = this;
         bool counted = true;
         bool done = false;
-        while (*p == '\\' && !done) {
-            ++p;
-            const char tag = *p;
+        while (*cursor == '\\' && !done) {
+            ++cursor;
+            const char tag = *cursor;
             if (tag == '\\') {
                 break; // "\\": the second backslash is a character
             }
             switch (tag) {
             case 'S':
             case 's':
-                ++p;
-                glyph = &this->glyph(core::at(special_map_, text::hex_digit_value(*p)));
+                ++cursor;
+                glyph = &this->glyph(core::at(special_map_, text::hex_digit_value(*cursor)));
                 done = true;
                 break;
             case 'B':
             case 'b':
             case 'M':
             case 'm': {
-                ++p;
-                const int button = glyph_for_button_tag({.tag = tag, .digit = *p});
+                ++cursor;
+                const int button = glyph_for_button_tag({.tag = tag, .digit = *cursor});
                 if (use_button_glyph(button)) {
                     font = screen_2d().glyph_typeface();
                     glyph = &font->glyph(core::at(font->special_map_, button));
@@ -185,46 +188,46 @@ void TypefaceData::read_string_param(const char* text, maths::Size* size)
             case 'c':
             case 'U':
             case 'u':
-                p += 2;
+                cursor += 2;
                 break;
             case 'L': // (only capital: "\l" is drawn as an l)
-                ++p;
+                ++cursor;
                 break;
             default:
                 break; // the letter is a character (the table's '\\' case can't be reached)
             }
         }
-        if (*p == '\0') {
+        if (*cursor == '\0') {
             break;
         }
         if (counted) {
             int w = 0;
             if (glyph) {
                 w = glyph->w;
-            } else if (*p == ' ') {
+            } else if (*cursor == ' ') {
                 w = blank_gap_;
             } else {
-                w = font->glyph(core::at(font->map_, static_cast<uint8_t>(*p))).w;
+                w = font->glyph(core::at(font->map_, static_cast<uint8_t>(*cursor))).w;
             }
             total += w + glyph_gap_;
         }
-        ++p;
+        ++cursor;
     }
     size->width = static_cast<float>(total);
     size->height = static_cast<float>(static_cast<double>(height_));
 }
 
 // 0x004CFB20
-void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
+void GlyphRun::draw_key_char(char character, float* pen_x, float pen_y)
 {
     const double scale_x = renderer().display_factor_x();
     const double scale_y = renderer().display_factor_y();
     auto spacing = static_cast<float>(font->glyph_gap() * static_cast<double>(xscale));
-    if (c == ' ') {
+    if (character == ' ') {
         *pen_x = static_cast<float>((((font->blank_gap() * static_cast<double>(xscale)) + spacing) * scale_x) + *pen_x);
         return;
     }
-    const Char* glyph = &font->glyph(core::at(font->map(), static_cast<uint8_t>(c)));
+    const Char* glyph = &font->glyph(core::at(font->map(), static_cast<uint8_t>(character)));
     // (x87: top and bottom stay at double precision until stored)
     const double top = (static_cast<double>(font->base() - glyph->baseline) * yscale * scale_y) + pen_y;
     const float left = *pen_x;
@@ -289,7 +292,7 @@ void GlyphRun::draw()
     const float sin_a = std::sin(angle);
     uint32_t vertex_color = get_vertex_color(color);
     int effect = 0; // byte offset of this character's effect record
-    core::CStringCursor p(text);
+    core::CStringCursor cursor(text);
     // (the effects array: one record per character of the string's buffer)
     const std::span<const TextEffect> effect_records = effects ? std::span<const TextEffect>(effects, kCharEffects) : std::span<const TextEffect>();
     for (;;) {
@@ -298,34 +301,34 @@ void GlyphRun::draw()
         const Char* glyph = nullptr;
         bool drawn = true;
         bool done = false;
-        while (*p == '\\' && !done) {
-            ++p;
-            const char tag = *p;
+        while (*cursor == '\\' && !done) {
+            ++cursor;
+            const char tag = *cursor;
             switch (tag) {
             case '\\':
                 done = true; // the second backslash is drawn
                 break;
             case 'C':
             case 'c': {
-                ++p;
-                const int index = text::hex_digit_value(*p);
-                ++p;
+                ++cursor;
+                const int index = text::hex_digit_value(*cursor);
+                ++cursor;
                 // colour 0, or any colour while the text's is fixed, is the text's own
                 vertex_color = get_vertex_color(index != 0 && !fixed_color_ ? font->get_color(index) : color);
                 break;
             }
             case 'S':
             case 's':
-                ++p;
-                glyph = &font->glyph(core::at(font->special_map(), text::hex_digit_value(*p)));
+                ++cursor;
+                glyph = &font->glyph(core::at(font->special_map(), text::hex_digit_value(*cursor)));
                 done = true;
                 break;
             case 'B':
             case 'b':
             case 'M':
             case 'm': {
-                ++p;
-                const int button = glyph_for_button_tag({.tag = tag, .digit = *p});
+                ++cursor;
+                const int button = glyph_for_button_tag({.tag = tag, .digit = *cursor});
                 if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
                     TypefaceData* buttons = screen_2d().glyph_typeface();
@@ -348,45 +351,47 @@ void GlyphRun::draw()
                 break;
             }
             case 'L': // (only capital: "\l" is drawn as an l)
-                ++p;
+                ++cursor;
                 break;
             case 'U':
             case 'u':
-                p += 2;
+                cursor += 2;
                 break;
             default:
                 break; // the letter is drawn
             }
         }
-        if (*p == '\0') {
+        if (*cursor == '\0') {
             return;
         }
         if (drawn) {
-            if (*p == ' ' && !glyph) {
+            if (*cursor == ' ' && !glyph) {
                 pos_x = static_cast<float>(((static_cast<double>(blank_gap) + glyph_gap) * scale_x) + pos_x);
-                ++p;
+                ++cursor;
                 effect += sizeof(TextEffect);
                 continue;
             }
             if (!glyph) {
-                glyph = &char_font->glyph(core::at(char_font->map(), static_cast<uint8_t>(*p)));
+                glyph = &char_font->glyph(core::at(char_font->map(), static_cast<uint8_t>(*cursor)));
             }
             auto top = static_cast<float>(
                 (static_cast<double>(char_font->base() - glyph->baseline) * yscale * scale_y) + pos_y);
-            const TextEffect* e =
+            const TextEffect* text_effect =
                 effects ? &core::at(effect_records, effect / static_cast<int>(sizeof(TextEffect))) : nullptr;
             float right = 0.0F;
             float bottom = 0.0F;
-            if (e) {
-                const int w = ftol(e->xscale() * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
-                right = static_cast<float>(static_cast<double>(w) + e->x() + pos_x);
-                const int h = ftol(e->yscale_value() * static_cast<double>(kEffectScale) * glyph->h * yscale * scale_y);
-                bottom = static_cast<float>(static_cast<double>(h) + e->y() + top);
+            if (text_effect) {
+                const int w =
+                    ftol(text_effect->xscale() * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
+                right = static_cast<float>(static_cast<double>(w) + text_effect->x() + pos_x);
+                const int glyph_height =
+                    ftol(text_effect->yscale_value() * static_cast<double>(kEffectScale) * glyph->h * yscale * scale_y);
+                bottom = static_cast<float>(static_cast<double>(glyph_height) + text_effect->y() + top);
             } else {
                 const int w = ftol(static_cast<double>(glyph->w) * xscale * scale_x);
                 right = static_cast<float>(static_cast<double>(w) + pos_x);
-                const int h = ftol(static_cast<double>(glyph->h) * yscale * scale_y);
-                bottom = static_cast<float>(static_cast<double>(h) + top);
+                const int glyph_height = ftol(static_cast<double>(glyph->h) * yscale * scale_y);
+                bottom = static_cast<float>(static_cast<double>(glyph_height) + top);
             }
 
             // The corners, relative to the pivot (whole pixels), rotated by the text's angle. The left and top
@@ -395,26 +400,26 @@ void GlyphRun::draw()
             const int top_rel = ftol(static_cast<double>(top) - pivot_yi);
             const int pivot_xi = ftol(pivot_screen_x);
             const int left_rel = ftol(static_cast<double>(pos_x) - pivot_xi);
-            double l = static_cast<float>(left_rel);
-            const double t = static_cast<float>(top_rel);
-            int x0 = ftol((l * cos_a) - (t * sin_a)) + pivot_xi; // left, top
-            int y0 = ftol((t * cos_a) + (l * sin_a)) + pivot_yi;
-            const double r = ftol(static_cast<double>(right) - pivot_xi);
-            int x1 = ftol((r * cos_a) - (t * sin_a)) + pivot_xi; // right, top
-            int y1 = ftol((t * cos_a) + (r * sin_a)) + pivot_yi;
-            const double b = ftol(static_cast<double>(bottom) - pivot_yi);
-            l = left_rel;
-            int x2 = ftol((l * cos_a) - (b * sin_a)) + pivot_xi; // left, bottom
-            int y2 = ftol((b * cos_a) + (l * sin_a)) + pivot_yi;
-            int x3 = ftol((r * cos_a) - (b * sin_a)) + pivot_xi; // right, bottom
-            int y3 = ftol((b * cos_a) + (r * sin_a)) + pivot_yi;
+            double rot_left = static_cast<float>(left_rel);
+            const double rot_top = static_cast<float>(top_rel);
+            int x0 = ftol((rot_left * cos_a) - (rot_top * sin_a)) + pivot_xi; // left, top
+            int y0 = ftol((rot_top * cos_a) + (rot_left * sin_a)) + pivot_yi;
+            const double rot_right = ftol(static_cast<double>(right) - pivot_xi);
+            int x1 = ftol((rot_right * cos_a) - (rot_top * sin_a)) + pivot_xi; // right, top
+            int y1 = ftol((rot_top * cos_a) + (rot_right * sin_a)) + pivot_yi;
+            const double rot_bottom = ftol(static_cast<double>(bottom) - pivot_yi);
+            rot_left = left_rel;
+            int x2 = ftol((rot_left * cos_a) - (rot_bottom * sin_a)) + pivot_xi; // left, bottom
+            int y2 = ftol((rot_bottom * cos_a) + (rot_left * sin_a)) + pivot_yi;
+            int x3 = ftol((rot_right * cos_a) - (rot_bottom * sin_a)) + pivot_xi; // right, bottom
+            int y3 = ftol((rot_bottom * cos_a) + (rot_right * sin_a)) + pivot_yi;
 
-            if (e && e->rotation() != 0) {
+            if (text_effect && text_effect->rotation() != 0) {
                 // The character's own rotation about its centre - as the original computes it: the centre is
                 // negated and offset by the pivot's x on both axes, then turned by the text's angle, and the
                 // corners are turned by (angle - 90 degrees) mirrored. Kept as it is.
-                double a = e->rotation() * static_cast<double>(kEffectScale);
-                auto cos_r = static_cast<float>(std::cos(a));
+                double rotation_angle = text_effect->rotation() * static_cast<double>(kEffectScale);
+                auto cos_r = static_cast<float>(std::cos(rotation_angle));
                 const int cy = ftol((static_cast<double>(bottom) + top) * kMinusHalf);
                 const double oy = static_cast<float>(-pivot_xi - cy);
                 const int cx = ftol((static_cast<double>(right) + pos_x) * kMinusHalf);
@@ -424,8 +429,8 @@ void GlyphRun::draw()
                 auto turn = [&](int& px, int& py) {
                     auto dx = static_cast<float>(px - centre_x);
                     auto dy = static_cast<float>(py - centre_y);
-                    px = ftol((std::sin(a) * dx) - (static_cast<double>(dy) * cos_r)) + centre_x;
-                    py = ftol((std::sin(a) * dy) + (static_cast<double>(dx) * cos_r)) + centre_y;
+                    px = ftol((std::sin(rotation_angle) * dx) - (static_cast<double>(dy) * cos_r)) + centre_x;
+                    py = ftol((std::sin(rotation_angle) * dy) + (static_cast<double>(dx) * cos_r)) + centre_y;
                 };
                 turn(x0, y0);
                 turn(x1, y1);
@@ -433,7 +438,7 @@ void GlyphRun::draw()
                 turn(x3, y3);
             }
 
-            auto at = [](int i) { return static_cast<float>(i); };
+            auto at = [](int value) { return static_cast<float>(value); };
             v[0] = {
                 .x = at(x0), .y = at(y0), .z = z(), .rhw = 1.0F, .color = vertex_color, .u = glyph->u0, .v = glyph->v0};
             v[1] = {
@@ -453,7 +458,7 @@ void GlyphRun::draw()
                 open_sketch();
             }
         }
-        ++p;
+        ++cursor;
         effect += sizeof(TextEffect);
     }
 }
@@ -476,16 +481,16 @@ constexpr int kQuads = 0x100;
 // The loaded fonts (through TypefaceData::next).
 TypefaceData*& typeface_chain() { return text_state().typeface_head_; }
 
-uint16_t u16(const uint8_t* p)
+uint16_t u16(const uint8_t* bytes)
 {
     uint16_t value = 0;
-    std::memcpy(&value, p, sizeof(value));
+    std::memcpy(&value, bytes, sizeof(value));
     return value;
 }
-uint32_t get_u32(const uint8_t* p)
+uint32_t get_u32(const uint8_t* bytes)
 {
     uint32_t value = 0;
-    std::memcpy(&value, p, sizeof(value));
+    std::memcpy(&value, bytes, sizeof(value));
     return value;
 }
 
@@ -622,19 +627,19 @@ TypefaceData* TypefaceData::read_in(const char* name)
             font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
             const auto& codes = core::at(entries, i).codes;
             core::at(font->map_, core::at(codes, 0)) = static_cast<uint8_t>(i);
-            for (int c = 1; c < 4 && core::at(codes, c) != kUnusedCode; ++c) {
-                core::at(font->map_, core::at(codes, c)) = static_cast<uint8_t>(i);
+            for (int code_index = 1; code_index < 4 && core::at(codes, code_index) != kUnusedCode; ++code_index) {
+                core::at(font->map_, core::at(codes, code_index)) = static_cast<uint8_t>(i);
             }
         }
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
     if (core::at(font->special_map_, kSpecialGlyphSlot) != 0U) {
-        for (int c = 0; c < render::kGlyphMapEntries; ++c) {
-            if ((core::at(font->map_, c) == 0U) && c != 'A' && c != 'a') {
-                core::at(font->map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
+        for (int entry = 0; entry < render::kGlyphMapEntries; ++entry) {
+            if ((core::at(font->map_, entry) == 0U) && entry != 'A' && entry != 'a') {
+                core::at(font->map_, entry) = core::at(font->special_map_, kSpecialGlyphSlot);
             }
-            if (c < kSpecialGlyphSlot && (core::at(font->special_map_, c) == 0U)) {
-                core::at(font->special_map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
+            if (entry < kSpecialGlyphSlot && (core::at(font->special_map_, entry) == 0U)) {
+                core::at(font->special_map_, entry) = core::at(font->special_map_, kSpecialGlyphSlot);
             }
         }
     }
@@ -718,9 +723,9 @@ void TypefaceData::offload(TypefaceData* font)
     if (typeface_chain() == font) {
         typeface_chain() = font->next;
     } else {
-        for (TypefaceData* p = typeface_chain(); p->next; p = p->next) {
-            if (p->next == font) {
-                p->next = font->next;
+        for (TypefaceData* typeface = typeface_chain(); typeface->next; typeface = typeface->next) {
+            if (typeface->next == font) {
+                typeface->next = font->next;
                 break;
             }
         }

@@ -102,34 +102,36 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, Mater
         texture = image_of(entry);
     }
     void* memory = memory::alloc(sizeof(MaterialRef));
-    MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
-    Expects(m != nullptr);
-    core::at(m->pass_flags(), 0) = (texture ? 4 : 0) | kPassFlagLit;
+    MaterialRef* material = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
+    Expects(material != nullptr);
+    core::at(material->pass_flags(), 0) = (texture ? 4 : 0) | kPassFlagLit;
     const int first = get_rand();
-    m->set_checksum(static_cast<uint32_t>(first * get_rand())); // the sort key
-    m->set_pass_count(1);                                      // one pass
-    core::at(m->textures(), 0) = texture;
-    core::at(m->blend_modes(), 0) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << kAlphaShift;
-    core::at(core::at(m->pass_color(), 0), 0) = kPassGrey; // the colour
-    core::at(core::at(m->pass_color(), 0), 1) = kPassGrey;
-    core::at(core::at(m->pass_color(), 0), 2) = kPassGrey;
-    core::at(core::at(m->pass_color(), 0), 3) = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / kHalfByte)); // 0x0064A2FC
-    core::at(m->address_modes(), 0) = 0;
-    core::at(m->mip_lod_bias(), 0) = 0;
-    m->set_alpha_ref(1);
-    m->set_two_sided(1);
-    m->set_has_uv_wibble(false);
-    material_ = m;
-    const uint32_t mode = core::at(m->blend_modes(), 0) & 0xFFFFFF;
+    material->set_checksum(static_cast<uint32_t>(first * get_rand())); // the sort key
+    material->set_pass_count(1);                                       // one pass
+    core::at(material->textures(), 0) = texture;
+    core::at(material->blend_modes(), 0) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha)
+                                                                                      << kAlphaShift;
+    core::at(core::at(material->pass_color(), 0), 0) = kPassGrey; // the colour
+    core::at(core::at(material->pass_color(), 0), 1) = kPassGrey;
+    core::at(core::at(material->pass_color(), 0), 2) = kPassGrey;
+    core::at(core::at(material->pass_color(), 0), 3) =
+        static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / kHalfByte)); // 0x0064A2FC
+    core::at(material->address_modes(), 0) = 0;
+    core::at(material->mip_lod_bias(), 0) = 0;
+    material->set_alpha_ref(1);
+    material->set_two_sided(1);
+    material->set_has_uv_wibble(false);
+    material_ = material;
+    const uint32_t mode = core::at(material->blend_modes(), 0) & 0xFFFFFF;
     shader_ = core::at(pixel_shaders(), mode == kBlendModeBrighten || mode == kBlendModeFixBrighten ? kPixelShader944 : kPixelShader964);
 }
 
 // 0x004D9CD0
 SimpleMaterial::~SimpleMaterial()
 {
-    if (MaterialRef* m = material_) {
-        m->~MaterialRef();
-        memory::Hub::dealloc(m);
+    if (MaterialRef* material = material_) {
+        material->~MaterialRef();
+        memory::Hub::dealloc(material);
     }
 }
 

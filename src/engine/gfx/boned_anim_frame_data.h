@@ -86,15 +86,15 @@ void get_short_quat(const ShortKey* key, std::span<float, 4> out);
 void get_short_trans(const ShortKey* key, std::span<float, 4> out);
 // 0x00483B30 / 0x00483C40 / 0x00483E10 / 0x00484080 (cdecl): the value a fraction `t` of the way from key `a` to key
 // `b` (exactly 0 or 1: that key's own) - quaternions slerped (0x0047D470), translations lerped (0x0043D990).
-void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, float t, bool floats);
-void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, float t, bool floats);
-void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float t);
-void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float t);
+void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, float blend, bool floats);
+void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, float blend, bool floats);
+void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float blend);
+void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float blend);
 // 0x00483F10 (cdecl): between two float quaternion keys, linearly, normalised (a length of 0 taken as 0.00001);
 // pointing apart, `a` is first overwritten with -`b` (as the original - not -`a`).
-void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey* b, float t);
+void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey* b, float blend);
 // 0x00484170 (cdecl): between two float translation keys, linearly (w 1).
-void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const FloatKey* b, float t);
+void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const FloatKey* b, float blend);
 
 // A frame source (made by 0x0048BFC0 for an animation controller; the fields used here): where each bone's key
 // decompression got to, and which bones the skeleton's level of detail leaves out.
