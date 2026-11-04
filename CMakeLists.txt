@@ -167,9 +167,8 @@ add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 
 # --- The boundary layer (docs/architecture.md "Layers") ----------------------------------------------------------
 # The places where bytes come from outside: files on disk (formats), network messages (wire). Each is a static library
-# that depends only on the standard library and engine/core's leaf headers (ints.h, checksums.h); the game sees their
-# typed APIs. (GPU vertex data: src/gpu, part of the game target - it needs the Direct3D device; the platform APIs:
-# src/platform.)
+# that depends only on the standard library and thug2_base; the game sees their typed APIs. (GPU vertex data: src/gpu,
+# part of the game target - it needs the Direct3D device; the platform APIs: src/platform.)
 # --- Microsoft GSL 4.2.0 (MIT; THIRD_PARTY_NOTICES.md) -----------------------------------------------------------
 # The C++ Core Guidelines' support library, header-only: gsl::owner (the ownership mark), gsl::at (indexing checked
 # against the extent - an index out of range ends the game with a report instead of reading past), gsl::narrow.
@@ -191,11 +190,36 @@ target_include_directories(thug2_options INTERFACE src)
 # /w14062: an enumerator that a switch over its enum leaves out (a switch that lists every case has no default)
 target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
+# The base layer (src/base): the OS-free helpers every layer uses - checksums, printf-style formatting, text, checked
+# indexing, the enum and pointer helpers (base/core), the maths (base/maths), two containers (base/lists), the bit
+# stream and BPS patches (base/util). It includes nothing but the standard library and GSL (tools/layers.ts checks
+# it); the debugger output and error lines go to sinks the platform installs (base/core/dbg.h, log_sink.h).
+add_library(thug2_base STATIC
+    src/base/core/checksums.cpp
+    src/base/core/dbg.cpp
+    src/base/core/format.cpp
+    src/base/core/log_sink.cpp
+    src/base/core/single_instance.cpp
+    src/base/core/str.cpp
+    src/base/core/stubs.cpp
+    src/base/maths/mat4.cpp
+    src/base/maths/maths.cpp
+    src/base/maths/quat_rotation.cpp
+    src/base/maths/random.cpp
+    src/base/maths/rigidbody_math.cpp
+    src/base/maths/rotation_blend.cpp
+    src/base/maths/shape_tests.cpp
+    src/base/maths/vec4.cpp
+    src/base/maths/vector_rotate_z.cpp
+    src/base/maths/vector_transform.cpp
+    src/base/util/bitstream.cpp
+    src/base/util/bps.cpp
+)
+target_link_libraries(thug2_base PUBLIC thug2_options)
+
 # The file formats: readers and writers of the game's data files, saves and custom parks (round-trip checked by
 # thug2_format_check).
 add_library(thug2_formats STATIC
-    src/base/core/checksums.cpp
-    src/base/core/format.cpp
     src/formats/anim_format.cpp
     src/formats/bundle_format.cpp
     src/formats/collision_format.cpp
@@ -210,7 +234,7 @@ add_library(thug2_formats STATIC
     src/formats/texture_format.cpp
     src/formats/wave_format.cpp
 )
-target_link_libraries(thug2_formats PUBLIC thug2_options)
+target_link_libraries(thug2_formats PUBLIC thug2_base)
 
 # The network messages: the packet framing and every game message, byte-compatible with the original's peers.
 add_library(thug2_wire STATIC
@@ -233,8 +257,6 @@ add_executable(thug2 WIN32
     src/engine/assets/asset_types.cpp
     src/engine/assets/resource_registry.cpp
     src/engine/memory/arena_alloc.cpp
-    src/base/core/dbg.cpp
-    src/base/core/log_sink.cpp
     src/engine/util/lzss.cpp
     src/engine/memory/dump_text.cpp
     src/engine/memory/arena.cpp
@@ -243,10 +265,7 @@ add_executable(thug2 WIN32
     src/engine/memory/memory_sizes.cpp
     src/engine/memory/memory_report.cpp
     src/engine/memory/slab_bank.cpp
-    src/base/core/single_instance.cpp
-    src/base/core/stubs.cpp
     src/engine/memory/task_list.cpp
-    src/base/core/str.cpp
     src/engine/util/text_store.cpp
     src/engine/file/asset_bundle.cpp
     src/frontend/model_widget.cpp
@@ -752,9 +771,6 @@ add_executable(thug2 WIN32
     src/engine/objects/rigidbody_physics.cpp
     src/engine/objects/rigidbody_support.cpp
     src/engine/objects/rigidbody_contacts.cpp
-    src/base/maths/quat_rotation.cpp
-    src/base/maths/rigidbody_math.cpp
-    src/base/maths/vector_transform.cpp
     src/engine/objects/velocity_component.cpp
     src/engine/objects/vibration_component.cpp
     src/engine/objects/wait_and_die.cpp
@@ -888,7 +904,6 @@ add_executable(thug2 WIN32
     src/engine/gfx/model_utils.cpp
     src/game/skate/cas_options.cpp
     src/engine/gfx/bone_look_at.cpp
-    src/base/maths/vector_rotate_z.cpp
     src/engine/gfx/boned_anim_frame_data_pose.cpp
     src/engine/gfx/cag_cfuncs.cpp
     src/engine/objects/model_swap_cfuncs.cpp
@@ -914,14 +929,6 @@ add_executable(thug2 WIN32
     src/engine/script/cfuncs_render.cpp
     src/engine/script/cfuncs_polys.cpp
     src/engine/script/cfuncs_memory.cpp
-    src/base/maths/shape_tests.cpp
-    src/base/maths/maths.cpp
-    src/base/maths/mat4.cpp
-    src/base/maths/random.cpp
-    src/base/maths/rotation_blend.cpp
-    src/base/maths/vec4.cpp
-    src/base/util/bitstream.cpp
-    src/base/util/bps.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
 target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPUT_VERSION=0x0800)
@@ -938,7 +945,7 @@ target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (platform/platform_input.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
+target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md);
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
 target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
@@ -963,11 +970,10 @@ target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w1445
 # NOT ORIGINAL - thug2_maths_check.exe: the plain C++ that replaced the x87 inline assembly compared with that
 # assembly over many inputs, and maths::matrix_multiply with D3DX's matrix product (src/tests/maths_check.cpp; the
 # reference half needs MSVC for 32-bit x86).
-add_executable(thug2_maths_check src/tests/maths_check.cpp src/tests/maths_check_d3dx.cpp
-    src/base/maths/mat4.cpp src/base/maths/vec4.cpp src/base/maths/maths.cpp src/base/core/dbg.cpp)
+add_executable(thug2_maths_check src/tests/maths_check.cpp src/tests/maths_check_d3dx.cpp)
 target_include_directories(thug2_maths_check PRIVATE src)
 # (d3dx9: D3DX's matrix product, the reference for maths::matrix_multiply; its DLL next to the check)
-target_link_libraries(thug2_maths_check PRIVATE thug2_formats Microsoft.GSL::GSL d3dx9)
+target_link_libraries(thug2_maths_check PRIVATE thug2_base Microsoft.GSL::GSL d3dx9)
 add_custom_command(TARGET thug2_maths_check POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_maths_check>/d3dx9_43.dll")
 target_compile_options(thug2_maths_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
