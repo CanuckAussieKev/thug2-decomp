@@ -1,6 +1,7 @@
 // Shadows: see shadow_base.h.
 
 #include "engine/gfx/shadow_base.h"
+#include "gpu/d3d9_handles.h"
 #include "platform/d3dx.h"
 
 #include <windows.h>
@@ -327,7 +328,7 @@ void render_shadow_textures()
         if (!caster->model) {
             continue;
         }
-        renderer().d3d_device()->SetRenderTarget(0, caster->target->surface);
+        renderer().d3d_device()->SetRenderTarget(0, d3d9::object(caster->target->surface));
         renderer().d3d_device()->SetDepthStencilSurface(nullptr);
         renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
         set_view_and_projection(caster->view, caster->projection, 1);

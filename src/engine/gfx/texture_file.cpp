@@ -10,6 +10,7 @@
 #include <cstring>
 #include <span>
 
+#include "gpu/d3d9_handles.h"
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -73,7 +74,7 @@ void get_finish(TextureRef* texture)
     texture->depth = kTextureDepthBits;
     texture->unknownf_ = 0;
     texture->levels = 1;
-    texture->texture->UnlockRect(0);
+    d3d9::object(texture->texture)->UnlockRect(0);
 }
 
 // The buffer the stored texels are read into. Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled image's
@@ -149,10 +150,10 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
         gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
         renderer().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
-                                    (&hd->texture), nullptr);
+                                    d3d9::out(&hd->texture), nullptr);
         set_sizes(hd, header, false);
         D3DLOCKED_RECT locked;
-        hd->texture->LockRect(0, &locked, nullptr, 0);
+        d3d9::object(hd->texture)->LockRect(0, &locked, nullptr, 0);
         file::get_take_in(locked.pBits, static_cast<int>(hd_dxt_size(header)), 1, file);
         file::shut(file);
         get_finish(hd);
@@ -176,11 +177,11 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
         file::get_take_in(palette.data(), static_cast<int>(header.palette_size), 1, file);
     }
     renderer().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
-                                (&texture->texture), nullptr);
+                                d3d9::out(&texture->texture), nullptr);
     set_sizes(texture, header, plain);
     const uint32_t size = image_format::texel_size(header, plain);
     D3DLOCKED_RECT locked;
-    texture->texture->LockRect(0, &locked, nullptr, 0);
+    d3d9::object(texture->texture)->LockRect(0, &locked, nullptr, 0);
     if (plain && !palettized) {
         file::get_take_in(locked.pBits, static_cast<int>(size), 1, file);
     } else {
@@ -223,13 +224,13 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
         gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
         renderer().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
-                                    (&hd->texture), nullptr);
+                                    d3d9::out(&hd->texture), nullptr);
         if (!hd->texture) {
             return nullptr;
         }
         set_sizes(hd, header, false);
         D3DLOCKED_RECT locked;
-        hd->texture->LockRect(0, &locked, nullptr, 0);
+        d3d9::object(hd->texture)->LockRect(0, &locked, nullptr, 0);
         reader.bytes(locked.pBits, hd_dxt_size(header));
         get_finish(hd);
         apply_hd_scale(hd, header);
@@ -251,7 +252,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
         reader.bytes(palette.data(), image_format::kPaletteCapacity);
     }
     renderer().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
-                                (&texture->texture), nullptr);
+                                d3d9::out(&texture->texture), nullptr);
     if (!texture->texture) {
         return nullptr; // (the texture object stays made and listed)
     }
@@ -265,7 +266,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
         std::memset(std::span<uint8_t>(static_cast<uint8_t*>(into), size).subspan(available).data(), 0, size - available);
     };
     D3DLOCKED_RECT locked;
-    texture->texture->LockRect(0, &locked, nullptr, 0);
+    d3d9::object(texture->texture)->LockRect(0, &locked, nullptr, 0);
     if (plain && !palettized) {
         copy_texels(locked.pBits);
     } else {

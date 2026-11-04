@@ -2,6 +2,7 @@
 // double precision where it keeps values in registers, floats where it stores them.
 
 #include "engine/gfx/pc_texture.h"
+#include "gpu/d3d9_handles.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
 
@@ -274,7 +275,7 @@ bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_for
     const uint32_t new_checksum = texture_name.value();
     const TextureRef* old = get_texture();
     if (old && old->texture) { // (released, the old texture itself kept)
-        static_cast<IUnknown*>(old->texture)->Release();
+        static_cast<IUnknown*>(d3d9::object(old->texture))->Release();
     }
     void* memory = memory::alloc(sizeof(TextureRef));
     TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
@@ -308,7 +309,7 @@ bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_for
     default:
         break;
     }
-    auto** d3d = (&texture->texture);
+    IDirect3DTexture9** d3d = d3d9::out(&texture->texture);
     renderer().d3d_device()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
     D3DSURFACE_DESC desc;
     (*d3d)->GetLevelDesc(0, &desc);
@@ -323,11 +324,11 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
 {
     const auto* source = core::down_cast<const PcTexture>(source_texture);
     const TextureRef* from = source->get_texture();
-    auto** into = (&get_texture()->texture);
+    IDirect3DTexture9** into = d3d9::out(&get_texture()->texture);
     if (*into) {
         (*into)->Release();
     }
-    auto* from_texture = static_cast<IDirect3DTexture9*>(from->texture);
+    auto* from_texture = d3d9::object(from->texture);
     const DWORD levels = from_texture->GetLevelCount();
     D3DSURFACE_DESC desc;
     from_texture->GetLevelDesc(0, &desc);
@@ -336,7 +337,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
         crt::exit_fatal(0); // (the game's exit(), without the static owners' teardown)
     }
     for (DWORD level = 0; level < levels; ++level) {
-        static_cast<IDirect3DTexture9*>(from->texture)->GetLevelDesc(level, &desc);
+        d3d9::object(from->texture)->GetLevelDesc(level, &desc);
         uint32_t row_bytes = 0;
         uint32_t rows = desc.Height;
         if (desc.Format == D3DFMT_A8R8G8B8 || desc.Format == D3DFMT_X8R8G8B8) {
@@ -347,7 +348,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
         }
         D3DLOCKED_RECT from_rect;
         D3DLOCKED_RECT into_rect;
-        static_cast<IDirect3DTexture9*>(from->texture)->LockRect(level, &from_rect, nullptr, 0);
+        d3d9::object(from->texture)->LockRect(level, &from_rect, nullptr, 0);
         (*into)->LockRect(level, &into_rect, nullptr, 0);
         const std::span<uint8_t> write(static_cast<uint8_t*>(into_rect.pBits), static_cast<size_t>(into_rect.Pitch) * rows);
         const std::span<const uint8_t> read(static_cast<const uint8_t*>(from_rect.pBits),
@@ -359,7 +360,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
             write_at += into_rect.Pitch;
             read_at += from_rect.Pitch;
         }
-        static_cast<IDirect3DTexture9*>(from->texture)->UnlockRect(level);
+        d3d9::object(from->texture)->UnlockRect(level);
         (*into)->UnlockRect(level);
     }
     return true;
@@ -382,7 +383,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     edit->pixels = static_cast<uint32_t*>(memory::alloc(bytes));
     flag_bits() |= 1;
     const std::span<uint32_t> pixels(get_edit(this)->pixels, static_cast<size_t>(width) * height);
-    auto* d3d = texture->texture;
+    auto* d3d = d3d9::object(texture->texture);
     D3DSURFACE_DESC desc;
     d3d->GetLevelDesc(0, &desc);
     D3DLOCKED_RECT rect;
@@ -398,7 +399,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
             row -= width;
         }
     }
-    texture->texture->UnlockRect(0);
+    d3d9::object(texture->texture)->UnlockRect(0);
     if (keep_copy) {
         get_edit(this)->original = static_cast<uint32_t*>(memory::alloc(bytes));
         std::memcpy(get_edit(this)->original, get_edit(this)->pixels, bytes);
@@ -411,7 +412,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
         kept->image_width_ = static_cast<uint16_t>(width);
         kept->image_height_ = static_cast<uint16_t>(height);
         kept->depth = kDepth32;
-        auto** kept_d3d = (&kept->texture);
+        IDirect3DTexture9** kept_d3d = d3d9::out(&kept->texture);
         renderer().d3d_device()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
         (*kept_d3d)->GetLevelDesc(0, &desc);
         kept->height = static_cast<uint16_t>(desc.Height);
@@ -1313,7 +1314,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout({.compression = texture->unknownf_, .depth = texture->depth}, format);
         texture->height = std::max<uint16_t>(texture->height, 4);
-        auto** d3d = (&texture->texture);
+        IDirect3DTexture9** d3d = d3d9::out(&texture->texture);
         bool damaged = false;
         if (header.palette_size != 0U) {
             // Palettized: an A8R8G8B8 texture made, the palette and the levels read - and dropped (the texture's
@@ -1398,7 +1399,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
         texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout({.compression = static_cast<uint8_t>(header.compression), .depth = static_cast<uint8_t>(header.depth)}, format);
-        auto** d3d = (&texture->texture);
+        IDirect3DTexture9** d3d = d3d9::out(&texture->texture);
         renderer().d3d_device()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
                                     static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),
                                     D3DPOOL_MANAGED, d3d, nullptr);

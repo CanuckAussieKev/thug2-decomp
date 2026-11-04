@@ -1,6 +1,7 @@
 // Textures and the render target list: see bitmap_texture.h.
 
 #include "engine/gfx/bitmap_texture.h"
+#include "gpu/d3d9_handles.h"
 
 #include <windows.h>
 
@@ -23,7 +24,7 @@ constexpr int kSamplerStageCount = 8;
 
 namespace {
 
-IDirect3DTexture9* get_d3d(const TextureRef* texture_ref) { return texture_ref->texture; }
+IDirect3DTexture9* get_d3d(const TextureRef* texture_ref) { return d3d9::object(texture_ref->texture); }
 
 // The list (0x007CC254): doubly linked nodes.
 struct Elem {
@@ -76,7 +77,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
     renderer().d3d_device()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
-                                &texture, nullptr);
+                                d3d9::out(&texture), nullptr);
     for (uint32_t level = 0; level < levels; ++level) {
         D3DSURFACE_DESC level_desc;
         get_d3d(source)->GetLevelDesc(level, &level_desc);
@@ -134,7 +135,7 @@ TextureRef::~TextureRef()
 {
     unlist();
     if (surface) {
-        surface->Release();
+        d3d9::object(surface)->Release();
     }
     if (texture) {
         get_d3d(this)->Release();
@@ -178,8 +179,8 @@ bool TextureRef::create_render_target(maths::PixelSize size, uint8_t new_depth, 
     }
     const HRESULT result =
         renderer().d3d_device()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
-                                    &texture, nullptr);
-    get_d3d(this)->GetSurfaceLevel(0, &surface);
+                                    d3d9::out(&texture), nullptr);
+    get_d3d(this)->GetSurfaceLevel(0, d3d9::out(&surface));
     render_target_ = true;
     if (result != D3D_OK) {
         return false;
@@ -210,7 +211,7 @@ void release_render_target_textures()
         get_d3d(texture_ref)->Release();
         texture_ref->texture = nullptr;
         if (texture_ref->surface) {
-            texture_ref->surface->Release();
+            d3d9::object(texture_ref->surface)->Release();
         }
         texture_ref->surface = nullptr;
     }
@@ -225,9 +226,9 @@ void restore_render_target_textures()
             continue;
         }
         renderer().d3d_device()->CreateTexture(texture_ref->width, texture_ref->height, 1, D3DUSAGE_RENDERTARGET,
-                                               D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture_ref->texture, nullptr);
+                                               D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, d3d9::out(&texture_ref->texture), nullptr);
         if (texture_ref->texture) {
-            get_d3d(texture_ref)->GetSurfaceLevel(0, &texture_ref->surface);
+            get_d3d(texture_ref)->GetSurfaceLevel(0, d3d9::out(&texture_ref->surface));
         }
     }
 }

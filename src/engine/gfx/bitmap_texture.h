@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include "platform/d3d_forward.h"
+#include "gpu/gpu_handles.h"
 #include "base/maths/rect.h"
 #include <gsl/pointers>
 
@@ -11,7 +11,7 @@
 // (0x007CC254) so the render targets can be released and made again around a device reset.
 namespace render {
 
-// A texture's image: its sizes and Direct3D objects (what a material's pass draws with). Copied as it is where the
+// A texture's image: its sizes and the graphics objects (what a material's pass draws with). Copied as it is where the
 // original copied the record (the grass's snapshot of the sky's texture).
 struct TextureImage {
     uint32_t checksum{};
@@ -20,9 +20,9 @@ struct TextureImage {
     uint8_t levels{};
     uint8_t depth{};
     uint8_t unknowne_{}, unknownf_{};
-    IDirect3DTexture9* texture{nullptr};
-    IDirect3DTexture9* palette{nullptr}; // (or an alpha texture: GetPaletteOwner)
-    IDirect3DSurface9* surface{nullptr}; // a render target's level 0
+    GpuTexture* texture{nullptr};
+    GpuTexture* palette{nullptr}; // (or an alpha texture: GetPaletteOwner)
+    GpuSurface* surface{nullptr}; // a render target's level 0
     bool render_target_{false};
 };
 
