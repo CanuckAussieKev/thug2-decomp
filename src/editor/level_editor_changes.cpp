@@ -126,6 +126,303 @@ uint32_t id_of(const std::string& word)
     return w.empty() ? 0 : fields::hash_of_name(w);
 }
 
+namespace {
+
+// One record line of a layout: its keyword, its words, the comment after its '#', and the labeler for its subjects.
+struct RecordLine {
+    std::string keyword;
+    std::vector<std::string> words;
+    std::string comment;
+    const Labeler* label{};
+};
+
+// A name for the record's subject: the labeler's, else the comment's, else what the record says.
+std::string name_of(const RecordLine& record, uint32_t id, const std::string& fallback)
+{
+    std::string name = *record.label ? (*record.label)(id) : "";
+    if (name.empty()) {
+        name = record.comment;
+    }
+    return name.empty() ? fallback : name;
+}
+
+float number(const RecordLine& record, size_t index)
+{
+    return index < record.words.size() ? std::strtof(core::at(record.words, index).c_str(), nullptr) : 0.0F;
+}
+
+std::string scale_of(const RecordLine& record)
+{
+    for (const std::string& w : record.words) {
+        if (w.starts_with("scale=")) {
+            return ", scaled " + w.substr(kScaleKeyLength);
+        }
+    }
+    return "";
+}
+
+// The record's first word as a checksum (0 without one), and the first word ("?" without one).
+uint32_t first_id(const RecordLine& record) { return record.words.empty() ? 0 : id_of(core::at(record.words, 0)); }
+
+std::string first_word(const RecordLine& record) { return record.words.empty() ? "?" : core::at(record.words, 0); }
+
+// level: the properties edited.
+void summarise_level(const RecordLine& record, TableRow& table_row)
+{
+    std::string what;
+    for (const std::string& w : record.words) {
+        const std::string key = w.substr(0, w.find('='));
+        what += (what.empty() ? "" : ", ") + key;
+    }
+    table_row.summary = "Level properties: " + (what.empty() ? std::string("edited") : what);
+}
+
+// sector, rail, clone, wall: moved, turned, scaled, hidden.
+void summarise_placed(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    const std::string& keyword = record.keyword;
+    table_row.id = first_id(record);
+    const std::string name = name_of(record, table_row.id, first_word(record));
+    const int quarters = static_cast<int>(number(record, 1));
+    const float x = number(record, 2);
+    const float y = number(record, 3);
+    const float z = number(record, 4);
+    const bool hidden = words.size() > 5 && core::at(words, 5) == "1" && keyword != "clone";
+    std::string what;
+    if (keyword == "clone") {
+        what = "a copy of " + name;
+    } else {
+        what = name;
+    }
+    if (x != 0.0F || y != 0.0F || z != 0.0F) {
+        what += " moved (" + get_num(x) + ", " + get_num(y) + ", " + get_num(z) + ")";
+    }
+    if (quarters != 0) {
+        what += std::string(" turned ") + std::to_string(quarters * kDegreesPerQuarter) + "\xC2\xB0";
+    }
+    what += scale_of(record);
+    if (keyword == "wall") {
+        what += hidden ? " - collision off" : "";
+    } else if (hidden) {
+        what += " - hidden";
+    }
+    if (keyword == "rail") {
+        what.insert(0, "Rail point ");
+    }
+    table_row.summary = what;
+}
+
+// object, copy: where it stands and its heading.
+void summarise_object(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    const bool copy = record.keyword == "copy";
+    const uint32_t source = copy && words.size() > 1 ? id_of(core::at(words, 1)) : 0;
+    table_row.id = first_id(record);
+    const size_t at = copy ? 2 : 1;
+    const float x = number(record, at);
+    const float y = number(record, at + 1);
+    const float z = number(record, at + 2);
+    // (the at row: the heading)
+    const float ax = number(record, at + 9);
+    const float az = number(record, at + 11);
+    auto heading =
+        static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * kHalfTurnDegrees / kPiDouble);
+    const std::string name = copy ? "a copy of " + name_of(record, source, words.size() > 1 ? core::at(words, 1) : "?")
+                                  : name_of(record, table_row.id, first_word(record));
+    std::array<char, kSummaryTextSize> text{};
+    text::format_to(text, " at (%.0f, %.0f, %.0f), heading %.0f\xC2\xB0", x, y, z, heading);
+    table_row.summary = name + text.data() + scale_of(record);
+}
+
+// set: moved, turned, fields edited.
+void summarise_set(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    table_row.id = first_id(record);
+    const std::string name = name_of(record, table_row.id, first_word(record));
+    bool pos = false;
+    bool angles = false;
+    int fields = 0;
+    for (size_t i = 1; i < words.size(); ++i) {
+        pos = pos || core::at(words, i).starts_with("pos=");
+        angles = angles || core::at(words, i).starts_with("angles=");
+        fields += core::at(words, i).starts_with("f.") ? 1 : 0;
+    }
+    std::string what;
+    if (pos) {
+        what = angles ? "moved / turned" : "moved";
+    } else if (angles) {
+        what = "turned";
+    }
+    if (fields != 0) {
+        what += (what.empty() ? "" : ", ") + std::to_string(fields) + (fields == 1 ? " field" : " fields") + " edited";
+    }
+    table_row.summary = name + ": " + (what.empty() ? std::string("edited") : what);
+}
+
+// node, point, camera: what was added, and its class.
+void summarise_added(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    const std::string& keyword = record.keyword;
+    table_row.id = first_id(record);
+    std::string cls = "?";
+    if (keyword == "camera") {
+        cls = "camera";
+    } else if (words.size() > 1) {
+        cls = core::at(words, 1);
+    }
+    const char* added = "Added ";
+    if (keyword == "point") {
+        added = "Point ";
+    } else if (keyword == "camera") {
+        added = "Camera ";
+    }
+    table_row.summary = std::string(added) + first_word(record) + " (" + cls + ")";
+}
+
+void summarise_order(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    table_row.summary = "The added crowns' order: " + std::to_string(!words.empty() ? words.size() - 1 : 0) + " crowns";
+}
+
+void summarise_hidden(const RecordLine& record, TableRow& table_row)
+{
+    table_row.id = first_id(record);
+    table_row.summary = name_of(record, table_row.id, first_word(record)) +
+                        (record.keyword == "drop" ? " deleted (a chain point)" : " hidden");
+}
+
+void summarise_lock(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    table_row.id = words.size() > 1 ? id_of(core::at(words, 1)) : 0;
+    table_row.summary = name_of(record, table_row.id, words.size() > 1 ? core::at(words, 1) : "?") + " locked (" +
+                        first_word(record) + ")";
+}
+
+void summarise_trigger(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    table_row.id = first_id(record);
+    table_row.summary = "Trigger " + first_word(record) + (words.size() > 1 ? " (" + core::at(words, 1) + ")" : "");
+}
+
+void summarise_proximity(const RecordLine& record, TableRow& table_row)
+{
+    table_row.id = first_id(record);
+    table_row.summary = name_of(record, table_row.id, first_word(record)) + ": proximity scripts / shape";
+}
+
+void summarise_links(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    table_row.id = first_id(record);
+    std::string to = words.size() > 1 ? core::at(words, 1) : "-";
+    const int count = to == "-" ? 0 : 1 + static_cast<int>(std::count(to.begin(), to.end(), ','));
+    table_row.summary = name_of(record, table_row.id, first_word(record)) + " relinked (" + std::to_string(count) +
+                        (count == 1 ? " link)" : " links)");
+}
+
+// terrain, facing, railspeed, grindflat, speed: the chain's setting and its value.
+void summarise_chain_setting(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    const std::string& keyword = record.keyword;
+    table_row.id = first_id(record);
+    const std::string value = words.size() > 1 ? core::at(words, 1) : "";
+    const char* what = " grindable on flat ground";
+    if (keyword == "terrain") {
+        what = " terrain ";
+    } else if (keyword == "facing") {
+        what = " facing ";
+    } else if (keyword == "railspeed") {
+        what = " speed-up ";
+    } else if (keyword == "speed") {
+        what = " path speed ";
+    }
+    table_row.summary = name_of(record, table_row.id, first_word(record)) + what + value;
+}
+
+void summarise_emitter(const RecordLine& record, TableRow& table_row)
+{
+    table_row.id = first_id(record);
+    table_row.summary = name_of(record, table_row.id, first_word(record)) + ": sound emitter's sound / volume / radius";
+}
+
+void summarise_faces(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    table_row.id = first_id(record);
+    std::string list = words.size() > 1 ? core::at(words, 1) : "";
+    const int count = list.empty() ? 0 : 1 + static_cast<int>(std::count(list.begin(), list.end(), ','));
+    table_row.summary = name_of(record, table_row.id, first_word(record)) + ": " + std::to_string(count) +
+                        (count == 1 ? " face's flags" : " faces' flags");
+}
+
+void summarise_cluster(const RecordLine& record, TableRow& table_row)
+{
+    const auto& words = record.words;
+    table_row.id = first_id(record);
+    const std::string to = words.size() > 1 ? core::at(words, 1) : "-";
+    table_row.summary =
+        name_of(record, table_row.id, first_word(record)) +
+        (to == "-" ? ": not a trick object" : ": trick object of cluster " + name_of(record, id_of(to), to));
+}
+
+using Summariser = void (*)(const RecordLine&, TableRow&);
+struct SummaryRow {
+    const char* keyword;
+    Summariser summarise;
+};
+// The record keywords' summaries (a keyword not here: the keyword itself).
+constexpr auto kSummaries = std::to_array<SummaryRow>({
+    {.keyword = "level", .summarise = summarise_level},
+    {.keyword = "sector", .summarise = summarise_placed},
+    {.keyword = "rail", .summarise = summarise_placed},
+    {.keyword = "clone", .summarise = summarise_placed},
+    {.keyword = "wall", .summarise = summarise_placed},
+    {.keyword = "object", .summarise = summarise_object},
+    {.keyword = "copy", .summarise = summarise_object},
+    {.keyword = "set", .summarise = summarise_set},
+    {.keyword = "node", .summarise = summarise_added},
+    {.keyword = "point", .summarise = summarise_added},
+    {.keyword = "camera", .summarise = summarise_added},
+    {.keyword = "order", .summarise = summarise_order},
+    {.keyword = "hide", .summarise = summarise_hidden},
+    {.keyword = "drop", .summarise = summarise_hidden},
+    {.keyword = "lock", .summarise = summarise_lock},
+    {.keyword = "trigger", .summarise = summarise_trigger},
+    {.keyword = "proxim", .summarise = summarise_proximity},
+    {.keyword = "links", .summarise = summarise_links},
+    {.keyword = "terrain", .summarise = summarise_chain_setting},
+    {.keyword = "facing", .summarise = summarise_chain_setting},
+    {.keyword = "railspeed", .summarise = summarise_chain_setting},
+    {.keyword = "grindflat", .summarise = summarise_chain_setting},
+    {.keyword = "speed", .summarise = summarise_chain_setting},
+    {.keyword = "emitter", .summarise = summarise_emitter},
+    {.keyword = "faces", .summarise = summarise_faces},
+    {.keyword = "cluster", .summarise = summarise_cluster},
+});
+
+// A line's text after its '#' (leading spaces dropped), the line cut there.
+std::string take_comment(std::string& line)
+{
+    std::string comment;
+    if (const size_t hash = line.find('#'); hash != std::string::npos) {
+        comment = line.substr(hash + 1);
+        const size_t first = comment.find_first_not_of(' ');
+        comment = first == std::string::npos ? "" : comment.substr(first);
+        line.resize(hash);
+    }
+    return comment;
+}
+
+} // namespace
+
 std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& label)
 {
     std::vector<TableRow> out;
@@ -135,199 +432,29 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
-        std::string comment;
-        if (const size_t hash = line.find('#'); hash != std::string::npos) {
-            comment = line.substr(hash + 1);
-            const size_t first = comment.find_first_not_of(' ');
-            comment = first == std::string::npos ? "" : comment.substr(first);
-            line.resize(hash);
-        }
+        RecordLine record{.label = &label};
+        record.comment = take_comment(line);
         std::istringstream in(line);
-        std::string keyword;
-        if (!(in >> keyword)) {
+        if (!(in >> record.keyword)) {
             continue;
         }
-        const char* group = group_of(keyword);
+        const char* group = group_of(record.keyword);
         if (!group) {
             continue;
         }
         TableRow table_row;
         table_row.line = line_number;
-        table_row.keyword = keyword;
+        table_row.keyword = record.keyword;
         table_row.group = group;
-        std::vector<std::string> words;
         for (std::string word; in >> word;) {
-            words.push_back(word);
+            record.words.push_back(word);
         }
-        // (a name for the record's subject: the labeler's, else the comment's, else what the record says)
-        auto name_of = [&](uint32_t id, const std::string& fallback) {
-            std::string name = label ? label(id) : "";
-            if (name.empty()) {
-                name = comment;
-            }
-            return name.empty() ? fallback : name;
-        };
-        auto number = [&](size_t index) {
-            return index < words.size() ? std::strtof(core::at(words, index).c_str(), nullptr) : 0.0F;
-        };
-        auto scale_of = [&]() -> std::string {
-            for (const std::string& w : words) {
-                if (w.starts_with("scale=")) {
-                    return ", scaled " + w.substr(kScaleKeyLength);
-                }
-            }
-            return "";
-        };
-        if (keyword == "level") {
-            std::string what;
-            for (const std::string& w : words) {
-                const std::string key = w.substr(0, w.find('='));
-                what += (what.empty() ? "" : ", ") + key;
-            }
-            table_row.summary = "Level properties: " + (what.empty() ? std::string("edited") : what);
-        } else if (keyword == "sector" || keyword == "rail" || keyword == "clone" || keyword == "wall") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            const std::string name = name_of(table_row.id, words.empty() ? "?" : core::at(words, 0));
-            const int quarters = static_cast<int>(number(1));
-            const float x = number(2);
-            const float y = number(3);
-            const float z = number(4);
-            const bool hidden = words.size() > 5 && core::at(words, 5) == "1" && keyword != "clone";
-            std::string what;
-            if (keyword == "clone") {
-                what = "a copy of " + name;
-            } else {
-                what = name;
-            }
-            if (x != 0.0F || y != 0.0F || z != 0.0F) {
-                what += " moved (" + get_num(x) + ", " + get_num(y) + ", " + get_num(z) + ")";
-            }
-            if (quarters != 0) {
-                what += std::string(" turned ") + std::to_string(quarters * kDegreesPerQuarter) + "\xC2\xB0";
-            }
-            what += scale_of();
-            if (keyword == "wall") {
-                what += hidden ? " - collision off" : "";
-            } else if (hidden) {
-                what += " - hidden";
-            }
-            if (keyword == "rail") {
-                what.insert(0, "Rail point ");
-            }
-            table_row.summary = what;
-        } else if (keyword == "object" || keyword == "copy") {
-            const bool copy = keyword == "copy";
-            const uint32_t source = copy && words.size() > 1 ? id_of(core::at(words, 1)) : 0;
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            const size_t at = copy ? 2 : 1;
-            const float x = number(at);
-            const float y = number(at + 1);
-            const float z = number(at + 2);
-            // (the at row: the heading)
-            const float ax = number(at + 9);
-            const float az = number(at + 11);
-            auto heading = static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * kHalfTurnDegrees /
-                                              kPiDouble);
-            const std::string name = copy ? "a copy of " + name_of(source, words.size() > 1 ? core::at(words, 1) : "?")
-                                          : name_of(table_row.id, words.empty() ? "?" : core::at(words, 0));
-            std::array<char, kSummaryTextSize> text{};
-            text::format_to(text, " at (%.0f, %.0f, %.0f), heading %.0f\xC2\xB0", x, y, z, heading);
-            table_row.summary = name + text.data() + scale_of();
-        } else if (keyword == "set") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            const std::string name = name_of(table_row.id, words.empty() ? "?" : core::at(words, 0));
-            bool pos = false;
-            bool angles = false;
-            int fields = 0;
-            for (size_t i = 1; i < words.size(); ++i) {
-                pos = pos || core::at(words, i).starts_with("pos=");
-                angles = angles || core::at(words, i).starts_with("angles=");
-                fields += core::at(words, i).starts_with("f.") ? 1 : 0;
-            }
-            std::string what;
-            if (pos) {
-                what = angles ? "moved / turned" : "moved";
-            } else if (angles) {
-                what = "turned";
-            }
-            if (fields != 0) {
-                what += (what.empty() ? "" : ", ") + std::to_string(fields) + (fields == 1 ? " field" : " fields") +
-                        " edited";
-            }
-            table_row.summary = name + ": " + (what.empty() ? std::string("edited") : what);
-        } else if (keyword == "node" || keyword == "point" || keyword == "camera") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            std::string cls = "?";
-            if (keyword == "camera") {
-                cls = "camera";
-            } else if (words.size() > 1) {
-                cls = core::at(words, 1);
-            }
-            const char* added = "Added ";
-            if (keyword == "point") {
-                added = "Point ";
-            } else if (keyword == "camera") {
-                added = "Camera ";
-            }
-            table_row.summary = std::string(added) + (words.empty() ? "?" : core::at(words, 0)) + " (" + cls + ")";
-        } else if (keyword == "order") {
-            table_row.summary =
-                "The added crowns' order: " + std::to_string(!words.empty() ? words.size() - 1 : 0) + " crowns";
-        } else if (keyword == "hide" || keyword == "drop") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            table_row.summary = name_of(table_row.id, words.empty() ? "?" : core::at(words, 0)) +
-                                (keyword == "drop" ? " deleted (a chain point)" : " hidden");
-        } else if (keyword == "lock") {
-            table_row.id = words.size() > 1 ? id_of(core::at(words, 1)) : 0;
-            table_row.summary = name_of(table_row.id, words.size() > 1 ? core::at(words, 1) : "?") + " locked (" +
-                                (words.empty() ? "?" : core::at(words, 0)) + ")";
-        } else if (keyword == "trigger") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            table_row.summary = "Trigger " + (words.empty() ? std::string("?") : core::at(words, 0)) +
-                                (words.size() > 1 ? " (" + core::at(words, 1) + ")" : "");
-        } else if (keyword == "proxim") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            table_row.summary =
-                name_of(table_row.id, words.empty() ? "?" : core::at(words, 0)) + ": proximity scripts / shape";
-        } else if (keyword == "links") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            std::string to = words.size() > 1 ? core::at(words, 1) : "-";
-            const int count = to == "-" ? 0 : 1 + static_cast<int>(std::count(to.begin(), to.end(), ','));
-            table_row.summary = name_of(table_row.id, words.empty() ? "?" : core::at(words, 0)) + " relinked (" +
-                                std::to_string(count) + (count == 1 ? " link)" : " links)");
-        } else if (keyword == "terrain" || keyword == "facing" || keyword == "railspeed" || keyword == "grindflat" ||
-                   keyword == "speed") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            const std::string value = words.size() > 1 ? core::at(words, 1) : "";
-            const char* what = " grindable on flat ground";
-            if (keyword == "terrain") {
-                what = " terrain ";
-            } else if (keyword == "facing") {
-                what = " facing ";
-            } else if (keyword == "railspeed") {
-                what = " speed-up ";
-            } else if (keyword == "speed") {
-                what = " path speed ";
-            }
-            table_row.summary = name_of(table_row.id, words.empty() ? "?" : core::at(words, 0)) + what + value;
-        } else if (keyword == "emitter") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            table_row.summary = name_of(table_row.id, words.empty() ? "?" : core::at(words, 0)) +
-                                ": sound emitter's sound / volume / radius";
-        } else if (keyword == "faces") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            std::string list = words.size() > 1 ? core::at(words, 1) : "";
-            const int count = list.empty() ? 0 : 1 + static_cast<int>(std::count(list.begin(), list.end(), ','));
-            table_row.summary = name_of(table_row.id, words.empty() ? "?" : core::at(words, 0)) + ": " +
-                                std::to_string(count) + (count == 1 ? " face's flags" : " faces' flags");
-        } else if (keyword == "cluster") {
-            table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            const std::string to = words.size() > 1 ? core::at(words, 1) : "-";
-            table_row.summary =
-                name_of(table_row.id, words.empty() ? "?" : core::at(words, 0)) +
-                (to == "-" ? ": not a trick object" : ": trick object of cluster " + name_of(id_of(to), to));
+        const auto summary = std::ranges::find_if(
+            kSummaries, [&](const SummaryRow& summary_row) { return record.keyword == summary_row.keyword; });
+        if (summary != kSummaries.end()) {
+            summary->summarise(record, table_row);
         } else {
-            table_row.summary = keyword;
+            table_row.summary = record.keyword;
         }
         out.push_back(table_row);
     }
