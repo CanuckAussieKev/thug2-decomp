@@ -884,7 +884,7 @@ add_executable(thug2 WIN32
     src/engine/sys/system_cfuncs.cpp
     src/engine/sys/game_module.cpp
     src/app/winmain.cpp
-    src/engine/sys/startup_init.cpp
+    src/app/startup_init.cpp
     src/game/save_cards/memcard.cpp
     src/game/save_cards/save_cards_state.cpp
     src/game/save_cards/memcard_cfuncs.cpp
@@ -902,7 +902,7 @@ add_executable(thug2 WIN32
     src/engine/script/cscript_manager.cpp
     src/engine/script/cscript_wait.cpp
     src/engine/script/cscript_exec.cpp
-    src/engine/script/script_tables.cpp
+    src/app/command_table.cpp
     src/engine/script/member_function_code.cpp
     src/engine/script/load.cpp
     src/engine/script/cscript_core.cpp

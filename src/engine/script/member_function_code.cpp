@@ -2,7 +2,7 @@
 // The code half of the script member-function tables (33 tables, 483 functions): what the original's
 // static initialisers write into them before WinMain - each record's function (a member function pointer: the code,
 // three zero words) and the terminator's {0, 0, 0, -1}. They run at start-up in the original's order
-// (engine/sys/startup_init.cpp).
+// (app/startup_init.cpp).
 
 #include <array>
 #include <cstddef>
