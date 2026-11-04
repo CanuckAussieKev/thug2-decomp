@@ -434,6 +434,7 @@ memory::PoolPair& array_pools();
 memory::PoolPair& component_pools();
 memory::PoolPair& symbol_pools();
 memory::PoolPair& vector_pools();
+memory::PoolPair& script_pools();
 
 struct PermanentString;
 } // namespace script

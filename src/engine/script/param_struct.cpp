@@ -503,6 +503,13 @@ memory::PoolPair& struct_pools()
     return struct_pools.get();
 }
 
+// The CScript pool pair (0x006F3548; the running scripts' records - the script runtime makes them from it).
+memory::PoolPair& script_pools()
+{
+    static core::NoDestroy<memory::PoolPair> script_pools;
+    return script_pools.get();
+}
+
 // A permanent string table entry: the string's checksum and the string.
 struct PermanentString {
     uint32_t checksum;

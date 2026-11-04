@@ -463,4 +463,25 @@ void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t n
     }
 }
 
+// The loader's walks (load.cpp), newest first, each one's next read after it:
+// restart_changed_scripts (0x0046ED20): every script with `name` at any level started again (relaunch);
+void relaunch_scripts_referring_to(uint32_t name)
+{
+    for (Script* script = script_list_head(); script; script = script->following()) {
+        if (script_refers_to(script, name)) {
+            script->relaunch();
+        }
+    }
+}
+// unload_qb (0x0046EEC0): every script whose code (at any level) is gone stopped and reported.
+void stop_scripts_left_without_code()
+{
+    for (Script* script = script_list_head(); script; script = script->following()) {
+        if (!script->all_scripts_still_defined()) {
+            script->reset_script_state();
+            script->report_stopped();
+        }
+    }
+}
+
 } // namespace script

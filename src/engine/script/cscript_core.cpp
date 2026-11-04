@@ -59,11 +59,6 @@ uint32_t& next_script_unique_id() { return script_run_state().next_script_unique
 bool& updating_spawned_scripts() { return script_run_state().updating_spawned_scripts_; }
 bool& delete_spawned_scripts_pending() { return script_run_state().delete_spawned_scripts_pending_; }
 bool& one_per_frame_released() { return script_run_state().one_per_frame_released_; }
-memory::PoolPair& script_pools()
-{
-    static core::NoDestroy<memory::PoolPair> script_pools;
-    return script_pools.get();
-}
 
 namespace {
 

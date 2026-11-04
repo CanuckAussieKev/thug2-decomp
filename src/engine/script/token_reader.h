@@ -13,9 +13,8 @@ namespace script {
 
 class Script;
 
-// The script running now (0x006F3530), and the list of scripts (null: the first).
+// The script running now (0x006F3530).
 Script* get_running_script();
-Script* step_script_list(Script* script);
 
 // Follow jumps and choose the branch of Random() blocks (weighted, no-repeat and permute) until a token
 // that is neither.

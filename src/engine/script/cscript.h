@@ -439,7 +439,6 @@ constexpr uint8_t kScriptFlagPauseWithObject = 0x08; // not updated while its ob
 constexpr uint8_t kScriptFlagTrackerBlocked = 0x10;  // Block registered it with the tracker
 
 // The scripts' shared state (the original's globals; cscript_core.cpp's record).
-memory::PoolPair& script_pools();
 Script*& script_list_head();
 Script*& current_script_var(); // get_running_script 0x004728C0
 int& script_count();
@@ -513,4 +512,8 @@ void end_scripts_bound_to_entity(objects::Entity* object);              // 0x004
 void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t name); // 0x00474350 (name at any level)
 // 0x00475700: delete the scripts that aren't spawned, have no code and no event handler table (Cleanup).
 void delete_finished_scripts();
+// The loader's walks (load.cpp): every script with `name` at any level started again (restart_changed_scripts
+// 0x0046ED20, for a script that changed); every script whose code is gone stopped (unload_qb 0x0046EEC0).
+void relaunch_scripts_referring_to(uint32_t name);
+void stop_scripts_left_without_code();
 } // namespace script

@@ -27,7 +27,6 @@
 #include "engine/objects/entity.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/param_struct.h"
-#include "engine/script/cscript.h"
 #include "imgui.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"

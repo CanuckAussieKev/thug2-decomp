@@ -273,11 +273,7 @@ void restart_changed_scripts()
     for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
         // (byte 0 bit 0: new since the last time - create_symbol sets it)
         if (((symbol->unknown0() & 1) != 0) && symbol->type() == QbValueKind::kScriptBody) {
-            for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {
-                if (script_refers_to(script, symbol->name_value())) {
-                    script->relaunch();
-                }
-            }
+            relaunch_scripts_referring_to(symbol->name_value());
             symbol->unknown0() &= kSymbolNotNewMask;
         }
     }
@@ -352,12 +348,7 @@ void unload_qb(uint32_t file_checksum)
         memory::free_malloc(static_cast<void*>(block));
     }
     // Scripts left running code that's gone are stopped.
-    for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {
-        if (!script->all_scripts_still_defined()) {
-            script->reset_script_state();
-            script->report_stopped();
-        }
-    }
+    stop_scripts_left_without_code();
     // (a pre-compiled file stays loaded until now)
     forget_precompiled_image(file_checksum);
     packs::offload(file_checksum);
