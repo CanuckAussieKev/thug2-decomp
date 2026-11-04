@@ -35,3 +35,10 @@ bool screen_copies_made();
 inline constexpr bool kShowWindowFlag{false}; // (the original showed the window maximised / minimised by it)
 
 } // namespace render
+
+namespace os_layer {
+
+// 0x005F55E0 (cdecl, pc_d3d_resources.cpp): the buffers, the queries, the device and Direct3D released.
+void release_direct_3d();
+
+} // namespace os_layer

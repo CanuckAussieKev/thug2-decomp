@@ -10,8 +10,6 @@
 #include "base/core/checksums.h"
 #include <gsl/pointers>
 
-#include <d3d9.h>
-
 // The PC flexible particle systems (Nx engine; the particle manager's 0x0049AC60 makes them by type: the flexible
 // particle component's systems): each type the engine's class of its own (its update, its particles) with a PC one
 // over it that draws them - camera-facing quads, ribbons, stars, glows - through the dynamic vertex buffer with a
@@ -307,7 +305,5 @@ public:
     // 0x004C4A00 (vtable slot 1): drawn. No emission.
     void render() override;
 };
-
-IDirect3DIndexBuffer9*& quad_index_buffer();
 
 } // namespace render

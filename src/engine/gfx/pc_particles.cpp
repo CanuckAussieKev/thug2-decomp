@@ -19,7 +19,6 @@
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/occlusion.h"
 #include "engine/gfx/particle_sets.h"
-#include "engine/gfx/pc_flexible_particles.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/texture_dict.h"

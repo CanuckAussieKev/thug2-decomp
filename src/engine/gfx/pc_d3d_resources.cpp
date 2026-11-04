@@ -5,10 +5,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include "engine/gfx/device.h"
 #include "base/core/checked_index.h"
 #include <unordered_map>
 
-#include "engine/gfx/pc_flexible_particles.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/d3d9_state.h"
 

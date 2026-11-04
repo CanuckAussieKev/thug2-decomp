@@ -33,7 +33,7 @@
 #include "app/startup.h"
 #include "app/pc_setup.h"
 #include "engine/pad_input/input_setup.h"
-#include "engine/gfx/pc_d3d_resources.h"
+#include "engine/gfx/device.h"
 #include "engine/pad_input/direct_input.h"
 #include "platform/platform_system.h"
 #include "platform/process_flags.h"

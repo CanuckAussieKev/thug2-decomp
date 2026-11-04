@@ -1,9 +1,10 @@
 #pragma once
 
+#include <d3d9.h>
+
 #include <cstdint>
 
 #include "base/core/pointer_cell.h"
-#include "platform/d3d_forward.h"
 
 // NOT ORIGINAL - Dear ImGui's Direct3D 9 backend names a texture by its IDirect3DTexture9* as a 64-bit id (ImTextureID):
 // the pointer is the id (the level editor's UI backend, editor/level_editor_ui_backend.cpp).

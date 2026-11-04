@@ -60,7 +60,11 @@ HRESULT get_occlusion_result(uint32_t key, DWORD* pixels);
 // 0x005F52D0 (cdecl): every kept query and the one in progress released.
 void release_occlusion_queries();
 
-// 0x005F55E0 (cdecl): the buffers, the queries, the device and Direct3D released.
-void release_direct_3d();
-
 } // namespace os_layer
+
+namespace render {
+
+// The quads' index buffer (pc_flexible_particles.cpp's; made and released here).
+IDirect3DIndexBuffer9*& quad_index_buffer();
+
+} // namespace render
