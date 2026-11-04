@@ -19,6 +19,7 @@
 #include "engine/sys/startup_init.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/screen.h"
@@ -93,7 +94,7 @@ void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t r
                                       {.x = x0, .y = y1, .z = 1.0F, .rhw = 1.0F, .color = left},
                                       {.x = x1, .y = y0, .z = 1.0F, .rhw = 1.0F, .color = right},
                                       {.x = x1, .y = y1, .z = 1.0F, .rhw = 1.0F, .color = right}}};
-    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(BarVertex));
+    d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(BarVertex));
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -142,7 +143,7 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
         return;
     }
     WaitForSingleObject(screen_2d().screen_mutex(), INFINITE);
-    renderer().d3d_device()->BeginScene();
+    d3d9::state().d3d_device()->BeginScene();
     render::draw_loading_screen_picture(); // the picture, full screen
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
@@ -165,7 +166,7 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
     auto frame_right_f = static_cast<float>(frame_right);
 
     set_texture(0, nullptr);
-    renderer().d3d_device()->SetRenderState(D3DRS_ZENABLE, FALSE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZENABLE, FALSE);
     set_vertex_format(kBarVertexFormat);
     if (render::select_picture_up()) {
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
@@ -186,11 +187,11 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
               opaque(gradient_start()), opaque(gradient_end()));
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again
     draw_quad(static_cast<float>(filled), top_f, frame_right_f, bottom_f, border_argb(), border_argb());
-    renderer().d3d_device()->SetRenderState(D3DRS_ZENABLE, TRUE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZENABLE, TRUE);
     // Not original - the loading console (nothing unless a loading screen is up with [features] loading_console on).
     gfx::loading_console::draw_panel();
-    renderer().d3d_device()->EndScene();
-    renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    d3d9::state().d3d_device()->EndScene();
+    d3d9::state().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     ReleaseMutex(screen_2d().screen_mutex());
 }
 

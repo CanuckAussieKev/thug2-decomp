@@ -33,6 +33,7 @@
 #include "engine/gfx/pc_texture.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
 #include "base/core/raw_view.h"
@@ -593,9 +594,9 @@ void PcParticleSystem::draw(bool advance)
             }
             remaining -= static_cast<int>(quads);
             os_layer::unlock_dynamic_vertices(quads * 4, sizeof(ParticleVertex));
-            renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(ParticleVertex));
-            renderer().d3d_device()->SetIndices(quad_index_buffer());
-            renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
+            d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(ParticleVertex));
+            d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+            d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
                                                quads * 2);
         }
     }

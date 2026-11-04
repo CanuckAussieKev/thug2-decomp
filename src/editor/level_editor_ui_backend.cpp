@@ -23,6 +23,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "base/core/packed_colour.h"
 
 namespace frontend::level_editor::ui_backend {
@@ -120,7 +121,7 @@ bool prepare_all()
         return true;
     }
     SDL_Window* window = sys::sdl_window();
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!window || !device) {
         if (!failed_logged()) {
             get_log("level editor UI: no %s yet", window ? "device" : "window");
@@ -207,7 +208,7 @@ uint64_t create_texture(int width, int height, PixelLayout format, const void* d
 {
     const auto row_bytes = row_layout.row_bytes_;
     const auto rows = row_layout.rows;
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!device || width <= 0 || height <= 0 || !data) {
         return 0;
     }
@@ -266,7 +267,7 @@ uint64_t get_texture_id(void* renderer_texture)
 bool begin_offscreen(int size, colour::Packed argb_colour)
 {
     const uint32_t argb = argb_colour.value();
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!device || offscreen().active || size <= 0 || !make_offscreen(device, size)) {
         return false;
     }
@@ -300,7 +301,7 @@ bool begin_offscreen(int size, colour::Packed argb_colour)
 void end_offscreen()
 {
     Offscreen& offscreen_state = offscreen();
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!offscreen_state.active || !device) {
         return;
     }
@@ -413,7 +414,7 @@ bool make_atlas(IDirect3DDevice9* device, int size)
 bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed argb_colour)
 {
     const uint32_t argb = argb_colour.value();
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!device || stored_atlas().active || offscreen().active || atlas_size <= 0 || size <= 0 || x < 0 || y < 0 ||
         x + size > atlas_size || y + size > atlas_size || !make_atlas(device, atlas_size)) {
         return false;
@@ -449,7 +450,7 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed arg
 void end_atlas_cell()
 {
     Atlas& atlas = stored_atlas();
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!atlas.active || !device) {
         return;
     }

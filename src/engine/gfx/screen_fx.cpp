@@ -19,6 +19,7 @@
 #include "base/core/packed_colour.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
@@ -56,7 +57,7 @@ ScreenFxState& screen_fx_state()
     return state.get();
 }
 
-IDirect3DTexture9* screen_copy(int index) { return core::at(renderer().screen_textures(), index); }
+IDirect3DTexture9* screen_copy(int index) { return core::at(d3d9::state().screen_textures(), index); }
 IDirect3DTexture9* current_screen_copy() { return screen_copy(renderer().screen_copy_index()); }
 
 void* get_shader(int slot) { return core::at(pixel_shaders(), slot); }
@@ -82,8 +83,8 @@ void set_target(IDirect3DTexture9* texture, IDirect3DSurface9* depth)
     }
     IDirect3DSurface9* surface = nullptr;
     texture->GetSurfaceLevel(0, &surface);
-    renderer().d3d_device()->SetRenderTarget(0, surface);
-    renderer().d3d_device()->SetDepthStencilSurface(depth);
+    d3d9::state().d3d_device()->SetRenderTarget(0, surface);
+    d3d9::state().d3d_device()->SetDepthStencilSurface(depth);
     surface->Release();
 }
 
@@ -122,8 +123,8 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
     D3DSURFACE_DESC target_desc;
     target_texture->GetLevelDesc(0, &target_desc);
     set_texture(0, nullptr);
-    renderer().draw_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-    renderer().draw_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
+    d3d9::state().draw_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+    d3d9::state().draw_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
     change_phase(RenderStateId::kAddressMode0, kClampBothWays);
     change_phase(RenderStateId::kPhaseAlphaTest, 0);
     auto width = static_cast<float>(as_unsigned(target_desc.Width));
@@ -151,7 +152,7 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
             {.x = 0.0F, .y = height, .z = 0.0F, .rhw = 1.0F, .colour = colour, .u = u0, .v = v1},
             {.x = width, .y = height, .z = 0.0F, .rhw = 1.0F, .colour = colour, .u = u1, .v = v1},
         }};
-        renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
+        d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
     } else {
         set_pixel_shader(get_shader(kPixelShader94c), nullptr);
         // (the vertex format is left as it was)
@@ -161,7 +162,7 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
             {.x = 0.0F, .y = height, .z = 0.0F, .rhw = 1.0F, .colour = colour},
             {.x = width, .y = height, .z = 0.0F, .rhw = 1.0F, .colour = colour},
         }};
-        renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(FlatVertex));
+        d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(FlatVertex));
     }
     count_draw(2);
     change_fog(fog_was_on);
@@ -176,8 +177,8 @@ void begin_screen_effects()
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
         if (!graphics_options::set_scene_target(d3d9::handle(current_screen_copy()))) {
-            renderer().d3d_device()->SetRenderTarget(0, surface);
-            renderer().d3d_device()->SetDepthStencilSurface(renderer().z_buffer_surface());
+            d3d9::state().d3d_device()->SetRenderTarget(0, surface);
+            d3d9::state().d3d_device()->SetDepthStencilSurface(d3d9::state().z_buffer_surface());
         }
     } else {
         if ((effects_state().bloom_on() == 0U) || !renderer().shaders_available()) { // no bloom (or no pixel shaders)
@@ -186,12 +187,12 @@ void begin_screen_effects()
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
         if (!graphics_options::set_scene_target(d3d9::handle(current_screen_copy()))) {
-            set_render_target_and_depth({.surface = surface, .depth = renderer().z_buffer_surface()});
+            set_render_target_and_depth({.surface = surface, .depth = d3d9::state().z_buffer_surface()});
         }
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
     const uint32_t colour = (view_setup().fog_setting() && view_setup().distance_clipping()) ? engine_parts().fog_colour() : renderer().render_camera().background_colour_;
-    renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0F, 0);
+    d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0F, 0);
     surface->Release();
     effects_state().set_screen_copy_in_use(true);
 }
@@ -214,7 +215,7 @@ void copy_screen_quarter()
     change_phase(RenderStateId::kAlphaBlend, 0);
     change_phase(RenderStateId::kCullMode, D3DCULL_NONE);
     draw_screen_quad(0, quarter, source, {.x = 0.0F, .y = 0.0F}, kNeutralColour, true);
-    set_target(current_screen_copy(), renderer().z_buffer_surface());
+    set_target(current_screen_copy(), d3d9::state().z_buffer_surface());
     change_phase(RenderStateId::kZWrite, 1);
     change_phase(RenderStateId::kZTest, 1);
     change_phase(RenderStateId::kAlphaTest, 1);
@@ -239,7 +240,7 @@ void get_bloom()
     std::array<float, 4> constant = {{static_cast<float>(std::get<0>(cutoff) * (1.0 / kHalfByte)),
                                       static_cast<float>(std::get<1>(cutoff) * (1.0 / kHalfByte)),
                                       static_cast<float>(std::get<2>(cutoff) * (1.0 / kHalfByte)), kHalfF}};
-    renderer().d3d_device()->SetPixelShaderConstantF(0, constant.data(), 1);
+    d3d9::state().d3d_device()->SetPixelShaderConstantF(0, constant.data(), 1);
     draw_screen_quad(0, bright, quarter, {.x = 0.0F, .y = 0.0F}, kNeutralColour, false);
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.
     IDirect3DTexture9* texture_a = screen_copy(3);
@@ -271,7 +272,7 @@ void get_bloom()
         draw_screen_quad(static_cast<uint32_t>(tap > 0), texture_a, texture_b, {.x = tap_offset(tap), .y = 0.0F},
                          tap_colour(tap_weight(tap)), true);
     }
-    set_target(current_screen_copy(), renderer().z_buffer_surface());
+    set_target(current_screen_copy(), d3d9::state().z_buffer_surface());
     if (!kBlurSecondPass) {
         return;
     }
@@ -321,7 +322,7 @@ void get_bloom()
         set_texture(1, nullptr);
         set_texture(2, nullptr);
         set_texture(3, nullptr);
-        renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
+        d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
         count_draw(2);
     }
     change_phase(RenderStateId::kAlphaTest, 1);

@@ -49,6 +49,7 @@
 #include "base/core/checked_index.h"
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
@@ -107,32 +108,32 @@ void change_fog(bool on) { engine::enable_fog(on); }
 void set_transform(int type, const maths::Mat4* matrix)
 {
     static_assert(sizeof(maths::Mat4) == sizeof(D3DMATRIX));
-    renderer().d3d_device()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix(matrix->data()));
+    d3d9::state().d3d_device()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix(matrix->data()));
 }
-void set_render_target(void* surface) { renderer().d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
+void set_render_target(void* surface) { d3d9::state().d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
 void set_depth_stencil_surface(void* surface)
 {
-    renderer().d3d_device()->SetDepthStencilSurface(static_cast<IDirect3DSurface9*>(surface));
+    d3d9::state().d3d_device()->SetDepthStencilSurface(static_cast<IDirect3DSurface9*>(surface));
 }
 void set_texture_stage_state(int stage, int type, int value)
 {
-    renderer().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    d3d9::state().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 uint32_t get_sampler_state(int sampler, int type)
 {
     DWORD value = 0;
-    renderer().d3d_device()->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &value);
+    d3d9::state().d3d_device()->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &value);
     return value;
 }
 void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    renderer().d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
+    d3d9::state().d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
 }
-void clear_target(uint32_t color) { renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, color, 1.0F, 0); }
+void clear_target(uint32_t color) { d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, color, 1.0F, 0); }
 void draw_primitive_up(int type, unsigned int count, const void* vertices, unsigned int stride)
 {
-    renderer().d3d_device()->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
+    d3d9::state().d3d_device()->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
 }
 
 // --- D3DX (linked library code; stdcall) ----------------------------------------------------------------------
@@ -409,8 +410,8 @@ void draw_screen_blur()
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
     const int current = renderer().screen_copy_index();
-    IDirect3DTexture9* texture = core::at(renderer().screen_textures(), current);
-    IDirect3DTexture9* other = core::at(renderer().screen_textures(), (current + 1) % 2);
+    IDirect3DTexture9* texture = core::at(d3d9::state().screen_textures(), current);
+    IDirect3DTexture9* other = core::at(d3d9::state().screen_textures(), (current + 1) % 2);
     D3DSURFACE_DESC desc;
     texture->GetLevelDesc(0, &desc);
     const uint32_t texels_wide = desc.Width;
@@ -470,7 +471,7 @@ void draw_screen_blur()
     // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
     if (!graphics_options::set_scene_target(d3d9::handle(texture))) {
         set_render_target(surface);
-        set_depth_stencil_surface(renderer().z_buffer_surface());
+        set_depth_stencil_surface(d3d9::state().z_buffer_surface());
     }
     surface->Release();
     set_vertex_format(kScreenVertexFormat);                                          // XYZRHW | DIFFUSE | TEX1
@@ -488,8 +489,8 @@ void draw_screen_blur()
     // on) or the background colour.
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
     graphics_options::resolve_scene_target(d3d9::handle(texture));
-    set_render_target(renderer().back_buffer());
-    set_depth_stencil_surface(renderer().back_depth());
+    set_render_target(d3d9::state().back_buffer());
+    set_depth_stencil_surface(d3d9::state().back_depth());
     const bool fogged = view_setup().fog_setting() && view_setup().distance_clipping();
     clear_target(fogged ? engine_parts().fog_colour() : renderer().render_camera().background_colour_);
     set_render_state(kAlphaBlendState, 0);
@@ -532,12 +533,12 @@ void set_viewport()
 {
     const DeviceViewport& vp = renderer().device_viewport();
     const D3DVIEWPORT9 viewport = {.X = vp.x, .Y = vp.y, .Width = vp.width, .Height = vp.height, .MinZ = vp.min_z_, .MaxZ = vp.max_z_};
-    renderer().d3d_device()->SetViewport(&viewport);
+    d3d9::state().d3d_device()->SetViewport(&viewport);
 }
 // The device's render state directly (not the renderer's cached one).
 void set_device_render_state(int state, uint32_t value)
 {
-    renderer().d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
+    d3d9::state().d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 
 void full_screen_viewport()

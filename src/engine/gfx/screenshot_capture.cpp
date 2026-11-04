@@ -14,7 +14,7 @@
 
 #include "base/core/format.h"
 #include "platform/screenshot_files.h"
-#include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 
 namespace gfx::screenshot_capture {
@@ -130,7 +130,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
 
 bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error)
 {
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!device) {
         *error = "no device yet";
         return false;

@@ -91,7 +91,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "base/maths/rect.h"
 #include "base/core/checksums.h"
 #include "base/maths/trig.h"
@@ -2692,12 +2692,12 @@ int arrow_at(const TickCycle& frame, maths::Vec2 at)
 uint32_t get_stage_state(int type)
 {
     DWORD value = 0;
-    render::renderer().d3d_device()->GetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), &value);
+    render::d3d9::state().d3d_device()->GetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), &value);
     return value;
 }
 void set_stage_state(int type, uint32_t value)
 {
-    render::renderer().d3d_device()->SetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
+    render::d3d9::state().d3d_device()->SetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
 }
 
 struct LineVertex {
@@ -8490,7 +8490,7 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
 
 void blit()
 {
-    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::renderer().d3d_device()) {
+    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::d3d9::state().d3d_device()) {
         return;
     }
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
@@ -8545,7 +8545,7 @@ void blit()
         core::at(saved, i) = get_stage_state(core::at(states, i));
         set_stage_state(core::at(states, i), core::at(values, i));
     }
-    render::renderer().d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, static_cast<unsigned int>(count / 2), line_data,
+    render::d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, static_cast<unsigned int>(count / 2), line_data,
                                           sizeof(LineVertex));
     for (int i = 0; i < 4; ++i) {
         set_stage_state(core::at(states, i), core::at(saved, i));

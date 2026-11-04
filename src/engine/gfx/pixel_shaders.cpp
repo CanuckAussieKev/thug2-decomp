@@ -27,6 +27,7 @@
 #include "engine/gfx/shadow_base.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 
 namespace render {
 
@@ -180,7 +181,7 @@ void compile_pixel_shaders()
         for (const Fixed& fixed : kFixed) {
             assemble_shader(fixed.source, static_cast<uint32_t>(std::strlen(fixed.source)), &shader, &errors);
             IDirect3DPixelShader9* made = nullptr;
-            renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
+            d3d9::state().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
             hdl(fixed.handle) = made;
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(fixed.handle), fixed.source);
@@ -322,7 +323,7 @@ void* generated_pixel_shader(const void* material)
         0) {
         buffer_pointer(errors); // (the error text, not shown)
     }
-    renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
+    d3d9::state().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer.data());
     cache.store_entry(key, handle);

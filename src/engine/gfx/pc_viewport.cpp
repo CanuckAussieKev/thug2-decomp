@@ -21,6 +21,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/view_setup.h"
 #include "base/maths/vec2.h"
 #include "base/maths/rect.h"
@@ -80,7 +81,7 @@ void begin_query_draw(uint32_t fvf)
 void end_query_draw(uint8_t query)
 {
     os_layer::end_occlusion_query(query);
-    renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
     change_phase(RenderStateId::kZWrite, 1);
 }
 
@@ -134,12 +135,12 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
         return 0;
     }
     change_phase(RenderStateId::kZWrite, 0);
-    renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (QueryPointVertex& vertex : pc_viewport_state().query_point_strip_) {
         vertex = {.x = point->x, .y = point->y, .z = point->z, .colour = kWhiteVertex};
     }
-    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_point_strip_.data(), sizeof(QueryPointVertex));
+    d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_point_strip_.data(), sizeof(QueryPointVertex));
     end_query_draw(query);
     return query;
 }
@@ -156,7 +157,7 @@ uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
     if (renderer().radeon8500() || (query == 0U)) {
         return 0;
     }
-    renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     change_phase(RenderStateId::kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
     auto depth = static_cast<float>(static_cast<double>(z));
@@ -164,7 +165,7 @@ uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
                                               {.x = x0, .y = y1, .z = depth, .rhw = 1.0F, .colour = kWhiteVertex},
                                               {.x = x1, .y = y0, .z = depth, .rhw = 1.0F, .colour = kWhiteVertex},
                                               {.x = x1, .y = y1, .z = depth, .rhw = 1.0F, .colour = kWhiteVertex}}};
-    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_rect_strip_.data(), sizeof(QueryRectVertex));
+    d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_rect_strip_.data(), sizeof(QueryRectVertex));
     end_query_draw(query);
     return query;
 }

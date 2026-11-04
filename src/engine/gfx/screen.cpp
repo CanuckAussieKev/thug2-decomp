@@ -6,12 +6,12 @@
 
 #include "engine/gfx/screen.h"
 
+#include "engine/gfx/device.h"
 #include "engine/gfx/settings.h"
 #include "engine/script/params.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "engine/gfx/game_hooks.h"
-#include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
@@ -42,7 +42,7 @@ ScreenState& screen_state()
 namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
-bool blur_available() { return core::at(renderer().screen_surfaces(), 0) != nullptr; }
+bool blur_available() { return screen_copies_made(); }
 
 // The last amount the script asked for (kept even when the blur is off).
 auto& script_screen_blur() { return screen_state().script_screen_blur_; }

@@ -33,6 +33,7 @@
 #include "platform/d3d_matrix.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/mesh_pass.h"
 
@@ -173,7 +174,7 @@ void send_lights()
     lamp_a.Direction.x = core::at(light_sets().light_constants(), 4);
     lamp_a.Direction.y = core::at(light_sets().light_constants(), kLampADirectionY);
     lamp_a.Direction.z = core::at(light_sets().light_constants(), kLampADirectionZ);
-    renderer().d3d_device()->SetLight(0, &lamp_a);
+    d3d9::state().d3d_device()->SetLight(0, &lamp_a);
     D3DLIGHT9& lamp_b = pc_instance_state().device_light1_;
     lamp_b.Diffuse.r = core::at(light_sets().light_constants(), kLampBDiffuseR);
     lamp_b.Diffuse.g = core::at(light_sets().light_constants(), kLampBDiffuseG);
@@ -181,11 +182,11 @@ void send_lights()
     lamp_b.Direction.x = core::at(light_sets().light_constants(), kLampBDirectionX);
     lamp_b.Direction.y = core::at(light_sets().light_constants(), kLampBDirectionY);
     lamp_b.Direction.z = core::at(light_sets().light_constants(), kLampBDirectionZ);
-    renderer().d3d_device()->SetLight(1, &lamp_b);
+    d3d9::state().d3d_device()->SetLight(1, &lamp_b);
     const uint32_t red = get_channel(core::at(light_sets().light_constants(), 0));
     const uint32_t green = get_channel(core::at(light_sets().light_constants(), 1));
     const uint32_t blue = get_channel(core::at(light_sets().light_constants(), 2));
-    renderer().d3d_device()->SetRenderState(D3DRS_AMBIENT,
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_AMBIENT,
                                             kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
 }
 
@@ -237,15 +238,15 @@ void Singleton::render(uint32_t draw_bits)
         set_world_transform(transform_.data());
         if (last_bones() != bones_) {
             if (scene_unlit(scene_)) {
-                renderer().d3d_device()->SetRenderState(D3DRS_LIGHTING, FALSE);
+                d3d9::state().d3d_device()->SetRenderState(D3DRS_LIGHTING, FALSE);
             } else {
                 refresh_instance_lighting(this);
-                renderer().d3d_device()->SetRenderState(D3DRS_LIGHTING, TRUE);
+                d3d9::state().d3d_device()->SetRenderState(D3DRS_LIGHTING, TRUE);
                 send_lights();
             }
             set_last_bones(bones_);
         }
-        renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(transform_.data()));
+        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(transform_.data()));
         pc_instance_state().palette_base_ = bones_;
         pc_instance_state().bone_count_ = bone_count_;
         mesh_pass().set_current_instance(this);
@@ -288,7 +289,7 @@ void Singleton::render(uint32_t draw_bits)
                 maths::Mat4 world = transform_;
                 maths::matrix_multiply(&world, &core::at(bone_run, bone), &world);
                 set_world_transform(world.data());
-                renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world.data()));
+                d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world.data()));
                 for (MeshRef* mesh : scene_->mesh_run()) {
                     if (static_cast<int8_t>(mesh->bone()) == bone) { // (its bone)
                         mesh_flags_ref(mesh) |= kMeshShown;
@@ -302,7 +303,7 @@ void Singleton::render(uint32_t draw_bits)
         }
     }
     set_world_transform(transform_.data());
-    renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(transform_.data()));
+    d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(transform_.data()));
     draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
 }
 
@@ -327,7 +328,7 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
             instance->render(kRenderOpaque | kRenderTransparent);
         }
     }
-    renderer().d3d_device()->SetTransform(D3DTS_WORLD, get_view_world());
+    d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, get_view_world());
     set_world_transform(nullptr);
 }
 
@@ -368,9 +369,9 @@ void draw_instance_batch(BatchPass batch_pass)
             crt::get_qsort(static_cast<void*>(get_visible().data()), static_cast<uint32_t>(count), 4,
                            compare_instances); // (the C runtime's qsort)
             change_phase(kStateLighting, 1);
-            renderer().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, TRUE);
-            renderer().d3d_device()->LightEnable(0, TRUE);
-            renderer().d3d_device()->LightEnable(1, TRUE);
+            d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, TRUE);
+            d3d9::state().d3d_device()->LightEnable(0, TRUE);
+            d3d9::state().d3d_device()->LightEnable(1, TRUE);
             set_flag_786e_b4();
             int index = 0;
             for (; index < count; ++index) {
@@ -401,12 +402,12 @@ void draw_instance_batch(BatchPass batch_pass)
             }
             renderer().set_near_camera(true);
             change_phase(kStateLighting, 0);
-            renderer().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
-            renderer().d3d_device()->LightEnable(0, FALSE);
-            renderer().d3d_device()->LightEnable(1, FALSE);
+            d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
+            d3d9::state().d3d_device()->LightEnable(0, FALSE);
+            d3d9::state().d3d_device()->LightEnable(1, FALSE);
         }
     }
-    renderer().d3d_device()->SetTransform(D3DTS_WORLD, get_view_world());
+    d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, get_view_world());
     set_world_transform(nullptr);
 }
 

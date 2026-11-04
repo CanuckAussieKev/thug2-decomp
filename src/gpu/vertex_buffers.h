@@ -13,7 +13,7 @@
 namespace render {
 
 // The device the buffers are created on: the renderer hands it over whenever it makes or drops its own
-// (Renderer::set_d3d_device), so the gpu code asks nothing of the engine.
+// (d3d9::State::set_d3d_device, engine/gfx/d3d9_state.h), so the gpu code asks nothing of the engine.
 void set_buffer_device(GpuDevice* device);
 
 // A vertex buffer (0x24 bytes, constructor 0x004D3FF0; made by 0x004D5760): the size, the Direct3D buffer - its own,

@@ -35,6 +35,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/effects_state.h"
 #include <bit>
 
@@ -157,19 +158,19 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
 void draw_projection_batches()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
     DWORD min_filter = 0;
-    renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < batch_count(); ++i) {
         ProjectionBatch* batch = &core::at(get_batches(), i);
         batch->material().hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader(), &batch->material());
-        renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count(), batch->vertices().data(),
+        d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count(), batch->vertices().data(),
                                        sizeof(ProjectedVertex));
         renderer().count_draw(batch->triangle_count()); // the frame's draw calls and triangles
     }
-    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     batch_count() = 0;
 }
 

@@ -27,6 +27,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "base/core/packed_colour.h"
 #include "base/maths/vec2.h"
 #include "base/maths/vec4.h"
@@ -231,18 +232,18 @@ void PcPrimitive::render()
     void* out = os_layer::lock_dynamic_vertices(vertex_count_, stride_, &buffer, {.first_vertex_ = &first_vertex, .room = &room});
     std::memcpy(out, vertices_, static_cast<uint32_t>(vertex_count_ * stride_));
     os_layer::unlock_dynamic_vertices(vertex_count_, stride_);
-    renderer().d3d_device()->SetStreamSource(0, buffer, 0, stride_);
+    d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, stride_);
     int primitives = 0;
     if (type_ == 0) {
         primitives = vertex_count_ / 2;
-        renderer().d3d_device()->DrawPrimitive(D3DPT_LINELIST, first_vertex, primitives);
+        d3d9::state().d3d_device()->DrawPrimitive(D3DPT_LINELIST, first_vertex, primitives);
     } else if (type_ == 2) {
         primitives = vertex_count_ / 3;
-        renderer().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, primitives);
+        d3d9::state().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, primitives);
     } else {
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
         primitives = vertex_count_ / 2;
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertex_count_, 0,
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertex_count_, 0,
                                            primitives);
     }
     renderer().count_draw(primitives);
@@ -531,7 +532,7 @@ void set_primitive_depth_test(DepthTest depth_test)
             break;
         }
     }
-    renderer().d3d_device()->SetRenderState(D3DRS_ZFUNC, function);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZFUNC, function);
 }
 
 } // namespace render

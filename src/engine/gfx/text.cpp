@@ -35,6 +35,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/rect.h"
@@ -471,7 +472,7 @@ namespace {
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    renderer().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    d3d9::state().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 
@@ -537,10 +538,10 @@ void GlyphRun::close_sketch()
     set_texture_stage_state(1, 1, 1);      // stage 1 off
     set_vertex_format(kScreenVertexFormat);              // position (pre-transformed), colour, one texture coordinate
     set_texture(0, texture_font->texture()); // (the original also passes unknown17c_, which SetTexture doesn't take)
-    renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
     if (!engine_parts().suppress_draw()) {                                                      // (rendering not skipped)
         renderer().count_draw(count / 2); // the frame's draw calls and triangles
-        renderer().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices().data(), D3DFMT_INDEX16,
+        d3d9::state().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices().data(), D3DFMT_INDEX16,
                                              vertex_store().data(), sizeof(TextVertex));
     }
     set_texture_stage_state(0, 1, 4); // colour and alpha back to texture x diffuse
@@ -657,7 +658,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     }
     IDirect3DTexture9* texture = nullptr;
     const HRESULT created =
-        renderer().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
+        d3d9::state().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     font->texture_ = d3d9::handle(texture);
     if (created != D3D_OK) {
         return nullptr;

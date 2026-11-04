@@ -42,6 +42,7 @@
 #include "platform/crt.h"
 #include "base/core/format.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
@@ -100,7 +101,7 @@ void begin_frame_draw()
     if (engine_parts().loading_screen_up()) {
         return;
     }
-    renderer().d3d_device()->BeginScene();
+    d3d9::state().d3d_device()->BeginScene();
 }
 
 // 0x004B22B0
@@ -150,11 +151,11 @@ void screen_shot(const char* name, int /*unused*/)
         }
     }
     D3DDISPLAYMODE mode;
-    renderer().d3d_device()->GetDisplayMode(0, &mode);
+    d3d9::state().d3d_device()->GetDisplayMode(0, &mode);
     IDirect3DSurface9* surface = nullptr;
-    renderer().d3d_device()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
+    d3d9::state().d3d_device()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
                                               nullptr);
-    renderer().d3d_device()->GetFrontBufferData(0, surface);
+    d3d9::state().d3d_device()->GetFrontBufferData(0, surface);
     save_surface_to_file(file.data(), surface);
     surface->Release();
 }
@@ -174,11 +175,11 @@ void finish_rendering()
     if (engine_parts().loading_screen_up()) {
         return;
     }
-    renderer().d3d_device()->EndScene();
+    d3d9::state().d3d_device()->EndScene();
     if (engine_parts().suppress_draw()) {
         return;
     }
-    renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    d3d9::state().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     renderer().reset_draw_counts(); // the frame's draw counts
     if (core::at(effects_state().pending_screen_shot(), 0) != '\0') {
         screen_shot(effects_state().pending_screen_shot().data(), 0);
@@ -189,7 +190,7 @@ void finish_rendering()
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (effects_state().screen_blur() != 0) {
         if (!engine_parts().suppress_draw()) {
-            renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0F, 0);
+            d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0F, 0);
         }
         ++effects_state().screen_blur_frames();
         return;

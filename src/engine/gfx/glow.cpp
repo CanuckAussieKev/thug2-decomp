@@ -21,6 +21,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "base/core/packed_colour.h"
 
 namespace render {
@@ -145,13 +146,13 @@ void update_glows(bool queries)
 
     if (queries) {
         // Each glow gets an occlusion query (up to three outstanding).
-        renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
         choose_blend_mode(0);
         set_texture(0, nullptr);
         set_pixel_shader(nullptr, nullptr);
-        renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-        renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-        renderer().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+        d3d9::state().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
         for (; glow; glow = next_glow()) {
             if (glow->query_count_ >= 3) {
@@ -172,8 +173,8 @@ void update_glows(bool queries)
                 set_quad(glow, u, v, glow->query_size_, colour::Packed{kWhiteGlow});
             }
         }
-        renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
-        renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
         return;
     }
 
@@ -209,8 +210,8 @@ void update_glows(bool queries)
             set_quad(glow, u, v, glow->size, colour::Packed{kFadedGlow});
         }
     }
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 } // namespace render

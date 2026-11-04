@@ -42,6 +42,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/rect.h"
 #include "base/maths/vec2.h"
@@ -71,7 +72,7 @@ static_assert(sizeof(MovieVertex) == kMovieVertexBytes, "the draw's stride");
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    renderer().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    d3d9::state().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 
@@ -180,8 +181,8 @@ void draw_movie_frame(GpuTexture* texture, maths::Vec2 at, maths::Size size, flo
     choose_blend_mode(0);
     change_phase(RenderStateId::kAddressMode0, kClampBothWays); // (clamp)
     set_vertex_format(kScreenVertexFormat);
-    renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    renderer().d3d_device()->SetFVF(kScreenVertexFormat);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    d3d9::state().d3d_device()->SetFVF(kScreenVertexFormat);
     set_pixel_shader(nullptr, nullptr);                                            // (no pixel shader)
     set_texture_stage_state(0, 1, kTextureOpModulate2x);                                              // colour: modulate
     set_texture_stage_state(0, 2, 2);
@@ -212,9 +213,9 @@ void draw_movie_frame(GpuTexture* texture, maths::Vec2 at, maths::Size size, flo
     core::at(vertices, 3) = core::at(vertices, 1);
     core::at(vertices, 3).y = core::at(vertices, 2).y;
     core::at(vertices, 3).v = 1.0F;
-    if (renderer().d3d_device()->TestCooperativeLevel() == D3D_OK) { // the device isn't lost
+    if (d3d9::state().d3d_device()->TestCooperativeLevel() == D3D_OK) { // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
-        draw_movie_quad(d3d9::handle(renderer().d3d_device()), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
+        draw_movie_quad(d3d9::handle(d3d9::state().d3d_device()), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
     }
     set_texture_stage_state(0, 1, 4); // colour: modulate back
 }
@@ -229,23 +230,23 @@ void video_set_loudness(Bink* bink, uint32_t track, int volume)
 // The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
 void put_render_state(int state, uint32_t value)
 {
-    renderer().d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
+    d3d9::state().d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 void get_render_state(int state, uint32_t* value)
 {
     DWORD read = *value; // (left as it was if the call fails)
-    renderer().d3d_device()->GetRenderState(static_cast<D3DRENDERSTATETYPE>(state), &read);
+    d3d9::state().d3d_device()->GetRenderState(static_cast<D3DRENDERSTATETYPE>(state), &read);
     *value = read;
 }
 void get_sampler_state(int sampler, int type, uint32_t* value)
 {
     DWORD read = *value;
-    renderer().d3d_device()->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &read);
+    d3d9::state().d3d_device()->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &read);
     *value = read;
 }
 void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    renderer().d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
+    d3d9::state().d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
 }
 constexpr int kD3dCullMode = 22;
 constexpr int kRsMultisample = 161;
@@ -280,7 +281,7 @@ GpuTexture* begin_movie(uint32_t width, uint32_t height)
     IDirect3DTexture9* texture = nullptr;
     // one level, no usage
     const HRESULT result =
-        renderer().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
+        d3d9::state().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     if (FAILED(result)) {
         return nullptr;
     }
@@ -306,11 +307,11 @@ void end_movie(GpuTexture* texture)
 // 0x0044FCC0
 void draw_movie(Bink* bink, GpuTexture* texture)
 {
-    renderer().d3d_device()->BeginScene();
-    renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0); // the target, to black (Z 1.0)
+    d3d9::state().d3d_device()->BeginScene();
+    d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0); // the target, to black (Z 1.0)
     draw_movie_frame(texture, {.x = 0.0F, .y = 0.0F}, {.width = kMovieDrawWidth, .height = kMovieDrawHeight}, 1.0F);
-    renderer().d3d_device()->EndScene();
-    renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    d3d9::state().d3d_device()->EndScene();
+    d3d9::state().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     bink::next_frame(bink);
 }
 

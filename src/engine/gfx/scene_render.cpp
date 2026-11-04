@@ -24,6 +24,7 @@
 #include "platform/crt.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/view_setup.h"
 
 namespace render {
@@ -156,13 +157,13 @@ void draw_pass_shadows(SceneRef* scene, Lap& pass)
         renderer().set_z_write(0);
     }
     DWORD min_filter = 0;
-    renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     if (min_filter == D3DTEXF_ANISOTROPIC) {
-        renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     }
     draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
     if (min_filter == D3DTEXF_ANISOTROPIC) {
-        renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
     }
     if (renderer().z_write() == 0U) {
         render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);

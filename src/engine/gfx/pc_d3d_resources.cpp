@@ -10,7 +10,7 @@
 
 #include "engine/gfx/pc_flexible_particles.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 
 namespace os_layer {
 
@@ -68,7 +68,7 @@ void expand_palette(uint32_t* out, const uint8_t* indices, int count, const uint
 // 0x005F4620
 HRESULT create_dynamic_vertex_buffer(uint32_t size)
 {
-    const HRESULT result = render::renderer().d3d_device()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0,
+    const HRESULT result = render::d3d9::state().d3d_device()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0,
                                                             D3DPOOL_DEFAULT, &dynamic_vertices(), nullptr);
     dynamic_vertices_size() = size;
     return result;
@@ -96,7 +96,7 @@ void release_quad_index_buffer()
 HRESULT create_quad_index_buffer(uint32_t quads)
 {
     uint16_t* index = nullptr;
-    render::renderer().d3d_device()->CreateIndexBuffer(quads * kIndicesPerQuad * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
+    render::d3d9::state().d3d_device()->CreateIndexBuffer(quads * kIndicesPerQuad * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
                                     &render::quad_index_buffer(), nullptr);
     void* locked = nullptr;
     render::quad_index_buffer()->Lock(0, 0, &locked, 0);
@@ -157,7 +157,7 @@ void unlock_dynamic_vertices(uint32_t count, uint32_t stride)
 HRESULT begin_occlusion_query()
 {
     IDirect3DQuery9* query = nullptr;
-    HRESULT result = render::renderer().d3d_device()->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query);
+    HRESULT result = render::d3d9::state().d3d_device()->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query);
     if (FAILED(result)) {
         return result;
     }
@@ -230,16 +230,16 @@ void release_direct_3d()
         dynamic_vertices()->Release();
     }
     release_occlusion_queries();
-    if (render::renderer().d3d_device()) {
-        render::renderer().d3d_device()->Release();
+    if (render::d3d9::state().d3d_device()) {
+        render::d3d9::state().d3d_device()->Release();
     }
-    if (render::renderer().direct_3d()) {
-        render::renderer().direct_3d()->Release();
+    if (render::d3d9::state().direct_3d()) {
+        render::d3d9::state().direct_3d()->Release();
     }
     render::quad_index_buffer() = nullptr;
     dynamic_vertices() = nullptr;
-    render::renderer().set_d3d_device(nullptr);
-    render::renderer().set_direct_3d(nullptr);
+    render::d3d9::state().set_d3d_device(nullptr);
+    render::d3d9::state().set_direct_3d(nullptr);
     dynamic_vertices_size() = 0;
     dynamic_vertices_used() = 0;
     dynamic_vertices_locked() = nullptr;

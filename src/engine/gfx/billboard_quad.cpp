@@ -20,6 +20,7 @@
 #include "engine/gfx/engine.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 
 namespace render {
@@ -38,7 +39,7 @@ namespace {
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    renderer().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    d3d9::state().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 const std::array<uint16_t, kQuadIndexCount>& quad_indices()
@@ -296,7 +297,7 @@ void QuadSprite::draw()
     set_texture_stage_state(0, 4, kTextureOpModulate2x); // alpha: the same
     if (!engine_parts().suppress_draw()) {           // (rendering not skipped)
         renderer().count_draw(2); // the frame's draw calls and triangles
-        renderer().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
+        d3d9::state().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
                                              sizeof(Vertex));
     }
 }

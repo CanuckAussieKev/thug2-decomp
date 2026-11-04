@@ -30,6 +30,8 @@ long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32
 
 // The back buffer's width the device was made with (its present parameters': engine/gfx/device_d3d.h).
 uint32_t presented_width();
+// Whether the screen copies (create_render_targets' render-target textures) were made: their first surface is set.
+bool screen_copies_made();
 inline constexpr bool kShowWindowFlag{false}; // (the original showed the window maximised / minimised by it)
 
 } // namespace render

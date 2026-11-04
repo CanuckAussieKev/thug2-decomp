@@ -33,6 +33,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/core/packed_colour.h"
@@ -230,7 +231,7 @@ ConsoleFont& console_font()
 void build_font()
 {
     console_font().font_tried_ = true;
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!device) {
         return;
     }
@@ -485,7 +486,7 @@ void CALLBACK screen_tick(UINT /*unused*/, UINT /*unused*/, DWORD_PTR /*unused*/
         return;
     }
     WaitForSingleObject(screen_mutex(), INFINITE);
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (device && load_screen_shown() && render::renderer().loading_bar_timer() == 0 && loading_console_state().active_) {
         device->BeginScene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
@@ -646,7 +647,7 @@ void draw_panel()
     if (!loading_console_state().active_ || !console_font().texture_) {
         return;
     }
-    IDirect3DDevice9* device = render::renderer().d3d_device();
+    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
     if (!device) {
         return;
     }

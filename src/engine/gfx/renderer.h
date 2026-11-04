@@ -1,9 +1,5 @@
 #pragma once
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -14,15 +10,13 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/draw_frame.h"
 #include "base/maths/mat4.h"
-#include "gpu/d3d9_handles.h"
-#include "gpu/vertex_buffers.h"
 
-// NOT ORIGINAL - the renderer's state: the Direct3D 9 device and what was made with it, the frame's camera, matrices
-// and counters, and the render state the device was last sent (the original's globals; each member's comment or its
-// record's gives the original's address where known).
+// NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
+// counters, and the render state the device was last sent (the original's globals; each member's comment or its
+// record's gives the original's address where known). No graphics API's type: the Direct3D objects themselves are in
+// engine/gfx/d3d9_state.h, for the files that talk to Direct3D.
 namespace render {
 
-constexpr size_t kScreenTextureCount = 9;
 constexpr size_t kPsConstantFloats = 20; // the pixel shader constant bank
 
 // The camera's view as render::choose_camera and the instance pass leave it: the matrices, the device viewport, the
@@ -69,21 +63,12 @@ public:
         world_transform_ = saved.world_transform_;
         world_transform_copy_ = saved.world_transform_copy_;
     }
-    [[nodiscard]] IDirect3DDevice9* d3d_device() const { return d3d_device_; }
-    void set_d3d_device(IDirect3DDevice9* value)
-    {
-        d3d_device_ = value;
-        set_buffer_device(d3d9::handle(value)); // (the gpu buffers' device)
-    }
     [[nodiscard]] bool stream_offset_supported() const { return stream_offset_supported_; }
     void set_stream_offset_supported(bool value) { stream_offset_supported_ = value; }
     [[nodiscard]] uint32_t loading_bar_timer() const { return loading_bar_timer_; }
     void set_loading_bar_timer(uint32_t value) { loading_bar_timer_ = value; }
     [[nodiscard]] float display_factor_x() const { return display_factor_x_; }
     void set_display_factor_x(float value) { display_factor_x_ = value; }
-    [[nodiscard]] IDirect3DDevice9* draw_device() const { return draw_device_; }
-    void set_draw_device(IDirect3DDevice9* value) { draw_device_ = value; }
-    std::array<IDirect3DTexture9*, kScreenTextureCount>& screen_textures() { return screen_textures_; }
     [[nodiscard]] uint8_t frequency_setting_allowed() const { return set_frequency_allowed_; }
     void set_frequency_setting_allowed(uint8_t value) { set_frequency_allowed_ = value; }
     [[nodiscard]] int resolution_setting() const { return resolution_setting_; }
@@ -96,23 +81,12 @@ public:
     void set_screen_offset_x(int value) { screen_offset_x_ = value; }
     [[nodiscard]] float display_factor_y() const { return display_factor_y_; }
     void set_display_factor_y(float value) { display_factor_y_ = value; }
-    [[nodiscard]] IDirect3DSurface9* z_buffer_surface() const { return z_buffer_surface_; }
-    void set_z_buffer_surface(IDirect3DSurface9* value) { z_buffer_surface_ = value; }
-    std::array<IDirect3DSurface9*, kScreenTextureCount>& screen_surfaces() { return screen_surfaces_; }
-    [[nodiscard]] IDirect3DSurface9* back_depth() const { return back_depth_; }
-    void set_back_depth(IDirect3DSurface9* value) { back_depth_ = value; }
-    [[nodiscard]] IDirect3DSurface9* back_buffer() const { return back_buffer_; }
-    void set_back_buffer(IDirect3DSurface9* value) { back_buffer_ = value; }
     [[nodiscard]] bool blend_factor_supported() const { return blend_factor_supported_; }
     void set_blend_factor_supported(bool value) { blend_factor_supported_ = value; }
     [[nodiscard]] bool border_addressing_supported() const { return border_addressing_supported_; }
     void set_border_addressing_supported(bool value) { border_addressing_supported_ = value; }
     [[nodiscard]] uint32_t max_anisotropy() const { return max_anisotropy_; }
     void set_max_anisotropy(uint32_t value) { max_anisotropy_ = value; }
-    [[nodiscard]] HWND game_window() const { return game_window_; }
-    void set_game_window(HWND value) { game_window_ = value; }
-    [[nodiscard]] IDirect3D9* direct_3d() const { return direct_3d_; }
-    void set_direct_3d(IDirect3D9* value) { direct_3d_ = value; }
     [[nodiscard]] const DeviceViewport& device_viewport() const { return device_viewport_; }
     void set_device_viewport(const DeviceViewport& value) { device_viewport_ = value; }
     // The camera (choose_camera sets it whole; the draw code's flags one by one).
@@ -258,29 +232,20 @@ public:
     }
 
 private:
-    // The device, what was made with it and its settings (device.cpp). The draw device is the same device, kept twice;
-    // the display factors scale 640x480 to the back buffer.
-    IDirect3DDevice9* d3d_device_{};
+    // The device's settings and capabilities (device.cpp; the device itself and what was made with it:
+    // d3d9_state.h). The display factors scale 640x480 to the back buffer.
     bool stream_offset_supported_{};
     uint32_t loading_bar_timer_{}; // the timer's id (timeSetEvent)
     float display_factor_x_{}; // 640x480 -> back buffer scale
-    IDirect3DDevice9* draw_device_{}; // the same device, kept twice
-    std::array<IDirect3DTexture9*, kScreenTextureCount> screen_textures_{};
     uint8_t set_frequency_allowed_{1};
     int resolution_setting_{};
     bool antialiasing_{};
     int screen_offset_y_{};
     int screen_offset_x_{};
     float display_factor_y_{};
-    IDirect3DSurface9* z_buffer_surface_{};
-    std::array<IDirect3DSurface9*, kScreenTextureCount> screen_surfaces_{}; // their level 0
-    IDirect3DSurface9* back_depth_{};
-    IDirect3DSurface9* back_buffer_{};
     bool blend_factor_supported_{};
     bool border_addressing_supported_{};
     uint32_t max_anisotropy_{};
-    HWND game_window_{};
-    IDirect3D9* direct_3d_{};
 
     // The frame's camera, matrices, viewport and counters (draw_frame.cpp).
     DeviceViewport device_viewport_{};

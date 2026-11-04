@@ -30,6 +30,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/core/language.h"
@@ -156,14 +157,14 @@ void draw_loading_screen_picture()
         return;
     }
     get_lock();
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
     DWORD min_filter = 0;
-    renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     change_phase(RenderStateId::kAddressMode0, kClampBothWays); // (clamped both ways)
     change_phase(RenderStateId::kLighting, 0);
     set_pixel_shader(nullptr, nullptr);
@@ -195,9 +196,9 @@ void draw_loading_screen_picture()
         {.x = width, .y = 0.0F, .z = 0.0F, .rhw = 1.0F, .u = u1, .v = v1},
         {.x = width, .y = height, .z = 0.0F, .rhw = 1.0F, .u = u1, .v = v0},
     }};
-    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(PictureVertex));
+    d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(PictureVertex));
     set_texture(0, nullptr);
-    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     get_unlock();
 }
 
@@ -205,7 +206,7 @@ void draw_loading_screen_picture()
 void hide_loading_screen()
 {
     get_lock();
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
     if (renderer().loading_bar_timer() != 0U) {
         stop_timer(renderer().loading_bar_timer());
         renderer().set_loading_bar_timer(0);
@@ -218,7 +219,7 @@ void hide_loading_screen()
 void free_loading_screen_sprite()
 {
     get_lock();
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
     memory::destroy_then_clear(loading_screen_state().loading_screen_sprite_); // (the engine's delete through slot 0)
     get_unlock();
 }
@@ -257,13 +258,13 @@ void show_loading_screen(const char* name, bool keep, bool black)
             name = picked.data();
         }
     }
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, FALSE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, FALSE);
     engine_parts().set_loading_screen_up(false);
     if (!keep) {
         if (black) {
             select_picture().select_picture_ = false;
             apply_bar_style(false);
-            renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
+            d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
         } else {
             if (screen_2d().loading_screen_picture()) {
                 if (std::strcmp(picture_name(), name) != 0) {
@@ -292,11 +293,11 @@ void show_loading_screen(const char* name, bool keep, bool black)
             }
             select_picture().select_picture_ = is_select_name(name);
             apply_bar_style(select_picture().select_picture_);
-            renderer().d3d_device()->BeginScene();
+            d3d9::state().d3d_device()->BeginScene();
             draw_loading_screen_picture();
-            renderer().d3d_device()->EndScene();
+            d3d9::state().d3d_device()->EndScene();
         }
-        renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+        d3d9::state().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     }
     engine_parts().set_loading_screen_up(true);
     get_unlock();

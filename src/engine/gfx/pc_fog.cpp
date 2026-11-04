@@ -9,6 +9,7 @@
 #include <d3d9.h>
 
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
 #include <bit>
@@ -28,7 +29,7 @@ void toggle_fog(bool on)
     }
     renderer().set_fog_active(static_cast<uint32_t>(on));
     if (!engine_parts().loading_screen_up()) {
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
     }
 }
 
@@ -40,8 +41,8 @@ void set_fog_distance(float start)
     const double end = view_setup().distance_clipping() ? static_cast<double>(start) + 7200.0F
                                                         : (static_cast<double>(start) * 3.0F) + start;
     renderer().set_fog_end(static_cast<float>(end));
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
 }
 
 // 0x004B8EE0
@@ -54,7 +55,7 @@ void set_fog_color(uint32_t rgba)
     if ((alpha != 0U) && (renderer().fog_active() == 0U)) {
         renderer().set_fog_active(1);
         if (!engine_parts().loading_screen_up()) {
-            renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, 1);
+            d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, 1);
         }
     }
     // the density (alpha / 128, 0-1) for the pixel shaders' fog constant (0x00786F0C)
@@ -69,7 +70,7 @@ void set_fog_color(uint32_t rgba)
     renderer().set_ps_constant(kFogConstantBlue, static_cast<float>(density));
     const uint32_t color = (red << 16) | (green << 8) | blue;
     engine_parts().set_fog_colour(color);
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, color);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, color);
 }
 
 } // namespace render

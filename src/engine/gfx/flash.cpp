@@ -13,6 +13,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 
 namespace render {
 
@@ -71,7 +72,7 @@ void draw_flash(const Flash* flash)
     core::at(vertices, 0) = core::at(vertices, 1);
     core::at(vertices, 1) = core::at(vertices, 2);
     core::at(vertices, 2) = first;
-    renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(FlashVertex));
+    d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(FlashVertex));
 }
 
 } // namespace render

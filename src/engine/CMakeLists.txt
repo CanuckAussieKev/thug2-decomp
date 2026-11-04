@@ -151,6 +151,7 @@ add_library(thug2_engine STATIC
     gfx/pc_material_load.cpp
     gfx/render_state.cpp
     gfx/renderer.cpp
+    gfx/d3d9_state.cpp
     gfx/occlusion.cpp
     gfx/shadow_base.cpp
     gfx/mesh_list.cpp

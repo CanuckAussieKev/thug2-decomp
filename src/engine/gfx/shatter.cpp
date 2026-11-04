@@ -30,6 +30,7 @@
 #include "platform/crt.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/effects_state.h"
 #include "base/maths/vec4.h"
 #include <gsl/pointers>
@@ -91,7 +92,7 @@ void draw_shatter(PcShatter* shatter)
     set_pixel_shader(mesh_pixel_shader(mesh), mesh->material());
     set_vertex_format(mesh_vertex_format(mesh));
     renderer().count_draw(triangle_count(shatter)); // the frame's draw calls and triangles
-    renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangle_count(shatter), shatter->vertices(), mesh->stride());
+    d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangle_count(shatter), shatter->vertices(), mesh->stride());
 }
 
 // 0x004B9550

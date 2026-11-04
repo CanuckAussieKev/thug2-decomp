@@ -13,6 +13,7 @@
 #include <string_view>
 #include <utility>
 
+#include "platform/sdl_window.h"
 #include "engine/pad_input/device.h"
 #include "engine/gfx/view_cam.h"
 #include "base/core/compiler.h"
@@ -447,7 +448,7 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         if (SUCCEEDED(platform_state().direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             core::at(platform_state().joysticks(), port) = created;
             created->SetDataFormat(joystick_format());
-            created->SetCooperativeLevel(render::renderer().game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(sys::game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
             created->EnumObjects(add_joystick_axis, created, DIDFT_AXIS);
             if (core::at(platform_state().force_axis_counts(), port) > 0) {
                 // Rumble: an endless constant force along X and Y, started by set_actuators.
@@ -478,14 +479,14 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         if (!stored_keyboard_device() && SUCCEEDED(platform_state().direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             stored_keyboard_device() = created;
             created->SetDataFormat(keyboard_format());
-            created->SetCooperativeLevel(render::renderer().game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(sys::game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     } else if (type == DI8DEVTYPE_MOUSE) {
         if (!get_mouse() && SUCCEEDED(platform_state().direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             get_mouse() = created;
             created->SetDataFormat(mouse_format());
-            created->SetCooperativeLevel(render::renderer().game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(sys::game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     }

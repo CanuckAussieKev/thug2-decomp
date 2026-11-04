@@ -35,6 +35,7 @@
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/mat4.h"
 
@@ -241,7 +242,7 @@ int clip_shadow_triangles(std::span<const uint16_t> indices)
 void shadow_texture_matrix(const float* a, const float* b, float* out, const float* first)
 {
     std::array<float, maths::kMatrixFloats> view{};
-    renderer().d3d_device()->GetTransform(D3DTS_VIEW, d3d::matrix(view.data()));
+    d3d9::state().d3d_device()->GetTransform(D3DTS_VIEW, d3d::matrix(view.data()));
     std::array<float, maths::kMatrixFloats> inverse{};
     matrix_inverse(inverse.data(), nullptr, view.data()); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
@@ -274,7 +275,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
     change_phase(RenderStateId::kZTest, 1);
     change_phase(RenderStateId::kPhaseAlphaTest, 0);
     if (!two_sided_stencil()) {
-        renderer().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
     }
     const auto* list = static_cast<const SceneRef*>(scene);
     for (MeshRef* const mesh : list->mesh_run()) {
@@ -302,7 +303,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
     renderer().set_pixel_shader_locked(nullptr);
     change_phase(RenderStateId::kZWrite, 1);
     change_phase(RenderStateId::kCullMode, D3DCULL_CW);
-    renderer().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
 }
 
 // 0x004DBBD0
@@ -318,8 +319,8 @@ void render_shadow_textures()
     IDirect3DSurface9* render_target = nullptr;
     IDirect3DSurface9* depth = nullptr;
     const uint32_t saved_fog = renderer().fog_active();
-    renderer().d3d_device()->GetRenderTarget(0, &render_target);
-    renderer().d3d_device()->GetDepthStencilSurface(&depth);
+    d3d9::state().d3d_device()->GetRenderTarget(0, &render_target);
+    d3d9::state().d3d_device()->GetDepthStencilSurface(&depth);
     if (renderer().fog_active() != 0U) {
         renderer().set_fog_active(0);
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
@@ -328,15 +329,15 @@ void render_shadow_textures()
         if (!caster->model) {
             continue;
         }
-        renderer().d3d_device()->SetRenderTarget(0, d3d9::object(caster->target->surface));
-        renderer().d3d_device()->SetDepthStencilSurface(nullptr);
-        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
+        d3d9::state().d3d_device()->SetRenderTarget(0, d3d9::object(caster->target->surface));
+        d3d9::state().d3d_device()->SetDepthStencilSurface(nullptr);
+        d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
         set_view_and_projection(caster->view, caster->projection, 1);
-        renderer().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(caster->view.data()));
-        renderer().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(caster->projection.data()));
+        d3d9::state().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(caster->view.data()));
+        d3d9::state().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(caster->projection.data()));
         std::array<float, maths::kMatrixFloats> identity{};
         get_identity(identity);
-        renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
+        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
         auto draw_model = [](void* model) {
             const int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
@@ -359,18 +360,18 @@ void render_shadow_textures()
             }
         }
     }
-    renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
     if (saved_fog != renderer().fog_active()) {
         renderer().set_fog_active(saved_fog);
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, static_cast<DWORD>(saved_fog != 0));
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, static_cast<DWORD>(saved_fog != 0));
     }
     renderer().set_pixel_shader_locked(nullptr);
     set_view_and_projection(saved_view, saved_projection, 0);
-    renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world_matrix_data()));
-    renderer().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix_data()));
-    renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kWhiteColour);
-    renderer().d3d_device()->SetRenderTarget(0, render_target);
-    renderer().d3d_device()->SetDepthStencilSurface(depth);
+    d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world_matrix_data()));
+    d3d9::state().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix_data()));
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kWhiteColour);
+    d3d9::state().d3d_device()->SetRenderTarget(0, render_target);
+    d3d9::state().d3d_device()->SetDepthStencilSurface(depth);
     if (render_target) {
         render_target->Release();
     }
@@ -386,10 +387,10 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         return;
     }
     DWORD saved_min_filter = 0;
-    renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &saved_min_filter);
-    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+    d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &saved_min_filter);
+    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
     const uint32_t saved_fog = renderer().fog_active();
     if (renderer().fog_active() != 0U) {
         renderer().set_fog_active(0);
@@ -409,12 +410,12 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         maths::matrix_multiply(to_texture.data(), view_projection.data(), texture_bias.data());
         shadow_texture_matrix(caster->view.data(), caster->projection.data(), caster->texture_matrix_.data(), nullptr);
         set_pixel_shader(nullptr, nullptr);
-        renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
-        renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        renderer().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-        renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kShadowColour); // the shadow's colour
+        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
+        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+        d3d9::state().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kShadowColour); // the shadow's colour
         change_phase(RenderStateId::kPhaseAlphaTest, 1);
         set_texture(0, nullptr);
         set_texture(2, nullptr);
@@ -423,20 +424,20 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         set_texture(0, caster->target->texture);
         change_phase(RenderStateId::kAddressMode0, kBorderBothWays); // border
         if (renderer().border_addressing_supported()) {
-            renderer().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+            d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
         }
-        renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-        renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-        renderer().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(projection_matrix_data()));
-        renderer().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix_data()));
+        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+        d3d9::state().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(projection_matrix_data()));
+        d3d9::state().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix_data()));
         std::array<float, maths::kMatrixFloats> identity{};
         get_identity(identity);
-        renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
+        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
         choose_blend_mode(kBlendModeMultiplyColour);
         set_view_and_projection(caster->view, caster->projection, 1);
         if (renderer().depth_bias() != kShadowDepthBias) { // (the cache's depth bias 13, its float sent directly)
             renderer().set_depth_bias(kShadowDepthBias);
-            renderer().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, kShadowDepthBiasBits);
+            d3d9::state().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, kShadowDepthBiasBits);
         }
         for (const MeshRef* const mesh : meshes) {
             if ((mesh->flags() & 2) != 0U) {
@@ -450,7 +451,7 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
             project_shadow_vertices(std::span<const float>(mesh->positions(), 3 * static_cast<size_t>(mesh->position_count())), to_texture.data());
             const int triangles = clip_shadow_triangles(std::span<const uint16_t>(mesh->triangles(), 3 * static_cast<size_t>(mesh->triangle_count())));
             if (triangles != 0) {
-                renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles().data(),
+                d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles().data(),
                                               sizeof(ShadowCornerPoint));
                 renderer().count_draw(triangles); // the frame's draw calls and triangles
             }
@@ -458,22 +459,22 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         set_view_and_projection(saved_view, saved_projection, 0);
     }
     set_pixel_shader(nullptr, nullptr);
-    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, saved_min_filter);
+    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, saved_min_filter);
     if (saved_fog != renderer().fog_active()) {
         renderer().set_fog_active(saved_fog);
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, static_cast<DWORD>(saved_fog != 0));
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, static_cast<DWORD>(saved_fog != 0));
     }
     if (renderer().depth_bias() != 0) {
         renderer().set_depth_bias(0);
-        renderer().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, kNegativeZeroBits); // -0
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, kNegativeZeroBits); // -0
     }
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-    renderer().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-    renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kWhiteColour);
-    renderer().d3d_device()->SetRenderState(D3DRS_ZENABLE, TRUE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+    d3d9::state().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kWhiteColour);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZENABLE, TRUE);
     set_texture(0, nullptr);
 }
 

@@ -22,6 +22,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
@@ -129,13 +130,13 @@ void* get_shader(int slot) { return core::at(pixel_shaders(), slot); }
 
 void set_tss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value)
 {
-    renderer().d3d_device()->SetTextureStageState(stage, type, value);
+    d3d9::state().d3d_device()->SetTextureStageState(stage, type, value);
 }
 void set_sampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value)
 {
-    renderer().d3d_device()->SetSamplerState(sampler, type, value);
+    d3d9::state().d3d_device()->SetSamplerState(sampler, type, value);
 }
-void set_device_render_state(D3DRENDERSTATETYPE state, DWORD value) { renderer().d3d_device()->SetRenderState(state, value); }
+void set_device_render_state(D3DRENDERSTATETYPE state, DWORD value) { d3d9::state().d3d_device()->SetRenderState(state, value); }
 
 // D3DTADDRESS for the renderer's addressing modes (border needs the device's support; else clamp).
 bool address_value(uint32_t mode, DWORD* value)
@@ -335,7 +336,7 @@ void change_phase(RenderStateId state, uint32_t value)
 void set_vertex_format(uint32_t fvf)
 {
     if (renderer().vertex_format_locked() == 0 && vertex_format() != fvf) {
-        renderer().d3d_device()->SetFVF(fvf);
+        d3d9::state().d3d_device()->SetFVF(fvf);
         vertex_format() = fvf;
     }
 }
@@ -345,7 +346,7 @@ void set_texture(int stage, void* texture)
 {
     auto& gfx = renderer();
     if (gfx.stage_texture(stage) != texture) {
-        renderer().d3d_device()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
+        d3d9::state().d3d_device()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
         gfx.set_stage_texture(stage, texture);
     }
 }
@@ -573,11 +574,11 @@ void set_pixel_shader(void* shader, const MaterialRef* material)
         if (renderer().current_pixel_shader() != shader) {
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the shader's unlit twin during the 3D
             // passes. Original behaviour: the device gets `shader`.
-            renderer().d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
+            d3d9::state().d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
             gfx.set_current_pixel_shader(shader);
             gfx.set_pixel_shader_changed(1);
         }
-        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), kPsConstantVectors);
+        d3d9::state().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), kPsConstantVectors);
     }
     gfx.set_pixel_shader_changed(0);
 }
@@ -589,12 +590,12 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
     if (renderer().pixel_shader_locked() == nullptr) {
         if (renderer().current_pixel_shader() != shader) {
             // Not original - the Unlit view's twin (view_mode.h), as in SetPixelShader.
-            renderer().d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
+            d3d9::state().d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
             gfx.set_current_pixel_shader(shader);
             gfx.set_pixel_shader_changed(1);
         }
-        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), count);
-        renderer().d3d_device()->SetPixelShaderConstantF(4, std::span(renderer().ps_constants()).subspan(kPsConstantTailOffset).data(), 1);
+        d3d9::state().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), count);
+        d3d9::state().d3d_device()->SetPixelShaderConstantF(4, std::span(renderer().ps_constants()).subspan(kPsConstantTailOffset).data(), 1);
     }
     gfx.set_pixel_shader_changed(0);
 }
@@ -675,61 +676,61 @@ void reset_render_state()
 void apply_render_state()
 {
     auto& gfx = renderer();
-    IDirect3DDevice9* device = renderer().d3d_device();
+    IDirect3DDevice9* device = d3d9::state().d3d_device();
     device->SetRenderState(D3DRS_LOCALVIEWER, local_viewer());
-    renderer().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
-    renderer().d3d_device()->SetRenderState(D3DRS_LIGHTING, get_lighting());
-    renderer().d3d_device()->SetRenderState(D3DRS_SPECULARENABLE, gfx.specular_state());
-    renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, renderer().cull_mode());
-    renderer().d3d_device()->SetRenderState(D3DRS_DITHERENABLE, dither());
-    renderer().d3d_device()->SetRenderState(D3DRS_ZENABLE, get_z_test());
-    renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, gfx.z_write());
-    renderer().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, alpha_blend());
-    renderer().d3d_device()->SetRenderState(D3DRS_ALPHATESTENABLE, alpha_test());
-    renderer().d3d_device()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
-    renderer().d3d_device()->SetRenderState(D3DRS_ALPHAREF, alpha_test_level());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_LIGHTING, get_lighting());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_SPECULARENABLE, gfx.specular_state());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_CULLMODE, renderer().cull_mode());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_DITHERENABLE, dither());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZENABLE, get_z_test());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, gfx.z_write());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, alpha_blend());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHATESTENABLE, alpha_test());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHAREF, alpha_test_level());
     for (int sampler = 0; sampler < 4; ++sampler) {
         core::at(address_modes(), sampler) = 0;
         core::at(mip_lod_biases(), sampler) = 0;
         gfx.set_stage_texture(sampler, nullptr);
         core::at(filters(), sampler) = kDefaultFilters;
         gfx.set_border_colour(static_cast<uint32_t>(sampler), 0);
-        renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-        renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+        d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+        d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
         // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic minification on every
         // sampler at the chosen taps. (Off: the original's below.)
         if (const int taps = graphics_options::active_anisotropy()) {
-            renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
+            d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
         } else if (sampler == 0 && renderer().back_buffer_height() <= kLowResHeight) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
-            renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             const uint32_t anisotropy = renderer().max_anisotropy();
-            renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
+            d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
         } else {
-            renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         }
-        renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
-        renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
+        d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
+        d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
     }
     const D3DMATERIAL9 material = {};
-    renderer().d3d_device()->SetMaterial(&material);
-    renderer().d3d_device()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
-    renderer().d3d_device()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
-    renderer().d3d_device()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
-    renderer().d3d_device()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
+    d3d9::state().d3d_device()->SetMaterial(&material);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
     mark_billboards_ready();
     compile_pixel_shaders();
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, gfx.fog_active());
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
-    renderer().d3d_device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, gfx.fog_active());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)
     if (renderer().antialiasing() || (graphics_options::chosen_samples() != 0)) { // the antialiasing setting
-        renderer().d3d_device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
     }
 }
 

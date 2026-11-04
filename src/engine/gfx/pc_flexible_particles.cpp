@@ -29,6 +29,7 @@
 #include "gpu/vertex_view.h"
 #include "base/core/packed_colour.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec4.h"
@@ -417,9 +418,9 @@ void PcNewFlatParticles::render()
             if (quads >= room - 4) {
                 break; // (full: the original stops here, undrawn)
             }
-            renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
-            renderer().d3d_device()->SetIndices(quad_index_buffer());
-            renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
+            d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
+            d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+            d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
                                                quads * 2);
             renderer().count_draw(quads * 2);
         }
@@ -592,9 +593,9 @@ void PcFlatRibbonParticles::draw_ribbons(const std::array<double, 3>& view_z, ui
         if (vertices >= room - 4) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
                                            triangles);
         renderer().count_draw(triangles);
     }
@@ -708,9 +709,9 @@ void PcFlatRibbonParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
                                            triangles);
         renderer().count_draw(triangles);
     }
@@ -866,7 +867,7 @@ void PcGlowParticles::render()
         const uint32_t triangles = (words >> 4) / 3; // (the original's count: a quarter of what it wrote)
         if (!engine_parts().suppress_draw()) {                // (rendering not skipped)
             renderer().count_draw(triangles);
-            renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer.data(), sizeof(TrailVertex));
+            d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer.data(), sizeof(TrailVertex));
         }
     }
 }
@@ -933,8 +934,8 @@ void PcLineParticles::render()
         if (vertices >= room - 2) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        renderer().d3d_device()->DrawPrimitive(D3DPT_LINELIST, first_vertex, lines);
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
+        d3d9::state().d3d_device()->DrawPrimitive(D3DPT_LINELIST, first_vertex, lines);
         renderer().count_draw(lines);
     }
 }
@@ -1070,9 +1071,9 @@ void PcRibbonParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, stride);
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, stride);
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
                                            triangles);
         renderer().count_draw(triangles);
     }
@@ -1235,9 +1236,9 @@ void PcRibbonTrailParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
                                            triangles);
         renderer().count_draw(triangles);
     }
@@ -1396,9 +1397,9 @@ void PcShadedParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
                                            triangles);
         renderer().count_draw(triangles);
     }
@@ -1534,8 +1535,8 @@ void PcSmoothParticles::render()
         if (vertices >= room - kSmoothParticleVertices) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
-        renderer().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, triangles);
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
+        d3d9::state().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -1684,9 +1685,9 @@ void PcSmoothRibbonParticles::render()
         if (vertices >= room - kSmoothRibbonVertices) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
                                            triangles);
         renderer().count_draw(triangles);
     }
@@ -1881,9 +1882,9 @@ void PcSmoothStarParticles::render()
         if (vertices >= room - kSmoothStarVertices) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
                                            triangles);
         renderer().count_draw(triangles);
     }
@@ -2051,9 +2052,9 @@ void PcStarParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        renderer().d3d_device()->SetIndices(quad_index_buffer());
-        renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
+        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
                                            triangles);
         renderer().count_draw(triangles);
     }
@@ -2328,11 +2329,11 @@ void PcGlowRibbonTrailParticles::render()
             remaining -= per_particle;
         }
     }
-    renderer().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
     os_layer::unlock_dynamic_vertices(total_vertices, sizeof(TrailVertex));
-    renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-    renderer().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, total_triangles);
-    renderer().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+    d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
+    d3d9::state().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, total_triangles);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
     renderer().count_draw(total_triangles);
 }
 

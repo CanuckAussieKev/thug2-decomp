@@ -15,6 +15,7 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "base/maths/rect.h"
 
 namespace render {
@@ -76,7 +77,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
     const DWORD level_count = from->GetLevelCount();
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
-    renderer().d3d_device()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
+    d3d9::state().d3d_device()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
                                 d3d9::out(&texture), nullptr);
     for (uint32_t level = 0; level < levels; ++level) {
         D3DSURFACE_DESC level_desc;
@@ -178,7 +179,7 @@ bool TextureRef::create_render_target(maths::PixelSize size, uint8_t new_depth, 
         get_d3d(this)->Release();
     }
     const HRESULT result =
-        renderer().d3d_device()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
+        d3d9::state().d3d_device()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
                                     d3d9::out(&texture), nullptr);
     get_d3d(this)->GetSurfaceLevel(0, d3d9::out(&surface));
     render_target_ = true;
@@ -201,7 +202,7 @@ bool TextureRef::create_render_target(maths::PixelSize size, uint8_t new_depth, 
 void release_render_target_textures()
 {
     for (DWORD stage = 0; stage < kSamplerStageCount; ++stage) {
-        renderer().d3d_device()->SetTexture(stage, nullptr); // (the cache isn't told)
+        d3d9::state().d3d_device()->SetTexture(stage, nullptr); // (the cache isn't told)
     }
     for (const Elem* node = foremost(); node; node = node->next) {
         TextureRef* texture_ref = node->texture;
@@ -225,7 +226,7 @@ void restore_render_target_textures()
         if (texture_ref->texture || !texture_ref->render_target_) {
             continue;
         }
-        renderer().d3d_device()->CreateTexture(texture_ref->width, texture_ref->height, 1, D3DUSAGE_RENDERTARGET,
+        d3d9::state().d3d_device()->CreateTexture(texture_ref->width, texture_ref->height, 1, D3DUSAGE_RENDERTARGET,
                                                D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, d3d9::out(&texture_ref->texture), nullptr);
         if (texture_ref->texture) {
             get_d3d(texture_ref)->GetSurfaceLevel(0, d3d9::out(&texture_ref->surface));

@@ -35,6 +35,7 @@
 #include "engine/render/coll_grid.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec2.h"
 #include "base/maths/trig.h"
@@ -302,8 +303,8 @@ void PcWeather::render_rain(maths::Vec2 centre)
     }
     change_phase(RenderStateId::kPhaseAlphaTest, 0);
     set_pixel_shader(nullptr, nullptr);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     // (in 16ths of a unit)
     const int base_x = ftol(static_cast<double>(origin_x_) * 16.0F);
@@ -328,7 +329,7 @@ void PcWeather::render_rain(maths::Vec2 centre)
     auto flush = [&] {
         const uint32_t count = used >> 5; // (a quarter of the lines: the original's count, as it is)
         if (count) {
-            renderer().d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines.data(), kLineVertexBytes);
+            d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines.data(), kLineVertexBytes);
             count_draw(count);
         }
     };
@@ -371,8 +372,8 @@ void PcWeather::render_rain(maths::Vec2 centre)
         }
     }
     flush();
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 // 0x004CC630
@@ -396,15 +397,15 @@ void PcWeather::render_snow(maths::Vec2 centre)
     change_phase(RenderStateId::kPhaseAlphaTest, 0);
     change_phase(RenderStateId::kAddressMode0, 0);
     static_cast<TextureRef*>(snow_texture_)->assign_value(0);
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snow_size()));
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_A, 0);
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_B, 0);
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0F));
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snow_size()));
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_POINTSCALE_A, 0);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_POINTSCALE_B, 0);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0F));
     set_pixel_shader(nullptr, nullptr);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     const float base_x = origin_x_;
     const float base_z = origin_z_;
@@ -460,7 +461,7 @@ void PcWeather::render_snow(maths::Vec2 centre)
                 used += 4;
                 out += 4;
                 if (used >= kSnowBatchLimit) {
-                    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(),
+                    d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(),
                                                   kPointVertexBytes); // (a quarter, as the original)
                     count_draw(used >> 4);
                     used = 0;
@@ -469,11 +470,11 @@ void PcWeather::render_snow(maths::Vec2 centre)
             }
         }
     }
-    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(), kPointVertexBytes); // (even none, as the original)
+    d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(), kPointVertexBytes); // (even none, as the original)
     count_draw(used >> 4);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSPRITEENABLE, FALSE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetRenderState(D3DRS_POINTSPRITEENABLE, FALSE);
 }
 
 // 0x004CCC00
@@ -522,8 +523,8 @@ void PcWeather::render_splashes(float x, float z)
     change_phase(RenderStateId::kAddressMode0, 0);
     static_cast<TextureRef*>(splash_texture_)->assign_value(0);
     set_pixel_shader(nullptr, nullptr);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     struct Vertex {
         float x, y, z;
@@ -564,11 +565,11 @@ void PcWeather::render_splashes(float x, float z)
     }
     const uint32_t triangles = used / 6 / 3;
     if (triangles != 0U) {
-        renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads.data(), kSplashVertexBytes);
+        d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads.data(), kSplashVertexBytes);
         count_draw(triangles);
     }
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 // 0x004CD1A0

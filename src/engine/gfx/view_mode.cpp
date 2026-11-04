@@ -18,6 +18,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 
 namespace render::view_mode {
@@ -145,8 +146,8 @@ void* make_twin(void* original, Twin* twin)
     void* errors = nullptr;
     IDirect3DPixelShader9* made = nullptr;
     const long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
-    if (result >= 0 && code && renderer().d3d_device()) {
-        renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)), &made);
+    if (result >= 0 && code && d3d9::state().d3d_device()) {
+        d3d9::state().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)), &made);
     }
     if (!made && !view_mode_state().assemble_failed_logged_) {
         view_mode_state().assemble_failed_logged_ = true;
@@ -192,8 +193,8 @@ void begin_world()
     if (view_mode_state().mode_ == Mode::kUnlit) {
         renderer().set_current_pixel_shader(nullptr); // (the next SetPixelShader sends the twin)
     }
-    if (view_mode_state().mode_ == Mode::kCollisionOnly && renderer().d3d_device()) {
-        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, kViewModeClearColour, 1.0F, 0);
+    if (view_mode_state().mode_ == Mode::kCollisionOnly && d3d9::state().d3d_device()) {
+        d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, kViewModeClearColour, 1.0F, 0);
     }
 }
 

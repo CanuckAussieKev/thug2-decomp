@@ -31,6 +31,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/objects/objects_shared.h"
@@ -135,7 +136,7 @@ void Hub::reset_device_if_lost()
     if (!render::engine_parts().device_lost()) {
         return;
     }
-    if (render::renderer().d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) { // (not yet: it can't be reset)
+    if (render::d3d9::state().d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) { // (not yet: it can't be reset)
         return;
     }
     // Not original - the extensions (engine/ext/extension.h; the level editor's UI: ImGui's default-pool objects
@@ -143,7 +144,7 @@ void Hub::reset_device_if_lost()
     // Original behaviour: only the game's own.
     ext::device_lost(); // (then the new front end's)
     release_device_objects();
-    if (render::renderer().d3d_device()->Reset(present_parameters()) < 0) {
+    if (render::d3d9::state().d3d_device()->Reset(present_parameters()) < 0) {
         return;
     }
     restore_device_objects();

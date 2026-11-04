@@ -47,6 +47,7 @@ struct SdlWindowState {
     int client_width_ = 0;
     int client_height_ = 0;
     SDL_Window* window_ = nullptr;
+    HWND game_window_ = nullptr; // (WinMain's: the handle create_sdl_window returned)
 };
 
 SdlWindowState& sdl_window_state()
@@ -106,6 +107,7 @@ bool& get_windowed() { return sdl_window_state().windowed_; }
 int& get_window_width() { return sdl_window_state().client_width_; }
 int& get_window_height() { return sdl_window_state().client_height_; }
 SDL_Window* sdl_window() { return sdl_window_state().window_; }
+HWND& game_window() { return sdl_window_state().game_window_; }
 
 HWND create_sdl_window()
 {

@@ -47,7 +47,6 @@
 #include "base/core/parse_number.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
-#include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "game/online/net_game_state.h"
 #include "game/online/player_info.h"
@@ -232,10 +231,10 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
     case WM_ACTIVATE:
         // (the game's window, not the message's)
         if (LOWORD(w_param) == WA_ACTIVE || LOWORD(w_param) == WA_CLICKACTIVE) {
-            ShowWindow(render::renderer().game_window(), SW_MAXIMIZE);
+            ShowWindow(sys::game_window(), SW_MAXIMIZE);
             set_app_active(true); // active
         } else {
-            ShowWindow(render::renderer().game_window(), SW_MINIMIZE);
+            ShowWindow(sys::game_window(), SW_MINIMIZE);
             set_app_active(false);
             render::engine_parts().set_device_lost(true); // the device is taken as lost (reset when active again)
             InvalidateRect(nullptr, nullptr, TRUE);
@@ -397,13 +396,13 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     //     create_game_window(<the title> as the class name, title, 100, {.width = 100, .height = 640}, 480, get_window_proc 0x004E16B0,
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
     os_layer::register_event_handler(handle_window_event);
-    render::renderer().set_game_window(create_sdl_window());
+    sys::game_window() = create_sdl_window();
     os_layer::process_window_events();
-    if (!render::renderer().game_window()) {
+    if (!sys::game_window()) {
         return 0;
     }
     // Originally from PartyMod Fixes: the window isn't shown here (SDL shows it). The original did
-    //     ShowWindow(render::renderer().game_window(), render::kShowWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
+    //     ShowWindow(sys::game_window(), render::kShowWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
     get_srand(get_instant());
 
     // The command line split at spaces (made terminators) into at most 20 arguments. The first is the command
@@ -431,7 +430,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     core::at(argv, argc) = nullptr;
 
     find_cd_drive("THUG CD2");
-    init_direct_sound(render::renderer().game_window());
+    init_direct_sound(sys::game_window());
     for (int device = 0; device < 3; ++device) {
         for (int i = 0; i < os_layer::kBindings; ++i) {
             std::array<char, kBindingNameSize> name = {};
@@ -439,7 +438,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
             write_default_setting(name.data(), core::at(core::at(kDefaultBindings, device), i));
         }
     }
-    os_layer::init_input(instance, render::renderer().game_window(), kSettingsKey.data());
+    os_layer::init_input(instance, sys::game_window(), kSettingsKey.data());
 
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.
@@ -482,7 +481,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     render::remove_loading_screen();       // (the renderer's clean-up)
     release_direct_3d();
     InvalidateRect(nullptr, nullptr, TRUE);
-    ShowWindow(render::renderer().game_window(), SW_SHOWMINIMIZED);
+    ShowWindow(sys::game_window(), SW_SHOWMINIMIZED);
     c_exit();
     memory::shut_down_manager();
     exit_now(0);

@@ -13,7 +13,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 
 namespace render {
 
@@ -89,7 +89,7 @@ void set_device_gamma(float red, float green, float b)
     D3DGAMMARAMP ramp{}; // (red, green, blue: the table's three runs)
     static_assert(sizeof(ramp) == sizeof(pc_gamma_state().gamma_ramp_));
     std::memcpy(&ramp, pc_gamma_state().gamma_ramp_.data(), sizeof(ramp));
-    renderer().d3d_device()->SetGammaRamp(0, 0, &ramp);
+    d3d9::state().d3d_device()->SetGammaRamp(0, 0, &ramp);
 }
 
 } // namespace render

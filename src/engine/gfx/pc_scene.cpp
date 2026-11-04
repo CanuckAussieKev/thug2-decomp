@@ -34,7 +34,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/effects_state.h"
 
 namespace render {
@@ -147,7 +147,7 @@ void PcScene::post_load(void* arena_word)
     lists::KeyMap* table = sectors();
     void* sector = first_sector(table);
     if (arena) {
-        renderer().d3d_device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+        d3d9::state().d3d_device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                          d3d9::out(&arena->buffer), nullptr);
         d3d9::object(arena->buffer)->Lock(0, 0, &arena->data, 0);
         arena->used = 0;

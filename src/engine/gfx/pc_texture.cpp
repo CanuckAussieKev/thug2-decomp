@@ -34,7 +34,7 @@
 #include "base/core/cursor.h"
 #include "base/core/span_copy.h"
 #include "base/core/packed_colour.h"
-#include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec2.h"
 #include "base/maths/rect.h"
@@ -310,7 +310,7 @@ bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_for
         break;
     }
     IDirect3DTexture9** d3d = d3d9::out(&texture->texture);
-    renderer().d3d_device()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
+    d3d9::state().d3d_device()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
     D3DSURFACE_DESC desc;
     (*d3d)->GetLevelDesc(0, &desc);
     texture->height = static_cast<uint16_t>(desc.Height);
@@ -332,7 +332,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
     const DWORD levels = from_texture->GetLevelCount();
     D3DSURFACE_DESC desc;
     from_texture->GetLevelDesc(0, &desc);
-    if (renderer().d3d_device()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into,
+    if (d3d9::state().d3d_device()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into,
                                                nullptr) != D3D_OK) {
         crt::exit_fatal(0); // (the game's exit(), without the static owners' teardown)
     }
@@ -413,7 +413,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
         kept->image_height_ = static_cast<uint16_t>(height);
         kept->depth = kDepth32;
         IDirect3DTexture9** kept_d3d = d3d9::out(&kept->texture);
-        renderer().d3d_device()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
+        d3d9::state().d3d_device()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
         (*kept_d3d)->GetLevelDesc(0, &desc);
         kept->height = static_cast<uint16_t>(desc.Height);
         kept->width = static_cast<uint16_t>(desc.Width);
@@ -1321,7 +1321,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
             // texels left as they are, as the original).
             texture->depth = kDepth32;
             format = D3DFMT_A8R8G8B8;
-            renderer().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
+            d3d9::state().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
                                         D3DPOOL_MANAGED, d3d, nullptr);
             void* palette = memory::alloc(header.palette_size);
             read(palette, static_cast<int>(header.palette_size), 1);
@@ -1343,7 +1343,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
             }
             memory::Hub::dealloc(palette);
         } else {
-            renderer().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0,
+            d3d9::state().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0,
                                         static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
             texture->palette = nullptr;
             for (uint32_t level = 0; level < texture->levels; ++level) {
@@ -1400,7 +1400,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout({.compression = static_cast<uint8_t>(header.compression), .depth = static_cast<uint8_t>(header.depth)}, format);
         IDirect3DTexture9** d3d = d3d9::out(&texture->texture);
-        renderer().d3d_device()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
+        d3d9::state().d3d_device()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
                                     static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),
                                     D3DPOOL_MANAGED, d3d, nullptr);
         // (no palette read: the memory loader expects none, as the original)

@@ -28,6 +28,7 @@
 #include "base/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/mesh_pass.h"
 #include "engine/gfx/engine_parts.h"
@@ -185,19 +186,19 @@ void MeshRef::render()
         auto start = static_cast<float>(
             end - ((static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare));
         toggle_fog(true);
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
     }
     if (core::at(index_counts_, 0) == 0U) {
         return;
     }
     D3DMATRIX world;
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
-        renderer().d3d_device()->GetTransform(D3DTS_WORLD, &world);
+        d3d9::state().d3d_device()->GetTransform(D3DTS_WORLD, &world);
         D3DMATRIX boned;
         matrix_multiply(&boned, &core::at(bone_palette(), unknown98), &world);
-        renderer().d3d_device()->SetTransform(D3DTS_WORLD, &boned);
+        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, &boned);
     }
     apply_vertex_colors();
     set_vertex_format(fvf_);
@@ -215,13 +216,13 @@ void MeshRef::render()
     DWORD min_filter = 0;
     DWORD z_write = 0;
     if ((flags_ & kFlagForceLinear) != 0U) {
-        renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+        d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
         if (min_filter != D3DTEXF_LINEAR) {
-            renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         }
     }
     if ((flags_ & kFlagKeepZWrite) != 0U) {
-        renderer().d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
+        d3d9::state().d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
         if (z_write == 1) {
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
         }
@@ -257,13 +258,13 @@ void MeshRef::render()
     if (vertex_buffer_count_ > 1) {
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
     }
-    renderer().d3d_device()->SetStreamSource(0, d3d9::object(vb->buffer()), vb->arena_offset(), stride_);
+    d3d9::state().d3d_device()->SetStreamSource(0, d3d9::object(vb->buffer()), vb->arena_offset(), stride_);
     const int level = lod_level();
-    renderer().d3d_device()->SetIndices(d3d9::object(index_buffer_at(this, level)->buffer()));
+    d3d9::state().d3d_device()->SetIndices(d3d9::object(index_buffer_at(this, level)->buffer()));
     const uint32_t primitives = index_count_at(this, level) - 2U;
     if (renderer().shaders_available()) {
         count_draw(primitives);
-        renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
+        d3d9::state().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
                                            primitives);
     } else {
         for (uint32_t pass = 0; pass < mat->pass_count(); ++pass) {
@@ -279,19 +280,19 @@ void MeshRef::render()
                 tint = color_.data();
             }
             mat->submit_pass(pass, tint);
-            renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0,
+            d3d9::state().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0,
                                                           vertex_count_, 0, index_count_at(this, level) - 2U);
             count_draw(index_count_at(this, level) - 2U);
         }
     }
     if (((flags_ & kFlagForceLinear) != 0U) && min_filter != D3DTEXF_LINEAR) {
-        renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     }
     if (((flags_ & kFlagKeepZWrite) != 0U) && z_write == 1) {
-        renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
     }
     if (unknown98 != -1) {
-        renderer().d3d_device()->SetTransform(D3DTS_WORLD, &world);
+        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, &world);
     }
     toggle_fog(false);
 }

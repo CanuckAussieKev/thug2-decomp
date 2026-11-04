@@ -26,6 +26,7 @@
 #include "platform/d3d_matrix.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/d3d9_state.h"
 #include "engine/gfx/view_setup.h"
 #include "base/maths/mat4.h"
 #include "base/core/same_bits.h"
@@ -76,7 +77,7 @@ PcMaterialState& pc_material_state()
 
 void device_stage_state(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
 {
-    renderer().d3d_device()->SetTextureStageState(stage, type, value);
+    d3d9::state().d3d_device()->SetTextureStageState(stage, type, value);
 }
 
 constexpr uint32_t kPassUvWibble = 0x1;        // the texture matrix from the pass's UV wibble
@@ -153,7 +154,7 @@ void set_common_states(MaterialRef* material)
         change_phase(RenderStateId::kSpecular, 0);
         std::memset(&specular, 0, sizeof(specular));
     }
-    renderer().d3d_device()->SetMaterial(&specular);
+    d3d9::state().d3d_device()->SetMaterial(&specular);
 }
 
 // A material pass and the texture stage it uses.
@@ -366,7 +367,7 @@ void MaterialRef::hand_in()
             core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * kHalf);
             core::at(matrix, kUvScaleV) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * kHalf);
             change_phase(RenderStateId::kLocalViewer, 1);
-            renderer().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
+            d3d9::state().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
         } else if ((flags & kPassUvWibble) != 0U) {
@@ -374,7 +375,7 @@ void MaterialRef::hand_in()
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
             auto& matrix = pc_material_state().wibble_matrix_pass_;
             fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
-            renderer().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
+            d3d9::state().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
         } else {
             if (view_setup().billboard_flag() != 0U) { // (the billboard flag: a static matrix's 2x2 part reset)
                 auto& uv_matrix = pc_material_state().billboard_uv_matrix_;
@@ -387,8 +388,8 @@ void MaterialRef::hand_in()
             }
             DWORD transform_flags = 0;
             DWORD coordinates = 0;
-            renderer().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
-            renderer().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXCOORDINDEX, &coordinates);
+            d3d9::state().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
+            d3d9::state().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXCOORDINDEX, &coordinates);
             if (transform_flags != 0U) {
                 device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
             }
@@ -416,8 +417,8 @@ void MaterialRef::use_pass_coordinates(uint32_t pass)
 {
     DWORD transform_flags = 0;
     DWORD coordinates = 0;
-    renderer().d3d_device()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
-    renderer().d3d_device()->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &coordinates);
+    d3d9::state().d3d_device()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
+    d3d9::state().d3d_device()->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &coordinates);
     if (transform_flags != 0U) {
         set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
     }
@@ -473,7 +474,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 device_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
                 auto& matrix = pc_material_state().wibble_matrix_;
                 fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
-                renderer().d3d_device()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix.data()));
+                d3d9::state().d3d_device()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix.data()));
             } else {
                 use_pass_coordinates(pass);
             }
@@ -521,7 +522,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         const uint32_t red = factor_channel(core::at(factor, 0));
         const uint32_t green = factor_channel(core::at(factor, 1));
         const uint32_t blue = factor_channel(core::at(factor, 2));
-        renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR,
+        d3d9::state().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR,
                                                 kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
         if (alpha_from_texture) {
             device_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
