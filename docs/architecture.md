@@ -75,8 +75,9 @@ messages and handlers, the THUGPRO peer mode and guards - is `game/online` (74 f
 `net::` as they were). The two things the transport asks of the session are hooks set by the exe before any original
 code runs (`online::install_transport_hooks`, game/online/transport_hooks.h): the peer-mode question
 (`net::set_peer_mode_query`) and the check on received messages (`net::set_received_message_check`). The engine
-files that still read the session (the hub's `in_net_game`, the player roster, the net-game state: objects, script
-commands, the animation channel, mlp) are the baseline's `engine -> game/online` lines, for rounds 8-10.
+files that still read the session directly (the interpreter, the animation channel, the surface sounds, the pad
+input, mlp, the model viewer) are the baseline's `engine -> game/online` lines, for round 10; the objects ask it through
+`net::SessionQueries` (below).
 
 **Where the script commands live**: the game's script commands (CFunctions) that read the skater, the session, the goals or the
 parks - `game_cfuncs`, `game_flow_cfuncs`, `game_util_cfuncs`, `trick_cfuncs`, `world_cfuncs`, `net_state_cfuncs`,
@@ -98,9 +99,16 @@ drivable vehicle (`vehicle_*`), the peds (`ped_logic*`, `avoid`), the projectile
 editor's camera - are `game/world`; the walk component's hanging and ladder code is `game/rider/walk_hang` beside the
 rest of the walk component (its interpolation helper, which animation uses too, stays in `engine/objects/walk_lerp`).
 Namespaces are as they were (`objects::`). The component registry - the 81 component types in the original's order,
-which `spawn_module` searches - is `app/component_types.cpp`, called by the start-up. The framework files that still
-ask the game (the session root, the rider, THAW's BMX, the front end) are the baseline's `engine -> game` lines, for
-round 9b.
+which `spawn_module` searches - is `app/component_types.cpp`, called by the start-up. `engine/objects` includes nothing above the
+engine: what the framework asks of the game - the skate module's players, level, movie managers and viewer, a node left
+out of the game mode, the front end's controllers, the park editor's state, the skater's flip component, a
+projectile's hit, the trick objects' clusters, the walk component's ladder and rail checks, THAW's BMX - goes through
+`objects::GameHooks` (`engine/objects/game_hooks.h`: function pointers, each the game's own code, installed once by
+`objects::install_game_hooks`, game/world/object_hooks.h, from `app/main.cpp`). What the engine asks of the online
+session - whether a network game is on, the client app of this machine's player of an object - is
+`net::SessionQueries` (`engine/net/session_query.h`, installed by `online::install_session_queries` at start-up where
+the original kept the objects' copy of the network manager's pointer). The viewport count (`modules::viewport_count`)
+is `engine/gfx/viewport`'s, beside the screen mode that sets it.
 
 **The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
