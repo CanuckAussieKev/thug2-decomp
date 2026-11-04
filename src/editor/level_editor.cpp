@@ -1607,6 +1607,36 @@ void set_exist(UndoStep* step, bool exist)
     }
 }
 
+// Added nodes put back: made again where they were in the overlay (lowest index first, the first selected), or
+// taken out.
+void restore_added(const UndoStep& step)
+{
+    std::string message;
+    if (step.exist) {
+        // (made again where they were in the overlay: lowest index first)
+        std::vector<size_t> by_index(step.added.size());
+        for (size_t i = 0; i < by_index.size(); ++i) {
+            core::at(by_index, i) = i;
+        }
+        std::ranges::sort(
+            by_index, [&](size_t a, size_t b) { return core::at(step.added_at_, a) < core::at(step.added_at_, b); });
+        for (const size_t index : by_index) {
+            node_create::fabricate(core::at(step.added, index), core::at(step.added_at_, index), &message);
+        }
+        const int index = step.added.empty() ? -1 : nodes::get_find(node_create::name_hash(step.added.front().name));
+        if (index >= 0) {
+            select_node_only(index);
+        }
+    } else {
+        for (const node_create::Spec& spec : step.added) {
+            node_create::Spec removed;
+            int at = 0;
+            node_create::drop_out(node_create::name_hash(spec.name), &removed, &at);
+        }
+        drag_state().node_selected_ = false;
+    }
+}
+
 // `step` put back; what it puts back is selected.
 void get_restore(UndoStep& step)
 {
@@ -1651,30 +1681,7 @@ void get_restore(UndoStep& step)
         break;
     }
     case UndoStep::Kind::kAdded: {
-        std::string message;
-        if (step.exist) {
-            // (made again where they were in the overlay: lowest index first)
-            std::vector<size_t> by_index(step.added.size());
-            for (size_t i = 0; i < by_index.size(); ++i) {
-                core::at(by_index, i) = i;
-            }
-            std::ranges::sort(by_index, [&](size_t a, size_t b) { return core::at(step.added_at_, a) < core::at(step.added_at_, b); });
-            for (const size_t index : by_index) {
-                node_create::fabricate(core::at(step.added, index), core::at(step.added_at_, index), &message);
-            }
-            const int index =
-                step.added.empty() ? -1 : nodes::get_find(node_create::name_hash(step.added.front().name));
-            if (index >= 0) {
-                select_node_only(index);
-            }
-        } else {
-            for (const node_create::Spec& spec : step.added) {
-                node_create::Spec removed;
-                int at = 0;
-                node_create::drop_out(node_create::name_hash(spec.name), &removed, &at);
-            }
-            drag_state().node_selected_ = false;
-        }
+        restore_added(step);
         break;
     }
     case UndoStep::Kind::kHidden: {
@@ -2484,6 +2491,37 @@ void vertex_drag(Ray ray, const TickCycle& frame)
     }
 }
 
+// A typed amount: that far along the typed axis - else the arrow's, else X - from where the drag started.
+void typed_drag(V3 pos, float typed)
+{
+    int axis = 0;
+    if (drag_state().typed_.axis >= 0) {
+        axis = drag_state().typed_.axis;
+    } else if (drag_state().axis_ >= 0) {
+        axis = drag_state().axis_;
+    }
+    const V3 wanted = drag_state().drag_start_ + axis_vector(axis) * typed;
+    if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z) {
+        place_selection(wanted);
+    }
+}
+
+// A scenery piece dragged without snapping: its box faces flush with its neighbours' (level_editor_arrange.h) -
+// along the arrow's axis in world space (none in local space), else y up / down, else x and z.
+V3 flush_with_neighbours(V3 pos, V3 wanted)
+{
+    // (the axes as bits: the arrow's axis in world space - none in local space -, else y up / down, else x and z)
+    const int free_axes = drag_state().drag_vertical_ ? 2 : 5;
+    int axes = free_axes;
+    if (drag_state().axis_ >= 0) {
+        axes = xform::at_hand().space == xform::Space::kWorld ? 1 << drag_state().axis_ : 0;
+    }
+    if (axes != 0) {
+        wanted = arrange::edge_snapped(pos, wanted, axes);
+    }
+    return wanted;
+}
+
 void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mouse_y, Snapping snap)
 {
     if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
@@ -2498,16 +2536,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     // (a typed amount: that far along the typed axis - else the arrow's, else X - from where the drag started)
     float typed = 0.0F;
     if (xform::typed_value(drag_state().typed_, &typed)) {
-        int axis = 0;
-        if (drag_state().typed_.axis >= 0) {
-            axis = drag_state().typed_.axis;
-        } else if (drag_state().axis_ >= 0) {
-            axis = drag_state().axis_;
-        }
-        const V3 wanted = drag_state().drag_start_ + axis_vector(axis) * typed;
-        if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z) {
-            place_selection(wanted);
-        }
+        typed_drag(pos, typed);
         return;
     }
     if (!snap.on || snap.target != xform::SnapTarget::kVertex) {
@@ -2580,15 +2609,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     }
     // (no snapping held: a scenery piece's box faces flush with its neighbours' - level_editor_arrange.h)
     if (!snap.on && !get_primary() && picked_node_index() < 0 && (wall_only() == 0U)) {
-        // (the axes as bits: the arrow's axis in world space - none in local space -, else y up / down, else x and z)
-        const int free_axes = drag_state().drag_vertical_ ? 2 : 5;
-        int axes = free_axes;
-        if (drag_state().axis_ >= 0) {
-            axes = xform::at_hand().space == xform::Space::kWorld ? 1 << drag_state().axis_ : 0;
-        }
-        if (axes != 0) {
-            wanted = arrange::edge_snapped(pos, wanted, axes);
-        }
+        wanted = flush_with_neighbours(pos, wanted);
     }
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z) {
         place_selection(wanted);
@@ -5194,6 +5215,103 @@ std::vector<std::pair<uint32_t, uint32_t>>& duplicate_pairs()
     static core::NoDestroy<std::vector<std::pair<uint32_t, uint32_t>>> duplicate_pairs;
     return duplicate_pairs.get();
 }
+// The selected objects copied (that can be: a copy's copy made from the same node) beside them, or where a repeat
+// says, and selected; noted in `step`. False when none could be.
+bool duplicate_objects(const std::vector<objects::GameEntity*>& objects, V3 right, const xform::RepeatStep* repeat,
+                       UndoStep& step)
+{
+    std::vector<objects::GameEntity*> made;
+    std::vector<uint32_t> sources;
+    for (objects::GameEntity* object : objects) {
+        if (!object_edit::can_copy(object->ident()) && !object_edit::is_copy(object->ident())) {
+            continue;
+        }
+        uint32_t source = object->ident();
+        for (const object_edit::DupFrom& copy : object_edit::get_copies()) {
+            if (copy.name == object->ident()) {
+                source = copy.source; // (a copy's copy: made from the same node)
+            }
+        }
+        OrientedBox box{};
+        const float width =
+            object_edit::model_box(object, &box) ? std::max(box.max.x - box.min.x, box.max.z - box.min.z) : 50.0F;
+        const V3 at = repeat ? xform::repeat_target(object_edit::pos_of(object), *repeat)
+                             : object_edit::pos_of(object) + right * (width + 20.0F);
+        objects::GameEntity* copy = object_edit::make_copy(source, at);
+        if (!copy) {
+            continue;
+        }
+        object_edit::State state = object_edit::store_away(object);
+        state.id = copy->ident();
+        state.pos = copy->at_point();
+        object_edit::get_restore(state);
+        made.emplace_back(copy);
+        sources.push_back(source);
+        duplicate_pairs().emplace_back(object->ident(), copy->ident());
+    }
+    // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
+    if (repeat && repeat->turn != 0.0F && !made.empty()) {
+        const V3 pivot = object_edit::pos_of(made.front());
+        for (objects::GameEntity* copy : made) {
+            object_edit::turn_about(copy, pivot, repeat->turn);
+        }
+    }
+    for (size_t i = 0; i < made.size(); ++i) {
+        step.copies.push_back({.name = core::at(made, i)->ident(),
+                               .source = core::at(sources, i),
+                               .state = object_edit::store_away(core::at(made, i))});
+    }
+    if (made.empty()) {
+        hud::get_message("This object type can't be copied");
+        return false;
+    }
+    select_objects(made);
+    return true;
+}
+
+// The selected scenery copied beside it (by its width across the view), or where a repeat says, and selected;
+// noted in `step`. False when none could be.
+bool duplicate_scenery(V3 right, const xform::RepeatStep* repeat, UndoStep& step)
+{
+    OrientedBox box{};
+    V3 min = {};
+    V3 max = {};
+    bool have = false;
+    for (const uint32_t checksum : scenery::get_selection()) {
+        V3 point_a{};
+        V3 point_b{};
+        if (scenery::cuboid(checksum, &box)) {
+            bounds_of(box, &point_a, &point_b);
+            grow_box(&min, &max, have, point_a, point_b);
+            have = true;
+        }
+    }
+    std::vector<uint32_t> copies;
+    for (const uint32_t checksum : scenery::get_selection()) {
+        if (const uint32_t copy = scenery::get_duplicate(checksum)) {
+            copies.push_back(copy);
+            duplicate_pairs().emplace_back(checksum, copy);
+        }
+    }
+    if (copies.empty()) {
+        hud::get_message("Couldn't copy");
+        return false;
+    }
+    scenery::set_selection(copies);
+    const float width = std::fabs((max.x - min.x) * right.x) + std::fabs((max.z - min.z) * right.z);
+    if (repeat) {
+        scenery::move_to(xform::repeat_target(scenery::get_pivot(), *repeat));
+        if (repeat->quarters != 0) {
+            scenery::get_turn(repeat->quarters);
+        }
+    } else {
+        scenery::move_to(scenery::get_pivot() + right * (width + kPasteGap));
+    }
+    scenery::finalise();
+    step.sectors = copies;
+    return true;
+}
+
 void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nullptr)
 {
     duplicate_pairs().clear();
@@ -5210,87 +5328,13 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         return;
     }
     if (!objects.empty()) {
-        std::vector<objects::GameEntity*> made;
-        std::vector<uint32_t> sources;
-        for (objects::GameEntity* object : objects) {
-            if (!object_edit::can_copy(object->ident()) && !object_edit::is_copy(object->ident())) {
-                continue;
-            }
-            uint32_t source = object->ident();
-            for (const object_edit::DupFrom& copy : object_edit::get_copies()) {
-                if (copy.name == object->ident()) {
-                    source = copy.source; // (a copy's copy: made from the same node)
-                }
-            }
-            OrientedBox box{};
-            const float width =
-                object_edit::model_box(object, &box) ? std::max(box.max.x - box.min.x, box.max.z - box.min.z) : 50.0F;
-            const V3 at = repeat ? xform::repeat_target(object_edit::pos_of(object), *repeat)
-                                 : object_edit::pos_of(object) + right * (width + 20.0F);
-            objects::GameEntity* copy = object_edit::make_copy(source, at);
-            if (!copy) {
-                continue;
-            }
-            object_edit::State state = object_edit::store_away(object);
-            state.id = copy->ident();
-            state.pos = copy->at_point();
-            object_edit::get_restore(state);
-            made.emplace_back(copy);
-            sources.push_back(source);
-            duplicate_pairs().emplace_back(object->ident(), copy->ident());
-        }
-        // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
-        if (repeat && repeat->turn != 0.0F && !made.empty()) {
-            const V3 pivot = object_edit::pos_of(made.front());
-            for (objects::GameEntity* copy : made) {
-                object_edit::turn_about(copy, pivot, repeat->turn);
-            }
-        }
-        for (size_t i = 0; i < made.size(); ++i) {
-            step.copies.push_back({.name = core::at(made, i)->ident(), .source = core::at(sources, i), .state = object_edit::store_away(core::at(made, i))});
-        }
-        if (made.empty()) {
-            hud::get_message("This object type can't be copied");
+        if (!duplicate_objects(objects, right, repeat, step)) {
             return;
         }
-        select_objects(made);
     } else if (scenery::has_selection()) {
-        OrientedBox box{};
-        V3 min = {};
-        V3 max = {};
-        bool have = false;
-        for (const uint32_t checksum : scenery::get_selection()) {
-            V3 point_a{};
-            V3 point_b{};
-            if (scenery::cuboid(checksum, &box)) {
-                bounds_of(box, &point_a, &point_b);
-                grow_box(&min, &max, have, point_a, point_b);
-                have = true;
-            }
-        }
-        std::vector<uint32_t> copies;
-        for (const uint32_t checksum : scenery::get_selection()) {
-            if (const uint32_t copy = scenery::get_duplicate(checksum)) {
-                copies.push_back(copy);
-                duplicate_pairs().emplace_back(checksum, copy);
-            }
-        }
-        if (copies.empty()) {
-            hud::get_message("Couldn't copy");
+        if (!duplicate_scenery(right, repeat, step)) {
             return;
         }
-        scenery::set_selection(copies);
-        const float width = std::fabs((max.x - min.x) * right.x) + std::fabs((max.z - min.z) * right.z);
-        if (repeat) {
-            scenery::move_to(xform::repeat_target(scenery::get_pivot(), *repeat));
-            if (repeat->quarters != 0) {
-                scenery::get_turn(repeat->quarters);
-            }
-        } else {
-            scenery::move_to(scenery::get_pivot() + right * (width + kPasteGap));
-        }
-        scenery::finalise();
-        step.sectors = copies;
     } else {
         if (wall_only() != 0U) {
             hud::get_message("Invisible walls can't be copied");
@@ -7487,11 +7531,69 @@ void browser_keys(const EditorFrame& editor_frame)
     }
 }
 
+// The nudge keys' steps: forward / back, right / left, up / down (each -1, 0 or 1).
+struct NudgeSteps {
+    int forward = 0;
+    int right = 0;
+    int up = 0;
+};
+
+// The nudge with [editor] wasd_flies=1.
+NudgeSteps read_fly_nudge(platform::KeyState keys)
+{
+    NudgeSteps steps;
+    // ([editor] wasd_flies=1: the fly keys nudge it as well as the arrows - Space aside, it cycles the tool)
+    steps.forward =
+        (actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kNudgeForward) ? 1 : 0) -
+        (actions::get_held(keys, actions::kBack) || actions::get_held(keys, actions::kNudgeBack) ? 1 : 0);
+    steps.right = (actions::get_held(keys, actions::kRight) || actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
+                  (actions::get_held(keys, actions::kLeft) || actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
+    steps.up = (actions::get_held(keys, actions::kNudgeUp) ||
+                        (actions::get_held(keys, actions::kFlyUp) && (core::at(keys, SDL_SCANCODE_SPACE) == 0U))
+                    ? 1
+                    : 0) -
+               (actions::get_held(keys, actions::kNudgeDown) || actions::get_held(keys, actions::kFlyDown) ? 1 : 0);
+    return steps;
+}
+
+// The nudge with [editor] wasd_flies=0 (and the camera flown with the right button held).
+NudgeSteps read_arrow_nudge(const EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const platform::KeyState keys = editor_frame.keys;
+    const bool ctrl = editor_frame.ctrl;
+    const double boost = editor_frame.boost;
+    const double seconds = editor_frame.seconds;
+    const TickCycle& frame = editor_frame.frame;
+    NudgeSteps steps;
+    // ([editor] wasd_flies=0 - level_editor_transform.h: the arrow keys nudge it, Page Up / Down up / down;
+    // W A S D / Q E fly the camera while the right button is held - away from the selection, F frames it again)
+    steps.forward = (actions::get_held(keys, actions::kNudgeForward) ? 1 : 0) -
+                    (actions::get_held(keys, actions::kNudgeBack) ? 1 : 0);
+    steps.right = (actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
+                  (actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
+    steps.up =
+        (actions::get_held(keys, actions::kNudgeUp) ? 1 : 0) - (actions::get_held(keys, actions::kNudgeDown) ? 1 : 0);
+    if (input.right && !ctrl && !drag_state().dragging_) {
+        const FlyInput fly = {.forward = (actions::get_held(keys, actions::kForward) ? 1 : 0) -
+                                         (actions::get_held(keys, actions::kBack) ? 1 : 0),
+                              .right = (actions::get_held(keys, actions::kRight) ? 1 : 0) -
+                                       (actions::get_held(keys, actions::kLeft) ? 1 : 0),
+                              .up = (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
+                                    (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
+        if ((fly.forward != 0) || (fly.right != 0) || (fly.up != 0)) {
+            drag_state().free_camera_ = true;
+            level_editor_state().pos_ = get_fly(level_editor_state().pos_, frame, fly,
+                                                static_cast<float>(level_editor_state().speed_ * boost * seconds));
+        }
+    }
+    return steps;
+}
+
 // The selection moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R, Page Up/Down)
 // down/up - and the camera follows it.
 void nudge_selection(const EditorFrame& editor_frame, bool change_locked)
 {
-    const Mouse& input = editor_frame.input;
     const platform::KeyState keys = editor_frame.keys;
     const bool ctrl = editor_frame.ctrl;
     const bool alt = editor_frame.alt;
@@ -7500,45 +7602,10 @@ void nudge_selection(const EditorFrame& editor_frame, bool change_locked)
     const TickCycle& frame = editor_frame.frame;
     const V3 forward = make_unit({.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z});
     const V3 right = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
-    int forward_step = 0;
-    int right_step = 0;
-    int u = 0;
-    if (xform::fly_always()) {
-        // ([editor] wasd_flies=1: the fly keys nudge it as well as the arrows - Space aside, it cycles the tool)
-        forward_step =
-            (actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kNudgeForward) ? 1 : 0) -
-            (actions::get_held(keys, actions::kBack) || actions::get_held(keys, actions::kNudgeBack) ? 1 : 0);
-        right_step =
-            (actions::get_held(keys, actions::kRight) || actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
-            (actions::get_held(keys, actions::kLeft) || actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
-        u = (actions::get_held(keys, actions::kNudgeUp) ||
-                     (actions::get_held(keys, actions::kFlyUp) && (core::at(keys, SDL_SCANCODE_SPACE) == 0U))
-                 ? 1
-                 : 0) -
-            (actions::get_held(keys, actions::kNudgeDown) || actions::get_held(keys, actions::kFlyDown) ? 1 : 0);
-    } else {
-        // ([editor] wasd_flies=0 - level_editor_transform.h: the arrow keys nudge it, Page Up / Down up / down;
-        // W A S D / Q E fly the camera while the right button is held - away from the selection, F frames it again)
-        forward_step = (actions::get_held(keys, actions::kNudgeForward) ? 1 : 0) -
-                       (actions::get_held(keys, actions::kNudgeBack) ? 1 : 0);
-        right_step = (actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
-                     (actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
-        u = (actions::get_held(keys, actions::kNudgeUp) ? 1 : 0) -
-            (actions::get_held(keys, actions::kNudgeDown) ? 1 : 0);
-        if (input.right && !ctrl && !drag_state().dragging_) {
-            const FlyInput fly = {.forward = (actions::get_held(keys, actions::kForward) ? 1 : 0) -
-                                             (actions::get_held(keys, actions::kBack) ? 1 : 0),
-                                  .right = (actions::get_held(keys, actions::kRight) ? 1 : 0) -
-                                           (actions::get_held(keys, actions::kLeft) ? 1 : 0),
-                                  .up = (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
-                                        (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
-            if ((fly.forward != 0) || (fly.right != 0) || (fly.up != 0)) {
-                drag_state().free_camera_ = true;
-                level_editor_state().pos_ = get_fly(level_editor_state().pos_, frame, fly,
-                                                    static_cast<float>(level_editor_state().speed_ * boost * seconds));
-            }
-        }
-    }
+    const NudgeSteps steps = xform::fly_always() ? read_fly_nudge(keys) : read_arrow_nudge(editor_frame);
+    int forward_step = steps.forward;
+    int right_step = steps.right;
+    int u = steps.up;
     if (ctrl || alt || change_locked) {
         forward_step = right_step = u = 0; // (Ctrl+S, Ctrl+D; Alt+G / Alt+H...; the Outliner's lock)
     }
@@ -7938,6 +8005,51 @@ void update_hover(const EditorFrame& editor_frame)
 
 // A click on something: selected (Shift: added / removed; Alt or a middle click: one piece of scenery in / out)
 // and dragged; on nothing, deselected.
+// A click on scenery: one piece in / out (Alt, a middle click), Shift adding / dropping its group, else its group
+// selected; whether it's dragged.
+bool click_scenery(bool one, bool shift)
+{
+    bool drag = false;
+    drag_state().objects_.clear();
+    if (one) {
+        scenery::flip_over(drag_state().hover_sector_);
+    } else if (shift) {
+        scenery::get_selected(drag_state().hover_sector_) ? scenery::flip_over(drag_state().hover_sector_)
+                                                          : scenery::add_group(drag_state().hover_sector_);
+    } else if (!scenery::get_selected(drag_state().hover_sector_)) {
+        scenery::select_group(drag_state().hover_sector_);
+    }
+    drag = scenery::has_selection() && !one && !shift;
+    return drag;
+}
+
+// A click on an object: Shift adding / dropping it, else it selected (or first of the selection); whether it's
+// dragged.
+bool click_object(objects::GameEntity* hover, bool shift)
+{
+    bool drag = false;
+    scenery::clear_selection();
+    drag_state().node_selected_ = false;
+    if (shift) {
+        if (is_picked(hover)) {
+            std::erase_if(drag_state().objects_, [&](const Picked& picked) { return picked.object == hover; });
+        } else {
+            drag_state().objects_.push_back({.object = hover, .id = hover->ident()});
+        }
+    } else {
+        if (!is_picked(hover)) {
+            select_objects({hover});
+        } else if (get_primary() != hover) {
+            // (the clicked one first: the camera and the arrows go by it)
+            auto it = std::ranges::find_if(drag_state().objects_,
+                                           [&](const Picked& picked) { return picked.object == hover; });
+            std::rotate(drag_state().objects_.begin(), it, it + 1);
+        }
+        drag = true;
+    }
+    return drag;
+}
+
 void click_to_select(const EditorFrame& editor_frame)
 {
     const Mouse& input = editor_frame.input;
@@ -7994,40 +8106,13 @@ void click_to_select(const EditorFrame& editor_frame)
         hud::get_message((trigger_sector != 0U) ? "Trigger " + object_edit::caption(trigger_sector)
                                                 : std::string("Trigger volume"));
     } else if (drag_state().hover_sector_ != 0U) {
-        drag_state().objects_.clear();
-        if (one) {
-            scenery::flip_over(drag_state().hover_sector_);
-        } else if (shift) {
-            scenery::get_selected(drag_state().hover_sector_) ? scenery::flip_over(drag_state().hover_sector_)
-                                                              : scenery::add_group(drag_state().hover_sector_);
-        } else if (!scenery::get_selected(drag_state().hover_sector_)) {
-            scenery::select_group(drag_state().hover_sector_);
-        }
-        drag = scenery::has_selection() && !one && !shift;
+        drag = click_scenery(one, shift);
     } else if ((input.left_presses_ != 0) && hover && flag_node_of(hover) >= 0) {
         // (a flag's object: its node is what moves - level_editor_node_edit.h)
         select_node(flag_node_of(hover));
         drag = have_selection() && !shift;
     } else if ((input.left_presses_ != 0) && hover) {
-        scenery::clear_selection();
-        drag_state().node_selected_ = false;
-        if (shift) {
-            if (is_picked(hover)) {
-                std::erase_if(drag_state().objects_, [&](const Picked& picked) { return picked.object == hover; });
-            } else {
-                drag_state().objects_.push_back({.object = hover, .id = hover->ident()});
-            }
-        } else {
-            if (!is_picked(hover)) {
-                select_objects({hover});
-            } else if (get_primary() != hover) {
-                // (the clicked one first: the camera and the arrows go by it)
-                auto it = std::ranges::find_if(drag_state().objects_,
-                                               [&](const Picked& picked) { return picked.object == hover; });
-                std::rotate(drag_state().objects_.begin(), it, it + 1);
-            }
-            drag = true;
-        }
+        drag = click_object(hover, shift);
     } else if ((input.left_presses_ != 0) && !shift && !ctrl) {
         unpick();
     }
@@ -8054,6 +8139,20 @@ void click_to_select(const EditorFrame& editor_frame)
         begin_change();
         start_drag(level_editor_state().pos_, dir, shift && !ctrl && !alt && drag_state().axis_ < 0, frame, input.x,
                    input.y);
+    }
+}
+
+// An armed Link / path assignment's click: the node under the cursor taken (none: still waiting).
+void pick_for_chain()
+{
+    if (drag_state().hover_node_ >= 0) {
+        const chains::State before = chains::at_hand();
+        std::string message;
+        uint32_t select = 0;
+        chains::get_picked(core::at(nodes::get_all(), drag_state().hover_node_).name, &message, &select);
+        after_chain_change(before, select, message);
+    } else {
+        hud::get_message(chains::get_waiting());
     }
 }
 
@@ -8132,15 +8231,7 @@ void handle_clicks(EditorFrame& editor_frame)
     } else if ((input.left_presses_ != 0) && have_ray && !drag_state().dragging_ && chains::wants_pick() &&
                drag_state().hover_axis_ < 0) {
         // (an armed Link / path assignment: the node clicked - level_editor_chains.h)
-        if (drag_state().hover_node_ >= 0) {
-            const chains::State before = chains::at_hand();
-            std::string message;
-            uint32_t select = 0;
-            chains::get_picked(core::at(nodes::get_all(), drag_state().hover_node_).name, &message, &select);
-            after_chain_change(before, select, message);
-        } else {
-            hud::get_message(chains::get_waiting());
-        }
+        pick_for_chain();
     } else if ((input.left_presses_ != 0) && have_ray && !drag_state().dragging_ &&
                chains::get_drawing() != chains::Blit::kNone && drag_state().hover_axis_ < 0) {
         draw_chain_point(dir, alt);
@@ -8245,18 +8336,12 @@ void tick_frame()
     finish_frame(editor_frame);
 }
 
-void blit()
+namespace {
+
+// The hovered thing's box when it couldn't be tinted (with the UI always): the object, or the scenery's group (its
+// one piece with Alt).
+void add_hover_boxes(const TickCycle& frame, objects::GameEntity* hover, std::vector<LineVertex>& lines)
 {
-    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::renderer().d3d_device()) {
-        return;
-    }
-    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
-    // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
-    // cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
-    static std::vector<LineVertex> lines;
-    lines.clear();
-    const std::vector<objects::GameEntity*> objects = selected_objects();
-    objects::GameEntity* hover = drag_state().dragging_ ? nullptr : get_live(drag_state().hover_);
     OrientedBox box{};
     // (with the UI the hover's outline is always drawn too - what a click takes: the object, or the scenery's group -
     // its one piece with Alt)
@@ -8282,6 +8367,13 @@ void blit()
             }
         }
     }
+}
+
+// The selection's boxes when it couldn't be tinted: its objects', else its scenery pieces'.
+void add_selected_boxes(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
+                        std::vector<LineVertex>& lines)
+{
+    OrientedBox box{};
     if (!selected_tinted()) {
         for (objects::GameEntity* object : objects) {
             if (object_edit::model_box(object, &box)) {
@@ -8294,6 +8386,123 @@ void blit()
             }
         }
     }
+}
+
+// The gizmo (level_editor_transform.h): Move's arrows, Rotate's ring, Scale's cubes - while dragging with one, that
+// one only (a modal Rotate / Scale: the whole gizmo).
+void add_gizmo_lines(const TickCycle& frame, std::vector<LineVertex>& lines)
+{
+    if (have_selection() &&
+        (!drag_state().dragging_ || drag_state().axis_ >= 0 || drag_state().drag_mode_ != xform::Mode::kShiftBy)) {
+        const xform::Gizmo gizmo = gizmo_now();
+        for (const xform::Segment& segment : xform::gizmo_segments(gizmo)) {
+            if (drag_state().dragging_ && drag_state().axis_ >= 0 && segment.handle != drag_state().axis_) {
+                continue;
+            }
+            const uint32_t colour = xform::handle_colour(segment.handle, segment.handle == drag_state().hover_axis_ ||
+                                                                             segment.handle == drag_state().axis_);
+            if (segment.arrow) {
+                add_arrow(segment.a, segment.b, frame, colour, &lines);
+            } else {
+                add_line(segment.a, segment.b, frame, colour, &lines,
+                         segment.handle == 1 && gizmo.mode == xform::Mode::kSpinBy ? 3 : 1);
+            }
+        }
+    }
+}
+
+// With the UI: the overlays of every tool and the lines through ImGui's draw list, with the panels
+// (level_editor_ui.h).
+void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
+                  const std::vector<LineVertex>& lines)
+{
+    get_clear(pick_cycle().overlay_);
+    ui::ShapeMesh model = assemble_model();
+    // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
+    preview::tick_cycle(&model);
+    add_node_gizmos(frame, model.nodes.selected);
+    view::add_collision(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+                        kNearZ, &pick_cycle().overlay_.under, &pick_cycle().overlay_.lines);
+    // (map3: the selected collision faces, the camera nodes' frustums)
+    faces::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+                       kNearZ, &pick_cycle().overlay_.lines);
+    cameras::add_overlay(
+        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+        {.near_z_ = kNearZ,
+         .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
+        &pick_cycle().overlay_.lines);
+    // (UX5: note pins; the problem checker run again a moment after a change)
+    notes::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+                       kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
+                       &pick_cycle().overlay_.texts);
+    checks::note_model(model.changes, model.marks);
+    triggers::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+                          kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
+    if (overlays::get_shown(overlays::kFeatureMap)) { // (the Overlays menu - level_editor_overlays.h)
+        triggers::add_extras(
+            level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+            {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected}, &pick_cycle().overlay_.lines,
+            &pick_cycle().overlay_.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
+    }
+    triggers::add_handles(&pick_cycle().overlay_.circles); // (the selected trigger volume's resize handles)
+    entities::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+                          kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
+    play_test::add_overlay(
+        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ,
+        &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
+        &pick_cycle().overlay_.texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
+    goal_edit::add_overlay(
+        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+        {.near_z_ = kNearZ,
+         .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
+        &pick_cycle().overlay_.lines,
+        &pick_cycle().overlay_.texts); // (the goals' points' labels)
+    for (size_t i = 0; i + 1 < lines.size(); i += 2) {
+        pick_cycle().overlay_.lines.push_back({.ax = core::at(lines, i).x,
+                                               .ay = core::at(lines, i).y,
+                                               .bx = core::at(lines, i + 1).x,
+                                               .by = core::at(lines, i + 1).y,
+                                               .argb = core::at(lines, i).color,
+                                               .thickness = 1.0F});
+    }
+    // The view menus' overlays (level_editor_overlays.h): labels off - the texts so far dropped; the grid and the
+    // carried things, the jump arcs, the grind preview, the ruler (their own texts kept: they are the readings).
+    if (!overlays::get_shown(overlays::kLabels)) {
+        pick_cycle().overlay_.texts.clear();
+    }
+    overlays::Painter painter;
+    if (overlays::painter_now(&pick_cycle().overlay_, &painter)) {
+        overlays::add_overlay(painter, drag_state().dragging_ || level_editor_state().key_moving_,
+                              drag_state().mark_base_, have_selection());
+        arcs::add_overlay(painter, objects.empty() ? scenery::get_selection() : std::vector<uint32_t>{});
+        grind_preview::add_overlay(painter, drag_state().dragging_ ? -1 : model.nodes.hovered, model.nodes.selected);
+        ruler::add_overlay(painter);
+        ux9::add_overlay(painter); // (UX9: skateability colours, the gap wizard's gates, the ground tool's preview)
+    }
+    // (UX7: the placement ghost, the readout while dragging, the faces snapped to, the top edges for a rail -
+    // level_editor_arrange.h)
+    arrange::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+                         kNearZ, &pick_cycle().overlay_);
+    thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
+    ui::tick_cycle(model, pick_cycle().overlay_);
+}
+
+} // namespace
+
+void blit()
+{
+    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::renderer().d3d_device()) {
+        return;
+    }
+    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
+    // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
+    // cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
+    static std::vector<LineVertex> lines;
+    lines.clear();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
+    objects::GameEntity* hover = drag_state().dragging_ ? nullptr : get_live(drag_state().hover_);
+    add_hover_boxes(frame, hover, lines);
+    add_selected_boxes(frame, objects, lines);
     if (objects.empty()) {
         for (const auto& segment : scenery::selected_rails()) {
             add_line(segment.first, segment.second, frame, kSegmentColour, &lines);
@@ -8313,78 +8522,10 @@ void blit()
     }
     // The gizmo (level_editor_transform.h): Move's arrows, Rotate's ring, Scale's cubes - while dragging with one, that
     // one only (a modal Rotate / Scale: the whole gizmo).
-    if (have_selection() && (!drag_state().dragging_ || drag_state().axis_ >= 0 || drag_state().drag_mode_ != xform::Mode::kShiftBy)) {
-        const xform::Gizmo gizmo = gizmo_now();
-        for (const xform::Segment& segment : xform::gizmo_segments(gizmo)) {
-            if (drag_state().dragging_ && drag_state().axis_ >= 0 && segment.handle != drag_state().axis_) {
-                continue;
-            }
-            const uint32_t colour =
-                xform::handle_colour(segment.handle, segment.handle == drag_state().hover_axis_ || segment.handle == drag_state().axis_);
-            if (segment.arrow) {
-                add_arrow(segment.a, segment.b, frame, colour, &lines);
-            } else {
-                add_line(segment.a, segment.b, frame, colour, &lines,
-                         segment.handle == 1 && gizmo.mode == xform::Mode::kSpinBy ? 3 : 1);
-            }
-        }
-    }
+    add_gizmo_lines(frame, lines);
     // The UI: the lines through ImGui's draw list, with the panels (level_editor_ui.h).
     if (ui::underway()) {
-        get_clear(pick_cycle().overlay_);
-        ui::ShapeMesh model = assemble_model();
-        // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
-        preview::tick_cycle(&model);
-        add_node_gizmos(frame, model.nodes.selected);
-        view::add_collision(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.under, &pick_cycle().overlay_.lines);
-        // (map3: the selected collision faces, the camera nodes' frustums)
-        faces::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines);
-        cameras::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, {.near_z_ = kNearZ, .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
-                             &pick_cycle().overlay_.lines);
-        // (UX5: note pins; the problem checker run again a moment after a change)
-        notes::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
-                           &pick_cycle().overlay_.texts);
-        checks::note_model(model.changes, model.marks);
-        triggers::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
-        if (overlays::get_shown(overlays::kFeatureMap)) { // (the Overlays menu - level_editor_overlays.h)
-            triggers::add_extras(
-                level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected}, &pick_cycle().overlay_.lines,
-                &pick_cycle().overlay_.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
-        }
-        triggers::add_handles(&pick_cycle().overlay_.circles); // (the selected trigger volume's resize handles)
-        entities::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
-        play_test::add_overlay(
-            level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
-            &pick_cycle().overlay_.texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
-        goal_edit::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, {.near_z_ = kNearZ, .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
-                               &pick_cycle().overlay_.lines,
-                               &pick_cycle().overlay_.texts); // (the goals' points' labels)
-        for (size_t i = 0; i + 1 < lines.size(); i += 2) {
-            pick_cycle().overlay_.lines.push_back({.ax = core::at(lines, i).x,
-                                                   .ay = core::at(lines, i).y,
-                                                   .bx = core::at(lines, i + 1).x,
-                                                   .by = core::at(lines, i + 1).y,
-                                                   .argb = core::at(lines, i).color,
-                                                   .thickness = 1.0F});
-        }
-        // The view menus' overlays (level_editor_overlays.h): labels off - the texts so far dropped; the grid and the
-        // carried things, the jump arcs, the grind preview, the ruler (their own texts kept: they are the readings).
-        if (!overlays::get_shown(overlays::kLabels)) {
-            pick_cycle().overlay_.texts.clear();
-        }
-        overlays::Painter painter;
-        if (overlays::painter_now(&pick_cycle().overlay_, &painter)) {
-            overlays::add_overlay(painter, drag_state().dragging_ || level_editor_state().key_moving_, drag_state().mark_base_, have_selection());
-            arcs::add_overlay(painter, objects.empty() ? scenery::get_selection() : std::vector<uint32_t>{});
-            grind_preview::add_overlay(painter, drag_state().dragging_ ? -1 : model.nodes.hovered, model.nodes.selected);
-            ruler::add_overlay(painter);
-            ux9::add_overlay(painter); // (UX9: skateability colours, the gap wizard's gates, the ground tool's preview)
-        }
-        // (UX7: the placement ghost, the readout while dragging, the faces snapped to, the top edges for a rail -
-        // level_editor_arrange.h)
-        arrange::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ, &pick_cycle().overlay_);
-        thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
-        ui::tick_cycle(model, pick_cycle().overlay_);
+        draw_with_ui(frame, objects, lines);
         return;
     }
     // The old HUD: the lines on the device (the renderer's cached state).
