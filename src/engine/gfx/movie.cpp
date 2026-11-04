@@ -20,6 +20,8 @@
 #include <string_view>
 
 #include "base/core/dbg.h"
+#include "gpu/d3d9_handles.h"
+#include "gpu/gpu_handles.h"
 #include "base/core/checksums.h"
 #include "engine/ext/extension.h"
 #include "engine/gfx/engine_effects.h"
@@ -88,17 +90,17 @@ MovieState& movie_state()
 
 } // namespace
 
-void set_movie_texture(int stage, void* texture, int unknown)
+void set_movie_texture(int stage, GpuTexture* texture, int unknown)
 {
     D3DSURFACE_DESC desc;
-    static_cast<IDirect3DTexture9*>(texture)->GetLevelDesc(0, &desc);
+    d3d9::object(texture)->GetLevelDesc(0, &desc);
     movie_state().movie_width_ = desc.Width;
     movie_state().movie_height_ = desc.Height;
     (void)unknown; // (passed on by the original; SetTexture doesn't take it)
     set_texture(stage, texture);
 }
 
-void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* vertices, uint32_t stride)
+void draw_movie_quad(GpuDevice* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
     const auto buffer_width = static_cast<uint32_t>(renderer().back_buffer_width());
     const auto buffer_height = static_cast<uint32_t>(renderer().back_buffer_height());
@@ -125,7 +127,7 @@ void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* v
     core::at(quad, 2).y = offset_y + height;
     core::at(quad, 3).x = offset_x + width;
     core::at(quad, 3).y = offset_y + height;
-    device->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
+    d3d9::object(device)->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
 }
 
 namespace {
@@ -166,7 +168,7 @@ MovieSavedStates& movie_saved_states()
 } // namespace
 
 // 0x0044FA80
-void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alpha)
+void draw_movie_frame(GpuTexture* texture, maths::Vec2 at, maths::Size size, float alpha)
 {
     const float x = at.x;
     const float y = at.y;
@@ -212,7 +214,7 @@ void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alp
     core::at(vertices, 3).v = 1.0F;
     if (renderer().d3d_device()->TestCooperativeLevel() == D3D_OK) { // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
-        draw_movie_quad(renderer().d3d_device(), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
+        draw_movie_quad(d3d9::handle(renderer().d3d_device()), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
     }
     set_texture_stage_state(0, 1, 4); // colour: modulate back
 }
@@ -259,7 +261,7 @@ void set_renderer_sampler(RenderStateId state, int value) { change_phase(state, 
 } // namespace
 
 // 0x0044F8C0
-void* begin_movie(uint32_t width, uint32_t height)
+GpuTexture* begin_movie(uint32_t width, uint32_t height)
 {
     get_render_state(kD3dCullMode, &saved_cull_mode());
     put_render_state(kD3dCullMode, 1); // none
@@ -283,11 +285,11 @@ void* begin_movie(uint32_t width, uint32_t height)
         return nullptr;
     }
     engine_parts().set_movie_playing(true);
-    return texture;
+    return d3d9::handle(texture);
 }
 
 // 0x0044F9F0
-void end_movie(void* texture)
+void end_movie(GpuTexture* texture)
 {
     engine_parts().set_movie_playing(false);
     put_render_state(kD3dCullMode, saved_cull_mode());
@@ -296,13 +298,13 @@ void end_movie(void* texture)
     set_renderer_sampler(RenderStateId::kZWrite, 1);
     set_renderer_sampler(RenderStateId::kZTest, 1);
     if (texture) {
-        static_cast<IDirect3DTexture9*>(texture)->Release();
+        d3d9::object(texture)->Release();
     }
     set_texture(0, nullptr);                                                   // (the original also passes 0, unused)
 }
 
 // 0x0044FCC0
-void draw_movie(Bink* bink, void* texture)
+void draw_movie(Bink* bink, GpuTexture* texture)
 {
     renderer().d3d_device()->BeginScene();
     renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0); // the target, to black (Z 1.0)
@@ -393,7 +395,7 @@ void play_movie_file(const char* name)
         release_sound_manager();
         return;
     }
-    void* texture = begin_movie(engine_parts().current_movie()->width, engine_parts().current_movie()->height);
+    GpuTexture* texture = begin_movie(engine_parts().current_movie()->width, engine_parts().current_movie()->height);
     // The screen saver's timer is reset every 200 frames (by setting its timeout again).
     UINT screen_saver_timeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screen_saver_timeout, 0);
@@ -442,7 +444,7 @@ void play_movie_file(const char* name)
             }
             Bink* bink = engine_parts().current_movie();
             bink::do_frame(bink);
-            auto* d3d_texture = static_cast<IDirect3DTexture9*>(texture);
+            auto* d3d_texture = d3d9::object(texture);
             D3DLOCKED_RECT locked;
             if (SUCCEEDED(d3d_texture->LockRect(0, &locked, nullptr, 0))) {
                 bink::copy_to_buffer(bink, locked.pBits, {.pitch = locked.Pitch, .height = bink->height, .x = 0, .y = 0, .flags = kMovieSurfaceType | kMovieSurfaceFlag}); // the surface type, copy all

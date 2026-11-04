@@ -17,6 +17,7 @@
 #include <gsl/assert>
 
 #include "base/core/cursor.h"
+#include "gpu/d3d9_handles.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "base/core/str.h"
@@ -657,7 +658,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     IDirect3DTexture9* texture = nullptr;
     const HRESULT created =
         renderer().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
-    font->texture_ = texture;
+    font->texture_ = d3d9::handle(texture);
     if (created != D3D_OK) {
         return nullptr;
     }

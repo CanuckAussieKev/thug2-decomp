@@ -10,6 +10,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/engine_text.h"
 #include "base/maths/rect.h"
+#include "gpu/gpu_handles.h"
 
 // Bitmap fonts and the screen text drawn with them (Nx engine, PC). Text can hold escapes: "\\" (a backslash),
 // "\c<d>" colour d of the font's table (0 = the text's own), "\s<d>" special glyph d, "\b<d>" a button (glyph
@@ -55,7 +56,7 @@ struct TypefaceData {
     void set_blank_gap(int16_t value) { blank_gap_ = value; }
     std::array<uint32_t, kTextColourCount>& colors() { return colors_; }
     [[nodiscard]] const std::array<uint32_t, kTextColourCount>& colors() const { return colors_; }
-    [[nodiscard]] void* texture() const { return texture_; }
+    [[nodiscard]] GpuTexture* texture() const { return texture_; }
 
 private:
     uint32_t height_;
@@ -71,7 +72,7 @@ private:
     int16_t glyph_gap_;   // added after every character
     int16_t blank_gap_;   // the width of a space ('I' when loaded)
     std::array<uint32_t, kTextColourCount> colors_;  // "\c1" ... (RGBA as bytes)
-    void* texture_;        // IDirect3DTexture9 (A8R8G8B8, managed)
+    GpuTexture* texture_;  // (A8R8G8B8, managed)
     uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
 
 public:

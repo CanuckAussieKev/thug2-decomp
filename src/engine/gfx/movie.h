@@ -6,8 +6,7 @@
 #include "platform/bink.h"
 #include "base/maths/rect.h"
 #include "base/maths/vec2.h"
-
-#include <d3d9.h>
+#include "gpu/gpu_handles.h"
 
 namespace render {
 
@@ -16,13 +15,13 @@ constexpr std::size_t kControlDataBytes = 32;
 // 0x0044FA80: draw a movie frame's texture at `at`, `size` in screen units, faded by alpha (0-1),
 // with PartyMod's 4:3 fit inside the back buffer (contains code from PartyMod
 // (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
-void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alpha);
+void draw_movie_frame(GpuTexture* texture, maths::Vec2 at, maths::Size size, float alpha);
 
 // PartyMod's two calls in draw_movie_frame. set_movie_texture (cdecl): the renderer's texture set (0x004DA730),
 // noting the texture's size first. draw_movie_quad (in place of the device's DrawPrimitiveUP):
 // the quad's corners moved to the largest 4:3 area centred in the back buffer, then drawn.
-void set_movie_texture(int stage, void* texture, int unknown);
-void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* vertices, uint32_t stride);
+void set_movie_texture(int stage, GpuTexture* texture, int unknown);
+void draw_movie_quad(GpuDevice* device, int type, uint32_t count, void* vertices, uint32_t stride);
 
 } // namespace render
 
@@ -53,11 +52,11 @@ void play_movie_file(const char* name);
 
 // 0x0044F8C0: the render states for movies (the old ones saved for end_movie) and a width x height texture for
 // the frames (null if it can't be made). Also notes the movie's and the back buffer's sizes as floats.
-void* begin_movie(uint32_t width, uint32_t height);
+GpuTexture* begin_movie(uint32_t width, uint32_t height);
 // 0x0044F9F0: the render states back; the texture released.
-void end_movie(void* texture);
+void end_movie(GpuTexture* texture);
 // 0x0044FCC0: one frame: clear, draw the texture over the screen, present; then Bink on to the next frame.
-void draw_movie(Bink* bink, void* texture);
+void draw_movie(Bink* bink, GpuTexture* texture);
 
 // 0x0044F840: whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
 bool button_pressed_again(const std::array<uint8_t, kControlDataBytes>& control_data, uint16_t* seen_up, uint32_t mask);
