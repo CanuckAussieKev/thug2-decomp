@@ -166,6 +166,71 @@ void short_sort(const Elements& elements, std::ptrdiff_t lo, std::ptrdiff_t hi, 
     }
 }
 
+// Where a range was split: the first element of the upper side and the last of the lower one.
+struct Partition {
+    std::ptrdiff_t lo_guy;
+    std::ptrdiff_t hi_guy;
+};
+
+// A range (more than 8 elements) split on the middle element of three sorted: the elements up to the partition
+// element on its lower side, the greater ones above (the equal ones next to it left out of the lower side).
+Partition partition(const Elements& elements, std::ptrdiff_t lo, std::ptrdiff_t hi, Weigh compare)
+{
+    const auto size = static_cast<size_t>(hi - lo) + 1;
+    std::ptrdiff_t mid = lo + static_cast<std::ptrdiff_t>(size / 2);
+    if (compare(elements.at(lo), elements.at(mid)) > 0) {
+        elements.exchange(lo, mid);
+    }
+    if (compare(elements.at(lo), elements.at(hi)) > 0) {
+        elements.exchange(lo, hi);
+    }
+    if (compare(elements.at(mid), elements.at(hi)) > 0) {
+        elements.exchange(mid, hi);
+    }
+    std::ptrdiff_t lo_guy = lo;
+    std::ptrdiff_t hi_guy = hi;
+    for (;;) {
+        if (mid > lo_guy) {
+            ++lo_guy;
+            while (lo_guy < mid && compare(elements.at(lo_guy), elements.at(mid)) <= 0) {
+                ++lo_guy;
+            }
+        }
+        if (mid <= lo_guy) {
+            ++lo_guy;
+            while (lo_guy <= hi && compare(elements.at(lo_guy), elements.at(mid)) <= 0) {
+                ++lo_guy;
+            }
+        }
+        --hi_guy;
+        while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) > 0) {
+            --hi_guy;
+        }
+        if (hi_guy < lo_guy) {
+            break;
+        }
+        elements.exchange(lo_guy, hi_guy);
+        if (mid == hi_guy) {
+            mid = lo_guy; // (the partition element moved)
+        }
+    }
+    // (the elements equal to the partition element next to it are left out of the lower side)
+    ++hi_guy;
+    if (mid < hi_guy) {
+        --hi_guy;
+        while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) == 0) {
+            --hi_guy;
+        }
+    }
+    if (mid >= hi_guy) {
+        --hi_guy;
+        while (hi_guy > lo && compare(elements.at(hi_guy), elements.at(mid)) == 0) {
+            --hi_guy;
+        }
+    }
+    return {.lo_guy = lo_guy, .hi_guy = hi_guy};
+}
+
 } // namespace
 
 // A quicksort on the middle element of three sorted, which skips the elements equal to the partition element and
@@ -186,57 +251,9 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
         if (size <= kInsertionSortLimit) {
             short_sort(elements, lo, hi, compare);
         } else {
-            std::ptrdiff_t mid = lo + static_cast<std::ptrdiff_t>(size / 2);
-            if (compare(elements.at(lo), elements.at(mid)) > 0) {
-                elements.exchange(lo, mid);
-            }
-            if (compare(elements.at(lo), elements.at(hi)) > 0) {
-                elements.exchange(lo, hi);
-            }
-            if (compare(elements.at(mid), elements.at(hi)) > 0) {
-                elements.exchange(mid, hi);
-            }
-            std::ptrdiff_t lo_guy = lo;
-            std::ptrdiff_t hi_guy = hi;
-            for (;;) {
-                if (mid > lo_guy) {
-                    ++lo_guy;
-                    while (lo_guy < mid && compare(elements.at(lo_guy), elements.at(mid)) <= 0) {
-                        ++lo_guy;
-                    }
-                }
-                if (mid <= lo_guy) {
-                    ++lo_guy;
-                    while (lo_guy <= hi && compare(elements.at(lo_guy), elements.at(mid)) <= 0) {
-                        ++lo_guy;
-                    }
-                }
-                --hi_guy;
-                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) > 0) {
-                    --hi_guy;
-                }
-                if (hi_guy < lo_guy) {
-                    break;
-                }
-                elements.exchange(lo_guy, hi_guy);
-                if (mid == hi_guy) {
-                    mid = lo_guy; // (the partition element moved)
-                }
-            }
-            // (the elements equal to the partition element next to it are left out of the lower side)
-            ++hi_guy;
-            if (mid < hi_guy) {
-                --hi_guy;
-                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) == 0) {
-                    --hi_guy;
-                }
-            }
-            if (mid >= hi_guy) {
-                --hi_guy;
-                while (hi_guy > lo && compare(elements.at(hi_guy), elements.at(mid)) == 0) {
-                    --hi_guy;
-                }
-            }
+            const Partition split = partition(elements, lo, hi, compare);
+            const std::ptrdiff_t lo_guy = split.lo_guy;
+            const std::ptrdiff_t hi_guy = split.hi_guy;
             if (hi_guy - lo >= hi - lo_guy) {
                 if (lo < hi_guy) {
                     core::at(lo_stack, depth) = lo;

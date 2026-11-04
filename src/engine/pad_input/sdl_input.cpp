@@ -401,49 +401,9 @@ void press_caveman(std::array<uint8_t, kPortBufferBytes>& data)
     core::at(data, kPressureR1) = kFullPressure;
 }
 
-// The control data's bytes: 2 and 3 the button bits (set while down here; inverted at the end - the game's
-// format has a bit set while a button is up), 4-7 the sticks, 8-19 the pressures, 20 the Xbox's black (bit 0)
-// and white (bit 1).
-void poll_controller(InputPort* device, SDL_GameController* controller)
+// A controller's shoulder buttons: PS2 style, the park editor's (the right trigger is L1), or the PC game's.
+void read_pad_shoulders(std::array<uint8_t, kPortBufferBytes>& data, SDL_GameController* controller)
 {
-    if (SDL_GameControllerGetAttached(controller) == SDL_FALSE) {
-        return;
-    }
-    std::array<uint8_t, kPortBufferBytes>& data = device->control_data();
-    device->set_is_usable(1);
-    device->set_is_connected(true);
-
-    if (is_controller_button_held(controller, sdl_input_state().pad_.menu) != 0U) {
-        core::at(data, kControlButtonsHigh) |= 1 << 3;
-    }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_toggle_) != 0U) {
-        core::at(data, kControlButtonsHigh) |= 1 << 0;
-    }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_swivel_lock_) != 0U) {
-        core::at(data, kControlButtonsHigh) |= 1 << 2;
-    }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.focus) != 0U) {
-        core::at(data, kControlButtonsHigh) |= 1 << 1;
-    }
-
-    if (is_controller_button_held(controller, sdl_input_state().pad_.grind) != 0U) {
-        core::at(data, kControlButtonsLow) |= 1 << 4;
-        core::at(data, kPressureTriangle) = kFullPressure;
-    }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.grab) != 0U) {
-        core::at(data, kControlButtonsLow) |= 1 << kCircleBit;
-        core::at(data, kPressureCircle) = kFullPressure;
-    }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.ollie) != 0U) {
-        core::at(data, kControlButtonsLow) |= 1 << kCrossBit;
-        core::at(data, kPressureCross) = kFullPressure;
-    }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.kick) != 0U) {
-        core::at(data, kControlButtonsLow) |= 1 << kSquareBit;
-        core::at(data, kPressureSquare) = kFullPressure;
-    }
-
-    // the shoulders
     if (sdl_input_state().settings_.ps2_controls_ != 0U) {
         if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 2;
@@ -508,6 +468,52 @@ void poll_controller(InputPort* device, SDL_GameController* controller)
             core::at(data, kControlExtraButtons) |= 1 << 0;
         }
     }
+}
+
+// The control data's bytes: 2 and 3 the button bits (set while down here; inverted at the end - the game's
+// format has a bit set while a button is up), 4-7 the sticks, 8-19 the pressures, 20 the Xbox's black (bit 0)
+// and white (bit 1).
+void poll_controller(InputPort* device, SDL_GameController* controller)
+{
+    if (SDL_GameControllerGetAttached(controller) == SDL_FALSE) {
+        return;
+    }
+    std::array<uint8_t, kPortBufferBytes>& data = device->control_data();
+    device->set_is_usable(1);
+    device->set_is_connected(true);
+
+    if (is_controller_button_held(controller, sdl_input_state().pad_.menu) != 0U) {
+        core::at(data, kControlButtonsHigh) |= 1 << 3;
+    }
+    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_toggle_) != 0U) {
+        core::at(data, kControlButtonsHigh) |= 1 << 0;
+    }
+    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_swivel_lock_) != 0U) {
+        core::at(data, kControlButtonsHigh) |= 1 << 2;
+    }
+    if (is_controller_button_held(controller, sdl_input_state().pad_.focus) != 0U) {
+        core::at(data, kControlButtonsHigh) |= 1 << 1;
+    }
+
+    if (is_controller_button_held(controller, sdl_input_state().pad_.grind) != 0U) {
+        core::at(data, kControlButtonsLow) |= 1 << 4;
+        core::at(data, kPressureTriangle) = kFullPressure;
+    }
+    if (is_controller_button_held(controller, sdl_input_state().pad_.grab) != 0U) {
+        core::at(data, kControlButtonsLow) |= 1 << kCircleBit;
+        core::at(data, kPressureCircle) = kFullPressure;
+    }
+    if (is_controller_button_held(controller, sdl_input_state().pad_.ollie) != 0U) {
+        core::at(data, kControlButtonsLow) |= 1 << kCrossBit;
+        core::at(data, kPressureCross) = kFullPressure;
+    }
+    if (is_controller_button_held(controller, sdl_input_state().pad_.kick) != 0U) {
+        core::at(data, kControlButtonsLow) |= 1 << kSquareBit;
+        core::at(data, kPressureSquare) = kFullPressure;
+    }
+
+    // the shoulders
+    read_pad_shoulders(data, controller);
     if (is_controller_button_held(controller, sdl_input_state().pad_.caveman) != 0U) {
         press_caveman(data);
     }
@@ -545,61 +551,66 @@ void poll_controller(InputPort* device, SDL_GameController* controller)
 // or goes is locked out until it's released, unless it's also bound to the same thing.
 constexpr uint8_t kLockedOut = 2;
 
+// The menu or the on-screen keyboard came or went: a menu key still down is locked out until it's released, unless
+// it's also bound to the same thing.
+void lock_out_menu_keys(uint8_t keyboard_on_screen)
+{
+    if (sdl_input_state().keys_.ollie != SDL_SCANCODE_RETURN && sdl_input_state().menu_keys_.affirmative == 1) {
+        sdl_input_state().menu_keys_.affirmative = kLockedOut;
+    }
+    if (sdl_input_state().keys_.grab != SDL_SCANCODE_ESCAPE && sdl_input_state().menu_keys_.negative == 1) {
+        sdl_input_state().menu_keys_.negative = kLockedOut;
+    }
+    if (sdl_input_state().keys_.kick != SDL_SCANCODE_E && sdl_input_state().menu_keys_.menu == 1) {
+        sdl_input_state().menu_keys_.menu = kLockedOut;
+    }
+    if (sdl_input_state().keys_.grind != SDL_SCANCODE_R && sdl_input_state().menu_keys_.extra == 1) {
+        sdl_input_state().menu_keys_.extra = kLockedOut;
+    }
+    if (sdl_input_state().keys_.up != SDL_SCANCODE_UP && sdl_input_state().menu_keys_.up == 1) {
+        sdl_input_state().menu_keys_.up = kLockedOut;
+    }
+    if (sdl_input_state().keys_.down != SDL_SCANCODE_DOWN && sdl_input_state().menu_keys_.down == 1) {
+        sdl_input_state().menu_keys_.down = kLockedOut;
+    }
+    if (sdl_input_state().keys_.left != SDL_SCANCODE_LEFT && sdl_input_state().menu_keys_.left == 1) {
+        sdl_input_state().menu_keys_.left = kLockedOut;
+    }
+    if (sdl_input_state().keys_.right != SDL_SCANCODE_RIGHT && sdl_input_state().menu_keys_.right == 1) {
+        sdl_input_state().menu_keys_.right = kLockedOut;
+    }
+    if (sdl_input_state().settings_.ps2_controls_ != 0U) {
+        if (sdl_input_state().keys_.left_spin_ != SDL_SCANCODE_1 && sdl_input_state().menu_keys_.rotate_left_ == 1) {
+            sdl_input_state().menu_keys_.rotate_left_ = kLockedOut;
+        }
+        if (sdl_input_state().keys_.right_spin_ != SDL_SCANCODE_2 && sdl_input_state().menu_keys_.rotate_right_ == 1) {
+            sdl_input_state().menu_keys_.rotate_right_ = kLockedOut;
+        }
+        if (sdl_input_state().keys_.switch_revert_ != SDL_SCANCODE_MINUS && sdl_input_state().menu_keys_.zoom == 1) {
+            sdl_input_state().menu_keys_.zoom = kLockedOut;
+        }
+    } else {
+        if (sdl_input_state().keys_.nollie != SDL_SCANCODE_1 && sdl_input_state().menu_keys_.rotate_left_ == 1) {
+            sdl_input_state().menu_keys_.rotate_left_ = kLockedOut;
+        }
+        if (sdl_input_state().keys_.switch_revert_ != SDL_SCANCODE_2 &&
+            sdl_input_state().menu_keys_.rotate_right_ == 1) {
+            sdl_input_state().menu_keys_.rotate_right_ = kLockedOut;
+        }
+        if (sdl_input_state().keys_.right_spin_ != SDL_SCANCODE_MINUS && sdl_input_state().menu_keys_.zoom == 1) {
+            sdl_input_state().menu_keys_.zoom = kLockedOut;
+        }
+    }
+    sdl_input_state().was_in_menu_ = sdl_input_state().in_menu_;
+    sdl_input_state().was_keyboard_on_screen_ = keyboard_on_screen;
+}
+
 void update_menu_keys(platform::KeyState keys)
 {
     const auto keyboard_on_screen = static_cast<uint8_t>(screen_flags().keyboard_on_screen_);
-    if (sdl_input_state().in_menu_ != sdl_input_state().was_in_menu_ || keyboard_on_screen != sdl_input_state().was_keyboard_on_screen_) {
-        if (sdl_input_state().keys_.ollie != SDL_SCANCODE_RETURN && sdl_input_state().menu_keys_.affirmative == 1) {
-            sdl_input_state().menu_keys_.affirmative = kLockedOut;
-        }
-        if (sdl_input_state().keys_.grab != SDL_SCANCODE_ESCAPE && sdl_input_state().menu_keys_.negative == 1) {
-            sdl_input_state().menu_keys_.negative = kLockedOut;
-        }
-        if (sdl_input_state().keys_.kick != SDL_SCANCODE_E && sdl_input_state().menu_keys_.menu == 1) {
-            sdl_input_state().menu_keys_.menu = kLockedOut;
-        }
-        if (sdl_input_state().keys_.grind != SDL_SCANCODE_R && sdl_input_state().menu_keys_.extra == 1) {
-            sdl_input_state().menu_keys_.extra = kLockedOut;
-        }
-        if (sdl_input_state().keys_.up != SDL_SCANCODE_UP && sdl_input_state().menu_keys_.up == 1) {
-            sdl_input_state().menu_keys_.up = kLockedOut;
-        }
-        if (sdl_input_state().keys_.down != SDL_SCANCODE_DOWN && sdl_input_state().menu_keys_.down == 1) {
-            sdl_input_state().menu_keys_.down = kLockedOut;
-        }
-        if (sdl_input_state().keys_.left != SDL_SCANCODE_LEFT && sdl_input_state().menu_keys_.left == 1) {
-            sdl_input_state().menu_keys_.left = kLockedOut;
-        }
-        if (sdl_input_state().keys_.right != SDL_SCANCODE_RIGHT && sdl_input_state().menu_keys_.right == 1) {
-            sdl_input_state().menu_keys_.right = kLockedOut;
-        }
-        if (sdl_input_state().settings_.ps2_controls_ != 0U) {
-            if (sdl_input_state().keys_.left_spin_ != SDL_SCANCODE_1 &&
-                sdl_input_state().menu_keys_.rotate_left_ == 1) {
-                sdl_input_state().menu_keys_.rotate_left_ = kLockedOut;
-            }
-            if (sdl_input_state().keys_.right_spin_ != SDL_SCANCODE_2 &&
-                sdl_input_state().menu_keys_.rotate_right_ == 1) {
-                sdl_input_state().menu_keys_.rotate_right_ = kLockedOut;
-            }
-            if (sdl_input_state().keys_.switch_revert_ != SDL_SCANCODE_MINUS &&
-                sdl_input_state().menu_keys_.zoom == 1) {
-                sdl_input_state().menu_keys_.zoom = kLockedOut;
-            }
-        } else {
-            if (sdl_input_state().keys_.nollie != SDL_SCANCODE_1 && sdl_input_state().menu_keys_.rotate_left_ == 1) {
-                sdl_input_state().menu_keys_.rotate_left_ = kLockedOut;
-            }
-            if (sdl_input_state().keys_.switch_revert_ != SDL_SCANCODE_2 &&
-                sdl_input_state().menu_keys_.rotate_right_ == 1) {
-                sdl_input_state().menu_keys_.rotate_right_ = kLockedOut;
-            }
-            if (sdl_input_state().keys_.right_spin_ != SDL_SCANCODE_MINUS && sdl_input_state().menu_keys_.zoom == 1) {
-                sdl_input_state().menu_keys_.zoom = kLockedOut;
-            }
-        }
-        sdl_input_state().was_in_menu_ = sdl_input_state().in_menu_;
-        sdl_input_state().was_keyboard_on_screen_ = keyboard_on_screen;
+    if (sdl_input_state().in_menu_ != sdl_input_state().was_in_menu_ ||
+        keyboard_on_screen != sdl_input_state().was_keyboard_on_screen_) {
+        lock_out_menu_keys(keyboard_on_screen);
     }
 
     // a key's state, except while it's locked out and still down
@@ -654,63 +665,12 @@ uint8_t get_key_down(platform::KeyState keys, uint8_t key)
     }
 }
 
-void poll_keyboard(InputPort* device)
+// The keyboard's shoulder keys: PS2 style, the park editor's (the right trigger is L1), or the PC game's.
+void read_key_shoulders(std::array<uint8_t, kPortBufferBytes>& data, platform::KeyState keys)
 {
-    std::array<uint8_t, kPortBufferBytes>& data = device->control_data();
-    device->set_is_usable(1);
-    device->set_is_connected(true);
-
-    const platform::KeyState keys = platform::keyboard_keys();
-    update_menu_keys(keys);
-    if (get_keyboard_on_screen()) {
-        return;
-    }
     // (a binding's scan code is passed as its low byte)
     auto down = [keys](SDL_Scancode key) { return get_key_down(keys, static_cast<uint8_t>(key)) != 0; };
     auto menu_down = [](uint8_t state) { return sdl_input_state().in_menu_ && state == 1; };
-
-    // Not original - the level editor (editor/level_editor.h) flies on W/A/S/D/Q/E/Shift/Ctrl/Space: while it
-    // runs, the keyboard gives the game only the Pause key (Start: leaves the editor), once it has been up since the
-    // editor started; nothing else.
-    // Original behaviour: every binding is read.
-    if (frontend::level_editor::live_now()) {
-        if (frontend::level_editor::pass_pause_key(core::at(keys, sdl_input_state().keys_.menu) != 0)) {
-            core::at(data, kControlButtonsHigh) |= 1 << 3;
-        }
-        return;
-    }
-
-    if (down(sdl_input_state().keys_.menu)) {
-        core::at(data, kControlButtonsHigh) |= 1 << 3;
-    }
-    if (down(sdl_input_state().keys_.camera_toggle_)) {
-        core::at(data, kControlButtonsHigh) |= 1 << 0;
-    }
-    if (down(sdl_input_state().keys_.focus)) {
-        core::at(data, kControlButtonsHigh) |= 1 << 1;
-    }
-    if (down(sdl_input_state().keys_.camera_swivel_lock_)) {
-        core::at(data, kControlButtonsHigh) |= 1 << 2;
-    }
-
-    if (down(sdl_input_state().keys_.grind) || menu_down(sdl_input_state().menu_keys_.extra)) {
-        core::at(data, kControlButtonsLow) |= 1 << 4;
-        core::at(data, kPressureTriangle) = kFullPressure;
-    }
-    if (down(sdl_input_state().keys_.grab) || menu_down(sdl_input_state().menu_keys_.negative)) {
-        core::at(data, kControlButtonsLow) |= 1 << kCircleBit;
-        core::at(data, kPressureCircle) = kFullPressure;
-    }
-    if (down(sdl_input_state().keys_.ollie) || menu_down(sdl_input_state().menu_keys_.affirmative)) {
-        core::at(data, kControlButtonsLow) |= 1 << kCrossBit;
-        core::at(data, kPressureCross) = kFullPressure;
-    }
-    if (down(sdl_input_state().keys_.kick) || menu_down(sdl_input_state().menu_keys_.menu)) {
-        core::at(data, kControlButtonsLow) |= 1 << kSquareBit;
-        core::at(data, kPressureSquare) = kFullPressure;
-    }
-
-    // the shoulders
     if (sdl_input_state().settings_.ps2_controls_ != 0U) {
         if (down(sdl_input_state().keys_.left_spin_) || menu_down(sdl_input_state().menu_keys_.rotate_left_)) {
             core::at(data, kControlButtonsLow) |= 1 << 2;
@@ -785,28 +745,13 @@ void poll_keyboard(InputPort* device)
             core::at(data, kControlExtraButtons) |= 1 << 0;
         }
     }
-    if (down(sdl_input_state().keys_.caveman)) {
-        press_caveman(data);
-    }
+}
 
-    // the d-pad: the item keys
-    if (down(sdl_input_state().keys_.item_up_) || menu_down(sdl_input_state().menu_keys_.up)) {
-        core::at(data, kControlButtonsHigh) |= 1 << 4;
-        core::at(data, kPressureUp) = kFullPressure;
-    }
-    if (down(sdl_input_state().keys_.item_right_) || menu_down(sdl_input_state().menu_keys_.right)) {
-        core::at(data, kControlButtonsHigh) |= 1 << kRightBit;
-        core::at(data, kPressureRight) = kFullPressure;
-    }
-    if (down(sdl_input_state().keys_.item_down_) || menu_down(sdl_input_state().menu_keys_.down)) {
-        core::at(data, kControlButtonsHigh) |= 1 << kDownBit;
-        core::at(data, kPressureDown) = kFullPressure;
-    }
-    if (down(sdl_input_state().keys_.item_left_) || menu_down(sdl_input_state().menu_keys_.left)) {
-        core::at(data, kControlButtonsHigh) |= 1 << kLeftBit;
-        core::at(data, kPressureLeft) = kFullPressure;
-    }
-
+// The keyboard's sticks: opposite keys together cancel out.
+void read_key_sticks(std::array<uint8_t, kPortBufferBytes>& data, platform::KeyState keys)
+{
+    // (a binding's scan code is passed as its low byte)
+    auto down = [keys](SDL_Scancode key) { return get_key_down(keys, static_cast<uint8_t>(key)) != 0; };
     // the sticks: opposite keys together cancel out
     if (down(sdl_input_state().keys_.camera_left_) && !down(sdl_input_state().keys_.camera_right_)) {
         core::at(data, kControlRightStickX) = 0;
@@ -838,6 +783,89 @@ void poll_keyboard(InputPort* device)
     if (down(sdl_input_state().keys_.down) && !down(sdl_input_state().keys_.up)) {
         core::at(data, kControlLeftStickY) = high;
     }
+}
+
+void poll_keyboard(InputPort* device)
+{
+    std::array<uint8_t, kPortBufferBytes>& data = device->control_data();
+    device->set_is_usable(1);
+    device->set_is_connected(true);
+
+    const platform::KeyState keys = platform::keyboard_keys();
+    update_menu_keys(keys);
+    if (get_keyboard_on_screen()) {
+        return;
+    }
+    // (a binding's scan code is passed as its low byte)
+    auto down = [keys](SDL_Scancode key) { return get_key_down(keys, static_cast<uint8_t>(key)) != 0; };
+    auto menu_down = [](uint8_t state) { return sdl_input_state().in_menu_ && state == 1; };
+
+    // Not original - the level editor (editor/level_editor.h) flies on W/A/S/D/Q/E/Shift/Ctrl/Space: while it
+    // runs, the keyboard gives the game only the Pause key (Start: leaves the editor), once it has been up since the
+    // editor started; nothing else.
+    // Original behaviour: every binding is read.
+    if (frontend::level_editor::live_now()) {
+        if (frontend::level_editor::pass_pause_key(core::at(keys, sdl_input_state().keys_.menu) != 0)) {
+            core::at(data, kControlButtonsHigh) |= 1 << 3;
+        }
+        return;
+    }
+
+    if (down(sdl_input_state().keys_.menu)) {
+        core::at(data, kControlButtonsHigh) |= 1 << 3;
+    }
+    if (down(sdl_input_state().keys_.camera_toggle_)) {
+        core::at(data, kControlButtonsHigh) |= 1 << 0;
+    }
+    if (down(sdl_input_state().keys_.focus)) {
+        core::at(data, kControlButtonsHigh) |= 1 << 1;
+    }
+    if (down(sdl_input_state().keys_.camera_swivel_lock_)) {
+        core::at(data, kControlButtonsHigh) |= 1 << 2;
+    }
+
+    if (down(sdl_input_state().keys_.grind) || menu_down(sdl_input_state().menu_keys_.extra)) {
+        core::at(data, kControlButtonsLow) |= 1 << 4;
+        core::at(data, kPressureTriangle) = kFullPressure;
+    }
+    if (down(sdl_input_state().keys_.grab) || menu_down(sdl_input_state().menu_keys_.negative)) {
+        core::at(data, kControlButtonsLow) |= 1 << kCircleBit;
+        core::at(data, kPressureCircle) = kFullPressure;
+    }
+    if (down(sdl_input_state().keys_.ollie) || menu_down(sdl_input_state().menu_keys_.affirmative)) {
+        core::at(data, kControlButtonsLow) |= 1 << kCrossBit;
+        core::at(data, kPressureCross) = kFullPressure;
+    }
+    if (down(sdl_input_state().keys_.kick) || menu_down(sdl_input_state().menu_keys_.menu)) {
+        core::at(data, kControlButtonsLow) |= 1 << kSquareBit;
+        core::at(data, kPressureSquare) = kFullPressure;
+    }
+
+    // the shoulders
+    read_key_shoulders(data, keys);
+    if (down(sdl_input_state().keys_.caveman)) {
+        press_caveman(data);
+    }
+
+    // the d-pad: the item keys
+    if (down(sdl_input_state().keys_.item_up_) || menu_down(sdl_input_state().menu_keys_.up)) {
+        core::at(data, kControlButtonsHigh) |= 1 << 4;
+        core::at(data, kPressureUp) = kFullPressure;
+    }
+    if (down(sdl_input_state().keys_.item_right_) || menu_down(sdl_input_state().menu_keys_.right)) {
+        core::at(data, kControlButtonsHigh) |= 1 << kRightBit;
+        core::at(data, kPressureRight) = kFullPressure;
+    }
+    if (down(sdl_input_state().keys_.item_down_) || menu_down(sdl_input_state().menu_keys_.down)) {
+        core::at(data, kControlButtonsHigh) |= 1 << kDownBit;
+        core::at(data, kPressureDown) = kFullPressure;
+    }
+    if (down(sdl_input_state().keys_.item_left_) || menu_down(sdl_input_state().menu_keys_.left)) {
+        core::at(data, kControlButtonsHigh) |= 1 << kLeftBit;
+        core::at(data, kPressureLeft) = kFullPressure;
+    }
+
+    read_key_sticks(data, keys);
 }
 
 // --- typed keys -----------------------------------------------------------------------------------------------

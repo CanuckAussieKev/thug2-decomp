@@ -717,6 +717,20 @@ uint8_t pressure_or_zero(uint8_t value) { return value > kPressedThreshold ? val
 uint8_t all_or_nothing(uint32_t value) { return (value != 0U) ? kFullPressure : 0; }
 // A stick from -32768..32767 to 0..255 (signed division, rounding toward zero).
 uint8_t get_stick(int value) { return static_cast<uint8_t>(value / kStickScale); }
+
+// Whether an Enter was typed (with the on-screen keyboard up).
+bool enter_was_typed()
+{
+    std::array<char, kTypedBufferBytes> typed{};
+    const int count = get_keyboard_chars(typed);
+    for (int i = 0; i < count; ++i) {
+        if (core::at(typed, i) == kTypedEnter) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 // 0x005BD200
@@ -869,14 +883,7 @@ void InputPort::pull_data(int /*unused*/)
     // The keyboard takes over the menus after start, a pressed trigger, a typed Enter, or (playing) Enter.
     bool enter_typed = false;
     if (typing) {
-        std::array<char, kTypedBufferBytes> typed{};
-        const int count = get_keyboard_chars(typed);
-        for (int i = 0; i < count; ++i) {
-            if (core::at(typed, i) == kTypedEnter) {
-                enter_typed = true;
-                break;
-            }
-        }
+        enter_typed = enter_was_typed();
     }
     keyboard_control_ =
         static_cast<uint8_t>(((buttons & kSnapshotStart) != 0) || core::at(pressure, kSnapshotA) >= kPressedThreshold ||
