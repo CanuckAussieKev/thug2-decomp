@@ -1692,19 +1692,12 @@ State at_hand()
     return state;
 }
 
-bool change_phase(const State& target)
+namespace {
+
+// (the points not wanted, or wanted different - other than place and links - removed)
+void remove_changed_points(const std::vector<Point>& points, const State& target)
 {
-    if (!in_level()) {
-        return false;
-    }
-    const State before = at_hand();
-    if (same_state(before, target)) {
-        return true; // (nothing to do: the rail manager isn't built again)
-    }
-    // Points: those not wanted (or wanted different, other than place and links) removed; the missing made (one
-    // re-registration); places and links set.
-    const std::vector<Point> now = before.points;
-    for (const Point& chain_point : now) {
+    for (const Point& chain_point : points) { // (change_phase's own copy of the points before)
         const Point* want = nullptr;
         for (const Point& target_point : target.points) {
             want = same_text(target_point.name, chain_point.name.c_str()) ? &target_point : want;
@@ -1717,6 +1710,11 @@ bool change_phase(const State& target)
             node_create::drop_out(name_hash(chain_point.name), &removed, &at);
         }
     }
+}
+
+// (the missing points made: one re-registration)
+void make_missing_points(const State& target)
+{
     std::vector<node_create::Spec> make;
     const std::vector<Point> remaining = added_points();
     for (const Point& target_point : target.points) {
@@ -1735,6 +1733,11 @@ bool change_phase(const State& target)
             get_log("level editor: %s", message.c_str());
         }
     }
+}
+
+// (the points' links and places - a ladder's facing)
+void set_point_places(const State& target)
+{
     for (const Point& target_point : target.points) {
         const uint32_t name = name_hash(target_point.name);
         node_create::set_links(name, target_point.links);
@@ -1754,6 +1757,11 @@ bool change_phase(const State& target)
             }
         }
     }
+}
+
+// (the points' cluster, grind-flat and speed-up)
+void set_point_extras(const State& target)
+{
     extras_state().clear();
     for (const Point& target_point : target.points) {
         if ((target_point.cluster != 0U) || target_point.grind_flat_ || target_point.speed > 0.0F) {
@@ -1763,12 +1771,21 @@ bool change_phase(const State& target)
                 .speed = target_point.speed > 0.0F ? clamp_speed(target_point.speed) : 0.0F};
         }
     }
+}
+
+// (the level rails' speed-ups)
+void set_level_speeds(const State& target)
+{
     level_speeds().clear();
     for (const SpeedEdit& speed_edit : target.speeds) {
         if (!node_create::is_added(speed_edit.name) && look_up_node_params(speed_edit.name)) {
             level_speeds()[speed_edit.name] = clamp_speed(speed_edit.rate);
         }
     }
+}
+
+void set_level_facings(const State& target)
+{
     // Level ladders turned (the rail manager's orientation as the level had it kept to put back), level rails marked
     // grindable on flat ground.
     for (auto it = facings_state().begin(); it != facings_state().end();) {
@@ -1796,12 +1813,21 @@ bool change_phase(const State& target)
         }
         facings_state()[facing_edit.name].facing = facing_edit.facing;
     }
+}
+
+// (the level rails grindable on flat ground)
+void set_level_flat(const State& target)
+{
     level_flat().clear();
     for (const uint32_t name : target.grind_flat_) {
         if (!node_create::is_added(name) && look_up_node_params(name)) {
             level_flat().push_back(name);
         }
     }
+}
+
+std::vector<uint32_t> set_level_link_edits(const State& target)
+{
     // The level's links: as the target has them, else as the level had them.
     std::set<uint32_t> names;
     for (const auto& entry : original_links()) {
@@ -1826,6 +1852,11 @@ bool change_phase(const State& target)
         }
         set_level_links(name, want);
     }
+    return paths_changed;
+}
+
+void set_dropped(const State& target)
+{
     // Dropped points: hidden with phase 3's marker (shown again when no longer dropped).
     std::vector<uint32_t> dropped = target.dropped;
     for (const uint32_t name : std::vector<uint32_t>(stored_dropped())) {
@@ -1843,6 +1874,10 @@ bool change_phase(const State& target)
         }
     }
     stored_dropped() = kept;
+}
+
+void set_level_terrains(const State& target)
+{
     // Terrains (level points): put back where no longer set.
     for (auto it = terrains_state().begin(); it != terrains_state().end();) {
         bool wanted = false;
@@ -1869,6 +1904,31 @@ bool change_phase(const State& target)
         }
         terrains_state()[terrain_edit.name].terrain = terrain_edit.terrain;
     }
+}
+
+} // namespace
+
+bool change_phase(const State& target)
+{
+    if (!in_level()) {
+        return false;
+    }
+    const State before = at_hand();
+    if (same_state(before, target)) {
+        return true; // (nothing to do: the rail manager isn't built again)
+    }
+    // Points: those not wanted (or wanted different, other than place and links) removed; the missing made (one
+    // re-registration); places and links set.
+    remove_changed_points(before.points, target);
+    make_missing_points(target);
+    set_point_places(target);
+    set_point_extras(target);
+    set_level_speeds(target);
+    set_level_facings(target);
+    set_level_flat(target);
+    const std::vector<uint32_t> paths_changed = set_level_link_edits(target);
+    set_dropped(target);
+    set_level_terrains(target);
     rebuild_rails();
     // The added points' places in the rail manager (a point made before keeps its node there).
     for (const Point& target_point : target.points) {
