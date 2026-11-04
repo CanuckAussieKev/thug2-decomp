@@ -9,7 +9,7 @@
 #include "engine/core/mem.h"
 #include "engine/lists/chain_start.h"
 #include "engine/gfx/viewport.h"
-#include "game/goals/goal_manager.h"
+#include "engine/script/fwd.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/node_objects.h"

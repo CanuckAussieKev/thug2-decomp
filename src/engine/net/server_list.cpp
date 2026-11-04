@@ -35,15 +35,11 @@
 #include "engine/gfx/texture_cfuncs.h"
 #include "engine/core/stubs.h"
 #include "game/goals/objective.h"
-#include "game/goals/goal_manager.h"
-#include "game/goals/goal_ped.h"
-#include "game/skate/point_tally.h"
-#include "game/skate/game_mode.h"
-#include "game/skate/skate_module.h"
+#include "engine/script/fwd.h"
+#include "engine/core/fwd.h"
+#include "engine/net/fwd.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
-#include "game/park_editing/goal_editor.h"
-#include "game/park_editing/rail_editor.h"
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
@@ -468,7 +464,7 @@ void Hub::empty_server_listing()
 bool Hub::has_server(const char* name, uint32_t ip)
 {
     for (memory::ListNode* list :
-         {static_cast<memory::ListNode*>(&servers_), static_cast<memory::ListNode*>(&waiting_servers_)}) {
+         {&servers_, &waiting_servers_}) {
         for (memory::ListNode* node = head_of_scene_list(list); node; node = get_next_node(node)) {
             auto* server = static_cast<HostListing*>(node->data());
             if (!server) {

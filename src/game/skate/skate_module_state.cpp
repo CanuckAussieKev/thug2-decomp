@@ -17,7 +17,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "game/park_editing/park_editor.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/script/fwd.h"
 #include "game/goals/goal_manager.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/net/gamenet_manager.h"

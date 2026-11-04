@@ -19,7 +19,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/entity_hub.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/script/fwd.h"
 #include "engine/objects/cutscene_list_cfuncs.h"
 #include "engine/sys/startup_init.h"
 #include <gsl/pointers>

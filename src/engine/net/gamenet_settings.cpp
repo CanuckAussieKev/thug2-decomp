@@ -20,15 +20,12 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "game/goals/objective.h"
+#include "engine/script/fwd.h"
 #include "game/goals/goal_manager.h"
-#include "game/goals/goal_ped.h"
-#include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
 #include "game/park_editing/goal_editor.h"
-#include "game/park_editing/rail_editor.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
@@ -285,7 +282,7 @@ prefs::Preferences* Hub::get_game_preferences()
     if (in_net_game()) {
         return get_online_settings();
     }
-    return static_cast<modules::Skate*>(skate)->get_split_view_settings();
+    return skate->get_split_view_settings();
 }
 
 // 0x00535B20

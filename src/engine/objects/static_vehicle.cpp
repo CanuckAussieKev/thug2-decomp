@@ -12,7 +12,7 @@
 #include "engine/gfx/rig.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
-#include "game/rider/skitch.h"
+#include "engine/maths/fwd.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"

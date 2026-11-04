@@ -26,7 +26,7 @@
 #include "engine/script/names.h"
 #include "platform/game_clock.h"
 #include "platform/run_log.h"
-#include "game/rider/vehicle_sound.h"
+#include "engine/script/fwd.h"
 #include "frontend/screen_constants.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"

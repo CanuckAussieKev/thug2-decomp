@@ -23,7 +23,7 @@
 #include "engine/script/preferences.h"
 #include "platform/crt.h"
 #include "engine/assets/resource_registry.h"
-#include "game/skate/skate_module.h"
+#include "engine/core/fwd.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"

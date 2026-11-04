@@ -49,7 +49,7 @@
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "engine/gfx/engine_glue.h"
+#include "engine/maths/fwd.h"
 #include "engine/util/unique_handle.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"

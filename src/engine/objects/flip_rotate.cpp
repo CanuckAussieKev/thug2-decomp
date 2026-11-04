@@ -13,7 +13,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/vehicle_component.h"
 #include "engine/script/param_struct.h"
-#include "game/rider/vehicle_sound.h"
+#include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/flip_and_rotate.h"
 #include "engine/core/down_cast.h"

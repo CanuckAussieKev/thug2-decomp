@@ -21,11 +21,11 @@
 #include "engine/pad_input/input_hub.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/collide_and_die.h"
-#include "game/rider/skitch.h"
+#include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
-#include "game/rider/vehicle_sound.h"
+#include "engine/objects/fwd.h"
 #include "engine/objects/camera_lookaround.h"
 #include <gsl/pointers>
 #include <array>

@@ -20,7 +20,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
-#include "game/rider/vehicle_sound.h"
+#include "engine/script/fwd.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/mlp.h"
 #include "engine/objects/model_component.h"

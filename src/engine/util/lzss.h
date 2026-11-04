@@ -4,8 +4,6 @@
 #include <cstdint>
 #include <span>
 
-#include "formats/lzss.h"
-
 // LZSS compression in the classic public-domain form (Haruhiko Okumura, 1989): a 4 KB sliding window,
 // matches of 3-18 bytes, and a binary search tree to find them. Each group of 8 items starts with a flag
 // byte; a set bit is a literal byte, a clear bit a 2-byte (position, length) reference.

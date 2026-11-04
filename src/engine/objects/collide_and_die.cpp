@@ -16,7 +16,7 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
-#include "game/rider/vehicle_sound.h"
+#include "engine/script/fwd.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"

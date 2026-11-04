@@ -17,7 +17,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "game/rider/vehicle_sound.h"
+#include "engine/script/fwd.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
