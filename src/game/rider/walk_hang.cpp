@@ -1,7 +1,7 @@
 // The walk component's hanging, ladder and rail-climbing code (see walk_hang.h). Floating point follows the
 // original's x87 code: values it keeps on the x87 stack are doubles here, values it stores are floats.
 
-#include "engine/objects/walk_hang.h"
+#include "game/rider/walk_hang.h"
 #include "engine/objects/walk_lerp.h"
 
 #include <algorithm>

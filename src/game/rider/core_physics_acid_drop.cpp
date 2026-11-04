@@ -17,7 +17,7 @@
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/walk_hang.h"
+#include "game/rider/walk_hang.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/thaw_bmx.h"

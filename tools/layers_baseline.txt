@@ -48,9 +48,6 @@ src/engine/objects/model_component_members.cpp -> src/game/online/net_game_state
 src/engine/objects/model_component_nx.h -> src/game/online/gamenet_manager.h
 src/engine/objects/model_component_nx.h -> src/game/online/net_game_state.h
 src/engine/objects/model_component_nx.h -> src/game/online/player_info.h
-src/engine/objects/model_swap_cfuncs.cpp -> src/game/rider/rider.h
-src/engine/objects/model_swap_cfuncs.cpp -> src/game/skate/profile_cfuncs.h
-src/engine/objects/model_swap_cfuncs.cpp -> src/game/skate/skate_module.h
 src/engine/objects/movie_cfuncs.cpp -> src/game/park_editing/park_editor.h
 src/engine/objects/movie_cfuncs.cpp -> src/game/skate/skate_module_calls.h
 src/engine/objects/movie_manager.cpp -> src/game/skate/profile_manager.h
@@ -66,12 +63,6 @@ src/engine/objects/rail_manager.cpp -> src/game/world/trick_objects.h
 src/engine/objects/suspend_component.cpp -> src/game/skate/skate_module.h
 src/engine/objects/trigger_component.cpp -> src/game/skate/skate_module.h
 src/engine/objects/velocity_component.cpp -> src/game/online/gamenet_manager.h
-src/engine/objects/walk_hang.cpp -> src/game/rider/core_physics.h
-src/engine/objects/walk_hang.cpp -> src/game/rider/skater_state.h
-src/engine/objects/walk_hang.cpp -> src/game/rider/tagging.h
-src/engine/objects/walk_hang.cpp -> src/game/rider/walk_camera.h
-src/engine/objects/walk_hang.cpp -> src/game/rider/walk_physics.h
-src/engine/objects/walk_hang.cpp -> src/game/skate/skate_module.h
 src/engine/pad_input/device.cpp -> src/game/front_end/front_end.h
 src/engine/pad_input/device.cpp -> src/game/online/net_game_state.h
 src/engine/pad_input/device.cpp -> src/game/park_editing/park_editor.h

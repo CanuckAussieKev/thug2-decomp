@@ -1,6 +1,6 @@
 // Script commands (CFunctions) 0x005B34A0-0x005B3A90: swapping objects' models (see model_swap_cfuncs.h).
 
-#include "engine/objects/model_swap_cfuncs.h"
+#include "game/commands/model_swap_cfuncs.h"
 
 #include <cstdint>
 

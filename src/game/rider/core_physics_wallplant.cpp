@@ -15,7 +15,7 @@
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/trigger_component.h"
-#include "engine/objects/walk_hang.h"
+#include "game/rider/walk_hang.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/core_physics_fields.h"

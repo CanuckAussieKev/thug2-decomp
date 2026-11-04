@@ -46,7 +46,7 @@
 #include "game/online/stats_man.h"
 #include "game/online/vault_man.h"
 #include "engine/objects/cutscene_list_cfuncs.h"
-#include "engine/objects/model_swap_cfuncs.h"
+#include "game/commands/model_swap_cfuncs.h"
 #include "engine/objects/movie_cfuncs.h"
 #include "engine/objects/object_cfuncs.h"
 #include "engine/objects/path_manager.h"

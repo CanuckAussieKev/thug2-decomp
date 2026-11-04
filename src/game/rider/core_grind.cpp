@@ -18,7 +18,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/ride_tracker.h"
 #include "engine/objects/trigger_component.h"
-#include "engine/objects/walk_hang.h"
+#include "game/rider/walk_hang.h"
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"

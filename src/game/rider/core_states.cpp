@@ -10,7 +10,7 @@
 #include "engine/objects/rail_manager.h"
 #include "engine/objects/ride_tracker.h"
 #include "engine/objects/smtptr.h"
-#include "engine/objects/walk_hang.h"
+#include "game/rider/walk_hang.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/career.h"

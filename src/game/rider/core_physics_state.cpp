@@ -17,7 +17,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
-#include "engine/objects/walk_hang.h"
+#include "game/rider/walk_hang.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_physics.h"

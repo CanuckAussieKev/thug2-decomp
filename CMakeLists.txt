@@ -928,7 +928,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/bone_look_at.cpp
     src/engine/gfx/boned_anim_frame_data_pose.cpp
     src/game/commands/cag_cfuncs.cpp
-    src/engine/objects/model_swap_cfuncs.cpp
+    src/game/commands/model_swap_cfuncs.cpp
     src/engine/ui/theme_cfuncs.cpp
     src/game/rider/skater_misc_cfuncs.cpp
     src/game/rider/skater_score_cfuncs.cpp
@@ -947,7 +947,7 @@ add_executable(thug2 WIN32
     src/engine/script/cfuncs_lighting.cpp
     src/engine/script/cfuncs_scene.cpp
     src/engine/gfx/lens_flare.cpp
-    src/engine/objects/walk_hang.cpp
+    src/game/rider/walk_hang.cpp
     src/engine/objects/walk_lerp.cpp
     src/engine/script/cfuncs_render.cpp
     src/engine/script/cfuncs_polys.cpp
