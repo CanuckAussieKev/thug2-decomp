@@ -101,17 +101,17 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     if (!in_park_editor()) {
         start = *end;
     } else {
-        const maths::Vec4& p = object->at_point();
+        const maths::Vec4& position = object->at_point();
         const maths::Vec4& v = object->vel();
-        const float t = frame_length_;
-        const float bx = t * v.x;
-        const float by = t * v.y;
-        const float bz = t * v.z;
-        const double bw = static_cast<double>(t) * v.w;
-        start.x = p.x - bx;
-        start.y = p.y - by;
-        start.z = p.z - bz;
-        start.w = static_cast<float>(p.w - bw);
+        const float frame_length = frame_length_;
+        const float bx = frame_length * v.x;
+        const float by = frame_length * v.y;
+        const float bz = frame_length * v.z;
+        const double bw = static_cast<double>(frame_length) * v.w;
+        start.x = position.x - bx;
+        start.y = position.y - by;
+        start.z = position.z - bz;
+        start.w = static_cast<float>(position.w - bw);
     }
     start.y = start.y + kRaise;
     maths::Vec4 stop = entity()->at_point();
@@ -132,9 +132,9 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     }
     if (onto) {
         const objects::GrindPoint* next = found->succ();
-        const maths::Vec4& p = entity()->at_point();
+        const maths::Vec4& position = entity()->at_point();
         const maths::Vec4 found_pos = grind_point_in_world(found);
-        const maths::Vec4 to_found = found_pos - p;
+        const maths::Vec4 to_found = found_pos - position;
         const maths::Vec4 next_pos = grind_point_in_world(next);
         const maths::Vec4 to_next = next_pos - entity()->at_point();
         const double toward =
@@ -145,16 +145,16 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
             // Not between its two nodes: never in the park editor; elsewhere only when the move reaches as far as
             // the segment is long - then onto its middle.
             if (!in_park_editor()) {
-                const maths::Vec4 a = grind_point_in_world(found);
-                const maths::Vec4 b = grind_point_in_world(next);
-                const maths::Vec4 segment = b - a;
+                const maths::Vec4 found_point = grind_point_in_world(found);
+                const maths::Vec4 next_point = grind_point_in_world(next);
+                const maths::Vec4 segment = next_point - found_point;
                 const maths::Vec4 move = stop - start;
                 auto segment_length = static_cast<float>(length_of(segment));
                 onto = !(length_of(move) < segment_length);
                 if (onto && toward_rounded >= 0.0F) {
-                    const maths::Vec4 c = grind_point_in_world(found);
-                    const maths::Vec4 d = grind_point_in_world(next);
-                    point = (d + c) / kMidpointDivisor;
+                    const maths::Vec4 middle_from = grind_point_in_world(found);
+                    const maths::Vec4 middle_to = grind_point_in_world(next);
+                    point = (middle_to + middle_from) / kMidpointDivisor;
                 }
             } else {
                 onto = false;
@@ -164,16 +164,16 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     if (!onto) {
         trigger_rail_script(kGrindOffEvents);
         set_physics_state(kAir);
-        maths::Vec4& p = entity()->at_point();
-        p.y = p.y + 1.0F;
+        maths::Vec4& position = entity()->at_point();
+        position.y = position.y + 1.0F;
         static_cast<objects::Entity*>(object_of(this))->post_own_event(kOffRail, nullptr);
         return;
     }
     // Onto it: the velocity along it (the same way), the skater at the point.
     const objects::GrindPoint* next = found->succ();
-    const maths::Vec4 a = grind_point_in_world(found);
-    const maths::Vec4 b = grind_point_in_world(next);
-    maths::Vec4 direction = b - a;
+    const maths::Vec4 found_point = grind_point_in_world(found);
+    const maths::Vec4 next_point = grind_point_in_world(next);
+    maths::Vec4 direction = next_point - found_point;
     direction.make_unit();
     maths::Vec4& v = entity()->vel();
     if (v.x == 0.0F && v.z == 0.0F) {
@@ -210,8 +210,8 @@ void SkaterPhysicsModule::step_grind_move()
         rail_wait_ = static_cast<int>(script::fetch_float(kJumpRerailTime));
         set_flag(this, PoseFlag::kJumpedOffRail, 1);
         set_flag(this, PoseFlag::kJumped, 1);
-        maths::Vec4& p = entity()->at_point();
-        p.y = p.y + 1.0F;
+        maths::Vec4& position = entity()->at_point();
+        position.y = position.y + 1.0F;
         finish_rail();
         if (thaw_bmx::live_now(this)) {
             thaw_bmx::rail_stall_slip(this); // (not original: THAW 0x005E7074 - the bike's stall)
@@ -248,12 +248,12 @@ void SkaterPhysicsModule::step_grind_move()
     maths::Vec4 gravity = {.x = 0.0F, .y = tuning_float_lookup(kRailGravity, object), .z = 0.0F, .w = 1.0F};
     gravity.project_onto(along);
     {
-        const float t = frame_length_;
+        const float frame_length = frame_length_;
         maths::Vec4& v = entity()->vel();
-        const float gy = t * gravity.y;
-        const float gz = t * gravity.z;
-        const float gw = t * gravity.w;
-        v.x = static_cast<float>((static_cast<double>(gravity.x) * t) + v.x);
+        const float gy = frame_length * gravity.y;
+        const float gz = frame_length * gravity.z;
+        const float gw = frame_length * gravity.w;
+        v.x = static_cast<float>((static_cast<double>(gravity.x) * frame_length) + v.x);
         v.y = gy + v.y;
         v.z = gz + v.z;
         v.w = gw + v.w;
@@ -268,12 +268,12 @@ void SkaterPhysicsModule::step_grind_move()
     if (after < 0.0F) {
         const objects::GrindPoint* prev = node->last_value();
         if (prev && continues(prev)) {
-            const maths::Vec4 a = grind_point_in_world(node);
-            const maths::Vec4 b = grind_point_in_world(next);
-            const maths::Vec4 ahead = b - a;
-            const maths::Vec4 c = grind_point_in_world(prev);
-            const maths::Vec4 d = grind_point_in_world(node);
-            const maths::Vec4 behind = d - c;
+            const maths::Vec4 node_point = grind_point_in_world(node);
+            const maths::Vec4 next_point = grind_point_in_world(next);
+            const maths::Vec4 ahead = next_point - node_point;
+            const maths::Vec4 prev_point = grind_point_in_world(prev);
+            const maths::Vec4 corner_point = grind_point_in_world(node);
+            const maths::Vec4 behind = corner_point - prev_point;
             if (gentle_corner(ahead, behind)) {
                 go_on_to = node->last_value();
             } else {
@@ -285,12 +285,12 @@ void SkaterPhysicsModule::step_grind_move()
     } else {
         const objects::GrindPoint* beyond = next->succ();
         if (beyond && continues(beyond)) {
-            const maths::Vec4 a = grind_point_in_world(next);
-            const maths::Vec4 b = grind_point_in_world(node);
-            const maths::Vec4 back = b - a;
-            const maths::Vec4 c = grind_point_in_world(next->succ());
-            const maths::Vec4 d = grind_point_in_world(next);
-            const maths::Vec4 back_further = d - c;
+            const maths::Vec4 next_point = grind_point_in_world(next);
+            const maths::Vec4 node_point = grind_point_in_world(node);
+            const maths::Vec4 back = node_point - next_point;
+            const maths::Vec4 beyond_point = grind_point_in_world(next->succ());
+            const maths::Vec4 corner_point = grind_point_in_world(next);
+            const maths::Vec4 back_further = corner_point - beyond_point;
             if (gentle_corner(back, back_further)) {
                 go_on_to = next;
             } else {
@@ -305,11 +305,11 @@ void SkaterPhysicsModule::step_grind_move()
     float overshoot = 0.0F;
     {
         const objects::GrindPoint* from_node = after < 0.0F ? next : node;
-        const maths::Vec4& p = entity()->at_point();
-        const maths::Vec4 q = grind_point_in_world(from_node);
-        const double ex = static_cast<double>(p.x) - q.x;
-        const double ey = static_cast<double>(p.y) - q.y;
-        const double ez = static_cast<double>(p.z) - q.z;
+        const maths::Vec4& position = entity()->at_point();
+        const maths::Vec4 from_point = grind_point_in_world(from_node);
+        const double ex = static_cast<double>(position.x) - from_point.x;
+        const double ey = static_cast<double>(position.y) - from_point.y;
+        const double ez = static_cast<double>(position.z) - from_point.z;
         const double distance = std::sqrt(((ez * ez) + (ey * ey)) + (ex * ex));
         if (distance > static_cast<double>(segment_length) + kSegmentSlack) {
             overshoot = static_cast<float>(distance - segment_length);
@@ -369,8 +369,8 @@ void SkaterPhysicsModule::ride_moving_rail()
                     entity()->at_point() += get_tracker(this)->carried();
                     if (get_tracker(this)->turned()) {
                         auto multiply = d3dx::matrix_multiply;
-                        maths::Mat4& m = entity()->basis_frame();
-                        multiply(&m, &m, &get_tracker(this)->turn());
+                        maths::Mat4& basis = entity()->basis_frame();
+                        multiply(&basis, &basis, &get_tracker(this)->turn());
                         multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
                     }
                 }
@@ -448,37 +448,37 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     core::at(entity()->basis_frame().row, 1).make_unit();
 
     // What went past the last segment's end is only carried on when this segment is longer.
-    const maths::Vec4 a = grind_point_in_world(node);
-    const maths::Vec4 b = grind_point_in_world(next);
-    const double sx = static_cast<double>(b.x) - a.x;
-    const double sy = static_cast<double>(b.y) - a.y;
-    const double sz = static_cast<double>(b.z) - a.z;
+    const maths::Vec4 node_point = grind_point_in_world(node);
+    const maths::Vec4 next_point = grind_point_in_world(next);
+    const double sx = static_cast<double>(next_point.x) - node_point.x;
+    const double sy = static_cast<double>(next_point.y) - node_point.y;
+    const double sz = static_cast<double>(next_point.z) - node_point.z;
     const double length = std::sqrt(((sx * sx) + (sz * sz)) + (sy * sy));
     if (length <= overshoot) {
         overshoot = 0.0F;
     }
 
     // The move: the velocity over the frame, plus the overshoot along the facing (x, y of both unrounded).
-    maths::Vec4& p = entity()->at_point();
-    const maths::Vec4 old = p;
+    maths::Vec4& skater_position = entity()->at_point();
+    const maths::Vec4 old = skater_position;
     {
-        const float t = frame_length_;
+        const float frame_length = frame_length_;
         const maths::Vec4& u = entity()->vel();
-        const float my = t * u.y;
-        const float mz = t * u.z;
-        const float mw = t * u.w;
-        p.x = static_cast<float>((static_cast<double>(t) * u.x) + p.x);
-        p.y = my + p.y;
-        p.z = mz + p.z;
-        p.w = mw + p.w;
-        maths::Vec4& q = entity()->at_point();
+        const float my = frame_length * u.y;
+        const float mz = frame_length * u.z;
+        const float mw = frame_length * u.w;
+        skater_position.x = static_cast<float>((static_cast<double>(frame_length) * u.x) + skater_position.x);
+        skater_position.y = my + skater_position.y;
+        skater_position.z = mz + skater_position.z;
+        skater_position.w = mw + skater_position.w;
+        maths::Vec4& overshot_position = entity()->at_point();
         const float oz = facing.z * overshoot;
         const float ow = facing.w * overshoot;
-        q.x = static_cast<float>((static_cast<double>(facing.x) * overshoot) + q.x);
-        q.y = static_cast<float>((static_cast<double>(facing.y) * overshoot) + q.y);
-        q.z = oz + q.z;
-        q.w = ow + q.w;
-        q.w = q.w + 1.0F;
+        overshot_position.x = static_cast<float>((static_cast<double>(facing.x) * overshoot) + overshot_position.x);
+        overshot_position.y = static_cast<float>((static_cast<double>(facing.y) * overshoot) + overshot_position.y);
+        overshot_position.z = oz + overshot_position.z;
+        overshot_position.w = ow + overshot_position.w;
+        overshot_position.w = overshot_position.w + 1.0F;
     }
     const maths::Vec4& now = entity()->at_point();
     const maths::Vec4 move = {.x = now.x - old.x, .y = now.y - old.y, .z = now.z - old.z, .w = now.w - old.w};
@@ -490,12 +490,12 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
         if (in_park_editor()) {
             return;
         }
-        const maths::Vec4 c = grind_point_in_world(start_node);
-        const maths::Vec4 d = grind_point_in_world(start_node->succ());
-        maths::Vec4 this_way = d - c;
-        const maths::Vec4 e = grind_point_in_world(go_on_to);
-        const maths::Vec4 f = grind_point_in_world(go_on_to->succ());
-        maths::Vec4 that_way = f - e;
+        const maths::Vec4 start_point = grind_point_in_world(start_node);
+        const maths::Vec4 start_next_point = grind_point_in_world(start_node->succ());
+        maths::Vec4 this_way = start_next_point - start_point;
+        const maths::Vec4 go_on_point = grind_point_in_world(go_on_to);
+        const maths::Vec4 go_on_next_point = grind_point_in_world(go_on_to->succ());
+        maths::Vec4 that_way = go_on_next_point - go_on_point;
         this_way.make_unit();
         that_way.make_unit();
         if (!(std::fabs(static_cast<double>(this_way.y) - that_way.y) < kSameWayTolerance)) {
@@ -532,8 +532,8 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
         return;
     }
     trigger_rail_script(kGrindOffEvents);
-    objects::GameEntity* o = object_of(this);
-    o->at_point() = o->old_pos();
+    objects::GameEntity* skater = object_of(this);
+    skater->at_point() = skater->old_pos();
     maths::Vec4& position = entity()->at_point();
     position.y = position.y + 1.0F;
     entity()->vel().flatten_onto_plane(feeler_.surface_dir());
@@ -579,8 +579,8 @@ void SkaterPhysicsModule::do_bike_stall_physics()
         rail_wait_ = static_cast<int>(script::fetch_float(kJumpRerailTime));
         set_flag(this, PoseFlag::kJumpedOffRail, 1);
         set_flag(this, PoseFlag::kJumped, 1);
-        maths::Vec4& p = entity()->at_point();
-        p.y = p.y + 1.0F;
+        maths::Vec4& position = entity()->at_point();
+        position.y = position.y + 1.0F;
     } else {
         update_grind_balance();
         // (THAW draws the segment here with rail_highlights on - a debug view of its own)

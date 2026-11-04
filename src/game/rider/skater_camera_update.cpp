@@ -229,42 +229,43 @@ void RiderChaseView::tick_frame()
             if (along) {
                 skater = rider_ref_;
                 facing = skater->vel();
-                objects::RiderPoseState* s = state_ref_;
-                if (s->flag(PoseFlag::kAcidDrop).on != 0U) {
+                objects::RiderPoseState* pose = state_ref_;
+                if (pose->flag(PoseFlag::kAcidDrop).on != 0U) {
                     facing.x = 0.0F;
                     facing.z = 0.0F;
-                    facing += s->drop_velocity();
+                    facing += pose->drop_velocity();
                 }
                 facing.make_unit();
                 double ux = 0.0;
                 double uy = 0.0;
                 double uz = 0.0;
                 double uw = 0.0;
-                double k = 0.0;
+                double up_part = 0.0;
                 if (physics_state == 1) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
-                    if ((s->flag(PoseFlag::kAcidDrop).on != 0U) && facing.y < 0.0F) {
-                        k = static_cast<float>(
+                    if ((pose->flag(PoseFlag::kAcidDrop).on != 0U) && facing.y < 0.0F) {
+                        up_part = static_cast<float>(
                             (((static_cast<double>(facing.z) * 0.0) + (static_cast<double>(facing.x) * 0.0)) +
                              facing.y) *
                             kAirLookDown);
                     } else {
-                        k = facing.y;
+                        up_part = facing.y;
                     }
                     up_row = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
                 } else if (physics_state == 2) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
-                    k = facing.y;
+                    up_part = facing.y;
                 } else {
-                    const maths::Vec4& n = s->floor_normal();
-                    ux = n.x, uy = n.y, uz = n.z, uw = n.w;
-                    k = static_cast<float>((((ux * facing.x) + (uy * facing.y)) + (uz * facing.z)) * kGroundLookDown);
+                    const maths::Vec4& normal = pose->floor_normal();
+                    ux = normal.x, uy = normal.y, uz = normal.z, uw = normal.w;
+                    up_part =
+                        static_cast<float>((((ux * facing.x) + (uy * facing.y)) + (uz * facing.z)) * kGroundLookDown);
                 }
                 // The facing less its part along that up.
-                auto kw = static_cast<float>(uw * k);
-                auto kz = static_cast<float>(uz * k);
-                const double ky = uy * k;
-                const double kx = ux * k;
+                auto kw = static_cast<float>(uw * up_part);
+                auto kz = static_cast<float>(uz * up_part);
+                const double ky = uy * up_part;
+                const double kx = ux * up_part;
                 facing.x = static_cast<float>(facing.x - kx);
                 facing.y = static_cast<float>(facing.y - ky);
                 facing.z -= kz;
@@ -344,8 +345,8 @@ void RiderChaseView::tick_frame()
         }
     }
     if (!lip_tilted) {
-        const objects::RiderPoseState* s = state_ref_;
-        if (!vert_air(s)) {
+        const objects::RiderPoseState* pose = state_ref_;
+        if (!vert_air(pose)) {
             get_multiply(&orient, &maths::make_pitch_matrix(rotation, lean_angle_ + air_tilt_), &orient);
         }
     }
@@ -407,9 +408,9 @@ void RiderChaseView::tick_frame()
     }
     // Blocked on a lip: the skater's script flag (bit 0x16B8E4CB) set, else cleared.
     {
-        auto* s = rider_ref_;
-        if (s && lip_state_ == 2) {
-            s->flag_bits() |=
+        auto* pose = rider_ref_;
+        if (pose && lip_state_ == 2) {
+            pose->flag_bits() |=
                 1U << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask); // (SHL: the count's low 5 bits)
         } else {
             rider_ref_->flag_bits() &= ~(1U << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask));

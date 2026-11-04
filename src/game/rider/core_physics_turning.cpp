@@ -73,12 +73,12 @@ constexpr float kUprightLeft = -1.2F;                    // 0x0064BD3C
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
 void turn_velocity(maths::Vec4& velocity, double angle)
 {
-    const double s = std::sin(angle);
-    const double c = std::cos(angle);
+    const double sine = std::sin(angle);
+    const double cosine = std::cos(angle);
     const double x = velocity.x;
     const double z = velocity.z;
-    velocity.x = static_cast<float>((c * x) + (s * z));
-    velocity.z = static_cast<float>((c * z) + -(x * s));
+    velocity.x = static_cast<float>((cosine * x) + (sine * z));
+    velocity.z = static_cast<float>((cosine * z) + -(x * sine));
 }
 
 } // namespace
@@ -303,12 +303,12 @@ void SkaterPhysicsModule::rotate_in_acid_drop()
     }
     const double elapsed = static_cast<double>(frame_length_) + drop_time_;
     drop_time_ = static_cast<float>(elapsed);
-    double t = elapsed / drop_duration_;
-    if (t > 1.0) {
-        t = 1.0F;
+    double progress = elapsed / drop_duration_;
+    if (progress > 1.0) {
+        progress = 1.0F;
     }
     // Eased: 3t^2 - 2t^3.
-    auto eased = static_cast<float>((t - kAcidDropEase) * t * t * kAcidDropEaseScale);
+    auto eased = static_cast<float>((progress - kAcidDropEase) * progress * progress * kAcidDropEaseScale);
     maths::Mat4 slerped{};
     drop_slerp_.fetch_mat(slerped, eased);
     // The change since the last frame's matrix applied to the skater's.

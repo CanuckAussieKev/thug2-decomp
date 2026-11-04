@@ -74,17 +74,18 @@ void turn_by_stick(double angle, maths::Vec4* facing)
 } // namespace
 
 // 0x00524D70
-maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t, float low, float high)
+maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float value, float low,
+                           float high)
 {
     const double dx = static_cast<double>(b->x) - a->x;
     const double dy = static_cast<double>(b->y) - a->y;
     const float dz = b->z - a->z;
     const float dw = b->w - a->w;
-    auto f = static_cast<float>((static_cast<double>(t) - low) / (static_cast<double>(high) - low));
-    auto sx = static_cast<float>(dx * f);
-    const double sy = dy * f;
-    const float sz = dz * f;
-    const float sw = dw * f;
+    auto fraction = static_cast<float>((static_cast<double>(value) - low) / (static_cast<double>(high) - low));
+    auto sx = static_cast<float>(dx * fraction);
+    const double sy = dy * fraction;
+    const float sz = dz * fraction;
+    const float sw = dw * fraction;
     const float x = sx + a->x;
     auto y = static_cast<float>(sy + a->y);
     const float z = sz + a->z;
@@ -343,11 +344,11 @@ void FootView::tick_frame()
         facing.z = forced_heading_.z;
         facing.w = forced_heading_.w;
         const double heading = free_look_->heading();
-        auto s = static_cast<float>(std::sin(heading));
-        auto c = static_cast<float>(std::cos(heading));
+        auto sine = static_cast<float>(std::sin(heading));
+        auto cosine = static_cast<float>(std::cos(heading));
         const float z = facing.z;
-        auto turned_z = static_cast<float>(-(static_cast<double>(s) * x) + (static_cast<double>(z) * c));
-        facing.x = static_cast<float>((static_cast<double>(z) * s) + (static_cast<double>(c) * x));
+        auto turned_z = static_cast<float>(-(static_cast<double>(sine) * x) + (static_cast<double>(z) * cosine));
+        facing.x = static_cast<float>((static_cast<double>(z) * sine) + (static_cast<double>(cosine) * x));
         facing.z = turned_z;
     }
 

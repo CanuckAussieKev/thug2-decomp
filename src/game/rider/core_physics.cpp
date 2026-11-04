@@ -211,7 +211,9 @@ void log_rail_boost(script::Script* script, float before, float after, float hei
     }
     static RailBoostLog log;
     auto now = std::chrono::steady_clock::now();
-    auto seconds = [](std::chrono::steady_clock::duration d) { return std::chrono::duration<double>(d).count(); };
+    auto seconds = [](std::chrono::steady_clock::duration duration) {
+        return std::chrono::duration<double>(duration).count();
+    };
     if (script != log.script || seconds(now - log.last) > kRepeatLogSeconds) {
         float rate = 0.0F;
         script->args()->fetch_float(checksums::hash_from_text("rate"), &rate, 0);
@@ -309,16 +311,16 @@ void SkaterPhysicsModule::check_for_ground()
             if (hit_skatable_ == 0U) {
                 // Not ground: if the skater is (nearly) at or below it, move it out by the hit's normal; then leave.
                 if (along < kMinAlong) {
-                    maths::Vec4& p = object->at_point();
+                    maths::Vec4& skater_position = object->at_point();
                     const maths::Vec4& normal = feeler_.surface_dir();
                     const float x = point.x + normal.x;
                     const float y = point.y + normal.y;
                     const float z = point.z + normal.z;
                     const float w = point.w + normal.w;
-                    p.z = z;
-                    p.w = w;
-                    p.x = x;
-                    p.y = y;
+                    skater_position.z = z;
+                    skater_position.w = w;
+                    skater_position.x = x;
+                    skater_position.y = y;
                 }
                 collision_events::note_path(this, collision_events::RouteWay::kGroundUnskatable,
                                             object->vel()); // (not original)
@@ -352,11 +354,11 @@ void SkaterPhysicsModule::check_for_ground()
                 if (keep && along > 0.0F) {
                     // How far the skater could have dropped this frame at that angle (at least a physics value).
                     const float cosine = turn > 1.0F ? 1.0F : (turn < -1.0F ? -1.0F : turn);
-                    const maths::Vec4& p = object->at_point();
+                    const maths::Vec4& skater_position = object->at_point();
                     const maths::Vec4& old = object->old_pos();
-                    const float mx = p.x - old.x;
-                    const float my = p.y - old.y;
-                    const float mz = p.z - old.z;
+                    const float mx = skater_position.x - old.x;
+                    const float my = skater_position.y - old.y;
+                    const float mz = skater_position.z - old.z;
                     const double moved = std::sqrt((static_cast<double>(mx) * mx) + (static_cast<double>(mz) * mz) +
                                                    (static_cast<double>(my) * my));
                     auto reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
@@ -438,8 +440,8 @@ void SkaterPhysicsModule::check_for_ground()
     } else if (triggers_held(input)) {
         // (The original: both triggers; PartyMod's JZ -> JNZ at 0x0050A257 makes it either.)
         AcidDrop drop{};
-        objects::GameEntity* o = entity();
-        if (find_acid_drop(true, &o->at_point(), &o->old_pos(), &o->vel(), &drop)) {
+        objects::GameEntity* skater = entity();
+        if (find_acid_drop(true, &skater->at_point(), &skater->old_pos(), &skater->vel(), &drop)) {
             start_acid_drop(&drop);
         }
     }
@@ -566,15 +568,15 @@ void SkaterPhysicsModule::do_air_physics()
     // Move: position += velocity * t + (0, gravity, 0, 1) * t * t / 2, then the carried offset; velocity +=
     // (0, gravity, 0, 1) * t. (Rounded as the original: x's velocity product and the z, w sums stay unrounded.)
     {
-        const float t = frame_length_;
-        const double half = static_cast<double>(t) * t * 0.5F;
+        const float frame_length = frame_length_;
+        const double half = static_cast<double>(frame_length) * frame_length * 0.5F;
         auto zero_half = static_cast<float>(0.0 * half);
         auto half_gravity = static_cast<float>(half * gravity);
         auto half_float = static_cast<float>(half);
-        const float ty = t * velocity.y;
-        const float tz = t * velocity.z;
-        const float tw = t * velocity.w;
-        auto sx = static_cast<float>((static_cast<double>(velocity.x) * t) + zero_half);
+        const float ty = frame_length * velocity.y;
+        const float tz = frame_length * velocity.z;
+        const float tw = frame_length * velocity.w;
+        auto sx = static_cast<float>((static_cast<double>(velocity.x) * frame_length) + zero_half);
         const float sy = ty + half_gravity;
         const double sz = (0.0 * half) + tz;
         const double sw = static_cast<double>(tw) + half_float;
@@ -794,8 +796,8 @@ void SkaterPhysicsModule::do_air_physics()
         recent = static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(air_start_))) < kRecentAirMs;
     }
     AcidDrop drop{};
-    objects::GameEntity* o = entity();
-    if (find_acid_drop(recent, &o->at_point(), &o->old_pos(), &o->vel(), &drop)) {
+    objects::GameEntity* skater = entity();
+    if (find_acid_drop(recent, &skater->at_point(), &skater->old_pos(), &skater->vel(), &drop)) {
         start_acid_drop(&drop);
     }
 }

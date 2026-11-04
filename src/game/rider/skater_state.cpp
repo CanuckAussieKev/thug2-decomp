@@ -103,9 +103,9 @@ void RiderPoseState::publish_method_table()
 RiderPoseState::~RiderPoseState() = default;
 
 // (the core physics' timed flag setter, inlined everywhere in the original)
-void RiderPoseState::set_flag(PoseFlag f, uint8_t value)
+void RiderPoseState::set_flag(PoseFlag pose_flag, uint8_t value)
 {
-    TimedFlag& timed = flag(f);
+    TimedFlag& timed = flag(pose_flag);
     if (timed.on == value) {
         return;
     }

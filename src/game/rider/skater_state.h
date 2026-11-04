@@ -126,11 +126,14 @@ public:
     bool set_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519600 (the unnamed checksum)
 
     // The timed flags (+0x20): a byte each and the time (the game clock plus clock_offset()) it last changed.
-    TimedFlag& flag(PoseFlag f) { return core::at(timed_flags_, static_cast<int>(f)); }
-    [[nodiscard]] const TimedFlag& flag(PoseFlag f) const { return core::at(timed_flags_, static_cast<int>(f)); }
-    [[nodiscard]] uint8_t is_on(PoseFlag f) const { return flag(f).on; }
+    TimedFlag& flag(PoseFlag pose_flag) { return core::at(timed_flags_, static_cast<int>(pose_flag)); }
+    [[nodiscard]] const TimedFlag& flag(PoseFlag pose_flag) const
+    {
+        return core::at(timed_flags_, static_cast<int>(pose_flag));
+    }
+    [[nodiscard]] uint8_t is_on(PoseFlag pose_flag) const { return flag(pose_flag).on; }
     // The flag set to `value`; its time noted if it changes.
-    void set_flag(PoseFlag f, uint8_t value);
+    void set_flag(PoseFlag pose_flag, uint8_t value);
 
     // The fields other code reads and sets.
     [[nodiscard]] int cur_phase() const { return cur_phase_; }

@@ -78,7 +78,7 @@ constexpr int kStateAir = 1, kStateLip = 3, kStateRail = 4;
 double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float(checksums::Name{name}, 1, skater); }
 
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
-void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multiply(&m, &rotation, &m); }
+void turn_by(maths::Mat4& matrix, const maths::Mat4& rotation) { d3dx::matrix_multiply(&matrix, &rotation, &matrix); }
 
 } // namespace
 
@@ -265,13 +265,13 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
     const double rotation = static_cast<double>(script::fetch_float(kWallBounceAngleMultiplier)) * angle;
     *turn = static_cast<float>(rotation);
     // The velocity turned about y (sine / cosine unrounded), then the matrix by the rounded turn.
-    const double s = std::sin(rotation);
-    const double c = std::cos(rotation);
+    const double turn_sine = std::sin(rotation);
+    const double turn_cosine = std::cos(rotation);
     maths::Vec4& vel = entity()->vel();
     const double vx = vel.x;
     const double vz = vel.z;
-    vel.x = static_cast<float>((s * vz) + (c * vx));
-    vel.z = static_cast<float>(-(vx * s) + (c * vz));
+    vel.x = static_cast<float>((turn_sine * vz) + (turn_cosine * vx));
+    vel.z = static_cast<float>(-(vx * turn_sine) + (turn_cosine * vz));
     maths::Mat4 rotate{};
     maths::make_yaw_matrix(rotate, *turn);
     turn_by(entity()->basis_frame(), rotate);
@@ -370,13 +370,13 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     }
     // Another wall: turned round by what's left of a half turn, and halved.
     const double around = static_cast<double>(maths::kPi) - turn;
-    auto s = static_cast<float>(std::sin(around));
-    auto c = static_cast<float>(std::cos(around));
+    auto sine = static_cast<float>(std::sin(around));
+    auto cosine = static_cast<float>(std::cos(around));
     maths::Vec4& vel = skater->vel();
     const double vx = vel.x;
     const double vz = vel.z;
-    const double nx = (vx * c) + (vz * s);
-    const double nz = -(vx * s) + (vz * c);
+    const double nx = (vx * cosine) + (vz * sine);
+    const double nz = -(vx * sine) + (vz * cosine);
     vel.x = static_cast<float>(nx);
     vel.z = static_cast<float>(nz);
     maths::Mat4 rotate{};

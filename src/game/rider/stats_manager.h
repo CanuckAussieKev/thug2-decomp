@@ -76,7 +76,7 @@ public:
     // module not in mode 0xE92ECAFE, and the first profile's name 0x0A7BE964.
     bool is_operative();
     // 0x0051C9D0: the last trick's text kept (+0xA10) unless `score` is +0xA14 (checked). `c` isn't used.
-    void set10(const char* text, int score, int c);
+    void set10(const char* text, int score, int stance);
     // 0x0051CA00: back to before the combo (script 0xD44EA68F): goals met but not done unmarked, the air and jump
     // phases and the two counters cleared, the starts back to the ends.
     void get_reset();

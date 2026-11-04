@@ -83,12 +83,12 @@ constexpr float kHalfPi = 1.57079637F;             // 0x00645484
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
 void turn_velocity(maths::Vec4& velocity, double angle)
 {
-    const double s = std::sin(angle);
-    const double c = std::cos(angle);
+    const double sine = std::sin(angle);
+    const double cosine = std::cos(angle);
     const double x = velocity.x;
     const double z = velocity.z;
-    velocity.x = static_cast<float>((c * x) + (s * z));
-    velocity.z = static_cast<float>((c * z) + -(x * s));
+    velocity.x = static_cast<float>((cosine * x) + (sine * z));
+    velocity.z = static_cast<float>((cosine * z) + -(x * sine));
 }
 
 } // namespace
@@ -230,9 +230,9 @@ void SkaterPhysicsModule::lean_push_off_wall()
         return;
     }
     object = object_of(this);
-    maths::Vec4& p = object->at_point();
+    maths::Vec4& skater_position = object->at_point();
     const maths::Vec4& u = core::at(object->basis_frame().row, 1);
-    p = {.x = end.x - u.x, .y = end.y - u.y, .z = end.z - u.z, .w = end.w - u.w};
+    skater_position = {.x = end.x - u.x, .y = end.y - u.y, .z = end.z - u.z, .w = end.w - u.w};
 }
 
 // 0x00504EE0
@@ -317,13 +317,19 @@ bool SkaterPhysicsModule::keep_off_ceiling_at_wall()
     maths::Vec4 along = {.x = point.x - end.x, .y = point.y - end.y, .z = point.z - end.z, .w = point.w - end.w};
     along.project_onto(normal);
     start = entity()->at_point();
-    const maths::Vec4& p = entity()->at_point();
-    end = {.x = along.x + p.x, .y = along.y + p.y, .z = along.z + p.z, .w = along.w + p.w};
+    const maths::Vec4& skater_position = entity()->at_point();
+    end = {.x = along.x + skater_position.x,
+           .y = along.y + skater_position.y,
+           .z = along.z + skater_position.z,
+           .w = along.w + skater_position.w};
     maths::Vec4& position2 = entity()->at_point();
     if (probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         const maths::Vec4& hit = feeler_.contact_pos();
-        const maths::Vec4& n = feeler_.surface_dir();
-        position2 = {.x = n.x + hit.x, .y = n.y + hit.y, .z = n.z + hit.z, .w = n.w + hit.w};
+        const maths::Vec4& surface_normal = feeler_.surface_dir();
+        position2 = {.x = surface_normal.x + hit.x,
+                     .y = surface_normal.y + hit.y,
+                     .z = surface_normal.z + hit.z,
+                     .w = surface_normal.w + hit.w};
     } else {
         position2 = end;
     }
@@ -451,20 +457,20 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
 
     // Back out of the wall: the hit point less the lift, 6 out along the normal.
     object = object_of(this);
-    maths::Vec4& p = object->at_point();
+    maths::Vec4& skater_position = object->at_point();
     const maths::Vec4& hit = feeler_.contact_pos();
-    p.z = hit.z - lift.z;
-    p.w = hit.w - lift.w;
-    p.x = hit.x - lift.x;
-    p.y = hit.y - lift.y;
+    skater_position.z = hit.z - lift.z;
+    skater_position.w = hit.w - lift.w;
+    skater_position.x = hit.x - lift.x;
+    skater_position.y = hit.y - lift.y;
     const double nx = static_cast<double>(normal->x) * kBounceBack;
     const double ny = static_cast<double>(normal->y) * kBounceBack;
     const float nz = normal->z * kBounceBack;
     const float nw = normal->w * kBounceBack;
-    p.x = static_cast<float>(nx + p.x);
-    p.y = static_cast<float>(ny + p.y);
-    p.z = nz + p.z;
-    p.w = nw + p.w;
+    skater_position.x = static_cast<float>(nx + skater_position.x);
+    skater_position.y = static_cast<float>(ny + skater_position.y);
+    skater_position.z = nz + skater_position.z;
+    skater_position.w = nw + skater_position.w;
     collision_events::note_path(this, collision_events::RouteWay::kWallAhead, entry_velocity); // (not original)
 
     // Then a feeler from there (twice the lift up) along the velocity, as far as the skater moved plus

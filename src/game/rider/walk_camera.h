@@ -33,7 +33,7 @@ struct WalkCameraState {
 
 // 0x00524D70 (cdecl): `a` toward `b` by where `t` lies from `low` to `high` (x through a float step, y with its
 // step unrounded, z and w as floats). Returns `out`.
-maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t, float low,
+maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float value, float low,
                            float high);
 
 // The WalkCamera component (type 0xC7D37EC2, vtable 0x0064C5E0, 0xA8 bytes; made by 0x00525DC0): the camera

@@ -65,15 +65,15 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 // The matrix turned about Y by `degrees` (the rotation: degrees in radians, rounded to float): m = m * rotation, or
 // with `before` m = rotation * m.
-void turn_about_y(maths::Mat4& m, float degrees, bool before)
+void turn_about_y(maths::Mat4& matrix, float degrees, bool before)
 {
     auto radians = static_cast<float>(static_cast<double>(degrees) * kDegreeToRadianRatio); // pi / 180
     maths::Mat4 rotation{};
     const maths::Mat4& turn = maths::make_yaw_matrix(rotation, radians);
     if (before) {
-        matrix_multiply(&m, &turn, &m);
+        matrix_multiply(&matrix, &turn, &matrix);
     } else {
-        matrix_multiply(&m, &m, &turn);
+        matrix_multiply(&matrix, &matrix, &turn);
     }
 }
 
@@ -126,11 +126,11 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
             y = velocity.y;
             z = velocity.z;
         } else {
-            maths::Mat4 m{};
-            m.reset_to_identity();
-            turn_about_y(m, skew, false);
+            maths::Mat4 matrix{};
+            matrix.reset_to_identity();
+            turn_about_y(matrix, skew, false);
             maths::Vec4 turned{};
-            m.xform(turned, velocity);
+            matrix.xform(turned, velocity);
             x = turned.x;
             y = turned.y;
             z = turned.z;
@@ -141,12 +141,12 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
         y = at.y;
         z = at.z;
         if (skew != 0.0F) {
-            maths::Mat4 m{};
-            m = object->basis_frame();
-            turn_about_y(m, skew, true);
-            x = core::at(m.row, 2).x;
-            y = core::at(m.row, 2).y;
-            z = core::at(m.row, 2).z;
+            maths::Mat4 matrix{};
+            matrix = object->basis_frame();
+            turn_about_y(matrix, skew, true);
+            x = core::at(matrix.row, 2).x;
+            y = core::at(matrix.row, 2).y;
+            z = core::at(matrix.row, 2).z;
         }
     }
     script->args()->put_int(checksums::Name{kScaledX}, ftol(static_cast<double>(x) * scale));
@@ -180,9 +180,9 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     }
     for (int i = 0; i < count; ++i) {
         const int other = maths::rnd(count);
-        const uint32_t a = order->fetch_part(other);
+        const uint32_t picked = order->fetch_part(other);
         order->set_element(other, order->fetch_part(i));
-        order->set_element(i, a);
+        order->set_element(i, picked);
     }
 
     copy_string(first_name.data(), skater->given_name().data()); // (copied and not used)

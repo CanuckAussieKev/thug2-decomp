@@ -100,9 +100,9 @@ bool SkaterPhysicsModule::should_brake()
     }
     const objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel();
-    const maths::Vec4& f = core::at(object->basis_frame().row, 2);
-    const double along =
-        ((static_cast<double>(v.z) * f.z) + (static_cast<double>(v.y) * f.y)) + (static_cast<double>(f.x) * v.x);
+    const maths::Vec4& facing = core::at(object->basis_frame().row, 2);
+    const double along = ((static_cast<double>(v.z) * facing.z) + (static_cast<double>(v.y) * facing.y)) +
+                         (static_cast<double>(facing.x) * v.x);
     return along < 0.0;
 }
 
@@ -195,11 +195,12 @@ void SkaterPhysicsModule::apply_wheel_drag()
         velocity = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
         return;
     }
-    const double k = static_cast<double>(frame_length_) / speed_rounded * rolling_friction_ * kFramesPerSecond;
-    auto dx = static_cast<float>(k * x);
-    auto dy = static_cast<float>(vy * k);
-    auto dz = static_cast<float>(vz * k);
-    const double dw = w * k;
+    const double friction_scale =
+        static_cast<double>(frame_length_) / speed_rounded * rolling_friction_ * kFramesPerSecond;
+    auto dx = static_cast<float>(friction_scale * x);
+    auto dy = static_cast<float>(vy * friction_scale);
+    auto dz = static_cast<float>(vz * friction_scale);
+    const double dw = w * friction_scale;
     const double change_squared =
         ((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx);
     if (static_cast<double>(speed_rounded) * speed_rounded < change_squared) {
@@ -246,11 +247,11 @@ void SkaterPhysicsModule::update_ground_normal()
         } else {
             const double left =
                 blend - (static_cast<double>(script::fetch_float(kNormalBlendRate)) * frame_length_ * kFramesPerSecond);
-            auto t = static_cast<float>(left);
-            blend = t;
+            auto remaining_blend = static_cast<float>(left);
+            blend = remaining_blend;
             if (left > 0.0 || left != left) {
                 maths::Vec4 blended;
-                walk::get_lerp(&blended, &floor_normal_, &old_normal_, t);
+                walk::get_lerp(&blended, &floor_normal_, &old_normal_, remaining_blend);
                 drawn_normal_ = blended;
                 drawn_normal_.make_unit();
             } else {

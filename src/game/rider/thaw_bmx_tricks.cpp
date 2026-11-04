@@ -155,21 +155,21 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
             ((node->flag_bits() & objects::kRailFlagActive) == 0U) || !node->succ()) {
             continue;
         }
-        maths::Vec4 a;
-        maths::Vec4 b;
+        maths::Vec4 rail_start;
+        maths::Vec4 rail_end;
         maths::Vec4 at;
-        rails->get_absolute_pos(&a, node);
-        rails->get_absolute_pos(&b, node->succ());
+        rails->get_absolute_pos(&rail_start, node);
+        rails->get_absolute_pos(&rail_end, node->succ());
         float score = 0.0F;
-        if (!bike::ledge_point(start, end, direction, a, b, kTapMargin, &at, &score) || score > best) {
+        if (!bike::ledge_point(start, end, direction, rail_start, rail_end, kTapMargin, &at, &score) || score > best) {
             continue;
         }
-        maths::Vec4 along = b - a;
+        maths::Vec4 along = rail_end - rail_start;
         along.make_unit();
         if (std::fabs(along.y) > steepest) {
             continue;
         }
-        if (!objects::rail_clear(a, b)) {
+        if (!objects::rail_clear(rail_start, rail_end)) {
             continue;
         }
         best = score;
@@ -270,15 +270,15 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
     const maths::Seg rail(a, b);
     maths::Vec4 on_line;
     maths::Vec4 on_rail;
-    float s = 0.0F;
-    float t = 0.0F;
-    if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true)) {
+    float along_line = 0.0F;
+    float along_rail = 0.0F;
+    if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, along_line, along_rail, true)) {
         // (along the line, or a rail of no length: the rail's point nearest the line's start)
         const maths::Vec4 along = b - a;
         const double length = dot3(along, along);
-        double k = length > 0.0 ? dot3(start - a, along) / length : 0.0;
-        k = k < 0.0 ? 0.0 : (k > 1.0 ? 1.0 : k);
-        on_rail = a + static_cast<float>(k) * along;
+        double fraction = length > 0.0 ? dot3(start - a, along) / length : 0.0;
+        fraction = fraction < 0.0 ? 0.0 : (fraction > 1.0 ? 1.0 : fraction);
+        on_rail = a + static_cast<float>(fraction) * along;
         on_line = start;
     }
     if (on_rail.y > on_line.y || on_line.y - on_rail.y > kLedgeHeight) {
@@ -630,10 +630,11 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
     }
     // (the first of each kind logged: the bike's sounds can be checked from the log)
     static std::array<bool, kLoggedSlots> s_logged = {};
-    const int k = static_cast<int>(kind);
-    if (!core::at(s_logged, k)) {
-        core::at(s_logged, k) = true;
-        get_log("thaw_bmx: bike sound %s -> %s", core::at(kSoundTables, k), static_cast<surface_kind::SoundInfo*>(info)->name.data());
+    const int kind_slot = static_cast<int>(kind);
+    if (!core::at(s_logged, kind_slot)) {
+        core::at(s_logged, kind_slot) = true;
+        get_log("thaw_bmx: bike sound %s -> %s", core::at(kSoundTables, kind_slot),
+                static_cast<surface_kind::SoundInfo*>(info)->name.data());
     }
     return 1;
 }

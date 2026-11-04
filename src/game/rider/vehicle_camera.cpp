@@ -149,10 +149,10 @@ void CarView::update_target_direction()
     double scale = static_cast<double>(speed) * kSpeedScale;
     scale = std::min(scale, 1.0);
     const maths::Vec4& at = core::at(subject_->basis_frame().row, 2);
-    const double a = -at.x;
-    const double b = -at.y;
-    const double c = -at.z;
-    auto along = static_cast<float>(((c * z) + (b * y) + (a * x)) * scale);
+    const double back_x = -at.x;
+    const double back_y = -at.y;
+    const double back_z = -at.z;
+    auto along = static_cast<float>(((back_z * z) + (back_y * y) + (back_x * x)) * scale);
     target_direction_ = {.x = -at.x, .y = -at.y, .z = -at.z, .w = -at.w};
     target_direction_.y = 0.0F;
     target_direction_.make_unit();

@@ -716,16 +716,16 @@ void FootMovement::update_anim_wait()
     float current = 0.0F;
     float end = 0.0F;
     anim_blender_->get_times(&start, &current, &end);
-    auto t = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
+    auto fraction = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
     maths::Vec4 between{};
-    walk::get_lerp(&between, &transition_start_, &transition_pos_, t);
+    walk::get_lerp(&between, &transition_start_, &transition_pos_, fraction);
     const maths::Vec4& carried = climb_offset_;
     maths::Vec4& position = pos_;
     position.x = between.x + carried.x;
     position.y = between.y + carried.y;
     position.z = between.z + carried.z;
     position.w = between.w + carried.w;
-    double turn_part = t / static_cast<double>(transition_rate_);
+    double turn_part = fraction / static_cast<double>(transition_rate_);
     turn_part = std::min(turn_part, 1.0);
     const double turn = transition_turn_;
     const double angle = (turn * turn_part) - turn;
@@ -738,7 +738,7 @@ void FootMovement::update_anim_wait()
     facing.z = static_cast<float>(-(x * sine) + (cosine * facing.z));
     anim_state_ = kAnimWait;
     const double low = transition_start_offset_;
-    model_lift_ = static_cast<float>(((transition_display_offset_ - low) * t) + low);
+    model_lift_ = static_cast<float>(((transition_display_offset_ - low) * fraction) + low);
 }
 
 // 0x0052A700
@@ -991,9 +991,9 @@ void FootMovement::get_jump()
         const float hold = walk_parameter(kHoldTimeForMaxJump);
         auto* button = &input_->pad_primary().pos_x();
         const double held = static_cast<uint32_t>(button->get_held_millis()) / static_cast<double>(hold);
-        const float t = held > 1.0 ? 1.0F : static_cast<float>(held);
+        const float fraction = held > 1.0 ? 1.0F : static_cast<float>(held);
         const float minimum = walk_parameter(kMinJumpFactor);
-        factor = static_cast<float>(((1.0 - minimum) * t) + minimum);
+        factor = static_cast<float>(((1.0 - minimum) * fraction) + minimum);
         break;
     }
     case 2:
@@ -1165,13 +1165,13 @@ bool FootMovement::try_barrier_jump()
         start = position;
         start.y = position.y + highest;
         const double angle = index * kSeventhTurn;
-        const double c = std::cos(angle);
-        const double s = std::sin(angle);
-        auto x = static_cast<float>((c * facing.x) - (s * facing.z));
+        const double cosine = std::cos(angle);
+        const double sine = std::sin(angle);
+        auto x = static_cast<float>((cosine * facing.x) - (sine * facing.z));
         maths::Vec4& end = feeler->line().end;
         end.x = static_cast<float>(static_cast<double>(x) * reach) + start.x;
         end.y = static_cast<float>(static_cast<double>(reach) * 0.0) + start.y;
-        end.z = static_cast<float>(((s * facing.x) + (c * facing.z)) * reach) + start.z;
+        end.z = static_cast<float>(((sine * facing.x) + (cosine * facing.z)) * reach) + start.z;
         end.w = reach + start.w;
         int tries = kLedgeTries;
         bool hit = false;
@@ -1250,10 +1250,10 @@ bool FootMovement::update_contacts()
             start = position;
             start.y = position.y + feeler_height;
             const double angle = i * kSeventhTurn;
-            const double c = std::cos(angle);
-            const double s = std::sin(angle);
-            auto x = static_cast<float>((c * facing.x) - (s * facing.z));
-            auto z = static_cast<float>(((s * facing.x) + (c * facing.z)) * reach);
+            const double cosine = std::cos(angle);
+            const double sine = std::sin(angle);
+            auto x = static_cast<float>((cosine * facing.x) - (sine * facing.z));
+            auto z = static_cast<float>(((sine * facing.x) + (cosine * facing.z)) * reach);
             const float y = static_cast<float>(static_cast<double>(reach) * 0.0) + position.y;
             end = {.x = static_cast<float>(static_cast<double>(x) * reach) + position.x, .y = y + feeler_height, .z = z + position.z,
                    .w = reach + position.w};
@@ -1391,13 +1391,13 @@ bool FootMovement::update_contacts()
     }
 
     // In a corner (two of them facing apart): stopped.
-    for (int a = 0; a < objects::kWalkContactCount; ++a) {
-        const auto& first = contact_at(this, a);
+    for (int first_slot = 0; first_slot < objects::kWalkContactCount; ++first_slot) {
+        const auto& first = contact_at(this, first_slot);
         if (!first.hit) {
             continue;
         }
-        for (int b = a + 1; b < objects::kWalkContactCount; ++b) {
-            const auto& second = contact_at(this, b);
+        for (int second_slot = first_slot + 1; second_slot < objects::kWalkContactCount; ++second_slot) {
+            const auto& second = contact_at(this, second_slot);
             if (!second.hit) {
                 continue;
             }
@@ -1419,8 +1419,8 @@ bool FootMovement::update_contacts()
     float y = velocity.y;
     float z = velocity.z;
     double w = velocity.w;
-    for (const int i : kOrder) {
-        const auto& contact = contact_at(this, i);
+    for (const int contact_slot : kOrder) {
+        const auto& contact = contact_at(this, contact_slot);
         if (!contact.hit) {
             continue;
         }

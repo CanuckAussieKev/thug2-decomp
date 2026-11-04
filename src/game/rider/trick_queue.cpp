@@ -210,7 +210,7 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 void MoveExecutor::update_buttons()
 {
     const uint32_t mask = input_->events();
-    auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
+    auto bit = [mask](int bit_index) { return ((mask >> bit_index) & 1) != 0; };
     const int direction = d_pad_direction(static_cast<uint8_t>(bit(6)), static_cast<uint8_t>(bit(7)),
                                           static_cast<uint8_t>(bit(5)), static_cast<uint8_t>(bit(4)));
     for (int i = 1; i <= kDirections; ++i) {
@@ -222,8 +222,8 @@ void MoveExecutor::update_buttons()
     };
     static const auto kButtonBits = std::to_array<ButtonBit>({{.button = 9, .bit = 9},      {.button = 0xA, .bit = 0xB},  {.button = 0xC, .bit = 8},     {.button = 0xB, .bit = 0xA},   {.button = 0xD, .bit = 0xC},   {.button = 0xE, .bit = 0xE},  {.button = 0xF, .bit = 0x10},
                        {.button = 0x10, .bit = 0xD}, {.button = 0x11, .bit = 0xF}, {.button = 0x12, .bit = 0x11}, {.button = 0x13, .bit = 0x16}, {.button = 0x14, .bit = 0x17}, {.button = 0x15, .bit = 0x18}});
-    for (const auto& b : kButtonBits) {
-        set_button(this, b.button, bit(b.bit));
+    for (const auto& button_bit : kButtonBits) {
+        set_button(this, button_bit.button, bit(button_bit.bit));
     }
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick directions as events while the skater rides the bike
     // (THAW 0x471D20's 16 more buttons - game/rider/thaw_bmx.h). Original behaviour: none.
@@ -503,7 +503,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
 }
 
 // 0x00522E80
-bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
+bool MoveExecutor::do_extra_grind_trick(bool left_side, bool sideways, bool backwards, bool flipped)
 {
     if (!grind_.pending_) {
         return false;
@@ -527,7 +527,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
             mapped->fetch_text(kPrefix, &prefix, 0);
         }
     }
-    const uint32_t which = (a ? 1 : 0) | (b ? 2 : 0) | (c ? 4 : 0) | (d ? 8 : 0);
+    const uint32_t which = (left_side ? 1 : 0) | (sideways ? 2 : 0) | (backwards ? 4 : 0) | (flipped ? 8 : 0);
     uint32_t script = 0;
     if (scripts) {
         script = scripts->fetch_part(which);
@@ -734,9 +734,10 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
         count = 1;
         core::at(extra_.arrays_, 0) = tricks;
     } else {
-        for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-            if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
-                core::at(extra_.arrays_, count++) = c->value.word();
+        for (script::Component* component = params->step_to_entry(nullptr); component;
+             component = params->step_to_entry(component)) {
+            if (component->name == 0 && value_kind(*component) == script::QbValueKind::kName) {
+                core::at(extra_.arrays_, count++) = component->value.word();
             }
         }
     }
@@ -754,8 +755,8 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     }
     script::Array* ignored = nullptr;
     if (params->fetch_list(kIgnore, &ignored, 0)) {
-        const int n = static_cast<int>(ignored->extent());
-        for (int i = 0; i < n; ++i) {
+        const int ignored_count = static_cast<int>(ignored->extent());
+        for (int i = 0; i < ignored_count; ++i) {
             ignore_tricks(ignored->fetch_text(i));
         }
     }

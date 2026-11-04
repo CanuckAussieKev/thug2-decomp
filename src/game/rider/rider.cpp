@@ -584,9 +584,9 @@ float Rider::get_scaled_value(script::Struct* params)
     const uint8_t flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on;
     const bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->fetch_pair(kSwitch, &switch_range, false)) {
-        const double s = fetch_tally(6);
-        double scale =
-            ((static_cast<double>(switch_range.y()) - switch_range.x()) * s * kStatToFraction) + switch_range.x();
+        const double switch_stat = fetch_tally(6);
+        double scale = ((static_cast<double>(switch_range.y()) - switch_range.x()) * switch_stat * kStatToFraction) +
+                       switch_range.x();
         if (scale < 0.0) {
             scale = 0.0;
         } else if (scale > 1.0) {
@@ -1676,15 +1676,15 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         // The first restart linked from the script's node; none: the skate module's (unless in the park editor).
         auto from = static_cast<uint32_t>(script->list_link());
         const int count = static_cast<int>(level_nodes::get_link_count(from));
-        int i = 0;
-        for (; i < count; ++i) {
-            const uint32_t link = level_nodes::fetch_link(from, i);
+        int link_index = 0;
+        for (; link_index < count; ++link_index) {
+            const uint32_t link = level_nodes::fetch_link(from, link_index);
             if (is_restart_node(link)) {
                 jump_to_spawn({.node = link, .walking = walking});
                 break;
             }
         }
-        if (i == count && park_editing::ParkBuilderMode::sole()->editor_state() != kOff) {
+        if (link_index == count && park_editing::ParkBuilderMode::sole()->editor_state() != kOff) {
             modules::Skate::sole()->teleport_to_spawn(this, 0, walking);
         }
         return true;

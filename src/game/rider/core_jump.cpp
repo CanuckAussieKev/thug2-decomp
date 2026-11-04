@@ -104,12 +104,13 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
     if (!script->read_hash_value(kTriggerScript, &trigger_script, 0)) {
         const objects::GrindPoint* slow = node;
         bool step = false;
-        for (const objects::GrindPoint* p = node->last_value(); p && p != node && p != slow;) {
-            script = level_nodes::fetch_vertex(p->label(), true);
+        for (const objects::GrindPoint* grind_point = node->last_value();
+             grind_point && grind_point != node && grind_point != slow;) {
+            script = level_nodes::fetch_vertex(grind_point->label(), true);
             if (script->read_hash_value(kTriggerScript, &trigger_script, 0)) { // (a node without a script: a crash)
                 break;
             }
-            p = p->last_value();
+            grind_point = grind_point->last_value();
             if (step) {
                 slow = slow->last_value();
             }

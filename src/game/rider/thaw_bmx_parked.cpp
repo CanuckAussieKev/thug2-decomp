@@ -106,10 +106,10 @@ Kickoff find_start_spot(Point pos, float heading)
 {
     std::array<Point, 4> candidates{};
     start_spot_candidates(pos, {.heading = heading, .distance = kStartSpotDistance}, candidates);
-    for (const Point& c : candidates) {
+    for (const Point& candidate : candidates) {
         Point ground{};
-        if (!get_hit({.x = c.x, .y = pos.y + kGroundAbove, .z = c.z}, {.x = c.x, .y = pos.y - kGroundBelow, .z = c.z},
-                     &ground)) {
+        if (!get_hit({.x = candidate.x, .y = pos.y + kGroundAbove, .z = candidate.z},
+                     {.x = candidate.x, .y = pos.y - kGroundBelow, .z = candidate.z}, &ground)) {
             continue;
         }
         if (std::fabs(ground.y - pos.y) > kGroundStep || !get_clear(pos, ground)) {
@@ -142,12 +142,12 @@ bool thaw_spot(Point* pos, float* heading)
     for (uint32_t i = 0; i < bikes->extent(); ++i) {
         auto* bike = bikes->struct_at(i);
         uint32_t level_name = 0;
-        script::VectorValue p = {};
+        script::VectorValue stored_position = {};
         if (!bike || !bike->read_hash_value("level", &level_name, 0) || level_name != want ||
-            !bike->fetch_vec("pos", &p, 0)) {
+            !bike->fetch_vec("pos", &stored_position, 0)) {
             continue;
         }
-        *pos = {.x = p.x, .y = p.y, .z = p.z};
+        *pos = {.x = stored_position.x, .y = stored_position.y, .z = stored_position.z};
         *heading = 0.0F;
         bike->fetch_float("heading", heading, 0);
         return true;
@@ -167,13 +167,13 @@ objects::GameEntity* object_of(script::Struct* params)
 // The skater put at `pos` facing `heading` (standing upright), its drawn matrix and the core physics' with it.
 void place_skater(objects::Rider* skater, Point pos, float heading)
 {
-    const double h = static_cast<double>(heading) * std::numbers::pi / 180.0;
-    auto s = static_cast<float>(std::sin(h));
-    auto c = static_cast<float>(std::cos(h));
-    for (maths::Mat4* m : {&skater->basis_frame(), &skater->display_matrix()}) {
-        core::at(m->row, 0) = {.x = c, .y = 0.0F, .z = -s, .w = 0.0F};
-        core::at(m->row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
-        core::at(m->row, 2) = {.x = s, .y = 0.0F, .z = c, .w = 0.0F};
+    const double heading_radians = static_cast<double>(heading) * std::numbers::pi / 180.0;
+    auto sine = static_cast<float>(std::sin(heading_radians));
+    auto cosine = static_cast<float>(std::cos(heading_radians));
+    for (maths::Mat4* matrix : {&skater->basis_frame(), &skater->display_matrix()}) {
+        core::at(matrix->row, 0) = {.x = cosine, .y = 0.0F, .z = -sine, .w = 0.0F};
+        core::at(matrix->row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+        core::at(matrix->row, 2) = {.x = sine, .y = 0.0F, .z = cosine, .w = 0.0F};
     }
     if (skater->core_physics()) {
         skater->core_physics()->display_matrix() = skater->basis_frame(); // (its display matrix)
@@ -257,8 +257,8 @@ bool step_toward(Point from, Point to, float step, Point* out)
         *out = to;
         return true;
     }
-    const float t = step / distance;
-    *out = {.x = from.x + (dx * t), .y = from.y + ((to.y - from.y) * t), .z = from.z + (dz * t)};
+    const float fraction = step / distance;
+    *out = {.x = from.x + (dx * fraction), .y = from.y + ((to.y - from.y) * fraction), .z = from.z + (dz * fraction)};
     return false;
 }
 
@@ -295,9 +295,9 @@ void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Poin
 {
     const auto heading = heading_reach.heading;
     const auto distance = heading_reach.distance;
-    const double h = static_cast<double>(heading) * std::numbers::pi / 180.0;
-    auto ax = static_cast<float>(std::sin(h));
-    auto az = static_cast<float>(std::cos(h)); // (at)
+    const double heading_radians = static_cast<double>(heading) * std::numbers::pi / 180.0;
+    auto ax = static_cast<float>(std::sin(heading_radians));
+    auto az = static_cast<float>(std::cos(heading_radians)); // (at)
     const float rx = az;
     const float rz = -ax; // (right: up x at)
     core::at(out, 0) = {.x = pos.x + (rx * distance), .y = pos.y, .z = pos.z + (rz * distance)};

@@ -317,8 +317,8 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct* /*params*/, script::S
     const double discriminant = (static_cast<double>(upward) * upward) + (2.0 * (down * drop));
     float left = 0.0F;
     if (discriminant >= 0.0 || discriminant != discriminant) {
-        const double t = (std::sqrt(discriminant) + upward) / down;
-        left = t < 0.0 ? 0.0F : static_cast<float>(t);
+        const double time_to_land = (std::sqrt(discriminant) + upward) / down;
+        left = time_to_land < 0.0 ? 0.0F : static_cast<float>(time_to_land);
     } else {
         left = kNeverLands;
     }

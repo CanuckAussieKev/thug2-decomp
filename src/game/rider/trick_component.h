@@ -252,7 +252,7 @@ public:
     // 0x00522E80: the pending extra grind trick: its Scripts array (or Template + prefix, by name) picked by the four
     // flags (bits 1, 2, 4, 8), switched to with its Params; the core physics' +0x3A8 cleared for a skater. Whether
     // there was one.
-    bool do_extra_grind_trick(bool a, bool b, bool c, bool d);
+    bool do_extra_grind_trick(bool left_side, bool sideways, bool backwards, bool flipped);
     // 0x00521A80 (not here) checks one manual trick array; 0x00521BA0: the special one (with the flag +0x1C's
     // +0x74), then - unless that set one pending - the others.
     void update_manual_tricks();

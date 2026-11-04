@@ -154,7 +154,7 @@ void* pad_stick_button(const void* pad, uint32_t name)
 int stick_direction(uint32_t directions, bool right)
 {
     int base = right ? kRightUp : kLeftUp;
-    auto bit = [&](int k) -> uint8_t { return (directions >> (base + k)) & 1; };
+    auto bit = [&](int direction_bit) -> uint8_t { return (directions >> (base + direction_bit)) & 1; };
     return objects::d_pad_direction(bit(0), bit(1), bit(2), bit(3));
 }
 
@@ -189,42 +189,42 @@ void update_trick_sticks(void* trick_component)
             }
         }
     }
-    for (int s = 0; s < 2; ++s) {
-        const int was = core::at(state->trick_stick_, s);
-        const int now = stick_direction(bits, s == 1);
+    for (int stick = 0; stick < 2; ++stick) {
+        const int was = core::at(state->trick_stick_, stick);
+        const int now = stick_direction(bits, stick == 1);
         if (now == was) {
             continue;
         }
-        core::at(state->trick_stick_, s) = now;
+        core::at(state->trick_stick_, stick) = now;
         // (off the bike: forgotten, no events - THUG2's buffer as before)
         if (!riding) {
             continue;
         }
         // (THAW 0x471D20 sets the eight in order, as THUG2's d-pad: the lower-numbered change first)
         if ((was != 0) && ((now == 0) || was < now)) {
-            add_stick_event(trick, trick_stick_name(s == 1, was), false);
+            add_stick_event(trick, trick_stick_name(stick == 1, was), false);
         }
         if (now != 0) {
-            add_stick_event(trick, trick_stick_name(s == 1, now), true);
+            add_stick_event(trick, trick_stick_name(stick == 1, now), true);
         }
         if ((was != 0) && (now != 0) && was > now) {
-            add_stick_event(trick, trick_stick_name(s == 1, was), false);
+            add_stick_event(trick, trick_stick_name(stick == 1, was), false);
         }
     }
 }
 
 int trick_stick_held(const void* trick_component, uint32_t name)
 {
-    for (int s = 0; s < 2; ++s) {
-        for (int d = 1; d <= kDirectionCount; ++d) {
-            if (trick_stick_name(s == 1, d) != name) {
+    for (int stick = 0; stick < 2; ++stick) {
+        for (int direction = 1; direction <= kDirectionCount; ++direction) {
+            if (trick_stick_name(stick == 1, direction) != name) {
                 continue;
             }
             const BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
             if (!state) {
                 return -1;
             }
-            return core::at(state->trick_stick_, s) == d ? 1 : 0;
+            return core::at(state->trick_stick_, stick) == direction ? 1 : 0;
         }
     }
     return -1;

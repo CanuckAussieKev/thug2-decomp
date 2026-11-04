@@ -171,18 +171,18 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             late_wallplant_frames_ = script::fetch_int_value(kLateWallplantFrames);
             late_velocity_ = entity()->vel();
             late_pos_ = entity()->at_point();
-            objects::GameEntity* o = object_of(this);
-            const maths::Vec4& v = o->vel();
+            objects::GameEntity* skater = object_of(this);
+            const maths::Vec4& v = skater->vel();
             maths::Vec4 back = {.x = -v.x, .y = 0.0F, .z = -v.z, .w = v.w};
             back.make_unit();
-            maths::Vec4& p = o->at_point();
+            maths::Vec4& position = skater->at_point();
             const float y = back.y * kBackOff;
             const float z = back.z * kBackOff;
             const float w = back.w * kBackOff;
-            p.z = z + p.z;
-            p.w = w + p.w;
-            p.x = static_cast<float>((static_cast<double>(back.x) * kBackOff) + p.x);
-            p.y = y + p.y;
+            position.z = z + position.z;
+            position.w = w + position.w;
+            position.x = static_cast<float>((static_cast<double>(back.x) * kBackOff) + position.x);
+            position.y = y + position.y;
             return false;
         }
         if (late) {
@@ -190,13 +190,13 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             debug::printf(kLateWallplantText);
             entity()->vel() = late_velocity_;
             entity()->at_point() = late_pos_;
-            objects::GameEntity* o = object_of(this);
-            const maths::Vec4& position = o->at_point();
-            const maths::Vec4& old = o->old_pos();
+            objects::GameEntity* skater = object_of(this);
+            const maths::Vec4& position = skater->at_point();
+            const maths::Vec4& old = skater->old_pos();
             maths::Vec4 move = {.x = position.x - old.x, .y = position.y - old.y, .z = position.z - old.z, .w = position.w - old.w};
             move.make_unit();
-            const double height = tuning_float_lookup(kForwardHeight, o);
-            const maths::Vec4& up = core::at(o->basis_frame().row, 1);
+            const double height = tuning_float_lookup(kForwardHeight, skater);
+            const maths::Vec4& up = core::at(skater->basis_frame().row, 1);
             auto hw = static_cast<float>(height * up.w);
             auto hz = static_cast<float>(height * up.z);
             auto hy = static_cast<float>(height * up.y);

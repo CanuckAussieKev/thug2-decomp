@@ -217,9 +217,9 @@ std::string get_name_of(uint32_t checksum)
         return text.data();
     }
     std::string out = name;
-    for (char& c : out) {
-        if (c == ' ' || c == '=' || c == ';') {
-            c = '_';
+    for (char& character : out) {
+        if (character == ' ' || character == '=' || character == ';') {
+            character = '_';
         }
     }
     return out;
@@ -248,15 +248,16 @@ std::string file_stamp(const std::string& path)
         return {};
     }
     FILETIME local;
-    SYSTEMTIME t;
+    SYSTEMTIME system_time;
     if ((FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) == FALSE) ||
-        (FileTimeToSystemTime(&local, &t) == FALSE)) {
+        (FileTimeToSystemTime(&local, &system_time) == FALSE)) {
         return {};
     }
     std::array<char, kFileTextBytes> text{};
     text::format_to(text, "%llu@%04u-%02u-%02uT%02u:%02u:%02u",
-                    (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow, t.wYear, t.wMonth,
-                    t.wDay, t.wHour, t.wMinute, t.wSecond);
+                    (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow,
+                    system_time.wYear, system_time.wMonth, system_time.wDay, system_time.wHour, system_time.wMinute,
+                    system_time.wSecond);
     return text.data();
 }
 
@@ -361,20 +362,23 @@ float span_to(const std::array<float, 3>& a, const std::array<float, 3>& b)
 }
 
 // The distance from p to the segment a-b.
-float to_segment(const std::array<float, 3>& p, const std::array<float, 3>& a, const std::array<float, 3>& b)
+float to_segment(const std::array<float, 3>& point, const std::array<float, 3>& a, const std::array<float, 3>& b)
 {
-    const std::array<float, 3> e = {{core::at(b, 0) - core::at(a, 0), core::at(b, 1) - core::at(a, 1), core::at(b, 2) - core::at(a, 2)}};
-    const std::array<float, 3> w = {{core::at(p, 0) - core::at(a, 0), core::at(p, 1) - core::at(a, 1), core::at(p, 2) - core::at(a, 2)}};
-    const float ee =
-        (core::at(e, 0) * core::at(e, 0)) + (core::at(e, 1) * core::at(e, 1)) + (core::at(e, 2) * core::at(e, 2));
-    float t = ee > 0.0F ? ((core::at(w, 0) * core::at(e, 0)) + (core::at(w, 1) * core::at(e, 1)) +
-                           (core::at(w, 2) * core::at(e, 2))) /
-                              ee
-                        : 0.0F;
-    t = t < 0.0F ? 0.0F : (t > 1.0F ? 1.0F : t);
-    const std::array<float, 3> q = {{core::at(a, 0) + (core::at(e, 0) * t), core::at(a, 1) + (core::at(e, 1) * t),
-                                     core::at(a, 2) + (core::at(e, 2) * t)}};
-    return span_to(p, q);
+    const std::array<float, 3> edge = {
+        {core::at(b, 0) - core::at(a, 0), core::at(b, 1) - core::at(a, 1), core::at(b, 2) - core::at(a, 2)}};
+    const std::array<float, 3> w = {{core::at(point, 0) - core::at(a, 0), core::at(point, 1) - core::at(a, 1),
+                                     core::at(point, 2) - core::at(a, 2)}};
+    const float ee = (core::at(edge, 0) * core::at(edge, 0)) + (core::at(edge, 1) * core::at(edge, 1)) +
+                     (core::at(edge, 2) * core::at(edge, 2));
+    float fraction = ee > 0.0F ? ((core::at(w, 0) * core::at(edge, 0)) + (core::at(w, 1) * core::at(edge, 1)) +
+                                  (core::at(w, 2) * core::at(edge, 2))) /
+                                     ee
+                               : 0.0F;
+    fraction = fraction < 0.0F ? 0.0F : (fraction > 1.0F ? 1.0F : fraction);
+    const std::array<float, 3> closest = {{core::at(a, 0) + (core::at(edge, 0) * fraction),
+                                           core::at(a, 1) + (core::at(edge, 1) * fraction),
+                                           core::at(a, 2) + (core::at(edge, 2) * fraction)}};
+    return span_to(point, closest);
 }
 
 // A static face's corners, its object's box and the edge nearest `spot` - open when no other face of its object has
@@ -401,23 +405,23 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     copy3(detail->bounds_low_, geometry->bounds().min);
     copy3(detail->bounds_high_, geometry->bounds().max);
     for (int k = 0; k < 3; ++k) {
-        const float d = to_segment(spot, core::at(detail->corners, k), core::at(detail->corners, (k + 1) % 3));
-        if (detail->edge < 0 || d < detail->edge_distance_) {
+        const float distance = to_segment(spot, core::at(detail->corners, k), core::at(detail->corners, (k + 1) % 3));
+        if (detail->edge < 0 || distance < detail->edge_distance_) {
             detail->edge = k;
-            detail->edge_distance_ = d;
+            detail->edge_distance_ = distance;
         }
     }
-    const int a = detail->edge;
-    const int b = (a + 1) % 3;
-    const int c = (a + 2) % 3;
-    auto same = [&](uint32_t vertex, int k) {
-        if (vertex == core::at(index, k)) {
+    const int corner_a = detail->edge;
+    const int corner_b = (corner_a + 1) % 3;
+    const int corner_c = (corner_a + 2) % 3;
+    auto same = [&](uint32_t vertex, int corner) {
+        if (vertex == core::at(index, corner)) {
             return true;
         }
         const maths::Vec4 v = geometry->read_stored_vertex(static_cast<int>(vertex));
-        const float dx = v.x - core::at(raw, k).x;
-        const float dy = v.y - core::at(raw, k).y;
-        const float dz = v.z - core::at(raw, k).z;
+        const float dx = v.x - core::at(raw, corner).x;
+        const float dy = v.y - core::at(raw, corner).y;
+        const float dz = v.z - core::at(raw, corner).z;
         return (dx * dx) + (dy * dy) + (dz * dz) < kSamePointDistanceSq;
     };
     for (int j = 0; std::cmp_less(j, geometry->tri_count()); ++j) {
@@ -426,10 +430,10 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         }
         bool has_a = false;
         bool has_b = false;
-        for (int m = 0; m < 3; ++m) {
-            const uint32_t v = geometry->face_vertex(j, m);
-            has_a = has_a || same(v, a);
-            has_b = has_b || same(v, b);
+        for (int face_corner = 0; face_corner < 3; ++face_corner) {
+            const uint32_t v = geometry->face_vertex(j, face_corner);
+            has_a = has_a || same(v, corner_a);
+            has_b = has_b || same(v, corner_b);
         }
         if (has_a && has_b) {
             detail->edge_open_ = 0;
@@ -441,32 +445,35 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     if (core::at(face.normal, 1) < kFloorNormalMinY) {
         return;
     }
-    const std::array<float, 3>& pa = core::at(detail->corners, a);
-    const std::array<float, 3>& pb = core::at(detail->corners, b);
-    const std::array<float, 3>& pc = core::at(detail->corners, c);
-    const std::array<float, 3> e = {{core::at(pb, 0) - core::at(pa, 0), core::at(pb, 1) - core::at(pa, 1), core::at(pb, 2) - core::at(pa, 2)}};
+    const std::array<float, 3>& pa = core::at(detail->corners, corner_a);
+    const std::array<float, 3>& pb = core::at(detail->corners, corner_b);
+    const std::array<float, 3>& pc = core::at(detail->corners, corner_c);
+    const std::array<float, 3> edge = {
+        {core::at(pb, 0) - core::at(pa, 0), core::at(pb, 1) - core::at(pa, 1), core::at(pb, 2) - core::at(pa, 2)}};
     const std::array<float, 3> w = {{core::at(pc, 0) - core::at(pa, 0), core::at(pc, 1) - core::at(pa, 1), core::at(pc, 2) - core::at(pa, 2)}};
-    const float ee =
-        (core::at(e, 0) * core::at(e, 0)) + (core::at(e, 1) * core::at(e, 1)) + (core::at(e, 2) * core::at(e, 2));
-    const float t = ee > 0.0F ? ((core::at(w, 0) * core::at(e, 0)) + (core::at(w, 1) * core::at(e, 1)) +
-                                 (core::at(w, 2) * core::at(e, 2))) /
-                                    ee
-                              : 0.0F;
-    const std::array<float, 3> out = {{-(core::at(w, 0) - (core::at(e, 0) * t)),
-                                       -(core::at(w, 1) - (core::at(e, 1) * t)),
-                                       -(core::at(w, 2) - (core::at(e, 2) * t))}};
+    const float ee = (core::at(edge, 0) * core::at(edge, 0)) + (core::at(edge, 1) * core::at(edge, 1)) +
+                     (core::at(edge, 2) * core::at(edge, 2));
+    const float fraction = ee > 0.0F ? ((core::at(w, 0) * core::at(edge, 0)) + (core::at(w, 1) * core::at(edge, 1)) +
+                                        (core::at(w, 2) * core::at(edge, 2))) /
+                                           ee
+                                     : 0.0F;
+    const std::array<float, 3> out = {{-(core::at(w, 0) - (core::at(edge, 0) * fraction)),
+                                       -(core::at(w, 1) - (core::at(edge, 1) * fraction)),
+                                       -(core::at(w, 2) - (core::at(edge, 2) * fraction))}};
     const float length = std::sqrt((core::at(out, 0) * core::at(out, 0)) + (core::at(out, 1) * core::at(out, 1)) +
                                    (core::at(out, 2) * core::at(out, 2)));
     if (length <= 0.0F) {
         return;
     }
-    std::array<float, 3> q{};
+    std::array<float, 3> probe_point{};
     for (int k = 0; k < 3; ++k) {
-        core::at(q, k) =
+        core::at(probe_point, k) =
             ((core::at(pa, k) + core::at(pb, k)) * kHalf) + (core::at(out, k) / length * kProbeOffsetDistance);
     }
-    const std::array<float, 3> high = {core::at(q, 0), core::at(q, 1) + 24.0F, core::at(q, 2)};
-    const std::array<float, 3> low = {core::at(q, 0), core::at(q, 1) - 48.0F, core::at(q, 2)};
+    const std::array<float, 3> high = {core::at(probe_point, 0), core::at(probe_point, 1) + 24.0F,
+                                       core::at(probe_point, 2)};
+    const std::array<float, 3> low = {core::at(probe_point, 0), core::at(probe_point, 1) - 48.0F,
+                                      core::at(probe_point, 2)};
     detail->edge_open_ = get_probe(high, low, false).hit ? 0 : 1;
 }
 
@@ -521,9 +528,9 @@ void get_emit(int before)
         if (record.frame < old.frame || record.frame > now.frame) {
             continue;
         }
-        const int p = static_cast<int>(record.path);
-        if (!core::at(seen, p)) {
-            core::at(seen, p) = true;
+        const int path = static_cast<int>(record.path);
+        if (!core::at(seen, path)) {
+            core::at(seen, path) = true;
             if (!event.paths.empty()) {
                 event.paths += ',';
             }
@@ -580,13 +587,13 @@ void get_emit(int before)
     const Sample* steepest = &now;
     uint16_t held = 0;
     for (int age = 0; age <= before; ++age) {
-        const Sample& s = sample_at(age);
-        held |= s.buttons;
-        if (s.state == 0 && core::at(s.ground_normal_, 1) < core::at(steepest->ground_normal_, 1)) {
-            steepest = &s;
+        const Sample& sample = sample_at(age);
+        held |= sample.buttons;
+        if (sample.state == 0 && core::at(sample.ground_normal_, 1) < core::at(steepest->ground_normal_, 1)) {
+            steepest = &sample;
         }
-        if (s.state == 0 && core::at(s.ground_normal_, 1) < event.ground_min_y_) {
-            event.ground_min_y_ = core::at(s.ground_normal_, 1);
+        if (sample.state == 0 && core::at(sample.ground_normal_, 1) < event.ground_min_y_) {
+            event.ground_min_y_ = core::at(sample.ground_normal_, 1);
         }
     }
     const char* reason =
@@ -676,10 +683,10 @@ void get_emit(int before)
         if (age >= collision_events_state().sample_total_) {
             continue;
         }
-        const Sample& s = sample_at(age);
+        const Sample& sample = sample_at(age);
         std::array<char, kAgeTextBytes> text{};
-        text::format_to(text, "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", core::at(s.pos, 0),
-                        core::at(s.pos, 1), core::at(s.pos, 2), state_letter(s.state));
+        text::format_to(text, "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", core::at(sample.pos, 0),
+                        core::at(sample.pos, 1), core::at(sample.pos, 2), state_letter(sample.state));
         detail.approach += text.data();
     }
     detail.camera = sys::screenshot::last_view(detail.camera_pos_, detail.camera_dir_);
@@ -697,10 +704,10 @@ void detect()
 {
     std::array<Motion, kHistory> frames;
     for (int i = 0; i < collision_events_state().sample_total_; ++i) {
-        const Sample& s = sample_at(collision_events_state().sample_total_ - 1 - i);
-        core::at(frames, i).frame = s.frame;
-        core::at(frames, i).state = s.state;
-        core::at(frames, i).vel = s.vel;
+        const Sample& sample = sample_at(collision_events_state().sample_total_ - 1 - i);
+        core::at(frames, i).frame = sample.frame;
+        core::at(frames, i).state = sample.state;
+        core::at(frames, i).vel = sample.vel;
     }
     const int index = find_reversal(std::span<const Motion>(frames).first(static_cast<std::size_t>(collision_events_state().sample_total_)));
     if (index < 0) {
@@ -775,17 +782,17 @@ int find_reversal(std::span<const Motion> frames)
         bool refused = false;
         int air = 0;
         for (int j = i + 1; j < count; ++j) {
-            const Motion& s = core::at(frames, j);
-            const Motion& p = core::at(frames, j - 1);
-            if (s.state == 1) {
+            const Motion& motion = core::at(frames, j);
+            const Motion& previous_motion = core::at(frames, j - 1);
+            if (motion.state == 1) {
                 ++air;
-            } else if (s.state != 0) {
+            } else if (motion.state != 0) {
                 refused = true;
             }
             std::array<float, 2> ds{};
             std::array<float, 2> dp{};
-            const float vs = get_horizontal(s.vel, ds);
-            const float vp = get_horizontal(p.vel, dp);
+            const float vs = get_horizontal(motion.vel, ds);
+            const float vp = get_horizontal(previous_motion.vel, dp);
             if (vs < kStill || vp < kStill ||
                 (core::at(ds, 0) * core::at(dp, 0)) + (core::at(ds, 1) * core::at(dp, 1)) < kSudden) {
                 sudden = true;
@@ -875,44 +882,44 @@ void end_frame(SkaterPhysicsModule* component)
                 scn_file_stamp().c_str());
     }
     const objects::GameEntity* object = object_of(component);
-    Sample s = {};
-    s.frame = frame_loop::frames_run();
-    s.state = component->state()->cur_phase();
-    s.physics = static_cast<int>(component->state()->physics_mode());
-    s.trick = component->state()->in_trick_move() != 0;
+    Sample sample = {};
+    sample.frame = frame_loop::frames_run();
+    sample.state = component->state()->cur_phase();
+    sample.physics = static_cast<int>(component->state()->physics_mode());
+    sample.trick = component->state()->in_trick_move() != 0;
     const objects::RiderTeeterMoves* balance = component->balance();
-    s.balance = balance ? balance->trick() : 0;
+    sample.balance = balance ? balance->trick() : 0;
     if (objects::PadInputModule* input = component->input()) {
         // The pad's 16 buttons (0x20 bytes each from +0x20 - the first is up) and its scaled first stick.
         for (int i = 0; i < kPadButtonCount; ++i) {
             if (const objects::ControlButton* button =
                     input->pad_primary().button_at_offset(static_cast<uint32_t>(i) * kPadButtonStride);
                 button && (button->held_down() != 0U)) {
-                s.buttons = static_cast<uint16_t>(s.buttons | (1U << i));
+                sample.buttons = static_cast<uint16_t>(sample.buttons | (1U << i));
             }
         }
-        core::at(s.stick, 0) = core::at(input->pad_primary().scaled_stick(), 0);
-        core::at(s.stick, 1) = core::at(input->pad_primary().scaled_stick(), 1);
+        core::at(sample.stick, 0) = core::at(input->pad_primary().scaled_stick(), 0);
+        core::at(sample.stick, 1) = core::at(input->pad_primary().scaled_stick(), 1);
     }
-    copy3(s.pos, object->at_point());
-    copy3(s.vel, object->vel());
-    copy3(s.facing, core::at(object->basis_frame().row, 2));
-    copy3(s.ground_normal_, component->floor_normal());
-    s.ground = face_of(component->floor_feeler());
-    s.ground_ray_ = line_of(component->floor_feeler());
+    copy3(sample.pos, object->at_point());
+    copy3(sample.vel, object->vel());
+    copy3(sample.facing, core::at(object->basis_frame().row, 2));
+    copy3(sample.ground_normal_, component->floor_normal());
+    sample.ground = face_of(component->floor_feeler());
+    sample.ground_ray_ = line_of(component->floor_feeler());
     if (collision_events_state().sample_total_ != 0) {
         const Sample& last = sample_at(0);
-        const float dx = core::at(s.pos, 0) - core::at(last.pos, 0);
-        const float dy = core::at(s.pos, 1) - core::at(last.pos, 1);
-        const float dz = core::at(s.pos, 2) - core::at(last.pos, 2);
-        if (s.frame == last.frame) { // (the same frame again: the newer replaces it)
+        const float dx = core::at(sample.pos, 0) - core::at(last.pos, 0);
+        const float dy = core::at(sample.pos, 1) - core::at(last.pos, 1);
+        const float dz = core::at(sample.pos, 2) - core::at(last.pos, 2);
+        if (sample.frame == last.frame) { // (the same frame again: the newer replaces it)
             collision_events_state().next_ = (collision_events_state().next_ - 1 + kHistory) % kHistory;
             --collision_events_state().sample_total_;
-        } else if ((dx * dx) + (dy * dy) + (dz * dz) > kTeleport * kTeleport || s.frame < last.frame) {
+        } else if ((dx * dx) + (dy * dy) + (dz * dz) > kTeleport * kTeleport || sample.frame < last.frame) {
             get_reset();
         }
     }
-    core::at(collision_events_state().samples_, collision_events_state().next_) = s;
+    core::at(collision_events_state().samples_, collision_events_state().next_) = sample;
     collision_events_state().next_ = (collision_events_state().next_ + 1) % kHistory;
     if (collision_events_state().sample_total_ < kHistory) {
         ++collision_events_state().sample_total_;
@@ -983,64 +990,67 @@ std::string v3(std::span<const float> v, int places = 1)
 
 } // namespace
 
-std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
+std::string format_event(const Occurrence& event, std::string (*name)(uint32_t))
 {
     static const std::array<const char*, 6> kProbes = {{"probe_down_hit",        "probe_down_hit_all", "probe_down_beyond",
                                            "probe_down_beyond_all", "probe_ahead",        "probe_ahead_all"}};
     std::array<char, kHeadBytes> head{};
-    text::format_to(head, "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", e.number,
-                    e.level.empty() ? "-" : e.level.c_str(), e.frame, e.reason, e.paths.c_str(), e.frames);
+    text::format_to(head, "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", event.number,
+                    event.level.empty() ? "-" : event.level.c_str(), event.frame, event.reason, event.paths.c_str(),
+                    event.frames);
     std::string line = head.data();
-    line += " spot=" + v3(e.spot);
-    line += " pos_before=" + v3(e.pos_before_);
-    line += " pos=" + v3(e.pos);
-    line += " vel_before=" + v3(e.vel_before_);
-    line += " vel_after=" + v3(e.vel_after_);
+    line += " spot=" + v3(event.spot);
+    line += " pos_before=" + v3(event.pos_before_);
+    line += " pos=" + v3(event.pos);
+    line += " vel_before=" + v3(event.vel_before_);
+    line += " vel_after=" + v3(event.vel_after_);
     std::array<char, kReportLineBytes> text{};
-    text::format_to(text, " heading_before=%.1f heading=%.1f", e.heading_before_, e.heading);
+    text::format_to(text, " heading_before=%.1f heading=%.1f", event.heading_before_, event.heading);
     line += text.data();
-    line += " ground_n=" + v3(e.ground_normal_, 2);
-    text::format_to(text, " ground_min_y=%.2f", e.ground_min_y_);
+    line += " ground_n=" + v3(event.ground_normal_, 2);
+    text::format_to(text, " ground_min_y=%.2f", event.ground_min_y_);
     line += text.data();
-    line += " face=" + face_text(e.face, name);
+    line += " face=" + face_text(event.face, name);
     for (int i = 0; i < kProbeFaceLimit; ++i) {
-        line += std::string(" ") + core::at(kProbes, i) + "=" + face_text(core::at(e.probes, i), name);
+        line += std::string(" ") + core::at(kProbes, i) + "=" + face_text(core::at(event.probes, i), name);
     }
-    line += " probe_dir=" + v3(e.probe_dir_, 2);
-    line += " flipped=" + (e.flipped.empty() ? std::string("-") : e.flipped);
-    line += " repeats=" + std::to_string(e.repeats);
-    line += " screenshot=" + (e.screenshot.empty() ? std::string("-") : e.screenshot);
+    line += " probe_dir=" + v3(event.probe_dir_, 2);
+    line += " flipped=" + (event.flipped.empty() ? std::string("-") : event.flipped);
+    line += " repeats=" + std::to_string(event.repeats);
+    line += " screenshot=" + (event.screenshot.empty() ? std::string("-") : event.screenshot);
     return line;
 }
 
-std::string format_detail(const Detail& d)
+std::string format_detail(const Detail& detail)
 {
     std::array<char, kReportBytes> text{};
     text::format_to(text,
                     "collision-event-detail: n=%d state=%s physics=%s speed=%.1f trick=%d balance=%s input=%s "
                     "input_window=%s stick=%.2f,%.2f",
-                    d.number, d.state, d.physics, d.speed, d.trick ? 1 : 0, d.balance, d.input.c_str(),
-                    d.input_window_.c_str(), core::at(d.stick, 0), core::at(d.stick, 1));
+                    detail.number, detail.state, detail.physics, detail.speed, detail.trick ? 1 : 0, detail.balance,
+                    detail.input.c_str(), detail.input_window_.c_str(), core::at(detail.stick, 0),
+                    core::at(detail.stick, 1));
     std::string line = text.data();
-    line += " ray=" + (d.ray ? v3(d.probe_origin_) + ">" + v3(d.ray_end_) : std::string("-"));
-    if (d.geometry) {
-        line += " corners=" + v3(core::at(d.corners, 0)) + ";" + v3(core::at(d.corners, 1)) + ";" + v3(core::at(d.corners, 2));
-        line += " col_box=" + v3(d.bounds_low_) + ">" + v3(d.bounds_high_);
+    line += " ray=" + (detail.ray ? v3(detail.probe_origin_) + ">" + v3(detail.ray_end_) : std::string("-"));
+    if (detail.geometry) {
+        line += " corners=" + v3(core::at(detail.corners, 0)) + ";" + v3(core::at(detail.corners, 1)) + ";" +
+                v3(core::at(detail.corners, 2));
+        line += " col_box=" + v3(detail.bounds_low_) + ">" + v3(detail.bounds_high_);
     } else {
         line += " corners=- col_box=-";
     }
-    if (d.edge >= 0) {
-        text::format_to(text, " edge=%d edge_dist=%.1f open_edge=%s", d.edge, d.edge_distance_,
-                        d.edge_open_ < 0      ? std::string_view("-").data()
-                        : (d.edge_open_ != 0) ? std::string_view("1").data()
-                                              : std::string_view("0").data());
+    if (detail.edge >= 0) {
+        text::format_to(text, " edge=%d edge_dist=%.1f open_edge=%s", detail.edge, detail.edge_distance_,
+                        detail.edge_open_ < 0      ? std::string_view("-").data()
+                        : (detail.edge_open_ != 0) ? std::string_view("1").data()
+                                                   : std::string_view("0").data());
         line += text.data();
     } else {
         line += " edge=- edge_dist=- open_edge=-";
     }
-    line += " col_file=" + d.col_file_ + " scn_file=" + d.scn_file_;
-    line += " approach=" + (d.approach.empty() ? std::string("-") : d.approach);
-    line += " camera=" + (d.camera ? v3(d.camera_pos_) + ">" + v3(d.camera_dir_, 3) : std::string("-"));
+    line += " col_file=" + detail.col_file_ + " scn_file=" + detail.scn_file_;
+    line += " approach=" + (detail.approach.empty() ? std::string("-") : detail.approach);
+    line += " camera=" + (detail.camera ? v3(detail.camera_pos_) + ">" + v3(detail.camera_dir_, 3) : std::string("-"));
     return line;
 }
 

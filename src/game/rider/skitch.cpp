@@ -125,9 +125,9 @@ bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
         return false;
     }
     place_nodes(nodes, object);
-    int i = 0;
-    for (const ClassNodeList::TableRow* node = nodes->entries(); node; node = node->next, ++i) {
-        if (i != index) {
+    int node_index = 0;
+    for (const ClassNodeList::TableRow* node = nodes->entries(); node; node = node->next, ++node_index) {
+        if (node_index != index) {
             continue;
         }
         maths::Vec4 point;

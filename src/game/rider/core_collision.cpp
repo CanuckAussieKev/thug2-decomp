@@ -125,12 +125,12 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     const bool steep = feeler_.surface_dir().y < 0.1F;
     // Try the skater at the feeler's end (lowered back): 0x004FFDB0 may take it there - then stopped, when going up
     // fast or the wall is steep (left there).
-    maths::Vec4& p = entity()->at_point();
-    const maths::Vec4 saved = p;
-    p.x = end.x - raise.x;
-    p.y = end.y - raise.y;
-    p.z = end.z - raise.z;
-    p.w = end.w - raise.w;
+    maths::Vec4& tried_position = entity()->at_point();
+    const maths::Vec4 saved = tried_position;
+    tried_position.x = end.x - raise.x;
+    tried_position.y = end.y - raise.y;
+    tried_position.z = end.z - raise.z;
+    tried_position.w = end.w - raise.w;
     if (step_up(from) && (entity()->vel().y > kStepUpVelocityY || steep)) {
         release_feeler_object(hit);
         return true;
@@ -140,8 +140,9 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 
     // A ledge: snap up onto it (going up, upright, against a flat-topped wall) - the feeler raised by the snap height,
     // then lowered 2 at a time until it hits (the snap height going down with it, to 4).
-    const objects::GameEntity* o = object_of(this);
-    if (core::at(o->basis_frame().row, 1).y > kUprightY && o->vel().y > 0.0F && normal.y < kBarelyUpNormalY) {
+    const objects::GameEntity* ledge_skater = object_of(this);
+    if (core::at(ledge_skater->basis_frame().row, 1).y > kUprightY && ledge_skater->vel().y > 0.0F &&
+        normal.y < kBarelyUpNormalY) {
         float snap = tuning_float_lookup(kAirSnapUp, object);
         hit.line().start.y = hit.line().start.y + snap;
         hit.line().end.y = hit.line().end.y + snap;
@@ -168,17 +169,17 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     if (bit_mark(this, PoseFlag::kVertAir) != 0U) {
         // On vert: back at the hit, kept the min distance off it, the velocity along it.
         const maths::Vec4& point = feeler_.contact_pos();
-        maths::Vec4& q = entity()->at_point();
-        q.x = point.x - raise.x;
-        q.y = point.y - raise.y;
-        q.z = point.z - raise.z;
-        q.w = point.w - raise.w;
+        maths::Vec4& skater_position = entity()->at_point();
+        skater_position.x = point.x - raise.x;
+        skater_position.y = point.y - raise.y;
+        skater_position.z = point.z - raise.z;
+        skater_position.w = point.w - raise.w;
         const float distance = tuning_float_lookup(kMinDistanceToWall, object);
-        maths::Vec4& r = entity()->at_point();
-        r.x = static_cast<float>((static_cast<double>(distance) * normal.x) + r.x);
-        r.y = static_cast<float>((static_cast<double>(normal.y) * distance) + r.y);
-        r.z = static_cast<float>((static_cast<double>(normal.z) * distance) + r.z);
-        r.w = static_cast<float>((static_cast<double>(normal.w) * distance) + r.w);
+        maths::Vec4& off_wall_position = entity()->at_point();
+        off_wall_position.x = static_cast<float>((static_cast<double>(distance) * normal.x) + off_wall_position.x);
+        off_wall_position.y = static_cast<float>((static_cast<double>(normal.y) * distance) + off_wall_position.y);
+        off_wall_position.z = static_cast<float>((static_cast<double>(normal.z) * distance) + off_wall_position.z);
+        off_wall_position.w = static_cast<float>((static_cast<double>(normal.w) * distance) + off_wall_position.w);
         maths::Vec4& velocity = entity()->vel();
         if (bit_mark(this, PoseFlag::kAcidDrop) != 0U) {
             velocity.align_to_plane(*hit_normal);
@@ -234,14 +235,16 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         // (The original clears the facing's y around this copy and puts it back.)
         late_wall_normal_ = normal;
         // The facing turned a little away from the wall; the matrix made square again around it.
-        objects::GameEntity* s = object_of(this);
-        core::at(s->basis_frame().row, 2) += kNudge * normal;
+        objects::GameEntity* turned_skater = object_of(this);
+        core::at(turned_skater->basis_frame().row, 2) += kNudge * normal;
         core::at(entity()->basis_frame().row, 2).make_unit();
-        s = object_of(this);
-        core::at(s->basis_frame().row, 0) = maths::cross_vec(core::at(s->basis_frame().row, 1), core::at(s->basis_frame().row, 2));
+        turned_skater = object_of(this);
+        core::at(turned_skater->basis_frame().row, 0) = maths::cross_vec(core::at(turned_skater->basis_frame().row, 1),
+                                                                         core::at(turned_skater->basis_frame().row, 2));
         core::at(entity()->basis_frame().row, 0).make_unit();
-        s = object_of(this);
-        core::at(s->basis_frame().row, 1) = maths::cross_vec(core::at(s->basis_frame().row, 2), core::at(s->basis_frame().row, 0));
+        turned_skater = object_of(this);
+        core::at(turned_skater->basis_frame().row, 1) = maths::cross_vec(core::at(turned_skater->basis_frame().row, 2),
+                                                                         core::at(turned_skater->basis_frame().row, 0));
         core::at(entity()->basis_frame().row, 1).make_unit();
         // A moving object that was hit pushes the skater along (when it's moving into the skater).
         auto& feeler = feeler_;
@@ -252,8 +255,8 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
                 (static_cast<double>(carried.x) * hit_normal->x);
             if (into > 0.0) {
                 const float frame = frame_length_;
-                objects::GameEntity* t = object_of(this);
-                t->at_point() += (carried * frame) * kCarryFactor;
+                objects::GameEntity* carried_skater = object_of(this);
+                carried_skater->at_point() += (carried * frame) * kCarryFactor;
                 entity()->vel() += carried;
             }
         }

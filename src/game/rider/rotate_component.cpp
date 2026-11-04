@@ -41,7 +41,7 @@ void core_matrix_from_object(skater::SkaterPhysicsModule* core_physics)
     core_matrix(core_physics) = core_physics->entity()->basis_frame();
 }
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
-void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multiply(&m, &rotation, &m); }
+void turn_by(maths::Mat4& matrix, const maths::Mat4& rotation) { d3dx::matrix_multiply(&matrix, &rotation, &matrix); }
 
 // A turn set up from `degrees` over `duration` seconds.
 void start_turn(RiderTurning::Turn& turn, double degrees, float duration)

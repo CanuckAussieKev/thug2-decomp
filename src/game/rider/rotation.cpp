@@ -208,12 +208,12 @@ void SkaterPhysicsModule::get_spin()
         }
         auto start = static_cast<float>(tuning_float_lookup(kSpinRampStart, 1, object));
         const double end = tuning_float_lookup(kSpinRampEnd, 1, object);
-        const double t = held;
-        if (t <= start) {
+        const double held_time = held;
+        if (held_time <= start) {
             speed = 0.0F;
         }
-        if (t < end) {
-            speed = static_cast<float>((t - start) * speed / (end - start));
+        if (held_time < end) {
+            speed = static_cast<float>((held_time - start) * speed / (end - start));
         }
     }
 

@@ -62,9 +62,9 @@ float acos_degrees(float value)
 }
 
 // a + (b - a) * t.
-maths::Vec4* get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t)
+maths::Vec4* get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float fraction)
 {
-    return walk::get_lerp(out, a, b, t);
+    return walk::get_lerp(out, a, b, fraction);
 }
 
 double get_frame_length(FootMovement* walk) { return walk->frame_length(); }
@@ -341,10 +341,10 @@ double FootMovement::get_control_speed()
     // Running: from walk_speed at walk_point up to the run speed at a full push.
     running_ = true;
     const float walk_speed = walk_parameter(kWalkSpeed);
-    auto t =
+    auto fraction =
         static_cast<float>((static_cast<double>(magnitude) - walk_point) / (static_cast<double>(kOne) - walk_point));
     const double speed_of_run = run_speed();
-    return ((speed_of_run - walk_speed) * t) + walk_speed;
+    return ((speed_of_run - walk_speed) * fraction) + walk_speed;
 }
 
 // 0x00526850
@@ -514,10 +514,11 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                         (static_cast<double>(control.x) * facing.x));
             off = off + off;
             auto off_f = static_cast<float>(off);
-            const float k = off > kOne ? kOne : (off_f < 0.0F ? 0.0F : off_f);
+            const float turn_blend = off > kOne ? kOne : (off_f < 0.0F ? 0.0F : off_f);
             const float worse = walk_parameter(kWorseTurnFactor);
             const float worst = walk_parameter(kWorseWorseTurnFactor);
-            auto rate = static_cast<float>((((static_cast<double>(worse) - worst) * k) + worst) * stick_deflection_);
+            auto rate =
+                static_cast<float>((((static_cast<double>(worse) - worst) * turn_blend) + worst) * stick_deflection_);
             const double step = frame_clock::get_slomo_frame_seconds() * rate;
             if (step >= kOne) {
                 facing = control;
@@ -600,10 +601,12 @@ void FootMovement::copy_to_object()
     // The facing tilted back up by its y (+0x744), keeping it unit.
     const float facing_y = facing_y_;
     const double flat = kOne - (static_cast<double>(facing_y) * facing_y);
-    const double k = flat > 0.0 ? std::sqrt(flat) : static_cast<double>(kNoFlat);
+    const double upright_scale = flat > 0.0 ? std::sqrt(flat) : static_cast<double>(kNoFlat);
     maths::Vec4& facing = facing_;
-    facing = {.x = static_cast<float>(k * facing.x), .y = static_cast<float>(k * facing.y), .z = static_cast<float>(k * facing.z),
-              .w = static_cast<float>(k * facing.w)};
+    facing = {.x = static_cast<float>(upright_scale * facing.x),
+              .y = static_cast<float>(upright_scale * facing.y),
+              .z = static_cast<float>(upright_scale * facing.z),
+              .w = static_cast<float>(upright_scale * facing.w)};
     facing.y = facing_y;
     // The orientation from the up vector and the facing.
     const maths::Vec4& up = up_;

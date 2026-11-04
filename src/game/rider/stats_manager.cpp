@@ -154,9 +154,10 @@ void* game_flow() { return goals::get_objective_board(); }
 
 // The skater's score component and its counts.
 void* point_tally(GameEntity* skater) { return core::down_cast<Rider>(skater)->get_points_total(); }
-int count_tricks(void* score, uint32_t trick, int a, int b, int c)
+int count_tricks(void* score, uint32_t trick, int spin, int perfect, int taps)
 {
-    return static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, a, static_cast<uint8_t>(b) != 0, c);
+    return static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, spin,
+                                                                            static_cast<uint8_t>(perfect) != 0, taps);
 }
 
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
@@ -311,7 +312,7 @@ bool AttributeTracker::is_operative()
 }
 
 // 0x0051C9D0
-void AttributeTracker::set10(const char* text, int score, int /*unused*/)
+void AttributeTracker::set10(const char* text, int score, int /*stance*/)
 {
     if (is_operative() && score != value14_) {
         last_text_ = text;

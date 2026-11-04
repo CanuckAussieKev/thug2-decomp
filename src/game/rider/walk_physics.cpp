@@ -457,11 +457,11 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
     GrindRailHub* rails = rail_manager_;
     maths::Vec4 from{};
     maths::Vec4 to{};
-    const maths::Vec4* a = rails->get_absolute_pos(&from, hang_node_);
-    const maths::Vec4* b = rails->get_absolute_pos(&to, hang_next_node_);
-    float dx = b->x - a->x;
-    float dy = b->y - a->y;
-    const double dz_full = static_cast<double>(b->z) - a->z;
+    const maths::Vec4* from_point = rails->get_absolute_pos(&from, hang_node_);
+    const maths::Vec4* to_point = rails->get_absolute_pos(&to, hang_next_node_);
+    float dx = to_point->x - from_point->x;
+    float dy = to_point->y - from_point->y;
+    const double dz_full = static_cast<double>(to_point->z) - from_point->z;
     auto dz = static_cast<float>(dz_full);
     // (z's square from its unrounded difference times its rounded one, as the original's x87 code)
     const double length = std::sqrt(((dz_full * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx));

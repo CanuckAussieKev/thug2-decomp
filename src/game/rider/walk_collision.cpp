@@ -335,11 +335,11 @@ void FootMovement::ease_critical_point_offset()
     const maths::Vec4 old = offset;
     const double length = std::sqrt(static_cast<double>(length_squared));
     if (step < length) {
-        const double k = step / length;
-        const double kx = k * offset.x;
-        const double ky = k * offset.y;
-        const double kz = k * offset.z;
-        const double kw = k * offset.w;
+        const double scale = step / length;
+        const double kx = scale * offset.x;
+        const double ky = scale * offset.y;
+        const double kz = scale * offset.z;
+        const double kw = scale * offset.w;
         offset.x = static_cast<float>(offset.x - kx);
         offset.y = static_cast<float>(offset.y - ky);
         offset.z = static_cast<float>(offset.z - kz);
@@ -524,7 +524,9 @@ bool FootMovement::try_grind()
             return false;
         }
         // (the original's slot 13: the component's rails)
-        auto rails_of = [](ObjectModule* c) { return core::down_cast<GrindPathLinkModule>(c)->get_rail_groups(); };
+        auto rails_of = [](ObjectModule* link_module) {
+            return core::down_cast<GrindPathLinkModule>(link_module)->get_rail_groups();
+        };
         for (; component && !found; component = component->next_of_type()) {
             maths::Mat4 world{};
             core::down_cast<GrindPathLinkModule>(component)->update_rail_matrix(&world);

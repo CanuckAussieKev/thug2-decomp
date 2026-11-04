@@ -109,10 +109,10 @@ constexpr float kInch = 12.0F;                    // 0x0064546C (feet to inches)
 
 // --- textures (the texture dictionary 0x00700F20) ---
 
-void* ingest_skin(const char* name, bool a, bool b, bool c)
+void* ingest_skin(const char* name, bool a, bool b, bool permanent)
 {
     return static_cast<render::TextureSet*>(render::engine_parts().particle_texture_dict())
-        ->ingest_skin(name, static_cast<uint32_t>(a), static_cast<uint32_t>(b), c);
+        ->ingest_skin(name, static_cast<uint32_t>(a), static_cast<uint32_t>(b), permanent);
 }
 render::BitmapTexture* copy_texture(uint32_t key, void* texture)
 {
@@ -148,11 +148,11 @@ void free_texture(render::BitmapTexture*& texture)
 }
 
 // A texture loaded on the memory manager's +0x110 heap.
-void* load_on_texture_heap(const char* name, bool c)
+void* load_on_texture_heap(const char* name, bool permanent)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->top_down_heap());
-    void* texture = ingest_skin(name, true, true, c);
+    void* texture = ingest_skin(name, true, true, permanent);
     memory::Hub::get_pull()->leave_heap_scope();
     return texture;
 }
@@ -473,10 +473,10 @@ bool TaggingControlComponent::try_tagging()
     auto direction = [&](int index, float& dx, float& dz) {
         const double angle = (index * static_cast<double>(std::bit_cast<float>(0x3EF1463AU))) -
                              std::bit_cast<float>(0x3F96CBE4U); // 0x0064C438 / 0x0064C434
-        const double c = std::cos(angle);
-        const double s = std::sin(angle);
-        dx = static_cast<float>((c * heading.x) - (s * heading.z));
-        dz = static_cast<float>((s * heading.x) + (c * heading.z));
+        const double cosine = std::cos(angle);
+        const double sine = std::sin(angle);
+        dx = static_cast<float>((cosine * heading.x) - (sine * heading.z));
+        dz = static_cast<float>((sine * heading.x) + (cosine * heading.z));
     };
     for (int i = 0; i < kTagRayCount; ++i) {
         float dx = 0.0F;

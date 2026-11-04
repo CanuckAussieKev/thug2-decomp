@@ -166,9 +166,9 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
         } else {
             // (Each pair in the original's order: this rail's end first, then the last one's.)
             auto between = [this](const void* from, const void* to) {
-                const maths::Vec4 a = rail_node_position(rail_manager_, from);
-                const maths::Vec4 b = rail_node_position(rail_manager_, to);
-                return b - a;
+                const maths::Vec4 from_position = rail_node_position(rail_manager_, from);
+                const maths::Vec4 to_position = rail_node_position(rail_manager_, to);
+                return to_position - from_position;
             };
             const maths::Vec4 d1 = between(node, rail_node_);
             const maths::Vec4 d2 = between(node->last_value(), rail_node_);
@@ -330,33 +330,34 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
 {
     uint32_t dir = 0; // (left as it was on the stack without one, in the original)
     params->read_hash_value(kDir, &dir, 1);
-    maths::Mat4 m;
-    m = core::down_cast<objects::GameEntity>(core::down_cast<objects::Rider>(object_of(this))->get_skater_camera())
+    maths::Mat4 exit_frame;
+    exit_frame =
+        core::down_cast<objects::GameEntity>(core::down_cast<objects::Rider>(object_of(this))->get_skater_camera())
             ->basis_frame();
     switch (dir) {
     case kDownRight:
-        m.rotate_y(kEighthTurn);
+        exit_frame.rotate_y(kEighthTurn);
         break;
     case kRight:
-        m.rotate_y(kQuarterTurn);
+        exit_frame.rotate_y(kQuarterTurn);
         break;
     case kLeft:
-        m.rotate_y(-kQuarterTurn);
+        exit_frame.rotate_y(-kQuarterTurn);
         break;
     case kUpRight:
-        m.rotate_y(kThreeEighthsTurn);
+        exit_frame.rotate_y(kThreeEighthsTurn);
         break;
     case kDown:
-        m.rotate_y(0.0F);
+        exit_frame.rotate_y(0.0F);
         break;
     default: { // UpLeft, DownLeft; Up and anything else half a turn
         const float turn = dir == kUpLeft ? -kThreeEighthsTurn : dir == kDownLeft ? -kEighthTurn : kHalfTurn;
         maths::Mat4 rotation;
-        matrix_multiply(&m, &m, &maths::make_yaw_matrix(rotation, turn));
+        matrix_multiply(&exit_frame, &exit_frame, &maths::make_yaw_matrix(rotation, turn));
         break;
     }
     }
-    entity()->basis_frame() = m;
+    entity()->basis_frame() = exit_frame;
     return 1;
 }
 
@@ -406,9 +407,9 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         maths::Vec4& velocity = entity()->vel();
         const float upward = velocity.y;
         velocity.y = 0.0F;
-        objects::GameEntity* o = object_of(this);
-        auto speed = static_cast<float>(length_unrounded(o->vel()));
-        o->vel() = core::at(o->basis_frame().row, 2) * speed;
+        objects::GameEntity* skater = object_of(this);
+        auto speed = static_cast<float>(length_unrounded(skater->vel()));
+        skater->vel() = core::at(skater->basis_frame().row, 2) * speed;
         entity()->vel().y = upward;
     }
     return moved ? 1 : 0;

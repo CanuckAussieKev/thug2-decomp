@@ -103,12 +103,12 @@ void SkaterPhysicsModule::do_ground_physics()
         thaw_bmx::get_on_ground(this);
     }
     if (!bike || thaw_bmx::ground_gravity_applies(this, gravity)) {
-        const float t = frame_length_;
+        const float frame_length = frame_length_;
         maths::Vec4& v = entity()->vel();
-        const float gy = gravity.y * t;
-        const float gz = gravity.z * t;
-        const float gw = gravity.w * t;
-        v.x = static_cast<float>((static_cast<double>(gravity.x) * t) + v.x);
+        const float gy = gravity.y * frame_length;
+        const float gz = gravity.z * frame_length;
+        const float gw = gravity.w * frame_length;
+        v.x = static_cast<float>((static_cast<double>(gravity.x) * frame_length) + v.x);
         v.y = gy + v.y;
         v.z = gz + v.z;
         v.w = gw + v.w;
@@ -149,9 +149,9 @@ void SkaterPhysicsModule::do_ground_physics()
     // The move this frame - skitching, none of its own: the skitched object's velocity (scaled), 0x00501DB0.
     maths::Vec4 step{};
     {
-        const float t = frame_length_;
+        const float frame_length = frame_length_;
         const maths::Vec4& v = entity()->vel();
-        step = {.x = t * v.x, .y = t * v.y, .z = t * v.z, .w = t * v.w};
+        step = {.x = frame_length * v.x, .y = frame_length * v.y, .z = frame_length * v.z, .w = frame_length * v.w};
     }
     if (bit_mark(this, PoseFlag::kSkitching) != 0U) {
         const objects::RideTracker* tracker = get_tracker(this);
@@ -169,14 +169,14 @@ void SkaterPhysicsModule::do_ground_physics()
         if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
             stop_riding(this);
         } else if (bit_mark(this, PoseFlag::kSkitching) == 0U) {
-            objects::GameEntity* o = object_of(this);
-            o->at_point() += get_tracker(this)->carried();
+            objects::GameEntity* skater = object_of(this);
+            skater->at_point() += get_tracker(this)->carried();
             entity()->old_pos() = entity()->at_point();
             safe_pos_ = entity()->at_point();
             if (get_tracker(this)->turned()) {
                 auto multiply = d3dx::matrix_multiply;
-                maths::Mat4& m = entity()->basis_frame();
-                multiply(&m, &m, &get_tracker(this)->turn());
+                maths::Mat4& basis = entity()->basis_frame();
+                multiply(&basis, &basis, &get_tracker(this)->turn());
                 multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
             }
         }
@@ -228,12 +228,12 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
 {
     bool again = false;
     for (;;) {
-        maths::Vec4& p = entity()->at_point();
-        const maths::Vec4 before = p; // (x, y, z used)
-        p.x = step.x + p.x;
-        p.y = step.y + p.y;
-        p.z = step.z + p.z;
-        p.w = step.w + p.w;
+        maths::Vec4& skater_position = entity()->at_point();
+        const maths::Vec4 before = skater_position; // (x, y, z used)
+        skater_position.x = step.x + skater_position.x;
+        skater_position.y = step.y + skater_position.y;
+        skater_position.z = step.z + skater_position.z;
+        skater_position.w = step.w + skater_position.w;
         if (bit_mark(this, PoseFlag::kSkitching) == 0U) {
             check_wall_ahead();
         }

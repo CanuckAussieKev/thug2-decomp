@@ -82,8 +82,8 @@ constexpr uint32_t kBailed = 0x13A8, kBailedPanel = 0x13A9, kTrickCount = 0x13AC
 void copy_text(std::span<char> to, const char* from)
 {
     size_t at = 0;
-    for (const char c : std::string_view(from)) {
-        core::at(to, at++) = c;
+    for (const char character : std::string_view(from)) {
+        core::at(to, at++) = character;
     }
     core::at(to, at) = '\0';
 }
@@ -104,9 +104,10 @@ void score_spin(MoveExecutor* self, int degrees) { self->get_score()->change_spi
 void collect_names(script::Struct* params, int& count, std::span<uint32_t> arrays)
 {
     count = 0;
-    for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-        if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
-            core::at(arrays, count++) = c->value.word();
+    for (script::Component* component = params->step_to_entry(nullptr); component;
+         component = params->step_to_entry(component)) {
+        if (component->name == 0 && value_kind(*component) == script::QbValueKind::kName) {
+            core::at(arrays, count++) = component->value.word();
         }
     }
 }
@@ -327,11 +328,11 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kReplaceBindings: {
         // The trick mappings replaced by the global structure the first (unnamed name) component names.
-        const script::Component* c = params->step_to_entry(nullptr);
-        if (!c || c->name != 0 || value_kind(*c) != script::QbValueKind::kName) {
+        const script::Component* component = params->step_to_entry(nullptr);
+        if (!component || component->name != 0 || value_kind(*component) != script::QbValueKind::kName) {
             return 1;
         }
-        script::Struct* mappings = script::read_sub_struct(c->value.word());
+        script::Struct* mappings = script::read_sub_struct(component->value.word());
         if (!mappings) {
             return 1;
         }
@@ -371,9 +372,10 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kClearTricksFrom:
-        for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-            if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
-                remove_trick_list(c->value.word());
+        for (script::Component* component = params->step_to_entry(nullptr); component;
+             component = params->step_to_entry(component)) {
+            if (component->name == 0 && value_kind(*component) == script::QbValueKind::kName) {
+                remove_trick_list(component->value.word());
             }
         }
         return 1;

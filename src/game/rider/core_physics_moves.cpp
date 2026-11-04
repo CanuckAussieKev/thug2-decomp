@@ -118,7 +118,7 @@ double get_seconds(uint32_t milliseconds) { return static_cast<double>(milliseco
 objects::GameEntity* get_composite(objects::GameEntity* object) { return object; }
 
 // 0x00487AD0 (cdecl): the least of three.
-float least_of(float a, float b, float c) { return gfx::least_of(a, b, c); }
+float least_of(float first, float second, float third) { return gfx::least_of(first, second, third); }
 
 } // namespace
 
@@ -355,9 +355,9 @@ void SkaterPhysicsModule::turn_round_if_backwards()
         return;
     }
     const maths::Vec4& v = object->vel();
-    const maths::Vec4& f = core::at(object->basis_frame().row, 2);
-    const double along =
-        ((static_cast<double>(v.z) * f.z) + (static_cast<double>(v.y) * f.y)) + (static_cast<double>(v.x) * f.x);
+    const maths::Vec4& forward = core::at(object->basis_frame().row, 2);
+    const double along = ((static_cast<double>(v.z) * forward.z) + (static_cast<double>(v.y) * forward.y)) +
+                         (static_cast<double>(v.x) * forward.x);
     if (!(along < 0.0)) {
         return;
     }
@@ -373,8 +373,8 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     if (special) {
         const uint32_t board = checksums::hash_from_text(trick_->trick_name().data());
         bool plain = false;
-        for (const uint32_t b : kBoards) {
-            plain = plain || board == b;
+        for (const uint32_t listed_board : kBoards) {
+            plain = plain || board == listed_board;
         }
         if (!plain) {
             if (manual_turnaround_ != 0U) {

@@ -165,13 +165,13 @@ constexpr float kTooClose = 0.0001F; // 0x006453D4
 // strncpy(name, from, 0x20) (the game's C runtime's 0x006239E0): up to 0x20 characters, the rest zeroed.
 void copy_name(std::array<char, kNameBytes>& name, const char* from)
 {
-    size_t i = 0;
+    size_t length = 0;
     const std::string_view text(from);
-    for (; i < sizeof(name) && i < text.size(); ++i) {
-        core::at(name, i) = core::at(text, i);
+    for (; length < sizeof(name) && length < text.size(); ++length) {
+        core::at(name, length) = core::at(text, length);
     }
-    for (; i < sizeof(name); ++i) {
-        core::at(name, i) = 0;
+    for (; length < sizeof(name); ++length) {
+        core::at(name, length) = 0;
     }
 }
 
@@ -606,8 +606,8 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             if (!(length < kTooClose)) {
                 // (0x00423650: each component times 1 / the length rounded to a float)
                 const double inverse = 1.0 / static_cast<float>(length);
-                for (float& c : away) {
-                    c = static_cast<float>(inverse * c);
+                for (float& component : away) {
+                    component = static_cast<float>(inverse * component);
                 }
                 z = core::at(away, 2);
                 w = core::at(away, 3);
