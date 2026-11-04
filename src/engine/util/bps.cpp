@@ -40,11 +40,11 @@ uint32_t crc32(const uint8_t* bytes, size_t size)
     static bool made = false;
     if (!made) {
         for (uint32_t i = 0; i < kByteValues; ++i) {
-            uint32_t c = i;
+            uint32_t entry = i;
             for (int bit = 0; bit < kBitsInByte; ++bit) {
-                c = ((c & 1) != 0U) ? kCrcPolynomial ^ (c >> 1) : c >> 1;
+                entry = ((entry & 1) != 0U) ? kCrcPolynomial ^ (entry >> 1) : entry >> 1;
             }
-            core::at(table, i) = c;
+            core::at(table, i) = entry;
         }
         made = true;
     }

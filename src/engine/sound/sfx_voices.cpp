@@ -248,8 +248,8 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
     if (limit < speed) { // (equal or unordered: shifted)
         return;
     }
-    const double p = *pitch;
-    *pitch = static_cast<float>(p - (change * p / (static_cast<double>(frame_seconds) * kPitchSettleDivisor)));
+    const double pitch_now = *pitch;
+    *pitch = static_cast<float>(pitch_now - (change * pitch_now / (static_cast<double>(frame_seconds) * kPitchSettleDivisor)));
 }
 
 // 0x0047BA00
@@ -391,24 +391,24 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
     if (!(distance < dropoff) && !std::isnan(distance) && !std::isnan(dropoff)) { // (unordered: on, as nearer)
         return static_cast<double>(distance) * kRangeSlack <= dropoff;
     }
-    auto t = static_cast<float>(static_cast<double>(distance) / dropoff);
+    auto falloff_blend = static_cast<float>(static_cast<double>(distance) / dropoff);
     float level = 0.0F;
     switch (falloff) {
     case 0:
         level = static_cast<float>(
-            ((1.0F - (static_cast<double>(t) * t)) + ((1.0F - static_cast<double>(t)) * kFalloffBlendWeight)) *
+            ((1.0F - (static_cast<double>(falloff_blend) * falloff_blend)) + ((1.0F - static_cast<double>(falloff_blend)) * kFalloffBlendWeight)) *
             kFalloffBlendNorm * 100.0F);
         break;
     case 1:
-        level = static_cast<float>((1.0F - static_cast<double>(t)) * 100.0F);
+        level = static_cast<float>((1.0F - static_cast<double>(falloff_blend)) * 100.0F);
         break;
     case 2: {
-        const double left = 1.0F - static_cast<double>(t);
+        const double left = 1.0F - static_cast<double>(falloff_blend);
         level = static_cast<float>(left * left * 100.0F);
         break;
     }
     case 3:
-        level = static_cast<float>(std::sqrt(1.0F - static_cast<double>(t)) * 100.0F);
+        level = static_cast<float>(std::sqrt(1.0F - static_cast<double>(falloff_blend)) * 100.0F);
         break;
     default:
         break;

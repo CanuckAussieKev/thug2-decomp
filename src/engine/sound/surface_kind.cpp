@@ -227,8 +227,8 @@ bool get_sound_info(Struct* sound_action, SoundInfo* info)
     }
     // (copied unchecked, as the original)
     int length = 0;
-    for (const char c : std::string_view(sound)) {
-        core::at(info->name, length++) = c;
+    for (const char character : std::string_view(sound)) {
+        core::at(info->name, length++) = character;
     }
     core::at(info->name, length) = '\0';
     // the checksum of the name without its folders

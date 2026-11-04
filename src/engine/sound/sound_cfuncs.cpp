@@ -253,9 +253,9 @@ bool cfunc_set_global_pitch_modulation(Struct* params, Script* /*script*/)
 {
     float pitch = 1.0F;
     params->fetch_float(0U, &pitch, 0);
-    const bool a = params->has_bare_flag(kPitchFlagA);
-    const bool b = params->has_bare_flag(kPitchFlagB);
-    sound::AudioMixer::set_pitch(pitch, static_cast<int>(b), static_cast<int>(a));
+    const bool flag_a = params->has_bare_flag(kPitchFlagA);
+    const bool flag_b = params->has_bare_flag(kPitchFlagB);
+    sound::AudioMixer::set_pitch(pitch, static_cast<int>(flag_b), static_cast<int>(flag_a));
     return true;
 }
 

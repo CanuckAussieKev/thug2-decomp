@@ -111,11 +111,11 @@ void make_disk_path(std::span<char, kDiskPathSize> path, const char* name)
         text = text.size() > kDevelopmentPrefixLength ? text.substr(kDevelopmentPrefixLength) : std::string_view();
     }
     int length = kDataPrefixLength;
-    for (const char c : text) {
+    for (const char character : text) {
         if (length >= kDiskPathLast) {
             break;
         }
-        core::at(path, length++) = c == '/' ? '\\' : c;
+        core::at(path, length++) = character == '/' ? '\\' : character;
     }
     core::at(path, length) = '\0';
 

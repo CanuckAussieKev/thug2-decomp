@@ -111,8 +111,8 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int /*unused*/)
     auto& path = path_buffer();
     const std::string_view text(name);
     for (size_t i = 0; i <= text.size(); ++i) {
-        const char c = i < text.size() ? core::at(text, i) : '\0';
-        core::at(path, i) = c == '/' ? '\\' : c;
+        const char character = i < text.size() ? core::at(text, i) : '\0';
+        core::at(path, i) = character == '/' ? '\\' : character;
     }
     DWORD access = 0;
     DWORD disposition = 0;

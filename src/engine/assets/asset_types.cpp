@@ -114,11 +114,11 @@ void build_scene_file_path(char* out, const char* name, uint8_t flag)
 {
     render::engine::build_scene_file_path(out, name, flag);
 }
-void* make_scene(const char* name, void* buffer, uint32_t size, void* textures, uint8_t a, uint8_t b, uint8_t c,
-                 uint8_t d)
+void* make_scene(const char* name, void* buffer, uint32_t size, void* textures, uint8_t a, uint8_t b, uint8_t flag_c,
+                 uint8_t flag_d)
 {
     return render::load_named_scene_from_memory(name, static_cast<const uint8_t*>(buffer), size,
-                                                static_cast<render::TextureSet*>(textures), a != 0, b != 0, c != 0, d);
+                                                static_cast<render::TextureSet*>(textures), a != 0, b != 0, flag_c != 0, flag_d);
 }
 void unload_scene(void* scene, int flag)
 {
@@ -159,10 +159,10 @@ void add_skin_collision(void* model, void* buffer, uint32_t size)
 void remove_skin_collision(void* model) { static_cast<render::SubMesh*>(model)->detach_hit_mesh(); }
 // Texture dictionaries: the file name, made, unloaded.
 void tex_dict_file_name(char* out, const char* name) { render::tex_dict_file_name(out, name); }
-void* make_tex_dict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, int value, uint8_t b, uint8_t c)
+void* make_tex_dict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, int value, uint8_t b, uint8_t flag_c)
 {
     return render::load_tex_dict_from_memory(checksum, static_cast<const uint8_t*>(buffer), size, a,
-                                             static_cast<uint32_t>(value), b, c);
+                                             static_cast<uint32_t>(value), b, flag_c);
 }
 void unload_tex_dict(void* textures) { render::unload_tex_dict(static_cast<render::TextureSet*>(textures)); }
 
@@ -537,10 +537,10 @@ void SceneAsset::set_up_params(LoadParams load_params)
     if (params) {
         copy_words(args_, params, kSceneParamWords);
     }
-    if (auto* s = static_cast<Struct*>(structure)) {
-        s->read_hash_value(kTexDict, &args_->textures, 0);
-        args_->flags = {{static_cast<uint8_t>(s->has_bare_flag(kAddSuperSectors)), static_cast<uint8_t>(s->has_bare_flag(kIsSky)),
-                         static_cast<uint8_t>(s->has_bare_flag(kIsDictionary)), static_cast<uint8_t>(s->has_bare_flag(kIsNet))}};
+    if (auto* fields = static_cast<Struct*>(structure)) {
+        fields->read_hash_value(kTexDict, &args_->textures, 0);
+        args_->flags = {{static_cast<uint8_t>(fields->has_bare_flag(kAddSuperSectors)), static_cast<uint8_t>(fields->has_bare_flag(kIsSky)),
+                         static_cast<uint8_t>(fields->has_bare_flag(kIsDictionary)), static_cast<uint8_t>(fields->has_bare_flag(kIsNet))}};
     }
 }
 
@@ -618,9 +618,9 @@ void SceneCollisionAsset::set_up_params(LoadParams load_params)
     if (params) {
         copy_words(args_, params, kSceneCollisionParamWords);
     }
-    if (auto* s = static_cast<Struct*>(structure)) {
-        s->read_hash_value(kSceneKey, &args_->checksum, 0);
-        args_->flag = static_cast<uint8_t>(s->has_bare_flag(kIsNet));
+    if (auto* fields = static_cast<Struct*>(structure)) {
+        fields->read_hash_value(kSceneKey, &args_->checksum, 0);
+        args_->flag = static_cast<uint8_t>(fields->has_bare_flag(kIsNet));
     }
 }
 
@@ -777,9 +777,9 @@ void SkinResource::set_up_params(LoadParams load_params)
     if (params) {
         copy_words(args_, params, kSkinParamWords);
     }
-    if (auto* s = static_cast<Struct*>(structure)) {
-        s->fetch_int_value(kTexDictOffset, &args_->value, 0);
-        args_->flag0 = static_cast<uint8_t>(s->has_bare_flag(kSkinFlag0));
+    if (auto* fields = static_cast<Struct*>(structure)) {
+        fields->fetch_int_value(kTexDictOffset, &args_->value, 0);
+        args_->flag0 = static_cast<uint8_t>(fields->has_bare_flag(kSkinFlag0));
     }
 }
 
@@ -854,9 +854,9 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
 bool SkinResource::finish_loading(void* buffer, uint32_t size)
 {
     auto* textures = static_cast<render::TextureSet*>(group_data(this));
-    const SkinParams* p = args_;
-    gsl::owner<void*> model = make_skinned_model(checksum(), buffer, size, p->cas_data_, p->cas_size_, textures,
-                                                 p->value, p->has_cas_, p->flag0);
+    const SkinParams* skin = args_;
+    gsl::owner<void*> model = make_skinned_model(checksum(), buffer, size, skin->cas_data_, skin->cas_size_, textures,
+                                                 skin->value, skin->has_cas_, skin->flag0);
     change_contents(model); // (the resource's: offload deletes it)
     if ((args_->on_heap_ != 0U) && octets()) {
         free_buffer();
@@ -930,16 +930,16 @@ gsl::owner<SkinCollisionLoadParams*> skin_collision_params(LoadParams load_param
 {
     auto* const params = load_params.params;
     auto* const structure = load_params.structure;
-    gsl::owner<assets::SkinCollisionLoadParams*> p{
+    gsl::owner<assets::SkinCollisionLoadParams*> collision_params{
         memory::construct_in<SkinCollisionLoadParams>(alloc_load_params(sizeof(SkinCollisionLoadParams)))};
-    p->checksum = 0;
+    collision_params->checksum = 0;
     if (params) {
-        copy_words(p, params, kSkinCollisionParamWords);
+        copy_words(collision_params, params, kSkinCollisionParamWords);
     }
     if (structure) {
-        static_cast<Struct*>(structure)->read_hash_value(kSkin, &p->checksum, 0);
+        static_cast<Struct*>(structure)->read_hash_value(kSkin, &collision_params->checksum, 0);
     }
-    return p;
+    return collision_params;
 }
 } // namespace
 
@@ -1021,11 +1021,11 @@ void TexDictAsset::set_up_params(LoadParams load_params)
     if (params) {
         copy_words(args_, params, kTexDictParamWords);
     }
-    if (auto* s = static_cast<Struct*>(structure)) {
-        s->fetch_int_value(kTexDictOffset, &args_->value, 0);
-        args_->flag = static_cast<uint8_t>(s->has_bare_flag(kTexDictFlag));
-        args_->flag8 = static_cast<uint8_t>(s->has_bare_flag(kTexDictFlag8));
-        args_->flag9 = static_cast<uint8_t>(s->has_bare_flag(kTexDictFlag9));
+    if (auto* fields = static_cast<Struct*>(structure)) {
+        fields->fetch_int_value(kTexDictOffset, &args_->value, 0);
+        args_->flag = static_cast<uint8_t>(fields->has_bare_flag(kTexDictFlag));
+        args_->flag8 = static_cast<uint8_t>(fields->has_bare_flag(kTexDictFlag8));
+        args_->flag9 = static_cast<uint8_t>(fields->has_bare_flag(kTexDictFlag9));
     }
 }
 

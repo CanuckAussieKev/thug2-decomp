@@ -169,11 +169,11 @@ bool delete_mem_card_file(Struct* params, Script* /*script*/)
         std::array<char, kSaveDirectoryBytes> directory{};
         core::at(directory, 0) = core::at(path_text, 0);
         int length = 1;
-        for (const char c : path_text.substr(1)) {
-            if (c == '/') {
+        for (const char character : path_text.substr(1)) {
+            if (character == '/') {
                 break;
             }
-            core::at(directory, length++) = c;
+            core::at(directory, length++) = character;
         }
         core::at(directory, length) = '\0';
         if (!delete_card_file(card, path)) {

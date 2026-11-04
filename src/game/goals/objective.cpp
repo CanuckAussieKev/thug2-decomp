@@ -464,15 +464,15 @@ void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, 
         return;
     }
     while (*at != '\0') {
-        const char c = *at;
+        const char character = *at;
         script::Array* source = nullptr;
-        if (c == '\\' && at[1] == 't' && at[2] <= '9' && at[2] >= '0') {
+        if (character == '\\' && at[1] == 't' && at[2] <= '9' && at[2] >= '0') {
             source = tricks;
-        } else if (c == '\\' && at[1] == 'k' && at[2] <= '9' && at[2] >= '0') {
+        } else if (character == '\\' && at[1] == 'k' && at[2] <= '9' && at[2] >= '0') {
             source = key_combos;
         }
         if (!source) {
-            *out++ = c;
+            *out++ = character;
             ++at;
             continue;
         }

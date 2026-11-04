@@ -167,15 +167,15 @@ void ParkLayout::clear_area(CellBox area)
         }
         const CellBox at = meta_footprint(meta);
         shift_placed_piece(meta, 0, -at.y, 0);
-        for (int x = at.x; x < at.x + at.w; ++x) {
-            for (int z = at.z; z < at.z + at.l; ++z) {
-                core::at(core::at(floor_, x), z).level_y_ = 0;
+        for (int cell_x = at.x; cell_x < at.x + at.w; ++cell_x) {
+            for (int cell_z = at.z; cell_z < at.z + at.l; ++cell_z) {
+                core::at(core::at(floor_, cell_x), cell_z).level_y_ = 0;
             }
         }
     }
-    for (int x = area.x; x < area.x + area.w; ++x) {
-        for (int z = area.z; z < area.z + area.l; ++z) {
-            core::at(core::at(floor_, x), z).level_y_ = 0;
+    for (int cell_x = area.x; cell_x < area.x + area.w; ++cell_x) {
+        for (int cell_z = area.z; cell_z < area.z + area.l; ++cell_z) {
+            core::at(core::at(floor_, cell_x), cell_z).level_y_ = 0;
         }
     }
     flag_bits() &= ~ParkLayout::kMapValid | ParkLayout::kMapNewerThanPark;

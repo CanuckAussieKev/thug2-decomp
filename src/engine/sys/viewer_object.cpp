@@ -482,10 +482,10 @@ void PreviewEntity::own_update()
         {.command = kCommandRollLeft, .viewer_command_ = 0x10000},
         {.command = kCommandRollRight, .viewer_command_ = 0x20000},
     });
-    for (const auto& c : kViewerCommands) {
-        if ((actions_ & c.command) != 0U) {
+    for (const auto& entry : kViewerCommands) {
+        if ((actions_ & entry.command) != 0U) {
             if (modules::Viewer* viewer = modules::get_live_viewer()) {
-                viewer->add_commands(c.viewer_command_);
+                viewer->add_commands(entry.viewer_command_);
             }
         }
     }

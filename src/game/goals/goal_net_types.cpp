@@ -97,11 +97,11 @@ void LetterGameObjective::land()
     script::Array* spots = nullptr;
     args()->fetch_list(kLetterSpots, &spots, 1);
     const int count = static_cast<int>(spots->extent());
-    int i = 0;
+    int index = 0;
     int score = 0; // (both set before they're read)
     uint32_t flag = 0;
-    for (; i < count; ++i) {
-        auto* spot = spots->struct_at(static_cast<uint32_t>(i));
+    for (; index < count; ++index) {
+        auto* spot = spots->struct_at(static_cast<uint32_t>(index));
         spot->read_hash_value(kFlag, &flag, 1);
         int set = 0;
         goal_flags()->fetch_int_value(flag, &set, 1);
@@ -113,7 +113,7 @@ void LetterGameObjective::land()
         }
         break;
     }
-    if (i == count) {
+    if (index == count) {
         return;
     }
     const int landed = static_cast<modules::PointTally*>(

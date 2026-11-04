@@ -75,7 +75,7 @@ const char* const kEmpty = "";                              // ""
 // strcpy (unbounded, as the original's).
 void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }
 // The C runtime's tolower (C locale).
-char get_lower(char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); }
+char get_lower(char character) { return static_cast<char>(std::tolower(static_cast<unsigned char>(character))); }
 
 } // namespace
 

@@ -528,15 +528,15 @@ void ObjectiveNpc::play_pro_voice_line(const char* kind, int count, bool call_by
     const int total = call_by_name ? count + 20 : count;
     gsl::owner<script::Array*> order = shuffled_numbers(total);
     for (int i = 0; i < total; ++i) {
-        const int n = static_cast<int>(order->fetch_part(static_cast<uint32_t>(i)));
+        const int number = static_cast<int>(order->fetch_part(static_cast<uint32_t>(i)));
         std::array<char, kVoiceNameSize> name{};
-        if (n > count) {
+        if (number > count) {
             if (!profile->is_pro()) {
                 continue;
             }
-            text::format_to(name, "%s_%s%s%02i", pro, kind, player.data(), n - count); // "%s_%s%s%02i"
+            text::format_to(name, "%s_%s%s%02i", pro, kind, player.data(), number - count); // "%s_%s%s%02i"
         } else {
-            text::format_to(name, "%s_%s%02i", pro, kind, n); // "%s_%s%02i"
+            text::format_to(name, "%s_%s%02i", pro, kind, number); // "%s_%s%02i"
         }
         if (audio::stream_exists(checksums::hash_from_text(name.data()))) {
             play_stream(checksums::hash_from_text(name.data()), no_anim, 0, false);
@@ -576,9 +576,9 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
         get_skater_given_name(player);
         gsl::owner<script::Array*> order = shuffled_numbers(kFarLineCount); // (shuffled, and not used: the names go in order)
         bool played = false;
-        for (int n = 1; n <= kFarLineCount; ++n) {
+        for (int number = 1; number <= kFarLineCount; ++number) {
             std::array<char, kVoiceNameSize> name{};
-            text::format_to(name, "%s_Far%s%02i", pro, player.data(), n); // "%s_Far%s%02i"
+            text::format_to(name, "%s_Far%s%02i", pro, player.data(), number); // "%s_Far%s%02i"
             if (audio::stream_exists(checksums::hash_from_text(name.data()))) {
                 played = true;
                 play_stream(checksums::hash_from_text(name.data()), true, 0, false);

@@ -41,7 +41,7 @@ void play_next_track();
 
 // PartyMod's shuffle draw (its our_random): one of the game's random numbers in [0, n), thrown away, then
 // rand() % n.
-int shuffle_random(int n);
+int shuffle_random(int count);
 
 // 0x00452680 (reached by a jump from 0x00452910, when tracks play in order): like play_next_track, but the next
 // track is the first of the playlist's tracks that's on and not played yet; when all are played the round

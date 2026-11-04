@@ -343,12 +343,12 @@ void Viewer::add_commands(uint32_t commands) { actions_ |= commands; }
 // 0x005772E0
 void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
 {
-    maths::Mat4 m{};
-    m = object->basis_frame();
+    maths::Mat4 basis{};
+    basis = object->basis_frame();
     const maths::Vec4& v = *offset;
-    auto along = [&](int c) {
-        return (static_cast<double>(core::at(m.row, 2)[c]) * v.z) + (static_cast<double>(core::at(m.row, 0)[c]) * v.x) +
-               (static_cast<double>(core::at(m.row, 1)[c]) * v.y);
+    auto along = [&](int column) {
+        return (static_cast<double>(core::at(basis.row, 2)[column]) * v.z) + (static_cast<double>(core::at(basis.row, 0)[column]) * v.x) +
+               (static_cast<double>(core::at(basis.row, 1)[column]) * v.y);
     };
     const double x = along(0) + object->at_point().x;
     const double y = along(1) + object->at_point().y;

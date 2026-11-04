@@ -66,8 +66,8 @@ public:
     template <typename Point>
     [[nodiscard]] Point point(size_t index, size_t offset = 0) const
     {
-        const std::array<float, 3> p = float3(index, offset);
-        return {std::get<0>(p), std::get<1>(p), std::get<2>(p), 1.0F};
+        const std::array<float, 3> components = float3(index, offset);
+        return {std::get<0>(components), std::get<1>(components), std::get<2>(components), 1.0F};
     }
     // The 32-bit word at `offset` in vertex `index` (a packed colour).
     [[nodiscard]] uint32_t word(size_t index, size_t offset) const { return value<uint32_t>(index, offset); }
@@ -116,9 +116,9 @@ public:
     void set_word(size_t index, size_t offset, uint32_t value) const { set_value(index, offset, value); }
     // A record's x, y, z as the float3 at `offset`.
     template <typename Point>
-    void set_point(size_t index, size_t offset, const Point& p) const
+    void set_point(size_t index, size_t offset, const Point& point) const
     {
-        set_float3(index, offset, p.x, p.y, p.z);
+        set_float3(index, offset, point.x, point.y, point.z);
     }
     // `value` (a plain number or record) at `offset` in vertex `index`.
     template <typename T>

@@ -346,9 +346,9 @@ void read_keyboard()
 // 0x005BDD30
 int get_keyboard_chars(std::span<char> out)
 {
-    uint32_t i = 0;
-    for (; i < keyboard_char_count(); ++i) {
-        core::at(out, i) = static_cast<char>(core::at(keyboard_chars(), i));
+    uint32_t index = 0;
+    for (; index < keyboard_char_count(); ++index) {
+        core::at(out, index) = static_cast<char>(core::at(keyboard_chars(), index));
     }
     return static_cast<int>(keyboard_char_count());
 }
@@ -789,7 +789,7 @@ void InputPort::pull_data(int /*unused*/)
 
     PadSnapshot pad;
     read_pad_state(port_no_, &pad);
-    const auto& p = pad.pressure;
+    const auto& pressure = pad.pressure;
     const uint16_t buttons = pad.buttons;
     const bool keyboard_menu =
         (keyboard_control_ != 0U) && menu_mode; // (the keyboard drives the menus: some buttons ignored)
@@ -801,11 +801,11 @@ void InputPort::pull_data(int /*unused*/)
     uint8_t first = keyboard_menu ? kAllBitsUp : static_cast<uint8_t>(~(((buttons & kLowByteMask) >> 1) & kHighBitStart));
     first ^= (buttons >> kSnapshotSelectShift) & kHighSelectSticksMask;
     core::at(control_data_, kControlButtonsHigh) = first;
-    uint8_t second = static_cast<uint8_t>(~(core::at(p, kSnapshotB) >= kPressedThreshold ? kLowBitCircle : 0)) ^ (core::at(p, kSnapshotY) >= kPressedThreshold ? kLowBitTriangle : 0);
+    uint8_t second = static_cast<uint8_t>(~(core::at(pressure, kSnapshotB) >= kPressedThreshold ? kLowBitCircle : 0)) ^ (core::at(pressure, kSnapshotY) >= kPressedThreshold ? kLowBitTriangle : 0);
     if (!keyboard_menu) {
-        second ^= core::at(p, kSnapshotA) >= kPressedThreshold ? kLowBitCross : 0;
+        second ^= core::at(pressure, kSnapshotA) >= kPressedThreshold ? kLowBitCross : 0;
     }
-    second ^= core::at(p, kSnapshotX) >= kPressedThreshold ? kLowBitSquare : 0;
+    second ^= core::at(pressure, kSnapshotX) >= kPressedThreshold ? kLowBitSquare : 0;
     const uint8_t buttons_so_far = second;
     const park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
     if (editor && editor->editor_state() == park_editing::ParkBuilderMode::kStateEdit) {
@@ -817,20 +817,20 @@ void InputPort::pull_data(int /*unused*/)
             editor_element = found.get_pull() != nullptr;
             found.get_release();
         }
-        second ^= if_above(core::at(p, kSnapshotRightTrigger), kPressedThreshold, editor_element ? 2 : 4);
-        second ^= if_above(core::at(p, kSnapshotLeftTrigger), kPressedThreshold, 1);
+        second ^= if_above(core::at(pressure, kSnapshotRightTrigger), kPressedThreshold, editor_element ? 2 : 4);
+        second ^= if_above(core::at(pressure, kSnapshotLeftTrigger), kPressedThreshold, 1);
     } else {
-        second = buttons_so_far ^ if_above(core::at(p, kSnapshotLeftTrigger), kHardPressThreshold, 1) ^ if_above(core::at(p, kSnapshotRightTrigger), kHardPressThreshold, 2) ^ if_above(core::at(p, kSnapshotLeftTrigger), kPressedThreshold, 4) ^
-                 if_above(core::at(p, kSnapshotRightTrigger), kPressedThreshold, kLowBitR1);
+        second = buttons_so_far ^ if_above(core::at(pressure, kSnapshotLeftTrigger), kHardPressThreshold, 1) ^ if_above(core::at(pressure, kSnapshotRightTrigger), kHardPressThreshold, 2) ^ if_above(core::at(pressure, kSnapshotLeftTrigger), kPressedThreshold, 4) ^
+                 if_above(core::at(pressure, kSnapshotRightTrigger), kPressedThreshold, kLowBitR1);
     }
     core::at(control_data_, kControlButtonsLow) = second;
     // Pressures (dead zone 0x20).
-    core::at(control_data_, kPressureTriangle) = pressure_or_zero(core::at(p, kSnapshotY));
-    core::at(control_data_, kPressureCircle) = pressure_or_zero(core::at(p, kSnapshotB));
-    core::at(control_data_, kPressureCross) = keyboard_menu ? 0 : pressure_or_zero(core::at(p, kSnapshotA));
-    core::at(control_data_, kPressureSquare) = pressure_or_zero(core::at(p, kSnapshotX));
-    core::at(control_data_, kPressureL1) = pressure_or_zero(core::at(p, kSnapshotLeftTrigger));
-    core::at(control_data_, kPressureR1) = pressure_or_zero(core::at(p, kSnapshotRightTrigger));
+    core::at(control_data_, kPressureTriangle) = pressure_or_zero(core::at(pressure, kSnapshotY));
+    core::at(control_data_, kPressureCircle) = pressure_or_zero(core::at(pressure, kSnapshotB));
+    core::at(control_data_, kPressureCross) = keyboard_menu ? 0 : pressure_or_zero(core::at(pressure, kSnapshotA));
+    core::at(control_data_, kPressureSquare) = pressure_or_zero(core::at(pressure, kSnapshotX));
+    core::at(control_data_, kPressureL1) = pressure_or_zero(core::at(pressure, kSnapshotLeftTrigger));
+    core::at(control_data_, kPressureR1) = pressure_or_zero(core::at(pressure, kSnapshotRightTrigger));
     core::at(control_data_, kPressureL2) = 0;
     core::at(control_data_, kPressureR2) = 0;
     core::at(control_data_, kControlExtraButtons) = 0;
@@ -849,10 +849,10 @@ void InputPort::pull_data(int /*unused*/)
     core::at(control_data_, kControlRightStickY) = get_stick(kStickOffset - core::at(pad.sticks, 3));
     core::at(control_data_, kControlLeftStickX) = get_stick(core::at(pad.sticks, 0) + kStickOffset);
     core::at(control_data_, kControlLeftStickY) = get_stick(kStickOffset - core::at(pad.sticks, 1));
-    if (core::at(p, kSnapshotBlack) > kPressedThreshold) {
+    if (core::at(pressure, kSnapshotBlack) > kPressedThreshold) {
         core::at(control_data_, kControlExtraButtons) = 1;
     }
-    if (core::at(p, kSnapshotWhite) > kPressedThreshold) {
+    if (core::at(pressure, kSnapshotWhite) > kPressedThreshold) {
         core::at(control_data_, kControlExtraButtons) |= 2;
     }
     held_down_ = static_cast<uint8_t>(
@@ -872,7 +872,7 @@ void InputPort::pull_data(int /*unused*/)
         }
     }
     keyboard_control_ =
-        static_cast<uint8_t>(((buttons & kSnapshotStart) != 0) || core::at(p, kSnapshotA) >= kPressedThreshold ||
+        static_cast<uint8_t>(((buttons & kSnapshotStart) != 0) || core::at(pressure, kSnapshotA) >= kPressedThreshold ||
                              enter_typed || (playing && get_key_down(kScanEnter)));
 }
 

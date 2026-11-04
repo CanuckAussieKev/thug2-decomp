@@ -306,11 +306,11 @@ int make_folder_file_name(uint32_t type, const char* name, char* buffer)
 // 0x005A63E0
 bool is_later(Struct* first, Struct* second)
 {
-    const SaveDate a = read_stamped_date(first);
-    const SaveDate b = read_stamped_date(second);
+    const SaveDate first_date = read_stamped_date(first);
+    const SaveDate second_date = read_stamped_date(second);
     for (size_t i = 0; i < kDateFieldCount; ++i) {
-        if (core::at(a.fields, i) != core::at(b.fields, i)) {
-            return core::at(a.fields, i) > core::at(b.fields, i);
+        if (core::at(first_date.fields, i) != core::at(second_date.fields, i)) {
+            return core::at(first_date.fields, i) > core::at(second_date.fields, i);
         }
     }
     return false;

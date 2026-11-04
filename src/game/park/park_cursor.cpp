@@ -179,15 +179,15 @@ bool BuildPointer::add_gap_half()
             } else {
                 gap.set_halves_placed(0);
             }
-            const int n = gap.halves_placed();
-            core::at(gap.at_point(), n) = meta_footprint(meta);
-            core::at(gap.quarter_turns(), n) = 0;
-            core::at(gap.reach_left(), n) = 0;
-            core::at(gap.reach_right(), n) = 0;
+            const int placed = gap.halves_placed();
+            core::at(gap.at_point(), placed) = meta_footprint(meta);
+            core::at(gap.quarter_turns(), placed) = 0;
+            core::at(gap.reach_left(), placed) = 0;
+            core::at(gap.reach_right(), placed) = 0;
             gap.set_points_held(kNewGapPoints);
-            gap.set_halves_placed(n + 1);
+            gap.set_halves_placed(placed + 1);
             gap.set_slot_index(-1);
-            if (n == 0) {
+            if (placed == 0) {
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (gap_counter() > 1) {
                     THUG2_MSVC_WARNING(suppress : 4996)

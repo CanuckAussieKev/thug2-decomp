@@ -524,10 +524,10 @@ void AudioMixer::set_pitch(float pitch, int /*unused1*/, int /*unused2*/)
 }
 
 // 0x0047B6B0
-void AudioMixer::print_sounds(int a, int b, int c)
+void AudioMixer::print_sounds(int a, int b, int value)
 {
     if (!no_sound()) {
-        print_sound_debug(a, b, c);
+        print_sound_debug(a, b, value);
     }
 }
 

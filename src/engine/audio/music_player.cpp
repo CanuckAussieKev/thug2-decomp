@@ -130,9 +130,9 @@ uint32_t& user_position() { return music_api_state().user_position(); }
 bool shuffle_user() { return music_state().shuffle_user(); }
 
 // 1 << n as the C runtime's 64-bit shift (__allshl) does it: by n's low byte, 0 from 64 up.
-uint64_t get_bit(int n)
+uint64_t get_bit(int bit)
 {
-    auto shift = static_cast<uint8_t>(n);
+    auto shift = static_cast<uint8_t>(bit);
     return shift >= kTracksPerMask ? 0 : uint64_t{1} << shift;
 }
 bool is_off(const Playlist& list, int track)
@@ -253,9 +253,9 @@ void queue_track(const char* name, int list, const char* title)
     text::copy_into(slot_text, name); // (the slot is 40 bytes; names are shorter)
     const char* track = slot_text.data();
     for (size_t i = 0; i < std::strlen(track); ++i) {
-        auto c = static_cast<signed char>(core::at(slot_text, i));
-        if (c >= 'a' && c <= 'z') {
-            core::at(slot_text, i) = static_cast<char>(c - kCaseOffset);
+        auto character = static_cast<signed char>(core::at(slot_text, i));
+        if (character >= 'a' && character <= 'z') {
+            core::at(slot_text, i) = static_cast<char>(character - kCaseOffset);
         }
     }
     if (list == 0) {
@@ -450,13 +450,13 @@ void play_track(const char* name, bool loop)
 // PartyMod's our_random, at the shuffle's two draws (0x004523A7 / 0x004523B4). It keeps drawing the
 // game's number so the game's random stream advances as before. (rand() % 0 would divide by zero; the game's
 // Rnd(0) is 0, so that's kept for an empty order.)
-int shuffle_random(int n)
+int shuffle_random(int count)
 {
-    const int game = maths::rnd(n);
-    if (n == 0) {
+    const int game = maths::rnd(count);
+    if (count == 0) {
         return game;
     }
-    return std::rand() % n;
+    return std::rand() % count;
 }
 
 // 0x00452200
@@ -504,12 +504,12 @@ void play_next_track()
         // 2000 swaps of two random places. PartyMod draws them with shuffle_random; the original with
         // maths::Rnd(order_count()).
         for (int i = 0; i < kShuffleAttempts; ++i) {
-            const int a = shuffle_random(order_count());
-            const int b = shuffle_random(order_count());
-            if (a != b) {
-                const int swap = core::at(get_order(), a);
-                core::at(get_order(), a) = core::at(get_order(), b);
-                core::at(get_order(), b) = swap;
+            const int first = shuffle_random(order_count());
+            const int second = shuffle_random(order_count());
+            if (first != second) {
+                const int swap = core::at(get_order(), first);
+                core::at(get_order(), first) = core::at(get_order(), second);
+                core::at(get_order(), second) = swap;
             }
         }
         // Not the last one again first: swap it with another place (this draw is the game's, under PartyMod too).
@@ -687,11 +687,11 @@ void shuffle_user_soundtrack()
         core::at(user_order(), i) = i;
     }
     for (int i = 0; i < kShuffleAttempts; ++i) {
-        const int a = maths::rnd(count);
-        const int b = maths::rnd(count);
-        const int swap = core::at(user_order(), a);
-        core::at(user_order(), a) = core::at(user_order(), b);
-        core::at(user_order(), b) = swap;
+        const int first = maths::rnd(count);
+        const int second = maths::rnd(count);
+        const int swap = core::at(user_order(), first);
+        core::at(user_order(), first) = core::at(user_order(), second);
+        core::at(user_order(), second) = swap;
     }
     if (core::at(user_order(), 0) == last) {
         const int other = count > 1 ? maths::rnd(count - 1) + 1 : 0;
@@ -748,8 +748,8 @@ const char* get_soundtrack_name(int index)
     }
     const int length = static_cast<int>(std::strlen(name.data()));
     for (int i = 0; i < length; ++i) {
-        auto c = static_cast<signed char>(core::at(name, i));
-        if (c >= static_cast<signed char>(kLatinSymbolFirst) && c <= static_cast<signed char>(kLatinSymbolLast)) {
+        auto character = static_cast<signed char>(core::at(name, i));
+        if (character >= static_cast<signed char>(kLatinSymbolFirst) && character <= static_cast<signed char>(kLatinSymbolLast)) {
             core::at(name, i) = '~';
         }
     }

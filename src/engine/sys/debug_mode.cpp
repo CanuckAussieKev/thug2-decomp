@@ -127,7 +127,7 @@ void tick_frame(modules::FrontEnd* front_end)
     static Key f11{.code = SDL_SCANCODE_F11, .was_down_ = false};
     static Key f12{.code = SDL_SCANCODE_F12, .was_down_ = false};
     static Key tab{.code = SDL_SCANCODE_TAB, .was_down_ = false};
-    static Key t{.code = SDL_SCANCODE_T, .was_down_ = false};
+    static Key t_key{.code = SDL_SCANCODE_T, .was_down_ = false};
     static Key home{.code = SDL_SCANCODE_HOME, .was_down_ = false};
     // (every key's state noted each frame, so a press counts once wherever it happened)
     const bool pressed_f9 = squeezed(f9, keys);
@@ -135,7 +135,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed_f11 = squeezed(f11, keys);
     const bool pressed_f12 = squeezed(f12, keys);
     const bool pressed_tab = squeezed(tab, keys);
-    const bool pressed_t = squeezed(t, keys);
+    const bool pressed_t = squeezed(t_key, keys);
     const bool pressed_home = squeezed(home, keys);
     if (frontend::level_editor::live_now() || (front_end && front_end->is_halted()) || render::current_level() == 0) {
         return;

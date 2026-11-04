@@ -231,7 +231,7 @@ public:
     // 0x0047B650: the sfx pitch (0x0067DA3C; 1 % or less: 0.01).
     static void set_pitch(float pitch, int unused1, int unused2);
     // 0x0047B6B0: (debug output, compiled out).
-    static void print_sounds(int a, int b, int c);
+    static void print_sounds(int a, int b, int value);
     // 0x0047B6F0: whether the sound `uniqueId` is playing (its slot in `index`, if given).
     static bool is_sound_playing(uint32_t unique_id, int* index);
     // 0x0047B760: the sound's dropoff distance (the default if it has none or isn't loaded).

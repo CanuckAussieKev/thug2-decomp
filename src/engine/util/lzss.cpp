@@ -93,102 +93,102 @@ void reset_match_tree()
 
 // 0x00401290
 // Insert the string at window position r into the tree, and record the longest match found on the way.
-void add_match_node(int r)
+void add_match_node(int position)
 {
     const std::span<const uint8_t> window = pane();
     const std::span<int> left = get_left();
     const std::span<int> right = get_right();
     const std::span<int> parent = current_parent();
-    const std::span<const uint8_t> key = window.subspan(static_cast<std::size_t>(r));
+    const std::span<const uint8_t> key = window.subspan(static_cast<std::size_t>(position));
 
     int cmp = 1;
-    int p = kN + 1 + core::at(key, 0);
-    core::at(right, r) = core::at(left, r) = kNil;
+    int node = kN + 1 + core::at(key, 0);
+    core::at(right, position) = core::at(left, position) = kNil;
     longest_run_ref() = 0;
     for (;;) {
         if (cmp >= 0) {
-            if (core::at(right, p) == kNil) {
-                core::at(right, p) = r;
-                core::at(parent, r) = p;
+            if (core::at(right, node) == kNil) {
+                core::at(right, node) = position;
+                core::at(parent, position) = node;
                 return;
             }
-            p = core::at(right, p);
+            node = core::at(right, node);
         } else {
-            if (core::at(left, p) == kNil) {
-                core::at(left, p) = r;
-                core::at(parent, r) = p;
+            if (core::at(left, node) == kNil) {
+                core::at(left, node) = position;
+                core::at(parent, position) = node;
                 return;
             }
-            p = core::at(left, p);
+            node = core::at(left, node);
         }
 
-        int i = 1;
-        for (; i < kF; ++i) {
-            cmp = core::at(key, i) - core::at(window, p + i);
+        int matched = 1;
+        for (; matched < kF; ++matched) {
+            cmp = core::at(key, matched) - core::at(window, node + matched);
             if (cmp != 0) {
                 break;
             }
         }
-        if (i > longest_run_ref()) {
-            window_match_offset() = p;
-            longest_run_ref() = i;
-            if (i >= kF) {
+        if (matched > longest_run_ref()) {
+            window_match_offset() = node;
+            longest_run_ref() = matched;
+            if (matched >= kF) {
                 break;
             }
         }
     }
 
     // A full-length match: replace node p with r.
-    core::at(parent, r) = core::at(parent, p);
-    core::at(left, r) = core::at(left, p);
-    core::at(right, r) = core::at(right, p);
-    core::at(parent, core::at(left, p)) = r;
-    core::at(parent, core::at(right, p)) = r;
-    if (core::at(right, core::at(parent, p)) == p) {
-        core::at(right, core::at(parent, p)) = r;
+    core::at(parent, position) = core::at(parent, node);
+    core::at(left, position) = core::at(left, node);
+    core::at(right, position) = core::at(right, node);
+    core::at(parent, core::at(left, node)) = position;
+    core::at(parent, core::at(right, node)) = position;
+    if (core::at(right, core::at(parent, node)) == node) {
+        core::at(right, core::at(parent, node)) = position;
     } else {
-        core::at(left, core::at(parent, p)) = r;
+        core::at(left, core::at(parent, node)) = position;
     }
-    core::at(parent, p) = kNil;
+    core::at(parent, node) = kNil;
 }
 
 // 0x004013E0
 // Remove node p from the tree.
-void unlink_list_node(int p)
+void unlink_list_node(int node)
 {
     const std::span<int> left = get_left();
     const std::span<int> right = get_right();
     const std::span<int> parent = current_parent();
-    if (core::at(parent, p) == kNil) {
+    if (core::at(parent, node) == kNil) {
         return;
     }
 
-    int q = 0;
-    if (core::at(right, p) == kNil) {
-        q = core::at(left, p);
-    } else if (core::at(left, p) == kNil) {
-        q = core::at(right, p);
+    int replacement = 0;
+    if (core::at(right, node) == kNil) {
+        replacement = core::at(left, node);
+    } else if (core::at(left, node) == kNil) {
+        replacement = core::at(right, node);
     } else {
-        q = core::at(left, p);
-        if (core::at(right, q) != kNil) {
-            for (bool again = true; again; again = core::at(right, q) != kNil) {
-                q = core::at(right, q);
+        replacement = core::at(left, node);
+        if (core::at(right, replacement) != kNil) {
+            for (bool again = true; again; again = core::at(right, replacement) != kNil) {
+                replacement = core::at(right, replacement);
             }
-            core::at(right, core::at(parent, q)) = core::at(left, q);
-            core::at(parent, core::at(left, q)) = core::at(parent, q);
-            core::at(left, q) = core::at(left, p);
-            core::at(parent, core::at(left, p)) = q;
+            core::at(right, core::at(parent, replacement)) = core::at(left, replacement);
+            core::at(parent, core::at(left, replacement)) = core::at(parent, replacement);
+            core::at(left, replacement) = core::at(left, node);
+            core::at(parent, core::at(left, node)) = replacement;
         }
-        core::at(right, q) = core::at(right, p);
-        core::at(parent, core::at(right, p)) = q;
+        core::at(right, replacement) = core::at(right, node);
+        core::at(parent, core::at(right, node)) = replacement;
     }
-    core::at(parent, q) = core::at(parent, p);
-    if (core::at(right, core::at(parent, p)) == p) {
-        core::at(right, core::at(parent, p)) = q;
+    core::at(parent, replacement) = core::at(parent, node);
+    if (core::at(right, core::at(parent, node)) == node) {
+        core::at(right, core::at(parent, node)) = replacement;
     } else {
-        core::at(left, core::at(parent, p)) = q;
+        core::at(left, core::at(parent, node)) = replacement;
     }
-    core::at(parent, p) = kNil;
+    core::at(parent, node) = kNil;
 }
 
 // 0x00401700
@@ -208,13 +208,13 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
     core::at(code, 0) = 0;
     int code_size = 1;
     uint8_t mask = 1;
-    int s = 0;
-    int r = kN - kF;
-    std::fill_n(window.begin(), r, ' ');
+    int replace_position = 0;
+    int position = kN - kF;
+    std::fill_n(window.begin(), position, ' ');
 
     int length = 0;
     for (; length < kF && size != 0; ++length, --size) {
-        core::at(window, r + length) = *in++;
+        core::at(window, position + length) = *in++;
     }
     bytes_in() = length;
     if (length == 0) {
@@ -223,16 +223,16 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
     }
 
     for (int i = 1; i <= kF; ++i) {
-        add_match_node(r - i);
+        add_match_node(position - i);
     }
-    add_match_node(r);
+    add_match_node(position);
 
     for (bool again = true; again; again = length > 0) {
         longest_run_ref() = std::min(longest_run_ref(), length);
         if (longest_run_ref() <= kLiteralRunLimit) {
             longest_run_ref() = 1;
             core::at(code, 0) |= mask;
-            core::at(code, code_size++) = core::at(window, r);
+            core::at(code, code_size++) = core::at(window, position);
         } else {
             core::at(code, code_size++) = static_cast<uint8_t>(window_match_offset());
             core::at(code, code_size++) = static_cast<uint8_t>(((window_match_offset() >> kOffsetHighNibbleShift) & kOffsetHighNibbleMask) |
@@ -251,25 +251,25 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
         }
 
         const int last_match = longest_run_ref();
-        int i = 0;
-        for (; i < last_match && size != 0; ++i, --size) {
-            const uint8_t c = *in++;
-            unlink_list_node(s);
-            core::at(window, s) = c;
-            if (s < kF - 1) {
-                core::at(window, s + kN) = c; // mirror the start so matches can run past the end
+        int matched = 0;
+        for (; matched < last_match && size != 0; ++matched, --size) {
+            const uint8_t byte = *in++;
+            unlink_list_node(replace_position);
+            core::at(window, replace_position) = byte;
+            if (replace_position < kF - 1) {
+                core::at(window, replace_position + kN) = byte; // mirror the start so matches can run past the end
             }
-            s = (s + 1) & (kN - 1);
-            r = (r + 1) & (kN - 1);
-            add_match_node(r);
+            replace_position = (replace_position + 1) & (kN - 1);
+            position = (position + 1) & (kN - 1);
+            add_match_node(position);
         }
-        bytes_in() += i;
-        for (; i < last_match; ++i) {
-            unlink_list_node(s);
-            s = (s + 1) & (kN - 1);
-            r = (r + 1) & (kN - 1);
+        bytes_in() += matched;
+        for (; matched < last_match; ++matched) {
+            unlink_list_node(replace_position);
+            replace_position = (replace_position + 1) & (kN - 1);
+            position = (position + 1) & (kN - 1);
             if (--length != 0) {
-                add_match_node(r);
+                add_match_node(position);
             }
         }
     }

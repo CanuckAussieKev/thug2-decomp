@@ -183,11 +183,11 @@ int ArchiveFile::get_take_in(void* out, unsigned int count)
 {
     FileInfo* file = open_entry_;
     auto left = static_cast<unsigned int>(file->size - file->position);
-    const unsigned int n = count <= left ? count : left;
+    const unsigned int chunk = count <= left ? count : left;
     const uint8_t* source = (file->compressed_size_ != 0) ? file->unpacked : file->data;
-    move_memory_block(out, std::span<const uint8_t>(source, static_cast<size_t>(file->size)).subspan(static_cast<size_t>(file->position)).data(), n);
-    file->position += static_cast<int>(n);
-    return static_cast<int>(n);
+    move_memory_block(out, std::span<const uint8_t>(source, static_cast<size_t>(file->size)).subspan(static_cast<size_t>(file->position)).data(), chunk);
+    file->position += static_cast<int>(chunk);
+    return static_cast<int>(chunk);
 }
 
 // 0x005B7F60
@@ -228,12 +228,12 @@ int get_language() { return game_config::get_language(); }
 // stops at the buffer's size.
 void normalise_name(std::array<char, kEntryNameSize>& out, const char* name)
 {
-    size_t i = 0;
+    size_t index = 0;
     const std::string_view text(name);
-    for (; i < text.size() && i < sizeof(out) - 1; ++i) {
-        core::at(out, i) = core::at(text, i) == '/' ? '\\' : core::at(text, i);
+    for (; index < text.size() && index < sizeof(out) - 1; ++index) {
+        core::at(out, index) = core::at(text, index) == '/' ? '\\' : core::at(text, index);
     }
-    core::at(out, i) = '\0';
+    core::at(out, index) = '\0';
 }
 
 // Calls `visit` for each loaded archive, in table order, until it returns something non-null (returned), or
@@ -532,11 +532,11 @@ bool ArchiveManager::has_finished_loading(const char* name)
 // 0x005B8DB0
 void ArchiveManager::finish_load(const file::AsyncFileHandle* handle, uint8_t* data, int size)
 {
-    int i = 0;
-    while (i < queued_archive_count_ && core::at(pending_, i).handle != handle) {
-        ++i;
+    int slot = 0;
+    while (slot < queued_archive_count_ && core::at(pending_, slot).handle != handle) {
+        ++slot;
     }
-    if (i == queued_archive_count_) {
+    if (slot == queued_archive_count_) {
         return;
     }
     void* memory = memory::alloc_zeroed(sizeof(ArchiveFile), memory::top_down_heap(), 1);
@@ -544,9 +544,9 @@ void ArchiveManager::finish_load(const file::AsyncFileHandle* handle, uint8_t* d
     ArchiveFile* pre =
         memory ? memory::construct_in<ArchiveFile>(memory, data, size > 0 ? static_cast<size_t>(size) : 0, false)
                : nullptr;
-    pres_->store_entry(checksums::hash_from_text(core::at(pending_, i).name.data()), pre);
+    pres_->store_entry(checksums::hash_from_text(core::at(pending_, slot).name.data()), pre);
     --queued_archive_count_;
-    core::at(pending_, i) = core::at(pending_, queued_archive_count_); // the last pending load takes this one's place
+    core::at(pending_, slot) = core::at(pending_, queued_archive_count_); // the last pending load takes this one's place
 }
 
 // 0x005B9570
@@ -589,8 +589,8 @@ ArchiveFile::FileInfo* unseal(OpenRequest open_request, bool count_open)
         ++hub()->open_archive()->open_count();
     }
     // Archives are read-only: any mode other than r/b gives the file up (and leaves it to FileLoad::).
-    for (const char c : std::string_view(mode)) {
-        if (c != 'r' && c != 'b') {
+    for (const char mode_char : std::string_view(mode)) {
+        if (mode_char != 'r' && mode_char != 'b') {
             ArchiveFile* pre = hub()->open_archive();
             if (pre->open_entry()->unpacked) {
                 memory::dealloc(pre->open_entry()->unpacked);

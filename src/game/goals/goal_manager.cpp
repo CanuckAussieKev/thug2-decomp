@@ -663,8 +663,8 @@ void GoalManager::spawn_objective_props()
         if (!goals_.get_by_index(i)->fetch_args()->fetch_list(kCreateGeometry, &nodes, 0)) {
             continue;
         }
-        for (uint32_t n = 0; n < nodes->extent(); ++n) {
-            commands::create_from_node_name(nodes->fetch_part(n));
+        for (uint32_t index = 0; index < nodes->extent(); ++index) {
+            commands::create_from_node_name(nodes->fetch_part(index));
         }
     }
 }

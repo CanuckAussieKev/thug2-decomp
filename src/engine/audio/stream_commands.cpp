@@ -327,9 +327,9 @@ bool add_stream(StreamLabel stream_label, void* owner)
         }
     }
     Stream& playing = core::at(get_streams(), found);
-    const int n = playing.name_count_++;
-    core::at(playing.names, n).checksum = name;
-    core::at(playing.names, n).frame_amp_ = fetch_stream_amp_curve(name);
+    const int slot = playing.name_count_++;
+    core::at(playing.names, slot).checksum = name;
+    core::at(playing.names, slot).frame_amp_ = fetch_stream_amp_curve(name);
     return true;
 }
 

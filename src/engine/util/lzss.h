@@ -21,7 +21,7 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
 
 // Encoder internals.
 void reset_match_tree();
-void add_match_node(int r);
-void unlink_list_node(int p);
+void add_match_node(int position);
+void unlink_list_node(int node);
 
 } // namespace lzss

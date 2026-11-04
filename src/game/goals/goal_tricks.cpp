@@ -150,16 +150,16 @@ bool Objective::build_trick_texts(TrickTextArrays arrays,
         } else if (!mapping->read_hash_value(combo, &trick, 0)) {
             // A special trick on these keys?
             const int specials = profile->get_max_specials();
-            int k = 0;
-            for (; k < specials; ++k) {
+            int index = 0;
+            for (; index < specials; ++index) {
                 RiderIdentity::SpecialTrick special;
-                profile->get_special_trick(&special, k);
+                profile->get_special_trick(&special, index);
                 if (special.keys() == combo) {
                     trick = special.trick();
                     break;
                 }
             }
-            if (k == specials) {
+            if (index == specials) {
                 return false;
             }
         }
