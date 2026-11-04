@@ -9,6 +9,12 @@ namespace debug {
 
 constexpr size_t kMessageSize = 1024; // the buffer a message is formatted into
 
+// NOT ORIGINAL - where output_text sends a message: the debugger output (OutputDebugString), which the platform layer
+// installs first thing in WinMain (platform::install_output_sinks; this layer sees no OS). Without one (before that,
+// and in the check tools) a message goes nowhere.
+using OutputSink = void (*)(const char* text);
+void set_output_sink(OutputSink sink);
+
 // A message to the debugger output (OutputDebugString), as it is.
 void output_text(const char* text);
 

@@ -14,6 +14,7 @@
 #include <array>
 #include <span>
 
+#include "platform/output_sinks.h"
 #include "platform/run_log.h"
 #include "engine/sys/startup_init.h"
 #include "platform/winmain.h"
@@ -41,8 +42,9 @@ void load_system_direct_input()
 // (its parameters named as the Windows SDK declares them)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine, int nShowCmd)
 {
-    // NOT ORIGINAL: thug2-decomp.log next to the exe and the crash handling (a crash logged with its call stack, never
-    // a dialog).
+    // NOT ORIGINAL: the debugger output and the run log's error lines behind the base layer's sinks; thug2-decomp.log
+    // next to the exe and the crash handling (a crash logged with its call stack, never a dialog).
+    platform::install_output_sinks();
     log_open();
     get_log("thug2-decomp standalone");
     load_system_direct_input();

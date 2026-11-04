@@ -9,14 +9,12 @@
 #include <span>
 #include <vector>
 
-#include "platform/debug_log.h"
+#include "engine/core/log_sink.h"
 #include "engine/core/checked_index.h"
 
 namespace bps {
 
 namespace {
-
-using debug_log::StageMap;
 
 constexpr size_t kByteValues = 256;                 // the values of a byte
 constexpr int kBitsInByte = 8;
@@ -127,13 +125,13 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     }
     core::at(magic, 4) = '\0';
     if (std::strcmp(magic.data(), "BPS1") != 0) {
-        debug_log::printf(StageMap::kError, "BPS magic number doesn't match expected: %s\n", magic.data());
+        core::log_error("BPS magic number doesn't match expected: %s\n", magic.data());
         return false;
     }
     auto expected_input_size = static_cast<uint32_t>(read_number(patch_bytes, &at));
     if (expected_input_size != input_size) {
-        debug_log::printf(StageMap::kError, "Patch input of unexpected size!  expected: %d actual: %d\n",
-                          expected_input_size, input_size);
+        core::log_error("Patch input of unexpected size!  expected: %d actual: %d\n", expected_input_size,
+                        input_size);
         return false;
     }
     output->assign(static_cast<size_t>(read_number(patch_bytes, &at)), 0);
@@ -176,19 +174,17 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
 
     const uint32_t input_crc = read_word(patch_bytes, &at);
     if (input_crc != crc32(input, input_size)) {
-        debug_log::printf(StageMap::kError, "INPUT CRC DID NOT MATCH: %x %x\n", input_crc, crc32(input, input_size));
+        core::log_error("INPUT CRC DID NOT MATCH: %x %x\n", input_crc, crc32(input, input_size));
     } else {
         const uint32_t output_crc = read_word(patch_bytes, &at);
         if (output_crc != crc32(out, output->size())) {
-            debug_log::printf(StageMap::kError, "OUTPUT CRC DID NOT MATCH: %x %x\n", output_crc,
-                              crc32(out, output->size()));
+            core::log_error("OUTPUT CRC DID NOT MATCH: %x %x\n", output_crc, crc32(out, output->size()));
         } else {
             const uint32_t patch_crc = read_word(patch_bytes, &at);
             if (patch_crc == crc32(patch, patch_size - 4)) {
                 return true;
             }
-            debug_log::printf(StageMap::kError, "PATCH CRC DID NOT MATCH: %x %x\n", patch_crc,
-                              crc32(patch, patch_size));
+            core::log_error("PATCH CRC DID NOT MATCH: %x %x\n", patch_crc, crc32(patch, patch_size));
         }
     }
     output->clear();

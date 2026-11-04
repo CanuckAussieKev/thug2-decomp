@@ -234,6 +234,7 @@ add_executable(thug2 WIN32
     src/engine/assets/resource_registry.cpp
     src/engine/core/arena_alloc.cpp
     src/engine/core/dbg.cpp
+    src/engine/core/log_sink.cpp
     src/engine/util/lzss.cpp
     src/engine/core/dump_text.cpp
     src/engine/core/arena.cpp
@@ -834,6 +835,7 @@ add_executable(thug2 WIN32
     src/platform/bink.cpp
     src/platform/sockets.cpp
     src/platform/debug_log.cpp
+    src/platform/output_sinks.cpp
     src/platform/pc_setup.cpp
     src/platform/sdl_events.cpp
     src/platform/sdl_window.cpp
