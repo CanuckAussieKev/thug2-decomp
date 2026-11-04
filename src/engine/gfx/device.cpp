@@ -17,6 +17,7 @@
 #include <array>
 #include <iterator>
 
+#include "gpu/d3d9_handles.h"
 #include "base/core/stubs.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/pc_gamma.h"
@@ -165,7 +166,7 @@ void init_direct_3d()
     const std::array<int, 4> heights = {{1024, 768, 600, sys::get_window_height()}};
     bool multisample = gfx.antialiasing();
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): its sample count, whatever AntiAliasing says.
-    graphics_options::choose_multisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, sys::get_windowed());
+    graphics_options::choose_multisample(d3d9::handle(d3d), D3DFMT_X8R8G8B8, D3DFMT_D24X8, sys::get_windowed());
     if (graphics_options::chosen_samples() != 0) {
         multisample = true;
     }

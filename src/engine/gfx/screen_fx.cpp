@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <array>
 
+#include "gpu/d3d9_handles.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/primitive_states.h"
 #include "engine/gfx/draw_frame.h"
@@ -76,7 +77,7 @@ void set_target(IDirect3DTexture9* texture, IDirect3DSurface9* depth)
 {
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): a full-size screen copy drawn through the
     // multisampled scene surface.
-    if (graphics_options::set_scene_target(texture)) {
+    if (graphics_options::set_scene_target(d3d9::handle(texture))) {
         return;
     }
     IDirect3DSurface9* surface = nullptr;
@@ -174,7 +175,7 @@ void begin_screen_effects()
     if (effects_state().screen_blur() > 2) { // the motion blur
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
-        if (!graphics_options::set_scene_target(current_screen_copy())) {
+        if (!graphics_options::set_scene_target(d3d9::handle(current_screen_copy()))) {
             renderer().d3d_device()->SetRenderTarget(0, surface);
             renderer().d3d_device()->SetDepthStencilSurface(renderer().z_buffer_surface());
         }
@@ -184,7 +185,7 @@ void begin_screen_effects()
         }
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
-        if (!graphics_options::set_scene_target(current_screen_copy())) {
+        if (!graphics_options::set_scene_target(d3d9::handle(current_screen_copy()))) {
             set_render_target_and_depth({.surface = surface, .depth = renderer().z_buffer_surface()});
         }
     }
@@ -204,7 +205,7 @@ void copy_screen_quarter()
     IDirect3DTexture9* source = current_screen_copy();
     IDirect3DTexture9* quarter = screen_copy(2);
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the frame so far resolved into the copy first.
-    graphics_options::resolve_scene_target(source);
+    graphics_options::resolve_scene_target(d3d9::handle(source));
     change_phase(RenderStateId::kDepthBias, 0);
     change_phase(RenderStateId::kLighting, 0);
     change_phase(RenderStateId::kZWrite, 0);

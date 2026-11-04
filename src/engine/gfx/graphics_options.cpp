@@ -1,5 +1,7 @@
 // NOT ORIGINAL - image-quality options (see graphics_options.h).
 
+#include "gpu/gpu_handles.h"
+#include "gpu/d3d9_handles.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/graphics_options.h"
 
@@ -169,8 +171,9 @@ int chosen_samples() { return graphics_options_state().samples_; }
 
 uint32_t chosen_quality() { return graphics_options_state().quality_; }
 
-void choose_multisample(IDirect3D9* d3d, uint32_t back_buffer_format, uint32_t depth_format, bool windowed)
+void choose_multisample(GpuInstance* api, uint32_t back_buffer_format, uint32_t depth_format, bool windowed)
 {
+    IDirect3D9* const d3d = d3d9::object(api);
     graphics_options_state().samples_ = 0;
     graphics_options_state().quality_ = 0;
     if ((graphics_options_state().options_.msaa == 0) || !d3d) {
@@ -215,8 +218,9 @@ void release_scene_target()
     graphics_options_state().unresolved_ = false;
 }
 
-bool set_scene_target(IDirect3DTexture9* texture)
+bool set_scene_target(GpuTexture* target)
 {
+    IDirect3DTexture9* const texture = d3d9::object(target);
     if (!in_use() || !texture || (texture != screen_copy(0) && texture != screen_copy(1))) {
         return false;
     }
@@ -227,8 +231,9 @@ bool set_scene_target(IDirect3DTexture9* texture)
     return true;
 }
 
-void resolve_scene_target(IDirect3DTexture9* texture)
+void resolve_scene_target(GpuTexture* target)
 {
+    IDirect3DTexture9* const texture = d3d9::object(target);
     if (!in_use() || !graphics_options_state().unresolved_ || texture != graphics_options_state().drawn_for_ ||
         !texture) {
         return;

@@ -2,6 +2,7 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "engine/gfx/draw_frame.h"
+#include "gpu/d3d9_handles.h"
 #include "platform/d3dx.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/pc_scene.h"
@@ -467,7 +468,7 @@ void draw_screen_blur()
     IDirect3DSurface9* surface = nullptr;
     texture->GetSurfaceLevel(0, &surface);
     // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
-    if (!graphics_options::set_scene_target(texture)) {
+    if (!graphics_options::set_scene_target(d3d9::handle(texture))) {
         set_render_target(surface);
         set_depth_stencil_surface(renderer().z_buffer_surface());
     }
@@ -486,7 +487,7 @@ void draw_screen_blur()
     // ...then `texture` onto the back buffer, cleared first to the fog colour (with fog and distance clipping
     // on) or the background colour.
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
-    graphics_options::resolve_scene_target(texture);
+    graphics_options::resolve_scene_target(d3d9::handle(texture));
     set_render_target(renderer().back_buffer());
     set_depth_stencil_surface(renderer().back_depth());
     const bool fogged = view_setup().fog_setting() && view_setup().distance_clipping();
