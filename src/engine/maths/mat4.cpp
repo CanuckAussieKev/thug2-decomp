@@ -437,25 +437,25 @@ Mat4& Mat4::square_up_axes(int axis)
     }
     const Vec4& axis_row = core::at(row, axis);
     Vec4& best_row = core::at(row, best_index);
-    Vec4& other_row = core::at(row, c_index);
+    Vec4& third_row = core::at(row, c_index);
 
     // b = c x a and c = a x b, written out in the original's operand order.
     auto rebuild_b = [&] {
-        best_row = {.x = (axis_row.z * other_row.y) - (axis_row.y * other_row.z),
-                    .y = (other_row.z * axis_row.x) - (axis_row.z * other_row.x),
-                    .z = (axis_row.y * other_row.x) - (other_row.y * axis_row.x),
+        best_row = {.x = (axis_row.z * third_row.y) - (axis_row.y * third_row.z),
+                    .y = (third_row.z * axis_row.x) - (axis_row.z * third_row.x),
+                    .z = (axis_row.y * third_row.x) - (third_row.y * axis_row.x),
                     .w = 0.0F};
         best_row.make_unit();
     };
     auto rebuild_c = [&] {
-        other_row = {.x = (best_row.z * axis_row.y) - (best_row.y * axis_row.z),
+        third_row = {.x = (best_row.z * axis_row.y) - (best_row.y * axis_row.z),
                      .y = (best_row.x * axis_row.z) - (axis_row.x * best_row.z),
                      .z = (axis_row.x * best_row.y) - (best_row.x * axis_row.y),
                      .w = 0.0F};
-        other_row.make_unit();
+        third_row.make_unit();
     };
 
-    const float c_dot_a = (other_row.x * axis_row.x) + (other_row.y * axis_row.y) + (other_row.z * axis_row.z);
+    const float c_dot_a = (third_row.x * axis_row.x) + (third_row.y * axis_row.y) + (third_row.z * axis_row.z);
     const float a_dot_b = (axis_row.x * best_row.x) + (axis_row.y * best_row.y) + (axis_row.z * best_row.z);
     if (std::fabs(c_dot_a) < std::fabs(a_dot_b)) {
         rebuild_b();

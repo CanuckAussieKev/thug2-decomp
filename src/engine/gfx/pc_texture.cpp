@@ -909,20 +909,20 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
                      static_cast<float>(core::at(source, 1)) * (1.0F / kByteMaxFloat),
                      static_cast<float>(core::at(source, 2)) * (1.0F / kByteMaxFloat)}},
                    &hsv);
-        float current_hue = core::at(hsv, 0);
-        float current_saturation = core::at(hsv, 1);
+        float pixel_hue = core::at(hsv, 0);
+        float pixel_saturation = core::at(hsv, 1);
         float v = core::at(hsv, 2);
-        const double turned = static_cast<double>(current_hue) + hue;
-        current_hue = static_cast<float>(turned);
+        const double turned = static_cast<double>(pixel_hue) + hue;
+        pixel_hue = static_cast<float>(turned);
         if (!(turned <= kHueFull)) {
-            current_hue = static_cast<float>(static_cast<double>(current_hue) - kHueFull);
+            pixel_hue = static_cast<float>(static_cast<double>(pixel_hue) - kHueFull);
         }
-        double scaled = static_cast<double>(current_saturation) * saturation;
-        current_saturation = scaled < 1.0F ? static_cast<float>(scaled) : 1.0F;
+        double scaled = static_cast<double>(pixel_saturation) * saturation;
+        pixel_saturation = scaled < 1.0F ? static_cast<float>(scaled) : 1.0F;
         scaled = static_cast<double>(v) * value;
         v = scaled < 1.0F ? static_cast<float>(scaled) : 1.0F;
         std::array<float, 3> rgb{};
-        hsv_to_rgb({{current_hue, current_saturation, v}}, &rgb);
+        hsv_to_rgb({{pixel_hue, pixel_saturation, v}}, &rgb);
         colour::Bytes pixel = colour::bytes_of(core::at(into, i));
         for (int k = 0; k < 3; ++k) {
             core::at(pixel, k) =

@@ -398,9 +398,9 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     }
     // Every player still playing has finished: game over (message 0x5A to every one).
     PlayerSearch search;
-    for (const PlayerRecord* other_player = start_roster_sweep(this, &search, false); other_player;
-         other_player = step_roster_sweep(this, &search, false)) {
-        if (!core::any(other_player->flag_bits() & PlayerFlag::kReady)) {
+    for (const PlayerRecord* roster_player = start_roster_sweep(this, &search, false); roster_player;
+         roster_player = step_roster_sweep(this, &search, false)) {
+        if (!core::any(roster_player->flag_bits() & PlayerFlag::kReady)) {
             return;
         }
     }
@@ -408,8 +408,9 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     desc.set_ident(MessageId::kGameOver);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
-    for (PlayerRecord* other_player = start_roster_sweep(this, &search, true); other_player; other_player = step_roster_sweep(this, &search, true)) {
-        host_->put_on_outbox(player_handle(other_player), &desc);
+    for (PlayerRecord* recipient = start_roster_sweep(this, &search, true); recipient;
+         recipient = step_roster_sweep(this, &search, true)) {
+        host_->put_on_outbox(player_handle(recipient), &desc);
     }
 }
 

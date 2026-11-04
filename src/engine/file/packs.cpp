@@ -334,10 +334,10 @@ void load_pre(const char* name)
     size_t data_size = 0;
     {
         util::ByteReader sizing = archive;
-        for (int count = 0; count < old_header.file_count; ++count) {
+        for (int file_index = 0; file_index < old_header.file_count; ++file_index) {
             pre_format::FileRecord record;
             if (!pre_format::read_file_record(sizing, &record)) {
-                debug::printf("%s: damaged at file %d of %d\n", path.data(), count, old_header.file_count);
+                debug::printf("%s: damaged at file %d of %d\n", path.data(), file_index, old_header.file_count);
                 break;
             }
             data_size += aligned16(static_cast<size_t>(record.size));

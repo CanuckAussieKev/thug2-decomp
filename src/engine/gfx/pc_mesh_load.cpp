@@ -285,13 +285,14 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
         if (suspect && i == kTraceVertex) {
             debug::printf("euh");
         }
-        const uint32_t normal = in.word(vertex, 0x18);
-        const uint32_t z = normal >> 22;
-        out.set_floats<3>(vertex, kOutNormalOffset,
-                          {static_cast<float>(unpack11(normal) * static_cast<double>(kUnpack11Scale)),
-                           static_cast<float>(unpack11(normal >> kBitsPer11) * static_cast<double>(kUnpack11Scale)),
-                           static_cast<float>(static_cast<int>(((z & kSignBit10) != 0U) ? z - kRange10 : z) *
-                                              static_cast<double>(kUnpackZScale))});
+        const uint32_t packed_normal = in.word(vertex, 0x18);
+        const uint32_t z = packed_normal >> 22;
+        out.set_floats<3>(
+            vertex, kOutNormalOffset,
+            {static_cast<float>(unpack11(packed_normal) * static_cast<double>(kUnpack11Scale)),
+             static_cast<float>(unpack11(packed_normal >> kBitsPer11) * static_cast<double>(kUnpack11Scale)),
+             static_cast<float>(static_cast<int>(((z & kSignBit10) != 0U) ? z - kRange10 : z) *
+                                static_cast<double>(kUnpackZScale))});
         out.set_word(vertex, kOutColourOffset, in.word(vertex, kInColourOffset)); // the colour
         for (uint32_t set = 0; set < sets; ++set) {
             out.set_floats<2>(vertex, kOutUvOffset + (kUvSetStride * set),

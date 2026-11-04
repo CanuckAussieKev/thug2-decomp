@@ -53,7 +53,7 @@ maths::Vec4* curve_extremes(maths::Vec4* destination, const maths::Vec4& start, 
     return quadratic_lowest(destination, &points);
 }
 
-float current_round(double value) { return static_cast<float>(value); }
+float round_to_float(double value) { return static_cast<float>(value); }
 
 } // namespace
 
@@ -135,54 +135,60 @@ void Sparkle::update_bounds()
     std::array<maths::Vec4, 3> hi{};
     for (int i = 0; i < 3; ++i) {
         const maths::Vec4& at = core::at(config.at_point(), i);
-        core::at(lo, i).x = current_round(
-            current_round(current_round(static_cast<double>(at.x) - core::at(core::at(hb, i), 0)) - core::at(size, i)) -
-            core::at(hr, i));
-        core::at(lo, i).y = current_round(
-            current_round(current_round(static_cast<double>(at.y) - core::at(core::at(hb, i), 1)) - core::at(size, i)) -
-            core::at(hr, i));
-        core::at(lo, i).z = current_round(
-            current_round(current_round(static_cast<double>(at.z) - core::at(core::at(hb, i), 2)) - core::at(size, i)) -
-            core::at(hr, i));
-        core::at(lo, i).w = current_round(
-            current_round(current_round(static_cast<double>(core::at(size, i)) - core::at(hr, i)) - core::at(size, i)) -
-            core::at(hr, i));
+        core::at(lo, i).x =
+            round_to_float(round_to_float(round_to_float(static_cast<double>(at.x) - core::at(core::at(hb, i), 0)) -
+                                          core::at(size, i)) -
+                           core::at(hr, i));
+        core::at(lo, i).y =
+            round_to_float(round_to_float(round_to_float(static_cast<double>(at.y) - core::at(core::at(hb, i), 1)) -
+                                          core::at(size, i)) -
+                           core::at(hr, i));
+        core::at(lo, i).z =
+            round_to_float(round_to_float(round_to_float(static_cast<double>(at.z) - core::at(core::at(hb, i), 2)) -
+                                          core::at(size, i)) -
+                           core::at(hr, i));
+        core::at(lo, i).w =
+            round_to_float(round_to_float(round_to_float(static_cast<double>(core::at(size, i)) - core::at(hr, i)) -
+                                          core::at(size, i)) -
+                           core::at(hr, i));
     }
     {
         const maths::Vec4& at = core::at(config.at_point(), 0);
-        core::at(hi, 0).x = current_round(
-            (static_cast<double>(current_round(static_cast<double>(core::at(core::at(hb, 0), 0)) + at.x)) +
+        core::at(hi, 0).x = round_to_float(
+            (static_cast<double>(round_to_float(static_cast<double>(core::at(core::at(hb, 0), 0)) + at.x)) +
              core::at(size, 0)) +
             core::at(hr, 0));
-        core::at(hi, 0).y = current_round(
+        core::at(hi, 0).y = round_to_float(
             ((static_cast<double>(at.y) + core::at(core::at(hb, 0), 1)) + core::at(size, 0)) + core::at(hr, 0));
-        core::at(hi, 0).z = current_round(
-            static_cast<double>(current_round(
+        core::at(hi, 0).z = round_to_float(
+            static_cast<double>(round_to_float(
                 core::at(size, 0) +
-                static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, 0), 2))))) +
+                static_cast<double>(round_to_float(static_cast<double>(at.z) + core::at(core::at(hb, 0), 2))))) +
             core::at(hr, 0));
-        core::at(hi, 0).w = current_round(
-            static_cast<double>(current_round(
+        core::at(hi, 0).w = round_to_float(
+            static_cast<double>(round_to_float(
                 core::at(size, 0) +
-                static_cast<double>(current_round(static_cast<double>(core::at(hr, 0)) + core::at(size, 0))))) +
+                static_cast<double>(round_to_float(static_cast<double>(core::at(hr, 0)) + core::at(size, 0))))) +
             core::at(hr, 0));
     }
     for (int i = 1; i < 3; ++i) {
         const maths::Vec4& at = core::at(config.at_point(), i);
-        core::at(hi, i).x = current_round(
-            current_round(current_round(static_cast<double>(core::at(core::at(hb, i), 0)) + at.x) + core::at(size, i)) +
-            core::at(hr, i));
-        core::at(hi, i).y = current_round(
-            current_round(current_round(static_cast<double>(at.y) + core::at(core::at(hb, i), 1)) + core::at(size, i)) +
-            core::at(hr, i));
-        core::at(hi, i).z = current_round(
+        core::at(hi, i).x =
+            round_to_float(round_to_float(round_to_float(static_cast<double>(core::at(core::at(hb, i), 0)) + at.x) +
+                                          core::at(size, i)) +
+                           core::at(hr, i));
+        core::at(hi, i).y =
+            round_to_float(round_to_float(round_to_float(static_cast<double>(at.y) + core::at(core::at(hb, i), 1)) +
+                                          core::at(size, i)) +
+                           core::at(hr, i));
+        core::at(hi, i).z = round_to_float(
             (core::at(size, i) +
-             static_cast<double>(current_round(static_cast<double>(at.z) + core::at(core::at(hb, i), 2)))) +
+             static_cast<double>(round_to_float(static_cast<double>(at.z) + core::at(core::at(hb, i), 2)))) +
             core::at(hr, i));
         core::at(hi, i).w =
-            current_round(static_cast<double>(current_round(
-                              core::at(size, i) + (static_cast<double>(core::at(hr, i)) + core::at(size, i)))) +
-                          core::at(hr, i));
+            round_to_float(static_cast<double>(round_to_float(
+                               core::at(size, i) + (static_cast<double>(core::at(hr, i)) + core::at(size, i)))) +
+                           core::at(hr, i));
     }
     maths::Vec4 low{};
     maths::Vec4 high{};
@@ -191,7 +197,7 @@ void Sparkle::update_bounds()
     high = *max_of(&core::at(hi, 0), &core::at(hi, 2), &curve);
     if (config.use_mid()) { // (the paths go through the mid: their extremes on the way)
         const float life = config.lifetime();
-        const float mid_time = current_round(static_cast<double>(life) * config.mid_percent() * 0.01F);
+        const float mid_time = round_to_float(static_cast<double>(life) * config.mid_percent() * 0.01F);
         maths::Vec4 extreme{};
         curve_extremes(&extreme, core::at(lo, 0), core::at(lo, 1), core::at(lo, 2), mid_time, life);
         low = *min_of(&low, &extreme, &curve);
@@ -201,15 +207,15 @@ void Sparkle::update_bounds()
     extent_box_.min = low;
     extent_box_.max = high;
     // the sphere about the box
-    const float half_x = current_round((static_cast<double>(high.x) - low.x) * 0.5F);
+    const float half_x = round_to_float((static_cast<double>(high.x) - low.x) * 0.5F);
     const double half_y = (static_cast<double>(high.y) - low.y) * 0.5F;
-    const double half_z = static_cast<double>(current_round(static_cast<double>(high.z) - low.z)) * 0.5F;
+    const double half_z = static_cast<double>(round_to_float(static_cast<double>(high.z) - low.z)) * 0.5F;
     bound_ball_.w = low.w; // (overwritten below, as the original)
-    bound_ball_.z = current_round(half_z + low.z);
-    bound_ball_.x = current_round(static_cast<double>(half_x) + low.x);
-    bound_ball_.y = current_round(half_y + low.y);
+    bound_ball_.z = round_to_float(half_z + low.z);
+    bound_ball_.x = round_to_float(static_cast<double>(half_x) + low.x);
+    bound_ball_.y = round_to_float(half_y + low.y);
     bound_ball_.w =
-        current_round(std::sqrt(((static_cast<double>(half_x) * half_x) + (half_z * half_z)) + (half_y * half_y)));
+        round_to_float(std::sqrt(((static_cast<double>(half_x) * half_x) + (half_z * half_z)) + (half_y * half_y)));
 }
 
 // 0x00496030

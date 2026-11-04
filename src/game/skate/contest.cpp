@@ -76,7 +76,7 @@ constexpr float kScoreSpread = 1.9F;                    // (0x3FF33333, pushed a
 // The x87 code's conversions: truncation toward zero (_ftol).
 int truncate(double value) { return static_cast<int>(value); }
 // A score rounded to the nearest (the original adds 0.499999 and truncates).
-int current_round(float value) { return truncate(static_cast<double>(value) + nearly_half()); }
+int nearest_int(float value) { return truncate(static_cast<double>(value) + nearly_half()); }
 
 // The profile manager's template at `index` (0x00557FB0) and its count (0x00469490: the table's).
 objects::RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
@@ -313,8 +313,8 @@ void Contest::kickoff(const ContestTargets& targets)
         for (int& score : leader.scores) {
             score = truncate(maths::plus_or_minus_exact(kScoreSpread) + base + nearly_half());
         }
-        core::at(leader.scores, first) = current_round(high);
-        core::at(leader.scores, second) = current_round(mirrored);
+        core::at(leader.scores, first) = nearest_int(high);
+        core::at(leader.scores, second) = nearest_int(mirrored);
     }
 
     debug::printf("\n\n");
@@ -515,7 +515,7 @@ void Contest::end_run(int score)
     debug::printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
         gsl::owner<script::Struct*> entry = script::new_struct();
-        entry->put_int("score", current_round(core::at(judges, i))); // "score"
+        entry->put_int("score", nearest_int(core::at(judges, i))); // "score"
         if (is_leading_scorer(i)) {
             entry->put_name_key(checksums::Name{kNoName}, kTopJudge);
         }
@@ -523,7 +523,7 @@ void Contest::end_run(int score)
         debug::printf("%d: %f Top=%d\n", i, static_cast<double>(core::at(judges, i)), static_cast<int>(is_leading_scorer(i)));
     }
     params->append_array_value("scores", scores.get());                  // "scores"
-    params->put_int("total_score", current_round(path_vertices_)); // "total_score"
+    params->put_int("total_score", nearest_int(path_vertices_));         // "total_score"
     scores.reset();
     script::spawn_script("goal_comp_show_run_scores", params.get()); // goal_comp_show_run_scores
 }

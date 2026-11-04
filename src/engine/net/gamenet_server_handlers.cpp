@@ -417,10 +417,10 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         desc.set_ident(MessageId::kFlagReturned);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(MessageGroup::kGame);
-        for (PlayerRecord* other_player = start_roster_sweep(manager, &search, true); other_player;
-             other_player = step_roster_sweep(manager, &search, true)) {
-            if (!is_own_player(other_player)) {
-                context->receiver_app()->put_on_outbox(player_handle(other_player), &desc);
+        for (PlayerRecord* recipient = start_roster_sweep(manager, &search, true); recipient;
+             recipient = step_roster_sweep(manager, &search, true)) {
+            if (!is_own_player(recipient)) {
+                context->receiver_app()->put_on_outbox(player_handle(recipient), &desc);
             }
         }
         return kContinue;
@@ -442,9 +442,9 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     desc.set_ident(MessageId::kCrownSpawn);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
-    for (PlayerRecord* other_player = start_roster_sweep(manager, &search, true); other_player;
-         other_player = step_roster_sweep(manager, &search, true)) {
-        context->receiver_app()->put_on_outbox(player_handle(other_player), &desc);
+    for (PlayerRecord* recipient = start_roster_sweep(manager, &search, true); recipient;
+         recipient = step_roster_sweep(manager, &search, true)) {
+        context->receiver_app()->put_on_outbox(player_handle(recipient), &desc);
     }
     return kContinue;
 }
