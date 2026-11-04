@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "engine/script/param_struct.h"
+#include <gsl/pointers>
 #include "engine/sys/game_clock.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/car_physics.h"
@@ -58,6 +59,9 @@ void WaitAndDieComponent::tick_frame()
         die(entity());
     }
 }
+
+// 0x0043D930
+gsl::owner<ObjectModule*> create_wait_and_die_component() { return new WaitAndDieComponent; }
 
 } // namespace objects
 

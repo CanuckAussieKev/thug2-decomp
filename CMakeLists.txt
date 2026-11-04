@@ -948,6 +948,7 @@ add_executable(thug2 WIN32
     src/engine/script/cfuncs_scene.cpp
     src/engine/gfx/lens_flare.cpp
     src/engine/objects/walk_hang.cpp
+    src/engine/objects/walk_lerp.cpp
     src/engine/script/cfuncs_render.cpp
     src/engine/script/cfuncs_polys.cpp
     src/engine/script/cfuncs_memory.cpp

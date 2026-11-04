@@ -19,7 +19,7 @@
 #include "base/maths/maths.h"
 #include "base/maths/vec4.h"
 #include "formats/byte_stream.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include <gsl/assert>

@@ -81,7 +81,7 @@
 #include "game/rider/walk_physics.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/vehicle_wheel.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/wait_and_die.h"
 #include "engine/objects/compositemgr.h"
 namespace objects {
 

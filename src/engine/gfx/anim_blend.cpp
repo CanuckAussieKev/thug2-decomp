@@ -13,7 +13,7 @@
 #include "engine/gfx/anim_controller.h"
 #include "base/maths/quat_rotation.h"
 #include "base/maths/vec4.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "base/core/checked_index.h"

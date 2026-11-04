@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include <gsl/pointers>
 
 namespace script {
 class Struct;
@@ -15,7 +16,7 @@ class Struct;
 //
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data; the empty 0x005480A0 for Finalize, 0x004E3F90, 0x0048DCD0, the
 // base's Suspend, 11 0x0045D720, 12 invoke_method_by_name 0x0051ADC0 (not mine). (Create, 0x0043D930, is outside this
-// file's range: see component_types.cpp.)
+// file's range in the original: create_wait_and_die_component, below.)
 namespace objects {
 
 class WaitAndDieComponent final : public ObjectModule {
@@ -45,5 +46,9 @@ private:
     uint32_t lifespan_{}; // +0x20 ms
     uint32_t wait_for_{}; // +0x24 the id of the object to wait for (0: none)
 };
+
+// 0x0043D930: a component of type 0x03AC8065 (WaitAndDie): the base component made (0x28 bytes, cleared), its vtable
+// 0x00646898 and its type. (In the original it sits in the walk component's code, game/rider/walk_hang.cpp.)
+gsl::owner<ObjectModule*> create_wait_and_die_component();
 
 } // namespace objects

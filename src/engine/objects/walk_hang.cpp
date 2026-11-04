@@ -2,6 +2,7 @@
 // original's x87 code: values it keeps on the x87 stack are doubles here, values it stores are floats.
 
 #include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 
 #include <algorithm>
 #include <array>
@@ -309,23 +310,6 @@ constexpr double kSixtyDegrees = 1.0471975511965976;
 } // namespace
 
 // --- small helpers ---
-
-// 0x0043D990
-maths::Vec4* walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float blend)
-{
-    const double dx = static_cast<double>(b->x) - a->x;
-    const double dy = static_cast<double>(b->y) - a->y;
-    auto dz = static_cast<float>(static_cast<double>(b->z) - a->z);
-    auto dw = static_cast<float>(static_cast<double>(b->w) - a->w);
-    auto sx = static_cast<float>(dx * blend);
-    auto sz = static_cast<float>(static_cast<double>(dz) * blend);
-    auto sw = static_cast<float>(static_cast<double>(dw) * blend);
-    out->w = static_cast<float>(static_cast<double>(sw) + a->w);
-    out->x = static_cast<float>(static_cast<double>(sx) + a->x);
-    out->y = static_cast<float>((dy * blend) + a->y);
-    out->z = static_cast<float>(static_cast<double>(sz) + a->z);
-    return out;
-}
 
 // 0x0043DA20
 int walk::turned_round(const objects::PadSnapshot* pad)
@@ -1685,10 +1669,3 @@ void objects::MovingSurfaceModule::ride_on(GameEntity* object)
         ride_ = memory::take_unique<RideTracker, memory::HeapDestroy>(memory::construct_in<RideTracker>(memory, object));
     }
 }
-
-namespace objects {
-
-// 0x0043D930
-gsl::owner<ObjectModule*> create_wait_and_die_component() { return new WaitAndDieComponent; }
-
-} // namespace objects

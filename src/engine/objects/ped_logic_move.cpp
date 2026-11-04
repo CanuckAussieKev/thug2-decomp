@@ -25,7 +25,7 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/path_manager.h"
 #include "engine/objects/ped_logic.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"

@@ -14,7 +14,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 #include "game/rider/walk_fields.h"
 #include "game/rider/walk_physics.h"
 #include "base/maths/trig.h"

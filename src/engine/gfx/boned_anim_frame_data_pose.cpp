@@ -14,7 +14,7 @@
 #include "base/maths/vec4.h"
 #include "formats/anim_format.h"
 #include "formats/byte_stream.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 #include "engine/sys/stopwatch.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"

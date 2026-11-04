@@ -10,7 +10,7 @@
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/core_physics_fields.h"

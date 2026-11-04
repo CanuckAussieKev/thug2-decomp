@@ -47,7 +47,7 @@
 #include "engine/objects/shadow_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/vibration_component.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 #include "engine/sound/sfx.h"
 #include "game/skate/career.h"
 #include "game/rider/core_physics.h"

@@ -26,7 +26,7 @@
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/walk_hang.h"
+#include "engine/objects/walk_lerp.h"
 #include "engine/objects/ride_tracker.h"
 #include "engine/objects/smtptr.h"
 #include "engine/script/param_struct.h"
