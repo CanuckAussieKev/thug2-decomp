@@ -137,11 +137,11 @@ public:
 };
 
 // Fill `m` with a rotation of `angle` radians about `axis` (normalised internally; a zero axis is used as is).
-Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle);
+Mat4& build_axis_angle_matrix(Mat4& matrix, const Vec4& axis, float angle);
 
 // Signed angle (radians) from row `ref_axis` of `m` to `v`, measured in the plane whose normal is row
 // `normal_axis`. 0 if `v` has (almost) nothing in that plane.
-float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_axis);
+float get_angle_in_plane(const Mat4& matrix, const Vec4& v, int ref_axis, int normal_axis);
 // An axis (0 x, 1 y, 2 z) and an angle about it.
 struct AxisAngle {
     int axis{};
@@ -149,11 +149,11 @@ struct AxisAngle {
 };
 
 // The same about coordinate axis 0, 1 or 2 (x, y, z), matching CreateRotateX/Y/ZMatrix.
-Mat4& build_axis_angle_matrix(Mat4& m, AxisAngle axis_angle);
+Mat4& build_axis_angle_matrix(Mat4& matrix, AxisAngle axis_angle);
 
 // View matrix looking from `eye` towards `target`. Columns are right = forward x up, up' = right x forward and
 // forward; only forward is normalised (as in the original).
-Mat4& create_look_at_matrix(Mat4& m, const Vec4& eye, const Vec4& target, const Vec4& up);
+Mat4& create_look_at_matrix(Mat4& matrix, const Vec4& eye, const Vec4& target, const Vec4& up);
 // An orthographic view: its width, height and depths (near, far).
 struct Orthographic {
     float width{};
@@ -163,7 +163,7 @@ struct Orthographic {
 };
 
 // Orthographic projection: x scaled by 2/width, y by 2/height, z mapped from [near_depth, far_depth] to [-1, 1].
-Mat4& create_orthographic_matrix(Mat4& m, Orthographic view);
+Mat4& create_orthographic_matrix(Mat4& matrix, Orthographic view);
 // A perspective view: its field of view, aspect and depths (near, far).
 struct Perspective {
     float fov{};
@@ -173,17 +173,17 @@ struct Perspective {
 };
 
 // Perspective projection. `fov` is in radians; x is scaled by aspect * cot(fov / 2) and y by cot(fov / 2).
-Mat4& create_perspective_matrix(Mat4& m, Perspective view);
+Mat4& create_perspective_matrix(Mat4& matrix, Perspective view);
 
 // The row vector `v` (all four components) times `m`.
-Vec4 operator*(const Vec4& v, const Mat4& m);
+Vec4 operator*(const Vec4& v, const Mat4& matrix);
 
 // Standard row-vector matrix product a * b (the same as D3DXMatrixMultiply). `out` may alias a or b.
 Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b);
 
 // Fill `m` with a rotation of `angle` radians about one axis and return it.
-Mat4& make_pitch_matrix(Mat4& m, float angle);
-Mat4& make_yaw_matrix(Mat4& m, float angle);
-Mat4& make_roll_matrix(Mat4& m, float angle);
+Mat4& make_pitch_matrix(Mat4& matrix, float angle);
+Mat4& make_yaw_matrix(Mat4& matrix, float angle);
+Mat4& make_roll_matrix(Mat4& matrix, float angle);
 
 } // namespace maths

@@ -23,7 +23,7 @@ public:
     // The orientation a fraction `t` of the way from start to end (t <= 0 gives start; t >= 1, or NaN, gives
     // end). Small rotations blend the rows linearly and renormalise; others rotate start by t * angle about the
     // axis. The translation row is always blended linearly.
-    void fetch_mat(Mat4& out, float t) const;
+    void fetch_mat(Mat4& out, float blend) const;
 
     // The rotation's angle (radians, 0..pi).
     [[nodiscard]] float angle() const { return angle_; }

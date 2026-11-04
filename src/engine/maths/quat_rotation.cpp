@@ -16,7 +16,7 @@ namespace {
 constexpr double kHalfAngleScale = 0.5; // the quaternion's components are half-angle values
 
 // The matrix's element at row `r`, column `c`.
-double get_at(const Mat4& m, int r, int c) { return core::at(m.row, r)[c]; }
+double get_at(const Mat4& matrix, int row_index, int column) { return core::at(matrix.row, row_index)[column]; }
 
 } // namespace
 
@@ -29,25 +29,25 @@ QuatRotation* QuatRotation::init_from_axis_angle(const Vec4& axis, float angle)
     auto length = static_cast<float>(std::sqrt((ax * ax) + (ay * ay) + (az * az)));
     const double half = static_cast<double>(angle) * 0.5;
     const double inverse = length > 0.0F ? 1.0 / length : 0.0;
-    auto s = static_cast<float>(std::sin(half) * inverse);
-    z = s * axis.z;
-    y = s * axis.y;
-    x = s * axis.x;
+    auto sin_half = static_cast<float>(std::sin(half) * inverse);
+    z = sin_half * axis.z;
+    y = sin_half * axis.y;
+    x = sin_half * axis.x;
     w = static_cast<float>(std::cos(half));
     return this;
 }
 
 // 0x00420140
-QuatRotation& QuatRotation::operator*=(const QuatRotation& q)
+QuatRotation& QuatRotation::operator*=(const QuatRotation& other)
 {
     const double ax = x;
     const double ay = y;
     const double az = z;
     const double aw = w;
-    const double bx = q.x;
-    const double by = q.y;
-    const double bz = q.z;
-    const double bw = q.w;
+    const double bx = other.x;
+    const double by = other.y;
+    const double bz = other.z;
+    const double bw = other.w;
     const double cross0 = (bz * ay) - (by * az);
     auto cross1 = static_cast<float>((az * bx) - (bz * ax));
     auto cross2 = static_cast<float>((by * ax) - (bx * ay));
@@ -76,22 +76,22 @@ Vec4* QuatRotation::spin_by(Vec4* out, const Vec4& v) const
 // 0x00420A50
 Vec4& Vec4::rotate_about_x(float angle)
 {
-    const double s = std::sin(static_cast<double>(angle));
-    const double c = std::cos(static_cast<double>(angle));
+    const double sine = std::sin(static_cast<double>(angle));
+    const double cosine = std::cos(static_cast<double>(angle));
     const double old_y = y;
-    y = static_cast<float>((c * y) - (s * z));
-    z = static_cast<float>((c * z) + (old_y * s));
+    y = static_cast<float>((cosine * y) - (sine * z));
+    z = static_cast<float>((cosine * z) + (old_y * sine));
     return *this;
 }
 
 // 0x00420A90
 Vec4& Vec4::rotate_about_y(float angle)
 {
-    const double s = std::sin(static_cast<double>(angle));
-    const double c = std::cos(static_cast<double>(angle));
+    const double sine = std::sin(static_cast<double>(angle));
+    const double cosine = std::cos(static_cast<double>(angle));
     const double old_x = x;
-    x = static_cast<float>((s * z) + (c * x));
-    z = static_cast<float>(-(old_x * s) + (c * z));
+    x = static_cast<float>((sine * z) + (cosine * x));
+    z = static_cast<float>(-(old_x * sine) + (cosine * z));
     return *this;
 }
 
@@ -106,32 +106,36 @@ Vec4& Vec4::rotate_about_axis(const Vec4& axis, float angle)
 }
 
 // 0x0042E1F0 (the x87 sums in double; the first branch's 0.5 / s is stored as a float, the second's isn't)
-QuatRotation* QuatRotation::from_matrix(const Mat4& m)
+QuatRotation* QuatRotation::from_matrix(const Mat4& matrix)
 {
-    const double trace = (get_at(m, 1, 1) + get_at(m, 0, 0)) + get_at(m, 2, 2);
+    const double trace = (get_at(matrix, 1, 1) + get_at(matrix, 0, 0)) + get_at(matrix, 2, 2);
     if (trace > 0.0) {
-        const double s = std::sqrt(trace + 1.0);
-        w = static_cast<float>(kHalfAngleScale * s);
-        const auto f = static_cast<float>(0.5 / s);
-        x = static_cast<float>((get_at(m, 2, 1) - get_at(m, 1, 2)) * f);
-        y = static_cast<float>((get_at(m, 0, 2) - get_at(m, 2, 0)) * f);
-        z = static_cast<float>((get_at(m, 1, 0) - get_at(m, 0, 1)) * f);
+        const double root = std::sqrt(trace + 1.0);
+        w = static_cast<float>(kHalfAngleScale * root);
+        const auto factor = static_cast<float>(0.5 / root);
+        x = static_cast<float>((get_at(matrix, 2, 1) - get_at(matrix, 1, 2)) * factor);
+        y = static_cast<float>((get_at(matrix, 0, 2) - get_at(matrix, 2, 0)) * factor);
+        z = static_cast<float>((get_at(matrix, 1, 0) - get_at(matrix, 0, 1)) * factor);
         return this;
     }
     // From the largest diagonal element.
-    int i = get_at(m, 1, 1) > get_at(m, 0, 0) ? 1 : 0;
-    if (get_at(m, 2, 2) > get_at(m, i, i)) {
-        i = 2;
+    int largest = get_at(matrix, 1, 1) > get_at(matrix, 0, 0) ? 1 : 0;
+    if (get_at(matrix, 2, 2) > get_at(matrix, largest, largest)) {
+        largest = 2;
     }
-    const int j = (i + 1) % 3;
-    const int k = (j + 1) % 3;
-    const double s = std::sqrt((get_at(m, i, i) - (get_at(m, k, k) + get_at(m, j, j))) + 1.0);
-    const std::array<float*, 3> q = {{&x, &y, &z}};
-    *core::at(q, i) = static_cast<float>(kHalfAngleScale * s);
-    const double f = 0.5 / s;
-    *core::at(q, j) = static_cast<float>((get_at(m, j, i) + get_at(m, i, j)) * f);
-    *core::at(q, k) = static_cast<float>((get_at(m, k, i) + get_at(m, i, k)) * f);
-    w = static_cast<float>((get_at(m, k, j) - get_at(m, j, k)) * f);
+    const int next = (largest + 1) % 3;
+    const int after_next = (next + 1) % 3;
+    const double root = std::sqrt(
+        (get_at(matrix, largest, largest) - (get_at(matrix, after_next, after_next) + get_at(matrix, next, next))) +
+        1.0);
+    const std::array<float*, 3> components = {{&x, &y, &z}};
+    *core::at(components, largest) = static_cast<float>(kHalfAngleScale * root);
+    const double factor = 0.5 / root;
+    *core::at(components, next) =
+        static_cast<float>((get_at(matrix, next, largest) + get_at(matrix, largest, next)) * factor);
+    *core::at(components, after_next) =
+        static_cast<float>((get_at(matrix, after_next, largest) + get_at(matrix, largest, after_next)) * factor);
+    w = static_cast<float>((get_at(matrix, after_next, next) - get_at(matrix, next, after_next)) * factor);
     return this;
 }
 

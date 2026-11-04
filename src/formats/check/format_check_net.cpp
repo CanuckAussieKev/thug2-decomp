@@ -205,58 +205,62 @@ void check_skater_messages()
 {
     {
         const ReferencePlayAnim ref = {.loop_type = 2, .object = 5, .anim = 0xA1B2C3D4, .times = {-4096, 8192, 1229, 4096}};
-        online::PlayAnimMessage m;
-        m.loop_type = 2;
-        m.object_id = kPlayAnimObjectIdSample;
-        m.anim = kPlayAnimAnimSample;
-        m.from = static_cast<uint16_t>(-kPlayAnimFromSample);
-        m.to = kPlayAnimToSample;
-        m.blend_period = kPlayAnimBlendPeriodSample;
-        m.speed = kPlayAnimSpeedSample;
-        check_message("play anim 0x29", m, ref, online::write_play_anim, online::read_play_anim);
+        online::PlayAnimMessage message;
+        message.loop_type = 2;
+        message.object_id = kPlayAnimObjectIdSample;
+        message.anim = kPlayAnimAnimSample;
+        message.from = static_cast<uint16_t>(-kPlayAnimFromSample);
+        message.to = kPlayAnimToSample;
+        message.blend_period = kPlayAnimBlendPeriodSample;
+        message.speed = kPlayAnimSpeedSample;
+        check_message("play anim 0x29", message, ref, online::write_play_anim, online::read_play_anim);
     }
     {
         const std::array<uint8_t, 2> ref = {{3, 0xFE}};
-        online::PairMessage m;
-        m.first = 3;
-        m.second = kPairSecondSample;
-        check_message("pair 0x2A-0x3D", m, ref, online::write_pair, online::read_pair);
+        online::PairMessage message;
+        message.first = 3;
+        message.second = kPairSecondSample;
+        check_message("pair 0x2A-0x3D", message, ref, online::write_pair, online::read_pair);
     }
     {
         const ReferenceHideGeom ref = {.name = 0x12345678, .object = 7, .hide = 1, .pad = {}};
-        online::HideGeomMessage m;
-        m.name = kHideGeomNameSample;
-        m.object_id = kHideGeomObjectIdSample;
-        m.hide = true;
-        check_message("hide geom 0x3E", m, ref, online::write_hide_geom, online::read_hide_geom, kHideGeomMinBytes);
+        online::HideGeomMessage message;
+        message.name = kHideGeomNameSample;
+        message.object_id = kHideGeomObjectIdSample;
+        message.hide = true;
+        check_message("hide geom 0x3E", message, ref, online::write_hide_geom, online::read_hide_geom,
+                      kHideGeomMinBytes);
     }
     {
         ReferenceAnimSpeed ref = {.speed = kAnimSpeedSample, .object = 4, .pad = {}};
-        online::AnimSpeedMessage m;
-        std::memcpy(&m.speed_bits, &ref.speed, 4);
-        m.object_id = 4;
-        check_message("anim speed 0x41", m, ref, online::write_anim_speed, online::read_anim_speed, kAnimSpeedMinBytes);
+        online::AnimSpeedMessage message;
+        std::memcpy(&message.speed_bits, &ref.speed, 4);
+        message.object_id = 4;
+        check_message("anim speed 0x41", message, ref, online::write_anim_speed, online::read_anim_speed,
+                      kAnimSpeedMinBytes);
     }
     {
         const ReferenceSpinModel ref = {.period = 1500, .power = 2, .start = -90, .range = 360, .object = 1, .hold = 1, .axes = 5, .pad = 0};
-        online::SpinModelMessage m;
-        m.period = kSpinModelPeriodSample;
-        m.power = 2;
-        m.start = -kSpinModelStartSample;
-        m.range = kSpinModelRangeSample;
-        m.object_id = 1;
-        m.hold = 1;
-        m.axes = kSpinModelAxesSample;
-        check_message("spin model 0x76", m, ref, online::write_spin_model, online::read_spin_model, kSpinModelMinBytes);
+        online::SpinModelMessage message;
+        message.period = kSpinModelPeriodSample;
+        message.power = 2;
+        message.start = -kSpinModelStartSample;
+        message.range = kSpinModelRangeSample;
+        message.object_id = 1;
+        message.hold = 1;
+        message.axes = kSpinModelAxesSample;
+        check_message("spin model 0x76", message, ref, online::write_spin_model, online::read_spin_model,
+                      kSpinModelMinBytes);
     }
     {
         const ReferenceSpecialItem ref = {.params = 0xCAFEBABE, .bone = 0x0BADF00D, .object = 6, .slot = 0xFF, .pad = {}};
-        online::SpecialItemMessage m;
-        m.params = kSpecialItemParamsSample;
-        m.bone = kSpecialItemBoneSample;
-        m.object_id = kSpecialItemObjectIdSample;
-        m.slot = -1;
-        check_message("special item 0x77 / 0x78", m, ref, online::write_special_item, online::read_special_item, kSpecialItemMinBytes);
+        online::SpecialItemMessage message;
+        message.params = kSpecialItemParamsSample;
+        message.bone = kSpecialItemBoneSample;
+        message.object_id = kSpecialItemObjectIdSample;
+        message.slot = -1;
+        check_message("special item 0x77 / 0x78", message, ref, online::write_special_item, online::read_special_item,
+                      kSpecialItemMinBytes);
     }
 }
 
@@ -439,11 +443,11 @@ void check_play_messages()
 {
     {
         ReferenceHuntPlacements ref = {.id = 3, .pad = {}, .count = 2, .positions = {{{{1, 2, 3, 0}}, {{-4, kHuntPositionYSample, kHuntPositionZSample, 1}}, {}, {}, {}}}};
-        online::HuntPlacements m;
-        m.player_id = 3;
-        m.count = 2;
-        std::memcpy(m.positions.data(), ref.positions.data(), sizeof(ref.positions));
-        check_message("hunt placements 0x8F", m, ref, online::write_hunt_placements, read_hunt_placements_whole);
+        online::HuntPlacements message;
+        message.player_id = 3;
+        message.count = 2;
+        std::memcpy(message.positions.data(), ref.positions.data(), sizeof(ref.positions));
+        check_message("hunt placements 0x8F", message, ref, online::write_hunt_placements, read_hunt_placements_whole);
         std::array<float, 4> at{};
         util::ByteReader reader(&ref, sizeof(ref));
         online::HuntPlacements back;
@@ -459,59 +463,62 @@ void check_play_messages()
     }
     {
         const ReferenceBoardVehicle ref = {.skater = 5, .pad = {}, .control_type = 0x8A6B04AD};
-        online::BoardVehicle m;
-        m.skater_id = kBoardVehicleSkaterSample;
-        m.control_type = kBoardVehicleControlTypeSample;
-        check_message("board vehicle 0x89", m, ref, online::write_board_vehicle, online::read_board_vehicle);
+        online::BoardVehicle message;
+        message.skater_id = kBoardVehicleSkaterSample;
+        message.control_type = kBoardVehicleControlTypeSample;
+        check_message("board vehicle 0x89", message, ref, online::write_board_vehicle, online::read_board_vehicle);
     }
     {
         ReferenceProjectile ref = {.zero = 0, .pos = {1, 2, 3, 0}, .vel = {4, kProjectileVelocityYSample, kProjectileVelocityZSample, 0}, .type = kProjectileTypeSample, .ammo_type = kProjectileAmmoTypeSample, .radius = kProjectileRadiusSample, .scale = kProjectileScaleSample, .id = kProjectileOwnerIdSample, .pad = {}};
-        online::Projectile m;
-        std::memcpy(m.position.data(), ref.pos.data(), kVectorBytes);
-        std::memcpy(m.velocity.data(), ref.vel.data(), kVectorBytes);
-        m.type = kProjectileTypeSample;
-        m.ammo_type = kProjectileAmmoTypeSample;
-        m.radius = kProjectileRadiusSample;
-        m.scale = kProjectileScaleSample;
-        m.owner_id = kProjectileOwnerIdSample;
-        check_message("projectile 0x83", m, ref, online::write_projectile, online::read_projectile, kProjectileMinBytes);
+        online::Projectile message;
+        std::memcpy(message.position.data(), ref.pos.data(), kVectorBytes);
+        std::memcpy(message.velocity.data(), ref.vel.data(), kVectorBytes);
+        message.type = kProjectileTypeSample;
+        message.ammo_type = kProjectileAmmoTypeSample;
+        message.radius = kProjectileRadiusSample;
+        message.scale = kProjectileScaleSample;
+        message.owner_id = kProjectileOwnerIdSample;
+        check_message("projectile 0x83", message, ref, online::write_projectile, online::read_projectile,
+                      kProjectileMinBytes);
     }
     {
         ReferencePlaceTag ref = {.object = 2, .sticker = 1, .pad = {}, .start = {1, 2, 3, 1}, .end = {4, kPlaceTagEndYSample, kPlaceTagEndZSample, 1}, .size = kPlaceTagSizeSample};
-        online::PlaceTag m;
-        m.object_id = 2;
-        m.sticker = true;
-        std::memcpy(m.start.data(), ref.start.data(), kVectorBytes);
-        std::memcpy(m.end.data(), ref.end.data(), kVectorBytes);
-        m.size = kPlaceTagSizeSample;
-        check_message("place tag 0x99", m, ref, online::write_place_tag, online::read_place_tag);
+        online::PlaceTag message;
+        message.object_id = 2;
+        message.sticker = true;
+        std::memcpy(message.start.data(), ref.start.data(), kVectorBytes);
+        std::memcpy(message.end.data(), ref.end.data(), kVectorBytes);
+        message.size = kPlaceTagSizeSample;
+        check_message("place tag 0x99", message, ref, online::write_place_tag, online::read_place_tag);
     }
     {
         const ReferenceTerrainSound ref = {.x = -100, .y = 250, .z = 3000, .table = 2, .terrain = 17, .volume = 100, .pitch = 0x9C, .value = 50, .pad = 0};
-        online::TerrainSound m;
-        m.x = -kTerrainSoundXSample;
-        m.y = kTerrainSoundYSample;
-        m.z = kTerrainSoundZSample;
-        m.table = 2;
-        m.terrain = kTerrainSoundTerrainSample;
-        m.volume = kTerrainSoundVolumeSample;
-        m.pitch = static_cast<int8_t>(kTerrainSoundPitchSample);
-        m.value = kTerrainSoundValueSample;
-        check_message("terrain sound 0x35", m, ref, online::write_terrain_sound, online::read_terrain_sound, kTerrainSoundMinBytes);
+        online::TerrainSound message;
+        message.x = -kTerrainSoundXSample;
+        message.y = kTerrainSoundYSample;
+        message.z = kTerrainSoundZSample;
+        message.table = 2;
+        message.terrain = kTerrainSoundTerrainSample;
+        message.volume = kTerrainSoundVolumeSample;
+        message.pitch = static_cast<int8_t>(kTerrainSoundPitchSample);
+        message.value = kTerrainSoundValueSample;
+        check_message("terrain sound 0x35", message, ref, online::write_terrain_sound, online::read_terrain_sound,
+                      kTerrainSoundMinBytes);
     }
     {
         const ReferenceToggleCheat ref = {.cheat = 0xEEFECF1B, .on = 1, .pad = {}};
-        online::ToggleCheat m;
-        m.cheat = kToggleCheatCheatSample;
-        m.on = true;
-        check_message("toggle cheat 0x7F", m, ref, online::write_toggle_cheat, online::read_toggle_cheat, kToggleCheatMinBytes);
+        online::ToggleCheat message;
+        message.cheat = kToggleCheatCheatSample;
+        message.on = true;
+        check_message("toggle cheat 0x7F", message, ref, online::write_toggle_cheat, online::read_toggle_cheat,
+                      kToggleCheatMinBytes);
     }
     {
         ReferenceCheats ref = {.count = 3, .cheats = {kToggleCheatCheatSample, kSecondCheatSample, kThirdCheatSample}};
-        online::Cheats m;
-        m.count = 3;
-        std::memcpy(m.cheats.data(), ref.cheats.data(), sizeof(ref.cheats));
-        check_message("cheats 0x82", m, ref, online::write_cheats, online::read_cheats);
+        online::Cheats message;
+        message.count = 3;
+        std::memcpy(message.cheats.data(), ref.cheats.data(), sizeof(ref.cheats));
+        check_message("cheats 0x82", message, ref, online::write_cheats, online::read_cheats);
         ref.count = -1;
         util::ByteReader reader(&ref, sizeof(ref));
         online::Cheats back;
@@ -519,10 +526,10 @@ void check_play_messages()
     }
     {
         const ReferenceRunScript ref = {.name = 0x12345678, .object = 0xFFFFFFFF};
-        online::RunScript m;
-        m.name = kRunScriptNameSample;
-        m.object_id = kRunScriptObjectIdSample;
-        check_message("run script 0x48", m, ref, online::write_run_script, online::read_run_script);
+        online::RunScript message;
+        message.name = kRunScriptNameSample;
+        message.object_id = kRunScriptObjectIdSample;
+        check_message("run script 0x48", message, ref, online::write_run_script, online::read_run_script);
         const ReferenceSpawnScript spawn_ref = {.name = 0x9ABCDEF0, .object = 3, .node = 77, .permanent = 1, .pad = {}};
         online::SpawnScript spawn;
         spawn.name = kSpawnScriptNameSample;
@@ -720,30 +727,30 @@ void check_session_others()
     {
         ReferencePlayerArrived ref = {.profile_id = kPlayerArrivedProfileIdSample, .rating = kPlayerArrivedRatingSample, .flags = kPlayerArrivedFlagsSample, .score = kPlayerArrivedScoreSample, .value10 = kPlayerArrivedValue10Sample, .value14 = kPlayerArrivedValue14Sample, .obj_id = 3, .team = 1, .pad = {}, .drive_scheme = 2, .name = {}};
         text::copy_into(ref.name, "player_one");
-        online::PlayerArrived m;
-        m.profile_id = kPlayerArrivedProfileIdSample;
-        m.rating = kPlayerArrivedRatingSample;
-        m.flags = kPlayerArrivedFlagsSample;
-        m.score = kPlayerArrivedScoreSample;
-        m.eliminated_time = kPlayerArrivedEliminatedTimeSample;
-        m.accumulated_score = kPlayerArrivedAccumulatedScoreSample;
-        m.object_id = 3;
-        m.team = 1;
-        m.drive_scheme = 2;
-        text::copy_into(m.name, "player_one");
-        check_message("player arrived 0x22", m, ref, online::write_player_arrived, online::read_player_arrived);
+        online::PlayerArrived message;
+        message.profile_id = kPlayerArrivedProfileIdSample;
+        message.rating = kPlayerArrivedRatingSample;
+        message.flags = kPlayerArrivedFlagsSample;
+        message.score = kPlayerArrivedScoreSample;
+        message.eliminated_time = kPlayerArrivedEliminatedTimeSample;
+        message.accumulated_score = kPlayerArrivedAccumulatedScoreSample;
+        message.object_id = 3;
+        message.team = 1;
+        message.drive_scheme = 2;
+        text::copy_into(message.name, "player_one");
+        check_message("player arrived 0x22", message, ref, online::write_player_arrived, online::read_player_arrived);
     }
     {
         ReferenceHudNotice ref = {.properties = kHudNoticePropertiesSample, .text = kHudNoticeTextSample, .time = kHudNoticeTimeSample, .string1 = {}, .string2 = {}};
         text::copy_into(ref.string1, "Skater 1");
         text::copy_into(ref.string2, "Team Red");
-        online::HudNotice m;
-        m.properties = kHudNoticePropertiesSample;
-        m.text = kHudNoticeTextSample;
-        m.time = kHudNoticeTimeSample;
-        text::copy_into(m.string1, "Skater 1");
-        text::copy_into(m.string2, "Team Red");
-        check_message("hud notice 0x3F", m, ref, online::write_hud_notice, online::read_hud_notice);
+        online::HudNotice message;
+        message.properties = kHudNoticePropertiesSample;
+        message.text = kHudNoticeTextSample;
+        message.time = kHudNoticeTimeSample;
+        text::copy_into(message.string1, "Skater 1");
+        text::copy_into(message.string2, "Team Red");
+        check_message("hud notice 0x3F", message, ref, online::write_hud_notice, online::read_hud_notice);
         // string 1 filling its field (no terminator): cut there, string 2 still read
         std::memset(ref.string1.data(), 'x', kHudStringSize);
         util::ByteReader reader(&ref, sizeof(ref));
@@ -754,43 +761,44 @@ void check_session_others()
     }
     {
         const ReferenceStartRequest ref = {{1, 2, 3, 4, 5, 6, 0, 8, 9, 10, 11, 12, 13}};
-        online::StartRequest m;
-        m.game_type = 1;
-        m.time_limit = 2;
-        m.skill_level = 3;
-        m.fireball_level = 4;
-        m.player_collision = kStartRequestPlayerCollisionSample;
-        m.friendly_fire = kStartRequestFriendlyFireSample;
-        m.target_score = kStartRequestTargetScoreSample;
-        m.stop_at_zero = kStartRequestStopAtZeroSample;
-        m.score_reset = kStartRequestScoreResetSample;
-        m.ctf_game_type = kStartRequestCtfGameTypeSample;
-        m.goals = kStartRequestGoalsSample;
-        m.team_graffiti_mode = kStartRequestTeamGraffitiModeSample;
-        check_message("start request 0x60", m, ref, online::write_start_request, online::read_start_request);
+        online::StartRequest message;
+        message.game_type = 1;
+        message.time_limit = 2;
+        message.skill_level = 3;
+        message.fireball_level = 4;
+        message.player_collision = kStartRequestPlayerCollisionSample;
+        message.friendly_fire = kStartRequestFriendlyFireSample;
+        message.target_score = kStartRequestTargetScoreSample;
+        message.stop_at_zero = kStartRequestStopAtZeroSample;
+        message.score_reset = kStartRequestScoreResetSample;
+        message.ctf_game_type = kStartRequestCtfGameTypeSample;
+        message.goals = kStartRequestGoalsSample;
+        message.team_graffiti_mode = kStartRequestTeamGraffitiModeSample;
+        check_message("start request 0x60", message, ref, online::write_start_request, online::read_start_request);
     }
     {
         ReferenceKickRequest ref = {.request = 1, .index = 2, .name = {}};
         text::copy_into(ref.name, "griefer");
-        online::KickRequest m;
-        m.kick = 1;
-        m.index = 2;
-        text::copy_into(m.name, "griefer");
-        check_message("kick request 0x61", m, ref, online::write_kick_request, online::read_kick_request);
+        online::KickRequest message;
+        message.kick = 1;
+        message.index = 2;
+        text::copy_into(message.name, "griefer");
+        check_message("kick request 0x61", message, ref, online::write_kick_request, online::read_kick_request);
     }
     {
         const ReferenceGoalMessage ref = {.id = 7, .pad = {}, .goal = 0xC0FFEE00};
-        online::GoalMessage m;
-        m.id = kGoalMessageIdSample;
-        m.goal = kGoalMessageGoalSample;
-        check_message("goal 0x6E / 0x6F", m, ref, online::write_goal_message, online::read_goal_message);
+        online::GoalMessage message;
+        message.id = kGoalMessageIdSample;
+        message.goal = kGoalMessageGoalSample;
+        check_message("goal 0x6E / 0x6F", message, ref, online::write_goal_message, online::read_goal_message);
     }
     {
         const ReferenceLevelSwitch ref = {.level = 0xB664035D, .flag = 'F', .pad = {}};
-        online::LevelSwitch m;
-        m.level = kLevelChecksumSample;
-        m.flag = 'F';
-        check_message("level switch 0x46 / 0x6B", m, ref, online::write_level_switch, online::read_level_switch, kLevelSwitchMinBytes);
+        online::LevelSwitch message;
+        message.level = kLevelChecksumSample;
+        message.flag = 'F';
+        check_message("level switch 0x46 / 0x6B", message, ref, online::write_level_switch, online::read_level_switch,
+                      kLevelSwitchMinBytes);
     }
 }
 
@@ -832,11 +840,11 @@ void check_chat_messages()
         ReferenceChat ref = {.color = 3, .name = {}, .text = {}};
         text::copy_into(ref.name, "skater");
         text::copy_into(ref.text, "hi there");
-        online::Chat m;
-        m.color = 3;
-        text::copy_into(m.name, "skater");
-        text::copy_into(m.text, "hi there");
-        check_message("chat 0x4C", m, ref, online::write_chat, online::read_chat, kChatMinBytes);
+        online::Chat message;
+        message.color = 3;
+        text::copy_into(message.name, "skater");
+        text::copy_into(message.text, "hi there");
+        check_message("chat 0x4C", message, ref, online::write_chat, online::read_chat, kChatMinBytes);
         // a text without its NUL: cut at the message's end
         ReferenceChat open = ref;
         core::at(open.text, kChatTextLastIndex) = '!';
@@ -849,12 +857,12 @@ void check_chat_messages()
         ReferenceThugproChat ref = {.machine_id = kThugproChatMachineIdSample, .obj_id = 2, .name = {}, .text = {}};
         text::copy_into(ref.name, "pro");
         text::copy_into(ref.text, "hello");
-        online::thugpro::ChatMessage m;
-        m.machine_id_ = kThugproChatMachineIdSample;
-        m.obj_id_ = 2;
-        text::copy_into(m.name, "pro");
-        text::copy_into(m.text, "hello");
-        check_message("THUGPRO chat 76 (TP-R2)", m, ref, online::thugpro::write_chat_message,
+        online::thugpro::ChatMessage message;
+        message.machine_id_ = kThugproChatMachineIdSample;
+        message.obj_id_ = 2;
+        text::copy_into(message.name, "pro");
+        text::copy_into(message.text, "hello");
+        check_message("THUGPRO chat 76 (TP-R2)", message, ref, online::thugpro::write_chat_message,
                       online::thugpro::read_chat_message);
         // THUGPRO's drops: a name filling its field, a text without its NUL
         ReferenceThugproChat bad = ref;
@@ -870,11 +878,11 @@ void check_chat_messages()
     {
         const ReferenceThugproServerInfo ref = {
             .time_of_day = 0x12345678, .weather = 0x1CA1FF20, .flags = 0x0000000000004281ULL};
-        online::thugpro::ServerInfo m;
-        m.time_of_day_ = kThugproServerInfoTimeOfDaySample;
-        m.weather = kThugproServerInfoWeatherSample;
-        m.flags = kThugproServerInfoFlagsSample;
-        check_message("THUGPRO server info 155 (TP-R3)", m, ref, online::thugpro::write_server_info,
+        online::thugpro::ServerInfo message;
+        message.time_of_day_ = kThugproServerInfoTimeOfDaySample;
+        message.weather = kThugproServerInfoWeatherSample;
+        message.flags = kThugproServerInfoFlagsSample;
+        check_message("THUGPRO server info 155 (TP-R3)", message, ref, online::thugpro::write_server_info,
                       online::thugpro::read_server_info);
     }
     {

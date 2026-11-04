@@ -17,8 +17,8 @@ void vec3_transform_coord(float* out, const float* v, const void* matrix);  // o
 void vec3_transform_normal(float* out, const float* v, const void* matrix); // out: 3 floats, no translation
 void vec4_transform(float* out, const float* v, const void* matrix);        // out, v: 4 floats
 void matrix_multiply(void* out, const void* a, const void* b);              // out may alias a or b
-void matrix_transpose(void* out, const void* m);
-void matrix_inverse(void* out, float* determinant, const void* m);
+void matrix_transpose(void* out, const void* matrix);
+void matrix_inverse(void* out, float* determinant, const void* matrix);
 void matrix_scaling(void* out, float x, float y, float z);
 void matrix_rotation_y(void* out, float angle);
 void matrix_look_at_rh(void* out, const float* eye, const float* at, const float* up);

@@ -23,12 +23,12 @@ static_assert(sizeof(D3DXMATRIX) == kMatrixBytes && sizeof(D3DXVECTOR3) == kVect
               "the D3DX types must be plain floats");
 
 namespace {
-D3DXMATRIX* get_m(void* p) { return static_cast<D3DXMATRIX*>(p); }
-const D3DXMATRIX* get_m(const void* p) { return static_cast<const D3DXMATRIX*>(p); }
-D3DXVECTOR3* v3(float* p) { return raw::as<D3DXVECTOR3>(p); }
-const D3DXVECTOR3* v3(const float* p) { return raw::as<const D3DXVECTOR3>(p); }
-D3DXVECTOR4* v4(float* p) { return raw::as<D3DXVECTOR4>(p); }
-const D3DXVECTOR4* v4(const float* p) { return raw::as<const D3DXVECTOR4>(p); }
+D3DXMATRIX* get_m(void* memory) { return static_cast<D3DXMATRIX*>(memory); }
+const D3DXMATRIX* get_m(const void* memory) { return static_cast<const D3DXMATRIX*>(memory); }
+D3DXVECTOR3* v3(float* memory) { return raw::as<D3DXVECTOR3>(memory); }
+const D3DXVECTOR3* v3(const float* memory) { return raw::as<const D3DXVECTOR3>(memory); }
+D3DXVECTOR4* v4(float* memory) { return raw::as<D3DXVECTOR4>(memory); }
+const D3DXVECTOR4* v4(const float* memory) { return raw::as<const D3DXVECTOR4>(memory); }
 } // namespace
 
 void vec3_normalize(float* out, const float* v) { D3DXVec3Normalize(v3(out), v3(v)); }
@@ -49,10 +49,10 @@ void vec4_transform(float* out, const float* v, const void* matrix)
     D3DXVec4Transform(v4(out), v4(v), get_m(matrix));
 }
 void matrix_multiply(void* out, const void* a, const void* b) { D3DXMatrixMultiply(get_m(out), get_m(a), get_m(b)); }
-void matrix_transpose(void* out, const void* m) { D3DXMatrixTranspose(get_m(out), get_m(m)); }
-void matrix_inverse(void* out, float* determinant, const void* m)
+void matrix_transpose(void* out, const void* matrix) { D3DXMatrixTranspose(get_m(out), get_m(matrix)); }
+void matrix_inverse(void* out, float* determinant, const void* matrix)
 {
-    D3DXMatrixInverse(get_m(out), determinant, get_m(m));
+    D3DXMatrixInverse(get_m(out), determinant, get_m(matrix));
 }
 void matrix_scaling(void* out, float x, float y, float z) { D3DXMatrixScaling(get_m(out), x, y, z); }
 void matrix_rotation_y(void* out, float angle) { D3DXMatrixRotationY(get_m(out), angle); }

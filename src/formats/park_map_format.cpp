@@ -94,13 +94,14 @@ bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
     std::array<uint8_t, kParkMapGapSize> bytes = {};
     reader.bytes(bytes.data(), current ? kParkMapGapSize : kOldParkMapGapSize);
     for (int end = 0; end < 2; ++end) {
-        ParkMapGap::End& e = core::at(gap->ends, end);
-        e.x = core::at(bytes, end);
-        e.y = static_cast<int8_t>(core::at(bytes, 2 + end) - kGapHeightBias);
-        e.z = core::at(bytes, 4 + end);
-        e.quarter_turns = static_cast<uint8_t>((core::at(bytes, kGapQuarterTurnsAt) >> (end * 4)) & kNibbleMask);
-        e.reach_left = static_cast<uint8_t>(core::at(bytes, kGapReachAt + end) >> 4);
-        e.reach_right = static_cast<uint8_t>(core::at(bytes, kGapReachAt + end) & kNibbleMask);
+        ParkMapGap::End& end_record = core::at(gap->ends, end);
+        end_record.x = core::at(bytes, end);
+        end_record.y = static_cast<int8_t>(core::at(bytes, 2 + end) - kGapHeightBias);
+        end_record.z = core::at(bytes, 4 + end);
+        end_record.quarter_turns =
+            static_cast<uint8_t>((core::at(bytes, kGapQuarterTurnsAt) >> (end * 4)) & kNibbleMask);
+        end_record.reach_left = static_cast<uint8_t>(core::at(bytes, kGapReachAt + end) >> 4);
+        end_record.reach_right = static_cast<uint8_t>(core::at(bytes, kGapReachAt + end) & kNibbleMask);
     }
     util::ByteReader fields(std::span<const uint8_t>(bytes).subspan(kGapTextOffset));
     fields.fixed_string(gap->text.data(), sizeof(gap->text), kParkMapGapTextSize);
@@ -111,16 +112,19 @@ bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
 
 bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap)
 {
-    const auto& e = gap.ends;
-    writer.u8(core::at(e, 0).x);
-    writer.u8(core::at(e, 1).x);
-    writer.u8(static_cast<uint8_t>(core::at(e, 0).y + kGapHeightBias));
-    writer.u8(static_cast<uint8_t>(core::at(e, 1).y + kGapHeightBias));
-    writer.u8(core::at(e, 0).z);
-    writer.u8(core::at(e, 1).z);
-    writer.u8(static_cast<uint8_t>((core::at(e, 0).reach_right & kNibbleMask) | (core::at(e, 0).reach_left << 4)));
-    writer.u8(static_cast<uint8_t>((core::at(e, 1).reach_right & kNibbleMask) | (core::at(e, 1).reach_left << 4)));
-    writer.u8(static_cast<uint8_t>(core::at(e, 0).quarter_turns | (core::at(e, 1).quarter_turns << 4)));
+    const auto& end_record = gap.ends;
+    writer.u8(core::at(end_record, 0).x);
+    writer.u8(core::at(end_record, 1).x);
+    writer.u8(static_cast<uint8_t>(core::at(end_record, 0).y + kGapHeightBias));
+    writer.u8(static_cast<uint8_t>(core::at(end_record, 1).y + kGapHeightBias));
+    writer.u8(core::at(end_record, 0).z);
+    writer.u8(core::at(end_record, 1).z);
+    writer.u8(static_cast<uint8_t>((core::at(end_record, 0).reach_right & kNibbleMask) |
+                                   (core::at(end_record, 0).reach_left << 4)));
+    writer.u8(static_cast<uint8_t>((core::at(end_record, 1).reach_right & kNibbleMask) |
+                                   (core::at(end_record, 1).reach_left << 4)));
+    writer.u8(
+        static_cast<uint8_t>(core::at(end_record, 0).quarter_turns | (core::at(end_record, 1).quarter_turns << 4)));
     writer.u8(0);
     writer.fixed_string(gap.text.data(), kParkMapGapTextSize);
     writer.u16(gap.points);

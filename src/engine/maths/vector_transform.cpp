@@ -14,15 +14,15 @@ Vec4& Vec4::multiply_by(const Mat4& matrix)
     const double vy = y;
     const double vz = z;
     const double vw = w;
-    const auto& m = matrix.row;
-    x = static_cast<float>((((vw * core::at(m, 3).x) + (vz * core::at(m, 2).x)) + (vy * core::at(m, 1).x)) +
-                           (vx * core::at(m, 0).x));
-    y = static_cast<float>((((vw * core::at(m, 3).y) + (vz * core::at(m, 2).y)) + (vx * core::at(m, 0).y)) +
-                           (vy * core::at(m, 1).y));
-    z = static_cast<float>((((vw * core::at(m, 3).z) + (vz * core::at(m, 2).z)) + (vx * core::at(m, 0).z)) +
-                           (vy * core::at(m, 1).z));
-    w = static_cast<float>((((vw * core::at(m, 3).w) + (vz * core::at(m, 2).w)) + (vx * core::at(m, 0).w)) +
-                           (vy * core::at(m, 1).w));
+    const auto& rows = matrix.row;
+    x = static_cast<float>((((vw * core::at(rows, 3).x) + (vz * core::at(rows, 2).x)) + (vy * core::at(rows, 1).x)) +
+                           (vx * core::at(rows, 0).x));
+    y = static_cast<float>((((vw * core::at(rows, 3).y) + (vz * core::at(rows, 2).y)) + (vx * core::at(rows, 0).y)) +
+                           (vy * core::at(rows, 1).y));
+    z = static_cast<float>((((vw * core::at(rows, 3).z) + (vz * core::at(rows, 2).z)) + (vx * core::at(rows, 0).z)) +
+                           (vy * core::at(rows, 1).z));
+    w = static_cast<float>((((vw * core::at(rows, 3).w) + (vz * core::at(rows, 2).w)) + (vx * core::at(rows, 0).w)) +
+                           (vy * core::at(rows, 1).w));
     return *this;
 }
 

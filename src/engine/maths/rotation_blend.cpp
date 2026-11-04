@@ -54,13 +54,13 @@ void ArcRotationBlender::flip_heading()
 }
 
 // 0x00405A20
-void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
+void ArcRotationBlender::fetch_mat(Mat4& out, float blend) const
 {
-    if (t <= 0.0F) {
+    if (blend <= 0.0F) {
         out = start_;
         return;
     }
-    if (!(t < 1.0F)) {
+    if (!(blend < 1.0F)) {
         out = end_;
         return;
     }
@@ -68,11 +68,11 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
     // The translation is read first, as in the original (so `out` may be one of the stored matrices).
     const Vec4 from = core::at(start_.row, 3);
     const Vec4 to = core::at(end_.row, 3);
-    auto lerp = [t](const Vec4& a, const Vec4& b) {
-        return Vec4{.x = ((b.x - a.x) * t) + a.x,
-                    .y = ((b.y - a.y) * t) + a.y,
-                    .z = ((b.z - a.z) * t) + a.z,
-                    .w = ((b.w - a.w) * t) + a.w};
+    auto lerp = [blend](const Vec4& a, const Vec4& b) {
+        return Vec4{.x = ((b.x - a.x) * blend) + a.x,
+                    .y = ((b.y - a.y) * blend) + a.y,
+                    .z = ((b.z - a.z) * blend) + a.z,
+                    .w = ((b.w - a.w) * blend) + a.w};
     };
 
     if (small_rotation_) {
@@ -90,7 +90,7 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
 
     out = start_;
     core::at(out.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    out.spin_by(axis_, t * angle_);
+    out.spin_by(axis_, blend * angle_);
     core::at(out.row, 3) = lerp(from, to);
     core::at(out.row, 3).w = 1.0F;
 }

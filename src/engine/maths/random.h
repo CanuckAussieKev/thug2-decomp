@@ -10,9 +10,9 @@ namespace maths {
 // Reset both streams to `seed`.
 void seed_random(uint32_t seed);
 // Random integer in [0, n) for n > 0, from the first stream.
-int rnd(int n);
+int rnd(int limit);
 // Random integer in [0, n) for n > 0, from the second stream.
-int roll_side_stream(int n);
+int roll_side_stream(int limit);
 // Random float in roughly [-range, range), from the first stream.
 float signed_spread(float range);
 // The same unrounded, as the original's x87 callers use it.

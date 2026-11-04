@@ -133,8 +133,8 @@ std::unique_ptr<Value> read_element(util::ByteReader& reader, uint8_t type)
         core::at(value->floats, 1) = reader.f32();
         break;
     case kVector:
-        for (float& f : value->floats) {
-            f = reader.f32();
+        for (float& component : value->floats) {
+            component = reader.f32();
         }
         break;
     case kStruct:
@@ -229,8 +229,8 @@ void write_element(util::ByteWriter& writer, const Value& value)
         writer.f32(core::at(value.floats, 1));
         break;
     case kVector:
-        for (const float f : value.floats) {
-            writer.f32(f);
+        for (const float component : value.floats) {
+            writer.f32(component);
         }
         break;
     case kStruct:
@@ -273,9 +273,9 @@ void write_structure(util::ByteWriter& writer, const Structure& structure)
             continue;
         }
         if (value->type == kFloat) {
-            float f = 0.0F;
-            std::memcpy(&f, &value->bits, sizeof(f));
-            const float magnitude = f < 0.0F ? -f : f;
+            float component = 0.0F;
+            std::memcpy(&component, &value->bits, sizeof(component));
+            const float magnitude = component < 0.0F ? -component : component;
             if (magnitude < kTinyFloatLimit) {
                 write_name(writer, kZeroFloat, name);
                 continue;
@@ -425,8 +425,8 @@ bool is_save_file(const std::filesystem::path& path)
 {
     static const auto kExtensions = std::to_array<const char*>({".SKA", ".NWS", ".PRK", ".CAS", ".CAT", ".GOA", ".GRF"});
     std::string extension = path.extension().string();
-    for (char& c : extension) {
-        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    for (char& character : extension) {
+        character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
     }
     for (const char* known : kExtensions) {
         if (extension == known) {
@@ -473,8 +473,8 @@ void check_save_file(const std::filesystem::path& path)
                                       header.summary_size,
                                   file.begin() + static_cast<std::ptrdiff_t>(size));
     if (path.extension() == ".NWS" || path.extension() == ".nws") {
-        for (uint8_t& b : contents) {
-            b = static_cast<uint8_t>(b - save_cards::kSaveFileMask);
+        for (uint8_t& byte : contents) {
+            byte = static_cast<uint8_t>(byte - save_cards::kSaveFileMask);
         }
     }
     Structure tree;

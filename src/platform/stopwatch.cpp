@@ -118,8 +118,8 @@ void get_reset()
         rate_set() = true;
     }
     raw_frame_duration() = 1.0;
-    for (int& h : get_history()) {
-        h = 1;
+    for (int& history : get_history()) {
+        history = 1;
     }
     get_frame_length() = 1.0F;
     last_frame_vblank() = 0;
@@ -168,9 +168,11 @@ void once_every_draw()
 // 0x005BE7F0
 void update_frame_length()
 {
-    const std::array<int, 4>& h = get_history();
-    const int clamped = get_clamped(core::at(h, 0)) + get_clamped(core::at(h, 1)) + get_clamped(core::at(h, 2)) + get_clamped(core::at(h, 3));
-    const int raw = static_cast<int>(static_cast<uint32_t>(core::at(h, 0)) + core::at(h, 1) + core::at(h, 2) + core::at(h, 3)); // (wraps, as the original)
+    const std::array<int, 4>& history = get_history();
+    const int clamped = get_clamped(core::at(history, 0)) + get_clamped(core::at(history, 1)) +
+                        get_clamped(core::at(history, 2)) + get_clamped(core::at(history, 3));
+    const int raw = static_cast<int>(static_cast<uint32_t>(core::at(history, 0)) + core::at(history, 1) +
+                                     core::at(history, 2) + core::at(history, 3)); // (wraps, as the original)
     get_slomo() = next_slomo();
     get_frame_length() = static_cast<float>(clamped) * kHistoryWeight;
     if (clamped * kHistoryWeightDouble < 1.0) {

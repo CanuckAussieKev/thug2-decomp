@@ -194,14 +194,15 @@ std::string file_time(const char* path)
         return {};
     }
     FILETIME local;
-    SYSTEMTIME t;
+    SYSTEMTIME time;
     if ((FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) == FALSE) ||
-        (FileTimeToSystemTime(&local, &t) == FALSE)) {
+        (FileTimeToSystemTime(&local, &time) == FALSE)) {
         return {};
     }
     std::array<char, kFileInfoTextSize> text{};
-    text::format_to(text, "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute,
-                    t.wSecond, (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow);
+    text::format_to(text, "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", time.wYear, time.wMonth, time.wDay, time.wHour,
+                    time.wMinute, time.wSecond,
+                    (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow);
     return text.data();
 }
 
@@ -228,12 +229,12 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     text::format_to(text, "%d x %d (%s)", frame.width, frame.height, format_name(frame.format));
     shot.fields.push_back({.key = "image", .value = text.data()});
     int w = 0;
-    int h = 0;
+    int height = 0;
     if (SDL_Window* window = sys::sdl_window()) {
-        SDL_GetWindowSize(window, &w, &h);
+        SDL_GetWindowSize(window, &w, &height);
     }
-    if (w > 0 && h > 0) {
-        text::format_to(text, "%d x %d", w, h);
+    if (w > 0 && height > 0) {
+        text::format_to(text, "%d x %d", w, height);
         shot.fields.push_back({.key = "window", .value = text.data()});
     } else {
         shot.fields.push_back({.key = "window", .value = ""});
@@ -277,10 +278,10 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
 
     Section skater{.title = "skater", .fields = {}};
     if (in_level && !loading) {
-        if (const objects::GameEntity* s = local_skater()) {
-            std::array<float, 3> pos = {{s->at_point().x, s->at_point().y, s->at_point().z}};
+        if (const objects::GameEntity* entity = local_skater()) {
+            std::array<float, 3> pos = {{entity->at_point().x, entity->at_point().y, entity->at_point().z}};
             skater.fields.push_back({.key = "position", .value = vec(pos)});
-            const maths::Vec4& at = core::at(s->basis_frame().row, 2);
+            const maths::Vec4& at = core::at(entity->basis_frame().row, 2);
             const double heading =
                 std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
             text::format_to(text, "%.1f degrees (0 = +z, 90 = +x)", heading);
@@ -411,9 +412,9 @@ std::string folder_path()
     if (!absolute) {
         folder = game_folder_path(folder.c_str());
     }
-    for (char& c : folder) {
-        if (c == '/') {
-            c = '\\';
+    for (char& character : folder) {
+        if (character == '/') {
+            character = '\\';
         }
     }
     if (folder.back() != '\\') {
@@ -472,15 +473,15 @@ void get_take()
     int mx = 0;
     int my = 0;
     int w = 0;
-    int h = 0;
+    int height = 0;
     SDL_Window* window = sys::sdl_window();
     if (window && (SDL_GetMouseFocus() == window)) {
         SDL_GetMouseState(&mx, &my);
-        SDL_GetWindowSize(window, &w, &h);
+        SDL_GetWindowSize(window, &w, &height);
     }
-    if (w > 0 && h > 0) {
+    if (w > 0 && height > 0) {
         job->mouse_x_ = static_cast<int>(static_cast<long long>(mx) * frame.width / w);
-        job->mouse_y_ = static_cast<int>(static_cast<long long>(my) * frame.height / h);
+        job->mouse_y_ = static_cast<int>(static_cast<long long>(my) * frame.height / height);
         std::array<char, kMouseNoteSize> at{};
         text::format_to(at, "(%d, %d) in the image (marked with a cross)", job->mouse_x_, job->mouse_y_);
         mouse = at.data();
@@ -736,9 +737,9 @@ std::string start_series(int frames, const std::string& folder)
         return "no screenshot folder (see the log)";
     }
     std::string path = folder;
-    for (char& c : path) {
-        if (c == '/') {
-            c = '\\';
+    for (char& character : path) {
+        if (character == '/') {
+            character = '\\';
         }
     }
     if (path.empty()) {

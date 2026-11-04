@@ -122,12 +122,12 @@ void copy_value(std::string_view from, std::span<char> to, unsigned capacity)
     }
     unsigned length = 0;
     for (;;) {
-        const char c = peek();
+        const char character = peek();
         ++at;
-        if (c == '\0' || c == end) {
+        if (character == '\0' || character == end) {
             break;
         }
-        core::at(to, length++) = c;
+        core::at(to, length++) = character;
         if (length >= capacity) {
             break;
         }

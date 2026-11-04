@@ -218,8 +218,8 @@ int main(int argc, char** argv)
     std::uniform_int_distribution<int> pick(0, static_cast<int>(sizeof(alphabet)) - 2);
     for (int i = 0; i < count; ++i) {
         std::string text;
-        const int n = length(random);
-        for (int k = 0; k < n; ++k) {
+        const int item_count = length(random);
+        for (int k = 0; k < item_count; ++k) {
             text += core::at(alphabet, pick(random));
         }
         check(text);
@@ -233,9 +233,9 @@ int main(int argc, char** argv)
     std::uniform_int_distribution<int> gap(0, kMaxGap);
     for (int i = 0; i < count; ++i) {
         std::string text = gap(random) == 0 ? "/" : "";
-        const int n = words(random);
-        for (int w = 0; w < n; ++w) {
-            if (w > 0 || gap(random) == 0) {
+        const int item_count = words(random);
+        for (int word = 0; word < item_count; ++word) {
+            if (word > 0 || gap(random) == 0) {
                 text += gap(random) == 0 ? "\t " : " ";
             }
             const int letters = word_length(random);

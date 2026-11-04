@@ -251,8 +251,8 @@ float dot_vec(const Vec4& a, const Vec4& b) { return (a.x * b.x) + (a.y * b.y) +
 // 0x00402550 (each difference of products rounded once, as the original's x87 code does)
 Vec4 cross_vec(const Vec4& a, const Vec4& b)
 {
-    auto term = [](float p, float q, float r, float s) {
-        return static_cast<float>((static_cast<double>(p) * q) - (static_cast<double>(r) * s));
+    auto term = [](float left_a, float left_b, float right_a, float right_b) {
+        return static_cast<float>((static_cast<double>(left_a) * left_b) - (static_cast<double>(right_a) * right_b));
     };
     return {.x = term(a.y, b.z, a.z, b.y), .y = term(a.z, b.x, a.x, b.z), .z = term(a.x, b.y, a.y, b.x), .w = 0.0F};
 }

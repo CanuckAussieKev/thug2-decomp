@@ -63,17 +63,19 @@ int parse_key(const std::string& text, int fallback, const std::function<int(con
     return code >= 1 && code <= kMaxKeyCode ? code : fallback;
 }
 
-std::string file_stem(const Stamp& s)
+std::string file_stem(const Stamp& stamp)
 {
     std::array<char, kStampedNameSize> text{};
-    text::format_to(text, "thug2_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute, s.second);
+    text::format_to(text, "thug2_%04d-%02d-%02d_%02d-%02d-%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
+                    stamp.minute, stamp.second);
     return text.data();
 }
 
-std::string series_folder_name(const Stamp& s)
+std::string series_folder_name(const Stamp& stamp)
 {
     std::array<char, kStampedNameSize> text{};
-    text::format_to(text, "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute, s.second);
+    text::format_to(text, "series_%04d-%02d-%02d_%02d-%02d-%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
+                    stamp.minute, stamp.second);
     return text.data();
 }
 
@@ -84,9 +86,9 @@ std::string series_frame_name(int number)
     return text.data();
 }
 
-std::string candidate_name(const std::string& stem, int n)
+std::string candidate_name(const std::string& stem, int number)
 {
-    return n <= 1 ? stem + ".png" : stem + "_" + std::to_string(n) + ".png";
+    return number <= 1 ? stem + ".png" : stem + "_" + std::to_string(number) + ".png";
 }
 
 std::string sidecar_name(const std::string& png_name)
@@ -102,8 +104,8 @@ std::string sidecar_name(const std::string& png_name)
 
 std::string pick_name(const std::string& stem, const std::function<bool(const std::string&)>& taken)
 {
-    for (int n = 1; n <= kMaxNameNumber; ++n) {
-        std::string name = candidate_name(stem, n);
+    for (int number = 1; number <= kMaxNameNumber; ++number) {
+        std::string name = candidate_name(stem, number);
         if (!taken(name) && !taken(sidecar_name(name))) {
             return name;
         }
@@ -167,12 +169,12 @@ void mark_cursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y,
     for (int pass = 0; pass < 2; ++pass) {
         const int half = pass == 0 ? 2 : 1;
         const uint8_t value = pass == 0 ? 0 : 255;
-        for (int d = gap; d <= size; ++d) {
-            for (int t = -half; t < half; ++t) {
-                put({.x = x + d, .y = y + t}, value);
-                put({.x = x - d, .y = y + t}, value);
-                put({.x = x + t, .y = y + d}, value);
-                put({.x = x + t, .y = y - d}, value);
+        for (int arm = gap; arm <= size; ++arm) {
+            for (int thickness = -half; thickness < half; ++thickness) {
+                put({.x = x + arm, .y = y + thickness}, value);
+                put({.x = x - arm, .y = y + thickness}, value);
+                put({.x = x + thickness, .y = y + arm}, value);
+                put({.x = x + thickness, .y = y - arm}, value);
             }
         }
     }
@@ -205,25 +207,27 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
         core::at(*rgb, out + 2) = pixel.b;
         out += 3;
     };
-    for (int y = 0; y < frame.height; ++y) {
+    for (int row_index = 0; row_index < frame.height; ++row_index) {
         const std::span<const uint8_t> row =
-            std::span<const uint8_t>(frame.bytes).subspan(static_cast<size_t>(frame.pitch) * y);
+            std::span<const uint8_t>(frame.bytes).subspan(static_cast<size_t>(frame.pitch) * row_index);
         switch (frame.format) {
         case PixelFormat::kX8r8g8b8:
         case PixelFormat::kA8r8g8b8:
-            for (size_t x = 0; x < columns; ++x) {
-                put({.r = core::at(row, (x * 4) + 2), .g = core::at(row, (x * 4) + 1), .b = core::at(row, x * 4)});
+            for (size_t column = 0; column < columns; ++column) {
+                put({.r = core::at(row, (column * 4) + 2),
+                     .g = core::at(row, (column * 4) + 1),
+                     .b = core::at(row, column * 4)});
             }
             break;
         case PixelFormat::kR5g6b5:
-            for (size_t x = 0; x < columns; ++x) {
-                const unsigned v = core::at(row, x * 2) | (core::at(row, (x * 2) + 1) << 8);
+            for (size_t column = 0; column < columns; ++column) {
+                const unsigned v = core::at(row, column * 2) | (core::at(row, (column * 2) + 1) << 8);
                 put({.r = widen5(v >> kRed565Shift), .g = widen6((v >> kGreenShift) & kSixBitMask), .b = widen5(v & kFiveBitMask)});
             }
             break;
         case PixelFormat::kX1r5g5b5:
-            for (size_t x = 0; x < columns; ++x) {
-                const unsigned v = core::at(row, x * 2) | (core::at(row, (x * 2) + 1) << 8);
+            for (size_t column = 0; column < columns; ++column) {
+                const unsigned v = core::at(row, column * 2) | (core::at(row, (column * 2) + 1) << 8);
                 put({.r = widen5((v >> kRed555Shift) & kFiveBitMask), .g = widen5((v >> kGreenShift) & kFiveBitMask), .b = widen5(v & kFiveBitMask)});
             }
             break;

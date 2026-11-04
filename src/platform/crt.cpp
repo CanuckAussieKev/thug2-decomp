@@ -86,10 +86,10 @@ double game_atof(const char* text)
         ++at;
     }
     std::array<char, 512> number{};
-    size_t n = 0;
-    auto take = [&](char c) {
-        if (n + 1 < sizeof(number)) {
-            core::at(number, n++) = c;
+    size_t length = 0;
+    auto take = [&](char character) {
+        if (length + 1 < sizeof(number)) {
+            core::at(number, length++) = character;
         }
     };
     auto digits = [&]() {
@@ -118,7 +118,7 @@ double game_atof(const char* text)
         }
         digits();
     }
-    core::at(number, n) = 0;
+    core::at(number, length) = 0;
     return (mantissa != 0U) ? std::strtod(number.data(), nullptr) : 0.0;
 }
 
@@ -156,9 +156,9 @@ void short_sort(const Elements& elements, std::ptrdiff_t lo, std::ptrdiff_t hi, 
 {
     while (hi > lo) {
         std::ptrdiff_t largest = lo;
-        for (std::ptrdiff_t p = lo + 1; p <= hi; ++p) {
-            if (compare(elements.at(p), elements.at(largest)) > 0) {
-                largest = p;
+        for (std::ptrdiff_t child = lo + 1; child <= hi; ++child) {
+            if (compare(elements.at(child), elements.at(largest)) > 0) {
+                largest = child;
             }
         }
         elements.exchange(largest, hi);
@@ -271,7 +271,10 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
 
 int game_stricmp(const char* a, const char* b)
 {
-    auto lower = [](unsigned char c) { return static_cast<unsigned char>(c >= 'A' && c <= 'Z' ? c + kLowerCaseOffset : c); };
+    auto lower = [](unsigned char character) {
+        return static_cast<unsigned char>(character >= 'A' && character <= 'Z' ? character + kLowerCaseOffset
+                                                                               : character);
+    };
     const std::string_view first(a);
     const std::string_view second(b);
     // (the terminators are read too: the position one past a text's end holds its NUL)

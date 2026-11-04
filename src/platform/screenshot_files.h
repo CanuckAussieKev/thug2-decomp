@@ -29,7 +29,7 @@ struct Stamp {
 // "thug2_YYYY-MM-DD_HH-MM-SS".
 std::string file_stem(const Stamp& stamp);
 // The n-th candidate for a stem (n from 1): "<stem>.png", then "<stem>_2.png", "<stem>_3.png", ...
-std::string candidate_name(const std::string& stem, int n);
+std::string candidate_name(const std::string& stem, int number);
 // The first candidate whose .png and .txt are both free (`taken(name)`: a file of that name exists in the folder);
 // "" when the first 999 are all taken.
 std::string pick_name(const std::string& stem, const std::function<bool(const std::string&)>& taken);

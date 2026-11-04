@@ -88,18 +88,18 @@ float fast_atan2(float y, float x)
     const bool x_below_zero = x < 0.0F;
     const bool y_not_positive = y <= 0.0F;
     const double ratio = (y_not_positive ? -static_cast<double>(y) : y) / (x_below_zero ? -static_cast<double>(x) : x);
-    const double t = (ratio - 1.0) / (ratio + 1.0);
-    const double t2 = t * t;
-    double p = (((t * kAtanC15 * t2) + (t * kAtanC13)) * t2) - (t * kAtanC11);
-    p = (((p * t2) + (t * kAtanC9)) * t2) - (t * kAtanC7);
-    p = (((p * t2) + (t * kAtanC5)) * t2) - (t * kAtanC3);
-    p = (p * t2) + (t * kAtanC1);
+    const double quotient = (ratio - 1.0) / (ratio + 1.0);
+    const double t2 = quotient * quotient;
+    double series = (((quotient * kAtanC15 * t2) + (quotient * kAtanC13)) * t2) - (quotient * kAtanC11);
+    series = (((series * t2) + (quotient * kAtanC9)) * t2) - (quotient * kAtanC7);
+    series = (((series * t2) + (quotient * kAtanC5)) * t2) - (quotient * kAtanC3);
+    series = (series * t2) + (quotient * kAtanC1);
 
     double result = 0.0;
     if (x_below_zero) {
-        result = y_not_positive ? (p + kQuarterPi) - kPiF : kThreeQuarterPi - p;
+        result = y_not_positive ? (series + kQuarterPi) - kPiF : kThreeQuarterPi - series;
     } else {
-        result = y_not_positive ? kMinusQuarterPi - p : p + kQuarterPi;
+        result = y_not_positive ? kMinusQuarterPi - series : series + kQuarterPi;
     }
     return static_cast<float>(result);
 }
@@ -123,12 +123,12 @@ float keep_within(float value, Within within)
 // 0x004058B0
 void create_rotate_2d(std::span<float, 4> out, float angle)
 {
-    const float s = std::sin(angle);
-    const float c = std::cos(angle);
-    core::at(out, 0) = c;
-    core::at(out, 1) = s;
-    core::at(out, 2) = -s;
-    core::at(out, 3) = c;
+    const float sine = std::sin(angle);
+    const float cosine = std::cos(angle);
+    core::at(out, 0) = cosine;
+    core::at(out, 1) = sine;
+    core::at(out, 2) = -sine;
+    core::at(out, 3) = cosine;
 }
 
 namespace {

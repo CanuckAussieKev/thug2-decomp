@@ -137,31 +137,31 @@ struct Material {
 
 // False if cut short, or more than kMaxPasses passes.
 template <typename Stream>
-bool read_material(Stream& in, Material* m)
+bool read_material(Stream& in, Material* material)
 {
-    *m = Material{};
-    m->checksum = take<uint32_t>(in);
-    m->name_hash = take<uint32_t>(in);
-    m->pass_count = take<uint32_t>(in);
-    if (!in.ok() || m->pass_count > kMaxPasses) {
+    *material = Material{};
+    material->checksum = take<uint32_t>(in);
+    material->name_hash = take<uint32_t>(in);
+    material->pass_count = take<uint32_t>(in);
+    if (!in.ok() || material->pass_count > kMaxPasses) {
         return false;
     }
-    m->alpha_ref = take<uint32_t>(in);
-    m->sort_flag = take<uint8_t>(in);
-    m->sort_key = take<float>(in);
-    m->keep_culling = take<uint8_t>(in);
-    m->two_sided = take<uint8_t>(in);
-    m->depth_bias = take<int>(in);
-    m->has_extra = take<uint8_t>(in) != 0;
-    if (m->has_extra) {
-        in.take(m->extra.data(), sizeof(m->extra));
+    material->alpha_ref = take<uint32_t>(in);
+    material->sort_flag = take<uint8_t>(in);
+    material->sort_key = take<float>(in);
+    material->keep_culling = take<uint8_t>(in);
+    material->two_sided = take<uint8_t>(in);
+    material->depth_bias = take<int>(in);
+    material->has_extra = take<uint8_t>(in) != 0;
+    if (material->has_extra) {
+        in.take(material->extra.data(), sizeof(material->extra));
     }
-    m->specular_power = take<float>(in);
-    if (m->specular_power > 0.0F) {
-        in.take(m->specular.data(), sizeof(m->specular));
+    material->specular_power = take<float>(in);
+    if (material->specular_power > 0.0F) {
+        in.take(material->specular.data(), sizeof(material->specular));
     }
-    for (uint32_t index = 0; index < m->pass_count && in.ok(); ++index) {
-        MaterialPass& pass = core::at(m->passes, index);
+    for (uint32_t index = 0; index < material->pass_count && in.ok(); ++index) {
+        MaterialPass& pass = core::at(material->passes, index);
         pass.texture = take<uint32_t>(in);
         pass.flags = take<uint32_t>(in);
         take<uint8_t>(in);
@@ -180,8 +180,8 @@ bool read_material(Stream& in, Material* m)
             if (!in.fits(uint64_t{anims} * kColorAnimMinBytes)) { // (each at least its key count and phase)
                 return false;
             }
-            m->color_anims.resize(anims);
-            for (ColorAnimTrack& track : m->color_anims) {
+            material->color_anims.resize(anims);
+            for (ColorAnimTrack& track : material->color_anims) {
                 track.key_count = take<uint32_t>(in);
                 track.phase = take<int>(in);
                 if (!in.fits(uint64_t{track.key_count} * kColorKeySize)) {
@@ -243,22 +243,22 @@ struct SectorMesh {
 
 // False if cut short (or the meshes, at least their fields each, can't be there).
 template <typename Stream>
-bool read_sector(Stream& in, Sector* s)
+bool read_sector(Stream& in, Sector* sector)
 {
-    *s = Sector{};
-    s->checksum = take<uint32_t>(in);
-    s->light_group = take<uint32_t>(in);
-    s->flags = take<uint32_t>(in);
-    s->mesh_count = take<uint32_t>(in);
-    in.take(s->box.data(), sizeof(s->box));
-    in.take(s->sphere.data(), sizeof(s->sphere));
-    if (s->flags & kBillboard) {
-        s->billboard_type = take<uint32_t>(in);
-        in.take(s->billboard_unused.data(), sizeof(s->billboard_unused));
-        in.take(s->pivot.data(), sizeof(s->pivot));
-        in.take(s->axis.data(), sizeof(s->axis));
+    *sector = Sector{};
+    sector->checksum = take<uint32_t>(in);
+    sector->light_group = take<uint32_t>(in);
+    sector->flags = take<uint32_t>(in);
+    sector->mesh_count = take<uint32_t>(in);
+    in.take(sector->box.data(), sizeof(sector->box));
+    in.take(sector->sphere.data(), sizeof(sector->sphere));
+    if (sector->flags & kBillboard) {
+        sector->billboard_type = take<uint32_t>(in);
+        in.take(sector->billboard_unused.data(), sizeof(sector->billboard_unused));
+        in.take(sector->pivot.data(), sizeof(sector->pivot));
+        in.take(sector->axis.data(), sizeof(sector->axis));
     }
-    return in.ok() && in.fits(uint64_t{s->mesh_count} * kMeshRecordBytes);
+    return in.ok() && in.fits(uint64_t{sector->mesh_count} * kMeshRecordBytes);
 }
 
 // The mesh's fields and its index lists (skipped). False if cut short.
@@ -328,13 +328,13 @@ bool read_mesh_body(Stream& in, MeshBody* body)
     }
     body->vertices.clear();
     body->scaled.clear();
-    for (uint32_t v = 0; v < body->vertex_buffer_count; ++v) {
+    for (uint32_t buffer = 0; buffer < body->vertex_buffer_count; ++buffer) {
         auto scaled = take<uint8_t>(in);
         auto size = take<uint32_t>(in);
         if (!in.fits(size)) {
             return false;
         }
-        if (v == 0) {
+        if (buffer == 0) {
             body->vertices.resize(size);
             in.take(body->vertices.data(), size);
         } else {
@@ -350,7 +350,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
         if (count && (static_cast<uint64_t>(count - 1) * body->stride) + kPositionBytes > size) {
             return false;
         }
-        if (v == 0) {
+        if (buffer == 0) {
             body->scaled.resize(static_cast<size_t>(count) * kScaledVertexSize);
             in.take(body->scaled.data(), body->scaled.size());
         } else {

@@ -23,7 +23,7 @@ bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t 
     constexpr int kLongest = 18;
     std::array<uint8_t, kWindow> window{};
     std::memset(window.data(), ' ', kWindow - kLongest);
-    int r = kWindow - kLongest;
+    int window_position = kWindow - kLongest;
     unsigned int flags = 0;
     size_t read = 0;
     size_t put = 0;
@@ -44,10 +44,10 @@ bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t 
                 ok = false;
                 break;
             }
-            const uint8_t c = core::at(in, read++);
-            core::at(out, put++) = c;
-            core::at(window, r) = c;
-            r = (r + 1) & (kWindow - 1);
+            const uint8_t byte = core::at(in, read++);
+            core::at(out, put++) = byte;
+            core::at(window, window_position) = byte;
+            window_position = (window_position + 1) & (kWindow - 1);
         } else {
             if (read == in_size) {
                 break;
@@ -64,10 +64,10 @@ bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t 
                 break;
             }
             for (int k = 0; k <= last; ++k) {
-                const uint8_t c = core::at(window, (position + k) & (kWindow - 1));
-                core::at(out, put++) = c;
-                core::at(window, r) = c;
-                r = (r + 1) & (kWindow - 1);
+                const uint8_t byte = core::at(window, (position + k) & (kWindow - 1));
+                core::at(out, put++) = byte;
+                core::at(window, window_position) = byte;
+                window_position = (window_position + 1) & (kWindow - 1);
             }
         }
     }

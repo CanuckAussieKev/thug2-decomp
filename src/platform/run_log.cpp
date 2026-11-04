@@ -141,10 +141,10 @@ void set_log_listener(void (*listener)(const char* line)) { stored_listener() = 
 std::vector<std::string> get_log_tail(size_t lines)
 {
     const unsigned count = log_tail().tail_count_.load();
-    auto n = std::min<size_t>({lines, count, kTailLines});
+    auto tail_count = std::min<size_t>({lines, count, kTailLines});
     std::vector<std::string> out;
-    out.reserve(n);
-    for (size_t i = n; i > 0; --i) {
+    out.reserve(tail_count);
+    for (size_t i = tail_count; i > 0; --i) {
         const char* line = core::at(log_tail().tail_, (count - i) % kTailLines).data();
         out.emplace_back(line, strnlen(line, kTailWidth));
     }

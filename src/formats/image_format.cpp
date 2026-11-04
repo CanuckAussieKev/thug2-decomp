@@ -48,7 +48,7 @@ void decode_format(uint32_t format, uint32_t* bits, bool* palette)
 }
 
 namespace {
-bool power_of_two(uint32_t n) { return (n & (n - 1)) == 0; }
+bool power_of_two(uint32_t value) { return (value & (value - 1)) == 0; }
 } // namespace
 
 bool stored_plain(const ImageHeader& header, bool memory)

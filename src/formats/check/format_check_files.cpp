@@ -72,8 +72,8 @@ std::vector<uint8_t> read_whole(const std::filesystem::path& path)
 
 std::string lower(std::string text)
 {
-    for (char& c : text) {
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char& character : text) {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
     }
     return text;
 }
@@ -158,7 +158,7 @@ size_t reference_decode(std::span<const uint8_t> in, std::span<uint8_t> out, int
 {
     std::array<uint8_t, kLzssWindowSize> window{};
     std::memset(window.data(), ' ', kLzssWindowSize - kLzssMaxMatch);
-    int r = kLzssWindowSize - kLzssMaxMatch;
+    int window_position = kLzssWindowSize - kLzssMaxMatch;
     unsigned int flags = 0;
     size_t read = 0;
     size_t written = 0;
@@ -176,10 +176,10 @@ size_t reference_decode(std::span<const uint8_t> in, std::span<uint8_t> out, int
                 return written;
             }
             --size;
-            const uint8_t c = core::at(in, read++);
-            core::at(out, written++) = c;
-            core::at(window, r) = c;
-            r = (r + 1) & kLzssWindowMask;
+            const uint8_t byte = core::at(in, read++);
+            core::at(out, written++) = byte;
+            core::at(window, window_position) = byte;
+            window_position = (window_position + 1) & kLzssWindowMask;
         } else {
             if (size == 0) {
                 return written;
@@ -189,10 +189,10 @@ size_t reference_decode(std::span<const uint8_t> in, std::span<uint8_t> out, int
             read += 2;
             size -= 2;
             for (int k = 0; k <= last; ++k) {
-                const uint8_t c = core::at(window, (position + k) & 4095);
-                core::at(out, written++) = c;
-                core::at(window, r) = c;
-                r = (r + 1) & kLzssWindowMask;
+                const uint8_t byte = core::at(window, (position + k) & 4095);
+                core::at(out, written++) = byte;
+                core::at(window, window_position) = byte;
+                window_position = (window_position + 1) & kLzssWindowMask;
             }
         }
     }
@@ -682,19 +682,19 @@ struct ReferenceScene {
 
 bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
 {
-    core::Cursor<const uint8_t> p(std::span<const uint8_t>(data, limit), kSceneHeaderBytes);
+    core::Cursor<const uint8_t> cursor(std::span<const uint8_t>(data, limit), kSceneHeaderBytes);
     const auto end = static_cast<std::ptrdiff_t>(limit);
-    auto skip = [&p](size_t bytes) { p += static_cast<std::ptrdiff_t>(bytes); };
-    auto word = [&p](size_t bytes) {
+    auto skip = [&cursor](size_t bytes) { cursor += static_cast<std::ptrdiff_t>(bytes); };
+    auto word = [&cursor](size_t bytes) {
         uint32_t v = 0;
         for (size_t k = 0; k < bytes; ++k) {
-            v |= static_cast<uint32_t>(p[static_cast<std::ptrdiff_t>(k)]) << (kBitsPerByte * k);
+            v |= static_cast<uint32_t>(cursor[static_cast<std::ptrdiff_t>(k)]) << (kBitsPerByte * k);
         }
-        p += static_cast<std::ptrdiff_t>(bytes);
+        cursor += static_cast<std::ptrdiff_t>(bytes);
         return v;
     };
     const uint32_t materials = word(4);
-    for (uint32_t m = 0; m < materials && p.position() < end; ++m) {
+    for (uint32_t material = 0; material < materials && cursor.position() < end; ++material) {
         skip(kMaterialChecksumsBytes);
         const uint32_t passes = word(4);
         skip(4 + 1 + 4 + 1 + 1 + 4);
@@ -705,7 +705,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         if (specular > 0.0F) {
             skip(kSpecularColourBytes);
         }
-        for (uint32_t pass = 0; pass < passes && p.position() < end; ++pass) {
+        for (uint32_t pass = 0; pass < passes && cursor.position() < end; ++pass) {
             skip(4);
             const uint32_t flags = word(4);
             skip(1 + kPassColourBytes + kPassBlendBytes + kPassAddressingBytes + kPassReflectionTilingBytes + 4);
@@ -714,7 +714,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
             }
             if (pass == 0 && ((flags & 2) != 0U)) {
                 const uint32_t anims = word(4);
-                for (uint32_t a = 0; a < anims && p.position() < end; ++a) {
+                for (uint32_t anim = 0; anim < anims && cursor.position() < end; ++anim) {
                     const uint32_t keys = word(4);
                     skip(4 + (static_cast<size_t>(keys) * kColourKeyBytes));
                 }
@@ -728,7 +728,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         ++out->materials;
     }
     const uint32_t sectors = word(4);
-    for (uint32_t s = 0; s < sectors && p.position() < end; ++s) {
+    for (uint32_t sector = 0; sector < sectors && cursor.position() < end; ++sector) {
         skip(kSectorIdBytes);
         const uint32_t flags = word(4);
         const uint32_t meshes = word(4);
@@ -736,10 +736,10 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         if ((flags & kSectorBillboardFlag) != 0U) {
             skip(4 + kBillboardVectorBytes + kBillboardVectorBytes + kBillboardVectorBytes);
         }
-        for (uint32_t i = 0; i < meshes && p.position() < end; ++i) {
+        for (uint32_t i = 0; i < meshes && cursor.position() < end; ++i) {
             skip(kMeshVectorBytes + 4 + kMeshVectorBytes + kMeshVectorBytes + 4 + 4);
             const uint32_t lists = word(4);
-            for (uint32_t j = 0; j < lists && p.position() < end; ++j) {
+            for (uint32_t j = 0; j < lists && cursor.position() < end; ++j) {
                 skip(static_cast<size_t>(word(4)) * 2);
             }
             for (int k = 0; k < kIndexBufferCount; ++k) {
@@ -750,10 +750,10 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
             skip(1);
             const uint32_t vertex_count = word(2);
             const uint32_t buffers = word(1);
-            for (uint32_t v = 0; v < buffers && p.position() < end; ++v) {
+            for (uint32_t buffer = 0; buffer < buffers && cursor.position() < end; ++buffer) {
                 const uint32_t scaled = word(1);
                 const uint32_t size = word(4);
-                if (v == 0) {
+                if (buffer == 0) {
                     out->vertex_bytes += size;
                 }
                 skip(size);
@@ -777,7 +777,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         }
         ++out->sectors;
     }
-    if (p.position() >= end) {
+    if (cursor.position() >= end) {
         return false;
     }
     const int nodes = static_cast<int>(word(4));
@@ -785,8 +785,8 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
         skip(static_cast<size_t>(nodes) * kHierarchyNodeBytes);
         out->hierarchy = static_cast<uint32_t>(nodes);
     }
-    out->end = static_cast<size_t>(p.position());
-    return p.position() <= end;
+    out->end = static_cast<size_t>(cursor.position());
+    return cursor.position() <= end;
 }
 
 void check_scene(const std::string& name, const uint8_t* data, size_t size)
@@ -1110,42 +1110,42 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     std::ptrdiff_t events = 0;
     if ((flags & anim_format::kFloatKeys) != 0U) {
         ++anim_stats().float_keys;
-        std::ptrdiff_t p = keys + kReferenceFloatKeysHeaderBytes;
+        std::ptrdiff_t offset = keys + kReferenceFloatKeysHeaderBytes;
         if ((flags & kReferenceBoneNamesFlag) != 0U) {
-            p += bones * 4;
+            offset += bones * 4;
         }
         if ((flags & kReferencePartialFlag) != 0U) {
-            p = reference_past_bone_bits(image, p);
+            offset = reference_past_bone_bits(image, offset);
         }
-        const std::ptrdiff_t counts = p;
-        p = reference_aligned(p + (bones * (((flags & kReferenceWideCountsFlag) != 0U) ? 4 : 2)));
+        const std::ptrdiff_t counts = offset;
+        offset = reference_aligned(offset + (bones * (((flags & kReferenceWideCountsFlag) != 0U) ? 4 : 2)));
         const int key_size = ((flags & 0x8000000) != 0U) || ((flags & 0x1000000) != 0U) ? 16 : 8;
-        const std::ptrdiff_t rotation = p;
-        const std::ptrdiff_t translation = p + (static_cast<int16_t>(word(1)) * key_size);
-        p = translation + (static_cast<int16_t>(word(2)) * key_size);
-        events = reference_aligned(p);
+        const std::ptrdiff_t rotation = offset;
+        const std::ptrdiff_t translation = offset + (static_cast<int16_t>(word(1)) * key_size);
+        offset = translation + (static_cast<int16_t>(word(2)) * key_size);
+        events = reference_aligned(offset);
         check(layout.key_counts == address + static_cast<uintptr_t>(counts) &&
                   layout.rotation_keys == address + static_cast<uintptr_t>(rotation) &&
                   layout.translation_keys == address + static_cast<uintptr_t>(translation),
               name + ": float keys as the original's arithmetic");
     } else {
         ++anim_stats().compressed;
-        std::ptrdiff_t p = keys + kReferencePackedKeysHeaderBytes + (bones * 2);
-        p = reference_aligned(p + (bones * 2));
+        std::ptrdiff_t offset = keys + kReferencePackedKeysHeaderBytes + (bones * 2);
+        offset = reference_aligned(offset + (bones * 2));
         if ((flags & kReferenceKeyTableFlag) != 0U) {
-            p += kReferenceKeyTableBytes;
+            offset += kReferenceKeyTableBytes;
         }
         if ((flags & kReferencePartialFlag) != 0U) {
-            p = reference_past_bone_bits(image, p);
+            offset = reference_past_bone_bits(image, offset);
         }
-        p = reference_aligned(p);
+        offset = reference_aligned(offset);
         if (((flags & kReferenceWideKeysFlag) == 0U) && ((flags & kReferenceBoneNamesFlag) == 0U)) {
-            check(layout.rotation_keys == address + static_cast<uintptr_t>(p) &&
-                      layout.translation_keys == address + static_cast<uintptr_t>(p) + word(4),
+            check(layout.rotation_keys == address + static_cast<uintptr_t>(offset) &&
+                      layout.translation_keys == address + static_cast<uintptr_t>(offset) + word(4),
                   name + ": compressed keys as the original's arithmetic");
-            p += static_cast<std::ptrdiff_t>(word(4) + word(kPackedTranslationBytesWord));
+            offset += static_cast<std::ptrdiff_t>(word(4) + word(kPackedTranslationBytesWord));
         }
-        events = reference_aligned(p);
+        events = reference_aligned(offset);
     }
     check(layout.custom_keys == address + static_cast<uintptr_t>(events),
           name + ": custom keys as the original's arithmetic");

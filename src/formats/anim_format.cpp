@@ -75,72 +75,72 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
     *layout = {};
     layout->end = end;
     layout->keys_header = cell::address(base) + kHeaderSize;
-    uintptr_t p = 0;
+    uintptr_t offset = 0;
     if (float_keys) {
-        p = layout->keys_header + kFloatKeysHeaderBytes;
+        offset = layout->keys_header + kFloatKeysHeaderBytes;
         if ((flags & kBoneNames) != 0U) {
-            layout->bone_names = p;
-            if (!fits(p, bones * 4, end)) {
+            layout->bone_names = offset;
+            if (!fits(offset, bones * 4, end)) {
                 return false;
             }
-            p += static_cast<uintptr_t>(bones * 4);
+            offset += static_cast<uintptr_t>(bones * 4);
         }
         if ((flags & kPartial) != 0U) {
             uintptr_t bits = 0;
-            if (!partial_bits_size(p, end, &bits)) {
+            if (!partial_bits_size(offset, end, &bits)) {
                 return false;
             }
-            layout->partial_bones = p;
-            p += bits;
+            layout->partial_bones = offset;
+            offset += bits;
         }
-        layout->key_counts = p;
+        layout->key_counts = offset;
         const uint64_t counts = bones * (((flags & kWideCounts) != 0U) ? 4 : 2);
-        if (!fits(p, counts, end)) {
+        if (!fits(offset, counts, end)) {
             return false;
         }
-        p = align4(p + static_cast<uintptr_t>(counts));
+        offset = align4(offset + static_cast<uintptr_t>(counts));
         const uint64_t key_size = ((flags & kWideKeys) != 0U) || ((flags & kBoneNames) != 0U) ? 16 : 8;
-        layout->rotation_keys = p;
-        layout->translation_keys = p + static_cast<uintptr_t>(rotations * key_size);
-        p = layout->translation_keys + static_cast<uintptr_t>(translations * key_size);
+        layout->rotation_keys = offset;
+        layout->translation_keys = offset + static_cast<uintptr_t>(rotations * key_size);
+        offset = layout->translation_keys + static_cast<uintptr_t>(translations * key_size);
         if (!fits(layout->rotation_keys, (static_cast<uint64_t>(rotations) + translations) * key_size, end)) {
             return false;
         }
     } else {
-        p = layout->keys_header + kPackedKeysHeaderBytes;
-        layout->rotation_sizes = p;
-        layout->translation_sizes = p + static_cast<uintptr_t>(bones * 2);
-        if (!fits(p, bones * 4, end)) {
+        offset = layout->keys_header + kPackedKeysHeaderBytes;
+        layout->rotation_sizes = offset;
+        layout->translation_sizes = offset + static_cast<uintptr_t>(bones * 2);
+        if (!fits(offset, bones * 4, end)) {
             return false;
         }
-        p = align4(layout->translation_sizes + static_cast<uintptr_t>(bones * 2));
+        offset = align4(layout->translation_sizes + static_cast<uintptr_t>(bones * 2));
         if ((flags & kKeyTable) != 0U) {
-            layout->key_table = p;
-            if (!fits(p, kKeyTableBytes, end)) {
+            layout->key_table = offset;
+            if (!fits(offset, kKeyTableBytes, end)) {
                 return false;
             }
-            p += kKeyTableBytes;
+            offset += kKeyTableBytes;
         }
         if ((flags & kPartial) != 0U) {
             uintptr_t bits = 0;
-            if (!partial_bits_size(p, end, &bits)) {
+            if (!partial_bits_size(offset, end, &bits)) {
                 return false;
             }
-            layout->partial_bones = p;
-            p += bits;
+            layout->partial_bones = offset;
+            offset += bits;
         }
-        p = align4(p);
+        offset = align4(offset);
         if (((flags & kWideKeys) == 0U) && ((flags & kBoneNames) == 0U)) {
             const uint64_t keys = static_cast<uint64_t>(header->rotation_size) + header->translation_size;
-            if (!fits(p, keys, end)) {
+            if (!fits(offset, keys, end)) {
                 return false;
             }
-            layout->rotation_keys = p;
-            layout->translation_keys = p + header->rotation_size;
-            p += static_cast<uintptr_t>(keys);
+            layout->rotation_keys = offset;
+            layout->translation_keys = offset + header->rotation_size;
+            offset += static_cast<uintptr_t>(keys);
         }
     }
-    layout->custom_keys = align4(p);
+    layout->custom_keys = align4(offset);
     return layout->custom_keys <= end;
 }
 

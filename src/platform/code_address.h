@@ -8,11 +8,11 @@
 
 // The code address of a free function or a simple member function.
 template <typename F>
-void* code_address(F f) noexcept
+void* code_address(F function) noexcept
 {
     static_assert(sizeof(F) == sizeof(void*), "only plain functions and simple member functions");
     // (through the address as a number: the same bits, never one pointer type read as another)
-    return std::bit_cast<void*>(std::bit_cast<uintptr_t>(f));
+    return std::bit_cast<void*>(std::bit_cast<uintptr_t>(function));
 }
 
 // A code address as a number (a log's caller).

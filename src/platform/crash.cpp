@@ -202,13 +202,13 @@ void log_backtrace()
 // An exception's report: where, the registers, the top of the stack, the return addresses on it.
 void report_exception(const EXCEPTION_POINTERS* info, const char* note)
 {
-    const CONTEXT* c = info->ContextRecord;
+    const CONTEXT* context = info->ContextRecord;
     const DWORD code = info->ExceptionRecord->ExceptionCode;
     std::array<char, MAX_PATH> name = {"?"};
-    uintptr_t offset = c->Eip;
-    module_of(c->Eip, name, &offset);
-    get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name.data(), static_cast<unsigned>(offset),
-            static_cast<unsigned>(c->Eip), note);
+    uintptr_t offset = context->Eip;
+    module_of(context->Eip, name, &offset);
+    get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name.data(),
+            static_cast<unsigned>(offset), static_cast<unsigned>(context->Eip), note);
     if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2) {
         get_log("  %s address %08X",
                 info->ExceptionRecord->ExceptionInformation[0] == kExecuteFault   ? "executing"
@@ -216,21 +216,22 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
                                                                       : "reading",
                 static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
     }
-    get_log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X", static_cast<unsigned>(c->Eax),
-            static_cast<unsigned>(c->Ebx), static_cast<unsigned>(c->Ecx), static_cast<unsigned>(c->Edx),
-            static_cast<unsigned>(c->Esi), static_cast<unsigned>(c->Edi), static_cast<unsigned>(c->Ebp),
-            static_cast<unsigned>(c->Esp));
+    get_log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X",
+            static_cast<unsigned>(context->Eax), static_cast<unsigned>(context->Ebx),
+            static_cast<unsigned>(context->Ecx), static_cast<unsigned>(context->Edx),
+            static_cast<unsigned>(context->Esi), static_cast<unsigned>(context->Edi),
+            static_cast<unsigned>(context->Ebp), static_cast<unsigned>(context->Esp));
     // The top of the stack as it is (arguments, saved registers, locals).
-    for (uintptr_t slot = c->Esp; slot < c->Esp + kStackDumpBytes; slot += kStackDumpLineBytes) {
+    for (uintptr_t slot = context->Esp; slot < context->Esp + kStackDumpBytes; slot += kStackDumpLineBytes) {
         if (!readable(slot, kStackDumpLineBytes, false)) {
             break;
         }
         const std::span<const uint32_t, 8> w(cell::pointer<const uint32_t>(slot), 8);
-        get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp),
+        get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - context->Esp),
                 core::at(w, 0), core::at(w, 1), core::at(w, 2), core::at(w, 3), core::at(w, 4), core::at(w, kDumpWord5),
                 core::at(w, kDumpWord6), core::at(w, kDumpWord7));
     }
-    crash_log_stack_scan(c->Esp);
+    crash_log_stack_scan(context->Esp);
 }
 
 // Crashes (access violations and other fatal exceptions) are logged before Windows ends the game - first chance: an
@@ -315,9 +316,10 @@ int crt_report_hook(int type, char* message, int* return_value)
     if (message) {
         // Its line ends cut off in the C runtime's own buffer (the hook takes the report: nothing prints it after).
         const std::span<char> report(message, std::strlen(message));
-        for (size_t n = report.size();
-             (n != 0U) && (core::at(report, n - 1) == '\n' || core::at(report, n - 1) == '\r'); --n) {
-            core::at(report, n - 1) = '\0';
+        for (size_t length = report.size();
+             (length != 0U) && (core::at(report, length - 1) == '\n' || core::at(report, length - 1) == '\r');
+             --length) {
+            core::at(report, length - 1) = '\0';
         }
         strncpy_s(text.data(), text.size(), message, _TRUNCATE);
     }

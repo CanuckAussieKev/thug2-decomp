@@ -68,19 +68,19 @@ public:
         if (!has(2)) {
             return fail_value<uint16_t>();
         }
-        const std::span<const uint8_t> p = rest().first(2);
+        const std::span<const uint8_t> bytes = rest().first(2);
         position_ += 2;
-        return static_cast<uint16_t>(core::at(p, 0) | core::at(p, 1) << kBitsPerByte);
+        return static_cast<uint16_t>(core::at(bytes, 0) | core::at(bytes, 1) << kBitsPerByte);
     }
     uint32_t u32()
     {
         if (!has(4)) {
             return fail_value<uint32_t>();
         }
-        const std::span<const uint8_t> p = rest().first(4);
+        const std::span<const uint8_t> bytes = rest().first(4);
         position_ += 4;
-        return core::at(p, 0) | core::at(p, 1) << kBitsPerByte | core::at(p, 2) << kBitsPerShort |
-               static_cast<uint32_t>(core::at(p, 3)) << kBitsPerThreeBytes;
+        return core::at(bytes, 0) | core::at(bytes, 1) << kBitsPerByte | core::at(bytes, 2) << kBitsPerShort |
+               static_cast<uint32_t>(core::at(bytes, 3)) << kBitsPerThreeBytes;
     }
     int8_t i8() { return static_cast<int8_t>(u8()); }
     int16_t i16() { return static_cast<int16_t>(u16()); }
@@ -205,9 +205,9 @@ public:
         if (!has(2)) {
             return fail();
         }
-        const std::span<uint8_t> p = rest().first(2);
-        core::at(p, 0) = static_cast<uint8_t>(value);
-        core::at(p, 1) = static_cast<uint8_t>(value >> kBitsPerByte);
+        const std::span<uint8_t> bytes = rest().first(2);
+        core::at(bytes, 0) = static_cast<uint8_t>(value);
+        core::at(bytes, 1) = static_cast<uint8_t>(value >> kBitsPerByte);
         position_ += 2;
         return true;
     }
@@ -216,11 +216,11 @@ public:
         if (!has(4)) {
             return fail();
         }
-        const std::span<uint8_t> p = rest().first(4);
-        core::at(p, 0) = static_cast<uint8_t>(value);
-        core::at(p, 1) = static_cast<uint8_t>(value >> kBitsPerByte);
-        core::at(p, 2) = static_cast<uint8_t>(value >> kBitsPerShort);
-        core::at(p, 3) = static_cast<uint8_t>(value >> kBitsPerThreeBytes);
+        const std::span<uint8_t> bytes = rest().first(4);
+        core::at(bytes, 0) = static_cast<uint8_t>(value);
+        core::at(bytes, 1) = static_cast<uint8_t>(value >> kBitsPerByte);
+        core::at(bytes, 2) = static_cast<uint8_t>(value >> kBitsPerShort);
+        core::at(bytes, 3) = static_cast<uint8_t>(value >> kBitsPerThreeBytes);
         position_ += 4;
         return true;
     }

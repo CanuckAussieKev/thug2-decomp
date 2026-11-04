@@ -79,11 +79,11 @@ void compare(const std::string& format, Args... args)
     if (++totals().differ <= kMaxShown) {
         std::string shown_expected;
         std::string shown_made;
-        for (const char c : expected) {
-            shown_expected += c == '\0' ? '@' : c;
+        for (const char character : expected) {
+            shown_expected += character == '\0' ? '@' : character;
         }
-        for (const char c : made) {
-            shown_made += c == '\0' ? '@' : c;
+        for (const char character : made) {
+            shown_made += character == '\0' ? '@' : character;
         }
         std::fputs(text::format("DIFF \"%s\": runtime [%s] ours [%s]\n", format.c_str(), shown_expected.c_str(),
                                 shown_made.c_str())
@@ -105,8 +105,8 @@ void compare_with_stars(const std::string& format, bool star_width, bool star_pr
 {
     if (star_width && star_precision) {
         for (const int w : kStarWidths) {
-            for (const int p : kStarPrecisions) {
-                compare(format, w, p, value);
+            for (const int precision : kStarPrecisions) {
+                compare(format, w, precision, value);
             }
         }
     } else if (star_width) {
@@ -114,8 +114,8 @@ void compare_with_stars(const std::string& format, bool star_width, bool star_pr
             compare(format, w, value);
         }
     } else if (star_precision) {
-        for (const int p : kStarPrecisions) {
-            compare(format, p, value);
+        for (const int precision : kStarPrecisions) {
+            compare(format, precision, value);
         }
     } else {
         compare(format, value);

@@ -32,16 +32,19 @@ constexpr int kSampleBits = 16;
 constexpr float kSpreadScale = 0.0002F; // 1 / 5000: the centred sample's range to +/-1
 
 // Advance a stream and return its new 16-bit sample.
-uint32_t get_next(RandomState& s)
+uint32_t get_next(RandomState& state)
 {
-    s.value = (s.mul * s.value) + s.add;
-    auto v = static_cast<int32_t>(s.value);
-    s.mul = (s.mul ^ s.value) + static_cast<uint32_t>(v >> 4);
-    s.add = s.add - kAddStep + static_cast<uint32_t>(v >> 3);
-    return s.value & kSampleMask;
+    state.value = (state.mul * state.value) + state.add;
+    auto v = static_cast<int32_t>(state.value);
+    state.mul = (state.mul ^ state.value) + static_cast<uint32_t>(v >> 4);
+    state.add = state.add - kAddStep + static_cast<uint32_t>(v >> 3);
+    return state.value & kSampleMask;
 }
 
-int scale_tool(uint32_t sample, int n) { return static_cast<int>(sample * static_cast<uint32_t>(n)) >> kSampleBits; }
+int scale_tool(uint32_t sample, int limit)
+{
+    return static_cast<int>(sample * static_cast<uint32_t>(limit)) >> kSampleBits;
+}
 
 } // namespace
 
@@ -53,10 +56,10 @@ void seed_random(uint32_t seed)
 }
 
 // 0x00403DE0
-int rnd(int n) { return scale_tool(get_next(stream1()), n); }
+int rnd(int limit) { return scale_tool(get_next(stream1()), limit); }
 
 // 0x00403E30
-int roll_side_stream(int n) { return scale_tool(get_next(stream2()), n); }
+int roll_side_stream(int limit) { return scale_tool(get_next(stream2()), limit); }
 
 // 0x00403E80
 float signed_spread(float range) { return static_cast<float>(plus_or_minus_exact(range)); }

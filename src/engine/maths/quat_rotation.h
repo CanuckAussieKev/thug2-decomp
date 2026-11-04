@@ -17,7 +17,7 @@ public:
     // positive, else from its largest diagonal element.
     QuatRotation* from_matrix(const Mat4& matrix);
     // 0x00420140: this = this * q (the roundings where the original stores).
-    QuatRotation& operator*=(const QuatRotation& q);
+    QuatRotation& operator*=(const QuatRotation& other);
     // 0x00420B50: `v` turned by this rotation (this * (v, 1) * conjugate), into `out` (w: what the product leaves).
     // Returns out.
     Vec4* spin_by(Vec4* out, const Vec4& v) const;
@@ -36,26 +36,29 @@ public:
 
 // Quaternions kept as a Vec4 (x, y, z, w) - the objects' and nodes' orientations - turned into and from one.
 inline QuatRotation quat_of(const Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
-inline Vec4 vec4_of(const QuatRotation& q) { return {.x = q.x, .y = q.y, .z = q.z, .w = q.w}; }
+inline Vec4 vec4_of(const QuatRotation& rotation)
+{
+    return {.x = rotation.x, .y = rotation.y, .z = rotation.z, .w = rotation.w};
+}
 // fetch_mat / from_matrix / make_unit / *= on a quaternion kept as a Vec4.
 inline void quat_to_matrix(const Vec4& quat, Mat4* matrix) { quat_of(quat).fetch_mat(matrix); }
 inline Vec4 quat_from_matrix(const Mat4& matrix)
 {
-    QuatRotation q{};
-    q.from_matrix(matrix);
-    return vec4_of(q);
+    QuatRotation rotation{};
+    rotation.from_matrix(matrix);
+    return vec4_of(rotation);
 }
 inline void quat_make_unit(Vec4* quat, float length)
 {
-    QuatRotation q = quat_of(*quat);
-    q.make_unit(length);
-    *quat = vec4_of(q);
+    QuatRotation rotation = quat_of(*quat);
+    rotation.make_unit(length);
+    *quat = vec4_of(rotation);
 }
 inline void quat_multiply(Vec4* a, const Vec4& b)
 {
-    QuatRotation q = quat_of(*a);
-    q *= quat_of(b);
-    *a = vec4_of(q);
+    QuatRotation rotation = quat_of(*a);
+    rotation *= quat_of(b);
+    *a = vec4_of(rotation);
 }
 
 } // namespace maths

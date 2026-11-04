@@ -120,13 +120,13 @@ struct Seg {
     // start + s * (end - start) on this segment and other.start + t * (other.end - other.start) on the other;
     // s and t (both in [0, 1]) are written out when the pointers are given. Returned as double: the original
     // leaves it in ST0 unrounded and some callers compare it before storing (ours is computed in floats).
-    double distance_sqr_to_line(const Seg& other, float* s = nullptr, float* t = nullptr) const;
+    double distance_sqr_to_line(const Seg& other, float* along_a = nullptr, float* along_b = nullptr) const;
 };
 
 // Closest points between lines `a` and `b`: point_a = a.start + s * (a.end - a.start), point_b likewise with
 // t. With `clamp`, s and t are limited to [0, 1] (segments instead of infinite lines). Returns false, leaving
 // the outputs untouched, if either line is shorter than 1e-5 on every axis or they are (nearly) parallel.
-bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s, float& t,
-                                  bool clamp);
+bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& along_a,
+                                  float& along_b, bool clamp);
 
 } // namespace maths

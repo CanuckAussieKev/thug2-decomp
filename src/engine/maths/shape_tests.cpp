@@ -118,35 +118,35 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
 {
     Vec4& hit = *out.hit;
     Vec4& normal = *out.normal;
-    const Vec4& s = line.start;
-    const Vec4& e = line.end;
-    if ((contains_point(s) != 0) && (contains_point(e) != 0)) {
+    const Vec4& start_point = line.start;
+    const Vec4& end_point = line.end;
+    if ((contains_point(start_point) != 0) && (contains_point(end_point) != 0)) {
         return false;
     }
 
     // Both ends beyond the same face: no hit.
-    if (max.y < s.y && e.y > max.y) {
+    if (max.y < start_point.y && end_point.y > max.y) {
         return false;
     }
-    if (s.y < min.y && e.y < min.y) {
+    if (start_point.y < min.y && end_point.y < min.y) {
         return false;
     }
-    if (max.x < s.x && e.x > max.x) {
+    if (max.x < start_point.x && end_point.x > max.x) {
         return false;
     }
-    if (s.x < min.x && e.x < min.x) {
+    if (start_point.x < min.x && end_point.x < min.x) {
         return false;
     }
-    if (max.z < s.z && e.z > max.z) {
+    if (max.z < start_point.z && end_point.z > max.z) {
         return false;
     }
-    if (s.z < min.z && e.z < min.z) {
+    if (start_point.z < min.z && end_point.z < min.z) {
         return false;
     }
 
-    float dx = e.x - s.x;
-    float dy = e.y - s.y;
-    float dz = e.z - s.z;
+    float dx = end_point.x - start_point.x;
+    float dy = end_point.y - start_point.y;
+    float dz = end_point.z - start_point.z;
     if (dx == 0.0F) {
         dx = kParallelRayStep;
     }
@@ -163,60 +163,60 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     auto inside_x_z = [&](float x, float z) { return x < max.x && min.x < x && z < max.z && min.z < z; };
     auto inside_x_y = [&](float x, float y) { return x < max.x && min.x < x && y < max.y && min.y < y; };
 
-    if (max.x < s.x && e.x < max.x && dx < 0.0F) {
-        const double k = (1.0 / dx) * (static_cast<double>(max.x) - s.x);
-        auto y = static_cast<float>((k * dy) + s.y);
-        auto z = static_cast<float>((k * dz) + s.z);
+    if (max.x < start_point.x && end_point.x < max.x && dx < 0.0F) {
+        const double ratio = (1.0 / dx) * (static_cast<double>(max.x) - start_point.x);
+        auto y = static_cast<float>((ratio * dy) + start_point.y);
+        auto z = static_cast<float>((ratio * dz) + start_point.z);
         if (inside_y_z(y, z)) {
             hit = {.x = max.x, .y = y, .z = z, .w = 1.0F};
             normal = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
             return true;
         }
     }
-    if (s.x < min.x && min.x < e.x && dx > 0.0F) {
-        const double k = (1.0 / dx) * (static_cast<double>(min.x) - s.x);
-        auto y = static_cast<float>((k * dy) + s.y);
-        auto z = static_cast<float>((k * dz) + s.z);
+    if (start_point.x < min.x && min.x < end_point.x && dx > 0.0F) {
+        const double ratio = (1.0 / dx) * (static_cast<double>(min.x) - start_point.x);
+        auto y = static_cast<float>((ratio * dy) + start_point.y);
+        auto z = static_cast<float>((ratio * dz) + start_point.z);
         if (inside_y_z(y, z)) {
             hit = {.x = min.x, .y = y, .z = z, .w = 1.0F};
             normal = {.x = -1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
             return true;
         }
     }
-    if (max.y < s.y && e.y < max.y && dy < 0.0F) {
-        const double k = (1.0 / dy) * (static_cast<double>(max.y) - s.y);
-        auto x = static_cast<float>((k * dx) + s.x);
-        auto z = static_cast<float>((k * dz) + s.z);
+    if (max.y < start_point.y && end_point.y < max.y && dy < 0.0F) {
+        const double ratio = (1.0 / dy) * (static_cast<double>(max.y) - start_point.y);
+        auto x = static_cast<float>((ratio * dx) + start_point.x);
+        auto z = static_cast<float>((ratio * dz) + start_point.z);
         if (inside_x_z(x, z)) {
             hit = {.x = x, .y = max.y, .z = z, .w = 1.0F};
             normal = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
             return true;
         }
     }
-    if (s.y < min.y && min.y < e.y && dy > 0.0F) {
-        const double k = (1.0 / dy) * (static_cast<double>(min.y) - s.y);
-        auto x = static_cast<float>((k * dx) + s.x);
-        auto z = static_cast<float>((k * dz) + s.z);
+    if (start_point.y < min.y && min.y < end_point.y && dy > 0.0F) {
+        const double ratio = (1.0 / dy) * (static_cast<double>(min.y) - start_point.y);
+        auto x = static_cast<float>((ratio * dx) + start_point.x);
+        auto z = static_cast<float>((ratio * dz) + start_point.z);
         if (inside_x_z(x, z)) {
             hit = {.x = x, .y = min.y, .z = z, .w = 1.0F};
             normal = {.x = 0.0F, .y = -1.0F, .z = 0.0F, .w = 0.0F};
             return true;
         }
     }
-    if (max.z < s.z && e.z < max.z && dz < 0.0F) {
-        const double k = (1.0 / dz) * (static_cast<double>(max.z) - s.z);
-        auto x = static_cast<float>((k * dx) + s.x);
-        auto y = static_cast<float>((k * dy) + s.y);
+    if (max.z < start_point.z && end_point.z < max.z && dz < 0.0F) {
+        const double ratio = (1.0 / dz) * (static_cast<double>(max.z) - start_point.z);
+        auto x = static_cast<float>((ratio * dx) + start_point.x);
+        auto y = static_cast<float>((ratio * dy) + start_point.y);
         if (inside_x_y(x, y)) {
             hit = {.x = x, .y = y, .z = max.z, .w = 1.0F};
             normal = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
             return true;
         }
     }
-    if (s.z < min.z && e.z > min.z && dz > 0.0F) {
-        const double k = (1.0 / dz) * (static_cast<double>(min.z) - s.z);
-        auto x = static_cast<float>((k * dx) + s.x);
-        auto y = static_cast<float>((k * dy) + s.y);
+    if (start_point.z < min.z && end_point.z > min.z && dz > 0.0F) {
+        const double ratio = (1.0 / dz) * (static_cast<double>(min.z) - start_point.z);
+        auto x = static_cast<float>((ratio * dx) + start_point.x);
+        auto y = static_cast<float>((ratio * dy) + start_point.y);
         if (inside_x_y(x, y)) {
             hit = {.x = x, .y = y, .z = min.z, .w = 1.0F};
             normal = {.x = 0.0F, .y = 0.0F, .z = -1.0F, .w = 0.0F};
@@ -236,14 +236,14 @@ void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
         float best_distance = 0.0F; // always set on the first pass (axis 0)
         int winning_axis = 0;
         for (int axis = 0; axis < 3; ++axis) {
-            const float p = point[axis];
+            const float coordinate = point[axis];
             const float lo = min[axis];
             const float hi = max[axis];
             float value = hi;
-            float distance = hi - p;
-            if (!(distance <= p - lo)) {
+            float distance = hi - coordinate;
+            if (!(distance <= coordinate - lo)) {
                 value = lo;
-                distance = p - lo;
+                distance = coordinate - lo;
             }
             if (axis == 0 || distance < best_distance) {
                 winning_axis = axis;
@@ -259,14 +259,14 @@ void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
     // Outside: keep the coordinates that are within range and clamp the rest.
     out.w = 1.0F;
     for (int axis = 0; axis < 3; ++axis) {
-        const float p = point[axis];
+        const float coordinate = point[axis];
         const float lo = min[axis];
         const float hi = max[axis];
-        float& o = out[axis];
+        float& clamped = out[axis];
         if ((axes & (1U << axis)) != 0U) {
-            o = p;
+            clamped = coordinate;
         } else {
-            o = (p <= lo) ? lo : hi; // NaN goes to max, as in the original
+            clamped = (coordinate <= lo) ? lo : hi; // NaN goes to max, as in the original
         }
     }
 }
@@ -275,10 +275,12 @@ void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
 Capsule::Capsule() : radius(0.0F) {}
 
 // 0x00403230
-Capsule::Capsule(const Vec4& start, const Vec4& offset, float r) : line(start, start + offset), radius(r) {}
+Capsule::Capsule(const Vec4& start, const Vec4& offset, float sphere_radius)
+    : line(start, start + offset), radius(sphere_radius)
+{}
 
 // 0x004032A0
-Capsule::Capsule(const Seg& segment, float r) : line(segment), radius(r) {}
+Capsule::Capsule(const Seg& segment, float sphere_radius) : line(segment), radius(sphere_radius) {}
 
 // 0x00403390
 float Capsule::get_loudness() const
@@ -321,11 +323,11 @@ float Seg::distance_sqr_to_point(const Vec4& point, Vec4* offset) const
     } else if (squared_len <= along) {
         result = point - end;
     } else {
-        const float t = along / squared_len;
-        result = {.x = point.x - ((dx * t) + start.x),
-                  .y = point.y - ((dy * t) + start.y),
-                  .z = point.z - ((dz * t) + start.z),
-                  .w = point.w - ((dw * t) + start.w)};
+        const float fraction = along / squared_len;
+        result = {.x = point.x - ((dx * fraction) + start.x),
+                  .y = point.y - ((dy * fraction) + start.y),
+                  .z = point.z - ((dz * fraction) + start.z),
+                  .w = point.w - ((dw * fraction) + start.w)};
     }
     if (offset) {
         *offset = result;
@@ -354,107 +356,107 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
     const float a01 = (-d0y * d1y) + (-d0z * d1z) + (-d0x * d1x);
     const float a11 = (d1y * d1y) + (d1z * d1z) + (d1x * d1x);
     const float b0 = (d0z * dz) + (d0y * dy) + (d0x * dx);
-    const float c = (dy * dy) + (dz * dz) + (dx * dx);
+    const float length_sqr = (dy * dy) + (dz * dz) + (dx * dx);
     const float det = std::fabs((a11 * a00) - (a01 * a01));
     auto compute_b1 = [&] { return (-dy * d1y) + (-dz * d1z) + (-dx * d1x); };
 
-    float s = 0.0F;
-    float t = 0.0F;
-    float sqr = c;
+    float along_a = 0.0F;
+    float along_b = 0.0F;
+    float sqr = length_sqr;
 
     // Minimise along one edge of the unit square.
     auto edge_s0 = [&](float b1) { // s = 0, t free
-        s = 0.0F;
+        along_a = 0.0F;
         if (b1 >= 0.0F) {
-            t = 0.0F;
-            sqr = c;
+            along_b = 0.0F;
+            sqr = length_sqr;
         } else if (a11 <= -b1) {
-            t = 1.0F;
-            sqr = b1 + b1 + c + a11;
+            along_b = 1.0F;
+            sqr = b1 + b1 + length_sqr + a11;
         } else {
-            t = -b1 / a11;
-            sqr = (-(b1 / a11) * b1) + c;
+            along_b = -b1 / a11;
+            sqr = (-(b1 / a11) * b1) + length_sqr;
         }
     };
     auto edge_t0 = [&] { // t = 0, s free
-        t = 0.0F;
+        along_b = 0.0F;
         if (b0 >= 0.0F) {
-            s = 0.0F;
-            sqr = c;
+            along_a = 0.0F;
+            sqr = length_sqr;
         } else if (a00 <= -b0) {
-            s = 1.0F;
-            sqr = b0 + b0 + c + a00;
+            along_a = 1.0F;
+            sqr = b0 + b0 + length_sqr + a00;
         } else {
-            s = -b0 / a00;
-            sqr = (-(b0 / a00) * b0) + c;
+            along_a = -b0 / a00;
+            sqr = (-(b0 / a00) * b0) + length_sqr;
         }
     };
     auto edge_s1 = [&](float b1) { // s = 1, t free
-        s = 1.0F;
+        along_a = 1.0F;
         const float tmp = b1 + a01;
         if (tmp < 0.0F) {
             if (-tmp < a11) {
-                t = -tmp / a11;
-                sqr = b0 + b0 + (tmp * t) + c + a00;
+                along_b = -tmp / a11;
+                sqr = b0 + b0 + (tmp * along_b) + length_sqr + a00;
             } else {
-                t = 1.0F;
-                sqr = tmp + b0 + tmp + b0 + c + a11 + a00;
+                along_b = 1.0F;
+                sqr = tmp + b0 + tmp + b0 + length_sqr + a11 + a00;
             }
         } else {
-            t = 0.0F;
-            sqr = b0 + b0 + c + a00;
+            along_b = 0.0F;
+            sqr = b0 + b0 + length_sqr + a00;
         }
     };
     // t = 1 with s free, when b0 + a01 < 0 (the caller checks).
     auto edge_t1_inside = [&](float tmp, float b1) {
-        t = 1.0F;
+        along_b = 1.0F;
         if (-tmp < a00) {
-            s = -tmp / a00;
-            sqr = b1 + b1 + (tmp * s) + c + a11;
+            along_a = -tmp / a00;
+            sqr = b1 + b1 + (tmp * along_a) + length_sqr + a11;
         } else {
-            s = 1.0F;
-            sqr = tmp + b1 + tmp + b1 + c + a11 + a00;
+            along_a = 1.0F;
+            sqr = tmp + b1 + tmp + b1 + length_sqr + a11 + a00;
         }
     };
     auto corner_s0_t1 = [&](float b1) {
-        s = 0.0F;
-        t = 1.0F;
-        sqr = b1 + b1 + c + a11;
+        along_a = 0.0F;
+        along_b = 1.0F;
+        sqr = b1 + b1 + length_sqr + a11;
     };
 
     // Comparisons are written so NaNs take the same branches as in the original.
     if (!(det < kParallelDeterminant)) {
         // Not parallel: scaled by det, the unconstrained minimum is at (s, t).
         const float b1 = compute_b1();
-        s = (a01 * b1) - (a11 * b0);
-        t = (a01 * b0) - (a00 * b1);
-        if (s < 0.0F) {
+        along_a = (a01 * b1) - (a11 * b0);
+        along_b = (a01 * b0) - (a00 * b1);
+        if (along_a < 0.0F) {
             const float tmp = b0 + a01;
-            if (!(t < 0.0F) && !(t <= det) && tmp < 0.0F) {
+            if (!(along_b < 0.0F) && !(along_b <= det) && tmp < 0.0F) {
                 edge_t1_inside(tmp, b1);
-            } else if (t < 0.0F && b0 < 0.0F) {
+            } else if (along_b < 0.0F && b0 < 0.0F) {
                 edge_t0();
             } else {
                 edge_s0(b1);
             }
-        } else if (!(s <= det)) {
+        } else if (!(along_a <= det)) {
             const float tmp = b0 + a01;
-            if (t < 0.0F && -b0 < a00) {
+            if (along_b < 0.0F && -b0 < a00) {
                 edge_t0();
-            } else if (!(t < 0.0F) && !(t <= det) && -tmp <= a00) {
+            } else if (!(along_b < 0.0F) && !(along_b <= det) && -tmp <= a00) {
                 if (tmp < 0.0F) {
-                    t = 1.0F;
-                    s = -tmp / a00;
-                    sqr = b1 + b1 + (tmp * s) + c + a11;
+                    along_b = 1.0F;
+                    along_a = -tmp / a00;
+                    sqr = b1 + b1 + (tmp * along_a) + length_sqr + a11;
                 } else {
                     corner_s0_t1(b1);
                 }
             } else {
                 edge_s1(b1);
             }
-        } else if (t < 0.0F) {
+        } else if (along_b < 0.0F) {
             edge_t0();
-        } else if (!(t <= det)) {
+        } else if (!(along_b <= det)) {
             const float tmp = b0 + a01;
             if (tmp < 0.0F) {
                 edge_t1_inside(tmp, b1);
@@ -464,61 +466,62 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
         } else {
             // Interior: the unconstrained minimum is inside the unit square.
             const float inv = 1.0F / det;
-            s *= inv;
-            t *= inv;
-            sqr = ((b0 + b0 + (s * a00) + (t * a01)) * s) + ((b1 + b1 + (s * a01) + (t * a11)) * t) + c;
+            along_a *= inv;
+            along_b *= inv;
+            sqr = ((b0 + b0 + (along_a * a00) + (along_b * a01)) * along_a) +
+                  ((b1 + b1 + (along_a * a01) + (along_b * a11)) * along_b) + length_sqr;
         }
     } else if (a01 <= 0.0F) {
         // Parallel, pointing the same way.
         if (a00 <= -b0) {
-            t = 0.0F;
-            s = 1.0F;
-            sqr = b0 + b0 + c + a00;
+            along_b = 0.0F;
+            along_a = 1.0F;
+            sqr = b0 + b0 + length_sqr + a00;
         } else if (!(b0 <= 0.0F)) {
             const float b1 = compute_b1();
-            s = 0.0F;
+            along_a = 0.0F;
             if (-a01 <= b0) {
-                t = 1.0F;
-                sqr = b1 + b1 + c + a11;
+                along_b = 1.0F;
+                sqr = b1 + b1 + length_sqr + a11;
             } else {
-                t = -(b0 / a01);
-                sqr = ((b1 + b1 + (t * a11)) * t) + c;
+                along_b = -(b0 / a01);
+                sqr = ((b1 + b1 + (along_b * a11)) * along_b) + length_sqr;
             }
         } else {
-            s = -(b0 / a00);
-            t = 0.0F;
-            sqr = (s * b0) + c;
+            along_a = -(b0 / a00);
+            along_b = 0.0F;
+            sqr = (along_a * b0) + length_sqr;
         }
     } else {
         // Parallel, pointing opposite ways.
         if (b0 >= 0.0F) {
-            s = 0.0F;
-            t = 0.0F;
-            sqr = c;
+            along_a = 0.0F;
+            along_b = 0.0F;
+            sqr = length_sqr;
         } else if (!(-b0 <= a00)) {
-            s = 1.0F;
+            along_a = 1.0F;
             const float b1 = compute_b1();
             if (-(b0 + a00) < a01) {
-                t = -((b0 + a00) / a01);
+                along_b = -((b0 + a00) / a01);
                 const float tmp = b1 + a01;
-                sqr = b0 + b0 + (((t * a11) + tmp + tmp) * t) + c + a00;
+                sqr = b0 + b0 + (((along_b * a11) + tmp + tmp) * along_b) + length_sqr + a00;
             } else {
-                t = 1.0F;
+                along_b = 1.0F;
                 const float tmp = b1 + b0 + a01;
-                sqr = tmp + tmp + c + a11 + a00;
+                sqr = tmp + tmp + length_sqr + a11 + a00;
             }
         } else {
-            s = -(b0 / a00);
-            t = 0.0F;
-            sqr = (s * b0) + c;
+            along_a = -(b0 / a00);
+            along_b = 0.0F;
+            sqr = (along_a * b0) + length_sqr;
         }
     }
 
     if (s_out) {
-        *s_out = s;
+        *s_out = along_a;
     }
     if (t_out) {
-        *t_out = t;
+        *t_out = along_b;
     }
     return std::fabs(sqr);
 }
@@ -526,10 +529,10 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
 // 0x004032E0
 int Capsule::intersects_segment(const Seg& segment, SegmentParams params_out) const
 {
-    auto* const s = params_out.s;
-    auto* const t = params_out.t;
+    auto* const along_a = params_out.s;
+    auto* const along_b = params_out.t;
     auto* const squared_gap = params_out.squared_gap_;
-    auto distance = static_cast<float>(line.distance_sqr_to_line(segment, s, t));
+    auto distance = static_cast<float>(line.distance_sqr_to_line(segment, along_a, along_b));
     if (squared_gap) {
         *squared_gap = distance;
     }
@@ -557,8 +560,8 @@ float clamp01(float value)
 } // namespace
 
 // 0x00402F00
-bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s, float& t,
-                                  bool clamp)
+bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& along_a,
+                                  float& along_b, bool clamp)
 {
     const float vx = b.end.x - b.start.x;
     const float vy = b.end.y - b.start.y;
@@ -576,7 +579,7 @@ bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec
     const float wx = a.start.x - b.start.x;
     const float wy = a.start.y - b.start.y;
     const float wz = a.start.z - b.start.z;
-    const float e = (vx * wx) + (vy * wy) + (vz * wz);
+    const float dot_vw = (vx * wx) + (vy * wy) + (vz * wz);
     const float uv = (uy * vy) + (uz * vz) + (ux * vx);
     const float vv = (vy * vy) + (vz * vz) + (vx * vx);
     const float denominator = (((uy * uy) + (uz * uz) + (ux * ux)) * vv) - (uv * uv);
@@ -584,23 +587,23 @@ bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec
         return false; // parallel
     }
 
-    s = ((uv * e) - (((ux * wx) + (uy * wy) + (uz * wz)) * vv)) / denominator;
+    along_a = ((uv * dot_vw) - (((ux * wx) + (uy * wy) + (uz * wz)) * vv)) / denominator;
     if (clamp) {
-        s = clamp01(s);
+        along_a = clamp01(along_a);
     }
-    t = ((uv * s) + e) / vv;
+    along_b = ((uv * along_a) + dot_vw) / vv;
     if (clamp) {
-        t = clamp01(t);
+        along_b = clamp01(along_b);
     }
 
-    point_a = {.x = (ux * s) + a.start.x,
-               .y = (uy * s) + a.start.y,
-               .z = (uz * s) + a.start.z,
-               .w = ((a.end.w - a.start.w) * s) + a.start.w};
-    point_b = {.x = (vx * t) + b.start.x,
-               .y = (vy * t) + b.start.y,
-               .z = (vz * t) + b.start.z,
-               .w = ((b.end.w - b.start.w) * t) + b.start.w};
+    point_a = {.x = (ux * along_a) + a.start.x,
+               .y = (uy * along_a) + a.start.y,
+               .z = (uz * along_a) + a.start.z,
+               .w = ((a.end.w - a.start.w) * along_a) + a.start.w};
+    point_b = {.x = (vx * along_b) + b.start.x,
+               .y = (vy * along_b) + b.start.y,
+               .z = (vz * along_b) + b.start.z,
+               .w = ((b.end.w - b.start.w) * along_b) + b.start.w};
     return true;
 }
 
