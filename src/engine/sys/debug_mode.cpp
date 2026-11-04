@@ -12,7 +12,7 @@
 #include "base/core/checksums.h"
 #include "engine/script/cell.h"
 #include "engine/script/names.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
 #include "engine/gfx/screen.h"
 #include "engine/script/cscript.h"

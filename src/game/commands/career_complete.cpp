@@ -1,6 +1,6 @@
-// CREATE 100% CAS's script commands (frontend/career_complete.h).
+// CREATE 100% CAS's script commands (game/commands/career_complete.h).
 
-#include "frontend/career_complete.h"
+#include "game/commands/career_complete.h"
 
 #include <cstdint>
 #include <array>

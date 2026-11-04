@@ -28,7 +28,7 @@
 #include "engine/memory/mem.h"
 #include "formats/wave_format.h"
 #include "formats/byte_stream.h"
-#include "frontend/data_overlay.h"
+#include "engine/file/data_overlay.h"
 #include "engine/gfx/view_cam.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -750,7 +750,7 @@ void free_permanent_waves()
 // 0x0047C870
 bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
 {
-    // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., frontend/data_overlay.h - THAW's
+    // Not original: the data overlay's copy first (thug2-decomp-data\sounds\..., engine/file/data_overlay.h - THAW's
     // BMX sounds, tools/pipeline/thaw_bmx/convert.ts).
     std::array<char, file::kOverlayPathSize> overlay{};
     if (frontend::data_overlay::get_overlay_path(file_name, overlay)) {

@@ -20,7 +20,7 @@
 #include "engine/file/archive.h"
 #include "engine/script/names.h"
 #include "formats/pre_format.h"
-#include "frontend/data_overlay.h"
+#include "engine/file/data_overlay.h"
 #include "engine/script/params.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
@@ -100,7 +100,7 @@ PackedFile* find_pre_entry(uint32_t checksum)
 void* read_in(const char* name, bool async, file::IoCompletionHook callback, void* hook_user_a, void* hook_user_b)
 {
     const uint32_t checksum = checksums::hash_from_text(name);
-    // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is read from it,
+    // Not original - the data overlay (engine/file/data_overlay.h): a file of the data overlay is read from it,
     // before any archive (synchronously, through FileLoad::unseal, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
     std::array<char, file::kOverlayPathSize> overlay_path{};

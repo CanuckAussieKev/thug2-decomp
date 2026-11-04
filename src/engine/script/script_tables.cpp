@@ -10,7 +10,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/file/packs.h"
 #include "engine/file/archive.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/script/fwd.h"
 #include "engine/ui/screen_element_cfuncs.h"
 #include "engine/ui/theme_cfuncs.h"

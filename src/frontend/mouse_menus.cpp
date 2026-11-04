@@ -11,7 +11,7 @@
 #include <array>
 
 #include "frontend/automation.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"

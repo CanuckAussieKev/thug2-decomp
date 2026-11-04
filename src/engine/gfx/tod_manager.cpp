@@ -40,7 +40,7 @@
 #include "engine/gfx/movie.h"
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/engine_glue.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"

@@ -28,7 +28,7 @@
 #include "engine/file/archive.h"
 #include "engine/script/cell.h"
 #include "engine/script/tokens.h"
-#include "frontend/data_overlay.h"
+#include "engine/file/data_overlay.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"

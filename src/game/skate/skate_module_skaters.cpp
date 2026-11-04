@@ -20,7 +20,7 @@
 #include "engine/objects/entity.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "engine/gfx/tod_manager.h"

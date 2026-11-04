@@ -28,7 +28,7 @@
 #include "engine/script/cell.h"
 #include "platform/process_flags.h"
 #include "base/core/parse_number.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend.h"
 #include "engine/ui/screen_element.h"

@@ -27,7 +27,7 @@
 
 #include "editor/level_editor.h"
 #include "base/core/checksums.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_layout.h"

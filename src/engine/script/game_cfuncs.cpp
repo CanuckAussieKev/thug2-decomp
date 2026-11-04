@@ -39,7 +39,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/file/async.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/control_pad.h"

@@ -88,7 +88,7 @@ What happens when the list changes during the walk:
 - **KillAllChildScripts during the walk** (0x004753C0) is deferred to step 5. It deletes every spawned script
   that isn't `NOT_SESSION_SPECIFIC`. **Callbacks are not run** (Destroy runs the on-exit scripts, section 7).
 
-**Where it runs: the menu front end** (GameModules::FrontEnd, src/frontend/front_end.cpp; batch 78) (code + test).
+**Where it runs: the menu front end** (GameModules::FrontEnd, src/game/front_end/front_end.cpp; batch 78) (code + test).
 The front end's logic task (0x0054FCC0, priority -2000 on the main loop's logic task list) pushes the front-end
 heap and calls `FrontEnd::tick_frame(paused)` (0x0054F380), then the screen element manager's update (0x004ABD00 on
 0x00701440). Update, in order:

@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the data overlay (ours, added at the user's request; not the game's and not PartyMod's).
 // See data_overlay.h.
 
-#include "frontend/data_overlay.h"
+#include "engine/file/data_overlay.h"
 
 #include <windows.h>
 

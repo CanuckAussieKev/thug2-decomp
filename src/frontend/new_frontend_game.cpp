@@ -8,7 +8,7 @@
 #include <string>
 
 #include "base/core/checksums.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"

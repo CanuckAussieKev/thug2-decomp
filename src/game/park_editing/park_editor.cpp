@@ -10,7 +10,7 @@
 #include "formats/park_map_format.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/piece_menu.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "base/maths/mat4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"

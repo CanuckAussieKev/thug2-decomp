@@ -36,7 +36,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/assets/resource_registry.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
 #include "engine/objects/anim_blender.h"

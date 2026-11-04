@@ -12,7 +12,7 @@
 #include <array>
 
 #include "base/core/checksums.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"

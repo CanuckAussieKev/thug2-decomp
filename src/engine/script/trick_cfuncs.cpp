@@ -9,7 +9,7 @@
 
 #include "base/core/checksums.h"
 #include "base/core/dbg.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/gfx/texture_cfuncs.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/entity_hub.h"

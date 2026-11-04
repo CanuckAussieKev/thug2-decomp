@@ -26,7 +26,7 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/compositemgr.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/car_physics.h"
 #include "base/core/down_cast.h"

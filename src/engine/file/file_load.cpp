@@ -10,7 +10,7 @@
 
 #include "base/core/dbg.h"
 #include "engine/file/archive.h"
-#include "frontend/data_overlay.h"
+#include "engine/file/data_overlay.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/loading_console.h"
 #include "base/core/checked_index.h"
@@ -157,7 +157,7 @@ Hdl open_on_disk(const char* name)
 // 0x005B9E60
 Hdl unseal(const char* name, const char* mode)
 {
-    // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is opened from it,
+    // Not original - the data overlay (engine/file/data_overlay.h): a file of the data overlay is opened from it,
     // before any archive (its handle isn't an archive's: Read, Seek, Close... fall through to the disk's).
     // Original behaviour: archives first, then the data folder.
     std::array<char, kOverlayPathSize> overlay{};
@@ -259,7 +259,7 @@ uint32_t get_file_size(Hdl file)
 // 0x005BA010
 bool is_present(const char* name)
 {
-    // Not original - the data overlay (frontend/data_overlay.h): its files exist.
+    // Not original - the data overlay (engine/file/data_overlay.h): its files exist.
     // Original behaviour: archives first, then the data folder.
     std::array<char, kOverlayPathSize> overlay{};
     if (frontend::data_overlay::get_overlay_path(name, overlay)) {

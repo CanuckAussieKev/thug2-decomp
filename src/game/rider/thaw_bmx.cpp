@@ -16,7 +16,7 @@
 #include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "base/maths/vec4.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/shadow_base.h"

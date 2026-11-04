@@ -20,8 +20,8 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/file/async.h"
 #include "engine/file/archive.h"
-#include "frontend/career_complete.h"
-#include "frontend/front_end.h"
+#include "game/commands/career_complete.h"
+#include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
 #include "frontend/new_frontend.h"
 #include "engine/ui/screen_element_manager.h"
@@ -157,7 +157,7 @@ int game_main(int argc, char** argv)
         pad_input::get_input_manager()->change_pad_follows_stick(true); // (+0x10C)
         script::allocate_pools();
         // Not original - the level editor (editor/level_editor.h) and CREATE 100% CAS
-        // (frontend/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
+        // (game/commands/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
         // registered after the game's own.
         // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
         frontend::level_editor::register_script_functions();

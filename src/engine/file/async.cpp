@@ -14,7 +14,7 @@
 #include "engine/memory/task_list.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
-#include "frontend/data_overlay.h"
+#include "engine/file/data_overlay.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
@@ -183,7 +183,7 @@ bool AsyncFileHandle::unseal(const char* name, bool blocking, int priority)
     rank_ = priority;
     is_blocking_ = blocking;
     operation_ = kAsyncOpen;
-    // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay isn't taken from an
+    // Not original - the data overlay (engine/file/data_overlay.h): a file of the data overlay isn't taken from an
     // archive (the platform's open reads the overlay's).
     // Original behaviour: a loaded archive's copy first.
     std::array<char, kOverlayPathSize> overlay{};

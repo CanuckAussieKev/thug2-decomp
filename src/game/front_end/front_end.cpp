@@ -1,7 +1,7 @@
 // modules::FrontEnd (0x0054EBE0-0x0055001F): the menus' input - pad and button events, typed keys - and pausing the
 // game. See front_end.h.
 
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 
 #include <algorithm>
 #include <cstddef>

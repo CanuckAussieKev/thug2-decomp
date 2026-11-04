@@ -28,7 +28,7 @@
 #include "base/core/stubs.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/file/packs.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/compositemgr.h"

@@ -18,7 +18,7 @@
 #include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
 #include "base/maths/mat4.h"

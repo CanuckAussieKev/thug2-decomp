@@ -17,7 +17,7 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checksums.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "engine/ui/screen_element.h"
 #include "game/skate/profile_manager.h"
 #include "engine/pad_input/input_setup.h"

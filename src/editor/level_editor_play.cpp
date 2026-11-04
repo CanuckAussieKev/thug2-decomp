@@ -9,7 +9,7 @@
 #include "editor/level_editor.h"
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
-#include "frontend/front_end.h"
+#include "game/front_end/front_end.h"
 #include "editor/level_editor_layout.h"
 #include "frontend/mouse_menus.h"
 #include "engine/gfx/screen.h"

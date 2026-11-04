@@ -316,9 +316,9 @@ add_executable(thug2 WIN32
     src/engine/ui/screen_element_cfuncs.cpp
     src/engine/ui/text_element.cpp
     src/engine/ui/text_block.cpp
-    src/frontend/front_end.cpp
+    src/game/front_end/front_end.cpp
     src/frontend/mouse_menus.cpp
-    src/frontend/data_overlay.cpp
+    src/engine/file/data_overlay.cpp
     src/frontend/new_frontend.cpp
     src/frontend/new_frontend_draw.cpp
     src/frontend/new_frontend_game.cpp
@@ -329,7 +329,7 @@ add_executable(thug2 WIN32
     src/frontend/restart_tester.cpp
     src/devtools/screenshot.cpp
     src/engine/gfx/screenshot_capture.cpp
-    src/frontend/career_complete.cpp
+    src/game/commands/career_complete.cpp
     src/frontend/test_view.cpp
     src/frontend/start_level.cpp
     src/frontend/automation.cpp
