@@ -2782,29 +2782,54 @@ float pixel_scale()
 
 constexpr uint32_t kSelectedGizmo = 0xFFFFFFFF, kHoverGizmo = 0xFFFFE070;
 
-void add_node_gizmos(const TickCycle& frame, int selected)
+// The view the gizmos are drawn in: the frame, the overlay, the pixel scale and the viewport grown by 40 pixels (a
+// gizmo outside it isn't drawn).
+struct GizmoView {
+    const TickCycle* frame{};
+    ui::Overlay* overlay{};
+    float scale{};
+    float left{};
+    float top{};
+    float right{};
+    float bottom{};
+};
+
+// One node's gizmo: the node, its index, selected / hovered, its (apparent) distance.
+struct NodeGizmo {
+    const nodes::Elem* elem{};
+    int index{};
+    bool selected{};
+    bool hovered{};
+    float distance{};
+};
+
+// A line on the overlay (pixels).
+auto line_drawer(ui::Overlay& overlay)
 {
-    pick_cycle().pickables_.clear();
-    const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    const float scale = pixel_scale();
-    ui::Overlay& overlay = pick_cycle().overlay_;
-    auto line = [&](float ax, float ay, float bx, float by, uint32_t colour, float thickness) {
+    return [&overlay](float ax, float ay, float bx, float by, uint32_t colour, float thickness) {
         overlay.lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = colour, .thickness = thickness});
     };
-    auto world_line = [&](V3 a, V3 b, uint32_t colour, float thickness) {
-        if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b)) {
-            return;
-        }
-        float ax = 0.0F;
-        float ay = 0.0F;
-        float bx = 0.0F;
-        float by = 0.0F;
-        if (get_to_pixel(frame, a, &ax, &ay) && get_to_pixel(frame, b, &bx, &by)) {
-            line(ax, ay, bx, by, colour, thickness);
-        }
-    };
-    // A ring about `centre` in the plane of `u` and `v` (unit, at right angles).
-    auto ring = [&](V3 centre, float radius, V3 u, V3 v, uint32_t colour) {
+}
+
+// A ring about `centre` in the plane of `u` and `v` (unit, at right angles): its sides as world lines (clipped to the
+// near plane).
+auto ring_drawer(const GizmoView& view)
+{
+    return [&view](V3 centre, float radius, V3 u, V3 v, uint32_t colour) {
+        const TickCycle& frame = *view.frame;
+        const auto line = line_drawer(*view.overlay);
+        auto world_line = [&](V3 a, V3 b, uint32_t colour_of_line, float thickness) {
+            if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b)) {
+                return;
+            }
+            float ax = 0.0F;
+            float ay = 0.0F;
+            float bx = 0.0F;
+            float by = 0.0F;
+            if (get_to_pixel(frame, a, &ax, &ay) && get_to_pixel(frame, b, &bx, &by)) {
+                line(ax, ay, bx, by, colour_of_line, thickness);
+            }
+        };
         constexpr int kSides = 32;
         V3 previous = centre + u * radius;
         for (int i = 1; i <= kSides; ++i) {
@@ -2814,345 +2839,442 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             previous = next;
         }
     };
-    const V3 x_axis = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
-    const V3 y_axis = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
-    const V3 z_axis = {.x = 0.0F, .y = 0.0F, .z = 1.0F};
-    const float left = static_cast<float>(core::at(level_editor_state().viewport_, 0)) - 40.0F;
-    const float top = static_cast<float>(core::at(level_editor_state().viewport_, 1)) - 40.0F;
-    const float right =
-        static_cast<float>(core::at(level_editor_state().viewport_, 0) + core::at(level_editor_state().viewport_, 2)) +
-        40.0F;
-    const float bottom =
-        static_cast<float>(core::at(level_editor_state().viewport_, 1) + core::at(level_editor_state().viewport_, 3)) +
-        40.0F;
-    for (int i = 0; std::cmp_less(i, nodes.size()); ++i) {
-        const nodes::Elem& elem = core::at(nodes, i);
-        if (!elem.has_pos_ || ((drag_state().families_ & nodes::get_bit(elem.family)) == 0U) ||
-            organize::gizmo_hidden(elem.name)) {
-            continue;
+}
+
+// A path's way: an arrowhead at the middle of its segment (pixels).
+void add_route_arrow(const GizmoView& view, const ui::Seg& segment)
+{
+    const float ax = segment.ax;
+    const float ay = segment.ay;
+    const float bx = segment.bx;
+    const float by = segment.by;
+    const float scale = view.scale;
+    float dx = bx - ax;
+    float dy = by - ay;
+    float const length = std::sqrt((dx * dx) + (dy * dy));
+    if (length > kRouteArrowMinLength * scale) {
+        dx /= length;
+        dy /= length;
+        const float mx = (ax + bx) * 0.5F;
+        const float my = (ay + by) * 0.5F;
+        const float half_size = 7.0F * scale;
+        view.overlay->triangles.push_back({.ax = mx + (dx * half_size),
+                                           .ay = my + (dy * half_size),
+                                           .bx = mx - (dx * half_size) - (dy * half_size * kRouteArrowWing),
+                                           .by = my - (dy * half_size) + (dx * half_size * kRouteArrowWing),
+                                           .cx = mx - (dx * half_size) + (dy * half_size * kRouteArrowWing),
+                                           .cy = my - (dy * half_size) - (dx * half_size * kRouteArrowWing),
+                                           .argb = segment.argb});
+    }
+}
+
+// A chain's segment to the linked node (`linked_elem`): drawn (a ladder's dashed, a path's with its arrow) and
+// pickable - unless both ends are far, it is behind the near plane or off the view.
+void add_chain_segment(const GizmoView& view, const NodeGizmo& gizmo, const nodes::Elem& linked_elem)
+{
+    const TickCycle& frame = *view.frame;
+    const nodes::Elem& elem = *gizmo.elem;
+    const auto line = line_drawer(*view.overlay);
+    constexpr float kChainCutoff = 4000.0F;
+    if (!linked_elem.has_pos_) {
+        return;
+    }
+    const V3 linked_delta = linked_elem.pos - level_editor_state().pos_;
+    if (!gizmo.selected && !gizmo.hovered && gizmo.distance > kChainCutoff &&
+        view_cam::apparent(std::sqrt(get_dot(linked_delta, linked_delta))) > kChainCutoff) {
+        return;
+    }
+    V3 point_a = elem.pos;
+    V3 point_b = linked_elem.pos;
+    if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &point_a, &point_b)) {
+        return;
+    }
+    float ax = 0.0F;
+    float ay = 0.0F;
+    float bx = 0.0F;
+    float by = 0.0F;
+    if (!get_to_pixel(frame, point_a, &ax, &ay) || !get_to_pixel(frame, point_b, &bx, &by)) {
+        return;
+    }
+    if ((ax < view.left && bx < view.left) || (ax > view.right && bx > view.right) ||
+        (ay < view.top && by < view.top) || (ay > view.bottom && by > view.bottom)) {
+        return;
+    }
+    uint32_t colour = elem.colour;
+    if (gizmo.selected) {
+        colour = kSelectedGizmo;
+    } else if (gizmo.hovered) {
+        colour = kHoverGizmo;
+    }
+    const float plain_thickness = elem.family == nodes::Family::kRail ? 2.0F : 1.5F;
+    const float thickness = gizmo.selected || gizmo.hovered ? 3.0F : plain_thickness;
+    if (elem.family == nodes::Family::kLadder) {
+        for (int piece = 0; piece < kLadderPieceCount; piece += 2) { // (dashed)
+            line(ax + ((bx - ax) * static_cast<float>(piece) / kLadderPieceCountF),
+                 ay + ((by - ay) * static_cast<float>(piece) / kLadderPieceCountF),
+                 ax + ((bx - ax) * static_cast<float>(piece + 1) / kLadderPieceCountF),
+                 ay + ((by - ay) * static_cast<float>(piece + 1) / kLadderPieceCountF), colour, thickness);
         }
-        const nodes::Shape shape = nodes::shape_of(elem.family);
-        if (shape == nodes::Shape::kNone) {
-            continue;
-        }
-        const bool is_selected = i == selected;
-        const bool is_hovered = i == drag_state().hover_node_;
-        const V3 delta = elem.pos - level_editor_state().pos_;
-        const float distance =
-            view_cam::apparent(std::sqrt(get_dot(delta, delta))); // (an ortho view: level_editor_camera.h)
-        if (shape == nodes::Shape::kChain) {
-            constexpr float kChainCutoff = 4000.0F;
-            for (const int link : elem.links) {
-                const nodes::Elem& linked_elem = core::at(nodes, link);
-                if (!linked_elem.has_pos_) {
-                    continue;
-                }
-                const V3 linked_delta = linked_elem.pos - level_editor_state().pos_;
-                if (!is_selected && !is_hovered && distance > kChainCutoff &&
-                    view_cam::apparent(std::sqrt(get_dot(linked_delta, linked_delta))) > kChainCutoff) {
-                    continue;
-                }
-                V3 point_a = elem.pos;
-                V3 point_b = linked_elem.pos;
-                if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &point_a, &point_b)) {
-                    continue;
-                }
-                float ax = 0.0F;
-                float ay = 0.0F;
-                float bx = 0.0F;
-                float by = 0.0F;
-                if (!get_to_pixel(frame, point_a, &ax, &ay) || !get_to_pixel(frame, point_b, &bx, &by)) {
-                    continue;
-                }
-                if ((ax < left && bx < left) || (ax > right && bx > right) || (ay < top && by < top) ||
-                    (ay > bottom && by > bottom)) {
-                    continue;
-                }
-                uint32_t colour = elem.colour;
-                if (is_selected) {
-                    colour = kSelectedGizmo;
-                } else if (is_hovered) {
-                    colour = kHoverGizmo;
-                }
-                const float plain_thickness = elem.family == nodes::Family::kRail ? 2.0F : 1.5F;
-                const float thickness = is_selected || is_hovered ? 3.0F : plain_thickness;
-                if (elem.family == nodes::Family::kLadder) {
-                    for (int piece = 0; piece < kLadderPieceCount; piece += 2) { // (dashed)
-                        line(ax + ((bx - ax) * static_cast<float>(piece) / kLadderPieceCountF),
-                             ay + ((by - ay) * static_cast<float>(piece) / kLadderPieceCountF),
-                             ax + ((bx - ax) * static_cast<float>(piece + 1) / kLadderPieceCountF),
-                             ay + ((by - ay) * static_cast<float>(piece + 1) / kLadderPieceCountF), colour, thickness);
-                    }
-                } else {
-                    line(ax, ay, bx, by, colour, thickness);
-                }
-                if (elem.family == nodes::Family::kRouteWay) {
-                    // (the way it goes: an arrowhead at the middle)
-                    float dx = bx - ax;
-                    float dy = by - ay;
-                    float const length = std::sqrt((dx * dx) + (dy * dy));
-                    if (length > kRouteArrowMinLength * scale) {
-                        dx /= length;
-                        dy /= length;
-                        const float mx = (ax + bx) * 0.5F;
-                        const float my = (ay + by) * 0.5F;
-                        const float half_size = 7.0F * scale;
-                        overlay.triangles.push_back({.ax = mx + (dx * half_size),
-                                                     .ay = my + (dy * half_size),
-                                                     .bx = mx - (dx * half_size) - (dy * half_size * kRouteArrowWing),
-                                                     .by = my - (dy * half_size) + (dx * half_size * kRouteArrowWing),
-                                                     .cx = mx - (dx * half_size) + (dy * half_size * kRouteArrowWing),
-                                                     .cy = my - (dy * half_size) - (dx * half_size * kRouteArrowWing),
-                                                     .argb = colour});
-                    }
-                }
-                const V3 middle = (point_a + point_b) * 0.5F;
-                pick_cycle().pickables_.push_back(
-                    {.node = i,
-                     .ax = ax,
-                     .ay = ay,
-                     .bx = bx,
-                     .by = by,
-                     .segment = true,
-                     .depth = -get_dot(middle - level_editor_state().pos_, frame.back),
-                     .depth_a_ = -get_dot(point_a - level_editor_state().pos_, frame.back),
-                     .depth_b_ = -get_dot(point_b - level_editor_state().pos_, frame.back)});
-            }
-            if (is_selected || is_hovered) {
-                float px = 0.0F;
-                float py = 0.0F;
-                if (get_to_pixel(frame, elem.pos, &px, &py)) {
-                    overlay.circles.push_back({.x = px,
-                                               .y = py,
-                                               .radius = kPickDotRadius * scale,
-                                               .argb = is_selected ? kSelectedGizmo : kHoverGizmo,
-                                               .filled = true,
-                                               .thickness = 1.0F});
-                    overlay.texts.push_back({.x = px + (kLabelOffset * scale),
-                                             .y = py - (kLabelOffset * scale),
-                                             .argb = kLabelColour,
-                                             .text = nodes::caption(elem.name)});
-                }
-            }
-            if (elem.family == nodes::Family::kRail && (distance < kRailPointRange || is_selected)) {
-                // (a rail's points, near: a dot each, picked before its segments - a point moves by itself or with
-                // its whole rail)
-                float px = 0.0F;
-                float py = 0.0F;
-                const V3 front = elem.pos - level_editor_state().pos_;
-                if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, elem.pos, &px, &py) && px >= left &&
-                    px <= right && py >= top && py <= bottom) {
-                    if (!is_selected && !is_hovered) {
-                        overlay.circles.push_back({.x = px,
-                                                   .y = py,
-                                                   .radius = kRailDotRadius * scale,
-                                                   .argb = elem.colour,
-                                                   .filled = true,
-                                                   .thickness = 1.0F});
-                    }
-                    pick_cycle().pickables_.push_back({.node = i, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = -get_dot(front, frame.back)});
-                }
-            }
-            continue;
-        }
-        const float cutoff =
-            elem.family == nodes::Family::kObject || elem.family == nodes::Family::kParticle ? 2500.0F : 6000.0F;
-        if (!is_selected && !is_hovered && distance > cutoff) {
-            continue;
-        }
+    } else {
+        line(ax, ay, bx, by, colour, thickness);
+    }
+    if (elem.family == nodes::Family::kRouteWay) {
+        // (the way it goes: an arrowhead at the middle)
+        add_route_arrow(view, {.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = colour, .thickness = thickness});
+    }
+    const V3 middle = (point_a + point_b) * 0.5F;
+    pick_cycle().pickables_.push_back({.node = gizmo.index,
+                                       .ax = ax,
+                                       .ay = ay,
+                                       .bx = bx,
+                                       .by = by,
+                                       .segment = true,
+                                       .depth = -get_dot(middle - level_editor_state().pos_, frame.back),
+                                       .depth_a_ = -get_dot(point_a - level_editor_state().pos_, frame.back),
+                                       .depth_b_ = -get_dot(point_b - level_editor_state().pos_, frame.back)});
+}
+
+// A chain's node: its segments to its links; selected or hovered, a dot and its name; a rail's point, near, a dot
+// of its own (picked before its segments - a point moves by itself or with its whole rail).
+void add_chain_gizmo(const GizmoView& view, const NodeGizmo& gizmo, const std::vector<nodes::Elem>& nodes)
+{
+    const TickCycle& frame = *view.frame;
+    ui::Overlay& overlay = *view.overlay;
+    const float scale = view.scale;
+    const nodes::Elem& elem = *gizmo.elem;
+    for (const int link : elem.links) {
+        add_chain_segment(view, gizmo, core::at(nodes, link));
+    }
+    if (gizmo.selected || gizmo.hovered) {
         float px = 0.0F;
         float py = 0.0F;
-        if (!get_to_pixel(frame, elem.pos, &px, &py) || px < left || px > right || py < top || py > bottom) {
-            continue;
-        }
-        const float depth = -get_dot(delta, frame.back);
-        const float radius = 6.0F * scale;
-        const uint32_t colour = elem.hidden ? 0x90A0A4A8 : elem.colour; // (hidden: greyed)
-        const uint32_t outline = 0xC0101012;
-        switch (elem.family) {
-        case nodes::Family::kSpawn: {
-            // A disc and its heading (an arrow along the ground).
-            const float length = std::max(30.0F, std::min(200.0F, depth * 0.08F));
-            const V3 tip = elem.pos + elem.forward * length;
-            float tx = 0.0F;
-            float ty = 0.0F;
-            if (get_to_pixel(frame, tip, &tx, &ty)) {
-                line(px, py, tx, ty, colour, kSpawnArrowWidth);
-                float dx = tx - px;
-                float dy = ty - py;
-                float const segment_length = std::sqrt((dx * dx) + (dy * dy));
-                if (segment_length > kMinArrowPixels) {
-                    dx /= segment_length;
-                    dy /= segment_length;
-                    const float half_size = 8.0F * scale;
-                    overlay.triangles.push_back({.ax = tx + (dx * half_size * kHalf),
-                                                 .ay = ty + (dy * half_size * kHalf),
-                                                 .bx = tx - (dx * half_size) - (dy * half_size * kSpawnArrowWing),
-                                                 .by = ty - (dy * half_size) + (dx * half_size * kSpawnArrowWing),
-                                                 .cx = tx - (dx * half_size) + (dy * half_size * kSpawnArrowWing),
-                                                 .cy = ty - (dy * half_size) - (dx * half_size * kSpawnArrowWing),
-                                                 .argb = colour});
-                }
-            }
+        if (get_to_pixel(frame, elem.pos, &px, &py)) {
             overlay.circles.push_back({.x = px,
                                        .y = py,
-                                       .radius = radius + (kOutlineGrow * scale),
-                                       .argb = outline,
+                                       .radius = kPickDotRadius * scale,
+                                       .argb = gizmo.selected ? kSelectedGizmo : kHoverGizmo,
                                        .filled = true,
                                        .thickness = 1.0F});
-            overlay.circles.push_back(
-                {.x = px, .y = py, .radius = radius, .argb = colour, .filled = true, .thickness = 1.0F});
-            if (core::any(elem.restart_types_ &
-                          nodes::SpawnPointKind::kHorse)) { // (a HORSE spot: restart_types has Horse - the feature map)
-                overlay.texts.push_back({.x = px + radius + (kHorseLabelOffset * scale),
-                                         .y = py - radius - (kHorseLabelRise * scale),
-                                         .argb = kHorseColour,
-                                         .text = "H"});
-            }
-            break;
-        }
-        case nodes::Family::kCrown: {
-            // A gold diamond and its index.
-            overlay.triangles.push_back({.ax = px,
-                                         .ay = py - (radius * kCrownHeight),
-                                         .bx = px + radius,
-                                         .by = py,
-                                         .cx = px - radius,
-                                         .cy = py,
-                                         .argb = colour});
-            overlay.triangles.push_back({.ax = px - radius,
-                                         .ay = py,
-                                         .bx = px + radius,
-                                         .by = py,
-                                         .cx = px,
-                                         .cy = py + (radius * kCrownHeight),
-                                         .argb = colour});
-            std::array<char, kOrderTextSize> text{};
-            if (elem.order >= 0) {
-                text::format_to(text, "#%d", elem.order);
-            } else {
-                text::format_to(text, "hidden");
-            }
-            overlay.texts.push_back({.x = px + radius + (kCrownLabelOffset * scale),
-                                     .y = py - (radius * kCrownHeight),
-                                     .argb = colour,
-                                     .text = text.data()});
-            break;
-        }
-        case nodes::Family::kBitMark:
-            // A pole and a pennant in its team's colour.
-            line(px, py, px, py - (radius * kPoleHeight), kPoleColour, kMarkerLineWidth);
-            overlay.triangles.push_back({.ax = px,
-                                         .ay = py - (radius * kPoleHeight),
-                                         .bx = px + (radius * kPennantReach),
-                                         .by = py - (radius * kPennantMiddle),
-                                         .cx = px,
-                                         .cy = py - (radius * kPennantBottom),
-                                         .argb = colour});
-            overlay.circles.push_back(
-                {.x = px, .y = py, .radius = radius * kHalf, .argb = colour, .filled = true, .thickness = 1.0F});
-            break;
-        case nodes::Family::kLight: {
-            // A bulb in its colour; rings at its radii when near.
-            overlay.circles.push_back({.x = px,
-                                       .y = py,
-                                       .radius = radius + (kOutlineGrow * scale),
-                                       .argb = outline,
-                                       .filled = true,
-                                       .thickness = 1.0F});
-            overlay.circles.push_back(
-                {.x = px, .y = py, .radius = radius, .argb = colour, .filled = true, .thickness = 1.0F});
-            for (int ray = 0; ray < 4; ++ray) {
-                const float angle = (maths::kPi * 0.25F) + (maths::kPi * 0.5F * static_cast<float>(ray));
-                const float cx = std::cos(angle);
-                const float cy = std::sin(angle);
-                line(px + (cx * radius * kSparkInner), py + (cy * radius * kSparkInner),
-                     px + (cx * radius * kSparkOuter), py + (cy * radius * kSparkOuter), colour, kSparkWidth);
-            }
-            if ((is_selected || is_hovered) && elem.radius > 0.0F) {
-                ring(elem.pos, elem.radius, x_axis, z_axis, colour);
-                if (elem.inner_radius_ > 0.0F && elem.inner_radius_ < elem.radius) {
-                    ring(elem.pos, elem.inner_radius_, x_axis, z_axis, (colour & kRgbMask) | kHalfAlpha);
-                }
-            }
-            break;
-        }
-        case nodes::Family::kSound:
-            // A speaker: a box and its cone.
-            line(px - radius, py - (radius * kHalf), px - (radius * kSpeakerBack), py - (radius * kHalf), colour,
-                 kMarkerLineWidth);
-            line(px - radius, py + (radius * kHalf), px - (radius * kSpeakerBack), py + (radius * kHalf), colour,
-                 kMarkerLineWidth);
-            line(px - radius, py - (radius * kHalf), px - radius, py + (radius * kHalf), colour, kMarkerLineWidth);
-            overlay.triangles.push_back({.ax = px - (radius * kSpeakerBack),
-                                         .ay = py - (radius * kHalf),
-                                         .bx = px + radius,
-                                         .by = py - (radius * kSpeakerConeSpread),
-                                         .cx = px + radius,
-                                         .cy = py + (radius * kSpeakerConeSpread),
-                                         .argb = colour});
-            overlay.triangles.push_back({.ax = px - (radius * kSpeakerBack),
-                                         .ay = py - (radius * kHalf),
-                                         .bx = px + radius,
-                                         .by = py + (radius * kSpeakerConeSpread),
-                                         .cx = px - (radius * kSpeakerBack),
-                                         .cy = py + (radius * kHalf),
-                                         .argb = colour});
-            break;
-        case nodes::Family::kParticle:
-            // A spark: three strokes.
-            for (int stroke = 0; stroke < 3; ++stroke) {
-                const float angle = maths::kPi * static_cast<float>(stroke) / 3.0F;
-                const float cx = std::cos(angle) * radius;
-                const float cy = std::sin(angle) * radius;
-                line(px - cx, py - cy, px + cx, py + cy, colour, kMarkerLineWidth);
-            }
-            break;
-        case nodes::Family::kFireOff:
-            // A square; a radius as three rings when near.
-            line(px - radius, py - radius, px + radius, py - radius, colour, kMarkerLineWidth);
-            line(px + radius, py - radius, px + radius, py + radius, colour, kMarkerLineWidth);
-            line(px + radius, py + radius, px - radius, py + radius, colour, kMarkerLineWidth);
-            line(px - radius, py + radius, px - radius, py - radius, colour, kMarkerLineWidth);
-            if (elem.radius > 0.0F && (is_selected || is_hovered || distance < kRingNearRange)) {
-                const uint32_t faint = (colour & 0x00FFFFFF) | 0x90000000;
-                ring(elem.pos, elem.radius, x_axis, z_axis, faint);
-                ring(elem.pos, elem.radius, x_axis, y_axis, faint);
-                ring(elem.pos, elem.radius, z_axis, y_axis, faint);
-            }
-            break;
-        case nodes::Family::kObject:
-            // A small open diamond (the object itself shows).
-            line(px, py - (radius * kDiamondRadius), px + (radius * kDiamondRadius), py, colour, kDiamondWidth);
-            line(px + (radius * kDiamondRadius), py, px, py + (radius * kDiamondRadius), colour, kDiamondWidth);
-            line(px, py + (radius * kDiamondRadius), px - (radius * kDiamondRadius), py, colour, kDiamondWidth);
-            line(px - (radius * kDiamondRadius), py, px, py - (radius * kDiamondRadius), colour, kDiamondWidth);
-            break;
-        default:
-            overlay.circles.push_back(
-                {.x = px, .y = py, .radius = radius * kCoreRadius, .argb = colour, .filled = true, .thickness = 1.0F});
-            break;
-        }
-        if (is_selected || is_hovered) {
-            overlay.circles.push_back({.x = px,
-                                       .y = py,
-                                       .radius = radius + (kRingGrow * scale),
-                                       .argb = is_selected ? kSelectedGizmo : kHoverGizmo,
-                                       .filled = false,
-                                       .thickness = kMarkerLineWidth});
-            overlay.texts.push_back({.x = px + radius + (kLabelOffset * scale),
-                                     .y = py + (kLabelDrop * scale),
+            overlay.texts.push_back({.x = px + (kLabelOffset * scale),
+                                     .y = py - (kLabelOffset * scale),
                                      .argb = kLabelColour,
                                      .text = nodes::caption(elem.name)});
         }
-        pick_cycle().pickables_.push_back({.node = i, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = depth});
     }
-    // (the Outliner's selectable off: drawn, not picked - level_editor_organize.h)
-    std::erase_if(pick_cycle().pickables_, [&](const nodes::Pickable& pickable) {
-        return pickable.node >= 0 && std::cmp_less(pickable.node, nodes.size()) &&
-               !organize::gizmo_pickable(core::at(nodes, pickable.node).name);
-    });
-    // (a box being dragged - level_editor_organize.h: its outline, solid inside / dashed crossing)
+    if (elem.family == nodes::Family::kRail && (gizmo.distance < kRailPointRange || gizmo.selected)) {
+        float px = 0.0F;
+        float py = 0.0F;
+        const V3 front = elem.pos - level_editor_state().pos_;
+        if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, elem.pos, &px, &py) && px >= view.left &&
+            px <= view.right && py >= view.top && py <= view.bottom) {
+            if (!gizmo.selected && !gizmo.hovered) {
+                overlay.circles.push_back({.x = px,
+                                           .y = py,
+                                           .radius = kRailDotRadius * scale,
+                                           .argb = elem.colour,
+                                           .filled = true,
+                                           .thickness = 1.0F});
+            }
+            pick_cycle().pickables_.push_back({.node = gizmo.index,
+                                               .ax = px,
+                                               .ay = py,
+                                               .bx = px,
+                                               .by = py,
+                                               .segment = false,
+                                               .depth = -get_dot(front, frame.back)});
+        }
+    }
+}
+
+// Where a marker is drawn: its pixel, its depth, its radius and colour.
+struct MarkerAt {
+    float px{};
+    float py{};
+    float depth{};
+    float radius{};
+    uint32_t colour{};
+};
+
+constexpr uint32_t kMarkerOutline = 0xC0101012;
+
+// A spawn point: a disc and its heading (an arrow along the ground); "H" for a horse spot.
+void add_spawn_marker(const GizmoView& view, const nodes::Elem& elem, const MarkerAt& marker)
+{
+    const TickCycle& frame = *view.frame;
+    ui::Overlay& overlay = *view.overlay;
+    const float scale = view.scale;
+    const auto line = line_drawer(overlay);
+    const float px = marker.px;
+    const float py = marker.py;
+    const float radius = marker.radius;
+    const uint32_t colour = marker.colour;
+    const float length = std::max(30.0F, std::min(200.0F, marker.depth * 0.08F));
+    const V3 tip = elem.pos + elem.forward * length;
+    float tx = 0.0F;
+    float ty = 0.0F;
+    if (get_to_pixel(frame, tip, &tx, &ty)) {
+        line(px, py, tx, ty, colour, kSpawnArrowWidth);
+        float dx = tx - px;
+        float dy = ty - py;
+        float const segment_length = std::sqrt((dx * dx) + (dy * dy));
+        if (segment_length > kMinArrowPixels) {
+            dx /= segment_length;
+            dy /= segment_length;
+            const float half_size = 8.0F * scale;
+            overlay.triangles.push_back({.ax = tx + (dx * half_size * kHalf),
+                                         .ay = ty + (dy * half_size * kHalf),
+                                         .bx = tx - (dx * half_size) - (dy * half_size * kSpawnArrowWing),
+                                         .by = ty - (dy * half_size) + (dx * half_size * kSpawnArrowWing),
+                                         .cx = tx - (dx * half_size) + (dy * half_size * kSpawnArrowWing),
+                                         .cy = ty - (dy * half_size) - (dx * half_size * kSpawnArrowWing),
+                                         .argb = colour});
+        }
+    }
+    overlay.circles.push_back({.x = px,
+                               .y = py,
+                               .radius = radius + (kOutlineGrow * scale),
+                               .argb = kMarkerOutline,
+                               .filled = true,
+                               .thickness = 1.0F});
+    overlay.circles.push_back({.x = px, .y = py, .radius = radius, .argb = colour, .filled = true, .thickness = 1.0F});
+    if (core::any(elem.restart_types_ &
+                  nodes::SpawnPointKind::kHorse)) { // (a HORSE spot: restart_types has Horse - the feature map)
+        overlay.texts.push_back({.x = px + radius + (kHorseLabelOffset * scale),
+                                 .y = py - radius - (kHorseLabelRise * scale),
+                                 .argb = kHorseColour,
+                                 .text = "H"});
+    }
+}
+
+// A crown: a gold diamond and its index.
+void add_crown_marker(const GizmoView& view, const nodes::Elem& elem, const MarkerAt& marker)
+{
+    ui::Overlay& overlay = *view.overlay;
+    const float px = marker.px;
+    const float py = marker.py;
+    const float radius = marker.radius;
+    const uint32_t colour = marker.colour;
+    overlay.triangles.push_back({.ax = px,
+                                 .ay = py - (radius * kCrownHeight),
+                                 .bx = px + radius,
+                                 .by = py,
+                                 .cx = px - radius,
+                                 .cy = py,
+                                 .argb = colour});
+    overlay.triangles.push_back({.ax = px - radius,
+                                 .ay = py,
+                                 .bx = px + radius,
+                                 .by = py,
+                                 .cx = px,
+                                 .cy = py + (radius * kCrownHeight),
+                                 .argb = colour});
+    std::array<char, kOrderTextSize> text{};
+    if (elem.order >= 0) {
+        text::format_to(text, "#%d", elem.order);
+    } else {
+        text::format_to(text, "hidden");
+    }
+    overlay.texts.push_back({.x = px + radius + (kCrownLabelOffset * view.scale),
+                             .y = py - (radius * kCrownHeight),
+                             .argb = colour,
+                             .text = text.data()});
+}
+
+// A light: a bulb in its colour; rings at its radii when selected or hovered.
+void add_light_marker(const GizmoView& view, const NodeGizmo& gizmo, const MarkerAt& marker)
+{
+    ui::Overlay& overlay = *view.overlay;
+    const float scale = view.scale;
+    const auto line = line_drawer(overlay);
+    const auto ring = ring_drawer(view);
+    const nodes::Elem& elem = *gizmo.elem;
+    const float px = marker.px;
+    const float py = marker.py;
+    const float radius = marker.radius;
+    const uint32_t colour = marker.colour;
+    const V3 x_axis = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
+    const V3 z_axis = {.x = 0.0F, .y = 0.0F, .z = 1.0F};
+    overlay.circles.push_back({.x = px,
+                               .y = py,
+                               .radius = radius + (kOutlineGrow * scale),
+                               .argb = kMarkerOutline,
+                               .filled = true,
+                               .thickness = 1.0F});
+    overlay.circles.push_back({.x = px, .y = py, .radius = radius, .argb = colour, .filled = true, .thickness = 1.0F});
+    for (int ray = 0; ray < 4; ++ray) {
+        const float angle = (maths::kPi * 0.25F) + (maths::kPi * 0.5F * static_cast<float>(ray));
+        const float cx = std::cos(angle);
+        const float cy = std::sin(angle);
+        line(px + (cx * radius * kSparkInner), py + (cy * radius * kSparkInner), px + (cx * radius * kSparkOuter),
+             py + (cy * radius * kSparkOuter), colour, kSparkWidth);
+    }
+    if ((gizmo.selected || gizmo.hovered) && elem.radius > 0.0F) {
+        ring(elem.pos, elem.radius, x_axis, z_axis, colour);
+        if (elem.inner_radius_ > 0.0F && elem.inner_radius_ < elem.radius) {
+            ring(elem.pos, elem.inner_radius_, x_axis, z_axis, (colour & kRgbMask) | kHalfAlpha);
+        }
+    }
+}
+
+// A sound: a speaker - a box and its cone.
+void add_sound_marker(const GizmoView& view, const MarkerAt& marker)
+{
+    ui::Overlay& overlay = *view.overlay;
+    const auto line = line_drawer(overlay);
+    const float px = marker.px;
+    const float py = marker.py;
+    const float radius = marker.radius;
+    const uint32_t colour = marker.colour;
+    line(px - radius, py - (radius * kHalf), px - (radius * kSpeakerBack), py - (radius * kHalf), colour,
+         kMarkerLineWidth);
+    line(px - radius, py + (radius * kHalf), px - (radius * kSpeakerBack), py + (radius * kHalf), colour,
+         kMarkerLineWidth);
+    line(px - radius, py - (radius * kHalf), px - radius, py + (radius * kHalf), colour, kMarkerLineWidth);
+    overlay.triangles.push_back({.ax = px - (radius * kSpeakerBack),
+                                 .ay = py - (radius * kHalf),
+                                 .bx = px + radius,
+                                 .by = py - (radius * kSpeakerConeSpread),
+                                 .cx = px + radius,
+                                 .cy = py + (radius * kSpeakerConeSpread),
+                                 .argb = colour});
+    overlay.triangles.push_back({.ax = px - (radius * kSpeakerBack),
+                                 .ay = py - (radius * kHalf),
+                                 .bx = px + radius,
+                                 .by = py + (radius * kSpeakerConeSpread),
+                                 .cx = px - (radius * kSpeakerBack),
+                                 .cy = py + (radius * kHalf),
+                                 .argb = colour});
+}
+
+// A fire-off point: a square; its radius as three rings when near.
+void add_fire_off_marker(const GizmoView& view, const NodeGizmo& gizmo, const MarkerAt& marker)
+{
+    const auto line = line_drawer(*view.overlay);
+    const auto ring = ring_drawer(view);
+    const nodes::Elem& elem = *gizmo.elem;
+    const float px = marker.px;
+    const float py = marker.py;
+    const float radius = marker.radius;
+    const uint32_t colour = marker.colour;
+    const V3 x_axis = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
+    const V3 y_axis = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    const V3 z_axis = {.x = 0.0F, .y = 0.0F, .z = 1.0F};
+    line(px - radius, py - radius, px + radius, py - radius, colour, kMarkerLineWidth);
+    line(px + radius, py - radius, px + radius, py + radius, colour, kMarkerLineWidth);
+    line(px + radius, py + radius, px - radius, py + radius, colour, kMarkerLineWidth);
+    line(px - radius, py + radius, px - radius, py - radius, colour, kMarkerLineWidth);
+    if (elem.radius > 0.0F && (gizmo.selected || gizmo.hovered || gizmo.distance < kRingNearRange)) {
+        const uint32_t faint = (colour & 0x00FFFFFF) | 0x90000000;
+        ring(elem.pos, elem.radius, x_axis, z_axis, faint);
+        ring(elem.pos, elem.radius, x_axis, y_axis, faint);
+        ring(elem.pos, elem.radius, z_axis, y_axis, faint);
+    }
+}
+
+// The marker of a node of its family.
+void add_family_marker(const GizmoView& view, const NodeGizmo& gizmo, const MarkerAt& marker)
+{
+    ui::Overlay& overlay = *view.overlay;
+    const auto line = line_drawer(overlay);
+    const nodes::Elem& elem = *gizmo.elem;
+    const float px = marker.px;
+    const float py = marker.py;
+    const float radius = marker.radius;
+    const uint32_t colour = marker.colour;
+    switch (elem.family) {
+    case nodes::Family::kSpawn:
+        add_spawn_marker(view, elem, marker);
+        break;
+    case nodes::Family::kCrown:
+        add_crown_marker(view, elem, marker);
+        break;
+    case nodes::Family::kBitMark:
+        // A pole and a pennant in its team's colour.
+        line(px, py, px, py - (radius * kPoleHeight), kPoleColour, kMarkerLineWidth);
+        overlay.triangles.push_back({.ax = px,
+                                     .ay = py - (radius * kPoleHeight),
+                                     .bx = px + (radius * kPennantReach),
+                                     .by = py - (radius * kPennantMiddle),
+                                     .cx = px,
+                                     .cy = py - (radius * kPennantBottom),
+                                     .argb = colour});
+        overlay.circles.push_back(
+            {.x = px, .y = py, .radius = radius * kHalf, .argb = colour, .filled = true, .thickness = 1.0F});
+        break;
+    case nodes::Family::kLight:
+        add_light_marker(view, gizmo, marker);
+        break;
+    case nodes::Family::kSound:
+        add_sound_marker(view, marker);
+        break;
+    case nodes::Family::kParticle:
+        // A spark: three strokes.
+        for (int stroke = 0; stroke < 3; ++stroke) {
+            const float angle = maths::kPi * static_cast<float>(stroke) / 3.0F;
+            const float cx = std::cos(angle) * radius;
+            const float cy = std::sin(angle) * radius;
+            line(px - cx, py - cy, px + cx, py + cy, colour, kMarkerLineWidth);
+        }
+        break;
+    case nodes::Family::kFireOff:
+        add_fire_off_marker(view, gizmo, marker);
+        break;
+    case nodes::Family::kObject:
+        // A small open diamond (the object itself shows).
+        line(px, py - (radius * kDiamondRadius), px + (radius * kDiamondRadius), py, colour, kDiamondWidth);
+        line(px + (radius * kDiamondRadius), py, px, py + (radius * kDiamondRadius), colour, kDiamondWidth);
+        line(px, py + (radius * kDiamondRadius), px - (radius * kDiamondRadius), py, colour, kDiamondWidth);
+        line(px - (radius * kDiamondRadius), py, px, py - (radius * kDiamondRadius), colour, kDiamondWidth);
+        break;
+    default:
+        overlay.circles.push_back(
+            {.x = px, .y = py, .radius = radius * kCoreRadius, .argb = colour, .filled = true, .thickness = 1.0F});
+        break;
+    }
+}
+
+// A point node: its family's marker (unless far or off the view), a ring and its name when selected or hovered;
+// pickable.
+void add_point_gizmo(const GizmoView& view, const NodeGizmo& gizmo, V3 delta)
+{
+    const TickCycle& frame = *view.frame;
+    ui::Overlay& overlay = *view.overlay;
+    const float scale = view.scale;
+    const nodes::Elem& elem = *gizmo.elem;
+    const float cutoff =
+        elem.family == nodes::Family::kObject || elem.family == nodes::Family::kParticle ? 2500.0F : 6000.0F;
+    if (!gizmo.selected && !gizmo.hovered && gizmo.distance > cutoff) {
+        return;
+    }
+    float px = 0.0F;
+    float py = 0.0F;
+    if (!get_to_pixel(frame, elem.pos, &px, &py) || px < view.left || px > view.right || py < view.top ||
+        py > view.bottom) {
+        return;
+    }
+    const float depth = -get_dot(delta, frame.back);
+    const float radius = 6.0F * scale;
+    const uint32_t colour = elem.hidden ? 0x90A0A4A8 : elem.colour; // (hidden: greyed)
+    add_family_marker(view, gizmo, {.px = px, .py = py, .depth = depth, .radius = radius, .colour = colour});
+    if (gizmo.selected || gizmo.hovered) {
+        overlay.circles.push_back({.x = px,
+                                   .y = py,
+                                   .radius = radius + (kRingGrow * scale),
+                                   .argb = gizmo.selected ? kSelectedGizmo : kHoverGizmo,
+                                   .filled = false,
+                                   .thickness = kMarkerLineWidth});
+        overlay.texts.push_back({.x = px + radius + (kLabelOffset * scale),
+                                 .y = py + (kLabelDrop * scale),
+                                 .argb = kLabelColour,
+                                 .text = nodes::caption(elem.name)});
+    }
+    pick_cycle().pickables_.push_back(
+        {.node = gizmo.index, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = depth});
+}
+
+// A box being dragged (level_editor_organize.h): its outline, solid inside / dashed crossing.
+void add_box_outline(ui::Overlay& overlay, float scale)
+{
     organize::Rect2 box{};
     bool crossing = false;
     if (organize::box_outline(&box, &crossing)) {
@@ -3170,6 +3292,58 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             }
         }
     }
+}
+
+void add_node_gizmos(const TickCycle& frame, int selected)
+{
+    pick_cycle().pickables_.clear();
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
+    const float scale = pixel_scale();
+    ui::Overlay& overlay = pick_cycle().overlay_;
+    const float left = static_cast<float>(core::at(level_editor_state().viewport_, 0)) - 40.0F;
+    const float top = static_cast<float>(core::at(level_editor_state().viewport_, 1)) - 40.0F;
+    const float right =
+        static_cast<float>(core::at(level_editor_state().viewport_, 0) + core::at(level_editor_state().viewport_, 2)) +
+        40.0F;
+    const float bottom =
+        static_cast<float>(core::at(level_editor_state().viewport_, 1) + core::at(level_editor_state().viewport_, 3)) +
+        40.0F;
+    const GizmoView view{.frame = &frame,
+                         .overlay = &overlay,
+                         .scale = scale,
+                         .left = left,
+                         .top = top,
+                         .right = right,
+                         .bottom = bottom};
+    for (int i = 0; std::cmp_less(i, nodes.size()); ++i) {
+        const nodes::Elem& elem = core::at(nodes, i);
+        if (!elem.has_pos_ || ((drag_state().families_ & nodes::get_bit(elem.family)) == 0U) ||
+            organize::gizmo_hidden(elem.name)) {
+            continue;
+        }
+        const nodes::Shape shape = nodes::shape_of(elem.family);
+        if (shape == nodes::Shape::kNone) {
+            continue;
+        }
+        const V3 delta = elem.pos - level_editor_state().pos_;
+        const NodeGizmo gizmo{
+            .elem = &elem,
+            .index = i,
+            .selected = i == selected,
+            .hovered = i == drag_state().hover_node_,
+            .distance = view_cam::apparent(std::sqrt(get_dot(delta, delta)))}; // (an ortho view: level_editor_camera.h)
+        if (shape == nodes::Shape::kChain) {
+            add_chain_gizmo(view, gizmo, nodes);
+            continue;
+        }
+        add_point_gizmo(view, gizmo, delta);
+    }
+    // (the Outliner's selectable off: drawn, not picked - level_editor_organize.h)
+    std::erase_if(pick_cycle().pickables_, [&](const nodes::Pickable& pickable) {
+        return pickable.node >= 0 && std::cmp_less(pickable.node, nodes.size()) &&
+               !organize::gizmo_pickable(core::at(nodes, pickable.node).name);
+    });
+    add_box_outline(overlay, scale);
 }
 
 // --- highlighting (the things' own colour tinted: Scenery::get_tint) ---
