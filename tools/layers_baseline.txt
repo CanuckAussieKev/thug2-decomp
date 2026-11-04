@@ -12,7 +12,6 @@ src/engine/core/manager.cpp -> src/platform/crt.h
 src/engine/core/memory_report.cpp -> src/platform/run_log.h
 src/engine/core/memory_sizes.cpp -> src/platform/run_log.h
 src/engine/core/slab_bank.cpp -> src/platform/run_log.h
-src/engine/core/str.cpp -> src/engine/sys/game_config.h
 src/engine/file/async.cpp -> src/frontend/data_overlay.h
 src/engine/file/file_load.cpp -> src/frontend/data_overlay.h
 src/engine/file/packs.cpp -> src/frontend/data_overlay.h
@@ -44,7 +43,6 @@ src/engine/gfx/tod_manager.cpp -> src/game/skate/game_mode.h
 src/engine/gfx/tod_manager.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/viewport.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/world_scene.cpp -> src/editor/level_editor_layout.h
-src/engine/maths/mat4.cpp -> src/platform/d3dx.h
 src/engine/net/buddy_man.cpp -> src/game/goals/objective.h
 src/engine/net/chat.cpp -> src/game/rider/rider.h
 src/engine/net/chat.cpp -> src/game/skate/skate_module.h
@@ -410,7 +408,6 @@ src/engine/sys/startup.cpp -> src/game/skate/game_mode.h
 src/engine/sys/startup.cpp -> src/game/skate/highscores.h
 src/engine/sys/startup.cpp -> src/game/skate/profile_manager.h
 src/engine/sys/startup.cpp -> src/game/skate/skate_module.h
-src/engine/util/bps.cpp -> src/platform/debug_log.h
 src/formats/check/format_check.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check.cpp -> src/wire/message_ids.h
 src/formats/check/format_check.cpp -> src/wire/net_wire.h
