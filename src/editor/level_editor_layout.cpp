@@ -437,6 +437,156 @@ std::string emit_out(const FileLoad& file)
     return out.str();
 }
 
+namespace {
+
+// sector / rail <checksum> <placement> <hidden> [fields]: a scenery piece or a rail point moved / hidden.
+bool read_placed_record(const std::string& kind, std::istringstream& in, FileLoad* file)
+{
+    uint32_t checksum = 0;
+    Placement placement = {};
+    int hidden = 0;
+    const bool ok =
+        read_hex(in, &checksum) && read_placed(in, &placement) && (in >> hidden) && read_placed_fields(in, &placement);
+    if (ok && kind == "sector") {
+        file->sectors.push_back({.checksum = checksum, .placement = placement, .hidden = hidden != 0});
+    } else if (ok) {
+        file->rails.push_back({.name = checksum, .placement = placement, .hidden = hidden != 0});
+    }
+    return ok;
+}
+
+// clone <source> <placement> [fields]: a copy of a scenery piece.
+bool read_clone_record(std::istringstream& in, FileLoad* file)
+{
+    CloneRecord clone_record = {};
+    const bool ok = read_hex(in, &clone_record.source) && read_placed(in, &clone_record.placement) &&
+                    read_placed_fields(in, &clone_record.placement);
+    if (ok) {
+        file->clones.push_back(clone_record);
+    }
+    return ok;
+}
+
+// object <id> <pos> <rows> [scale]: an object moved.
+bool read_object_record(std::istringstream& in, FileLoad* file)
+{
+    ObjectRecord object_record = {};
+    bool ok = read_hex(in, &object_record.id);
+    for (float& v : object_record.pos) {
+        ok = ok && (in >> v);
+    }
+    for (float& v : object_record.rows) {
+        ok = ok && (in >> v);
+    }
+    ok = ok && read_scale_fields(in, &object_record.scale);
+    if (ok) {
+        file->objects.push_back(object_record);
+    }
+    return ok;
+}
+
+// copy <name> <source> <pos> <rows> [scale]: a copy of an object.
+bool read_copy_record(std::istringstream& in, FileLoad* file)
+{
+    CopyRecord copy_record = {};
+    bool ok = read_hex(in, &copy_record.name) && read_hex(in, &copy_record.source);
+    for (float& v : copy_record.pos) {
+        ok = ok && (in >> v);
+    }
+    for (float& v : copy_record.rows) {
+        ok = ok && (in >> v);
+    }
+    ok = ok && read_scale_fields(in, &copy_record.scale);
+    if (ok) {
+        file->copies.push_back(copy_record);
+    }
+    return ok;
+}
+
+// set <name> key=value...: a node moved / turned, its fields edited.
+bool read_set_record(std::istringstream& in, FileLoad* file)
+{
+    // (key=value fields: pos and angles; others - a later version's - skipped)
+    SetRecord set_record = {};
+    bool ok = read_hex(in, &set_record.name);
+    std::string field;
+    while (ok && in >> field) {
+        const size_t equals = field.find('=');
+        if (equals == std::string::npos || equals == 0) {
+            ok = false;
+            break;
+        }
+        const std::string key = field.substr(0, equals);
+        const std::string value = field.substr(equals + 1);
+        if (key == "pos") {
+            ok = !set_record.has_pos_ && read_triple(value, set_record.pos); // (twice: not a record we wrote)
+            set_record.has_pos_ = true;
+        } else if (key == "angles") {
+            ok = !set_record.has_angles_ && read_triple(value, set_record.angles);
+            set_record.has_angles_ = true;
+        } else if (fields::is_field_key(key)) {
+            // (phase 6: a typed field edit; the same field twice isn't a record we wrote)
+            fields::Edit edit;
+            ok = fields::read_token({.key = key, .value = value}, &edit);
+            for (const fields::Edit& other : set_record.fields) {
+                ok = ok && other.key != edit.key;
+            }
+            if (ok) {
+                set_record.fields.push_back(edit);
+            }
+        }
+    }
+    if (ok) {
+        file->nodes.push_back(set_record);
+    }
+    return ok;
+}
+
+// order crown <names>: the added crowns' order.
+bool read_order_record(std::istringstream& in, FileLoad* file)
+{
+    std::string what;
+    std::string name;
+    bool ok = static_cast<bool>(in >> what);
+    if (ok && what == "crown") { // (an order of something else: a later version's - skipped)
+        file->crown_order_.clear();
+        while (ok && in >> name) {
+            ok = node_create::valid_name(name);
+            file->crown_order_.push_back(name);
+        }
+    }
+    return ok;
+}
+
+// lock object|sector <id>.
+bool read_lock_record(std::istringstream& in, FileLoad* file)
+{
+    std::string what;
+    uint32_t id = 0;
+    const bool ok = (in >> what) && read_hex(in, &id);
+    if (ok && (what == "object" || what == "sector")) {
+        file->locks.push_back({.kind = what == "object" ? picking::kObjects : picking::kScenery, .id = id});
+    }
+    return ok;
+}
+
+// wall <checksum> <placement> <off>.
+bool read_wall_record(std::istringstream& in, FileLoad* file)
+{
+    // (level_editor_walls.h: later key=value fields skipped, as a sector's)
+    walls::WallState w = {};
+    int off = 0;
+    const bool ok = read_hex(in, &w.checksum) && read_placed(in, &w.placement) && (in >> off) && (off == 0 || off == 1);
+    w.off = off != 0;
+    w.placement.scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
+    if (ok) {
+        file->walls.push_back(w);
+    }
+    return ok;
+}
+
+} // namespace
+
 bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
 {
     *file = FileLoad{};
@@ -470,96 +620,19 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
         if (kind == "scene") {
             ok = read_hex(in, &file->scene);
         } else if (kind == "sector" || kind == "rail") {
-            uint32_t checksum = 0;
-            Placement placement = {};
-            int hidden = 0;
-            ok = read_hex(in, &checksum) && read_placed(in, &placement) && (in >> hidden) &&
-                 read_placed_fields(in, &placement);
-            if (ok && kind == "sector") {
-                file->sectors.push_back({.checksum = checksum, .placement = placement, .hidden = hidden != 0});
-            } else if (ok) {
-                file->rails.push_back({.name = checksum, .placement = placement, .hidden = hidden != 0});
-            }
+            ok = read_placed_record(kind, in, file);
         } else if (kind == "clone") {
-            CloneRecord clone_record = {};
-            ok = read_hex(in, &clone_record.source) && read_placed(in, &clone_record.placement) &&
-                 read_placed_fields(in, &clone_record.placement);
-            if (ok) {
-                file->clones.push_back(clone_record);
-            }
+            ok = read_clone_record(in, file);
         } else if (kind == "object") {
-            ObjectRecord object_record = {};
-            ok = read_hex(in, &object_record.id);
-            for (float& v : object_record.pos) {
-                ok = ok && (in >> v);
-            }
-            for (float& v : object_record.rows) {
-                ok = ok && (in >> v);
-            }
-            ok = ok && read_scale_fields(in, &object_record.scale);
-            if (ok) {
-                file->objects.push_back(object_record);
-            }
+            ok = read_object_record(in, file);
         } else if (kind == "copy") {
-            CopyRecord copy_record = {};
-            ok = read_hex(in, &copy_record.name) && read_hex(in, &copy_record.source);
-            for (float& v : copy_record.pos) {
-                ok = ok && (in >> v);
-            }
-            for (float& v : copy_record.rows) {
-                ok = ok && (in >> v);
-            }
-            ok = ok && read_scale_fields(in, &copy_record.scale);
-            if (ok) {
-                file->copies.push_back(copy_record);
-            }
+            ok = read_copy_record(in, file);
         } else if (kind == "set") {
-            // (key=value fields: pos and angles; others - a later version's - skipped)
-            SetRecord set_record = {};
-            ok = read_hex(in, &set_record.name);
-            std::string field;
-            while (ok && in >> field) {
-                const size_t equals = field.find('=');
-                if (equals == std::string::npos || equals == 0) {
-                    ok = false;
-                    break;
-                }
-                const std::string key = field.substr(0, equals);
-                const std::string value = field.substr(equals + 1);
-                if (key == "pos") {
-                    ok = !set_record.has_pos_ && read_triple(value, set_record.pos); // (twice: not a record we wrote)
-                    set_record.has_pos_ = true;
-                } else if (key == "angles") {
-                    ok = !set_record.has_angles_ && read_triple(value, set_record.angles);
-                    set_record.has_angles_ = true;
-                } else if (fields::is_field_key(key)) {
-                    // (phase 6: a typed field edit; the same field twice isn't a record we wrote)
-                    fields::Edit edit;
-                    ok = fields::read_token({.key = key, .value = value}, &edit);
-                    for (const fields::Edit& other : set_record.fields) {
-                        ok = ok && other.key != edit.key;
-                    }
-                    if (ok) {
-                        set_record.fields.push_back(edit);
-                    }
-                }
-            }
-            if (ok) {
-                file->nodes.push_back(set_record);
-            }
+            ok = read_set_record(in, file);
         } else if (kind == "node") {
             ok = read_node(in, &file->added.emplace_back());
         } else if (kind == "order") {
-            std::string what;
-            std::string name;
-            ok = static_cast<bool>(in >> what);
-            if (ok && what == "crown") { // (an order of something else: a later version's - skipped)
-                file->crown_order_.clear();
-                while (ok && in >> name) {
-                    ok = node_create::valid_name(name);
-                    file->crown_order_.push_back(name);
-                }
-            }
+            ok = read_order_record(in, file);
         } else if (kind == "hide") {
             uint32_t name = 0;
             ok = read_hex(in, &name);
@@ -567,12 +640,7 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
                 file->hidden.push_back(name);
             }
         } else if (kind == "lock") {
-            std::string what;
-            uint32_t id = 0;
-            ok = (in >> what) && read_hex(in, &id);
-            if (ok && (what == "object" || what == "sector")) {
-                file->locks.push_back({.kind = what == "object" ? picking::kObjects : picking::kScenery, .id = id});
-            }
+            ok = read_lock_record(in, file);
         } else if (kind == "trigger") {
             std::string rest;
             std::getline(in, rest);
@@ -583,15 +651,7 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
             std::getline(in, rest);
             ok = triggers::read_proxim_record(rest, &file->proxims.emplace_back());
         } else if (kind == "wall") {
-            // (level_editor_walls.h: later key=value fields skipped, as a sector's)
-            walls::WallState w = {};
-            int off = 0;
-            ok = read_hex(in, &w.checksum) && read_placed(in, &w.placement) && (in >> off) && (off == 0 || off == 1);
-            w.off = off != 0;
-            w.placement.scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
-            if (ok) {
-                file->walls.push_back(w);
-            }
+            ok = read_wall_record(in, file);
         } else if (chains::is_record(kind)) {
             ok = chains::read_record(kind, in, &file->chains); // (phase 4: point / links / drop / terrain)
         } else if (entities::is_record(kind)) {
