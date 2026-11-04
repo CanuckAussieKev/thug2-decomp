@@ -207,7 +207,7 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
     }
     case kHorsePreRun:
         if (points_target_ > 0) {
-            const char* points = text::format_with_separators(points_target_, game_config::get_language());
+            const char* points = text::format_with_separators(points_target_, {game_config::get_language()});
             text::format_to(text, "%s %s", script::fetch_text(kTargetScoreText), points); // "%s %s"
         } else {
             text::format_data_to(text, script::fetch_text(kSetScore)); // (the text is the format, as in the original)
@@ -235,7 +235,7 @@ void LetterMatch::end_run()
     debug::printf("End run = %d\n", total); // "End run = %d\n"
     if (total > points_target_) {
         points_target_ = total;
-        const char* points = text::format_with_separators(total, game_config::get_language());
+        const char* points = text::format_with_separators(total, {game_config::get_language()});
         text::format_to(panel_, "%s %s", script::fetch_text(kSetScoreIs), points); // "%s %s"
         cur_standing_ = core::at(statuses(), kBeatScore);
         return;

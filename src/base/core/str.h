@@ -40,11 +40,16 @@ const char* find_caseless(CaselessSearch search);
 // Compare ignoring ASCII case: -1, 0 or 1 (characters compare as signed chars).
 int compare_caseless(const char* a, const char* b);
 
-// `value` as text with thousands separators chosen by `language` (core::kLanguage*: a space for French, a dot for
-// Spanish, German and Italian, else a comma), e.g. "1,234,567". The callers pass the game's language setting
-// (game_config::get_language(), which the original read here). Returns a static buffer in the exe, overwritten by
-// the next call.
-const char* format_with_separators(int value, int language);
+// The language a number is written for (core::kLanguage*): its own type, so it can't be swapped with the number.
+struct InLanguage {
+    int language;
+};
+
+// `value` as text with thousands separators chosen by the language (a space for French, a dot for Spanish, German
+// and Italian, else a comma), e.g. "1,234,567". The callers pass the game's language setting
+// (`{game_config::get_language()}`, which the original read here). Returns a static buffer in the exe, overwritten
+// by the next call.
+const char* format_with_separators(int value, InLanguage in);
 
 // Value of one base-32 digit: '0'-'9' -> 0-9, 'A'-'V' / 'a'-'v' -> 10-31, anything else -> 0.
 int hex_digit_value(char digit);

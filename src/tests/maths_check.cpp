@@ -1819,37 +1819,37 @@ void run(int count, std::mt19937_64& random)
 // NOT ORIGINAL - D3DX9's matrix product (d3dx9_43.dll, which the game called until stage 11) against the plain C++
 // that replaced it, maths::matrix_multiply: random matrices of the game's coordinate, unit and tiny (denormal
 // product) scales, each also multiplied in place (the result written over a, and over b).
-void matrix_product(int count)
+void matrix_product(int count, int seed)
 {
     constexpr float kTinyScale = 1.0e-20F;
     using Matrix = std::array<float, maths::kMatrixFloats>;
-    std::mt19937_64 random(static_cast<uint64_t>(kRandomSeed));
+    std::mt19937_64 random(static_cast<uint64_t>(seed));
     std::uniform_real_distribution<float> coordinate(-kCoordinateRange, kCoordinateRange);
     std::uniform_real_distribution<float> unit(-1.0F, 1.0F);
     Tally t_product("matrix_multiply (D3DX)", 'f');
     Tally t_over_a("matrix_multiply, out = a", 'f');
     Tally t_over_b("matrix_multiply, out = b", 'f');
-    for (int n = 0; n < count; ++n) {
-        Matrix a{};
-        Matrix b{};
-        const int scale = n % 3; // coordinates times unit, unit times unit, tiny times unit
+    for (int index = 0; index < count; ++index) {
+        Matrix left{};
+        Matrix right{};
+        const int scale = index % 3; // coordinates times unit, unit times unit, tiny times unit
         for (int k = 0; k < maths::kMatrixFloats; ++k) {
-            const float left = scale == 0 ? coordinate(random) : unit(random);
-            core::at(a, k) = scale == 2 ? left * kTinyScale : left;
-            core::at(b, k) = unit(random);
+            const float drawn = scale == 0 ? coordinate(random) : unit(random);
+            core::at(left, k) = scale == 2 ? drawn * kTinyScale : drawn;
+            core::at(right, k) = unit(random);
         }
         Matrix want{};
-        tests::d3dx_matrix_multiply(want.data(), a.data(), b.data());
-        Matrix want_a = a;
-        tests::d3dx_matrix_multiply(want_a.data(), want_a.data(), b.data());
-        Matrix want_b = b;
-        tests::d3dx_matrix_multiply(want_b.data(), a.data(), want_b.data());
+        tests::d3dx_matrix_multiply(want.data(), left.data(), right.data());
+        Matrix want_a = left;
+        tests::d3dx_matrix_multiply(want_a.data(), want_a.data(), right.data());
+        Matrix want_b = right;
+        tests::d3dx_matrix_multiply(want_b.data(), left.data(), want_b.data());
         Matrix fresh{};
-        maths::matrix_multiply(fresh.data(), a.data(), b.data());
-        Matrix over_a = a;
-        maths::matrix_multiply(over_a.data(), over_a.data(), b.data());
-        Matrix over_b = b;
-        maths::matrix_multiply(over_b.data(), a.data(), over_b.data());
+        maths::matrix_multiply(fresh.data(), left.data(), right.data());
+        Matrix over_a = left;
+        maths::matrix_multiply(over_a.data(), over_a.data(), right.data());
+        Matrix over_b = right;
+        maths::matrix_multiply(over_b.data(), left.data(), over_b.data());
         for (int k = 0; k < maths::kMatrixFloats; ++k) {
             compare(t_product, core::at(fresh, k), core::at(want, k), k);
             compare(t_over_a, core::at(over_a, k), core::at(want_a, k), k);
@@ -1881,7 +1881,7 @@ int main(int argc, char** argv)
     run(count, random);
     _controlfp_s(&previous, _PC_53, _MCW_PC);
     text::print("D3DX9's matrix product (d3dx9_43.dll's SSE version) against the plain C++\n");
-    matrix_product(count);
+    matrix_product(count, seed);
     return 0;
 #else
     (void)argc;

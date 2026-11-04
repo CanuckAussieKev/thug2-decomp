@@ -229,7 +229,7 @@ int format_text(script::Struct& results, script::Struct* params)
         case script::QbValueKind::kInteger:
             if (params->has_bare_flag(kUseCommas)) {
                 text::format_to(text, "%s",
-                                text::format_with_separators(value.value.integer(), game_config::get_language()));
+                                text::format_with_separators(value.value.integer(), {game_config::get_language()}));
             } else {
                 int width = 0;
                 if (params->fetch_int_value(kIntegerWidth, &width, 0)) {

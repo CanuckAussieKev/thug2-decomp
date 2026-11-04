@@ -81,7 +81,7 @@ std::array<char, kSeparatedNumberSize>& separated_number()
 } // namespace
 
 // 0x00402200
-const char* format_with_separators(int value, int language)
+const char* format_with_separators(int value, InLanguage in)
 {
     core::Cursor<char> out{std::span<char>(separated_number())}; // shared with the original code
     if (value < 0) {
@@ -93,7 +93,7 @@ const char* format_with_separators(int value, int language)
     text::format_to(digits, "%d", value);
 
     char separator = 0;
-    switch (language) { // the game's language setting, from the caller
+    switch (in.language) { // the game's language setting, from the caller
     case core::kLanguageFrench:
         separator = ' ';
         break;

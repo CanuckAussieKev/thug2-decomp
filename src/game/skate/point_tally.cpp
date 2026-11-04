@@ -345,14 +345,14 @@ void PointTally::dispatch_score_pot(int points, float multiplier) const
         core::at(shown, 0) = ' ';
         core::at(shown, 1) = 0;
     } else if (multiplier == 0.0F) {
-        text::format_to(shown, "%s", text::format_with_separators(points, game_config::get_language())); // "%s"
+        text::format_to(shown, "%s", text::format_with_separators(points, {game_config::get_language()})); // "%s"
     } else {
         const int whole = ftol(multiplier);
         if (static_cast<double>(whole) == multiplier) {
             text::format_to(shown, "%s X %d", // "%s X %d"
-                            text::format_with_separators(points, game_config::get_language()), whole);
+                            text::format_with_separators(points, {game_config::get_language()}), whole);
         } else {
-            text::format_to(shown, "%s X %.1f", text::format_with_separators(points, game_config::get_language()),
+            text::format_to(shown, "%s X %.1f", text::format_with_separators(points, {game_config::get_language()}),
                             static_cast<double>(multiplier)); // "%s X %.1f"
         }
     }

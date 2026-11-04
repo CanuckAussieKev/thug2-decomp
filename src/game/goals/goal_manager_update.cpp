@@ -223,7 +223,7 @@ void GoalManager::append_objective_list_entries()
                     if (type == kScore) {
                         params->fetch_int_value(kWinRecord, &value, 0);
                         text::format_to(record, "%s", // "%s"
-                                        text::format_with_separators(value, game_config::get_language()));
+                                        text::format_with_separators(value, {game_config::get_language()}));
                         item->append_word(kRecordText, record.data());
                     } else if (type == kTime) {
                         int ms = 0;
