@@ -84,6 +84,89 @@ void restart_section(int node_index)
     ImGui::SameLine();
 }
 
+namespace {
+
+// The test runs' table, newest first: shown or not, the run (its time in each motion), time, gaps, bails, best
+// combo, delete.
+void runs_table(const LevelTrails* trails)
+{
+    ImGui::TableSetupColumn("");
+    ImGui::TableSetupColumn("Run");
+    ImGui::TableSetupColumn("Time");
+    ImGui::TableSetupColumn("Gaps");
+    ImGui::TableSetupColumn("Bails");
+    ImGui::TableSetupColumn("Best combo", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableHeadersRow();
+    int remove = 0;
+    for (auto it = trails->runs().rbegin(); it != trails->runs().rend(); ++it) {
+        const Run& run = *it;
+        ImGui::TableNextRow();
+        ImGui::PushID(run.number);
+        ImGui::TableNextColumn();
+        bool visible = run.visible;
+        if (ImGui::Checkbox("##v", &visible)) {
+            set_run_visible(run.number, visible);
+        }
+        ImGui::TableNextColumn();
+        gui::text("%d%s", run.number, run.full_ ? "+" : "");
+        if (ImGui::IsItemHovered()) {
+            std::string text;
+            std::array<char, kPartSize> part{};
+            for (int motion = 0; motion < kMotions; ++motion) {
+                if (core::at(run.motion_seconds_, motion) < kMinShownSeconds) {
+                    continue;
+                }
+                text::format_to(part, "%s %.1f s\n", motion_name(static_cast<Motion>(motion)),
+                                core::at(run.motion_seconds_, motion));
+                text += part.data();
+            }
+            gui::tooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples_.size()),
+                         run.full_ ? " (full)" : "");
+        }
+        ImGui::TableNextColumn();
+        gui::text("%.1f s", run.seconds);
+        ImGui::TableNextColumn();
+        gui::text("%d", gaps_landed(run));
+        ImGui::TableNextColumn();
+        gui::text("%d", bails(run));
+        ImGui::TableNextColumn();
+        gui::text("%d", top_combo_value(run));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("x")) {
+            remove = run.number;
+        }
+        get_tip("Delete this run");
+        ImGui::PopID();
+    }
+    ImGui::EndTable();
+    if (remove != 0) {
+        delete_run(remove);
+    }
+}
+
+// The level's gaps, landed or untested (only the untested ones when asked).
+void gap_list(const std::vector<GapRead>& gaps, ImFont* small, bool untested_only)
+{
+    if (small) {
+        ImGui::PushFont(small);
+    }
+    for (const GapRead& gap : gaps) {
+        const bool ok = gap_landed(gap.name);
+        if (untested_only && ok) {
+            continue;
+        }
+        gui::text_colored(ok ? get_colour(kGapLandedColour) : get_colour(kGapOtherColour), "%s",
+                          ok ? "landed  " : "untested");
+        ImGui::SameLine();
+        gui::text("%s  (%d)", gap.name.c_str(), gap.score);
+    }
+    if (small) {
+        ImGui::PopFont();
+    }
+}
+
+} // namespace
+
 void pane(float scale, PaneFonts fonts)
 {
     auto* const heading = fonts.heading;
@@ -126,58 +209,7 @@ void pane(float scale, PaneFonts fonts)
     if (!trails || trails->runs().empty()) {
         gui::text_disabled("No runs recorded");
     } else if (ImGui::BeginTable("##runs", kRunColumns, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
-        ImGui::TableSetupColumn("");
-        ImGui::TableSetupColumn("Run");
-        ImGui::TableSetupColumn("Time");
-        ImGui::TableSetupColumn("Gaps");
-        ImGui::TableSetupColumn("Bails");
-        ImGui::TableSetupColumn("Best combo", ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableHeadersRow();
-        int remove = 0;
-        for (auto it = trails->runs().rbegin(); it != trails->runs().rend(); ++it) {
-            const Run& run = *it;
-            ImGui::TableNextRow();
-            ImGui::PushID(run.number);
-            ImGui::TableNextColumn();
-            bool visible = run.visible;
-            if (ImGui::Checkbox("##v", &visible)) {
-                set_run_visible(run.number, visible);
-            }
-            ImGui::TableNextColumn();
-            gui::text("%d%s", run.number, run.full_ ? "+" : "");
-            if (ImGui::IsItemHovered()) {
-                std::string text;
-                std::array<char, kPartSize> part{};
-                for (int motion = 0; motion < kMotions; ++motion) {
-                    if (core::at(run.motion_seconds_, motion) < kMinShownSeconds) {
-                        continue;
-                    }
-                    text::format_to(part, "%s %.1f s\n", motion_name(static_cast<Motion>(motion)),
-                                    core::at(run.motion_seconds_, motion));
-                    text += part.data();
-                }
-                gui::tooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples_.size()),
-                                  run.full_ ? " (full)" : "");
-            }
-            ImGui::TableNextColumn();
-            gui::text("%.1f s", run.seconds);
-            ImGui::TableNextColumn();
-            gui::text("%d", gaps_landed(run));
-            ImGui::TableNextColumn();
-            gui::text("%d", bails(run));
-            ImGui::TableNextColumn();
-            gui::text("%d", top_combo_value(run));
-            ImGui::SameLine();
-            if (ImGui::SmallButton("x")) {
-                remove = run.number;
-            }
-            get_tip("Delete this run");
-            ImGui::PopID();
-        }
-        ImGui::EndTable();
-        if (remove != 0) {
-            delete_run(remove);
-        }
+        runs_table(trails);
     }
     if (ImGui::Button("Clear")) {
         get_request(Ask::kClear);
@@ -208,22 +240,7 @@ void pane(float scale, PaneFonts fonts)
     if (gaps.empty()) {
         gui::text_disabled("No gaps");
     } else if (ImGui::BeginChild("##gaps", ImVec2(0.0F, kGapListHeight * scale), ImGuiChildFlags_Borders)) {
-        if (small) {
-            ImGui::PushFont(small);
-        }
-        for (const GapRead& gap : gaps) {
-            const bool ok = gap_landed(gap.name);
-            if (g_untested_only && ok) {
-                continue;
-            }
-            gui::text_colored(ok ? get_colour(kGapLandedColour) : get_colour(kGapOtherColour), "%s",
-                               ok ? "landed  " : "untested");
-            ImGui::SameLine();
-            gui::text("%s  (%d)", gap.name.c_str(), gap.score);
-        }
-        if (small) {
-            ImGui::PopFont();
-        }
+        gap_list(gaps, small, g_untested_only);
     }
     if (!gaps.empty()) {
         ImGui::EndChild();

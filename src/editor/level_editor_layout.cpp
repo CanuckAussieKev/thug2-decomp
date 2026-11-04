@@ -199,6 +199,19 @@ bool read_placed_fields(std::istringstream& in, Placement* placement)
     return read_scale_fields(in, &placement->scale);
 }
 
+// A light's color=r,g,b: whole numbers from 0 to 255; false if one isn't.
+bool read_colour(const std::array<float, 3>& v, node_create::Spec* spec)
+{
+    for (int i = 0; i < 3; ++i) {
+        if (core::at(v, i) < 0.0F || core::at(v, i) > kColourChannelMax ||
+            core::at(v, i) != static_cast<float>(static_cast<int>(core::at(v, i)))) {
+            return false;
+        }
+        core::at(spec->colour, i) = static_cast<int>(core::at(v, i));
+    }
+    return true;
+}
+
 // A `node` record's fields (after "node"): name, class, then key=value (unknown keys skipped; a repeated one, a bad
 // value or a missing place refuse it).
 bool read_node(std::istringstream& in, node_create::Spec* spec)
@@ -245,12 +258,8 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
             if (!read_triple(value, v)) {
                 return false;
             }
-            for (int i = 0; i < 3; ++i) {
-                if (core::at(v, i) < 0.0F || core::at(v, i) > kColourChannelMax ||
-                    core::at(v, i) != static_cast<float>(static_cast<int>(core::at(v, i)))) {
-                    return false;
-                }
-                core::at(spec->colour, i) = static_cast<int>(core::at(v, i));
+            if (!read_colour(v, spec)) {
+                return false;
             }
         } else if (key == "brightness" || key == "inner" || key == "outer" || key == "radius") {
             const float number = std::strtof(value.c_str(), &end);
@@ -269,6 +278,56 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
         }
     }
     return std::ranges::find(seen, "pos") != seen.end();
+}
+
+// A node the editor added: its name, class, type, place, restart types, a light's colour and radii, a radius.
+void write_added_node(std::ostringstream& out, const node_create::Spec& spec)
+{
+    out << "node " << spec.name << ' ' << spec.cls;
+    if (!spec.type.empty()) {
+        out << " type=" << spec.type;
+    }
+    const std::array<float, 3> pos = {{spec.pos.x, spec.pos.y, spec.pos.z}};
+    const std::array<float, 3> angles = {{spec.angles.x, spec.angles.y, spec.angles.z}};
+    triple(out, "pos", pos);
+    triple(out, "angles", angles);
+    if (!spec.types.empty()) {
+        out << " types=";
+        for (size_t i = 0; i < spec.types.size(); ++i) {
+            out << ((i != 0U) ? "," : "") << core::at(spec.types, i);
+        }
+    }
+    node_create::Kind kind{};
+    if (node_create::kind_of(spec, &kind) && kind == node_create::Kind::kLight) {
+        out << " color=" << core::at(spec.colour, 0) << ',' << core::at(spec.colour, 1) << ','
+            << core::at(spec.colour, 2);
+        std::array<char, kLightLineSize> text{};
+        text::format_to(text, " brightness=%.9g inner=%.9g outer=%.9g", spec.brightness, spec.inner, spec.outer);
+        out << text.data();
+    }
+    if (spec.radius != 0.0F) {
+        std::array<char, kRadiusLineSize> text{};
+        text::format_to(text, " radius=%.9g", spec.radius);
+        out << text.data();
+    }
+    out << '\n';
+}
+
+// A node's edits: its place, angles and fields.
+void write_set_record(std::ostringstream& out, const SetRecord& node_record)
+{
+    out << "set";
+    get_hex(out, node_record.name);
+    if (node_record.has_pos_) {
+        triple(out, "pos", node_record.pos);
+    }
+    if (node_record.has_angles_) {
+        triple(out, "angles", node_record.angles);
+    }
+    for (const fields::Edit& edit : node_record.fields) {
+        out << ' ' << fields::get_token(edit, fields::get_name_of);
+    }
+    get_comment(out, node_record.name);
 }
 
 } // namespace
@@ -328,34 +387,7 @@ std::string emit_out(const FileLoad& file)
         get_comment(out, copy.source);
     }
     for (const node_create::Spec& spec : file.added) {
-        out << "node " << spec.name << ' ' << spec.cls;
-        if (!spec.type.empty()) {
-            out << " type=" << spec.type;
-        }
-        const std::array<float, 3> pos = {{spec.pos.x, spec.pos.y, spec.pos.z}};
-        const std::array<float, 3> angles = {{spec.angles.x, spec.angles.y, spec.angles.z}};
-        triple(out, "pos", pos);
-        triple(out, "angles", angles);
-        if (!spec.types.empty()) {
-            out << " types=";
-            for (size_t i = 0; i < spec.types.size(); ++i) {
-                out << ((i != 0U) ? "," : "") << core::at(spec.types, i);
-            }
-        }
-        node_create::Kind kind{};
-        if (node_create::kind_of(spec, &kind) && kind == node_create::Kind::kLight) {
-            out << " color=" << core::at(spec.colour, 0) << ',' << core::at(spec.colour, 1) << ','
-                << core::at(spec.colour, 2);
-            std::array<char, kLightLineSize> text{};
-            text::format_to(text, " brightness=%.9g inner=%.9g outer=%.9g", spec.brightness, spec.inner, spec.outer);
-            out << text.data();
-        }
-        if (spec.radius != 0.0F) {
-            std::array<char, kRadiusLineSize> text{};
-            text::format_to(text, " radius=%.9g", spec.radius);
-            out << text.data();
-        }
-        out << '\n';
+        write_added_node(out, spec);
     }
     if (!file.crown_order_.empty()) {
         out << "order crown";
@@ -384,18 +416,7 @@ std::string emit_out(const FileLoad& file)
         if (!node_record.has_pos_ && !node_record.has_angles_ && node_record.fields.empty()) {
             continue;
         }
-        out << "set";
-        get_hex(out, node_record.name);
-        if (node_record.has_pos_) {
-            triple(out, "pos", node_record.pos);
-        }
-        if (node_record.has_angles_) {
-            triple(out, "angles", node_record.angles);
-        }
-        for (const fields::Edit& edit : node_record.fields) {
-            out << ' ' << fields::get_token(edit, fields::get_name_of);
-        }
-        get_comment(out, node_record.name);
+        write_set_record(out, node_record);
     }
     out << chains::write_records(file.chains);
     out << entities::write_records(file.entities);
