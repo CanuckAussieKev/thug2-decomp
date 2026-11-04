@@ -128,18 +128,18 @@ bool array_has(Array* array, uint32_t name)
 bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script)
 {
     gsl::owner<Struct*> result = script::new_struct();
-    Struct* a = nullptr;
-    params->read_sub_struct(kA, &a, 1);
-    Struct* b = nullptr;
-    params->read_sub_struct(kB, &b, 1);
-    float t = 0.0F;
-    params->fetch_float(kFraction, &t, 0);
+    Struct* from_struct = nullptr;
+    params->read_sub_struct(kA, &from_struct, 1);
+    Struct* to_struct = nullptr;
+    params->read_sub_struct(kB, &to_struct, 1);
+    float fraction = 0.0F;
+    params->fetch_float(kFraction, &fraction, 0);
     Array* ignore = nullptr;
     params->fetch_list(kIgnore, &ignore, 0);
     Array* angles = nullptr;
     params->fetch_list(kAngles, &angles, 0);
 
-    for (Component* component = a->step_to_entry(nullptr); component;
+    for (Component* component = from_struct->step_to_entry(nullptr); component;
          // (the original asks the command's params for the next one: the same, the component isn't null)
          component = params->step_to_entry(component)) {
         if (array_has(ignore, component->name)) {
@@ -162,9 +162,9 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         }
         float to = 0.0F;
         int to_integer = 0;
-        if (b->fetch_int_value(name, &to_integer, 0)) {
+        if (to_struct->fetch_int_value(name, &to_integer, 0)) {
             to = static_cast<float>(to_integer);
-        } else if (b->fetch_float(name, &to, 0)) {
+        } else if (to_struct->fetch_float(name, &to, 0)) {
             integer = false;
         } else {
             continue;
@@ -176,9 +176,9 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
             if (difference > half_turn()) {
                 difference = -(whole_turn() - difference);
             }
-            value = static_cast<float>(wrapped_degrees(static_cast<float>((difference * t) + from)));
+            value = static_cast<float>(wrapped_degrees(static_cast<float>((difference * fraction) + from)));
         } else {
-            value = static_cast<float>(((static_cast<double>(to) - from) * t) + from);
+            value = static_cast<float>(((static_cast<double>(to) - from) * fraction) + from);
         }
         if (integer) {
             result->put_int(checksums::Name{name}, ftol(value));
@@ -345,12 +345,12 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script* 
     params->fetch_float(kPitch, &pitch, 1);
     pitch = static_cast<float>(pitch * static_cast<double>(kGameUtilMinusDegreesToRadians)); // -pi / 180
     heading = static_cast<float>((kQuarterTurnDegrees - heading) * kDegreeToRadianRatio);                     // pi / 180
-    int r = 0;
-    params->fetch_int_value(kR, &r, 1);
-    int g = 0;
-    params->fetch_int_value(kG, &g, 1);
-    int b = 0;
-    params->fetch_int_value(kBlue, &b, 1);
+    int red = 0;
+    params->fetch_int_value(kR, &red, 1);
+    int green = 0;
+    params->fetch_int_value(kG, &green, 1);
+    int blue = 0;
+    params->fetch_int_value(kBlue, &blue, 1);
     const objects::GameEntity* skater = get_skate()->get_home_rider();
     const maths::Vec4& position = skater->at_point();
     const double above = static_cast<double>(position.y) + 75.0;
@@ -365,8 +365,8 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script* 
     to.y = static_cast<float>((std::sin(static_cast<double>(pitch)) * kAimLineLength) + above);
     to.z = static_cast<float>((std::sin(static_cast<double>(heading)) * horizontal) + position.z);
     to.w = 0.0F;
-    const uint32_t colour = 0xFF000000U | static_cast<uint32_t>(static_cast<uint8_t>(b)) << 16 |
-                            static_cast<uint32_t>(static_cast<uint8_t>(g)) << 8 | static_cast<uint8_t>(r);
+    const uint32_t colour = 0xFF000000U | static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 |
+                            static_cast<uint32_t>(static_cast<uint8_t>(green)) << 8 | static_cast<uint8_t>(red);
     gfx::push_diag_line(&from, &to, colour, colour, 1);
     return true;
 }

@@ -116,8 +116,8 @@ inline void set_script_debug(script::Script* /*script*/) {}
 // the game with a report; the original wrote past the buffer.)
 size_t get_append(std::array<char, kFormatTextBytes>& buffer, size_t used, const char* text)
 {
-    for (const char c : std::string_view(text)) {
-        ::core::at(buffer, used++) = c;
+    for (const char character : std::string_view(text)) {
+        ::core::at(buffer, used++) = character;
     }
     ::core::at(buffer, used) = '\0';
     return used;
@@ -185,34 +185,34 @@ int format_text(script::Struct& results, script::Struct* params)
     std::array<char, kFormatTextBytes>& buffer = format_text_buffer();
     size_t used = 0;
     const std::string_view source(format);
-    size_t p = 0;
+    size_t position = 0;
     // (the format's character at i; its terminator and, for a lone '%' at the end, what the original read past it: 0)
-    auto ch = [&](size_t i) { return i < source.size() ? ::core::at(source, i) : '\0'; };
-    while (ch(p) != '\0') {
-        if (ch(p) == '\\' && ch(p + 1) == '%') {
+    auto ch = [&](size_t offset) { return offset < source.size() ? ::core::at(source, offset) : '\0'; };
+    while (ch(position) != '\0') {
+        if (ch(position) == '\\' && ch(position + 1) == '%') {
             ::core::at(buffer, used++) = '%';
-            p += 2;
+            position += 2;
             continue;
         }
-        if (ch(p) != '%') {
-            ::core::at(buffer, used++) = ch(p++);
+        if (ch(position) != '%') {
+            ::core::at(buffer, used++) = ch(position++);
             continue;
         }
         // a parameter: "%x" or "%%name"
         constexpr size_t kNameSize = 0x2C;
         std::array<char, kNameSize> name{};
-        size_t n = 0;
-        const char key = ch(p + 1);
-        p += 2;
+        size_t length = 0;
+        const char key = ch(position + 1);
+        position += 2;
         if (key == '%') {
-            while ((ch(p) >= 'a' && ch(p) <= 'z') || (ch(p) >= 'A' && ch(p) <= 'Z') || (ch(p) >= '0' && ch(p) <= '9') ||
-                   ch(p) == '_') {
-                ::core::at(name, n++) = ch(p++);
+            while ((ch(position) >= 'a' && ch(position) <= 'z') || (ch(position) >= 'A' && ch(position) <= 'Z') ||
+                   (ch(position) >= '0' && ch(position) <= '9') || ch(position) == '_') {
+                ::core::at(name, length++) = ch(position++);
             }
         } else {
-            ::core::at(name, n++) = key;
+            ::core::at(name, length++) = key;
         }
-        ::core::at(name, n) = '\0';
+        ::core::at(name, length) = '\0';
         Component* found = params->find_last_component(checksums::hash_from_text(name.data()));
         if (!found) {
             debug::printf("Missing text formatting parameter '%s'\n", name.data());
@@ -248,8 +248,8 @@ int format_text(script::Struct& results, script::Struct* params)
         }
         case script::QbValueKind::kString:
         case script::QbValueKind::kInlineText:
-            for (const char c : std::string_view(value.value.text())) {
-                ::core::at(buffer, used++) = c;
+            for (const char character : std::string_view(value.value.text())) {
+                ::core::at(buffer, used++) = character;
             }
             break;
         case script::QbValueKind::kPair:
@@ -380,33 +380,33 @@ bool cfunc_wait(script::Struct* params, script::Script* script)
 // 0x0044A200: IntegerEquals A=<int> B=<int> (missing: 0).
 bool cfunc_integer_equals(script::Struct* params, script::Script* /*script*/)
 {
-    int a = 0;
-    params->fetch_int_value(kA, &a, 0);
-    int b = 0;
-    params->fetch_int_value(kB, &b, 0);
-    return a == b;
+    int value_a = 0;
+    params->fetch_int_value(kA, &value_a, 0);
+    int value_b = 0;
+    params->fetch_int_value(kB, &value_b, 0);
+    return value_a == value_b;
 }
 
 // 0x0044A260: ChecksumEquals A=<name> B=<name> (missing: 0).
 bool cfunc_checksum_equals(script::Struct* params, script::Script* /*script*/)
 {
-    uint32_t a = 0;
-    params->read_hash_value(kA, &a, 0);
-    uint32_t b = 0;
-    params->read_hash_value(kB, &b, 0);
-    return a == b;
+    uint32_t checksum_a = 0;
+    params->read_hash_value(kA, &checksum_a, 0);
+    uint32_t checksum_b = 0;
+    params->read_hash_value(kB, &checksum_b, 0);
+    return checksum_a == checksum_b;
 }
 
 // 0x0044A2C0: StringEquals A="..." B="...": compared by checksum (so case is ignored). Both asserted (missing: the
 // original's pointer is undefined - here "").
 bool cfunc_string_equals(script::Struct* params, script::Script* /*script*/)
 {
-    const char* a = "";
-    const char* b = "";
-    params->fetch_text(kA, &a, 1);
-    params->fetch_text(kB, &b, 1);
-    const uint32_t checksum_b = checksums::hash_from_text(b);
-    return checksums::hash_from_text(a) == checksum_b;
+    const char* text_a = "";
+    const char* text_b = "";
+    params->fetch_text(kA, &text_a, 1);
+    params->fetch_text(kB, &text_b, 1);
+    const uint32_t checksum_b = checksums::hash_from_text(text_b);
+    return checksums::hash_from_text(text_a) == checksum_b;
 }
 
 // 0x0044A320: SetScriptString index=<n> (0) string="..." ("").

@@ -107,17 +107,17 @@ void load_startup_qb_files()
     const int size = packs::get_file_size("scripts\\qdir.txt");
     begin_permanent_strings();
     const std::string_view source(text, static_cast<size_t>(size));
-    size_t p = 0;
-    while (p < source.size()) {
+    size_t position = 0;
+    while (position < source.size()) {
         // One line (no length check, as in the original), and the character after it skipped.
         constexpr size_t kLineSize = 200;
         std::array<char, kLineSize> line{};
         int length = 0;
-        while (p < source.size() && core::at(source, p) != '\r' && core::at(source, p) != '\n') {
-            core::at(line, length++) = core::at(source, p++);
+        while (position < source.size() && core::at(source, position) != '\r' && core::at(source, position) != '\n') {
+            core::at(line, length++) = core::at(source, position++);
         }
         core::at(line, length) = '\0';
-        ++p;
+        ++position;
         if (core::at(line, 0) == '\0') {
             continue;
         }

@@ -177,16 +177,16 @@ void PrefixTables::add_node_array(uint32_t name)
         std::array<char, kBufferSize> buffer{};
         std::size_t digits = buffer.size(); // (where the trailing digits start; the size: none)
         std::size_t place = 0;
-        for (core::CStringCursor p(text); *p != '\0'; ++p, ++place) {
+        for (core::CStringCursor cursor(text); *cursor != '\0'; ++cursor, ++place) {
             char& at = core::at(buffer, place);
-            at = *p;
-            const char c = *p;
-            if (c < '0' || c > '9') {
+            at = *cursor;
+            const char character = *cursor;
+            if (character < '0' || character > '9') {
                 digits = buffer.size();
             } else if (digits == buffer.size()) {
                 digits = place;
             }
-            if (c == '_') {
+            if (character == '_') {
                 at = '\0';
                 if (_stricmp(buffer.data(), "TRG") != 0) {
                     table->append_one(checksums::Name{checksums::hash_from_text(buffer.data())}, static_cast<uint16_t>(i));
@@ -238,13 +238,13 @@ std::span<const uint32_t> PrefixTables::get_nodes(uint32_t prefix)
         if (!nodes) {
             continue;
         }
-        auto n = static_cast<uint16_t>(nodes->num());
+        auto count = static_cast<uint16_t>(nodes->num());
         const std::span<uint16_t> indices = nodes->index_run();
-        if (n == 0U) {
+        if (count == 0U) {
             continue;
         }
         Array* array = script::fetch_list(table->node_array());
-        for (int i = 0; std::cmp_less(i, n); ++i) { // (the buffer's size is checked)
+        for (int i = 0; std::cmp_less(i, count); ++i) { // (the buffer's size is checked)
             core::at(names, found++) = get_node_name(array->struct_at(core::at(indices, i)));
         }
     }

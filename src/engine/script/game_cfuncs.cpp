@@ -830,7 +830,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script* /*script*/)
     int count4 = 0;
     const std::string_view bytes(data, size > 0 ? static_cast<size_t>(size) : 0);
     // (a byte of the file; the original read past its end here, which is a 0 now)
-    auto byte_at = [&](size_t i) { return i < bytes.size() ? ::core::at(bytes, i) : '\0'; };
+    auto byte_at = [&](size_t offset) { return offset < bytes.size() ? ::core::at(bytes, offset) : '\0'; };
     for (size_t at = 0; at < bytes.size(); ++at) {
         static const auto kTracking = std::to_array("\nTracking");
         int matched = 0; // (compared a byte at a time: never past the first difference)

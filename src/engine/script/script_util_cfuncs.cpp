@@ -86,8 +86,8 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 void copy_text(std::span<char> out, const char* text)
 {
     size_t at = 0;
-    for (const char c : std::string_view(text)) {
-        core::at(out, at++) = c;
+    for (const char character : std::string_view(text)) {
+        core::at(out, at++) = character;
     }
     core::at(out, at) = '\0';
 }
@@ -129,29 +129,29 @@ bool cfunc_get_random_value(Struct* params, Script* script)
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
     if (params->has_bare_flag(kInteger)) {
-        int a = 0;
-        int b = 0;
-        params->fetch_int_value(kA, &a, 0);
-        params->fetch_int_value(kB, &b, 0);
-        if (a > b) {
-            const int swap = a;
-            a = b;
-            b = swap;
+        int from = 0;
+        int to = 0;
+        params->fetch_int_value(kA, &from, 0);
+        params->fetch_int_value(kB, &to, 0);
+        if (from > to) {
+            const int swap = from;
+            from = to;
+            to = swap;
         }
-        script->args()->put_int(checksums::Name{name}, maths::rnd(b - a + 1) + a);
+        script->args()->put_int(checksums::Name{name}, maths::rnd(to - from + 1) + from);
         return true;
     }
     int resolution = kDefaultResolution;
     params->fetch_int_value(kResolution, &resolution, 0);
-    float a = 0.0F;
-    float b = 0.0F;
-    params->fetch_float(kA, &a, 0);
-    params->fetch_float(kB, &b, 0);
+    float from = 0.0F;
+    float to = 0.0F;
+    params->fetch_float(kA, &from, 0);
+    params->fetch_float(kB, &to, 0);
     const int step = maths::rnd(resolution);
     // x87 at 53 bits: step * (b - a), / (resolution - 1), + a, each rounded to double; then to float
-    double value = static_cast<double>(step) * (static_cast<double>(b) - static_cast<double>(a));
+    double value = static_cast<double>(step) * (static_cast<double>(to) - static_cast<double>(from));
     value /= static_cast<double>(resolution - 1);
-    value += static_cast<double>(a);
+    value += static_cast<double>(from);
     script->args()->push_float(checksums::Name{name}, static_cast<float>(value));
     return true;
 }
@@ -309,15 +309,15 @@ bool cfunc_format_text(Struct* params, Script* script)
 // true. (Original quirk: a value given as neither is left uninitialised; here 0.)
 bool cfunc_mangle_checksums(Struct* params, Script* script)
 {
-    uint32_t a = 0;
-    uint32_t b = 0;
-    if (!params->read_hash_value(kA, &a, 0)) {
-        params->fetch_int_value(kA, &a, 1);
+    uint32_t value_a = 0;
+    uint32_t value_b = 0;
+    if (!params->read_hash_value(kA, &value_a, 0)) {
+        params->fetch_int_value(kA, &value_a, 1);
     }
-    if (!params->read_hash_value(kB, &b, 0)) {
-        params->fetch_int_value(kB, &b, 1);
+    if (!params->read_hash_value(kB, &value_b, 0)) {
+        params->fetch_int_value(kB, &value_b, 1);
     }
-    script->args()->put_name_key(checksums::Name{kMangledId}, a + b);
+    script->args()->put_name_key(checksums::Name{kMangledId}, value_a + value_b);
     return true;
 }
 
@@ -506,9 +506,9 @@ bool cfunc_permute_array(Struct* params, Script* script)
         const std::span<Cell> elements = array->cells();
         const uint32_t old_last = core::at(elements, size - 1).word();
         for (int swaps = size * script::kShuffleSwapsPerChoice; swaps > 0; --swaps) {
-            const int a = maths::rnd(size);
-            const int b = maths::rnd(size);
-            std::swap(core::at(elements, a), core::at(elements, b));
+            const int first = maths::rnd(size);
+            const int second = maths::rnd(size);
+            std::swap(core::at(elements, first), core::at(elements, second));
         }
         if (params->has_bare_flag("MakeNewFirstDifferFromOldLast") && size > 1 && core::at(elements, 0).word() == old_last) {
             // "MakeNewFirstDifferFromOldLast"

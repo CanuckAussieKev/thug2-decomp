@@ -197,14 +197,14 @@ bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
     params->fetch_float(kRy, &ry, 0);
     params->fetch_float(kRz, &rz, 0);
 
-    maths::Mat4 m{};
-    m.reset_to_identity();
+    maths::Mat4 matrix{};
+    matrix.reset_to_identity();
     maths::Mat4 rotation{};
-    matrix_multiply(&m, &maths::make_pitch_matrix(rotation, rx * degree_to_radian_conv()), &m);
-    matrix_multiply(&m, &maths::make_yaw_matrix(rotation, ry * degree_to_radian_conv()), &m);
-    matrix_multiply(&m, &maths::make_roll_matrix(rotation, rz * degree_to_radian_conv()), &m);
+    matrix_multiply(&matrix, &maths::make_pitch_matrix(rotation, rx * degree_to_radian_conv()), &matrix);
+    matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, ry * degree_to_radian_conv()), &matrix);
+    matrix_multiply(&matrix, &maths::make_roll_matrix(rotation, rz * degree_to_radian_conv()), &matrix);
     maths::Vec4 turned{};
-    m.xform(turned, point);
+    matrix.xform(turned, point);
     script->args()->push_float(checksums::Name{kX}, turned.x);
     script->args()->push_float(checksums::Name{kY}, turned.y);
     script->args()->push_float(checksums::Name{kZ}, turned.z);

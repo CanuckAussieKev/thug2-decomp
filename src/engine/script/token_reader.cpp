@@ -77,15 +77,15 @@ void change_species(Component* component, QbValueKind type)
     set_value_kind(*component, type);
 }
 
-Tokens skip_end_of_lines_in(Tokens p)
+Tokens skip_end_of_lines_in(Tokens cursor)
 {
     for (;;) {
-        if (as_token(*p) == QbToken::kEndOfLine) {
-            p += 1;
-        } else if (as_token(*p) == QbToken::kEndOfLineNumbered) {
-            p += kTokenWithWordBytes;
+        if (as_token(*cursor) == QbToken::kEndOfLine) {
+            cursor += 1;
+        } else if (as_token(*cursor) == QbToken::kEndOfLineNumbered) {
+            cursor += kTokenWithWordBytes;
         } else {
-            return p;
+            return cursor;
         }
     }
 }
@@ -307,19 +307,19 @@ Tokens skip_value(Tokens token)
 // 0x0046FBD0
 Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
 {
-    float a = get_as_float(fetch_word32(token + 1));
-    float b = get_as_float(fetch_word32(token + kTokenWithWordBytes));
+    float from = get_as_float(fetch_word32(token + 1));
+    float to = get_as_float(fetch_word32(token + kTokenWithWordBytes));
     // (rounded with the game's 0.1 nudge, as the x87 does it)
     const double nudge = kParseNudge;
     const double tolerance = gfx::kTinyLength;
-    auto nearest = [&](float f) {
-        return static_cast<int>(f >= 0.0F || std::isnan(f) ? static_cast<double>(f) + nudge
-                                                           : static_cast<double>(f) - nudge);
+    auto nearest = [&](float value) {
+        return static_cast<int>(value >= 0.0F || std::isnan(value) ? static_cast<double>(value) + nudge
+                                                                   : static_cast<double>(value) - nudge);
     };
-    int low = nearest(a);
-    int high = nearest(b);
-    if (!(std::fabs(static_cast<double>(a) - low) > tolerance) &&
-        !(std::fabs(static_cast<double>(b) - high) > tolerance)) {
+    int low = nearest(from);
+    int high = nearest(to);
+    if (!(std::fabs(static_cast<double>(from) - low) > tolerance) &&
+        !(std::fabs(static_cast<double>(to) - high) > tolerance)) {
         // Whole numbers: an integer in [low, high].
         if (low > high) {
             const int swapped = low;
@@ -332,15 +332,15 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
         change_species(out, QbValueKind::kInteger);
         return token + kTokenWithPairBytes;
     }
-    if (a > b) {
-        const float swapped = a;
-        a = b;
-        b = swapped;
+    if (from > to) {
+        const float swapped = from;
+        from = to;
+        to = swapped;
     }
     const int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
     change_species(out, QbValueKind::kFloat);
     const double scale = kParseRandomScale;
-    out->value.set_real(static_cast<float>(((static_cast<double>(b) - a) * pick * scale) + a));
+    out->value.set_real(static_cast<float>(((static_cast<double>(to) - from) * pick * scale) + from));
     return token + kTokenWithPairBytes;
 }
 
@@ -375,46 +375,46 @@ void evaluate_name_token(Component* component)
 // 0x004706F0
 Tokens parse_value(Tokens token, Struct* args, Component* out)
 {
-    Tokens p = token + 1;
+    Tokens cursor = token + 1;
     switch (as_token(*token)) {
     case QbToken::kStructStart: {
         gsl::owner<Struct*> structure = script::new_struct();
-        p = parse_structure(structure, token, args);
+        cursor = parse_structure(structure, token, args);
         change_species(out, QbValueKind::kStruct);
         out->value.set_structure(structure);
-        return p;
+        return cursor;
     }
     case QbToken::kArrayStart: {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
-        p = parse_array(array, token, args);
+        cursor = parse_array(array, token, args);
         change_species(out, QbValueKind::kArray);
         out->value.set_array(array);
-        return p;
+        return cursor;
     }
     case QbToken::kName:
         change_species(out, QbValueKind::kName);
-        out->value.set_word(fetch_word32(p));
+        out->value.set_word(fetch_word32(cursor));
         return token + kTokenWithWordBytes;
     case QbToken::kInteger:
         change_species(out, QbValueKind::kInteger);
-        out->value.set_word(fetch_word32(p));
+        out->value.set_word(fetch_word32(cursor));
         return token + kTokenWithWordBytes;
     case QbToken::kFloat:
         change_species(out, QbValueKind::kFloat);
-        out->value.set_word(fetch_word32(p));
+        out->value.set_word(fetch_word32(cursor));
         return token + kTokenWithWordBytes;
     case QbToken::kString:
     case QbToken::kLocalString: {
         change_species(out, as_token(*token) == QbToken::kString ? QbValueKind::kString : QbValueKind::kInlineText);
-        const uint32_t length = fetch_word32(p);
+        const uint32_t length = fetch_word32(cursor);
         out->value.set_text(spawn_text(raw::chars((token + kTokenWithWordBytes).address())));
         return token + kTokenWithWordBytes + length;
     }
     case QbToken::kVector: {
         change_species(out, QbValueKind::kVector);
-        uint32_t x = fetch_word32(p);
+        uint32_t x = fetch_word32(cursor);
         uint32_t y = fetch_word32(token + kTokenWithWordBytes);
         uint32_t z = fetch_word32(token + kTokenWithPairBytes);
         Vector* vector = alloc_script_vector();
@@ -427,7 +427,7 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
     }
     case QbToken::kPair: {
         change_species(out, QbValueKind::kPair);
-        uint32_t x = fetch_word32(p);
+        uint32_t x = fetch_word32(cursor);
         uint32_t y = fetch_word32(token + kTokenWithWordBytes);
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
@@ -470,9 +470,9 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         return token + kTokenWithNamedWordBytes;
     }
     case QbToken::kRandomRange:
-        return parse_random_range(p, out, false);
+        return parse_random_range(cursor, out, false);
     case QbToken::kRandomRangeSideStream:
-        return parse_random_range(p, out, true);
+        return parse_random_range(cursor, out, true);
     default:
         return token + 1;
     }
@@ -481,20 +481,20 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
 // 0x00470130
 Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
 {
-    Tokens p = token + 1;
+    Tokens cursor = token + 1;
     bool deterministic = false;
     switch (as_token(*token)) {
     case QbToken::kName:
-        dest->put_name_key(checksums::Name{name}, fetch_word32(p));
+        dest->put_name_key(checksums::Name{name}, fetch_word32(cursor));
         return token + kTokenWithWordBytes;
     case QbToken::kInteger:
-        dest->put_int(checksums::Name{name}, static_cast<int>(fetch_word32(p)));
+        dest->put_int(checksums::Name{name}, static_cast<int>(fetch_word32(cursor)));
         return token + kTokenWithWordBytes;
     case QbToken::kFloat:
-        dest->push_float(checksums::Name{name}, get_as_float(fetch_word32(p)));
+        dest->push_float(checksums::Name{name}, get_as_float(fetch_word32(cursor)));
         return token + kTokenWithWordBytes;
     case QbToken::kVector: {
-        const float x = get_as_float(fetch_word32(p));
+        const float x = get_as_float(fetch_word32(cursor));
         const float y = get_as_float(fetch_word32(token + 5));
         const float z = get_as_float(fetch_word32(token + 9));
         // (a zero vector named 0x9D2D0915 isn't added)
@@ -506,31 +506,32 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         return token + kTokenWithVectorBytes;
     }
     case QbToken::kPair:
-        dest->insert_pair(checksums::Name{name}, {.x = get_as_float(fetch_word32(p)), .y = get_as_float(fetch_word32(token + kTokenWithWordBytes))});
+        dest->insert_pair(checksums::Name{name}, {.x = get_as_float(fetch_word32(cursor)),
+                                                  .y = get_as_float(fetch_word32(token + kTokenWithWordBytes))});
         return token + kTokenWithPairBytes;
     case QbToken::kString: {
-        const uint32_t length = fetch_word32(p);
+        const uint32_t length = fetch_word32(cursor);
         dest->append_word(name, raw::chars((token + kTokenWithWordBytes).address()));
         return token + kTokenWithWordBytes + length;
     }
     case QbToken::kLocalString: {
-        const uint32_t length = fetch_word32(p);
+        const uint32_t length = fetch_word32(cursor);
         dest->append_inline_text(name, raw::chars((token + kTokenWithWordBytes).address()));
         return token + kTokenWithWordBytes + length;
     }
     case QbToken::kStructStart: {
         gsl::owner<Struct*> structure = script::new_struct();
-        p = parse_structure(structure, token, args);
+        cursor = parse_structure(structure, token, args);
         dest->append_struct_ref(name, structure);
-        return p;
+        return cursor;
     }
     case QbToken::kArrayStart: {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
-        p = parse_array(array, token, args);
+        cursor = parse_array(array, token, args);
         dest->append_array_ref(name, array);
-        return p;
+        return cursor;
     }
     case QbToken::kScriptStart: { // a script, under its own name
         const uint32_t script_name = fetch_word32(token + 2);
@@ -541,23 +542,23 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
     }
     case QbToken::kLocalArgument: { // <name>
         const uint32_t reference = fetch_word32(token + 2);
-        p = token + kTokenWithNamedWordBytes;
+        cursor = token + kTokenWithNamedWordBytes;
         if (!args) {
-            return p;
+            return cursor;
         }
         const Component* found = args->find_last_component(reference);
         if (!found) {
-            return p;
+            return cursor;
         }
         if (name == 0 && value_kind(*found) == QbValueKind::kStruct) {
             dest->append_structure_if_any(found->value.structure());
-            return p;
+            return cursor;
         }
         gsl::owner<Component*> copy = new_component();
         duplicate_component(copy, found, 0);
         copy->name = name;
         dest->attach_module(copy);
-        return p;
+        return cursor;
     }
     case QbToken::kAllArguments: // <...>
         if (args) {
@@ -569,19 +570,19 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
                 dest->merge_structure(args);
             }
         }
-        return p;
+        return cursor;
     case QbToken::kRandomRangeSideStream:
         deterministic = true;
         [[fallthrough]];
     case QbToken::kRandomRange: {
         gsl::owner<Component*> value = new_component();
-        p = parse_random_range(p, value, deterministic);
+        cursor = parse_random_range(cursor, value, deterministic);
         value->name = name;
         dest->attach_module(value);
-        return p;
+        return cursor;
     }
     case QbToken::kComma:
-        return p;
+        return cursor;
     default:
         return token;
     }
@@ -592,12 +593,12 @@ Tokens parse_arguments(Struct* dest, Tokens token, Struct* args)
 {
     for (;;) {
         token = resolve_random_jumps(token);
-        const QbToken t = as_token(*token);
-        if (t == QbToken::kEndOfLine || t == QbToken::kEndOfLineNumbered || t == QbToken::kEndOfFile ||
-            t == QbToken::kCloseParenthesis) {
+        const QbToken kind = as_token(*token);
+        if (kind == QbToken::kEndOfLine || kind == QbToken::kEndOfLineNumbered || kind == QbToken::kEndOfFile ||
+            kind == QbToken::kCloseParenthesis) {
             return token;
         }
-        switch (t) {
+        switch (kind) {
         case QbToken::kStructStart:
             token = parse_structure(dest, token, args);
             break;
@@ -630,7 +631,7 @@ Tokens parse_arguments(Struct* dest, Tokens token, Struct* args)
             break;
         }
         default:
-            if (t == QbToken::kOpenParenthesis) {
+            if (kind == QbToken::kOpenParenthesis) {
                 token = add_expression(token, *dest, args);
             } else {
                 token = add_parameter(token, 0, dest, args);
@@ -643,45 +644,45 @@ Tokens parse_arguments(Struct* dest, Tokens token, Struct* args)
 // 0x00471860
 Tokens parse_structure(Struct* dest, Tokens token, Struct* args)
 {
-    Tokens p = token + 1;
+    Tokens cursor = token + 1;
     for (;;) {
-        p = skip_end_of_lines_in(p);
-        p = resolve_random_jumps(p);
-        const QbToken t = as_token(*p);
-        if (t == QbToken::kStructEnd) {
-            return p + 1;
+        cursor = skip_end_of_lines_in(cursor);
+        cursor = resolve_random_jumps(cursor);
+        const QbToken kind = as_token(*cursor);
+        if (kind == QbToken::kStructEnd) {
+            return cursor + 1;
         }
-        switch (t) {
+        switch (kind) {
         case QbToken::kEndOfLine:
         case QbToken::kEndOfLineNumbered:
-            p = skip_end_of_lines_in(p);
+            cursor = skip_end_of_lines_in(cursor);
             break;
         case QbToken::kStructStart:
-            p = parse_structure(dest, p, args);
+            cursor = parse_structure(dest, cursor, args);
             break;
         case QbToken::kComma:
-            ++p;
+            ++cursor;
             break;
         case QbToken::kName: {
-            const uint32_t name = fetch_word32(p + 1);
-            Tokens next = resolve_random_jumps(skip_end_of_lines_in(p + kTokenWithWordBytes));
+            const uint32_t name = fetch_word32(cursor + 1);
+            Tokens next = resolve_random_jumps(skip_end_of_lines_in(cursor + kTokenWithWordBytes));
             if (as_token(*next) != QbToken::kEquals) {
-                p = add_parameter(p, 0, dest, args);
+                cursor = add_parameter(cursor, 0, dest, args);
                 break;
             }
             next = resolve_random_jumps(skip_end_of_lines_in(next + 1));
             if (as_token(*next) == QbToken::kOpenParenthesis) {
-                p = add_named_expression(next, name, *dest, args);
+                cursor = add_named_expression(next, name, *dest, args);
             } else {
-                p = add_parameter(next, name, dest, args);
+                cursor = add_parameter(next, name, dest, args);
             }
             break;
         }
         default:
-            if (t == QbToken::kOpenParenthesis) {
-                p = add_expression(p, *dest, args);
+            if (kind == QbToken::kOpenParenthesis) {
+                cursor = add_expression(cursor, *dest, args);
             } else {
-                p = add_parameter(p, 0, dest, args);
+                cursor = add_parameter(cursor, 0, dest, args);
             }
             break;
         }
@@ -692,15 +693,15 @@ Tokens parse_structure(Struct* dest, Tokens token, Struct* args)
 Tokens parse_array(Array* dest, Tokens token, Struct* args)
 {
     const Tokens first = token + 1;
-    Tokens p = resolve_random_jumps(first);
+    Tokens cursor = resolve_random_jumps(first);
     QbValueKind type = QbValueKind::kNone;
     uint32_t count = 0;
-    if (as_token(*p) == QbToken::kArrayEnd) {
-        return p + 1;
+    if (as_token(*cursor) == QbToken::kArrayEnd) {
+        return cursor + 1;
     }
-    for (bool again = true; again; again = as_token(*p) != QbToken::kArrayEnd) {
-        const QbToken t = as_token(*p);
-        switch (t) {
+    for (bool again = true; again; again = as_token(*cursor) != QbToken::kArrayEnd) {
+        const QbToken kind = as_token(*cursor);
+        switch (kind) {
         case QbToken::kStructStart:
             type = QbValueKind::kStruct;
             break;
@@ -734,11 +735,11 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
         default:
             break;
         }
-        switch (t) {
+        switch (kind) {
         case QbToken::kEndOfLine:
         case QbToken::kEndOfLineNumbered:
         case QbToken::kComma:
-            p = step_over_token(p);
+            cursor = step_over_token(cursor);
             break;
         case QbToken::kStructStart:
         case QbToken::kArrayStart:
@@ -751,16 +752,16 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
         case QbToken::kVector:
         case QbToken::kPair:
             ++count;
-            p = skip_value(p);
+            cursor = skip_value(cursor);
             break;
         default:
             // (anything else doesn't move on: the original loops here)
             break;
         }
-        p = resolve_random_jumps(p);
+        cursor = resolve_random_jumps(cursor);
     }
     if (type == QbValueKind::kNone) {
-        return p + 1;
+        return cursor + 1;
     }
 
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
@@ -771,112 +772,113 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
         return token;
     }
     uint32_t element = 0; // (the next element written)
-    p = resolve_random_jumps(first);
-    while (as_token(*p) != QbToken::kArrayEnd) {
-        const QbToken t = as_token(*p);
+    cursor = resolve_random_jumps(first);
+    while (as_token(*cursor) != QbToken::kArrayEnd) {
+        const QbToken kind = as_token(*cursor);
         switch (type) {
         case QbValueKind::kStruct:
             // (no step first; unknown tokens don't move on: the original loops here)
-            if (t == QbToken::kEndOfLine || t == QbToken::kComma) {
-                ++p;
-            } else if (t == QbToken::kEndOfLineNumbered) {
-                p += kTokenWithWordBytes;
-            } else if (t == QbToken::kStructStart) {
+            if (kind == QbToken::kEndOfLine || kind == QbToken::kComma) {
+                ++cursor;
+            } else if (kind == QbToken::kEndOfLineNumbered) {
+                cursor += kTokenWithWordBytes;
+            } else if (kind == QbToken::kStructStart) {
                 gsl::owner<Struct*> structure = script::new_struct();
-                p = parse_structure(structure, p, args);
+                cursor = parse_structure(structure, cursor, args);
                 dest->set_cell(element++, Cell::of(structure));
             }
             break;
         case QbValueKind::kArray:
-            ++p;
-            if (t == QbToken::kEndOfLineNumbered) {
-                p += 4;
-            } else if (t == QbToken::kArrayStart) {
+            ++cursor;
+            if (kind == QbToken::kEndOfLineNumbered) {
+                cursor += 4;
+            } else if (kind == QbToken::kArrayStart) {
                 gsl::owner<Array*> array = script::new_array();
-                p = parse_array(array, p - 1, args);
+                cursor = parse_array(array, cursor - 1, args);
                 dest->set_cell(element++, Cell::of(array));
             }
             break;
         case QbValueKind::kInteger:
-            ++p;
-            if (t == QbToken::kEndOfLineNumbered) {
-                p += 4;
-            } else if (t == QbToken::kInteger || t == QbToken::kHexInteger) {
-                dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
-                p += 4;
+            ++cursor;
+            if (kind == QbToken::kEndOfLineNumbered) {
+                cursor += 4;
+            } else if (kind == QbToken::kInteger || kind == QbToken::kHexInteger) {
+                dest->set_cell(element++, Cell::of_word(fetch_word32(cursor)));
+                cursor += 4;
             }
             break;
         case QbValueKind::kFloat:
-            ++p;
-            if (t == QbToken::kEndOfLineNumbered) {
-                p += 4;
-            } else if (t == QbToken::kInteger || t == QbToken::kHexInteger) {
-                dest->set_cell(element++, Cell::of_real(static_cast<float>(static_cast<int32_t>(fetch_word32(p)))));
-                p += 4;
-            } else if (t == QbToken::kFloat) {
-                dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
-                p += 4;
+            ++cursor;
+            if (kind == QbToken::kEndOfLineNumbered) {
+                cursor += 4;
+            } else if (kind == QbToken::kInteger || kind == QbToken::kHexInteger) {
+                dest->set_cell(element++,
+                               Cell::of_real(static_cast<float>(static_cast<int32_t>(fetch_word32(cursor)))));
+                cursor += 4;
+            } else if (kind == QbToken::kFloat) {
+                dest->set_cell(element++, Cell::of_word(fetch_word32(cursor)));
+                cursor += 4;
             }
             break;
         case QbValueKind::kName:
-            ++p;
-            if (t == QbToken::kEndOfLineNumbered) {
-                p += 4;
-            } else if (t == QbToken::kName) {
-                dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
-                p += 4;
+            ++cursor;
+            if (kind == QbToken::kEndOfLineNumbered) {
+                cursor += 4;
+            } else if (kind == QbToken::kName) {
+                dest->set_cell(element++, Cell::of_word(fetch_word32(cursor)));
+                cursor += 4;
             }
             break;
         case QbValueKind::kString:
         case QbValueKind::kInlineText:
-            ++p;
-            if (t == QbToken::kEndOfLineNumbered) {
-                p += 4;
-            } else if (t == (type == QbValueKind::kString ? QbToken::kString : QbToken::kLocalString)) {
-                const uint32_t length = fetch_word32(p);
-                p += 4;
-                dest->set_cell(element++, Cell::of_text(spawn_text(raw::chars(p.address()))));
-                p += length;
+            ++cursor;
+            if (kind == QbToken::kEndOfLineNumbered) {
+                cursor += 4;
+            } else if (kind == (type == QbValueKind::kString ? QbToken::kString : QbToken::kLocalString)) {
+                const uint32_t length = fetch_word32(cursor);
+                cursor += 4;
+                dest->set_cell(element++, Cell::of_text(spawn_text(raw::chars(cursor.address()))));
+                cursor += length;
             }
             break;
         case QbValueKind::kVector:
-            ++p;
-            if (t == QbToken::kEndOfLineNumbered) {
-                p += 4;
-            } else if (t == QbToken::kVector) {
+            ++cursor;
+            if (kind == QbToken::kEndOfLineNumbered) {
+                cursor += 4;
+            } else if (kind == QbToken::kVector) {
                 Vector* vector = alloc_script_vector();
                 vector = vector ? new (vector) script::Vector : nullptr;
-                uint32_t x = fetch_word32(p);
-                uint32_t y = fetch_word32(p + 4);
-                uint32_t z = fetch_word32(p + kVectorZOffset);
+                uint32_t x = fetch_word32(cursor);
+                uint32_t y = fetch_word32(cursor + 4);
+                uint32_t z = fetch_word32(cursor + kVectorZOffset);
                 std::memcpy(&vector->x(), &x, 4);
                 std::memcpy(&vector->y(), &y, 4);
                 std::memcpy(&vector->z(), &z, 4);
-                p += kVectorPayloadBytes;
+                cursor += kVectorPayloadBytes;
                 dest->set_cell(element++, Cell::of(vector));
             }
             break;
         case QbValueKind::kPair:
-            ++p;
-            if (t == QbToken::kEndOfLineNumbered) {
-                p += 4;
-            } else if (t == QbToken::kPair) {
+            ++cursor;
+            if (kind == QbToken::kEndOfLineNumbered) {
+                cursor += 4;
+            } else if (kind == QbToken::kPair) {
                 Pair* pair = new_pair();
                 pair = pair ? new (pair) script::Pair : nullptr;
-                uint32_t x = fetch_word32(p);
-                uint32_t y = fetch_word32(p + 4);
+                uint32_t x = fetch_word32(cursor);
+                uint32_t y = fetch_word32(cursor + 4);
                 std::memcpy(&pair->x(), &x, 4);
                 std::memcpy(&pair->y(), &y, 4);
-                p += kPairPayloadBytes;
+                cursor += kPairPayloadBytes;
                 dest->set_cell(element++, Cell::of(pair));
             }
             break;
         default:
             break;
         }
-        p = resolve_random_jumps(p);
+        cursor = resolve_random_jumps(cursor);
     }
-    return p + 1;
+    return cursor + 1;
 }
 
 // 0x004712B0
@@ -886,7 +888,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
     Component& value = get_scratch();
     evaluator.reset_if_dirty();
     evaluator.set_read_cursor(token.address());
-    Tokens p = token + 1;
+    Tokens cursor = token + 1;
     int parentheses = 0;
     bool after_dot = false;  // a name after '.' is a member name, not a global value
     bool have_value = false; // (for a negative number to be taken as a subtraction)
@@ -896,15 +898,15 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
         expect_value = false;
     };
     for (;;) {
-        p = resolve_random_jumps(p);
-        const QbToken t = as_token(*p);
-        switch (t) {
+        cursor = resolve_random_jumps(cursor);
+        const QbToken kind = as_token(*cursor);
+        switch (kind) {
         case QbToken::kEndOfLine:
         case QbToken::kArrayEnd:
-            ++p;
+            ++cursor;
             continue;
         case QbToken::kEndOfLineNumbered:
-            p += kTokenWithWordBytes;
+            cursor += kTokenWithWordBytes;
             continue;
         case QbToken::kStructStart:
         case QbToken::kString:
@@ -915,7 +917,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             if (!expect_value) {
                 break;
             }
-            p = parse_value(p, args, &value);
+            cursor = parse_value(cursor, args, &value);
             evaluator.intake(&value);
             release_component(&value);
             pushed();
@@ -931,9 +933,9 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
         case QbToken::kGreaterThan:
         case QbToken::kOr:
         case QbToken::kAnd: // operators
-            evaluator.intake(t);
-            ++p;
-            after_dot = t == QbToken::kDot;
+            evaluator.intake(kind);
+            ++cursor;
+            after_dot = kind == QbToken::kDot;
             have_value = false;
             expect_value = true;
             continue;
@@ -941,14 +943,14 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             if (!expect_value) {
                 break;
             }
-            ++p;
+            ++cursor;
             evaluator.open_bracket();
             ++parentheses;
             have_value = false;
             expect_value = true;
             continue;
         case QbToken::kCloseParenthesis:
-            ++p;
+            ++cursor;
             if (parentheses == 0) {
                 break;
             }
@@ -961,7 +963,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             if (!expect_value) {
                 break;
             }
-            p = parse_value(p, args, &value);
+            cursor = parse_value(cursor, args, &value);
             const SymbolTableEntry* symbol = after_dot ? nullptr : resolve_symbol(value.value.word());
             if (symbol) {
                 bool push = true;
@@ -989,7 +991,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
                     Script* script = get_running_script();
                     change_species(&value, QbValueKind::kInteger);
                     gsl::owner<Struct*> params = script::new_struct();
-                    p = parse_arguments(params, p, args);
+                    cursor = parse_arguments(params, cursor, args);
                     // (the byte the function returns, as it is)
                     using Routine = uint8_t (*)(Struct*, Script*);
                     const auto routine = symbol->value().function();
@@ -1020,27 +1022,27 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
         case QbToken::kInteger:
         case QbToken::kFloat: {
             if (expect_value) {
-                p = parse_value(p, args, &value);
+                cursor = parse_value(cursor, args, &value);
                 evaluator.intake(&value);
                 release_component(&value);
                 pushed();
                 continue;
             }
             // A negative number right after a value: a subtraction ("a -1" is compiled as "a" "-1").
-            const Tokens next = parse_value(p, args, &value);
-            const bool negative = t == QbToken::kInteger ? value.value.integer() < 0 : value.value.real() < 0.0F;
+            const Tokens next = parse_value(cursor, args, &value);
+            const bool negative = kind == QbToken::kInteger ? value.value.integer() < 0 : value.value.real() < 0.0F;
             if (!negative || !have_value) {
                 break;
             }
             evaluator.intake(QbToken::kMinus);
-            if (t == QbToken::kInteger) {
+            if (kind == QbToken::kInteger) {
                 value.value.set_integer(-value.value.integer());
             } else {
                 value.value.set_real(-value.value.real());
             }
             evaluator.intake(&value);
             release_component(&value);
-            p = next;
+            cursor = next;
             pushed();
             continue;
         }
@@ -1048,7 +1050,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             if (!expect_value) {
                 break;
             }
-            ++p;
+            ++cursor;
             if (args) {
                 change_species(&value, QbValueKind::kStructRef);
                 value.value.set_structure(args);
@@ -1060,8 +1062,8 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             if (!expect_value) {
                 break;
             }
-            const uint32_t name = fetch_word32(p + 2);
-            p += kTokenWithNamedWordBytes;
+            const uint32_t name = fetch_word32(cursor + 2);
+            cursor += kTokenWithNamedWordBytes;
             const Component* found = args ? args->find_last_component(name) : nullptr;
             if (found) {
                 copy_value_kind(value, *found);
@@ -1082,7 +1084,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
         break; // the end of the expression
     }
     evaluator.fetch_verdict(result);
-    return p;
+    return cursor;
 }
 
 } // namespace script
@@ -1099,10 +1101,13 @@ Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name)
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
 void construct_evaluator() { script_state().evaluator().prepare_all(); }
 
-const MemberFunctionEntry* member_entry_at(Tokens p) { return cell::pointer<const MemberFunctionEntry>(fetch_word32(p)); }
-NativeFunction native_function_at(Tokens p)
+const MemberFunctionEntry* member_entry_at(Tokens bytes)
 {
-    return function_at<NativeFunction>(cell::pointer<const void>(fetch_word32(p)));
+    return cell::pointer<const MemberFunctionEntry>(fetch_word32(bytes));
+}
+NativeFunction native_function_at(Tokens bytes)
+{
+    return function_at<NativeFunction>(cell::pointer<const void>(fetch_word32(bytes)));
 }
 
 } // namespace script

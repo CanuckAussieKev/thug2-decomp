@@ -158,7 +158,7 @@ void duplicate_scene_sector(render::WorldScene* scene, render::WorldCell* sector
 void toggle_shown(render::WorldCell* sector, uint32_t mask) { sector->toggle_shown(mask); }
 void change_live(render::WorldCell* sector, bool active) { sector->change_live(active); }
 void enable_collision(render::WorldCell* sector, bool on) { sector->enable_collision(on); }
-void change_facing(render::WorldCell* sector, const maths::Mat4* m) { sector->change_facing(m); }
+void change_facing(render::WorldCell* sector, const maths::Mat4* matrix) { sector->change_facing(matrix); }
 void change_scale(render::WorldCell* sector, const script::VectorValue* scale)
 {
     sector->change_scale(scale);
@@ -238,24 +238,24 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
     if (size < gfx::kThousand) { // (1000)
         distance = kMinimumCameraDistance;
     }
-    maths::Mat4& m = camera->basis_frame();
+    maths::Mat4& frame = camera->basis_frame();
     for (int row = 0; row < 4; ++row) {
-        maths::Vec4& r = core::at(m.row, row);
+        maths::Vec4& frame_row = core::at(frame.row, row);
         for (int column = 0; column < 4; ++column) {
-            r[column] = row == column ? 1.0F : 0.0F;
+            frame_row[column] = row == column ? 1.0F : 0.0F;
         }
     }
     const double to_radians = kDegreeToRadianRatio;
     auto turn = [&](maths::Mat4& (*create)(maths::Mat4&, float), float degrees) {
         maths::Mat4 rotation;
         create(rotation, static_cast<float>(degrees * to_radians));
-        d3dx::matrix_multiply(&m, &m, &rotation);
+        d3dx::matrix_multiply(&frame, &frame, &rotation);
     };
     turn(&maths::make_pitch_matrix, angle_x);
     turn(&maths::make_yaw_matrix, angle_y);
     turn(&maths::make_roll_matrix, angle_z);
     const double back = static_cast<double>(distance) * scale * scale;
-    const maths::Vec4& at = core::at(m.row, 2);
+    const maths::Vec4& at = core::at(frame.row, 2);
     auto bx = static_cast<float>(back * at.x);
     auto by = static_cast<float>(back * at.y);
     auto bz = static_cast<float>(back * at.z);

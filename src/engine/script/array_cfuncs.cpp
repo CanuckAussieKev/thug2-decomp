@@ -153,11 +153,12 @@ bool cfunc_get_2d_array_data(Struct* params, script::Script* script)
     uint32_t name = 0;
     params->read_hash_value(kArrayName, &name, 1);
     Array* array = find_array(script, name);
-    int i = 0;
-    params->fetch_int_value(kIndex1, &i, 1);
-    int j = 0;
-    params->fetch_int_value(kIndex2, &j, 1);
-    add_element(script->args().get(), element_array(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
+    int first_index = 0;
+    params->fetch_int_value(kIndex1, &first_index, 1);
+    int second_index = 0;
+    params->fetch_int_value(kIndex2, &second_index, 1);
+    add_element(script->args().get(), element_array(array, static_cast<uint32_t>(first_index)),
+                static_cast<uint32_t>(second_index));
     return true;
 }
 
@@ -167,14 +168,15 @@ bool cfunc_get_3d_array_data(Struct* params, script::Script* script)
     uint32_t name = 0;
     params->read_hash_value(kArrayName, &name, 1);
     Array* array = find_array(script, name);
-    int i = 0;
-    params->fetch_int_value(kIndex1, &i, 1);
-    int j = 0;
-    params->fetch_int_value(kIndex2, &j, 1);
-    int k = 0;
-    params->fetch_int_value(kIndex3, &k, 1);
-    Array* plane = element_array(element_array(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
-    add_element(script->args().get(), plane, static_cast<uint32_t>(k));
+    int first_index = 0;
+    params->fetch_int_value(kIndex1, &first_index, 1);
+    int second_index = 0;
+    params->fetch_int_value(kIndex2, &second_index, 1);
+    int third_index = 0;
+    params->fetch_int_value(kIndex3, &third_index, 1);
+    Array* plane =
+        element_array(element_array(array, static_cast<uint32_t>(first_index)), static_cast<uint32_t>(second_index));
+    add_element(script->args().get(), plane, static_cast<uint32_t>(third_index));
     return true;
 }
 
@@ -188,11 +190,11 @@ bool cfunc_get_nd_array_data(Struct* params, script::Script* script)
     Array* array = find_array(script, name);
     Array* indices = nullptr;
     script->args()->fetch_list(kIndices, &indices, 1);
-    uint32_t i = 0;
-    for (; i < indices->extent() - 1; ++i) {
-        array = element_array(array, indices->fetch_part(i));
+    uint32_t depth = 0;
+    for (; depth < indices->extent() - 1; ++depth) {
+        array = element_array(array, indices->fetch_part(depth));
     }
-    add_element(script->args().get(), array, indices->fetch_part(i));
+    add_element(script->args().get(), array, indices->fetch_part(depth));
     return true;
 }
 

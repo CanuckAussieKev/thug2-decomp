@@ -156,20 +156,20 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
     }
 
     // First the checksums' names.
-    for (Tokens p(file); *p != 0U;) {
-        if (as_token(*p) == QbToken::kChecksumName) {
+    for (Tokens cursor(file); *cursor != 0U;) {
+        if (as_token(*cursor) == QbToken::kChecksumName) {
             uint32_t checksum = 0;
             const char* name = nullptr;
-            const Tokens next = read_name_token(p, &checksum, &name);
+            const Tokens next = read_name_token(cursor, &checksum, &name);
             if (use_qb_names) {
                 add_script_checksum_name(checksum, name);
             } else {
                 register_name_hash(checksum, name);
             }
             note_qb_name(checksum, name); // (ours: kept for the level editor when it's on)
-            p = next;
+            cursor = next;
         } else {
-            p = step_over_token(p);
+            cursor = step_over_token(cursor);
         }
     }
     register_name_hash(checksums::hash_from_text(filename), filename);
@@ -177,33 +177,33 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
 
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(manager->script_heap());
-    Tokens p(file);
+    Tokens cursor(file);
     for (;;) {
-        p = skip_newline_tokens(p);
-        switch (as_token(*p)) {
+        cursor = skip_newline_tokens(cursor);
+        switch (as_token(*cursor)) {
         case QbToken::kEndOfFile:
             memory::leave_heap_scope();
             loading_file() = 0;
             return;
         case QbToken::kName: { // name = value
-            const uint32_t name = fetch_word32(p + 1);
-            p = skip_newline_tokens(p + kTokenWithWordBytes);
-            p = skip_newline_tokens(p + 1); // (past the '=')
+            const uint32_t name = fetch_word32(cursor + 1);
+            cursor = skip_newline_tokens(cursor + kTokenWithWordBytes);
+            cursor = skip_newline_tokens(cursor + 1); // (past the '=')
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
                 get_replace(existing, static_cast<int>(temporary));
             }
-            p = parse_symbol_definition(p, name, filename);
+            cursor = parse_symbol_definition(cursor, name, filename);
             if (!existing && temporary) {
                 remove_symbol_later(find_symbol(name));
             }
             break;
         }
         case QbToken::kScriptStart: { // script name ... endscript
-            const uint32_t name = fetch_word32(p + 2);
-            const Tokens start = p + 6;
-            p = skip_to_end_of_script(start);
-            const std::span<const uint8_t> code = code_between(start, p);
+            const uint32_t name = fetch_word32(cursor + 2);
+            const Tokens start = cursor + 6;
+            cursor = skip_to_end_of_script(start);
+            const std::span<const uint8_t> code = code_between(start, cursor);
             const uint32_t checksum = calculate_script_checksum(start);
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
@@ -223,11 +223,11 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             break;
         }
         case QbToken::kChecksumName:
-            p = step_over_token(p);
+            cursor = step_over_token(cursor);
             break;
         case QbToken::kSectionMarker: { // a section marker
-            const uint32_t marker = fetch_word32(p + 2);
-            p += kTokenWithNamedWordBytes;
+            const uint32_t marker = fetch_word32(cursor + 2);
+            cursor += kTokenWithNamedWordBytes;
             if (marker == kScriptHeap) {
                 // The end of a debug section.
                 memory::leave_heap_scope();
@@ -238,8 +238,8 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
                     memory::leave_heap_scope();
                     memory::enter_heap_scope(manager->debug_heap());
                 } else {
-                    while (as_token(*p) != QbToken::kSectionMarker && as_token(*p) != QbToken::kEndOfFile) {
-                        p = step_over_token(p);
+                    while (as_token(*cursor) != QbToken::kSectionMarker && as_token(*cursor) != QbToken::kEndOfFile) {
+                        cursor = step_over_token(cursor);
                     }
                 }
             }

@@ -761,8 +761,8 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
     for (int round = 0; round < kCheatRounds; ++round) {
         text::format_to(buffer, "%d", static_cast<int>(round + checksum));
         core::at(buffer, std::strlen(buffer.data())) = 'X';
-        for (core::CStringCursor c(buffer.data()); *c != '\0'; ++c) {
-            sum += static_cast<signed char>(*c) * kCheatCharacterWeight;
+        for (core::CStringCursor cursor(buffer.data()); *cursor != '\0'; ++cursor) {
+            sum += static_cast<signed char>(*cursor) * kCheatCharacterWeight;
         }
         checksum = checksums::hash_from_text(buffer.data());
     }

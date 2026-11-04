@@ -72,9 +72,9 @@ std::span<HashedLabel> get_bucket(uint32_t checksum)
 }
 
 // A hex digit's value (anything else counts as its character code, as in the original).
-int hex_digit(char c)
+int hex_digit(char character)
 {
-    const int value = int{c};
+    const int value = int{character};
     if (value >= '0' && value <= '9') {
         return value - '0';
     }

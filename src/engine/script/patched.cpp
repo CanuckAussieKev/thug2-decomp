@@ -86,9 +86,9 @@ std::span<const uint8_t> load_patched_script(const char* filename)
     const std::span<const uint8_t> file =
         data && size > 0 ? std::span<const uint8_t>(data, static_cast<size_t>(size)) : std::span<const uint8_t>();
     ScriptPatch* entry = nullptr;
-    for (ScriptPatch& p : patches()) {
-        if (std::strcmp(p.filename, filename) == 0) {
-            entry = &p;
+    for (ScriptPatch& patch : patches()) {
+        if (std::strcmp(patch.filename, filename) == 0) {
+            entry = &patch;
         }
     }
     if (!entry) {

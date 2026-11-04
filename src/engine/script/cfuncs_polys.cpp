@@ -369,17 +369,17 @@ bool cfunc_set_light_direction(Struct* params, Script* /*script*/)
     if (params->fetch_vec(kDirection, &direction, 0)) {
         direction.w = 0.0F;
     } else if (params->fetch_float(kHeading, &heading, 0) && params->fetch_float(kPitch, &pitch, 0)) {
-        const double p = static_cast<double>(pitch) * kRadiansPerDegree;
+        const double pitch_radians = static_cast<double>(pitch) * kRadiansPerDegree;
         const float y = direction.y;
         const float z = direction.z;
-        direction.y = static_cast<float>((std::cos(p) * y) - (std::sin(p) * z));
-        const double turned_z = (std::cos(p) * z) + (std::sin(p) * y);
-        const double h = static_cast<double>(heading) * kRadiansPerDegree;
-        auto s = static_cast<float>(std::sin(h));
-        auto c = static_cast<float>(std::cos(h));
+        direction.y = static_cast<float>((std::cos(pitch_radians) * y) - (std::sin(pitch_radians) * z));
+        const double turned_z = (std::cos(pitch_radians) * z) + (std::sin(pitch_radians) * y);
+        const double heading_radians = static_cast<double>(heading) * kRadiansPerDegree;
+        auto sine = static_cast<float>(std::sin(heading_radians));
+        auto cosine = static_cast<float>(std::cos(heading_radians));
         const float x = direction.x;
-        direction.z = static_cast<float>(-(static_cast<double>(s) * x) + (turned_z * c));
-        direction.x = static_cast<float>((turned_z * s) + (static_cast<double>(c) * x));
+        direction.z = static_cast<float>(-(static_cast<double>(sine) * x) + (turned_z * cosine));
+        direction.x = static_cast<float>((turned_z * sine) + (static_cast<double>(cosine) * x));
     }
     return render::set_light_direction(index, &direction);
 }

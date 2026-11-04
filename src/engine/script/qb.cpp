@@ -188,11 +188,11 @@ Tokens step_over_token(Tokens token)
     case QbToken::kPair: // pair
         return token + kTokenWithPairBytes;
     case QbToken::kChecksumName: { // a checksum's name: the checksum, then the text
-        Tokens p = token + kTokenWithWordBytes;
-        while (*p != 0U) {
-            ++p;
+        Tokens cursor = token + kTokenWithWordBytes;
+        while (*cursor != 0U) {
+            ++cursor;
         }
-        return p + 1;
+        return cursor + 1;
     }
     case QbToken::kRandom:
     case QbToken::kRandomSideStream:
@@ -209,30 +209,31 @@ Tokens step_over_token(Tokens token)
 }
 
 // 0x0046F7E0
-uint32_t fetch_word32(Tokens p)
+uint32_t fetch_word32(Tokens bytes)
 {
-    return p[0] | (p[1] << kShiftByte1) | (p[2] << kShiftByte2) | (static_cast<uint32_t>(p[3]) << kShiftByte3);
+    return bytes[0] | (bytes[1] << kShiftByte1) | (bytes[2] << kShiftByte2) |
+           (static_cast<uint32_t>(bytes[3]) << kShiftByte3);
 }
 
 // 0x0046F800
-uint16_t fetch_word16(Tokens p) { return static_cast<uint16_t>(p[0] | (p[1] << kShiftByte1)); }
+uint16_t fetch_word16(Tokens bytes) { return static_cast<uint16_t>(bytes[0] | (bytes[1] << kShiftByte1)); }
 
 // 0x0046F810
-MutableTokens store_word32(MutableTokens p, uint32_t value)
+MutableTokens store_word32(MutableTokens bytes, uint32_t value)
 {
-    p[0] = static_cast<uint8_t>(value);
-    p[1] = static_cast<uint8_t>(value >> kShiftByte1);
-    p[2] = static_cast<uint8_t>(value >> kShiftByte2);
-    p[3] = static_cast<uint8_t>(value >> kShiftByte3);
-    return p + 4;
+    bytes[0] = static_cast<uint8_t>(value);
+    bytes[1] = static_cast<uint8_t>(value >> kShiftByte1);
+    bytes[2] = static_cast<uint8_t>(value >> kShiftByte2);
+    bytes[3] = static_cast<uint8_t>(value >> kShiftByte3);
+    return bytes + 4;
 }
 
 // 0x0046F840
-MutableTokens store_word16(MutableTokens p, uint16_t value)
+MutableTokens store_word16(MutableTokens bytes, uint16_t value)
 {
-    p[0] = static_cast<uint8_t>(value);
-    p[1] = static_cast<uint8_t>(value >> kShiftByte1);
-    return p + 2;
+    bytes[0] = static_cast<uint8_t>(value);
+    bytes[1] = static_cast<uint8_t>(value >> kShiftByte1);
+    return bytes + 2;
 }
 
 // 0x0046F850
@@ -256,27 +257,27 @@ Tokens skip_to_end_of_statement(Tokens token)
     int brackets = 0;
     int parentheses = 0;
     for (;;) {
-        const QbToken t = as_token(*token);
-        if (t == QbToken::kStructStart) {
+        const QbToken kind = as_token(*token);
+        if (kind == QbToken::kStructStart) {
             ++braces;
         }
-        if (t == QbToken::kStructEnd) {
+        if (kind == QbToken::kStructEnd) {
             --braces;
         }
-        if (t == QbToken::kArrayStart) {
+        if (kind == QbToken::kArrayStart) {
             ++brackets;
         }
-        if (t == QbToken::kArrayEnd) {
+        if (kind == QbToken::kArrayEnd) {
             --brackets;
         }
-        if (t == QbToken::kOpenParenthesis) {
+        if (kind == QbToken::kOpenParenthesis) {
             ++parentheses;
         }
-        if (t == QbToken::kCloseParenthesis) {
+        if (kind == QbToken::kCloseParenthesis) {
             --parentheses;
         }
         if (braces == 0 && brackets == 0 && parentheses == 0 &&
-            (t == QbToken::kEndOfLine || t == QbToken::kEndOfLineNumbered || t == QbToken::kEndOfFile)) {
+            (kind == QbToken::kEndOfLine || kind == QbToken::kEndOfLineNumbered || kind == QbToken::kEndOfFile)) {
             return step_over_token(token);
         }
         token = step_over_token(token);
@@ -446,11 +447,11 @@ void shuffle(StoredRandom& random, bool avoid_repeat)
 {
     const uint8_t last = core::at(random.order_, random.num_ - 1);
     for (int swaps = random.num_ * kShuffleSwapsPerChoice; swaps != 0; --swaps) {
-        const int a = maths::rnd(random.num_);
-        const int b = maths::rnd(random.num_);
-        const uint8_t swapped = core::at(random.order_, a);
-        core::at(random.order_, a) = core::at(random.order_, b);
-        core::at(random.order_, b) = swapped;
+        const int first = maths::rnd(random.num_);
+        const int second = maths::rnd(random.num_);
+        const uint8_t swapped = core::at(random.order_, first);
+        core::at(random.order_, first) = core::at(random.order_, second);
+        core::at(random.order_, second) = swapped;
     }
     if (avoid_repeat && core::at(random.order_, 0) == last) {
         const int other = maths::rnd(random.num_ - 1) + 1;
@@ -540,11 +541,11 @@ void log_script_pool_use(const char* when)
                            {.name = "CArray", .pair = &array_pools()},         {.name = "CSymbolTableEntry", .pair = &symbol_pools()},
                            {.name = "CScript", .pair = &script_pools()}});
     std::string line;
-    for (const Named& p : pools) {
+    for (const Named& named : pools) {
         int used = 0;
         int peak = 0;
         int count = 0;
-        for (const memory::SlabBank* pool : p.pair->pools()) {
+        for (const memory::SlabBank* pool : named.pair->pools()) {
             if (!pool) {
                 continue;
             }
@@ -554,7 +555,7 @@ void log_script_pool_use(const char* when)
         }
         constexpr size_t kPartSize = 96;
         std::array<char, kPartSize> part{};
-        text::format_to(part, "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak, count);
+        text::format_to(part, "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", named.name, used, peak, count);
         line += part.data();
     }
     // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)

@@ -128,11 +128,11 @@ void fetch_facing(Struct* node, maths::Mat4* out)
 {
     VectorValue v;
     if (!node->fetch_vec(kOrientation, &v, 0)) {
-        for (int r = 0; r < 4; ++r) {
-            core::at(out->row, r) = {.x = r == 0 ? 1.0F : 0.0F,
-                                     .y = r == 1 ? 1.0F : 0.0F,
-                                     .z = r == 2 ? 1.0F : 0.0F,
-                                     .w = r == 3 ? 1.0F : 0.0F};
+        for (int row = 0; row < 4; ++row) {
+            core::at(out->row, row) = {.x = row == 0 ? 1.0F : 0.0F,
+                                       .y = row == 1 ? 1.0F : 0.0F,
+                                       .z = row == 2 ? 1.0F : 0.0F,
+                                       .w = row == 3 ? 1.0F : 0.0F};
         }
         return;
     }
@@ -189,14 +189,14 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
     }
     // (The original's position isn't reset between nodes, nor set before the first: a node without pos= is
     // measured where the one before it was. Here the first such node is at the origin.)
-    VectorValue p = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    VectorValue position = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     for (const uint32_t name : names) {
         Struct* node = hub()->fetch_vertex(name, true);
-        node->fetch_vec(kPos, &p, 0);
+        node->fetch_vec(kPos, &position, 0);
         // (x87, 53-bit: the differences and squares in double, summed z, y, x)
-        const double dx = static_cast<double>(p.x) - pos->x;
-        const double dy = static_cast<double>(p.y) - pos->y;
-        const double dz = static_cast<double>(p.z) - pos->z;
+        const double dx = static_cast<double>(position.x) - pos->x;
+        const double dy = static_cast<double>(position.y) - pos->y;
+        const double dz = static_cast<double>(position.z) - pos->z;
         double distance = (dz * dz) + (dy * dy);
         distance += dx * dx;
         if (distance < best) {

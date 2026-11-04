@@ -145,14 +145,14 @@ uint32_t calculate_script_checksum(Tokens token);
 void prepare_script_tokens(std::span<uint8_t> code);
 
 // Little-endian values in the token stream; the writers return the position after the value.
-uint32_t fetch_word32(Tokens p);
+uint32_t fetch_word32(Tokens bytes);
 // What precompiled bytecode holds in place of a name once fixed up (tokens 0x46 / 0x43: the word after the token):
 // a member function's table entry, a C function (token_reader.cpp).
-const MemberFunctionEntry* member_entry_at(Tokens p);
-NativeFunction native_function_at(Tokens p);
-uint16_t fetch_word16(Tokens p);
-MutableTokens store_word32(MutableTokens p, uint32_t value);
-MutableTokens store_word16(MutableTokens p, uint16_t value);
+const MemberFunctionEntry* member_entry_at(Tokens bytes);
+NativeFunction native_function_at(Tokens bytes);
+uint16_t fetch_word16(Tokens bytes);
+MutableTokens store_word32(MutableTokens bytes, uint32_t value);
+MutableTokens store_word16(MutableTokens bytes, uint16_t value);
 
 // The names of checksums given in the .qb files themselves (tokens 0x2B): a table of 0x1000 buckets.
 void add_script_checksum_name(uint32_t checksum, const char* name);

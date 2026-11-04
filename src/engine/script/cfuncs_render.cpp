@@ -137,11 +137,11 @@ gfx::ClipStore* clip_store_ref() { return gfx::ClipStore::get_pull(); }
 // The viewport's camera `index` (0x004A0950: null if the viewport has none).
 gfx::ViewCam* viewport_camera(int index) { return render::obtain_active_lens(index); }
 
-// A colour of four bytes (r, g, b, a in memory order).
-uint32_t pack_bytes(int r, int g, int b, int a)
+// A colour of four bytes (red, green, blue, alpha in memory order).
+uint32_t pack_bytes(int red, int green, int blue, int alpha)
 {
-    return static_cast<uint8_t>(r) | static_cast<uint8_t>(g) << kGreenShift | static_cast<uint8_t>(b) << kBlueShift |
-           static_cast<uint32_t>(static_cast<uint8_t>(a)) << kAlphaShift;
+    return static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << kGreenShift |
+           static_cast<uint8_t>(blue) << kBlueShift | static_cast<uint32_t>(static_cast<uint8_t>(alpha)) << kAlphaShift;
 }
 
 } // namespace
@@ -453,19 +453,21 @@ bool cfunc_set_fog_distance(Struct* params, Script* /*script*/)
 // clipping is on, the clear colour used with it (0x0078733C, 0xAARRGGBB) instead - and false.
 bool cfunc_set_fog_color(Struct* params, Script* /*script*/)
 {
-    int r = kFogChannelDefault;
-    int g = kFogChannelDefault;
-    int b = kFogChannelDefault;
-    int a = kFogAlphaDefault;
-    params->fetch_int_value("r", &r, 0);
-    params->fetch_int_value("g", &g, 0);
-    params->fetch_int_value("b", &b, 0);
-    params->fetch_int_value("a", &a, 0);
+    int red = kFogChannelDefault;
+    int green = kFogChannelDefault;
+    int blue = kFogChannelDefault;
+    int alpha = kFogAlphaDefault;
+    params->fetch_int_value("r", &red, 0);
+    params->fetch_int_value("g", &green, 0);
+    params->fetch_int_value("b", &blue, 0);
+    params->fetch_int_value("a", &alpha, 0);
     if (render::view_setup().distance_clipping()) {
-        render::engine_parts().set_fog_colour(static_cast<uint32_t>(a) << kArgbAlphaShift | (r & kByteMask) << kArgbRedShift | (g & kByteMask) << kArgbGreenShift | (b & kByteMask));
+        render::engine_parts().set_fog_colour(static_cast<uint32_t>(alpha) << kArgbAlphaShift |
+                                              (red & kByteMask) << kArgbRedShift |
+                                              (green & kByteMask) << kArgbGreenShift | (blue & kByteMask));
         return false;
     }
-    render::engine::set_fog_color(pack_bytes(r, g, b, a));
+    render::engine::set_fog_color(pack_bytes(red, green, blue, alpha));
     return true;
 }
 
@@ -490,13 +492,13 @@ bool cfunc_set_wireframe_mode(Struct* params, Script* /*script*/)
 // 0x00446FA0: SetLightAmbientColor r g b (alpha 128, 0x0048E8F0). Returns what that returns (its AL).
 bool cfunc_set_light_ambient_color(Struct* params, Script* /*script*/)
 {
-    int r = 0;
-    int g = 0;
-    int b = 0; // (uninitialised in the original)
-    params->fetch_int_value("r", &r, 0);
-    params->fetch_int_value("g", &g, 0);
-    params->fetch_int_value("b", &b, 0);
-    return render::set_light_ambient_color(pack_bytes(r, g, b, kLightAlpha));
+    int red = 0;
+    int green = 0;
+    int blue = 0; // (uninitialised in the original)
+    params->fetch_int_value("r", &red, 0);
+    params->fetch_int_value("g", &green, 0);
+    params->fetch_int_value("b", &blue, 0);
+    return render::set_light_ambient_color(pack_bytes(red, green, blue, kLightAlpha));
 }
 
 // 0x00447010: GetLightDirection index=<n>: the light's direction (0x0048E920) in degrees into the script's params:
@@ -516,14 +518,14 @@ bool cfunc_get_light_direction(Struct* params, Script* script)
 bool cfunc_set_light_diffuse_color(Struct* params, Script* /*script*/)
 {
     int index = 0;
-    int r = 0;
-    int g = 0;
-    int b = 0; // (uninitialised in the original)
+    int red = 0;
+    int green = 0;
+    int blue = 0; // (uninitialised in the original)
     params->fetch_int_value(kIndex, &index, 0);
-    params->fetch_int_value(kUpperR, &r, 0);
-    params->fetch_int_value(kUpperG, &g, 0);
-    params->fetch_int_value(kUpperB, &b, 0);
-    return render::set_light_diffuse_color(index, pack_bytes(r, g, b, kLightAlpha));
+    params->fetch_int_value(kUpperR, &red, 0);
+    params->fetch_int_value(kUpperG, &green, 0);
+    params->fetch_int_value(kUpperB, &blue, 0);
+    return render::set_light_diffuse_color(index, pack_bytes(red, green, blue, kLightAlpha));
 }
 
 // 0x00447130: GetLightCurrentColor: the current ambient colour (0x0048E900) and the two directional lights'

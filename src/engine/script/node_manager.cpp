@@ -114,34 +114,40 @@ BigNodeArrays& big_node_arrays()
     return state.get();
 }
 
-bool is_big(const NodeManager* m) { return m == big_node_arrays().big_owner_ && !big_node_arrays().big_slots_.empty(); }
+bool is_big(const NodeManager* manager)
+{
+    return manager == big_node_arrays().big_owner_ && !big_node_arrays().big_slots_.empty();
+}
 
 // The slots of a manager, whichever kind.
 class Slots {
 public:
-    explicit Slots(NodeManager* m)
-        : small_(m->slots()), big_(is_big(m) ? std::span<BigSlot>(big_node_arrays().big_slots_) : std::span<BigSlot>()),
-          skip_bits_(!big_.empty() ? static_cast<uint32_t>(big_node_arrays().big_slots_.size()) - 1 : NodeManager::kSlots - 1)
+    explicit Slots(NodeManager* manager)
+        : small_(manager->slots()),
+          big_(is_big(manager) ? std::span<BigSlot>(big_node_arrays().big_slots_) : std::span<BigSlot>()),
+          skip_bits_(!big_.empty() ? static_cast<uint32_t>(big_node_arrays().big_slots_.size()) - 1
+                                   : NodeManager::kSlots - 1)
     {}
     [[nodiscard]] uint32_t get_mask() const { return skip_bits_; }
-    [[nodiscard]] bool vacant(uint32_t i) const { return elem(i) == -1; }
-    [[nodiscard]] int elem(uint32_t i) const
+    [[nodiscard]] bool vacant(uint32_t slot) const { return elem(slot) == -1; }
+    [[nodiscard]] int elem(uint32_t slot) const
     {
-        return !big_.empty() ? core::at(big_, i).list_link_ : core::at(small_, i).list_link_;
+        return !big_.empty() ? core::at(big_, slot).list_link_ : core::at(small_, slot).list_link_;
     }
-    [[nodiscard]] uint32_t get_array(uint32_t i) const
+    [[nodiscard]] uint32_t get_array(uint32_t slot) const
     {
-        return !big_.empty() ? core::at(big_, i).element_list_ : core::at(small_, i).element_list_;
+        return !big_.empty() ? core::at(big_, slot).element_list_ : core::at(small_, slot).element_list_;
     }
-    void assign_value(uint32_t i, uint32_t array, int node)
+    void assign_value(uint32_t slot, uint32_t array, int node)
     {
         if (!big_.empty()) {
-            core::at(big_, i) = {.element_list_ = array, .list_link_ = node};
+            core::at(big_, slot) = {.element_list_ = array, .list_link_ = node};
         } else {
-            core::at(small_, i) = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
+            core::at(small_, slot) = {.element_list_ = static_cast<uint16_t>(array),
+                                      .list_link_ = static_cast<int16_t>(node)};
         }
     }
-    void get_clear(uint32_t i) { assign_value(i, get_array(i), -1); }
+    void get_clear(uint32_t slot) { assign_value(slot, get_array(slot), -1); }
 
 private:
     std::span<NodeSlot> small_;
@@ -151,7 +157,7 @@ private:
 
 // The walk's place, whichever kind (as the slots).
 struct Walk {
-    explicit Walk(NodeManager* m) : big_(is_big(m)), small(&m->walk()) {}
+    explicit Walk(NodeManager* manager) : big_(is_big(manager)), small(&manager->walk()) {}
     [[nodiscard]] int elem() const { return big_ ? big_node_arrays().big_walk_.list_link_ : small->list_link_; }
     [[nodiscard]] uint32_t get_array() const { return big_ ? big_node_arrays().big_walk_.element_list_ : small->element_list_; }
     void assign_value(uint32_t array, int node)
@@ -327,24 +333,24 @@ Struct* NodeManager::get_next_node()
 Array* NodeManager::get_last_node_array()
 {
     // NOT ORIGINAL: the level editor's overlay array (set_editor_node_array) is passed over - callers mean the level's.
-    uint32_t i = num_;
-    while ((i != 0U) && (node_array_hooks().editor_array_ != 0U) &&
-           core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_) {
-        --i;
+    uint32_t count = num_;
+    while ((count != 0U) && (node_array_hooks().editor_array_ != 0U) &&
+           core::at(arrays_, count - 1).label_ == node_array_hooks().editor_array_) {
+        --count;
     }
-    return (i != 0U) ? core::at(arrays_, i - 1).node_entries_ : nullptr;
+    return (count != 0U) ? core::at(arrays_, count - 1).node_entries_ : nullptr;
 }
 
 // 0x0045D150
 uint32_t NodeManager::get_last_node_array_name()
 {
     // NOT ORIGINAL: as get_last_node_array, the editor's overlay array passed over.
-    uint32_t i = num_;
-    while ((i != 0U) && (node_array_hooks().editor_array_ != 0U) &&
-           core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_) {
-        --i;
+    uint32_t count = num_;
+    while ((count != 0U) && (node_array_hooks().editor_array_ != 0U) &&
+           core::at(arrays_, count - 1).label_ == node_array_hooks().editor_array_) {
+        --count;
     }
-    return (i != 0U) ? core::at(arrays_, i - 1).label_ : 0;
+    return (count != 0U) ? core::at(arrays_, count - 1).label_ : 0;
 }
 
 // 0x0045D140

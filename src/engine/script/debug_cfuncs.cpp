@@ -203,13 +203,13 @@ bool cfunc_english(script::Struct* /*params*/, script::Script* /*script*/) { ret
 // the proximity nodes), then every proximity node freed.
 bool cfunc_proxim_cleanup(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kSound); c;
-         c = c->next_of_type()) {
-        core::down_cast<objects::AudioEmitterModule>(c)->set_proxim(nullptr);
+    for (objects::ObjectModule* sound_module = objects::object_hub_slot()->find_first_module_of_kind(kSound);
+         sound_module; sound_module = sound_module->next_of_type()) {
+        core::down_cast<objects::AudioEmitterModule>(sound_module)->set_proxim(nullptr);
     }
-    for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kStream); c;
-         c = c->next_of_type()) {
-        core::down_cast<objects::AudioStreamModule>(c)->set_proxim(nullptr);
+    for (objects::ObjectModule* stream_module = objects::object_hub_slot()->find_first_module_of_kind(kStream);
+         stream_module; stream_module = stream_module->next_of_type()) {
+        core::down_cast<objects::AudioStreamModule>(stream_module)->set_proxim(nullptr);
     }
     objects::nearby_zone_shutdown();
     return true;
