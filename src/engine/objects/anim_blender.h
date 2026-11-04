@@ -165,7 +165,7 @@ float larger_of(float a, float b);
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 constexpr std::size_t kAnimBlenderMemberFunctionCount = 30;
 std::array<script::MemberFunctionEntry, kAnimBlenderMemberFunctionCount>& anim_blender_member_functions();
 } // namespace objects

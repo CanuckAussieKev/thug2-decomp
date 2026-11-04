@@ -37,7 +37,7 @@
 #include "engine/objects/smtptr.h"
 #include "engine/objects/trick_objects.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"

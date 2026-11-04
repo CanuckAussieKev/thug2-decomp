@@ -1,7 +1,7 @@
 // Script commands (CFunctions) 0x005A5360-0x005A595F: light groups, the skaters' pause, the viewer, the weather
 // and the screen effects (see world_cfuncs.h).
 
-#include "engine/script/world_cfuncs.h"
+#include "game/commands/world_cfuncs.h"
 
 #include <cstdint>
 #include <memory>
@@ -17,7 +17,7 @@
 #include "engine/sys/model_viewer.h"
 #include "engine/gfx/weather.h"
 #include "engine/gfx/screen_effects.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/sys/game_config.h"
 #include "base/core/down_cast.h"

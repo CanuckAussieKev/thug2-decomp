@@ -1,9 +1,9 @@
 // Script commands (CFunctions) 0x005B2420-0x005B2FC0: face textures, changing textures, HSV / RGB (see
 // face_texture_cfuncs.h).
 
-#include "engine/gfx/cag_cfuncs.h"
+#include "game/commands/cag_cfuncs.h"
 #include "engine/script/degree_ratio.h"
-#include "engine/gfx/face_texture_cfuncs.h"
+#include "game/commands/face_texture_cfuncs.h"
 #include "engine/gfx/engine_texture.h"
 
 #include <algorithm>

@@ -2,7 +2,7 @@
 // between levels, object flags and exceptions by name or node prefix, skater scripts, pausing, the clock, the
 // screen flash (see game_cfuncs.h).
 
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 
 #include <windows.h>
 

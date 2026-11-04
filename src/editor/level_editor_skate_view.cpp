@@ -29,7 +29,7 @@
 #include "engine/gfx/sector.h"
 #include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "game/commands/cag_cfuncs.h"
 #include "engine/script/degree_ratio.h"
 #include "base/core/no_destroy.h"
 #include "engine/render/coll_obj.h"

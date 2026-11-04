@@ -85,7 +85,7 @@ private:
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 constexpr std::size_t kObjectProximityMemberFunctionCount = 7;
 std::array<script::MemberFunctionEntry, kObjectProximityMemberFunctionCount>& object_proximity_member_functions();
 } // namespace objects

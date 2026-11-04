@@ -32,7 +32,7 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/preferences.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "game/skate/career.h"

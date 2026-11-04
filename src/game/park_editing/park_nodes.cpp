@@ -23,7 +23,7 @@
 #include "engine/script/param_struct.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>

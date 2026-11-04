@@ -26,7 +26,7 @@
 #include "engine/script/preferences.h"
 #include "game/skate/skate_net.h"
 #include "base/util/bitstream.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/assets/resource_registry.h"
 #include "game/skate/point_tally.h"

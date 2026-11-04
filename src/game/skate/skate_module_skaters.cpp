@@ -42,7 +42,7 @@
 #include "engine/script/preferences.h"
 #include "game/skate/highscores.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "game/skate/career.h"
 #include "game/skate/contest.h"
 #include "game/skate/game_mode.h"

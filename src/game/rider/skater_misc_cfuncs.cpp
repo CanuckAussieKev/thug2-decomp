@@ -19,7 +19,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "game/commands/cag_cfuncs.h"
 #include "engine/script/degree_ratio.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

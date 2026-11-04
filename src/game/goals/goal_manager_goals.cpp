@@ -15,7 +15,7 @@
 #include "game/online/gamenet_commands.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/trick_goals.h"

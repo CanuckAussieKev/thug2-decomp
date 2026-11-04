@@ -23,7 +23,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cell.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/names.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/nodes.h"

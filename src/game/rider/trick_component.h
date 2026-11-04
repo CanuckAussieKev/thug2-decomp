@@ -417,6 +417,6 @@ bool cfunc_do_next_trick(script::Struct* params, script::Script* script);
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 std::array<script::MemberFunctionEntry, 4>& trick_component_member_functions();
 } // namespace objects

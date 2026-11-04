@@ -154,7 +154,7 @@ private:
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 constexpr std::size_t kInputComponentMemberFunctionCount = 15;
 std::array<script::MemberFunctionEntry, kInputComponentMemberFunctionCount>& input_component_member_functions();
 } // namespace objects

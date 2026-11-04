@@ -1,8 +1,8 @@
 // Script commands (CFunctions) of the skate game, 0x005A2A00-0x005A34E0: the viewer camera fitted to the scenes,
 // and the level's node objects made and killed by their class (see game_cfuncs.h).
 
-#include "engine/script/game_cfuncs.h"
-#include "engine/script/trick_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
+#include "game/commands/trick_cfuncs.h"
 
 #include <algorithm>
 #include <cmath>
@@ -54,7 +54,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/script/skate_cfuncs.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "game/commands/cag_cfuncs.h"
 #include "engine/script/degree_ratio.h"
 #include "engine/sys/game_config.h"
 #include "base/core/down_cast.h"

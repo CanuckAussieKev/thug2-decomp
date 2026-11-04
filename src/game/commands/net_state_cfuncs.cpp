@@ -2,7 +2,7 @@
 // network mode and setup, going online, the controllers' vibration, observing, slow motion, player names (see
 // game_cfuncs.h).
 
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 
 #include <cstddef>
 #include <cstdint>

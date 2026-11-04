@@ -72,7 +72,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/ped_logic.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"

@@ -22,7 +22,7 @@
 #include "game/rider/rider.h"
 #include "game/rider/walk_physics.h"
 #include "engine/sys/stopwatch.h"
-#include "engine/script/game_util_cfuncs.h"
+#include "game/commands/game_util_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"

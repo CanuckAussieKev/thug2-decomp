@@ -1045,6 +1045,6 @@ void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
 } // namespace skater
 
 namespace skater {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 std::array<script::MemberFunctionEntry, kCoreMemberFunctionCount>& core_member_functions();
 } // namespace skater

@@ -26,7 +26,7 @@
 #include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/skate/point_tally.h"
 #include "game/online/server_list.h"

@@ -36,7 +36,7 @@
 #include "game/rider/state_history.h"
 #include "base/util/bitstream.h"
 #include "game/goals/goal_manager.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"

@@ -43,7 +43,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/objects/trick_objects.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/load.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/nodes.h"

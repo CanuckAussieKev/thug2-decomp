@@ -205,6 +205,6 @@ void change_moment(SkaterStateHistoryFrame& frame, uint32_t stamp);
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 std::array<script::MemberFunctionEntry, kSkaterStateMemberFunctionCount>& skater_state_member_functions();
 } // namespace objects

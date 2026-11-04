@@ -78,7 +78,7 @@ private:
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 constexpr std::size_t kColorCycleMemberFunctionCount = 5;
 std::array<script::MemberFunctionEntry, kColorCycleMemberFunctionCount>& color_cycle_member_functions();
 } // namespace objects

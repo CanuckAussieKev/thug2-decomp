@@ -357,7 +357,7 @@ const char* profile_voice();
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 constexpr std::size_t kPedLogicMemberFunctionCount = 29;
 std::array<script::MemberFunctionEntry, kPedLogicMemberFunctionCount>& ped_logic_member_functions();
 } // namespace objects

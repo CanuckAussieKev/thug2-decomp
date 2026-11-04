@@ -1,7 +1,7 @@
 // Script commands (CFunctions) of the skate game, 0x0059F610-0x0059FE50: the viewer, controllers, node arrays,
 // preferences, some network flags (see game_cfuncs.h).
 
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/objects/camera_component.h"
 
 #include "base/core/str.h"

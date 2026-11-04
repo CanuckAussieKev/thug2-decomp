@@ -42,7 +42,7 @@
 #include "platform/sdl_events.h"
 #include "platform/sdl_window.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "devtools/automation.h"
 #include "base/core/parse_number.h"
 #include "base/core/checked_index.h"

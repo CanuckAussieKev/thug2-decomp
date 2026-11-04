@@ -1,7 +1,7 @@
 // Script commands (CFunctions) 0x005B0A40-0x005B1B60: configurable tricks, records, soundtracks, controllers (see
 // trick_cfuncs.h).
 
-#include "engine/script/trick_cfuncs.h"
+#include "game/commands/trick_cfuncs.h"
 
 #include <cstddef>
 #include <cstdint>

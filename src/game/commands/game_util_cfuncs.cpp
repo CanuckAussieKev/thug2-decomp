@@ -1,7 +1,7 @@
 // Script commands (CFunctions) of the game: interpolating parameters, a texture's name, power-ups (see
 // game_util_cfuncs.h).
 
-#include "engine/script/game_util_cfuncs.h"
+#include "game/commands/game_util_cfuncs.h"
 
 #include <cstdint>
 #include <cmath>
@@ -24,7 +24,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "game/commands/cag_cfuncs.h"
 #include "engine/script/degree_ratio.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

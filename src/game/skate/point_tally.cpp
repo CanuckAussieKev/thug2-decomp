@@ -20,7 +20,7 @@
 #include "engine/ui/text_block.h"
 #include "engine/ui/text_element.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "game/online/net_game_state.h"
 #include "game/rider/rider.h"
 #include "game/skate/career.h"

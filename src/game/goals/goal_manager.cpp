@@ -20,7 +20,7 @@
 #include "engine/net/net_client.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/skate/game_mode.h"

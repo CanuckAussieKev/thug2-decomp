@@ -340,7 +340,7 @@ bool cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* scrip
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 constexpr std::size_t kRigidBodyMemberFunctionCount = 13;
 std::array<script::MemberFunctionEntry, kRigidBodyMemberFunctionCount>& rigid_body_member_functions();
 } // namespace objects

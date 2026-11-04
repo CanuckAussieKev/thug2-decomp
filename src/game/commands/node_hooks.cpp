@@ -2,7 +2,7 @@
 
 #include "game/commands/node_hooks.h"
 
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/node_hooks.h"
 
 namespace commands {

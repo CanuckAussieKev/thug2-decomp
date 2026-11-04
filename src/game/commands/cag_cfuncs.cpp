@@ -1,7 +1,7 @@
 // Script commands (CFunctions) 0x005B3A90-0x005B4260: create-a-graphic, 2D positions, head bone groups (see
 // cag_cfuncs.h).
 
-#include "engine/gfx/cag_cfuncs.h"
+#include "game/commands/cag_cfuncs.h"
 #include "engine/script/degree_ratio.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/model_appearance.h"

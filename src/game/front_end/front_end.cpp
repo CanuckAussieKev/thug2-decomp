@@ -22,7 +22,7 @@
 #include "engine/objects/tracker.h"
 #include "engine/audio/music_player.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/pad_input/device.h"

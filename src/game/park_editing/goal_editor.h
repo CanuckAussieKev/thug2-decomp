@@ -488,6 +488,6 @@ private:
 } // namespace park_editing
 
 namespace park_editing {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 std::array<script::MemberFunctionEntry, kMemberFunctionCount>& goal_editor_member_functions();
 } // namespace park_editing

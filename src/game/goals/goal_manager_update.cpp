@@ -21,7 +21,7 @@
 #include "game/goals/goal_names.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/trick_goals.h"
 #include "engine/memory/arena_alloc.h"

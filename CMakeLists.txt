@@ -903,41 +903,41 @@ add_executable(thug2 WIN32
     src/engine/script/cscript_wait.cpp
     src/engine/script/cscript_exec.cpp
     src/app/command_table.cpp
-    src/engine/script/member_function_code.cpp
+    src/game/commands/member_function_code.cpp
     src/engine/script/load.cpp
     src/engine/script/cscript_core.cpp
     src/engine/script/names.cpp
     src/engine/script/token_reader.cpp
     src/engine/script/tokens.cpp
     src/engine/script/patched.cpp
-    src/engine/script/world_cfuncs.cpp
+    src/game/commands/world_cfuncs.cpp
     src/engine/script/script_startup.cpp
     src/engine/script/precompiled.cpp
     src/engine/script/qb.cpp
     src/engine/script/script_state.cpp
     src/engine/script/param_struct.cpp
     src/engine/script/skate_cfuncs.cpp
-    src/engine/script/trick_cfuncs.cpp
-    src/engine/script/game_util_cfuncs.cpp
+    src/game/commands/trick_cfuncs.cpp
+    src/game/commands/game_util_cfuncs.cpp
     src/game/online/hunt_cfuncs.cpp
-    src/engine/gfx/face_texture_cfuncs.cpp
+    src/game/commands/face_texture_cfuncs.cpp
     src/engine/gfx/face_texture.cpp
     src/engine/gfx/custom_anim_key.cpp
     src/engine/gfx/model_utils.cpp
     src/game/skate/cas_options.cpp
     src/engine/gfx/bone_look_at.cpp
     src/engine/gfx/boned_anim_frame_data_pose.cpp
-    src/engine/gfx/cag_cfuncs.cpp
+    src/game/commands/cag_cfuncs.cpp
     src/engine/objects/model_swap_cfuncs.cpp
     src/engine/ui/theme_cfuncs.cpp
     src/game/rider/skater_misc_cfuncs.cpp
     src/game/rider/skater_score_cfuncs.cpp
     src/engine/objects/cutscene_list_cfuncs.cpp
     src/engine/sys/game_config.cpp
-    src/engine/script/game_cfuncs.cpp
-    src/engine/script/game_flow_cfuncs.cpp
-    src/engine/script/net_state_cfuncs.cpp
-    src/engine/script/node_object_cfuncs.cpp
+    src/game/commands/game_cfuncs.cpp
+    src/game/commands/game_flow_cfuncs.cpp
+    src/game/commands/net_state_cfuncs.cpp
+    src/game/commands/node_object_cfuncs.cpp
     src/engine/script/script_util_cfuncs.cpp
     src/engine/script/math_cfuncs.cpp
     src/engine/script/debug_cfuncs.cpp

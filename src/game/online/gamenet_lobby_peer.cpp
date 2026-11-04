@@ -26,7 +26,7 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "base/core/stubs.h"

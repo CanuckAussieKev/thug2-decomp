@@ -21,7 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
-#include "engine/script/game_cfuncs.h"
+#include "game/commands/game_cfuncs.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "game/park_editing/park_editing_state.h"

@@ -107,7 +107,7 @@ void resize_coim_heap(uint32_t size);
 } // namespace objects
 
 namespace objects {
-// The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
+// The script member table's records (their code is filled in by game/commands/member_function_code.cpp).
 constexpr std::size_t kCompositeObjectMemberFunctionCount = 31;
 std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount>& composite_object_member_functions();
 constexpr std::size_t kObjectMemberFunctionCount = 17;
