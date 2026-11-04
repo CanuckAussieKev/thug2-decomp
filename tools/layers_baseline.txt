@@ -39,7 +39,6 @@ src/engine/objects/cutscene_package.cpp -> src/game/rider/rider.h
 src/engine/objects/cutscene_package.cpp -> src/game/skate/skate_module.h
 src/engine/objects/flexible_particle.cpp -> src/game/online/gamenet_manager.h
 src/engine/objects/flip_rotate.cpp -> src/game/rider/flip_and_rotate.h
-src/engine/objects/flip_rotate.cpp -> src/game/world/vehicle_component.h
 src/engine/objects/input_component.cpp -> src/game/online/gamenet_manager.h
 src/engine/objects/model_component.cpp -> src/game/online/gamenet_manager.h
 src/engine/objects/model_component.cpp -> src/game/online/net_game_state.h

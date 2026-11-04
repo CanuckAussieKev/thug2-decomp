@@ -422,8 +422,5 @@ private:
     ObjectModule* skater_core_physics_{}; // +0x132C its core physics (0x5BD63B29)
     ObjectModule* trigger_ptr_{};         // +0x1330 the object's trigger component (0xE594F0A2)
 };
-// 0x004354C0 (cdecl): the quaternion product a * b into `out` (0x00420140, a quaternion's *=, on a copy of a).
-// Returns out.
-maths::Vec4* quat_product(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b);
 
 } // namespace objects

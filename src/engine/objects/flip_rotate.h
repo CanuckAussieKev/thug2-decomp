@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/gfx/anim_controller.h"
+#include "base/maths/vec4.h"
 
 namespace script {
 class Struct;
@@ -43,5 +44,9 @@ private:
 };
 constexpr std::size_t kFlipRotateComponentBytes = 0x18;
 static_assert(sizeof(FlipRotateComponent) == kFlipRotateComponentBytes);
+
+// 0x004354C0 (cdecl; in the original among the vehicle's code, game/world/vehicle_component.cpp): the quaternion
+// product a * b into `out` (0x00420140, a quaternion's *=, on a copy of a). Returns out.
+maths::Vec4* quat_product(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b);
 
 } // namespace objects

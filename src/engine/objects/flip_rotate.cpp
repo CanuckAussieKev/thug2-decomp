@@ -11,7 +11,6 @@
 #include "base/maths/quat_rotation.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "game/world/vehicle_component.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
@@ -45,6 +44,15 @@ void FlipRotateComponent::configure_from_data(script::Struct* params)
     if (params->fetch_int_value(kRotated, &value, 0)) {
         has_pivoted_ = value != 0;
     }
+}
+
+// 0x004354C0 (cdecl)
+maths::Vec4* quat_product(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
+{
+    maths::Vec4 product = *a;
+    maths::quat_multiply(&product, *b);
+    *out = product;
+    return out;
 }
 
 // 0x004E2D20

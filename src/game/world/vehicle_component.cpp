@@ -368,15 +368,6 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     still_frames_ = 0;
 }
 
-// 0x004354C0 (cdecl)
-maths::Vec4* quat_product(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b)
-{
-    maths::Vec4 product = *a;
-    quat_multiply(&product, b);
-    *out = product;
-    return out;
-}
-
 // --- script member functions ---
 
 // 0x00437A60
