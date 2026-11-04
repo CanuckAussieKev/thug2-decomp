@@ -164,6 +164,43 @@ LevelEditorUx3UiState& level_editor_ux3_ui_state()
     return state.get();
 }
 
+// The search field's keys: Down / Up move the highlight, Escape closes the palette.
+void palette_keys(bool enter, bool& open)
+{
+    if (ImGui::IsItemActive() || enter) {
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+            ++level_editor_ux3_ui_state().highlight_;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+            --level_editor_ux3_ui_state().highlight_;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            open = false;
+        }
+    }
+}
+
+// The commands matching the query, by score: their names (doubled), categories, tips (three letters or more) and
+// keys.
+std::vector<std::pair<int, int>> find_commands(const std::vector<actions::ActStep>& all)
+{
+    std::vector<std::pair<int, int>> found; // (score, index)
+    for (int i = 0; std::cmp_less(i, all.size()); ++i) {
+        const actions::ActStep& act_step = core::at(all, i);
+        const int score = std::max(
+            {actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), act_step.name) * 2,
+             actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), act_step.category + " " + act_step.name),
+             std::strlen(level_editor_ux3_ui_state().query_.data()) >= 3
+                 ? actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), act_step.tip) / 2
+                 : 0,
+             actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), actions::get_keys_text(i))});
+        if (score > 0) {
+            found.emplace_back(score, i);
+        }
+    }
+    return found;
+}
+
 void get_palette()
 {
     bool& open = unseal(kPaletteWindow);
@@ -185,34 +222,12 @@ void get_palette()
         level_editor_ux3_ui_state().palette_was_open_ = true;
     }
     ImGui::SetNextItemWidth(-1.0F);
-    const bool enter = ImGui::InputTextWithHint("##query", "Search commands\xE2\x80\xA6", level_editor_ux3_ui_state().query_.data(), sizeof(level_editor_ux3_ui_state().query_),
-                                                ImGuiInputTextFlags_EnterReturnsTrue);
-    if (ImGui::IsItemActive() || enter) {
-        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-            ++level_editor_ux3_ui_state().highlight_;
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-            --level_editor_ux3_ui_state().highlight_;
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            open = false;
-        }
-    }
+    const bool enter =
+        ImGui::InputTextWithHint("##query", "Search commands\xE2\x80\xA6", level_editor_ux3_ui_state().query_.data(),
+                                 sizeof(level_editor_ux3_ui_state().query_), ImGuiInputTextFlags_EnterReturnsTrue);
+    palette_keys(enter, open);
     const std::vector<actions::ActStep>& all = actions::get_all();
-    std::vector<std::pair<int, int>> found; // (score, index)
-    for (int i = 0; std::cmp_less(i, all.size()); ++i) {
-        const actions::ActStep& act_step = core::at(all, i);
-        const int score = std::max(
-            {actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), act_step.name) * 2,
-             actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), act_step.category + " " + act_step.name),
-             std::strlen(level_editor_ux3_ui_state().query_.data()) >= 3
-                 ? actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), act_step.tip) / 2
-                 : 0,
-             actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), actions::get_keys_text(i))});
-        if (score > 0) {
-            found.emplace_back(score, i);
-        }
-    }
+    std::vector<std::pair<int, int>> found = find_commands(all); // (score, index)
     std::ranges::stable_sort(found, [](const auto& a, const auto& b) { return a.first > b.first; });
     level_editor_ux3_ui_state().highlight_ = found.empty() ? 0 : std::clamp(level_editor_ux3_ui_state().highlight_, 0, static_cast<int>(found.size()) - 1);
     const float row_height = ImGui::GetTextLineHeightWithSpacing();
@@ -577,43 +592,50 @@ Labels& labels()
     return state.get();
 }
 
+// The Select Similar menu: by mesh, class, family or type; the family's all, inverted, everything.
+void similar_menu()
+{
+    current_heading("Select Similar");
+    ImGui::Separator();
+    struct Item {
+        const char* name;
+        organize::Similar by;
+        const char* tip;
+    };
+    static const auto kItems = std::to_array<Item>(
+        {{.name = "Same mesh", .by = organize::Similar::kMesh, .tip = "Same model or scenery piece"},
+         {.name = "Same class", .by = organize::Similar::kClass, .tip = "Same node class"},
+         {.name = "Same family", .by = organize::Similar::kFamily, .tip = "Same Outliner family"},
+         {.name = "Same type", .by = organize::Similar::kKindTag, .tip = "Same node type"}});
+    for (const Item& item : kItems) {
+        const organize::Similar by = item.by;
+        if (ImGui::MenuItem(item.name)) {
+            get_queue([by] { organize::select_similar(by); });
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("%s", item.tip);
+        }
+    }
+    ImGui::Separator();
+    if (ImGui::MenuItem("Same Family (All)")) {
+        get_queue([] { organize::select_family(); });
+    }
+    if (ImGui::MenuItem("Invert Selection", actions::get_keys_text(actions::kInvertSelection).c_str())) {
+        get_queue([] { organize::invert_selection(); });
+    }
+    if (ImGui::MenuItem("Select all", actions::get_keys_text(actions::kSelectAll).c_str())) {
+        get_queue([] { organize::select_all(); });
+    }
+    ImGui::EndPopup();
+}
+
 void get_menus()
 {
     if (take_similar_menu()) {
         ImGui::OpenPopup("Select similar###ux3similar");
     }
     if (ImGui::BeginPopup("Select similar###ux3similar")) {
-        current_heading("Select Similar");
-        ImGui::Separator();
-        struct Item {
-            const char* name;
-            organize::Similar by;
-            const char* tip;
-        };
-        static const auto kItems = std::to_array<Item>({{.name = "Same mesh", .by = organize::Similar::kMesh, .tip = "Same model or scenery piece"},
-                                      {.name = "Same class", .by = organize::Similar::kClass, .tip = "Same node class"},
-                                      {.name = "Same family", .by = organize::Similar::kFamily, .tip = "Same Outliner family"},
-                                      {.name = "Same type", .by = organize::Similar::kKindTag, .tip = "Same node type"}});
-        for (const Item& item : kItems) {
-            const organize::Similar by = item.by;
-            if (ImGui::MenuItem(item.name)) {
-                get_queue([by] { organize::select_similar(by); });
-            }
-            if (ImGui::IsItemHovered()) {
-                gui::tooltip("%s", item.tip);
-            }
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem("Same Family (All)")) {
-            get_queue([] { organize::select_family(); });
-        }
-        if (ImGui::MenuItem("Invert Selection", actions::get_keys_text(actions::kInvertSelection).c_str())) {
-            get_queue([] { organize::invert_selection(); });
-        }
-        if (ImGui::MenuItem("Select all", actions::get_keys_text(actions::kSelectAll).c_str())) {
-            get_queue([] { organize::select_all(); });
-        }
-        ImGui::EndPopup();
+        similar_menu();
     }
     if (take_group_name() || labels().group_asked_) {
         labels().group_asked_ = false;
@@ -716,6 +738,7 @@ struct SharedEdit {
     uint32_t key = 0;
     std::array<char, kHelpTextSize> text = {""};
 };
+
 // NOT ORIGINAL grouping - the shared view and whether it is on (were globals). Made on first use, never destroyed
 // (shared_view()).
 struct SharedView {
@@ -800,6 +823,41 @@ void help_from_registry()
     ImGui::EndTable();
 }
 
+namespace {
+
+// A command's key chords as buttons: a click rebinds one, a right-click removes it, + adds one.
+void chord_buttons(const actions::ActStep& act_step, int index)
+{
+    if (stored_fonts().mono) {
+        ImGui::PushFont(stored_fonts().mono);
+    }
+    for (int k = 0; std::cmp_less(k, act_step.keys.size()); ++k) {
+        ImGui::PushID(k);
+        const bool capturing = actions::get_capturing() && actions::capturing_index() == index;
+        const std::string text = capturing ? "..." : actions::format_chord(core::at(act_step.keys, k));
+        if (ImGui::SmallButton(text.c_str())) {
+            actions::begin_capture({.index = index, .slot = k});
+        }
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+            std::vector<actions::Chord> next = act_step.keys;
+            next.erase(next.begin() + k);
+            actions::set_keys(index, next);
+            ImGui::PopID();
+            break;
+        }
+        ImGui::SameLine();
+        ImGui::PopID();
+    }
+    if (ImGui::SmallButton("+")) {
+        actions::begin_capture({.index = index, .slot = static_cast<int>(act_step.keys.size())});
+    }
+    if (stored_fonts().mono) {
+        ImGui::PopFont();
+    }
+}
+
+} // namespace
+
 void keys_section()
 {
     const std::vector<actions::ActStep>& all = actions::get_all();
@@ -846,32 +904,7 @@ void keys_section()
                 gui::tooltip("%s", act_step.tip.c_str());
             }
             ImGui::TableNextColumn();
-            if (stored_fonts().mono) {
-                ImGui::PushFont(stored_fonts().mono);
-            }
-            for (int k = 0; std::cmp_less(k, act_step.keys.size()); ++k) {
-                ImGui::PushID(k);
-                const bool capturing = actions::get_capturing() && actions::capturing_index() == i;
-                const std::string text = capturing ? "..." : actions::format_chord(core::at(act_step.keys, k));
-                if (ImGui::SmallButton(text.c_str())) {
-                    actions::begin_capture({.index = i, .slot = k});
-                }
-                if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-                    std::vector<actions::Chord> next = act_step.keys;
-                    next.erase(next.begin() + k);
-                    actions::set_keys(i, next);
-                    ImGui::PopID();
-                    break;
-                }
-                ImGui::SameLine();
-                ImGui::PopID();
-            }
-            if (ImGui::SmallButton("+")) {
-                actions::begin_capture({.index = i, .slot = static_cast<int>(act_step.keys.size())});
-            }
-            if (stored_fonts().mono) {
-                ImGui::PopFont();
-            }
+            chord_buttons(act_step, i);
             std::vector<int> clashes = actions::conflicts(i);
             if (!clashes.empty()) {
                 ImGui::SameLine();
@@ -1065,78 +1098,65 @@ void row_menu(const nodes::Elem& node)
 
 std::string take_outliner_search() { return organize::take_outliner_search(); }
 
-void inspector_section(const ui::ShapeMesh& model)
+namespace {
+
+// The clipboard (Ctrl+Shift+C / Ctrl+Shift+V): copy the transform and fields, paste either.
+void clipboard_section(bool any)
 {
-    (void)model;
-    const SelectionIds selection_ids = current_selection();
-    const bool any = !selection_ids.objects.empty() || !selection_ids.sectors.empty() || (selection_ids.node != 0U);
-    ImGui::Spacing();
-    // The clipboard (Ctrl+Shift+C / Ctrl+Shift+V).
-    if (ImGui::CollapsingHeader("Copy / paste###ux3clip")) {
-        ImGui::BeginDisabled(!any);
-        if (ImGui::SmallButton("Copy Transform and Fields")) {
-            get_queue([] {
-                std::string message;
-                clip::copy_props(&message);
-                show_message(message);
-            });
-        }
-        ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-            gui::tooltip("%s", actions::get_keys_text(actions::kCopyProps).c_str());
-        }
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!any || !clip::have_transform());
-        if (ImGui::SmallButton("Paste Transform")) {
-            get_queue([] {
-                std::string message;
-                clip::paste_transform(&message);
-                show_message(message);
-            });
-        }
-        ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-            gui::tooltip("%s", actions::get_keys_text(actions::kPasteTransform).c_str());
-        }
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!any || clip::field_count() == 0);
-        if (ImGui::SmallButton("Paste fields")) {
-            get_queue([] {
-                std::string message;
-                clip::paste_fields(&message);
-                show_message(message);
-            });
-        }
-        ImGui::EndDisabled();
-        gui::text_disabled("Copied: %s", clip::describe().c_str());
+    ImGui::BeginDisabled(!any);
+    if (ImGui::SmallButton("Copy Transform and Fields")) {
+        get_queue([] {
+            std::string message;
+            clip::copy_props(&message);
+            show_message(message);
+        });
     }
-    // Several selected: their shared fields.
-    std::vector<uint32_t> nodes;
-    for (const uint32_t id : selection_ids.objects.empty() ? selection_ids.sectors : selection_ids.objects) {
-        if (nodes::get_find(id) >= 0 && nodes.size() < kMaxMultiSelect) {
-            nodes.push_back(id);
-        }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        gui::tooltip("%s", actions::get_keys_text(actions::kCopyProps).c_str());
     }
-    if (nodes.size() < 2) {
-        return;
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!any || !clip::have_transform());
+    if (ImGui::SmallButton("Paste Transform")) {
+        get_queue([] {
+            std::string message;
+            clip::paste_transform(&message);
+            show_message(message);
+        });
     }
-    std::array<char, kMultiHeaderSize> header{};
-    text::format_to(header, "Shared fields (%d nodes)###ux3multi", static_cast<int>(nodes.size()));
-    if (!ImGui::CollapsingHeader(header.data())) {
-        return;
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        gui::tooltip("%s", actions::get_keys_text(actions::kPasteTransform).c_str());
     }
-    // (the fields every selected node has and can edit; a value where they agree, "mixed" where not)
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!any || clip::field_count() == 0);
+    if (ImGui::SmallButton("Paste fields")) {
+        get_queue([] {
+            std::string message;
+            clip::paste_fields(&message);
+            show_message(message);
+        });
+    }
+    ImGui::EndDisabled();
+    gui::text_disabled("Copied: %s", clip::describe().c_str());
+}
+
+// A field every selected node has and can edit: its key, kind, text, and whether they disagree.
+struct Shared {
+    uint32_t key{};
+    fields::Kind kind{};
+    std::string text;
+    bool mixed{};
+};
+
+// The fields every selected node has and can edit; a value where they agree, "mixed" where not.
+std::vector<Shared> shared_fields_of(const std::vector<uint32_t>& nodes)
+{
     std::vector<std::vector<fields::Row>> rows;
     rows.reserve(nodes.size());
     for (const uint32_t id : nodes) {
         rows.push_back(fields::rows_of(core::at(nodes::get_all(), nodes::get_find(id))));
     }
-    struct Shared {
-        uint32_t key;
-        fields::Kind kind;
-        std::string text;
-        bool mixed;
-    };
     std::vector<Shared> shared;
     for (const fields::Row& row : rows.front()) {
         if (!row.editable || row.key == fields::key_pos() || row.key == fields::key_angles() ||
@@ -1156,6 +1176,89 @@ void inspector_section(const ui::ShapeMesh& model)
             shared.push_back({.key = row.key, .kind = row.value.kind, .text = text, .mixed = mixed});
         }
     }
+    return shared;
+}
+
+// A shared field's row: its name, and its value typed in - set on every selected node with Enter.
+void shared_field_row(const Shared& shared_field, size_t row_index, const std::vector<uint32_t>& nodes)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    gui::text_disabled("%s", fields::get_name_text(shared_field.key, fields::get_name_of).c_str());
+    ImGui::TableNextColumn();
+    ImGui::PushID(static_cast<int>(shared_field.key));
+    SharedEdit& edit = core::at(shared_view().shared_, row_index);
+    const ImGuiID id = ImGui::GetID("##value");
+    // (the value shown afresh unless it's being typed in)
+    if (shared_view().shared_active_ != id || edit.key != shared_field.key) {
+        edit.key = shared_field.key;
+        text::format_to(edit.text, "%s", shared_field.mixed ? "" : shared_field.text.c_str());
+    }
+    ImGui::SetNextItemWidth(-1.0F);
+    if (stored_fonts().mono) {
+        ImGui::PushFont(stored_fonts().mono);
+    }
+    const bool enter = ImGui::InputTextWithHint("##value", shared_field.mixed ? "mixed" : "", edit.text.data(),
+                                                sizeof(edit.text), ImGuiInputTextFlags_EnterReturnsTrue);
+    if (stored_fonts().mono) {
+        ImGui::PopFont();
+    }
+    if (ImGui::IsItemActive()) {
+        shared_view().shared_active_ = id;
+    } else if (shared_view().shared_active_ == id) {
+        shared_view().shared_active_ = 0;
+    }
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("%s - %s", fields::kind_name(shared_field.kind),
+                     shared_field.mixed ? "mixed values" : "same on all");
+    }
+    if (enter) {
+        FieldSet set;
+        set.key = shared_field.key;
+        set.kind = static_cast<int>(shared_field.kind);
+        set.text = edit.text.data();
+        const std::vector<uint32_t>& targets = nodes;
+        get_queue(([targets, set] {
+            std::string message;
+            const int count = set_fields_on_nodes(targets, {set}, "Field (all selected)", &message);
+            show_message(count ? "Set on " + std::to_string(count) + " nodes" +
+                                     (message.empty() ? "" : " (" + message + ")")
+                               : "Not set: " + message);
+        }));
+        shared_view().shared_active_ = 0;
+    }
+    ImGui::PopID();
+}
+
+} // namespace
+
+void inspector_section(const ui::ShapeMesh& model)
+{
+    (void)model;
+    const SelectionIds selection_ids = current_selection();
+    const bool any = !selection_ids.objects.empty() || !selection_ids.sectors.empty() || (selection_ids.node != 0U);
+    ImGui::Spacing();
+    // The clipboard (Ctrl+Shift+C / Ctrl+Shift+V).
+    if (ImGui::CollapsingHeader("Copy / paste###ux3clip")) {
+        clipboard_section(any);
+    }
+    // Several selected: their shared fields.
+    std::vector<uint32_t> nodes;
+    for (const uint32_t id : selection_ids.objects.empty() ? selection_ids.sectors : selection_ids.objects) {
+        if (nodes::get_find(id) >= 0 && nodes.size() < kMaxMultiSelect) {
+            nodes.push_back(id);
+        }
+    }
+    if (nodes.size() < 2) {
+        return;
+    }
+    std::array<char, kMultiHeaderSize> header{};
+    text::format_to(header, "Shared fields (%d nodes)###ux3multi", static_cast<int>(nodes.size()));
+    if (!ImGui::CollapsingHeader(header.data())) {
+        return;
+    }
+    // (the fields every selected node has and can edit; a value where they agree, "mixed" where not)
+    const std::vector<Shared> shared = shared_fields_of(nodes);
     if (shared.empty()) {
         gui::text_disabled("No shared editable fields");
         return;
@@ -1170,53 +1273,7 @@ void inspector_section(const ui::ShapeMesh& model)
         shared_view().shared_.assign(shared.size(), SharedEdit{});
     }
     for (size_t i = 0; i < shared.size(); ++i) {
-        const Shared& shared_field = core::at(shared, i);
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        gui::text_disabled("%s", fields::get_name_text(shared_field.key, fields::get_name_of).c_str());
-        ImGui::TableNextColumn();
-        ImGui::PushID(static_cast<int>(shared_field.key));
-        SharedEdit& edit = core::at(shared_view().shared_, i);
-        const ImGuiID id = ImGui::GetID("##value");
-        // (the value shown afresh unless it's being typed in)
-        if (shared_view().shared_active_ != id || edit.key != shared_field.key) {
-            edit.key = shared_field.key;
-            text::format_to(edit.text, "%s", shared_field.mixed ? "" : shared_field.text.c_str());
-        }
-        ImGui::SetNextItemWidth(-1.0F);
-        if (stored_fonts().mono) {
-            ImGui::PushFont(stored_fonts().mono);
-        }
-        const bool enter = ImGui::InputTextWithHint("##value", shared_field.mixed ? "mixed" : "", edit.text.data(),
-                                                    sizeof(edit.text), ImGuiInputTextFlags_EnterReturnsTrue);
-        if (stored_fonts().mono) {
-            ImGui::PopFont();
-        }
-        if (ImGui::IsItemActive()) {
-            shared_view().shared_active_ = id;
-        } else if (shared_view().shared_active_ == id) {
-            shared_view().shared_active_ = 0;
-        }
-        if (ImGui::IsItemHovered()) {
-            gui::tooltip("%s - %s", fields::kind_name(shared_field.kind),
-                         shared_field.mixed ? "mixed values" : "same on all");
-        }
-        if (enter) {
-            FieldSet set;
-            set.key = shared_field.key;
-            set.kind = static_cast<int>(shared_field.kind);
-            set.text = edit.text.data();
-            const std::vector<uint32_t>& targets = nodes;
-            get_queue(([targets, set] {
-                std::string message;
-                const int count = set_fields_on_nodes(targets, {set}, "Field (all selected)", &message);
-                show_message(count ? "Set on " + std::to_string(count) + " nodes" +
-                                         (message.empty() ? "" : " (" + message + ")")
-                                   : "Not set: " + message);
-            }));
-            shared_view().shared_active_ = 0;
-        }
-        ImGui::PopID();
+        shared_field_row(core::at(shared, i), i, nodes);
     }
     ImGui::EndTable();
 }
