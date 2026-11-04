@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 
 namespace script {
 class Struct;

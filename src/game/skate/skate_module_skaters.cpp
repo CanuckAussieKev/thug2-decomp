@@ -37,7 +37,7 @@
 #include "engine/objects/proximity.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/objects/shadow_component.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/objects/vibration_component.h"
 #include "engine/script/preferences.h"
 #include "game/skate/highscores.h"

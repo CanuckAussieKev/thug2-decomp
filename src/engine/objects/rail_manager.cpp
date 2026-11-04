@@ -19,7 +19,7 @@
 #include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/smtptr.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"

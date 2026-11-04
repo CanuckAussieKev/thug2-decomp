@@ -27,7 +27,7 @@
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/proximity.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/audio/continue_music.h"
 #include "engine/audio/music_api.h"
 #include "engine/script/preferences.h"

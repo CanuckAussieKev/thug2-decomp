@@ -1,6 +1,6 @@
 // The VehicleSound component: see vehicle_sound.h. From the disassembly of 0x0043C540-0x0043D2AF.
 
-#include "engine/objects/vehicle_sound.h"
+#include "game/world/vehicle_sound.h"
 
 #include <algorithm>
 #include <bit>
@@ -12,7 +12,7 @@
 #include "engine/memory/mem.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/sound_component.h"
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_clock.h"

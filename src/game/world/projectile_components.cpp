@@ -3,7 +3,7 @@
 // x87 roundings are kept: values the original stores are rounded to float, the ones it keeps on the FPU stack are
 // worked in double.
 
-#include "engine/objects/projectile_components.h"
+#include "game/world/projectile_components.h"
 
 #include <cmath>
 #include <cstdint>
@@ -15,7 +15,7 @@
 #include "engine/net/net_app.h"
 #include "game/online/player_info.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/ped_logic.h"
+#include "game/world/ped_logic.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"

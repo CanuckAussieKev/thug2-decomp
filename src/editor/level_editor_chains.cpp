@@ -42,7 +42,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/rail_manager.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "game/commands/game_cfuncs.h"
 #include "engine/script/load.h"
 #include "engine/script/node_manager.h"

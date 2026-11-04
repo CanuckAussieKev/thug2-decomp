@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <array>

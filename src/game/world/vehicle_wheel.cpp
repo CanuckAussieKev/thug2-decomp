@@ -1,11 +1,11 @@
-// The vehicle component's member function registration and wheel settings (engine/objects/vehicle_wheel.h).
+// The vehicle component's member function registration and wheel settings (game/world/vehicle_wheel.h).
 
-#include "engine/objects/vehicle_wheel.h"
+#include "game/world/vehicle_wheel.h"
 
 #include <cstdint>
 #include <array>
 
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"

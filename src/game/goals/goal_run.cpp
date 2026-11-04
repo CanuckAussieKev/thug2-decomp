@@ -18,7 +18,7 @@
 #include "game/online/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"

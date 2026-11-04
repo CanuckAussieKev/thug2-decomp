@@ -4,7 +4,7 @@
 // destructor 0x00437CF0 aren't Ghidra functions). Float arithmetic follows the original's x87 code: double (53 bits)
 // where it stays on the stack, rounded to float where it is stored.
 
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/viewport.h"
@@ -27,8 +27,8 @@
 #include "base/maths/mat4.h"
 #include "base/maths/random.h"
 #include "engine/objects/proximity.h"
-#include "engine/objects/vehicle_internal.h"
-#include "engine/objects/vehicle_wheel.h"
+#include "game/world/vehicle_internal.h"
+#include "game/world/vehicle_wheel.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"

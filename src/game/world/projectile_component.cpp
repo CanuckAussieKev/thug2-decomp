@@ -1,6 +1,6 @@
 // The projectile component (GameObjects::ProjectileComponent): see projectile_component.h.
 
-#include "engine/objects/projectile_component.h"
+#include "game/world/projectile_component.h"
 
 #include <array>
 #include <cmath>

@@ -26,7 +26,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/trick_goals.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "game/skate/profile_manager.h"
 #include "game/rider/rider.h"
 #include "game/skate/point_tally.h"

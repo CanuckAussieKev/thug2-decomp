@@ -14,7 +14,7 @@
 #include "engine/memory/task_list.h"
 #include "game/online/stats_man.h"
 #include "engine/objects/game_objects.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/pad_input/input_hub.h"
 #include "game/skate/profile_manager.h"
 #include "game/rider/rider.h"

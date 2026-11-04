@@ -3,7 +3,7 @@
 // 0x004ED220, 0x004ED2A0, 0x004EDD80, 0x004EDDA0, 0x004EDE00, 0x004EDE20, 0x004EDEA0, 0x004EDEC0, 0x004EE100,
 // 0x004EE230, 0x004EE280, 0x004F20E0, 0x004F24E0 and 0x004F2770, and 0x004EDC10, aren't Ghidra functions).
 
-#include "engine/objects/ped_logic.h"
+#include "game/world/ped_logic.h"
 
 #include <cstdint>
 #include <new>

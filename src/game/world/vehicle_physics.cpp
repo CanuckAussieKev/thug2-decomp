@@ -3,7 +3,7 @@
 // 0x00435B60-0x00436CE2, 0x00437550-0x00437A54, 0x00438A20-0x00438BA1 and 0x0043AE10-0x0043B661. Float arithmetic
 // follows the original's x87 code: double (53 bits) where it stays on the stack, rounded to float where stored.
 
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 
 #include <algorithm>
 #include <bit>
@@ -16,7 +16,7 @@
 #include "engine/objects/entity.h"
 #include "engine/render/coll_movable.h"
 #include "engine/objects/anim_blender.h"
-#include "engine/objects/vehicle_internal.h"
+#include "game/world/vehicle_internal.h"
 #include "engine/render/probe_ray.h"
 #include "engine/sys/game_clock.h"
 #include "game/park_editing/park_editor.h"

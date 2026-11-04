@@ -24,7 +24,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_component.h"
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 

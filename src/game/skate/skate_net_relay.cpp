@@ -35,7 +35,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/smtptr.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "game/commands/game_cfuncs.h"
 #include "engine/script/qb.h"

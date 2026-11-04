@@ -15,7 +15,7 @@
 #include "base/core/dbg.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/control_pad.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"

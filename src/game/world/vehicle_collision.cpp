@@ -5,7 +5,7 @@
 // follows the original's x87 code: double (53 bits) where it stays on the stack, rounded to float where stored.
 
 #include "engine/objects/model_component.h"
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 
 #include <algorithm>
 #include <bit>
@@ -20,7 +20,7 @@
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/render/coll_rect.h"
-#include "engine/objects/vehicle_internal.h"
+#include "game/world/vehicle_internal.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/objects/control_pad.h"

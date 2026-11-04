@@ -13,7 +13,7 @@
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor_internal.h" // IWYU pragma: keep - the namespace of the using-directive
 #include "engine/objects/control_pad.h"
-#include "engine/objects/editor_camera.h"
+#include "game/world/editor_camera.h"
 #include "engine/objects/input_component.h"
 #include "base/core/down_cast.h"
 #include "engine/script/cscript.h"

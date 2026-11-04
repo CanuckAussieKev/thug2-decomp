@@ -20,7 +20,7 @@
 #include "game/goals/goal_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/control_pad.h"
-#include "engine/objects/editor_camera.h"
+#include "game/world/editor_camera.h"
 #include "engine/objects/input_component.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/cscript.h"

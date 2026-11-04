@@ -2,7 +2,7 @@
 // member functions 0x004E37D0, 0x004E3810, 0x004E3BD0 and 0x004E3EC0 aren't Ghidra functions).
 
 #include "engine/objects/path_follower.h"
-#include "engine/objects/avoid.h"
+#include "game/world/avoid.h"
 #include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 

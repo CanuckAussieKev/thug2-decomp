@@ -24,7 +24,7 @@
 #include "engine/objects/motion_path.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/path_manager.h"
-#include "engine/objects/ped_logic.h"
+#include "game/world/ped_logic.h"
 #include "engine/objects/walk_lerp.h"
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"

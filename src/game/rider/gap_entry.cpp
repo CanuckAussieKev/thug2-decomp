@@ -38,7 +38,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/balance_trick.h"
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"

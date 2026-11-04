@@ -9,7 +9,7 @@
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "base/maths/random.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"

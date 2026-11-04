@@ -23,7 +23,7 @@
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/lists/key_map.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"

@@ -17,7 +17,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/path_manager.h"
-#include "engine/objects/ped_logic.h"
+#include "game/world/ped_logic.h"
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"

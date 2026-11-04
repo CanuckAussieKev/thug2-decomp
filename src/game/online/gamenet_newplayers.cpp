@@ -18,7 +18,7 @@
 #include "engine/net/net_conn.h"
 #include "engine/net/net_lists.h"
 #include "engine/net/net_manager.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"

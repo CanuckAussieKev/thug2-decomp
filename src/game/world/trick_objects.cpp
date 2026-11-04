@@ -2,7 +2,7 @@
 // manager's lookups, graffiti state and graffiti log).
 // See trick_objects.h.
 
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_geom.h"

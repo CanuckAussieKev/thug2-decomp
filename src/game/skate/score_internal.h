@@ -9,7 +9,7 @@
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
 #include "game/online/gamenet_manager.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "game/skate/game_mode.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/point_tally.h"

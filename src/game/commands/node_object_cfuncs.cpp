@@ -33,7 +33,7 @@
 #include "engine/objects/proximity.h"
 #include "engine/objects/rail_manager.h"
 #include "game/skate/gap_checklist.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/node_prefixes.h"

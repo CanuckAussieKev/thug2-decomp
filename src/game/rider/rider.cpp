@@ -71,7 +71,7 @@
 #include "game/goals/goal_manager.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/viewport.h"
-#include "engine/objects/ped_logic.h"
+#include "game/world/ped_logic.h"
 #include "game/commands/game_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"

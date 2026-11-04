@@ -487,7 +487,7 @@ add_executable(thug2 WIN32
     src/engine/objects/movie_manager.cpp
     src/engine/objects/movie_cfuncs.cpp
     src/engine/objects/anim_movies.cpp
-    src/engine/objects/trick_objects.cpp
+    src/game/world/trick_objects.cpp
     src/engine/objects/rail_manager.cpp
     src/game/skate/profile_manager.cpp
     src/game/skate/highscores.cpp
@@ -609,11 +609,11 @@ add_executable(thug2 WIN32
     src/engine/pad_input/key_names.cpp
     src/engine/objects/anim_blender.cpp
     src/engine/objects/ride_tracker.cpp
-    src/engine/objects/avoid.cpp
-    src/engine/objects/ped_logic.cpp
-    src/engine/objects/ped_logic_path.cpp
-    src/engine/objects/ped_logic_move.cpp
-    src/engine/objects/projectile_components.cpp
+    src/game/world/avoid.cpp
+    src/game/world/ped_logic.cpp
+    src/game/world/ped_logic_path.cpp
+    src/game/world/ped_logic_move.cpp
+    src/game/world/projectile_components.cpp
     src/engine/objects/collision_component.cpp
     src/engine/objects/matrix_component.cpp
     src/engine/objects/camera_lookaround.cpp
@@ -627,7 +627,7 @@ add_executable(thug2 WIN32
     src/game/park_editing/goal_editor_nodes.cpp
     src/engine/objects/object_proximity.cpp
     src/engine/objects/pager_message.cpp
-    src/engine/objects/editor_camera.cpp
+    src/game/world/editor_camera.cpp
     src/engine/file/async.cpp
     src/engine/file/file_load.cpp
     src/engine/file/packs.cpp
@@ -788,10 +788,10 @@ add_executable(thug2 WIN32
     src/engine/objects/smtptr.cpp
     src/engine/objects/tracker.cpp
     src/engine/objects/trigger_component.cpp
-    src/engine/objects/projectile_component.cpp
+    src/game/world/projectile_component.cpp
     src/engine/objects/display_matrix_component.cpp
     src/engine/objects/static_vehicle.cpp
-    src/engine/objects/vehicle_wheel.cpp
+    src/game/world/vehicle_wheel.cpp
     src/engine/objects/shadow_component.cpp
     src/engine/objects/skeleton_component.cpp
     src/engine/objects/sound_component.cpp
@@ -805,10 +805,10 @@ add_executable(thug2 WIN32
     src/engine/objects/velocity_component.cpp
     src/engine/objects/vibration_component.cpp
     src/engine/objects/wait_and_die.cpp
-    src/engine/objects/vehicle_sound.cpp
-    src/engine/objects/vehicle_component.cpp
-    src/engine/objects/vehicle_physics.cpp
-    src/engine/objects/vehicle_collision.cpp
+    src/game/world/vehicle_sound.cpp
+    src/game/world/vehicle_component.cpp
+    src/game/world/vehicle_physics.cpp
+    src/game/world/vehicle_collision.cpp
     src/game/rider/rotation.cpp
     src/game/rider/local_net_logic.cpp
     src/game/rider/nonlocal_net_logic.cpp

@@ -2,7 +2,7 @@
 // disassembly of 0x004E4ED0-0x004E65F2. The x87 roundings are kept: values the original stores are rounded to
 // float, the ones it keeps on the FPU stack are worked in double.
 
-#include "engine/objects/editor_camera.h"
+#include "game/world/editor_camera.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/gfx/engine_shadows.h"
 

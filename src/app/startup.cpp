@@ -35,7 +35,7 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/path_manager.h"
 #include "engine/objects/tracker.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/cache.h"
 #include "engine/script/script_startup.h"
 #include "engine/script/param_struct.h"

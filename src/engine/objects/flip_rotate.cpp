@@ -11,7 +11,7 @@
 #include "base/maths/quat_rotation.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/vehicle_component.h"
+#include "game/world/vehicle_component.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"

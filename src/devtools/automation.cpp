@@ -42,7 +42,7 @@
 #include "engine/objects/signal.h"
 #include "engine/lists/key_map.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

@@ -11,7 +11,7 @@
 
 #include "base/core/checksums.h"
 #include "base/core/dbg.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"

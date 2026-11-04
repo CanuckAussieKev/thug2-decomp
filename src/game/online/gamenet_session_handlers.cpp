@@ -23,7 +23,7 @@
 #include "engine/net/net_conn.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"

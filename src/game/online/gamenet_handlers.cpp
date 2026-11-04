@@ -22,7 +22,7 @@
 #include "engine/net/net_dispatcher.h"
 #include "game/online/stats_man.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/trick_objects.h"
+#include "game/world/trick_objects.h"
 #include "engine/script/preferences.h"
 #include "game/skate/skate_net.h"
 #include "base/util/bitstream.h"

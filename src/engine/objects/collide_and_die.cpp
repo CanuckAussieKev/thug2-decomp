@@ -3,7 +3,7 @@
 // on the FPU stack are worked in double.
 
 #include "engine/objects/collide_and_die.h"
-#include "engine/objects/projectile_components.h"
+#include "game/world/projectile_components.h"
 
 #include <cstdint>
 #include <gsl/pointers>
