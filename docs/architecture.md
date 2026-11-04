@@ -14,6 +14,8 @@ formats/  wire/  gpu/       file formats; network messages; GPU buffers
 platform/                   Win32, Direct3D, DirectSound, DirectInput, SDL, the GameSpy SDK, code addresses
 ```
 
+**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `engine/net`, `engine/core`, `engine/maths`), not from a header of a higher layer.
+
 **The boundary layer** is where the game meets bytes it doesn't lay out itself. Only there do byte layouts matter;
 everything above it uses the game's own types and may change them freely.
 
