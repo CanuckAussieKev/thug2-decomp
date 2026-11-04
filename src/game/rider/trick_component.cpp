@@ -808,6 +808,349 @@ bool is_straight_direction(uint32_t button)
     return button == kUp || button == kDown || button == kLeft || button == kRight;
 }
 
+// A Press's time, with `scaled` stretched by the core physics' rate (+0x2E8) below 1.
+uint32_t stretched_window(MoveExecutor* trick, uint32_t ms, bool scaled)
+{
+    if (scaled) {
+        const float rate = trick->core_physics()->slomo_speed();
+        if (rate < 1.0F) {
+            ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
+        }
+    }
+    return ms;
+}
+
+// TripleInOrder: the first tapped, then the second and third pressed (in either order).
+Scan scan_triple_in_order(MoveExecutor* trick, const std::array<uint32_t, 3>& buttons,
+                          MoveExecutor::PressWindow press_window)
+{
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    int state = 0;
+    Scan scan = Scan::kIsOver;
+    for_each_event(trick, [&](int, TrickEvent& event) {
+        const uint32_t time = event.time;
+        if (get_now() - time >= ms) {
+            scan = Scan::kStopped;
+            return false;
+        }
+        if (event.flags & mask) {
+            return true;
+        }
+        switch (state) {
+        case 0:
+            if (event.type == 1 && event.button == core::at(buttons, 2)) {
+                event.used = true;
+                state = 1;
+            } else if (event.type == 1 && event.button == core::at(buttons, 1)) {
+                event.used = true;
+                state = 2;
+            }
+            break;
+        case 1:
+        case 2:
+            if (event.type == 1 && event.button == core::at(buttons, state == 1 ? 1 : 2)) {
+                event.used = true;
+                state = 3;
+            }
+            break;
+        case 3:
+            if (event.type == 2 && event.button == core::at(buttons, 0)) {
+                event.used = true;
+                state = 4;
+            }
+            break;
+        default:
+            if (event.type == 1 && event.button == core::at(buttons, 0)) {
+                event.used = true;
+                scan = Scan::kFound;
+                return false;
+            }
+            break;
+        }
+        return true;
+    });
+    return scan;
+}
+
+// HoldTwoAndPress: the first and second pressed (either order, neither released), then the third.
+Scan scan_hold_two_and_press(MoveExecutor* trick, const std::array<uint32_t, 3>& buttons,
+                             MoveExecutor::PressWindow press_window)
+{
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    int state = 0;
+    Scan scan = Scan::kIsOver;
+    for_each_event(trick, [&](int, TrickEvent& event) {
+        const uint32_t time = event.time;
+        if (get_now() - time >= ms) {
+            scan = Scan::kStopped;
+            return false;
+        }
+        if (event.flags & mask) {
+            return true;
+        }
+        if (state == 0) {
+            if (event.type == 1 && event.button == core::at(buttons, 2)) {
+                event.used = true;
+                state = 1;
+            }
+            return true;
+        }
+        // (1: either of the two; 2: the first still to come; 3: the second still to come)
+        int next = -1;
+        if ((state == 1 || state == 2) && event.button == core::at(buttons, state == 1 ? 1 : 0)) {
+            next = state == 1 ? 2 : 4;
+        } else if ((state == 1 && event.button == core::at(buttons, 0)) ||
+                   (state == 3 && event.button == core::at(buttons, 1))) {
+            next = state == 1 ? 3 : 4;
+        }
+        if (next < 0) {
+            return true;
+        }
+        if (event.type == 1) {
+            event.used = true;
+            if (next == 4) {
+                scan = Scan::kFound;
+                return false;
+            }
+            state = next;
+        } else if (event.type == 2) {
+            scan = Scan::kStopped;
+            return false;
+        }
+        return true;
+    });
+    return scan;
+}
+
+// ReleaseTwo: both released (either order; scanning back from the newest, a press of the one whose release came
+// first rules it out).
+Scan scan_release_two(MoveExecutor* trick, const std::array<uint32_t, 3>& buttons,
+                      MoveExecutor::PressWindow press_window)
+{
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    bool got0 = false;
+    bool got1 = false;
+    Scan scan = Scan::kIsOver;
+    for_each_event(trick, [&](int, TrickEvent& event) {
+        const uint32_t time = event.time;
+        if (get_now() - time >= ms) {
+            scan = Scan::kStopped;
+            return false;
+        }
+        const bool free = !(event.flags & mask);
+        if (!got0 && free && event.type == 2 && event.button == core::at(buttons, 0)) {
+            event.used = true;
+            got0 = true;
+        }
+        if (!got1 && free && event.type == 2 && event.button == core::at(buttons, 1)) {
+            event.used = true;
+            got1 = true;
+        }
+        if (got0 && got1) {
+            scan = Scan::kFound;
+            return false;
+        }
+        if (free && event.type == 1 &&
+            ((got0 && event.button == core::at(buttons, 0)) ||
+             (!got0 && got1 && event.button == core::at(buttons, 1)))) {
+            scan = Scan::kStopped;
+            return false;
+        }
+        return true;
+    });
+    return scan;
+}
+
+// ReleaseTwoAndPress: the first and second released and the third pressed (as ReleaseTwo).
+Scan scan_release_two_and_press(MoveExecutor* trick, const std::array<uint32_t, 3>& buttons,
+                                MoveExecutor::PressWindow press_window)
+{
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    bool got0 = false;
+    bool got1 = false;
+    bool got2 = false;
+    Scan scan = Scan::kIsOver;
+    for_each_event(trick, [&](int, TrickEvent& event) {
+        const uint32_t time = event.time;
+        if (get_now() - time >= ms) {
+            scan = Scan::kStopped;
+            return false;
+        }
+        const bool free = !(event.flags & mask);
+        if (!got0 && free && event.type == 2 && event.button == core::at(buttons, 0)) {
+            event.used = true;
+            got0 = true;
+        }
+        if (!got1 && free && event.type == 2 && event.button == core::at(buttons, 1)) {
+            event.used = true;
+            got1 = true;
+        }
+        if (!got2 && free && event.type == 1 && event.button == core::at(buttons, 2)) {
+            event.used = true;
+            got2 = true;
+        }
+        if (got0 && got1) {
+            if (got2) {
+                scan = Scan::kFound;
+                return false;
+            }
+        } else if (free && event.type == 1 &&
+                   ((got0 && event.button == core::at(buttons, 0)) ||
+                    (!got0 && got1 && event.button == core::at(buttons, 1)))) {
+            scan = Scan::kStopped;
+            return false;
+        }
+        return true;
+    });
+    return scan;
+}
+
+// PressTwoAnyOrder: both pressed (either order, no release of either between); never over (the used marks kept).
+Scan scan_press_two_any_order(MoveExecutor* trick, const std::array<uint32_t, 3>& buttons,
+                              MoveExecutor::PressWindow press_window)
+{
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    bool got0 = false;
+    bool got1 = false;
+    Scan scan = Scan::kStopped;
+    for_each_event(trick, [&](int, TrickEvent& event) {
+        const uint32_t time = event.time;
+        if (get_now() - time >= ms) {
+            return false;
+        }
+        if (event.flags & mask) {
+            return true;
+        }
+        for (int k = 0; k < 2; ++k) {
+            if (event.button != core::at(buttons, k)) {
+                continue;
+            }
+            bool& mine = k == 0 ? got0 : got1;
+            const bool other = k == 0 ? got1 : got0;
+            if (event.type == 2) {
+                event.used = true;
+                got0 = got1 = false;
+            } else if (event.type == 1) {
+                event.used = true;
+                if (other) {
+                    scan = Scan::kFound;
+                    return false;
+                }
+                mine = true;
+            }
+        }
+        return true;
+    });
+    return scan;
+}
+
+// ReleaseAndTap: the newest three events past the d-pad's four directions: the first released, then the second
+// pressed and released (marked used: found). Fewer than three, or one too old: stopped; others: over.
+Scan scan_release_and_tap(MoveExecutor* trick, const std::array<uint32_t, 3>& buttons,
+                          MoveExecutor::PressWindow press_window)
+{
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    std::array<int, 3> found = {{-1, -1, -1}};
+    int count = 0;
+    for_each_event(trick, [&](int index, TrickEvent& event) {
+        if (!(event.flags & mask) && !is_straight_direction(event.button)) {
+            core::at(found, count++) = index;
+            if (count == 3) {
+                return false;
+            }
+        }
+        return true;
+    });
+    if (core::at(found, 0) == -1 || core::at(found, 1) == -1 || core::at(found, 2) == -1) {
+        return Scan::kStopped;
+    }
+    auto& events = trick->get_events();
+    for (const int index : found) {
+        const uint32_t time = core::at(events, index).time;
+        if (get_now() - time >= ms) {
+            return Scan::kStopped;
+        }
+    }
+    TrickEvent& newest = core::at(events, core::at(found, 0));
+    TrickEvent& middle = core::at(events, core::at(found, 1));
+    TrickEvent& oldest = core::at(events, core::at(found, 2));
+    if (newest.type != 2 || newest.button != core::at(buttons, 1) || middle.type != 1 ||
+        middle.button != core::at(buttons, 1) || oldest.type != 2 || oldest.button != core::at(buttons, 0)) {
+        return Scan::kIsOver;
+    }
+    newest.used = true;
+    middle.used = true;
+    oldest.used = true;
+    return Scan::kFound;
+}
+
+// The newest press of `button` marked used.
+void mark_newest_press(MoveExecutor* trick, uint32_t button)
+{
+    for_each_event(trick, [&](int, TrickEvent& event) {
+        if (event.type == 1 && event.button == button) {
+            event.used = true;
+            return false;
+        }
+        return true;
+    });
+}
+
+// The button map's last direction (0: none).
+uint32_t last_direction(const std::array<uint32_t, 3>& button_map)
+{
+    uint32_t direction = 0;
+    for (const uint32_t mapped : button_map) {
+        if (is_direction(mapped)) {
+            direction = mapped;
+        }
+    }
+    return direction;
+}
+
+// ExtraGrabTrickLogic's scan: the newest press of the button (its index in `found_index`: found) with no direction
+// pressed but `direction` (those marked used); another direction pressed: stopped; no press: over.
+Scan scan_extra_grab(MoveExecutor* trick, const std::array<uint32_t, 3>& buttons, uint32_t direction,
+                     MoveExecutor::PressWindow press_window, int& found_index)
+{
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    bool found = false;
+    bool refused = false;
+    for_each_event(trick, [&](int index, TrickEvent& event) {
+        const uint32_t time = event.time;
+        if (get_now() - time >= ms) {
+            return false;
+        }
+        if (!(event.flags & mask) && event.type == 1) {
+            if (event.button == core::at(buttons, 0)) {
+                found = true;
+                found_index = index;
+            } else if (is_direction(event.button)) {
+                if (event.button != direction) {
+                    refused = true;
+                    return false;
+                }
+                event.used = true;
+            }
+        }
+        return true;
+    });
+    if (refused) {
+        return Scan::kStopped;
+    }
+    if (!found) {
+        return Scan::kIsOver;
+    }
+    return Scan::kFound;
+}
+
 } // namespace
 
 // 0x0051FDA0
@@ -843,13 +1186,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
 
     switch (kind->value.word()) {
     case kPress: { // Press: the button pressed (the event gets the flags itself, nothing marked)
-        uint32_t ms = read_trigger(node, 1, buttons);
-        if (scaled) {
-            const float rate = core_physics_->slomo_speed();
-            if (rate < 1.0F) {
-                ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
-            }
-        }
+        const uint32_t ms = stretched_window(this, read_trigger(node, 1, buttons), scaled);
         TrickEvent* event = nullptr;
         const Scan scan = find_event(this, 1, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, event);
         if (scan != Scan::kFound) {
@@ -866,13 +1203,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         if (!skater::thaw_bmx::is_switched_on()) {
             return fail();
         }
-        uint32_t ms = read_trigger(node, 1, buttons);
-        if (scaled) {
-            const float rate = core_physics_->slomo_speed();
-            if (rate < 1.0F) {
-                ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
-            }
-        }
+        const uint32_t ms = stretched_window(this, read_trigger(node, 1, buttons), scaled);
         TrickEvent* event = nullptr;
         const Scan scan = find_event(this, 1, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, event);
         if (scan != Scan::kFound) {
@@ -927,219 +1258,29 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 3, buttons), .mask = mask}));
     }
     case kTripleInOrder: { // TripleInOrder: the first tapped, then the second and third pressed (in either order)
-        uint32_t ms = read_trigger(node, 3, buttons);
-        int state = 0;
-        Scan scan = Scan::kIsOver;
-        for_each_event(this, [&](int, TrickEvent& event) {
-            const uint32_t time = event.time;
-            if (get_now() - time >= ms) {
-                scan = Scan::kStopped;
-                return false;
-            }
-            if (event.flags & mask) {
-                return true;
-            }
-            switch (state) {
-            case 0:
-                if (event.type == 1 && event.button == core::at(buttons, 2)) {
-                    event.used = true;
-                    state = 1;
-                } else if (event.type == 1 && event.button == core::at(buttons, 1)) {
-                    event.used = true;
-                    state = 2;
-                }
-                break;
-            case 1:
-            case 2:
-                if (event.type == 1 && event.button == core::at(buttons, state == 1 ? 1 : 2)) {
-                    event.used = true;
-                    state = 3;
-                }
-                break;
-            case 3:
-                if (event.type == 2 && event.button == core::at(buttons, 0)) {
-                    event.used = true;
-                    state = 4;
-                }
-                break;
-            default:
-                if (event.type == 1 && event.button == core::at(buttons, 0)) {
-                    event.used = true;
-                    scan = Scan::kFound;
-                    return false;
-                }
-                break;
-            }
-            return true;
-        });
-        return finish(scan);
+        const uint32_t ms = read_trigger(node, 3, buttons);
+        return finish(scan_triple_in_order(this, buttons, {.ms = ms, .mask = mask}));
     }
     case kHoldTwoAndPress: { // HoldTwoAndPress: the first and second pressed (either order, neither released), then the third
-        uint32_t ms = read_trigger(node, 3, buttons);
-        int state = 0;
-        Scan scan = Scan::kIsOver;
-        for_each_event(this, [&](int, TrickEvent& event) {
-            const uint32_t time = event.time;
-            if (get_now() - time >= ms) {
-                scan = Scan::kStopped;
-                return false;
-            }
-            if (event.flags & mask) {
-                return true;
-            }
-            if (state == 0) {
-                if (event.type == 1 && event.button == core::at(buttons, 2)) {
-                    event.used = true;
-                    state = 1;
-                }
-                return true;
-            }
-            // (1: either of the two; 2: the first still to come; 3: the second still to come)
-            int next = -1;
-            if ((state == 1 || state == 2) && event.button == core::at(buttons, state == 1 ? 1 : 0)) {
-                next = state == 1 ? 2 : 4;
-            } else if ((state == 1 && event.button == core::at(buttons, 0)) ||
-                       (state == 3 && event.button == core::at(buttons, 1))) {
-                next = state == 1 ? 3 : 4;
-            }
-            if (next < 0) {
-                return true;
-            }
-            if (event.type == 1) {
-                event.used = true;
-                if (next == 4) {
-                    scan = Scan::kFound;
-                    return false;
-                }
-                state = next;
-            } else if (event.type == 2) {
-                scan = Scan::kStopped;
-                return false;
-            }
-            return true;
-        });
-        return finish(scan);
+        const uint32_t ms = read_trigger(node, 3, buttons);
+        return finish(scan_hold_two_and_press(this, buttons, {.ms = ms, .mask = mask}));
     }
-    case kReleaseTwo: { // ReleaseTwo: both released (either order; scanning back from the newest, a press of the one
-                       // whose release came first rules it out)
-        uint32_t ms = read_trigger(node, 2, buttons);
-        bool got0 = false;
-        bool got1 = false;
-        Scan scan = Scan::kIsOver;
-        for_each_event(this, [&](int, TrickEvent& event) {
-            const uint32_t time = event.time;
-            if (get_now() - time >= ms) {
-                scan = Scan::kStopped;
-                return false;
-            }
-            const bool free = !(event.flags & mask);
-            if (!got0 && free && event.type == 2 && event.button == core::at(buttons, 0)) {
-                event.used = true;
-                got0 = true;
-            }
-            if (!got1 && free && event.type == 2 && event.button == core::at(buttons, 1)) {
-                event.used = true;
-                got1 = true;
-            }
-            if (got0 && got1) {
-                scan = Scan::kFound;
-                return false;
-            }
-            if (free && event.type == 1 &&
-                ((got0 && event.button == core::at(buttons, 0)) ||
-                 (!got0 && got1 && event.button == core::at(buttons, 1)))) {
-                scan = Scan::kStopped;
-                return false;
-            }
-            return true;
-        });
-        return finish(scan);
+    case kReleaseTwo: { // ReleaseTwo: both released (either order)
+        const uint32_t ms = read_trigger(node, 2, buttons);
+        return finish(scan_release_two(this, buttons, {.ms = ms, .mask = mask}));
     }
     case kReleaseTwoAndPress: { // ReleaseTwoAndPress: the first and second released and the third pressed (as ReleaseTwo)
-        uint32_t ms = read_trigger(node, 3, buttons);
-        bool got0 = false;
-        bool got1 = false;
-        bool got2 = false;
-        Scan scan = Scan::kIsOver;
-        for_each_event(this, [&](int, TrickEvent& event) {
-            const uint32_t time = event.time;
-            if (get_now() - time >= ms) {
-                scan = Scan::kStopped;
-                return false;
-            }
-            const bool free = !(event.flags & mask);
-            if (!got0 && free && event.type == 2 && event.button == core::at(buttons, 0)) {
-                event.used = true;
-                got0 = true;
-            }
-            if (!got1 && free && event.type == 2 && event.button == core::at(buttons, 1)) {
-                event.used = true;
-                got1 = true;
-            }
-            if (!got2 && free && event.type == 1 && event.button == core::at(buttons, 2)) {
-                event.used = true;
-                got2 = true;
-            }
-            if (got0 && got1) {
-                if (got2) {
-                    scan = Scan::kFound;
-                    return false;
-                }
-            } else if (free && event.type == 1 &&
-                       ((got0 && event.button == core::at(buttons, 0)) ||
-                        (!got0 && got1 && event.button == core::at(buttons, 1)))) {
-                scan = Scan::kStopped;
-                return false;
-            }
-            return true;
-        });
-        return finish(scan);
+        const uint32_t ms = read_trigger(node, 3, buttons);
+        return finish(scan_release_two_and_press(this, buttons, {.ms = ms, .mask = mask}));
     }
     case kPressTwoAnyOrder: { // PressTwoAnyOrder: both pressed (either order, no release of either between); never clears
-        uint32_t ms = read_trigger(node, 2, buttons);
-        bool got0 = false;
-        bool got1 = false;
-        Scan scan = Scan::kStopped;
-        for_each_event(this, [&](int, TrickEvent& event) {
-            const uint32_t time = event.time;
-            if (get_now() - time >= ms) {
-                return false;
-            }
-            if (event.flags & mask) {
-                return true;
-            }
-            for (int k = 0; k < 2; ++k) {
-                if (event.button != core::at(buttons, k)) {
-                    continue;
-                }
-                bool& mine = k == 0 ? got0 : got1;
-                const bool other = k == 0 ? got1 : got0;
-                if (event.type == 2) {
-                    event.used = true;
-                    got0 = got1 = false;
-                } else if (event.type == 1) {
-                    event.used = true;
-                    if (other) {
-                        scan = Scan::kFound;
-                        return false;
-                    }
-                    mine = true;
-                }
-            }
-            return true;
-        });
-        return finish(scan);
+        const uint32_t ms = read_trigger(node, 2, buttons);
+        return finish(scan_press_two_any_order(this, buttons, {.ms = ms, .mask = mask}));
     }
     case kAirTrickLogic: { // AirTrickLogic: the second held (its newest press marked) and the first pressed - or both pressed
         const uint32_t ms = read_trigger(node, 2, buttons);
         if (is_key_held(core::at(buttons, 1))) {
-            for_each_event(this, [&](int, TrickEvent& event) {
-                if (event.type == 1 && event.button == core::at(buttons, 1)) {
-                    event.used = true;
-                    return false;
-                }
-                return true;
-            });
+            mark_newest_press(this, core::at(buttons, 1));
             return find_press(checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}) ? succeed() : fail();
         }
         return find_press_both(core::at(buttons, 0), core::at(buttons, 1), {.ms = ms, .mask = mask}) ? succeed() : fail();
@@ -1158,80 +1299,20 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         const uint32_t third_key = second->next->value.word();
         return is_key_held(first_key) && is_key_held(second_key) && is_key_held(third_key);
     }
-    case kReleaseAndTap: { // ReleaseAndTap: the newest three events past the d-pad's four directions: the first released,
-                       // then the second pressed and released
-                       const uint32_t ms = read_trigger(node, 2, buttons);
-                       std::array<int, 3> found = {{-1, -1, -1}};
-                       int count = 0;
-                       for_each_event(this, [&](int index, TrickEvent& event) {
-                           if (!(event.flags & mask) && !is_straight_direction(event.button)) {
-                               core::at(found, count++) = index;
-                               if (count == 3) {
-                                   return false;
-                               }
-                           }
-                           return true;
-                       });
-                       if (core::at(found, 0) == -1 || core::at(found, 1) == -1 || core::at(found, 2) == -1) {
-                           return false;
-                       }
-                       for (const int index : found) {
-                           const uint32_t time = core::at(events_, index).time;
-                           if (get_now() - time >= ms) {
-                               return false;
-                           }
-                       }
-        TrickEvent& newest = core::at(events_, core::at(found, 0));
-        TrickEvent& middle = core::at(events_, core::at(found, 1));
-        TrickEvent& oldest = core::at(events_, core::at(found, 2));
-        if (newest.type != 2 || newest.button != core::at(buttons, 1) || middle.type != 1 ||
-            middle.button != core::at(buttons, 1) || oldest.type != 2 || oldest.button != core::at(buttons, 0)) {
-            return fail();
-        }
-        newest.used = true;
-        middle.used = true;
-        oldest.used = true;
-        return succeed();
+    case kReleaseAndTap: { // ReleaseAndTap: the first released, then the second pressed and released
+        const uint32_t ms = read_trigger(node, 2, buttons);
+        return finish(scan_release_and_tap(this, buttons, {.ms = ms, .mask = mask}));
     }
     case kExtraGrabTrickLogic: { // (name unknown) the button pressed, with no direction pressed but the map's (its last
-                       // direction) - those marked used; the newest press gets the flags
-        uint32_t direction = 0;
-        for (const uint32_t mapped : button_map_) {
-            if (is_direction(mapped)) {
-                direction = mapped;
-            }
-        }
-        uint32_t ms = read_trigger(node, 1, buttons);
-        bool found = false;
+                                 // direction) - those marked used; the newest press gets the flags
+        const uint32_t direction = last_direction(button_map_);
+        const uint32_t ms = read_trigger(node, 1, buttons);
         int found_index = 0;
-        bool refused = false;
-        for_each_event(this, [&](int index, TrickEvent& event) {
-            const uint32_t time = event.time;
-            if (get_now() - time >= ms) {
-                return false;
-            }
-            if (!(event.flags & mask) && event.type == 1) {
-                if (event.button == core::at(buttons, 0)) {
-                    found = true;
-                    found_index = index;
-                } else if (is_direction(event.button)) {
-                    if (event.button != direction) {
-                        refused = true;
-                        return false;
-                    }
-                    event.used = true;
-                }
-            }
-            return true;
-        });
-        if (refused) {
-            return false;
+        const Scan scan = scan_extra_grab(this, buttons, direction, {.ms = ms, .mask = mask}, found_index);
+        if (scan == Scan::kFound) {
+            core::at(events_, found_index).flags |= mark_flags;
         }
-        if (!found) {
-            return fail();
-        }
-        core::at(events_, found_index).flags |= mark_flags;
-        return succeed();
+        return finish(scan);
     }
     default:
         return fail();
