@@ -455,6 +455,30 @@ struct Other {
     V3 min, max;
 };
 
+// A face of no piece's name near piece `geom`'s own: inside its box, near its own triangles, and nearer them than
+// any other solid piece near it.
+bool belongs_here(const FaceCopy& face, render::PcGeom* geom, V3 min, V3 max, const std::vector<Other>& others)
+{
+    if (!face_inside(face, min, max)) {
+        return false;
+    }
+    const float own = face_distance(geom, face, kNear);
+    if (!(own <= kNear)) {
+        return false;
+    }
+    float nearest = std::numeric_limits<float>::infinity();
+    for (const Other& other : others) {
+        if (!face_inside(face, other.min, other.max)) {
+            continue;
+        }
+        nearest = std::min(nearest, face_distance(other.geom, face, own));
+        if (!belongs(own, nearest)) {
+            break;
+        }
+    }
+    return belongs(own, nearest);
+}
+
 // The faces that belong to piece `checksum` (see the header) and, when `taken` is given, where they came from.
 std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
 {
@@ -525,24 +549,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
                     continue;
                 }
             } else {
-                if (!face_inside(face, min, max)) {
-                    continue;
-                }
-                const float own = face_distance(geom, face, kNear);
-                if (!(own <= kNear)) {
-                    continue;
-                }
-                float nearest = std::numeric_limits<float>::infinity();
-                for (const Other& other : context.others) {
-                    if (!face_inside(face, other.min, other.max)) {
-                        continue;
-                    }
-                    nearest = std::min(nearest, face_distance(other.geom, face, own));
-                    if (!belongs(own, nearest)) {
-                        break;
-                    }
-                }
-                if (!belongs(own, nearest)) {
+                if (!belongs_here(face, geom, min, max, context.others)) {
                     continue;
                 }
             }

@@ -114,42 +114,19 @@ struct GroupSet {
     std::vector<int> faces;
 };
 
-} // namespace
+// A face's raw normal and area, and whether it takes part.
+struct DetailsOf {
+    V3 n{};
+    float area{};
+    bool use{};
+};
 
-std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
+// The sloped faces in groups by their uphill heading (largest first); near-vertical faces join the group whose front
+// they face.
+std::vector<GroupSet> group_by_heading(const std::vector<DetailsOf>& info, float convention)
 {
-    std::vector<Lip> lips;
-    if (max_lips <= 0) {
-        return lips;
-    }
-    // The faces' raw normals and areas; the piece's winding convention from its sloped area.
-    struct DetailsOf {
-        V3 n;
-        float area;
-        bool use;
-    };
-    std::vector<DetailsOf> info(faces.size());
-    float up_area = 0.0F;
-    float down_area = 0.0F;
-    for (size_t i = 0; i < faces.size(); ++i) {
-        const Face& face = core::at(faces, i);
-        const V3 normal = perpendicular(face.b - face.a, face.c - face.a);
-        const float length = len_of(normal);
-        core::at(info, i) = {.n = length > kTinyLength ? normal * (1.0F / length) : V3{},
-                             .area = length * kHalf,
-                             .use = length > kTinyLength && eligible(face.flags)};
-        if (!core::at(info, i).use) {
-            continue;
-        }
-        const float y = core::at(info, i).n.y;
-        if (std::fabs(y) > kSteepNormalY && std::fabs(y) < kFlatNormalY) {
-            (y > 0.0F ? up_area : down_area) += core::at(info, i).area;
-        }
-    }
-    const float convention = down_area > up_area ? -1.0F : 1.0F;
-    // The sloped faces in groups by their uphill heading (largest first).
     std::vector<int> order;
-    for (size_t i = 0; i < faces.size(); ++i) {
+    for (size_t i = 0; i < info.size(); ++i) {
         if (core::at(info, i).use) {
             order.push_back(static_cast<int>(i));
         }
@@ -197,6 +174,39 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         }
     }
     std::ranges::sort(groups, [](const GroupSet& a, const GroupSet& b) { return a.area > b.area; });
+    return groups;
+}
+
+} // namespace
+
+std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
+{
+    std::vector<Lip> lips;
+    if (max_lips <= 0) {
+        return lips;
+    }
+    // The faces' raw normals and areas; the piece's winding convention from its sloped area.
+    std::vector<DetailsOf> info(faces.size());
+    float up_area = 0.0F;
+    float down_area = 0.0F;
+    for (size_t i = 0; i < faces.size(); ++i) {
+        const Face& face = core::at(faces, i);
+        const V3 normal = perpendicular(face.b - face.a, face.c - face.a);
+        const float length = len_of(normal);
+        core::at(info, i) = {.n = length > kTinyLength ? normal * (1.0F / length) : V3{},
+                             .area = length * kHalf,
+                             .use = length > kTinyLength && eligible(face.flags)};
+        if (!core::at(info, i).use) {
+            continue;
+        }
+        const float y = core::at(info, i).n.y;
+        if (std::fabs(y) > kSteepNormalY && std::fabs(y) < kFlatNormalY) {
+            (y > 0.0F ? up_area : down_area) += core::at(info, i).area;
+        }
+    }
+    const float convention = down_area > up_area ? -1.0F : 1.0F;
+    // The sloped faces in groups by their uphill heading (largest first).
+    const std::vector<GroupSet> groups = group_by_heading(info, convention);
 
     for (const GroupSet& group_set : groups) {
         if (std::cmp_greater_equal(lips.size(), max_lips)) {

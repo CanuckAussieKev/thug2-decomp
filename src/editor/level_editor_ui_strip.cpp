@@ -56,38 +56,49 @@ constexpr ImVec4 kMessageTextColour{1.0F, 0.86F, 0.5F, 1.0F};
 
 // --- the pure placement ----------------------------------------------------------------------------------------------
 
+namespace {
+
+// The width the shown slots take, the two groups apart by the right-hand group's first gap, and the overflow
+// button's when asked.
+float needed_width(const std::vector<Bay>& slots, const Plan& plan, float overflow_width, float overflow_gap,
+                   bool overflow)
+{
+    const size_t count = slots.size();
+    float total = 0.0F;
+    bool first_left = true;
+    bool first_right = true;
+    for (size_t i = 0; i < count; ++i) {
+        if (!core::at(plan.shown, i)) {
+            continue;
+        }
+        bool& first = core::at(slots, i).right ? first_right : first_left;
+        total += core::at(slots, i).width + (first ? 0.0F : core::at(slots, i).gap);
+        first = false;
+    }
+    // (the two groups apart by the right-hand group's first gap)
+    if (!first_left && !first_right) {
+        for (size_t i = 0; i < count; ++i) {
+            if (core::at(plan.shown, i) && core::at(slots, i).right) {
+                total += core::at(slots, i).gap;
+                break;
+            }
+        }
+    }
+    if (overflow) {
+        total += overflow_width + ((first_left && first_right) ? 0.0F : overflow_gap);
+    }
+    return total;
+}
+
+} // namespace
+
 Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overflow_width, float overflow_gap)
 {
     const size_t count = slots.size();
     Plan plan;
     plan.shown.assign(count, true);
     plan.x.assign(count, 0.0F);
-    auto needed = [&](bool overflow) {
-        float total = 0.0F;
-        bool first_left = true;
-        bool first_right = true;
-        for (size_t i = 0; i < count; ++i) {
-            if (!core::at(plan.shown, i)) {
-                continue;
-            }
-            bool& first = core::at(slots, i).right ? first_right : first_left;
-            total += core::at(slots, i).width + (first ? 0.0F : core::at(slots, i).gap);
-            first = false;
-        }
-        // (the two groups apart by the right-hand group's first gap)
-        if (!first_left && !first_right) {
-            for (size_t i = 0; i < count; ++i) {
-                if (core::at(plan.shown, i) && core::at(slots, i).right) {
-                    total += core::at(slots, i).gap;
-                    break;
-                }
-            }
-        }
-        if (overflow) {
-            total += overflow_width + ((first_left && first_right) ? 0.0F : overflow_gap);
-        }
-        return total;
-    };
+    auto needed = [&](bool overflow) { return needed_width(slots, plan, overflow_width, overflow_gap, overflow); };
     const float room = std::max(0.0F, right - left);
     bool hidden = false;
     while (needed(hidden) > room) {
@@ -346,6 +357,81 @@ std::vector<Item> get_items(const State& state, float scale)
     return items;
 }
 
+namespace {
+
+// The tool buttons: Move, Rotate, Scale.
+void draw_tools(const State& state, float inner, Output* out)
+{
+    static const std::array<const char*, 3> kLabels = {{"Move", "Rotate", "Scale"}};
+    static const std::array<const char*, 3> kIds = {{"tool_move", "tool_rotate", "tool_scale"}};
+    static const std::array<const char*, 3> kTips = {{"Move tool", "Rotate tool", "Scale tool"}};
+    for (int slot = 0; slot < 3; ++slot) {
+        if (slot != 0) {
+            ImGui::SameLine(0.0F, inner);
+        }
+        if (flip_over(core::at(kLabels, slot), state.tool == slot)) {
+            out->events.push_back({.kind = Occurrence::Kind::kTool, .value = static_cast<float>(slot)});
+        }
+        get_tip(core::at(kTips, slot), get_key_of(state, core::at(kIds, slot)));
+        get_note(core::at(kLabels, slot));
+    }
+}
+
+// Snap, and the grid size's list.
+void draw_snap_grid(const State& state, float inner, Output* out)
+{
+    if (flip_over("Snap", state.snap)) {
+        out->events.push_back({.kind = Occurrence::Kind::kSnap, .value = state.snap ? 0.0F : 1.0F});
+    }
+    get_tip("Snap while moving");
+    get_note("Snap");
+    ImGui::SameLine(0.0F, inner);
+    const std::string grid = grid_text(state.grid);
+    if (ImGui::Button(grid.c_str())) {
+        ImGui::OpenPopup("##stripgridlist");
+    }
+    get_tip("Grid size");
+    get_note("Grid");
+    if (ImGui::BeginPopup("##stripgridlist")) {
+        for (const float size : state.grids) {
+            std::array<char, kGridLabelSize> label{};
+            text::format_to(label, "%g", size);
+            if (ImGui::Selectable(label.data(), size == state.grid)) {
+                out->events.push_back({.kind = Occurrence::Kind::kGrid, .value = size});
+            }
+        }
+        ImGui::EndPopup();
+    }
+}
+
+// What a click in the view selects: nodes, objects, scenery.
+void draw_pick(const State& state, Output* out)
+{
+    const std::string label = std::string(pick_text(state.pick_filter_)) + kDown.data() + "###strippick";
+    if (ImGui::Button(label.c_str())) {
+        ImGui::OpenPopup("##strippicklist");
+    }
+    get_tip("What a click in the view selects");
+    get_note("Pick");
+    if (ImGui::BeginPopup("##strippicklist")) {
+        struct PickBit {
+            const char* label;
+            uint32_t bit;
+        };
+        static constexpr auto kPick = std::to_array<PickBit>(
+            {{.label = "Nodes", .bit = 1}, {.label = "Objects", .bit = 2}, {.label = "Scenery", .bit = 4}});
+        for (const auto& pick : kPick) {
+            if (ImGui::MenuItem(pick.label, nullptr, (state.pick_filter_ & pick.bit) != 0)) {
+                out->events.push_back(
+                    {.kind = Occurrence::Kind::kPick, .value = static_cast<float>(state.pick_filter_ ^ pick.bit)});
+            }
+        }
+        ImGui::EndPopup();
+    }
+}
+
+} // namespace
+
 void draw_item(ItemId id, const State& state, float scale, Output* out)
 {
     const float inner = 2.0F * scale;
@@ -362,19 +448,7 @@ void draw_item(ItemId id, const State& state, float scale, Output* out)
         get_note("Select");
         break;
     case kTools: {
-        static const std::array<const char*, 3> kLabels = {{"Move", "Rotate", "Scale"}};
-        static const std::array<const char*, 3> kIds = {{"tool_move", "tool_rotate", "tool_scale"}};
-        static const std::array<const char*, 3> kTips = {{"Move tool", "Rotate tool", "Scale tool"}};
-        for (int slot = 0; slot < 3; ++slot) {
-            if (slot != 0) {
-                ImGui::SameLine(0.0F, inner);
-            }
-            if (flip_over(core::at(kLabels, slot), state.tool == slot)) {
-                out->events.push_back({.kind = Occurrence::Kind::kTool, .value = static_cast<float>(slot)});
-            }
-            get_tip(core::at(kTips, slot), get_key_of(state, core::at(kIds, slot)));
-            get_note(core::at(kLabels, slot));
-        }
+        draw_tools(state, inner, out);
         break;
     }
     case kSpace: {
@@ -388,51 +462,11 @@ void draw_item(ItemId id, const State& state, float scale, Output* out)
         break;
     }
     case kSnapGrid: {
-        if (flip_over("Snap", state.snap)) {
-            out->events.push_back({.kind = Occurrence::Kind::kSnap, .value = state.snap ? 0.0F : 1.0F});
-        }
-        get_tip("Snap while moving");
-        get_note("Snap");
-        ImGui::SameLine(0.0F, inner);
-        const std::string grid = grid_text(state.grid);
-        if (ImGui::Button(grid.c_str())) {
-            ImGui::OpenPopup("##stripgridlist");
-        }
-        get_tip("Grid size");
-        get_note("Grid");
-        if (ImGui::BeginPopup("##stripgridlist")) {
-            for (const float size : state.grids) {
-                std::array<char, kGridLabelSize> label{};
-                text::format_to(label, "%g", size);
-                if (ImGui::Selectable(label.data(), size == state.grid)) {
-                    out->events.push_back({.kind = Occurrence::Kind::kGrid, .value = size});
-                }
-            }
-            ImGui::EndPopup();
-        }
+        draw_snap_grid(state, inner, out);
         break;
     }
     case kPickItem: {
-        const std::string label = std::string(pick_text(state.pick_filter_)) + kDown.data() + "###strippick";
-        if (ImGui::Button(label.c_str())) {
-            ImGui::OpenPopup("##strippicklist");
-        }
-        get_tip("What a click in the view selects");
-        get_note("Pick");
-        if (ImGui::BeginPopup("##strippicklist")) {
-            struct PickBit {
-                const char* label;
-                uint32_t bit;
-            };
-            static constexpr auto kPick = std::to_array<PickBit>({{.label = "Nodes", .bit = 1}, {.label = "Objects", .bit = 2}, {.label = "Scenery", .bit = 4}});
-            for (const auto& pick : kPick) {
-                if (ImGui::MenuItem(pick.label, nullptr, (state.pick_filter_ & pick.bit) != 0)) {
-                    out->events.push_back(
-                        {.kind = Occurrence::Kind::kPick, .value = static_cast<float>(state.pick_filter_ ^ pick.bit)});
-                }
-            }
-            ImGui::EndPopup();
-        }
+        draw_pick(state, out);
         break;
     }
     case kShowAllItem:
