@@ -35,7 +35,7 @@
 #include "engine/script/node_prefixes.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "engine/script/degree_ratio.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/gfx/movie.h"
 #include "engine/objects/particle_component.h"

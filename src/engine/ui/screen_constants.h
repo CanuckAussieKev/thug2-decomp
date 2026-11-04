@@ -2,7 +2,7 @@
 
 #include "engine/objects/anim_movies.h"
 #include "engine/script/math_cfuncs.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "engine/script/degree_ratio.h"
 #include "engine/gfx/movie.h"
 #include "engine/gfx/tod_manager.h"
 

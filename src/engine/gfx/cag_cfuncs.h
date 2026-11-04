@@ -18,6 +18,4 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script* script);
 bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script);
 bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script* script);
 
-inline constexpr float kDegreeToRadianRatio{0.017453292F}; // pi / 180
-
 } // namespace commands

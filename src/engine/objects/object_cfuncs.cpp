@@ -17,7 +17,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/engine.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "engine/script/degree_ratio.h"
 #include "engine/gfx/weather.h"
 #include "engine/objects/particle_component.h"
 #include "engine/objects/skeleton_component.h"

@@ -22,7 +22,7 @@
 #include "engine/objects/entity.h"
 #include "engine/gfx/weather.h"
 #include "base/core/checked_index.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "engine/script/degree_ratio.h"
 #include "base/maths/rect.h"
 #include "base/maths/vec2.h"
 #include "base/core/checksums.h"

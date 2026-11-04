@@ -10,7 +10,7 @@
 #include "base/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "engine/script/degree_ratio.h"
 
 namespace commands {
 

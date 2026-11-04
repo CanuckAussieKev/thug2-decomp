@@ -55,6 +55,7 @@
 #include "engine/objects/movie_manager.h"
 #include "engine/script/skate_cfuncs.h"
 #include "engine/gfx/cag_cfuncs.h"
+#include "engine/script/degree_ratio.h"
 #include "engine/sys/game_config.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

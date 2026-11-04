@@ -32,7 +32,7 @@
 #include "base/core/down_cast.h"
 #include "base/maths/shape_tests.h"
 #include "base/core/checked_index.h"
-#include "engine/gfx/cag_cfuncs.h"
+#include "engine/script/degree_ratio.h"
 #include "engine/gfx/renderer.h"
 #include "base/maths/vec2.h"
 #include <gsl/pointers>
