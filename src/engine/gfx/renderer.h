@@ -10,6 +10,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/draw_frame.h"
 #include "base/maths/mat4.h"
+#include "gpu/gpu_handles.h"
 
 // NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
 // counters, and the render state the device was last sent (the original's globals; each member's comment or its
@@ -156,8 +157,8 @@ public:
     [[nodiscard]] bool near_camera() const { return near_camera_; }
     void set_near_camera(bool value) { near_camera_ = value; }
     // The texture set on each stage, and the border colour (as the device has them).
-    [[nodiscard]] void* stage_texture(int stage) const { return core::at(textures_, stage); }
-    void set_stage_texture(int stage, void* texture) { core::at(textures_, stage) = texture; }
+    [[nodiscard]] GpuTexture* stage_texture(int stage) const { return core::at(textures_, stage); }
+    void set_stage_texture(int stage, GpuTexture* texture) { core::at(textures_, stage) = texture; }
     [[nodiscard]] uint32_t border_colour(uint32_t stage) const { return core::at(border_colours_, stage); }
     void set_border_colour(uint32_t stage, uint32_t colour) { core::at(border_colours_, stage) = colour; }
     [[nodiscard]] const void* pixel_shader_locked() const { return pixel_shader_locked_; }
@@ -273,7 +274,7 @@ private:
     uint32_t depth_bias_{};
     uint32_t cull_mode_{};
     bool near_camera_{};
-    std::array<void*, 4> textures_{};
+    std::array<GpuTexture*, 4> textures_{};
     std::array<uint32_t, 4> border_colours_{};
     const void* pixel_shader_locked_{}; // (a shader set for a whole pass: set_pixel_shader leaves the device's alone)
     void* current_pixel_shader_{};

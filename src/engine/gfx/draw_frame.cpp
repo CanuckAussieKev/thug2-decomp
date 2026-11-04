@@ -481,7 +481,7 @@ void draw_screen_blur()
     set_texture_stage_state(0, 4, 1);                                  // alpha op: disable
     if (effects_state().screen_blur_frames() > 2) {
         set_render_state(kAlphaBlendState, 1);
-        set_texture(0, other);
+        set_texture(0, d3d9::handle(other));
         draw_primitive_up(kTriangleStrip /* triangle strip */, 2, quad.data(), sizeof(ScreenVertex));
         renderer().count_draw(2); // the frame's draw calls and triangles
     }
@@ -494,7 +494,7 @@ void draw_screen_blur()
     const bool fogged = view_setup().fog_setting() && view_setup().distance_clipping();
     clear_target(fogged ? engine_parts().fog_colour() : renderer().render_camera().background_colour_);
     set_render_state(kAlphaBlendState, 0);
-    set_texture(0, texture);
+    set_texture(0, d3d9::handle(texture));
     draw_primitive_up(kTriangleStrip, 2, quad.data(), sizeof(ScreenVertex));
     set_render_state(kAlphaBlendState, 1);
     renderer().count_draw(2);

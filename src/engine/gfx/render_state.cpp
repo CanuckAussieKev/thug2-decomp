@@ -23,6 +23,8 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/d3d9_state.h"
+#include "gpu/d3d9_handles.h"
+#include "gpu/gpu_handles.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
@@ -342,11 +344,11 @@ void set_vertex_format(uint32_t fvf)
 }
 
 // 0x004DA730
-void set_texture(int stage, void* texture)
+void set_texture(int stage, GpuTexture* texture)
 {
     auto& gfx = renderer();
     if (gfx.stage_texture(stage) != texture) {
-        d3d9::state().d3d_device()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
+        d3d9::state().d3d_device()->SetTexture(stage, d3d9::object(texture));
         gfx.set_stage_texture(stage, texture);
     }
 }

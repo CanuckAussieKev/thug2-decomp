@@ -136,7 +136,7 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
         source_texture->GetLevelDesc(0, &source_desc); // (not used: half a texel of the target)
         auto half_x = static_cast<float>(kHalf / as_unsigned(target_desc.Width));
         auto half_y = static_cast<float>(kHalf / as_unsigned(target_desc.Height));
-        set_texture(0, source);
+        set_texture(0, d3d9::handle(source_texture));
         if (shader) {
             set_pixel_shader(get_shader(kPixelShader950), nullptr);
         }
@@ -318,7 +318,7 @@ void get_bloom()
              .v = static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
         }};
         set_texture(0, nullptr);
-        set_texture(0, blurred);
+        set_texture(0, d3d9::handle(blurred));
         set_texture(1, nullptr);
         set_texture(2, nullptr);
         set_texture(3, nullptr);

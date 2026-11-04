@@ -2,6 +2,7 @@
 
 #include "engine/gfx/bitmap_texture.h"
 #include "gpu/d3d9_handles.h"
+#include "gpu/gpu_handles.h"
 
 #include <windows.h>
 
@@ -40,7 +41,7 @@ Elem*& foremost()
 }
 
 // What the textures being drawn with are (the render state cache's).
-void* cached_texture(int stage) { return renderer().stage_texture(stage); }
+GpuTexture* cached_texture(int stage) { return renderer().stage_texture(stage); }
 
 } // namespace
 
