@@ -60,15 +60,15 @@ void get_say(const std::string& message) { show_message(message, kSayDefaultSeco
 void add_toggle(const char* id, const char* name, const char* tip, std::function<int()> checked,
                 std::function<void()> run)
 {
-    actions::ActStep a;
-    a.id = id;
-    a.name = name;
-    a.category = "Settings";
-    a.tip = tip;
-    a.kind = actions::Kind::kFlipOver;
-    a.checked = std::move(checked);
-    a.run = std::move(run);
-    actions::enrol(a);
+    actions::ActStep act_step;
+    act_step.id = id;
+    act_step.name = name;
+    act_step.category = "Settings";
+    act_step.tip = tip;
+    act_step.kind = actions::Kind::kFlipOver;
+    act_step.checked = std::move(checked);
+    act_step.run = std::move(run);
+    actions::enrol(act_step);
 }
 
 // A request's value and the id it is for.
@@ -180,10 +180,10 @@ void prepare_all()
         budget.tip = "Level usage against engine limits";
         actions::enrol(budget);
     }
-    for (const PickToggle& p : kPicks) {
-        const uint32_t bit = p.bit;
+    for (const PickToggle& pick : kPicks) {
+        const uint32_t bit = pick.bit;
         add_toggle(
-            p.id, p.name, "What a click in the view selects",
+            pick.id, pick.name, "What a click in the view selects",
             [bit] { return (settings_now().pick_filter_ & bit) ? 1 : 0; },
             [bit] { get_ask(ui::Request::Kind::kPickFilter, {.value = 0, .id = settings_now().pick_filter_ ^ bit}); });
     }
@@ -278,8 +278,12 @@ void refresh_changes()
         const char* name = object_edit::get_name_of(checksum);
         return std::string(name ? name : "");
     };
-    for (const changes::TableRow& e : changes::link_chain(text, label)) {
-        level_editor_ux3_state().changes_.push_back({.entry = e, .record = e.line >= 0 && std::cmp_less(e.line, lines.size()) ? core::at(lines, e.line) : ""});
+    for (const changes::TableRow& table_row : changes::link_chain(text, label)) {
+        level_editor_ux3_state().changes_.push_back(
+            {.entry = table_row,
+             .record = table_row.line >= 0 && std::cmp_less(table_row.line, lines.size())
+                           ? core::at(lines, table_row.line)
+                           : ""});
     }
 }
 
@@ -306,12 +310,12 @@ void revert(const ChangeRow& row)
         }
         // (the record as it is now: the line the list showed, found again)
         int line = -1;
-        int n = 0;
-        for (size_t start = 0; start <= text.size() && line < 0; ++n) {
+        int count = 0;
+        for (size_t start = 0; start <= text.size() && line < 0; ++count) {
             const size_t end = text.find('\n', start);
             const std::string one = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
             if (one == record) {
-                line = n;
+                line = count;
             }
             if (end == std::string::npos) {
                 break;

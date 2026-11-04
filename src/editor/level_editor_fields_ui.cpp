@@ -124,14 +124,15 @@ std::string get_check(const fields::Row& row, uint32_t self, const char* text, s
     }
     if (row.key == fields::key_links()) {
         if (!fields::valid_links(
-                value.list, self, [](uint32_t c) { return nodes::get_find(c) >= 0; }, fields::get_name_of, &error)) {
+                value.list, self, [](uint32_t colour) { return nodes::get_find(colour) >= 0; }, fields::get_name_of,
+                &error)) {
             return error;
         }
     } else if (value.kind == fields::Kind::kName && !fields::get_name_of(value.checksum)) {
         *note = "unknown name (checksum used)";
     } else if (value.kind == fields::Kind::kNames) {
-        for (const uint32_t c : value.list) {
-            if (!fields::get_name_of(c)) {
+        for (const uint32_t colour : value.list) {
+            if (!fields::get_name_of(colour)) {
                 *note = "contains an unknown name";
             }
         }
@@ -443,8 +444,8 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         gui::text_disabled("Start");
         ImGui::TableNextColumn();
         std::string current = "(original)";
-        for (const auto& r : level.restarts) {
-            current = r.first == props.start ? r.second : current;
+        for (const auto& restart : level.restarts) {
+            current = restart.first == props.start ? restart.second : current;
         }
         if ((props.start != 0U) && current == "(original)") {
             current = "(missing restart)";
@@ -456,10 +457,10 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
                 props.start = 0;
                 send_props(requests, props, true);
             }
-            for (const auto& r : level.restarts) {
-                ImGui::PushID(static_cast<int>(r.first));
-                if (ImGui::Selectable(r.second.c_str(), props.start == r.first)) {
-                    props.start = r.first;
+            for (const auto& restart : level.restarts) {
+                ImGui::PushID(static_cast<int>(restart.first));
+                if (ImGui::Selectable(restart.second.c_str(), props.start == restart.first)) {
+                    props.start = restart.first;
                     send_props(requests, props, true);
                 }
                 ImGui::PopID();
@@ -585,9 +586,11 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_fog_);
-        const auto& f = props.has_fog_ ? props.fog : own.fog;
-        std::array<float, 4> fog_colour = {{static_cast<float>(core::at(f, 0)) / kChannelMax, static_cast<float>(core::at(f, 1)) / kChannelMax,
-                               static_cast<float>(core::at(f, 2)) / kChannelMax, static_cast<float>(core::at(f, 3)) / kChannelMax}};
+        const auto& fog_props = props.has_fog_ ? props.fog : own.fog;
+        std::array<float, 4> fog_colour = {{static_cast<float>(core::at(fog_props, 0)) / kChannelMax,
+                                            static_cast<float>(core::at(fog_props, 1)) / kChannelMax,
+                                            static_cast<float>(core::at(fog_props, 2)) / kChannelMax,
+                                            static_cast<float>(core::at(fog_props, 3)) / kChannelMax}};
         ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         bool changed = false;
         if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
@@ -599,7 +602,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             changed = true;
         }
         bool done = ImGui::IsItemDeactivatedAfterEdit();
-        int distance = core::at(f, 4);
+        int distance = core::at(fog_props, 4);
         ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         if (ImGui::DragInt("##fogdist", &distance, kFogDistanceDragSpeed, 0, kMaxFogDistance, "distance %d")) {
             core::at(props.fog, 4) = level_props::span_to(distance);

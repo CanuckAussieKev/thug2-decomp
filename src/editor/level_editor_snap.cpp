@@ -38,8 +38,8 @@ int get_nearest(const std::vector<V3>& points, V3 to)
     int best = -1;
     float best_d = 0.0F;
     for (size_t i = 0; i < points.size(); ++i) {
-        const V3 d = core::at(points, i) - to;
-        const float dd = get_dot(d, d);
+        const V3 delta = core::at(points, i) - to;
+        const float dd = get_dot(delta, delta);
         if (best < 0 || dd < best_d) {
             best = static_cast<int>(i);
             best_d = dd;
@@ -126,15 +126,15 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
     const V3 end = origin + dir * max_t;
     // (the selection's own collision met first: the ray goes on from just past it - a few times at most)
     for (int tries = 0; tries < kMaxSelfHits; ++tries) {
-        SurfaceHit h;
-        if (!get_cast(from, end, &h)) {
+        SurfaceHit surface_hit;
+        if (!get_cast(from, end, &surface_hit)) {
             return false;
         }
-        if (h.checksum == 0 || std::ranges::find(skip, h.checksum) == skip.end()) {
-            *hit = h;
+        if (surface_hit.checksum == 0 || std::ranges::find(skip, surface_hit.checksum) == skip.end()) {
+            *hit = surface_hit;
             return true;
         }
-        from = h.point + dir * 1.0F;
+        from = surface_hit.point + dir * 1.0F;
         if (get_dot(end - from, dir) <= 0.0F) {
             return false;
         }
@@ -164,9 +164,10 @@ std::vector<V3> sector_vertices(checksums::Name sector, size_t limit)
         if (!vertices || !vertices->data() || mesh->stride() < kPositionBytes) {
             continue;
         }
-        for (uint32_t v = 0; v < mesh->vertex_count() && out.size() < limit; ++v) {
-            const auto p = gpu::VertexView(vertices->data(), mesh->stride(), mesh->vertex_count()).float3(v);
-            out.push_back({.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2)});
+        for (uint32_t vertex = 0; vertex < mesh->vertex_count() && out.size() < limit; ++vertex) {
+            const auto position =
+                gpu::VertexView(vertices->data(), mesh->stride(), mesh->vertex_count()).float3(vertex);
+            out.push_back({.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2)});
         }
     }
     return out;

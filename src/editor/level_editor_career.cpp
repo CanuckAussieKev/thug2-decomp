@@ -97,10 +97,10 @@ Checklist get_take_in(goals::GapTally* checklist)
             maths::Vec4 pos{};
             maths::Vec4 dir{};
             checklist->get_gap_positions(i, {.pos = &pos, .dir = &dir});
-            const std::array<float, 4> p = {{pos.x, pos.y, pos.z, pos.w}};
-            const std::array<float, 4> d = {{dir.x, dir.y, dir.z, dir.w}};
-            std::ranges::copy(p, gap.pos.begin());
-            std::ranges::copy(d, gap.dir.begin());
+            const std::array<float, 4> position = {{pos.x, pos.y, pos.z, pos.w}};
+            const std::array<float, 4> distance = {{dir.x, dir.y, dir.z, dir.w}};
+            std::ranges::copy(position, gap.pos.begin());
+            std::ranges::copy(distance, gap.dir.begin());
         }
         out.gaps.push_back(gap);
     }

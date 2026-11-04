@@ -68,7 +68,7 @@ constexpr float kCompressedExtent = 4000.0F;
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
-inline V3 get_uniform(float s) { return {.x = s, .y = s, .z = s}; }
+inline V3 get_uniform(float scale) { return {.x = scale, .y = scale, .z = scale}; }
 // Scaled by `factor` (along the world's axes) about `pivot` (a world point, where it is now): x' = (x - pivot) * factor
 // + pivot, per axis.
 void scale_about(Placement* placement, V3 pivot, V3 factor);
@@ -90,7 +90,7 @@ inline V3 confine(V3 scale) { return {.x = confine(scale.x), .y = confine(scale.
 // The world axis a direction is most along (0 x, 1 y, 2 z): Alt+[ / ] stretch along the axis the camera faces most.
 int main_axis(V3 direction);
 // The factor `f` along axis `axis` only.
-V3 along_axis(int axis, float f);
+V3 along_axis(int axis, float factor);
 // Of three axes (an object's rows), the one most along the world's axis `world_axis`.
 int nearest_axis(std::span<const V3, 3> axes, int world_axis);
 // "1.50x" (uniform) or "1.50 x 1.00 x 2.00".
@@ -98,7 +98,7 @@ std::string describe(V3 scale);
 // A point of the copy (taken with the engine's position at `from`) where it goes for the engine's position `to`, turned
 // `quarters` quarter turns more and scaled by `scale` (along the copy's axes): to + get_quarter_turn(per_axis(p - from,
 // scale), quarters).
-V3 get_rebuilt(V3 p, V3 from, V3 to, int quarters, V3 scale);
+V3 get_rebuilt(V3 point, V3 from, V3 to, int quarters, V3 scale);
 // How a copy taken with the engine at `copied_quarters` / `copied_position` (the sector's quarters when first touched:
 // `quarters0`) is written for the engine now at `quarters` / `position` and the placement's `scale` (along the piece's
 // axes as first touched): positions get_rebuilt(p, from, to, turns, copy_scale_); normals scaled_normal(n, scale,
@@ -116,7 +116,7 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
                        int quarters, V3 scale);
 // A normal of the copy for a piece scaled by `scale` and turned `quarters`: get_quarter_turn(normalise(n / scale)) - the
 // inverse transpose of a per-axis scale (unscaled: just turned, not normalised again; zero stays zero).
-V3 scaled_normal(V3 n, V3 scale, int quarters);
+V3 scaled_normal(V3 normal, V3 scale, int quarters);
 // Where the normals are: the vertices' stride, their count and the normal's offset.
 struct NormalRun {
     uint32_t stride{};

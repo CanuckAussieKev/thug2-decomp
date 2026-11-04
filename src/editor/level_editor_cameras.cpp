@@ -103,12 +103,12 @@ bool read_triple(const std::string& text, V3* out)
 
 } // namespace
 
-float clamp_distance(float d)
+float clamp_distance(float distance)
 {
-    if (!(d == d)) {
+    if (!(distance == distance)) {
         return kDefaultDistance;
     }
-    return std::clamp(d, kMinDistance, kMaxDistance);
+    return std::clamp(distance, kMinDistance, kMaxDistance);
 }
 
 // The game's angles-to-matrix (0x0041A730): the identity times RotationX(x), RotationY(y), RotationZ(z) (D3DX's, row
@@ -155,10 +155,10 @@ void frustum_corners(CameraPlace camera_place, float tan_x, float tan_y, float d
     float yaw = 0.0F;
     float pitch = 0.0F;
     yaw_pitch_of(angles, {.yaw = &yaw, .pitch = &pitch});
-    const TickCycle f = frame_from_yaw_pitch(yaw, pitch);
-    const V3 centre = pos - f.back * depth;
-    const V3 right = f.right * (tan_x * depth);
-    const V3 up = f.up * (tan_y * depth);
+    const TickCycle tick_cycle = frame_from_yaw_pitch(yaw, pitch);
+    const V3 centre = pos - tick_cycle.back * depth;
+    const V3 right = tick_cycle.right * (tan_x * depth);
+    const V3 up = tick_cycle.up * (tan_y * depth);
     core::at(out, 0) = centre + right + up;
     core::at(out, 1) = centre - right + up;
     core::at(out, 2) = centre - right - up;
@@ -167,22 +167,25 @@ void frustum_corners(CameraPlace camera_place, float tan_x, float tan_y, float d
 
 bool get_same(const ViewCam& a, const ViewCam& b)
 {
-    auto same = [](V3 p, V3 q) { return p.x == q.x && p.y == q.y && p.z == q.z; };
+    auto same = [](V3 point, V3 other_point) {
+        return point.x == other_point.x && point.y == other_point.y && point.z == other_point.z;
+    };
     return a.name == b.name && same(a.pos, b.pos) && same(a.angles, b.angles) && a.distance == b.distance;
 }
 
-std::string write_record(const ViewCam& c)
+std::string write_record(const ViewCam& view_cam)
 {
     std::array<char, kLineTextSize> text{};
-    text::format_to(text, "camera %s pos=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g dist=%.9g", c.name.c_str(), c.pos.x,
-                    c.pos.y, c.pos.z, c.angles.x, c.angles.y, c.angles.z, c.distance);
+    text::format_to(text, "camera %s pos=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g dist=%.9g", view_cam.name.c_str(),
+                    view_cam.pos.x, view_cam.pos.y, view_cam.pos.z, view_cam.angles.x, view_cam.angles.y,
+                    view_cam.angles.z, view_cam.distance);
     return text.data();
 }
 
 bool read_record(std::istringstream& in, ViewCam* out)
 {
-    ViewCam c;
-    if (!(in >> c.name) || !node_create::valid_name(c.name)) {
+    ViewCam view_cam;
+    if (!(in >> view_cam.name) || !node_create::valid_name(view_cam.name)) {
         return false;
     }
     bool have_pos = false;
@@ -197,27 +200,27 @@ bool read_record(std::istringstream& in, ViewCam* out)
         const std::string key = field.substr(0, equals);
         const std::string value = field.substr(equals + 1);
         if (key == "pos") {
-            if (have_pos || !read_triple(value, &c.pos)) {
+            if (have_pos || !read_triple(value, &view_cam.pos)) {
                 return false;
             }
             have_pos = true;
         } else if (key == "angles") {
-            if (have_angles || !read_triple(value, &c.angles)) {
+            if (have_angles || !read_triple(value, &view_cam.angles)) {
                 return false;
             }
             have_angles = true;
         } else if (key == "dist") {
-            if (have_distance || !read_numbers(value, std::span<float>(&c.distance, 1), 1)) {
+            if (have_distance || !read_numbers(value, std::span<float>(&view_cam.distance, 1), 1)) {
                 return false;
             }
-            c.distance = clamp_distance(c.distance);
+            view_cam.distance = clamp_distance(view_cam.distance);
             have_distance = true;
         } // (another key: a later version's - skipped)
     }
     if (!have_pos) {
         return false;
     }
-    *out = c;
+    *out = view_cam;
     return true;
 }
 
@@ -252,25 +255,25 @@ float distance_of(const std::string& name)
     return it == distances_state().end() ? kDefaultDistance : it->second;
 }
 
-node_create::Spec spec_of(const ViewCam& c)
+node_create::Spec spec_of(const ViewCam& view_cam)
 {
-    node_create::Spec n;
-    n.name = c.name;
-    n.cls = "GenericNode";
-    n.type = "ed_camera";
-    n.pos = c.pos;
-    n.angles = c.angles;
+    node_create::Spec spec;
+    spec.name = view_cam.name;
+    spec.cls = "GenericNode";
+    spec.type = "ed_camera";
+    spec.pos = view_cam.pos;
+    spec.angles = view_cam.angles;
     auto vector = [&](const char* key, V3 v) {
-        node_create::Prop f = {.type = node_create::Prop::kVector, .key = key};
-        core::at(f.value, 0) = v.x;
-        core::at(f.value, 1) = v.y;
-        core::at(f.value, 2) = v.z;
-        n.extra.push_back(f);
+        node_create::Prop prop = {.type = node_create::Prop::kVector, .key = key};
+        core::at(prop.value, 0) = v.x;
+        core::at(prop.value, 1) = v.y;
+        core::at(prop.value, 2) = v.z;
+        spec.extra.push_back(prop);
     };
-    vector("targetOffset", target_of(c.pos, c.angles, c.distance));
-    vector("positionOffset", position_offset(c.pos, c.angles, c.distance));
-    n.owned = true;
-    return n;
+    vector("targetOffset", target_of(view_cam.pos, view_cam.angles, view_cam.distance));
+    vector("positionOffset", position_offset(view_cam.pos, view_cam.angles, view_cam.distance));
+    spec.owned = true;
+    return spec;
 }
 
 // The whole state (the cameras and their distances) - an undo step puts it back.
@@ -280,24 +283,25 @@ struct Step : ModuleStep {
     {
         const std::vector<ViewCam> now = get_all();
         // (those not in the step: removed; those in it: made, or put where the step has them)
-        for (const ViewCam& c : now) {
-            const bool keep = std::ranges::any_of(cameras, [&](const ViewCam& k) { return same_text(k.name, c.name); });
+        for (const ViewCam& view_cam : now) {
+            const bool keep = std::ranges::any_of(
+                cameras, [&](const ViewCam& other_cam) { return same_text(other_cam.name, view_cam.name); });
             if (!keep) {
                 node_create::Spec removed;
                 int at = -1;
-                node_create::drop_out(node_create::name_hash(c.name), &removed, &at);
+                node_create::drop_out(node_create::name_hash(view_cam.name), &removed, &at);
             }
         }
         std::string message;
-        for (const ViewCam& c : cameras) {
-            distances_state()[c.name] = c.distance;
-            const uint32_t name = node_create::name_hash(c.name);
+        for (const ViewCam& view_cam : cameras) {
+            distances_state()[view_cam.name] = view_cam.distance;
+            const uint32_t name = node_create::name_hash(view_cam.name);
             if (!node_create::is_added(name)) {
-                node_create::fabricate(spec_of(c), -1, &message);
+                node_create::fabricate(spec_of(view_cam), -1, &message);
             } else {
                 node_edit::Values values;
-                values.pos = c.pos;
-                values.angles = c.angles;
+                values.pos = view_cam.pos;
+                values.angles = view_cam.angles;
                 node_edit::assign_value(name, values);
             }
         }
@@ -319,19 +323,19 @@ void push_undo()
 
 const ViewCam* get_find(const std::vector<ViewCam>& all, uint32_t name)
 {
-    for (const ViewCam& c : all) {
-        if (node_create::name_hash(c.name) == name) {
-            return &c;
+    for (const ViewCam& view_cam : all) {
+        if (node_create::name_hash(view_cam.name) == name) {
+            return &view_cam;
         }
     }
     return nullptr;
 }
 
 // The node's offsets written when they're not those of its place (it was moved / turned since).
-void keep_offsets(const ViewCam& c)
+void keep_offsets(const ViewCam& view_cam)
 {
     script::Struct* node = level_nodes::node_manager_instance()
-                               ? level_nodes::fetch_vertex(node_create::name_hash(c.name), false)
+                               ? level_nodes::fetch_vertex(node_create::name_hash(view_cam.name), false)
                                : nullptr;
     if (!node) {
         return;
@@ -340,12 +344,15 @@ void keep_offsets(const ViewCam& c)
         uint32_t key;
         V3 value;
     };
-    const std::array<Key, 2> keys = {{{.key = fields::hash_of_name("targetOffset"), .value = target_of(c.pos, c.angles, c.distance)},
-                         {.key = fields::hash_of_name("positionOffset"), .value = position_offset(c.pos, c.angles, c.distance)}}};
-    for (const Key& k : keys) {
-        const fields::Own own = fields::own_in(node, k.key, false);
-        const bool same = own.present && own.value.kind == fields::Kind::kVec4 && core::at(own.value.numbers, 0) == k.value.x &&
-                          core::at(own.value.numbers, 1) == k.value.y && core::at(own.value.numbers, 2) == k.value.z;
+    const std::array<Key, 2> keys = {{{.key = fields::hash_of_name("targetOffset"),
+                                       .value = target_of(view_cam.pos, view_cam.angles, view_cam.distance)},
+                                      {.key = fields::hash_of_name("positionOffset"),
+                                       .value = position_offset(view_cam.pos, view_cam.angles, view_cam.distance)}}};
+    for (const Key& key : keys) {
+        const fields::Own own = fields::own_in(node, key.key, false);
+        const bool same =
+            own.present && own.value.kind == fields::Kind::kVec4 && core::at(own.value.numbers, 0) == key.value.x &&
+            core::at(own.value.numbers, 1) == key.value.y && core::at(own.value.numbers, 2) == key.value.z;
         if (same) {
             continue;
         }
@@ -353,20 +360,20 @@ void keep_offsets(const ViewCam& c)
         put.present = true;
         put.value = fields::Value{};
         put.value.kind = fields::Kind::kVec4;
-        core::at(put.value.numbers, 0) = k.value.x;
-        core::at(put.value.numbers, 1) = k.value.y;
-        core::at(put.value.numbers, 2) = k.value.z;
-        fields::put_in(node, k.key, false, put);
+        core::at(put.value.numbers, 0) = key.value.x;
+        core::at(put.value.numbers, 1) = key.value.y;
+        core::at(put.value.numbers, 2) = key.value.z;
+        fields::put_in(node, key.key, false, put);
     }
 }
 
-bool look_through(const ViewCam& c)
+bool look_through(const ViewCam& view_cam)
 {
     float yaw = 0.0F;
     float pitch = 0.0F;
-    yaw_pitch_of(c.angles, {.yaw = &yaw, .pitch = &pitch});
-    look_from(c.pos, {.yaw = yaw, .pitch = pitch});
-    hud::get_message("Viewing through " + c.name);
+    yaw_pitch_of(view_cam.angles, {.yaw = &yaw, .pitch = &pitch});
+    look_from(view_cam.pos, {.yaw = yaw, .pitch = pitch});
+    hud::get_message("Viewing through " + view_cam.name);
     return true;
 }
 
@@ -379,17 +386,17 @@ std::vector<ViewCam> get_all()
         if (!same_text(spec.type, "ed_camera") || !same_text(spec.cls, "GenericNode")) {
             continue;
         }
-        ViewCam c;
-        c.name = spec.name;
-        c.pos = spec.pos;
-        c.angles = spec.angles;
+        ViewCam view_cam;
+        view_cam.name = spec.name;
+        view_cam.pos = spec.pos;
+        view_cam.angles = spec.angles;
         node_edit::Values values;
         if (node_edit::get_take_in(node_create::name_hash(spec.name), &values)) {
-            c.pos = values.pos;
-            c.angles = values.angles;
+            view_cam.pos = values.pos;
+            view_cam.angles = values.angles;
         }
-        c.distance = distance_of(spec.name);
-        out.push_back(c);
+        view_cam.distance = distance_of(spec.name);
+        out.push_back(view_cam);
     }
     return out;
 }
@@ -420,31 +427,31 @@ bool shot_offsets(uint32_t name, ShotOffsets offsets)
     auto* const target = offsets.target;
     auto* const position = offsets.position;
     const std::vector<ViewCam> all = get_all();
-    if (const ViewCam* c = get_find(all, name)) {
-        *target = target_of(c->pos, c->angles, c->distance);
-        *position = position_offset(c->pos, c->angles, c->distance);
+    if (const ViewCam* view_cam = get_find(all, name)) {
+        *target = target_of(view_cam->pos, view_cam->angles, view_cam->distance);
+        *position = position_offset(view_cam->pos, view_cam->angles, view_cam->distance);
         return true;
     }
     script::Struct* node = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
     if (!node) {
         return false;
     }
-    script::VectorValue t{};
-    script::VectorValue p{};
-    if (node->fetch_vec(get_checksums("targetOffset"), &t, 0) &&
-        node->fetch_vec(get_checksums("positionOffset"), &p, 0)) {
-        *target = {.x = t.x, .y = t.y, .z = t.z};
-        *position = {.x = p.x, .y = p.y, .z = p.z};
+    script::VectorValue target_offset{};
+    script::VectorValue placement_offset{};
+    if (node->fetch_vec(get_checksums("targetOffset"), &target_offset, 0) &&
+        node->fetch_vec(get_checksums("positionOffset"), &placement_offset, 0)) {
+        *target = {.x = target_offset.x, .y = target_offset.y, .z = target_offset.z};
+        *position = {.x = placement_offset.x, .y = placement_offset.y, .z = placement_offset.z};
         return true;
     }
     maths::Vec4 at;
     if (!level_nodes::fetch_place(node, &at)) {
         return false;
     }
-    script::VectorValue a = {};
-    node->fetch_vec(get_checksums("Angles"), &a, 0);
+    script::VectorValue angle_values = {};
+    node->fetch_vec(get_checksums("Angles"), &angle_values, 0);
     const V3 pos = {.x = at.x, .y = at.y, .z = at.z};
-    const V3 angles = {.x = a.x, .y = a.y, .z = a.z};
+    const V3 angles = {.x = angle_values.x, .y = angle_values.y, .z = angle_values.z};
     *target = target_of(pos, angles, kDefaultDistance);
     *position = position_offset(pos, angles, kDefaultDistance);
     return true;
@@ -517,37 +524,39 @@ std::string create_from_view()
         hud::get_message("No view available");
         return "";
     }
-    ViewCam c;
-    c.name = node_create::fresh_name(kStem, [](const std::string& n) { return node_create::name_taken(n); });
-    c.pos = view.pos;
-    c.angles = angles_for(view.yaw, view.pitch);
-    c.distance = kDefaultDistance;
+    ViewCam view_cam;
+    view_cam.name =
+        node_create::fresh_name(kStem, [](const std::string& name) { return node_create::name_taken(name); });
+    view_cam.pos = view.pos;
+    view_cam.angles = angles_for(view.yaw, view.pitch);
+    view_cam.distance = kDefaultDistance;
     push_undo();
     std::string message;
-    distances_state()[c.name] = c.distance;
-    if (!node_create::fabricate(spec_of(c), -1, &message)) {
+    distances_state()[view_cam.name] = view_cam.distance;
+    if (!node_create::fabricate(spec_of(view_cam), -1, &message)) {
         hud::get_message(message.empty() ? "Couldn't create the camera" : message, kFailureMessageSeconds);
         return "";
     }
-    hud::get_message("Added camera " + c.name);
-    get_log("level editor: camera %s made at (%.1f, %.1f, %.1f), heading %.1f, pitch %.1f", c.name.c_str(), c.pos.x,
-            c.pos.y, c.pos.z, view.yaw * kDegreesPerHalfTurn / maths::kPi, view.pitch * kDegreesPerHalfTurn / maths::kPi);
-    return c.name;
+    hud::get_message("Added camera " + view_cam.name);
+    get_log("level editor: camera %s made at (%.1f, %.1f, %.1f), heading %.1f, pitch %.1f", view_cam.name.c_str(),
+            view_cam.pos.x, view_cam.pos.y, view_cam.pos.z, view.yaw * kDegreesPerHalfTurn / maths::kPi,
+            view.pitch * kDegreesPerHalfTurn / maths::kPi);
+    return view_cam.name;
 }
 
 bool get_preview(uint32_t name)
 {
     const std::vector<ViewCam> all = get_all();
-    const ViewCam* c = get_find(all, name);
-    return (c != nullptr) && look_through(*c);
+    const ViewCam* view_cam = get_find(all, name);
+    return (view_cam != nullptr) && look_through(*view_cam);
 }
 
 bool aim_from_view(uint32_t name)
 {
     const std::vector<ViewCam> all = get_all();
-    const ViewCam* c = get_find(all, name);
+    const ViewCam* view_cam = get_find(all, name);
     ViewNow view{};
-    if (!c || !current_view(&view)) {
+    if (!view_cam || !current_view(&view)) {
         return false;
     }
     push_undo();
@@ -556,7 +565,7 @@ bool aim_from_view(uint32_t name)
     values.angles = angles_for(view.yaw, view.pitch);
     node_edit::note_origin(name);
     node_edit::assign_value(name, values);
-    hud::get_message("Moved camera " + c->name + " to the view");
+    hud::get_message("Moved camera " + view_cam->name + " to the view");
     return true;
 }
 
@@ -564,8 +573,8 @@ bool set_pitch(checksums::Name camera, float degrees, bool done)
 {
     const uint32_t name = camera.value();
     const std::vector<ViewCam> all = get_all();
-    const ViewCam* c = get_find(all, name);
-    if (!c) {
+    const ViewCam* view_cam = get_find(all, name);
+    if (!view_cam) {
         return false;
     }
     if (!level_editor_cameras_state().dragging_) {
@@ -573,8 +582,8 @@ bool set_pitch(checksums::Name camera, float degrees, bool done)
     }
     level_editor_cameras_state().dragging_ = !done;
     node_edit::Values values;
-    values.pos = c->pos;
-    values.angles = c->angles;
+    values.pos = view_cam->pos;
+    values.angles = view_cam->angles;
     values.angles.x = -std::clamp(degrees, -kMaxPitchDegrees, kMaxPitchDegrees) * maths::kPi / kDegreesPerHalfTurn;
     node_edit::assign_value(name, values);
     return true;
@@ -584,29 +593,29 @@ bool place_at_range(checksums::Name camera, float distance, bool done)
 {
     const uint32_t name = camera.value();
     const std::vector<ViewCam> all = get_all();
-    const ViewCam* c = get_find(all, name);
-    if (!c) {
+    const ViewCam* view_cam = get_find(all, name);
+    if (!view_cam) {
         return false;
     }
     if (!level_editor_cameras_state().dragging_) {
         push_undo();
     }
     level_editor_cameras_state().dragging_ = !done;
-    distances_state()[c->name] = clamp_distance(distance);
+    distances_state()[view_cam->name] = clamp_distance(distance);
     return true;
 }
 
 bool drop_out(uint32_t name)
 {
     const std::vector<ViewCam> all = get_all();
-    const ViewCam* c = get_find(all, name);
-    if (!c) {
+    const ViewCam* view_cam = get_find(all, name);
+    if (!view_cam) {
         return false;
     }
     push_undo();
     node_create::Spec removed;
     int at = -1;
-    const std::string label = c->name;
+    const std::string label = view_cam->name;
     if (!node_create::drop_out(name, &removed, &at)) {
         return false;
     }
@@ -620,17 +629,18 @@ int get_apply(const std::vector<ViewCam>& cameras)
 {
     int made = 0;
     std::string message;
-    for (const ViewCam& c : cameras) {
-        distances_state()[c.name] = clamp_distance(c.distance);
-        const uint32_t name = node_create::name_hash(c.name);
+    for (const ViewCam& view_cam : cameras) {
+        distances_state()[view_cam.name] = clamp_distance(view_cam.distance);
+        const uint32_t name = node_create::name_hash(view_cam.name);
         if (node_create::is_added(name)) {
             continue;
         }
-        if (node_create::name_taken(c.name)) {
-            get_log("level editor: camera %s - the level has a node of that name already: not made", c.name.c_str());
+        if (node_create::name_taken(view_cam.name)) {
+            get_log("level editor: camera %s - the level has a node of that name already: not made",
+                    view_cam.name.c_str());
             continue;
         }
-        if (node_create::fabricate(spec_of(c), -1, &message)) {
+        if (node_create::fabricate(spec_of(view_cam), -1, &message)) {
             ++made;
         }
     }
@@ -639,10 +649,10 @@ int get_apply(const std::vector<ViewCam>& cameras)
 
 void reset_all()
 {
-    for (const ViewCam& c : get_all()) {
+    for (const ViewCam& view_cam : get_all()) {
         node_create::Spec removed;
         int at = -1;
-        node_create::drop_out(node_create::name_hash(c.name), &removed, &at);
+        node_create::drop_out(node_create::name_hash(view_cam.name), &removed, &at);
     }
 }
 
@@ -660,8 +670,8 @@ void tick_frame()
     for (auto& action : queue) {
         action();
     }
-    for (const ViewCam& c : get_all()) {
-        keep_offsets(c);
+    for (const ViewCam& view_cam : get_all()) {
+        keep_offsets(view_cam);
     }
 }
 
@@ -689,42 +699,43 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         ndc_to_pixel(viewport, nx, ny, &bx, &by);
         lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
-    for (const ViewCam& c : get_all()) {
-        const V3 d = c.pos - camera_pos;
-        if (get_dot(d, d) > kMaxFrustumReach * kMaxFrustumReach) {
+    for (const ViewCam& view_cam : get_all()) {
+        const V3 delta = view_cam.pos - camera_pos;
+        if (get_dot(delta, delta) > kMaxFrustumReach * kMaxFrustumReach) {
             continue;
         }
-        const bool lit = node_create::name_hash(c.name) == selected;
+        const bool lit = node_create::name_hash(view_cam.name) == selected;
         const uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
         const float thickness = lit ? 2.0F : 1.25F;
         std::array<V3, 4> corners{};
-        frustum_corners({.pos = c.pos, .angles = c.angles}, lens.tan_x_, lens.tan_y_, kFrustumDepth, corners);
+        frustum_corners({.pos = view_cam.pos, .angles = view_cam.angles}, lens.tan_x_, lens.tan_y_, kFrustumDepth,
+                        corners);
         for (int i = 0; i < 4; ++i) {
-            line(c.pos, core::at(corners, i), colour, thickness);
+            line(view_cam.pos, core::at(corners, i), colour, thickness);
             line(core::at(corners, i), core::at(corners, (i + 1) % 4), colour, thickness);
         }
         // (its up: a small triangle over the top edge; what it looks at: a line to the target and a cross there)
         const V3 top = (core::at(corners, 0) + core::at(corners, 1)) * 0.5F;
         float yaw = 0.0F;
         float pitch = 0.0F;
-        yaw_pitch_of(c.angles, {.yaw = &yaw, .pitch = &pitch});
+        yaw_pitch_of(view_cam.angles, {.yaw = &yaw, .pitch = &pitch});
         const V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0F;
         line(core::at(corners, 0) * kNearWeight + core::at(corners, 1) * kFarWeight, top + up, colour, thickness);
         line(core::at(corners, 1) * kNearWeight + core::at(corners, 0) * kFarWeight, top + up, colour, thickness);
-        const V3 target = target_of(c.pos, c.angles, c.distance);
-        line(c.pos, target, lit ? kLitColour : kUnlitColour, 1.0F);
-        const float s = lit ? 25.0F : 15.0F;
-        line(target - V3{.x = s, .y = 0, .z = 0}, target + V3{.x = s, .y = 0, .z = 0}, colour, 1.0F);
-        line(target - V3{.x = 0, .y = s, .z = 0}, target + V3{.x = 0, .y = s, .z = 0}, colour, 1.0F);
-        line(target - V3{.x = 0, .y = 0, .z = s}, target + V3{.x = 0, .y = 0, .z = s}, colour, 1.0F);
+        const V3 target = target_of(view_cam.pos, view_cam.angles, view_cam.distance);
+        line(view_cam.pos, target, lit ? kLitColour : kUnlitColour, 1.0F);
+        const float scale = lit ? 25.0F : 15.0F;
+        line(target - V3{.x = scale, .y = 0, .z = 0}, target + V3{.x = scale, .y = 0, .z = 0}, colour, 1.0F);
+        line(target - V3{.x = 0, .y = scale, .z = 0}, target + V3{.x = 0, .y = scale, .z = 0}, colour, 1.0F);
+        line(target - V3{.x = 0, .y = 0, .z = scale}, target + V3{.x = 0, .y = 0, .z = scale}, colour, 1.0F);
     }
 }
 
 void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
 {
     const std::vector<ViewCam> all = get_all();
-    const ViewCam* c = (node != 0U) ? get_find(all, node) : nullptr;
-    if (!c) {
+    const ViewCam* view_cam = (node != 0U) ? get_find(all, node) : nullptr;
+    if (!view_cam) {
         return;
     }
     ImGui::Spacing();
@@ -734,7 +745,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     }
     float yaw = 0.0F;
     float pitch = 0.0F;
-    yaw_pitch_of(c->angles, {.yaw = &yaw, .pitch = &pitch});
+    yaw_pitch_of(view_cam->angles, {.yaw = &yaw, .pitch = &pitch});
     float pitch_degrees = pitch * kDegreesPerHalfTurn / maths::kPi;
     ImGui::PushFont(mono);
     ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
@@ -746,7 +757,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemDeactivated()) {
         level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
     }
-    float distance = c->distance;
+    float distance = view_cam->distance;
     ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
     if (ImGui::DragFloat("Target##camera", &distance, kTargetDragSpeed, kMinDistance, kMaxDistance, "%.0f units",
                          ImGuiSliderFlags_AlwaysClamp)) {
@@ -756,8 +767,8 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemDeactivated()) {
         level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
     }
-    const V3 target = target_of(c->pos, c->angles, c->distance);
-    const V3 offset = position_offset(c->pos, c->angles, c->distance);
+    const V3 target = target_of(view_cam->pos, view_cam->angles, view_cam->distance);
+    const V3 offset = position_offset(view_cam->pos, view_cam->angles, view_cam->distance);
     ImGui::PushFont(small_font);
     gui::text("targetOffset   (%.1f, %.1f, %.1f)", target.x, target.y, target.z);
     gui::text("positionOffset (%.1f, %.1f, %.1f)", offset.x, offset.y, offset.z);
@@ -802,10 +813,10 @@ void list_section(ImFont* mono, ImFont* small_font)
         gui::text_disabled("None yet.");
     }
     ImGui::PushFont(mono);
-    for (const ViewCam& c : all) {
-        const uint32_t name = node_create::name_hash(c.name);
+    for (const ViewCam& view_cam : all) {
+        const uint32_t name = node_create::name_hash(view_cam.name);
         ImGui::PushID(static_cast<int>(name));
-        ImGui::TextUnformatted(c.name.c_str());
+        ImGui::TextUnformatted(view_cam.name.c_str());
         ImGui::SameLine();
         if (ImGui::SmallButton("View Through")) {
             level_editor_cameras_state().queue_.emplace_back([name] { get_preview(name); });

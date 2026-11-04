@@ -21,18 +21,18 @@ std::string leading_key_name(const std::string& keys_text)
 std::string join_keys(const std::vector<std::string>& keys)
 {
     bool single = true;
-    for (const std::string& k : keys) {
-        single = single && k.size() == 1;
+    for (const std::string& key : keys) {
+        single = single && key.size() == 1;
     }
     std::string out;
-    for (const std::string& k : keys) {
-        if (k.empty()) {
+    for (const std::string& key : keys) {
+        if (key.empty()) {
             continue;
         }
         if (!out.empty() && !single) {
             out += ' ';
         }
-        out += k;
+        out += key;
     }
     return out;
 }
@@ -45,18 +45,18 @@ std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vecto
     if (mods == 0U) {
         return out;
     }
-    for (const actions::ActStep& a : actions) {
+    for (const actions::ActStep& action : actions) {
         if (out.size() >= limit) {
             break;
         }
-        if (a.kind != actions::Kind::kPress && a.kind != actions::Kind::kFlipOver) {
+        if (action.kind != actions::Kind::kPress && action.kind != actions::Kind::kFlipOver) {
             continue;
         }
-        for (const actions::Chord& c : a.keys) {
-            if ((c.scancode != 0) && c.mods == mods) {
-                const std::string text = actions::format_chord(c);
+        for (const actions::Chord& key : action.keys) {
+            if ((key.scancode != 0) && key.mods == mods) {
+                const std::string text = actions::format_chord(key);
                 if (!text.empty()) {
-                    out.emplace_back(text, a.name);
+                    out.emplace_back(text, action.name);
                 }
                 break;
             }
@@ -70,14 +70,14 @@ std::vector<std::string> get_tokens(const std::string& keys)
     std::vector<std::string> out;
     std::string current;
     for (size_t i = 0; i < keys.size(); ++i) {
-        const char c = core::at(keys, i);
+        const char character = core::at(keys, i);
         // ('+' separates tokens - unless it ends one with nothing after it: "Keypad+", or stands alone)
-        if (c == '+' && !current.empty() && i + 1 < keys.size()) {
+        if (character == '+' && !current.empty() && i + 1 < keys.size()) {
             out.push_back(current);
             current.clear();
             continue;
         }
-        current += c;
+        current += character;
     }
     if (!current.empty()) {
         out.push_back(current);
@@ -119,8 +119,8 @@ Glyph glyph_of(const std::string& token)
     }
     static const auto kPad = std::to_array<const char*>({"LS",   "RS",   "LT", "RT", "LB",    "RB",
                                        "DPad", "Back", "L3", "R3", "LT/RT", "LB/RB"});
-    for (const char* p : kPad) {
-        if (token == p) {
+    for (const char* line : kPad) {
+        if (token == line) {
             return Glyph::kPadOther;
         }
     }
@@ -144,20 +144,20 @@ public:
     std::string get_key(const char* id) const { return leading_key_name((*key_of_)(id)); }
     void act(const char* id, const std::string& what, const char* prefix = nullptr)
     {
-        const std::string k = get_key(id);
-        if (k.empty()) {
+        const std::string key_text = get_key(id);
+        if (key_text.empty()) {
             return;
         }
-        get_raw(prefix ? std::string(prefix) + "+" + k : k, what);
+        get_raw(prefix ? std::string(prefix) + "+" + key_text : key_text, what);
     }
     // Several actions' keys as one cap ("W", "A", "S", "D" -> "WASD").
     void acts(std::initializer_list<const char*> ids, const std::string& what, const char* prefix = nullptr)
     {
         std::vector<std::string> keys;
         for (const char* id : ids) {
-            const std::string k = get_key(id);
-            if (!k.empty()) {
-                keys.push_back(k);
+            const std::string key_text = get_key(id);
+            if (!key_text.empty()) {
+                keys.push_back(key_text);
             }
         }
         if (keys.empty()) {
@@ -167,9 +167,9 @@ public:
         get_raw(prefix ? std::string(prefix) + "+" + joined : joined, what);
     }
     // The fly keys ("WASD" - with the right button unless wasd_flies=1).
-    void get_fly(const CtxInfo& c, const char* what)
+    void get_fly(const CtxInfo& context, const char* what)
     {
-        acts({"forward", "left", "back", "right"}, what, c.fly_always_ || c.rmb ? nullptr : "RMB");
+        acts({"forward", "left", "back", "right"}, what, context.fly_always_ || context.rmb ? nullptr : "RMB");
     }
 
 private:
@@ -177,15 +177,15 @@ private:
     std::vector<Hint> out_;
 };
 
-void pad_hints(const CtxInfo& c, Builder& b)
+void pad_hints(const CtxInfo& context, Builder& b)
 {
-    if (c.pie_open_) {
+    if (context.pie_open_) {
         b.get_raw("LS", "point at a slice");
         b.get_raw("PadA", "run it");
         b.get_raw("PadB", "close");
         return;
     }
-    if (c.walking) {
+    if (context.walking) {
         b.get_raw("LS", "walk");
         b.get_raw("RS", "look");
         b.get_raw("PadA", "jump");
@@ -194,13 +194,13 @@ void pad_hints(const CtxInfo& c, Builder& b)
         return;
     }
     b.get_raw("LS", "fly");
-    b.get_raw("RS", c.selection != Selection::kNone && !c.free_camera_ ? "orbit" : "look");
+    b.get_raw("RS", context.selection != Selection::kNone && !context.free_camera_ ? "orbit" : "look");
     b.get_raw("LT/RT", "down / up");
-    b.get_raw("PadA", c.drag != Drag::kNone ? "hold: drag" : "select");
-    b.get_raw("PadB", c.drag != Drag::kNone ? "put it back" : "back");
+    b.get_raw("PadA", context.drag != Drag::kNone ? "hold: drag" : "select");
+    b.get_raw("PadB", context.drag != Drag::kNone ? "put it back" : "back");
     b.get_raw("PadX", "pie");
     b.get_raw("PadY", "view pie");
-    if (c.selection != Selection::kNone) {
+    if (context.selection != Selection::kNone) {
         b.get_raw("DPad", "nudge");
         b.get_raw("LB/RB", "turn");
         b.get_raw("R3", "frame");
@@ -210,250 +210,251 @@ void pad_hints(const CtxInfo& c, Builder& b)
 
 } // namespace
 
-std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
+std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of)
 {
-    Builder b(key_of);
-    if (c.pad) {
-        pad_hints(c, b);
-        return b.hints();
+    Builder builder(key_of);
+    if (context.pad) {
+        pad_hints(context, builder);
+        return builder.hints();
     }
     // A pie menu: the mouse points, a click or letting the key go runs it.
-    if (c.pie_open_) {
-        b.get_raw("Mouse", "point at a slice");
-        b.get_raw("LMB", "run it");
-        if (!c.pie_sticky_) {
-            b.get_raw(b.get_key("pie_context").empty() ? "Q" : b.get_key("pie_context"), "release: run");
+    if (context.pie_open_) {
+        builder.get_raw("Mouse", "point at a slice");
+        builder.get_raw("LMB", "run it");
+        if (!context.pie_sticky_) {
+            builder.get_raw(builder.get_key("pie_context").empty() ? "Q" : builder.get_key("pie_context"),
+                            "release: run");
         }
-        b.get_raw("RMB", "close");
-        b.get_raw("Esc", "close");
-        return b.hints();
+        builder.get_raw("RMB", "close");
+        builder.get_raw("Esc", "close");
+        return builder.hints();
     }
     // Walking (skater height, gravity).
-    if (c.walking) {
-        b.acts({"forward", "left", "back", "right"}, "walk");
-        b.get_raw("Mouse", "look");
-        b.act("fly_up", "jump");
-        b.get_raw("Shift", "run");
-        b.act("walk_mode", "stop walking");
-        b.get_raw("Esc", "stop walking");
-        return b.hints();
+    if (context.walking) {
+        builder.acts({"forward", "left", "back", "right"}, "walk");
+        builder.get_raw("Mouse", "look");
+        builder.act("fly_up", "jump");
+        builder.get_raw("Shift", "run");
+        builder.act("walk_mode", "stop walking");
+        builder.get_raw("Esc", "stop walking");
+        return builder.hints();
     }
-    if (c.ladder_drawing_) {
-        b.get_raw("LMB", c.chain_waiting_.empty() ? "place it" : c.chain_waiting_);
-        b.act("undo", "undo last ladder");
-        b.get_raw("Esc", "stop");
-        return b.hints();
+    if (context.ladder_drawing_) {
+        builder.get_raw("LMB", context.chain_waiting_.empty() ? "place it" : context.chain_waiting_);
+        builder.act("undo", "undo last ladder");
+        builder.get_raw("Esc", "stop");
+        return builder.hints();
     }
-    if (c.chain_drawing_) {
-        b.get_raw("LMB", "add a point");
-        b.get_raw("Alt+LMB", "no edge snapping");
-        b.act("chain_finish", "finish");
-        b.get_raw("RMB", "finish");
-        b.act("undo", "undo last point");
-        b.get_raw("Esc", "stop");
-        return b.hints();
+    if (context.chain_drawing_) {
+        builder.get_raw("LMB", "add a point");
+        builder.get_raw("Alt+LMB", "no edge snapping");
+        builder.act("chain_finish", "finish");
+        builder.get_raw("RMB", "finish");
+        builder.act("undo", "undo last point");
+        builder.get_raw("Esc", "stop");
+        return builder.hints();
     }
-    if (c.chain_pick_) {
-        b.get_raw("LMB", c.chain_waiting_.empty() ? "pick" : c.chain_waiting_);
-        b.get_raw("Esc", "cancel");
-        return b.hints();
+    if (context.chain_pick_) {
+        builder.get_raw("LMB", context.chain_waiting_.empty() ? "pick" : context.chain_waiting_);
+        builder.get_raw("Esc", "cancel");
+        return builder.hints();
     }
-    if (c.place_armed_) {
-        b.get_raw("LMB", "place it");
-        b.get_raw("Shift+LMB", "place more");
-        b.get_raw("Esc", "cancel");
-        b.act("place", "close the palette");
-        return b.hints();
+    if (context.place_armed_) {
+        builder.get_raw("LMB", "place it");
+        builder.get_raw("Shift+LMB", "place more");
+        builder.get_raw("Esc", "cancel");
+        builder.act("place", "close the palette");
+        return builder.hints();
     }
-    if (c.browser) {
-        b.get_raw("Up/Down", "choose");
-        b.get_raw("Left/Right", "scenery / objects");
-        b.get_raw("Enter", "place it");
-        b.get_raw("F", "show me");
-        b.act("browser", "close");
-        b.get_raw("Esc", "close");
-        return b.hints();
+    if (context.browser) {
+        builder.get_raw("Up/Down", "choose");
+        builder.get_raw("Left/Right", "scenery / objects");
+        builder.get_raw("Enter", "place it");
+        builder.get_raw("F", "show me");
+        builder.act("browser", "close");
+        builder.get_raw("Esc", "close");
+        return builder.hints();
     }
     // Dragging.
-    if (c.drag != Drag::kNone) {
-        const char* apply = c.modal ? "LMB" : nullptr;
-        if (!c.typed.empty()) {
-            b.get_raw("Typed", c.typed);
-            b.get_raw("Enter", "apply");
-            b.get_raw("Backspace", "erase");
-            b.get_raw("X/Y/Z", "axis");
-            b.get_raw("Esc", "put it back");
-            return b.hints();
+    if (context.drag != Drag::kNone) {
+        const char* apply = context.modal ? "LMB" : nullptr;
+        if (!context.typed.empty()) {
+            builder.get_raw("Typed", context.typed);
+            builder.get_raw("Enter", "apply");
+            builder.get_raw("Backspace", "erase");
+            builder.get_raw("X/Y/Z", "axis");
+            builder.get_raw("Esc", "put it back");
+            return builder.hints();
         }
-        if (c.drag == Drag::kSpinBy) {
-            b.get_raw("Mouse", "turns it");
-            b.get_raw("Ctrl", "steps");
-            b.get_raw("0-9", "degrees");
-        } else if (c.drag == Drag::kScale) {
-            b.get_raw("Mouse", "scales it");
-            b.get_raw("Ctrl", "tenths");
-            b.get_raw("X/Y/Z", "axis");
-            b.get_raw("0-9", "a factor");
-        } else if (c.drag == Drag::kMoveAxis) {
-            b.get_raw("Mouse", "along the arrow");
-            b.get_raw("Ctrl", "grid");
-            b.get_raw("Ctrl+Shift", "world grid");
-            b.get_raw("0-9", "an amount");
+        if (context.drag == Drag::kSpinBy) {
+            builder.get_raw("Mouse", "turns it");
+            builder.get_raw("Ctrl", "steps");
+            builder.get_raw("0-9", "degrees");
+        } else if (context.drag == Drag::kScale) {
+            builder.get_raw("Mouse", "scales it");
+            builder.get_raw("Ctrl", "tenths");
+            builder.get_raw("X/Y/Z", "axis");
+            builder.get_raw("0-9", "a factor");
+        } else if (context.drag == Drag::kMoveAxis) {
+            builder.get_raw("Mouse", "along the arrow");
+            builder.get_raw("Ctrl", "grid");
+            builder.get_raw("Ctrl+Shift", "world grid");
+            builder.get_raw("0-9", "an amount");
         } else {
-            b.get_raw("Mouse", "move");
-            b.get_raw("Shift", "up / down");
-            b.get_raw("Wheel", "push / pull");
-            b.get_raw("Ctrl", "grid");
-            b.get_raw("Ctrl+Shift", "world grid");
-            b.get_raw("Alt+Shift", "surface");
-            b.get_raw("Ctrl+Alt", "vertex");
-            b.get_raw("X/Y/Z", "axis");
+            builder.get_raw("Mouse", "move");
+            builder.get_raw("Shift", "up / down");
+            builder.get_raw("Wheel", "push / pull");
+            builder.get_raw("Ctrl", "grid");
+            builder.get_raw("Ctrl+Shift", "world grid");
+            builder.get_raw("Alt+Shift", "surface");
+            builder.get_raw("Ctrl+Alt", "vertex");
+            builder.get_raw("X/Y/Z", "axis");
         }
-        if (c.carried > 0) {
-            b.get_raw("Alt", "leave the " + std::to_string(c.carried) + " carried");
+        if (context.carried > 0) {
+            builder.get_raw("Alt", "leave the " + std::to_string(context.carried) + " carried");
         }
         if (apply) {
-            b.get_raw(apply, "apply");
+            builder.get_raw(apply, "apply");
         } else {
-            b.get_raw("LMB", "let go: done");
+            builder.get_raw("LMB", "let go: done");
         }
-        b.get_raw("Esc", "put it back");
-        return b.hints();
+        builder.get_raw("Esc", "put it back");
+        return builder.hints();
     }
     // Looking / flying with the right button.
-    if (c.rmb) {
-        b.get_fly(c, "fly");
-        b.acts({"fly_down", "fly_up"}, "down / up");
-        b.get_raw("Shift", "faster");
-        b.get_raw("Mouse", c.selection != Selection::kNone && !c.free_camera_ ? "orbit" : "look");
-        b.get_raw("Wheel", "fly speed");
-        return b.hints();
+    if (context.rmb) {
+        builder.get_fly(context, "fly");
+        builder.acts({"fly_down", "fly_up"}, "down / up");
+        builder.get_raw("Shift", "faster");
+        builder.get_raw("Mouse", context.selection != Selection::kNone && !context.free_camera_ ? "orbit" : "look");
+        builder.get_raw("Wheel", "fly speed");
+        return builder.hints();
     }
     // Armed tools.
-    if (c.ruler_armed_) {
-        b.get_raw("LMB", "put an end");
-        b.get_raw("Alt+LMB", "no corner snap");
-        b.act("ruler_clear", "clear");
-        b.act("ruler", "ruler off");
-        b.get_raw("Esc", "deselect");
-        return b.hints();
+    if (context.ruler_armed_) {
+        builder.get_raw("LMB", "put an end");
+        builder.get_raw("Alt+LMB", "no corner snap");
+        builder.act("ruler_clear", "clear");
+        builder.act("ruler", "ruler off");
+        builder.get_raw("Esc", "deselect");
+        return builder.hints();
     }
-    if (c.ux9_tool_ == 1) {
-        b.get_raw("LMB", "pick gap end");
-        b.act("gap_wizard", "wizard off");
-        b.get_raw("Esc", "cancel");
-        return b.hints();
+    if (context.ux9_tool_ == 1) {
+        builder.get_raw("LMB", "pick gap end");
+        builder.act("gap_wizard", "wizard off");
+        builder.get_raw("Esc", "cancel");
+        return builder.hints();
     }
-    if (c.ux9_tool_ == 2) {
-        b.get_raw("LMB", "place corner");
-        b.act("ground_tool", "tool off");
-        b.get_raw("Esc", "cancel");
-        return b.hints();
+    if (context.ux9_tool_ == 2) {
+        builder.get_raw("LMB", "place corner");
+        builder.act("ground_tool", "tool off");
+        builder.get_raw("Esc", "cancel");
+        return builder.hints();
     }
-    if (c.faces_mode_) {
-        b.get_raw("LMB", "take a face");
-        b.get_raw("Shift+LMB", "add / drop a face");
-        b.act("faces", "faces mode off");
-        return b.hints();
+    if (context.faces_mode_) {
+        builder.get_raw("LMB", "take a face");
+        builder.get_raw("Shift+LMB", "add / drop a face");
+        builder.act("faces", "faces mode off");
+        return builder.hints();
     }
-    if (c.box_armed_) {
-        b.get_raw("LMB", "drag a box");
-        b.get_raw("Shift", "add");
-        b.get_raw("Ctrl", "remove");
-        return b.hints();
+    if (context.box_armed_) {
+        builder.get_raw("LMB", "drag a box");
+        builder.get_raw("Shift", "add");
+        builder.get_raw("Ctrl", "remove");
+        return builder.hints();
     }
-    if (c.simulating) {
-        b.act("simulate", "stop simulating");
+    if (context.simulating) {
+        builder.act("simulate", "stop simulating");
     }
     // A modifier held: what it changes, then what it's bound to (the registry).
-    if (c.mods != 0U) {
-        const bool selected = c.selection != Selection::kNone;
-        if (c.mods == actions::kAlt) {
-            b.get_raw("Alt+LMB", "one piece (any)");
-            b.get_raw("Alt+LMB", "drag: orbit");
-            b.get_raw("Alt+Wheel", "cycle under cursor");
-        } else if (c.mods == actions::kShift) {
-            b.get_raw("Shift+LMB", "add / remove");
+    if (context.mods != 0U) {
+        const bool selected = context.selection != Selection::kNone;
+        if (context.mods == actions::kAlt) {
+            builder.get_raw("Alt+LMB", "one piece (any)");
+            builder.get_raw("Alt+LMB", "drag: orbit");
+            builder.get_raw("Alt+Wheel", "cycle under cursor");
+        } else if (context.mods == actions::kShift) {
+            builder.get_raw("Shift+LMB", "add / remove");
             if (selected) {
-                b.get_raw("Shift+LMB", "drag: up / down");
+                builder.get_raw("Shift+LMB", "drag: up / down");
             }
-        } else if (c.mods == actions::kCtrl) {
-            if (c.selection == Selection::kScenery) {
-                b.get_raw("Ctrl+LMB", "remove a part");
+        } else if (context.mods == actions::kCtrl) {
+            if (context.selection == Selection::kScenery) {
+                builder.get_raw("Ctrl+LMB", "remove a part");
             }
-            b.get_raw("Ctrl+LMB", "drag: remove box");
+            builder.get_raw("Ctrl+LMB", "drag: remove box");
         }
-        for (const auto& m : c.modded) {
-            b.get_raw(m.first, m.second);
+        for (const auto& mod : context.modded) {
+            builder.get_raw(mod.first, mod.second);
         }
-        return b.hints();
+        return builder.hints();
     }
-    switch (c.selection) {
+    switch (context.selection) {
     case Selection::kNone:
-        b.get_fly(c, "fly");
-        b.get_raw("LMB", "select");
-        b.get_raw("2xLMB", "go there");
-        b.get_raw("Wheel", "forward / back");
-        b.get_raw("Alt+Wheel", "drill through");
-        b.act("pie_context", "pie");
-        b.act("browser", "add");
-        b.act("place", "place");
-        b.act("walk_mode", "walk");
-        b.act("simulate", "simulate");
-        b.act("adjust_last", "adjust last");
-        b.act("play", "play");
-        b.act("command_search", "search");
-        b.act("help", "help");
+        builder.get_fly(context, "fly");
+        builder.get_raw("LMB", "select");
+        builder.get_raw("2xLMB", "go there");
+        builder.get_raw("Wheel", "forward / back");
+        builder.get_raw("Alt+Wheel", "drill through");
+        builder.act("pie_context", "pie");
+        builder.act("browser", "add");
+        builder.act("place", "place");
+        builder.act("walk_mode", "walk");
+        builder.act("simulate", "simulate");
+        builder.act("adjust_last", "adjust last");
+        builder.act("play", "play");
+        builder.act("command_search", "search");
+        builder.act("help", "help");
         break;
     case Selection::kOtherNode:
-        b.get_raw("LMB", "select another");
-        b.get_fly(c, "fly");
-        b.act("frame_selection", "frame");
-        b.act("follow_selection", c.following ? "stop following" : "follow");
-        b.act("pie_context", "pie");
-        b.get_raw("Esc", "deselect");
-        b.act("help", "help");
+        builder.get_raw("LMB", "select another");
+        builder.get_fly(context, "fly");
+        builder.act("frame_selection", "frame");
+        builder.act("follow_selection", context.following ? "stop following" : "follow");
+        builder.act("pie_context", "pie");
+        builder.get_raw("Esc", "deselect");
+        builder.act("help", "help");
         break;
     default: {
-        b.get_raw("LMB", "drag: move");
-        if (c.selection == Selection::kWall) {
-            b.act("delete", "collision off");
-            b.act("home", "put back");
-            b.get_raw("Esc", "deselect");
+        builder.get_raw("LMB", "drag: move");
+        if (context.selection == Selection::kWall) {
+            builder.act("delete", "collision off");
+            builder.act("home", "put back");
+            builder.get_raw("Esc", "deselect");
             break;
         }
-        if (!c.fly_always_) {
-            b.acts({"tool_move", "tool_rotate", "tool_scale"}, c.tool == 1   ? "tool (rotate)"
-                                                               : c.tool == 2 ? "tool (scale)"
-                                                                             : "tool (move)");
+        if (!context.fly_always_) {
+            builder.acts({"tool_move", "tool_rotate", "tool_scale"}, context.tool == 1   ? "tool (rotate)"
+                                                                     : context.tool == 2 ? "tool (scale)"
+                                                                                         : "tool (move)");
         } else {
-            b.act("tool_cycle", "next tool");
+            builder.act("tool_cycle", "next tool");
         }
-        b.get_fly(c, c.fly_always_ ? "nudge" : "fly");
-        b.acts({"nudge_forward", "nudge_back", "nudge_left", "nudge_right"}, "nudge");
-        if (c.chain_point_) {
-            b.act("lock", "whole chain");
-            b.act("chain_insert", "insert a point");
-            b.act("chain_extend", "draw on");
+        builder.get_fly(context, context.fly_always_ ? "nudge" : "fly");
+        builder.acts({"nudge_forward", "nudge_back", "nudge_left", "nudge_right"}, "nudge");
+        if (context.chain_point_) {
+            builder.act("lock", "whole chain");
+            builder.act("chain_insert", "insert a point");
+            builder.act("chain_extend", "draw on");
         } else {
-            b.acts({"turn_left", "turn_right"}, "turn");
+            builder.acts({"turn_left", "turn_right"}, "turn");
         }
-        b.act("drop", "drop");
-        b.act("duplicate", "copy");
-        b.act("linked_duplicate", "linked copy");
-        if (c.selection == Selection::kScenery) {
-            b.act("edge_rail", "rail along an edge");
+        builder.act("drop", "drop");
+        builder.act("duplicate", "copy");
+        builder.act("linked_duplicate", "linked copy");
+        if (context.selection == Selection::kScenery) {
+            builder.act("edge_rail", "rail along an edge");
         }
-        b.act("arrange_window", "arrange");
-        b.act("frame_selection", "frame");
-        b.act("follow_selection", c.following ? "stop following" : "follow");
-        b.act("pie_context", "pie");
-        b.act("delete", "delete");
-        b.get_raw("Esc", "deselect");
+        builder.act("arrange_window", "arrange");
+        builder.act("frame_selection", "frame");
+        builder.act("follow_selection", context.following ? "stop following" : "follow");
+        builder.act("pie_context", "pie");
+        builder.act("delete", "delete");
+        builder.get_raw("Esc", "deselect");
         break;
     }
     }
-    return b.hints();
+    return builder.hints();
 }
 
 } // namespace frontend::level_editor::hints

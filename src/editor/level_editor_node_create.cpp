@@ -82,13 +82,13 @@ bool same_text(const std::string& a, const char* b)
 }
 bool starts_with(const std::string& text, const char* prefix)
 {
-    const size_t n = std::strlen(prefix);
-    return text.size() >= n && same_text(text.substr(0, n), prefix);
+    const size_t count = std::strlen(prefix);
+    return text.size() >= count && same_text(text.substr(0, count), prefix);
 }
 bool ends_with(const std::string& text, const char* suffix)
 {
-    const size_t n = std::strlen(suffix);
-    return text.size() >= n && same_text(text.substr(text.size() - n), suffix);
+    const size_t count = std::strlen(suffix);
+    return text.size() >= count && same_text(text.substr(text.size() - count), suffix);
 }
 
 const std::array<const char*, kTeams> kTeamNames = {{"Red", "Blue", "Green", "Yellow"}};
@@ -96,13 +96,13 @@ const std::array<const char*, kTeams> kTeamNames = {{"Red", "Blue", "Green", "Ye
 // The team a name-driven node's name or type ends in ("Red"...; -1: none).
 int team_of(const std::string& text)
 {
-    std::string t = text;
-    if (ends_with(t, "_Base")) {
-        t.resize(t.size() - kBaseSuffixLength);
+    std::string current_text = text;
+    if (ends_with(current_text, "_Base")) {
+        current_text.resize(current_text.size() - kBaseSuffixLength);
     }
     for (int i = 0; i < kTeams; ++i) {
         const std::string suffix = std::string("_") + core::at(kTeamNames, i);
-        if (ends_with(t, suffix.c_str())) {
+        if (ends_with(current_text, suffix.c_str())) {
             return i;
         }
     }
@@ -111,9 +111,9 @@ int team_of(const std::string& text)
 
 std::string get_lower(std::string text)
 {
-    for (char& c : text) {
-        if (c >= 'A' && c <= 'Z') {
-            c = static_cast<char>(c - 'A' + 'a');
+    for (char& character : text) {
+        if (character >= 'A' && character <= 'Z') {
+            character = static_cast<char>(character - 'A' + 'a');
         }
     }
     return text;
@@ -156,8 +156,8 @@ const char* kind_name(Kind kind)
 
 const char* get_team_name(Team team)
 {
-    const int i = static_cast<int>(team);
-    return i >= 0 && i < kTeams ? core::at(kTeamNames, i) : "?";
+    const int index = static_cast<int>(team);
+    return index >= 0 && index < kTeams ? core::at(kTeamNames, index) : "?";
 }
 
 bool same_spec(const Spec& a, const Spec& b)
@@ -200,49 +200,49 @@ bool kind_of(const Spec& spec, Kind* kind)
 
 Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& name)
 {
-    Spec s;
-    s.name = name;
-    s.pos = pos;
-    s.angles = {.x = 0.0F, .y = wrapped(yaw), .z = 0.0F};
+    Spec spec;
+    spec.name = name;
+    spec.pos = pos;
+    spec.angles = {.x = 0.0F, .y = wrapped(yaw), .z = 0.0F};
     const std::string colour = get_team_name(team);
     switch (kind) {
     case Kind::kSpawn:
-        s.cls = "Restart";
-        s.type = "MultiPlayer";
-        s.types = {"MultiPlayer", "Horse"};
+        spec.cls = "Restart";
+        spec.type = "MultiPlayer";
+        spec.types = {"MultiPlayer", "Horse"};
         break;
     case Kind::kTeamSpawn:
-        s.cls = "Restart";
-        s.type = "CTF";
-        s.types = {"CTF", "MultiPlayer", "Horse"};
+        spec.cls = "Restart";
+        spec.type = "CTF";
+        spec.types = {"CTF", "MultiPlayer", "Horse"};
         break;
     case Kind::kCrown:
-        s.cls = "GenericNode";
-        s.type = "Crown";
+        spec.cls = "GenericNode";
+        spec.type = "Crown";
         break;
     case Kind::kFlagSet:
-        s.cls = "GameObject";
-        s.type = "Flag_" + colour;
+        spec.cls = "GameObject";
+        spec.type = "Flag_" + colour;
         break;
     case Kind::kLight:
-        s.cls = "LevelLight";
-        core::at(s.colour, 0) = kLightColourRed;
-        core::at(s.colour, 1) = kLightColourGreen;
-        core::at(s.colour, 2) = kLightColourBlue;
-        s.brightness = 100.0F;
-        s.inner = kLightInner;
-        s.outer = kLightOuter;
+        spec.cls = "LevelLight";
+        core::at(spec.colour, 0) = kLightColourRed;
+        core::at(spec.colour, 1) = kLightColourGreen;
+        core::at(spec.colour, 2) = kLightColourBlue;
+        spec.brightness = 100.0F;
+        spec.inner = kLightInner;
+        spec.outer = kLightOuter;
         break;
     case Kind::kSound:
-        s.cls = "EmitterObject";
-        s.radius = kSoundRadius;
+        spec.cls = "EmitterObject";
+        spec.radius = kSoundRadius;
         break;
     case Kind::kProximityNode:
-        s.cls = "ProximNode";
-        s.radius = kProximityRadius;
+        spec.cls = "ProximNode";
+        spec.radius = kProximityRadius;
         break;
     }
-    return s;
+    return spec;
 }
 
 Spec current_base(const Spec& flag)
@@ -290,9 +290,9 @@ const char* name_stem(Kind kind)
 
 std::string fresh_name(const std::string& stem, const std::function<bool(const std::string&)>& taken)
 {
-    for (int n = 1; n < kMaxNameNumber; ++n) {
+    for (int count = 1; count < kMaxNameNumber; ++count) {
         std::array<char, kNumberTextSize> number{};
-        text::format_to(number, "%02d", n);
+        text::format_to(number, "%02d", count);
         std::string name = stem + number.data();
         if (!taken(name)) {
             return name;
@@ -306,8 +306,9 @@ bool valid_name(const std::string& name)
     if (name.empty() || name.size() > kMaxNodeNameLength) {
         return false;
     }
-    for (const char c : name) {
-        const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+    for (const char character : name) {
+        const bool ok = (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+                        (character >= '0' && character <= '9') || character == '_';
         if (!ok) {
             return false;
         }
@@ -319,36 +320,36 @@ std::vector<Prop> get_fields(const Spec& spec)
 {
     std::vector<Prop> fields;
     auto name = [&](const char* key, const std::string& value) {
-        Prop f = {.type = Prop::kName, .key = key};
-        f.text = value;
-        fields.push_back(f);
+        Prop prop = {.type = Prop::kName, .key = key};
+        prop.text = value;
+        fields.push_back(prop);
     };
     auto flag = [&](const char* value) {
-        Prop f = {.type = Prop::kFlag, .key = ""};
-        f.text = value;
-        fields.push_back(f);
+        Prop prop = {.type = Prop::kFlag, .key = ""};
+        prop.text = value;
+        fields.push_back(prop);
     };
     auto vector = [&](const char* key, V3 v) {
-        Prop f = {.type = Prop::kVector, .key = key};
-        core::at(f.value, 0) = v.x;
-        core::at(f.value, 1) = v.y;
-        core::at(f.value, 2) = v.z;
-        fields.push_back(f);
+        Prop prop = {.type = Prop::kVector, .key = key};
+        core::at(prop.value, 0) = v.x;
+        core::at(prop.value, 1) = v.y;
+        core::at(prop.value, 2) = v.z;
+        fields.push_back(prop);
     };
     auto number = [&](const char* key, float v) {
-        Prop f = {.type = Prop::kFloat, .key = key};
-        core::at(f.value, 0) = v;
-        fields.push_back(f);
+        Prop prop = {.type = Prop::kFloat, .key = key};
+        core::at(prop.value, 0) = v;
+        fields.push_back(prop);
     };
     auto integer = [&](const char* key, int v) {
-        Prop f = {.type = Prop::kInteger, .key = key};
-        f.integer = v;
-        fields.push_back(f);
+        Prop prop = {.type = Prop::kInteger, .key = key};
+        prop.integer = v;
+        fields.push_back(prop);
     };
     auto string = [&](const char* key, const std::string& v) {
-        Prop f = {.type = Prop::kString, .key = key};
-        f.text = v;
-        fields.push_back(f);
+        Prop prop = {.type = Prop::kString, .key = key};
+        prop.text = v;
+        fields.push_back(prop);
     };
     vector("Pos", spec.pos);
     vector("Angles", spec.angles);
@@ -410,9 +411,9 @@ std::vector<Prop> get_fields(const Spec& spec)
         number("Brightness", spec.brightness);
         number("InnerRadius", spec.inner);
         number("OuterRadius", spec.outer);
-        Prop c = {.type = Prop::kIntegers, .key = "Color"};
-        c.integers = {core::at(spec.colour, 0), core::at(spec.colour, 1), core::at(spec.colour, 2)};
-        fields.push_back(c);
+        Prop prop = {.type = Prop::kIntegers, .key = "Color"};
+        prop.integers = {core::at(spec.colour, 0), core::at(spec.colour, 1), core::at(spec.colour, 2)};
+        fields.push_back(prop);
         break;
     }
     case Kind::kSound:
@@ -472,13 +473,13 @@ int append_one(LinkChain* list, const Spec& spec)
 
 bool get_take(LinkChain* list, const std::string& name, Spec* spec, int* index)
 {
-    const int i = get_index_of(*list, name);
-    if (i < 0) {
+    const int current_index = get_index_of(*list, name);
+    if (current_index < 0) {
         return false;
     }
-    *spec = core::at((*list), i);
-    *index = i;
-    list->erase(list->begin() + i);
+    *spec = core::at((*list), current_index);
+    *index = current_index;
+    list->erase(list->begin() + current_index);
     return true;
 }
 
@@ -489,19 +490,19 @@ void put_back(LinkChain* list, const Spec& spec, int index)
 }
 
 namespace {
-bool is_crown(const Spec& s)
+bool is_crown(const Spec& spec)
 {
     Kind kind{};
-    return kind_of(s, &kind) && kind == Kind::kCrown;
+    return kind_of(spec, &kind) && kind == Kind::kCrown;
 }
 } // namespace
 
 std::vector<std::string> crown_order(const LinkChain& list)
 {
     std::vector<std::string> order;
-    for (const Spec& s : list) {
-        if (is_crown(s)) {
-            order.push_back(s.name);
+    for (const Spec& spec : list) {
+        if (is_crown(spec)) {
+            order.push_back(spec.name);
         }
     }
     return order;
@@ -535,17 +536,17 @@ void apply_crown_order(LinkChain* list, const std::vector<std::string>& order)
     std::vector<Spec> ordered;
     std::vector<bool> used(crowns.size(), false);
     for (const std::string& name : order) {
-        for (size_t c = 0; c < crowns.size(); ++c) {
-            if (!core::at(used, c) && same_text(core::at(crowns, c).name, name.c_str())) {
-                core::at(used, c) = true;
-                ordered.push_back(core::at(crowns, c));
+        for (size_t crown = 0; crown < crowns.size(); ++crown) {
+            if (!core::at(used, crown) && same_text(core::at(crowns, crown).name, name.c_str())) {
+                core::at(used, crown) = true;
+                ordered.push_back(core::at(crowns, crown));
                 break;
             }
         }
     }
-    for (size_t c = 0; c < crowns.size(); ++c) {
-        if (!core::at(used, c)) {
-            ordered.push_back(core::at(crowns, c));
+    for (size_t crown = 0; crown < crowns.size(); ++crown) {
+        if (!core::at(used, crown)) {
+            ordered.push_back(core::at(crowns, crown));
         }
     }
     for (size_t i = 0; i < slots.size(); ++i) {
@@ -644,36 +645,37 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
         node->remove_flag(name_hash("TrickObject"));
         node->remove_flag(name_hash("ed_grind_flat")); // (its own choice: level_editor_chains.h)
     }
-    for (const Prop& f : get_fields(spec)) {
-        const uint32_t key = f.key.empty() ? 0U : name_hash(f.key);
-        if (like && f.type == Prop::kFlag && node->has_bare_flag(name_hash(f.text))) {
+    for (const Prop& prop : get_fields(spec)) {
+        const uint32_t key = prop.key.empty() ? 0U : name_hash(prop.key);
+        if (like && prop.type == Prop::kFlag && node->has_bare_flag(name_hash(prop.text))) {
             continue;
         }
-        if (like && f.key == "TerrainType" && spec.terrain.empty()) {
+        if (like && prop.key == "TerrainType" && spec.terrain.empty()) {
             continue; // (the copied one)
         }
         if (like && (key != 0U)) {
             node->erase_module(key);
         }
-        switch (f.type) {
+        switch (prop.type) {
         case Prop::kFlag:
-            node->put_name_key(checksums::Name{0U}, name_hash(f.text));
+            node->put_name_key(checksums::Name{0U}, name_hash(prop.text));
             break;
         case Prop::kName:
-            node->put_name_key(checksums::Name{key}, name_hash(f.text));
-            script::note_qb_name(name_hash(f.text), f.text.c_str());
+            node->put_name_key(checksums::Name{key}, name_hash(prop.text));
+            script::note_qb_name(name_hash(prop.text), prop.text.c_str());
             break;
         case Prop::kString:
-            node->append_word(key, f.text.c_str());
+            node->append_word(key, prop.text.c_str());
             break;
         case Prop::kInteger:
-            node->put_int(checksums::Name{key}, f.integer);
+            node->put_int(checksums::Name{key}, prop.integer);
             break;
         case Prop::kFloat:
-            node->push_float(checksums::Name{key}, core::at(f.value, 0));
+            node->push_float(checksums::Name{key}, core::at(prop.value, 0));
             break;
         case Prop::kVector:
-            node->put_vec3(checksums::Name{key}, {.x = core::at(f.value, 0), .y = core::at(f.value, 1), .z = core::at(f.value, 2)});
+            node->put_vec3(checksums::Name{key},
+                           {.x = core::at(prop.value, 0), .y = core::at(prop.value, 1), .z = core::at(prop.value, 2)});
             break;
         case Prop::kNames:
         case Prop::kIntegers: {
@@ -682,11 +684,12 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
                 break;
             }
             new (array) script::Array;
-            const bool names = f.type == Prop::kNames;
-            auto count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
+            const bool names = prop.type == Prop::kNames;
+            auto count = static_cast<uint32_t>(names ? prop.list.size() : prop.integers.size());
             array->configure_size_kind(count, names ? script::QbValueKind::kName : script::QbValueKind::kInteger);
             for (uint32_t i = 0; i < count; ++i) {
-                array->set_element(i, names ? name_hash(core::at(f.list, i)) : static_cast<uint32_t>(core::at(f.integers, i)));
+                array->set_element(i, names ? name_hash(core::at(prop.list, i))
+                                            : static_cast<uint32_t>(core::at(prop.integers, i)));
             }
             node->append_array_ref(key, array);
             break;
@@ -831,14 +834,14 @@ void kill_live(const Spec& spec)
 // A spec's place as its structure has it now.
 Spec with_place(const Spec& spec, script::Struct* node)
 {
-    Spec s = spec;
+    Spec current_spec = spec;
     maths::Vec4 pos;
     maths::Vec4 angles;
     level_nodes::fetch_place(node, &pos);
     level_nodes::read_turn_angles(node, &angles);
-    s.pos = {.x = pos.x, .y = pos.y, .z = pos.z};
-    s.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
-    return s;
+    current_spec.pos = {.x = pos.x, .y = pos.y, .z = pos.z};
+    current_spec.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
+    return current_spec;
 }
 
 void get_forget()
@@ -1001,8 +1004,8 @@ int create_all(const LinkChain& specs, std::string* message)
     std::vector<std::pair<Spec, script::Struct*>> made;
     for (const Spec& spec : specs) {
         bool duplicate = false;
-        for (const auto& m : made) {
-            duplicate = duplicate || same_text(m.first.name, spec.name.c_str());
+        for (const auto& made_entry : made) {
+            duplicate = duplicate || same_text(made_entry.first.name, spec.name.c_str());
         }
         if (!valid_name(spec.name) || duplicate || name_taken(spec.name)) {
             get_log("level editor: the layout's node %s is there already - skipped", spec.name.c_str());
@@ -1027,8 +1030,8 @@ int create_all(const LinkChain& specs, std::string* message)
         *message = "Couldn't add the layout's nodes to the node manager";
         return 0;
     }
-    for (const auto& m : made) {
-        make_live(m.first, m.second);
+    for (const auto& made_entry : made) {
+        make_live(made_entry.first, made_entry.second);
     }
     return static_cast<int>(made.size());
 }
@@ -1083,11 +1086,11 @@ void set_order(const std::vector<std::string>& names)
     std::vector<script::Struct*> structs;
     std::vector<bool> used(level_editor_node_create_state().list_.size(), false);
     for (const std::string& name : names) {
-        const int i = get_index_of(level_editor_node_create_state().list_, name);
-        if (i >= 0 && !core::at(used, i)) {
-            core::at(used, i) = true;
-            list.push_back(core::at(level_editor_node_create_state().list_, i));
-            structs.push_back(core::at(level_editor_node_create_state().structs_, i));
+        const int index = get_index_of(level_editor_node_create_state().list_, name);
+        if (index >= 0 && !core::at(used, index)) {
+            core::at(used, index) = true;
+            list.push_back(core::at(level_editor_node_create_state().list_, index));
+            structs.push_back(core::at(level_editor_node_create_state().structs_, index));
         }
     }
     for (size_t i = 0; i < level_editor_node_create_state().list_.size(); ++i) {
@@ -1114,8 +1117,8 @@ bool move_crown(checksums::Name crown, int delta, std::string* message)
             return false;
         }
         std::vector<std::string> order;
-        for (const Spec& s : list) {
-            order.push_back(s.name);
+        for (const Spec& crown_spec : list) {
+            order.push_back(crown_spec.name);
         }
         set_order(order);
         return true;
@@ -1129,8 +1132,8 @@ void apply_crown_order(const std::vector<std::string>& order)
     LinkChain list = level_editor_node_create_state().list_;
     node_create::apply_crown_order(&list, order);
     std::vector<std::string> names;
-    for (const Spec& s : list) {
-        names.push_back(s.name);
+    for (const Spec& spec : list) {
+        names.push_back(spec.name);
     }
     set_order(names);
 }
@@ -1167,9 +1170,9 @@ bool can_hide(const nodes::Elem& node, const char** why)
     }
     if (node.family == nodes::Family::kSpawn) {
         nodes::SpawnPointKind others = nodes::SpawnPointKind::kNone;
-        for (const nodes::Elem& n : nodes::get_all()) {
-            if (n.family == nodes::Family::kSpawn && !n.hidden && n.name != node.name) {
-                others |= n.restart_types_;
+        for (const nodes::Elem& elem : nodes::get_all()) {
+            if (elem.family == nodes::Family::kSpawn && !elem.hidden && elem.name != node.name) {
+                others |= elem.restart_types_;
             }
         }
         if (hide_leaves_no_restart(node.restart_types_, others)) {
@@ -1182,15 +1185,16 @@ bool can_hide(const nodes::Elem& node, const char** why)
 
 bool get_hidden(uint32_t name)
 {
-    return std::ranges::any_of(stored_hidden(), [&](const HiddenNode& h) { return h.name == name; });
+    return std::ranges::any_of(stored_hidden(),
+                               [&](const HiddenNode& hidden_node) { return hidden_node.name == name; });
 }
 
 std::vector<uint32_t> hidden_names()
 {
     std::vector<uint32_t> names;
     names.reserve(stored_hidden().size());
-    for (const HiddenNode& h : stored_hidden()) {
-        names.push_back(h.name);
+    for (const HiddenNode& hidden_node : stored_hidden()) {
+        names.push_back(hidden_node.name);
     }
     return names;
 }
@@ -1204,7 +1208,8 @@ bool conceal(uint32_t name, bool hide)
     if (!node) {
         return false;
     }
-    auto it = std::ranges::find_if(stored_hidden(), [&](const HiddenNode& h) { return h.name == name; });
+    auto it =
+        std::ranges::find_if(stored_hidden(), [&](const HiddenNode& hidden_node) { return hidden_node.name == name; });
     static const uint32_t kLight = name_hash("LevelLight");
     static const uint32_t kProxim = name_hash("ProximNode");
     static const uint32_t kEmitter = name_hash("EmitterObject");
@@ -1212,7 +1217,7 @@ bool conceal(uint32_t name, bool hide)
         if (it != stored_hidden().end()) {
             return true;
         }
-        HiddenNode h = {.name = name, .node = node, .proxim_active_ = false, .emitter_active_ = false};
+        HiddenNode hidden_node = {.name = name, .node = node, .proxim_active_ = false, .emitter_active_ = false};
         uint32_t cls = 0;
         uint32_t type = 0;
         node->read_hash_value(kClass, &cls, 0);
@@ -1226,13 +1231,13 @@ bool conceal(uint32_t name, bool hide)
         node->put_name_key(checksums::Name{kType}, nodes::hidden_marker());
         if (cls == kProxim && have_proxim()) {
             if (const objects::ProximNode* proxim = objects::proxim_get_node(name)) {
-                h.proxim_active_ = proxim->active();
+                hidden_node.proxim_active_ = proxim->active();
                 objects::proximity_node_enable(checksums::Name{name}, 0);
             }
         }
         if (cls == kEmitter && have_emitters()) {
             if (const objects::EmitterNode* emitter = objects::emitter_get_node(name)) {
-                h.emitter_active_ = emitter->active_;
+                hidden_node.emitter_active_ = emitter->active_;
                 objects::emitter_set_active(checksums::Name{name}, 0);
             }
         }
@@ -1245,13 +1250,13 @@ bool conceal(uint32_t name, bool hide)
             cls != kEmitter && cls != kLight) {
             object->flag_as_dead();
         }
-        stored_hidden().push_back(h);
+        stored_hidden().push_back(hidden_node);
         get_log("level editor: hid the level's node %s", object_edit::caption(name).c_str());
     } else {
         if (it == stored_hidden().end()) {
             return true;
         }
-        const HiddenNode h = *it;
+        const HiddenNode hidden_node = *it;
         stored_hidden().erase(it);
         uint32_t cls = 0;
         uint32_t type = 0;
@@ -1265,10 +1270,10 @@ bool conceal(uint32_t name, bool hide)
         if (type != 0U) {
             node->put_name_key(checksums::Name{kType}, type);
         }
-        if (cls == kProxim && have_proxim() && h.proxim_active_) {
+        if (cls == kProxim && have_proxim() && hidden_node.proxim_active_) {
             objects::proximity_node_enable(checksums::Name{name}, 1);
         }
-        if (cls == kEmitter && have_emitters() && h.emitter_active_) {
+        if (cls == kEmitter && have_emitters() && hidden_node.emitter_active_) {
             objects::emitter_set_active(checksums::Name{name}, 1);
         }
         if (cls == kLight) {
@@ -1298,9 +1303,9 @@ void forget_level()
 {
     // (a level whose node array stays loaded: hidden nodes shown, added ones removed; another level's: forgotten)
     if (hub()) {
-        for (const HiddenNode& h : std::vector<HiddenNode>(stored_hidden())) {
-            if (level_nodes::fetch_vertex(h.name, false) == h.node) {
-                conceal(h.name, false);
+        for (const HiddenNode& hidden_node : std::vector<HiddenNode>(stored_hidden())) {
+            if (level_nodes::fetch_vertex(hidden_node.name, false) == hidden_node.node) {
+                conceal(hidden_node.name, false);
             }
         }
     }

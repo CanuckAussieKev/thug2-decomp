@@ -44,8 +44,8 @@ const char* const kHeaderComment = "# thug2-decomp clipboard";
 
 bool is_clip_text(const std::string& text)
 {
-    const size_t n = std::char_traits<char>::length(kHeaderComment);
-    return text.compare(0, n, kHeaderComment) == 0;
+    const size_t header_length = std::char_traits<char>::length(kHeaderComment);
+    return text.compare(0, header_length, kHeaderComment) == 0;
 }
 
 int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteHooks& hooks,
@@ -67,35 +67,35 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         return std::ranges::find(used_names, name) == used_names.end() &&
                !(hooks.name_taken_ && hooks.name_taken_(name));
     };
-    for (const node_create::Spec& s : into->added) {
-        used_names.push_back(s.name);
+    for (const node_create::Spec& spec : into->added) {
+        used_names.push_back(spec.name);
     }
-    for (const triggers::Placed& t : into->triggers) {
-        used_names.push_back(t.spec.name);
+    for (const triggers::Placed& trigger : into->triggers) {
+        used_names.push_back(trigger.spec.name);
     }
-    for (const layout::CloneRecord& c : fragment.clones) {
-        if (hooks.sector_exists_ && !hooks.sector_exists_(c.source)) {
-            missing->push_back("scenery " + label_of(c.source));
+    for (const layout::CloneRecord& clone : fragment.clones) {
+        if (hooks.sector_exists_ && !hooks.sector_exists_(clone.source)) {
+            missing->push_back("scenery " + label_of(clone.source));
             continue;
         }
-        into->clones.push_back(c);
+        into->clones.push_back(clone);
         ++added;
     }
     std::vector<uint32_t> used_ids;
     used_ids.reserve(into->copies.size());
-    for (const layout::CopyRecord& c : into->copies) {
-        used_ids.push_back(c.name);
+    for (const layout::CopyRecord& copy_record : into->copies) {
+        used_ids.push_back(copy_record.name);
     }
     unsigned counter = 0;
-    for (const layout::CopyRecord& c : fragment.copies) {
-        if (hooks.object_copyable_ && !hooks.object_copyable_(c.source)) {
-            missing->push_back("object " + label_of(c.source));
+    for (const layout::CopyRecord& copy_record : fragment.copies) {
+        if (hooks.object_copyable_ && !hooks.object_copyable_(copy_record.source)) {
+            missing->push_back("object " + label_of(copy_record.source));
             continue;
         }
-        layout::CopyRecord copy = c;
+        layout::CopyRecord copy = copy_record;
         for (;;) {
             std::array<char, kClipNameText> text{};
-            text::format_to(text, "level_editor_copy_%08X_p%u", c.source, ++counter);
+            text::format_to(text, "level_editor_copy_%08X_p%u", copy_record.source, ++counter);
             copy.name = fields::hash_of_name(text.data());
             if (std::ranges::find(used_ids, copy.name) == used_ids.end() &&
                 !(hooks.id_taken_ && hooks.id_taken_(copy.name))) {
@@ -109,8 +109,8 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         }
         ++added;
     }
-    for (const node_create::Spec& s : fragment.added) {
-        node_create::Spec spec = s;
+    for (const node_create::Spec& added_spec : fragment.added) {
+        node_create::Spec spec = added_spec;
         if (!name_free(spec.name)) {
             node_create::Kind kind{};
             const bool fixed = node_create::kind_of(spec, &kind) &&
@@ -120,17 +120,17 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
                 continue;
             }
             spec.name = node_create::fresh_name(node_create::name_stem(kind),
-                                                [&](const std::string& n) { return !name_free(n); });
+                                                [&](const std::string& name) { return !name_free(name); });
         }
         used_names.push_back(spec.name);
         into->added.push_back(spec);
         ++added;
     }
-    for (const triggers::Placed& t : fragment.triggers) {
-        triggers::Placed placed = t;
+    for (const triggers::Placed& trigger : fragment.triggers) {
+        triggers::Placed placed = trigger;
         if (!name_free(placed.spec.name)) {
             placed.spec.name =
-                node_create::fresh_name("ed_trigger", [&](const std::string& n) { return !name_free(n); });
+                node_create::fresh_name("ed_trigger", [&](const std::string& name) { return !name_free(name); });
         }
         used_names.push_back(placed.spec.name);
         into->triggers.push_back(placed);
@@ -150,12 +150,13 @@ objects::GameEntity* live_object(uint32_t id)
 }
 
 // A level's own point node as a new node of its kind (false: not a kind the editor makes).
-bool spec_of_level_node(const nodes::Elem& n, node_create::Spec* spec)
+bool spec_of_level_node(const nodes::Elem& elem, node_create::Spec* spec)
 {
     node_create::Kind kind{};
-    switch (n.family) {
+    switch (elem.family) {
     case nodes::Family::kSpawn:
-        kind = core::any(n.restart_types_ & nodes::SpawnPointKind::kCtf) ? node_create::Kind::kTeamSpawn : node_create::Kind::kSpawn;
+        kind = core::any(elem.restart_types_ & nodes::SpawnPointKind::kCtf) ? node_create::Kind::kTeamSpawn
+                                                                            : node_create::Kind::kSpawn;
         break;
     case nodes::Family::kCrown:
         kind = node_create::Kind::kCrown;
@@ -172,14 +173,14 @@ bool spec_of_level_node(const nodes::Elem& n, node_create::Spec* spec)
     default:
         return false;
     }
-    *spec = node_create::default_spec(kind, node_create::Team::kRed, n.pos, n.angles.y,
+    *spec = node_create::default_spec(kind, node_create::Team::kRed, elem.pos, elem.angles.y,
                                       node_create::name_stem(kind) + std::string("01"));
-    spec->angles = n.angles;
-    if (kind == node_create::Kind::kLight && n.radius > 0.0F) {
-        spec->outer = n.radius;
-        spec->inner = n.inner_radius_;
-    } else if ((kind == node_create::Kind::kSound || kind == node_create::Kind::kProximityNode) && n.radius > 0.0F) {
-        spec->radius = n.radius;
+    spec->angles = elem.angles;
+    if (kind == node_create::Kind::kLight && elem.radius > 0.0F) {
+        spec->outer = elem.radius;
+        spec->inner = elem.inner_radius_;
+    } else if ((kind == node_create::Kind::kSound || kind == node_create::Kind::kProximityNode) && elem.radius > 0.0F) {
+        spec->radius = elem.radius;
     }
     return true;
 }
@@ -200,20 +201,20 @@ Props& copied_props()
 
 std::vector<uint32_t> selected_nodes()
 {
-    const SelectionIds s = current_selection();
+    const SelectionIds selection_ids = current_selection();
     std::vector<uint32_t> nodes;
     auto add = [&](uint32_t id) {
         if (id && nodes::get_find(id) >= 0 && std::ranges::find(nodes, id) == nodes.end()) {
             nodes.push_back(id);
         }
     };
-    if (s.node != 0U) {
-        add(s.node);
+    if (selection_ids.node != 0U) {
+        add(selection_ids.node);
     }
-    for (const uint32_t id : s.objects) {
+    for (const uint32_t id : selection_ids.objects) {
         add(id);
     }
-    for (const uint32_t id : s.sectors) {
+    for (const uint32_t id : selection_ids.sectors) {
         add(id);
     }
     return nodes;
@@ -223,7 +224,7 @@ std::vector<uint32_t> selected_nodes()
 
 bool dup_from(std::string* message)
 {
-    const SelectionIds s = current_selection();
+    const SelectionIds selection_ids = current_selection();
     render::WorldScene* scene = scenery::main_scene();
     if (!scene) {
         *message = "Not in a level";
@@ -232,29 +233,29 @@ bool dup_from(std::string* message)
     layout::FileLoad fragment;
     fragment.scene = scenery::world_scene_key(scene);
     std::vector<std::string> skipped;
-    for (const uint32_t checksum : s.sectors) {
+    for (const uint32_t checksum : selection_ids.sectors) {
         layout::CloneRecord record;
         record.source = checksum;
         Placement now = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         scenery::placement_now(checksum, &now);
         record.placement = now;
-        for (const scenery::Replicate& c : scenery::get_clones()) {
-            if (c.checksum == checksum) {
-                record.source = c.source; // (a copy: of its source, placed relative to the source as loaded)
-                record.placement = compose(now, c.source_at_copy_);
+        for (const scenery::Replicate& get_clone : scenery::get_clones()) {
+            if (get_clone.checksum == checksum) {
+                record.source = get_clone.source; // (a copy: of its source, placed relative to the source as loaded)
+                record.placement = compose(now, get_clone.source_at_copy_);
             }
         }
         fragment.clones.push_back(record);
     }
-    for (const uint32_t id : s.objects) {
+    for (const uint32_t id : selection_ids.objects) {
         objects::GameEntity* object = live_object(id);
         if (!object) {
             continue;
         }
         uint32_t source = id;
-        for (const object_edit::DupFrom& c : object_edit::get_copies()) {
-            if (c.name == id) {
-                source = c.source;
+        for (const object_edit::DupFrom& get_copy : object_edit::get_copies()) {
+            if (get_copy.name == id) {
+                source = get_copy.source;
             }
         }
         if (!object_edit::can_copy(source)) {
@@ -262,27 +263,28 @@ bool dup_from(std::string* message)
             continue;
         }
         layout::CopyRecord record = {.name = 0, .source = source, .pos = {object->at_point().x, object->at_point().y, object->at_point().z}, .rows = {}};
-        for (int r = 0; r < 3; ++r) {
-            core::at(record.rows, (r * 3) + 0) = core::at(object->basis_frame().row, r).x;
-            core::at(record.rows, (r * 3) + 1) = core::at(object->basis_frame().row, r).y;
-            core::at(record.rows, (r * 3) + 2) = core::at(object->basis_frame().row, r).z;
+        for (int axis = 0; axis < 3; ++axis) {
+            core::at(record.rows, (axis * 3) + 0) = core::at(object->basis_frame().row, axis).x;
+            core::at(record.rows, (axis * 3) + 1) = core::at(object->basis_frame().row, axis).y;
+            core::at(record.rows, (axis * 3) + 2) = core::at(object->basis_frame().row, axis).z;
         }
         record.scale = scale_tool::get_object_scale(object);
         fragment.copies.push_back(record);
     }
-    if (s.node != 0U) {
-        const int index = nodes::get_find(s.node);
+    if (selection_ids.node != 0U) {
+        const int index = nodes::get_find(selection_ids.node);
         bool done = false;
-        if (index >= 0 && node_create::is_added(s.node)) {
-            for (const triggers::Placed& t : triggers::capture_added()) {
-                if (fields::hash_of_name(t.spec.name) == s.node || node_create::name_hash(t.spec.name) == s.node) {
-                    fragment.triggers.push_back(t);
+        if (index >= 0 && node_create::is_added(selection_ids.node)) {
+            for (const triggers::Placed& placed : triggers::capture_added()) {
+                if (fields::hash_of_name(placed.spec.name) == selection_ids.node ||
+                    node_create::name_hash(placed.spec.name) == selection_ids.node) {
+                    fragment.triggers.push_back(placed);
                     done = true;
                 }
             }
             for (const node_create::Spec& spec : node_create::at_hand()) {
                 node_create::Kind kind{};
-                if (!done && node_create::name_hash(spec.name) == s.node && !spec.owned &&
+                if (!done && node_create::name_hash(spec.name) == selection_ids.node && !spec.owned &&
                     node_create::kind_of(spec, &kind)) {
                     fragment.added.push_back(spec);
                     done = true;
@@ -296,7 +298,7 @@ bool dup_from(std::string* message)
             }
         }
         if (!done) {
-            skipped.push_back(nodes::caption(s.node) + " (type not copyable)");
+            skipped.push_back(nodes::caption(selection_ids.node) + " (type not copyable)");
         }
     }
     const int count = static_cast<int>(fragment.clones.size() + fragment.copies.size() + fragment.added.size() +
@@ -368,8 +370,8 @@ bool graft(std::string* message)
     if (!missing.empty()) {
         *message += " - missing in this level: " + missing.front() +
                     (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more" : "");
-        for (const std::string& m : missing) {
-            get_log("level editor: paste - not in this level: %s", m.c_str());
+        for (const std::string& name : missing) {
+            get_log("level editor: paste - not in this level: %s", name.c_str());
         }
     }
     return true;
@@ -442,10 +444,10 @@ std::string describe()
 {
     std::string text;
     if (copied_props().have_transform_) {
-        std::array<char, kClipSummaryText> t{};
-        text::format_to(t, "transform (%.0f, %.0f, %.0f)", copied_props().transform.pos.x, copied_props().transform.pos.y,
-                        copied_props().transform.pos.z);
-        text = t.data();
+        std::array<char, kClipSummaryText> summary{};
+        text::format_to(summary, "transform (%.0f, %.0f, %.0f)", copied_props().transform.pos.x,
+                        copied_props().transform.pos.y, copied_props().transform.pos.z);
+        text = summary.data();
     }
     if (!copied_props().fields.empty()) {
         text += (text.empty() ? "" : " and ") + std::to_string(copied_props().fields.size()) + " fields of " + copied_props().from;

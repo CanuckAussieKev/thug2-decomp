@@ -164,7 +164,7 @@ V3 clamp_size(V3 size);
 // The box placed: centred on `pos`, turned by `yaw` (radians about the world's up axis, as a node's heading).
 OrientedBox box_of(V3 pos, float yaw, V3 size);
 // Whether `p` is inside a placed box (its faces included).
-bool get_inside(const OrientedBox& box, V3 p);
+bool get_inside(const OrientedBox& box, V3 point);
 // The leaving test, a frame at a time: whether a skater inside last frame (`was`) and not now fires the exit; `known`
 // false (the first frame seen - the editor just closed, the trigger just made) never fires.
 inline bool get_left(bool known, bool was, bool now) { return known && was && !now; }
@@ -368,7 +368,7 @@ void make_editable(uint32_t sector);
 void select_partner(const std::string& name);
 void select_node_named(uint32_t name);
 // A level trigger described ("Kill zone (water) -> TRG_Restart01").
-std::string describe_level_trigger(const LevelTrigger& l);
+std::string describe_level_trigger(const LevelTrigger& level_trigger);
 
 // Undo: the whole trigger state (the editor's triggers - their specs and nodes - and the level triggers turned off).
 struct State {

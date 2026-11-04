@@ -34,8 +34,8 @@ struct Pose {
     float yaw, pitch;
 };
 // The smooth move from one pose to another: `t` 0..1 eased (smoothstep), the yaw the shorter way round.
-Pose get_blend(const Pose& from, const Pose& to, float t);
-float get_ease(float t);
+Pose get_blend(const Pose& from, const Pose& to, float fraction);
+float get_ease(float fraction);
 // The angle `to` brought within half a turn of `from` (the yaw's shorter way).
 float nearest_angle(float from, float to);
 

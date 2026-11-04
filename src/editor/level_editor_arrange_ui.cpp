@@ -77,13 +77,13 @@ void run_queued()
 
 void pane(float ui_scale)
 {
-    Settings& s = at_hand();
-    if (!s.window) {
+    Settings& settings = at_hand();
+    if (!settings.window) {
         return;
     }
     ImGui::SetNextWindowSize(ImVec2(kPanelWidth * ui_scale, 0.0F), ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(ImVec2(kPanelPosX * ui_scale, kPanelPosY * ui_scale), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Arrange###arrange", &s.window,
+    if (!ImGui::Begin("Arrange###arrange", &settings.window,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
         return;
@@ -94,16 +94,16 @@ void pane(float ui_scale)
         if (axis != 0) {
             ImGui::SameLine();
         }
-        ImGui::RadioButton(core::at(kAxes, axis), &s.axis, axis);
+        ImGui::RadioButton(core::at(kAxes, axis), &settings.axis, axis);
     }
     ImGui::SameLine(0.0F, kGroupSpacing * ui_scale);
-    ImGui::Checkbox("Local", &s.local);
+    ImGui::Checkbox("Local", &settings.local);
     get_tip("Use the first item's axes");
-    int reference = static_cast<int>(s.reference);
+    int reference = static_cast<int>(settings.reference);
     ImGui::RadioButton("Selection Bounds", &reference, 0);
     ImGui::SameLine();
     ImGui::RadioButton("First Selected", &reference, 1);
-    s.reference = static_cast<Reference>(reference);
+    settings.reference = static_cast<Reference>(reference);
     static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
     for (int edge = 0; edge < 3; ++edge) {
         if (edge != 0) {
@@ -112,17 +112,17 @@ void pane(float ui_scale)
         std::array<char, kLabelTextSize> label{};
         text::format_to(label, "Align %s", core::at(kEdges, edge));
         if (ImGui::Button(label.data())) {
-            const int axis = s.axis;
+            const int axis = settings.axis;
             get_later([axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
         }
     }
     if (ImGui::Button("Distribute")) {
-        const int axis = s.axis;
+        const int axis = settings.axis;
         get_later([axis] { distribute(axis, at_hand().gaps, at_hand().local); });
     }
     get_tip("Space 3 or more evenly; ends stay");
     ImGui::SameLine();
-    ImGui::Checkbox("Equal gaps", &s.gaps);
+    ImGui::Checkbox("Equal gaps", &settings.gaps);
     get_tip("Equal gaps instead of equal centre spacing");
 
     ImGui::SeparatorText("Replace");
@@ -150,12 +150,12 @@ void pane(float ui_scale)
     get_tip("Click a top edge of the selected scenery to add a rail  (Alt+R)");
 
     ImGui::SeparatorText("Options");
-    ImGui::Checkbox("Edge Snapping", &s.edge_snap_);
+    ImGui::Checkbox("Edge Snapping", &settings.edge_snap_);
     get_tip("Snap scenery flush to neighbours");
-    ImGui::Checkbox("Drag Measurements", &s.measure);
-    ImGui::Checkbox("Placement Preview", &s.ghost);
-    ImGui::Checkbox("Click to Place", &s.click_places_);
-    ImGui::Checkbox("Align to Slope", &s.ghost_slope_);
+    ImGui::Checkbox("Drag Measurements", &settings.measure);
+    ImGui::Checkbox("Placement Preview", &settings.ghost);
+    ImGui::Checkbox("Click to Place", &settings.click_places_);
+    ImGui::Checkbox("Align to Slope", &settings.ghost_slope_);
     ImGui::End();
 }
 
@@ -247,11 +247,11 @@ void get_panel(float x, float y, float ui_scale)
         }
         if (edit.kind == Kind::kJustify) {
             static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
-            for (int e = 0; e < 3; ++e) {
-                if (e != 0) {
+            for (int axis = 0; axis < 3; ++axis) {
+                if (axis != 0) {
                     ImGui::SameLine();
                 }
-                track(ImGui::RadioButton(core::at(kEdges, e), &edit.edge, e));
+                track(ImGui::RadioButton(core::at(kEdges, axis), &edit.edge, axis));
             }
             track(ImGui::RadioButton("Bounds", &edit.reference, 0));
             ImGui::SameLine();

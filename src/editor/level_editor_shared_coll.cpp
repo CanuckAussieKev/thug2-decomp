@@ -56,65 +56,73 @@ namespace {
 
 float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
-float segment_distance(V3 p, V3 a, V3 b)
+float segment_distance(V3 point, V3 a, V3 b)
 {
     const V3 ab = b - a;
     const float len2 = get_dot(ab, ab);
-    const float t = len2 > 0.0F ? std::clamp(get_dot(p - a, ab) / len2, 0.0F, 1.0F) : 0.0F;
-    return len_of(p - (a + ab * t));
+    const float fraction = len2 > 0.0F ? std::clamp(get_dot(point - a, ab) / len2, 0.0F, 1.0F) : 0.0F;
+    return len_of(point - (a + ab * fraction));
 }
 
 } // namespace
 
-float point_triangle_distance(V3 p, V3 a, V3 b, V3 c)
+float point_triangle_distance(V3 point, V3 a, V3 b, V3 corner_c)
 {
     const V3 ab = b - a;
-    const V3 ac = c - a;
-    const V3 n = perpendicular(ab, ac);
-    const float n2 = get_dot(n, n);
-    const float scale = std::max({get_dot(ab, ab), get_dot(ac, ac), get_dot(c - b, c - b)});
+    const V3 ac = corner_c - a;
+    const V3 normal = perpendicular(ab, ac);
+    const float n2 = get_dot(normal, normal);
+    const float scale = std::max({get_dot(ab, ab), get_dot(ac, ac), get_dot(corner_c - b, corner_c - b)});
     if (!(n2 > scale * scale * kDegenerateNormalSquared)) { // (degenerate: a line or a point)
-        return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, a, c)});
+        return std::min({segment_distance(point, a, b), segment_distance(point, b, corner_c),
+                         segment_distance(point, a, corner_c)});
     }
     // Inside the triangle's prism: the distance to its plane; else to the nearest edge.
-    const V3 ap = p - a;
-    const V3 bp = p - b;
-    const V3 cp = p - c;
-    const bool inside = get_dot(perpendicular(ab, ap), n) >= 0.0F && get_dot(perpendicular(c - b, bp), n) >= 0.0F &&
-                        get_dot(perpendicular(a - c, cp), n) >= 0.0F;
+    const V3 ap = point - a;
+    const V3 bp = point - b;
+    const V3 cp = point - corner_c;
+    const bool inside = get_dot(perpendicular(ab, ap), normal) >= 0.0F &&
+                        get_dot(perpendicular(corner_c - b, bp), normal) >= 0.0F &&
+                        get_dot(perpendicular(a - corner_c, cp), normal) >= 0.0F;
     if (inside) {
-        return std::fabs(get_dot(ap, n)) / std::sqrt(n2);
+        return std::fabs(get_dot(ap, normal)) / std::sqrt(n2);
     }
-    return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, c, a)});
+    return std::min(
+        {segment_distance(point, a, b), segment_distance(point, b, corner_c), segment_distance(point, corner_c, a)});
 }
 
-float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices, StripLimit strip_limit)
+float strip_distance(V3 point, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
+                     const uint16_t* indices, StripLimit strip_limit)
 {
     const auto index_count = strip_limit.index_count_;
     auto best = strip_limit.best;
-    auto at = [&](uint16_t i) {
-        const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
-        return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
+    auto at = [&](uint16_t index) {
+        const auto floats = gpu::VertexView(positions, stride, vertex_count).float3(index);
+        return V3{.x = core::at(floats, 0), .y = core::at(floats, 1), .z = core::at(floats, 2)};
     };
     const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
-        const uint16_t a = core::at(index_run, i - 2);
-        const uint16_t b = core::at(index_run, i - 1);
-        const uint16_t c = core::at(index_run, i);
-        if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count) {
+        const uint16_t index_a = core::at(index_run, i - 2);
+        const uint16_t index_b = core::at(index_run, i - 1);
+        const uint16_t index_c = core::at(index_run, i);
+        if (index_a == index_b || index_b == index_c || index_a == index_c || index_a >= vertex_count ||
+            index_b >= vertex_count || index_c >= vertex_count) {
             continue;
         }
-        const V3 va = at(a);
-        const V3 vb = at(b);
-        const V3 vc = at(c);
+        const V3 va = at(index_a);
+        const V3 vb = at(index_b);
+        const V3 vc = at(index_c);
         // (a quick reject: the triangle's box farther than the best so far)
-        const float dx = std::max({std::min({va.x, vb.x, vc.x}) - p.x, p.x - std::max({va.x, vb.x, vc.x}), 0.0F});
-        const float dy = std::max({std::min({va.y, vb.y, vc.y}) - p.y, p.y - std::max({va.y, vb.y, vc.y}), 0.0F});
-        const float dz = std::max({std::min({va.z, vb.z, vc.z}) - p.z, p.z - std::max({va.z, vb.z, vc.z}), 0.0F});
+        const float dx =
+            std::max({std::min({va.x, vb.x, vc.x}) - point.x, point.x - std::max({va.x, vb.x, vc.x}), 0.0F});
+        const float dy =
+            std::max({std::min({va.y, vb.y, vc.y}) - point.y, point.y - std::max({va.y, vb.y, vc.y}), 0.0F});
+        const float dz =
+            std::max({std::min({va.z, vb.z, vc.z}) - point.z, point.z - std::max({va.z, vb.z, vc.z}), 0.0F});
         if ((dx * dx) + (dy * dy) + (dz * dz) >= best * best) {
             continue;
         }
-        best = std::min(best, point_triangle_distance(p, va, vb, vc));
+        best = std::min(best, point_triangle_distance(point, va, vb, vc));
     }
     return best;
 }
@@ -140,9 +148,9 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
 {
     const size_t count = std::min(faces.size(), static_cast<size_t>(kMostFaces));
     faces_.resize(count * kFaceRecordBytes);
-    for (size_t f = 0; f < count; ++f) {
-        const FaceCopy& face = core::at(faces, f);
-        const std::span<uint8_t> out = std::span<uint8_t>(faces_).subspan(f * 10, 10);
+    for (size_t face_index = 0; face_index < count; ++face_index) {
+        const FaceCopy& face = core::at(faces, face_index);
+        const std::span<uint8_t> out = std::span<uint8_t>(faces_).subspan(face_index * 10, 10);
         std::memcpy(out.data(), &face.flags, 2);
         std::memcpy(out.subspan(2).data(), &face.terrain, 2);
         for (int k = 0; k < 3; ++k) {
@@ -207,17 +215,18 @@ void Companion::rebase()
     }
 }
 
-V3 Companion::get_vertex(int i) const
+V3 Companion::get_vertex(int index) const
 {
-    return {
-        .x = core::at(vertices_, i * 3), .y = core::at(vertices_, (i * 3) + 1), .z = core::at(vertices_, (i * 3) + 2)};
+    return {.x = core::at(vertices_, index * 3),
+            .y = core::at(vertices_, (index * 3) + 1),
+            .z = core::at(vertices_, (index * 3) + 2)};
 }
 
 std::vector<FaceCopy> Companion::get_faces() const
 {
     std::vector<FaceCopy> faces(geometry_.tri_count());
-    for (int f = 0; std::cmp_less(f, geometry_.tri_count()); ++f) {
-        core::at(faces, f) = read_face(&geometry_, f);
+    for (int face_index = 0; std::cmp_less(face_index, geometry_.tri_count()); ++face_index) {
+        core::at(faces, face_index) = read_face(&geometry_, face_index);
     }
     return faces;
 }
@@ -316,11 +325,12 @@ void for_each_strip(render::PcGeom* geom, F fn)
     }
 }
 
-float geom_distance(render::PcGeom* geom, V3 p, float best)
+float geom_distance(render::PcGeom* geom, V3 point, float best)
 {
     for_each_strip(geom, [&](const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
                              uint32_t index_count) {
-        best = strip_distance(p, positions, stride, vertex_count, indices, {.index_count_ = index_count, .best = best});
+        best = strip_distance(point, positions, stride, vertex_count, indices,
+                              {.index_count_ = index_count, .best = best});
     });
     return best;
 }
@@ -331,18 +341,19 @@ float face_distance(render::PcGeom* geom, const FaceCopy& face, float limit)
     float worst = 0.0F;
     const float over = std::nextafter(limit, std::numeric_limits<float>::infinity());
     for (const V3& v : face.v) {
-        const float d = geom_distance(geom, v, over);
-        if (d > limit) {
+        const float distance = geom_distance(geom, v, over);
+        if (distance > limit) {
             return over;
         }
-        worst = std::max(worst, d);
+        worst = std::max(worst, distance);
     }
     return worst;
 }
 
-bool get_inside(V3 p, V3 min, V3 max)
+bool get_inside(V3 point, V3 min, V3 max)
 {
-    return p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y && p.z >= min.z && p.z <= max.z;
+    return point.x >= min.x && point.x <= max.x && point.y >= min.y && point.y <= max.y && point.z >= min.z &&
+           point.z <= max.z;
 }
 bool face_inside(const FaceCopy& face, V3 min, V3 max)
 {
@@ -467,13 +478,13 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
     } context{.self = checksum, .min = min, .max = max, .others = {}, .sources = {}};
     scenery::for_each_level_sector(
         [](void* raw, uint32_t other, render::WorldCell* sector) {
-            auto* c = static_cast<CtxInfo*>(raw);
+            auto* info = static_cast<CtxInfo*>(raw);
             if (get_collision_only(sector)) {
-                c->sources.emplace_back(other, sector);
+                info->sources.emplace_back(other, sector);
                 return;
             }
             render::PcGeom* geom = geom_of(sector);
-            if (other == c->self || !geom || scenery::is_clone(other) || scenery::get_see_through(other)) {
+            if (other == info->self || !geom || scenery::is_clone(other) || scenery::get_see_through(other)) {
                 return;
             }
             V3 lo{};
@@ -481,11 +492,11 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             if (!current_bounds(checksums::Name{other}, kNear, &lo, &hi)) {
                 return;
             }
-            if (lo.x > c->max.x || hi.x < c->min.x || lo.y > c->max.y || hi.y < c->min.y || lo.z > c->max.z ||
-                hi.z < c->min.z) {
+            if (lo.x > info->max.x || hi.x < info->min.x || lo.y > info->max.y || hi.y < info->min.y ||
+                lo.z > info->max.z || hi.z < info->min.z) {
                 return;
             }
-            c->others.push_back({.checksum = other, .geom = geom, .min = lo, .max = hi});
+            info->others.push_back({.checksum = other, .geom = geom, .min = lo, .max = hi});
         },
         &context);
 
@@ -502,8 +513,10 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
         }
         const V3 named_min = min - V3{.x = 100.0F, .y = 100.0F, .z = 100.0F};
         const V3 named_max = max + V3{.x = 100.0F, .y = 100.0F, .z = 100.0F};
-        for (int f = 0; std::cmp_less(f, geometry->tri_count()) && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
-            const FaceCopy face = read_face(geometry, f);
+        for (int face_index = 0;
+             std::cmp_less(face_index, geometry->tri_count()) && faces.size() < static_cast<size_t>(kMostFaces);
+             ++face_index) {
+            const FaceCopy face = read_face(geometry, face_index);
             if (!takeable(face.flags)) {
                 continue;
             }
@@ -535,7 +548,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             }
             faces.push_back(face);
             if (taken) {
-                taken->push_back({.geometry = geometry, .face = f, .flags = face.flags});
+                taken->push_back({.geometry = geometry, .face = face_index, .flags = face.flags});
             }
         }
     }
@@ -604,8 +617,8 @@ void get_drop(const std::map<uint32_t, TableRow>::iterator& it)
             if (entry.in_grid_) {
                 tick_grid(entry.grid, {}, {entry.companion->get_object()}, {});
             }
-            for (const Taken& t : entry.taken) {
-                t.geometry->set_face_flags(t.face, t.flags);
+            for (const Taken& taken : entry.taken) {
+                taken.geometry->set_face_flags(taken.face, taken.flags);
             }
         }
         render::remove_from_caches(entry.companion->get_object());
@@ -638,8 +651,9 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
     if (!faces.empty()) {
         entry.companion = std::make_unique<Companion>(checksum, faces);
         entry.companion->get_object()->geometry()->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
-        for (const Taken& t : taken) {
-            t.geometry->set_face_flags(t.face, t.flags | render::FaceFlag::kNotCollidable);
+        for (const Taken& current_taken : taken) {
+            current_taken.geometry->set_face_flags(current_taken.face,
+                                                   current_taken.flags | render::FaceFlag::kNotCollidable);
         }
         entry.taken = std::move(taken);
         ++generation();
@@ -774,9 +788,9 @@ std::vector<int> taken_faces(const render::TriMeshSource* geometry)
 {
     std::vector<int> faces;
     for (const auto& entry : entries()) {
-        for (const Taken& t : entry.second.taken) {
-            if (t.geometry == geometry) {
-                faces.push_back(t.face);
+        for (const Taken& taken : entry.second.taken) {
+            if (taken.geometry == geometry) {
+                faces.push_back(taken.face);
             }
         }
     }

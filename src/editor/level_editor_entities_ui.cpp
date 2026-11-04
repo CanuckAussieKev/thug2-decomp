@@ -68,19 +68,19 @@ void field_request(std::vector<ui::Request>* requests, NodeField node_field, fie
 {
     const auto node = node_field.node;
     const auto key = node_field.key;
-    ui::Request r = {.kind = ui::Request::Kind::kFieldSet};
-    r.node = node;
-    r.id = key;
-    r.value = static_cast<int>(kind);
-    r.text = text;
-    requests->push_back(r);
+    ui::Request request = {.kind = ui::Request::Kind::kFieldSet};
+    request.node = node;
+    request.id = key;
+    request.value = static_cast<int>(kind);
+    request.text = text;
+    requests->push_back(request);
 }
 
-void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* requests)
+void model_section(uint32_t id, script::Struct* structure, std::vector<ui::Request>* requests)
 {
     static const uint32_t kModel = checksums::hash_from_text("model");
     const char* model = nullptr;
-    if (!s || !s->fetch_text(kModel, &model, 0) || !model || !get_live(id)) {
+    if (!structure || !structure->fetch_text(kModel, &model, 0) || !model || !get_live(id)) {
         return;
     }
     const std::string now = model;
@@ -107,12 +107,12 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
     gui::text_disabled("Models already loaded by this level");
 }
 
-void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>* requests)
+void physics_section(uint32_t name, script::Struct* structure, std::vector<ui::Request>* requests)
 {
     static const uint32_t kBouncy = checksums::hash_from_text("bouncy");
     static const uint32_t kContacts = checksums::hash_from_text("contacts");
     const int index = nodes::get_find(name);
-    if (!s || index < 0 || !s->has_bare_flag(kBouncy)) {
+    if (!structure || index < 0 || !structure->has_bare_flag(kBouncy)) {
         return;
     }
     ImGui::Spacing();
@@ -121,7 +121,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
     if (ImGui::BeginTable("##physics", 2, ImGuiTableFlags_SizingStretchProp)) {
         for (const char* field : kPhysics) {
             uint32_t key = checksums::hash_from_text(field);
-            auto row = std::ranges::find_if(rows, [&](const fields::Row& r) { return r.key == key; });
+            auto row = std::ranges::find_if(rows, [&](const fields::Row& field_row) { return field_row.key == key; });
             if (row == rows.end()) {
                 continue;
             }
@@ -148,7 +148,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
             ImGui::PopID();
         }
         script::Array* contacts = nullptr;
-        if (s->fetch_list(kContacts, &contacts, 0) && contacts) {
+        if (structure->fetch_list(kContacts, &contacts, 0) && contacts) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             gui::text_disabled("contacts");
@@ -210,31 +210,31 @@ void sound_section(uint32_t name)
 {
     bool sphere = false;
     const float radius_now = detail::emitter_radius(name, &sphere);
-    const EmitterSound e = detail::emitter_now(name);
+    const EmitterSound emitter_sound = detail::emitter_now(name);
     ImGui::Spacing();
     ImGui::SeparatorText("Sound");
     std::vector<std::pair<uint32_t, std::string>> sounds = detail::get_sounds();
     std::string current = "(none)";
-    for (const auto& s : sounds) {
-        if (s.first == e.sound) {
-            current = s.second;
+    for (const auto& sound : sounds) {
+        if (sound.first == emitter_sound.sound) {
+            current = sound.second;
         }
     }
-    if ((e.sound != 0U) && current == "(none)") {
-        current = nodes::caption(e.sound);
+    if ((emitter_sound.sound != 0U) && current == "(none)") {
+        current = nodes::caption(emitter_sound.sound);
     }
     ImGui::SetNextItemWidth(-1.0F);
     if (ImGui::BeginCombo("##emittersound", current.c_str())) {
-        if (ImGui::Selectable("(none)", e.sound == 0) && e.sound != 0) {
-            EmitterSound changed = e;
+        if (ImGui::Selectable("(none)", emitter_sound.sound == 0) && emitter_sound.sound != 0) {
+            EmitterSound changed = emitter_sound;
             changed.sound = 0;
             get_queue([changed] { detail::change_emitter(changed); });
         }
         for (size_t i = 0; i < sounds.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
             const auto& [sound, sound_name] = core::at(sounds, i);
-            if (ImGui::Selectable(sound_name.c_str(), sound == e.sound) && sound != e.sound) {
-                EmitterSound changed = e;
+            if (ImGui::Selectable(sound_name.c_str(), sound == emitter_sound.sound) && sound != emitter_sound.sound) {
+                EmitterSound changed = emitter_sound;
                 changed.sound = sound;
                 get_queue([changed] { detail::change_emitter(changed); });
             }
@@ -243,19 +243,19 @@ void sound_section(uint32_t name)
         ImGui::EndCombo();
     }
     bool active = false;
-    float volume = e.volume;
+    float volume = emitter_sound.volume;
     if (ImGui::DragFloat("Volume %##emittervol", &volume, 1.0F, kMinVolume, kLoudest, "%.0f",
                          ImGuiSliderFlags_AlwaysClamp)) {
-        EmitterSound changed = e;
+        EmitterSound changed = emitter_sound;
         changed.volume = volume;
         get_queue([changed] { detail::change_emitter(changed); });
     }
     active = active || ImGui::IsItemActive();
     if (sphere) {
-        float radius = e.radius > 0.0F ? e.radius : radius_now;
+        float radius = emitter_sound.radius > 0.0F ? emitter_sound.radius : radius_now;
         if (ImGui::DragFloat("Radius##emitterradius", &radius, kRadiusDragStep, kMinRadius, kMaxRadius, "%.0f",
                              ImGuiSliderFlags_AlwaysClamp)) {
-            EmitterSound changed = e;
+            EmitterSound changed = emitter_sound;
             changed.radius = radius;
             get_queue([changed] { detail::change_emitter(changed); });
         }
@@ -289,10 +289,10 @@ void inspector_section(int node, checksums::Name object_name, ImFont* mono, std:
     if (name == 0U) {
         return;
     }
-    script::Struct* s = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
+    script::Struct* structure = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
     if (object != 0U) {
-        model_section(object, s, requests);
-        physics_section(object, s, requests);
+        model_section(object, structure, requests);
+        physics_section(object, structure, requests);
         moving_section(object);
         return;
     }
@@ -305,8 +305,8 @@ void inspector_section(int node, checksums::Name object_name, ImFont* mono, std:
         gui::text_wrapped("%s", when_applied(checksums::Name{name}, family));
     }
     if (family == static_cast<int>(nodes::Family::kObject) && get_live(name)) {
-        model_section(name, s, requests);
-        physics_section(name, s, requests);
+        model_section(name, structure, requests);
+        physics_section(name, structure, requests);
         moving_section(name);
     }
 }

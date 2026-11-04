@@ -41,15 +41,16 @@ Placement get_inverse(const Placement& placement)
 {
     // y = Q (S x) + o  =>  x = S^-1 Q^-1 (y - o) = Q^-1 (T y) + Q^-1 (T (-o)), T = S^-1 seen through Q (a per-axis
     // scale - level_editor_scale.h: S^-1 Q^-1 = Q^-1 T, odd turns swapping its x and z)
-    const V3 s = placement.scale;
-    const V3 reciprocal = {
-        .x = s.x > 0.0F ? 1.0F / s.x : 1.0F, .y = s.y > 0.0F ? 1.0F / s.y : 1.0F, .z = s.z > 0.0F ? 1.0F / s.z : 1.0F};
+    const V3 scale = placement.scale;
+    const V3 reciprocal = {.x = scale.x > 0.0F ? 1.0F / scale.x : 1.0F,
+                           .y = scale.y > 0.0F ? 1.0F / scale.y : 1.0F,
+                           .z = scale.z > 0.0F ? 1.0F / scale.z : 1.0F};
     const int quarters = (4 - (placement.quarters & 3)) & 3;
-    const V3 t = turned_scale(reciprocal, placement.quarters);
+    const V3 turned = turned_scale(reciprocal, placement.quarters);
     Placement inverse;
     inverse.quarters = quarters;
-    inverse.scale = t;
-    inverse.offset = get_quarter_turn(per_axis(placement.offset * -1.0F, t), quarters);
+    inverse.scale = turned;
+    inverse.offset = get_quarter_turn(per_axis(placement.offset * -1.0F, turned), quarters);
     return inverse;
 }
 
@@ -59,15 +60,15 @@ bool is_none(const Placement& step)
 {
     // (a per-axis scale's reciprocal isn't exact - 1 / 1.5 -: Between a placement and itself can be a step of
     // 1.0000001; within a millionth and a ten-thousandth of a unit counts as none)
-    auto unit = [](float s) { return std::fabs(s - 1.0F) < kUnitScaleEpsilon; };
+    auto unit = [](float scale) { return std::fabs(scale - 1.0F) < kUnitScaleEpsilon; };
     auto zero = [](float v) { return std::fabs(v) < kZeroEpsilon; };
     return (step.quarters & 3) == 0 && unit(step.scale.x) && unit(step.scale.y) && unit(step.scale.z) &&
            zero(step.offset.x) && zero(step.offset.y) && zero(step.offset.z);
 }
 
-bool over_footprint(const OrientedBox& box, V3 p, float margin, float above)
+bool over_footprint(const OrientedBox& box, V3 point, float margin, float above)
 {
-    const V3 d = p - box.origin;
+    const V3 delta = point - box.origin;
     std::array<float, 3> local{};
     for (int i = 0; i < 3; ++i) {
         const float length2 = get_dot(core::at(box.axes, i), core::at(box.axes, i));
@@ -75,7 +76,7 @@ bool over_footprint(const OrientedBox& box, V3 p, float margin, float above)
             return false;
         }
         // (local units are the box's: a margin in world units is margin / |axis| of them)
-        core::at(local, i) = get_dot(d, core::at(box.axes, i)) / length2;
+        core::at(local, i) = get_dot(delta, core::at(box.axes, i)) / length2;
     }
     const std::array<float, 3> lengths = {{std::sqrt(get_dot(core::at(box.axes, 0), core::at(box.axes, 0))),
                               std::sqrt(get_dot(core::at(box.axes, 1), core::at(box.axes, 1))),
@@ -192,8 +193,8 @@ script::Struct* look_up_node_params(uint32_t name, const nodes::Elem** out)
 uint32_t cluster_of(uint32_t name)
 {
     uint32_t cluster = 0;
-    if (script::Struct* s = look_up_node_params(name, nullptr)) {
-        s->read_hash_value(kCluster, &cluster, 0);
+    if (script::Struct* structure = look_up_node_params(name, nullptr)) {
+        structure->read_hash_value(kCluster, &cluster, 0);
     }
     return cluster;
 }
@@ -223,20 +224,21 @@ struct Gather {
 // nothing below). A piece whose collision is still in a collision-only sector (level_editor_shared_coll.h: taken along
 // only at its first move - TR's SkWare_Rail01's faces in SkWare_Main_1) counts when the hit is within its box grown by
 // the shared collision's 6 units.
-uint32_t ground_under(const Gather& g, V3 p)
+uint32_t ground_under(const Gather& gather, V3 place)
 {
-    const bool over =
-        std::ranges::any_of(g.boxes, [&](const auto& box) { return over_footprint(box.second, p, kMargin, kAbove); });
+    const bool over = std::ranges::any_of(
+        gather.boxes, [&](const auto& box) { return over_footprint(box.second, place, kMargin, kAbove); });
     if (!over) {
         return 0;
     }
     V3 point = {};
-    const uint32_t hit = first_hit({.x = p.x, .y = p.y + kRayUp, .z = p.z}, {.x = p.x, .y = p.y - kRayDown, .z = p.z}, &point);
-    if ((hit == 0U) || std::ranges::find(g.members, hit) != g.members.end() ||
+    const uint32_t hit = first_hit({.x = place.x, .y = place.y + kRayUp, .z = place.z},
+                                   {.x = place.x, .y = place.y - kRayDown, .z = place.z}, &point);
+    if ((hit == 0U) || std::ranges::find(gather.members, hit) != gather.members.end() ||
         (scenery::sector_geometry(hit) != nullptr)) {
         return hit;
     }
-    for (const auto& box : g.boxes) {
+    for (const auto& box : gather.boxes) {
         if (over_footprint(box.second, point, kFootprintReach, kFootprintReach)) {
             return box.first;
         }
@@ -244,24 +246,24 @@ uint32_t ground_under(const Gather& g, V3 p)
     return hit;
 }
 
-Attachment attachment_of(const Gather& g, uint32_t name, V3 pos)
+Attachment attachment_of(const Gather& gather, uint32_t name, V3 pos)
 {
     const nodes::Elem* node = nullptr;
     uint32_t cluster = 0;
-    if (script::Struct* s = look_up_node_params(name, &node)) {
-        s->read_hash_value(kCluster, &cluster, 0);
+    if (script::Struct* structure = look_up_node_params(name, &node)) {
+        structure->read_hash_value(kCluster, &cluster, 0);
     }
     const std::vector<uint32_t> links = link_names(node);
-    const Attachment a = attached(cluster, links, 0, g.members, g.clusters);
-    if (a != Attachment::kNone) {
-        return a;
+    const Attachment attachment = attached(cluster, links, 0, gather.members, gather.clusters);
+    if (attachment != Attachment::kNone) {
+        return attachment;
     }
-    return attached(0, {}, ground_under(g, pos), g.members, g.clusters);
+    return attached(0, {}, ground_under(gather, pos), gather.members, gather.clusters);
 }
 
 void gather_object(objects::Entity* object, void* data)
 {
-    auto* g = static_cast<Gather*>(data);
+    auto* gather = static_cast<Gather*>(data);
     auto* composite = core::down_cast<objects::GameEntity>(object);
     OrientedBox box{};
     if (!object_edit::model_box(composite, &box)) {
@@ -269,8 +271,8 @@ void gather_object(objects::Entity* object, void* data)
     }
     uint32_t cls = 0;
     const nodes::Elem* node = nullptr;
-    if (script::Struct* s = look_up_node_params(composite->ident(), &node)) {
-        s->read_hash_value(kClass, &cls, 0);
+    if (script::Struct* structure = look_up_node_params(composite->ident(), &node)) {
+        structure->read_hash_value(kClass, &cls, 0);
     }
     if (cls == kPedestrian) {
         return; // (peds walk their paths: not carried)
@@ -278,8 +280,8 @@ void gather_object(objects::Entity* object, void* data)
     if (node && node->family == nodes::Family::kBitMark) {
         return; // (a flag's object: its node is carried, and moves it)
     }
-    if (attachment_of(*g, composite->ident(), object_edit::pos_of(composite)) != Attachment::kNone) {
-        g->objects.push_back(composite->ident());
+    if (attachment_of(*gather, composite->ident(), object_edit::pos_of(composite)) != Attachment::kNone) {
+        gather->objects.push_back(composite->ident());
     }
 }
 
@@ -317,21 +319,21 @@ Taken arm()
     if (!is_switched_on() || selection.empty()) {
         return {};
     }
-    Gather g;
-    g.members = selection;
+    Gather gather;
+    gather.members = selection;
     for (const uint32_t member : selection) {
         if (const uint32_t cluster = cluster_of(member)) {
-            g.clusters.push_back(cluster);
+            gather.clusters.push_back(cluster);
         }
         OrientedBox box{};
         if (scenery::cuboid(member, &box) && !scenery::is_shadow(member)) {
-            g.boxes.emplace_back(member, box);
+            gather.boxes.emplace_back(member, box);
         }
     }
     if (objects::EntityHub* manager = objects::object_hub_slot().get()) {
-        manager->for_each(gather_object, &g);
+        manager->for_each(gather_object, &gather);
     }
-    stored_carried().objects = g.objects;
+    stored_carried().objects = gather.objects;
     for (const uint32_t id : stored_carried().objects) {
         if (objects::GameEntity* object = live_object(id)) {
             stored_carried().taken.objects.push_back(object_edit::store_away(object));
@@ -345,7 +347,7 @@ Taken arm()
         if (!node_edit::get_take_in(node.name, &values)) {
             continue;
         }
-        if (attachment_of(g, node.name, values.pos) != Attachment::kNone &&
+        if (attachment_of(gather, node.name, values.pos) != Attachment::kNone &&
             std::ranges::find(stored_carried().nodes, node.name) == stored_carried().nodes.end()) {
             stored_carried().nodes.push_back(node.name);
         }

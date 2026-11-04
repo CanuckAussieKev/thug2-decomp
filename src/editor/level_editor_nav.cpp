@@ -41,13 +41,13 @@ bool get_clear(V3 from, V3 move, const Cast& cast)
     const V3 dir = {.x = move.x / length, .y = 0.0F, .z = move.z / length};
     V3 hit{};
     for (const float height : {kStepHeight + 1.0F, kEyeHeight - 4.0F}) {
-        const V3 a = {.x = from.x, .y = from.y + height, .z = from.z};
-        if (cast(a, a + dir * (length + kRadius), &hit)) {
+        const V3 point_a = {.x = from.x, .y = from.y + height, .z = from.z};
+        if (cast(point_a, point_a + dir * (length + kRadius), &hit)) {
             return false;
         }
         // (and a radius clear of walls along each axis it moves on, from where it gets to: a slanting move stops as far
         // from a wall as a straight one)
-        const V3 to = a + move;
+        const V3 to = point_a + move;
         if (move.x != 0.0F && cast(to, to + V3{.x = move.x > 0.0F ? kRadius : -kRadius, .y = 0.0F, .z = 0.0F}, &hit)) {
             return false;
         }
@@ -75,9 +75,9 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     // Along the ground: the heading's forward and right (as frame_from_yaw_pitch's at pitch 0).
     const V3 forward = {.x = std::sin(yaw), .y = 0.0F, .z = std::cos(yaw)};
     const V3 right = {.x = -std::cos(yaw), .y = 0.0F, .z = std::sin(yaw)}; // (the frame's right: up x back)
-    const float f = std::clamp(input.forward, -1.0F, 1.0F);
-    const float r = std::clamp(input.right, -1.0F, 1.0F);
-    V3 wish = forward * f + right * r;
+    const float factor = std::clamp(input.forward, -1.0F, 1.0F);
+    const float radius = std::clamp(input.right, -1.0F, 1.0F);
+    V3 wish = forward * factor + right * radius;
     const float length = std::sqrt((wish.x * wish.x) + (wish.z * wish.z));
     if (length > 1.0F) {
         wish = wish * (1.0F / length);
@@ -168,15 +168,15 @@ V3 teleport_target(V3 camera, V3 hit)
     return to;
 }
 
-V3 follow_step(Follower* f, bool active, V3 target)
+V3 follow_step(Follower* follower, bool active, V3 target)
 {
     if (!active) {
-        f->have = false;
+        follower->have = false;
         return {.x = 0.0F, .y = 0.0F, .z = 0.0F};
     }
-    V3 delta = f->have ? target - f->last : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
-    f->have = true;
-    f->last = target;
+    V3 delta = follower->have ? target - follower->last : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
+    follower->have = true;
+    follower->last = target;
     return delta;
 }
 
@@ -216,12 +216,12 @@ float get_stick(StickRead stick)
     const auto raw = stick.raw;
     const auto deadzone = stick.deadzone;
     const float v = static_cast<float>(raw) / (raw < 0 ? 32768.0F : 32767.0F);
-    const float a = std::fabs(v);
-    if (a <= deadzone || deadzone >= 1.0F) {
+    const float magnitude = std::fabs(v);
+    if (magnitude <= deadzone || deadzone >= 1.0F) {
         return 0.0F;
     }
-    const float t = std::min(1.0F, (a - deadzone) / (1.0F - deadzone));
-    return (v < 0.0F ? -1.0F : 1.0F) * t * t;
+    const float fraction = std::min(1.0F, (magnitude - deadzone) / (1.0F - deadzone));
+    return (v < 0.0F ? -1.0F : 1.0F) * fraction * fraction;
 }
 
 std::string quick_set_name(int number) { return "Set " + std::to_string(number); }
@@ -245,10 +245,10 @@ bool store_group(organize::State* state, const std::string& name, const std::vec
     if (at >= 0) {
         core::at(state->groups, at).members = members;
     } else {
-        organize::GroupSet g;
-        g.name = name;
-        g.members = members;
-        state->groups.push_back(g);
+        organize::GroupSet group_set;
+        group_set.name = name;
+        group_set.members = members;
+        state->groups.push_back(group_set);
     }
     return true;
 }
@@ -260,7 +260,8 @@ bool remove_from_group(organize::State* state, int index, const std::vector<orga
     }
     std::vector<organize::Member>& in = core::at(state->groups, index).members;
     const size_t before = in.size();
-    std::erase_if(in, [&](const organize::Member& m) { return std::ranges::find(members, m) != members.end(); });
+    std::erase_if(in,
+                  [&](const organize::Member& member) { return std::ranges::find(members, member) != members.end(); });
     return in.size() != before;
 }
 

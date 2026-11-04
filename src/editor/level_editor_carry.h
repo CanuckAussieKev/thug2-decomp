@@ -50,7 +50,7 @@ Placement get_between(const Placement& from, const Placement& to);
 bool is_none(const Placement& step);
 // Whether `p` is over a box's footprint: along the box's own x / z axes within min..max grown by `margin`, and along
 // its y axis from min - margin to max + `above` (axes needn't be unit: a scaled piece's box).
-bool over_footprint(const OrientedBox& box, V3 p, float margin, float above);
+bool over_footprint(const OrientedBox& box, V3 point, float margin, float above);
 // Why something is attached to the selection (in this order), from its node's Cluster= (0: none), the names its links
 // name, and what the ground ray below it met first (0: nothing, or not over a footprint).
 enum class Attachment : uint8_t { kNone, kCluster, kLink, kStanding };

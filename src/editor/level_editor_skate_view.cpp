@@ -212,42 +212,44 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     const float threshold = game_threshold();
-    Cached& c = cache()[checksum];
-    if (c.tri == tri && std::cmp_equal(c.faces, tri->tri_count()) && c.threshold == threshold && same(c.min, min) &&
-        same(c.max, max) && same(c.first, first) && same(c.last, last)) {
-        return c;
+    Cached& cached = cache()[checksum];
+    if (cached.tri == tri && std::cmp_equal(cached.faces, tri->tri_count()) && cached.threshold == threshold &&
+        same(cached.min, min) && same(cached.max, max) && same(cached.first, first) && same(cached.last, last)) {
+        return cached;
     }
-    c = Cached{};
-    c.tri = tri, c.min = min, c.max = max, c.first = first, c.last = last, c.faces = tri->tri_count();
-    c.threshold = threshold;
+    cached = Cached{};
+    cached.tri = tri, cached.min = min, cached.max = max, cached.first = first, cached.last = last,
+    cached.faces = tri->tri_count();
+    cached.threshold = threshold;
     if (!tri->faces() || !tri->vertices()) {
-        return c;
+        return cached;
     }
-    for (int f = 0; f < c.faces; ++f) {
-        std::array<V3, 3> p{};
+    for (int face_index = 0; face_index < cached.faces; ++face_index) {
+        std::array<V3, 3> corners{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
-            const uint32_t index = tri->face_vertex(f, k);
+            const uint32_t index = tri->face_vertex(face_index, k);
             ok = index < tri->num_vertices();
             if (ok) {
-                core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
+                core::at(corners, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
             }
         }
         if (!ok) {
             continue;
         }
-        const render::FaceFlag flags = tri->face_flags(f);
-        const V3 n = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
-        const float length = std::sqrt(get_dot(n, n));
-        const float ny = length > 0.0F ? n.y / length : 0.0F;
+        const render::FaceFlag flags = tri->face_flags(face_index);
+        const V3 normal =
+            perpendicular(core::at(corners, 1) - core::at(corners, 0), core::at(corners, 2) - core::at(corners, 0));
+        const float length = std::sqrt(get_dot(normal, normal));
+        const float ny = length > 0.0F ? normal.y / length : 0.0F;
         Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = core::any(flags & render::FaceFlag::kTrigger) ? trigger : 0});
         if (kind == Kind::kNone) {
             continue;
         }
-        c.points.insert(c.points.end(), p.begin(), p.end());
-        c.kinds.push_back(static_cast<uint8_t>(kind));
+        cached.points.insert(cached.points.end(), corners.begin(), corners.end());
+        cached.kinds.push_back(static_cast<uint8_t>(kind));
     }
-    return c;
+    return cached;
 }
 
 } // namespace
@@ -266,9 +268,9 @@ void add_overlay(const overlays::Painter& painter)
     }
     // The level's kill / water triggers by sector (1 kill, 2 water).
     std::unordered_map<uint32_t, int> triggers;
-    for (const triggers::LevelTrigger& t : triggers::level_triggers()) {
-        if (t.kind == triggers::Kind::kKill && !t.off) {
-            triggers[t.sector] = t.calls.water ? 2 : 1;
+    for (const triggers::LevelTrigger& level_trigger : triggers::level_triggers()) {
+        if (level_trigger.kind == triggers::Kind::kKill && !level_trigger.off) {
+            triggers[level_trigger.sector] = level_trigger.calls.water ? 2 : 1;
         }
     }
     struct Candidate {
@@ -308,15 +310,17 @@ void add_overlay(const overlays::Painter& painter)
     std::vector<Polygon> polygons;
     for (const Candidate& candidate : walk.found) {
         auto trigger = triggers.find(candidate.checksum);
-        const Cached& c = cache_of(candidate.checksum, candidate.tri, trigger == triggers.end() ? 0 : trigger->second);
-        for (size_t f = 0; f < c.kinds.size(); ++f) {
+        const Cached& cached =
+            cache_of(candidate.checksum, candidate.tri, trigger == triggers.end() ? 0 : trigger->second);
+        for (size_t kind_index = 0; kind_index < cached.kinds.size(); ++kind_index) {
             if (static_cast<int>(polygons.size()) >= kMaxFaces) {
                 level_editor_skate_view_state().capped_ = true;
                 break;
             }
             std::array<V3, 4> clipped{};
-            const int count =
-                view::clip_triangle_to_near(painter.camera(), painter.frame(), painter.near_z(), std::span<const V3>(c.points).subspan(f * 3).first<3>(), clipped);
+            const int count = view::clip_triangle_to_near(
+                painter.camera(), painter.frame(), painter.near_z(),
+                std::span<const V3>(cached.points).subspan(kind_index * 3).first<3>(), clipped);
             if (count == 0) {
                 continue;
             }
@@ -339,11 +343,11 @@ void add_overlay(const overlays::Painter& painter)
             if (left || right || below || above) {
                 continue;
             }
-            const Kind kind = static_cast<Kind>(core::at(c.kinds, f));
+            const Kind kind = static_cast<Kind>(core::at(cached.kinds, kind_index));
             poly.depth = depth / static_cast<float>(count);
             poly.argb = get_colour(kind);
             polygons.push_back(poly);
-            ++core::at(level_editor_skate_view_state().counts_, core::at(c.kinds, f));
+            ++core::at(level_editor_skate_view_state().counts_, core::at(cached.kinds, kind_index));
         }
         if (level_editor_skate_view_state().capped_) {
             break;
@@ -351,25 +355,39 @@ void add_overlay(const overlays::Painter& painter)
     }
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     auto& under = painter.overlay()->under;
-    for (const Polygon& p : polygons) {
-        under.push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 1), .by = core::at(p.y, 1), .cx = core::at(p.x, 2), .cy = core::at(p.y, 2), .argb = p.argb});
-        if (p.count == 4) {
-            under.push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 2), .by = core::at(p.y, 2), .cx = core::at(p.x, 3), .cy = core::at(p.y, 3), .argb = p.argb});
+    for (const Polygon& polygon : polygons) {
+        under.push_back({.ax = core::at(polygon.x, 0),
+                         .ay = core::at(polygon.y, 0),
+                         .bx = core::at(polygon.x, 1),
+                         .by = core::at(polygon.y, 1),
+                         .cx = core::at(polygon.x, 2),
+                         .cy = core::at(polygon.y, 2),
+                         .argb = polygon.argb});
+        if (polygon.count == 4) {
+            under.push_back({.ax = core::at(polygon.x, 0),
+                             .ay = core::at(polygon.y, 0),
+                             .bx = core::at(polygon.x, 2),
+                             .by = core::at(polygon.y, 2),
+                             .cx = core::at(polygon.x, 3),
+                             .cy = core::at(polygon.y, 3),
+                             .argb = polygon.argb});
         }
     }
     // The editor's own kill / water triggers: their boxes outlined.
-    for (const triggers::Added& a : triggers::added_triggers()) {
-        if (!a.alive || a.spec.kind != triggers::Kind::kKill) {
+    for (const triggers::Added& added_trigger : triggers::added_triggers()) {
+        if (!added_trigger.alive || added_trigger.spec.kind != triggers::Kind::kKill) {
             continue;
         }
-        OrientedBox box = triggers::box_of(a.pos, a.yaw, a.spec.size);
+        OrientedBox box = triggers::box_of(added_trigger.pos, added_trigger.yaw, added_trigger.spec.size);
         std::array<V3, kBoxCorners> corner{};
         box_corners(box.origin, box.axes, box.min, box.max, corner);
         const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                   {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
-        const uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
-        for (const auto& e : edges) {
-            (void)painter.get_seg(core::at(corner, core::at(e, 0)), core::at(corner, core::at(e, 1)), colour, kEdgeThickness);
+        const uint32_t colour =
+            (get_colour(added_trigger.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
+        for (const auto& edge : edges) {
+            (void)painter.get_seg(core::at(corner, core::at(edge, 0)), core::at(corner, core::at(edge, 1)), colour,
+                                  kEdgeThickness);
         }
     }
     // Grind rails: the rail manager's active segments near the camera.
@@ -383,12 +401,13 @@ void add_overlay(const overlays::Painter& painter)
                 ((node.flag_bits() & objects::kRailFlagActive) == 0U)) {
                 continue;
             }
-            const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
-            const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
-            if (painter.span_to(a) > kRadius && painter.span_to(b) > kRadius) {
+            const V3 point_a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
+            const V3 point_b = {
+                .x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
+            if (painter.span_to(point_a) > kRadius && painter.span_to(point_b) > kRadius) {
                 continue;
             }
-            if (painter.get_seg(a, b, kRail, kRailThickness)) {
+            if (painter.get_seg(point_a, point_b, kRail, kRailThickness)) {
                 ++drawn;
             }
         }

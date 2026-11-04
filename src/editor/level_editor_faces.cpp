@@ -74,16 +74,16 @@ const std::array<FlagInfo, kFlagCount> kFlags = {{
     {.bit = render::FaceFlag::kNoTagging, .name = "Not Taggable", .what = "Can't be tagged with graffiti"},
 }};
 
-int hex_digit(char c)
+int hex_digit(char character)
 {
-    if (c >= '0' && c <= '9') {
-        return c - '0';
+    if (character >= '0' && character <= '9') {
+        return character - '0';
     }
-    if (c >= 'a' && c <= 'f') {
-        return c - 'a' + kHexLetterBase;
+    if (character >= 'a' && character <= 'f') {
+        return character - 'a' + kHexLetterBase;
     }
-    if (c >= 'A' && c <= 'F') {
-        return c - 'A' + kHexLetterBase;
+    if (character >= 'A' && character <= 'F') {
+        return character - 'A' + kHexLetterBase;
     }
     return -1;
 }
@@ -103,8 +103,8 @@ int get_combined(const std::vector<render::FaceFlag>& flags, render::FaceFlag bi
         return -1;
     }
     size_t on = 0;
-    for (const render::FaceFlag f : flags) {
-        on += core::any(f & bit) ? 1 : 0;
+    for (const render::FaceFlag flag : flags) {
+        on += core::any(flag & bit) ? 1 : 0;
     }
     return on == 0 ? 0 : on == flags.size() ? 1 : 2;
 }
@@ -128,15 +128,16 @@ std::string write_records(const std::vector<SectorFaces>& sectors)
 {
     std::string out;
     std::array<char, kFaceTextSize> text{};
-    for (const SectorFaces& s : sectors) {
-        if (s.faces.empty()) {
+    for (const SectorFaces& sector : sectors) {
+        if (sector.faces.empty()) {
             continue;
         }
-        text::format_to(text, "faces %08X ", s.checksum);
+        text::format_to(text, "faces %08X ", sector.checksum);
         out += text.data();
-        for (size_t i = 0; i < s.faces.size(); ++i) {
-            text::format_to(text, "%s%u:%04X", (i != 0U) ? "," : "", static_cast<unsigned>(core::at(s.faces, i).first),
-                            static_cast<unsigned>(core::to_underlying(core::at(s.faces, i).second)));
+        for (size_t i = 0; i < sector.faces.size(); ++i) {
+            text::format_to(text, "%s%u:%04X", (i != 0U) ? "," : "",
+                            static_cast<unsigned>(core::at(sector.faces, i).first),
+                            static_cast<unsigned>(core::to_underlying(core::at(sector.faces, i).second)));
             out += text.data();
         }
         out += '\n';
@@ -146,21 +147,21 @@ std::string write_records(const std::vector<SectorFaces>& sectors)
 
 bool read_record(std::istringstream& in, SectorFaces* out)
 {
-    SectorFaces s;
+    SectorFaces sector_faces;
     std::string checksum;
     std::string list;
     if (!(in >> checksum >> list) || checksum.size() != kChecksumDigits) {
         return false;
     }
     uint32_t value = 0;
-    for (const char c : checksum) {
-        const int d = hex_digit(c);
-        if (d < 0) {
+    for (const char character : checksum) {
+        const int digit = hex_digit(character);
+        if (digit < 0) {
             return false;
         }
-        value = value << 4 | static_cast<uint32_t>(d);
+        value = value << 4 | static_cast<uint32_t>(digit);
     }
-    s.checksum = value;
+    sector_faces.checksum = value;
     size_t at = 0;
     while (at <= list.size()) {
         const size_t comma = list.find(',', at);
@@ -181,38 +182,38 @@ bool read_record(std::istringstream& in, SectorFaces* out)
         }
         uint32_t flags = 0;
         for (size_t i = colon + 1; i < item.size(); ++i) {
-            const int d = hex_digit(core::at(item, i));
-            if (d < 0) {
+            const int digit = hex_digit(core::at(item, i));
+            if (digit < 0) {
                 return false;
             }
-            flags = flags << 4 | static_cast<uint32_t>(d);
+            flags = flags << 4 | static_cast<uint32_t>(digit);
         }
-        for (const auto& f : s.faces) {
-            if (f.first == face) {
+        for (const auto& face_entry : sector_faces.faces) {
+            if (face_entry.first == face) {
                 return false; // (a face twice: not a record we wrote)
             }
         }
-        s.faces.emplace_back(static_cast<uint16_t>(face), static_cast<render::FaceFlag>(flags));
+        sector_faces.faces.emplace_back(static_cast<uint16_t>(face), static_cast<render::FaceFlag>(flags));
         if (comma == std::string::npos) {
             break;
         }
         at = comma + 1;
     }
     std::string more;
-    if (s.faces.empty() || (in >> more)) {
+    if (sector_faces.faces.empty() || (in >> more)) {
         return false;
     }
-    std::ranges::sort(s.faces);
-    *out = s;
+    std::ranges::sort(sector_faces.faces);
+    *out = sector_faces;
     return true;
 }
 
 std::vector<SectorFaces> group_set(const std::vector<Change>& changes)
 {
     std::map<uint32_t, std::vector<std::pair<uint16_t, render::FaceFlag>>> by_sector;
-    for (const Change& c : changes) {
-        if (c.now != c.origin) {
-            by_sector[c.key.checksum].emplace_back(c.key.face, c.now);
+    for (const Change& change : changes) {
+        if (change.now != change.origin) {
+            by_sector[change.key.checksum].emplace_back(change.key.face, change.now);
         }
     }
     std::vector<SectorFaces> out;
@@ -311,9 +312,9 @@ bool get_corners(FaceKey key, std::span<V3, 3> out)
         if (v >= tri->num_vertices()) {
             return false;
         }
-        maths::Vec4 p{};
-        tri->read_stored_vertex(static_cast<int>(v), &p);
-        core::at(out, k) = {.x = p.x, .y = p.y, .z = p.z};
+        maths::Vec4 point{};
+        tri->read_stored_vertex(static_cast<int>(v), &point);
+        core::at(out, k) = {.x = point.x, .y = point.y, .z = point.z};
     }
     return true;
 }
@@ -349,8 +350,8 @@ struct Step : ModuleStep {
     std::vector<FaceKey> selection;
     void get_restore() override
     {
-        for (const auto& f : flags) {
-            emit_out(f.first, f.second);
+        for (const auto& flag : flags) {
+            emit_out(flag.first, flag.second);
         }
         level_editor_faces_state().selection_ = selection;
         view::stale_cache();
@@ -358,10 +359,10 @@ struct Step : ModuleStep {
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
-        for (const auto& f : flags) {
-            render::FaceFlag value = f.second;
-            get_take_in(f.first, &value);
-            now->flags.emplace_back(f.first, value);
+        for (const auto& flag : flags) {
+            render::FaceFlag value = flag.second;
+            get_take_in(flag.first, &value);
+            now->flags.emplace_back(flag.first, value);
         }
         now->selection = level_editor_faces_state().selection_;
         return now;
@@ -480,8 +481,9 @@ bool select_piece(uint32_t checksum, bool add)
         return false;
     }
     if (const render::TriMeshSource* tri = get_geometry(checksum)) {
-        for (int f = 0; std::cmp_less(f, tri->tri_count()) && faces.size() < kMostSelected; ++f) {
-            faces.push_back({.checksum = checksum, .face = static_cast<uint16_t>(f)});
+        for (int face_index = 0; std::cmp_less(face_index, tri->tri_count()) && faces.size() < kMostSelected;
+             ++face_index) {
+            faces.push_back({.checksum = checksum, .face = static_cast<uint16_t>(face_index)});
         }
     }
     // (the faces its shared collision took along: theirs to edit too)
@@ -595,9 +597,9 @@ int get_apply(const std::vector<SectorFaces>& sectors)
 {
     int count = 0;
     int missing = 0;
-    for (const SectorFaces& s : sectors) {
-        for (const auto& face : s.faces) {
-            if (emit_out({.checksum = s.checksum, .face = face.first}, face.second)) {
+    for (const SectorFaces& sector : sectors) {
+        for (const auto& face : sector.faces) {
+            if (emit_out({.checksum = sector.checksum, .face = face.first}, face.second)) {
                 ++count;
             } else {
                 ++missing;
@@ -651,14 +653,14 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
                  std::vector<ui::Seg>* lines)
 {
     auto outline = [&](FaceKey key, uint32_t argb, float thickness) {
-        std::array<V3, 3> p{};
-        if (!get_corners(key, p)) {
+        std::array<V3, 3> corners{};
+        if (!get_corners(key, corners)) {
             return;
         }
         for (int k = 0; k < 3; ++k) {
-            V3 a = core::at(p, k);
-            V3 b = core::at(p, (k + 1) % 3);
-            if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b)) {
+            V3 point_a = core::at(corners, k);
+            V3 point_b = core::at(corners, (k + 1) % 3);
+            if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &point_a, &point_b)) {
                 continue;
             }
             float ax = 0.0F;
@@ -667,11 +669,11 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             float by = 0.0F;
             float nx = 0.0F;
             float ny = 0.0F;
-            if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny)) {
+            if (!cast_onto(camera_pos, frame, lens, point_a, near_z, &nx, &ny)) {
                 continue;
             }
             ndc_to_pixel(viewport, nx, ny, &ax, &ay);
-            if (!cast_onto(camera_pos, frame, lens, b, near_z, &nx, &ny)) {
+            if (!cast_onto(camera_pos, frame, lens, point_b, near_z, &nx, &ny)) {
                 continue;
             }
             ndc_to_pixel(viewport, nx, ny, &bx, &by);
@@ -722,9 +724,9 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     std::vector<render::FaceFlag> flags;
     std::vector<uint32_t> pieces;
     for (const FaceKey& key : level_editor_faces_state().selection_) {
-        render::FaceFlag f{};
-        if (get_take_in(key, &f)) {
-            flags.push_back(f);
+        render::FaceFlag face_flag{};
+        if (get_take_in(key, &face_flag)) {
+            flags.push_back(face_flag);
         }
         if (std::ranges::find(pieces, key.checksum) == pieces.end()) {
             pieces.push_back(key.checksum);

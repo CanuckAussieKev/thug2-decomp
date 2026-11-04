@@ -202,9 +202,9 @@ uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
     const double mix = 0.5 - (0.5 * std::cos(phase * 2.0 * 3.14159265358979));
     uint32_t colour = 0;
     for (int shift = 0; shift < kColourBits; shift += kBitsPerChannel) {
-        const double a = (low >> shift) & 0xFF;
-        const double b = (high >> shift) & 0xFF;
-        colour |= maths::round_non_negative<uint32_t>(a + ((b - a) * mix)) << shift;
+        const double low_byte = (low >> shift) & 0xFF;
+        const double high_byte = (high >> shift) & 0xFF;
+        colour |= maths::round_non_negative<uint32_t>(low_byte + ((high_byte - low_byte) * mix)) << shift;
     }
     return colour;
 }
@@ -333,8 +333,8 @@ const char* meshes_movable(render::PcGeom* geom)
         if (buffers > std::size(mesh->vertex_buffers())) {
             return "odd vertex buffers";
         }
-        for (uint32_t b = 0; b < buffers; ++b) {
-            const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), b);
+        for (uint32_t current_buffer = 0; current_buffer < buffers; ++current_buffer) {
+            const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), current_buffer);
             if (!buffer || !buffer->data()) {
                 return "no vertex copy";
             }
@@ -711,10 +711,10 @@ void compute_pivot()
         if (!cuboid(checksum, &box)) {
             continue;
         }
-        V3 a{};
-        V3 b{};
-        bounds_of(box, &a, &b);
-        grow_box(&min, &max, have, a, b);
+        V3 point_a{};
+        V3 point_b{};
+        bounds_of(box, &point_a, &point_b);
+        grow_box(&min, &max, have, point_a, point_b);
         have = true;
     }
     level_editor_scenery_state().pivot_ = have ? (min + max) * kHalf : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
@@ -749,16 +749,16 @@ void select_rails()
             boxes.emplace_back(min - V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth}, max + V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth});
         }
     }
-    auto within = [&](V3 p) {
+    auto within = [&](V3 point) {
         for (const auto& box : boxes) {
-            if (p.x >= box.first.x && p.x <= box.second.x && p.y >= box.first.y && p.y <= box.second.y &&
-                p.z >= box.first.z && p.z <= box.second.z) {
+            if (point.x >= box.first.x && point.x <= box.second.x && point.y >= box.first.y &&
+                point.y <= box.second.y && point.z >= box.first.z && point.z <= box.second.z) {
                 return true;
             }
         }
         return false;
     };
-    auto listed = [&](uint32_t c) { return c && std::ranges::find(clusters, c) != clusters.end(); };
+    auto listed = [&](uint32_t colour) { return colour && std::ranges::find(clusters, colour) != clusters.end(); };
     for (int i = 0; i < count; ++i) {
         const RailNode& node = core::at(nodes, i);
         if ((node.flag_bits() & kRailNodeClimbFlag) != 0U) {
@@ -1015,7 +1015,7 @@ bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
 // The ray against a geometry's meshes as drawn (their vertex copies are where the sector is now: moving it moves
 // them): each mesh's first index buffer as a triangle strip; a billboard (turned to the camera when drawn) by its
 // sphere.
-bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
+bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* hit_distance)
 {
     auto* const* meshes = geom->meshes();
     const uint32_t count = geom->mesh_count();
@@ -1047,7 +1047,7 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
         }
     }
     if (found) {
-        *t = best;
+        *hit_distance = best;
     }
     return found;
 }
@@ -1148,15 +1148,19 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     // (without `layers`: nothing past the first occluding piece that isn't locked can matter - a plain click stops at
     // it, and Alt takes it or something nearer)
     float stop = max_t;
-    auto note = [&](uint32_t checksum, render::PcGeom* geom, float t, bool collision) {
+    auto note = [&](uint32_t checksum, render::PcGeom* geom, float fraction, bool collision) {
         if (view::hidden_sector(checksum)) { // (H: level_editor_view.h - not shown, not met)
             return;
         }
         const bool locked = picking::latched(picking::kScenery, checksum);
         const bool occludes = collision || !(plain_geom(geom) && geom_see_through(geom));
-        met.push_back({.id = checksum, .t = t, .passed = get_passed(checksum, origin), .occludes = occludes, .locked = locked});
-        if (occludes && !locked && !layers && t < stop) {
-            stop = t;
+        met.push_back({.id = checksum,
+                       .t = fraction,
+                       .passed = get_passed(checksum, origin),
+                       .occludes = occludes,
+                       .locked = locked});
+        if (occludes && !locked && !layers && fraction < stop) {
+            stop = fraction;
         }
     };
     // The collision ray, past collision that has no geometry to show (invisible walls), at most a few dozen faces.
@@ -1167,13 +1171,13 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
         if (!cast_static(from, origin + unit_dir * max_t, &point, &checksum)) {
             break;
         }
-        const float t = get_dot(point - origin, unit_dir);
-        if (t >= stop) {
+        const float fraction = get_dot(point - origin, unit_dir);
+        if (fraction >= stop) {
             break;
         }
         render::WorldCell* sector = find_sector(checksum, nullptr);
         if (sector && geom_of(sector)) {
-            note(checksum, geom_of(sector), t, true);
+            note(checksum, geom_of(sector), fraction, true);
         }
         from = point + unit_dir * 1.0F;
     }
@@ -1189,7 +1193,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
             if (!current_box(checksum, geom, &box)) {
                 return;
             }
-            float t = 0.0F;
+            float fraction = 0.0F;
             bool inside = false;
             {
                 V3 min{};
@@ -1198,39 +1202,40 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
                 inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
                          origin.z >= min.z && origin.z <= max.z;
             }
-            if (!inside && (!ray_box({.origin = origin, .dir = unit_dir}, box.origin, box.axes, box.min, box.max, &t) ||
-                            t >= stop)) {
+            if (!inside &&
+                (!ray_box({.origin = origin, .dir = unit_dir}, box.origin, box.axes, box.min, box.max, &fraction) ||
+                 fraction >= stop)) {
                 return;
             }
-            if (ray_meshes(geom, origin, unit_dir, stop, &t)) {
-                note(checksum, geom, t, false);
+            if (ray_meshes(geom, origin, unit_dir, stop, &fraction)) {
+                note(checksum, geom, fraction, false);
             }
         });
     });
-    const picking::Resolved r = picking::settle_up(met);
-    hit->checksum = r.take;
-    hit->t = r.take_t_;
-    hit->passed = r.passed;
-    hit->passed_t_ = r.passed_t_;
-    hit->blocked = r.blocked;
-    hit->block_t_ = r.block_t_;
-    for (const picking::Met& m : met) {
-        if (!m.locked && !m.passed && ((hit->nearest == 0U) || m.t < hit->nearest_t_)) {
-            hit->nearest = m.id;
-            hit->nearest_t_ = m.t;
+    const picking::Resolved resolved = picking::settle_up(met);
+    hit->checksum = resolved.take;
+    hit->t = resolved.take_t_;
+    hit->passed = resolved.passed;
+    hit->passed_t_ = resolved.passed_t_;
+    hit->blocked = resolved.blocked;
+    hit->block_t_ = resolved.block_t_;
+    for (const picking::Met& met_entry : met) {
+        if (!met_entry.locked && !met_entry.passed && ((hit->nearest == 0U) || met_entry.t < hit->nearest_t_)) {
+            hit->nearest = met_entry.id;
+            hit->nearest_t_ = met_entry.t;
         }
     }
     if (layers) {
         // (each piece once, at its nearest; not locked)
-        for (const picking::Met& m : met) {
-            if (m.locked) {
+        for (const picking::Met& met_entry : met) {
+            if (met_entry.locked) {
                 continue;
             }
-            auto it = std::ranges::find_if(*layers, [&](const Layer& l) { return l.checksum == m.id; });
+            auto it = std::ranges::find_if(*layers, [&](const Layer& layer) { return layer.checksum == met_entry.id; });
             if (it == layers->end()) {
-                layers->push_back({.checksum = m.id, .t = m.t, .passed = m.passed});
-            } else if (m.t < it->t) {
-                it->t = m.t;
+                layers->push_back({.checksum = met_entry.id, .t = met_entry.t, .passed = met_entry.passed});
+            } else if (met_entry.t < it->t) {
+                it->t = met_entry.t;
             }
         }
         std::ranges::stable_sort(*layers, [](const Layer& a, const Layer& b) { return a.t < b.t; });
@@ -1755,10 +1760,10 @@ std::vector<SectorState> changed_sectors()
             continue;
         }
         const bool hidden = !is_operative(track.sector);
-        const Placement& p = track.placement;
-        if (hidden || (p.quarters != 0) || !is_unit_scale(p.scale) || p.offset.x != 0.0F || p.offset.y != 0.0F ||
-            p.offset.z != 0.0F) {
-            changed.push_back({.checksum = entry.first, .placement = p, .hidden = hidden});
+        const Placement& placement = track.placement;
+        if (hidden || (placement.quarters != 0) || !is_unit_scale(placement.scale) || placement.offset.x != 0.0F ||
+            placement.offset.y != 0.0F || placement.offset.z != 0.0F) {
+            changed.push_back({.checksum = entry.first, .placement = placement, .hidden = hidden});
         }
     }
     return changed;
@@ -1773,10 +1778,10 @@ std::vector<RailState> changed_rails()
             continue;
         }
         const bool hidden = track.active0 && ((track.node->flag_bits() & 4) == 0U);
-        const Placement& p = track.placement;
-        if (hidden || (p.quarters != 0) || !is_unit_scale(p.scale) || p.offset.x != 0.0F || p.offset.y != 0.0F ||
-            p.offset.z != 0.0F) {
-            changed.push_back({.name = entry.first, .placement = p, .hidden = hidden});
+        const Placement& placement = track.placement;
+        if (hidden || (placement.quarters != 0) || !is_unit_scale(placement.scale) || placement.offset.x != 0.0F ||
+            placement.offset.y != 0.0F || placement.offset.z != 0.0F) {
+            changed.push_back({.name = entry.first, .placement = placement, .hidden = hidden});
         }
     }
     return changed;
@@ -1796,7 +1801,7 @@ render::WorldScene* main_scene()
 bool scene_live(render::WorldScene* scene)
 {
     bool live = false;
-    for_each_scene([&](render::WorldScene* s) { live |= s == scene; });
+    for_each_scene([&](render::WorldScene* world_scene) { live |= world_scene == scene; });
     return live && (scene != nullptr);
 }
 
@@ -1819,7 +1824,7 @@ std::vector<Replicate>& get_clones()
 bool is_clone(uint32_t checksum)
 {
     const auto& clones = get_clones();
-    return std::ranges::any_of(clones, [&](const Replicate& c) { return c.checksum == checksum; });
+    return std::ranges::any_of(clones, [&](const Replicate& replicate) { return replicate.checksum == checksum; });
 }
 
 uint32_t get_duplicate(uint32_t source)
@@ -2050,10 +2055,10 @@ void get_tint(TintOwner owner, void* geom, uint32_t rgba)
     if (!tintable(geom)) {
         return;
     }
-    auto* g = static_cast<render::PcGeom*>(geom);
-    auto it = std::ranges::find_if(stored_tinted(), [&](const Saved& s) { return s.geom == g; });
+    auto* pc_geom = static_cast<render::PcGeom*>(geom);
+    auto it = std::ranges::find_if(stored_tinted(), [&](const Saved& saved) { return saved.geom == pc_geom; });
     if (it == stored_tinted().end()) {
-        stored_tinted().push_back(save_colour(owner, g));
+        stored_tinted().push_back(save_colour(owner, pc_geom));
     } else {
         it->used = true;
     }
@@ -2085,7 +2090,7 @@ void finalise()
     memory::Hub* manager = memory::Hub::get_pull();
     for (render::WorldScene* scene : level_editor_scenery_state().dirty_scenes_) {
         bool live = false;
-        for_each_scene([&](render::WorldScene* s) { live |= s == scene; });
+        for_each_scene([&](render::WorldScene* world_scene) { live |= world_scene == scene; });
         if (!live || !scene->coll_grid()) {
             continue;
         }

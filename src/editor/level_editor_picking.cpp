@@ -39,26 +39,26 @@ bool is_structure(V3 min, V3 max, V3 camera, float level_share)
         camera.y <= max.y + kInsideMargin && camera.z >= min.z - kInsideMargin && camera.z <= max.z + kInsideMargin) {
         return true;
     }
-    std::array<float, 3> e = {{max.x - min.x, max.y - min.y, max.z - min.z}};
-    if (core::at(e, 1) <= kLowHeight && std::min(core::at(e, 0), core::at(e, 2)) >= kLowSpan &&
+    std::array<float, 3> extent = {{max.x - min.x, max.y - min.y, max.z - min.z}};
+    if (core::at(extent, 1) <= kLowHeight && std::min(core::at(extent, 0), core::at(extent, 2)) >= kLowSpan &&
         level_share >= kLevelTopShare) {
         return true;
     }
-    std::sort(e.begin(), e.begin() + 3); // e[0] thinnest .. e[2] longest
-    if (core::at(e, 1) >= kWideSpan) {
+    std::sort(extent.begin(), extent.begin() + 3); // e[0] thinnest .. e[2] longest
+    if (core::at(extent, 1) >= kWideSpan) {
         return true;
     }
-    return core::at(e, 1) >= kSlabSpan && core::at(e, 0) <= core::at(e, 1) * kSlabThickness;
+    return core::at(extent, 1) >= kSlabSpan && core::at(extent, 0) <= core::at(extent, 1) * kSlabThickness;
 }
 
-void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c)
+void add_top_triangle(TopArea* area, V3 a, V3 b, V3 corner_c)
 {
-    const V3 n = perpendicular(b - a, c - a);
-    const float twice = std::sqrt(get_dot(n, n));
+    const V3 normal = perpendicular(b - a, corner_c - a);
+    const float twice = std::sqrt(get_dot(normal, normal));
     if (!(twice > 0.0F)) {
         return;
     }
-    const float up = std::fabs(n.y) / twice;
+    const float up = std::fabs(normal.y) / twice;
     if (up <= kUpNormalY) {
         return;
     }
@@ -71,19 +71,20 @@ void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c)
 void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
                    const uint16_t* indices, uint32_t index_count)
 {
-    auto at = [&](uint16_t i) {
-        const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
-        return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
+    auto at = [&](uint16_t index) {
+        const auto floats = gpu::VertexView(positions, stride, vertex_count).float3(index);
+        return V3{.x = core::at(floats, 0), .y = core::at(floats, 1), .z = core::at(floats, 2)};
     };
     const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
-        const uint16_t a = core::at(index_run, i - 2);
-        const uint16_t b = core::at(index_run, i - 1);
-        const uint16_t c = core::at(index_run, i);
-        if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count) {
+        const uint16_t index_a = core::at(index_run, i - 2);
+        const uint16_t index_b = core::at(index_run, i - 1);
+        const uint16_t index_c = core::at(index_run, i);
+        if (index_a == index_b || index_b == index_c || index_a == index_c || index_a >= vertex_count ||
+            index_b >= vertex_count || index_c >= vertex_count) {
             continue;
         }
-        add_top_triangle(area, at(a), at(b), at(c));
+        add_top_triangle(area, at(index_a), at(index_b), at(index_c));
     }
 }
 
@@ -115,37 +116,37 @@ Resolved settle_up(const std::vector<Met>& met)
 {
     std::vector<const Met*> order;
     order.reserve(met.size());
-    for (const Met& m : met) {
-        order.push_back(&m);
+    for (const Met& current_met : met) {
+        order.push_back(&current_met);
     }
     std::ranges::stable_sort(order, [](const Met* a, const Met* b) { return a->t < b->t; });
-    Resolved r;
+    Resolved resolved;
     bool searching = true; // (a plain click's search: until the first occluding entry)
-    for (const Met* m : order) {
-        if (!m->locked && m->passed && (r.passed == 0U)) {
-            r.passed = m->id;
-            r.passed_t_ = m->t;
+    for (const Met* current_met : order) {
+        if (!current_met->locked && current_met->passed && (resolved.passed == 0U)) {
+            resolved.passed = current_met->id;
+            resolved.passed_t_ = current_met->t;
         }
         if (!searching) {
             continue;
         }
-        if (!m->locked && !m->passed) {
+        if (!current_met->locked && !current_met->passed) {
             // (a pickable piece: taken - it is what occludes the rest, if it does; a see-through pickable one can't be
             // taken without occluding, as no pickable piece is see-through)
-            r.take = m->id;
-            r.take_t_ = m->t;
-            if (m->occludes && !r.blocked) {
-                r.blocked = true;
-                r.block_t_ = m->t;
+            resolved.take = current_met->id;
+            resolved.take_t_ = current_met->t;
+            if (current_met->occludes && !resolved.blocked) {
+                resolved.blocked = true;
+                resolved.block_t_ = current_met->t;
             }
             searching = false;
-        } else if (m->occludes) {
-            r.blocked = true;
-            r.block_t_ = m->t;
+        } else if (current_met->occludes) {
+            resolved.blocked = true;
+            resolved.block_t_ = current_met->t;
             searching = false;
         }
     }
-    return r;
+    return resolved;
 }
 
 bool gizmo_in_front(float gizmo_depth, bool blocked, float block_depth, float slack)
@@ -158,31 +159,32 @@ float gizmo_slack(float depth, float units_per_pixel, float pixels)
     return kGizmoSlack + (std::max(0.0F, depth) * units_per_pixel * pixels);
 }
 
-Choice get_choose(const Candidates& c, uint32_t filter, bool everything)
+Choice get_choose(const Candidates& candidates, uint32_t filter, bool everything)
 {
-    if (c.node >= 0 && ((filter & kNodes) != 0U)) {
+    if (candidates.node >= 0 && ((filter & kNodes) != 0U)) {
         return Choice::kNode;
     }
     Choice best = Choice::kNone;
     float best_t = 0.0F;
     bool any = false;
     // (`allowed` false: the kind is filtered out - it still stands in the way of what's behind it)
-    auto consider = [&](bool have, bool allowed, float t, Choice choice, bool or_equal) {
-        if (have && (!any || t < best_t || (or_equal && t == best_t))) {
+    auto consider = [&](bool have, bool allowed, float fraction, Choice choice, bool or_equal) {
+        if (have && (!any || fraction < best_t || (or_equal && fraction == best_t))) {
             best = allowed ? choice : Choice::kNone;
-            best_t = t;
+            best_t = fraction;
             any = true;
         }
     };
     if (everything) {
-        consider(c.object && ((filter & kObjects) != 0U), true, c.object_t_, Choice::kObject, false);
-        consider(c.scenery && ((filter & kScenery) != 0U), true, c.scenery_t_, Choice::kScenery, true);
-        consider(c.passed && ((filter & kScenery) != 0U), true, c.passed_t_, Choice::kPassed, true);
+        consider(candidates.object && ((filter & kObjects) != 0U), true, candidates.object_t_, Choice::kObject, false);
+        consider(candidates.scenery && ((filter & kScenery) != 0U), true, candidates.scenery_t_, Choice::kScenery,
+                 true);
+        consider(candidates.passed && ((filter & kScenery) != 0U), true, candidates.passed_t_, Choice::kPassed, true);
         return best;
     }
-    consider(c.blocked, false, c.block_t_, Choice::kNone, false);
-    consider(c.object, (filter & kObjects) != 0, c.object_t_, Choice::kObject, false);
-    consider(c.scenery, (filter & kScenery) != 0, c.scenery_t_, Choice::kScenery, true);
+    consider(candidates.blocked, false, candidates.block_t_, Choice::kNone, false);
+    consider(candidates.object, (filter & kObjects) != 0, candidates.object_t_, Choice::kObject, false);
+    consider(candidates.scenery, (filter & kScenery) != 0, candidates.scenery_t_, Choice::kScenery, true);
     return best;
 }
 
@@ -194,19 +196,19 @@ std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects,
         order.push_back({.kind = Choice::kNode, .id = static_cast<uint32_t>(node), .t = 0.0F});
     }
     if ((filter & kObjects) != 0U) {
-        for (const Layered& o : objects) {
-            order.push_back({.kind = Choice::kObject, .id = o.id, .t = o.t});
+        for (const Layered& object : objects) {
+            order.push_back({.kind = Choice::kObject, .id = object.id, .t = object.t});
         }
     }
     if ((filter & kScenery) != 0U) {
-        for (const Layered& s : scenery) {
-            if (!s.passed) {
-                order.push_back({.kind = Choice::kScenery, .id = s.id, .t = s.t});
+        for (const Layered& layered : scenery) {
+            if (!layered.passed) {
+                order.push_back({.kind = Choice::kScenery, .id = layered.id, .t = layered.t});
             }
         }
-        for (const Layered& s : scenery) {
-            if (s.passed) {
-                order.push_back({.kind = Choice::kPassed, .id = s.id, .t = s.t});
+        for (const Layered& layered : scenery) {
+            if (layered.passed) {
+                order.push_back({.kind = Choice::kPassed, .id = layered.id, .t = layered.t});
             }
         }
     }
@@ -232,64 +234,65 @@ bool same_spot(float x0, float y0, float x1, float y1, float tolerance)
     return std::fabs(x0 - x1) <= tolerance && std::fabs(y0 - y1) <= tolerance;
 }
 
-bool ray_triangle(Ray ray, V3 a, V3 b, V3 c, float* t)
+bool ray_triangle(Ray ray, V3 a, V3 b, V3 corner_c, float* hit_distance)
 {
     const auto origin = ray.origin;
     const auto dir = ray.dir;
     // (Moller and Trumbore's test)
     const V3 e1 = b - a;
-    const V3 e2 = c - a;
-    const V3 p = perpendicular(dir, e2);
-    const float det = get_dot(e1, p);
+    const V3 e2 = corner_c - a;
+    const V3 point = perpendicular(dir, e2);
+    const float det = get_dot(e1, point);
     if (std::fabs(det) < kParallelEpsilon) {
         return false;
     }
     const float inv = 1.0F / det;
-    const V3 s = origin - a;
-    const float u = get_dot(s, p) * inv;
+    const V3 to_origin = origin - a;
+    const float u = get_dot(to_origin, point) * inv;
     if (u < 0.0F || u > 1.0F) {
         return false;
     }
-    const V3 q = perpendicular(s, e1);
-    const float v = get_dot(dir, q) * inv;
+    const V3 other_point = perpendicular(to_origin, e1);
+    const float v = get_dot(dir, other_point) * inv;
     if (v < 0.0F || u + v > 1.0F) {
         return false;
     }
-    const float hit = get_dot(e2, q) * inv;
+    const float hit = get_dot(e2, other_point) * inv;
     if (!(hit > 0.0F)) {
         return false;
     }
-    *t = hit;
+    *hit_distance = hit;
     return true;
 }
 
 bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
-               const uint16_t* indices, StripLimit strip_limit, float* t)
+               const uint16_t* indices, StripLimit strip_limit, float* hit_distance)
 {
     const auto index_count = strip_limit.index_count_;
     const auto max_t = strip_limit.max_t_;
     bool found = false;
     float best = max_t;
-    auto at = [&](uint16_t i) {
-        const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
-        return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
+    auto at = [&](uint16_t index) {
+        const auto floats = gpu::VertexView(positions, stride, vertex_count).float3(index);
+        return V3{.x = core::at(floats, 0), .y = core::at(floats, 1), .z = core::at(floats, 2)};
     };
     const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
-        const uint16_t a = core::at(index_run, i - 2);
-        const uint16_t b = core::at(index_run, i - 1);
-        const uint16_t c = core::at(index_run, i);
-        if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count) {
+        const uint16_t index_a = core::at(index_run, i - 2);
+        const uint16_t index_b = core::at(index_run, i - 1);
+        const uint16_t index_c = core::at(index_run, i);
+        if (index_a == index_b || index_b == index_c || index_a == index_c || index_a >= vertex_count ||
+            index_b >= vertex_count || index_c >= vertex_count) {
             continue;
         }
         float hit = 0.0F;
-        if (ray_triangle({.origin = origin, .dir = dir}, at(a), at(b), at(c), &hit) && hit < best) {
+        if (ray_triangle({.origin = origin, .dir = dir}, at(index_a), at(index_b), at(index_c), &hit) && hit < best) {
             best = hit;
             found = true;
         }
     }
     if (found) {
-        *t = best;
+        *hit_distance = best;
     }
     return found;
 }
@@ -314,7 +317,8 @@ bool latched(uint32_t kind, uint32_t id)
 
 bool set_locked(uint32_t kind, uint32_t id, bool locked)
 {
-    auto it = std::ranges::find_if(stored_locks(), [&](const Lock& l) { return l.kind == kind && l.id == id; });
+    auto it =
+        std::ranges::find_if(stored_locks(), [&](const Lock& lock) { return lock.kind == kind && lock.id == id; });
     if (locked == (it != stored_locks().end())) {
         return false;
     }

@@ -109,12 +109,12 @@ void pane(float scale, PaneFonts fonts)
     ImGui::SameLine();
     ImGui::Checkbox("Show", &show_trails());
     // The legend.
-    for (int m = 0; m < kMotions; ++m) {
-        if ((m % kSeparatorEvery) != 0) {
+    for (int motion = 0; motion < kMotions; ++motion) {
+        if ((motion % kSeparatorEvery) != 0) {
             ImGui::SameLine();
         }
-        gui::text_colored(get_colour(motion_colour(static_cast<Motion>(m))), "%s",
-                           motion_name(static_cast<Motion>(m)));
+        gui::text_colored(get_colour(motion_colour(static_cast<Motion>(motion))), "%s",
+                          motion_name(static_cast<Motion>(motion)));
     }
     gui::text_colored(get_colour(kGapLandedColour), "o gap landed");
     ImGui::SameLine();
@@ -148,12 +148,12 @@ void pane(float scale, PaneFonts fonts)
             if (ImGui::IsItemHovered()) {
                 std::string text;
                 std::array<char, kPartSize> part{};
-                for (int m = 0; m < kMotions; ++m) {
-                    if (core::at(run.motion_seconds_, m) < kMinShownSeconds) {
+                for (int motion = 0; motion < kMotions; ++motion) {
+                    if (core::at(run.motion_seconds_, motion) < kMinShownSeconds) {
                         continue;
                     }
-                    text::format_to(part, "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
-                                    core::at(run.motion_seconds_, m));
+                    text::format_to(part, "%s %.1f s\n", motion_name(static_cast<Motion>(motion)),
+                                    core::at(run.motion_seconds_, motion));
                     text += part.data();
                 }
                 gui::tooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples_.size()),
@@ -197,8 +197,8 @@ void pane(float scale, PaneFonts fonts)
     // The gaps validated by skating.
     const std::vector<GapRead> gaps = get_level_gaps();
     int landed = 0;
-    for (const GapRead& g : gaps) {
-        landed += gap_landed(g.name) ? 1 : 0;
+    for (const GapRead& gap : gaps) {
+        landed += gap_landed(gap.name) ? 1 : 0;
     }
     std::array<char, kTitleSize> title{};
     text::format_to(title, "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
@@ -211,15 +211,15 @@ void pane(float scale, PaneFonts fonts)
         if (small) {
             ImGui::PushFont(small);
         }
-        for (const GapRead& g : gaps) {
-            const bool ok = gap_landed(g.name);
+        for (const GapRead& gap : gaps) {
+            const bool ok = gap_landed(gap.name);
             if (g_untested_only && ok) {
                 continue;
             }
             gui::text_colored(ok ? get_colour(kGapLandedColour) : get_colour(kGapOtherColour), "%s",
                                ok ? "landed  " : "untested");
             ImGui::SameLine();
-            gui::text("%s  (%d)", g.name.c_str(), g.score);
+            gui::text("%s  (%d)", gap.name.c_str(), gap.score);
         }
         if (small) {
             ImGui::PopFont();

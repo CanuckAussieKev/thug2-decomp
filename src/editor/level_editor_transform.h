@@ -96,8 +96,8 @@ float snap_relative(float distance, float grid);
 // A scale factor from a drag along a handle: the distance from the pivot now over the distance when grabbed (`s0`), kept
 // within 0.05..20 (1 when grabbed at the pivot); and from the cursor's distance in pixels from the pivot's (the centre
 // handle, the modal transform). On steps of a tenth with snapping.
-float factor_along(float s0, float s);
-float factor_from_pixels(float d0, float d);
+float factor_along(float s0, float scale);
+float factor_from_pixels(float d0, float distance);
 float snap_factor(float factor);
 
 // The gizmo: where (`pivot`), its axes (World: the world's; Local: the selection's) and its size in world units.
@@ -142,7 +142,7 @@ struct Typed {
 };
 // A key typed (a character: '0'-'9', '.', '-', 'x' / 'y' / 'z', '\b' for Backspace): whether it was taken. '-' turns the
 // sign over, the same axis again drops it, a second '.' is refused.
-bool type_key(Typed* typed, char c);
+bool type_key(Typed* typed, char character);
 // The number typed (false: none yet - nothing, "-", ".").
 bool typed_value(const Typed& typed, float* value);
 // "Move along X: 12.5" for the status bar (`default_axis`: the arrow dragged, else -1).

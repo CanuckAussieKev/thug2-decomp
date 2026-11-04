@@ -24,15 +24,15 @@ void options_menu_items()
     if (ImGui::BeginMenu("Pivot")) {
         static const std::array<const char*, 3> kTips = {{"Objects: first object; scenery: its pivot; nodes: their position",
                                              "Centre of the selection's bounds", "Each object about its own position"}};
-        int i = 0;
+        int index = 0;
         for (const Pivot pivot : {Pivot::kBase, Pivot::kCentre, Pivot::kOwn}) {
             if (ImGui::MenuItem(pivot_name(pivot), nullptr, settings.pivot == pivot)) {
                 settings.pivot = pivot;
             }
             if (ImGui::IsItemHovered()) {
-                gui::tooltip("%s", core::at(kTips, i));
+                gui::tooltip("%s", core::at(kTips, index));
             }
-            ++i;
+            ++index;
         }
         ImGui::EndMenu();
     }
@@ -48,13 +48,13 @@ void options_menu_items()
     }
     if (ImGui::BeginMenu("Snap To")) {
         static const std::array<const char*, 4> kKeys = {{"Ctrl", "Ctrl+Shift", "Alt+Shift", "Ctrl+Alt"}};
-        int i = 0;
+        int index = 0;
         for (const SnapTarget target :
              {SnapTarget::kGrid, SnapTarget::kWorldGrid, SnapTarget::kSurface, SnapTarget::kVertex}) {
-            if (ImGui::MenuItem(target_name(target), core::at(kKeys, i), settings.target == target)) {
+            if (ImGui::MenuItem(target_name(target), core::at(kKeys, index), settings.target == target)) {
                 settings.target = target;
             }
-            ++i;
+            ++index;
         }
         ImGui::EndMenu();
     }

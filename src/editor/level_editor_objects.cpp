@@ -188,13 +188,14 @@ void pick_one(objects::Entity* object, void* data)
         !model_box(composite, &box)) {
         return;
     }
-    float t = 0.0F;
-    const bool hit = ray_box({.origin = walk->origin, .dir = walk->dir}, box.origin, box.axes, box.min, box.max, &t);
-    if (hit && walk->all && t < walk->best_t_) {
-        walk->all->emplace_back(composite, t);
+    float fraction = 0.0F;
+    const bool hit =
+        ray_box({.origin = walk->origin, .dir = walk->dir}, box.origin, box.axes, box.min, box.max, &fraction);
+    if (hit && walk->all && fraction < walk->best_t_) {
+        walk->all->emplace_back(composite, fraction);
     }
-    if (hit && t < walk->best_t_ && !walk->all) {
-        walk->best_t_ = t;
+    if (hit && fraction < walk->best_t_ && !walk->all) {
+        walk->best_t_ = fraction;
         walk->best = composite;
     }
 }
@@ -338,16 +339,16 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     return true;
 }
 
-objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* t)
+objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* hit_distance)
 {
-    *t = max_t;
+    *hit_distance = max_t;
     objects::EntityHub* manager = objects::object_hub_slot().get();
     if (!manager) {
         return nullptr;
     }
     PickWalk walk = {.origin = origin, .dir = make_unit(dir), .best_t_ = max_t, .best = nullptr, .all = nullptr};
     manager->for_each(pick_one, &walk);
-    *t = walk.best_t_;
+    *hit_distance = walk.best_t_;
     return walk.best;
 }
 
@@ -394,8 +395,8 @@ void get_place(objects::GameEntity* object, V3 pos)
 void turn_about(objects::GameEntity* object, V3 pivot, float angle)
 {
     for (int i = 0; i < 3; ++i) {
-        for (maths::Mat4* m : {&object->basis_frame(), &object->display_matrix()}) {
-            maths::Vec4& row = core::at(m->row, i);
+        for (maths::Mat4* matrix : {&object->basis_frame(), &object->display_matrix()}) {
+            maths::Vec4& row = core::at(matrix->row, i);
             const V3 turned = turn_about_up({.x = row.x, .y = row.y, .z = row.z}, angle);
             row.x = turned.x;
             row.y = turned.y;
@@ -576,7 +577,8 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
 
 bool remove_copy(uint32_t name)
 {
-    auto it = std::ranges::find_if(level_editor_objects_state().copies_, [&](const DupFrom& c) { return c.name == name; });
+    auto it = std::ranges::find_if(level_editor_objects_state().copies_,
+                                   [&](const DupFrom& dup_from) { return dup_from.name == name; });
     if (it == level_editor_objects_state().copies_.end()) {
         return false;
     }
@@ -593,7 +595,8 @@ const std::vector<DupFrom>& get_copies() { return level_editor_objects_state().c
 
 bool is_copy(uint32_t id)
 {
-    return std::ranges::any_of(level_editor_objects_state().copies_, [&](const DupFrom& c) { return c.name == id; });
+    return std::ranges::any_of(level_editor_objects_state().copies_,
+                               [&](const DupFrom& dup_from) { return dup_from.name == id; });
 }
 
 void touch(uint32_t id)
@@ -639,8 +642,9 @@ std::vector<TableRow> copyable()
         return entries;
     }
     static const uint32_t kModel = checksums::hash_from_text("model");
-    for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
-        script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
+    for (uint32_t array_index = 0; array_index < manager->num() && array_index < level_nodes::NodeManager::kMaxArrays;
+         ++array_index) {
+        script::Array* nodes = core::at(manager->arrays(), array_index).node_entries_;
         if (!nodes || nodes->kind_tag() != script::QbValueKind::kStruct) {
             continue;
         }

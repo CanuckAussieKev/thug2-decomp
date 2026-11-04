@@ -68,20 +68,20 @@ std::map<std::string, TextBuffer>& buffers()
 
 bool text_field(const char* label, const std::string& key, std::string* value, size_t limit, bool multiline)
 {
-    TextBuffer& b = buffers()[key];
-    if (!b.editing) {
-        text::format_to(b.text, "%s", value->c_str());
+    TextBuffer& text_buffer = buffers()[key];
+    if (!text_buffer.editing) {
+        text::format_to(text_buffer.text, "%s", value->c_str());
     }
-    const size_t size = std::min(sizeof(b.text), limit + 1);
+    const size_t size = std::min(sizeof(text_buffer.text), limit + 1);
     if (multiline) {
-        ImGui::InputTextMultiline(label, b.text.data(), size,
+        ImGui::InputTextMultiline(label, text_buffer.text.data(), size,
                                   ImVec2(-1.0F, ImGui::GetTextLineHeight() * kMultilineLines));
     } else {
-        ImGui::InputText(label, b.text.data(), size);
+        ImGui::InputText(label, text_buffer.text.data(), size);
     }
-    b.editing = ImGui::IsItemActive();
+    text_buffer.editing = ImGui::IsItemActive();
     if (ImGui::IsItemDeactivatedAfterEdit()) {
-        *value = b.text.data();
+        *value = text_buffer.text.data();
         return true;
     }
     return false;
@@ -98,68 +98,68 @@ bool int_field(const char* label, int* value, float speed, int low, int high, co
     return changed;
 }
 
-void get_apply(const Goal& g, bool done)
+void get_apply(const Goal& goal, bool done)
 {
-    const Goal& changed = g;
+    const Goal& changed = goal;
     get_queue([changed, done] { get_edit(changed.id, changed, done); });
 }
 
 void current_settings(const Goal& goal, ImFont* mono)
 {
-    Goal g = goal;
+    Goal edited = goal;
     bool done = false;
     bool changed = false;
-    const std::string key = g.id + "/";
-    if (text_field("Name##goal", key + "name", &g.name, kNameFieldLimit, false)) {
+    const std::string key = edited.id + "/";
+    if (text_field("Name##goal", key + "name", &edited.name, kNameFieldLimit, false)) {
         changed = done = true; // (Create-a-Goal's keyboard: 16 characters)
     }
     if (ImGui::IsItemHovered()) {
         gui::tooltip("Name shown in View Goals");
     }
-    if (text_field("Ped name##goal", key + "ped", &g.ped, kPedFieldLimit, false)) {
+    if (text_field("Ped name##goal", key + "ped", &edited.ped, kPedFieldLimit, false)) {
         changed = done = true;
     }
     ImGui::TextUnformatted("Goal text");
-    if (text_field("##goaltext", key + "text", &g.text, kMessageFieldLimit, true)) {
+    if (text_field("##goaltext", key + "text", &edited.text, kMessageFieldLimit, true)) {
         changed = done = true;
     }
     ImGui::TextUnformatted("Win message");
-    if (text_field("##goalwin", key + "win", &g.win, kMessageFieldLimit, true)) {
+    if (text_field("##goalwin", key + "win", &edited.win, kMessageFieldLimit, true)) {
         changed = done = true;
     }
     ImGui::PushFont(mono);
-    if (int_field("Time limit##goal", &g.time, 1.0F, kMinTimeLimit, kMaxTimeLimit, "%d s", &done)) {
+    if (int_field("Time limit##goal", &edited.time, 1.0F, kMinTimeLimit, kMaxTimeLimit, "%d s", &done)) {
         changed = true;
     }
-    if (g.type == KindTag::kHighScore || g.type == KindTag::kHighCombo) {
-        if (int_field(g.type == KindTag::kHighScore ? "High score##goal" : "High combo##goal", &g.score,
+    if (edited.type == KindTag::kHighScore || edited.type == KindTag::kHighCombo) {
+        if (int_field(edited.type == KindTag::kHighScore ? "High score##goal" : "High combo##goal", &edited.score,
                       kScoreDragSpeed, kMinHighScore, kMaxHighScore, "%d", &done)) {
             changed = true;
         }
     }
-    if (g.type == KindTag::kRace) {
-        if (int_field("Laps##goal", &g.laps, kCountDragSpeed, 1, kMaxLaps, "%d", &done)) {
+    if (edited.type == KindTag::kRace) {
+        if (int_field("Laps##goal", &edited.laps, kCountDragSpeed, 1, kMaxLaps, "%d", &done)) {
             changed = true;
         }
-        if (int_field("Per-checkpoint##goal", &g.checkpoint_time_, kCheckpointDragSpeed, 0, kMaxCheckpointTime,
-                      (g.checkpoint_time_ != 0) ? "%d s" : "Off", &done)) {
+        if (int_field("Per-checkpoint##goal", &edited.checkpoint_time_, kCheckpointDragSpeed, 0, kMaxCheckpointTime,
+                      (edited.checkpoint_time_ != 0) ? "%d s" : "Off", &done)) {
             changed = true;
         }
     }
     ImGui::PopFont();
     // (goal_update_control: SKATE letters and gap goals keep theirs; the trick goals have none)
-    if (!get_trick_type(g.type) && g.type != KindTag::kSkate && g.type != KindTag::kGap) {
-        int control = g.walk ? 1 : 0;
+    if (!get_trick_type(edited.type) && edited.type != KindTag::kSkate && edited.type != KindTag::kGap) {
+        int control = edited.walk ? 1 : 0;
         ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         if (ImGui::Combo("Control##goal", &control, "Skate\0Walk\0")) {
-            g.walk = control == 1;
+            edited.walk = control == 1;
             changed = done = true;
         }
     }
-    if (g.type == KindTag::kGap) {
+    if (edited.type == KindTag::kGap) {
         ImGui::TextUnformatted("Gaps");
         std::vector<std::string> gaps = get_level_gaps();
-        for (const std::string& name : g.gaps) {
+        for (const std::string& name : edited.gaps) {
             if (std::ranges::find(gaps, name) == gaps.end()) {
                 gaps.push_back(name); // (one the list hasn't now: shown so it can be taken off)
             }
@@ -172,79 +172,80 @@ void current_settings(const Goal& goal, ImFont* mono)
                                                 (kGapRowHeight * static_cast<float>(gaps.size())) + kGapListPadding)),
                           ImGuiChildFlags_Borders);
         for (const std::string& name : gaps) {
-            auto it = std::ranges::find(g.gaps, name);
-            bool on = it != g.gaps.end();
+            auto it = std::ranges::find(edited.gaps, name);
+            bool on = it != edited.gaps.end();
             if (ImGui::Checkbox(name.c_str(), &on)) {
-                if (on && g.gaps.size() < kMaxGaps) {
-                    g.gaps.push_back(name);
+                if (on && edited.gaps.size() < kMaxGaps) {
+                    edited.gaps.push_back(name);
                 } else if (!on) {
-                    g.gaps.erase(it);
+                    edited.gaps.erase(it);
                 }
                 changed = done = true;
             }
         }
         ImGui::EndChild();
-        if (text_field("Required trick##goal", key + "trick", &g.trick, kTrickFieldLimit, false)) {
+        if (text_field("Required trick##goal", key + "trick", &edited.trick, kTrickFieldLimit, false)) {
             changed = done = true;
         }
     }
-    if (get_trick_type(g.type)) {
+    if (get_trick_type(edited.type)) {
         ImGui::TextUnformatted("Key Combo Sets");
-        for (int set = 0; set < combo_set_count(g.type); ++set) {
-            bool on = (g.sets & (1U << set)) != 0;
+        for (int set = 0; set < combo_set_count(edited.type); ++set) {
+            bool on = (edited.sets & (1U << set)) != 0;
             if (ImGui::Checkbox(combo_set_name(set), &on)) {
-                g.sets = on ? g.sets | (1U << set) : g.sets & ~(1U << set);
+                edited.sets = on ? edited.sets | (1U << set) : edited.sets & ~(1U << set);
                 changed = done = true;
             }
         }
         ImGui::PushFont(mono);
-        if (g.type != KindTag::kTrickBeat) {
-            if (int_field("Spin##goal", &g.spin, kSpinDragSpeed, 0, kMaxSpin, (g.spin != 0) ? "%d" : "Off", &done)) {
+        if (edited.type != KindTag::kTrickBeat) {
+            if (int_field("Spin##goal", &edited.spin, kSpinDragSpeed, 0, kMaxSpin, (edited.spin != 0) ? "%d" : "Off",
+                          &done)) {
                 changed = true;
             }
         }
-        if (g.type == KindTag::kComboSkatetris) {
-            if (ImGui::Checkbox("Single combo##goal", &g.single_combo_)) {
+        if (edited.type == KindTag::kComboSkatetris) {
+            if (ImGui::Checkbox("Single combo##goal", &edited.single_combo_)) {
                 changed = done = true;
             }
-            if (int_field("Combo size##goal", &g.combo_size_, kCountDragSpeed, 1, kMaxTrickCount, "%d", &done)) {
+            if (int_field("Combo size##goal", &edited.combo_size_, kCountDragSpeed, 1, kMaxTrickCount, "%d", &done)) {
                 changed = true;
             }
         }
-        if (g.type == KindTag::kTrickTris) {
-            if (int_field("Block size##goal", &g.block_size_, kCountDragSpeed, 1, kMaxTrickCount, "%d", &done)) {
+        if (edited.type == KindTag::kTrickTris) {
+            if (int_field("Block size##goal", &edited.block_size_, kCountDragSpeed, 1, kMaxTrickCount, "%d", &done)) {
                 changed = true;
             }
-            if (int_field("Total to win##goal", &g.to_win_, kToWinDragSpeed, 1, kMaxToWin, "%d", &done)) {
+            if (int_field("Total to win##goal", &edited.to_win_, kToWinDragSpeed, 1, kMaxToWin, "%d", &done)) {
                 changed = true;
             }
         }
-        if (g.type == KindTag::kSkatetris || (g.type == KindTag::kComboSkatetris && !g.single_combo_)) {
-            if (int_field("Accel. interval##goal", &g.accel_interval_, kCountDragSpeed, 1, kMaxAccelInterval, "%d",
+        if (edited.type == KindTag::kSkatetris || (edited.type == KindTag::kComboSkatetris && !edited.single_combo_)) {
+            if (int_field("Accel. interval##goal", &edited.accel_interval_, kCountDragSpeed, 1, kMaxAccelInterval, "%d",
                           &done)) {
                 changed = true;
             }
-            int percent = static_cast<int>((g.accel_percent_ * 100.0F) + kPercentRounding);
+            int percent = static_cast<int>((edited.accel_percent_ * 100.0F) + kPercentRounding);
             if (int_field("Accel. percent##goal", &percent, kPercentDragSpeed, 1, kMaxAccelPercent, "%d%%", &done)) {
-                g.accel_percent_ = static_cast<float>(percent) / 100.0F;
+                edited.accel_percent_ = static_cast<float>(percent) / 100.0F;
                 changed = true;
             }
-            if (int_field("Trick time##goal", &g.combo_time_, kComboTimeDragSpeed, kMinComboTime, kMaxComboTime, "%d",
-                          &done)) {
+            if (int_field("Trick time##goal", &edited.combo_time_, kComboTimeDragSpeed, kMinComboTime, kMaxComboTime,
+                          "%d", &done)) {
                 changed = true;
             }
-            if (int_field("Stop adding at##goal", &g.stop_at_, kStopDragSpeed, kMinStopAt,
-                          std::max(kMinStopAt, g.time - kStopAtMargin), "%d s", &done)) {
+            if (int_field("Stop adding at##goal", &edited.stop_at_, kStopDragSpeed, kMinStopAt,
+                          std::max(kMinStopAt, edited.time - kStopAtMargin), "%d s", &done)) {
                 changed = true;
             }
-            if (int_field("Max tricks##goal", &g.max_tricks_, kCountDragSpeed, 1, kMaxTrickCount, "%d", &done)) {
+            if (int_field("Max tricks##goal", &edited.max_tricks_, kCountDragSpeed, 1, kMaxTrickCount, "%d", &done)) {
                 changed = true;
             }
         }
         ImGui::PopFont();
     }
     if (changed) {
-        get_apply(g, done);
+        get_apply(edited, done);
     } else if (done) {
         get_queue([] { end_drag(); });
     }
@@ -260,35 +261,35 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         return;
     }
     std::vector<Goal> all = get_all();
-    auto it = std::ranges::find_if(all, [&](const Goal& g) { return g.id == id; });
+    auto it = std::ranges::find_if(all, [&](const Goal& goal) { return goal.id == id; });
     if (it == all.end()) {
         return;
     }
-    const Goal& g = *it;
+    const Goal& goal = *it;
     ImGui::Spacing();
     ImGui::Separator();
     if (!ImGui::CollapsingHeader("Goal###goal", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
     }
-    gui::text_wrapped("%s - %s (%s)", g.name.c_str(), type_title(g.type), point_label(g.type, point).c_str());
+    gui::text_wrapped("%s - %s (%s)", goal.name.c_str(), type_title(goal.type), point_label(goal.type, point).c_str());
     std::string why;
-    if (get_complete(g, &why)) {
+    if (get_complete(goal, &why)) {
         gui::text_colored(kCompleteColour, "Complete");
     } else {
         gui::text_colored(kNotPlayedColour, "Not played: %s", why.c_str());
     }
-    const int missing = get_missing(g.id);
+    const int missing = get_missing(goal.id);
     if (missing > 0) {
         gui::text_colored(kDeletedColour, "%d point%s deleted", missing, missing == 1 ? "" : "s");
         ImGui::SameLine();
-        const std::string goal_id = g.id;
+        const std::string goal_id = goal.id;
         if (ImGui::SmallButton("Restore Points")) {
             get_queue([goal_id] { restore_points(goal_id); });
         }
     }
     // The point: its height (letters float above their node).
     if (point >= 2) {
-        Goal changed = g;
+        Goal changed = goal;
         float height = core::at(changed.points, point).height;
         ImGui::PushFont(mono);
         ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
@@ -306,35 +307,35 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     // The goal's points: select one.
     ImGui::PushFont(small_font);
     ImGui::TextUnformatted("Points:");
-    for (size_t k = 0; k < g.points.size(); ++k) {
+    for (size_t k = 0; k < goal.points.size(); ++k) {
         ImGui::SameLine();
-        std::string label = point_label(g.type, static_cast<int>(k));
+        std::string label = point_label(goal.type, static_cast<int>(k));
         if (label.starts_with("Checkpoint ")) {
             label = "CP" + label.substr(kCheckpointPrefixLength);
         }
         label += "##goalpt" + std::to_string(k);
-        const std::string goal_id = g.id;
+        const std::string goal_id = goal.id;
         const int index = static_cast<int>(k);
         if (ImGui::SmallButton(label.c_str())) {
             get_queue([goal_id, index] { choose_one(goal_id, index); });
         }
     }
     ImGui::PopFont();
-    if (g.type == KindTag::kRace) {
-        const std::string goal_id = g.id;
-        if (static_cast<int>(g.points.size()) < max_points(g.type) && ImGui::Button("Add checkpoint##goal")) {
+    if (goal.type == KindTag::kRace) {
+        const std::string goal_id = goal.id;
+        if (static_cast<int>(goal.points.size()) < max_points(goal.type) && ImGui::Button("Add checkpoint##goal")) {
             get_queue([goal_id] { add_checkpoint(goal_id); });
         }
-        if (static_cast<int>(g.points.size()) > min_points(g.type)) {
+        if (static_cast<int>(goal.points.size()) > min_points(goal.type)) {
             ImGui::SameLine();
             if (ImGui::Button("Remove last##goal")) {
                 get_queue([goal_id] { remove_checkpoint(goal_id); });
             }
         }
     }
-    current_settings(g, mono);
+    current_settings(goal, mono);
     ImGui::Spacing();
-    const std::string goal_id = g.id;
+    const std::string goal_id = goal.id;
     if (ImGui::Button("Copy to Create-a-Goal##goal")) {
         get_queue([goal_id] {
             std::string message;
@@ -365,9 +366,9 @@ void list_section(ImFont* mono, ImFont* small_font)
     ImGui::PopFont();
     ImGui::SetNextItemWidth(kWideFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
     if (ImGui::BeginCombo("##goaltype", type_title(static_cast<KindTag>(new_type())))) {
-        for (int t = 0; t < kTypes; ++t) {
-            if (ImGui::Selectable(type_title(static_cast<KindTag>(t)), t == new_type())) {
-                new_type() = t;
+        for (int type_index = 0; type_index < kTypes; ++type_index) {
+            if (ImGui::Selectable(type_title(static_cast<KindTag>(type_index)), type_index == new_type())) {
+                new_type() = type_index;
             }
         }
         ImGui::EndCombo();
@@ -391,17 +392,16 @@ void list_section(ImFont* mono, ImFont* small_font)
         gui::text_disabled("No goals (max 10)");
     }
     ImGui::PushFont(mono);
-    for (const Goal& g : all) {
-        ImGui::PushID(g.id.c_str());
-        const bool complete = get_complete(g);
-        gui::text_colored(complete ? kCompleteTitleColour : kIncompleteTitleColour, "%s",
-                           g.name.c_str());
+    for (const Goal& goal : all) {
+        ImGui::PushID(goal.id.c_str());
+        const bool complete = get_complete(goal);
+        gui::text_colored(complete ? kCompleteTitleColour : kIncompleteTitleColour, "%s", goal.name.c_str());
         if (ImGui::IsItemHovered()) {
             std::string why;
-            gui::tooltip("%s - %s", type_title(g.type), get_complete(g, &why) ? "complete" : why.c_str());
+            gui::tooltip("%s - %s", type_title(goal.type), get_complete(goal, &why) ? "complete" : why.c_str());
         }
         ImGui::SameLine();
-        const std::string goal_id = g.id;
+        const std::string goal_id = goal.id;
         if (ImGui::SmallButton("Select")) {
             get_queue([goal_id] { choose_one(goal_id, 0); });
         }

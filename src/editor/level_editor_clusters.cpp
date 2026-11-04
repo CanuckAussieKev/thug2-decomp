@@ -57,20 +57,20 @@ bool get_same(const Membership& a, const Membership& b)
 
 Membership get_from_node(uint32_t sector, bool trick_object, bool has_cluster, uint32_t cluster)
 {
-    Membership m;
-    m.sector = sector;
-    m.trick = trick_object;
-    m.cluster = trick_object ? (has_cluster && (cluster != 0U) ? cluster : sector) : 0;
-    return m;
+    Membership membership;
+    membership.sector = sector;
+    membership.trick = trick_object;
+    membership.cluster = trick_object ? (has_cluster && (cluster != 0U) ? cluster : sector) : 0;
+    return membership;
 }
 
-std::string write_record(const Membership& m)
+std::string write_record(const Membership& membership)
 {
     std::array<char, kNameTextSize> text{};
-    if (m.trick) {
-        text::format_to(text, "cluster %08X %08X", m.sector, m.cluster);
+    if (membership.trick) {
+        text::format_to(text, "cluster %08X %08X", membership.sector, membership.cluster);
     } else {
-        text::format_to(text, "cluster %08X -", m.sector);
+        text::format_to(text, "cluster %08X -", membership.sector);
     }
     return text.data();
 }
@@ -83,15 +83,15 @@ bool read_hex8(const std::string& word, uint32_t* out)
         return false;
     }
     uint32_t value = 0;
-    for (const char c : word) {
-        const int d = c >= '0' && c <= '9'   ? c - '0'
-                      : c >= 'a' && c <= 'f' ? c - 'a' + 10
-                      : c >= 'A' && c <= 'F' ? c - 'A' + 10
-                                             : -1;
-        if (d < 0) {
+    for (const char character : word) {
+        const int digit = character >= '0' && character <= '9'   ? character - '0'
+                          : character >= 'a' && character <= 'f' ? character - 'a' + 10
+                          : character >= 'A' && character <= 'F' ? character - 'A' + 10
+                                                                 : -1;
+        if (digit < 0) {
             return false;
         }
-        value = value << 4 | static_cast<uint32_t>(d);
+        value = value << 4 | static_cast<uint32_t>(digit);
     }
     *out = value;
     return true;
@@ -104,19 +104,20 @@ bool read_record(std::istringstream& in, Membership* out)
     std::string sector;
     std::string cluster;
     std::string more;
-    Membership m;
-    if (!(in >> sector >> cluster) || !read_hex8(sector, &m.sector) || (m.sector == 0U) || (in >> more)) {
+    Membership membership;
+    if (!(in >> sector >> cluster) || !read_hex8(sector, &membership.sector) || (membership.sector == 0U) ||
+        (in >> more)) {
         return false;
     }
     if (cluster == "-") {
-        m.trick = false;
+        membership.trick = false;
     } else {
-        if (!read_hex8(cluster, &m.cluster) || (m.cluster == 0U)) {
+        if (!read_hex8(cluster, &membership.cluster) || (membership.cluster == 0U)) {
             return false;
         }
-        m.trick = true;
+        membership.trick = true;
     }
-    *out = m;
+    *out = membership;
     return true;
 }
 
@@ -240,15 +241,15 @@ struct Step : ModuleStep {
     std::vector<Membership> pieces;
     void get_restore() override
     {
-        for (const Membership& m : pieces) {
-            place_in(m);
+        for (const Membership& piece : pieces) {
+            place_in(piece);
         }
     }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
-        for (const Membership& m : pieces) {
-            now->pieces.push_back(clusters::get_now(m.sector));
+        for (const Membership& piece : pieces) {
+            now->pieces.push_back(clusters::get_now(piece.sector));
         }
         return now;
     }
@@ -257,15 +258,15 @@ struct Step : ModuleStep {
 std::shared_ptr<Step> get_capture(const std::vector<uint32_t>& sectors)
 {
     auto step = std::make_shared<Step>();
-    for (const uint32_t s : sectors) {
-        step->pieces.push_back(get_now(s));
+    for (const uint32_t sector : sectors) {
+        step->pieces.push_back(get_now(sector));
     }
     return step;
 }
 
 } // namespace
 
-bool stage_map(uint32_t sector, Membership* m)
+bool stage_map(uint32_t sector, Membership* membership)
 {
     script::Struct* node = node_of(sector);
     if (!node) {
@@ -279,7 +280,7 @@ bool stage_map(uint32_t sector, Membership* m)
     }
     uint32_t cluster = 0;
     const bool has = node->read_hash_value(kCluster, &cluster, 0);
-    *m = get_from_node(sector, trick, has, cluster);
+    *membership = get_from_node(sector, trick, has, cluster);
     return true;
 }
 
@@ -289,11 +290,11 @@ Membership get_now(uint32_t sector)
     if (it != set_state().end()) {
         return it->second;
     }
-    Membership m;
-    if (!stage_map(sector, &m)) {
-        m = Membership{.sector = sector, .trick = false, .cluster = 0};
+    Membership membership;
+    if (!stage_map(sector, &membership)) {
+        membership = Membership{.sector = sector, .trick = false, .cluster = 0};
     }
-    return m;
+    return membership;
 }
 
 bool get_override(uint32_t sector, uint32_t* cluster)
@@ -309,16 +310,17 @@ bool get_override(uint32_t sector, uint32_t* cluster)
 bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t cluster)
 {
     std::vector<uint32_t> pieces;
-    for (const uint32_t s : sectors) {
-        if ((s != 0U) && !scenery::is_clone(s)) {
-            pieces.push_back(s);
+    for (const uint32_t sector : sectors) {
+        if ((sector != 0U) && !scenery::is_clone(sector)) {
+            pieces.push_back(sector);
         }
     }
     const std::shared_ptr<Step> before = get_capture(pieces);
     int changed = 0;
-    for (const uint32_t s : pieces) {
-        const Membership to{.sector = s, .trick = trick, .cluster = trick ? ((cluster != 0U) ? cluster : s) : 0};
-        if (get_same(get_now(s), to)) {
+    for (const uint32_t piece : pieces) {
+        const Membership to{
+            .sector = piece, .trick = trick, .cluster = trick ? ((cluster != 0U) ? cluster : piece) : 0};
+        if (get_same(get_now(piece), to)) {
             continue;
         }
         place_in(to);
@@ -343,17 +345,17 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
 bool get_home(const std::vector<uint32_t>& sectors)
 {
     std::vector<uint32_t> pieces;
-    for (const uint32_t s : sectors) {
-        if (set_state().contains(s)) {
-            pieces.push_back(s);
+    for (const uint32_t sector : sectors) {
+        if (set_state().contains(sector)) {
+            pieces.push_back(sector);
         }
     }
     if (pieces.empty()) {
         return false;
     }
     push_module_undo(get_capture(pieces));
-    for (const uint32_t s : pieces) {
-        place_in(level_state()[s]);
+    for (const uint32_t piece : pieces) {
+        place_in(level_state()[piece]);
     }
     hud::get_message("Trick object reverted");
     return true;
@@ -372,11 +374,11 @@ std::vector<Membership> get_changed()
 int get_apply(const std::vector<Membership>& records)
 {
     int count = 0;
-    for (const Membership& m : records) {
-        if (!scenery::sector_of(m.sector) || scenery::is_clone(m.sector)) {
+    for (const Membership& record : records) {
+        if (!scenery::sector_of(record.sector) || scenery::is_clone(record.sector)) {
             continue;
         }
-        place_in(m);
+        place_in(record);
         ++count;
     }
     return count;
@@ -389,8 +391,10 @@ void reset_all()
     for (const auto& entry : set_state()) {
         set.push_back(entry.second);
     }
-    for (const Membership& m : set) {
-        place_in(level_state().contains(m.sector) ? level_state()[m.sector] : Membership{.sector = m.sector, .trick = false, .cluster = 0});
+    for (const Membership& membership : set) {
+        place_in(level_state().contains(membership.sector)
+                     ? level_state()[membership.sector]
+                     : Membership{.sector = membership.sector, .trick = false, .cluster = 0});
     }
     set_state().clear();
 }
@@ -434,12 +438,13 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     // What the selected pieces are now.
     std::vector<Membership> now;
     bool edited = false;
-    for (const uint32_t s : sectors) {
-        now.push_back(get_now(s));
-        edited = edited || set_state().contains(s);
+    for (const uint32_t sector : sectors) {
+        now.push_back(get_now(sector));
+        edited = edited || set_state().contains(sector);
     }
-    const bool same = std::ranges::all_of(
-        now, [&](const Membership& m) { return m.trick == core::at(now, 0).trick && m.cluster == core::at(now, 0).cluster; });
+    const bool same = std::ranges::all_of(now, [&](const Membership& membership) {
+        return membership.trick == core::at(now, 0).trick && membership.cluster == core::at(now, 0).cluster;
+    });
     ImGui::PushFont(mono);
     if (!same) {
         ImGui::TextUnformatted("(mixed)");
@@ -463,8 +468,8 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     const std::vector<uint32_t>& pieces = sectors;
     const std::string typed = level_editor_clusters_state().typed_.data();
     bool valid = !typed.empty();
-    for (const char c : typed) {
-        valid = valid && ((std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_');
+    for (const char character : typed) {
+        valid = valid && ((std::isalnum(static_cast<unsigned char>(character)) != 0) || character == '_');
     }
     ImGui::BeginDisabled(!valid);
     if (ImGui::Button("Set Cluster")) {

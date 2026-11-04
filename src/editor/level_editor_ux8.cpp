@@ -122,46 +122,46 @@ int append_one(const char* id, const char* name, const char* category, actions::
                const std::vector<actions::Chord>& keys, const char* tip, std::function<void()> run = nullptr,
                std::function<int()> checked = nullptr)
 {
-    actions::ActStep a;
-    a.id = id;
-    a.name = name;
-    a.category = category;
-    a.kind = kind;
-    a.defaults = keys;
-    a.keys = keys;
-    a.tip = tip;
-    a.run = std::move(run);
-    a.checked = std::move(checked);
-    return actions::enrol(a);
+    actions::ActStep act_step;
+    act_step.id = id;
+    act_step.name = name;
+    act_step.category = category;
+    act_step.kind = kind;
+    act_step.defaults = keys;
+    act_step.keys = keys;
+    act_step.tip = tip;
+    act_step.run = std::move(run);
+    act_step.checked = std::move(checked);
+    return actions::enrol(act_step);
 }
 
 void add_hint(const char* id, const char* name, const char* category, const char* keys, const char* tip)
 {
-    actions::ActStep a;
-    a.id = id;
-    a.name = name;
-    a.category = category;
-    a.kind = actions::Kind::kDetailsOf;
-    a.rebindable = false;
-    a.keys_text_ = keys;
-    a.tip = tip;
-    actions::enrol(a);
+    actions::ActStep act_step;
+    act_step.id = id;
+    act_step.name = name;
+    act_step.category = category;
+    act_step.kind = actions::Kind::kDetailsOf;
+    act_step.rebindable = false;
+    act_step.keys_text_ = keys;
+    act_step.tip = tip;
+    actions::enrol(act_step);
 }
 
 // The selection as group members (UX3's groups).
 std::vector<organize::Member> selection_members()
 {
-    const SelectionIds s = current_selection();
+    const SelectionIds selection_ids = current_selection();
     std::vector<organize::Member> members;
-    members.reserve(s.objects.size());
-    for (const uint32_t id : s.objects) {
+    members.reserve(selection_ids.objects.size());
+    for (const uint32_t id : selection_ids.objects) {
         members.push_back({.kind = 'o', .id = id});
     }
-    for (const uint32_t id : s.sectors) {
+    for (const uint32_t id : selection_ids.sectors) {
         members.push_back({.kind = 's', .id = id});
     }
-    if (s.node != 0U) {
-        members.push_back({.kind = 'n', .id = s.node});
+    if (selection_ids.node != 0U) {
+        members.push_back({.kind = 'n', .id = selection_ids.node});
     }
     return members;
 }
@@ -236,20 +236,20 @@ void register_actions()
         "controller_mode", "Controller Mode", "Settings", Kind::kFlipOver, {}, "Use a game controller in the editor",
         [] { set_pad_mode(!level_editor_ux8_state().pad_mode_); }, [] { return level_editor_ux8_state().pad_mode_ ? 1 : 0; });
     for (int i = 0; i < nav::kQuickSets; ++i) {
-        const std::string n = std::to_string(i + 1);
-        const std::string store_id = "quick_set_store_" + n;
-        const std::string recall_id = "quick_set_" + n;
-        const std::string store_name = "Store Set " + n;
-        const std::string recall_name = "Select Set " + n;
+        const std::string number = std::to_string(i + 1);
+        const std::string store_id = "quick_set_store_" + number;
+        const std::string recall_id = "quick_set_" + number;
+        const std::string store_name = "Store Set " + number;
+        const std::string recall_name = "Select Set " + number;
         core::at(ids().store, i) = append_one(store_id.c_str(), store_name.c_str(), "Select", Kind::kPress,
                                     {get_k(SDL_SCANCODE_1 + i, kCtrl | kAlt)}, "Store the selection as Set n");
         core::at(ids().recall, i) = append_one(recall_id.c_str(), recall_name.c_str(), "Select", Kind::kPress,
                                      {get_k(SDL_SCANCODE_1 + i, kAlt | kShift)}, "Select Set n");
         for (const int index : {core::at(ids().store, i), core::at(ids().recall, i)}) {
-            if (actions::ActStep* a = actions::get_pull(index)) {
-                const size_t at = a->tip.find("Set n");
+            if (actions::ActStep* act_step = actions::get_pull(index)) {
+                const size_t at = act_step->tip.find("Set n");
                 if (at != std::string::npos) {
-                    a->tip.replace(at + 4, 1, n);
+                    act_step->tip.replace(at + 4, 1, number);
                 }
             }
         }
@@ -303,9 +303,9 @@ SDL_GameController* find_controller()
         if (SDL_IsGameController(i) == SDL_FALSE) {
             continue;
         }
-        SDL_GameController* c = SDL_GameControllerFromInstanceID(SDL_JoystickGetDeviceInstanceID(i));
-        if (c && (SDL_GameControllerGetAttached(c) != SDL_FALSE)) {
-            return c;
+        SDL_GameController* game_controller = SDL_GameControllerFromInstanceID(SDL_JoystickGetDeviceInstanceID(i));
+        if (game_controller && (SDL_GameControllerGetAttached(game_controller) != SDL_FALSE)) {
+            return game_controller;
         }
     }
     return nullptr;
@@ -322,24 +322,28 @@ uint32_t& pad_was()
 
 Pad read_pad()
 {
-    Pad p;
-    SDL_GameController* c = level_editor_ux8_state().pad_mode_ ? find_controller() : nullptr;
-    if (!c) {
+    Pad pad;
+    SDL_GameController* game_controller = level_editor_ux8_state().pad_mode_ ? find_controller() : nullptr;
+    if (!game_controller) {
         pad_was() = 0;
-        return p;
+        return pad;
     }
-    p.active = true;
-    auto axis = [&](SDL_GameControllerAxis a) { return nav::get_stick({.raw = SDL_GameControllerGetAxis(c, a), .deadzone = kDeadzone}); };
-    p.move_x_ = axis(SDL_CONTROLLER_AXIS_LEFTX);
-    p.move_y_ = -axis(SDL_CONTROLLER_AXIS_LEFTY);
-    p.look_x_ = axis(SDL_CONTROLLER_AXIS_RIGHTX);
-    p.look_y_ = -axis(SDL_CONTROLLER_AXIS_RIGHTY);
-    p.up_down_ = nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT), .deadzone = kTriggerDeadzone}) -
-                 nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), .deadzone = kTriggerDeadzone});
+    pad.active = true;
+    auto axis = [&](SDL_GameControllerAxis a) {
+        return nav::get_stick({.raw = SDL_GameControllerGetAxis(game_controller, a), .deadzone = kDeadzone});
+    };
+    pad.move_x_ = axis(SDL_CONTROLLER_AXIS_LEFTX);
+    pad.move_y_ = -axis(SDL_CONTROLLER_AXIS_LEFTY);
+    pad.look_x_ = axis(SDL_CONTROLLER_AXIS_RIGHTX);
+    pad.look_y_ = -axis(SDL_CONTROLLER_AXIS_RIGHTY);
+    pad.up_down_ = nav::get_stick({.raw = SDL_GameControllerGetAxis(game_controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT),
+                                   .deadzone = kTriggerDeadzone}) -
+                   nav::get_stick({.raw = SDL_GameControllerGetAxis(game_controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT),
+                                   .deadzone = kTriggerDeadzone});
     uint32_t now = 0;
-    for (int b = 0; b < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, kControllerButtonBits); ++b) {
-        if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)) != 0U) {
-            now |= 1U << b;
+    for (int button = 0; button < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, kControllerButtonBits); ++button) {
+        if (SDL_GameControllerGetButton(game_controller, static_cast<SDL_GameControllerButton>(button)) != 0U) {
+            now |= 1U << button;
         }
     }
     uint32_t pressed = now & ~pad_was();
@@ -347,31 +351,32 @@ Pad read_pad()
     pad_was() = now;
     auto down = [&](SDL_GameControllerButton b) { return (now >> b & 1U) != 0; };
     auto press = [&](SDL_GameControllerButton b) { return (pressed >> b & 1U) != 0; };
-    p.a_down_ = down(SDL_CONTROLLER_BUTTON_A);
-    p.a_presses_ = press(SDL_CONTROLLER_BUTTON_A) ? 1 : 0;
-    p.a_releases_ = ((released >> SDL_CONTROLLER_BUTTON_A & 1U) != 0U) ? 1 : 0;
-    p.b = press(SDL_CONTROLLER_BUTTON_B);
-    p.x = press(SDL_CONTROLLER_BUTTON_X);
-    p.y = press(SDL_CONTROLLER_BUTTON_Y);
-    p.x_down_ = down(SDL_CONTROLLER_BUTTON_X);
-    p.y_down_ = down(SDL_CONTROLLER_BUTTON_Y);
-    p.back = press(SDL_CONTROLLER_BUTTON_BACK);
-    p.r3 = press(SDL_CONTROLLER_BUTTON_RIGHTSTICK);
-    p.lb = press(SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-    p.rb = press(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-    p.fast = down(SDL_CONTROLLER_BUTTON_LEFTSTICK);
-    p.up = down(SDL_CONTROLLER_BUTTON_DPAD_UP);
-    p.down = down(SDL_CONTROLLER_BUTTON_DPAD_DOWN);
-    p.left = down(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
-    p.right = down(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+    pad.a_down_ = down(SDL_CONTROLLER_BUTTON_A);
+    pad.a_presses_ = press(SDL_CONTROLLER_BUTTON_A) ? 1 : 0;
+    pad.a_releases_ = ((released >> SDL_CONTROLLER_BUTTON_A & 1U) != 0U) ? 1 : 0;
+    pad.b = press(SDL_CONTROLLER_BUTTON_B);
+    pad.x = press(SDL_CONTROLLER_BUTTON_X);
+    pad.y = press(SDL_CONTROLLER_BUTTON_Y);
+    pad.x_down_ = down(SDL_CONTROLLER_BUTTON_X);
+    pad.y_down_ = down(SDL_CONTROLLER_BUTTON_Y);
+    pad.back = press(SDL_CONTROLLER_BUTTON_BACK);
+    pad.r3 = press(SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+    pad.lb = press(SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+    pad.rb = press(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+    pad.fast = down(SDL_CONTROLLER_BUTTON_LEFTSTICK);
+    pad.up = down(SDL_CONTROLLER_BUTTON_DPAD_UP);
+    pad.down = down(SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+    pad.left = down(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+    pad.right = down(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
     // (Start isn't the editor's: the game's pause key leaves it - level_editor_exit)
     const uint32_t mine = now & ~(1U << SDL_CONTROLLER_BUTTON_START) & ~(1U << SDL_CONTROLLER_BUTTON_GUIDE);
-    p.used = mine != 0 || p.move_x_ != 0 || p.move_y_ != 0 || p.look_x_ != 0 || p.look_y_ != 0 || p.up_down_ != 0;
+    pad.used =
+        mine != 0 || pad.move_x_ != 0 || pad.move_y_ != 0 || pad.look_x_ != 0 || pad.look_y_ != 0 || pad.up_down_ != 0;
     // (anything that edits stops a simulation first)
-    if ((p.a_presses_ != 0) || p.back || p.lb || p.rb || p.up || p.down || p.left || p.right) {
+    if ((pad.a_presses_ != 0) || pad.back || pad.lb || pad.rb || pad.up || pad.down || pad.left || pad.right) {
         stop_simulation();
     }
-    return p;
+    return pad;
 }
 
 platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad)
@@ -382,13 +387,13 @@ platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad)
     }
     core::copy_into(keys.first(merged.size()), std::span(merged));
     auto hold = [&](int action) {
-        const actions::ActStep* a = actions::get_pull(action);
-        if (!a) {
+        const actions::ActStep* act_step = actions::get_pull(action);
+        if (!act_step) {
             return;
         }
-        for (const actions::Chord& c : a->keys) {
-            if (c.scancode > 0 && c.scancode < SDL_NUM_SCANCODES && c.mods == 0) {
-                core::at(merged, c.scancode) = 1;
+        for (const actions::Chord& key : act_step->keys) {
+            if (key.scancode > 0 && key.scancode < SDL_NUM_SCANCODES && key.mods == 0) {
+                core::at(merged, key.scancode) = 1;
                 return;
             }
         }
@@ -491,11 +496,11 @@ void run_slice()
 
 } // namespace
 
-void tick_frame(TickCycle& f)
+void tick_frame(TickCycle& tick_cycle)
 {
     using namespace actions;
     // Quick sets: Ctrl+Alt+n stores, Alt+Shift+n selects (not while dragging: digits are typed values then).
-    if (!f.dragging) {
+    if (!tick_cycle.dragging) {
         for (int i = 0; i < nav::kQuickSets; ++i) {
             if (squeezed(core::at(ids().store, i))) {
                 store_set(nav::quick_set_name(i + 1));
@@ -506,11 +511,11 @@ void tick_frame(TickCycle& f)
         }
     }
     // The follow camera: on frames the selection (F) and keeps with it.
-    if (squeezed(ids().follow) && !f.dragging) {
+    if (squeezed(ids().follow) && !tick_cycle.dragging) {
         if (level_editor_ux8_state().following_) {
             level_editor_ux8_state().following_ = false;
             get_say("Follow off");
-        } else if (!f.have_selection_) {
+        } else if (!tick_cycle.have_selection_) {
             get_say("Nothing selected");
         } else {
             level_editor_ux8_state().following_ = true;
@@ -520,27 +525,30 @@ void tick_frame(TickCycle& f)
         }
     }
     // The pies.
-    const bool pad_open = f.pad.active && (f.pad.x || f.pad.y) && !pie_menu().pie_.open;
+    const bool pad_open = tick_cycle.pad.active && (tick_cycle.pad.x || tick_cycle.pad.y) && !pie_menu().pie_.open;
     const bool key_context = squeezed(ids().pie_context_);
     const bool key_view = squeezed(ids().pie_view_);
-    if ((key_context || key_view || pad_open) && !pie_menu().pie_.open && !f.right && !f.dragging && !f.browser && !level_editor_ux8_state().walking_ &&
+    if ((key_context || key_view || pad_open) && !pie_menu().pie_.open && !tick_cycle.right && !tick_cycle.dragging &&
+        !tick_cycle.browser && !level_editor_ux8_state().walking_ &&
         ui::underway()) { // (drawn by the UI: the old HUD has no pies)
         // ([editor] wasd_flies=1: a pie key that's also a fly key held flies)
         const bool flying = xform::fly_always() && !pad_open &&
-                            (get_held(f.keys, kFlyDown) || get_held(f.keys, kFlyUp) || get_held(f.keys, kForward) ||
-                             get_held(f.keys, kBack) || get_held(f.keys, kLeft) || get_held(f.keys, kRight));
+                            (get_held(tick_cycle.keys, kFlyDown) || get_held(tick_cycle.keys, kFlyUp) ||
+                             get_held(tick_cycle.keys, kForward) || get_held(tick_cycle.keys, kBack) ||
+                             get_held(tick_cycle.keys, kLeft) || get_held(tick_cycle.keys, kRight));
         if (!flying) {
-            float x = f.mouse_x_;
-            float y = f.mouse_y_;
+            float x = tick_cycle.mouse_x_;
+            float y = tick_cycle.mouse_y_;
             if (pad_open && pie_menu().have_view_centre_) {
                 x = pie_menu().view_x_;
                 y = pie_menu().view_y_;
             }
             if (pad_open) {
-                open_pie(f.pad.y ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, {.x = x, .y = y}, -1, true);
+                open_pie(tick_cycle.pad.y ? pie::Kind::kView : pie::Kind::kCtxInfo, tick_cycle.have_selection_,
+                         {.x = x, .y = y}, -1, true);
             } else {
-                open_pie(key_view ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, {.x = x, .y = y},
-                         key_view ? ids().pie_view_ : ids().pie_context_, false);
+                open_pie(key_view ? pie::Kind::kView : pie::Kind::kCtxInfo, tick_cycle.have_selection_,
+                         {.x = x, .y = y}, key_view ? ids().pie_view_ : ids().pie_context_, false);
             }
         }
     }
@@ -548,31 +556,33 @@ void tick_frame(TickCycle& f)
         return;
     }
     // Pointing: the mouse (or the left stick) from the centre.
-    float dx = f.mouse_x_ - pie_menu().pie_.x;
-    float dy = f.mouse_y_ - pie_menu().pie_.y;
-    if (pie_menu().pie_.pad_button_ || (f.pad.active && (f.pad.move_x_ != 0 || f.pad.move_y_ != 0))) {
-        dx = f.pad.move_x_ * 100.0F;
-        dy = -f.pad.move_y_ * 100.0F;
+    float dx = tick_cycle.mouse_x_ - pie_menu().pie_.x;
+    float dy = tick_cycle.mouse_y_ - pie_menu().pie_.y;
+    if (pie_menu().pie_.pad_button_ ||
+        (tick_cycle.pad.active && (tick_cycle.pad.move_x_ != 0 || tick_cycle.pad.move_y_ != 0))) {
+        dx = tick_cycle.pad.move_x_ * 100.0F;
+        dy = -tick_cycle.pad.move_y_ * 100.0F;
     }
     pie_menu().pie_.hovered = nav::slice_at(dx, dy, static_cast<int>(pie_menu().pie_.items.size()), pie::kDeadzone);
-    const bool clicked = (f.left_presses_ != nullptr) && *f.left_presses_ > 0;
-    if (f.left_presses_) {
-        *f.left_presses_ = 0; // (the view doesn't see clicks while a pie is up)
+    const bool clicked = (tick_cycle.left_presses_ != nullptr) && *tick_cycle.left_presses_ > 0;
+    if (tick_cycle.left_presses_) {
+        *tick_cycle.left_presses_ = 0; // (the view doesn't see clicks while a pie is up)
     }
-    if (f.left_releases_) {
-        *f.left_releases_ = 0;
+    if (tick_cycle.left_releases_) {
+        *tick_cycle.left_releases_ = 0;
     }
-    if (f.right || (f.pad.active && f.pad.b)) {
+    if (tick_cycle.right || (tick_cycle.pad.active && tick_cycle.pad.b)) {
         pie_menu().pie_.open = false;
         return;
     }
-    if (clicked || (f.pad.active && (f.pad.a_presses_ != 0))) {
+    if (clicked || (tick_cycle.pad.active && (tick_cycle.pad.a_presses_ != 0))) {
         run_slice();
         return;
     }
     // Letting go of its key / button: a hold runs what's pointed at; a tap keeps it up for a click.
-    const bool held = pie_menu().pie_.pad_button_ ? (pie_menu().pie_.kind == pie::Kind::kView ? f.pad.y_down_ : f.pad.x_down_)
-                                        : pie_menu().pie_.key >= 0 && get_held(f.keys, pie_menu().pie_.key);
+    const bool held = pie_menu().pie_.pad_button_
+                          ? (pie_menu().pie_.kind == pie::Kind::kView ? tick_cycle.pad.y_down_ : tick_cycle.pad.x_down_)
+                          : pie_menu().pie_.key >= 0 && get_held(tick_cycle.keys, pie_menu().pie_.key);
     if (!held && !pie_menu().pie_.sticky) {
         if (SDL_GetTicks() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0) {
             pie_menu().pie_.sticky = true;
@@ -646,8 +656,8 @@ bool glide(V3* pos, double seconds)
         return false;
     }
     glide_state().t = std::min(1.0F, glide_state().t + static_cast<float>(seconds / kGlideSeconds));
-    const float e = view_cam::get_ease(glide_state().t);
-    *pos = glide_state().from + (glide_state().to - glide_state().from) * e;
+    const float eased = view_cam::get_ease(glide_state().t);
+    *pos = glide_state().from + (glide_state().to - glide_state().from) * eased;
     if (glide_state().t >= 1.0F) {
         glide_state().on = false;
     }

@@ -44,14 +44,14 @@ bool get_same(const Membership& a, const Membership& b);
 // Cluster= if it has one, else its own name.
 Membership get_from_node(uint32_t sector, bool trick_object, bool has_cluster, uint32_t cluster);
 // The records' text and one read (after the word "cluster"; false: malformed).
-std::string write_record(const Membership& m);
+std::string write_record(const Membership& membership);
 bool read_record(std::istringstream& in, Membership* out);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // As the level has it (from its node: false when the piece has no node), and as it is now (the editor's, else the
 // level's).
-bool stage_map(uint32_t sector, Membership* m);
+bool stage_map(uint32_t sector, Membership* membership);
 Membership get_now(uint32_t sector);
 // For the selection groups: the editor set this piece's cluster (`cluster`: 0 when it isn't a trick object now).
 bool get_override(uint32_t sector, uint32_t* cluster);

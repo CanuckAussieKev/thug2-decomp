@@ -78,8 +78,8 @@ const char* family_name(Family family)
     static const std::array<const char*, kFamilies> kNames = {{"Spawns",    "Crowns",   "Flags",   "Rails",  "Ladders",
                                                   "Paths",     "Objects",  "Scenery", "Lights", "Sounds",
                                                   "Particles", "Triggers", "Other"}};
-    const int i = static_cast<int>(family);
-    return i >= 0 && i < kFamilies ? core::at(kNames, i) : "?";
+    const int index = static_cast<int>(family);
+    return index >= 0 && index < kFamilies ? core::at(kNames, index) : "?";
 }
 
 Family get_classify(NodeClass node_class)
@@ -188,9 +188,9 @@ SpawnPointKind restart_type_bit(uint32_t type)
         {.checksum = name_hash("KingOfTheHill"), .bit = SpawnPointKind::kKing},
         {.checksum = name_hash("Generic"), .bit = SpawnPointKind::kGeneric},
     });
-    for (const auto& t : kTypes) {
-        if (t.checksum == type) {
-            return t.bit;
+    for (const auto& current_type : kTypes) {
+        if (current_type.checksum == type) {
+            return current_type.bit;
         }
     }
     return SpawnPointKind::kNone;
@@ -202,8 +202,9 @@ uint32_t team_colour(const char* text)
         return 0;
     }
     std::string lower = text;
-    std::ranges::transform(lower, lower.begin(),
-                           [](char c) { return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c); });
+    std::ranges::transform(lower, lower.begin(), [](char character) {
+        return static_cast<char>(character >= 'A' && character <= 'Z' ? character - 'A' + 'a' : character);
+    });
     auto has = [&](const char* colour) {
         // (a whole word: _red, _red_base, _red01 - not "_reduce")
         for (size_t at = lower.find(colour); at != std::string::npos; at = lower.find(colour, at + 1)) {
@@ -360,38 +361,39 @@ void get_scan()
     int crowns = 0;
     int restarts = 0;
     ++node_walk().generation_;
-    for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
-        script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
+    for (uint32_t array_index = 0; array_index < manager->num() && array_index < level_nodes::NodeManager::kMaxArrays;
+         ++array_index) {
+        script::Array* nodes = core::at(manager->arrays(), array_index).node_entries_;
         if (!nodes || nodes->kind_tag() != script::QbValueKind::kStruct) {
             continue;
         }
         for (uint32_t i = 0; i < nodes->extent(); ++i) {
-            script::Struct* s = get_node_at(nodes, i);
-            if (!s) {
+            script::Struct* structure = get_node_at(nodes, i);
+            if (!structure) {
                 continue;
             }
             Elem node;
-            node.array = static_cast<int>(a);
+            node.array = static_cast<int>(array_index);
             node.index = static_cast<int>(i);
-            s->read_hash_value(kName, &node.name, 0);
-            s->read_hash_value(kClass, &node.cls, 0);
-            s->read_hash_value(kType, &node.type, 0);
-            node.added = core::at(manager->arrays(), a).label_ == overlay_array();
+            structure->read_hash_value(kName, &node.name, 0);
+            structure->read_hash_value(kClass, &node.cls, 0);
+            structure->read_hash_value(kType, &node.type, 0);
+            node.added = core::at(manager->arrays(), array_index).label_ == overlay_array();
             if (node.cls == hidden_marker()) {
                 // (hidden by the editor: its own class and type kept beside the marker)
                 node.hidden = true;
                 node.cls = node.type = 0;
-                s->read_hash_value(hidden_class_key(), &node.cls, 0);
-                s->read_hash_value(hidden_type_key(), &node.type, 0);
+                structure->read_hash_value(hidden_class_key(), &node.cls, 0);
+                structure->read_hash_value(hidden_type_key(), &node.type, 0);
             }
             node.family = get_classify({.cls = node.cls, .type = node.type});
             script::VectorValue v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-            if (s->fetch_vec(kPos, &v, 0)) {
+            if (structure->fetch_vec(kPos, &v, 0)) {
                 node.has_pos_ = true;
                 node.pos = {.x = v.x, .y = v.y, .z = v.z};
             }
             script::VectorValue angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-            if (s->fetch_vec(kAngles, &angles, 0)) {
+            if (structure->fetch_vec(kAngles, &angles, 0)) {
                 node.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
                 if (shape_of(node.family) == Shape::kPoint) {
                     node.forward = get_heading_of(node.angles);
@@ -402,9 +404,9 @@ void get_scan()
             case Family::kSpawn: {
                 node.order = node.hidden ? -1 : restarts++; // (the game's walks skip a hidden one)
                 script::Array* types = nullptr;
-                if (s->fetch_list(kRestartTypes, &types, 0) && types) {
-                    for (uint32_t t = 0; t < types->extent(); ++t) {
-                        node.restart_types_ |= restart_type_bit(types->fetch_part(t));
+                if (structure->fetch_list(kRestartTypes, &types, 0) && types) {
+                    for (uint32_t type_index = 0; type_index < types->extent(); ++type_index) {
+                        node.restart_types_ |= restart_type_bit(types->fetch_part(type_index));
                     }
                 }
                 node.colour = spawn_colour(node.restart_types_, team_colour(name));
@@ -424,8 +426,8 @@ void get_scan()
             }
             case Family::kRail:
             case Family::kLadder: {
-                s->read_hash_value(kSurfaceKindKey, &node.terrain, 0);
-                node.trick_object_ = s->has_bare_flag(kTrickObject);
+                structure->read_hash_value(kSurfaceKindKey, &node.terrain, 0);
+                node.trick_object_ = structure->has_bare_flag(kTrickObject);
                 static const uint32_t kMetal = name_hash("Metal");
                 static const uint32_t kWood = name_hash("Wood");
                 static const uint32_t kConcrete = name_hash("Concrete");
@@ -441,19 +443,19 @@ void get_scan()
                 break;
             case Family::kLight: {
                 script::Array* colour = nullptr;
-                if (s->fetch_list(kColor, &colour, 0) && colour && colour->extent() >= 3) {
-                    auto c = [&](uint32_t k) {
+                if (structure->fetch_list(kColor, &colour, 0) && colour && colour->extent() >= 3) {
+                    auto getter = [&](uint32_t index) {
                         const int value = colour->kind_tag() == script::QbValueKind::kFloat
-                                              ? static_cast<int>(colour->fetch_float(k))
-                                              : static_cast<int>(colour->fetch_part(k));
+                                              ? static_cast<int>(colour->fetch_float(index))
+                                              : static_cast<int>(colour->fetch_part(index));
                         return static_cast<uint32_t>(std::max(0, std::min(kChannelMax, value)));
                     };
-                    node.colour = kOpaqueAlpha | (c(0) << kRedShift) | (c(1) << kGreenShift) | c(2);
+                    node.colour = kOpaqueAlpha | (getter(0) << kRedShift) | (getter(1) << kGreenShift) | getter(2);
                 } else {
                     node.colour = kDefaultLightColour;
                 }
-                s->fetch_float(kOuterRadius, &node.radius, 0);
-                s->fetch_float(kInnerRadius, &node.inner_radius_, 0);
+                structure->fetch_float(kOuterRadius, &node.radius, 0);
+                structure->fetch_float(kInnerRadius, &node.inner_radius_, 0);
                 break;
             }
             case Family::kSound:
@@ -464,7 +466,7 @@ void get_scan()
                 break;
             case Family::kFireOff:
                 node.colour = kFireOffColour;
-                s->fetch_float(kRadius, &node.radius, 0);
+                structure->fetch_float(kRadius, &node.radius, 0);
                 break;
             case Family::kObject:
                 node.colour = kObjectColour;
@@ -473,7 +475,7 @@ void get_scan()
                 node.colour = kOtherNodeColour;
                 break;
             }
-            node.trigger_script_ = s->has_entry_named(kTriggerScript);
+            node.trigger_script_ = structure->has_entry_named(kTriggerScript);
             ++core::at(level_editor_nodes_state().counts_, static_cast<int>(node.family));
             if (node.name != 0U) {
                 by_name().emplace(node.name, static_cast<int>(level_editor_nodes_state().nodes_.size()));
@@ -485,13 +487,14 @@ void get_scan()
     node_walk().walked_spawns_ = restarts;
     // The links, as indices (links= holds the linked nodes' names once the array is added - resolve_links).
     for (Elem& node : level_editor_nodes_state().nodes_) {
-        script::Struct* s = get_node_at(core::at(manager->arrays(), node.array).node_entries_, static_cast<uint32_t>(node.index));
+        script::Struct* structure =
+            get_node_at(core::at(manager->arrays(), node.array).node_entries_, static_cast<uint32_t>(node.index));
         script::Array* links = nullptr;
-        if (!s || !s->fetch_list(kLinks, &links, 0) || !links) {
+        if (!structure || !structure->fetch_list(kLinks, &links, 0) || !links) {
             continue;
         }
-        for (uint32_t l = 0; l < links->extent(); ++l) {
-            auto it = by_name().find(links->fetch_part(l));
+        for (uint32_t length = 0; length < links->extent(); ++length) {
+            auto it = by_name().find(links->fetch_part(length));
             if (it != by_name().end()) {
                 node.links.push_back(it->second);
             }
@@ -619,17 +622,17 @@ void reread(int index)
         return;
     }
     Elem& node = core::at(level_editor_nodes_state().nodes_, index);
-    script::Struct* s = struct_of(node);
-    if (!s) {
+    script::Struct* structure = struct_of(node);
+    if (!structure) {
         return;
     }
     script::VectorValue v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    if (s->fetch_vec(kPos, &v, 0)) {
+    if (structure->fetch_vec(kPos, &v, 0)) {
         node.has_pos_ = true;
         node.pos = {.x = v.x, .y = v.y, .z = v.z};
     }
     script::VectorValue angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    s->fetch_vec(kAngles, &angles, 0);
+    structure->fetch_vec(kAngles, &angles, 0);
     node.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
     if (shape_of(node.family) == Shape::kPoint) {
         node.forward = get_heading_of(node.angles);
@@ -665,7 +668,7 @@ std::string get_name_text(uint32_t checksum)
     return hex.data();
 }
 
-std::string value_text(script::Component* c, int depth);
+std::string value_text(script::Component* component, int depth);
 
 std::string array_text(script::Array* array, int depth)
 {
@@ -708,35 +711,35 @@ std::string array_text(script::Array* array, int depth)
     return text + "]";
 }
 
-std::string value_text(script::Component* c, int depth)
+std::string value_text(script::Component* component, int depth)
 {
     std::array<char, kValueBufferSize> buffer{};
-    switch (value_kind(*c)) {
+    switch (value_kind(*component)) {
     case script::QbValueKind::kInteger:
-        text::format_to(buffer, "%d", c->value.integer());
+        text::format_to(buffer, "%d", component->value.integer());
         return buffer.data();
     case script::QbValueKind::kFloat:
-        text::format_to(buffer, "%g", c->value.real());
+        text::format_to(buffer, "%g", component->value.real());
         return buffer.data();
     case script::QbValueKind::kString:
     case script::QbValueKind::kInlineText:
-        return std::string("\"") + (c->value.text() ? c->value.text() : "") + "\"";
+        return std::string("\"") + (component->value.text() ? component->value.text() : "") + "\"";
     case script::QbValueKind::kPair:
-        if (c->value.pair()) {
-            text::format_to(buffer, "(%g, %g)", c->value.pair()->x(), c->value.pair()->y());
+        if (component->value.pair()) {
+            text::format_to(buffer, "(%g, %g)", component->value.pair()->x(), component->value.pair()->y());
         }
-        return c->value.pair() ? buffer.data() : "()";
+        return component->value.pair() ? buffer.data() : "()";
     case script::QbValueKind::kVector:
-        if (c->value.vector()) {
-            text::format_to(buffer, "(%.2f, %.2f, %.2f)", c->value.vector()->x(), c->value.vector()->y(),
-                            c->value.vector()->z());
+        if (component->value.vector()) {
+            text::format_to(buffer, "(%.2f, %.2f, %.2f)", component->value.vector()->x(),
+                            component->value.vector()->y(), component->value.vector()->z());
         }
-        return c->value.vector() ? buffer.data() : "()";
+        return component->value.vector() ? buffer.data() : "()";
     case script::QbValueKind::kName:
-        return get_name_text(c->value.word());
+        return get_name_text(component->value.word());
     case script::QbValueKind::kArray:
     case script::QbValueKind::kArrayRef:
-        return array_text(c->value.array(), depth + 1);
+        return array_text(component->value.array(), depth + 1);
     case script::QbValueKind::kStruct:
     case script::QbValueKind::kStructRef:
         return "{...}";
@@ -747,24 +750,24 @@ std::string value_text(script::Component* c, int depth)
     }
 }
 
-void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* out)
+void add_fields(script::Struct* structure, bool included, int depth, std::vector<Prop>* out)
 {
-    if (!s || depth > 3) {
+    if (!structure || depth > 3) {
         return;
     }
-    for (script::Component* c = s->head(); c; c = c->next) {
-        if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
+    for (script::Component* component = structure->head(); component; component = component->next) {
+        if (component->name == 0 && value_kind(*component) == script::QbValueKind::kName) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
-            const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
+            const script::SymbolTableEntry* symbol = script::resolve_symbol(component->value.word());
             if (symbol && symbol->type() == script::QbValueKind::kStruct && symbol->value().structure()) {
                 add_fields(symbol->value().structure(), true, depth + 1, out);
                 continue;
             }
-            out->push_back({.name = get_name_text(c->value.word()), .value = "(flag)", .included = included});
+            out->push_back({.name = get_name_text(component->value.word()), .value = "(flag)", .included = included});
             continue;
         }
-        out->push_back({.name = (c->name != 0U) ? get_name_text(c->name) : "(unnamed)",
-                        .value = value_text(c, depth),
+        out->push_back({.name = (component->name != 0U) ? get_name_text(component->name) : "(unnamed)",
+                        .value = value_text(component, depth),
                         .included = included});
     }
 }
@@ -830,44 +833,48 @@ int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float r
     float best_distance = 0.0F;
     float best_depth = 0.0F;
     bool best_point = false;
-    for (const Pickable& p : pickables) {
-        const float d = p.segment ? distance_to_segment(at, {.x = p.ax, .y = p.ay}, {.x = p.bx, .y = p.by})
-                                  : std::sqrt(((x - p.ax) * (x - p.ax)) + ((y - p.ay) * (y - p.ay)));
-        if (d > radius) {
+    for (const Pickable& pickable : pickables) {
+        const float distance =
+            pickable.segment
+                ? distance_to_segment(at, {.x = pickable.ax, .y = pickable.ay}, {.x = pickable.bx, .y = pickable.by})
+                : std::sqrt(((x - pickable.ax) * (x - pickable.ax)) + ((y - pickable.ay) * (y - pickable.ay)));
+        if (distance > radius) {
             continue;
         }
         if (occluder.blocked) {
             // (where a segment passes nearest: its depth there, perspective-correct - 1 / depth is linear on screen)
-            float depth = p.depth;
-            if (p.segment && p.depth_a_ > 0.0F && p.depth_b_ > 0.0F) {
-                const float dx = p.bx - p.ax;
-                const float dy = p.by - p.ay;
+            float depth = pickable.depth;
+            if (pickable.segment && pickable.depth_a_ > 0.0F && pickable.depth_b_ > 0.0F) {
+                const float dx = pickable.bx - pickable.ax;
+                const float dy = pickable.by - pickable.ay;
                 const float length2 = (dx * dx) + (dy * dy);
-                const float s = length2 > 0.0F
-                                    ? std::max(0.0F, std::min(1.0F, (((x - p.ax) * dx) + ((y - p.ay) * dy)) / length2))
-                                    : 0.0F;
-                depth = 1.0F / (((1.0F - s) / p.depth_a_) + (s / p.depth_b_));
+                const float scale =
+                    length2 > 0.0F
+                        ? std::max(0.0F,
+                                   std::min(1.0F, (((x - pickable.ax) * dx) + ((y - pickable.ay) * dy)) / length2))
+                        : 0.0F;
+                depth = 1.0F / (((1.0F - scale) / pickable.depth_a_) + (scale / pickable.depth_b_));
             }
             if (!picking::gizmo_in_front(depth, true, occluder.depth,
                                          picking::gizmo_slack(depth, occluder.units_per_pixel_, occluder.pixels))) {
                 continue;
             }
         }
-        const bool point = !p.segment;
+        const bool point = !pickable.segment;
         bool better = false;
         if (best < 0) {
             better = true;
         } else if (point != best_point) {
             better = point; // (a point within reach beats any segment)
-        } else if (std::fabs(d - best_distance) > kDistanceTolerance) {
-            better = d < best_distance;
+        } else if (std::fabs(distance - best_distance) > kDistanceTolerance) {
+            better = distance < best_distance;
         } else {
-            better = p.depth < best_depth;
+            better = pickable.depth < best_depth;
         }
         if (better) {
-            best = p.node;
-            best_distance = d;
-            best_depth = p.depth;
+            best = pickable.node;
+            best_distance = distance;
+            best_depth = pickable.depth;
             best_point = point;
         }
     }

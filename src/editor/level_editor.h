@@ -307,7 +307,7 @@ struct SurfaceHit {
 };
 inline V3 operator+(V3 a, V3 b) { return {.x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z}; }
 inline V3 operator-(V3 a, V3 b) { return {.x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z}; }
-inline V3 operator*(V3 a, float s) { return {.x = a.x * s, .y = a.y * s, .z = a.z * s}; }
+inline V3 operator*(V3 a, float scale) { return {.x = a.x * scale, .y = a.y * scale, .z = a.z * scale}; }
 inline float get_dot(V3 a, V3 b) { return (a.x * b.x) + (a.y * b.y) + (a.z * b.z); }
 inline V3 perpendicular(V3 a, V3 b)
 {
@@ -360,10 +360,10 @@ bool cast_onto(V3 camera_pos, const TickCycle& frame, const Lens& lens, V3 point
 // Ray against a sphere / an oriented box (a model's box: `min` / `max` in the model's space, placed by the rows of
 // `axes` - right, up, at - and `origin`; rows needn't be unit). The nearest hit's distance along `dir` (in units of
 // dir), false if none in front.
-bool ray_sphere(Ray ray, V3 centre, float radius, float* t);
-bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* t);
+bool ray_sphere(Ray ray, V3 centre, float radius, float* hit_distance);
+bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* hit_distance);
 // Ray against the plane through `point` with `normal`: false if parallel or behind.
-bool ray_plane(Ray ray, V3 point, V3 normal, float* t);
+bool ray_plane(Ray ray, V3 point, V3 normal, float* hit_distance);
 // A box's eight corners in world space (bit 0 of the index: max x, bit 1: max y, bit 2: max z).
 void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, kBoxCornerCount> out);
 // Whether a model's bounding box looks like world coordinates rather than the model's own: it holds the object's
@@ -399,12 +399,15 @@ inline V3 box_size(const OrientedBox& box)
 // rotation 1 takes (dx, dz) from the pivot to (dz, -dx), rotation 3 to (-dz, dx)).
 V3 get_quarter_turn(V3 v, int quarters);
 // A vector scaled per axis (x by s.x, ...).
-inline V3 per_axis(V3 v, V3 s) { return {.x = v.x * s.x, .y = v.y * s.y, .z = v.z * s.z}; }
+inline V3 per_axis(V3 v, V3 scale) { return {.x = v.x * scale.x, .y = v.y * scale.y, .z = v.z * scale.z}; }
 // A per-axis scale as seen after `quarters` quarter turns about up: odd turns swap its x and z (get_quarter_turn(per_axis(v,
 // s), q) == per_axis(get_quarter_turn(v, q), turned_scale(s, q))).
-inline V3 turned_scale(V3 s, int quarters) { return ((quarters & 1) != 0) ? V3{.x = s.z, .y = s.y, .z = s.x} : s; }
-inline bool is_unit_scale(V3 s) { return s.x == 1.0F && s.y == 1.0F && s.z == 1.0F; }
-inline bool is_uniform_scale(V3 s) { return s.x == s.y && s.y == s.z; }
+inline V3 turned_scale(V3 scale, int quarters)
+{
+    return ((quarters & 1) != 0) ? V3{.x = scale.z, .y = scale.y, .z = scale.x} : scale;
+}
+inline bool is_unit_scale(V3 scale) { return scale.x == 1.0F && scale.y == 1.0F && scale.z == 1.0F; }
+inline bool is_uniform_scale(V3 scale) { return scale.x == scale.y && scale.y == scale.z; }
 
 // Where a moved sector is, relative to where it was when the editor first touched it: a point x of it then is now at
 // get_quarter_turn(per_axis(x, scale), quarters) + offset (a scale along each of its own axes as first touched - uniform or
@@ -447,7 +450,7 @@ V3 dropped_to(V3 pos, float base, float ground_y);
 
 // The point of the line through `p` along `u` nearest to the ray from `o` along `d` (the move arrows: dragging along
 // one axis): its parameter `s` (p + u * s). False when the two are (nearly) parallel.
-bool closest_on_axis(Ray axis, Ray line, float* s);
+bool closest_on_axis(Ray axis, Ray line, float* along_axis);
 // The distance in pixels from (x, y) to the segment (ax, ay)-(bx, by).
 float distance_to_segment(maths::Vec2 point, maths::Vec2 a, maths::Vec2 b);
 

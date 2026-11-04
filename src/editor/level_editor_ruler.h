@@ -30,7 +30,7 @@ Measure measure_of(V3 a, V3 b);
 int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Vec2 at, float radius);
 constexpr float kSnapPixels = 12.0F;
 // The text of a measurement ("312 (26.0 ft) - across 300 (25.0 ft), up 86 (7.2 ft)").
-std::string describe(const Measure& m);
+std::string describe(const Measure& measure);
 
 // --- the game side ----------------------------------------------------------------------------------------------
 

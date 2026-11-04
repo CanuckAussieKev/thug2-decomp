@@ -85,9 +85,9 @@ int get_worst(const std::vector<Meter>& meters)
         if (core::at(meters, i).limit <= 0.0) {
             continue;
         }
-        const double f = get_fill(core::at(meters, i).used, core::at(meters, i).limit);
-        if (f > fill) {
-            fill = f;
+        const double factor = get_fill(core::at(meters, i).used, core::at(meters, i).limit);
+        if (factor > fill) {
+            fill = factor;
             worst = static_cast<int>(i);
         }
     }
@@ -97,10 +97,10 @@ int get_worst(const std::vector<Meter>& meters)
 std::string get_bytes(double bytes)
 {
     std::array<char, kSizeTextSize> text{};
-    const double a = std::fabs(bytes);
-    if (a < kBytesPerKilobyte) {
+    const double magnitude = std::fabs(bytes);
+    if (magnitude < kBytesPerKilobyte) {
         text::format_to(text, "%.0f B", bytes);
-    } else if (a < kBytesPerKilobyte * kBytesPerKilobyte) {
+    } else if (magnitude < kBytesPerKilobyte * kBytesPerKilobyte) {
         text::format_to(text, "%.1f KB", bytes / kBytesPerKilobyte);
     } else {
         text::format_to(text, "%.2f MB", bytes / (kBytesPerKilobyte * kBytesPerKilobyte));
@@ -269,13 +269,13 @@ std::vector<Meter> get_meters()
     int added_nodes = 0;
     static const uint32_t kRestart = checksums::hash_from_text("Restart");
     static const uint32_t kCrown = checksums::hash_from_text("Crown");
-    for (const nodes::Elem& n : nodes) {
-        if (n.added) {
+    for (const nodes::Elem& elem : nodes) {
+        if (elem.added) {
             ++added_nodes;
             continue;
         }
-        crowns_shipped += static_cast<int>(n.type == kCrown);
-        restarts_shipped += static_cast<int>(n.cls == kRestart);
+        crowns_shipped += static_cast<int>(elem.type == kCrown);
+        restarts_shipped += static_cast<int>(elem.cls == kRestart);
     }
     const node_create::Counts counts = node_create::counts_now();
     // A budget line: what is used, the limit and what this level added.
@@ -288,21 +288,21 @@ std::vector<Meter> get_meters()
         const auto used = usage.used;
         const auto limit = usage.limit;
         const auto added = usage.added;
-        Meter m;
-        m.name = name;
-        m.used = used;
-        m.limit = limit;
-        m.added = added;
-        m.where = where;
-        meters.push_back(m);
+        Meter meter;
+        meter.name = name;
+        meter.used = used;
+        meter.limit = limit;
+        meter.added = added;
+        meter.where = where;
+        meters.push_back(meter);
     };
     count("Crowns", {.used = static_cast<double>(counts.crowns), .limit = static_cast<double>(node_create::kMaxCrowns), .added = static_cast<double>(counts.crowns - crowns_shipped)},
           "CFunc_SpawnCrown 0x00538170: two 10-entry stack arrays (more overruns them)");
     count("Restarts", {.used = static_cast<double>(counts.restarts), .limit = static_cast<double>(node_create::kMaxRestarts), .added = static_cast<double>(counts.restarts - restarts_shipped)},
           "GetRestartNode 0x0046B790: a 256-name stack array for every restart (more overruns it)");
     int added_lights = 0;
-    for (const nodes::Elem& n : nodes) {
-        added_lights += static_cast<int>(n.added && !n.hidden && n.family == nodes::Family::kLight);
+    for (const nodes::Elem& elem : nodes) {
+        added_lights += static_cast<int>(elem.added && !elem.hidden && elem.family == nodes::Family::kLight);
     }
     count("Level lights", {.used = static_cast<double>(counts.level_lights_), .limit = static_cast<double>(node_create::kMaxLevelLights), .added = static_cast<double>(added_lights)},
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");
@@ -329,39 +329,40 @@ std::vector<Meter> get_meters()
         if (!pool_use(core::at(kPools, i).pair(), {.used = &used, .count = &total})) {
             continue;
         }
-        Meter m;
-        m.name = core::at(kPools, i).name;
-        m.used = used;
-        m.limit = total;
-        m.added = base().taken ? used - core::at(base().pools, i) : 0.0;
-        m.approximate = true;
-        m.where = core::at(kPools, i).where;
-        meters.push_back(m);
+        Meter meter;
+        meter.name = core::at(kPools, i).name;
+        meter.used = used;
+        meter.limit = total;
+        meter.added = base().taken ? used - core::at(base().pools, i) : 0.0;
+        meter.approximate = true;
+        meter.where = core::at(kPools, i).where;
+        meters.push_back(meter);
     }
     if (const memory::Hub* manager = memory::Hub::get_pull()) {
         double size = 0.0;
         double used = 0.0;
         if (region_use(manager->script_region().get(), &size, &used)) {
-            Meter m;
-            m.name = "Script heap";
-            m.used = used;
-            m.limit = size;
-            m.added = base().taken ? used - base().script : 0.0;
-            m.bytes = m.approximate = true;
-            m.where =
+            Meter meter;
+            meter.name = "Script heap";
+            meter.used = used;
+            meter.limit = size;
+            meter.added = base().taken ? used - base().script : 0.0;
+            meter.bytes = meter.approximate = true;
+            meter.where =
                 "the script region (InitStandardHeaps 0x005BBE80: original 0x434770 bytes, grown by the bigger pools)";
-            meters.push_back(m);
+            meters.push_back(meter);
         }
         if (region_use(manager->primary_zone(), &size, &used)) {
-            Meter m;
-            m.name = "Main memory";
-            m.used = used;
-            m.limit = size;
-            m.added = base().taken ? used - base().main : 0.0;
-            m.bytes = m.approximate = true;
-            m.where = "the main region (Mem::Manager::Construct 0x005BBC00: original 64 MB, grown by the bigger pools) "
-                      "- geometry, copies' meshes, collision";
-            meters.push_back(m);
+            Meter meter;
+            meter.name = "Main memory";
+            meter.used = used;
+            meter.limit = size;
+            meter.added = base().taken ? used - base().main : 0.0;
+            meter.bytes = meter.approximate = true;
+            meter.where =
+                "the main region (Mem::Manager::Construct 0x005BBC00: original 64 MB, grown by the bigger pools) "
+                "- geometry, copies' meshes, collision";
+            meters.push_back(meter);
         }
     }
     return meters;
@@ -412,13 +413,13 @@ void tooltip()
     ImGui::BeginTooltip();
     gui::text("Budget: %s %s (click for details)", core::at(meters, worst).name, used_text(core::at(meters, worst)).c_str());
     ImGui::Separator();
-    for (const Meter& m : meters) {
-        const StageMap l = get_level_of(m.used, m.limit);
-        gui::text_colored(ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))), "%s", "\xE2\x97\x8F");
+    for (const Meter& meter : meters) {
+        const StageMap stage_map = get_level_of(meter.used, meter.limit);
+        gui::text_colored(ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(stage_map))), "%s", "\xE2\x97\x8F");
         ImGui::SameLine();
-        const std::string added = added_text(m);
-        gui::text("%s: %s%s%s", m.name, used_text(m).c_str(), added.empty() ? "" : "  (edits ",
-                    added.empty() ? "" : (added + ")").c_str());
+        const std::string added = added_text(meter);
+        gui::text("%s: %s%s%s", meter.name, used_text(meter).c_str(), added.empty() ? "" : "  (edits ",
+                  added.empty() ? "" : (added + ")").c_str());
     }
     ImGui::EndTooltip();
 }
@@ -438,26 +439,28 @@ void get_table()
     ImGui::TableSetupColumn("Fill", ImGuiTableColumnFlags_WidthFixed, kFillColumnWidth);
     ImGui::TableSetupColumn("Edits");
     ImGui::TableHeadersRow();
-    for (const Meter& m : meters) {
+    for (const Meter& meter : meters) {
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
-        ImGui::TextUnformatted(m.name);
+        ImGui::TextUnformatted(meter.name);
         if (ImGui::IsItemHovered()) {
-            gui::tooltip("%s", m.where);
+            gui::tooltip("%s", meter.where);
         }
         ImGui::TableNextColumn();
-        ImGui::TextUnformatted(used_text(m).c_str());
+        ImGui::TextUnformatted(used_text(meter).c_str());
         ImGui::TableNextColumn();
-        if (m.limit > 0.0) {
-            const StageMap l = get_level_of(m.used, m.limit);
-            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))));
-            ImGui::ProgressBar(static_cast<float>(std::min(1.0, get_fill(m.used, m.limit))), ImVec2(-1.0F, 0.0F), "");
+        if (meter.limit > 0.0) {
+            const StageMap stage_map = get_level_of(meter.used, meter.limit);
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
+                                  ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(stage_map))));
+            ImGui::ProgressBar(static_cast<float>(std::min(1.0, get_fill(meter.used, meter.limit))),
+                               ImVec2(-1.0F, 0.0F), "");
             ImGui::PopStyleColor();
         } else {
             gui::text_disabled("(count)");
         }
         ImGui::TableNextColumn();
-        ImGui::TextUnformatted(added_text(m).c_str());
+        ImGui::TextUnformatted(added_text(meter).c_str());
     }
     ImGui::EndTable();
 }

@@ -57,7 +57,7 @@ constexpr int kMostFaces = 2048;
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
 // The distance from a point to a triangle (a degenerate one: to its longest edge).
-float point_triangle_distance(V3 p, V3 a, V3 b, V3 c);
+float point_triangle_distance(V3 point, V3 a, V3 b, V3 corner);
 // A strip's index count and the best distance so far.
 struct StripLimit {
     uint32_t index_count_{};
@@ -66,7 +66,8 @@ struct StripLimit {
 
 // The least of `best` and the distance from `p` to the triangles of a strip (each three consecutive indices; those
 // repeating an index or past `vertexCount` skipped), positions every `stride` bytes.
-float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices, StripLimit strip_limit);
+float strip_distance(V3 point, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
+                     const uint16_t* indices, StripLimit strip_limit);
 // Whether a face whose farthest vertex is `own` from the piece (and `nearest_other` from the nearest other piece) is
 // the piece's: within kNear and strictly nearer.
 bool belongs(float own, float nearest_other);
@@ -107,8 +108,8 @@ public:
     [[nodiscard]] const render::TriMeshSource& get_geometry() const { return geometry_; }
     [[nodiscard]] int face_count() const { return geometry_.tri_count(); }
     [[nodiscard]] int get_vertex_count() const { return geometry_.num_vertices(); }
-    [[nodiscard]] V3 base_vertex(int i) const { return core::at(base_, i); }
-    [[nodiscard]] V3 get_vertex(int i) const;
+    [[nodiscard]] V3 base_vertex(int index) const { return core::at(base_, index); }
+    [[nodiscard]] V3 get_vertex(int index) const;
 
 private:
     void update_box();

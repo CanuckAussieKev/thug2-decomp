@@ -221,9 +221,9 @@ std::vector<std::string> split_list(const std::string& text)
 std::string get_key_of(const std::string& scene)
 {
     std::string key = scene;
-    for (char& c : key) {
-        if ((std::isalnum(static_cast<unsigned char>(c)) == 0) && c != '_') {
-            c = '_';
+    for (char& character : key) {
+        if ((std::isalnum(static_cast<unsigned char>(character)) == 0) && character != '_') {
+            character = '_';
         }
     }
     return key.empty() ? "_" : key;
@@ -404,12 +404,12 @@ bool get_matches(const std::string& text, const char* filter)
     if (!filter || (*filter == '\0')) {
         return true;
     }
-    auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
-    std::string a = text;
-    std::string b = filter;
-    std::ranges::transform(a, a.begin(), lower);
-    std::ranges::transform(b, b.begin(), lower);
-    return a.find(b) != std::string::npos;
+    auto lower = [](char character) { return static_cast<char>(std::tolower(static_cast<unsigned char>(character))); };
+    std::string haystack = text;
+    std::string needle = filter;
+    std::ranges::transform(haystack, haystack.begin(), lower);
+    std::ranges::transform(needle, needle.begin(), lower);
+    return haystack.find(needle) != std::string::npos;
 }
 
 // A star's radius and its colour.
@@ -426,8 +426,9 @@ void star(ImDrawList* draw, ImVec2 centre, StarLook star_look, bool filled)
     std::array<ImVec2, kStarPoints> points;
     for (int i = 0; i < kStarPoints; ++i) {
         const float angle = -1.5707963F + (0.62831853F * static_cast<float>(i));
-        const float r = ((i & 1) != 0) ? radius * 0.45F : radius;
-        core::at(points, i) = ImVec2(centre.x + (std::cos(angle) * r), centre.y + (std::sin(angle) * r));
+        const float current_radius = ((i & 1) != 0) ? radius * 0.45F : radius;
+        core::at(points, i) =
+            ImVec2(centre.x + (std::cos(angle) * current_radius), centre.y + (std::sin(angle) * current_radius));
     }
     if (filled) {
         // (the inner pentagon and the five points' triangles: ImGui fills convex shapes only)
@@ -547,9 +548,9 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     }
 
     auto request = [&](ui::Request::Kind kind, int value) {
-        ui::Request r{.kind = kind};
-        r.value = value;
-        requests->push_back(r);
+        ui::Request current_request{.kind = kind};
+        current_request.value = value;
+        requests->push_back(current_request);
     };
     int hovered = -1;
     ImGui::BeginChild("##items", ImVec2(0.0F, height), ImGuiChildFlags_Borders);
@@ -564,28 +565,29 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         // The list, a star at each row's end.
         ImGui::PushFont(mono);
         const float star_radius = ImGui::GetTextLineHeight() * 0.42F;
-        for (const int i : shown) {
-            ImGui::PushID(i);
-            const bool selected = i == model.browser_index_;
+        for (const int index : shown) {
+            ImGui::PushID(index);
+            const bool selected = index == model.browser_index_;
             const float row_y = ImGui::GetCursorScreenPos().y;
             const float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
             ImGui::SetNextItemAllowOverlap();
-            if (ImGui::Selectable(core::at(items, i).label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
-                request(ui::Request::Kind::kBrowserIndex, i);
+            if (ImGui::Selectable(core::at(items, index).label.c_str(), selected,
+                                  ImGuiSelectableFlags_AllowDoubleClick)) {
+                request(ui::Request::Kind::kBrowserIndex, index);
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                     request(ui::Request::Kind::kBrowserPlace, 0);
                 }
             }
             if (ImGui::IsItemHovered()) {
-                hovered = i;
+                hovered = index;
             }
             if (selected && follow) {
                 ImGui::SetScrollHereY(kScrollCentre);
             }
             const float right = row_right - star_radius - 2.0F;
             if (star_button("##star", ImVec2(right, row_y + (ImGui::GetTextLineHeight() * kHalf)), star_radius,
-                            favourite(tab, core::at(items, i).id))) {
-                toggle_favourite(tab, core::at(items, i).id);
+                            favourite(tab, core::at(items, index).id))) {
+                toggle_favourite(tab, core::at(items, index).id);
             }
             ImGui::PopID();
         }
@@ -621,68 +623,70 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     while (clipper.Step()) {
         for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
             for (int column = 0; column < columns; ++column) {
-                const int n = (row * columns) + column;
-                if (std::cmp_greater_equal(n, shown.size())) {
+                const int count = (row * columns) + column;
+                if (std::cmp_greater_equal(count, shown.size())) {
                     break;
                 }
-                const int i = core::at(shown, n);
+                const int index = core::at(shown, count);
                 if (column != 0) {
                     ImGui::SameLine(0.0F, spacing);
                 }
-                ImGui::PushID(i);
+                ImGui::PushID(index);
                 ImGui::BeginGroup();
-                const ImVec2 a = ImGui::GetCursorScreenPos();
-                const ImVec2 b(a.x + cell, a.y + cell);
-                const bool selected = i == model.browser_index_;
+                const ImVec2 point_a = ImGui::GetCursorScreenPos();
+                const ImVec2 point_b(point_a.x + cell, point_a.y + cell);
+                const bool selected = index == model.browser_index_;
                 ImGui::SetNextItemAllowOverlap();
                 if (ImGui::InvisibleButton("##thumb", ImVec2(cell, cell))) {
-                    request(ui::Request::Kind::kBrowserIndex, i);
+                    request(ui::Request::Kind::kBrowserIndex, index);
                 }
                 if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                     request(ui::Request::Kind::kBrowserPlace, 0);
                 }
                 const bool hover = ImGui::IsItemHovered();
                 if (hover) {
-                    hovered = i;
-                    gui::tooltip("%s\nDouble-click to place", core::at(items, i).label.c_str());
+                    hovered = index;
+                    gui::tooltip("%s\nDouble-click to place", core::at(items, index).label.c_str());
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
-                const uint64_t key = get_key(tab, core::at(items, i).id);
-                const int c = cells_state().get_take({.key = key, .frame = level_editor_thumbs_state().frame_});
+                const uint64_t key = get_key(tab, core::at(items, index).id);
+                const int current_cell =
+                    cells_state().get_take({.key = key, .frame = level_editor_thumbs_state().frame_});
                 wanted.push_back(key);
-                if (c >= 0 && (texture != 0U) && (core::at(cells_state().drawn(), c) != 0U)) {
+                if (current_cell >= 0 && (texture != 0U) && (core::at(cells_state().drawn(), current_cell) != 0U)) {
                     float u0 = 0.0F;
                     float v0 = 0.0F;
                     float u1 = 0.0F;
                     float v1 = 0.0F;
-                    cell_uv(c, {.x0 = &u0, .y0 = &v0, .x1 = &u1, .y1 = &v1});
-                    draw->AddImage(static_cast<ImTextureID>(texture), a, b, ImVec2(u0, v0), ImVec2(u1, v1));
+                    cell_uv(current_cell, {.x0 = &u0, .y0 = &v0, .x1 = &u1, .y1 = &v1});
+                    draw->AddImage(static_cast<ImTextureID>(texture), point_a, point_b, ImVec2(u0, v0), ImVec2(u1, v1));
                 } else {
-                    draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
+                    draw->AddRectFilled(point_a, point_b, IM_COL32(42, 44, 48, 255));
                     const char* wait = "...";
                     const ImVec2 size = ImGui::CalcTextSize(wait);
-                    draw->AddText(ImVec2((a.x + b.x - size.x) * kHalf, (a.y + b.y - size.y) * kHalf),
-                                  ImGui::GetColorU32(ImGuiCol_TextDisabled), wait);
+                    draw->AddText(
+                        ImVec2((point_a.x + point_b.x - size.x) * kHalf, (point_a.y + point_b.y - size.y) * kHalf),
+                        ImGui::GetColorU32(ImGuiCol_TextDisabled), wait);
                 }
                 const ImU32 border = selected ? IM_COL32(210, 87, 28, 255)
                                      : hover  ? IM_COL32(200, 200, 200, 200)
                                               : ImGui::GetColorU32(ImGuiCol_Border);
-                draw->AddRect(a, b, border, kCellRounding, 0, selected ? kSelectedBorderWidth : 1.0F);
+                draw->AddRect(point_a, point_b, border, kCellRounding, 0, selected ? kSelectedBorderWidth : 1.0F);
                 // (the star in the top right corner)
-                const float r = 7.0F * scale;
-                if (star_button("##star", ImVec2(b.x - r - kStarInset, a.y + r + kStarInset), r,
-                                favourite(tab, core::at(items, i).id))) {
-                    toggle_favourite(tab, core::at(items, i).id);
+                const float radius = 7.0F * scale;
+                if (star_button("##star", ImVec2(point_b.x - radius - kStarInset, point_a.y + radius + kStarInset),
+                                radius, favourite(tab, core::at(items, index).id))) {
+                    toggle_favourite(tab, core::at(items, index).id);
                 }
                 // The name, cut to the cell.
-                ImGui::SetCursorScreenPos(ImVec2(a.x, b.y + 1.0F));
-                std::string label = core::at(items, i).label;
+                ImGui::SetCursorScreenPos(ImVec2(point_a.x, point_b.y + 1.0F));
+                std::string label = core::at(items, index).label;
                 while (label.size() > 3 && ImGui::CalcTextSize(label.c_str()).x > cell) {
                     label.resize(label.size() - 4);
                     label += "..";
                 }
                 ImGui::TextUnformatted(label.c_str());
-                ImGui::SetCursorScreenPos(ImVec2(a.x, a.y));
+                ImGui::SetCursorScreenPos(ImVec2(point_a.x, point_a.y));
                 ImGui::Dummy(ImVec2(cell, cell + label_height));
                 ImGui::EndGroup();
                 ImGui::PopID();

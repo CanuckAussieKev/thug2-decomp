@@ -19,14 +19,14 @@ namespace {
 std::string get_lower(const char* name)
 {
     std::string text = name ? name : "";
-    for (char& c : text) {
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char& character : text) {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
     }
     return text;
 }
 
-bool get_letter(char c) { return c >= 'a' && c <= 'z'; }
-bool get_digit(char c) { return c >= '0' && c <= '9'; }
+bool get_letter(char character) { return character >= 'a' && character <= 'z'; }
+bool get_digit(char character) { return character >= '0' && character <= '9'; }
 
 // A point on the floor: x and z.
 struct FloorPoint {
@@ -67,22 +67,23 @@ std::vector<std::string> owner_names(const char* name)
     if (at == std::string::npos || at == 0) {
         return owners;
     }
-    size_t i = at + 4;
-    while (i < text.size() && get_letter(core::at(text, i))) {
-        ++i;
+    size_t index = at + 4;
+    while (index < text.size() && get_letter(core::at(text, index))) {
+        ++index;
     }
-    size_t number_at = i;
-    if (i < text.size() && core::at(text, i) == '_' && i + 1 < text.size() && get_digit(core::at(text, i + 1))) {
-        number_at = ++i;
+    size_t number_at = index;
+    if (index < text.size() && core::at(text, index) == '_' && index + 1 < text.size() &&
+        get_digit(core::at(text, index + 1))) {
+        number_at = ++index;
     }
-    while (i < text.size() && get_digit(core::at(text, i))) {
-        ++i;
+    while (index < text.size() && get_digit(core::at(text, index))) {
+        ++index;
     }
-    std::string number = text.substr(number_at, i - number_at);
-    if (!number.empty() && i < text.size() && get_letter(core::at(text, i))) {
-        number += core::at(text, i++);
+    std::string number = text.substr(number_at, index - number_at);
+    if (!number.empty() && index < text.size() && get_letter(core::at(text, index))) {
+        number += core::at(text, index++);
     }
-    if (i != text.size()) {
+    if (index != text.size()) {
         return owners; // (not at the end: "Shadow" is part of the name)
     }
     std::string prefix = text.substr(0, at);

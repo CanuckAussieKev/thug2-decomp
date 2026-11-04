@@ -132,12 +132,12 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
     float up_area = 0.0F;
     float down_area = 0.0F;
     for (size_t i = 0; i < faces.size(); ++i) {
-        const Face& f = core::at(faces, i);
-        const V3 n = perpendicular(f.b - f.a, f.c - f.a);
-        const float length = len_of(n);
-        core::at(info, i) = {.n = length > kTinyLength ? n * (1.0F / length) : V3{},
+        const Face& face = core::at(faces, i);
+        const V3 normal = perpendicular(face.b - face.a, face.c - face.a);
+        const float length = len_of(normal);
+        core::at(info, i) = {.n = length > kTinyLength ? normal * (1.0F / length) : V3{},
                              .area = length * kHalf,
-                             .use = length > kTinyLength && eligible(f.flags)};
+                             .use = length > kTinyLength && eligible(face.flags)};
         if (!core::at(info, i).use) {
             continue;
         }
@@ -156,17 +156,17 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
     }
     std::ranges::sort(order, [&](int a, int b) { return core::at(info, a).area > core::at(info, b).area; });
     std::vector<GroupSet> groups;
-    auto heading_of = [](V3 n) { return make_unit({.x = -n.x, .y = 0.0F, .z = -n.z}); };
-    for (const int i : order) {
-        const V3 n = core::at(info, i).n * convention;
-        if (!(n.y > kSteepNormalY && n.y < kFlatNormalY)) {
+    auto heading_of = [](V3 normal) { return make_unit({.x = -normal.x, .y = 0.0F, .z = -normal.z}); };
+    for (const int index : order) {
+        const V3 normal = core::at(info, index).n * convention;
+        if (!(normal.y > kSteepNormalY && normal.y < kFlatNormalY)) {
             continue;
         }
-        const V3 h = heading_of(n);
+        const V3 heading = heading_of(normal);
         GroupSet* into = nullptr;
-        for (GroupSet& g : groups) {
-            if (get_dot(make_unit(g.heading), h) > kHeadingTolerance) {
-                into = &g;
+        for (GroupSet& group_set : groups) {
+            if (get_dot(make_unit(group_set.heading), heading) > kHeadingTolerance) {
+                into = &group_set;
                 break;
             }
         }
@@ -174,48 +174,48 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             groups.push_back({});
             into = &groups.back();
         }
-        into->heading = into->heading + h * core::at(info, i).area;
-        into->area += core::at(info, i).area;
-        into->faces.push_back(i);
+        into->heading = into->heading + heading * core::at(info, index).area;
+        into->area += core::at(info, index).area;
+        into->faces.push_back(index);
     }
-    for (GroupSet& g : groups) {
-        g.heading = make_unit(g.heading);
+    for (GroupSet& group_set : groups) {
+        group_set.heading = make_unit(group_set.heading);
     }
     // Near-vertical faces join the group whose front they face.
-    for (const int i : order) {
-        const V3 n = core::at(info, i).n * convention;
-        if (std::fabs(n.y) > kSteepNormalY) {
+    for (const int index : order) {
+        const V3 normal = core::at(info, index).n * convention;
+        if (std::fabs(normal.y) > kSteepNormalY) {
             continue;
         }
-        const V3 h = heading_of(n);
-        for (GroupSet& g : groups) {
-            if (get_dot(g.heading, h) > kHeadingTolerance) {
-                g.faces.push_back(i);
-                g.area += core::at(info, i).area;
+        const V3 heading = heading_of(normal);
+        for (GroupSet& group_set : groups) {
+            if (get_dot(group_set.heading, heading) > kHeadingTolerance) {
+                group_set.faces.push_back(index);
+                group_set.area += core::at(info, index).area;
                 break;
             }
         }
     }
     std::ranges::sort(groups, [](const GroupSet& a, const GroupSet& b) { return a.area > b.area; });
 
-    for (const GroupSet& g : groups) {
+    for (const GroupSet& group_set : groups) {
         if (std::cmp_greater_equal(lips.size(), max_lips)) {
             break;
         }
         float top = -kFarDistance;
         float bottom = kFarDistance;
-        for (const int i : g.faces) {
-            for (const V3 p : {core::at(faces, i).a, core::at(faces, i).b, core::at(faces, i).c}) {
-                top = std::max(top, p.y);
-                bottom = std::min(bottom, p.y);
+        for (const int index : group_set.faces) {
+            for (const V3 point : {core::at(faces, index).a, core::at(faces, index).b, core::at(faces, index).c}) {
+                top = std::max(top, point.y);
+                bottom = std::min(bottom, point.y);
             }
         }
         if (top - bottom < kMinLipHeight) {
             continue;
         }
         Lip lip;
-        lip.heading = g.heading;
-        lip.across = {.x = g.heading.z, .y = 0.0F, .z = -g.heading.x};
+        lip.heading = group_set.heading;
+        lip.across = {.x = group_set.heading.z, .y = 0.0F, .z = -group_set.heading.x};
         lip.height = top - bottom;
         // The top faces' tangent (by area) and the edge's vertices.
         constexpr float kTop = 1.5F;
@@ -225,40 +225,40 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         float u_sum = 0.0F;
         int count = 0;
         bool vert_flag = false;
-        for (const int i : g.faces) {
-            const Face& f = core::at(faces, i);
+        for (const int index : group_set.faces) {
+            const Face& face = core::at(faces, index);
             bool at_top = false;
-            for (const V3 p : {f.a, f.b, f.c}) {
-                if (p.y < top - kTop) {
+            for (const V3 point : {face.a, face.b, face.c}) {
+                if (point.y < top - kTop) {
                     continue;
                 }
                 at_top = true;
-                const float s = get_dot(p, lip.across);
-                const float u = get_dot(p, g.heading);
-                min = std::min(min, s);
-                max = std::max(max, s);
+                const float scale = get_dot(point, lip.across);
+                const float u = get_dot(point, group_set.heading);
+                min = std::min(min, scale);
+                max = std::max(max, scale);
                 u_sum += u;
                 ++count;
             }
             if (!at_top) {
                 continue;
             }
-            const V3 n = core::at(info, i).n * convention;
-            const V3 t = make_unit(kUp - n * n.y);
-            tangent = tangent + t * core::at(info, i).area;
-            vert_flag |= core::any(f.flags & render::FaceFlag::kVert);
+            const V3 normal = core::at(info, index).n * convention;
+            const V3 unit_tangent = make_unit(kUp - normal * normal.y);
+            tangent = tangent + unit_tangent * core::at(info, index).area;
+            vert_flag |= core::any(face.flags & render::FaceFlag::kVert);
         }
         if (count == 0 || get_dot(tangent, tangent) < kTinyLengthSquared) {
             continue;
         }
         lip.tangent = make_unit(tangent);
         // (a tangent pointing back over the top - an overhang's - launches as vert)
-        lip.vert = vert_flag || lip.tangent.y > kVertTangentY || get_dot(lip.tangent, g.heading) < 0.0F;
-        const float s = (min + max) * 0.5F;
+        lip.vert = vert_flag || lip.tangent.y > kVertTangentY || get_dot(lip.tangent, group_set.heading) < 0.0F;
+        const float scale = (min + max) * 0.5F;
         const float u = u_sum / static_cast<float>(count);
         lip.width = max - min;
         // (across and heading are orthonormal and horizontal: the point's x / z from its two coordinates)
-        const V3 flat = lip.across * s + g.heading * u;
+        const V3 flat = lip.across * scale + group_set.heading * u;
         lip.point = {.x = flat.x, .y = top, .z = flat.z};
         lips.push_back(lip);
     }
@@ -279,14 +279,15 @@ float scaled_stat(float low, float high, float stat, bool has_limit, float limit
 
 Physics arcs_fallback()
 {
-    Physics p;
-    p.air_gravity_ = -kDefaultAirGravity / 1.0F;
-    p.vert_gravity_ = -kDefaultAirGravity / kVertGravityDivisor;
-    p.jump = scaled_stat(kJumpAtStatMin, kJumpAtStatMax, kDefaultStat, false, 0.0F);
-    core::at(p.speeds, 0) = scaled_stat(kPushSpeedAtStatMin, kPushSpeedAtStatMax, kDefaultStat, true, kPushSpeedCap);
-    core::at(p.speeds, 1) = scaled_stat(kTopSpeedAtStatMin, kTopSpeedAtStatMax, kDefaultStat, false, 0.0F);
-    core::at(p.speeds, 2) = scaled_stat(kMaxSpeedAtStatMin, kMaxSpeedAtStatMax, kDefaultStat, false, 0.0F);
-    return p;
+    Physics physics;
+    physics.air_gravity_ = -kDefaultAirGravity / 1.0F;
+    physics.vert_gravity_ = -kDefaultAirGravity / kVertGravityDivisor;
+    physics.jump = scaled_stat(kJumpAtStatMin, kJumpAtStatMax, kDefaultStat, false, 0.0F);
+    core::at(physics.speeds, 0) =
+        scaled_stat(kPushSpeedAtStatMin, kPushSpeedAtStatMax, kDefaultStat, true, kPushSpeedCap);
+    core::at(physics.speeds, 1) = scaled_stat(kTopSpeedAtStatMin, kTopSpeedAtStatMax, kDefaultStat, false, 0.0F);
+    core::at(physics.speeds, 2) = scaled_stat(kMaxSpeedAtStatMin, kMaxSpeedAtStatMax, kDefaultStat, false, 0.0F);
+    return physics;
 }
 
 const char* speed_name(int index)
@@ -320,31 +321,31 @@ Flight get_fly(V3 start, V3 velocity, FlightSteps steps, const Cast& cast)
     Flight flight;
     flight.points.push_back(start);
     flight.apex = start;
-    V3 p = start;
+    V3 point = start;
     V3 v = velocity;
-    float t = 0.0F;
-    while (t < max_time) {
+    float fraction = 0.0F;
+    while (fraction < max_time) {
         // (as do_air_physics: position += v t + (0, g, 0) t^2 / 2, then v.y += g t)
-        const V3 next = p + v * dt + V3{.x = 0.0F, .y = 0.5F * gravity * dt * dt, .z = 0.0F};
+        const V3 next = point + v * dt + V3{.x = 0.0F, .y = 0.5F * gravity * dt * dt, .z = 0.0F};
         v.y += gravity * dt;
-        t += dt;
+        fraction += dt;
         V3 hit{};
         V3 normal{};
-        if (t > skip && cast && cast(p, next, &hit, &normal)) {
+        if (fraction > skip && cast && cast(point, next, &hit, &normal)) {
             flight.points.push_back(hit);
             flight.landed = true;
             flight.landing = hit;
             flight.normal = normal;
-            flight.time = t;
+            flight.time = fraction;
             return flight;
         }
-        p = next;
-        if (p.y > flight.apex.y) {
-            flight.apex = p;
+        point = next;
+        if (point.y > flight.apex.y) {
+            flight.apex = point;
         }
-        flight.points.push_back(p);
+        flight.points.push_back(point);
     }
-    flight.time = t;
+    flight.time = fraction;
     return flight;
 }
 
@@ -414,32 +415,35 @@ bool stat_value(script::Struct* physics, checksums::Name stat_name, float stat, 
 
 void read_physics()
 {
-    Physics p = arcs_fallback();
+    Physics fallback_physics = arcs_fallback();
     auto* skater = core::down_cast<objects::Rider>(objects::find_object(kSkater));
     script::Struct* physics = objects::get_physics_structure(skater);
     if (!physics) {
-        physics_state() = p;
+        physics_state() = fallback_physics;
         return;
     }
     const float default_stat = script::fetch_float(kDefaultStats);
-    p.speed_stat_ = skater ? skater->fetch_tally(kStatSpeed) : default_stat;
-    p.ollie_stat_ = skater ? skater->fetch_tally(kStatOllie) : default_stat;
+    fallback_physics.speed_stat_ = skater ? skater->fetch_tally(kStatSpeed) : default_stat;
+    fallback_physics.ollie_stat_ = skater ? skater->fetch_tally(kStatOllie) : default_stat;
     const float gravity = objects::read_tuning_float(checksums::Name{kFallPull}, 0, skater);
     const float air_hang = script::fetch_float(kAirHang);
     const float vert_hang = script::fetch_float(kVertHang);
     if (gravity < 0.0F) {
-        p.air_gravity_ = air_hang > 0.0F ? gravity / air_hang : gravity;
-        p.vert_gravity_ = vert_hang > 0.0F ? gravity / vert_hang : gravity;
+        fallback_physics.air_gravity_ = air_hang > 0.0F ? gravity / air_hang : gravity;
+        fallback_physics.vert_gravity_ = vert_hang > 0.0F ? gravity / vert_hang : gravity;
     }
-    stat_value(physics, checksums::Name{kJumpSpeed}, p.ollie_stat_, &p.jump);
-    stat_value(physics, checksums::Name{kKickSpeed}, p.speed_stat_, &core::at(p.speeds, 0));
-    stat_value(physics, checksums::Name{kMaxSpeed}, p.speed_stat_, &core::at(p.speeds, 1));
-    stat_value(physics, checksums::Name{kSpeedCapStat}, p.speed_stat_, &core::at(p.speeds, 2));
+    stat_value(physics, checksums::Name{kJumpSpeed}, fallback_physics.ollie_stat_, &fallback_physics.jump);
+    stat_value(physics, checksums::Name{kKickSpeed}, fallback_physics.speed_stat_,
+               &core::at(fallback_physics.speeds, 0));
+    stat_value(physics, checksums::Name{kMaxSpeed}, fallback_physics.speed_stat_,
+               &core::at(fallback_physics.speeds, 1));
+    stat_value(physics, checksums::Name{kSpeedCapStat}, fallback_physics.speed_stat_,
+               &core::at(fallback_physics.speeds, 2));
     std::array<char, kSourceTextSize> source{};
     text::format_to(source, "%s, speed stat %.1f, ollie stat %.1f", skater ? "the skater's physics" : "skater_physics",
-                    p.speed_stat_, p.ollie_stat_);
-    p.source = source.data();
-    physics_state() = p;
+                    fallback_physics.speed_stat_, fallback_physics.ollie_stat_);
+    fallback_physics.source = source.data();
+    physics_state() = fallback_physics;
 }
 
 // A sector's collision faces in world space (none: no collision, or it's switched off).
@@ -457,23 +461,23 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
     if (!tri || !tri->faces() || !tri->vertices()) {
         return;
     }
-    for (int f = 0; std::cmp_less(f, tri->tri_count()) && out->size() < kMaxLips; ++f) {
-        std::array<V3, 3> p{};
+    for (int face_index = 0; std::cmp_less(face_index, tri->tri_count()) && out->size() < kMaxLips; ++face_index) {
+        std::array<V3, 3> point{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
-            const uint32_t index = tri->face_vertex(f, k);
+            const uint32_t index = tri->face_vertex(face_index, k);
             if (index >= tri->num_vertices()) {
                 ok = false;
                 break;
             }
             const maths::Vec4 v = tri->read_stored_vertex(static_cast<int>(index));
-            core::at(p, k) = {.x = v.x, .y = v.y, .z = v.z};
+            core::at(point, k) = {.x = v.x, .y = v.y, .z = v.z};
         }
         if (!ok) {
             continue;
         }
-        const render::FaceFlag flags = tri->face_flags(f);
-        out->push_back({.a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .flags = flags});
+        const render::FaceFlag flags = tri->face_flags(face_index);
+        out->push_back({.a = core::at(point, 0), .b = core::at(point, 1), .c = core::at(point, 2), .flags = flags});
     }
 }
 
@@ -491,10 +495,10 @@ bool cast_feeler(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
     if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
-    const auto& p = ray->hit().point;
-    const auto& n = ray->hit().normal;
-    *hit = {.x = p[0], .y = p[1], .z = p[2]};
-    *normal = {.x = n[0], .y = n[1], .z = n[2]};
+    const auto& hit_point = ray->hit().point;
+    const auto& hit_normal = ray->hit().normal;
+    *hit = {.x = hit_point[0], .y = hit_point[1], .z = hit_point[2]};
+    *normal = {.x = hit_normal[0], .y = hit_normal[1], .z = hit_normal[2]};
     *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
@@ -521,9 +525,9 @@ Cache& cache()
 std::vector<V3> boxes_of(const std::vector<uint32_t>& sectors)
 {
     std::vector<V3> boxes;
-    for (const uint32_t s : sectors) {
+    for (const uint32_t sector : sectors) {
         OrientedBox box{};
-        if (scenery::cuboid(s, &box)) {
+        if (scenery::cuboid(sector, &box)) {
             V3 min{};
             V3 max{};
             bounds_of(box, &min, &max);
@@ -540,8 +544,8 @@ bool same_boxes(const std::vector<V3>& a, const std::vector<V3>& b)
         return false;
     }
     for (size_t i = 0; i < a.size(); ++i) {
-        const V3 d = core::at(a, i) - core::at(b, i);
-        if (get_dot(d, d) > kMinStepSquared) {
+        const V3 delta = core::at(a, i) - core::at(b, i);
+        if (get_dot(delta, delta) > kMinStepSquared) {
             return false;
         }
     }
@@ -558,8 +562,8 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
     read_physics();
     have_read() = true;
     std::vector<Face> faces;
-    for (const uint32_t s : sectors) {
-        sector_faces(s, &faces);
+    for (const uint32_t sector : sectors) {
+        sector_faces(sector, &faces);
     }
     for (const Lip& lip : find_lips(faces, 4)) {
         LipArcs arcs;

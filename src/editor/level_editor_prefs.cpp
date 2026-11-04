@@ -78,10 +78,10 @@ void get_accent_rgb(int accent, std::span<float, 3> rgb)
         {0.80F, 0.22F, 0.26F}, // red
         {0.10F, 0.60F, 0.62F}, // teal
     }};
-    const auto& c = core::at(kRgb, std::clamp(accent, 0, kAccentCount - 1));
-    core::at(rgb, 0) = core::at(c, 0);
-    core::at(rgb, 1) = core::at(c, 1);
-    core::at(rgb, 2) = core::at(c, 2);
+    const auto& current_rgb = core::at(kRgb, std::clamp(accent, 0, kAccentCount - 1));
+    core::at(rgb, 0) = core::at(current_rgb, 0);
+    core::at(rgb, 1) = core::at(current_rgb, 1);
+    core::at(rgb, 2) = core::at(current_rgb, 2);
 }
 
 const char* accent_name(int accent)
@@ -139,11 +139,11 @@ constexpr auto kFlags = std::to_array<BitMark>({
 void read_in()
 {
     Values v;
-    for (const Key& k : kIntKeys) {
-        v.*k.field = config_int("editor", k.name, v.*k.field);
+    for (const Key& int_key : kIntKeys) {
+        v.*int_key.field = config_int("editor", int_key.name, v.*int_key.field);
     }
-    for (const BitMark& f : kFlags) {
-        v.*f.field = config_int("editor", f.name, v.*f.field ? 1 : 0) != 0;
+    for (const BitMark& flag : kFlags) {
+        v.*flag.field = config_int("editor", flag.name, v.*flag.field ? 1 : 0) != 0;
     }
     level_editor_prefs_state().values_ = get_clamped(v);
     level_editor_prefs_state().loaded_ = true;
@@ -151,25 +151,25 @@ void read_in()
 
 void store_away(const Values& before, const Values& after)
 {
-    for (const Key& k : kIntKeys) {
-        if (before.*k.field != after.*k.field) {
-            config_set_int("editor", k.name, after.*k.field);
+    for (const Key& int_key : kIntKeys) {
+        if (before.*int_key.field != after.*int_key.field) {
+            config_set_int("editor", int_key.name, after.*int_key.field);
         }
     }
-    for (const BitMark& f : kFlags) {
-        if (before.*f.field != after.*f.field) {
-            config_set_int("editor", f.name, after.*f.field ? 1 : 0);
+    for (const BitMark& flag : kFlags) {
+        if (before.*flag.field != after.*flag.field) {
+            config_set_int("editor", flag.name, after.*flag.field ? 1 : 0);
         }
     }
 }
 
 void save_all()
 {
-    for (const Key& k : kIntKeys) {
-        config_set_int("editor", k.name, level_editor_prefs_state().values_.*k.field);
+    for (const Key& int_key : kIntKeys) {
+        config_set_int("editor", int_key.name, level_editor_prefs_state().values_.*int_key.field);
     }
-    for (const BitMark& f : kFlags) {
-        config_set_int("editor", f.name, level_editor_prefs_state().values_.*f.field ? 1 : 0);
+    for (const BitMark& flag : kFlags) {
+        config_set_int("editor", flag.name, level_editor_prefs_state().values_.*flag.field ? 1 : 0);
     }
 }
 
@@ -323,9 +323,9 @@ void pane(float scale, PaneFonts fonts)
         ImGui::PopFont();
     }
     if (ImGui::Button("Defaults")) {
-        Values d;
-        d.tips_seen_ = v.tips_seen_;
-        v = d;
+        Values values;
+        values.tips_seen_ = v.tips_seen_;
+        v = values;
         changed = true;
     }
     ImGui::SameLine();

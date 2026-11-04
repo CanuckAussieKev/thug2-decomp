@@ -51,12 +51,12 @@ constexpr float kHalf = 0.5F; // half
 
 Measure measure_of(V3 a, V3 b)
 {
-    const V3 d = b - a;
-    Measure m;
-    m.distance = std::sqrt(get_dot(d, d));
-    m.horizontal = std::sqrt((d.x * d.x) + (d.z * d.z));
-    m.height = d.y;
-    return m;
+    const V3 delta = b - a;
+    Measure measure;
+    measure.distance = std::sqrt(get_dot(delta, delta));
+    measure.horizontal = std::sqrt((delta.x * delta.x) + (delta.z * delta.z));
+    measure.height = delta.y;
+    return measure;
 }
 
 int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Vec2 at, float radius)
@@ -77,11 +77,11 @@ int nearest_within(const std::vector<std::pair<float, float>>& pixels, maths::Ve
     return best;
 }
 
-std::string describe(const Measure& m)
+std::string describe(const Measure& measure)
 {
-    std::string text = arcs::span_to(m.distance) + " - across " + arcs::span_to(m.horizontal) + ", ";
-    text += m.height < 0.0F ? "down " : "up ";
-    return text + arcs::span_to(std::fabs(m.height));
+    std::string text = arcs::span_to(measure.distance) + " - across " + arcs::span_to(measure.horizontal) + ", ";
+    text += measure.height < 0.0F ? "down " : "up ";
+    return text + arcs::span_to(std::fabs(measure.height));
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -116,8 +116,8 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
     if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
-    const auto& p = ray->hit().point;
-    *hit = {.x = p[0], .y = p[1], .z = p[2]};
+    const auto& hit_point = ray->hit().point;
+    *hit = {.x = hit_point[0], .y = hit_point[1], .z = hit_point[2]};
     *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
@@ -141,10 +141,10 @@ std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
     const int count = tri->num_vertices() < 20000 ? tri->num_vertices() : 20000;
     for (int i = 0; i < count; ++i) {
         const maths::Vec4 v = tri->read_stored_vertex(i);
-        const V3 p = {.x = v.x, .y = v.y, .z = v.z};
-        const V3 d = p - near;
-        if (get_dot(d, d) <= reach * reach) {
-            corners.push_back(p);
+        const V3 point = {.x = v.x, .y = v.y, .z = v.z};
+        const V3 delta = point - near;
+        if (get_dot(delta, delta) <= reach * reach) {
+            corners.push_back(point);
         }
     }
     return corners;
@@ -185,23 +185,23 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
         return;
     }
     // (the corners of the piece hit, near enough to the hit to be within the snap on screen)
-    const V3 d = hit - origin;
-    const float reach = std::max(50.0F, std::sqrt(get_dot(d, d)) * 0.08F);
+    const V3 delta = hit - origin;
+    const float reach = std::max(50.0F, std::sqrt(get_dot(delta, delta)) * 0.08F);
     const std::vector<V3> corners = corners_near(sector, hit, reach);
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     std::vector<std::pair<float, float>> pixels;
     std::vector<V3> shown;
-    for (const V3 c : corners) {
+    for (const V3 corner : corners) {
         float nx = 0.0F;
         float ny = 0.0F;
         float px = 0.0F;
         float py = 0.0F;
-        if (!cast_onto(view.pos, frame, view.lens, c, view.near_z_, &nx, &ny)) {
+        if (!cast_onto(view.pos, frame, view.lens, corner, view.near_z_, &nx, &ny)) {
             continue;
         }
         ndc_to_pixel(view.viewport, nx, ny, &px, &py);
         pixels.emplace_back(px, py);
-        shown.push_back(c);
+        shown.push_back(corner);
     }
     const int nearest = nearest_within(pixels, {.x = x, .y = y}, kSnapPixels);
     if (nearest >= 0) {
@@ -233,16 +233,17 @@ void add_overlay(const overlays::Painter& painter)
     constexpr uint32_t kRuler = 0xFFFFE040;
     constexpr uint32_t kGap = 0xC040C0FF;
     constexpr uint32_t kRise = 0xC0FF8040;
-    auto end = [&](V3 p, bool snapped) {
-        painter.get_dot(p, snapped ? kSnappedDotRadius : kFreeDotRadius, kRuler, !snapped);
+    auto end = [&](V3 point, bool snapped) {
+        painter.get_dot(point, snapped ? kSnappedDotRadius : kFreeDotRadius, kRuler, !snapped);
         if (snapped) {
-            painter.get_dot(p, kEndDotRadius, kRuler, true);
+            painter.get_dot(point, kEndDotRadius, kRuler, true);
         }
     };
     if (level_editor_ruler_state().ends_ >= 1) {
         end(level_editor_ruler_state().a_, false);
     }
-    const V3 b = level_editor_ruler_state().ends_ == 2 ? level_editor_ruler_state().b_ : level_editor_ruler_state().hover_;
+    const V3 point_b =
+        level_editor_ruler_state().ends_ == 2 ? level_editor_ruler_state().b_ : level_editor_ruler_state().hover_;
     const bool have_b = level_editor_ruler_state().ends_ == 2 || (level_editor_ruler_state().armed_ && level_editor_ruler_state().ends_ == 1 && level_editor_ruler_state().have_hover_);
     if (level_editor_ruler_state().armed_ && level_editor_ruler_state().have_hover_ &&
         level_editor_ruler_state().ends_ != 1) {
@@ -250,23 +251,24 @@ void add_overlay(const overlays::Painter& painter)
     }
     if (level_editor_ruler_state().ends_ >= 1 && have_b) {
         if (level_editor_ruler_state().ends_ == 1) {
-            end(b, level_editor_ruler_state().hover_snapped_);
+            end(point_b, level_editor_ruler_state().hover_snapped_);
         } else {
-            end(b, false);
+            end(point_b, false);
         }
-        const Measure m = measure_of(level_editor_ruler_state().a_, b);
-        (void)painter.get_seg(level_editor_ruler_state().a_, b, kRuler, kRulerLineWidth);
+        const Measure measure = measure_of(level_editor_ruler_state().a_, point_b);
+        (void)painter.get_seg(level_editor_ruler_state().a_, point_b, kRuler, kRulerLineWidth);
         // (the horizontal gap at the lower end's height, the rise straight up from it)
-        const V3 low = level_editor_ruler_state().a_.y <= b.y ? level_editor_ruler_state().a_ : b;
-        const V3 high = level_editor_ruler_state().a_.y <= b.y ? b : level_editor_ruler_state().a_;
+        const V3 low = level_editor_ruler_state().a_.y <= point_b.y ? level_editor_ruler_state().a_ : point_b;
+        const V3 high = level_editor_ruler_state().a_.y <= point_b.y ? point_b : level_editor_ruler_state().a_;
         const V3 corner = {.x = high.x, .y = low.y, .z = high.z};
         (void)painter.get_seg(low, corner, kGap, kComponentLineWidth);
         (void)painter.get_seg(corner, high, kRise, kComponentLineWidth);
-        painter.draw_label((level_editor_ruler_state().a_ + b) * kHalf, kRuler, arcs::span_to(m.distance));
-        painter.draw_label((low + corner) * kHalf, kGap, "across " + arcs::span_to(m.horizontal), kLabelOffsetX, kLabelOffsetY);
-        if (std::fabs(m.height) > kMinShownRise) {
+        painter.draw_label((level_editor_ruler_state().a_ + point_b) * kHalf, kRuler, arcs::span_to(measure.distance));
+        painter.draw_label((low + corner) * kHalf, kGap, "across " + arcs::span_to(measure.horizontal), kLabelOffsetX,
+                           kLabelOffsetY);
+        if (std::fabs(measure.height) > kMinShownRise) {
             painter.draw_label((corner + high) * kHalf, kRise,
-                               (m.height < 0.0F ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
+                               (measure.height < 0.0F ? "down " : "up ") + arcs::span_to(std::fabs(measure.height)));
         }
     }
 }

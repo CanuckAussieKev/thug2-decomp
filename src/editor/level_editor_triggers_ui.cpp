@@ -101,9 +101,9 @@ void update_lists()
         if (!node.trigger_script_ || node.added) {
             continue;
         }
-        script::Struct* s = nodes::struct_of(node);
+        script::Struct* structure = nodes::struct_of(node);
         uint32_t script = 0;
-        if (s && s->read_hash_value(kTriggerScript, &script, 0) && (script != 0U)) {
+        if (structure && structure->read_hash_value(kTriggerScript, &script, 0) && (script != 0U)) {
             const std::string name = get_name_of(script);
             if (std::ranges::find(level_editor_triggers_ui_state().scripts_, name) ==
                 level_editor_triggers_ui_state().scripts_.end()) {
@@ -182,20 +182,22 @@ void proxim_section(uint32_t node)
     ImGui::Spacing();
     ImGui::SeparatorText("Proximity Node");
     const ProximEdit* now = proxim_of(node);
-    ProximEdit e = now ? *now : ProximEdit{};
-    e.node = node;
+    ProximEdit proxim_edit = now ? *now : ProximEdit{};
+    proxim_edit.node = node;
     gui::text_disabled("Scripts run on enter and exit");
     static std::array<char, kTextBufferSize> g_enter_buffer;
     static std::array<char, kTextBufferSize> g_exit_buffer;
     static bool g_enter_editing;
     static bool g_exit_editing;
     bool changed = false;
-    changed |= name_combo("On entering", &e.enter, level_editor_triggers_ui_state().scripts_);
-    changed |= name_field("Or by name##enter", &e.enter, g_enter_buffer.data(), sizeof(g_enter_buffer), &g_enter_editing);
-    changed |= name_combo("On leaving", &e.exit, level_editor_triggers_ui_state().scripts_);
-    changed |= name_field("Or by name##exit", &e.exit, g_exit_buffer.data(), sizeof(g_exit_buffer), &g_exit_editing);
+    changed |= name_combo("On entering", &proxim_edit.enter, level_editor_triggers_ui_state().scripts_);
+    changed |= name_field("Or by name##enter", &proxim_edit.enter, g_enter_buffer.data(), sizeof(g_enter_buffer),
+                          &g_enter_editing);
+    changed |= name_combo("On leaving", &proxim_edit.exit, level_editor_triggers_ui_state().scripts_);
+    changed |=
+        name_field("Or by name##exit", &proxim_edit.exit, g_exit_buffer.data(), sizeof(g_exit_buffer), &g_exit_editing);
     gui::text_disabled("(none: node's own script)");
-    int shape = e.shape ? (e.box ? 2 : 1) : 0;
+    int shape = proxim_edit.shape ? (proxim_edit.box ? 2 : 1) : 0;
     ImGui::TextUnformatted("Shape");
     ImGui::SameLine();
     bool shape_changed = ImGui::RadioButton("Original", &shape, 0);
@@ -204,31 +206,31 @@ void proxim_section(uint32_t node)
     ImGui::SameLine();
     shape_changed |= ImGui::RadioButton("box", &shape, 2);
     if (shape_changed) {
-        e.shape = shape != 0;
-        e.box = shape == 2;
-        if (e.shape && !e.box && e.radius <= 0.0F) {
-            e.radius = kNewProximRadius;
+        proxim_edit.shape = shape != 0;
+        proxim_edit.box = shape == 2;
+        if (proxim_edit.shape && !proxim_edit.box && proxim_edit.radius <= 0.0F) {
+            proxim_edit.radius = kNewProximRadius;
         }
-        if (e.box && e.size.x <= 0.0F) {
-            e.size = {.x = kNewProximWidth, .y = kNewProximHeight, .z = kNewProximDepth};
+        if (proxim_edit.box && proxim_edit.size.x <= 0.0F) {
+            proxim_edit.size = {.x = kNewProximWidth, .y = kNewProximHeight, .z = kNewProximDepth};
         }
         changed = true;
     }
-    if (e.shape && !e.box) {
-        float radius = e.radius;
+    if (proxim_edit.shape && !proxim_edit.box) {
+        float radius = proxim_edit.radius;
         if (ImGui::DragFloat("Radius", &radius, kRadiusDragStep, kProximMin, kProximMax, "%.0f", ImGuiSliderFlags_AlwaysClamp)) {
-            ProximEdit sized = e;
+            ProximEdit sized = proxim_edit;
             sized.radius = radius;
             get_queue([sized] { set_proxim(sized, false); });
         }
         if (ImGui::IsItemActivated()) {
             get_queue([] { begin_edit(); });
         }
-    } else if (e.shape) {
-        std::array<float, 3> size = {{e.size.x, e.size.y, e.size.z}};
+    } else if (proxim_edit.shape) {
+        std::array<float, 3> size = {{proxim_edit.size.x, proxim_edit.size.y, proxim_edit.size.z}};
         if (ImGui::DragFloat3("Size##proxim", size.data(), kSizeDragStep, kProximMin, kProximMax, "%.0f",
                               ImGuiSliderFlags_AlwaysClamp)) {
-            ProximEdit sized = e;
+            ProximEdit sized = proxim_edit;
             sized.size = {.x = core::at(size, 0), .y = core::at(size, 1), .z = core::at(size, 2)};
             get_queue([sized] { set_proxim(sized, false); });
         }
@@ -244,15 +246,15 @@ void proxim_section(uint32_t node)
     }
     gui::text_disabled("Drag the handles to resize");
     if (changed) {
-        get_queue([e] { set_proxim(e, true); });
+        get_queue([proxim_edit] { set_proxim(proxim_edit, true); });
     }
 }
 
 const Added* added_named(uint32_t name)
 {
-    for (const Added& a : added_triggers()) {
-        if (node_create::name_hash(a.spec.name) == name) {
-            return &a;
+    for (const Added& added_trigger : added_triggers()) {
+        if (node_create::name_hash(added_trigger.spec.name) == name) {
+            return &added_trigger;
         }
     }
     return nullptr;
@@ -260,36 +262,38 @@ const Added* added_named(uint32_t name)
 
 const LevelTrigger* level_named(uint32_t sector)
 {
-    for (const LevelTrigger& l : level_triggers()) {
-        if (l.sector == sector) {
-            return &l;
+    for (const LevelTrigger& level_trigger : level_triggers()) {
+        if (level_trigger.sector == sector) {
+            return &level_trigger;
         }
     }
     return nullptr;
 }
 
-void level_trigger_details(const LevelTrigger& l)
+void level_trigger_details(const LevelTrigger& level_trigger)
 {
-    gui::text_colored(get_colour(l.off ? kDisabledColour : kind_colour(l.kind)), "%s", describe_level_trigger(l).c_str());
-    gui::text_disabled("Level trigger %s: %d trigger faces%s", nodes::caption(l.sector).c_str(), l.face_count_,
-                        l.has_node_ ? "" : " (no node)");
-    gui::text_disabled("TriggerScript: %s", (l.script != 0U) ? nodes::caption(l.script).c_str() : "(none)");
-    gui::text_disabled("Box (%.0f, %.0f, %.0f) .. (%.0f, %.0f, %.0f)", l.min.x, l.min.y, l.min.z, l.max.x, l.max.y,
-                        l.max.z);
-    const uint32_t sector = l.sector;
-    const bool switchable = l.wall || l.all_trigger_;
-    if (l.off) {
+    gui::text_colored(get_colour(level_trigger.off ? kDisabledColour : kind_colour(level_trigger.kind)), "%s",
+                      describe_level_trigger(level_trigger).c_str());
+    gui::text_disabled("Level trigger %s: %d trigger faces%s", nodes::caption(level_trigger.sector).c_str(),
+                       level_trigger.face_count_, level_trigger.has_node_ ? "" : " (no node)");
+    gui::text_disabled("TriggerScript: %s",
+                       (level_trigger.script != 0U) ? nodes::caption(level_trigger.script).c_str() : "(none)");
+    gui::text_disabled("Box (%.0f, %.0f, %.0f) .. (%.0f, %.0f, %.0f)", level_trigger.min.x, level_trigger.min.y,
+                       level_trigger.min.z, level_trigger.max.x, level_trigger.max.y, level_trigger.max.z);
+    const uint32_t sector = level_trigger.sector;
+    const bool switchable = level_trigger.wall || level_trigger.all_trigger_;
+    if (level_trigger.off) {
         gui::text_colored(kDisabledTextColour, "Disabled");
     }
     ImGui::BeginDisabled(!switchable);
-    if (ImGui::Button(l.off ? "Switch on" : "Switch off")) {
-        get_queue([sector, off = !l.off] { turn_off(sector, off); });
+    if (ImGui::Button(level_trigger.off ? "Switch on" : "Switch off")) {
+        get_queue([sector, off = !level_trigger.off] { turn_off(sector, off); });
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         gui::tooltip("%s", switchable ? "Enable or disable this trigger" : "Has non-trigger faces; can't be disabled");
     }
-    if (l.wall) {
+    if (level_trigger.wall) {
         ImGui::SameLine();
         if (ImGui::Button("Move it")) {
             get_queue([sector] { select_wall(sector); });
@@ -298,7 +302,7 @@ void level_trigger_details(const LevelTrigger& l)
             gui::tooltip("Move as an invisible wall (size is fixed)");
         }
     }
-    ImGui::BeginDisabled(!switchable || (l.script == 0U));
+    ImGui::BeginDisabled(!switchable || (level_trigger.script == 0U));
     if (ImGui::Button("Make Editable Copy")) {
         get_queue([sector] { make_editable(sector); });
     }
@@ -396,32 +400,38 @@ void pane(PaneArea area, PaneState pane_state)
     ImGui::Separator();
     // The nearest (the editor's, then the level's), a click selects / inspects.
     if (ImGui::BeginChild("##triggerlist", ImVec2(0.0F, kListHeight * scale), ImGuiChildFlags_Borders)) {
-        for (const Added& a : added_triggers()) {
-            if (!a.alive) {
+        for (const Added& added_trigger : added_triggers()) {
+            if (!added_trigger.alive) {
                 continue;
             }
-            std::string text = a.spec.name + "  " + kind_name(a.spec.kind);
-            if ((a.spec.kind == Kind::kGapStart || a.spec.kind == Kind::kGapEnd) && !a.spec.text.empty()) {
-                text += std::string("  - ") + play_test::gap_note(clean_text(a.spec.text)); // (landed in a test run?)
+            std::string text = added_trigger.spec.name + "  " + kind_name(added_trigger.spec.kind);
+            if ((added_trigger.spec.kind == Kind::kGapStart || added_trigger.spec.kind == Kind::kGapEnd) &&
+                !added_trigger.spec.text.empty()) {
+                text += std::string("  - ") +
+                        play_test::gap_note(clean_text(added_trigger.spec.text)); // (landed in a test run?)
             }
-            ImGui::PushStyleColor(ImGuiCol_Text, get_colour(a.problem ? kDisabledColour : kind_colour(a.spec.kind)));
-            const uint32_t name = node_create::name_hash(a.spec.name);
-            if (ImGui::Selectable((text + "##a" + a.spec.name).c_str(), false)) {
+            ImGui::PushStyleColor(
+                ImGuiCol_Text,
+                get_colour(added_trigger.problem ? kDisabledColour : kind_colour(added_trigger.spec.kind)));
+            const uint32_t name = node_create::name_hash(added_trigger.spec.name);
+            if (ImGui::Selectable((text + "##a" + added_trigger.spec.name).c_str(), false)) {
                 get_queue([name] { select_node_named(name); });
             }
             ImGui::PopStyleColor();
         }
         int shown = 0;
-        for (const LevelTrigger& l : level_triggers()) {
+        for (const LevelTrigger& level_trigger : level_triggers()) {
             if (++shown > kMaxListed) {
                 break;
             }
-            const std::string text =
-                nodes::caption(l.sector) + "  " + describe_level_trigger(l) + (l.off ? "  (off)" : "");
-            ImGui::PushStyleColor(ImGuiCol_Text, get_colour(l.off ? kDisabledColour : kind_colour(l.kind)));
-            const uint32_t sector = l.sector;
-            const bool has_node = l.has_node_;
-            if (ImGui::Selectable((text + "##l" + std::to_string(l.sector)).c_str(), l.sector == inspected_sector())) {
+            const std::string text = nodes::caption(level_trigger.sector) + "  " +
+                                     describe_level_trigger(level_trigger) + (level_trigger.off ? "  (off)" : "");
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  get_colour(level_trigger.off ? kDisabledColour : kind_colour(level_trigger.kind)));
+            const uint32_t sector = level_trigger.sector;
+            const bool has_node = level_trigger.has_node_;
+            if (ImGui::Selectable((text + "##l" + std::to_string(level_trigger.sector)).c_str(),
+                                  level_trigger.sector == inspected_sector())) {
                 get_queue([sector, has_node] {
                     inspect(sector);
                     if (has_node) {
@@ -433,9 +443,9 @@ void pane(PaneArea area, PaneState pane_state)
         }
     }
     ImGui::EndChild();
-    if (const LevelTrigger* l = level_named(inspected_sector())) {
+    if (const LevelTrigger* level_trigger = level_named(inspected_sector())) {
         ImGui::Separator();
-        level_trigger_details(*l);
+        level_trigger_details(*level_trigger);
     }
     ImGui::End();
     if (!open) {
@@ -450,14 +460,14 @@ void inspector_section(int index)
         return;
     }
     const uint32_t name = core::at(all, index).name;
-    if (const LevelTrigger* l = level_named(name)) {
+    if (const LevelTrigger* level_trigger = level_named(name)) {
         ImGui::Spacing();
         ImGui::SeparatorText("Trigger Volume");
-        level_trigger_details(*l);
+        level_trigger_details(*level_trigger);
         return;
     }
-    const Added* a = added_named(name);
-    if (!a) {
+    const Added* added = added_named(name);
+    if (!added) {
         if (is_proxim(name)) {
             proxim_section(name);
         }
@@ -466,15 +476,15 @@ void inspector_section(int index)
     update_lists();
     ImGui::Spacing();
     ImGui::SeparatorText("Trigger Volume");
-    Spec s = a->spec;
-    const std::string key = s.name;
+    Spec spec = added->spec;
+    const std::string key = spec.name;
     bool changed = false;
-    if (s.kind == Kind::kBreak) {
+    if (spec.kind == Kind::kBreak) {
         // (a breakable: its piece and sound - its box is the piece's)
-        gui::text_colored(get_colour(kind_colour(s.kind)), "Breakable: %s%s", s.target.c_str(),
-                           a->broken ? " (broken)" : "");
-        if (sound_combo(&s.sound)) {
-            get_queue([key, s] { set_spec(key, s, true); });
+        gui::text_colored(get_colour(kind_colour(spec.kind)), "Breakable: %s%s", spec.target.c_str(),
+                          added->broken ? " (broken)" : "");
+        if (sound_combo(&spec.sound)) {
+            get_queue([key, spec] { set_spec(key, spec, true); });
         }
         gui::text_disabled("Shatters when hit");
         return;
@@ -482,12 +492,12 @@ void inspector_section(int index)
     // The kind.
     const auto kinds = std::to_array<Kind>({Kind::kKill,   Kind::kJumpTo, Kind::kScripts, Kind::kGapStart,
                           Kind::kGapEnd, Kind::kBoost,  Kind::kViewCam});
-    if (ImGui::BeginCombo("Kind", kind_name(s.kind))) {
-        for (const Kind k : kinds) {
-            if (ImGui::Selectable(kind_name(k), k == s.kind) && k != s.kind) {
-                s.kind = k;
-                if ((k == Kind::kGapStart || k == Kind::kGapEnd) && s.gap.empty()) {
-                    s.gap = s.name; // (a gap of its own until it's given another end)
+    if (ImGui::BeginCombo("Kind", kind_name(spec.kind))) {
+        for (const Kind kind : kinds) {
+            if (ImGui::Selectable(kind_name(kind), kind == spec.kind) && kind != spec.kind) {
+                spec.kind = kind;
+                if ((kind == Kind::kGapStart || kind == Kind::kGapEnd) && spec.gap.empty()) {
+                    spec.gap = spec.name; // (a gap of its own until it's given another end)
                 }
                 changed = true;
             }
@@ -495,9 +505,9 @@ void inspector_section(int index)
         ImGui::EndCombo();
     }
     // The size (one undo step a drag).
-    std::array<float, 3> size = {{s.size.x, s.size.y, s.size.z}};
+    std::array<float, 3> size = {{spec.size.x, spec.size.y, spec.size.z}};
     if (ImGui::DragFloat3("Size", size.data(), kSizeDragStep, kMinSize, kMaxSize, "%.0f")) {
-        Spec sized = s;
+        Spec sized = spec;
         sized.size = {.x = core::at(size, 0), .y = core::at(size, 1), .z = core::at(size, 2)};
         get_queue([key, sized] { set_spec(key, sized, false); });
     }
@@ -513,48 +523,50 @@ void inspector_section(int index)
     static bool g_target_editing;
     static bool g_script_editing;
     static bool g_text_editing;
-    switch (s.kind) {
+    switch (spec.kind) {
     case Kind::kKill:
-        changed |= name_combo("Restart", &s.target, level_editor_triggers_ui_state().restarts_);
-        changed |= ImGui::Checkbox("Water", &s.water);
+        changed |= name_combo("Restart", &spec.target, level_editor_triggers_ui_state().restarts_);
+        changed |= ImGui::Checkbox("Water", &spec.water);
         break;
     case Kind::kJumpTo:
-        changed |= name_combo("To", &s.target, level_editor_triggers_ui_state().restarts_);
-        changed |= name_field("Or a node", &s.target, target.data(), sizeof(target), &g_target_editing);
+        changed |= name_combo("To", &spec.target, level_editor_triggers_ui_state().restarts_);
+        changed |= name_field("Or a node", &spec.target, target.data(), sizeof(target), &g_target_editing);
         break;
     case Kind::kScripts:
-        changed |= name_combo("Script", &s.script, level_editor_triggers_ui_state().scripts_);
-        changed |= name_field("Or by name", &s.script, script.data(), sizeof(script), &g_script_editing);
-        if (!a->problem && (a->calls.kill || a->calls.teleport || a->calls.end_gap_ || a->calls.start_gap_)) {
-            gui::text_disabled("It calls: %s", kind_name(kind_of_calls(a->calls, true)));
+        changed |= name_combo("Script", &spec.script, level_editor_triggers_ui_state().scripts_);
+        changed |= name_field("Or by name", &spec.script, script.data(), sizeof(script), &g_script_editing);
+        if (!added->problem &&
+            (added->calls.kill || added->calls.teleport || added->calls.end_gap_ || added->calls.start_gap_)) {
+            gui::text_disabled("It calls: %s", kind_name(kind_of_calls(added->calls, true)));
         }
         break;
     case Kind::kGapStart:
     case Kind::kGapEnd: {
-        gui::text_disabled("Gap %s (%s)", s.gap.c_str(), s.kind == Kind::kGapStart ? "StartGap here" : "EndGap here");
-        if (!s.text.empty()) {
+        gui::text_disabled("Gap %s (%s)", spec.gap.c_str(),
+                           spec.kind == Kind::kGapStart ? "StartGap here" : "EndGap here");
+        if (!spec.text.empty()) {
             // (validated by skating - level_editor_playtest.h)
-            const bool landed = play_test::gap_landed(clean_text(s.text));
+            const bool landed = play_test::gap_landed(clean_text(spec.text));
             gui::text_colored(landed ? kLandedColour : kNotLandedColour, "%s",
                                landed ? "Landed in a test run" : "Not yet landed in a test run");
         }
-        changed |= name_field("Name", &s.text, text.data(), sizeof(text), &g_text_editing);
+        changed |= name_field("Name", &spec.text, text.data(), sizeof(text), &g_text_editing);
         if (ImGui::IsItemHovered()) {
             gui::tooltip("Gap name");
         }
-        int score = s.score;
-        if (ImGui::InputInt("Score", &score, kScoreStep, kScoreStepFast) && score != s.score) {
-            s.score = std::max(0, std::min(kMaxScore, score));
+        int score = spec.score;
+        if (ImGui::InputInt("Score", &score, kScoreStep, kScoreStepFast) && score != spec.score) {
+            spec.score = std::max(0, std::min(kMaxScore, score));
             changed = true;
         }
         if (ImGui::TreeNode("Flags")) {
             for (const char* flag : gap_option_labels()) {
-                bool on = std::ranges::find(s.flags, flag) != s.flags.end();
+                bool on = std::ranges::find(spec.flags, flag) != spec.flags.end();
                 if (ImGui::Checkbox(flag, &on)) {
                     if (on) {
-                        s.flags.emplace_back(flag);
+                        spec.flags.emplace_back(flag);
                     } else {
-                        std::erase(s.flags, flag);
+                        std::erase(spec.flags, flag);
                     }
                     changed = true;
                 }
@@ -567,10 +579,10 @@ void inspector_section(int index)
         break;
     }
     case Kind::kBoost: {
-        int strength = s.strength;
+        int strength = spec.strength;
         if (ImGui::SliderInt("Strength", &strength, kBoostMin, kBoostMax, "%d", ImGuiSliderFlags_AlwaysClamp) &&
-            strength != s.strength) {
-            Spec boosted = s;
+            strength != spec.strength) {
+            Spec boosted = spec;
             boosted.strength = strength;
             get_queue([key, boosted] { set_spec(key, boosted, false); });
         }
@@ -584,16 +596,16 @@ void inspector_section(int index)
     }
     case Kind::kViewCam: {
         // (map4) the camera played and for how long
-        changed |= name_combo("Camera", &s.target, level_editor_triggers_ui_state().cameras_);
-        changed |= name_field("Or a node", &s.target, target.data(), sizeof(target), &g_target_editing);
+        changed |= name_combo("Camera", &spec.target, level_editor_triggers_ui_state().cameras_);
+        changed |= name_field("Or a node", &spec.target, target.data(), sizeof(target), &g_target_editing);
         if (ImGui::IsItemHovered()) {
             gui::tooltip("Camera node");
         }
-        float seconds = s.seconds;
+        float seconds = spec.seconds;
         if (ImGui::SliderFloat("Seconds", &seconds, kCameraMinSeconds, kCameraMaxSeconds, "%.1f",
                                ImGuiSliderFlags_AlwaysClamp) &&
-            seconds != s.seconds) {
-            Spec timed = s;
+            seconds != spec.seconds) {
+            Spec timed = spec;
             timed.seconds = seconds;
             get_queue([key, timed] { set_spec(key, timed, false); });
         }
@@ -601,29 +613,29 @@ void inspector_section(int index)
             get_queue([] { begin_edit(); });
         }
         gui::text_disabled("LevelEditor_PlayCamera camera=%s time=%.1f",
-                            s.target.empty() ? "<camera>" : s.target.c_str(), s.seconds);
+                           spec.target.empty() ? "<camera>" : spec.target.c_str(), spec.seconds);
         break;
     }
     case Kind::kOther:
     case Kind::kBreak:
         break;
     }
-    changed |= ImGui::Checkbox("Also on Exit", &s.exit);
+    changed |= ImGui::Checkbox("Also on Exit", &spec.exit);
     if (ImGui::IsItemHovered()) {
         gui::tooltip("Run the script when leaving too");
     }
-    if (s.replaces != 0U) {
-        gui::text_disabled("Replaces %s", nodes::caption(s.replaces).c_str());
+    if (spec.replaces != 0U) {
+        gui::text_disabled("Replaces %s", nodes::caption(spec.replaces).c_str());
     }
-    if (a->problem) {
-        gui::text_colored(kNotActiveColour, "Not active: %s", a->problem);
+    if (added->problem) {
+        gui::text_colored(kNotActiveColour, "Not active: %s", added->problem);
     } else {
-        gui::text_colored(get_colour(kind_colour(s.kind)), "Runs %s on enter%s", get_script_name(s).c_str(),
-                           s.exit ? " and exit" : "");
+        gui::text_colored(get_colour(kind_colour(spec.kind)), "Runs %s on enter%s", get_script_name(spec).c_str(),
+                          spec.exit ? " and exit" : "");
     }
 
     if (changed) {
-        get_queue([key, s] { set_spec(key, s, true); });
+        get_queue([key, spec] { set_spec(key, spec, true); });
     }
 }
 
@@ -632,8 +644,8 @@ void scenery_section(uint32_t sector)
     if (sector == 0U) {
         return;
     }
-    const Added* a = breakable_of(sector);
-    bool on = a != nullptr;
+    const Added* added = breakable_of(sector);
+    bool on = added != nullptr;
     ImGui::Spacing();
     if (ImGui::Checkbox("Breaks When Hit", &on)) {
         get_queue([sector, on] { set_breakable(sector, on); });
@@ -641,15 +653,15 @@ void scenery_section(uint32_t sector)
     if (ImGui::IsItemHovered()) {
         gui::tooltip("Shatter when the skater hits it");
     }
-    if (!a) {
+    if (!added) {
         return;
     }
-    Spec s = a->spec;
-    const std::string key = s.name;
-    if (sound_combo(&s.sound)) {
-        get_queue([key, s] { set_spec(key, s, true); });
+    Spec spec = added->spec;
+    const std::string key = spec.name;
+    if (sound_combo(&spec.sound)) {
+        get_queue([key, spec] { set_spec(key, spec, true); });
     }
-    if (a->broken) {
+    if (added->broken) {
         gui::text_disabled("Broken in play; restored in the editor");
     }
 }

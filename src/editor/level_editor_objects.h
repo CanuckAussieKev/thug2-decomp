@@ -28,7 +28,7 @@ std::string caption(uint32_t checksum);
 bool model_box(objects::GameEntity* object, OrientedBox* out);
 // The object under the ray (nearest box hit within `max_t` along the normalised ray: `t`).
 // Locked objects (level_editor_picking.h) are passed.
-objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* t);
+objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* hit_distance);
 // Every object the ray meets within `max_t`, nearest first (click-to-cycle).
 std::vector<std::pair<objects::GameEntity*, float>> pick_all(V3 origin, V3 dir, float max_t);
 // [features] debug_editor: the objects and which can be picked.

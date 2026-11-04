@@ -274,12 +274,12 @@ bool get_matches(const std::string& text, const char* filter)
     if (*filter == '\0') {
         return true;
     }
-    auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
-    std::string a = text;
-    std::string b = filter;
-    std::ranges::transform(a, a.begin(), lower);
-    std::ranges::transform(b, b.begin(), lower);
-    return a.find(b) != std::string::npos;
+    auto lower = [](char character) { return static_cast<char>(std::tolower(static_cast<unsigned char>(character))); };
+    std::string haystack = text;
+    std::string needle = filter;
+    std::ranges::transform(haystack, haystack.begin(), lower);
+    std::ranges::transform(needle, needle.begin(), lower);
+    return haystack.find(needle) != std::string::npos;
 }
 
 constexpr ImGuiWindowFlags kPanel = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
@@ -527,25 +527,25 @@ void get_toolbar(const ShapeMesh& model)
             "Editing a copy of %s. The original level is unchanged.\nLayout: %s", model.level_title_.c_str(),
             model.edited_saved_ ? (model.unsaved ? "saved, with unsaved changes" : "saved") : "not saved yet");
     }
-    for (const ui_strip::Occurrence& e : out.events) {
-        switch (e.kind) {
+    for (const ui_strip::Occurrence& event : out.events) {
+        switch (event.kind) {
         case ui_strip::Occurrence::Kind::kDeselect:
             get_ask(Request::Kind::kDeselect);
             break;
         case ui_strip::Occurrence::Kind::kTool:
-            transform.mode = static_cast<xform::Mode>(static_cast<int>(e.value));
+            transform.mode = static_cast<xform::Mode>(static_cast<int>(event.value));
             break;
         case ui_strip::Occurrence::Kind::kSpace:
             transform.space = transform.space == xform::Space::kWorld ? xform::Space::kLocal : xform::Space::kWorld;
             break;
         case ui_strip::Occurrence::Kind::kSnap:
-            get_ask(Request::Kind::kSnapAlways, e.value != 0.0F ? 1 : 0);
+            get_ask(Request::Kind::kSnapAlways, event.value != 0.0F ? 1 : 0);
             break;
         case ui_strip::Occurrence::Kind::kGrid:
-            xform::set_grid(e.value);
+            xform::set_grid(event.value);
             break;
         case ui_strip::Occurrence::Kind::kPick:
-            get_ask(Request::Kind::kPickFilter, 0, static_cast<uint32_t>(e.value));
+            get_ask(Request::Kind::kPickFilter, 0, static_cast<uint32_t>(event.value));
             break;
         case ui_strip::Occurrence::Kind::kProblems:
             checks::toggle_window();
@@ -658,9 +658,9 @@ void family_chips(const ShapeMesh& model)
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(kChipSpacing * level_editor_ui_state().scale_, kChipSpacing * level_editor_ui_state().scale_));
     const auto& counts = nodes::get_counts();
     const float right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x;
-    for (int f = 0; f < nodes::kFamilies; ++f) {
-        auto family = static_cast<nodes::Family>(f);
-        if (core::at(counts, f) == 0) {
+    for (int current_family = 0; current_family < nodes::kFamilies; ++current_family) {
+        auto family = static_cast<nodes::Family>(current_family);
+        if (core::at(counts, current_family) == 0) {
             continue;
         }
         const bool on = (model.nodes.families & nodes::get_bit(family)) != 0;
@@ -679,7 +679,7 @@ void family_chips(const ShapeMesh& model)
         }
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered()) {
-            gui::tooltip("%d %s - click to %s", core::at(counts, f), name, on ? "hide" : "show");
+            gui::tooltip("%d %s - click to %s", core::at(counts, current_family), name, on ? "hide" : "show");
         }
     }
     ImGui::PopStyleVar(2);
@@ -729,19 +729,19 @@ void get_outliner(const ShapeMesh& model)
     const bool follow = selected != ui_cache().last_selected_ && selected >= 0; // (picked in the view: shown here)
     ui_cache().last_selected_ = selected;
     static std::vector<int> shown;
-    for (int f = 0; f < nodes::kFamilies; ++f) {
-        auto family = static_cast<nodes::Family>(f);
-        const std::vector<int>& members = core::at(ui_cache().cache_.by_family_, f);
+    for (int current_family = 0; current_family < nodes::kFamilies; ++current_family) {
+        auto family = static_cast<nodes::Family>(current_family);
+        const std::vector<int>& members = core::at(ui_cache().cache_.by_family_, current_family);
         if (members.empty() || ((model.nodes.families & nodes::get_bit(family)) == 0U)) {
             continue;
         }
         shown.clear();
-        for (const int i : members) {
-            auto found = model.marks.find(core::at(nodes, i).name);
-            if (ux3::row_passes(core::at(nodes, i), core::at(ui_cache().cache_.labels, i),
+        for (const int member : members) {
+            auto found = model.marks.find(core::at(nodes, member).name);
+            if (ux3::row_passes(core::at(nodes, member), core::at(ui_cache().cache_.labels, member),
                                 level_editor_ui_state().outliner_search_.data()) &&
                 mark_shown(found == model.marks.end() ? 0 : found->second, level_editor_ui_state().changed_only_)) {
-                shown.push_back(i);
+                shown.push_back(member);
             }
         }
         if (shown.empty()) {
@@ -753,7 +753,7 @@ void get_outliner(const ShapeMesh& model)
             ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
         }
         std::array<char, kFamilyHeaderSize> header{};
-        text::format_to(header, "%s###family%d", nodes::family_name(family), f);
+        text::format_to(header, "%s###family%d", nodes::family_name(family), current_family);
         const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
         ImGui::SameLine();
         ImGui::PushFont(level_editor_ui_state().mono_);
@@ -778,25 +778,26 @@ void get_outliner(const ShapeMesh& model)
         }
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
-                const int i = core::at(shown, row);
-                const nodes::Elem& node = core::at(nodes, i);
-                ImGui::PushID(i);
-                const bool is_selected = i == selected;
+                const int index = core::at(shown, row);
+                const nodes::Elem& node = core::at(nodes, index);
+                ImGui::PushID(index);
+                const bool is_selected = index == selected;
                 // (the gizmo's colour as a small swatch)
                 const ImVec2 pos = ImGui::GetCursorScreenPos();
-                const float h = ImGui::GetTextLineHeight();
+                const float height = ImGui::GetTextLineHeight();
                 ImGui::GetWindowDrawList()->AddRectFilled(
-                    ImVec2(pos.x, pos.y + (h * kRowSwatchTop)),
-                    ImVec2(pos.x + (h * kRowSwatchWidth), pos.y + (h * kRowSwatchBottom)), get_colour(node.colour),
-                    kSwatchRounding);
-                ImGui::SetCursorScreenPos(ImVec2(pos.x + (h * kRowSwatchTextOffset), pos.y));
+                    ImVec2(pos.x, pos.y + (height * kRowSwatchTop)),
+                    ImVec2(pos.x + (height * kRowSwatchWidth), pos.y + (height * kRowSwatchBottom)),
+                    get_colour(node.colour), kSwatchRounding);
+                ImGui::SetCursorScreenPos(ImVec2(pos.x + (height * kRowSwatchTextOffset), pos.y));
                 if (node.hidden) {
                     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
                 }
                 // (the user's label beside the name - level_editor_organize.h)
                 const std::string user_label = ux3::row_label(node.name);
                 const std::string row_text =
-                    user_label.empty() ? core::at(ui_cache().cache_.labels, i) : core::at(ui_cache().cache_.labels, i) + "  \xE2\x80\x94 " + user_label;
+                    user_label.empty() ? core::at(ui_cache().cache_.labels, index)
+                                       : core::at(ui_cache().cache_.labels, index) + "  \xE2\x80\x94 " + user_label;
                 const bool clicked =
                     ImGui::Selectable(row_text.c_str(), is_selected,
                                       ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns |
@@ -806,9 +807,9 @@ void get_outliner(const ShapeMesh& model)
                     ImGui::PopStyleColor();
                 }
                 if (clicked) {
-                    get_ask(Request::Kind::kSelectNode, i);
+                    get_ask(Request::Kind::kSelectNode, index);
                     if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                        get_ask(Request::Kind::kGoToNode, i);
+                        get_ask(Request::Kind::kGoToNode, index);
                     }
                 }
                 if (ImGui::IsItemHovered()) {
@@ -1012,9 +1013,9 @@ void node_section(const ShapeMesh& model, int index)
                  {.bit = nodes::SpawnPointKind::kKing, .name = "KingOfTheHill"}, {.bit = nodes::SpawnPointKind::kGeneric, .name = "Generic"}});
             ImGui::PushFont(level_editor_ui_state().small_);
             bool any = false;
-            for (const auto& t : kTypes) {
-                if (core::any(node.restart_types_ & t.bit)) {
-                    badge(t.name, get_colour((node.colour & kColourRgbMask) | kHalfAlpha));
+            for (const auto& type : kTypes) {
+                if (core::any(node.restart_types_ & type.bit)) {
+                    badge(type.name, get_colour((node.colour & kColourRgbMask) | kHalfAlpha));
                     any = true;
                 }
             }
@@ -1058,8 +1059,10 @@ void node_section(const ShapeMesh& model, int index)
         }
         if (node.family == nodes::Family::kLight) {
             field_label("Colour");
-            const ImVec4 c = ImGui::ColorConvertU32ToFloat4(get_colour(node.colour));
-            ImGui::ColorButton("##colour", c, ImGuiColorEditFlags_NoTooltip, ImVec2(kColourButtonSize * level_editor_ui_state().scale_, kColourButtonSize * level_editor_ui_state().scale_));
+            const ImVec4 corner = ImGui::ColorConvertU32ToFloat4(get_colour(node.colour));
+            ImGui::ColorButton("##colour", corner, ImGuiColorEditFlags_NoTooltip,
+                               ImVec2(kColourButtonSize * level_editor_ui_state().scale_,
+                                      kColourButtonSize * level_editor_ui_state().scale_));
             ImGui::SameLine();
             get_mono("%u %u %u", (node.colour >> kRedShift) & kChannelMask, (node.colour >> kGreenShift) & kChannelMask, node.colour & kChannelMask);
             field_label("Radius");
@@ -1222,7 +1225,7 @@ void get_inspector(const ShapeMesh& model)
     place_window(level_editor_ui_state().layout_.inspector);
     ImGui::Begin("Inspector", nullptr, kPanel);
     panel_title("Inspector");
-    const ShapeMesh::Selection& s = model.selection;
+    const ShapeMesh::Selection& selection = model.selection;
     if (model.nodes.node_only_) {
         node_section(model, model.nodes.selected);
         triggers::inspector_section(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
@@ -1235,16 +1238,16 @@ void get_inspector(const ShapeMesh& model)
             goal_edit::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_,
                                          level_editor_ui_state().small_); // (a goal's point)
         }
-    } else if (s.objects == 0 && s.sectors == 0 && (model.view.wall == 0U)) {
+    } else if (selection.objects == 0 && selection.sectors == 0 && (model.view.wall == 0U)) {
         gui::text_disabled("Nothing selected");
-    } else if (s.objects > 0 || s.sectors > 0) {
+    } else if (selection.objects > 0 || selection.sectors > 0) {
         ImGui::PushFont(level_editor_ui_state().heading_);
-        gui::text_wrapped("%s", s.name.c_str());
+        gui::text_wrapped("%s", selection.name.c_str());
         ImGui::PopFont();
-        get_muted(s.kind.c_str());
-        if (s.checksum != 0U) {
+        get_muted(selection.kind.c_str());
+        if (selection.checksum != 0U) {
             ImGui::SameLine();
-            get_mono("0x%08X", s.checksum);
+            get_mono("0x%08X", selection.checksum);
         }
         ImGui::Spacing();
         if (ImGui::BeginTable("##transform", 2, ImGuiTableFlags_SizingFixedFit)) {
@@ -1252,22 +1255,22 @@ void get_inspector(const ShapeMesh& model)
             ImGui::TableNextColumn();
             get_muted("Position");
             ImGui::TableNextColumn();
-            get_mono("x %10.1f\ny %10.1f\nz %10.1f", s.pos.x, s.pos.y, s.pos.z);
-            if (s.has_heading_) {
+            get_mono("x %10.1f\ny %10.1f\nz %10.1f", selection.pos.x, selection.pos.y, selection.pos.z);
+            if (selection.has_heading_) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 get_muted("Heading");
                 ImGui::TableNextColumn();
-                get_mono("%.1f\xC2\xB0", s.heading_degrees_);
+                get_mono("%.1f\xC2\xB0", selection.heading_degrees_);
             }
-            if (s.scalable) {
+            if (selection.scalable) {
                 // The scale along its own axes (level_editor_scale.h): X / Y / Z dragged to scrub, Ctrl+click to type;
                 // one undo step a field. Locked (the default): all three keep their proportions.
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 get_muted("Scale");
                 ImGui::TableNextColumn();
-                const std::array<float, 3> values = {{s.scale.x, s.scale.y, s.scale.z}};
+                const std::array<float, 3> values = {{selection.scale.x, selection.scale.y, selection.scale.z}};
                 static const std::array<const char*, 3> kIds = {{"##scalex", "##scaley", "##scalez"}};
                 static const std::array<const char*, 3> kFormats = {{"x %.3f", "y %.3f", "z %.3f"}};
                 ImGui::PushFont(level_editor_ui_state().mono_);
@@ -1277,8 +1280,8 @@ void get_inspector(const ShapeMesh& model)
                     if (ImGui::DragFloat(core::at(kIds, axis), &value, kScaleDragSpeed, scale_tool::kMin, scale_tool::kMax, core::at(kFormats, axis),
                                          ImGuiSliderFlags_AlwaysClamp)) {
                         Request request = {.kind = Request::Kind::kScaleSet};
-                        for (int a = 0; a < 3; ++a) {
-                            core::at(request.a, a) = core::at(values, a);
+                        for (int component = 0; component < 3; ++component) {
+                            core::at(request.a, component) = core::at(values, component);
                         }
                         if (level_editor_ui_state().scale_locked_ && core::at(values, axis) > 0.0F) {
                             // (every axis by the same ratio, clamped so none leaves 0.25..4)
@@ -1286,8 +1289,8 @@ void get_inspector(const ShapeMesh& model)
                             for (const float limit : values) {
                                 ratio = std::clamp(ratio, scale_tool::kMin / limit, scale_tool::kMax / limit);
                             }
-                            for (int a = 0; a < 3; ++a) {
-                                core::at(request.a, a) = core::at(values, a) * ratio;
+                            for (int component = 0; component < 3; ++component) {
+                                core::at(request.a, component) = core::at(values, component) * ratio;
                             }
                         } else {
                             core::at(request.a, axis) = value;
@@ -1308,18 +1311,18 @@ void get_inspector(const ShapeMesh& model)
                     gui::tooltip("Scale all axes together");
                 }
             }
-            if (s.objects > 1 || s.sectors > 1) {
+            if (selection.objects > 1 || selection.sectors > 1) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 get_muted("Selected");
                 ImGui::TableNextColumn();
-                get_mono("%d", s.objects > 0 ? s.objects : s.sectors);
+                get_mono("%d", selection.objects > 0 ? selection.objects : selection.sectors);
             }
             ImGui::EndTable();
         }
-        member_list(s.members);
+        member_list(selection.members);
         // (map3: the selected scenery's trick-object cluster - level_editor_clusters.h)
-        if (s.sectors > 0 && s.objects == 0) {
+        if (selection.sectors > 0 && selection.objects == 0) {
             clusters::inspector_section(scenery::get_selection(), level_editor_ui_state().mono_, level_editor_ui_state().small_);
         }
         ImGui::Spacing();
@@ -1347,12 +1350,14 @@ void get_inspector(const ShapeMesh& model)
                 gui::tooltip("Prevent selection in the view  (L)");
             }
         }
-        if (s.objects == 0 && s.sectors == 1) {
-            triggers::scenery_section(s.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
+        if (selection.objects == 0 && selection.sectors == 1) {
+            triggers::scenery_section(
+                selection.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
         }
         // (one object: its model, physics, path speed and preview - level_editor_entities.h)
-        if (s.objects == 1) {
-            entities::inspector_section(-1, checksums::Name{s.checksum}, level_editor_ui_state().mono_, &level_editor_ui_state().requests_);
+        if (selection.objects == 1) {
+            entities::inspector_section(-1, checksums::Name{selection.checksum}, level_editor_ui_state().mono_,
+                                        &level_editor_ui_state().requests_);
         }
         if (model.nodes.selected >= 0) {
             node_section(model, model.nodes.selected);
@@ -1502,19 +1507,19 @@ void browser_preview(const ShapeMesh& model)
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ((width - side) * kHalf));
     ImGui::InvisibleButton("##preview", ImVec2(side, side));
     ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
-    const ImVec2 a = ImGui::GetItemRectMin();
-    const ImVec2 b = ImGui::GetItemRectMax();
+    const ImVec2 point_a = ImGui::GetItemRectMin();
+    const ImVec2 point_b = ImGui::GetItemRectMax();
     ImDrawList* draw = ImGui::GetWindowDrawList();
     if (preview.texture != 0U) {
-        draw->AddImage(static_cast<ImTextureID>(preview.texture), a, b);
+        draw->AddImage(static_cast<ImTextureID>(preview.texture), point_a, point_b);
     } else {
-        draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
+        draw->AddRectFilled(point_a, point_b, IM_COL32(42, 44, 48, 255));
     }
-    draw->AddRect(a, b, ImGui::GetColorU32(ImGuiCol_Border));
+    draw->AddRect(point_a, point_b, ImGui::GetColorU32(ImGuiCol_Border));
     if (preview.texture == 0U) {
         const char* text = preview.index < 0 ? "(no selection)" : "(no preview)";
         const ImVec2 size = ImGui::CalcTextSize(text);
-        draw->AddText(ImVec2((a.x + b.x - size.x) * kHalf, (a.y + b.y - size.y) * kHalf),
+        draw->AddText(ImVec2((point_a.x + point_b.x - size.x) * kHalf, (point_a.y + point_b.y - size.y) * kHalf),
                       ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
     }
     const ImGuiIO& io = ImGui::GetIO();
@@ -1719,20 +1724,21 @@ void get_place(const ShapeMesh& model)
         std::max(160.0F * level_editor_ui_state().scale_, level_editor_ui_state().layout_.viewport.height * 0.6F));
     ImGui::BeginChild("##placelist", ImVec2(0.0F, list_height));
     for (int i = 0; std::cmp_less(i, entries.size()); ++i) {
-        const ShapeMesh::PlaceView::TableRow& e = core::at(entries, i);
-        if (!get_matches(e.label, place_search().data())) {
+        const ShapeMesh::PlaceView::TableRow& table_row = core::at(entries, i);
+        if (!get_matches(table_row.label, place_search().data())) {
             continue;
         }
         ImGui::PushID(i);
         const ImVec2 pos = ImGui::GetCursorScreenPos();
-        const float h = ImGui::GetTextLineHeight();
-        ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(pos.x, pos.y + (h * kPlaceSwatchTop)),
-                                                  ImVec2(pos.x + (h * kHalf), pos.y + (h * kPlaceSwatchBottom)),
-                                                  get_colour(e.colour), kSwatchRounding);
-        ImGui::SetCursorScreenPos(ImVec2(pos.x + (h * kPlaceTextOffset), pos.y));
-        const bool can = e.why.empty();
+        const float height = ImGui::GetTextLineHeight();
+        ImGui::GetWindowDrawList()->AddRectFilled(
+            ImVec2(pos.x, pos.y + (height * kPlaceSwatchTop)),
+            ImVec2(pos.x + (height * kHalf), pos.y + (height * kPlaceSwatchBottom)), get_colour(table_row.colour),
+            kSwatchRounding);
+        ImGui::SetCursorScreenPos(ImVec2(pos.x + (height * kPlaceTextOffset), pos.y));
+        const bool can = table_row.why.empty();
         ImGui::BeginDisabled(!can);
-        if (ImGui::Selectable(e.label.c_str(), model.place.armed == i, ImGuiSelectableFlags_AllowDoubleClick)) {
+        if (ImGui::Selectable(table_row.label.c_str(), model.place.armed == i, ImGuiSelectableFlags_AllowDoubleClick)) {
             get_ask(Request::Kind::kPlaceArm, model.place.armed == i ? -1 : i);
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 get_ask(Request::Kind::kPlaceHere, i);
@@ -1741,7 +1747,7 @@ void get_place(const ShapeMesh& model)
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
             gui::tooltip("%s", can ? "Click, then click in the view. Double-click: place at view center"
-                                        : e.why.c_str());
+                                   : table_row.why.c_str());
         }
         ImGui::PopID();
     }
@@ -1897,22 +1903,24 @@ bool route_event(const SDL_Event* event, bool editor_capture)
     };
     switch (event->type) {
     case SDL_MOUSEMOTION: {
-        const ui_layout::Route r = route(static_cast<float>(event->motion.x), static_cast<float>(event->motion.y));
-        if (r.mouse_to_ui_ || (level_editor_ui_state().ui_buttons_ != 0U)) {
+        const ui_layout::Route current_route =
+            route(static_cast<float>(event->motion.x), static_cast<float>(event->motion.y));
+        if (current_route.mouse_to_ui_ || (level_editor_ui_state().ui_buttons_ != 0U)) {
             ui_backend::process_event(event);
         }
         return true; // (the editor keeps the position and the look's movement; mouse_to_editor says if it may pick)
     }
     case SDL_MOUSEBUTTONDOWN: {
         const uint32_t bit = 1U << (event->button.button & 31);
-        const ui_layout::Route r = route(static_cast<float>(event->button.x), static_cast<float>(event->button.y));
-        if (!r.mouse_to_editor_) {
+        const ui_layout::Route current_route =
+            route(static_cast<float>(event->button.x), static_cast<float>(event->button.y));
+        if (!current_route.mouse_to_editor_) {
             level_editor_ui_state().ui_buttons_ |= bit;
             ui_backend::process_event(event);
             return false;
         }
         level_editor_ui_state().editor_buttons_ |= bit;
-        if (r.mouse_to_ui_) {
+        if (current_route.mouse_to_ui_) {
             ui_backend::process_event(event); // (ImGui loses its focus and hover; the editor has the click)
         }
         return true;
@@ -1929,8 +1937,9 @@ bool route_event(const SDL_Event* event, bool editor_capture)
         return true;
     }
     case SDL_MOUSEWHEEL: {
-        const ui_layout::Route r = route(level_editor_ui_state().mouse_x_, level_editor_ui_state().mouse_y_);
-        if (!r.mouse_to_editor_) {
+        const ui_layout::Route current_route =
+            route(level_editor_ui_state().mouse_x_, level_editor_ui_state().mouse_y_);
+        if (!current_route.mouse_to_editor_) {
             ui_backend::process_event(event);
             return false;
         }
@@ -1986,35 +1995,39 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     const float sx = back_width > 0 ? io.DisplaySize.x / static_cast<float>(back_width) : 1.0F;
     const float sy = back_height > 0 ? io.DisplaySize.y / static_cast<float>(back_height) : 1.0F;
     ImDrawList* background = ImGui::GetBackgroundDrawList();
-    for (const Overlay::Triangle& t : overlay.under) {
-        background->AddTriangleFilled(ImVec2(t.ax * sx, t.ay * sy), ImVec2(t.bx * sx, t.by * sy),
-                                      ImVec2(t.cx * sx, t.cy * sy), get_colour(t.argb));
+    for (const Overlay::Triangle& triangle : overlay.under) {
+        background->AddTriangleFilled(ImVec2(triangle.ax * sx, triangle.ay * sy),
+                                      ImVec2(triangle.bx * sx, triangle.by * sy),
+                                      ImVec2(triangle.cx * sx, triangle.cy * sy), get_colour(triangle.argb));
     }
     for (const Seg& line : overlay.lines) {
         background->AddLine(ImVec2(line.ax * sx, line.ay * sy), ImVec2(line.bx * sx, line.by * sy),
                             get_colour(line.argb), line.thickness * level_editor_ui_state().scale_);
     }
-    for (const Overlay::Triangle& t : overlay.triangles) {
-        background->AddTriangleFilled(ImVec2(t.ax * sx, t.ay * sy), ImVec2(t.bx * sx, t.by * sy),
-                                      ImVec2(t.cx * sx, t.cy * sy), get_colour(t.argb));
+    for (const Overlay::Triangle& triangle : overlay.triangles) {
+        background->AddTriangleFilled(ImVec2(triangle.ax * sx, triangle.ay * sy),
+                                      ImVec2(triangle.bx * sx, triangle.by * sy),
+                                      ImVec2(triangle.cx * sx, triangle.cy * sy), get_colour(triangle.argb));
     }
-    for (const Overlay::Circle& c : overlay.circles) {
-        if (c.filled) {
-            background->AddCircleFilled(ImVec2(c.x * sx, c.y * sy), c.radius * sx, get_colour(c.argb));
+    for (const Overlay::Circle& circle : overlay.circles) {
+        if (circle.filled) {
+            background->AddCircleFilled(ImVec2(circle.x * sx, circle.y * sy), circle.radius * sx,
+                                        get_colour(circle.argb));
         } else {
-            background->AddCircle(ImVec2(c.x * sx, c.y * sy), c.radius * sx, get_colour(c.argb), 0,
-                                  c.thickness * level_editor_ui_state().scale_);
+            background->AddCircle(ImVec2(circle.x * sx, circle.y * sy), circle.radius * sx, get_colour(circle.argb), 0,
+                                  circle.thickness * level_editor_ui_state().scale_);
         }
     }
     if (level_editor_ui_state().mono_) {
-        for (const Overlay::OverlayText& t : overlay.texts) {
-            const ImVec2 at(t.x * sx, t.y * sy);
+        for (const Overlay::OverlayText& text : overlay.texts) {
+            const ImVec2 at(text.x * sx, text.y * sy);
             const ImVec2 size = level_editor_ui_state().mono_->CalcTextSizeA(level_editor_ui_state().mono_->FontSize,
-                                                                             1e9F, 0.0F, t.text.c_str());
+                                                                             1e9F, 0.0F, text.text.c_str());
             background->AddRectFilled(ImVec2(at.x - kTextBackPadding, at.y - 1.0F),
                                       ImVec2(at.x + size.x + kTextBackPadding, at.y + size.y + 1.0F),
                                       IM_COL32(16, 17, 19, 170), kTextBackRounding);
-            background->AddText(level_editor_ui_state().mono_, level_editor_ui_state().mono_->FontSize, at, get_colour(t.argb), t.text.c_str());
+            background->AddText(level_editor_ui_state().mono_, level_editor_ui_state().mono_->FontSize, at,
+                                get_colour(text.argb), text.text.c_str());
         }
     }
     ImGui::PushFont(level_editor_ui_state().ui_);

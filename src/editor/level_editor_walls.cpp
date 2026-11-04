@@ -143,7 +143,7 @@ std::map<uint32_t, Track>& tracks_state()
 }
 
 // Whether a track is still of the sector that has that checksum now, as the editor left it.
-bool at_hand(uint32_t checksum, const Track& t)
+bool at_hand(uint32_t checksum, const Track& track)
 {
     render::WorldCell* sector = scenery::sector_of(checksum);
     render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
@@ -153,8 +153,8 @@ bool at_hand(uint32_t checksum, const Track& t)
     }
     const bool wall = geom_of(sector) == nullptr;
     // (a drawn piece's collision box moves with the piece - Scenery's moves: only its pointers checked)
-    return t.sector == sector && t.coll == coll && t.tri == tri && t.wall == wall &&
-           (!wall || (same_v(t.min, tri->bounds().min) && same_v(t.max, tri->bounds().max)));
+    return track.sector == sector && track.coll == coll && track.tri == tri && track.wall == wall &&
+           (!wall || (same_v(track.min, tri->bounds().min) && same_v(track.max, tri->bounds().max)));
 }
 
 Track* track_of(uint32_t checksum)
@@ -173,51 +173,51 @@ Track* track_of(uint32_t checksum)
         }
         tracks_state().erase(it); // (another level, or moved by something else: started again from where it is)
     }
-    Track t = {};
-    t.sector = sector;
-    t.coll = coll;
-    t.tri = tri;
-    t.wall = wall;
-    t.placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
+    Track track = {};
+    track.sector = sector;
+    track.coll = coll;
+    track.tri = tri;
+    track.wall = wall;
+    track.placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
     // (a drawn piece hidden - not active - has its collision off with it: that isn't this switch)
-    t.off0 = t.off = flag_off(coll) && (wall || geom_active(geom_of(sector)));
-    t.min = tri->bounds().min;
-    t.max = tri->bounds().max;
-    return &tracks_state().emplace(checksum, t).first->second;
+    track.off0 = track.off = flag_off(coll) && (wall || geom_active(geom_of(sector)));
+    track.min = tri->bounds().min;
+    track.max = tri->bounds().max;
+    return &tracks_state().emplace(checksum, track).first->second;
 }
 
 // The collision's flag as the track wants it.
-void put_switch(Track* t)
+void put_switch(Track* track)
 {
-    if (t->wall) {
-        if (flag_off(t->coll) != t->off) {
-            change_live(t->sector, !t->off);
+    if (track->wall) {
+        if (flag_off(track->coll) != track->off) {
+            change_live(track->sector, !track->off);
         }
         return;
     }
-    render::PcGeom* geom = geom_of(t->sector);
+    render::PcGeom* geom = geom_of(track->sector);
     if (!geom || !geom_active(geom)) {
         return; // (hidden: off with the piece - shown again, Tick puts the switch back)
     }
-    if (t->off) {
-        t->coll->flag_bits() |= 4;
-    } else if (t->off != t->off0 || flag_off(t->coll)) {
-        t->coll->flag_bits() &= static_cast<uint16_t>(~4);
+    if (track->off) {
+        track->coll->flag_bits() |= 4;
+    } else if (track->off != track->off0 || flag_off(track->coll)) {
+        track->coll->flag_bits() &= static_cast<uint16_t>(~4);
     }
 }
 
-void get_place(uint32_t checksum, Track* t, const Placement& to)
+void get_place(uint32_t checksum, Track* track, const Placement& to)
 {
-    if (!t->wall) {
+    if (!track->wall) {
         return;
     }
     Placement target = to;
     target.offset = on_grid(target.offset);
     target.scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
-    step_collision(t->tri, t->placement, target);
-    t->placement = target;
-    t->min = t->tri->bounds().min;
-    t->max = t->tri->bounds().max;
+    step_collision(track->tri, track->placement, target);
+    track->placement = target;
+    track->min = track->tri->bounds().min;
+    track->max = track->tri->bounds().max;
     scenery::note_collision_moved(checksum);
 }
 
@@ -261,35 +261,35 @@ float get_bottom(uint32_t checksum)
 
 bool move_to(uint32_t checksum, V3 pivot)
 {
-    Track* t = track_of(checksum);
-    if (!t || !t->wall) {
+    Track* track = track_of(checksum);
+    if (!track || !track->wall) {
         return false;
     }
-    get_place(checksum, t, moved_to(t->placement, get_pivot(checksum), pivot));
+    get_place(checksum, track, moved_to(track->placement, get_pivot(checksum), pivot));
     return true;
 }
 
 bool get_turn(uint32_t checksum, int quarters)
 {
-    Track* t = track_of(checksum);
-    if (!t || !t->wall) {
+    Track* track = track_of(checksum);
+    if (!track || !track->wall) {
         return false;
     }
-    get_place(checksum, t, turned_about(t->placement, get_pivot(checksum), quarters));
+    get_place(checksum, track, turned_about(track->placement, get_pivot(checksum), quarters));
     return true;
 }
 
 bool set_off(uint32_t checksum, bool off)
 {
-    Track* t = track_of(checksum);
-    if (!t) {
+    Track* track = track_of(checksum);
+    if (!track) {
         return false;
     }
-    t->off = off;
-    put_switch(t);
+    track->off = off;
+    put_switch(track);
     if (debug_enabled()) {
         get_log("level editor: collision of %08X switched %s (%s)", checksum, off ? "off" : "on",
-                t->wall ? "an invisible wall" : "a drawn piece");
+                track->wall ? "an invisible wall" : "a drawn piece");
     }
     return true;
 }
@@ -298,9 +298,9 @@ bool disengaged(uint32_t checksum)
 {
     auto it = tracks_state().find(checksum);
     if (it != tracks_state().end()) {
-        const Track* t = track_of(checksum);
-        if (t) {
-            return t->off;
+        const Track* track = track_of(checksum);
+        if (track) {
+            return track->off;
         }
     }
     render::WorldCell* sector = scenery::sector_of(checksum);
@@ -324,8 +324,8 @@ std::vector<WallState> store_away(const std::vector<uint32_t>& checksums)
 {
     std::vector<WallState> states;
     for (const uint32_t checksum : checksums) {
-        if (const Track* t = track_of(checksum)) {
-            states.push_back({.checksum = checksum, .placement = t->placement, .off = t->off});
+        if (const Track* track = track_of(checksum)) {
+            states.push_back({.checksum = checksum, .placement = track->placement, .off = track->off});
         }
     }
     return states;
@@ -334,13 +334,13 @@ std::vector<WallState> store_away(const std::vector<uint32_t>& checksums)
 void apply_states(const std::vector<WallState>& states)
 {
     for (const WallState& state : states) {
-        Track* t = track_of(state.checksum);
-        if (!t) {
+        Track* track = track_of(state.checksum);
+        if (!track) {
             continue;
         }
-        get_place(state.checksum, t, state.placement);
-        t->off = state.off;
-        put_switch(t);
+        get_place(state.checksum, track, state.placement);
+        track->off = state.off;
+        put_switch(track);
     }
     scenery::finalise();
 }
@@ -349,16 +349,16 @@ std::vector<WallState> get_changed()
 {
     std::vector<WallState> changed;
     for (const auto& entry : tracks_state()) {
-        const Track& t = entry.second;
-        if (scenery::is_clone(entry.first) || !at_hand(entry.first, t)) {
+        const Track& track = entry.second;
+        if (scenery::is_clone(entry.first) || !at_hand(entry.first, track)) {
             continue;
         }
-        if (!is_home(t.placement) || t.off != t.off0) {
+        if (!is_home(track.placement) || track.off != track.off0) {
             changed.push_back({.checksum = entry.first,
-                               .placement = t.wall
-                                                ? t.placement
+                               .placement = track.wall
+                                                ? track.placement
                                                 : Placement{.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}},
-                               .off = t.off});
+                               .off = track.off});
         }
     }
     return changed;
@@ -384,13 +384,13 @@ void reset_all()
 void tick()
 {
     for (auto& entry : tracks_state()) {
-        const Track& t = entry.second;
-        if (t.wall || !t.off || !at_hand(entry.first, t)) {
+        const Track& track = entry.second;
+        if (track.wall || !track.off || !at_hand(entry.first, track)) {
             continue;
         }
-        render::PcGeom* geom = geom_of(t.sector);
-        if (geom && geom_active(geom) && !flag_off(t.coll)) {
-            t.coll->flag_bits() |= 4;
+        render::PcGeom* geom = geom_of(track.sector);
+        if (geom && geom_active(geom) && !flag_off(track.coll)) {
+            track.coll->flag_bits() |= 4;
         }
     }
 }

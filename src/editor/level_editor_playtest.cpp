@@ -122,14 +122,14 @@ float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
 const char* motion_name(Motion motion)
 {
-    const int i = static_cast<int>(motion);
-    return i >= 0 && i < kMotions ? core::at(kMotionNames, i) : "?";
+    const int index = static_cast<int>(motion);
+    return index >= 0 && index < kMotions ? core::at(kMotionNames, index) : "?";
 }
 
 uint32_t motion_colour(Motion motion)
 {
-    const int i = static_cast<int>(motion);
-    return i >= 0 && i < kMotions ? core::at(kMotionColours, i) : kUnknownMotionColour;
+    const int index = static_cast<int>(motion);
+    return index >= 0 && index < kMotions ? core::at(kMotionColours, index) : kUnknownMotionColour;
 }
 
 bool motion_from_name(const std::string& name, Motion* motion)
@@ -174,12 +174,12 @@ void Recorder::feed(V3 pos, Motion motion)
     if (full_) {
         return;
     }
-    auto push = [this](const Sample& s) {
+    auto push = [this](const Sample& sample) {
         if (samples_.size() >= kMaxSamples) {
             full_ = true;
             return false;
         }
-        samples_.push_back(s);
+        samples_.push_back(sample);
         return true;
     };
     Sample now = {.pos = pos, .motion = motion, .jump = false};
@@ -208,16 +208,16 @@ void Recorder::feed(V3 pos, Motion motion)
         keep = true;
     } else {
         const Sample& kept = samples_.back();
-        const V3 d = pos - kept.pos;
-        const float distance = len_of(d);
+        const V3 delta = pos - kept.pos;
+        const float distance = len_of(delta);
         if (distance >= kMaxStep) {
             keep = true;
         } else if (distance >= kMinStep && samples_.size() >= 2 && !kept.jump) {
             const V3 before = kept.pos - core::at(samples_, samples_.size() - 2).pos;
             const float lb = len_of(before);
             if (lb > kMinTurnSegment) {
-                const float c = get_dot(before, d) / (lb * distance);
-                keep = c < std::cos(kTurnDegrees * maths::kPi / kDegreesPerHalfTurn);
+                const float cosine = get_dot(before, delta) / (lb * distance);
+                keep = cosine < std::cos(kTurnDegrees * maths::kPi / kDegreesPerHalfTurn);
             }
         }
     }
@@ -233,27 +233,27 @@ std::vector<GapChange> GapTracker::tick_frame(const std::vector<GapRead>& now)
         last = now;
         return changes;
     }
-    for (const GapRead& g : now) {
+    for (const GapRead& gap_read : now) {
         const GapRead* old = nullptr;
-        for (const GapRead& o : last) {
-            if (o.name == g.name) {
-                old = &o;
+        for (const GapRead& current_gap_read : last) {
+            if (current_gap_read.name == gap_read.name) {
+                old = &current_gap_read;
                 break;
             }
         }
         const int old_pending = old ? old->pending : 0;
-        const int old_count = old ? old->count : g.count;
-        if (g.pending > old_pending) {
-            changes.push_back({.kind = GapChange::Kind::kGot, .name = g.name, .score = g.score});
+        const int old_count = old ? old->count : gap_read.count;
+        if (gap_read.pending > old_pending) {
+            changes.push_back({.kind = GapChange::Kind::kGot, .name = gap_read.name, .score = gap_read.score});
         }
-        if (g.count > old_count) {
+        if (gap_read.count > old_count) {
             // (got and landed between two reads: the got first)
-            if (old_pending == 0 && g.pending <= old_pending) {
-                changes.push_back({.kind = GapChange::Kind::kGot, .name = g.name, .score = g.score});
+            if (old_pending == 0 && gap_read.pending <= old_pending) {
+                changes.push_back({.kind = GapChange::Kind::kGot, .name = gap_read.name, .score = gap_read.score});
             }
-            changes.push_back({.kind = GapChange::Kind::kLanded, .name = g.name, .score = g.score});
-        } else if (old_pending > 0 && g.pending == 0) {
-            changes.push_back({.kind = GapChange::Kind::kLost, .name = g.name, .score = g.score});
+            changes.push_back({.kind = GapChange::Kind::kLanded, .name = gap_read.name, .score = gap_read.score});
+        } else if (old_pending > 0 && gap_read.pending == 0) {
+            changes.push_back({.kind = GapChange::Kind::kLost, .name = gap_read.name, .score = gap_read.score});
         }
     }
     last = now;
@@ -289,28 +289,28 @@ bool ComboTracker::tick_frame(int pending_now, bool bailing, ComboEnd* end)
 
 int gaps_landed(const Run& run_record)
 {
-    int n = 0;
-    for (const Occurrence& e : run_record.events) {
-        n += static_cast<int>(e.kind == EventKind::kGap && e.status == GapStatus::kLanded);
+    int count = 0;
+    for (const Occurrence& event : run_record.events) {
+        count += static_cast<int>(event.kind == EventKind::kGap && event.status == GapStatus::kLanded);
     }
-    return n;
+    return count;
 }
 
 int bails(const Run& run_record)
 {
-    int n = 0;
-    for (const Occurrence& e : run_record.events) {
-        n += static_cast<int>(e.kind == EventKind::kBail);
+    int count = 0;
+    for (const Occurrence& event : run_record.events) {
+        count += static_cast<int>(event.kind == EventKind::kBail);
     }
-    return n;
+    return count;
 }
 
 int top_combo_value(const Run& run_record)
 {
     int best = 0;
-    for (const Occurrence& e : run_record.events) {
-        if (e.kind == EventKind::kCombo && e.status == GapStatus::kLanded) {
-            best = std::max(best, e.value);
+    for (const Occurrence& event : run_record.events) {
+        if (event.kind == EventKind::kCombo && event.status == GapStatus::kLanded) {
+            best = std::max(best, event.value);
         }
     }
     return best;
@@ -343,9 +343,9 @@ const char* status_word(GapStatus status)
 std::string one_line(const std::string& text)
 {
     std::string out = text;
-    for (char& c : out) {
-        if (c == '\r' || c == '\n') {
-            c = ' ';
+    for (char& character : out) {
+        if (character == '\r' || character == '\n') {
+            character = ' ';
         }
     }
     return out;
@@ -363,15 +363,15 @@ std::string get_format(const LevelTrails& trails)
     for (const Run& run : trails.runs()) {
         text::format_to(line, "run %d %.2f %d\n", run.number, run.seconds, run.visible ? 1 : 0);
         out += line.data();
-        for (const Sample& s : run.samples_) {
-            text::format_to(line, "s %.1f %.1f %.1f %s %d\n", s.pos.x, s.pos.y, s.pos.z, motion_name(s.motion),
-                            s.jump ? 1 : 0);
+        for (const Sample& sample : run.samples_) {
+            text::format_to(line, "s %.1f %.1f %.1f %s %d\n", sample.pos.x, sample.pos.y, sample.pos.z,
+                            motion_name(sample.motion), sample.jump ? 1 : 0);
             out += line.data();
         }
-        for (const Occurrence& e : run.events) {
-            text::format_to(line, "e %s %.1f %.1f %.1f %d %s ", event_word(e.kind), e.pos.x, e.pos.y, e.pos.z, e.value,
-                            status_word(e.status));
-            out += line.data() + one_line(e.name) + "\n";
+        for (const Occurrence& event : run.events) {
+            text::format_to(line, "e %s %.1f %.1f %.1f %d %s ", event_word(event.kind), event.pos.x, event.pos.y,
+                            event.pos.z, event.value, status_word(event.status));
+            out += line.data() + one_line(event.name) + "\n";
         }
     }
     return out;
@@ -381,9 +381,9 @@ bool parse(const std::string& text, LevelTrails* trails)
 {
     std::istringstream in(text);
     std::string line;
-    auto trim = [](std::string& s) {
-        while (!s.empty() && (s.back() == '\r' || s.back() == '\n')) {
-            s.pop_back();
+    auto trim = [](std::string& current_text) {
+        while (!current_text.empty() && (current_text.back() == '\r' || current_text.back() == '\n')) {
+            current_text.pop_back();
         }
     };
     if (!std::getline(in, line)) {
@@ -410,50 +410,52 @@ bool parse(const std::string& text, LevelTrails* trails)
                 continue;
             }
             fields.read(visible);
-            Run r;
-            r.number = number;
-            r.seconds = seconds;
-            r.visible = visible != 0;
-            out.runs().push_back(r);
+            Run current_run;
+            current_run.number = number;
+            current_run.seconds = seconds;
+            current_run.visible = visible != 0;
+            out.runs().push_back(current_run);
             out.set_next_number(std::max(out.next_number(), number + 1));
             run = &out.runs().back();
         } else if (line.starts_with("s ") && run) {
             std::istringstream fields(line.substr(2));
-            Sample s;
+            Sample sample;
             std::string motion;
             int jump = 0;
-            if (!(fields >> s.pos.x >> s.pos.y >> s.pos.z >> motion >> jump) || !motion_from_name(motion, &s.motion)) {
+            if (!(fields >> sample.pos.x >> sample.pos.y >> sample.pos.z >> motion >> jump) ||
+                !motion_from_name(motion, &sample.motion)) {
                 continue;
             }
-            s.jump = jump != 0;
-            run->samples_.push_back(s);
+            sample.jump = jump != 0;
+            run->samples_.push_back(sample);
         } else if (line.starts_with("e ") && run) {
             std::istringstream fields(line.substr(2));
-            Occurrence e;
+            Occurrence occurrence;
             std::string kind;
             std::string status;
-            if (!(fields >> kind >> e.pos.x >> e.pos.y >> e.pos.z >> e.value >> status)) {
+            if (!(fields >> kind >> occurrence.pos.x >> occurrence.pos.y >> occurrence.pos.z >> occurrence.value >>
+                  status)) {
                 continue;
             }
             if (kind == "gap") {
-                e.kind = EventKind::kGap;
+                occurrence.kind = EventKind::kGap;
             } else if (kind == "bail") {
-                e.kind = EventKind::kBail;
+                occurrence.kind = EventKind::kBail;
             } else if (kind == "combo") {
-                e.kind = EventKind::kCombo;
+                occurrence.kind = EventKind::kCombo;
             } else {
                 continue;
             }
-            e.status = status == "landed" ? GapStatus::kLanded
-                       : status == "lost" ? GapStatus::kLost
-                                          : GapStatus::kAwaiting;
+            occurrence.status = status == "landed" ? GapStatus::kLanded
+                                : status == "lost" ? GapStatus::kLost
+                                                   : GapStatus::kAwaiting;
             std::string rest;
             std::getline(fields, rest);
             if (!rest.empty() && core::at(rest, 0) == ' ') {
                 rest.erase(0, 1);
             }
-            e.name = rest;
-            run->events.push_back(e);
+            occurrence.name = rest;
+            run->events.push_back(occurrence);
         }
     }
     while (out.runs().size() > kMaxRuns) {
@@ -569,8 +571,9 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     out->bailing = bailing;
     out->pending = 0;
     if (const objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
-        if (const modules::PointTally* s = core::down_cast<const objects::RiderPointKeeper>(score)->points_held()) {
-            const double points = static_cast<double>(s->pot()) * s->multiplier();
+        if (const modules::PointTally* point_tally =
+                core::down_cast<const objects::RiderPointKeeper>(score)->points_held()) {
+            const double points = static_cast<double>(point_tally->pot()) * point_tally->multiplier();
             if (points > 0.0 && points < kMaxScorePoints) {
                 out->pending = static_cast<int>(points);
             }
@@ -788,27 +791,37 @@ void link_record(modules::FrontEnd* front_end)
     level_editor_playtest_state().rec_.was_bailing_ = now.bailing;
     // The gaps: got, landed, lost.
     LevelTrails& level = levels()[level_editor_playtest_state().rec_.scene];
-    for (const GapChange& c : level_editor_playtest_state().rec_.gaps.tick_frame(read_gaps())) {
-        if (c.kind == GapChange::Kind::kGot) {
-            run.events.push_back({.kind = EventKind::kGap, .pos = now.pos, .name = c.name, .value = c.score, .status = GapStatus::kAwaiting});
+    for (const GapChange& gap_change : level_editor_playtest_state().rec_.gaps.tick_frame(read_gaps())) {
+        if (gap_change.kind == GapChange::Kind::kGot) {
+            run.events.push_back({.kind = EventKind::kGap,
+                                  .pos = now.pos,
+                                  .name = gap_change.name,
+                                  .value = gap_change.score,
+                                  .status = GapStatus::kAwaiting});
             continue;
         }
         bool marked = false;
-        for (auto e = run.events.rbegin(); e != run.events.rend(); ++e) {
-            if (e->kind == EventKind::kGap && e->status == GapStatus::kAwaiting && e->name == c.name) {
-                e->status = c.kind == GapChange::Kind::kLanded ? GapStatus::kLanded : GapStatus::kLost;
+        for (auto event_it = run.events.rbegin(); event_it != run.events.rend(); ++event_it) {
+            if (event_it->kind == EventKind::kGap && event_it->status == GapStatus::kAwaiting &&
+                event_it->name == gap_change.name) {
+                event_it->status = gap_change.kind == GapChange::Kind::kLanded ? GapStatus::kLanded : GapStatus::kLost;
                 marked = true;
-                if (c.kind == GapChange::Kind::kLanded) {
+                if (gap_change.kind == GapChange::Kind::kLanded) {
                     break; // (one landing a got)
                 }
             }
         }
-        if (c.kind == GapChange::Kind::kLanded) {
+        if (gap_change.kind == GapChange::Kind::kLanded) {
             if (!marked) {
-                run.events.push_back({.kind = EventKind::kGap, .pos = now.pos, .name = c.name, .value = c.score, .status = GapStatus::kLanded});
+                run.events.push_back({.kind = EventKind::kGap,
+                                      .pos = now.pos,
+                                      .name = gap_change.name,
+                                      .value = gap_change.score,
+                                      .status = GapStatus::kLanded});
             }
-            if (level.landed().insert(c.name).second) {
-                get_log("level editor: trail - gap \"%s\" landed for the first time in a test run", c.name.c_str());
+            if (level.landed().insert(gap_change.name).second) {
+                get_log("level editor: trail - gap \"%s\" landed for the first time in a test run",
+                        gap_change.name.c_str());
             }
         }
     }
@@ -962,20 +975,21 @@ void stop_simulation(const char* why)
     int kept = 0;
     if (!simulation().keep_simulation_) {
         const std::vector<uint32_t>& touched = object_edit::get_touched();
-        for (const Snapshot& s : simulation().snapshots_) {
+        for (const Snapshot& snapshot : simulation().snapshots_) {
             // (one the editor moved while it ran keeps the editor's change)
-            const bool edited_now = std::ranges::find(touched, s.state.id) != touched.end() &&
-                                    std::ranges::find(simulation().touched_before_, s.state.id) == simulation().touched_before_.end();
+            const bool edited_now = std::ranges::find(touched, snapshot.state.id) != touched.end() &&
+                                    std::ranges::find(simulation().touched_before_, snapshot.state.id) ==
+                                        simulation().touched_before_.end();
             if (edited_now) {
                 ++kept;
                 continue;
             }
-            if (!object_edit::get_restore(s.state)) {
+            if (!object_edit::get_restore(snapshot.state)) {
                 ++gone;
                 continue;
             }
-            if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(s.state.id))) {
-                object->vel() = s.vel;
+            if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(snapshot.state.id))) {
+                object->vel() = snapshot.vel;
             }
             ++restored;
         }
@@ -1097,10 +1111,10 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         return;
     }
     const std::vector<Run>& runs = it->second.runs();
-    auto to_screen = [&](V3 p, float* x, float* y) {
+    auto to_screen = [&](V3 point, float* x, float* y) {
         float nx = 0.0F;
         float ny = 0.0F;
-        if (!cast_onto(camera, frame, lens, p, near_z, &nx, &ny)) {
+        if (!cast_onto(camera, frame, lens, point, near_z, &nx, &ny)) {
             return false;
         }
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1130,55 +1144,55 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         const uint32_t alpha = latest ? 0xFF000000U : 0xA0000000U;
         const float thickness = latest ? 2.0F : 1.25F;
         for (size_t i = 1; i < run.samples_.size() && (budget != 0U); ++i) {
-            const Sample& a = core::at(run.samples_, i - 1);
-            const Sample& b = core::at(run.samples_, i);
-            if (b.jump) {
+            const Sample& sample = core::at(run.samples_, i - 1);
+            const Sample& current_sample = core::at(run.samples_, i);
+            if (current_sample.jump) {
                 continue;
             }
-            const V3 da = a.pos - camera;
-            const V3 db = b.pos - camera;
+            const V3 da = sample.pos - camera;
+            const V3 db = current_sample.pos - camera;
             if (get_dot(da, da) > kFar * kFar && get_dot(db, db) > kFar * kFar) {
                 continue;
             }
-            line(a.pos, b.pos, (motion_colour(b.motion) & kRgbMask) | alpha, thickness);
+            line(sample.pos, current_sample.pos, (motion_colour(current_sample.motion) & kRgbMask) | alpha, thickness);
             --budget;
         }
         // The run's start.
         if (!run.samples_.empty()) {
-            const V3 s = run.samples_.front().pos;
-            const V3 d = s - camera;
+            const V3 start = run.samples_.front().pos;
+            const V3 delta = start - camera;
             float x = 0.0F;
             float y = 0.0F;
-            if (get_dot(d, d) < kLabelFar * kLabelFar && to_screen(s, &x, &y)) {
+            if (get_dot(delta, delta) < kLabelFar * kLabelFar && to_screen(start, &x, &y)) {
                 circles->push_back({.x = x, .y = y, .radius = kRunMarkerRadius, .argb = kRunMarkerColour, .filled = false, .thickness = kRunMarkerThickness});
                 texts->push_back({.x = x + kRunLabelOffsetX, .y = y - kRunLabelOffsetY, .argb = kRunMarkerColour, .text = "Run " + std::to_string(run.number)});
             }
         }
         // The markers.
-        for (const Occurrence& e : run.events) {
-            const V3 d = e.pos - camera;
-            const float distance2 = get_dot(d, d);
+        for (const Occurrence& event : run.events) {
+            const V3 delta = event.pos - camera;
+            const float distance2 = get_dot(delta, delta);
             if (distance2 > kFar * kFar) {
                 continue;
             }
             float x = 0.0F;
             float y = 0.0F;
-            if (e.kind == EventKind::kBail) {
+            if (event.kind == EventKind::kBail) {
                 constexpr float kS = 30.0F;
-                line(e.pos + V3{.x = -kS, .y = 0.0F, .z = -kS}, e.pos + V3{.x = kS, .y = 0.0F, .z = kS}, kBailColour,
-                     kBailLineThickness);
-                line(e.pos + V3{.x = -kS, .y = 0.0F, .z = kS}, e.pos + V3{.x = kS, .y = 0.0F, .z = -kS}, kBailColour,
-                     kBailLineThickness);
-                line(e.pos, e.pos + V3{.x = 0.0F, .y = kBailLineThickness * kS, .z = 0.0F}, kBailColour, 1.0F);
+                line(event.pos + V3{.x = -kS, .y = 0.0F, .z = -kS}, event.pos + V3{.x = kS, .y = 0.0F, .z = kS},
+                     kBailColour, kBailLineThickness);
+                line(event.pos + V3{.x = -kS, .y = 0.0F, .z = kS}, event.pos + V3{.x = kS, .y = 0.0F, .z = -kS},
+                     kBailColour, kBailLineThickness);
+                line(event.pos, event.pos + V3{.x = 0.0F, .y = kBailLineThickness * kS, .z = 0.0F}, kBailColour, 1.0F);
                 continue;
             }
-            if (!to_screen(e.pos, &x, &y)) {
+            if (!to_screen(event.pos, &x, &y)) {
                 continue;
             }
-            if (e.kind == EventKind::kGap) {
-                const uint32_t colour = e.status == GapStatus::kLanded ? 0xFF40FF60
-                                        : e.status == GapStatus::kLost ? 0xFFFF4040
-                                                                       : 0xFFFFE040;
+            if (event.kind == EventKind::kGap) {
+                const uint32_t colour = event.status == GapStatus::kLanded ? 0xFF40FF60
+                                        : event.status == GapStatus::kLost ? 0xFFFF4040
+                                                                           : 0xFFFFE040;
                 circles->push_back(
                     {.x = x, .y = y, .radius = kGapMarkerRadius, .argb = colour, .filled = true, .thickness = 1.0F});
                 circles->push_back({.x = x,
@@ -1188,14 +1202,20 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                                     .filled = false,
                                     .thickness = 1.0F});
                 if (distance2 < kLabelFar * kLabelFar) {
-                    texts->push_back({.x = x + kGapLabelOffsetX, .y = y - kGapLabelOffsetY, .argb = colour,
-                                      .text = e.name + (e.status == GapStatus::kLanded ? ""
-                                                : e.status == GapStatus::kLost ? " (lost)"
-                                                                               : " (pending)")});
+                    texts->push_back({.x = x + kGapLabelOffsetX,
+                                      .y = y - kGapLabelOffsetY,
+                                      .argb = colour,
+                                      .text = event.name + (event.status == GapStatus::kLanded ? ""
+                                                            : event.status == GapStatus::kLost ? " (lost)"
+                                                                                               : " (pending)")});
                 }
-            } else if (e.kind == EventKind::kCombo && distance2 < (kLabelFar * kComboLabelFraction) * (kLabelFar * kComboLabelFraction)) {
-                texts->push_back({.x = x + kComboLabelOffsetX, .y = y + kComboLabelOffsetY, .argb = e.status == GapStatus::kLanded ? kLandedLabelColour : kBailedLabelColour,
-                                  .text = (e.status == GapStatus::kLanded ? "+" : "lost ") + std::to_string(e.value)});
+            } else if (event.kind == EventKind::kCombo &&
+                       distance2 < (kLabelFar * kComboLabelFraction) * (kLabelFar * kComboLabelFraction)) {
+                texts->push_back(
+                    {.x = x + kComboLabelOffsetX,
+                     .y = y + kComboLabelOffsetY,
+                     .argb = event.status == GapStatus::kLanded ? kLandedLabelColour : kBailedLabelColour,
+                     .text = (event.status == GapStatus::kLanded ? "+" : "lost ") + std::to_string(event.value)});
             }
         }
     }
@@ -1235,7 +1255,7 @@ void delete_run(int number)
         return;
     }
     std::vector<Run>& runs = it->second.runs();
-    std::erase_if(runs, [number](const Run& r) { return r.number == number; });
+    std::erase_if(runs, [number](const Run& run) { return run.number == number; });
 }
 
 void set_run_visible(int number, bool visible)
@@ -1244,9 +1264,9 @@ void set_run_visible(int number, bool visible)
     if (it == levels().end()) {
         return;
     }
-    for (Run& r : it->second.runs()) {
-        if (r.number == number) {
-            r.visible = visible;
+    for (Run& run : it->second.runs()) {
+        if (run.number == number) {
+            run.visible = visible;
         }
     }
 }
@@ -1269,13 +1289,13 @@ bool& keep_simulation() { return simulation().keep_simulation_; }
 
 std::string get_standing()
 {
-    const LevelTrails* t = current_trails();
-    std::string s = recording() ? "recording runs in play" : "not recording";
-    s += ", " + std::to_string(t ? t->runs().size() : 0) + " runs kept";
+    const LevelTrails* trails = current_trails();
+    std::string text = recording() ? "recording runs in play" : "not recording";
+    text += ", " + std::to_string(trails ? trails->runs().size() : 0) + " runs kept";
     if (simulation().simulating_) {
-        s += ", simulating";
+        text += ", simulating";
     }
-    return s;
+    return text;
 }
 
 } // namespace frontend::level_editor::play_test

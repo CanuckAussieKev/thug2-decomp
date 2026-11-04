@@ -37,7 +37,7 @@ namespace frontend::level_editor::cameras {
 
 constexpr float kDefaultDistance = 1000.0F;
 constexpr float kMinDistance = 50.0F, kMaxDistance = 20000.0F;
-float clamp_distance(float d);
+float clamp_distance(float distance);
 // A node's angles for the editor's view (yaw / pitch as frame_from_yaw_pitch takes them), and back.
 V3 angles_for(float yaw, float pitch);
 void yaw_pitch_of(V3 angles, YawPitchOut view);

@@ -175,11 +175,11 @@ const char* view_mode_name(int mode) { return render::view_mode::get_name(static
 
 // --- drawing ----------------------------------------------------------------------------------------------------
 
-bool Painter::get_pixel(V3 p, float* x, float* y) const
+bool Painter::get_pixel(V3 point, float* x, float* y) const
 {
     float nx = 0.0F;
     float ny = 0.0F;
-    if (!cast_onto(camera_, frame_, lens_, p, near_z_, &nx, &ny)) {
+    if (!cast_onto(camera_, frame_, lens_, point, near_z_, &nx, &ny)) {
         return false;
     }
     ndc_to_pixel(viewport_, nx, ny, x, y);
@@ -202,34 +202,36 @@ bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
     return true;
 }
 
-void Painter::get_dot(V3 p, float radius, uint32_t argb, bool filled) const
+void Painter::get_dot(V3 point, float radius, uint32_t argb, bool filled) const
 {
     float x = 0.0F;
     float y = 0.0F;
-    if (get_pixel(p, &x, &y)) {
+    if (get_pixel(point, &x, &y)) {
         overlay_->circles.push_back({.x = x, .y = y, .radius = radius, .argb = argb, .filled = filled, .thickness = kCircleThickness});
     }
 }
 
-void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
+void Painter::draw_label(V3 point, uint32_t argb, const std::string& text, float dx, float dy) const
 {
     float x = 0.0F;
     float y = 0.0F;
-    if (get_pixel(p, &x, &y)) {
+    if (get_pixel(point, &x, &y)) {
         overlay_->texts.push_back({.x = x + dx, .y = y + dy, .argb = argb, .text = text});
     }
 }
 
-void Painter::perpendicular(V3 p, float size, uint32_t argb, float thickness) const
+void Painter::perpendicular(V3 point, float size, uint32_t argb, float thickness) const
 {
-    (void)get_seg(p - V3{.x = size, .y = 0.0F, .z = 0.0F}, p + V3{.x = size, .y = 0.0F, .z = 0.0F}, argb, thickness);
-    (void)get_seg(p - V3{.x = 0.0F, .y = 0.0F, .z = size}, p + V3{.x = 0.0F, .y = 0.0F, .z = size}, argb, thickness);
+    (void)get_seg(point - V3{.x = size, .y = 0.0F, .z = 0.0F}, point + V3{.x = size, .y = 0.0F, .z = 0.0F}, argb,
+                  thickness);
+    (void)get_seg(point - V3{.x = 0.0F, .y = 0.0F, .z = size}, point + V3{.x = 0.0F, .y = 0.0F, .z = size}, argb,
+                  thickness);
 }
 
-float Painter::span_to(V3 p) const
+float Painter::span_to(V3 point) const
 {
-    const V3 d = p - camera_;
-    return std::sqrt(level_editor::get_dot(d, d));
+    const V3 delta = point - camera_;
+    return std::sqrt(level_editor::get_dot(delta, delta));
 }
 
 bool painter_now(ui::Overlay* overlay, Painter* painter)
@@ -276,8 +278,8 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         static float g_ground_y = 0.0F;
         static bool g_have_ground = false;
         const V3 from = have_selection ? selection_base + V3{.x = 0.0F, .y = 2.0F, .z = 0.0F} : painter.camera();
-        const V3 d = from - g_last_from;
-        if (get_dot(d, d) > kGridRefreshDistance * kGridRefreshDistance) {
+        const V3 delta = from - g_last_from;
+        if (get_dot(delta, delta) > kGridRefreshDistance * kGridRefreshDistance) {
             g_last_from = from;
             g_have_ground = get_ground_y(from, &g_ground_y);
         }
@@ -303,8 +305,9 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
             box_corners(box.origin, box.axes, box.min, box.max, corners);
             static const std::array<std::array<int, 2>, 12> kEdges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
-            for (const auto& e : kEdges) {
-                (void)painter.get_seg(core::at(corners, core::at(e, 0)), core::at(corners, core::at(e, 1)), kCarried, kCarriedThickness);
+            for (const auto& edge : kEdges) {
+                (void)painter.get_seg(core::at(corners, core::at(edge, 0)), core::at(corners, core::at(edge, 1)),
+                                      kCarried, kCarriedThickness);
             }
         }
         const std::vector<nodes::Elem>& all = nodes::get_all();

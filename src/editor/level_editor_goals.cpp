@@ -177,29 +177,29 @@ std::vector<std::string> get_split(const std::string& text, char by)
 }
 
 // The settings kept within Create-a-Goal's menus' limits (goal_editor_menu.qb's number items).
-void confine(Goal* g)
+void confine(Goal* goal)
 {
-    g->time = std::clamp(g->time, kMinTimeLimit, kMaxTimeLimit);
-    if (g->type == KindTag::kHighScore || g->type == KindTag::kHighCombo) {
-        g->score = std::clamp(g->score, kMinHighScore, kMaxHighScore);
+    goal->time = std::clamp(goal->time, kMinTimeLimit, kMaxTimeLimit);
+    if (goal->type == KindTag::kHighScore || goal->type == KindTag::kHighCombo) {
+        goal->score = std::clamp(goal->score, kMinHighScore, kMaxHighScore);
     }
-    g->laps = std::clamp(g->laps, 1, kMaxLaps);
-    g->checkpoint_time_ = std::clamp(g->checkpoint_time_, 0, kMaxCheckpointTime);
-    g->spin = std::clamp(g->spin, 0, kMaxSpin) / kSpinStep * kSpinStep;
-    g->accel_interval_ = std::clamp(g->accel_interval_, 1, kMaxAccelInterval);
-    if (!(g->accel_percent_ >= kMinAccelPercent)) {
-        g->accel_percent_ = kMinAccelPercent;
+    goal->laps = std::clamp(goal->laps, 1, kMaxLaps);
+    goal->checkpoint_time_ = std::clamp(goal->checkpoint_time_, 0, kMaxCheckpointTime);
+    goal->spin = std::clamp(goal->spin, 0, kMaxSpin) / kSpinStep * kSpinStep;
+    goal->accel_interval_ = std::clamp(goal->accel_interval_, 1, kMaxAccelInterval);
+    if (!(goal->accel_percent_ >= kMinAccelPercent)) {
+        goal->accel_percent_ = kMinAccelPercent;
     }
-    g->accel_percent_ = std::min(g->accel_percent_, 1.0F);
-    g->combo_time_ = std::clamp(g->combo_time_, kMinComboTime, kMaxComboTime);
-    g->stop_at_ = std::clamp(g->stop_at_, kMinStopAt, std::max(kMinStopAt, g->time - kStopAtMargin));
-    g->max_tricks_ = std::clamp(g->max_tricks_, 1, kMaxTrickCount);
-    g->combo_size_ = std::clamp(g->combo_size_, 1, kMaxTrickCount);
-    g->block_size_ = std::clamp(g->block_size_, 1, kMaxTrickCount);
-    g->to_win_ = std::clamp(g->to_win_, 1, kMaxToWin);
-    g->sets &= (1U << combo_set_count(g->type)) - 1U;
-    if (g->gaps.size() > kMaxGaps) {
-        g->gaps.resize(kMaxGaps);
+    goal->accel_percent_ = std::min(goal->accel_percent_, 1.0F);
+    goal->combo_time_ = std::clamp(goal->combo_time_, kMinComboTime, kMaxComboTime);
+    goal->stop_at_ = std::clamp(goal->stop_at_, kMinStopAt, std::max(kMinStopAt, goal->time - kStopAtMargin));
+    goal->max_tricks_ = std::clamp(goal->max_tricks_, 1, kMaxTrickCount);
+    goal->combo_size_ = std::clamp(goal->combo_size_, 1, kMaxTrickCount);
+    goal->block_size_ = std::clamp(goal->block_size_, 1, kMaxTrickCount);
+    goal->to_win_ = std::clamp(goal->to_win_, 1, kMaxToWin);
+    goal->sets &= (1U << combo_set_count(goal->type)) - 1U;
+    if (goal->gaps.size() > kMaxGaps) {
+        goal->gaps.resize(kMaxGaps);
     }
 }
 
@@ -347,10 +347,10 @@ bool get_same(const Goal& a, const Goal& b)
         return false;
     }
     for (size_t i = 0; i < a.points.size(); ++i) {
-        const Point& p = core::at(a.points, i);
-        const Point& q = core::at(b.points, i);
-        if (p.pos.x != q.pos.x || p.pos.y != q.pos.y || p.pos.z != q.pos.z || p.heading != q.heading ||
-            p.height != q.height) {
+        const Point& point = core::at(a.points, i);
+        const Point& other_point = core::at(b.points, i);
+        if (point.pos.x != other_point.pos.x || point.pos.y != other_point.pos.y || point.pos.z != other_point.pos.z ||
+            point.heading != other_point.heading || point.height != other_point.height) {
             return false;
         }
     }
@@ -359,17 +359,19 @@ bool get_same(const Goal& a, const Goal& b)
 
 Goal get_defaults(KindTag type, const std::string& id)
 {
-    Goal g;
-    g.id = id;
-    g.type = type;
-    g.name = type_title(type);
+    Goal goal;
+    goal.id = id;
+    goal.type = type;
+    goal.name = type_title(type);
     // (change_species reads score from the type's generic parameters: Goal_HighScore_genericParams 15000,
     // goal_highcombo_genericParams 10000; init_edited_goal's 100 otherwise)
-    g.score = type == KindTag::kHighScore ? kHighScoreTarget : type == KindTag::kHighCombo ? kHighComboTarget : kDefaultScore;
+    goal.score = type == KindTag::kHighScore   ? kHighScoreTarget
+                 : type == KindTag::kHighCombo ? kHighComboTarget
+                                               : kDefaultScore;
     if (type == KindTag::kTrickBeat) {
-        g.spin = 0; // (change_species)
+        goal.spin = 0; // (change_species)
     }
-    return g;
+    return goal;
 }
 
 bool get_complete(const Goal& goal, std::string* why)
@@ -400,15 +402,15 @@ bool get_complete(const Goal& goal, std::string* why)
 std::string clean_text(const std::string& text, size_t limit)
 {
     std::string out;
-    for (const char c : text) {
-        auto u = static_cast<unsigned char>(c);
-        if (u < kFirstPrintableChar || u == kDeleteChar || c == '"' || c == '#' || c == '|') {
+    for (const char character : text) {
+        auto u = static_cast<unsigned char>(character);
+        if (u < kFirstPrintableChar || u == kDeleteChar || character == '"' || character == '#' || character == '|') {
             continue;
         }
         if (out.size() >= limit) {
             break;
         }
-        out.push_back(c);
+        out.push_back(character);
     }
     const size_t first = out.find_first_not_of(' ');
     if (first == std::string::npos) {
@@ -418,58 +420,58 @@ std::string clean_text(const std::string& text, size_t limit)
     return out.substr(first, last - first + 1);
 }
 
-std::string write_record(const Goal& g)
+std::string write_record(const Goal& goal)
 {
-    std::string out = "goal " + g.id + " type=" + current_type_name(g.type);
+    std::string out = "goal " + goal.id + " type=" + current_type_name(goal.type);
     auto text = [&](const char* key, const std::string& value) {
         out += std::string(" ") + key + "=\"" + value + "\"";
     };
     auto number = [&](const char* key, int value) { out += std::string(" ") + key + "=" + std::to_string(value); };
-    text("name", g.name);
-    text("ped", g.ped);
-    text("text", g.text);
-    text("win", g.win);
-    number("time", g.time);
-    number("score", g.score);
-    out += std::string(" control=") + (g.walk ? "Walk" : "Skate");
+    text("name", goal.name);
+    text("ped", goal.ped);
+    text("text", goal.text);
+    text("win", goal.win);
+    number("time", goal.time);
+    number("score", goal.score);
+    out += std::string(" control=") + (goal.walk ? "Walk" : "Skate");
     std::array<char, kLineTextSize> buffer{};
-    for (size_t i = 0; i < g.points.size(); ++i) {
-        const Point& p = core::at(g.points, i);
-        text::format_to(buffer, " p%u=%.9g,%.9g,%.9g,%.9g,%.9g", static_cast<unsigned>(i), p.pos.x, p.pos.y, p.pos.z,
-                        p.heading, p.height);
+    for (size_t i = 0; i < goal.points.size(); ++i) {
+        const Point& point = core::at(goal.points, i);
+        text::format_to(buffer, " p%u=%.9g,%.9g,%.9g,%.9g,%.9g", static_cast<unsigned>(i), point.pos.x, point.pos.y,
+                        point.pos.z, point.heading, point.height);
         out += buffer.data();
     }
-    if (g.type == KindTag::kRace) {
-        number("laps", g.laps);
-        number("cptime", g.checkpoint_time_);
+    if (goal.type == KindTag::kRace) {
+        number("laps", goal.laps);
+        number("cptime", goal.checkpoint_time_);
     }
-    if (g.type == KindTag::kGap) {
+    if (goal.type == KindTag::kGap) {
         std::string gaps;
-        for (size_t i = 0; i < g.gaps.size(); ++i) {
-            gaps += ((i != 0U) ? "|" : "") + core::at(g.gaps, i);
+        for (size_t i = 0; i < goal.gaps.size(); ++i) {
+            gaps += ((i != 0U) ? "|" : "") + core::at(goal.gaps, i);
         }
         text("gaps", gaps);
-        text("trick", g.trick);
+        text("trick", goal.trick);
     }
-    if (get_trick_type(g.type)) {
+    if (get_trick_type(goal.type)) {
         std::string sets;
         for (int i = 0; i < kComboSetCount; ++i) {
-            if ((g.sets & (1U << i)) != 0U) {
+            if ((goal.sets & (1U << i)) != 0U) {
                 sets += (sets.empty() ? "" : ",") + std::to_string(i);
             }
         }
         out += " sets=" + (sets.empty() ? std::string("none") : sets);
-        number("spin", g.spin);
-        number("accel", g.accel_interval_);
-        text::format_to(buffer, " accelpct=%.9g", g.accel_percent_);
+        number("spin", goal.spin);
+        number("accel", goal.accel_interval_);
+        text::format_to(buffer, " accelpct=%.9g", goal.accel_percent_);
         out += buffer.data();
-        number("tricktime", g.combo_time_);
-        number("stopat", g.stop_at_);
-        number("maxtricks", g.max_tricks_);
-        number("single", g.single_combo_ ? 1 : 0);
-        number("combo", g.combo_size_);
-        number("block", g.block_size_);
-        number("towin", g.to_win_);
+        number("tricktime", goal.combo_time_);
+        number("stopat", goal.stop_at_);
+        number("maxtricks", goal.max_tricks_);
+        number("single", goal.single_combo_ ? 1 : 0);
+        number("combo", goal.combo_size_);
+        number("block", goal.block_size_);
+        number("towin", goal.to_win_);
     }
     return out.substr(kGoalPrefixLength); // (after "goal ")
 }
@@ -491,8 +493,8 @@ bool read_record(const std::string& text, Goal* out)
         return false;
     }
     at = end == std::string::npos ? text.size() : end;
-    Goal g;
-    g.id = id;
+    Goal goal;
+    goal.id = id;
     std::vector<std::string> seen;
     std::vector<std::pair<int, Point>> points;
     bool have_type = false;
@@ -533,44 +535,44 @@ bool read_record(const std::string& text, Goal* out)
         seen.push_back(key);
         bool ok = true;
         if (key == "type") {
-            ok = type_of(value, &g.type);
+            ok = type_of(value, &goal.type);
             have_type = ok;
         } else if (key == "name") {
-            g.name = clean_text(value, kMaxNameChars);
+            goal.name = clean_text(value, kMaxNameChars);
         } else if (key == "ped") {
-            g.ped = clean_text(value, kMaxPedChars);
+            goal.ped = clean_text(value, kMaxPedChars);
         } else if (key == "text") {
-            g.text = clean_text(value, kMaxMessageChars);
+            goal.text = clean_text(value, kMaxMessageChars);
         } else if (key == "win") {
-            g.win = clean_text(value, kMaxMessageChars);
+            goal.win = clean_text(value, kMaxMessageChars);
         } else if (key == "trick") {
-            g.trick = clean_text(value, kMaxTrickChars);
+            goal.trick = clean_text(value, kMaxTrickChars);
         } else if (key == "gaps") {
-            g.gaps.clear();
+            goal.gaps.clear();
             if (!value.empty()) {
                 for (const std::string& gap : get_split(value, '|')) {
                     const std::string clean = clean_text(gap, 60);
                     if (!clean.empty()) {
-                        g.gaps.push_back(clean);
+                        goal.gaps.push_back(clean);
                     }
                 }
             }
         } else if (key == "control") {
             ok = value == "Skate" || value == "Walk";
-            g.walk = value == "Walk";
+            goal.walk = value == "Walk";
         } else if (key == "sets") {
-            g.sets = 0;
+            goal.sets = 0;
             if (value != "none") {
-                for (const std::string& s : get_split(value, ',')) {
+                for (const std::string& part : get_split(value, ',')) {
                     int set = 0;
-                    ok = ok && read_int(s, &set) && set >= 0 && set < kComboSetCount;
+                    ok = ok && read_int(part, &set) && set >= 0 && set < kComboSetCount;
                     if (ok) {
-                        g.sets |= 1U << set;
+                        goal.sets |= 1U << set;
                     }
                 }
             }
         } else if (key == "accelpct") {
-            ok = read_numbers(value, std::span<float>(&g.accel_percent_, 1), 1);
+            ok = read_numbers(value, std::span<float>(&goal.accel_percent_, 1), 1);
         } else if (key.size() >= 2 && core::at(key, 0) == 'p' && key.find_first_not_of("0123456789", 1) == std::string::npos) {
             int index = 0;
             std::array<float, kPointValueCount> v{};
@@ -583,29 +585,29 @@ bool read_record(const std::string& text, Goal* out)
                 const char* key;
                 int* field;
             };
-            const auto ints = std::to_array<IntKey>({{.key = "time", .field = &g.time},
-                                   {.key = "score", .field = &g.score},
-                                   {.key = "laps", .field = &g.laps},
-                                   {.key = "cptime", .field = &g.checkpoint_time_},
-                                   {.key = "spin", .field = &g.spin},
-                                   {.key = "accel", .field = &g.accel_interval_},
-                                   {.key = "tricktime", .field = &g.combo_time_},
-                                   {.key = "stopat", .field = &g.stop_at_},
-                                   {.key = "maxtricks", .field = &g.max_tricks_},
-                                   {.key = "combo", .field = &g.combo_size_},
-                                   {.key = "block", .field = &g.block_size_},
-                                   {.key = "towin", .field = &g.to_win_}});
+            const auto ints = std::to_array<IntKey>({{.key = "time", .field = &goal.time},
+                                                     {.key = "score", .field = &goal.score},
+                                                     {.key = "laps", .field = &goal.laps},
+                                                     {.key = "cptime", .field = &goal.checkpoint_time_},
+                                                     {.key = "spin", .field = &goal.spin},
+                                                     {.key = "accel", .field = &goal.accel_interval_},
+                                                     {.key = "tricktime", .field = &goal.combo_time_},
+                                                     {.key = "stopat", .field = &goal.stop_at_},
+                                                     {.key = "maxtricks", .field = &goal.max_tricks_},
+                                                     {.key = "combo", .field = &goal.combo_size_},
+                                                     {.key = "block", .field = &goal.block_size_},
+                                                     {.key = "towin", .field = &goal.to_win_}});
             bool known = false;
-            for (const IntKey& k : ints) {
-                if (key == k.key) {
+            for (const IntKey& int_key_entry : ints) {
+                if (key == int_key_entry.key) {
                     known = true;
-                    ok = read_int(value, k.field);
+                    ok = read_int(value, int_key_entry.field);
                 }
             }
             if (key == "single") {
                 int single = 0;
                 ok = read_int(value, &single) && (single == 0 || single == 1);
-                g.single_combo_ = single == 1;
+                goal.single_combo_ = single == 1;
             } // (another key: a later version's - skipped)
             (void)known;
         }
@@ -622,13 +624,13 @@ bool read_record(const std::string& text, Goal* out)
         if (core::at(points, i).first != ints::as_signed(i)) {
             return false;
         }
-        g.points.push_back(core::at(points, i).second);
+        goal.points.push_back(core::at(points, i).second);
     }
-    if (static_cast<int>(g.points.size()) > max_points(g.type)) {
+    if (static_cast<int>(goal.points.size()) > max_points(goal.type)) {
         return false;
     }
-    confine(&g);
-    *out = g;
+    confine(&goal);
+    *out = goal;
     return true;
 }
 
@@ -640,62 +642,62 @@ void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<i
 {
     const auto level = goal_in_level.level;
     const auto level_goal_index = goal_in_level.level_goal_index_;
-    park_editing::EditedGoal& g = out->goal;
-    g = park_editing::EditedGoal{}; // (cleared, then init_edited_goal: the record's constructor)
+    park_editing::EditedGoal& edited_goal = out->goal;
+    edited_goal = park_editing::EditedGoal{}; // (cleared, then init_edited_goal: the record's constructor)
     auto text = [](auto& field, const std::string& value, size_t room) {
-        const size_t n = std::min(value.size(), room - 1);
-        std::copy_n(value.begin(), n, field.begin());
-        core::at(field, n) = 0;
+        const size_t count = std::min(value.size(), room - 1);
+        std::copy_n(value.begin(), count, field.begin());
+        core::at(field, count) = 0;
     };
     // decode_from_struct (0x004E96D0): init_edited_goal, used, not won, level, level_goal_index, the type (change_species: the
     // points' kinds, the counts; the pro's / start's height 0), then the fields.
-    g.set_taken_count(true);
-    g.set_won(false);
-    g.set_level(level);
-    g.set_level_goal_number(level_goal_index);
-    g.set_kind_tag(get_kind_hash(goal.type));
+    edited_goal.set_taken_count(true);
+    edited_goal.set_won(false);
+    edited_goal.set_level(level);
+    edited_goal.set_level_goal_number(level_goal_index);
+    edited_goal.set_kind_tag(get_kind_hash(goal.type));
     for (int i = 0; i < kMaxPoints; ++i) {
-        park_editing::EditedGoalPoint& point = core::at(g.path_vertices(), i);
+        park_editing::EditedGoalPoint& point = core::at(edited_goal.path_vertices(), i);
         point.kind = point_kind(goal.type, i);
         point.height = 0.0F;
     }
-    g.set_min_points(static_cast<uint8_t>(min_points(goal.type)));
-    g.set_max_points(static_cast<uint8_t>(max_points(goal.type)));
+    edited_goal.set_min_points(static_cast<uint8_t>(min_points(goal.type)));
+    edited_goal.set_max_points(static_cast<uint8_t>(max_points(goal.type)));
     if (goal.type == KindTag::kTrickBeat) {
-        g.set_twist_rate(0);
+        edited_goal.set_twist_rate(0);
     }
-    g.set_points_held(goal.score);
-    g.set_time_limit(goal.time);
-    g.set_control_type(goal.walk ? kWalk : kSkate); // (control_type: Walk / Skate)
-    text(g.label(), goal.name, kLabelBytes);
-    text(g.summary_text(), goal.text, kSummaryBytes);
-    text(g.win_message(), goal.win, kWinBytes);
-    text(g.ped_name(), goal.ped, kPedBytes);
+    edited_goal.set_points_held(goal.score);
+    edited_goal.set_time_limit(goal.time);
+    edited_goal.set_control_type(goal.walk ? kWalk : kSkate); // (control_type: Walk / Skate)
+    text(edited_goal.label(), goal.name, kLabelBytes);
+    text(edited_goal.summary_text(), goal.text, kSummaryBytes);
+    text(edited_goal.win_message(), goal.win, kWinBytes);
+    text(edited_goal.ped_name(), goal.ped, kPedBytes);
     const int count = std::min(static_cast<int>(goal.points.size()), max_points(goal.type));
-    g.set_vertex_total(static_cast<uint8_t>(count));
+    edited_goal.set_vertex_total(static_cast<uint8_t>(count));
     for (int i = 0; i < count; ++i) {
-        const Point& p = core::at(goal.points, i);
-        park_editing::EditedGoalPoint& point = core::at(g.path_vertices(), i);
-        point.pos = {.x = p.pos.x, .y = p.pos.y, .z = p.pos.z, .w = 1.0F};
-        point.height = p.height;
-        point.angle = get_image_angle(p.heading);
+        const Point& goal_point = core::at(goal.points, i);
+        park_editing::EditedGoalPoint& point = core::at(edited_goal.path_vertices(), i);
+        point.pos = {.x = goal_point.pos.x, .y = goal_point.pos.y, .z = goal_point.pos.z, .w = 1.0F};
+        point.height = goal_point.height;
+        point.angle = get_image_angle(goal_point.heading);
     }
     // The type's own (set_goal_specific_params' fields, 0x004E7590).
     switch (goal.type) {
     case KindTag::kRace:
-        g.set_race_total_laps(goal.laps);
-        g.set_race_per_checkpoint_time(goal.checkpoint_time_);
+        edited_goal.set_race_total_laps(goal.laps);
+        edited_goal.set_race_per_checkpoint_time(goal.checkpoint_time_);
         break;
     case KindTag::kGap: {
-        text(g.required_trick(), goal.trick, g.required_trick().size());
-        int n = 0;
+        text(edited_goal.required_trick(), goal.trick, edited_goal.required_trick().size());
+        int written = 0;
         for (const int number : gap_numbers) {
-            if (n >= kMaxGapEntries || number < 0 || number > kMaxGapNumber) {
+            if (written >= kMaxGapEntries || number < 0 || number > kMaxGapNumber) {
                 continue;
             }
-            core::at(g.gaps(), n++) = static_cast<uint8_t>(number);
+            core::at(edited_goal.gaps(), written++) = static_cast<uint8_t>(number);
         }
-        g.set_num_gaps(static_cast<uint8_t>(n));
+        edited_goal.set_num_gaps(static_cast<uint8_t>(written));
         break;
     }
     default:
@@ -706,22 +708,22 @@ void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<i
         // Skate-Tricks the shared ones (0x004E74F0); every trick goal its key combo sets (0x004E73F0) - Trick to the
         // Beat only those, its spin staying change_species's 0)
         if (goal.type == KindTag::kComboSkatetris) {
-            g.set_chain_length(goal.combo_size_);
+            edited_goal.set_chain_length(goal.combo_size_);
             if (goal.single_combo_) {
-                g.set_single_combo(true);
+                edited_goal.set_single_combo(true);
             }
         }
         if (goal.type == KindTag::kTrickTris) {
-            g.set_stack_block_span(goal.block_size_);
-            g.set_tricktris_total_to_win(goal.to_win_);
+            edited_goal.set_stack_block_span(goal.block_size_);
+            edited_goal.set_tricktris_total_to_win(goal.to_win_);
         }
         if (goal.type != KindTag::kTrickBeat) {
-            g.set_acceleration_interval(goal.accel_interval_);
-            g.set_acceleration_percent(goal.accel_percent_);
-            g.set_trick_time(goal.combo_time_);
-            g.set_time_to_stop_adding_tricks(goal.stop_at_);
-            g.set_max_tricks(goal.max_tricks_);
-            g.set_twist_rate(goal.spin);
+            edited_goal.set_acceleration_interval(goal.accel_interval_);
+            edited_goal.set_acceleration_percent(goal.accel_percent_);
+            edited_goal.set_trick_time(goal.combo_time_);
+            edited_goal.set_time_to_stop_adding_tricks(goal.stop_at_);
+            edited_goal.set_max_tricks(goal.max_tricks_);
+            edited_goal.set_twist_rate(goal.spin);
         }
         // (the key combo sets as AddKeyComboSet set_index=<i> adds them - 0x004E6C40: {set, require_perfect 0, spin
         // 0, num_taps 0})
@@ -730,10 +732,10 @@ void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<i
             if ((goal.sets & (1U << i)) == 0U) {
                 continue;
             }
-            core::at(g.key_combo_sets(), sets).set = static_cast<uint8_t>(i);
+            core::at(edited_goal.key_combo_sets(), sets).set = static_cast<uint8_t>(i);
             ++sets;
         }
-        g.set_num_key_combo_sets(sets);
+        edited_goal.set_num_key_combo_sets(sets);
     }
 }
 
@@ -780,7 +782,7 @@ constexpr const char* kGoalMarkerType = "ed_goal";
 bool same_text(const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) == 0; }
 uint32_t get_checksums(const std::string& text) { return checksums::hash_from_text(text.c_str()); }
 
-std::string point_node(const Goal& g, int index) { return g.id + "_" + point_suffix(g.type, index); }
+std::string point_node(const Goal& goal, int index) { return goal.id + "_" + point_suffix(goal.type, index); }
 
 int index_of_goal_id(const std::string& id)
 {
@@ -815,37 +817,37 @@ bool point_of(uint32_t node, GoalPoint goal_point)
     return false;
 }
 
-node_create::Spec point_spec(const Goal& g, int index)
+node_create::Spec point_spec(const Goal& goal, int index)
 {
-    node_create::Spec s;
-    s.name = point_node(g, index);
-    s.cls = "GenericNode";
-    s.type = kGoalMarkerType;
-    s.pos = core::at(g.points, index).pos;
-    s.angles = {.x = 0.0F, .y = core::at(g.points, index).heading, .z = 0.0F};
-    s.owned = true;
-    return s;
+    node_create::Spec spec;
+    spec.name = point_node(goal, index);
+    spec.cls = "GenericNode";
+    spec.type = kGoalMarkerType;
+    spec.pos = core::at(goal.points, index).pos;
+    spec.angles = {.x = 0.0F, .y = core::at(goal.points, index).heading, .z = 0.0F};
+    spec.owned = true;
+    return spec;
 }
 
 // The goals' places read again from their nodes (a node deleted: its last place kept - Restore points makes it again).
 void get_refresh()
 {
-    for (Goal& g : level_editor_goals_state().goals_) {
-        for (size_t k = 0; k < g.points.size(); ++k) {
+    for (Goal& goal : level_editor_goals_state().goals_) {
+        for (size_t k = 0; k < goal.points.size(); ++k) {
             node_edit::Values v;
-            if (node_edit::get_take_in(get_checksums(point_node(g, static_cast<int>(k))), &v)) {
-                core::at(g.points, k).pos = v.pos;
-                core::at(g.points, k).heading = v.angles.y;
+            if (node_edit::get_take_in(get_checksums(point_node(goal, static_cast<int>(k))), &v)) {
+                core::at(goal.points, k).pos = v.pos;
+                core::at(goal.points, k).heading = v.angles.y;
             }
         }
     }
 }
 
-int missing_points(const Goal& g)
+int missing_points(const Goal& goal)
 {
     int missing = 0;
-    for (size_t k = 0; k < g.points.size(); ++k) {
-        missing += node_create::is_added(get_checksums(point_node(g, static_cast<int>(k)))) ? 0 : 1;
+    for (size_t k = 0; k < goal.points.size(); ++k) {
+        missing += node_create::is_added(get_checksums(point_node(goal, static_cast<int>(k)))) ? 0 : 1;
     }
     return missing;
 }
@@ -855,18 +857,18 @@ void sync_nodes(const std::vector<Goal>& goals)
 {
     std::string message;
     node_create::LinkChain make;
-    for (const Goal& g : goals) {
-        for (size_t k = 0; k < g.points.size(); ++k) {
-            const uint32_t name = get_checksums(point_node(g, static_cast<int>(k)));
+    for (const Goal& goal : goals) {
+        for (size_t k = 0; k < goal.points.size(); ++k) {
+            const uint32_t name = get_checksums(point_node(goal, static_cast<int>(k)));
             if (!node_create::is_added(name)) {
-                if (!node_create::name_taken(point_node(g, static_cast<int>(k)))) {
-                    make.push_back(point_spec(g, static_cast<int>(k)));
+                if (!node_create::name_taken(point_node(goal, static_cast<int>(k)))) {
+                    make.push_back(point_spec(goal, static_cast<int>(k)));
                 }
                 continue;
             }
             node_edit::Values v;
-            v.pos = core::at(g.points, k).pos;
-            v.angles = {.x = 0.0F, .y = core::at(g.points, k).heading, .z = 0.0F};
+            v.pos = core::at(goal.points, k).pos;
+            v.angles = {.x = 0.0F, .y = core::at(goal.points, k).heading, .z = 0.0F};
             node_edit::Values now;
             if (!node_edit::get_take_in(name, &now) || !node_edit::get_same(now, v)) {
                 node_edit::assign_value(name, v);
@@ -898,9 +900,9 @@ void remove_stray_points(const std::vector<Goal>& goals)
             continue;
         }
         bool kept = false;
-        for (const Goal& g : goals) {
-            for (size_t k = 0; k < g.points.size() && !kept; ++k) {
-                kept = same_text(point_node(g, static_cast<int>(k)), spec.name);
+        for (const Goal& goal : goals) {
+            for (size_t k = 0; k < goal.points.size() && !kept; ++k) {
+                kept = same_text(point_node(goal, static_cast<int>(k)), spec.name);
             }
         }
         if (!kept) {
@@ -993,77 +995,78 @@ void remove_entity(const std::string& name)
 // The play nodes of a goal (EditedGoal_Pro_Node / _Restart_Node / _Object_Node's fields, placed as
 // write_edited_goal_node_positions 0x004E7A80 places them: Pos + (0, height, 0), Angles (0, angle - pi, 0), a letter's Type
 // and model).
-node_create::LinkChain play_nodes(const Goal& g, int index)
+node_create::LinkChain play_nodes(const Goal& goal, int index)
 {
     node_create::LinkChain out;
     auto field = [](node_create::Prop::KindTag type, const char* key) {
-        node_create::Prop f = {.type = type, .key = key};
-        return f;
+        node_create::Prop prop = {.type = type, .key = key};
+        return prop;
     };
     auto name = [&](const char* key, const char* value) {
-        node_create::Prop f = field(node_create::Prop::kName, key);
-        f.text = value;
-        return f;
+        node_create::Prop prop = field(node_create::Prop::kName, key);
+        prop.text = value;
+        return prop;
     };
     auto integer = [&](const char* key, int value) {
-        node_create::Prop f = field(node_create::Prop::kInteger, key);
-        f.integer = value;
-        return f;
+        node_create::Prop prop = field(node_create::Prop::kInteger, key);
+        prop.integer = value;
+        return prop;
     };
     auto string = [&](const char* key, const char* value) {
-        node_create::Prop f = field(node_create::Prop::kString, key);
-        f.text = value;
-        return f;
+        node_create::Prop prop = field(node_create::Prop::kString, key);
+        prop.text = value;
+        return prop;
     };
     const float pi = maths::kPi; // (the constant 0x004E79C0 subtracts)
-    for (size_t k = 0; k < g.points.size(); ++k) {
-        const Point& p = core::at(g.points, k);
-        node_create::Spec s;
-        s.name = play_node_name(static_cast<int>(k), index);
-        s.pos = {.x = p.pos.x, .y = p.pos.y + p.height, .z = p.pos.z};
-        s.angles = {.x = 0.0F, .y = get_image_angle(p.heading) - pi, .z = 0.0F};
-        s.owned = true;
-        const int kind = point_kind(g.type, static_cast<int>(k));
+    for (size_t k = 0; k < goal.points.size(); ++k) {
+        const Point& point = core::at(goal.points, k);
+        node_create::Spec spec;
+        spec.name = play_node_name(static_cast<int>(k), index);
+        spec.pos = {.x = point.pos.x, .y = point.pos.y + point.height, .z = point.pos.z};
+        spec.angles = {.x = 0.0F, .y = get_image_angle(point.heading) - pi, .z = 0.0F};
+        spec.owned = true;
+        const int kind = point_kind(goal.type, static_cast<int>(k));
         if (kind == 1) {
-            s.cls = "Pedestrian";
-            s.type = "Ped_From_Profile";
-            s.extra = {name("SkeletonName", "THPS6_human"),
-                       name("DefaultAnimName", "WStandIdle1"),
-                       name("PedAI_Type", "Stand"),
-                       name("AnimName", "animload_THPS6_human"),
-                       name("profile", "random_male_profile"),
-                       integer("SuspendDistance", kSuspendDistance),
-                       integer("lod_dist1", kLod1Distance),
-                       integer("lod_dist2", kLod2Distance)};
+            spec.cls = "Pedestrian";
+            spec.type = "Ped_From_Profile";
+            spec.extra = {name("SkeletonName", "THPS6_human"),
+                          name("DefaultAnimName", "WStandIdle1"),
+                          name("PedAI_Type", "Stand"),
+                          name("AnimName", "animload_THPS6_human"),
+                          name("profile", "random_male_profile"),
+                          integer("SuspendDistance", kSuspendDistance),
+                          integer("lod_dist1", kLod1Distance),
+                          integer("lod_dist2", kLod2Distance)};
         } else if (kind == 2) {
-            s.cls = "Restart";
-            s.type = "Player1";
+            spec.cls = "Restart";
+            spec.type = "Player1";
             node_create::Prop types = field(node_create::Prop::kNames, "restart_types");
             types.list = {"Player1"};
             node_create::Prop created = field(node_create::Prop::kFlag, "");
             created.text = "CreatedAtStart";
-            s.extra = {created, string("RestartName", "Edited goal: Restart"), types};
+            spec.extra = {created, string("RestartName", "Edited goal: Restart"), types};
         } else {
-            s.cls = "GameObject";
-            const uint32_t kind_hash = get_kind_hash(g.type);
+            spec.cls = "GameObject";
+            const uint32_t kind_hash = get_kind_hash(goal.type);
             const char* model = park_editing::goal_object_model(checksums::Name{kind_hash}, static_cast<int>(k) - 2);
             static const std::array<std::array<const char*, 5>, 2> kLetterTypes = {{{"Letter_S", "Letter_K", "Letter_A", "Letter_T", "Letter_E"},
                                                            {"Combo_C", "Combo_O", "Combo_M", "Combo_B", "Combo_O"}}};
             if (kind == 3 && k >= 2 && k < kSkatePointCount) {
-                s.type = core::at(core::at(kLetterTypes, g.type == KindTag::kCombo ? 1 : 0), k - 2);
+                spec.type = core::at(core::at(kLetterTypes, goal.type == KindTag::kCombo ? 1 : 0), k - 2);
             }
-            s.extra = {integer("SuspendDistance", 0), integer("lod_dist1", kLetterLod1Distance), integer("lod_dist2", kLetterLod2Distance)};
+            spec.extra = {integer("SuspendDistance", 0), integer("lod_dist1", kLetterLod1Distance),
+                          integer("lod_dist2", kLetterLod2Distance)};
             if (model) {
-                s.extra.push_back(string("model", model));
+                spec.extra.push_back(string("model", model));
             }
         }
-        out.push_back(s);
+        out.push_back(spec);
     }
     return out;
 }
 
 // The gaps' numbers in the level's gap list now (the skate module's checklist, 0x005656C0).
-std::vector<int> gap_ordinals(const Goal& g)
+std::vector<int> gap_ordinals(const Goal& goal)
 {
     std::vector<int> out;
     modules::Skate* skate = modules::Skate::sole();
@@ -1071,12 +1074,12 @@ std::vector<int> gap_ordinals(const Goal& g)
     if (!list) {
         return out;
     }
-    for (const std::string& gap : g.gaps) {
+    for (const std::string& gap : goal.gaps) {
         const int number = list->find_gap(gap.c_str());
         if (number >= 0) {
             out.push_back(number);
         } else {
-            get_log("level editor: goal %s - no gap \"%s\" in the level's gap list: left out", g.id.c_str(),
+            get_log("level editor: goal %s - no gap \"%s\" in the level's gap list: left out", goal.id.c_str(),
                     gap.c_str());
         }
     }
@@ -1119,26 +1122,27 @@ void put_in_play()
     node_create::LinkChain nodes;
     std::vector<std::pair<int, const Goal*>> play;
     for (size_t i = 0; i < level_editor_goals_state().goals_.size() && static_cast<int>(i) < kMaxGoals; ++i) {
-        const Goal& g = core::at(level_editor_goals_state().goals_, i);
+        const Goal& goal = core::at(level_editor_goals_state().goals_, i);
         std::string incomplete;
-        if (!get_complete(g, &incomplete)) {
-            get_log("level editor: goal %s (%s) not played - %s", g.id.c_str(), g.name.c_str(), incomplete.c_str());
+        if (!get_complete(goal, &incomplete)) {
+            get_log("level editor: goal %s (%s) not played - %s", goal.id.c_str(), goal.name.c_str(),
+                    incomplete.c_str());
             continue;
         }
         const int index = play_index(static_cast<int>(i));
         bool taken = false;
-        for (const node_create::Spec& s : play_nodes(g, index)) {
-            if (node_create::name_taken(s.name)) {
+        for (const node_create::Spec& spec : play_nodes(goal, index)) {
+            if (node_create::name_taken(spec.name)) {
                 taken = true;
             }
         }
         if (taken || goal_exists(get_checksums(get_goal_id(index)))) {
-            get_log("level editor: goal %s not played - %s is taken", g.id.c_str(), get_goal_id(index).c_str());
+            get_log("level editor: goal %s not played - %s is taken", goal.id.c_str(), get_goal_id(index).c_str());
             continue;
         }
-        node_create::LinkChain made = play_nodes(g, index);
+        node_create::LinkChain made = play_nodes(goal, index);
         nodes.insert(nodes.end(), made.begin(), made.end());
-        play.emplace_back(index, &g);
+        play.emplace_back(index, &goal);
     }
     if (play.empty()) {
         return;
@@ -1207,7 +1211,8 @@ std::string fresh_title(KindTag type)
 {
     // (goal_editor_set_type: the menu's name, then "<name> 2", "<name> 3"... while a goal has it)
     auto taken = [](const std::string& name) {
-        return std::ranges::any_of(level_editor_goals_state().goals_, [&](const Goal& g) { return same_text(g.name, name); });
+        return std::ranges::any_of(level_editor_goals_state().goals_,
+                                   [&](const Goal& goal) { return same_text(goal.name, name); });
     };
     std::string name = type_title(type);
     for (int suffix = 2; taken(name) && suffix < kMaxNameSuffix; ++suffix) {
@@ -1216,10 +1221,10 @@ std::string fresh_title(KindTag type)
     return name;
 }
 
-void select_point(const Goal& g, int index)
+void select_point(const Goal& goal, int index)
 {
     nodes::mark_stale();
-    level_editor_goals_state().select_ = nodes::get_find(get_checksums(point_node(g, index)));
+    level_editor_goals_state().select_ = nodes::get_find(get_checksums(point_node(goal, index)));
 }
 
 } // namespace
@@ -1264,33 +1269,33 @@ bool fabricate(KindTag type)
     base = get_grounded(base);
     const V3 flat = make_unit({.x = forward.x, .y = 0.0F, .z = forward.z});
     const V3 right = make_unit(perpendicular({.x = 0.0F, .y = 1.0F, .z = 0.0F}, flat * -1.0F));
-    Goal g = get_defaults(type, get_fresh_id());
-    g.name = fresh_title(type);
+    Goal goal = get_defaults(type, get_fresh_id());
+    goal.name = fresh_title(type);
     // The pro facing the camera, the start beside it facing away; letters / checkpoints in a line ahead.
-    g.points.push_back({.pos = base, .heading = view.yaw + maths::kPi, .height = 0.0F});
-    g.points.push_back({.pos = get_grounded(base + right * kPointSpacing), .heading = view.yaw, .height = 0.0F});
+    goal.points.push_back({.pos = base, .heading = view.yaw + maths::kPi, .height = 0.0F});
+    goal.points.push_back({.pos = get_grounded(base + right * kPointSpacing), .heading = view.yaw, .height = 0.0F});
     const int count = min_points(type);
     for (int k = 2; k < count; ++k) {
         const V3 at = get_grounded(base + flat * (300.0F * static_cast<float>(k - 1)));
-        g.points.push_back({.pos = at, .heading = view.yaw, .height = starting_height(type, k)});
+        goal.points.push_back({.pos = at, .heading = view.yaw, .height = starting_height(type, k)});
     }
-    for (Point& p : g.points) {
-        p.heading = node_edit::wrap_angle(p.heading);
+    for (Point& point : goal.points) {
+        point.heading = node_edit::wrap_angle(point.heading);
     }
     push_undo();
-    level_editor_goals_state().goals_.push_back(g);
-    sync_nodes({g});
-    select_point(g, 0);
-    hud::get_message("Added goal \"" + g.name + "\"", kAddedMessageSeconds);
-    get_log("level editor: goal %s (%s) made at (%.1f, %.1f, %.1f)", g.id.c_str(), current_type_name(type), base.x,
+    level_editor_goals_state().goals_.push_back(goal);
+    sync_nodes({goal});
+    select_point(goal, 0);
+    hud::get_message("Added goal \"" + goal.name + "\"", kAddedMessageSeconds);
+    get_log("level editor: goal %s (%s) made at (%.1f, %.1f, %.1f)", goal.id.c_str(), current_type_name(type), base.x,
             base.y, base.z);
     return true;
 }
 
 bool get_edit(const std::string& id, const Goal& changed, bool done)
 {
-    const int i = index_of_goal_id(id);
-    if (i < 0) {
+    const int index = index_of_goal_id(id);
+    if (index < 0) {
         return false;
     }
     if (!level_editor_goals_state().dragging_) {
@@ -1298,99 +1303,101 @@ bool get_edit(const std::string& id, const Goal& changed, bool done)
     }
     level_editor_goals_state().dragging_ = !done;
     get_refresh();
-    Goal g = changed;
-    g.id = core::at(level_editor_goals_state().goals_, i).id;
-    g.type = core::at(level_editor_goals_state().goals_, i).type;
-    g.name = clean_text(g.name, kMaxNameChars);
-    if (g.name.empty()) {
-        g.name = core::at(level_editor_goals_state().goals_, i).name;
+    Goal goal = changed;
+    goal.id = core::at(level_editor_goals_state().goals_, index).id;
+    goal.type = core::at(level_editor_goals_state().goals_, index).type;
+    goal.name = clean_text(goal.name, kMaxNameChars);
+    if (goal.name.empty()) {
+        goal.name = core::at(level_editor_goals_state().goals_, index).name;
     }
-    g.ped = clean_text(g.ped, kMaxPedChars);
-    g.text = clean_text(g.text, kMaxMessageChars);
-    g.win = clean_text(g.win, kMaxMessageChars);
-    g.trick = clean_text(g.trick, kMaxTrickChars);
+    goal.ped = clean_text(goal.ped, kMaxPedChars);
+    goal.text = clean_text(goal.text, kMaxMessageChars);
+    goal.win = clean_text(goal.win, kMaxMessageChars);
+    goal.trick = clean_text(goal.trick, kMaxTrickChars);
     // (the points' places are their nodes': only the heights come from the change)
-    std::vector<Point> points = core::at(level_editor_goals_state().goals_, i).points;
-    for (size_t k = 0; k < points.size() && k < g.points.size(); ++k) {
+    std::vector<Point> points = core::at(level_editor_goals_state().goals_, index).points;
+    for (size_t k = 0; k < points.size() && k < goal.points.size(); ++k) {
         core::at(points, k).height =
-            std::clamp(core::at(g.points, k).height, 0.0F, kMaxPointHeight); // (EditorCam_MaxHeight)
+            std::clamp(core::at(goal.points, k).height, 0.0F, kMaxPointHeight); // (EditorCam_MaxHeight)
     }
-    g.points = points;
-    confine(&g);
-    core::at(level_editor_goals_state().goals_, i) = g;
+    goal.points = points;
+    confine(&goal);
+    core::at(level_editor_goals_state().goals_, index) = goal;
     return true;
 }
 
 bool drop_out(const std::string& id)
 {
-    const int i = index_of_goal_id(id);
-    if (i < 0) {
+    const int index = index_of_goal_id(id);
+    if (index < 0) {
         return false;
     }
     push_undo();
-    const Goal g = core::at(level_editor_goals_state().goals_, i);
-    for (size_t k = 0; k < g.points.size(); ++k) {
-        remove_node(point_node(g, static_cast<int>(k)));
+    const Goal goal = core::at(level_editor_goals_state().goals_, index);
+    for (size_t k = 0; k < goal.points.size(); ++k) {
+        remove_node(point_node(goal, static_cast<int>(k)));
     }
-    level_editor_goals_state().goals_.erase(level_editor_goals_state().goals_.begin() + i);
-    hud::get_message("Deleted goal \"" + g.name + "\"");
+    level_editor_goals_state().goals_.erase(level_editor_goals_state().goals_.begin() + index);
+    hud::get_message("Deleted goal \"" + goal.name + "\"");
     return true;
 }
 
 bool add_checkpoint(const std::string& id)
 {
-    const int i = index_of_goal_id(id);
-    if (i < 0 || core::at(level_editor_goals_state().goals_, i).type != KindTag::kRace ||
-        static_cast<int>(core::at(level_editor_goals_state().goals_, i).points.size()) >= max_points(KindTag::kRace)) {
+    const int index = index_of_goal_id(id);
+    if (index < 0 || core::at(level_editor_goals_state().goals_, index).type != KindTag::kRace ||
+        static_cast<int>(core::at(level_editor_goals_state().goals_, index).points.size()) >=
+            max_points(KindTag::kRace)) {
         return false;
     }
     push_undo();
-    Goal& g = core::at(level_editor_goals_state().goals_, i);
-    const Point& last = g.points.back();
+    Goal& goal = core::at(level_editor_goals_state().goals_, index);
+    const Point& last = goal.points.back();
     const V3 ahead = {.x = std::sin(last.heading), .y = 0.0F, .z = std::cos(last.heading)};
-    g.points.push_back(
+    goal.points.push_back(
         {.pos = get_grounded(last.pos + ahead * kPointSpacing), .heading = last.heading, .height = 0.0F});
-    sync_nodes({g});
-    select_point(g, static_cast<int>(g.points.size()) - 1);
+    sync_nodes({goal});
+    select_point(goal, static_cast<int>(goal.points.size()) - 1);
     return true;
 }
 
 bool remove_checkpoint(const std::string& id)
 {
-    const int i = index_of_goal_id(id);
-    if (i < 0 || core::at(level_editor_goals_state().goals_, i).type != KindTag::kRace ||
-        static_cast<int>(core::at(level_editor_goals_state().goals_, i).points.size()) <= min_points(KindTag::kRace)) {
+    const int index = index_of_goal_id(id);
+    if (index < 0 || core::at(level_editor_goals_state().goals_, index).type != KindTag::kRace ||
+        static_cast<int>(core::at(level_editor_goals_state().goals_, index).points.size()) <=
+            min_points(KindTag::kRace)) {
         return false;
     }
     push_undo();
-    Goal& g = core::at(level_editor_goals_state().goals_, i);
-    remove_node(point_node(g, static_cast<int>(g.points.size()) - 1));
-    g.points.pop_back();
+    Goal& goal = core::at(level_editor_goals_state().goals_, index);
+    remove_node(point_node(goal, static_cast<int>(goal.points.size()) - 1));
+    goal.points.pop_back();
     return true;
 }
 
 bool restore_points(const std::string& id)
 {
-    const int i = index_of_goal_id(id);
-    if (i < 0 || (missing_points(core::at(level_editor_goals_state().goals_, i)) == 0)) {
+    const int index = index_of_goal_id(id);
+    if (index < 0 || (missing_points(core::at(level_editor_goals_state().goals_, index)) == 0)) {
         return false;
     }
     push_undo();
-    sync_nodes({core::at(level_editor_goals_state().goals_, i)});
+    sync_nodes({core::at(level_editor_goals_state().goals_, index)});
     return true;
 }
 
 bool export_goal(const std::string& id, std::string* message)
 {
-    const int i = index_of_goal_id(id);
-    if (i < 0) {
+    const int goal_index = index_of_goal_id(id);
+    if (goal_index < 0) {
         *message = "No such goal";
         return false;
     }
     get_refresh();
-    const Goal& g = core::at(level_editor_goals_state().goals_, i);
+    const Goal& goal = core::at(level_editor_goals_state().goals_, goal_index);
     std::string why;
-    if (!get_complete(g, &why)) {
+    if (!get_complete(goal, &why)) {
         *message = "Not complete: " + why;
         return false;
     }
@@ -1407,23 +1414,23 @@ bool export_goal(const std::string& id, std::string* message)
     // a level - MaxEditedGoalsReached)
     constexpr int kSlots = 50;
     auto& slots = component->goals();
-    auto used = [&](int s) { return core::at(slots, s).taken_count(); };
-    auto level_of = [&](int s) { return core::at(slots, s).level(); };
-    auto index_of = [&](int s) { return core::at(slots, s).level_goal_number(); };
+    auto used = [&](int slot) { return core::at(slots, slot).taken_count(); };
+    auto level_of = [&](int slot) { return core::at(slots, slot).level(); };
+    auto index_of = [&](int slot) { return core::at(slots, slot).level_goal_number(); };
     int index = -1;
     for (int candidate = 0; candidate < kMaxGoals && index < 0; ++candidate) {
         bool taken = false;
-        for (int s = 0; s < kSlots; ++s) {
-            taken = taken || (used(s) && level_of(s) == level && index_of(s) == candidate);
+        for (int slot = 0; slot < kSlots; ++slot) {
+            taken = taken || (used(slot) && level_of(slot) == level && index_of(slot) == candidate);
         }
         if (!taken) {
             index = candidate;
         }
     }
     int slot = -1;
-    for (int s = 0; s < kSlots && slot < 0; ++s) {
-        if (!used(s)) {
-            slot = s;
+    for (int slot_index = 0; slot_index < kSlots && slot < 0; ++slot_index) {
+        if (!used(slot_index)) {
+            slot = slot_index;
         }
     }
     if (index < 0 || slot < 0) {
@@ -1431,10 +1438,10 @@ bool export_goal(const std::string& id, std::string* message)
         return false;
     }
     GoalImage image{};
-    fill_image(g, {.level = level, .level_goal_index_ = index}, gap_ordinals(g), &image);
+    fill_image(goal, {.level = level, .level_goal_index_ = index}, gap_ordinals(goal), &image);
     core::at(slots, slot) = image.goal;
-    *message = "\"" + g.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) + "";
-    get_log("level editor: goal %s exported to the goal editor (slot %d, CreatedGoal%d)", g.id.c_str(), slot, index);
+    *message = "\"" + goal.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) + "";
+    get_log("level editor: goal %s exported to the goal editor (slot %d, CreatedGoal%d)", goal.id.c_str(), slot, index);
     return true;
 }
 
@@ -1443,21 +1450,21 @@ std::vector<Goal> get_capture() { return get_all(); }
 int get_apply(const std::vector<Goal>& goals)
 {
     int made = 0;
-    for (const Goal& g : goals) {
-        if (index_of_goal_id(g.id) >= 0 || static_cast<int>(level_editor_goals_state().goals_.size()) >= kMaxGoals) {
+    for (const Goal& goal : goals) {
+        if (index_of_goal_id(goal.id) >= 0 || static_cast<int>(level_editor_goals_state().goals_.size()) >= kMaxGoals) {
             continue;
         }
         bool clash = false;
-        for (size_t k = 0; k < g.points.size(); ++k) {
-            clash = clash || (node_create::name_taken(point_node(g, static_cast<int>(k))) &&
-                              !node_create::is_added(get_checksums(point_node(g, static_cast<int>(k)))));
+        for (size_t k = 0; k < goal.points.size(); ++k) {
+            clash = clash || (node_create::name_taken(point_node(goal, static_cast<int>(k))) &&
+                              !node_create::is_added(get_checksums(point_node(goal, static_cast<int>(k)))));
         }
         if (clash) {
             get_log("level editor: goal %s - the level has a node of its points' names already: not made",
-                    g.id.c_str());
+                    goal.id.c_str());
             continue;
         }
-        level_editor_goals_state().goals_.push_back(g);
+        level_editor_goals_state().goals_.push_back(goal);
         ++made;
     }
     sync_nodes(level_editor_goals_state().goals_);
@@ -1473,9 +1480,9 @@ int get_apply(const std::vector<Goal>& goals)
 void reset_all()
 {
     take_out_of_play();
-    for (const Goal& g : level_editor_goals_state().goals_) {
-        for (size_t k = 0; k < g.points.size(); ++k) {
-            remove_node(point_node(g, static_cast<int>(k)));
+    for (const Goal& goal : level_editor_goals_state().goals_) {
+        for (size_t k = 0; k < goal.points.size(); ++k) {
+            remove_node(point_node(goal, static_cast<int>(k)));
         }
     }
     level_editor_goals_state().goals_.clear();
@@ -1522,8 +1529,8 @@ void get_queue(std::function<void()> action) { level_editor_goals_state().queue_
 void end_drag() { level_editor_goals_state().dragging_ = false; }
 int get_missing(const std::string& id)
 {
-    const int i = index_of_goal_id(id);
-    return i < 0 ? 0 : missing_points(core::at(level_editor_goals_state().goals_, i));
+    const int index = index_of_goal_id(id);
+    return index < 0 ? 0 : missing_points(core::at(level_editor_goals_state().goals_, index));
 }
 bool point_of_node(uint32_t node, std::string* id, int* point)
 {
@@ -1536,9 +1543,10 @@ bool point_of_node(uint32_t node, std::string* id, int* point)
 }
 void choose_one(const std::string& id, int point)
 {
-    const int i = index_of_goal_id(id);
-    if (i >= 0 && point >= 0 && std::cmp_less(point, core::at(level_editor_goals_state().goals_, i).points.size())) {
-        select_point(core::at(level_editor_goals_state().goals_, i), point);
+    const int index = index_of_goal_id(id);
+    if (index >= 0 && point >= 0 &&
+        std::cmp_less(point, core::at(level_editor_goals_state().goals_, index).points.size())) {
+        select_point(core::at(level_editor_goals_state().goals_, index), point);
     }
 }
 bool in_play() { return !level_editor_goals_state().in_play_.empty(); }
@@ -1563,10 +1571,10 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
 {
     const auto near_z = overlay_pick.near_z_;
     const auto selected = overlay_pick.selected;
-    auto project = [&](V3 p, float* x, float* y) {
+    auto project = [&](V3 point, float* x, float* y) {
         float nx = 0.0F;
         float ny = 0.0F;
-        if (!cast_onto(camera_pos, frame, lens, p, near_z, &nx, &ny)) {
+        if (!cast_onto(camera_pos, frame, lens, point, near_z, &nx, &ny)) {
             return false;
         }
         ndc_to_pixel(viewport, nx, ny, x, y);
@@ -1587,42 +1595,44 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     std::string selected_goal;
     int selected_point = -1;
     point_of_node(selected, &selected_goal, &selected_point);
-    for (const Goal& g : level_editor_goals_state().goals_) {
-        const bool lit = g.id == selected_goal;
+    for (const Goal& goal : level_editor_goals_state().goals_) {
+        const bool lit = goal.id == selected_goal;
         const uint32_t colour = lit ? 0xFFFFE070 : 0xFFE0A030;
-        for (size_t k = 0; k < g.points.size(); ++k) {
-            const Point& p = core::at(g.points, k);
-            const V3 d = p.pos - camera_pos;
-            if (get_dot(d, d) > kMaxDrawReach * kMaxDrawReach) {
+        for (size_t k = 0; k < goal.points.size(); ++k) {
+            const Point& point = core::at(goal.points, k);
+            const V3 delta = point.pos - camera_pos;
+            if (get_dot(delta, delta) > kMaxDrawReach * kMaxDrawReach) {
                 continue;
             }
-            const V3 top = p.pos + V3{.x = 0.0F, .y = p.height, .z = 0.0F};
-            if (p.height > 0.0F) {
-                line(p.pos, top, colour, 1.0F); // (a letter floats its height above its node)
+            const V3 top = point.pos + V3{.x = 0.0F, .y = point.height, .z = 0.0F};
+            if (point.height > 0.0F) {
+                line(point.pos, top, colour, 1.0F); // (a letter floats its height above its node)
             }
             // (its heading: a short arrow on the ground)
-            const V3 ahead = {.x = std::sin(p.heading) * 40.0F, .y = 0.0F, .z = std::cos(p.heading) * 40.0F};
-            line(p.pos, p.pos + ahead, colour, lit ? kLitWidth : kUnlitWidth);
+            const V3 ahead = {.x = std::sin(point.heading) * 40.0F, .y = 0.0F, .z = std::cos(point.heading) * 40.0F};
+            line(point.pos, point.pos + ahead, colour, lit ? kLitWidth : kUnlitWidth);
             float x = 0.0F;
             float y = 0.0F;
-            if (get_dot(d, d) < kLabelReach * kLabelReach &&
+            if (get_dot(delta, delta) < kLabelReach * kLabelReach &&
                 project(top + V3{.x = 0.0F, .y = kLabelRise, .z = 0.0F}, &x, &y)) {
-                std::string label = point_label(g.type, static_cast<int>(k));
+                std::string label = point_label(goal.type, static_cast<int>(k));
                 if (k == 0) {
-                    label.insert(0, g.name + ": ");
+                    label.insert(0, goal.name + ": ");
                 }
                 texts->push_back({.x = x, .y = y, .argb = colour, .text = label});
             }
             // (a race's checkpoints joined in order; the start to the first)
-            if (g.type == KindTag::kRace && k >= 2) {
-                const Point& from = k == 2 ? core::at(g.points, 1) : core::at(g.points, k - 1);
+            if (goal.type == KindTag::kRace && k >= 2) {
+                const Point& from = k == 2 ? core::at(goal.points, 1) : core::at(goal.points, k - 1);
                 line(from.pos + V3{.x = 0.0F, .y = kLinkLift, .z = 0.0F},
-                     p.pos + V3{.x = 0.0F, .y = kLinkLift, .z = 0.0F}, lit ? kLitLinkColour : kUnlitLinkColour, 1.0F);
+                     point.pos + V3{.x = 0.0F, .y = kLinkLift, .z = 0.0F}, lit ? kLitLinkColour : kUnlitLinkColour,
+                     1.0F);
             }
         }
         // (the pro to its start)
-        if (g.points.size() >= 2) {
-            line(core::at(g.points, 0).pos, core::at(g.points, 1).pos, lit ? kLitPairColour : kUnlitPairColour, 1.0F);
+        if (goal.points.size() >= 2) {
+            line(core::at(goal.points, 0).pos, core::at(goal.points, 1).pos, lit ? kLitPairColour : kUnlitPairColour,
+                 1.0F);
         }
     }
 }
@@ -1630,8 +1640,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
 std::string describe()
 {
     int complete = 0;
-    for (const Goal& g : level_editor_goals_state().goals_) {
-        complete += get_complete(g) ? 1 : 0;
+    for (const Goal& goal : level_editor_goals_state().goals_) {
+        complete += get_complete(goal) ? 1 : 0;
     }
     std::array<char, kLineTextSize> text{};
     text::format_to(text, "%u goals (%d complete, %u in play)", static_cast<unsigned>(level_editor_goals_state().goals_.size()), complete,

@@ -96,13 +96,14 @@ public:
     // False when it is wholly behind the near plane.
     [[nodiscard]] bool get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0F) const;
     // A point's pixel (false: behind the camera).
-    bool get_pixel(V3 p, float* x, float* y) const;
-    void get_dot(V3 p, float radius, uint32_t argb, bool filled = true) const;
+    bool get_pixel(V3 point, float* x, float* y) const;
+    void get_dot(V3 point, float radius, uint32_t argb, bool filled = true) const;
     // A label just right of / above the point (pixels: `dx`, `dy`).
-    void draw_label(V3 p, uint32_t argb, const std::string& text, float dx = kLabelOffsetX, float dy = -kLabelOffsetY) const;
+    void draw_label(V3 point, uint32_t argb, const std::string& text, float dx = kLabelOffsetX,
+                    float dy = -kLabelOffsetY) const;
     // A cross on the ground (in the plane y = p.y), `size` units.
-    void perpendicular(V3 p, float size, uint32_t argb, float thickness = 1.0F) const;
-    [[nodiscard]] float span_to(V3 p) const;
+    void perpendicular(V3 point, float size, uint32_t argb, float thickness = 1.0F) const;
+    [[nodiscard]] float span_to(V3 point) const;
 };
 // The painter for this frame's view (false: the editor's view isn't known yet).
 bool painter_now(ui::Overlay* overlay, Painter* painter);

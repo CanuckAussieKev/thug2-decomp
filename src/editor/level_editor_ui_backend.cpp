@@ -274,16 +274,16 @@ bool begin_offscreen(int size, colour::Packed argb_colour)
     if (FAILED(offscreen().texture->GetSurfaceLevel(0, &surface))) {
         return false;
     }
-    Offscreen& o = offscreen();
-    device->GetRenderTarget(0, &o.saved_target_);
-    device->GetDepthStencilSurface(&o.saved_depth_);
-    device->GetViewport(&o.saved_viewport_);
+    Offscreen& current_offscreen = offscreen();
+    device->GetRenderTarget(0, &current_offscreen.saved_target_);
+    device->GetDepthStencilSurface(&current_offscreen.saved_depth_);
+    device->GetViewport(&current_offscreen.saved_viewport_);
     for (int i = 0; i < 3; ++i) {
-        device->GetTransform(core::at(kSavedTransforms, i), &core::at(o.saved_transforms_, i));
+        device->GetTransform(core::at(kSavedTransforms, i), &core::at(current_offscreen.saved_transforms_, i));
     }
     device->SetRenderTarget(0, surface);
     surface->Release();
-    device->SetDepthStencilSurface(o.depth);
+    device->SetDepthStencilSurface(current_offscreen.depth);
     const D3DVIEWPORT9 viewport = {.X = 0,
                                    .Y = 0,
                                    .Width = static_cast<DWORD>(size),
@@ -291,32 +291,33 @@ bool begin_offscreen(int size, colour::Packed argb_colour)
                                    .MinZ = 0.0F,
                                    .MaxZ = 1.0F};
     device->SetViewport(&viewport);
-    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (o.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0F, 0);
-    o.active = true;
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (current_offscreen.stencil ? D3DCLEAR_STENCIL : 0),
+                  argb, 1.0F, 0);
+    current_offscreen.active = true;
     return true;
 }
 
 void end_offscreen()
 {
-    Offscreen& o = offscreen();
+    Offscreen& current_offscreen = offscreen();
     IDirect3DDevice9* device = render::renderer().d3d_device();
-    if (!o.active || !device) {
+    if (!current_offscreen.active || !device) {
         return;
     }
-    device->SetRenderTarget(0, o.saved_target_);
-    device->SetDepthStencilSurface(o.saved_depth_);
-    device->SetViewport(&o.saved_viewport_); // (after the target: setting one resets the viewport)
+    device->SetRenderTarget(0, current_offscreen.saved_target_);
+    device->SetDepthStencilSurface(current_offscreen.saved_depth_);
+    device->SetViewport(&current_offscreen.saved_viewport_); // (after the target: setting one resets the viewport)
     for (int i = 0; i < 3; ++i) {
-        device->SetTransform(core::at(kSavedTransforms, i), &core::at(o.saved_transforms_, i));
+        device->SetTransform(core::at(kSavedTransforms, i), &core::at(current_offscreen.saved_transforms_, i));
     }
-    if (o.saved_target_) {
-        o.saved_target_->Release();
+    if (current_offscreen.saved_target_) {
+        current_offscreen.saved_target_->Release();
     }
-    if (o.saved_depth_) {
-        o.saved_depth_->Release();
+    if (current_offscreen.saved_depth_) {
+        current_offscreen.saved_depth_->Release();
     }
-    o.saved_target_ = o.saved_depth_ = nullptr;
-    o.active = false;
+    current_offscreen.saved_target_ = current_offscreen.saved_depth_ = nullptr;
+    current_offscreen.active = false;
 }
 
 uint64_t offscreen_texture() { return offscreen().texture ? get_texture_id(offscreen().texture) : 0; }
@@ -421,16 +422,16 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed arg
     if (FAILED(stored_atlas().texture->GetSurfaceLevel(0, &surface))) {
         return false;
     }
-    Atlas& a = stored_atlas();
-    device->GetRenderTarget(0, &a.saved_target_);
-    device->GetDepthStencilSurface(&a.saved_depth_);
-    device->GetViewport(&a.saved_viewport_);
+    Atlas& atlas = stored_atlas();
+    device->GetRenderTarget(0, &atlas.saved_target_);
+    device->GetDepthStencilSurface(&atlas.saved_depth_);
+    device->GetViewport(&atlas.saved_viewport_);
     for (int i = 0; i < 3; ++i) {
-        device->GetTransform(core::at(kSavedTransforms, i), &core::at(a.saved_transforms_, i));
+        device->GetTransform(core::at(kSavedTransforms, i), &core::at(atlas.saved_transforms_, i));
     }
     device->SetRenderTarget(0, surface);
     surface->Release();
-    device->SetDepthStencilSurface(a.depth);
+    device->SetDepthStencilSurface(atlas.depth);
     const D3DVIEWPORT9 viewport = {.X = static_cast<DWORD>(x),
                                    .Y = static_cast<DWORD>(y),
                                    .Width = static_cast<DWORD>(size),
@@ -439,32 +440,33 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed arg
                                    .MaxZ = 1.0F};
     device->SetViewport(&viewport);
     // (no rectangles: the viewport - the cell - is cleared)
-    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (a.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0F, 0);
-    a.active = true;
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (atlas.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0F,
+                  0);
+    atlas.active = true;
     return true;
 }
 
 void end_atlas_cell()
 {
-    Atlas& a = stored_atlas();
+    Atlas& atlas = stored_atlas();
     IDirect3DDevice9* device = render::renderer().d3d_device();
-    if (!a.active || !device) {
+    if (!atlas.active || !device) {
         return;
     }
-    device->SetRenderTarget(0, a.saved_target_);
-    device->SetDepthStencilSurface(a.saved_depth_);
-    device->SetViewport(&a.saved_viewport_);
+    device->SetRenderTarget(0, atlas.saved_target_);
+    device->SetDepthStencilSurface(atlas.saved_depth_);
+    device->SetViewport(&atlas.saved_viewport_);
     for (int i = 0; i < 3; ++i) {
-        device->SetTransform(core::at(kSavedTransforms, i), &core::at(a.saved_transforms_, i));
+        device->SetTransform(core::at(kSavedTransforms, i), &core::at(atlas.saved_transforms_, i));
     }
-    if (a.saved_target_) {
-        a.saved_target_->Release();
+    if (atlas.saved_target_) {
+        atlas.saved_target_->Release();
     }
-    if (a.saved_depth_) {
-        a.saved_depth_->Release();
+    if (atlas.saved_depth_) {
+        atlas.saved_depth_->Release();
     }
-    a.saved_target_ = a.saved_depth_ = nullptr;
-    a.active = false;
+    atlas.saved_target_ = atlas.saved_depth_ = nullptr;
+    atlas.active = false;
 }
 
 uint64_t atlas_texture() { return stored_atlas().texture ? get_texture_id(stored_atlas().texture) : 0; }

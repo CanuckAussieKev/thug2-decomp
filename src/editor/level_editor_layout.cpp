@@ -146,12 +146,12 @@ void get_hex(std::ostringstream& out, uint32_t value)
     out << text.data();
 }
 
-void get_placed(std::ostringstream& out, const Placement& p)
+void get_placed(std::ostringstream& out, const Placement& placement)
 {
-    out << ' ' << p.quarters;
-    get_number(out, p.offset.x);
-    get_number(out, p.offset.y);
-    get_number(out, p.offset.z);
+    out << ' ' << placement.quarters;
+    get_number(out, placement.offset.x);
+    get_number(out, placement.offset.y);
+    get_number(out, placement.offset.z);
 }
 
 void get_comment(std::ostringstream& out, uint32_t checksum)
@@ -173,10 +173,11 @@ bool read_hex(std::istringstream& in, uint32_t* value)
     return (end != nullptr) && *end == '\0';
 }
 
-bool read_placed(std::istringstream& in, Placement* p)
+bool read_placed(std::istringstream& in, Placement* placement)
 {
-    return static_cast<bool>(in >> p->quarters >> p->offset.x >> p->offset.y >> p->offset.z) && p->quarters >= 0 &&
-           p->quarters <= 3;
+    return static_cast<bool>(in >> placement->quarters >> placement->offset.x >> placement->offset.y >>
+                             placement->offset.z) &&
+           placement->quarters >= 0 && placement->quarters <= 3;
 }
 
 // The key=value fields after a sector / rail / clone / object / copy record's numbers: scale= (level_editor_scale.h);
@@ -193,7 +194,10 @@ bool read_scale_fields(std::istringstream& in, V3* scale)
     }
     return true;
 }
-bool read_placed_fields(std::istringstream& in, Placement* p) { return read_scale_fields(in, &p->scale); }
+bool read_placed_fields(std::istringstream& in, Placement* placement)
+{
+    return read_scale_fields(in, &placement->scale);
+}
 
 // A `node` record's fields (after "node"): name, class, then key=value (unknown keys skipped; a repeated one, a bad
 // value or a missing place refuse it).
@@ -272,77 +276,78 @@ std::string emit_out(const FileLoad& file)
     get_hex(out, file.scene);
     get_comment(out, file.scene);
     out << level_props::write_record(file.level);
-    for (const auto& s : file.sectors) {
+    for (const auto& sector : file.sectors) {
         out << "sector";
-        get_hex(out, s.checksum);
-        get_placed(out, s.placement);
-        out << ' ' << (s.hidden ? 1 : 0) << scale_tool::get_token(s.placement.scale);
-        get_comment(out, s.checksum);
+        get_hex(out, sector.checksum);
+        get_placed(out, sector.placement);
+        out << ' ' << (sector.hidden ? 1 : 0) << scale_tool::get_token(sector.placement.scale);
+        get_comment(out, sector.checksum);
     }
-    for (const auto& r : file.rails) {
+    for (const auto& rail : file.rails) {
         out << "rail";
-        get_hex(out, r.name);
-        get_placed(out, r.placement);
-        out << ' ' << (r.hidden ? 1 : 0) << scale_tool::get_token(r.placement.scale);
-        get_comment(out, r.name);
+        get_hex(out, rail.name);
+        get_placed(out, rail.placement);
+        out << ' ' << (rail.hidden ? 1 : 0) << scale_tool::get_token(rail.placement.scale);
+        get_comment(out, rail.name);
     }
-    for (const auto& c : file.clones) {
+    for (const auto& clone : file.clones) {
         out << "clone";
-        get_hex(out, c.source);
-        get_placed(out, c.placement);
-        out << scale_tool::get_token(c.placement.scale);
-        get_comment(out, c.source);
+        get_hex(out, clone.source);
+        get_placed(out, clone.placement);
+        out << scale_tool::get_token(clone.placement.scale);
+        get_comment(out, clone.source);
     }
-    for (const auto& o : file.objects) {
+    for (const auto& object : file.objects) {
         out << "object";
-        get_hex(out, o.id);
-        for (const float v : o.pos) {
+        get_hex(out, object.id);
+        for (const float v : object.pos) {
             get_number(out, v);
         }
-        for (const float v : o.rows) {
+        for (const float v : object.rows) {
             get_number(out, v);
         }
-        out << scale_tool::get_token(o.scale);
-        get_comment(out, o.id);
+        out << scale_tool::get_token(object.scale);
+        get_comment(out, object.id);
     }
-    for (const auto& c : file.copies) {
+    for (const auto& copy : file.copies) {
         out << "copy";
-        get_hex(out, c.name);
-        get_hex(out, c.source);
-        for (const float v : c.pos) {
+        get_hex(out, copy.name);
+        get_hex(out, copy.source);
+        for (const float v : copy.pos) {
             get_number(out, v);
         }
-        for (const float v : c.rows) {
+        for (const float v : copy.rows) {
             get_number(out, v);
         }
-        out << scale_tool::get_token(c.scale);
-        get_comment(out, c.source);
+        out << scale_tool::get_token(copy.scale);
+        get_comment(out, copy.source);
     }
-    for (const node_create::Spec& a : file.added) {
-        out << "node " << a.name << ' ' << a.cls;
-        if (!a.type.empty()) {
-            out << " type=" << a.type;
+    for (const node_create::Spec& spec : file.added) {
+        out << "node " << spec.name << ' ' << spec.cls;
+        if (!spec.type.empty()) {
+            out << " type=" << spec.type;
         }
-        const std::array<float, 3> pos = {{a.pos.x, a.pos.y, a.pos.z}};
-        const std::array<float, 3> angles = {{a.angles.x, a.angles.y, a.angles.z}};
+        const std::array<float, 3> pos = {{spec.pos.x, spec.pos.y, spec.pos.z}};
+        const std::array<float, 3> angles = {{spec.angles.x, spec.angles.y, spec.angles.z}};
         triple(out, "pos", pos);
         triple(out, "angles", angles);
-        if (!a.types.empty()) {
+        if (!spec.types.empty()) {
             out << " types=";
-            for (size_t i = 0; i < a.types.size(); ++i) {
-                out << ((i != 0U) ? "," : "") << core::at(a.types, i);
+            for (size_t i = 0; i < spec.types.size(); ++i) {
+                out << ((i != 0U) ? "," : "") << core::at(spec.types, i);
             }
         }
         node_create::Kind kind{};
-        if (node_create::kind_of(a, &kind) && kind == node_create::Kind::kLight) {
-            out << " color=" << core::at(a.colour, 0) << ',' << core::at(a.colour, 1) << ',' << core::at(a.colour, 2);
+        if (node_create::kind_of(spec, &kind) && kind == node_create::Kind::kLight) {
+            out << " color=" << core::at(spec.colour, 0) << ',' << core::at(spec.colour, 1) << ','
+                << core::at(spec.colour, 2);
             std::array<char, kLightLineSize> text{};
-            text::format_to(text, " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
+            text::format_to(text, " brightness=%.9g inner=%.9g outer=%.9g", spec.brightness, spec.inner, spec.outer);
             out << text.data();
         }
-        if (a.radius != 0.0F) {
+        if (spec.radius != 0.0F) {
             std::array<char, kRadiusLineSize> text{};
-            text::format_to(text, " radius=%.9g", a.radius);
+            text::format_to(text, " radius=%.9g", spec.radius);
             out << text.data();
         }
         out << '\n';
@@ -364,28 +369,28 @@ std::string emit_out(const FileLoad& file)
         get_hex(out, lock.id);
         get_comment(out, lock.id);
     }
-    for (const triggers::Placed& t : file.triggers) {
-        out << "trigger " << triggers::link_record(t) << '\n';
+    for (const triggers::Placed& trigger : file.triggers) {
+        out << "trigger " << triggers::link_record(trigger) << '\n';
     }
-    for (const triggers::ProximEdit& p : file.proxims) {
-        out << "proxim " << triggers::proxim_record(p, object_edit::get_name_of(p.node)) << '\n';
+    for (const triggers::ProximEdit& proxim : file.proxims) {
+        out << "proxim " << triggers::proxim_record(proxim, object_edit::get_name_of(proxim.node)) << '\n';
     }
-    for (const SetRecord& s : file.nodes) {
-        if (!s.has_pos_ && !s.has_angles_ && s.fields.empty()) {
+    for (const SetRecord& node_record : file.nodes) {
+        if (!node_record.has_pos_ && !node_record.has_angles_ && node_record.fields.empty()) {
             continue;
         }
         out << "set";
-        get_hex(out, s.name);
-        if (s.has_pos_) {
-            triple(out, "pos", s.pos);
+        get_hex(out, node_record.name);
+        if (node_record.has_pos_) {
+            triple(out, "pos", node_record.pos);
         }
-        if (s.has_angles_) {
-            triple(out, "angles", s.angles);
+        if (node_record.has_angles_) {
+            triple(out, "angles", node_record.angles);
         }
-        for (const fields::Edit& edit : s.fields) {
+        for (const fields::Edit& edit : node_record.fields) {
             out << ' ' << fields::get_token(edit, fields::get_name_of);
         }
-        get_comment(out, s.name);
+        get_comment(out, node_record.name);
     }
     out << chains::write_records(file.chains);
     out << entities::write_records(file.entities);
@@ -398,25 +403,25 @@ std::string emit_out(const FileLoad& file)
     }
     // (map3) collision faces' flags, scenery clusters, camera nodes
     out << faces::write_records(file.faces);
-    for (const clusters::Membership& m : file.clusters) {
-        out << clusters::write_record(m);
-        get_comment(out, m.sector);
+    for (const clusters::Membership& cluster : file.clusters) {
+        out << clusters::write_record(cluster);
+        get_comment(out, cluster.sector);
     }
-    for (const cameras::ViewCam& c : file.cameras) {
-        out << cameras::write_record(c) << '\n';
+    for (const cameras::ViewCam& camera : file.cameras) {
+        out << cameras::write_record(camera) << '\n';
     }
-    for (const goal_edit::Goal& g : file.goals) {
-        out << "goal " << goal_edit::write_record(g) << '\n'; // (level_editor_goals.h)
+    for (const goal_edit::Goal& goal : file.goals) {
+        out << "goal " << goal_edit::write_record(goal) << '\n'; // (level_editor_goals.h)
     }
-    for (const links::LinkRecord& r : file.links) {
-        out << links::write_record(r) << '\n'; // (UX7: linked copies)
+    for (const links::LinkRecord& link : file.links) {
+        out << links::write_record(link) << '\n'; // (UX7: linked copies)
     }
     for (const std::string& line : file.extra) {
         out << line << '\n';
     }
     // (UX5) note pins; the records that didn't resolve when loaded, kept (level_editor_checks.h)
-    for (const notes::Note& n : file.notes) {
-        out << notes::write_record(n) << '\n';
+    for (const notes::Note& note : file.notes) {
+        out << notes::write_record(note) << '\n';
     }
     if (!file.carried.empty()) {
         out << "# not found in the level when loaded - kept until the Problems window drops them\n";
@@ -461,50 +466,52 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
             ok = read_hex(in, &file->scene);
         } else if (kind == "sector" || kind == "rail") {
             uint32_t checksum = 0;
-            Placement p = {};
+            Placement placement = {};
             int hidden = 0;
-            ok = read_hex(in, &checksum) && read_placed(in, &p) && (in >> hidden) && read_placed_fields(in, &p);
+            ok = read_hex(in, &checksum) && read_placed(in, &placement) && (in >> hidden) &&
+                 read_placed_fields(in, &placement);
             if (ok && kind == "sector") {
-                file->sectors.push_back({.checksum = checksum, .placement = p, .hidden = hidden != 0});
+                file->sectors.push_back({.checksum = checksum, .placement = placement, .hidden = hidden != 0});
             } else if (ok) {
-                file->rails.push_back({.name = checksum, .placement = p, .hidden = hidden != 0});
+                file->rails.push_back({.name = checksum, .placement = placement, .hidden = hidden != 0});
             }
         } else if (kind == "clone") {
-            CloneRecord c = {};
-            ok = read_hex(in, &c.source) && read_placed(in, &c.placement) && read_placed_fields(in, &c.placement);
+            CloneRecord clone_record = {};
+            ok = read_hex(in, &clone_record.source) && read_placed(in, &clone_record.placement) &&
+                 read_placed_fields(in, &clone_record.placement);
             if (ok) {
-                file->clones.push_back(c);
+                file->clones.push_back(clone_record);
             }
         } else if (kind == "object") {
-            ObjectRecord o = {};
-            ok = read_hex(in, &o.id);
-            for (float& v : o.pos) {
+            ObjectRecord object_record = {};
+            ok = read_hex(in, &object_record.id);
+            for (float& v : object_record.pos) {
                 ok = ok && (in >> v);
             }
-            for (float& v : o.rows) {
+            for (float& v : object_record.rows) {
                 ok = ok && (in >> v);
             }
-            ok = ok && read_scale_fields(in, &o.scale);
+            ok = ok && read_scale_fields(in, &object_record.scale);
             if (ok) {
-                file->objects.push_back(o);
+                file->objects.push_back(object_record);
             }
         } else if (kind == "copy") {
-            CopyRecord c = {};
-            ok = read_hex(in, &c.name) && read_hex(in, &c.source);
-            for (float& v : c.pos) {
+            CopyRecord copy_record = {};
+            ok = read_hex(in, &copy_record.name) && read_hex(in, &copy_record.source);
+            for (float& v : copy_record.pos) {
                 ok = ok && (in >> v);
             }
-            for (float& v : c.rows) {
+            for (float& v : copy_record.rows) {
                 ok = ok && (in >> v);
             }
-            ok = ok && read_scale_fields(in, &c.scale);
+            ok = ok && read_scale_fields(in, &copy_record.scale);
             if (ok) {
-                file->copies.push_back(c);
+                file->copies.push_back(copy_record);
             }
         } else if (kind == "set") {
             // (key=value fields: pos and angles; others - a later version's - skipped)
-            SetRecord s = {};
-            ok = read_hex(in, &s.name);
+            SetRecord set_record = {};
+            ok = read_hex(in, &set_record.name);
             std::string field;
             while (ok && in >> field) {
                 const size_t equals = field.find('=');
@@ -515,25 +522,25 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
                 const std::string key = field.substr(0, equals);
                 const std::string value = field.substr(equals + 1);
                 if (key == "pos") {
-                    ok = !s.has_pos_ && read_triple(value, s.pos); // (twice: not a record we wrote)
-                    s.has_pos_ = true;
+                    ok = !set_record.has_pos_ && read_triple(value, set_record.pos); // (twice: not a record we wrote)
+                    set_record.has_pos_ = true;
                 } else if (key == "angles") {
-                    ok = !s.has_angles_ && read_triple(value, s.angles);
-                    s.has_angles_ = true;
+                    ok = !set_record.has_angles_ && read_triple(value, set_record.angles);
+                    set_record.has_angles_ = true;
                 } else if (fields::is_field_key(key)) {
                     // (phase 6: a typed field edit; the same field twice isn't a record we wrote)
                     fields::Edit edit;
                     ok = fields::read_token({.key = key, .value = value}, &edit);
-                    for (const fields::Edit& other : s.fields) {
+                    for (const fields::Edit& other : set_record.fields) {
                         ok = ok && other.key != edit.key;
                     }
                     if (ok) {
-                        s.fields.push_back(edit);
+                        set_record.fields.push_back(edit);
                     }
                 }
             }
             if (ok) {
-                file->nodes.push_back(s);
+                file->nodes.push_back(set_record);
             }
         } else if (kind == "node") {
             ok = read_node(in, &file->added.emplace_back());
@@ -602,9 +609,9 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
             ok = links::read_record(in, &file->links.emplace_back()); // (UX7: level_editor_links.h)
         } else {
             // (anything else: another module's record or a later version's - kept as it is: add_extension)
-            const size_t a = line.find_first_not_of(" \t");
-            const size_t b = line.find_last_not_of(" \t");
-            file->extra.push_back(line.substr(a, b - a + 1));
+            const size_t first = line.find_first_not_of(" \t");
+            const size_t last = line.find_last_not_of(" \t");
+            file->extra.push_back(line.substr(first, last - first + 1));
         }
         if (!ok) {
             return false;
@@ -707,11 +714,11 @@ bool saved_layout_scene(const std::string& file_name, uint32_t* scene)
     }
     uint32_t value = 0;
     for (int i = 0; i < kSceneNameDigits; ++i) {
-        const char c = core::at(file_name, i);
-        const int digit = c >= '0' && c <= '9'   ? c - '0'
-                          : c >= 'A' && c <= 'F' ? c - 'A' + 10
-                          : c >= 'a' && c <= 'f' ? c - 'a' + 10
-                                                 : -1;
+        const char character = core::at(file_name, i);
+        const int digit = character >= '0' && character <= '9'   ? character - '0'
+                          : character >= 'A' && character <= 'F' ? character - 'A' + 10
+                          : character >= 'a' && character <= 'f' ? character - 'a' + 10
+                                                                 : -1;
         if (digit < 0) {
             return false;
         }
@@ -755,26 +762,26 @@ std::vector<Extension>& get_extensions()
 }
 void reset_extensions()
 {
-    for (const Extension& e : get_extensions()) {
-        if (e.reset) {
-            e.reset();
+    for (const Extension& extension : get_extensions()) {
+        if (extension.reset) {
+            extension.reset();
         }
     }
 }
 void apply_extensions(const std::vector<std::string>& extra)
 {
-    for (const Extension& e : get_extensions()) {
-        if (!e.apply) {
+    for (const Extension& extension : get_extensions()) {
+        if (!extension.apply) {
             continue;
         }
         std::vector<std::string> mine;
         for (const std::string& line : extra) {
             const std::string word = line.substr(0, line.find(' '));
-            if (std::ranges::find(e.keywords, word) != e.keywords.end()) {
+            if (std::ranges::find(extension.keywords, word) != extension.keywords.end()) {
                 mine.push_back(line);
             }
         }
-        e.apply(mine);
+        extension.apply(mine);
     }
 }
 
@@ -870,12 +877,12 @@ bool write_whole(FilePlace place, const char* data, size_t size)
     return ok;
 }
 
-void rows_of(const maths::Mat4& m, std::span<float, kRotationFloats> rows)
+void rows_of(const maths::Mat4& matrix, std::span<float, kRotationFloats> rows)
 {
-    for (int r = 0; r < 3; ++r) {
-        core::at(rows, (r * 3) + 0) = core::at(m.row, r).x;
-        core::at(rows, (r * 3) + 1) = core::at(m.row, r).y;
-        core::at(rows, (r * 3) + 2) = core::at(m.row, r).z;
+    for (int row = 0; row < 3; ++row) {
+        core::at(rows, (row * 3) + 0) = core::at(matrix.row, row).x;
+        core::at(rows, (row * 3) + 1) = core::at(matrix.row, row).y;
+        core::at(rows, (row * 3) + 2) = core::at(matrix.row, row).z;
     }
 }
 
@@ -885,12 +892,12 @@ object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::spa
     state.id = id;
     state.scale = scale;
     state.pos = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2), .w = 1.0F};
-    for (int r = 0; r < 3; ++r) {
-        core::at(state.matrix.row, r) = {.x = core::at(rows, (r * 3) + 0),
-                                         .y = core::at(rows, (r * 3) + 1),
-                                         .z = core::at(rows, (r * 3) + 2),
-                                         .w = 0.0F};
-        core::at(state.draw_matrix_.row, r) = core::at(state.matrix.row, r);
+    for (int row = 0; row < 3; ++row) {
+        core::at(state.matrix.row, row) = {.x = core::at(rows, (row * 3) + 0),
+                                           .y = core::at(rows, (row * 3) + 1),
+                                           .z = core::at(rows, (row * 3) + 2),
+                                           .w = 0.0F};
+        core::at(state.draw_matrix_.row, row) = core::at(state.matrix.row, row);
     }
     core::at(state.matrix.row, 3) = core::at(state.draw_matrix_.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     return state;
@@ -922,7 +929,8 @@ bool get_capture(FileLoad* file)
     file->sectors = scenery::changed_sectors();
     file->rails = scenery::changed_rails();
     // (a rail point the editor added: its `point` record has where it is now - not a `rail` offset)
-    std::erase_if(file->rails, [](const scenery::RailState& r) { return node_create::is_added(r.name); });
+    std::erase_if(file->rails,
+                  [](const scenery::RailState& rail_state) { return node_create::is_added(rail_state.name); });
     std::vector<uint32_t> clone_order; // (UX7: the linked copies' clones by their records' order)
     for (const scenery::Replicate& clone : scenery::get_clones()) {
         Placement now;
@@ -962,7 +970,7 @@ bool get_capture(FileLoad* file)
     std::erase_if(file->added, [](const node_create::Spec& spec) { return spec.owned; });
     file->triggers = triggers::capture_added();
     file->proxims = triggers::capture_proxims();
-    std::erase_if(file->added, [](const node_create::Spec& s) { return chains::is_chain_class(s.cls); });
+    std::erase_if(file->added, [](const node_create::Spec& spec) { return chains::is_chain_class(spec.cls); });
     const std::vector<std::string> crowns = node_create::crown_order(file->added);
     if (crowns.size() > 1) {
         file->crown_order_ = crowns;
@@ -984,7 +992,8 @@ bool get_capture(FileLoad* file)
     }
     // (phase 6) the Inspector's field edits: on the node's set record (one made for a node not moved)
     for (const fields::NodeEdits& node : fields::get_changed()) {
-        auto it = std::ranges::find_if(file->nodes, [&](const SetRecord& s) { return s.name == node.name; });
+        auto it = std::ranges::find_if(file->nodes,
+                                       [&](const SetRecord& set_record) { return set_record.name == node.name; });
         if (it == file->nodes.end()) {
             SetRecord record = {};
             record.name = node.name;
@@ -999,11 +1008,11 @@ bool get_capture(FileLoad* file)
     file->clusters = clusters::get_changed();
     file->cameras = cameras::get_capture();
     file->goals = goal_edit::get_capture(); // (their points are owned nodes: not `node` records)
-    for (const Extension& e : get_extensions()) {
-        if (!e.capture) {
+    for (const Extension& extension : get_extensions()) {
+        if (!extension.capture) {
             continue;
         }
-        for (const std::string& line : e.capture()) {
+        for (const std::string& line : extension.capture()) {
             file->extra.push_back(line);
         }
     }
@@ -1467,23 +1476,24 @@ std::unordered_map<uint32_t, LevelInfo> levels_by_load()
     static const uint32_t kName = checksums::hash_from_text("name");
     static const uint32_t kQb = checksums::hash_from_text("qb");
     std::unordered_map<uint32_t, LevelInfo> levels;
-    for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
-        if (e->type() != script::QbValueKind::kStruct || !e->value().structure()) {
+    for (script::SymbolTableEntry* entry = script::get_next_symbol(nullptr); entry;
+         entry = script::get_next_symbol(entry)) {
+        if (entry->type() != script::QbValueKind::kStruct || !entry->value().structure()) {
             continue;
         }
         uint32_t load = 0;
         const char* level = nullptr;
-        if (!e->value().structure()->read_hash_value(kLoadScript, &load, 0) ||
-            !e->value().structure()->fetch_text(kLevel, &level, 0)) {
+        if (!entry->value().structure()->read_hash_value(kLoadScript, &load, 0) ||
+            !entry->value().structure()->fetch_text(kLevel, &level, 0)) {
             continue;
         }
         const char* title = nullptr;
-        e->value().structure()->fetch_text(kName, &title, 0);
+        entry->value().structure()->fetch_text(kName, &title, 0);
         const char* qb = nullptr;
-        e->value().structure()->fetch_text(kQb, &qb, 0);
+        entry->value().structure()->fetch_text(kQb, &qb, 0);
         levels.emplace(load, LevelInfo{.scene = scene_of_level_text(level),
                                        .title = title ? title : "",
-                                       .structure = e->value().structure(),
+                                       .structure = entry->value().structure(),
                                        .node_array_ = qb && (*qb != '\0') ? level_nodes::node_array_checksum(qb) : 0});
     }
     return levels;

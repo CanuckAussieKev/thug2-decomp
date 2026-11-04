@@ -65,7 +65,7 @@ struct TopArea {
     float up = 0.0F;
     float level = 0.0F;
 };
-void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c);
+void add_top_triangle(TopArea* area, V3 a, V3 b, V3 corner_c);
 // The triangles of an indexed strip (as ray_strip reads them) added.
 void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
                    const uint16_t* indices, uint32_t index_count);
@@ -165,7 +165,7 @@ int get_index_of(const std::vector<TableRow>& order, Choice kind, uint32_t id);
 bool same_spot(float x0, float y0, float x1, float y1, float tolerance);
 
 // Ray against a triangle (either side): the distance along `dir` (in units of dir), false if none in front.
-bool ray_triangle(Ray ray, V3 a, V3 b, V3 c, float* t);
+bool ray_triangle(Ray ray, V3 a, V3 b, V3 corner_c, float* hit_distance);
 // A strip's index count and the furthest hit wanted.
 struct StripLimit {
     uint32_t index_count_{};
@@ -176,7 +176,7 @@ struct StripLimit {
 // triangle, repeated indices - the strips' joins - none): `positions` the vertices' x, y, z, `stride` bytes apart,
 // `vertexCount` of them (indices past it skipped). The nearest hit below `max_t`.
 bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
-               const uint16_t* indices, StripLimit strip_limit, float* t);
+               const uint16_t* indices, StripLimit strip_limit, float* hit_distance);
 
 // Locks: by kind (kObjects: an object's id; kScenery: a sector's checksum).
 struct Lock {

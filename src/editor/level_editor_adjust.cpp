@@ -60,28 +60,32 @@ const char* get_title(Kind kind)
 
 ActStep normalised(const ActStep& action, float grid)
 {
-    ActStep n = action;
-    n.count = std::clamp(n.count, 1, kMaxCopies);
-    n.axis = std::clamp(n.axis, 0, 2);
-    n.edge = std::clamp(n.edge, 0, 2);
-    n.reference = std::clamp(n.reference, 0, 1);
-    auto factor = [](float f) { return std::clamp(f, kFactorMin, kFactorMax); };
-    n.factor = {.x = factor(n.factor.x), .y = factor(n.factor.y), .z = factor(n.factor.z)};
-    if (n.uniform) {
-        n.factor.y = n.factor.z = n.factor.x;
+    ActStep adjusted = action;
+    adjusted.count = std::clamp(adjusted.count, 1, kMaxCopies);
+    adjusted.axis = std::clamp(adjusted.axis, 0, 2);
+    adjusted.edge = std::clamp(adjusted.edge, 0, 2);
+    adjusted.reference = std::clamp(adjusted.reference, 0, 1);
+    auto factor = [](float value) { return std::clamp(value, kFactorMin, kFactorMax); };
+    adjusted.factor = {.x = factor(adjusted.factor.x), .y = factor(adjusted.factor.y), .z = factor(adjusted.factor.z)};
+    if (adjusted.uniform) {
+        adjusted.factor.y = adjusted.factor.z = adjusted.factor.x;
     }
-    if (n.quarters) {
-        n.degrees = kQuarterTurnDegrees * std::round(n.degrees / kQuarterTurnDegrees);
+    if (adjusted.quarters) {
+        adjusted.degrees = kQuarterTurnDegrees * std::round(adjusted.degrees / kQuarterTurnDegrees);
     }
-    if (n.grid && grid > 0.0F) {
-        n.offset = {.x = snap_to_grid(n.offset.x, grid), .y = snap_to_grid(n.offset.y, grid), .z = snap_to_grid(n.offset.z, grid)};
+    if (adjusted.grid && grid > 0.0F) {
+        adjusted.offset = {.x = snap_to_grid(adjusted.offset.x, grid),
+                           .y = snap_to_grid(adjusted.offset.y, grid),
+                           .z = snap_to_grid(adjusted.offset.z, grid)};
     }
-    return n;
+    return adjusted;
 }
 
 bool get_same(const ActStep& a, const ActStep& b)
 {
-    auto same3 = [](V3 p, V3 q) { return p.x == q.x && p.y == q.y && p.z == q.z; };
+    auto same3 = [](V3 point, V3 other_point) {
+        return point.x == other_point.x && point.y == other_point.y && point.z == other_point.z;
+    };
     return a.kind == b.kind && same3(a.offset, b.offset) && a.degrees == b.degrees && a.quarters == b.quarters &&
            same3(a.factor, b.factor) && a.uniform == b.uniform && a.count == b.count && a.grid == b.grid &&
            a.axis == b.axis && a.edge == b.edge && a.reference == b.reference && a.local == b.local &&
@@ -133,20 +137,20 @@ bool same_selection(const edit::Selected& a, const edit::Selected& b) { return a
 // The action made again from where it started (its step taken back first - Place: moved / turned in place).
 void get_apply(const ActStep& wanted)
 {
-    const ActStep n = normalised(wanted, xform::get_grid());
-    if (get_same(n, level_editor_adjust_state().last_.action)) {
+    const ActStep adjusted = normalised(wanted, xform::get_grid());
+    if (get_same(adjusted, level_editor_adjust_state().last_.action)) {
         return;
     }
     level_editor_adjust_state().applying_ = true;
     size_t depth = edit::deepness();
     bool pushed = true;
-    switch (n.kind) {
+    switch (adjusted.kind) {
     case Kind::kPlace: {
         const V3 pos = edit::get_pos();
-        if (pos.x != n.pos.x || pos.y != n.pos.y || pos.z != n.pos.z) {
-            edit::place_at(n.pos);
+        if (pos.x != adjusted.pos.x || pos.y != adjusted.pos.y || pos.z != adjusted.pos.z) {
+            edit::place_at(adjusted.pos);
         }
-        const float turn = n.degrees - level_editor_adjust_state().last_.action.degrees;
+        const float turn = adjusted.degrees - level_editor_adjust_state().last_.action.degrees;
         if (std::fabs(turn) > kTurnEpsilon) {
             edit::turn_by(turn * maths::kPi / kDegreesPerHalfTurn);
         }
@@ -157,18 +161,18 @@ void get_apply(const ActStep& wanted)
     case Kind::kShiftBy:
         edit::take_back();
         edit::get_begin();
-        edit::place_at(level_editor_adjust_state().last_.start + n.offset);
+        edit::place_at(level_editor_adjust_state().last_.start + adjusted.offset);
         edit::get_end();
         break;
     case Kind::kTurn:
         edit::take_back();
         edit::get_begin();
-        edit::turn_by(n.degrees * maths::kPi / kDegreesPerHalfTurn);
+        edit::turn_by(adjusted.degrees * maths::kPi / kDegreesPerHalfTurn);
         edit::get_end();
         break;
     case Kind::kScale:
         edit::take_back();
-        if (!edit::scale_by(n.factor, n.uniform)) {
+        if (!edit::scale_by(adjusted.factor, adjusted.uniform)) {
             edit::get_begin(); // (at a limit, or back to 1: a step that changes nothing keeps the panel's place)
             edit::get_end();
         }
@@ -177,8 +181,8 @@ void get_apply(const ActStep& wanted)
         edit::take_back();
         edit::choose_one(level_editor_adjust_state().last_.source);
         depth = edit::deepness();
-        xform::RepeatStep step = step_of(n);
-        for (int i = 0; i < n.count; ++i) {
+        xform::RepeatStep step = step_of(adjusted);
+        for (int i = 0; i < adjusted.count; ++i) {
             if (edit::get_duplicate(&step).empty()) {
                 break;
             }
@@ -190,10 +194,10 @@ void get_apply(const ActStep& wanted)
     case Kind::kJustify:
     case Kind::kDistribute: {
         edit::take_back();
-        const bool done = n.kind == Kind::kJustify
-                              ? arrange::justify(n.axis, static_cast<arrange::Edge>(n.edge),
-                                                 static_cast<arrange::Reference>(n.reference), n.local)
-                              : arrange::distribute(n.axis, n.gaps, n.local);
+        const bool done = adjusted.kind == Kind::kJustify
+                              ? arrange::justify(adjusted.axis, static_cast<arrange::Edge>(adjusted.edge),
+                                                 static_cast<arrange::Reference>(adjusted.reference), adjusted.local)
+                              : arrange::distribute(adjusted.axis, adjusted.gaps, adjusted.local);
         if (!done) {
             edit::get_begin();
             edit::get_end();
@@ -204,13 +208,13 @@ void get_apply(const ActStep& wanted)
         break;
     }
     level_editor_adjust_state().applying_ = false;
-    if (n.kind != Kind::kPlace && !pushed) {
+    if (adjusted.kind != Kind::kPlace && !pushed) {
         level_editor_adjust_state().last_.valid = false; // (nothing made: the step under it isn't this action's)
         hud::get_message("Adjust: invalid values");
         return;
     }
     (void)depth;
-    level_editor_adjust_state().last_.action = n;
+    level_editor_adjust_state().last_.action = adjusted;
     level_editor_adjust_state().last_.serial = edit::top_serial();
     level_editor_adjust_state().last_.after = edit::get_selection();
 }

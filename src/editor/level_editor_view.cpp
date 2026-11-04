@@ -157,15 +157,15 @@ int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, s
     }
     int count = 0;
     for (int i = 0; i < 3; ++i) {
-        const int j = (i + 1) % 3;
+        const int next = (i + 1) % 3;
         const bool in_i = core::at(depth, i) >= near_z;
-        const bool in_j = core::at(depth, j) >= near_z;
+        const bool in_j = core::at(depth, next) >= near_z;
         if (in_i) {
             core::at(out, count++) = core::at(in, i);
         }
         if (in_i != in_j) {
-            const float s = (near_z - core::at(depth, i)) / (core::at(depth, j) - core::at(depth, i));
-            core::at(out, count++) = core::at(in, i) + (core::at(in, j) - core::at(in, i)) * s;
+            const float scale = (near_z - core::at(depth, i)) / (core::at(depth, next) - core::at(depth, i));
+            core::at(out, count++) = core::at(in, i) + (core::at(in, next) - core::at(in, i)) * scale;
         }
     }
     return count >= 3 ? count : 0;
@@ -173,7 +173,9 @@ int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, s
 
 float distance_to_box(V3 point, V3 min, V3 max)
 {
-    auto axis = [](float p, float lo, float hi) { return p < lo ? lo - p : p > hi ? p - hi : 0.0F; };
+    auto axis = [](float value, float lo, float hi) {
+        return value < lo ? lo - value : value > hi ? value - hi : 0.0F;
+    };
     const float dx = axis(point.x, min.x, max.x);
     const float dy = axis(point.y, min.y, max.y);
     const float dz = axis(point.z, min.z, max.z);
@@ -341,49 +343,49 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     const bool collision_only = geom_of(sector) == nullptr;
-    Cached& c = cache_state()[checksum];
+    Cached& cached = cache_state()[checksum];
     const uint32_t generation = shared_collision::get_generation();
-    if (c.sector == sector && c.tri == tri && std::cmp_equal(c.faces, tri->tri_count()) &&
-        c.collision_only_ == collision_only && c.generation == generation && same(c.min, min) && same(c.max, max) &&
-        same(c.first, first) && same(c.last, last)) {
-        return &c;
+    if (cached.sector == sector && cached.tri == tri && std::cmp_equal(cached.faces, tri->tri_count()) &&
+        cached.collision_only_ == collision_only && cached.generation == generation && same(cached.min, min) &&
+        same(cached.max, max) && same(cached.first, first) && same(cached.last, last)) {
+        return &cached;
     }
-    c = Cached{};
-    c.generation = generation;
+    cached = Cached{};
+    cached.generation = generation;
     std::vector<int> taken = shared_collision::taken_faces(tri);
-    c.sector = sector;
-    c.tri = tri;
-    c.min = min;
-    c.max = max;
-    c.first = first;
-    c.last = last;
-    c.faces = tri->tri_count();
-    c.collision_only_ = collision_only;
+    cached.sector = sector;
+    cached.tri = tri;
+    cached.min = min;
+    cached.max = max;
+    cached.first = first;
+    cached.last = last;
+    cached.faces = tri->tri_count();
+    cached.collision_only_ = collision_only;
     if (!tri->faces() || !tri->vertices()) {
-        return &c;
+        return &cached;
     }
-    c.points.reserve(static_cast<size_t>(c.faces) * 3);
-    c.flags.reserve(c.faces);
-    for (int f = 0; f < c.faces; ++f) {
+    cached.points.reserve(static_cast<size_t>(cached.faces) * 3);
+    cached.flags.reserve(cached.faces);
+    for (int face_index = 0; face_index < cached.faces; ++face_index) {
         bool ok = true;
-        std::array<V3, 3> p{};
+        std::array<V3, 3> corners{};
         for (int k = 0; k < 3; ++k) {
-            const uint32_t index = tri->face_vertex(f, k);
+            const uint32_t index = tri->face_vertex(face_index, k);
             if (index >= tri->num_vertices()) {
                 ok = false;
                 break;
             }
-            core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
+            core::at(corners, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
         if (!ok) {
             continue;
         }
-        c.points.insert(c.points.end(), p.begin(), p.end());
-        c.flags.push_back(tri->face_flags(f));
-        c.taken.push_back(std::ranges::find(taken, f) != taken.end() ? 1 : 0);
-        c.index.push_back(f);
+        cached.points.insert(cached.points.end(), corners.begin(), corners.end());
+        cached.flags.push_back(tri->face_flags(face_index));
+        cached.taken.push_back(std::ranges::find(taken, face_index) != taken.end() ? 1 : 0);
+        cached.index.push_back(face_index);
     }
-    return &c;
+    return &cached;
 }
 
 uint32_t& stored_hover_wall()
@@ -537,8 +539,8 @@ void tick()
             hidden_sectors().concealed_records_.erase(hidden_sectors().concealed_records_.begin() + static_cast<long>(i));
             continue;
         }
-        for (int g = 0; std::cmp_less(g, rec.geoms.size()); ++g) {
-            void* geom = object_edit::get_geometry(object, g);
+        for (int geom_index = 0; std::cmp_less(geom_index, rec.geoms.size()); ++geom_index) {
+            void* geom = object_edit::get_geometry(object, geom_index);
             if (geom && geom_active(geom)) {
                 set_geom_active(geom, false);
             }
@@ -620,9 +622,9 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
     std::vector<Polygon> polygons;
     const V3 light = make_unit({.x = 0.35F, .y = 0.85F, .z = 0.4F});
     // A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
-    auto add_face = [&](std::span<const V3, 3> p, const FaceFacts& facts) {
+    auto add_face = [&](std::span<const V3, 3> corners, const FaceFacts& facts) {
         std::array<V3, 4> clipped{};
-        const int count = clip_triangle_to_near(camera_pos, frame, near_z, p, clipped);
+        const int count = clip_triangle_to_near(camera_pos, frame, near_z, corners, clipped);
         if (!count) {
             return false;
         }
@@ -653,18 +655,24 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         const FaceStyle style = style_of(facts);
         const uint32_t argb = style.fill;
         // (shaded by the face's facing: the shape reads through the colour)
-        const V3 normal = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
+        const V3 normal =
+            perpendicular(core::at(corners, 1) - core::at(corners, 0), core::at(corners, 2) - core::at(corners, 0));
         const float length = std::sqrt(get_dot(normal, normal));
         const float shade = length > 0.0F ? 0.55F + (0.45F * std::fabs(get_dot(normal, light)) / length) : 1.0F;
-        auto r = static_cast<uint32_t>(static_cast<float>((argb >> kRedShift) & kChannelMask) * shade);
-        auto g = static_cast<uint32_t>(static_cast<float>((argb >> kGreenShift) & kChannelMask) * shade);
-        auto b = static_cast<uint32_t>(static_cast<float>(argb & kChannelMask) * shade);
-        poly.argb = (argb & kAlphaMask) | (r << kRedShift) | (g << kGreenShift) | b;
+        auto red_value = static_cast<uint32_t>(static_cast<float>((argb >> kRedShift) & kChannelMask) * shade);
+        auto green_value = static_cast<uint32_t>(static_cast<float>((argb >> kGreenShift) & kChannelMask) * shade);
+        auto blue_value = static_cast<uint32_t>(static_cast<float>(argb & kChannelMask) * shade);
+        poly.argb = (argb & kAlphaMask) | (red_value << kRedShift) | (green_value << kGreenShift) | blue_value;
         polygons.push_back(poly);
         if (style.edge && lines) {
             for (int k = 0; k < count; ++k) {
-                const int n = (k + 1) % count;
-                const ui::Seg line = {.ax = core::at(poly.x, k), .ay = core::at(poly.y, k), .bx = core::at(poly.x, n), .by = core::at(poly.y, n), .argb = style.edge, .thickness = style.thickness};
+                const int current_count = (k + 1) % count;
+                const ui::Seg line = {.ax = core::at(poly.x, k),
+                                      .ay = core::at(poly.y, k),
+                                      .bx = core::at(poly.x, current_count),
+                                      .by = core::at(poly.y, current_count),
+                                      .argb = style.edge,
+                                      .thickness = style.thickness};
                 if (style.dashed) {
                     add_dashed(lines, line, kDashLength, kDashGap);
                 } else {
@@ -676,8 +684,8 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
     };
     // (the level's triggers: their kinds by sector)
     std::unordered_map<uint32_t, uint32_t> trigger_colours;
-    for (const triggers::LevelTrigger& t : triggers::level_triggers()) {
-        trigger_colours[t.sector] = triggers::kind_colour(t.kind);
+    for (const triggers::LevelTrigger& level_trigger : triggers::level_triggers()) {
+        trigger_colours[level_trigger.sector] = triggers::kind_colour(level_trigger.kind);
     }
     for (const Candidate& candidate : walk.found) {
         if (static_cast<int>(polygons.size()) >= kMaxTriangles) {
@@ -693,17 +701,23 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         auto trigger = trigger_colours.find(candidate.checksum);
         facts.trigger_colour_ = trigger == trigger_colours.end() ? 0 : trigger->second;
         bool any = false;
-        for (size_t f = 0; f < cached->flags.size() && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
-            const auto p = std::span<const V3>(cached->points).subspan(f * 3).first<3>();
-            facts.flags = core::at(cached->flags, f);
-            facts.taken = core::at(cached->taken, f) != 0;
-            if (!add_face(p, facts)) {
+        for (size_t face_index = 0;
+             face_index < cached->flags.size() && static_cast<int>(polygons.size()) < kMaxTriangles; ++face_index) {
+            const auto corners = std::span<const V3>(cached->points).subspan(face_index * 3).first<3>();
+            facts.flags = core::at(cached->flags, face_index);
+            facts.taken = core::at(cached->taken, face_index) != 0;
+            if (!add_face(corners, facts)) {
                 continue;
             }
             // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
             // nor is a face taken along - its piece's companion is where it is now)
             if ((cached->collision_only_ || !candidate.off) && !facts.taken) {
-                view_stats().drawn_.push_back({.checksum = candidate.checksum, .wall = cached->collision_only_, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = core::at(cached->index, f)});
+                view_stats().drawn_.push_back({.checksum = candidate.checksum,
+                                               .wall = cached->collision_only_,
+                                               .a = core::at(corners, 0),
+                                               .b = core::at(corners, 1),
+                                               .c = core::at(corners, 2),
+                                               .face = core::at(cached->index, face_index)});
             }
             any = true;
             view_stats().stats_.taken += facts.taken ? 1 : 0;
@@ -734,23 +748,30 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
     for (const auto& entry : companions.near) {
         const render::TriMeshSource& tri = entry.second->get_geometry();
         bool any = false;
-        for (int f = 0;
-             std::cmp_less(f, tri.tri_count()) && tri.faces() && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
-            std::array<V3, 3> p{};
+        for (int face_index = 0; std::cmp_less(face_index, tri.tri_count()) && tri.faces() &&
+                                 static_cast<int>(polygons.size()) < kMaxTriangles;
+             ++face_index) {
+            std::array<V3, 3> corners{};
             bool ok = true;
             for (int k = 0; k < 3 && ok; ++k) {
-                const uint32_t index = tri.face_vertex(f, k);
+                const uint32_t index = tri.face_vertex(face_index, k);
                 ok = index < tri.num_vertices();
                 if (ok) {
-                    core::at(p, k) = entry.second->get_vertex(static_cast<int>(index));
+                    core::at(corners, k) = entry.second->get_vertex(static_cast<int>(index));
                 }
             }
             FaceFacts facts;
-            facts.flags = tri.face_flags(f);
+            facts.flags = tri.face_flags(face_index);
             facts.companion = true;
-            const bool drawn = ok && add_face(p, facts);
+            const bool drawn = ok && add_face(corners, facts);
             if (drawn) {
-                view_stats().drawn_.push_back({.checksum = entry.first, .wall = false, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = f, .companion = true});
+                view_stats().drawn_.push_back({.checksum = entry.first,
+                                               .wall = false,
+                                               .a = core::at(corners, 0),
+                                               .b = core::at(corners, 1),
+                                               .c = core::at(corners, 2),
+                                               .face = face_index,
+                                               .companion = true});
             }
             any = drawn || any;
         }
@@ -759,10 +780,22 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
     // Far to near: the nearer faces painted over the farther.
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     triangles->reserve(triangles->size() + (polygons.size() * 2));
-    for (const Polygon& p : polygons) {
-        triangles->push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 1), .by = core::at(p.y, 1), .cx = core::at(p.x, 2), .cy = core::at(p.y, 2), .argb = p.argb});
-        if (p.count == 4) {
-            triangles->push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 2), .by = core::at(p.y, 2), .cx = core::at(p.x, 3), .cy = core::at(p.y, 3), .argb = p.argb});
+    for (const Polygon& polygon : polygons) {
+        triangles->push_back({.ax = core::at(polygon.x, 0),
+                              .ay = core::at(polygon.y, 0),
+                              .bx = core::at(polygon.x, 1),
+                              .by = core::at(polygon.y, 1),
+                              .cx = core::at(polygon.x, 2),
+                              .cy = core::at(polygon.y, 2),
+                              .argb = polygon.argb});
+        if (polygon.count == 4) {
+            triangles->push_back({.ax = core::at(polygon.x, 0),
+                                  .ay = core::at(polygon.y, 0),
+                                  .bx = core::at(polygon.x, 2),
+                                  .by = core::at(polygon.y, 2),
+                                  .cx = core::at(polygon.x, 3),
+                                  .cy = core::at(polygon.y, 3),
+                                  .argb = polygon.argb});
         }
     }
     view_stats().stats_.triangles = static_cast<int>(polygons.size());
@@ -774,14 +807,15 @@ uint32_t pick_wall(V3 origin, V3 unit_dir)
 {
     float best = kFarthest;
     const Drawn* nearest = nullptr;
-    for (const Drawn& d : view_stats().drawn_) {
-        float t = 0.0F;
-        if (d.companion) {
+    for (const Drawn& drawn : view_stats().drawn_) {
+        float fraction = 0.0F;
+        if (drawn.companion) {
             continue; // (as before the face flags: a wall's faces only compete with sectors' faces)
         }
-        if (picking::ray_triangle({.origin = origin, .dir = unit_dir}, d.a, d.b, d.c, &t) && t < best) {
-            best = t;
-            nearest = &d;
+        if (picking::ray_triangle({.origin = origin, .dir = unit_dir}, drawn.a, drawn.b, drawn.c, &fraction) &&
+            fraction < best) {
+            best = fraction;
+            nearest = &drawn;
         }
     }
     return nearest && nearest->wall ? nearest->checksum : 0;
@@ -791,11 +825,13 @@ bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
 {
     float best = kFarthest;
     const Drawn* nearest = nullptr;
-    for (const Drawn& d : view_stats().drawn_) {
-        float t = 0.0F;
-        if (d.face >= 0 && picking::ray_triangle({.origin = origin, .dir = unit_dir}, d.a, d.b, d.c, &t) && t < best) {
-            best = t;
-            nearest = &d;
+    for (const Drawn& drawn : view_stats().drawn_) {
+        float fraction = 0.0F;
+        if (drawn.face >= 0 &&
+            picking::ray_triangle({.origin = origin, .dir = unit_dir}, drawn.a, drawn.b, drawn.c, &fraction) &&
+            fraction < best) {
+            best = fraction;
+            nearest = &drawn;
         }
     }
     if (!nearest) {
@@ -825,9 +861,9 @@ std::string describe_wall(uint32_t checksum)
     }
     // The faces' flags: each distinct value and how many faces have it.
     std::vector<std::pair<render::FaceFlag, int>> counts;
-    for (int f = 0; std::cmp_less(f, tri->tri_count()) && tri->faces(); ++f) {
-        render::FaceFlag flags = tri->face_flags(f);
-        auto it = std::ranges::find_if(counts, [&](const auto& c) { return c.first == flags; });
+    for (int face_index = 0; std::cmp_less(face_index, tri->tri_count()) && tri->faces(); ++face_index) {
+        render::FaceFlag flags = tri->face_flags(face_index);
+        auto it = std::ranges::find_if(counts, [&](const auto& entry) { return entry.first == flags; });
         if (it == counts.end()) {
             counts.emplace_back(flags, 1);
         } else {
@@ -855,12 +891,15 @@ std::string describe_wall(uint32_t checksum)
 
 bool hidden_sector(uint32_t checksum)
 {
-    return std::ranges::any_of(hidden_sectors().hidden_sectors_, [&](const HiddenSectorRec& r) { return r.checksum == checksum; });
+    return std::ranges::any_of(hidden_sectors().hidden_sectors_, [&](const HiddenSectorRec& hidden_sector_rec) {
+        return hidden_sector_rec.checksum == checksum;
+    });
 }
 
 bool hidden_object(uint32_t id)
 {
-    return std::ranges::any_of(hidden_sectors().concealed_records_, [&](const HiddenObjectRec& r) { return r.id == id; });
+    return std::ranges::any_of(hidden_sectors().concealed_records_,
+                               [&](const HiddenObjectRec& hidden_object_rec) { return hidden_object_rec.id == id; });
 }
 
 int conceal(const std::vector<uint32_t>& sectors, std::span<const uint32_t> objects)
@@ -916,10 +955,10 @@ void show_all()
     }
     for (const HiddenObjectRec& rec : hidden_sectors().concealed_records_) {
         objects::GameEntity* object = live_object(rec.id);
-        for (int g = 0; object && std::cmp_less(g, rec.geoms.size()); ++g) {
-            void* geom = object_edit::get_geometry(object, g);
-            if (geom && geom == core::at(rec.geoms, g).first) {
-                set_geom_active(geom, core::at(rec.geoms, g).second);
+        for (int geom_index = 0; object && std::cmp_less(geom_index, rec.geoms.size()); ++geom_index) {
+            void* geom = object_edit::get_geometry(object, geom_index);
+            if (geom && geom == core::at(rec.geoms, geom_index).first) {
+                set_geom_active(geom, core::at(rec.geoms, geom_index).second);
             }
         }
     }
@@ -946,10 +985,10 @@ int get_show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& 
             continue;
         }
         objects::GameEntity* object = live_object(it->id);
-        for (int g = 0; object && std::cmp_less(g, it->geoms.size()); ++g) {
-            void* geom = object_edit::get_geometry(object, g);
-            if (geom && geom == core::at(it->geoms, g).first) {
-                set_geom_active(geom, core::at(it->geoms, g).second);
+        for (int geom_index = 0; object && std::cmp_less(geom_index, it->geoms.size()); ++geom_index) {
+            void* geom = object_edit::get_geometry(object, geom_index);
+            if (geom && geom == core::at(it->geoms, geom_index).first) {
+                set_geom_active(geom, core::at(it->geoms, geom_index).second);
             }
         }
         it = hidden_sectors().concealed_records_.erase(it);

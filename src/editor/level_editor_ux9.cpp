@@ -95,7 +95,12 @@ GoalForm& goal_form()
     return state.get();
 }
 
-V3 get_snapped(V3 p) { return {.x = ground::snap_to(p.x, goal_form().grid_), .y = p.y, .z = ground::snap_to(p.z, goal_form().grid_)}; }
+V3 get_snapped(V3 point)
+{
+    return {.x = ground::snap_to(point.x, goal_form().grid_),
+            .y = point.y,
+            .z = ground::snap_to(point.z, goal_form().grid_)};
+}
 
 // The collision ray: the point and the piece hit (0: none / a movable).
 bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
@@ -107,19 +112,19 @@ bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
     if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
-    const auto& p = ray->hit().point;
-    *hit = {.x = p[0], .y = p[1], .z = p[2]};
+    const auto& hit_point = ray->hit().point;
+    *hit = {.x = hit_point[0], .y = hit_point[1], .z = hit_point[2]};
     *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
 
 // The ground's height under a point (cast down from 300 above; `fallback` when nothing).
-float get_ground_at(V3 p, float fallback)
+float get_ground_at(V3 point, float fallback)
 {
     V3 hit{};
     uint32_t sector = 0;
-    if (get_cast(p + V3{.x = 0.0F, .y = kProbeHeightAbove, .z = 0.0F},
-                 p - V3{.x = 0.0F, .y = kProbeDepthBelow, .z = 0.0F}, &hit, &sector) &&
+    if (get_cast(point + V3{.x = 0.0F, .y = kProbeHeightAbove, .z = 0.0F},
+                 point - V3{.x = 0.0F, .y = kProbeDepthBelow, .z = 0.0F}, &hit, &sector) &&
         !ground::is_piece(sector)) {
         return hit.y;
     }
@@ -187,39 +192,44 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         }
         return;
     }
-    ground::Spec& d = goal_form().draft_;
-    int mode = d.lower ? 1 : 0;
+    ground::Spec& current_spec = goal_form().draft_;
+    int mode = current_spec.lower ? 1 : 0;
     ImGui::RadioButton("Raise", &mode, 0);
     ImGui::SameLine();
     ImGui::RadioButton("Lower", &mode, 1);
-    d.lower = mode == 1;
-    ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0F, ground::kMinHeight, ground::kCeilingY, "%.0f");
-    std::array<float, 4> rect = {{d.x0, d.z0, d.x1, d.z1}};
+    current_spec.lower = mode == 1;
+    ImGui::DragFloat(current_spec.lower ? "Depth" : "Height", &current_spec.height, 1.0F, ground::kMinHeight,
+                     ground::kCeilingY, "%.0f");
+    std::array<float, 4> rect = {{current_spec.x0, current_spec.z0, current_spec.x1, current_spec.z1}};
     if (ImGui::DragFloat4("x0 z0 x1 z1", rect.data(), 1.0F, 0.0F, 0.0F, "%.0f")) {
-        d.x0 = core::at(rect, 0), d.z0 = core::at(rect, 1), d.x1 = core::at(rect, 2), d.z1 = core::at(rect, 3);
+        current_spec.x0 = core::at(rect, 0), current_spec.z0 = core::at(rect, 1), current_spec.x1 = core::at(rect, 2),
+        current_spec.z1 = core::at(rect, 3);
     }
-    ImGui::DragFloat("Ground at", &d.base, 1.0F, 0.0F, 0.0F, "%.1f");
+    ImGui::DragFloat("Ground at", &current_spec.base, 1.0F, 0.0F, 0.0F, "%.1f");
     static const std::array<const char*, 4> kSideNames = {{"-X side", "+X side", "-Z side", "+Z side"}};
     for (int side = 0; side < 4; ++side) {
         ImGui::PushID(side);
-        if (ImGui::BeginCombo(core::at(kSideNames, side), ramp_name(core::at(d.ramps, side)))) {
-            for (int r = 0; r < 3; ++r) {
-                auto ramp = static_cast<ground::Ramp>(r);
-                if (ImGui::Selectable(ramp_name(ramp), core::at(d.ramps, side) == ramp)) {
-                    core::at(d.ramps, side) = ramp;
+        if (ImGui::BeginCombo(core::at(kSideNames, side), ramp_name(core::at(current_spec.ramps, side)))) {
+            for (int row = 0; row < 3; ++row) {
+                auto ramp = static_cast<ground::Ramp>(row);
+                if (ImGui::Selectable(ramp_name(ramp), core::at(current_spec.ramps, side) == ramp)) {
+                    core::at(current_spec.ramps, side) = ramp;
                 }
             }
             ImGui::EndCombo();
         }
         ImGui::PopID();
     }
-    ImGui::DragFloat("Ramp length", &d.length, 1.0F, 0.0F, ground::kMaxLength, d.length > 0.0F ? "%.0f" : "auto");
+    ImGui::DragFloat("Ramp length", &current_spec.length, 1.0F, 0.0F, ground::kMaxLength,
+                     current_spec.length > 0.0F ? "%.0f" : "auto");
     if (ImGui::IsItemHovered()) {
         gui::tooltip("0: automatic");
     }
     ImGui::DragFloat("Grid", &goal_form().grid_, 1.0F, 0.0F, kGridSpacingMax,
                      goal_form().grid_ > 0.0F ? "%.0f" : "off");
-    gui::text_disabled("Material: %s", (d.material != 0U) ? object_edit::caption(d.material).c_str() : "(automatic)");
+    gui::text_disabled("Material: %s", (current_spec.material != 0U)
+                                           ? object_edit::caption(current_spec.material).c_str()
+                                           : "(automatic)");
     if (ImGui::Button("Use Selected Material")) {
         goal_form().queue_.emplace_back([] {
             const std::vector<uint32_t>& selection = scenery::get_selection();
@@ -235,7 +245,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
             }
         });
     }
-    if (d.lower) {
+    if (current_spec.lower) {
         gui::text_disabled("Pits need floor pieces inside the rectangle");
     }
     if (!goal_form().form_message_.empty()) {
@@ -265,12 +275,12 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     }
     // (the pieces of this level)
     if (!ground::get_all().empty() && ImGui::CollapsingHeader("Pieces in this level")) {
-        for (const ground::Spec& s : ground::get_all()) {
+        for (const ground::Spec& spec : ground::get_all()) {
             std::array<char, kPieceRowSize> row{};
-            text::format_to(row, "%s  %s %.0f x %.0f, %.0f", s.name.c_str(), s.lower ? "pit" : "platform", s.x1 - s.x0,
-                            s.z1 - s.z0, s.height);
-            if (ImGui::Selectable(row.data(), goal_form().editing_ && s.name == d.name)) {
-                const std::string name = s.name;
+            text::format_to(row, "%s  %s %.0f x %.0f, %.0f", spec.name.c_str(), spec.lower ? "pit" : "platform",
+                            spec.x1 - spec.x0, spec.z1 - spec.z0, spec.height);
+            if (ImGui::Selectable(row.data(), goal_form().editing_ && spec.name == current_spec.name)) {
+                const std::string name = spec.name;
                 goal_form().queue_.emplace_back([name] {
                     if (const ground::Spec* found = ground::get_find(name)) {
                         open_form(*found, true);
@@ -316,10 +326,10 @@ bool ground_click(V3 origin, V3 unit_dir)
         return true;
     }
     if (goal_form().stage_ == Stage::kFirst && ground::is_piece(sector)) {
-        for (const ground::Spec& s : ground::get_all()) {
-            if (hit.x >= s.x0 - kSectorHitMargin && hit.x <= s.x1 + kSectorHitMargin && hit.z >= s.z0 - kSectorHitMargin &&
-                hit.z <= s.z1 + kSectorHitMargin) {
-                open_form(s, true);
+        for (const ground::Spec& spec : ground::get_all()) {
+            if (hit.x >= spec.x0 - kSectorHitMargin && hit.x <= spec.x1 + kSectorHitMargin &&
+                hit.z >= spec.z0 - kSectorHitMargin && hit.z <= spec.z1 + kSectorHitMargin) {
+                open_form(spec, true);
                 return true;
             }
         }
@@ -359,14 +369,14 @@ void prepare_all()
     }
     done = true;
     auto make = [](const char* id, const char* name, const char* category, int scancode, const char* tip) {
-        actions::ActStep a;
-        a.id = id;
-        a.name = name;
-        a.category = category;
-        a.tip = tip;
-        a.kind = actions::Kind::kPress;
-        a.defaults = a.keys = {actions::Chord{.scancode = scancode, .mods = actions::kAlt}};
-        return actions::enrol(a);
+        actions::ActStep act_step;
+        act_step.id = id;
+        act_step.name = name;
+        act_step.category = category;
+        act_step.tip = tip;
+        act_step.kind = actions::Kind::kPress;
+        act_step.defaults = act_step.keys = {actions::Chord{.scancode = scancode, .mods = actions::kAlt}};
+        return actions::enrol(act_step);
     };
     level_editor_ux9_state().gap_action_ =
         make("gap_wizard", "Gap Wizard", "Triggers", SDL_SCANCODE_J, "Create a gap from a start and end point");
@@ -374,12 +384,12 @@ void prepare_all()
     actions::set_checked(level_editor_ux9_state().skate_action_, [] { return skate_view::get_shown() ? 1 : 0; });
     level_editor_ux9_state().ground_action_ =
         make("ground_tool", "Ground Tool", "Edit", SDL_SCANCODE_U, "Raise or lower a rectangle of ground");
-    layout::Extension e;
-    e.keywords = {"ground"};
-    e.capture = [] { return ground::capture_records(); };
-    e.apply = [](const std::vector<std::string>& lines) { ground::apply_records(lines); };
-    e.reset = [] { ground::reset_all(); };
-    layout::add_extension(e);
+    layout::Extension extension;
+    extension.keywords = {"ground"};
+    extension.capture = [] { return ground::capture_records(); };
+    extension.apply = [](const std::vector<std::string>& lines) { ground::apply_records(lines); };
+    extension.reset = [] { ground::reset_all(); };
+    layout::add_extension(extension);
 }
 
 void kickoff()
@@ -474,15 +484,19 @@ void add_overlay(const overlays::Painter& painter)
     constexpr uint32_t kRect = 0xFFFFE070;
     constexpr uint32_t kPreview = 0xE0FFE070;
     if (goal_form().stage_ == Stage::kSecond) {
-        const V3 b = goal_form().have_hover_ ? goal_form().hover_ : goal_form().first_;
+        const V3 point_b = goal_form().have_hover_ ? goal_form().hover_ : goal_form().first_;
         const float y = goal_form().first_.y + 2.0F;
-        const std::array<V3, 4> c = {{{.x = goal_form().first_.x, .y = y, .z = goal_form().first_.z}, {.x = b.x, .y = y, .z = goal_form().first_.z}, {.x = b.x, .y = y, .z = b.z}, {.x = goal_form().first_.x, .y = y, .z = b.z}}};
+        const std::array<V3, 4> corners = {{{.x = goal_form().first_.x, .y = y, .z = goal_form().first_.z},
+                                            {.x = point_b.x, .y = y, .z = goal_form().first_.z},
+                                            {.x = point_b.x, .y = y, .z = point_b.z},
+                                            {.x = goal_form().first_.x, .y = y, .z = point_b.z}}};
         for (int i = 0; i < 4; ++i) {
-            (void)painter.get_seg(core::at(c, i), core::at(c, (i + 1) % 4), kRect, kOutlineThickness);
+            (void)painter.get_seg(core::at(corners, i), core::at(corners, (i + 1) % 4), kRect, kOutlineThickness);
         }
         std::array<char, kSizeLabelSize> text{};
-        text::format_to(text, "%.0f x %.0f", std::fabs(b.x - goal_form().first_.x), std::fabs(b.z - goal_form().first_.z));
-        painter.draw_label(b, kRect, text.data());
+        text::format_to(text, "%.0f x %.0f", std::fabs(point_b.x - goal_form().first_.x),
+                        std::fabs(point_b.z - goal_form().first_.z));
+        painter.draw_label(point_b, kRect, text.data());
     } else if (goal_form().stage_ == Stage::kFirst && goal_form().have_hover_) {
         painter.perpendicular(goal_form().hover_, kHoverGuideLength, kRect, kOutlineThickness);
     }

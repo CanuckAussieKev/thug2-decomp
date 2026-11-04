@@ -33,9 +33,9 @@ void spawn_section(int node_index, std::vector<Request>* requests)
     static const uint32_t kHorse = fields::hash_of_name("Horse");
     // (the restart_types as the node has them now, in order)
     std::vector<uint32_t> types;
-    if (script::Struct* s = nodes::struct_of(node)) {
+    if (script::Struct* structure = nodes::struct_of(node)) {
         script::Array* list = nullptr;
-        if (s->fetch_list(fields::key_restart_types(), &list, 0) && list) {
+        if (structure->fetch_list(fields::key_restart_types(), &list, 0) && list) {
             for (uint32_t i = 0; i < list->extent(); ++i) {
                 types.push_back(list->fetch_part(i));
             }

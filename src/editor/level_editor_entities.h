@@ -224,7 +224,7 @@ float speed_set(uint32_t id);                           // its path speed set (0
 float default_mph(uint32_t id);                         // the preview's speed
 void change_speed(uint32_t id, float mph);              // (0: none)
 EmitterSound emitter_now(uint32_t name);
-void change_emitter(const EmitterSound& e);
+void change_emitter(const EmitterSound& emitter_sound);
 float emitter_radius(uint32_t name, bool* sphere);
 std::vector<std::pair<uint32_t, std::string>> get_sounds(); // the level's loaded sounds: checksum, label
 void set_ui_active(bool active); // a field of the section is being dragged (the undo step waits)

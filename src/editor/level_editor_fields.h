@@ -148,7 +148,7 @@ struct Own {
     int index = -1;
 };
 // The structure's last component moved to after `index` of the others (the list relinked; nothing allocated).
-void move_last_to(script::Struct* s, int index);
+void move_last_to(script::Struct* structure, int index);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
@@ -186,8 +186,8 @@ bool node_edited(uint32_t name);
 // The fields of node `name` the editor has touched (changed at some time this level).
 std::vector<uint32_t> touched_keys(uint32_t name);
 // Any structure's own field (the level structure's too - level_editor_level_props.h): read, and made `own`.
-Own own_in(script::Struct* s, uint32_t key, bool flag);
-void put_in(script::Struct* s, uint32_t key, bool flag, const Own& own);
+Own own_in(script::Struct* structure, uint32_t key, bool flag);
+void put_in(script::Struct* structure, uint32_t key, bool flag, const Own& own);
 // What the editor changed (layouts save them): per node, its field edits as they are now (those back as the level has
 // them left out).
 struct NodeEdits {

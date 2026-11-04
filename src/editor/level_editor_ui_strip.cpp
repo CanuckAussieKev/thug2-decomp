@@ -58,15 +58,15 @@ constexpr ImVec4 kMessageTextColour{1.0F, 0.86F, 0.5F, 1.0F};
 
 Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overflow_width, float overflow_gap)
 {
-    const size_t n = slots.size();
+    const size_t count = slots.size();
     Plan plan;
-    plan.shown.assign(n, true);
-    plan.x.assign(n, 0.0F);
+    plan.shown.assign(count, true);
+    plan.x.assign(count, 0.0F);
     auto needed = [&](bool overflow) {
         float total = 0.0F;
         bool first_left = true;
         bool first_right = true;
-        for (size_t i = 0; i < n; ++i) {
+        for (size_t i = 0; i < count; ++i) {
             if (!core::at(plan.shown, i)) {
                 continue;
             }
@@ -76,7 +76,7 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
         }
         // (the two groups apart by the right-hand group's first gap)
         if (!first_left && !first_right) {
-            for (size_t i = 0; i < n; ++i) {
+            for (size_t i = 0; i < count; ++i) {
                 if (core::at(plan.shown, i) && core::at(slots, i).right) {
                     total += core::at(slots, i).gap;
                     break;
@@ -92,7 +92,7 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     bool hidden = false;
     while (needed(hidden) > room) {
         int drop = -1;
-        for (size_t i = 0; i < n; ++i) {
+        for (size_t i = 0; i < count; ++i) {
             if (core::at(plan.shown, i) &&
                 (drop < 0 || core::at(slots, i).priority <= core::at(slots, drop).priority)) {
                 drop = static_cast<int>(i);
@@ -108,7 +108,7 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     // Left-hand slots from the left.
     float x = left;
     bool first = true;
-    for (size_t i = 0; i < n; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         if (!core::at(plan.shown, i) || core::at(slots, i).right) {
             continue;
         }
@@ -127,7 +127,7 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     float end = hidden ? plan.overflow_x_ - overflow_gap : right;
     float next_gap = 0.0F;
     bool any = false;
-    for (size_t k = n; k-- > 0;) {
+    for (size_t k = count; k-- > 0;) {
         if (!core::at(plan.shown, k) || !core::at(slots, k).right) {
             continue;
         }
@@ -195,9 +195,9 @@ void get_note(const char* what)
     if (!stored_boxes()) {
         return;
     }
-    const ImVec2 a = ImGui::GetItemRectMin();
-    const ImVec2 b = ImGui::GetItemRectMax();
-    note_rect(a.x, a.y, b.x, b.y, what);
+    const ImVec2 point_a = ImGui::GetItemRectMin();
+    const ImVec2 point_b = ImGui::GetItemRectMax();
+    note_rect(point_a.x, point_a.y, point_b.x, point_b.y, what);
 }
 
 // --- the tool strip --------------------------------------------------------------------------------------------------
@@ -244,7 +244,7 @@ void get_tip(const char* what, const std::string& keys = std::string())
     }
 }
 
-std::string get_key_of(const State& s, const char* id) { return s.key_of_ ? s.key_of_(id) : std::string(); }
+std::string get_key_of(const State& state, const char* id) { return state.key_of_ ? state.key_of_(id) : std::string(); }
 
 std::string grid_text(float grid)
 {
@@ -271,9 +271,9 @@ const char* pick_text(uint32_t bits)
     }
 }
 
-std::string problems_text(const State& s)
+std::string problems_text(const State& state)
 {
-    const int count = s.errors + s.warnings;
+    const int count = state.errors + state.warnings;
     std::array<char, kProblemsTextSize> text{};
     if (count > 0) {
         text::format_to(text, "Problems %d###stripproblems", count);
@@ -283,19 +283,19 @@ std::string problems_text(const State& s)
     return text.data();
 }
 
-std::string get_level_text(const State& s, float scale)
+std::string get_level_text(const State& state, float scale)
 {
-    std::string text = s.level.empty() ? std::string("No level") : s.level + " (Edited)";
-    if (s.unsaved) {
+    std::string text = state.level.empty() ? std::string("No level") : state.level + " (Edited)";
+    if (state.unsaved) {
         text += " *";
     }
     return elide(text, kLevelTextMaxWidth * scale);
 }
 
-std::string show_all_text(const State& s)
+std::string show_all_text(const State& state)
 {
     std::array<char, kShowAllTextSize> text{};
-    text::format_to(text, "Show All (%d)###stripshowall", s.hidden);
+    text::format_to(text, "Show All (%d)###stripshowall", state.hidden);
     return text.data();
 }
 
@@ -317,7 +317,7 @@ struct Item {
     Bay slot;
 };
 
-std::vector<Item> get_items(const State& s, float scale)
+std::vector<Item> get_items(const State& state, float scale)
 {
     const float inner = 2.0F * scale;
     const float group = 10.0F * scale;
@@ -328,34 +328,36 @@ std::vector<Item> get_items(const State& s, float scale)
     add(kMode, button_width("Fly") + inner + button_width("Select"), false, kModePriority);
     add(kTools, button_width("Move") + inner + button_width("Rotate") + inner + button_width("Scale"), false, kToolsPriority);
     add(kSpace, std::max(button_width("World"), button_width("Local")), false, kSpacePriority);
-    add(kSnapGrid, button_width("Snap") + inner + button_width(grid_text(s.grid).c_str()), false, kSnapGridPriority);
-    add(kPickItem, button_width((std::string(pick_text(s.pick_filter_)) + kDown.data()).c_str()), false, kPickPriority);
-    if (s.hidden > 0) {
-        add(kShowAllItem, button_width(show_all_text(s).c_str()), false, kShowAllPriority);
+    add(kSnapGrid, button_width("Snap") + inner + button_width(grid_text(state.grid).c_str()), false,
+        kSnapGridPriority);
+    add(kPickItem, button_width((std::string(pick_text(state.pick_filter_)) + kDown.data()).c_str()), false,
+        kPickPriority);
+    if (state.hidden > 0) {
+        add(kShowAllItem, button_width(show_all_text(state).c_str()), false, kShowAllPriority);
     }
-    if (s.simulating) {
+    if (state.simulating) {
         add(kStopItem, button_width("Stop Simulation"), false, kStopPriority);
     }
-    add(kLevel, ImGui::CalcTextSize(get_level_text(s, scale).c_str()).x, true, kLevelPriority);
-    if (s.budget) {
+    add(kLevel, ImGui::CalcTextSize(get_level_text(state, scale).c_str()).x, true, kLevelPriority);
+    if (state.budget) {
         add(kBudgetItem, kBudgetBarWidth * scale, true, kBudgetPriority);
     }
-    add(kProblemsItem, button_width(problems_text(s).c_str()), true, kProblemsPriority);
+    add(kProblemsItem, button_width(problems_text(state).c_str()), true, kProblemsPriority);
     return items;
 }
 
-void draw_item(ItemId id, const State& s, float scale, Output* out)
+void draw_item(ItemId id, const State& state, float scale, Output* out)
 {
     const float inner = 2.0F * scale;
     switch (id) {
     case kMode:
-        if (flip_over("Fly", !s.selection)) {
+        if (flip_over("Fly", !state.selection)) {
             out->events.push_back({.kind = Occurrence::Kind::kDeselect});
         }
-        get_tip("Fly the camera; nothing selected", get_key_of(s, "deselect"));
+        get_tip("Fly the camera; nothing selected", get_key_of(state, "deselect"));
         get_note("Fly");
         ImGui::SameLine(0.0F, inner);
-        flip_over("Select", s.selection);
+        flip_over("Select", state.selection);
         get_tip("Click an object, piece or gizmo to select it");
         get_note("Select");
         break;
@@ -363,46 +365,46 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         static const std::array<const char*, 3> kLabels = {{"Move", "Rotate", "Scale"}};
         static const std::array<const char*, 3> kIds = {{"tool_move", "tool_rotate", "tool_scale"}};
         static const std::array<const char*, 3> kTips = {{"Move tool", "Rotate tool", "Scale tool"}};
-        for (int t = 0; t < 3; ++t) {
-            if (t != 0) {
+        for (int slot = 0; slot < 3; ++slot) {
+            if (slot != 0) {
                 ImGui::SameLine(0.0F, inner);
             }
-            if (flip_over(core::at(kLabels, t), s.tool == t)) {
-                out->events.push_back({.kind = Occurrence::Kind::kTool, .value = static_cast<float>(t)});
+            if (flip_over(core::at(kLabels, slot), state.tool == slot)) {
+                out->events.push_back({.kind = Occurrence::Kind::kTool, .value = static_cast<float>(slot)});
             }
-            get_tip(core::at(kTips, t), get_key_of(s, core::at(kIds, t)));
-            get_note(core::at(kLabels, t));
+            get_tip(core::at(kTips, slot), get_key_of(state, core::at(kIds, slot)));
+            get_note(core::at(kLabels, slot));
         }
         break;
     }
     case kSpace: {
         // (as wide as the wider label, so it doesn't move when switched)
         const float width = std::max(button_width("World"), button_width("Local"));
-        if (ImGui::Button(s.local ? "Local###stripspace" : "World###stripspace", ImVec2(width, 0.0F))) {
+        if (ImGui::Button(state.local ? "Local###stripspace" : "World###stripspace", ImVec2(width, 0.0F))) {
             out->events.push_back({.kind = Occurrence::Kind::kSpace});
         }
-        get_tip(s.local ? "Gizmo axes: local" : "Gizmo axes: world", get_key_of(s, "tool_space"));
+        get_tip(state.local ? "Gizmo axes: local" : "Gizmo axes: world", get_key_of(state, "tool_space"));
         get_note("Space");
         break;
     }
     case kSnapGrid: {
-        if (flip_over("Snap", s.snap)) {
-            out->events.push_back({.kind = Occurrence::Kind::kSnap, .value = s.snap ? 0.0F : 1.0F});
+        if (flip_over("Snap", state.snap)) {
+            out->events.push_back({.kind = Occurrence::Kind::kSnap, .value = state.snap ? 0.0F : 1.0F});
         }
         get_tip("Snap while moving");
         get_note("Snap");
         ImGui::SameLine(0.0F, inner);
-        const std::string grid = grid_text(s.grid);
+        const std::string grid = grid_text(state.grid);
         if (ImGui::Button(grid.c_str())) {
             ImGui::OpenPopup("##stripgridlist");
         }
         get_tip("Grid size");
         get_note("Grid");
         if (ImGui::BeginPopup("##stripgridlist")) {
-            for (const float size : s.grids) {
+            for (const float size : state.grids) {
                 std::array<char, kGridLabelSize> label{};
                 text::format_to(label, "%g", size);
-                if (ImGui::Selectable(label.data(), size == s.grid)) {
+                if (ImGui::Selectable(label.data(), size == state.grid)) {
                     out->events.push_back({.kind = Occurrence::Kind::kGrid, .value = size});
                 }
             }
@@ -411,7 +413,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         break;
     }
     case kPickItem: {
-        const std::string label = std::string(pick_text(s.pick_filter_)) + kDown.data() + "###strippick";
+        const std::string label = std::string(pick_text(state.pick_filter_)) + kDown.data() + "###strippick";
         if (ImGui::Button(label.c_str())) {
             ImGui::OpenPopup("##strippicklist");
         }
@@ -423,9 +425,10 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
                 uint32_t bit;
             };
             static constexpr auto kPick = std::to_array<PickBit>({{.label = "Nodes", .bit = 1}, {.label = "Objects", .bit = 2}, {.label = "Scenery", .bit = 4}});
-            for (const auto& p : kPick) {
-                if (ImGui::MenuItem(p.label, nullptr, (s.pick_filter_ & p.bit) != 0)) {
-                    out->events.push_back({.kind = Occurrence::Kind::kPick, .value = static_cast<float>(s.pick_filter_ ^ p.bit)});
+            for (const auto& pick : kPick) {
+                if (ImGui::MenuItem(pick.label, nullptr, (state.pick_filter_ & pick.bit) != 0)) {
+                    out->events.push_back(
+                        {.kind = Occurrence::Kind::kPick, .value = static_cast<float>(state.pick_filter_ ^ pick.bit)});
                 }
             }
             ImGui::EndPopup();
@@ -434,11 +437,11 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
     }
     case kShowAllItem:
         ImGui::PushStyleColor(ImGuiCol_Button, kShowAllButtonColour);
-        if (ImGui::Button(show_all_text(s).c_str())) {
+        if (ImGui::Button(show_all_text(state).c_str())) {
             out->events.push_back({.kind = Occurrence::Kind::kShowAll});
         }
         ImGui::PopStyleColor();
-        get_tip("Show items hidden in the editor", get_key_of(s, "show_all"));
+        get_tip("Show items hidden in the editor", get_key_of(state, "show_all"));
         get_note("ShowAll");
         break;
     case kStopItem:
@@ -447,14 +450,14 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
             out->events.push_back({.kind = Occurrence::Kind::kSimulate});
         }
         ImGui::PopStyleColor();
-        get_tip("Stop the simulation", get_key_of(s, "simulate"));
+        get_tip("Stop the simulation", get_key_of(state, "simulate"));
         get_note("Stop");
         break;
     case kLevel: {
         // (text, set on the buttons' baseline)
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + ImGui::GetStyle().FramePadding.y));
-        gui::text_colored(kLevelTextColour, "%s", get_level_text(s, scale).c_str());
+        gui::text_colored(kLevelTextColour, "%s", get_level_text(state, scale).c_str());
         out->level_hovered_ = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
         get_note("Level");
         break;
@@ -472,30 +475,31 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         const float bar = ImGui::GetTextLineHeight() * 0.6F;
         const float top = at.y + ((frame - bar) * 0.5F);
         ImDrawList* draw = ImGui::GetWindowDrawList();
-        const uint32_t c = s.budget_argb_;
-        const ImU32 colour = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
+        const uint32_t current_colour = state.budget_argb_;
+        const ImU32 colour =
+            IM_COL32((current_colour >> 16) & 0xFF, (current_colour >> 8) & 0xFF, current_colour & 0xFF, 255);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width, top + bar), IM_COL32(60, 62, 66, 255), kBudgetBarRounding);
-        const float fill = std::clamp(s.budget_fill_, 0.0F, 1.0F);
+        const float fill = std::clamp(state.budget_fill_, 0.0F, 1.0F);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + (width * fill), top + bar), colour, kBudgetBarRounding);
         break;
     }
     case kProblemsItem: {
         int colours = 0;
-        if (s.errors != 0) {
+        if (state.errors != 0) {
             ImGui::PushStyleColor(ImGuiCol_Button, kErrorsButtonColour);
             ++colours;
-        } else if (s.warnings != 0) {
+        } else if (state.warnings != 0) {
             ImGui::PushStyleColor(ImGuiCol_Button, kWarningsButtonColour);
             ++colours;
         }
-        if (ImGui::Button(problems_text(s).c_str())) {
+        if (ImGui::Button(problems_text(state).c_str())) {
             out->events.push_back({.kind = Occurrence::Kind::kProblems});
         }
         ImGui::PopStyleColor(colours);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
-            const std::string keys = get_key_of(s, "problems");
-            gui::tooltip("%d errors, %d warnings%s%s%s", s.errors, s.warnings, keys.empty() ? "" : "  (",
-                              keys.c_str(), keys.empty() ? "" : ")");
+            const std::string keys = get_key_of(state, "problems");
+            gui::tooltip("%d errors, %d warnings%s%s%s", state.errors, state.warnings, keys.empty() ? "" : "  (",
+                         keys.c_str(), keys.empty() ? "" : ")");
         }
         get_note("Problems");
         break;
@@ -560,8 +564,8 @@ void blit(const State& state, maths::Vec2 at, float width, float scale, Output* 
 void status_row(const std::string& message, const std::vector<std::pair<std::string, std::string>>& hints,
                 const std::string& right, float x, float y, float width, const ux8::Fonts& fonts)
 {
-    const float s = fonts.scale;
-    const float gap = 16.0F * s;
+    const float scale = fonts.scale;
+    const float gap = 16.0F * scale;
     // The right-hand text first: at most 45% of the row, elided.
     if (fonts.mono) {
         ImGui::PushFont(fonts.mono);

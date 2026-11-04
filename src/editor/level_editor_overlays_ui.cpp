@@ -57,9 +57,9 @@ void view_mode_items()
 void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* requests)
 {
     if (ImGui::MenuItem("Collision", "C", model.view.collision)) {
-        ui::Request r{.kind = ui::Request::Kind::kCollision};
-        r.value = model.view.collision ? 0 : 1;
-        requests->push_back(r);
+        ui::Request request{.kind = ui::Request::Kind::kCollision};
+        request.value = model.view.collision ? 0 : 1;
+        requests->push_back(request);
     }
     get_tip("Collision near the camera, coloured by surface");
     if (ImGui::MenuItem("Trigger Volumes", "T", triggers::get_shown())) {
@@ -76,30 +76,30 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
     }
     if (ImGui::BeginMenu("Gizmos")) {
         const uint32_t families = model.nodes.families;
-        for (int f = 0; f < nodes::kFamilies; ++f) {
-            auto family = static_cast<nodes::Family>(f);
+        for (int current_family = 0; current_family < nodes::kFamilies; ++current_family) {
+            auto family = static_cast<nodes::Family>(current_family);
             if (nodes::shape_of(family) == nodes::Shape::kNone) {
                 continue; // (scenery: its own geometry shows it)
             }
             const bool on = (families & nodes::get_bit(family)) != 0;
             std::array<char, kFamilyItemSize> item{};
-            text::format_to(item, "%s##fam%d", nodes::family_name(family), f);
+            text::format_to(item, "%s##fam%d", nodes::family_name(family), current_family);
             if (ImGui::MenuItem(item.data(), nullptr, on)) {
-                ui::Request r{.kind = ui::Request::Kind::kFamilies};
-                r.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);
-                requests->push_back(r);
+                ui::Request request{.kind = ui::Request::Kind::kFamilies};
+                request.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);
+                requests->push_back(request);
             }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Show All")) {
-            ui::Request r{.kind = ui::Request::Kind::kFamilies};
-            r.id = nodes::kAllFamilies;
-            requests->push_back(r);
+            ui::Request request{.kind = ui::Request::Kind::kFamilies};
+            request.id = nodes::kAllFamilies;
+            requests->push_back(request);
         }
         if (ImGui::MenuItem("Hide All")) {
-            ui::Request r{.kind = ui::Request::Kind::kFamilies};
-            r.id = 0;
-            requests->push_back(r);
+            ui::Request request{.kind = ui::Request::Kind::kFamilies};
+            request.id = 0;
+            requests->push_back(request);
         }
         ImGui::EndMenu();
     }

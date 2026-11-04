@@ -137,12 +137,12 @@ KindTag suggest(const Spot& start, const Spot& end)
     return KindTag::kAir;
 }
 
-float get_heading_of(V3 d)
+float get_heading_of(V3 direction)
 {
-    if (std::fabs(d.x) < kTinyLength && std::fabs(d.z) < kTinyLength) {
+    if (std::fabs(direction.x) < kTinyLength && std::fabs(direction.z) < kTinyLength) {
         return 0.0F;
     }
-    return std::atan2(d.x, d.z);
+    return std::atan2(direction.x, direction.z);
 }
 
 Gate gate_for(const Spot& spot, V3 toward)
@@ -228,10 +228,10 @@ bool get_cast(V3 from, V3 to, Hit* hit)
         return false;
     }
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
-    const auto& n = ray->hit().normal;
-    const auto& p = ray->hit().point;
-    hit->normal = {.x = n[0], .y = n[1], .z = n[2]};
-    hit->point = {.x = p[0], .y = p[1], .z = p[2]};
+    const auto& hit_normal = ray->hit().normal;
+    const auto& hit_point = ray->hit().point;
+    hit->normal = {.x = hit_normal[0], .y = hit_normal[1], .z = hit_normal[2]};
+    hit->point = {.x = hit_point[0], .y = hit_point[1], .z = hit_point[2]};
     hit->flags = ray->hit().face_flags_;
     return true;
 }
@@ -262,35 +262,37 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
             ((node.flag_bits() & objects::kRailFlagActive) == 0U)) {
             continue;
         }
-        const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
-        const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
+        const V3 point_a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
+        const V3 point_b = {
+            .x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
         float ax = 0.0F;
         float ay = 0.0F;
         float bx = 0.0F;
         float by = 0.0F;
-        if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by)) {
+        if (!project_to_back(point_a, &ax, &ay) || !project_to_back(point_b, &bx, &by)) {
             continue;
         }
-        const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
-        if (d >= best) {
+        const float distance = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
+        if (distance >= best) {
             continue;
         }
         // (where along it: the screen's nearest point, carried to the world segment)
         const float sx = bx - ax;
         const float sy = by - ay;
         const float length2 = (sx * sx) + (sy * sy);
-        const float t = length2 > 1e-6F ? std::clamp((((x - ax) * sx) + ((y - ay) * sy)) / length2, 0.0F, 1.0F) : 0.0F;
-        const V3 p = a + (b - a) * t;
-        const V3 to = p - origin;
+        const float fraction =
+            length2 > 1e-6F ? std::clamp((((x - ax) * sx) + ((y - ay) * sy)) / length2, 0.0F, 1.0F) : 0.0F;
+        const V3 point = point_a + (point_b - point_a) * fraction;
+        const V3 to = point - origin;
         if (get_dot(to, unit_dir) > max_t + kBehindWallMargin) {
             continue; // (behind a wall)
         }
-        best = d;
+        best = distance;
         found = true;
         spot->kind = SpotKind::kRail;
-        spot->point = p;
+        spot->point = point;
         spot->normal = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
-        spot->along = make_unit(b - a);
+        spot->along = make_unit(point_b - point_a);
     }
     return found;
 }
@@ -316,12 +318,13 @@ bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
 void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb)
 {
     OrientedBox box = triggers::box_of(gate.pos, gate.yaw, gate.size);
-    std::array<V3, kBoxCornerCount> c{};
-    box_corners(box.origin, box.axes, box.min, box.max, c);
+    std::array<V3, kBoxCornerCount> corners{};
+    box_corners(box.origin, box.axes, box.min, box.max, corners);
     const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
-    for (const auto& e : edges) {
-        (void)painter.get_seg(core::at(c, core::at(e, 0)), core::at(c, core::at(e, 1)), argb, kGateLineWidth);
+    for (const auto& edge : edges) {
+        (void)painter.get_seg(core::at(corners, core::at(edge, 0)), core::at(corners, core::at(edge, 1)), argb,
+                              kGateLineWidth);
     }
 }
 
@@ -329,11 +332,13 @@ void get_make()
 {
     triggers::Placed start;
     triggers::Placed end;
-    const Gate a = gate_for(core::at(level_editor_gap_wizard_state().spots_, 0), core::at(level_editor_gap_wizard_state().spots_, 1).point);
-    const Gate b = gate_for(core::at(level_editor_gap_wizard_state().spots_, 1), core::at(level_editor_gap_wizard_state().spots_, 0).point);
+    const Gate gate = gate_for(core::at(level_editor_gap_wizard_state().spots_, 0),
+                               core::at(level_editor_gap_wizard_state().spots_, 1).point);
+    const Gate gate_b = gate_for(core::at(level_editor_gap_wizard_state().spots_, 1),
+                                 core::at(level_editor_gap_wizard_state().spots_, 0).point);
     // (a box is the same turned half round: the end's gate facing back to the start lies across the same line)
-    start.pos = a.pos, start.yaw = a.yaw, start.spec.size = a.size;
-    end.pos = b.pos, end.yaw = b.yaw, end.spec.size = b.size;
+    start.pos = gate.pos, start.yaw = gate.yaw, start.spec.size = gate.size;
+    end.pos = gate_b.pos, end.yaw = gate_b.yaw, end.spec.size = gate_b.size;
     start.spec.text = level_editor_gap_wizard_state().name_.data();
     start.spec.score = clamp_score(level_editor_gap_wizard_state().score_);
     start.spec.flags = flags_for(static_cast<KindTag>(level_editor_gap_wizard_state().type_));
@@ -411,14 +416,16 @@ void add_overlay(const overlays::Painter& painter)
         painter.draw_label(core::at(level_editor_gap_wizard_state().spots_, 0).point, kStart, std::string("start: ") + spot_name(core::at(level_editor_gap_wizard_state().spots_, 0).kind));
     }
     if (level_editor_gap_wizard_state().picked_ >= 2) {
-        const Gate b = gate_for(core::at(level_editor_gap_wizard_state().spots_, 1), core::at(level_editor_gap_wizard_state().spots_, 0).point);
-        draw_gate(painter, b, kEnd);
+        const Gate gate = gate_for(core::at(level_editor_gap_wizard_state().spots_, 1),
+                                   core::at(level_editor_gap_wizard_state().spots_, 0).point);
+        draw_gate(painter, gate, kEnd);
         painter.draw_label(core::at(level_editor_gap_wizard_state().spots_, 1).point, kEnd, std::string("end: ") + spot_name(core::at(level_editor_gap_wizard_state().spots_, 1).kind));
         (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, core::at(level_editor_gap_wizard_state().spots_, 1).point, kRubberBandColour, kRubberBandWidth);
-        const V3 d = core::at(level_editor_gap_wizard_state().spots_, 1).point - core::at(level_editor_gap_wizard_state().spots_, 0).point;
+        const V3 delta = core::at(level_editor_gap_wizard_state().spots_, 1).point -
+                         core::at(level_editor_gap_wizard_state().spots_, 0).point;
         std::array<char, kMeasureTextSize> text{};
-        text::format_to(text, "%.0f across, %.0f %s", std::sqrt((d.x * d.x) + (d.z * d.z)), std::fabs(d.y),
-                        d.y >= 0.0F ? "up" : "down");
+        text::format_to(text, "%.0f across, %.0f %s", std::sqrt((delta.x * delta.x) + (delta.z * delta.z)),
+                        std::fabs(delta.y), delta.y >= 0.0F ? "up" : "down");
         painter.draw_label((core::at(level_editor_gap_wizard_state().spots_, 0).point + core::at(level_editor_gap_wizard_state().spots_, 1).point) * kHalf, kRubberBandColour, text.data());
     } else if (level_editor_gap_wizard_state().have_hover_) {
         painter.get_dot(level_editor_gap_wizard_state().hover_.point, kHoverDotRadius, kHover);
@@ -464,15 +471,16 @@ void pane(PaneArea area, float scale)
     gui::text_disabled("From %s to %s", spot_name(core::at(level_editor_gap_wizard_state().spots_, 0).kind), spot_name(core::at(level_editor_gap_wizard_state().spots_, 1).kind));
     ImGui::InputText("Name", level_editor_gap_wizard_state().name_.data(), sizeof(level_editor_gap_wizard_state().name_));
     ImGui::SliderInt("Score", &level_editor_gap_wizard_state().score_, kMinScore, kMaxScore, "%d", ImGuiSliderFlags_AlwaysClamp);
-    for (int t = 0; t < kTypes; ++t) {
-        if (t != 0) {
+    for (int type_index = 0; type_index < kTypes; ++type_index) {
+        if (type_index != 0) {
             ImGui::SameLine();
         }
-        ImGui::RadioButton(current_type_name(static_cast<KindTag>(t)), &level_editor_gap_wizard_state().type_, t);
+        ImGui::RadioButton(current_type_name(static_cast<KindTag>(type_index)), &level_editor_gap_wizard_state().type_,
+                           type_index);
     }
     std::string flags;
-    for (const std::string& f : flags_for(static_cast<KindTag>(level_editor_gap_wizard_state().type_))) {
-        flags += (flags.empty() ? "" : ", ") + f;
+    for (const std::string& flag : flags_for(static_cast<KindTag>(level_editor_gap_wizard_state().type_))) {
+        flags += (flags.empty() ? "" : ", ") + flag;
     }
     gui::text_disabled("StartGap flags: %s", flags.c_str());
     ImGui::BeginDisabled();
@@ -482,7 +490,8 @@ void pane(PaneArea area, float scale)
         gui::tooltip("Not supported in THUG2");
     }
     ImGui::Separator();
-    const bool named = std::ranges::any_of(std::string_view(level_editor_gap_wizard_state().name_.data()), [](char c) { return c != ' '; });
+    const bool named = std::ranges::any_of(std::string_view(level_editor_gap_wizard_state().name_.data()),
+                                           [](char character) { return character != ' '; });
     ImGui::BeginDisabled(!named);
     if (ImGui::Button("Create Gap")) {
         level_editor_gap_wizard_state().queue_.emplace_back([] {

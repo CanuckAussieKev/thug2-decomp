@@ -65,8 +65,8 @@ int group_of(const State& state, uint32_t id, bool* is_source)
             }
             return static_cast<int>(i);
         }
-        for (const Member& m : core::at(state, i).members) {
-            if (m.id == id) {
+        for (const Member& member : core::at(state, i).members) {
+            if (member.id == id) {
                 if (is_source) {
                     *is_source = false;
                 }
@@ -89,11 +89,11 @@ void get_join(State* state, bool scenery, uint32_t source, const std::vector<Mem
         index = static_cast<int>(state->size()) - 1;
     }
     GroupSet& group = core::at((*state), index);
-    for (const Member& m : copies) {
-        if (m.id == source || group_of(*state, m.id) >= 0) {
+    for (const Member& copied_member : copies) {
+        if (copied_member.id == source || group_of(*state, copied_member.id) >= 0) {
             continue;
         }
-        group.members.push_back({.id = m.id, .quarters = m.quarters & 3});
+        group.members.push_back({.id = copied_member.id, .quarters = copied_member.quarters & 3});
     }
     if (group.members.empty()) {
         state->erase(state->begin() + index);
@@ -109,7 +109,7 @@ bool uncouple(State* state, uint32_t id)
     }
     GroupSet& group = core::at((*state), index);
     if (!is_source) {
-        std::erase_if(group.members, [&](const Member& m) { return m.id == id; });
+        std::erase_if(group.members, [&](const Member& member) { return member.id == id; });
     }
     if (is_source || group.members.empty()) {
         state->erase(state->begin() + index);
@@ -162,11 +162,11 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
             return false;
         }
         char* end = nullptr;
-        const long n = std::strtol(std::next(body.c_str()), &end, 10);
-        if ((*end != '\0') || n < 0 || n > kMaxCloneNumber) {
+        const long number = std::strtol(std::next(body.c_str()), &end, 10);
+        if ((*end != '\0') || number < 0 || number > kMaxCloneNumber) {
             return false;
         }
-        ref->clone = static_cast<int>(n);
+        ref->clone = static_cast<int>(number);
         return true;
     }
     if (body.size() != kNameHexDigits) {
@@ -280,17 +280,17 @@ Placement placement_of(uint32_t sector)
 // source's when it was copied and its own since).
 int relative_quarters(uint32_t sector)
 {
-    int q = placement_of(sector).quarters;
+    int quarters = placement_of(sector).quarters;
     bool is_source = false;
     const int index = group_of(stored_state(), sector, &is_source);
     if (index >= 0 && !is_source) {
-        for (const Member& m : core::at(stored_state(), index).members) {
-            if (m.id == sector) {
-                q += m.quarters;
+        for (const Member& member : core::at(stored_state(), index).members) {
+            if (member.id == sector) {
+                quarters += member.quarters;
             }
         }
     }
-    return q & 3;
+    return quarters & 3;
 }
 
 // The source node's edited fields as their record tokens (a level node; "" for anything else).
@@ -348,16 +348,17 @@ void propagate_scenery(const GroupSet& group)
     if (same_v3(scale, w.scale)) {
         return;
     }
-    const V3 f = get_ratio(scale, w.scale);
+    const V3 ratio = get_ratio(scale, w.scale);
     w.scale = scale;
     const std::vector<uint32_t>& saved = scenery::get_selection();
     int done = 0;
-    for (const Member& m : group.members) {
-        if (!scenery::sector_of(m.id) || scenery::get_hidden(m.id)) {
+    for (const Member& member : group.members) {
+        if (!scenery::sector_of(member.id) || scenery::get_hidden(member.id)) {
             continue;
         }
-        scenery::set_selection({m.id});
-        scenery::scale_selection(turned_scale(f, m.quarters + placement_of(m.id).quarters), is_uniform_scale(f));
+        scenery::set_selection({member.id});
+        scenery::scale_selection(turned_scale(ratio, member.quarters + placement_of(member.id).quarters),
+                                 is_uniform_scale(ratio));
         scenery::finalise();
         ++done;
     }
@@ -386,24 +387,24 @@ void propagate_objects(const GroupSet& group)
         return;
     }
     if (!same_v3(scale, w.scale)) {
-        const V3 f = get_ratio(scale, w.scale);
+        const V3 ratio = get_ratio(scale, w.scale);
         w.scale = scale;
-        for (const Member& m : group.members) {
-            if (objects::GameEntity* copy = live_object(m.id); copy && scale_tool::object_scalable(copy)) {
-                scale_tool::set_object_scale(copy, per_axis(scale_tool::get_object_scale(copy), f));
+        for (const Member& member : group.members) {
+            if (objects::GameEntity* copy = live_object(member.id); copy && scale_tool::object_scalable(copy)) {
+                scale_tool::set_object_scale(copy, per_axis(scale_tool::get_object_scale(copy), ratio));
             }
         }
     }
     if (fields != w.fields) {
         w.fields = fields;
         // (each copy made again from the source's node as it is now - where it stood, as it was turned and scaled)
-        for (const Member& m : group.members) {
-            objects::GameEntity* copy = live_object(m.id);
-            if (!copy || !object_edit::is_copy(m.id)) {
+        for (const Member& member : group.members) {
+            objects::GameEntity* copy = live_object(member.id);
+            if (!copy || !object_edit::is_copy(member.id)) {
                 continue;
             }
-            remakes().push_back({.name = m.id, .source = group.source, .state = object_edit::store_away(copy)});
-            object_edit::remove_copy(m.id);
+            remakes().push_back({.name = member.id, .source = group.source, .state = object_edit::store_away(copy)});
+            object_edit::remove_copy(member.id);
         }
         get_log("level editor: the fields of %s changed - its linked copies made again",
                 object_edit::caption(group.source).c_str());
@@ -413,21 +414,21 @@ void propagate_objects(const GroupSet& group)
 void run_remakes()
 {
     for (size_t i = 0; i < remakes().size();) {
-        Remake& r = core::at(remakes(), i);
-        ++r.frames;
-        const bool gone = objects::find_object(r.name) == nullptr;
+        Remake& remake = core::at(remakes(), i);
+        ++remake.frames;
+        const bool gone = objects::find_object(remake.name) == nullptr;
         if (gone) {
-            const V3 pos = {.x = r.state.pos.x, .y = r.state.pos.y, .z = r.state.pos.z};
-            if (const objects::GameEntity* made = object_edit::make_copy(r.source, pos, r.name)) {
-                object_edit::State state = r.state;
+            const V3 pos = {.x = remake.state.pos.x, .y = remake.state.pos.y, .z = remake.state.pos.z};
+            if (const objects::GameEntity* made = object_edit::make_copy(remake.source, pos, remake.name)) {
+                object_edit::State state = remake.state;
                 state.id = made->ident();
                 object_edit::get_restore(state);
                 remakes().erase(remakes().begin() + static_cast<long>(i));
                 continue;
             }
         }
-        if (r.frames > kRemakeGiveUpFrames) {
-            get_log("level editor: a linked copy (%08X) couldn't be made again", r.name);
+        if (remake.frames > kRemakeGiveUpFrames) {
+            get_log("level editor: a linked copy (%08X) couldn't be made again", remake.name);
             remakes().erase(remakes().begin() + static_cast<long>(i));
             continue;
         }
@@ -450,8 +451,8 @@ bool linked_duplicate()
     const bool scenery = selection.kind == edit::Kind::kScenery;
     std::vector<std::pair<uint32_t, int>> quarters;
     if (scenery) {
-        for (const uint32_t s : selection.ids) {
-            quarters.emplace_back(s, relative_quarters(s));
+        for (const uint32_t sector : selection.ids) {
+            quarters.emplace_back(sector, relative_quarters(sector));
         }
     }
     const std::vector<std::pair<uint32_t, uint32_t>> pairs = edit::get_duplicate(nullptr);
@@ -459,13 +460,13 @@ bool linked_duplicate()
         return false;
     }
     for (const auto& pair : pairs) {
-        int q = 0;
-        for (const auto& s : quarters) {
-            if (s.first == pair.first) {
-                q = s.second;
+        int quarter_count = 0;
+        for (const auto& quarter : quarters) {
+            if (quarter.first == pair.first) {
+                quarter_count = quarter.second;
             }
         }
-        get_join(&stored_state(), scenery, pair.first, {{.id = pair.second, .quarters = q}});
+        get_join(&stored_state(), scenery, pair.first, {{.id = pair.second, .quarters = quarter_count}});
     }
     adjust::get_note(adjust::ActStep{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
     hud::get_message(std::string("Linked copy created"), kLinkedCopySeconds);
@@ -563,12 +564,12 @@ std::vector<LinkRecord> get_capture(const std::vector<uint32_t>& clones)
         if (!ref_of(group.source, group.scenery, &record.source)) {
             continue;
         }
-        for (const Member& m : group.members) {
+        for (const Member& member : group.members) {
             RefTo ref;
-            if (!ref_of(m.id, group.scenery, &ref)) {
+            if (!ref_of(member.id, group.scenery, &ref)) {
                 continue;
             }
-            ref.quarters = m.quarters;
+            ref.quarters = member.quarters;
             record.members.push_back(ref);
         }
         if (!record.members.empty()) {

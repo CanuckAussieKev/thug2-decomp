@@ -58,8 +58,11 @@ inline render::FaceFlag while_taken(render::FaceFlag flags) { return flags | ren
 struct FaceKey {
     uint32_t checksum;
     uint16_t face;
-    bool operator==(const FaceKey& o) const { return checksum == o.checksum && face == o.face; }
-    bool operator<(const FaceKey& o) const { return checksum != o.checksum ? checksum < o.checksum : face < o.face; }
+    bool operator==(const FaceKey& other) const { return checksum == other.checksum && face == other.face; }
+    bool operator<(const FaceKey& other) const
+    {
+        return checksum != other.checksum ? checksum < other.checksum : face < other.face;
+    }
 };
 // A face clicked: `add` (Shift) toggles it in the selection, else the selection is just it. Returns whether it is
 // selected now.

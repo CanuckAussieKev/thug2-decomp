@@ -70,13 +70,13 @@ float wrap_angle(float radians)
     // (the half turn as a float - a little over pi - and a hair's room, so a half turn either way comes out +pi)
     constexpr double kTwoPi = 6.283185307179586;
     constexpr double kHalf = static_cast<double>(maths::kPi) + 1e-6;
-    double a = std::fmod(static_cast<double>(radians), kTwoPi);
-    if (a > kHalf) {
-        a -= kTwoPi;
-    } else if (a <= -kHalf + kWrapSlack) {
-        a += kTwoPi;
+    double wrapped = std::fmod(static_cast<double>(radians), kTwoPi);
+    if (wrapped > kHalf) {
+        wrapped -= kTwoPi;
+    } else if (wrapped <= -kHalf + kWrapSlack) {
+        wrapped += kTwoPi;
     }
-    return static_cast<float>(a);
+    return static_cast<float>(wrapped);
 }
 
 V3 get_turned(V3 angles, int notches)
@@ -164,9 +164,10 @@ std::unordered_map<uint32_t, Values>& rail_origins()
 script::Component* own_vector(script::Struct* node, uint32_t name)
 {
     script::Component* found = nullptr;
-    for (script::Component* c = node->head(); c; c = c->next) {
-        if (c->name == name && value_kind(*c) == script::QbValueKind::kVector && c->value.vector()) {
-            found = c;
+    for (script::Component* component = node->head(); component; component = component->next) {
+        if (component->name == name && value_kind(*component) == script::QbValueKind::kVector &&
+            component->value.vector()) {
+            found = component;
         }
     }
     return found;
@@ -174,10 +175,10 @@ script::Component* own_vector(script::Struct* node, uint32_t name)
 
 void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 {
-    if (const script::Component* c = own_vector(node, name)) {
-        c->value.vector()->x() = value.x;
-        c->value.vector()->y() = value.y;
-        c->value.vector()->z() = value.z;
+    if (const script::Component* component = own_vector(node, name)) {
+        component->value.vector()->x() = value.x;
+        component->value.vector()->y() = value.y;
+        component->value.vector()->z() = value.z;
         return;
     }
     node->put_vec3(checksums::Name{name}, {.x = value.x, .y = value.y, .z = value.z});
@@ -233,8 +234,8 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
         maths::Mat4 matrix;
         const maths::Vec4 angles = {.x = values.angles.x, .y = values.angles.y, .z = values.angles.z, .w = 1.0F};
         matrix.init_from_angles(angles);
-        for (int r = 0; r < 3; ++r) {
-            core::at(state.matrix.row, r) = core::at(state.draw_matrix_.row, r) = core::at(matrix.row, r);
+        for (int row = 0; row < 3; ++row) {
+            core::at(state.matrix.row, row) = core::at(state.draw_matrix_.row, row) = core::at(matrix.row, row);
         }
         object_edit::get_restore(state);
     }
@@ -280,10 +281,10 @@ bool get_movable(const nodes::Elem& node)
 
 const char* when_applied(const nodes::Elem& node)
 {
-    script::Struct* s = nodes::struct_of(node);
+    script::Struct* structure = nodes::struct_of(node);
     uint32_t shape = 0;
     const bool sector_shape =
-        (s != nullptr) && s->read_hash_value(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
+        (structure != nullptr) && structure->read_hash_value(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
     case nodes::Family::kRail:
     case nodes::Family::kLadder:
@@ -420,10 +421,10 @@ bool assign_value(uint32_t name, const Values& values)
 std::vector<LinkRecord> get_changed()
 {
     std::vector<LinkRecord> out;
-    for (const Touched& t : stored_touched()) {
+    for (const Touched& touched : stored_touched()) {
         Values now;
-        if (get_take_in(t.name, &now) && !get_same(now, t.origin)) {
-            out.push_back({.name = t.name, .values = now});
+        if (get_take_in(touched.name, &now) && !get_same(now, touched.origin)) {
+            out.push_back({.name = touched.name, .values = now});
         }
     }
     return out;
@@ -445,8 +446,8 @@ void get_forget(uint32_t name)
 void reset_all()
 {
     const std::vector<Touched> touched = stored_touched();
-    for (const Touched& t : touched) {
-        assign_value(t.name, t.origin);
+    for (const Touched& current_touched : touched) {
+        assign_value(current_touched.name, current_touched.origin);
     }
 }
 
@@ -454,11 +455,11 @@ void forget_level()
 {
     // (a level whose node array stays loaded - the same structures under the same names - gets its places back: the
     // layout puts them in again; another level's nodes of the same name aren't touched)
-    for (const Touched& t : stored_touched()) {
-        script::Struct* node = struct_named(t.name);
-        if (node && node == t.node) {
-            store_node_vector(node, kPos, t.origin.pos);
-            store_node_vector(node, kAngles, t.origin.angles);
+    for (const Touched& touched : stored_touched()) {
+        script::Struct* node = struct_named(touched.name);
+        if (node && node == touched.node) {
+            store_node_vector(node, kPos, touched.origin.pos);
+            store_node_vector(node, kAngles, touched.origin.angles);
         }
     }
     stored_touched().clear();

@@ -82,8 +82,8 @@ float fit_distance(FitAt fit_at)
     const auto radius = fit_at.radius;
     const auto half_angle = fit_at.half_angle_;
     const auto margin = fit_at.margin;
-    const float s = std::sin(half_angle);
-    return s > kTinySine ? radius * margin / s : radius * margin * kTinySineReciprocal;
+    const float sine = std::sin(half_angle);
+    return sine > kTinySine ? radius * margin / sine : radius * margin * kTinySineReciprocal;
 }
 
 void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius)

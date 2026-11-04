@@ -151,11 +151,11 @@ Mode next_mode(Mode mode)
 
 void heading_axes(float yaw, std::span<V3, 3> out)
 {
-    const float c = std::cos(yaw);
-    const float s = std::sin(yaw);
-    core::at(out, 0) = {.x = c, .y = 0.0F, .z = -s};
+    const float cosine = std::cos(yaw);
+    const float sine = std::sin(yaw);
+    core::at(out, 0) = {.x = cosine, .y = 0.0F, .z = -sine};
     core::at(out, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
-    core::at(out, 2) = {.x = s, .y = 0.0F, .z = c};
+    core::at(out, 2) = {.x = sine, .y = 0.0F, .z = cosine};
 }
 
 float get_heading_of(V3 at) { return std::atan2(at.x, at.z); }
@@ -173,13 +173,13 @@ float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x
 
 float get_wrap(float radians)
 {
-    float r = std::fmod(radians, kFullTurnFactor * maths::kPi);
-    if (r <= -maths::kPi) {
-        r += kFullTurnFactor * maths::kPi;
-    } else if (r > maths::kPi) {
-        r -= kFullTurnFactor * maths::kPi;
+    float radius = std::fmod(radians, kFullTurnFactor * maths::kPi);
+    if (radius <= -maths::kPi) {
+        radius += kFullTurnFactor * maths::kPi;
+    } else if (radius > maths::kPi) {
+        radius -= kFullTurnFactor * maths::kPi;
     }
-    return r;
+    return radius;
 }
 
 float snap_angle(AngleSnap angle_snap)
@@ -197,20 +197,20 @@ int get_quarters(float radians) { return static_cast<int>(std::lround(radians / 
 
 float snap_relative(float distance, float grid) { return grid > 0.0F ? std::round(distance / grid) * grid : distance; }
 
-float factor_along(float s0, float s)
+float factor_along(float s0, float scale)
 {
     if (std::fabs(s0) < kMinStartExtent) {
         return 1.0F;
     }
-    return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, s / s0));
+    return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, scale / s0));
 }
 
-float factor_from_pixels(float d0, float d)
+float factor_from_pixels(float d0, float distance)
 {
     if (d0 < kMinStartPixels) {
         return 1.0F; // (grabbed on the pivot itself: the distance says nothing)
     }
-    return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, d / d0));
+    return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, distance / d0));
 }
 
 float snap_factor(float factor) { return std::max(kMinSnappedFactor, std::round(factor * kFactorStepsPerUnit) / kFactorStepsPerUnit); }
@@ -221,8 +221,9 @@ std::vector<V3> get_ring(V3 pivot, RingShape ring)
     const auto count = ring.count;
     std::vector<V3> points;
     for (int i = 0; i < count; ++i) {
-        const float a = 2.0F * maths::kPi * static_cast<float>(i) / static_cast<float>(count);
-        points.push_back({.x = pivot.x + (std::sin(a) * radius), .y = pivot.y, .z = pivot.z + (std::cos(a) * radius)});
+        const float angle = 2.0F * maths::kPi * static_cast<float>(i) / static_cast<float>(count);
+        points.push_back(
+            {.x = pivot.x + (std::sin(angle) * radius), .y = pivot.y, .z = pivot.z + (std::cos(angle) * radius)});
     }
     return points;
 }
@@ -230,12 +231,13 @@ std::vector<V3> get_ring(V3 pivot, RingShape ring)
 std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
 {
     std::vector<Segment> out;
-    const V3 p = gizmo.pivot;
+    const V3 point = gizmo.pivot;
     const float length = gizmo.length;
     switch (gizmo.mode) {
     case Mode::kShiftBy:
         for (int axis = 0; axis < 3; ++axis) {
-            out.push_back({.a = p, .b = p + core::at(gizmo.axes, axis) * length, .handle = axis, .arrow = true});
+            out.push_back(
+                {.a = point, .b = point + core::at(gizmo.axes, axis) * length, .handle = axis, .arrow = true});
         }
         break;
     case Mode::kSpinBy: {
@@ -243,22 +245,26 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
             break;
         }
         // (the heading ring, and a spoke towards the local z: which way it faces)
-        std::vector<V3> ring = get_ring(p, {.radius = length * kRingRadiusFraction, .count = kRingPoints});
+        std::vector<V3> ring = get_ring(point, {.radius = length * kRingRadiusFraction, .count = kRingPoints});
         for (size_t i = 0; i < ring.size(); ++i) {
             out.push_back({.a = core::at(ring, i), .b = core::at(ring, (i + 1) % ring.size()), .handle = 1, .arrow = false});
         }
         const V3 forward = {.x = core::at(gizmo.axes, 2).x, .y = 0.0F, .z = core::at(gizmo.axes, 2).z};
         if (get_dot(forward, forward) > kMinForwardSquared) {
-            out.push_back({.a = p, .b = p + make_unit(forward) * (length * kForwardArrowFraction), .handle = 1, .arrow = false});
+            out.push_back({.a = point,
+                           .b = point + make_unit(forward) * (length * kForwardArrowFraction),
+                           .handle = 1,
+                           .arrow = false});
         }
         break;
     }
     case Mode::kScale: {
         float cube = length * kCubeFraction;
-        auto add_cube = [&](V3 c, int handle) {
+        auto add_cube = [&](V3 corner, int handle) {
             std::array<V3, kBoxCorners> corners{};
             for (int i = 0; i < kBoxCorners; ++i) {
-                core::at(corners, i) = c + V3{.x = (i & 1) ? cube : -cube, .y = (i & 2) ? cube : -cube, .z = (i & 4) ? cube : -cube};
+                core::at(corners, i) =
+                    corner + V3{.x = (i & 1) ? cube : -cube, .y = (i & 2) ? cube : -cube, .z = (i & 4) ? cube : -cube};
             }
             for (int i = 0; i < kBoxCorners; ++i) {
                 for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
@@ -269,11 +275,11 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
             }
         };
         for (int axis = 0; axis < 3; ++axis) {
-            const V3 end = p + core::at(gizmo.axes, axis) * length;
-            out.push_back({.a = p, .b = end, .handle = axis, .arrow = false});
+            const V3 end = point + core::at(gizmo.axes, axis) * length;
+            out.push_back({.a = point, .b = end, .handle = axis, .arrow = false});
             add_cube(end, axis);
         }
-        add_cube(p, kCentre);
+        add_cube(point, kCentre);
         break;
     }
     }
@@ -293,18 +299,18 @@ int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, floa
         ((x - px) * (x - px)) + ((y - py) * (y - py)) <= grab * grab * kGrabSlackSquared) {
         return kCentre;
     }
-    for (const Segment& s : gizmo_segments(gizmo)) {
+    for (const Segment& segment : gizmo_segments(gizmo)) {
         float ax = 0.0F;
         float ay = 0.0F;
         float bx = 0.0F;
         float by = 0.0F;
-        if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by)) {
+        if (!project(segment.a, &ax, &ay) || !project(segment.b, &bx, &by)) {
             continue;
         }
-        const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
-        if (d < best_distance) {
-            best_distance = d;
-            best = s.handle;
+        const float distance = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
+        if (distance < best_distance) {
+            best_distance = distance;
+            best = segment.handle;
         }
     }
     return best;
@@ -329,26 +335,26 @@ uint32_t handle_colour(int handle, bool lit)
 
 // --- typed values ---
 
-bool type_key(Typed* typed, char c)
+bool type_key(Typed* typed, char character)
 {
-    if (c >= 'x' && c <= 'z') {
-        const int axis = c - 'x';
+    if (character >= 'x' && character <= 'z') {
+        const int axis = character - 'x';
         typed->axis = typed->axis == axis ? -1 : axis;
         typed->axis_changed_ = true;
         return true;
     }
-    if (c >= '0' && c <= '9') {
-        typed->text += c;
+    if (character >= '0' && character <= '9') {
+        typed->text += character;
         return true;
     }
-    if (c == '.') {
+    if (character == '.') {
         if (typed->text.find('.') != std::string::npos) {
             return false;
         }
-        typed->text += c;
+        typed->text += character;
         return true;
     }
-    if (c == '-') {
+    if (character == '-') {
         if (!typed->text.empty() && core::at(typed->text, 0) == '-') {
             typed->text.erase(0, 1);
         } else {
@@ -356,7 +362,7 @@ bool type_key(Typed* typed, char c)
         }
         return true;
     }
-    if (c == '\b') {
+    if (character == '\b') {
         if (!typed->text.empty()) {
             typed->text.pop_back();
         } else if (typed->axis >= 0) {
@@ -372,12 +378,12 @@ bool type_key(Typed* typed, char c)
 
 bool typed_value(const Typed& typed, float* value)
 {
-    const std::string& t = typed.text;
-    if (t.empty() || t == "-" || t == "." || t == "-.") {
+    const std::string& text = typed.text;
+    if (text.empty() || text == "-" || text == "." || text == "-.") {
         return false;
     }
     char* end = nullptr;
-    const double v = std::strtod(t.c_str(), &end);
+    const double v = std::strtod(text.c_str(), &end);
     if (!end || *end != '\0' || !std::isfinite(v)) {
         return false;
     }
@@ -422,11 +428,11 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
     if (memory.kind == Kind::kNone || kind != memory.kind || selected.empty()) {
         return false;
     }
-    std::vector<uint32_t> a = memory.made;
-    std::vector<uint32_t> b = selected;
-    std::ranges::sort(a);
-    std::ranges::sort(b);
-    if (a != b) {
+    std::vector<uint32_t> made_ids = memory.made;
+    std::vector<uint32_t> selected_ids = selected;
+    std::ranges::sort(made_ids);
+    std::ranges::sort(selected_ids);
+    if (made_ids != selected_ids) {
         return false;
     }
     step->offset = pos - memory.source_pos_;
