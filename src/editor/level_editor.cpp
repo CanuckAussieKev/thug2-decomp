@@ -4735,77 +4735,60 @@ std::unordered_map<uint32_t, uint8_t> change_marks()
     return marks;
 }
 
-ui::ShapeMesh assemble_model()
+// (the locks: their kinds and names; whether the selection can be locked / is)
+void fill_locks(ui::ShapeMesh& model)
 {
-    ui::ShapeMesh model = {};
-    model.carry = carry::is_switched_on();
-    model.carried = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_ ? carry::total_of() : 0; // (a move under way)
-    model.marks = change_marks();
-    const uint32_t scene = scenery::world_scene_key(scenery::main_scene());
-    model.level = (scene != 0U) ? object_edit::caption(scene) : "";
-    model.level_title_ = layout::level_title();
-    model.edited_saved_ = layout::has_saved_layout();
-    model.confirm_reset_ = pick_cycle().confirm_reset_;
-    model.mode = mode_name();
-    model.selected = describe_selection();
-    model.hover = hover_text();
-    model.message = hud::current_message();
-    model.keys = keys_now();
-    model.camera = level_editor_state().pos_;
-    model.speed = level_editor_state().speed_;
-    model.changes = level_editor_state().moves_;
-    model.moved = scenery::get_moved_count();
-    model.unsaved = level_editor_state().unsaved_;
-    model.offer = level_editor_state().offer_pending_;
-    model.can_undo_ = !undo_steps().undo_.empty();
-    model.can_redo_ = !undo_steps().redo_.empty();
-    model.snap_always_ = drag_state().snap_always_;
-    model.pick_filter_ = drag_state().pick_filter_;
     for (const picking::Lock& lock : picking::get_locks()) {
         model.locks.push_back(
             {.kind = lock.kind, .id = lock.id,
              .label = std::string(lock.kind == picking::kObjects ? "object " : "scenery ") + object_edit::caption(lock.id)});
     }
-    {
-        bool all = true;
-        const std::vector<picking::Lock> selected = selection_locks();
-        for (const picking::Lock& lock : selected) {
-            all = all && picking::latched(lock.kind, lock.id);
-        }
-        model.selection_lockable_ = !selected.empty();
-        model.selection_locked_ = !selected.empty() && all;
-        model.view.can_hide_ = !selected.empty();
+    bool all = true;
+    const std::vector<picking::Lock> selected = selection_locks();
+    for (const picking::Lock& lock : selected) {
+        all = all && picking::latched(lock.kind, lock.id);
     }
-    {
-        const view::Attributes stats = view::last_stats();
-        model.view.collision = view::show_collision();
-        model.view.triangles = stats.triangles;
-        model.view.sectors = stats.sectors;
-        model.view.walls = stats.walls;
-        model.view.companions = stats.companions;
-        model.view.taken = stats.taken;
-        model.view.triggers = stats.triggers;
-        model.view.capped = stats.capped;
-        model.view.hidden = view::hidden_count();
-        if (const uint32_t wall = view::selected_wall()) {
-            model.view.wall = wall;
-            model.view.wall_name_ = object_edit::caption(wall);
-            model.view.wall_info_ = view::describe_wall(wall);
-            model.view.wall_state_ = walls::describe_state(wall);
-            model.view.wall_off_ = walls::disengaged(wall);
-            Placement placement;
-            model.view.wall_moved_ = walls::get_moved(wall, &placement);
-        }
-        model.view.off = stats.off;
-        // (the Inspector's Collision checkbox: the selected scenery's switches - level_editor_walls.h)
-        std::vector<bool> offs;
-        if (!get_primary()) {
-            for (const uint32_t checksum : scenery::get_selection()) {
-                offs.push_back(walls::disengaged(checksum));
-            }
-        }
-        model.view.scenery_collision_ = walls::get_combined(offs);
+    model.selection_lockable_ = !selected.empty();
+    model.selection_locked_ = !selected.empty() && all;
+    model.view.can_hide_ = !selected.empty();
+}
+
+// (the view: collision, its counts, the selected wall, the selected scenery's collision switch)
+void fill_view(ui::ShapeMesh& model)
+{
+    const view::Attributes stats = view::last_stats();
+    model.view.collision = view::show_collision();
+    model.view.triangles = stats.triangles;
+    model.view.sectors = stats.sectors;
+    model.view.walls = stats.walls;
+    model.view.companions = stats.companions;
+    model.view.taken = stats.taken;
+    model.view.triggers = stats.triggers;
+    model.view.capped = stats.capped;
+    model.view.hidden = view::hidden_count();
+    if (const uint32_t wall = view::selected_wall()) {
+        model.view.wall = wall;
+        model.view.wall_name_ = object_edit::caption(wall);
+        model.view.wall_info_ = view::describe_wall(wall);
+        model.view.wall_state_ = walls::describe_state(wall);
+        model.view.wall_off_ = walls::disengaged(wall);
+        Placement placement;
+        model.view.wall_moved_ = walls::get_moved(wall, &placement);
     }
+    model.view.off = stats.off;
+    // (the Inspector's Collision checkbox: the selected scenery's switches - level_editor_walls.h)
+    std::vector<bool> offs;
+    if (!get_primary()) {
+        for (const uint32_t checksum : scenery::get_selection()) {
+            offs.push_back(walls::disengaged(checksum));
+        }
+    }
+    model.view.scenery_collision_ = walls::get_combined(offs);
+}
+
+// (the selection: the first object or the scenery and its parts)
+void fill_selection(ui::ShapeMesh& model)
+{
     std::vector<objects::GameEntity*> objects = selected_objects();
     ui::ShapeMesh::Selection& selection = model.selection;
     if (!objects.empty()) {
@@ -4854,6 +4837,11 @@ ui::ShapeMesh assemble_model()
             }
         }
     }
+}
+
+// (the help, the browser and its preview)
+void fill_help_and_browser(ui::ShapeMesh& model)
+{
     model.help = drag_state().help_;
     model.browser = stored_browser().open;
     model.browser_tab_ = stored_browser().tab;
@@ -4871,6 +4859,11 @@ ui::ShapeMesh assemble_model()
     } else {
         model.preview.index = stored_browser().index;
     }
+}
+
+// (the node selected: its place, its chain, added / hidden, a crown's order)
+void fill_nodes(ui::ShapeMesh& model)
+{
     model.nodes.families = drag_state().families_;
     model.nodes.selected = inspected_node();
     model.nodes.hovered = drag_state().hover_node_;
@@ -4919,32 +4912,39 @@ ui::ShapeMesh assemble_model()
             model.nodes.crown_down_ = node_create::move_crown(&down, name, 1);
         }
     }
-    {
-        // Phase 6: the level's properties, its own values (read once a level: its structure is walked for them) and
-        // its restarts.
-        static int g_defaults_for = -1;
-        static level_props::Props defaults;
-        static bool g_have_defaults = false;
-        if (g_defaults_for != layout::level_loads()) {
-            g_defaults_for = layout::level_loads();
-            g_have_defaults = level_props::level_defaults(&defaults);
-        }
-        model.level_props_.in_level_ = render::current_level() != 0 && scene != 0;
-        model.level_props_.props = level_props::at_hand();
-        model.level_props_.defaults = defaults;
-        model.level_props_.have_defaults_ = g_have_defaults;
-        for (const nodes::Elem& elem : nodes::get_all()) {
-            if (elem.family == nodes::Family::kSpawn && !elem.hidden && (elem.name != 0U)) {
-                model.level_props_.restarts.emplace_back(elem.name, nodes::caption(elem.name));
-            }
-        }
-        if (model.nodes.node_only_ && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
-            const nodes::Elem& elem = core::at(nodes::get_all(), model.nodes.selected);
-            if (elem.family == nodes::Family::kSpawn && !elem.hidden) {
-                model.level_props_.selected_restart_ = elem.name;
-            }
+}
+
+void fill_level_props(ui::ShapeMesh& model, uint32_t scene)
+{
+    // Phase 6: the level's properties, its own values (read once a level: its structure is walked for them) and
+    // its restarts.
+    static int g_defaults_for = -1;
+    static level_props::Props defaults;
+    static bool g_have_defaults = false;
+    if (g_defaults_for != layout::level_loads()) {
+        g_defaults_for = layout::level_loads();
+        g_have_defaults = level_props::level_defaults(&defaults);
+    }
+    model.level_props_.in_level_ = render::current_level() != 0 && scene != 0;
+    model.level_props_.props = level_props::at_hand();
+    model.level_props_.defaults = defaults;
+    model.level_props_.have_defaults_ = g_have_defaults;
+    for (const nodes::Elem& elem : nodes::get_all()) {
+        if (elem.family == nodes::Family::kSpawn && !elem.hidden && (elem.name != 0U)) {
+            model.level_props_.restarts.emplace_back(elem.name, nodes::caption(elem.name));
         }
     }
+    if (model.nodes.node_only_ && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
+        const nodes::Elem& elem = core::at(nodes::get_all(), model.nodes.selected);
+        if (elem.family == nodes::Family::kSpawn && !elem.hidden) {
+            model.level_props_.selected_restart_ = elem.name;
+        }
+    }
+}
+
+// (the Place palette)
+void fill_place(ui::ShapeMesh& model)
+{
     model.place.open = pick_cycle().place_open_;
     model.place.armed = pick_cycle().place_armed_;
     if (pick_cycle().place_open_) {
@@ -4963,10 +4963,11 @@ ui::ShapeMesh assemble_model()
             model.place.entries.push_back({.label = entry.label, .colour = entry.colour, .why = entry.why});
         }
     }
-    model.chain = (chain_target() != 0U) ? chains::view_of(chain_target()) : chains::View{};
-    if (!model.chain.waiting) {
-        model.chain.waiting = chains::get_waiting();
-    }
+}
+
+// (the hide confirm window)
+void fill_confirm(ui::ShapeMesh& model)
+{
     if (pick_cycle().confirm_hide_ != 0U) {
         const int index = nodes::get_find(pick_cycle().confirm_hide_);
         if (index >= 0) {
@@ -4986,6 +4987,48 @@ ui::ShapeMesh assemble_model()
             pick_cycle().confirm_hide_ = 0;
         }
     }
+}
+
+ui::ShapeMesh assemble_model()
+{
+    ui::ShapeMesh model = {};
+    model.carry = carry::is_switched_on();
+    model.carried = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_
+                        ? carry::total_of()
+                        : 0; // (a move under way)
+    model.marks = change_marks();
+    const uint32_t scene = scenery::world_scene_key(scenery::main_scene());
+    model.level = (scene != 0U) ? object_edit::caption(scene) : "";
+    model.level_title_ = layout::level_title();
+    model.edited_saved_ = layout::has_saved_layout();
+    model.confirm_reset_ = pick_cycle().confirm_reset_;
+    model.mode = mode_name();
+    model.selected = describe_selection();
+    model.hover = hover_text();
+    model.message = hud::current_message();
+    model.keys = keys_now();
+    model.camera = level_editor_state().pos_;
+    model.speed = level_editor_state().speed_;
+    model.changes = level_editor_state().moves_;
+    model.moved = scenery::get_moved_count();
+    model.unsaved = level_editor_state().unsaved_;
+    model.offer = level_editor_state().offer_pending_;
+    model.can_undo_ = !undo_steps().undo_.empty();
+    model.can_redo_ = !undo_steps().redo_.empty();
+    model.snap_always_ = drag_state().snap_always_;
+    model.pick_filter_ = drag_state().pick_filter_;
+    fill_locks(model);
+    fill_view(model);
+    fill_selection(model);
+    fill_help_and_browser(model);
+    fill_nodes(model);
+    fill_level_props(model, scene);
+    fill_place(model);
+    model.chain = (chain_target() != 0U) ? chains::view_of(chain_target()) : chains::View{};
+    if (!model.chain.waiting) {
+        model.chain.waiting = chains::get_waiting();
+    }
+    fill_confirm(model);
     return model;
 }
 
