@@ -680,113 +680,138 @@ struct ReferenceScene {
     uint64_t indices = 0, vertex_bytes = 0;
 };
 
-bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
-{
-    core::Cursor<const uint8_t> cursor(std::span<const uint8_t>(data, limit), kSceneHeaderBytes);
-    const auto end = static_cast<std::ptrdiff_t>(limit);
-    auto skip = [&cursor](size_t bytes) { cursor += static_cast<std::ptrdiff_t>(bytes); };
-    auto word = [&cursor](size_t bytes) {
+// The reference walk through a scene copy: its cursor, and where the copy ends.
+struct SceneWalk {
+    core::Cursor<const uint8_t> cursor;
+    std::ptrdiff_t end = 0;
+
+    void skip(size_t bytes) { cursor += static_cast<std::ptrdiff_t>(bytes); }
+    uint32_t word(size_t bytes)
+    {
         uint32_t v = 0;
         for (size_t k = 0; k < bytes; ++k) {
             v |= static_cast<uint32_t>(cursor[static_cast<std::ptrdiff_t>(k)]) << (kBitsPerByte * k);
         }
         cursor += static_cast<std::ptrdiff_t>(bytes);
         return v;
-    };
-    const uint32_t materials = word(4);
-    for (uint32_t material = 0; material < materials && cursor.position() < end; ++material) {
-        skip(kMaterialChecksumsBytes);
-        const uint32_t passes = word(4);
-        skip(4 + 1 + 4 + 1 + 1 + 4);
-        if (word(1) != 0U) {
-            skip(kMaterialExtraWordsBytes);
-        }
-        const auto specular = std::bit_cast<float>(word(4));
-        if (specular > 0.0F) {
-            skip(kSpecularColourBytes);
-        }
-        for (uint32_t pass = 0; pass < passes && cursor.position() < end; ++pass) {
-            skip(4);
-            const uint32_t flags = word(4);
-            skip(1 + kPassColourBytes + kPassBlendBytes + kPassAddressingBytes + kPassReflectionTilingBytes + 4);
-            if ((flags & 1) != 0U) {
-                skip(kUvWibbleBytes);
-            }
-            if (pass == 0 && ((flags & 2) != 0U)) {
-                const uint32_t anims = word(4);
-                for (uint32_t anim = 0; anim < anims && cursor.position() < end; ++anim) {
-                    const uint32_t keys = word(4);
-                    skip(4 + (static_cast<size_t>(keys) * kColourKeyBytes));
-                }
-            }
-            if ((flags & kPassTextureAnimFlag) != 0U) {
-                const int keys = static_cast<int>(word(4));
-                skip(kTextureAnimHeaderBytes + (static_cast<size_t>(keys) * kTextureKeyBytes));
-            }
-            skip(kUntexturedPassSkipBytes); // (four words with a texture, sixteen bytes skipped without)
-        }
-        ++out->materials;
     }
-    const uint32_t sectors = word(4);
-    for (uint32_t sector = 0; sector < sectors && cursor.position() < end; ++sector) {
-        skip(kSectorIdBytes);
+
+    // A material's pass.
+    void walk_pass(uint32_t pass)
+    {
+        skip(4);
         const uint32_t flags = word(4);
-        const uint32_t meshes = word(4);
-        skip(kSectorBoxBytes + kSectorSphereBytes);
-        if ((flags & kSectorBillboardFlag) != 0U) {
-            skip(4 + kBillboardVectorBytes + kBillboardVectorBytes + kBillboardVectorBytes);
+        skip(1 + kPassColourBytes + kPassBlendBytes + kPassAddressingBytes + kPassReflectionTilingBytes + 4);
+        if ((flags & 1) != 0U) {
+            skip(kUvWibbleBytes);
         }
-        for (uint32_t i = 0; i < meshes && cursor.position() < end; ++i) {
-            skip(kMeshVectorBytes + 4 + kMeshVectorBytes + kMeshVectorBytes + 4 + 4);
-            const uint32_t lists = word(4);
-            for (uint32_t j = 0; j < lists && cursor.position() < end; ++j) {
-                skip(static_cast<size_t>(word(4)) * 2);
+        if (pass == 0 && ((flags & 2) != 0U)) {
+            const uint32_t anims = word(4);
+            for (uint32_t anim = 0; anim < anims && cursor.position() < end; ++anim) {
+                const uint32_t keys = word(4);
+                skip(4 + (static_cast<size_t>(keys) * kColourKeyBytes));
             }
-            for (int k = 0; k < kIndexBufferCount; ++k) {
-                const uint32_t count = word(2);
-                out->indices += count;
-                skip(count * 2);
+        }
+        if ((flags & kPassTextureAnimFlag) != 0U) {
+            const int keys = static_cast<int>(word(4));
+            skip(kTextureAnimHeaderBytes + (static_cast<size_t>(keys) * kTextureKeyBytes));
+        }
+        skip(kUntexturedPassSkipBytes); // (four words with a texture, sixteen bytes skipped without)
+    }
+    // A sector's mesh.
+    void walk_mesh(ReferenceScene* out)
+    {
+        skip(kMeshVectorBytes + 4 + kMeshVectorBytes + kMeshVectorBytes + 4 + 4);
+        const uint32_t lists = word(4);
+        for (uint32_t j = 0; j < lists && cursor.position() < end; ++j) {
+            skip(static_cast<size_t>(word(4)) * 2);
+        }
+        for (int k = 0; k < kIndexBufferCount; ++k) {
+            const uint32_t count = word(2);
+            out->indices += count;
+            skip(count * 2);
+        }
+        skip(1);
+        const uint32_t vertex_count = word(2);
+        const uint32_t buffers = word(1);
+        for (uint32_t buffer = 0; buffer < buffers && cursor.position() < end; ++buffer) {
+            const uint32_t scaled = word(1);
+            const uint32_t size = word(4);
+            if (buffer == 0) {
+                out->vertex_bytes += size;
             }
-            skip(1);
-            const uint32_t vertex_count = word(2);
-            const uint32_t buffers = word(1);
-            for (uint32_t buffer = 0; buffer < buffers && cursor.position() < end; ++buffer) {
-                const uint32_t scaled = word(1);
-                const uint32_t size = word(4);
-                if (buffer == 0) {
-                    out->vertex_bytes += size;
-                }
-                skip(size);
-                if (scaled != 0U) {
-                    skip(static_cast<size_t>(static_cast<int>(word(4))) * kScaledVertexRecordBytes);
-                }
+            skip(size);
+            if (scaled != 0U) {
+                skip(static_cast<size_t>(static_cast<int>(word(4))) * kScaledVertexRecordBytes);
             }
-            skip(4 + 4 + 3);
+        }
+        skip(4 + 4 + 3);
+        if (word(1) != 0U) {
+            skip(vertex_count);
+        }
+        const int levels = static_cast<int>(word(4));
+        if (levels > 1) {
+            skip(static_cast<size_t>(levels) * 4);
+        }
+        if (word(4) == 1) {
+            skip(4);
+            skip(word(4));
+        }
+        ++out->meshes;
+    }
+
+    // The scene's materials, sectors and their meshes, and its hierarchy, counted in `out`.
+    bool read(ReferenceScene* out)
+    {
+        const uint32_t materials = word(4);
+        for (uint32_t material = 0; material < materials && cursor.position() < end; ++material) {
+            skip(kMaterialChecksumsBytes);
+            const uint32_t passes = word(4);
+            skip(4 + 1 + 4 + 1 + 1 + 4);
             if (word(1) != 0U) {
-                skip(vertex_count);
+                skip(kMaterialExtraWordsBytes);
             }
-            const int levels = static_cast<int>(word(4));
-            if (levels > 1) {
-                skip(static_cast<size_t>(levels) * 4);
+            const auto specular = std::bit_cast<float>(word(4));
+            if (specular > 0.0F) {
+                skip(kSpecularColourBytes);
             }
-            if (word(4) == 1) {
-                skip(4);
-                skip(word(4));
+            for (uint32_t pass = 0; pass < passes && cursor.position() < end; ++pass) {
+                walk_pass(pass);
             }
-            ++out->meshes;
+            ++out->materials;
         }
-        ++out->sectors;
+        const uint32_t sectors = word(4);
+        for (uint32_t sector = 0; sector < sectors && cursor.position() < end; ++sector) {
+            skip(kSectorIdBytes);
+            const uint32_t flags = word(4);
+            const uint32_t meshes = word(4);
+            skip(kSectorBoxBytes + kSectorSphereBytes);
+            if ((flags & kSectorBillboardFlag) != 0U) {
+                skip(4 + kBillboardVectorBytes + kBillboardVectorBytes + kBillboardVectorBytes);
+            }
+            for (uint32_t i = 0; i < meshes && cursor.position() < end; ++i) {
+                walk_mesh(out);
+            }
+            ++out->sectors;
+        }
+        if (cursor.position() >= end) {
+            return false;
+        }
+        const int nodes = static_cast<int>(word(4));
+        if (nodes > 0) {
+            skip(static_cast<size_t>(nodes) * kHierarchyNodeBytes);
+            out->hierarchy = static_cast<uint32_t>(nodes);
+        }
+        out->end = static_cast<size_t>(cursor.position());
+        return cursor.position() <= end;
     }
-    if (cursor.position() >= end) {
-        return false;
-    }
-    const int nodes = static_cast<int>(word(4));
-    if (nodes > 0) {
-        skip(static_cast<size_t>(nodes) * kHierarchyNodeBytes);
-        out->hierarchy = static_cast<uint32_t>(nodes);
-    }
-    out->end = static_cast<size_t>(cursor.position());
-    return cursor.position() <= end;
+};
+
+bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
+{
+    SceneWalk walk{.cursor = core::Cursor<const uint8_t>(std::span<const uint8_t>(data, limit), kSceneHeaderBytes),
+                   .end = static_cast<std::ptrdiff_t>(limit)};
+    return walk.read(out);
 }
 
 void check_scene(const std::string& name, const uint8_t* data, size_t size)

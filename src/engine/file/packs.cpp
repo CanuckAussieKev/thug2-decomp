@@ -217,14 +217,19 @@ void* load_file_into(const char* name, int* size, void* buffer)
     return data;
 }
 
-// 0x005B75A0
-void load_pre(const char* name)
+namespace {
+
+// Whether the archive named is loaded already.
+bool archive_loaded(const char* name)
 {
-    for (const std::unique_ptr<LoadedArchive>& archive : archives()) {
-        if (archive && _stricmp(archive->name.c_str(), name) == 0) {
-            return; // already loaded
-        }
-    }
+    return std::ranges::any_of(archives(), [name](const std::unique_ptr<LoadedArchive>& archive) {
+        return archive && _stricmp(archive->name.c_str(), name) == 0;
+    });
+}
+
+// The first free archive slot (-1: none).
+int free_archive_slot()
+{
     int slot = -1;
     for (int i = 0; i < kPreloadCapacity; ++i) {
         if (!core::at(archives(), i)) {
@@ -232,6 +237,18 @@ void load_pre(const char* name)
             break;
         }
     }
+    return slot;
+}
+
+} // namespace
+
+// 0x005B75A0
+void load_pre(const char* name)
+{
+    if (archive_loaded(name)) {
+        return; // already loaded
+    }
+    const int slot = free_archive_slot();
 
     std::array<char, kPackPathSize> path{};
     text::format_to(path, "pre\\%s", name);

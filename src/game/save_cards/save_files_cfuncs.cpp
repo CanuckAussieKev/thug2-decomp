@@ -467,6 +467,46 @@ void mark_corrupt(Struct* entry, uint32_t text)
     entry->append_word(kFileName, script::fetch_text(text));
 }
 
+// A listed save file opened: its size, and its summary - or marked corrupt (unreadable, a bad summary or another
+// version).
+void describe_listed_file(Struct* entry, SaveCard* card, std::array<char, kSaveDirectoryBytes>& path, uint32_t type)
+{
+    constexpr uint32_t kDamagedFile = 0x2C7CD632;
+    constexpr uint32_t kNgcDamagedFile = 0xFD4AA64E;
+    FileLoad* opened = card->unseal(path.data(), 1, 0);
+    if (!opened) {
+        mark_corrupt(entry, kDamagedFile);
+    } else {
+        opened->seek_to({.offset = 0, .origin = 0});
+        opened->get_take_in(listed_file().data(), static_cast<int>(kListedFileBytes));
+        util::ByteReader reader(listed_file().data(), sizeof(listed_file()));
+        SaveFileHeader listed_header;
+        read_save_file_header(reader, &listed_header);
+        const uint8_t* listed_summary = reader.cursor();
+        const int summary_size = listed_header.summary_size;
+        const bool bad = summary_size > kMaxSummarySize ||
+                         checksums::generate_crc_from_buffer(listed_summary, summary_size) != listed_header.summary_crc;
+        const int size = static_cast<int>(opened->seek_to({.offset = 0, .origin = 2}));
+        entry->put_int(checksums::Name{kTotalFileSize}, save_blocks(checksums::Name{type}, size)); // total_file_size
+        if (bad || listed_header.version != type_version(type)) {
+            mark_corrupt(entry, os_layer() == game_config::kHardwareGameCube ? kNgcDamagedFile : kDamagedFile);
+        } else {
+            gsl::owner<Struct*> summary = script::spawn_param_bag();
+            if (summary) {
+                summary = new (summary) script::Struct;
+            }
+            script::decode_from_bytes(summary, listed_summary, reader.remaining());
+            entry->append_structure_if_any(summary);
+            if (summary) {
+                summary->get_clear();
+                script::delete_struct(summary);
+            }
+        }
+        opened->shut();
+        DeleteFile(opened);
+    }
+}
+
 } // namespace
 
 // 0x005A8F70
@@ -541,41 +581,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             text::format_to(path, "Save/%s", file->label().data());
         }
         entry->append_word(kActualFileName, path.data()); // actual_file_name
-        constexpr uint32_t kDamagedFile = 0x2C7CD632;
-        constexpr uint32_t kNgcDamagedFile = 0xFD4AA64E;
-        FileLoad* opened = card->unseal(path.data(), 1, 0);
-        if (!opened) {
-            mark_corrupt(entry, kDamagedFile);
-        } else {
-            opened->seek_to({.offset = 0, .origin = 0});
-            opened->get_take_in(listed_file().data(), static_cast<int>(kListedFileBytes));
-            util::ByteReader reader(listed_file().data(), sizeof(listed_file()));
-            SaveFileHeader listed_header;
-            read_save_file_header(reader, &listed_header);
-            const uint8_t* listed_summary = reader.cursor();
-            const int summary_size = listed_header.summary_size;
-            const bool bad =
-                summary_size > kMaxSummarySize ||
-                checksums::generate_crc_from_buffer(listed_summary, summary_size) != listed_header.summary_crc;
-            const int size = static_cast<int>(opened->seek_to({.offset = 0, .origin = 2}));
-            entry->put_int(checksums::Name{kTotalFileSize}, save_blocks(checksums::Name{type}, size)); // total_file_size
-            if (bad || listed_header.version != type_version(type)) {
-                mark_corrupt(entry, os_layer() == game_config::kHardwareGameCube ? kNgcDamagedFile : kDamagedFile);
-            } else {
-                gsl::owner<Struct*> summary = script::spawn_param_bag();
-                if (summary) {
-                    summary = new (summary) script::Struct;
-                }
-                script::decode_from_bytes(summary, listed_summary, reader.remaining());
-                entry->append_structure_if_any(summary);
-                if (summary) {
-                    summary->get_clear();
-                    script::delete_struct(summary);
-                }
-            }
-            opened->shut();
-            DeleteFile(opened);
-        }
+        describe_listed_file(entry, card, path, type);
         core::at(entries, listed++) = entry;
     }
     if (switched) {
@@ -625,6 +631,76 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     head.next()->set_prev(head.prev());
     return true;
 }
+
+namespace {
+
+// A save being written: the file and its card, the buffers, the structures and their sizes.
+struct SaveWrite {
+    FileLoad* file{};
+    SaveCard* card{};
+    uint8_t* header{};
+    uint8_t* padding{};
+    Struct* summary{};
+    Struct* contents{};
+    uint32_t type{};
+    uint32_t total{};
+    uint32_t main_size{};
+    uint32_t summary_size{};
+    uint32_t padding_size{};
+};
+
+// The save file written (PC, consoles): the header, the summary and the contents, then the padding; true when
+// every byte was written.
+bool write_save_file(const SaveWrite& save)
+{
+    FileLoad* file = save.file;
+    const SaveCard* card = save.card;
+    uint8_t* header = save.header;
+    const uint8_t* padding = save.padding;
+    Struct* summary = save.summary;
+    Struct* contents = save.contents;
+    const uint32_t type = save.type;
+    const uint32_t total = save.total;
+    const uint32_t main_size = save.main_size;
+    const uint32_t summary_size = save.summary_size;
+    const uint32_t padding_size = save.padding_size;
+    bool& out_of_space = save_cards_state().out_of_space();
+    bool saved = false;
+    SaveFileHeader file_header;
+    file_header.version = type_version(type);
+    file_header.size = static_cast<int>(total);
+    file_header.summary_size = static_cast<int>(summary_size);
+    const std::span<uint8_t> body = std::span<uint8_t>(header, total).subspan(kSaveFileHeaderSize);
+    const bool pc = os_layer() == 4 || os_layer() == 7;
+    script::emit_into_buffer(summary, body.data(), summary_size, false, pc ? keep_sound_going : nullptr);
+    file_header.summary_crc = checksums::generate_crc_from_buffer(body.data(), static_cast<int>(summary_size));
+    const std::span<uint8_t> main_part = body.subspan(summary_size);
+    script::emit_into_buffer(contents, main_part.data(), main_size, false, nullptr);
+    if (type == kSaveNetworkSettings) {
+        for (uint8_t& byte : main_part.first(main_size)) {
+            byte += kSaveFileMask; // (read back with the mask taken off)
+        }
+    }
+    util::ByteWriter header_writer(header, kSaveFileHeaderSize);
+    write_save_file_header(header_writer, file_header);
+    file_header.checksum = checksums::generate_crc_from_buffer(header, static_cast<int>(total));
+    header_writer.seek(0);
+    write_save_file_header(header_writer, file_header);
+    int written = file->emit_out(header, static_cast<int>(total));
+    out_of_space = card->fault() == 2;
+    if (written == ints::as_signed(total)) {
+        if (os_layer() == game_config::kHardwareGameCube || padding_size == 0) {
+            saved = true;
+        } else {
+            written = file->emit_out(padding, static_cast<int>(padding_size));
+            out_of_space = card->fault() == 2;
+            saved = written == ints::as_signed(padding_size);
+        }
+    }
+    return saved;
+}
+
+} // namespace
 
 // 0x005A7420: emit_into_buffer's callback while a save is written on the PC: the music and sounds kept going.
 void keep_sound_going()
@@ -727,37 +803,17 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
             header = static_cast<uint8_t*>(memory::alloc_block(total));
             std::memset(header, 0, kSaveFileHeaderSize);
             if (os_layer() != game_config::kHardwareGameCube) {
-                SaveFileHeader file_header;
-                file_header.version = type_version(type);
-                file_header.size = static_cast<int>(total);
-                file_header.summary_size = static_cast<int>(summary_size);
-                const std::span<uint8_t> body = std::span<uint8_t>(header, total).subspan(kSaveFileHeaderSize);
-                const bool pc = os_layer() == 4 || os_layer() == 7;
-                script::emit_into_buffer(summary, body.data(), summary_size, false, pc ? keep_sound_going : nullptr);
-                file_header.summary_crc = checksums::generate_crc_from_buffer(body.data(), static_cast<int>(summary_size));
-                const std::span<uint8_t> main_part = body.subspan(summary_size);
-                script::emit_into_buffer(contents, main_part.data(), main_size, false, nullptr);
-                if (type == kSaveNetworkSettings) {
-                    for (uint8_t& byte : main_part.first(main_size)) {
-                        byte += kSaveFileMask; // (read back with the mask taken off)
-                    }
-                }
-                util::ByteWriter header_writer(header, kSaveFileHeaderSize);
-                write_save_file_header(header_writer, file_header);
-                file_header.checksum = checksums::generate_crc_from_buffer(header, static_cast<int>(total));
-                header_writer.seek(0);
-                write_save_file_header(header_writer, file_header);
-                int written = file->emit_out(header, static_cast<int>(total));
-                out_of_space = card->fault() == 2;
-                if (written == ints::as_signed(total)) {
-                    if (os_layer() == game_config::kHardwareGameCube || padding_size == 0) {
-                        saved = true;
-                    } else {
-                        written = file->emit_out(padding, static_cast<int>(padding_size));
-                        out_of_space = card->fault() == 2;
-                        saved = written == ints::as_signed(padding_size);
-                    }
-                }
+                saved = write_save_file({.file = file,
+                                         .card = card,
+                                         .header = header,
+                                         .padding = padding,
+                                         .summary = summary,
+                                         .contents = contents,
+                                         .type = type,
+                                         .total = total,
+                                         .main_size = main_size,
+                                         .summary_size = summary_size,
+                                         .padding_size = padding_size});
             }
         }
     }

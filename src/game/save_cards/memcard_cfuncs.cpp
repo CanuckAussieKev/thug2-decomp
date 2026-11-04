@@ -118,6 +118,125 @@ constexpr uint32_t kLoadFailed = 0xFBF9C22A;     // checksum left in the script'
 constexpr uint32_t kObfuscatedType = 0xCA41692D; // its second structure's bytes are stored plus 0x69
 constexpr uint32_t kAlsoApplyType = 0x61A1BC57;  // applied even when kept
 
+// A save file's path on the card, by platform: false when it has none.
+bool make_load_path(std::array<char, kSavePathBytes>& path, const char* name, uint32_t type)
+{
+    core::at(path, 0) = '\0';
+    bool named = true;
+    switch (os_layer()) {
+    case 1:
+    case 2:
+    case 3: { // console folders: /<dir><file>/<dir><file>
+        const char* folder = game_config::get_path_prefix();
+        std::array<char, kSaveFileNameBytes> file{};
+        make_file_name(name, file, type);
+        text::format_to(path, "/%s%s/%s%s", folder, file.data(), folder, file.data());
+        break;
+    }
+    case game_config::kHardwareGameCube: {
+        std::array<char, kSavePathBytes> file{};
+        make_folder_file_name(type, name, file.data());
+        text::format_to(path, "%s%s", file.data(), file.data());
+        break;
+    }
+    case 4:
+    case game_config::kHardwareWin32: {
+        const char* converted = save_cards::SaveCard::convert_filename(get_type_file_name(type, name));
+        if (!converted) {
+            named = false;
+        } else {
+            text::format_to(path, "%s", converted);
+        }
+        break;
+    }
+    default:
+        named = false;
+        break;
+    }
+    return named;
+}
+
+// LoadFromMemoryCard's structures, what it was asked for and by whom.
+struct LoadRequest {
+    script::Struct* header{};
+    script::Struct* contents{};
+    uint32_t type{};
+    int no_apply{};
+    script::Script* script{};
+    script::Struct* params{};
+};
+
+// An open save file read: the right size, version and header, its contents applied or kept; true when it was
+// read (kLoadFailed left in the script's parameters when it wasn't).
+bool load_save_file(FileLoad* file, const LoadRequest& request)
+{
+    script::Struct* header = request.header;
+    script::Struct* contents = request.contents;
+    const uint32_t type = request.type;
+    const int no_apply = request.no_apply;
+    script::Script* script = request.script;
+    script::Struct* params = request.params;
+    uint8_t* data = nullptr;
+    bool loaded = false;
+    const int size = static_cast<int>(file->seek_to({.offset = 0, .origin = 2}));
+    bool bad = size != type_file_size(type);
+    if (!bad) {
+        data = static_cast<uint8_t*>(memory::alloc_block(size));
+        file->seek_to({.offset = 0, .origin = 0});
+        if (file->get_take_in(data, size) == size) {
+            util::ByteReader reader(data, static_cast<size_t>(size));
+            SaveFileHeader file_header;
+            read_save_file_header(reader, &file_header);
+            // The original also rejected the file unless
+            //     Checksums::generate_crc_from_buffer(data, file_header.size) == <the checksum read>
+            // (with the checksum field cleared) - the test PartyMod NOPs (its patch at 0x005A8A01).
+            // NOT ORIGINAL: a header claiming more bytes than the file has is rejected too (the original
+            // then unmasked the NetworkSettings contents past the end of its buffer).
+            bad = !reader.ok() || file_header.size > kMaxSaveBytes || file_header.size > size ||
+                  file_header.version != type_version(type);
+            if (!bad) {
+                auto end = static_cast<size_t>(file_header.size);
+                const std::span<uint8_t> file_bytes(data, static_cast<size_t>(size));
+                uint8_t* rest =
+                    read_structure(header, file_bytes.subspan(kSaveFileHeaderSize).data(), end - kSaveFileHeaderSize);
+                auto used = static_cast<size_t>(rest - data);
+                const size_t count = used < end ? end - used : 0;
+                if (type == kObfuscatedType && count != 0) {
+                    for (uint8_t& byte : file_bytes.subspan(used, count)) {
+                        byte -= kSaveFileMask;
+                    }
+                }
+                read_structure(contents, rest, count);
+                if (no_apply == 0) {
+                    apply_loaded_contents(type, contents, script, params);
+                } else {
+                    // (a null structure here would crash, as in the original; the previous one leaks)
+                    gsl::owner<script::Struct*> kept = script::new_struct();
+                    save_cards_state().kept_params() = kept;
+                    kept->append_structure_if_any(contents);
+                    save_cards_state().set_kept_type(type);
+                    if (type == kAlsoApplyType) {
+                        apply_loaded_contents(type, contents, script, nullptr);
+                    }
+                }
+                loaded = true;
+                if (no_apply == 0) {
+                    script::launch_script(kPostLoadFromMemoryCard, params, nullptr, false, nullptr);
+                }
+            }
+        }
+    }
+    if (bad) {
+        script->args().get()->put_name_key(checksums::Name{0U}, kLoadFailed);
+    }
+    file->shut();
+    file->teardown(1); // delete
+    if (data) {
+        memory::free_malloc(data);
+    }
+    return loaded;
+}
+
 } // namespace
 
 // 0x005A8730. LoadFromMemoryCard Name=<string> Type=<checksum> [<kNoApply>=<integer>]: reads the save file and
@@ -134,7 +253,6 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
     gsl::owner<script::Struct*> contents = script::new_struct(); // the second: what's loaded
     const char* name = "";                   // ""
     uint32_t type = 0;
-    uint8_t* data = nullptr;
     bool loaded = false;
     int no_apply = 0;
     params->fetch_int_value(kNoApply, &no_apply, 0);
@@ -144,95 +262,15 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         params->fetch_text("Name", &name, 0);
         params->read_hash_value("Type", &type, 0);
         std::array<char, kSavePathBytes> path{};
-        core::at(path, 0) = '\0';
-        bool named = true;
-        switch (os_layer()) {
-        case 1:
-        case 2:
-        case 3: { // console folders: /<dir><file>/<dir><file>
-            const char* folder = game_config::get_path_prefix();
-            std::array<char, kSaveFileNameBytes> file{};
-            make_file_name(name, file, type);
-            text::format_to(path, "/%s%s/%s%s", folder, file.data(), folder, file.data());
-            break;
-        }
-        case game_config::kHardwareGameCube: {
-            std::array<char, kSavePathBytes> file{};
-            make_folder_file_name(type, name, file.data());
-            text::format_to(path, "%s%s", file.data(), file.data());
-            break;
-        }
-        case 4:
-        case game_config::kHardwareWin32: {
-            const char* converted = save_cards::SaveCard::convert_filename(get_type_file_name(type, name));
-            if (!converted) {
-                named = false;
-            } else {
-                text::format_to(path, "%s", converted);
-            }
-            break;
-        }
-        default:
-            named = false;
-            break;
-        }
+        const bool named = make_load_path(path, name, type);
         FileLoad* file = named ? card->unseal(path.data(), 1, 0) : nullptr;
         if (file) {
-            const int size = static_cast<int>(file->seek_to({.offset = 0, .origin = 2}));
-            bool bad = size != type_file_size(type);
-            if (!bad) {
-                data = static_cast<uint8_t*>(memory::alloc_block(size));
-                file->seek_to({.offset = 0, .origin = 0});
-                if (file->get_take_in(data, size) == size) {
-                    util::ByteReader reader(data, static_cast<size_t>(size));
-                    SaveFileHeader file_header;
-                    read_save_file_header(reader, &file_header);
-                    // The original also rejected the file unless
-                    //     Checksums::generate_crc_from_buffer(data, file_header.size) == <the checksum read>
-                    // (with the checksum field cleared) - the test PartyMod NOPs (its patch at 0x005A8A01).
-                    // NOT ORIGINAL: a header claiming more bytes than the file has is rejected too (the original
-                    // then unmasked the NetworkSettings contents past the end of its buffer).
-                    bad = !reader.ok() || file_header.size > kMaxSaveBytes || file_header.size > size ||
-                          file_header.version != type_version(type);
-                    if (!bad) {
-                        auto end = static_cast<size_t>(file_header.size);
-                        const std::span<uint8_t> file_bytes(data, static_cast<size_t>(size));
-                        uint8_t* rest = read_structure(header, file_bytes.subspan(kSaveFileHeaderSize).data(), end - kSaveFileHeaderSize);
-                        auto used = static_cast<size_t>(rest - data);
-                        const size_t count = used < end ? end - used : 0;
-                        if (type == kObfuscatedType && count != 0) {
-                            for (uint8_t& byte : file_bytes.subspan(used, count)) {
-                                byte -= kSaveFileMask;
-                            }
-                        }
-                        read_structure(contents, rest, count);
-                        if (no_apply == 0) {
-                            apply_loaded_contents(type, contents, script, params);
-                        } else {
-                            // (a null structure here would crash, as in the original; the previous one leaks)
-                            gsl::owner<script::Struct*> kept = script::new_struct();
-                            save_cards_state().kept_params() = kept;
-                            kept->append_structure_if_any(contents);
-                            save_cards_state().set_kept_type(type);
-                            if (type == kAlsoApplyType) {
-                                apply_loaded_contents(type, contents, script, nullptr);
-                            }
-                        }
-                        loaded = true;
-                        if (no_apply == 0) {
-                            script::launch_script(kPostLoadFromMemoryCard, params, nullptr, false, nullptr);
-                        }
-                    }
-                }
-            }
-            if (bad) {
-                script->args().get()->put_name_key(checksums::Name{0U}, kLoadFailed);
-            }
-            file->shut();
-            file->teardown(1); // delete
-            if (data) {
-                memory::free_malloc(data);
-            }
+            loaded = load_save_file(file, {.header = header,
+                                           .contents = contents,
+                                           .type = type,
+                                           .no_apply = no_apply,
+                                           .script = script,
+                                           .params = params});
         }
     }
     script::free_struct(header);
