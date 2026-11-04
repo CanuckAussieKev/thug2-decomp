@@ -323,7 +323,7 @@ public:
         GrindPoint* start;
         GrindPoint* end;
     };
-    bool next_hang_rail(float* t, GrindPoint* start, GrindPoint* end, HangSegment* onto);
+    bool next_hang_rail(float* fraction, GrindPoint* start, GrindPoint* end, HangSegment* onto);
     // 0x0043E530: a pull-up onto the ledge above the hang: the ground near `target` (find_stand_position; failing that, 12 to
     // one side, then 12 to the other - `target` moved), seven feelers round it (none may hit) and one from behind the
     // skater up past the pull_up_obstruction_height (neither may hit). Then the animated move (PullUpFromHang) towards

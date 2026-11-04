@@ -937,7 +937,7 @@ public:
     // 0x005933F0: take away the restart point of type `player` at `area` (its cell x, y, z)
     void unplant_restart_point(CellBox* area, int player);
     // 0x005935F0: mark a piece for clean_up_out_refs (taken out at once if it has DuplicatedTile::kDestroyNow)
-    void destroy_piece(void* piece);
+    void destroy_piece(void* memory);
     // 0x00593610: take out and delete the pieces marked by destroy_piece
     void clean_up_out_refs();
     // 0x005947D0: every piece's sector deleted and cloned again (the node array dropped); 0x00594910: those of the
@@ -952,14 +952,14 @@ public:
     // the lights' sum of 1 / (160000 + squared distance in x and z); over 255 is 255.
     uint32_t sample_light_colour(const maths::Vec4* position, uint32_t rgba); // (r g b a from the low byte; alpha kept)
     // 0x00594410: a piece's vertex colours (from its source's) and its collision's vertex intensities lit
-    void light_piece(ParkTile* piece);
+    void light_piece(ParkTile* source);
     // 0x00593370: how many restart points of `type` there are
     int count_restarts(int type);
     // 0x00593500: a gap's trigger piece (the type 0xC0341DF7) at `position` turned `rot` quarter turns, added
     void* make_gap_marker_piece(maths::Vec4* position, float length, int rot);
     // 0x00594730: a piece's sector cloned from its source into the scene, placed, lit (a gap piece told the gap
     // manager)
-    void add_piece_to_scene(ParkTile* piece);
+    void add_piece_to_scene(ParkTile* tile);
     // 0x00594610: every piece taken out and deleted (with the rail editor's rails taken out of the scene first),
     // then every source piece deleted
     void unload_pieces();

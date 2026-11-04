@@ -93,7 +93,7 @@ struct TickCycle {
     Pad pad;
     bool have_selection_ = false;
 };
-void tick_frame(TickCycle& frame);
+void tick_frame(TickCycle& tick_cycle);
 // Escape: a pie closed or walking stopped (true: it was taken).
 bool get_cancel();
 bool wants_escape(); // (a pie or walking: Escape doesn't leave the editor)

@@ -88,7 +88,7 @@ float compressed_limit(float extent);
 float confine(float scale);
 inline V3 confine(V3 scale) { return {.x = confine(scale.x), .y = confine(scale.y), .z = confine(scale.z)}; }
 // The world axis a direction is most along (0 x, 1 y, 2 z): Alt+[ / ] stretch along the axis the camera faces most.
-int main_axis(V3 direction);
+int main_axis(V3 delta);
 // The factor `f` along axis `axis` only.
 V3 along_axis(int axis, float factor);
 // Of three axes (an object's rows), the one most along the world's axis `world_axis`.

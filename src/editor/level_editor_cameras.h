@@ -64,7 +64,7 @@ struct ViewCam {
 bool get_same(const ViewCam& a, const ViewCam& b);
 // The record's text and one read (after the word "camera"; false: malformed - no pos, a bad name or number, a key
 // twice).
-std::string write_record(const ViewCam& camera);
+std::string write_record(const ViewCam& view_cam);
 bool read_record(std::istringstream& in, ViewCam* out);
 // The stem of fresh names.
 constexpr const char* kStem = "ed_camera";

@@ -120,7 +120,7 @@ struct Seg {
     // start + s * (end - start) on this segment and other.start + t * (other.end - other.start) on the other;
     // s and t (both in [0, 1]) are written out when the pointers are given. Returned as double: the original
     // leaves it in ST0 unrounded and some callers compare it before storing (ours is computed in floats).
-    double distance_sqr_to_line(const Seg& other, float* along_a = nullptr, float* along_b = nullptr) const;
+    double distance_sqr_to_line(const Seg& other, float* s_out = nullptr, float* t_out = nullptr) const;
 };
 
 // Closest points between lines `a` and `b`: point_a = a.start + s * (a.end - a.start), point_b likewise with
