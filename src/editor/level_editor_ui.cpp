@@ -9,6 +9,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "engine/pad_input/input_event.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cfloat>
@@ -1985,7 +1987,7 @@ void halt()
 
 void device_lost() { ui_backend::invalidate_device_objects(); }
 
-bool route_event(const SDL_Event* event, bool editor_capture)
+bool route_event(const input::Event& event, bool editor_capture)
 {
     if (!level_editor_ui_state().running_) {
         return true;
@@ -1996,57 +1998,57 @@ bool route_event(const SDL_Event* event, bool editor_capture)
         return ui_layout::decide(
             {.ui_wants_mouse_ = level_editor_ui_state().want_mouse_, .ui_wants_keyboard_ = level_editor_ui_state().want_keys_, .over_panel_ = ui_layout::on_panel(level_editor_ui_state().layout_, x, y), .editor_capture_ = editor_capture || level_editor_ui_state().editor_buttons_ != 0});
     };
-    switch (event->type) {
-    case SDL_MOUSEMOTION: {
+    switch (event.type) {
+    case input::EventType::kMouseMotion: {
         const ui_layout::Route mouse_route =
-            route(static_cast<float>(event->motion.x), static_cast<float>(event->motion.y));
+            route(static_cast<float>(event.x), static_cast<float>(event.y));
         if (mouse_route.mouse_to_ui_ || (level_editor_ui_state().ui_buttons_ != 0U)) {
-            ui_backend::process_event(event);
+            ui_backend::process_event(event.native);
         }
         return true; // (the editor keeps the position and the look's movement; mouse_to_editor says if it may pick)
     }
-    case SDL_MOUSEBUTTONDOWN: {
-        const uint32_t bit = 1U << (event->button.button & 31);
+    case input::EventType::kMouseButtonDown: {
+        const uint32_t bit = 1U << (event.button & 31);
         const ui_layout::Route mouse_route =
-            route(static_cast<float>(event->button.x), static_cast<float>(event->button.y));
+            route(static_cast<float>(event.x), static_cast<float>(event.y));
         if (!mouse_route.mouse_to_editor_) {
             level_editor_ui_state().ui_buttons_ |= bit;
-            ui_backend::process_event(event);
+            ui_backend::process_event(event.native);
             return false;
         }
         level_editor_ui_state().editor_buttons_ |= bit;
         if (mouse_route.mouse_to_ui_) {
-            ui_backend::process_event(event); // (ImGui loses its focus and hover; the editor has the click)
+            ui_backend::process_event(event.native); // (ImGui loses its focus and hover; the editor has the click)
         }
         return true;
     }
-    case SDL_MOUSEBUTTONUP: {
-        const uint32_t bit = 1U << (event->button.button & 31);
+    case input::EventType::kMouseButtonUp: {
+        const uint32_t bit = 1U << (event.button & 31);
         if ((level_editor_ui_state().ui_buttons_ & bit) != 0U) {
             level_editor_ui_state().ui_buttons_ &= ~bit;
-            ui_backend::process_event(event);
+            ui_backend::process_event(event.native);
             return false;
         }
         level_editor_ui_state().editor_buttons_ &= ~bit;
-        ui_backend::process_event(event); // (ImGui's button state stays true)
+        ui_backend::process_event(event.native); // (ImGui's button state stays true)
         return true;
     }
-    case SDL_MOUSEWHEEL: {
+    case input::EventType::kMouseWheel: {
         const ui_layout::Route mouse_route = route(level_editor_ui_state().mouse_x_, level_editor_ui_state().mouse_y_);
         if (!mouse_route.mouse_to_editor_) {
-            ui_backend::process_event(event);
+            ui_backend::process_event(event.native);
             return false;
         }
         return true;
     }
-    case SDL_KEYDOWN:
-    case SDL_KEYUP:
-    case SDL_TEXTINPUT:
-    case SDL_TEXTEDITING:
-        ui_backend::process_event(event);
+    case input::EventType::kKeyDown:
+    case input::EventType::kKeyUp:
+    case input::EventType::kTextInput:
+    case input::EventType::kTextEditing:
+        ui_backend::process_event(event.native);
         return !level_editor_ui_state().want_keys_;
     default:
-        ui_backend::process_event(event);
+        ui_backend::process_event(event.native);
         return true;
     }
 }

@@ -45,7 +45,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/sys/stopwatch.h"
 #include "platform/screenshot_files.h"
-#include "platform/sdl_events.h"
+#include "engine/pad_input/input_event.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
@@ -652,10 +652,10 @@ void tick_series(bool rendering)
     stored_series().reset();
 }
 
-void handle_event(SDL_Event* event)
+void handle_event(const input::Event& event)
 {
-    if (event->type == SDL_KEYDOWN && (event->key.repeat == 0U) &&
-        static_cast<int>(event->key.keysym.scancode) == screenshot_state().key_) {
+    if (event.type == input::EventType::kKeyDown && !event.repeat &&
+        event.key == screenshot_state().key_) {
         screenshot_state().requested_ = true;
     }
 }
@@ -709,7 +709,7 @@ void prepare_all()
             "screenshot key: Windows' Snipping Tool takes Print Screen (Settings > Accessibility > Keyboard): the game "
             "won't see it - turn that off or set [Keybinds] Screenshot=69 (F12)");
     }
-    os_layer::register_event_handler(handle_event);
+    input::add_event_handler(handle_event);
 }
 
 void before_present(bool rendering)

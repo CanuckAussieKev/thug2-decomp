@@ -3,6 +3,7 @@
 
 #include "engine/pad_input/sdl_input.h"
 #include "engine/pad_input/input_source.h"
+#include "engine/pad_input/input_event.h"
 #include "platform/keyboard.h"
 
 #include <algorithm>
@@ -910,7 +911,7 @@ void text_typed(const char* text)
     }
 }
 
-void handle_input_event(SDL_Event* event)
+void handle_own_event(SDL_Event* event)
 {
     switch (event->type) {
     case SDL_CONTROLLERDEVICEADDED:
@@ -967,6 +968,77 @@ void handle_input_event(SDL_Event* event)
         return;
     }
 }
+
+// The event as the handlers we added see it (engine/pad_input/input_event.h), SDL's own with it.
+input::Event event_for_handlers(const SDL_Event& event)
+{
+    input::Event out;
+    out.native = &event;
+    switch (event.type) {
+    case SDL_KEYDOWN:
+    case SDL_KEYUP:
+        out.type = event.type == SDL_KEYDOWN ? input::EventType::kKeyDown : input::EventType::kKeyUp;
+        out.key = static_cast<int>(event.key.keysym.scancode);
+        out.repeat = event.key.repeat != 0U;
+        out.modifiers = event.key.keysym.mod;
+        break;
+    case SDL_TEXTINPUT:
+        out.type = input::EventType::kTextInput;
+        break;
+    case SDL_TEXTEDITING:
+        out.type = input::EventType::kTextEditing;
+        break;
+    case SDL_MOUSEMOTION:
+        out.type = input::EventType::kMouseMotion;
+        out.x = event.motion.x;
+        out.y = event.motion.y;
+        out.dx = event.motion.xrel;
+        out.dy = event.motion.yrel;
+        out.window = event.motion.windowID;
+        break;
+    case SDL_MOUSEBUTTONDOWN:
+    case SDL_MOUSEBUTTONUP:
+        out.type = event.type == SDL_MOUSEBUTTONDOWN ? input::EventType::kMouseButtonDown : input::EventType::kMouseButtonUp;
+        out.x = event.button.x;
+        out.y = event.button.y;
+        out.button = event.button.button;
+        out.window = event.button.windowID;
+        break;
+    case SDL_MOUSEWHEEL:
+        out.type = input::EventType::kMouseWheel;
+        out.wheel = event.wheel.y;
+        out.wheel_flipped = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED;
+        out.window = event.wheel.windowID;
+        break;
+    case SDL_CONTROLLERBUTTONDOWN:
+    case SDL_CONTROLLERBUTTONUP:
+        out.type = event.type == SDL_CONTROLLERBUTTONDOWN ? input::EventType::kPadButtonDown : input::EventType::kPadButtonUp;
+        out.pad_button = event.cbutton.button;
+        break;
+    case SDL_CONTROLLERAXISMOTION:
+        out.type = input::EventType::kPadAxis;
+        out.pad_axis = event.caxis.axis;
+        out.pad_value = event.caxis.value;
+        break;
+    default:
+        break;
+    }
+    return out;
+}
+
+// SDL's event: the game's input's own handling (controllers joining and leaving, typed keys), then every handler we
+// added (input::add_event_handler: they stood after this one in the window's handlers, in this order).
+void handle_input_event(SDL_Event* event)
+{
+    handle_own_event(event);
+    input::deliver(event_for_handlers(*event));
+}
+
+static_assert(input::kMouseLeft == SDL_BUTTON_LEFT && input::kMouseMiddle == SDL_BUTTON_MIDDLE &&
+                  input::kMouseRight == SDL_BUTTON_RIGHT,
+              "input::Event's mouse buttons are SDL's");
+static_assert(input::kModifierShift == KMOD_SHIFT && input::kModifierCtrl == KMOD_CTRL && input::kModifierAlt == KMOD_ALT,
+              "input::Event's modifiers are SDL's");
 
 // --- the game's key bindings ------------------------------------------------------------------------------------
 

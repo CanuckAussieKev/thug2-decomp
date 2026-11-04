@@ -49,7 +49,7 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/mlp.h"
-#include "platform/sdl_events.h"
+#include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"
@@ -916,24 +916,24 @@ void pause_skaters()
 
 void stop_simulation(const char* why);
 
-void simulate_event(SDL_Event* event)
+void simulate_event(const input::Event& event)
 {
     if (!simulation().simulating_ || !level_editor::live_now()) {
         return;
     }
-    if (event->type == SDL_KEYDOWN && (event->key.repeat == 0U) && ui::keys_to_editor()) {
+    if (event.type == input::EventType::kKeyDown && !event.repeat && ui::keys_to_editor()) {
         const platform::KeyState keys = platform::keyboard_keys();
-        const bool ctrl = (event->key.keysym.mod & KMOD_CTRL) != 0;
-        const bool alt = (event->key.keysym.mod & KMOD_ALT) != 0;
+        const bool ctrl = (event.modifiers & input::kModifierCtrl) != 0;
+        const bool alt = (event.modifiers & input::kModifierAlt) != 0;
         int x = 0;
         int y = 0;
-        const bool right = (SDL_GetMouseState(&x, &y) & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
+        const bool right = (SDL_GetMouseState(&x, &y) & SDL_BUTTON(input::kMouseRight)) != 0;
         const bool fly_keys_safe = right || !xform::fly_always();
         (void)keys;
-        if (!simulate_key_keeps(event->key.keysym.scancode, ctrl, alt, fly_keys_safe)) {
+        if (!simulate_key_keeps(event.key, ctrl, alt, fly_keys_safe)) {
             stop_simulation("a key that edits");
         }
-    } else if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT && ui::mouse_to_editor()) {
+    } else if (event.type == input::EventType::kMouseButtonDown && event.button == input::kMouseLeft && ui::mouse_to_editor()) {
         stop_simulation("a click in the view");
     }
 }
@@ -960,7 +960,7 @@ void start_simulation()
     simulation().touched_before_ = object_edit::get_touched();
     if (!simulation().handler_registered_) {
         // (not from inside the event pump: Tick runs in the render)
-        os_layer::register_event_handler(simulate_event);
+        input::add_event_handler(simulate_event);
         simulation().handler_registered_ = true;
     }
     front_end->get_pause_game(false);

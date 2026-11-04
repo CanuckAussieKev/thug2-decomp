@@ -68,7 +68,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/platform_config.h"
 #include "platform/platform_system.h"
-#include "platform/sdl_events.h"
+#include "engine/pad_input/input_event.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "imgui.h"
@@ -350,7 +350,7 @@ struct NewFrontendState {
     bool catalogue_ok_ = false;
     SavedState saved_{};
     uint32_t last_load_ = 0;
-    std::vector<SDL_Event> events_;
+    std::vector<input::Event> events_;
     std::vector<paint::Hit> hits_;
     bool guard_ = false; // (the game's input held back until the keys that chose are let go)
     float guard_time_ = 0.0F;
@@ -1719,7 +1719,7 @@ std::string pad_button_label_for(mirror::ButtonTag button_tag)
 struct MenuMirror {
     mirror::Tracker mirror_{};
     std::vector<paint::Hit> mirror_hits_;
-    std::vector<SDL_Event> mirror_events_;
+    std::vector<input::Event> mirror_events_;
     float mirror_scroll_ = 0.0F;
     // Set while the original's screens are those of a hand-off left to them entirely: the create modes' editors (CAS,
     // CAT, CAG, the park editor, graphics) and online - nothing restyled until ours is up again.
@@ -2034,12 +2034,12 @@ const paint::Hit* hit_at(const TickCycle& frame, float wx, float wy)
 
 // The mouse moved: a stats screen's row, or (not the skater select: each step loads a skater - only a click selects
 // there) the item under it, stepped to.
-void mirror_motion(const MouseMirror& mouse, const SDL_Event& widget)
+void mirror_motion(const MouseMirror& mouse, const input::Event& widget)
 {
     modules::FrontEnd* front_end = mouse.front_end;
     if (mouse.stats) {
         if (const paint::Hit* hit =
-                hit_at(*mouse.frame, static_cast<float>(widget.motion.x), static_cast<float>(widget.motion.y))) {
+                hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y))) {
             const int choice_row = hit->kind == paint::Hit::Kind::kChoice ? hit->index / 16 : -1;
             const int row = hit->kind == paint::Hit::Kind::kItem ? hit->index : choice_row;
             if (row >= 0 && row != menu_mirror().mirror_.get_shown().selected) {
@@ -2051,7 +2051,7 @@ void mirror_motion(const MouseMirror& mouse, const SDL_Event& widget)
     // (the skater select: each step loads a skater - only a click selects there)
     if (!mouse.skaters) {
         if (const paint::Hit* hit =
-                hit_at(*mouse.frame, static_cast<float>(widget.motion.x), static_cast<float>(widget.motion.y))) {
+                hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y))) {
             if (hit->kind == paint::Hit::Kind::kItem && hit->index != menu_mirror().mirror_.get_shown().selected) {
                 step_to(front_end, hit->index);
             }
@@ -2062,13 +2062,13 @@ void mirror_motion(const MouseMirror& mouse, const SDL_Event& widget)
 // A click on an item: stepped to, then (unless the skater select's first click) chosen - or, on a row whose value
 // Left / Right change - a slider, an option: its sides do that, as the game's own mouse control sends them -
 // mouse_menus.cpp option_side; the middle chooses.
-void click_item(const MouseMirror& mouse, const paint::Hit* hit, const SDL_Event& widget)
+void click_item(const MouseMirror& mouse, const paint::Hit* hit, const input::Event& widget)
 {
     modules::FrontEnd* front_end = mouse.front_end;
     const bool was_selected = hit->index == menu_mirror().mirror_.get_shown().selected;
     if (step_to(front_end, hit->index) && (!mouse.skaters || was_selected)) {
         const mirror::View& shown = menu_mirror().mirror_.get_shown();
-        const float click_x = mouse.frame->design_x(static_cast<float>(widget.button.x));
+        const float click_x = mouse.frame->design_x(static_cast<float>(widget.x));
         const float width = hit->x1 - hit->x0;
         int side = 0;
         if (shown.kind == mirror::Kind::kLinkChain && hit->index >= 0 && std::cmp_less(hit->index, shown.rows.size()) &&
@@ -2091,18 +2091,18 @@ void click_item(const MouseMirror& mouse, const paint::Hit* hit, const SDL_Event
 
 // A mouse button: the right one backs out; the left one on a hit: back, a stats click, a key, Continue or an item.
 // Whether the screen may be another now (the events left unread).
-bool mirror_click(const MouseMirror& mouse, const SDL_Event& widget)
+bool mirror_click(const MouseMirror& mouse, const input::Event& widget)
 {
     modules::FrontEnd* front_end = mouse.front_end;
-    if (widget.button.button == SDL_BUTTON_RIGHT) {
+    if (widget.button == input::kMouseRight) {
         mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
         return false;
     }
-    if (widget.button.button != SDL_BUTTON_LEFT) {
+    if (widget.button != input::kMouseLeft) {
         return false;
     }
     const paint::Hit* hit =
-        hit_at(*mouse.frame, static_cast<float>(widget.button.x), static_cast<float>(widget.button.y));
+        hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y));
     if (!hit) {
         return false;
     }
@@ -2123,7 +2123,7 @@ bool mirror_click(const MouseMirror& mouse, const SDL_Event& widget)
 
 void mirror_mouse(modules::FrontEnd* front_end)
 {
-    std::vector<SDL_Event> events;
+    std::vector<input::Event> events;
     events.swap(menu_mirror().mirror_events_);
     if (!menu_mirror().mirror_.get_up()) {
         return;
@@ -2137,32 +2137,32 @@ void mirror_mouse(modules::FrontEnd* front_end)
     const bool skaters = menu_mirror().mirror_.get_shown().kind == mirror::Kind::kSkaters;
     const bool stats = menu_mirror().mirror_.get_shown().kind == mirror::Kind::kStats;
     const MouseMirror mouse{.front_end = front_end, .frame = &frame, .skaters = skaters, .stats = stats};
-    for (const SDL_Event& widget : events) {
+    for (const input::Event& widget : events) {
         switch (widget.type) {
-        case SDL_MOUSEMOTION:
+        case input::EventType::kMouseMotion:
             mirror_motion(mouse, widget);
             break;
-        case SDL_MOUSEBUTTONDOWN:
+        case input::EventType::kMouseButtonDown:
             if (mirror_click(mouse, widget)) {
                 return;
             }
             break;
-        case SDL_MOUSEWHEEL:
-            if (widget.wheel.y != 0) {
+        case input::EventType::kMouseWheel:
+            if (widget.wheel != 0) {
                 StepContext context{.front_end_ = front_end, .horizontal = menu_mirror().mirror_.get_shown().horizontal};
-                send_step(&context, widget.wheel.y > 0 ? -1 : 1);
+                send_step(&context, widget.wheel > 0 ? -1 : 1);
             }
             break;
         // (the main menu's Continue - ours: the game's menu has no such item; every other key the game's menu takes)
-        case SDL_KEYDOWN:
-            if (menu_mirror().mirror_.get_shown().main_menu_ && (widget.key.repeat == 0U) &&
-                (widget.key.keysym.scancode == SDL_SCANCODE_X || widget.key.keysym.scancode == SDL_SCANCODE_R)) {
+        case input::EventType::kKeyDown:
+            if (menu_mirror().mirror_.get_shown().main_menu_ && !widget.repeat &&
+                (widget.key == SDL_SCANCODE_X || widget.key == SDL_SCANCODE_R)) {
                 continue_last_level(front_end);
                 return;
             }
             break;
-        case SDL_CONTROLLERBUTTONDOWN:
-            if (menu_mirror().mirror_.get_shown().main_menu_ && widget.cbutton.button == SDL_CONTROLLER_BUTTON_X) {
+        case input::EventType::kPadButtonDown:
+            if (menu_mirror().mirror_.get_shown().main_menu_ && widget.pad_button == SDL_CONTROLLER_BUTTON_X) {
                 continue_last_level(front_end);
                 return;
             }
@@ -2477,11 +2477,11 @@ void press_direction(modules::FrontEnd* front_end, Intake input)
 
 // A key pressed on the front end's menus: the arrows / WASD, choose and back, the tabs (Q / E the level art on the
 // level select).
-void handle_key_down(modules::FrontEnd* front_end, const SDL_Event& widget)
+void handle_key_down(modules::FrontEnd* front_end, const input::Event& widget)
 {
-    const bool repeat = widget.key.repeat != 0;
-    const bool shift = (widget.key.keysym.mod & KMOD_SHIFT) != 0;
-    switch (widget.key.keysym.scancode) {
+    const bool repeat = widget.repeat;
+    const bool shift = (widget.modifiers & input::kModifierShift) != 0;
+    switch (widget.key) {
     case SDL_SCANCODE_UP:
     case SDL_SCANCODE_W:
         press_direction(front_end, Intake::kUp);
@@ -2543,9 +2543,9 @@ void handle_key_down(modules::FrontEnd* front_end, const SDL_Event& widget)
 }
 
 // A controller button pressed: the d-pad (repeating while held), choose, Start, back, the shoulders' tabs.
-void handle_button_down(modules::FrontEnd* front_end, const SDL_Event& widget)
+void handle_button_down(modules::FrontEnd* front_end, const input::Event& widget)
 {
-    switch (widget.cbutton.button) {
+    switch (widget.pad_button) {
     case SDL_CONTROLLER_BUTTON_DPAD_UP:
         press_direction(front_end, Intake::kUp);
         stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kUp), .wait = kRepeatDelay};
@@ -2587,19 +2587,19 @@ void handle_button_down(modules::FrontEnd* front_end, const SDL_Event& widget)
 }
 
 // The left stick as a d-pad: past half way (back inside a third: let go).
-void handle_stick(modules::FrontEnd* front_end, const SDL_Event& widget)
+void handle_stick(modules::FrontEnd* front_end, const input::Event& widget)
 {
     // The left stick as a d-pad: past half way (back inside a third: let go).
     int* axis = nullptr;
-    if (widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX) {
+    if (widget.pad_axis == SDL_CONTROLLER_AXIS_LEFTX) {
         axis = &stick_repeat().stick_x_;
-    } else if (widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
+    } else if (widget.pad_axis == SDL_CONTROLLER_AXIS_LEFTY) {
         axis = &stick_repeat().stick_y_;
     }
     if (!axis) {
         return;
     }
-    const int value = widget.caxis.value;
+    const int value = widget.pad_value;
     const int settled = std::abs(value) < 11000 ? 0 : *axis; // (between the two: as it was)
     const int pushed_back = value < -16000 ? -1 : settled;
     const int now = value > 16000 ? 1 : pushed_back;
@@ -2618,7 +2618,7 @@ void handle_stick(modules::FrontEnd* front_end, const SDL_Event& widget)
     stick_repeat().repeat_ = {.direction = static_cast<int>(input), .wait = kRepeatDelay};
 }
 
-void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
+void handle_queued(modules::FrontEnd* front_end, const input::Event& widget)
 {
     int w = 0;
     int height = 0;
@@ -2637,25 +2637,25 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
         return nullptr;
     };
     switch (widget.type) {
-    case SDL_KEYDOWN: {
+    case input::EventType::kKeyDown: {
         handle_key_down(front_end, widget);
         return;
     }
-    case SDL_CONTROLLERBUTTONDOWN:
+    case input::EventType::kPadButtonDown:
         handle_button_down(front_end, widget);
         return;
-    case SDL_CONTROLLERBUTTONUP:
-        if (widget.cbutton.button >= SDL_CONTROLLER_BUTTON_DPAD_UP &&
-            widget.cbutton.button <= SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+    case input::EventType::kPadButtonUp:
+        if (widget.pad_button >= SDL_CONTROLLER_BUTTON_DPAD_UP &&
+            widget.pad_button <= SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
             stick_repeat().repeat_ = {};
         }
         return;
-    case SDL_CONTROLLERAXISMOTION: {
+    case input::EventType::kPadAxis: {
         handle_stick(front_end, widget);
         return;
     }
-    case SDL_MOUSEMOTION:
-        if (const paint::Hit* hit = hit_at(static_cast<float>(widget.motion.x), static_cast<float>(widget.motion.y))) {
+    case input::EventType::kMouseMotion:
+        if (const paint::Hit* hit = hit_at(static_cast<float>(widget.x), static_cast<float>(widget.y))) {
             if (hit->kind == paint::Hit::Kind::kItem) {
                 run_action(front_end, menu_state().hover_item(hit->index));
             } else if (hit->kind == paint::Hit::Kind::kStageMap) {
@@ -2663,15 +2663,15 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
             }
         }
         return;
-    case SDL_MOUSEBUTTONDOWN:
-        if (widget.button.button == SDL_BUTTON_RIGHT) {
+    case input::EventType::kMouseButtonDown:
+        if (widget.button == input::kMouseRight) {
             run_action(front_end, menu_state().get_press(Intake::kBack));
             return;
         }
-        if (widget.button.button != SDL_BUTTON_LEFT) {
+        if (widget.button != input::kMouseLeft) {
             return;
         }
-        if (const paint::Hit* hit = hit_at(static_cast<float>(widget.button.x), static_cast<float>(widget.button.y))) {
+        if (const paint::Hit* hit = hit_at(static_cast<float>(widget.x), static_cast<float>(widget.y))) {
             const paint::Hit clicked = *hit;
             switch (clicked.kind) {
             case paint::Hit::Kind::kItem:
@@ -2699,9 +2699,9 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
             }
         }
         return;
-    case SDL_MOUSEWHEEL:
-        if (widget.wheel.y != 0) {
-            run_action(front_end, menu_state().get_wheel(widget.wheel.y));
+    case input::EventType::kMouseWheel:
+        if (widget.wheel != 0) {
+            run_action(front_end, menu_state().get_wheel(widget.wheel));
         }
         return;
     default:
@@ -2709,16 +2709,16 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
     }
 }
 
-void handle_event(SDL_Event* event)
+void handle_event(const input::Event& event)
 {
     if (!is_switched_on()) {
         return;
     }
-    switch (event->type) {
-    case SDL_CONTROLLERBUTTONDOWN:
+    switch (event.type) {
+    case input::EventType::kPadButtonDown:
         ++new_frontend_state().buttons_down_;
         break;
-    case SDL_CONTROLLERBUTTONUP:
+    case input::EventType::kPadButtonUp:
         new_frontend_state().buttons_down_ = std::max(0, new_frontend_state().buttons_down_ - 1);
         break;
     default:
@@ -2727,22 +2727,22 @@ void handle_event(SDL_Event* event)
     if (new_frontend_state().state_ != State::kShown) {
         // (a restyled original screen: the mouse is ours - its keys and buttons go on to the original menu)
         if (menu_mirror().mirror_.get_up() && menu_mirror().mirror_events_.size() < kMaxMirrorEvents &&
-            (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEWHEEL ||
-             event->type == SDL_KEYDOWN || event->type == SDL_CONTROLLERBUTTONDOWN)) {
-            menu_mirror().mirror_events_.push_back(*event);
+            (event.type == input::EventType::kMouseMotion || event.type == input::EventType::kMouseButtonDown || event.type == input::EventType::kMouseWheel ||
+             event.type == input::EventType::kKeyDown || event.type == input::EventType::kPadButtonDown)) {
+            menu_mirror().mirror_events_.push_back(event.kept());
         }
         return;
     }
-    switch (event->type) {
-    case SDL_KEYDOWN:
-    case SDL_CONTROLLERBUTTONDOWN:
-    case SDL_CONTROLLERBUTTONUP:
-    case SDL_CONTROLLERAXISMOTION:
-    case SDL_MOUSEMOTION:
-    case SDL_MOUSEBUTTONDOWN:
-    case SDL_MOUSEWHEEL:
+    switch (event.type) {
+    case input::EventType::kKeyDown:
+    case input::EventType::kPadButtonDown:
+    case input::EventType::kPadButtonUp:
+    case input::EventType::kPadAxis:
+    case input::EventType::kMouseMotion:
+    case input::EventType::kMouseButtonDown:
+    case input::EventType::kMouseWheel:
         if (new_frontend_state().events_.size() < kMaxQueuedEvents) {
-            new_frontend_state().events_.push_back(*event);
+            new_frontend_state().events_.push_back(event.kept());
         }
         break;
     default:
@@ -2902,7 +2902,7 @@ void prepare_all()
     if (!is_switched_on()) {
         return;
     }
-    os_layer::register_event_handler(handle_event);
+    input::add_event_handler(handle_event);
     get_log("new front end: on ([features] new_frontend=1)");
 }
 
@@ -3078,9 +3078,9 @@ void tick_frame(modules::FrontEnd* front_end)
         step_aside_from_screen(anchor, usable);
         return;
     }
-    std::vector<SDL_Event> events;
+    std::vector<input::Event> events;
     events.swap(new_frontend_state().events_);
-    for (const SDL_Event& widget : events) {
+    for (const input::Event& widget : events) {
         handle_queued(front_end, widget);
         if (new_frontend_state().state_ != State::kShown) {
             return;

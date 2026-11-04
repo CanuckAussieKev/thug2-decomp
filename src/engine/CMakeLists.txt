@@ -247,6 +247,7 @@ add_library(thug2_engine STATIC
     pad_input/device.cpp
     pad_input/input_hub.cpp
     pad_input/input_source.cpp
+    pad_input/input_event.cpp
     pad_input/sdl_input.cpp
     pad_input/input_setup.cpp
     pad_input/port_controls.cpp

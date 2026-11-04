@@ -2,7 +2,6 @@
 
 #include <string>
 
-union SDL_Event;
 namespace modules {
 struct FrontEnd;
 }

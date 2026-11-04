@@ -10,7 +10,9 @@
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_level_props.h"
 
-union SDL_Event;
+namespace input {
+struct Event;
+} // namespace input
 struct ImFont;
 namespace frontend::level_editor::ux8 {
 struct Fonts;
@@ -48,10 +50,10 @@ void halt();
 // frame_loop::reset_device_if_lost, before the device is reset.
 void device_lost();
 
-// An SDL event while the editor runs: given to ImGui as the routing decides (level_editor_ui_layout.h);
-// `editorCapture`: the editor holds the mouse (a drag or a look started in the viewport). Returns whether the editor
-// should see it too.
-bool route_event(const SDL_Event* event, bool editor_capture);
+// An input event while the editor runs (engine/pad_input/input_event.h): its SDL event given to ImGui as the routing
+// decides (level_editor_ui_layout.h); `editorCapture`: the editor holds the mouse (a drag or a look started in the
+// viewport). Returns whether the editor should see it too.
+bool route_event(const input::Event& event, bool editor_capture);
 // Whether the editor gets the mouse (not over a panel, ImGui not holding it) and the keys (ImGui not typing) now.
 bool mouse_to_editor();
 bool keys_to_editor();

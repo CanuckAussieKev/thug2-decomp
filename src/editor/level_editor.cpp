@@ -86,7 +86,7 @@
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
-#include "platform/sdl_events.h"
+#include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
@@ -815,7 +815,7 @@ void read_window_size(uint32_t window_id)
     }
 }
 
-void handle_event(SDL_Event* event)
+void handle_event(const input::Event& event)
 {
     if (!level_editor_state().active_) {
         return;
@@ -825,39 +825,39 @@ void handle_event(SDL_Event* event)
         !ui::route_event(event, drag_state().dragging_ || stored_mouse().right || triggers::resizing())) {
         return;
     }
-    switch (event->type) {
-    case SDL_MOUSEMOTION:
-        stored_mouse().x = static_cast<float>(event->motion.x);
-        stored_mouse().y = static_cast<float>(event->motion.y);
-        stored_mouse().rel_x_ += static_cast<float>(event->motion.xrel);
-        stored_mouse().rel_y_ += static_cast<float>(event->motion.yrel);
-        read_window_size(event->motion.windowID);
+    switch (event.type) {
+    case input::EventType::kMouseMotion:
+        stored_mouse().x = static_cast<float>(event.x);
+        stored_mouse().y = static_cast<float>(event.y);
+        stored_mouse().rel_x_ += static_cast<float>(event.dx);
+        stored_mouse().rel_y_ += static_cast<float>(event.dy);
+        read_window_size(event.window);
         break;
-    case SDL_MOUSEBUTTONDOWN:
-    case SDL_MOUSEBUTTONUP: {
-        const bool down = event->type == SDL_MOUSEBUTTONDOWN;
+    case input::EventType::kMouseButtonDown:
+    case input::EventType::kMouseButtonUp: {
+        const bool down = event.type == input::EventType::kMouseButtonDown;
         if (!level_editor_state().relative_) {
-            stored_mouse().x = static_cast<float>(event->button.x);
-            stored_mouse().y = static_cast<float>(event->button.y);
+            stored_mouse().x = static_cast<float>(event.x);
+            stored_mouse().y = static_cast<float>(event.y);
         }
-        read_window_size(event->button.windowID);
-        if (event->button.button == SDL_BUTTON_LEFT) {
+        read_window_size(event.window);
+        if (event.button == input::kMouseLeft) {
             stored_mouse().left = down;
             ++(down ? stored_mouse().left_presses_ : stored_mouse().left_releases_);
-        } else if (event->button.button == SDL_BUTTON_RIGHT) {
+        } else if (event.button == input::kMouseRight) {
             stored_mouse().right = down;
-        } else if (event->button.button == SDL_BUTTON_MIDDLE && down) {
+        } else if (event.button == input::kMouseMiddle && down) {
             ++stored_mouse().middle_presses_;
         }
         break;
     }
-    case SDL_MOUSEWHEEL:
-        stored_mouse().wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
+    case input::EventType::kMouseWheel:
+        stored_mouse().wheel += event.wheel_flipped ? -event.wheel : event.wheel;
         break;
-    case SDL_KEYDOWN:
+    case input::EventType::kKeyDown:
         // While dragging: X / Y / Z, digits, - . and Backspace typed (level_editor_transform.h), Enter applies.
         if (drag_state().dragging_) {
-            const SDL_Scancode code = event->key.keysym.scancode;
+            const auto code = static_cast<SDL_Scancode>(event.key);
             char character = 0;
             if (code >= SDL_SCANCODE_1 && code <= SDL_SCANCODE_9) {
                 character = static_cast<char>('1' + (code - SDL_SCANCODE_1));
@@ -871,7 +871,7 @@ void handle_event(SDL_Event* event)
                 character = '.';
             } else if (code == SDL_SCANCODE_BACKSPACE) {
                 character = '\b';
-            } else if ((event->key.repeat == 0U) && code >= SDL_SCANCODE_X && code <= SDL_SCANCODE_Z) {
+            } else if (!event.repeat && code >= SDL_SCANCODE_X && code <= SDL_SCANCODE_Z) {
                 character = static_cast<char>('x' + (code - SDL_SCANCODE_X));
             }
             if (code == SDL_SCANCODE_RETURN || code == SDL_SCANCODE_KP_ENTER) {
@@ -883,7 +883,7 @@ void handle_event(SDL_Event* event)
             }
         }
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
-        if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && (event->key.repeat == 0U) &&
+        if (event.key == SDL_SCANCODE_ESCAPE && !event.repeat &&
             !actions::get_capturing()) {
             if (drag_state().dragging_ || stored_browser().open || drag_state().help_ || pick_cycle().place_open_ ||
                 (pick_cycle().confirm_hide_ != 0U) || pick_cycle().confirm_reset_ ||
@@ -3714,7 +3714,7 @@ void register_script_functions()
 
 void prepare_all()
 {
-    os_layer::register_event_handler(handle_event);
+    input::add_event_handler(handle_event);
     set_crash_hook(on_crash);
     script::keep_qb_names(is_switched_on()); // (node names for the HUD: Fire_Tender rather than 61EF3AD4)
     ux3::prepare_all(); // (the Outliner's records in the layouts, the actions' callbacks - level_editor_ux3.h)

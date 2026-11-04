@@ -21,7 +21,7 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/sdl_events.h"
+#include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
 #include "engine/pad_input/device.h"
 #include "engine/ui/menu_element.h"
@@ -550,32 +550,32 @@ void read_window_size(uint32_t window_id)
     }
 }
 
-void handle_mouse_event(SDL_Event* event)
+void handle_mouse_event(const input::Event& event)
 {
-    switch (event->type) {
-    case SDL_MOUSEMOTION:
-        if (event->motion.xrel == 0 && event->motion.yrel == 0) {
+    switch (event.type) {
+    case input::EventType::kMouseMotion:
+        if (event.dx == 0 && event.dy == 0) {
             break;
         }
-        mouse_menus_state().mouse_.x = static_cast<float>(event->motion.x);
-        mouse_menus_state().mouse_.y = static_cast<float>(event->motion.y);
-        read_window_size(event->motion.windowID);
+        mouse_menus_state().mouse_.x = static_cast<float>(event.x);
+        mouse_menus_state().mouse_.y = static_cast<float>(event.y);
+        read_window_size(event.window);
         mouse_menus_state().mouse_.moved = true;
         mouse_menus_state().mouse_.used = true;
         break;
-    case SDL_MOUSEBUTTONDOWN:
-        mouse_menus_state().mouse_.x = static_cast<float>(event->button.x);
-        mouse_menus_state().mouse_.y = static_cast<float>(event->button.y);
-        read_window_size(event->button.windowID);
-        if (event->button.button == SDL_BUTTON_LEFT) {
+    case input::EventType::kMouseButtonDown:
+        mouse_menus_state().mouse_.x = static_cast<float>(event.x);
+        mouse_menus_state().mouse_.y = static_cast<float>(event.y);
+        read_window_size(event.window);
+        if (event.button == input::kMouseLeft) {
             ++mouse_menus_state().mouse_.left_clicks_;
-        } else if (event->button.button == SDL_BUTTON_RIGHT) {
+        } else if (event.button == input::kMouseRight) {
             ++mouse_menus_state().mouse_.right_clicks_;
         }
         mouse_menus_state().mouse_.used = true;
         break;
-    case SDL_MOUSEWHEEL:
-        mouse_menus_state().mouse_.wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
+    case input::EventType::kMouseWheel:
+        mouse_menus_state().mouse_.wheel += event.wheel_flipped ? -event.wheel : event.wheel;
         mouse_menus_state().mouse_.used = true;
         break;
     default:
@@ -993,7 +993,7 @@ void prepare_all()
     if (!is_switched_on()) {
         return;
     }
-    os_layer::register_event_handler(handle_mouse_event);
+    input::add_event_handler(handle_mouse_event);
 }
 
 namespace {
