@@ -6,6 +6,7 @@
 #include "engine/objects/game_hooks.h"
 
 #include <cstdint>
+#include <gsl/assert>
 #include <gsl/pointers>
 
 #include "engine/net/session_query.h"
@@ -116,6 +117,7 @@ void ImpactDestructModule::tick_frame()
                 if (params) {
                     new (params) script::Struct;
                 }
+                Expects(params != nullptr); // (out of memory: the original went on through null)
                 params->put_vec3(checksums::Name{kPos}, *&point);
                 params->put_vec3(checksums::Name{kVel}, *&vel_);
                 params->push_float(checksums::Name{kScale}, size_factor_);

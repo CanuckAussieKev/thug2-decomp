@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <span>
 
 #include "base/core/checked_index.h"
 #include "base/core/down_cast.h"

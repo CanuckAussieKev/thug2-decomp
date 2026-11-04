@@ -18,7 +18,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"
 #include "engine/sys/stopwatch.h"
-#include "base/core/checked_index.h"
 #include "base/core/format.h"
 
 namespace objects {
