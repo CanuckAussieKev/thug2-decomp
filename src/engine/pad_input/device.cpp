@@ -17,9 +17,8 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checksums.h"
-#include "game/front_end/front_end.h"
+#include "engine/pad_input/game_hooks.h"
 #include "engine/ui/screen_element.h"
-#include "game/skate/profile_manager.h"
 #include "engine/pad_input/input_setup.h"
 #include "platform/sdl_events.h"
 #include "engine/pad_input/direct_input.h"
@@ -31,7 +30,6 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/cscript.h"
 #include "engine/pad_input/sdl_input.h"
-#include "game/park_editing/park_editor.h"
 #include "engine/ui/screen_element_manager.h"
 #include <gsl/pointers>
 #include <array>
@@ -571,7 +569,7 @@ int play_key(int button)
 // 0x005BCD50
 const char* get_button_key_name(int button)
 {
-    const bool menu = modules::menus_active() || in_menu();
+    const bool menu = game_hooks().menus_active() || in_menu();
     const bool typing = keyboard_typing();
     bool piece_menu = false;
     frontend::ElementPtr element;
@@ -709,8 +707,9 @@ void set_default_escape_control(int control) { os_layer::set_default_escape_cont
 void pump_window_messages() { os_layer::process_window_events(); }
 void read_pad_state(int port, PadSnapshot* state) { os_layer::read_pad(port + 1, state); }
 bool get_key_down(int code) { return os_layer::get_key_down(code); }
-// The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
-int get_menu_port() { return objects::profile_roster()->cursor_pos(); }
+// The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4; through
+// engine/pad_input/game_hooks.h).
+int get_menu_port() { return game_hooks().menu_port(); }
 
 uint8_t if_above(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t pressure_or_zero(uint8_t value) { return value > kPressedThreshold ? value : 0; }
@@ -739,7 +738,7 @@ void InputPort::pull_data(int /*unused*/)
     if (render::engine_parts().quit_requested()) {
         return;
     }
-    const bool menu = modules::menus_active() || in_menu();
+    const bool menu = game_hooks().menus_active() || in_menu();
     const bool typing = keyboard_typing();
     bool select_skater_shown = false;
     bool piece_menu_shown = false;
@@ -828,8 +827,7 @@ void InputPort::pull_data(int /*unused*/)
     }
     second ^= core::at(pressure, kSnapshotX) >= kPressedThreshold ? kLowBitSquare : 0;
     const uint8_t buttons_so_far = second;
-    const park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
-    if (editor && editor->editor_state() == park_editing::ParkBuilderMode::kStateEdit) {
+    if (game_hooks().park_editing()) { // (the park editor in its edit state: engine/pad_input/game_hooks.h)
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editor_element = false;
         if (frontend::UiTree::sole()) {

@@ -20,7 +20,7 @@
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/pad_input/device.h"
-#include "game/rider/thaw_bmx.h"
+#include "engine/pad_input/game_hooks.h"
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 #include "engine/sys/debug_mode.h"
@@ -763,9 +763,10 @@ void read_key_sticks(std::array<uint8_t, kPortBufferBytes>& data, platform::KeyS
         core::at(data, kControlRightStickY) = kStickFull;
     }
     // Not original - THAW's half-stick key (PartyMod's THAW build: Feeble, 64 / 192 instead of 0 / 255) while THAW's
-    // BMX is ridden (game/rider/thaw_bmx.h half_stick_key): its grind pick reads how far the stick is pushed.
+    // BMX is ridden (game/rider/thaw_bmx.h half_stick_key, through engine/pad_input/game_hooks.h): its grind pick reads
+    // how far the stick is pushed.
     // Original behaviour: the Feeble binding is read but unused - the movement keys always give 0 / 255.
-    const bool half = down(sdl_input_state().keys_.feeble) && skater::thaw_bmx::half_stick_key();
+    const bool half = down(sdl_input_state().keys_.feeble) && game_hooks().half_stick_key();
     const uint8_t low = half ? 64 : 0;
     const uint8_t high = half ? 192 : 255;
     if (down(sdl_input_state().keys_.left) && !down(sdl_input_state().keys_.right)) {

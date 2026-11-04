@@ -8,10 +8,6 @@ src/devtools/start_level.cpp -> src/editor/level_editor_layout.h
 src/devtools/start_level.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor_play.cpp -> src/frontend/mouse_menus.h
-src/engine/pad_input/device.cpp -> src/game/front_end/front_end.h
-src/engine/pad_input/device.cpp -> src/game/park_editing/park_editor.h
-src/engine/pad_input/device.cpp -> src/game/skate/profile_manager.h
-src/engine/pad_input/sdl_input.cpp -> src/game/rider/thaw_bmx.h
 src/engine/render/probe_ray.cpp -> src/game/rider/debug_collision.h
 src/engine/sys/debug_mode.cpp -> src/game/front_end/front_end.h
 src/engine/sys/mlp.cpp -> src/game/online/gamenet_manager.h
