@@ -6421,9 +6421,27 @@ void transform_keys(platform::KeyState keys, bool ctrl, bool shift, bool alt, co
     }
 }
 
-} // namespace
+// One editor frame's input and view, as tick_frame's steps share them.
+struct EditorFrame {
+    double seconds = 0.0;
+    Mouse input;
+    platform::KeyState keys;
+    ux8::Pad pad;
+    bool pad_cursor_ = false; // the crosshair is the cursor (a game controller in controller mode)
+    bool shift = false;
+    bool ctrl = false;
+    bool alt = false;
+    double boost = 1.0;      // Shift: kFastFlyFactor
+    bool no_change_ = false; // a drag, a key move, a field edit or a resize under way: no undo / save / delete keys
+    TickCycle frame{};       // the camera's frame after this frame's looking
+    V3 dir{};                // the mouse ray (the view's direction without one)
+    bool have_ray_ = false;
+    float back_x_ = 0.0F; // the cursor in back-buffer pixels
+    float back_y_ = 0.0F;
+};
 
-void tick_frame()
+// The level's editor systems, every frame (in play too).
+void tick_level_systems()
 {
     budget::get_observe(); // (UX5: the budget's baseline - the level up, before its edited copy's layout goes in)
     layout::tick();
@@ -6435,9 +6453,11 @@ void tick_frame()
         entities::tick(level_editor_state().active_, primary ? primary->ident() : 0, drag_state().dragging_);
     }
     chains::tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
-    if (!level_editor_state().active_) {
-        return;
-    }
+}
+
+// The HUD and the autosave.
+void tick_hud_and_autosave()
+{
     // (the UI runs: the HUD's elements - made by level_editor_enter after LevelEditor_Start - taken down, the first
     // few frames)
     if (ui::underway() && pick_cycle().hud_taken_down_ < 4) {
@@ -6460,6 +6480,11 @@ void tick_frame()
         level_editor_state().offer_show_ = false;
         hud::get_message("Autosave found: Ctrl+R restores, Ctrl+Shift+R discards", kAutosaveNoticeSeconds);
     }
+}
+
+// The time since the last frame (at most kMaxFrameSeconds).
+double take_frame_seconds()
+{
     const uint64_t now = SDL_GetPerformanceCounter();
     double seconds = (level_editor_state().last_counter_ != 0U)
                          ? static_cast<double>(now - level_editor_state().last_counter_) /
@@ -6467,15 +6492,26 @@ void tick_frame()
                          : 0.0;
     level_editor_state().last_counter_ = now;
     seconds = std::min(seconds, kMaxFrameSeconds);
+    return seconds;
+}
+
+// The mouse since the last frame (its counts taken).
+Mouse take_mouse()
+{
     Mouse input = stored_mouse();
     stored_mouse().rel_x_ = stored_mouse().rel_y_ = 0.0F;
     stored_mouse().wheel = 0;
     stored_mouse().left_presses_ = stored_mouse().left_releases_ = 0;
     stored_mouse().middle_presses_ = 0;
-    if (!level_editor_state().camera_) {
-        return;
-    }
-    platform::KeyState keys = platform::keyboard_keys();
+    return input;
+}
+
+// The keyboard (none while the UI types), the controller, the modifiers.
+void read_keys_and_pad(EditorFrame& editor_frame)
+{
+    platform::KeyState& keys = editor_frame.keys;
+    Mouse& input = editor_frame.input;
+    keys = platform::keyboard_keys();
     // (the UI is typing: the editor's keys rest - level_editor_ui.h)
     static const std::array<uint8_t, SDL_NUM_SCANCODES> kNoKeys = {};
     if (!ui::keys_to_editor()) {
@@ -6483,8 +6519,9 @@ void tick_frame()
     }
     // (UX8: a game controller in controller mode - level_editor_ux8.h: A as the left button at the crosshair, the
     // D-pad as the nudge keys, L3 as Shift, B as Escape; the sticks below)
-    const ux8::Pad pad = ux8::read_pad();
-    bool pad_cursor = false;
+    editor_frame.pad = ux8::read_pad();
+    const ux8::Pad& pad = editor_frame.pad;
+    bool& pad_cursor = editor_frame.pad_cursor_;
     if (pad.active) {
         keys = ux8::pad_keys(keys, pad);
         input.left = input.left || pad.a_down_;
@@ -6502,13 +6539,23 @@ void tick_frame()
             drag_state().cancel_requested_ = true;
         }
     }
-    const bool shift = (core::at(keys, SDL_SCANCODE_LSHIFT) != 0U) || (core::at(keys, SDL_SCANCODE_RSHIFT) != 0U);
-    const bool ctrl = (core::at(keys, SDL_SCANCODE_LCTRL) != 0U) || (core::at(keys, SDL_SCANCODE_RCTRL) != 0U);
-    const bool alt = (core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U);
-    const double boost = shift ? 4.0 : 1.0;
+    editor_frame.shift = (core::at(keys, SDL_SCANCODE_LSHIFT) != 0U) || (core::at(keys, SDL_SCANCODE_RSHIFT) != 0U);
+    editor_frame.ctrl = (core::at(keys, SDL_SCANCODE_LCTRL) != 0U) || (core::at(keys, SDL_SCANCODE_RCTRL) != 0U);
+    editor_frame.alt = (core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U);
+    editor_frame.boost = editor_frame.shift ? kFastFlyFactor : 1.0;
     if (!have_selection()) {
         drag_state().dragging_ = false;
     }
+}
+
+// The camera tools' mouse, the keymap's frame, play / preferences / simulate; walk mode. Whether walk mode took
+// the frame.
+bool global_keys_and_walk(EditorFrame& editor_frame)
+{
+    Mouse& input = editor_frame.input;
+    const platform::KeyState keys = editor_frame.keys;
+    const ux8::Pad& pad = editor_frame.pad;
+    const double seconds = editor_frame.seconds;
     // The camera tools (level_editor_camera.h): Alt+drag orbits, the wheel with the right button the flying speed.
     view_cam::filter_mouse(rig_now(),
                            {.left_presses_ = &input.left_presses_,
@@ -6544,10 +6591,14 @@ void tick_frame()
     }
     if (ux8::on_foot()) {
         walk_frame(input, keys, pad, seconds);
-        return;
+        return true;
     }
+    return false;
+}
 
-    // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
+// Escape: a drag put back, else the browser or the help closed, else the selection dropped.
+void handle_escape()
+{
     if (drag_state().cancel_requested_) {
         drag_state().cancel_requested_ = false;
         if (ux8::get_cancel() || (!drag_state().dragging_ && ux9::get_cancel())) {
@@ -6599,16 +6650,14 @@ void tick_frame()
             hud::get_message("Face Select off");
         }
     }
+}
 
-    static bool g_enter_key;
-    static bool g_focus_key;
-    static bool g_left_key;
-    static bool g_right_key;
-    static uint32_t g_up_since;
-    static uint32_t g_down_since;
-    static uint32_t g_page_up_since;
-    static uint32_t g_page_down_since;
-    const bool no_change = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_ || triggers::resizing();
+// The history and selection tools, UX8's cycle, the panels' keys.
+void tick_panels(EditorFrame& editor_frame)
+{
+    Mouse& input = editor_frame.input;
+    const platform::KeyState keys = editor_frame.keys;
+    const ux8::Pad& pad = editor_frame.pad;
     // (the history, changes, search, selection tools and clipboards - level_editor_ux3.h)
     ux3::tick_frame();
     // (UX8: quick selection sets, the follow camera's key, the pie menus - a pie up takes the clicks)
@@ -6645,7 +6694,13 @@ void tick_frame()
             hud::get_message("Requires the editor UI (editor_ui=1)");
         }
     }
+}
 
+// Ctrl+ keys (undo / redo, save, duplicate), L, the view's C / H / I.
+void edit_keys(const EditorFrame& editor_frame)
+{
+    const bool ctrl = editor_frame.ctrl;
+    const bool no_change = editor_frame.no_change_;
     // Ctrl+ keys: undo / redo, save, duplicate.
     if (!no_change) {
         if (actions::squeezed(actions::kUndo)) {
@@ -6704,6 +6759,11 @@ void tick_frame()
     if (actions::squeezed(actions::kIsolate) && !no_change && !stored_browser().open) {
         view_hide(true);
     }
+}
+
+// The view menus' keys, the ruler, the trigger volumes shown.
+void view_keys()
+{
     view::tick();
     // The view menus' keys (level_editor_overlays.h): Alt+1..4 the view mode (Lit, Unlit, Wireframe, Collision only);
     // Y the jump arcs (level_editor_arcs.h); M the ruler (level_editor_ruler.h), Shift+M clears its measurement.
@@ -6743,6 +6803,12 @@ void tick_frame()
             hud::get_message("Requires the editor UI (editor_ui=1)");
         }
     }
+}
+
+// The trigger volumes' frame, the walls, Faces mode and the tools' frames.
+void tick_triggers_and_tools(const EditorFrame& editor_frame)
+{
+    const bool no_change = editor_frame.no_change_;
     {
         const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
         triggers::tick(level_editor_state().pos_, view.back * -1.0F, level_editor_state().yaw_);
@@ -6793,6 +6859,12 @@ void tick_frame()
     checks::tick_frame(); // (UX5: the Problems window's Go to / Fix - level_editor_checks.h)
     notes::tick_frame();  // (UX5: note pins - level_editor_notes.h)
     ux9::tick_frame();    // (UX9: Alt+J / Alt+K / Alt+U and the forms - level_editor_ux9.h)
+}
+
+// The Problems window, the camera logged, deselect / home / delete, a chain point's keys.
+void command_keys(const EditorFrame& editor_frame)
+{
+    const bool no_change = editor_frame.no_change_;
     // P: the camera written to the log (position, back, up).
     if (actions::squeezed(actions::kProblems)) {
         checks::toggle_window(); // (UX5) Alt+P: the Problems window (Hammer's Check for Problems key)
@@ -6847,9 +6919,12 @@ void tick_frame()
             }
         }
     }
+}
 
-    // Drawing a chain (level_editor_chains.h): Enter or a right click (pressed and let go without looking about)
-    // finishes it.
+// Drawing a chain (level_editor_chains.h): Enter or a right click (pressed and let go without looking about)
+// finishes it.
+void finish_chain_drawing(const Mouse& input)
+{
     static bool g_right_was;
     static float g_right_travel;
     if (input.right) {
@@ -6864,7 +6939,15 @@ void tick_frame()
     if (chains::get_drawing() != chains::Blit::kNone && (enter_now || right_click) && !stored_browser().open) {
         stop_chain_drawing("Drawing finished");
     }
+}
 
+// Looking (right button held): about the camera, or orbiting the selection; the controller's sticks; a glide.
+void look_and_fly(EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const ux8::Pad& pad = editor_frame.pad;
+    const bool pad_cursor = editor_frame.pad_cursor_;
+    const double seconds = editor_frame.seconds;
     // Looking (right button held): about the camera, or orbiting the selection.
     set_relative(input.right || view_cam::get_orbiting());
     if (input.right) {
@@ -6883,7 +6966,8 @@ void tick_frame()
                  prefs.invert_y_ ? -py : py, kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0F);
     }
     view_cam::apply_orbit(rig_now());
-    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
+    editor_frame.frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
+    const TickCycle& frame = editor_frame.frame;
     if (pad_sticks && (pad.move_x_ != 0.0F || pad.move_y_ != 0.0F || pad.up_down_ != 0.0F)) {
         // (UX8: the left stick flies, the triggers down / up - with a selection the camera leaves it, as the right
         // button's flying does; F frames it again)
@@ -6903,12 +6987,22 @@ void tick_frame()
         ux8::stop_glide();
     }
     ux8::glide(&level_editor_state().pos_, seconds);
+}
 
-    // The mouse ray (once the view has been drawn): the cursor in back-buffer pixels too (the arrows).
-    bool have_ray = false;
-    V3 dir = frame.back * -1.0F;
-    float back_x = 0.0F;
-    float back_y = 0.0F;
+// The mouse ray (once the view has been drawn): the cursor in back-buffer pixels too (the arrows).
+void cast_mouse_ray(EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const bool pad_cursor = editor_frame.pad_cursor_;
+    const TickCycle& frame = editor_frame.frame;
+    bool& have_ray = editor_frame.have_ray_;
+    V3& dir = editor_frame.dir;
+    float& back_x = editor_frame.back_x_;
+    float& back_y = editor_frame.back_y_;
+    have_ray = false;
+    dir = frame.back * -1.0F;
+    back_x = 0.0F;
+    back_y = 0.0F;
     if (level_editor_state().have_view_ && !input.right && input.window_width_ > 0 && input.window_height_ > 0 &&
         (ui::mouse_to_editor() || pad_cursor)) {
         const mouse_menus::ScreenMapping mapping =
@@ -6922,7 +7016,22 @@ void tick_frame()
             have_ray = true;
         }
     }
+}
 
+// The cursor and the ray handed to the UI's requests, the transform keys, the arrange tools, the camera's
+// bookmarks, Alt+wheel and the teleport.
+void apply_ray_tools(EditorFrame& editor_frame)
+{
+    Mouse& input = editor_frame.input;
+    const platform::KeyState keys = editor_frame.keys;
+    const bool shift = editor_frame.shift;
+    const bool ctrl = editor_frame.ctrl;
+    const bool alt = editor_frame.alt;
+    const TickCycle& frame = editor_frame.frame;
+    const V3 dir = editor_frame.dir;
+    const bool have_ray = editor_frame.have_ray_;
+    const float back_x = editor_frame.back_x_;
+    const float back_y = editor_frame.back_y_;
     drag_state().cursor_x_ = back_x;
     drag_state().cursor_y_ = back_y;
     apply_ui_requests(dir, have_ray, frame);
@@ -6947,7 +7056,23 @@ void tick_frame()
     if (ux8::take_teleport() && have_ray && !drag_state().dragging_) {
         teleport_to(dir);
     }
+}
 
+// The browser takes the arrows, Enter and F (the selection's keys rest meanwhile).
+void browser_keys(const EditorFrame& editor_frame)
+{
+    const platform::KeyState keys = editor_frame.keys;
+    const TickCycle& frame = editor_frame.frame;
+    const V3 dir = editor_frame.dir;
+    const bool have_ray = editor_frame.have_ray_;
+    static bool g_enter_key;
+    static bool g_focus_key;
+    static bool g_left_key;
+    static bool g_right_key;
+    static uint32_t g_up_since;
+    static uint32_t g_down_since;
+    static uint32_t g_page_up_since;
+    static uint32_t g_page_down_since;
     if (stored_browser().open) {
         // The browser takes the arrows, Enter and F (the selection's keys rest meanwhile).
         const int count = static_cast<int>(stored_browser().items.size());
@@ -6975,213 +7100,294 @@ void tick_frame()
             show_browser();
         }
     }
+}
 
+// The selection moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R, Page Up/Down)
+// down/up - and the camera follows it.
+void nudge_selection(const EditorFrame& editor_frame, bool change_locked)
+{
+    const Mouse& input = editor_frame.input;
+    const platform::KeyState keys = editor_frame.keys;
+    const bool ctrl = editor_frame.ctrl;
+    const bool alt = editor_frame.alt;
+    const double boost = editor_frame.boost;
+    const double seconds = editor_frame.seconds;
+    const TickCycle& frame = editor_frame.frame;
+    const V3 forward = make_unit({.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z});
+    const V3 right = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
+    int forward_step = 0;
+    int right_step = 0;
+    int u = 0;
+    if (xform::fly_always()) {
+        // ([editor] wasd_flies=1: the fly keys nudge it as well as the arrows - Space aside, it cycles the tool)
+        forward_step =
+            (actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kNudgeForward) ? 1 : 0) -
+            (actions::get_held(keys, actions::kBack) || actions::get_held(keys, actions::kNudgeBack) ? 1 : 0);
+        right_step =
+            (actions::get_held(keys, actions::kRight) || actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
+            (actions::get_held(keys, actions::kLeft) || actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
+        u = (actions::get_held(keys, actions::kNudgeUp) ||
+                     (actions::get_held(keys, actions::kFlyUp) && (core::at(keys, SDL_SCANCODE_SPACE) == 0U))
+                 ? 1
+                 : 0) -
+            (actions::get_held(keys, actions::kNudgeDown) || actions::get_held(keys, actions::kFlyDown) ? 1 : 0);
+    } else {
+        // ([editor] wasd_flies=0 - level_editor_transform.h: the arrow keys nudge it, Page Up / Down up / down;
+        // W A S D / Q E fly the camera while the right button is held - away from the selection, F frames it again)
+        forward_step = (actions::get_held(keys, actions::kNudgeForward) ? 1 : 0) -
+                       (actions::get_held(keys, actions::kNudgeBack) ? 1 : 0);
+        right_step = (actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
+                     (actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
+        u = (actions::get_held(keys, actions::kNudgeUp) ? 1 : 0) -
+            (actions::get_held(keys, actions::kNudgeDown) ? 1 : 0);
+        if (input.right && !ctrl && !drag_state().dragging_) {
+            const FlyInput fly = {.forward = (actions::get_held(keys, actions::kForward) ? 1 : 0) -
+                                             (actions::get_held(keys, actions::kBack) ? 1 : 0),
+                                  .right = (actions::get_held(keys, actions::kRight) ? 1 : 0) -
+                                           (actions::get_held(keys, actions::kLeft) ? 1 : 0),
+                                  .up = (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
+                                        (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
+            if ((fly.forward != 0) || (fly.right != 0) || (fly.up != 0)) {
+                drag_state().free_camera_ = true;
+                level_editor_state().pos_ = get_fly(level_editor_state().pos_, frame, fly,
+                                                    static_cast<float>(level_editor_state().speed_ * boost * seconds));
+            }
+        }
+    }
+    if (ctrl || alt || change_locked) {
+        forward_step = right_step = u = 0; // (Ctrl+S, Ctrl+D; Alt+G / Alt+H...; the Outliner's lock)
+    }
+    if (((forward_step != 0) || (right_step != 0) || (u != 0)) && change_locked) {
+        organize::selection_locked(true);
+    }
+    if (((forward_step != 0) || (right_step != 0) || (u != 0)) && !drag_state().dragging_ &&
+        !drag_state().field_editing_) {
+        if (!level_editor_state().key_moving_) {
+            begin_change();
+        }
+        auto step = static_cast<float>(kObjectSpeed * boost * seconds);
+        const V3 pos = selection_pos();
+        place_selection(
+            {.x =
+                 pos.x +
+                 (((forward.x * static_cast<float>(forward_step)) + (right.x * static_cast<float>(right_step))) * step),
+             .y = pos.y + (static_cast<float>(u) * step),
+             .z = pos.z +
+                  (((forward.z * static_cast<float>(forward_step)) + (right.z * static_cast<float>(right_step))) *
+                   step)});
+        level_editor_state().key_moving_ = true;
+    } else {
+        if (level_editor_state().key_moving_) {
+            const uint64_t serial = undo_steps().undo_.empty() ? 0 : undo_steps().undo_.back().serial;
+            end_change();
+            get_settle();
+            if (!undo_steps().undo_.empty() && undo_steps().undo_.back().serial != serial) { // (level_editor_adjust.h)
+                note_for_adjust(xform::Mode::kShiftBy, selection_pos() - undo_steps().pending_.where, true);
+            }
+        }
+        level_editor_state().key_moving_ = false;
+    }
+}
+
+// Z / X: the selection turned.
+void turn_selection_keys()
+{
+    // Z / X: turn it - an object 15 degrees, scenery a quarter turn about its centre (the engine turns level
+    // geometry by quarter turns only).
+    int turn = (actions::squeezed(actions::kTurnRight) ? 1 : 0) - (actions::squeezed(actions::kTurnLeft) ? 1 : 0);
+    if ((turn != 0) && organize::selection_locked(true)) {
+        turn = 0;
+    }
+    if ((turn != 0) && !drag_state().dragging_ && picked_node_index() >= 0 &&
+        chains::is_ladder(drag_state().node_name_)) {
+        run_chain_op(chains::ChainOp::kTurn, static_cast<uint32_t>(turn)); // (a ladder: its facing, whole)
+    } else if ((turn != 0) && !drag_state().dragging_ &&
+               !(picked_node_index() >= 0 &&
+                 node_edit::is_chain(drag_state().node_name_))) { // (chain points don't turn)
+        push_undo(get_snapshot(), "Turn");
+        turn_selection(turn);
+        note_action("turned (Z / X): %s", describe_selection().c_str());
+        adjust::ActStep action; // (level_editor_adjust.h)
+        action.kind = adjust::Kind::kTurn;
+        action.quarters = (get_primary() == nullptr) && picked_node_index() < 0;
+        action.degrees = static_cast<float>(turn) * (action.quarters ? kQuarterTurnDegrees : xform::angle_step());
+        adjust::get_note(action);
+    }
+}
+
+// [ / ]: the selection scaled or stretched.
+void scale_selection_keys(const EditorFrame& editor_frame)
+{
+    const bool shift = editor_frame.shift;
+    const bool ctrl = editor_frame.ctrl;
+    const bool alt = editor_frame.alt;
+    // [ / ]: scenery or objects scaled down / up a tenth (Shift: a hundredth); Alt+[ / ]: stretched so along the
+    // world axis the camera faces most (looking down: y) - level_editor_scale.h.
+    int scaling = (actions::squeezed(actions::kScaleUp) ? 1 : 0) - (actions::squeezed(actions::kScaleDown) ? 1 : 0);
+    if ((scaling != 0) && organize::selection_locked(true)) {
+        scaling = 0;
+    }
+    if ((scaling != 0) && !drag_state().dragging_ && !drag_state().field_editing_ && !ctrl) {
+        const float step = shift ? scale_tool::kFineStep : scale_tool::kStep;
+        const float factor = scaling > 0 ? step : 1.0F / step;
+        if (alt) {
+            const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
+            const int axis = scale_tool::main_axis(view.back);
+            if (scale_selection_by(scale_tool::along_axis(axis, factor), false)) {
+                adjust::ActStep action; // (level_editor_adjust.h)
+                action.kind = adjust::Kind::kScale;
+                action.factor = scale_tool::along_axis(axis, factor);
+                action.uniform = false;
+                adjust::get_note(action);
+                const std::string axis_name(1, axis == 0 ? 'x' : axis == 1 ? 'y' : 'z');
+                hud::get_message("Stretched along " + axis_name);
+                note_action("stretched along %s (Alt+[ / ]): %s", axis_name.c_str(), describe_selection().c_str());
+            }
+        } else if (scale_selection_by(scale_tool::get_uniform(factor), true)) {
+            note_action("scaled ([ / ]): %s", describe_selection().c_str());
+            adjust::ActStep action; // (level_editor_adjust.h)
+            action.kind = adjust::Kind::kScale;
+            action.factor = scale_tool::get_uniform(factor);
+            adjust::get_note(action);
+        }
+    }
+}
+
+// The wheel with a selection, and the camera at its distance from it.
+void wheel_with_selection(const EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const double boost = editor_frame.boost;
+    const TickCycle& frame = editor_frame.frame;
+    // The wheel: nearer / further - or, while dragging, the selection pushed away / pulled back (a tenth of its
+    // distance a notch).
+    if ((input.wheel != 0) && drag_state().dragging_) {
+        const V3 pos = selection_pos();
+        drag_state().drag_push_ +=
+            static_cast<float>(input.wheel) *
+            std::max(kMinWheelStep,
+                     std::sqrt(get_dot(pos - level_editor_state().pos_, pos - level_editor_state().pos_)) *
+                         kWheelStepFraction);
+    } else if ((input.wheel != 0) && drag_state().free_camera_) {
+        level_editor_state().pos_ =
+            level_editor_state().pos_ - frame.back * static_cast<float>(kWheelStep * boost * input.wheel);
+    } else if (input.wheel != 0) {
+        level_editor_state().orbit_distance_ = static_cast<float>(
+            std::max(static_cast<double>(kMinOrbit),
+                     std::min(static_cast<double>(kMaxOrbit),
+                              level_editor_state().orbit_distance_ * std::pow(kWheelZoomStep, input.wheel))));
+    }
+    // The camera at that distance from it (held still while the mouse drags it or a trigger's face).
+    if (!drag_state().dragging_ && !triggers::resizing() && !drag_state().free_camera_) {
+        level_editor_state().pos_ = target_of() + frame.back * level_editor_state().orbit_distance_;
+    }
+}
+
+// Flying with nothing selected.
+void fly_without_selection(const EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const platform::KeyState keys = editor_frame.keys;
+    const bool ctrl = editor_frame.ctrl;
+    const double boost = editor_frame.boost;
+    const double seconds = editor_frame.seconds;
+    const TickCycle& frame = editor_frame.frame;
+    // Flying: W/A/S/D along the view, Q/E down/up, the wheel forward / back, - / = the speed (not while the
+    // browser has the keys: its F, arrows and Enter).
+    level_editor_state().key_moving_ = false;
+    if (!stored_browser().open && !ctrl && (xform::fly_always() || input.right)) {
+        const FlyInput fly = {.forward = (actions::get_held(keys, actions::kForward) ? 1 : 0) -
+                                         (actions::get_held(keys, actions::kBack) ? 1 : 0),
+                              .right = (actions::get_held(keys, actions::kRight) ? 1 : 0) -
+                                       (actions::get_held(keys, actions::kLeft) ? 1 : 0),
+                              .up = (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
+                                    (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
+        // ([editor] fly_accel_ms: the speed reached over that time - level_editor_camera.h)
+        const float ramp = view_cam::fly_factor((fly.forward != 0) || (fly.right != 0) || (fly.up != 0), seconds);
+        level_editor_state().pos_ = get_fly(level_editor_state().pos_, frame, fly,
+                                            static_cast<float>(level_editor_state().speed_ * boost * seconds * ramp));
+    }
+    if (input.wheel != 0) {
+        auto step = static_cast<float>(kWheelStep * boost * input.wheel);
+        level_editor_state().pos_ = level_editor_state().pos_ - frame.back * step;
+    }
+    const int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
+    if (speed != 0) {
+        level_editor_state().speed_ = static_cast<float>(
+            std::max(kMinFlySpeedDouble,
+                     std::min(kMaxFlySpeedDouble, level_editor_state().speed_ * std::pow(kSpeedStepFactor, speed))));
+    }
+}
+
+// UX8's follow camera.
+void follow_selection()
+{
+    // (UX8: the follow camera, Shift+F - the camera moved as the selection moves, keeping its offset even after
+    // flying off it; not while a mouse drag places it - the drag goes by the cursor's ray. Another selection starts
+    // afresh.)
+    static uint32_t g_follow_key;
+    SelectionIds ids = current_selection();
+    const uint32_t key = (ids.objects.empty() ? 0U : ids.objects.front()) ^
+                         (ids.sectors.empty() ? 0U : ids.sectors.front() * 31U) ^ (ids.node * 131U) ^
+                         static_cast<uint32_t>((ids.objects.size() * 7U) + (ids.sectors.size() * 13U));
+    const bool active = ux8::get_following() && have_selection() && !drag_state().dragging_ && !triggers::resizing() &&
+                        key == g_follow_key;
+    g_follow_key = key;
+    const V3 delta =
+        nav::follow_step(&ux8::get_follower(), active, active ? target_of() : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F});
+    if (active && drag_state().free_camera_) {
+        level_editor_state().pos_ = level_editor_state().pos_ + delta;
+    }
+}
+
+// The selection moved, turned, scaled and dropped with the keys, or the camera flown; the follow camera.
+void move_with_keys(const EditorFrame& editor_frame)
+{
+    const TickCycle& frame = editor_frame.frame;
     const bool selection_held = have_selection();
     // (the Outliner's lock - level_editor_organize.h: what it holds isn't moved, turned, scaled or dropped)
     const bool change_locked = selection_held && organize::selection_locked(false);
     if (selection_held && !stored_browser().open) {
-        // The selection moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R, Page
-        // Up/Down) down/up - and the camera follows it.
-        const V3 forward = make_unit({.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z});
-        const V3 right = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
-        int forward_step = 0;
-        int right_step = 0;
-        int u = 0;
-        if (xform::fly_always()) {
-            // ([editor] wasd_flies=1: the fly keys nudge it as well as the arrows - Space aside, it cycles the tool)
-            forward_step =
-                (actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kNudgeForward) ? 1
-                                                                                                               : 0) -
-                (actions::get_held(keys, actions::kBack) || actions::get_held(keys, actions::kNudgeBack) ? 1 : 0);
-            right_step =
-                (actions::get_held(keys, actions::kRight) || actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
-                (actions::get_held(keys, actions::kLeft) || actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
-            u = (actions::get_held(keys, actions::kNudgeUp) ||
-                         (actions::get_held(keys, actions::kFlyUp) && (core::at(keys, SDL_SCANCODE_SPACE) == 0U))
-                     ? 1
-                     : 0) -
-                (actions::get_held(keys, actions::kNudgeDown) || actions::get_held(keys, actions::kFlyDown) ? 1 : 0);
-        } else {
-            // ([editor] wasd_flies=0 - level_editor_transform.h: the arrow keys nudge it, Page Up / Down up / down;
-            // W A S D / Q E fly the camera while the right button is held - away from the selection, F frames it again)
-            forward_step = (actions::get_held(keys, actions::kNudgeForward) ? 1 : 0) -
-                           (actions::get_held(keys, actions::kNudgeBack) ? 1 : 0);
-            right_step = (actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
-                         (actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
-            u = (actions::get_held(keys, actions::kNudgeUp) ? 1 : 0) -
-                (actions::get_held(keys, actions::kNudgeDown) ? 1 : 0);
-            if (input.right && !ctrl && !drag_state().dragging_) {
-                const FlyInput fly = {.forward = (actions::get_held(keys, actions::kForward) ? 1 : 0) -
-                                          (actions::get_held(keys, actions::kBack) ? 1 : 0),
-                                      .right = (actions::get_held(keys, actions::kRight) ? 1 : 0) -
-                                          (actions::get_held(keys, actions::kLeft) ? 1 : 0),
-                                      .up = (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
-                                          (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
-                if ((fly.forward != 0) || (fly.right != 0) || (fly.up != 0)) {
-                    drag_state().free_camera_ = true;
-                    level_editor_state().pos_ = get_fly(level_editor_state().pos_, frame, fly, static_cast<float>(level_editor_state().speed_ * boost * seconds));
-                }
-            }
-        }
-        if (ctrl || alt || change_locked) {
-            forward_step = right_step = u = 0; // (Ctrl+S, Ctrl+D; Alt+G / Alt+H...; the Outliner's lock)
-        }
-        if (((forward_step != 0) || (right_step != 0) || (u != 0)) && change_locked) {
-            organize::selection_locked(true);
-        }
-        if (((forward_step != 0) || (right_step != 0) || (u != 0)) && !drag_state().dragging_ &&
-            !drag_state().field_editing_) {
-            if (!level_editor_state().key_moving_) {
-                begin_change();
-            }
-            auto step = static_cast<float>(kObjectSpeed * boost * seconds);
-            const V3 pos = selection_pos();
-            place_selection(
-                {.x = pos.x +
-                      (((forward.x * static_cast<float>(forward_step)) + (right.x * static_cast<float>(right_step))) *
-                       step),
-                 .y = pos.y + (static_cast<float>(u) * step),
-                 .z = pos.z +
-                      (((forward.z * static_cast<float>(forward_step)) + (right.z * static_cast<float>(right_step))) *
-                       step)});
-            level_editor_state().key_moving_ = true;
-        } else {
-            if (level_editor_state().key_moving_) {
-                const uint64_t serial = undo_steps().undo_.empty() ? 0 : undo_steps().undo_.back().serial;
-                end_change();
-                get_settle();
-                if (!undo_steps().undo_.empty() &&
-                    undo_steps().undo_.back().serial != serial) { // (level_editor_adjust.h)
-                    note_for_adjust(xform::Mode::kShiftBy, selection_pos() - undo_steps().pending_.where, true);
-                }
-            }
-            level_editor_state().key_moving_ = false;
-        }
-        // Z / X: turn it - an object 15 degrees, scenery a quarter turn about its centre (the engine turns level
-        // geometry by quarter turns only).
-        int turn = (actions::squeezed(actions::kTurnRight) ? 1 : 0) - (actions::squeezed(actions::kTurnLeft) ? 1 : 0);
-        if ((turn != 0) && organize::selection_locked(true)) {
-            turn = 0;
-        }
-        if ((turn != 0) && !drag_state().dragging_ && picked_node_index() >= 0 &&
-            chains::is_ladder(drag_state().node_name_)) {
-            run_chain_op(chains::ChainOp::kTurn, static_cast<uint32_t>(turn)); // (a ladder: its facing, whole)
-        } else if ((turn != 0) && !drag_state().dragging_ &&
-                   !(picked_node_index() >= 0 &&
-                     node_edit::is_chain(drag_state().node_name_))) { // (chain points don't turn)
-            push_undo(get_snapshot(), "Turn");
-            turn_selection(turn);
-            note_action("turned (Z / X): %s", describe_selection().c_str());
-            adjust::ActStep action; // (level_editor_adjust.h)
-            action.kind = adjust::Kind::kTurn;
-            action.quarters = (get_primary() == nullptr) && picked_node_index() < 0;
-            action.degrees = static_cast<float>(turn) * (action.quarters ? kQuarterTurnDegrees : xform::angle_step());
-            adjust::get_note(action);
-        }
-        // [ / ]: scenery or objects scaled down / up a tenth (Shift: a hundredth); Alt+[ / ]: stretched so along the
-        // world axis the camera faces most (looking down: y) - level_editor_scale.h.
-        int scaling = (actions::squeezed(actions::kScaleUp) ? 1 : 0) - (actions::squeezed(actions::kScaleDown) ? 1 : 0);
-        if ((scaling != 0) && organize::selection_locked(true)) {
-            scaling = 0;
-        }
-        if ((scaling != 0) && !drag_state().dragging_ && !drag_state().field_editing_ && !ctrl) {
-            const float step = shift ? scale_tool::kFineStep : scale_tool::kStep;
-            const float factor = scaling > 0 ? step : 1.0F / step;
-            if (alt) {
-                const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
-                const int axis = scale_tool::main_axis(view.back);
-                if (scale_selection_by(scale_tool::along_axis(axis, factor), false)) {
-                    adjust::ActStep action; // (level_editor_adjust.h)
-                    action.kind = adjust::Kind::kScale;
-                    action.factor = scale_tool::along_axis(axis, factor);
-                    action.uniform = false;
-                    adjust::get_note(action);
-                    const std::string axis_name(1, axis == 0 ? 'x' : axis == 1 ? 'y' : 'z');
-                    hud::get_message("Stretched along " + axis_name);
-                    note_action("stretched along %s (Alt+[ / ]): %s", axis_name.c_str(), describe_selection().c_str());
-                }
-            } else if (scale_selection_by(scale_tool::get_uniform(factor), true)) {
-                note_action("scaled ([ / ]): %s", describe_selection().c_str());
-                adjust::ActStep action; // (level_editor_adjust.h)
-                action.kind = adjust::Kind::kScale;
-                action.factor = scale_tool::get_uniform(factor);
-                adjust::get_note(action);
-            }
-        }
+        nudge_selection(editor_frame, change_locked);
+        turn_selection_keys();
+        scale_selection_keys(editor_frame);
         // G: down onto the ground below it.
         if (actions::squeezed(actions::kDrop) && !drag_state().dragging_ && !organize::selection_locked(true)) {
             drop_selection();
         }
-        // The wheel: nearer / further - or, while dragging, the selection pushed away / pulled back (a tenth of its
-        // distance a notch).
-        if ((input.wheel != 0) && drag_state().dragging_) {
-            const V3 pos = selection_pos();
-            drag_state().drag_push_ +=
-                static_cast<float>(input.wheel) * std::max(kMinWheelStep, std::sqrt(get_dot(pos - level_editor_state().pos_, pos - level_editor_state().pos_)) * kWheelStepFraction);
-        } else if ((input.wheel != 0) && drag_state().free_camera_) {
-            level_editor_state().pos_ = level_editor_state().pos_ - frame.back * static_cast<float>(kWheelStep * boost * input.wheel);
-        } else if (input.wheel != 0) {
-            level_editor_state().orbit_distance_ = static_cast<float>(
-                std::max(static_cast<double>(kMinOrbit),
-                         std::min(static_cast<double>(kMaxOrbit), level_editor_state().orbit_distance_ * std::pow(kWheelZoomStep, input.wheel))));
-        }
-        // The camera at that distance from it (held still while the mouse drags it or a trigger's face).
-        if (!drag_state().dragging_ && !triggers::resizing() && !drag_state().free_camera_) {
-            level_editor_state().pos_ = target_of() + frame.back * level_editor_state().orbit_distance_;
-        }
+        wheel_with_selection(editor_frame);
     } else if (!selection_held) {
-        // Flying: W/A/S/D along the view, Q/E down/up, the wheel forward / back, - / = the speed (not while the
-        // browser has the keys: its F, arrows and Enter).
-        level_editor_state().key_moving_ = false;
-        if (!stored_browser().open && !ctrl && (xform::fly_always() || input.right)) {
-            const FlyInput fly = {.forward = (actions::get_held(keys, actions::kForward) ? 1 : 0) -
-                                      (actions::get_held(keys, actions::kBack) ? 1 : 0),
-                                  .right = (actions::get_held(keys, actions::kRight) ? 1 : 0) -
-                                      (actions::get_held(keys, actions::kLeft) ? 1 : 0),
-                                  .up = (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
-                                      (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
-            // ([editor] fly_accel_ms: the speed reached over that time - level_editor_camera.h)
-            const float ramp = view_cam::fly_factor((fly.forward != 0) || (fly.right != 0) || (fly.up != 0), seconds);
-            level_editor_state().pos_ = get_fly(level_editor_state().pos_, frame, fly, static_cast<float>(level_editor_state().speed_ * boost * seconds * ramp));
-        }
-        if (input.wheel != 0) {
-            auto step = static_cast<float>(kWheelStep * boost * input.wheel);
-            level_editor_state().pos_ = level_editor_state().pos_ - frame.back * step;
-        }
-        const int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
-        if (speed != 0) {
-            level_editor_state().speed_ = static_cast<float>(std::max(kMinFlySpeedDouble, std::min(kMaxFlySpeedDouble, level_editor_state().speed_ * std::pow(kSpeedStepFactor, speed))));
-        }
+        fly_without_selection(editor_frame);
     }
-    {
-        // (UX8: the follow camera, Shift+F - the camera moved as the selection moves, keeping its offset even after
-        // flying off it; not while a mouse drag places it - the drag goes by the cursor's ray. Another selection starts
-        // afresh.)
-        static uint32_t g_follow_key;
-        SelectionIds ids = current_selection();
-        const uint32_t key = (ids.objects.empty() ? 0U : ids.objects.front()) ^
-                             (ids.sectors.empty() ? 0U : ids.sectors.front() * 31U) ^ (ids.node * 131U) ^
-                             static_cast<uint32_t>((ids.objects.size() * 7U) + (ids.sectors.size() * 13U));
-        const bool active =
-            ux8::get_following() && have_selection() && !drag_state().dragging_ && !triggers::resizing() && key == g_follow_key;
-        g_follow_key = key;
-        const V3 delta =
-            nav::follow_step(&ux8::get_follower(), active, active ? target_of() : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F});
-        if (active && drag_state().free_camera_) {
-            level_editor_state().pos_ = level_editor_state().pos_ + delta;
-        }
-    }
+    follow_selection();
     if (stored_browser().open && selection_held && !drag_state().dragging_ && !drag_state().free_camera_) {
         level_editor_state().pos_ = target_of() + frame.back * level_editor_state().orbit_distance_;
     }
+}
 
-    // ([features] debug_editor: once a second, what the mouse is seen as)
+// ([features] debug_editor: once a second, what the mouse is seen as)
+void log_mouse_debug(const EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const V3 dir = editor_frame.dir;
+    const bool have_ray = editor_frame.have_ray_;
     static int g_debug_frames = 0;
     if (debug_enabled() && ++g_debug_frames % kDebugLogFrames == 0) {
         get_log("level editor: mouse (%.0f, %.0f) in %dx%d, ray %d (%.3f, %.3f, %.3f), arrow %d", input.x, input.y,
                 input.window_width_, input.window_height_, have_ray ? 1 : 0, dir.x, dir.y, dir.z, drag_state().hover_axis_);
     }
+}
 
+// Alt's carry, the tools' hovers (walls, faces, the ruler, UX9).
+void update_tool_hovers(const EditorFrame& editor_frame)
+{
+    const bool shift = editor_frame.shift;
+    const bool ctrl = editor_frame.ctrl;
+    const bool alt = editor_frame.alt;
+    const V3 dir = editor_frame.dir;
+    const bool have_ray = editor_frame.have_ray_;
+    const float back_x = editor_frame.back_x_;
+    const float back_y = editor_frame.back_y_;
     // Alt while moving scenery: what it carries (level_editor_carry.h) put back and left there for this move.
     // (not with Ctrl or Shift: Ctrl+Alt / Alt+Shift snap to a vertex / a surface - level_editor_snap.h)
     if (alt && !ctrl && !shift && (drag_state().dragging_ || level_editor_state().key_moving_) && carry::total_of() > 0) {
@@ -7197,6 +7403,18 @@ void tick_frame()
         ruler::get_hover(level_editor_state().pos_, make_unit(dir), back_x, back_y, alt); // (the ruler's next end - level_editor_ruler.h)
     }
     ux9::get_hover(level_editor_state().pos_, make_unit(dir), back_x, back_y, have_ray && !drag_state().dragging_); // (UX9: the tools' next pick)
+}
+
+// Dragging (an arrow first, then an object or scenery); typed values or a modal click applied.
+void update_drag(EditorFrame& editor_frame)
+{
+    Mouse& input = editor_frame.input;
+    const bool shift = editor_frame.shift;
+    const bool ctrl = editor_frame.ctrl;
+    const bool alt = editor_frame.alt;
+    const TickCycle& frame = editor_frame.frame;
+    const V3 dir = editor_frame.dir;
+    const bool have_ray = editor_frame.have_ray_;
     // Dragging, or what's under the cursor (an arrow first, then an object or scenery - the nearer).
     if (drag_state().dragging_ && have_selection() && have_ray) {
         if (!drag_state().drag_moved_ && (drag_state().modal_ || std::fabs(input.x - drag_state().press_x_) +
@@ -7232,6 +7450,19 @@ void tick_frame()
         input.left_releases_ = 0;
     }
     drag_state().typed_apply_ = false;
+}
+
+// What's under the cursor (not while dragging).
+void update_hover(const EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const bool shift = editor_frame.shift;
+    const bool alt = editor_frame.alt;
+    const TickCycle& frame = editor_frame.frame;
+    const V3 dir = editor_frame.dir;
+    const bool have_ray = editor_frame.have_ray_;
+    const float back_x = editor_frame.back_x_;
+    const float back_y = editor_frame.back_y_;
     if (!drag_state().dragging_) {
         drag_state().hover_axis_ = have_ray && have_selection() ? arrow_at(frame, {.x = back_x, .y = back_y}) : -1;
         // (a selected trigger volume's resize handle - after the arrows: level_editor_triggers.h)
@@ -7312,7 +7543,141 @@ void tick_frame()
         drag_state().hover_ = hover ? Picked{.object = hover, .id = hover->ident()} : Picked{};
         drag_state().hover_sector_ = hover_sector;
     }
+}
 
+// A click on something: selected (Shift: added / removed; Alt or a middle click: one piece of scenery in / out)
+// and dragged; on nothing, deselected.
+void click_to_select(const EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const bool shift = editor_frame.shift;
+    const bool ctrl = editor_frame.ctrl;
+    const bool alt = editor_frame.alt;
+    const TickCycle& frame = editor_frame.frame;
+    const V3 dir = editor_frame.dir;
+    objects::GameEntity* hover = get_live(drag_state().hover_);
+    const bool one = alt || ((input.middle_presses_ != 0) && (input.left_presses_ == 0));
+    bool drag = false;
+    if (drag_state().hover_axis_ < 0) {
+        note_click_for_cycle({.x = input.x, .y = input.y}, dir, (input.left_presses_ != 0) && !shift && !one);
+    }
+    // (with the collision shown, Shift+click on an invisible wall's face: that wall - level_editor_view.h)
+    const uint32_t wall =
+        (input.left_presses_ != 0) && shift && !alt && drag_state().hover_axis_ < 0 && view::show_collision()
+            ? view::pick_wall(level_editor_state().pos_, make_unit(dir))
+            : 0;
+    // (a plain click on the selected wall's face: dragging it - level_editor_walls.h)
+    const bool on_wall = (wall == 0U) && (input.left_presses_ != 0) && !shift && !one && drag_state().hover_axis_ < 0 &&
+                         (wall_only() != 0U) && view::show_collision() &&
+                         view::pick_wall(level_editor_state().pos_, make_unit(dir)) == wall_only();
+    if ((wall == 0U) && !on_wall && drag_state().hover_axis_ < 0) {
+        view::clear_wall();
+    }
+    // (with the trigger volumes shown, a plain click on one - nearer than the rest: its node; Alt passes them -
+    // level_editor_triggers.h)
+    int trigger_node = -1;
+    uint32_t trigger_sector = 0;
+    const bool trigger = (wall == 0U) && (input.left_presses_ != 0) && !alt && drag_state().hover_axis_ < 0 &&
+                         drag_state().hover_node_ < 0 && ui::underway() &&
+                         triggers::get_pick(level_editor_state().pos_, make_unit(dir), &trigger_node, &trigger_sector,
+                                            trigger_reach(dir));
+    if (wall != 0U) {
+        unpick();
+        view::select_wall(wall);
+        hud::get_message("Invisible wall " + object_edit::caption(wall));
+    } else if (on_wall) {
+        drag = true;
+    } else if (drag_state().hover_axis_ >= 0 && (input.left_presses_ != 0)) {
+        drag_state().axis_ = drag_state().hover_axis_;
+        drag = true;
+    } else if (drag_state().hover_node_ >= 0 && (input.left_presses_ != 0)) {
+        select_node(drag_state().hover_node_);
+        drag = have_selection() && !shift; // (an object, or a point node: dragged as objects are)
+    } else if (trigger) {
+        if (trigger_node >= 0) {
+            select_node_only(trigger_node);
+            drag = picked_node_index() >= 0 && !shift;
+        } else {
+            unpick();
+        }
+        hud::get_message((trigger_sector != 0U) ? "Trigger " + object_edit::caption(trigger_sector)
+                                                : std::string("Trigger volume"));
+    } else if (drag_state().hover_sector_ != 0U) {
+        drag_state().objects_.clear();
+        if (one) {
+            scenery::flip_over(drag_state().hover_sector_);
+        } else if (shift) {
+            scenery::get_selected(drag_state().hover_sector_) ? scenery::flip_over(drag_state().hover_sector_)
+                                                              : scenery::add_group(drag_state().hover_sector_);
+        } else if (!scenery::get_selected(drag_state().hover_sector_)) {
+            scenery::select_group(drag_state().hover_sector_);
+        }
+        drag = scenery::has_selection() && !one && !shift;
+    } else if ((input.left_presses_ != 0) && hover && flag_node_of(hover) >= 0) {
+        // (a flag's object: its node is what moves - level_editor_node_edit.h)
+        select_node(flag_node_of(hover));
+        drag = have_selection() && !shift;
+    } else if ((input.left_presses_ != 0) && hover) {
+        scenery::clear_selection();
+        drag_state().node_selected_ = false;
+        if (shift) {
+            if (is_picked(hover)) {
+                std::erase_if(drag_state().objects_, [&](const Picked& picked) { return picked.object == hover; });
+            } else {
+                drag_state().objects_.push_back({.object = hover, .id = hover->ident()});
+            }
+        } else {
+            if (!is_picked(hover)) {
+                select_objects({hover});
+            } else if (get_primary() != hover) {
+                // (the clicked one first: the camera and the arrows go by it)
+                auto it = std::ranges::find_if(drag_state().objects_,
+                                               [&](const Picked& picked) { return picked.object == hover; });
+                std::rotate(drag_state().objects_.begin(), it, it + 1);
+            }
+            drag = true;
+        }
+    } else if ((input.left_presses_ != 0) && !shift && !ctrl) {
+        unpick();
+    }
+    if (get_primary() || scenery::has_selection()) {
+        drag_state().node_selected_ = false;
+    }
+    note_action("click - selected: %s", describe_selection().c_str());
+    if (debug_enabled()) {
+        get_log("level editor: click - selected: %s", describe_selection().c_str());
+    }
+    if (drag && organize::selection_locked(true)) {
+        drag = false; // (the Outliner's lock: selected, not moved)
+    }
+    if (drag) {
+        // (on a Rotate / Scale handle: that tool - level_editor_transform.h; else it moves)
+        drag_state().drag_mode_ = drag_state().axis_ >= 0 ? gizmo_mode() : xform::Mode::kShiftBy;
+        drag_state().modal_ = false;
+        drag_state().typed_ = {};
+        drag_state().dragging_ = true;
+        drag_state().drag_start_ = selection_pos();
+        drag_state().press_x_ = input.x;
+        drag_state().press_y_ = input.y;
+        drag_state().drag_moved_ = false;
+        begin_change();
+        start_drag(level_editor_state().pos_, dir, shift && !ctrl && !alt && drag_state().axis_ < 0, frame, input.x,
+                   input.y);
+    }
+}
+
+// A click: on an arrow, dragging along it; on a tool's target, the tool's pick; else selecting.
+void handle_clicks(EditorFrame& editor_frame)
+{
+    Mouse& input = editor_frame.input;
+    const bool shift = editor_frame.shift;
+    const bool ctrl = editor_frame.ctrl;
+    const bool alt = editor_frame.alt;
+    const TickCycle& frame = editor_frame.frame;
+    const V3 dir = editor_frame.dir;
+    const bool have_ray = editor_frame.have_ray_;
+    const float back_x = editor_frame.back_x_;
+    const float back_y = editor_frame.back_y_;
     // A click: on an arrow, dragging along it; on something, selecting it (Shift: adding / removing it; Alt or a
     // middle click: one piece of scenery in / out; Ctrl on a part of the scenery selection: that part dropped) and
     // dragging it; on nothing, deselecting.
@@ -7403,119 +7768,21 @@ void tick_frame()
             get_log("level editor: ctrl+click - selected: %s", describe_selection().c_str());
         }
     } else if (((input.left_presses_ != 0) || (input.middle_presses_ != 0)) && have_ray && !drag_state().dragging_) {
-        objects::GameEntity* hover = get_live(drag_state().hover_);
-        const bool one = alt || ((input.middle_presses_ != 0) && (input.left_presses_ == 0));
-        bool drag = false;
-        if (drag_state().hover_axis_ < 0) {
-            note_click_for_cycle({.x = input.x, .y = input.y}, dir, (input.left_presses_ != 0) && !shift && !one);
-        }
-        // (with the collision shown, Shift+click on an invisible wall's face: that wall - level_editor_view.h)
-        const uint32_t wall =
-            (input.left_presses_ != 0) && shift && !alt && drag_state().hover_axis_ < 0 && view::show_collision()
-                ? view::pick_wall(level_editor_state().pos_, make_unit(dir))
-                : 0;
-        // (a plain click on the selected wall's face: dragging it - level_editor_walls.h)
-        const bool on_wall = (wall == 0U) && (input.left_presses_ != 0) && !shift && !one &&
-                             drag_state().hover_axis_ < 0 && (wall_only() != 0U) && view::show_collision() &&
-                             view::pick_wall(level_editor_state().pos_, make_unit(dir)) == wall_only();
-        if ((wall == 0U) && !on_wall && drag_state().hover_axis_ < 0) {
-            view::clear_wall();
-        }
-        // (with the trigger volumes shown, a plain click on one - nearer than the rest: its node; Alt passes them -
-        // level_editor_triggers.h)
-        int trigger_node = -1;
-        uint32_t trigger_sector = 0;
-        const bool trigger = (wall == 0U) && (input.left_presses_ != 0) && !alt && drag_state().hover_axis_ < 0 &&
-                             drag_state().hover_node_ < 0 && ui::underway() &&
-                             triggers::get_pick(level_editor_state().pos_, make_unit(dir), &trigger_node,
-                                                &trigger_sector, trigger_reach(dir));
-        if (wall != 0U) {
-            unpick();
-            view::select_wall(wall);
-            hud::get_message("Invisible wall " + object_edit::caption(wall));
-        } else if (on_wall) {
-            drag = true;
-        } else if (drag_state().hover_axis_ >= 0 && (input.left_presses_ != 0)) {
-            drag_state().axis_ = drag_state().hover_axis_;
-            drag = true;
-        } else if (drag_state().hover_node_ >= 0 && (input.left_presses_ != 0)) {
-            select_node(drag_state().hover_node_);
-            drag = have_selection() && !shift; // (an object, or a point node: dragged as objects are)
-        } else if (trigger) {
-            if (trigger_node >= 0) {
-                select_node_only(trigger_node);
-                drag = picked_node_index() >= 0 && !shift;
-            } else {
-                unpick();
-            }
-            hud::get_message((trigger_sector != 0U) ? "Trigger " + object_edit::caption(trigger_sector)
-                                                    : std::string("Trigger volume"));
-        } else if (drag_state().hover_sector_ != 0U) {
-            drag_state().objects_.clear();
-            if (one) {
-                scenery::flip_over(drag_state().hover_sector_);
-            } else if (shift) {
-                scenery::get_selected(drag_state().hover_sector_) ? scenery::flip_over(drag_state().hover_sector_)
-                                                      : scenery::add_group(drag_state().hover_sector_);
-            } else if (!scenery::get_selected(drag_state().hover_sector_)) {
-                scenery::select_group(drag_state().hover_sector_);
-            }
-            drag = scenery::has_selection() && !one && !shift;
-        } else if ((input.left_presses_ != 0) && hover && flag_node_of(hover) >= 0) {
-            // (a flag's object: its node is what moves - level_editor_node_edit.h)
-            select_node(flag_node_of(hover));
-            drag = have_selection() && !shift;
-        } else if ((input.left_presses_ != 0) && hover) {
-            scenery::clear_selection();
-            drag_state().node_selected_ = false;
-            if (shift) {
-                if (is_picked(hover)) {
-                    std::erase_if(drag_state().objects_, [&](const Picked& picked) { return picked.object == hover; });
-                } else {
-                    drag_state().objects_.push_back({.object = hover, .id = hover->ident()});
-                }
-            } else {
-                if (!is_picked(hover)) {
-                    select_objects({hover});
-                } else if (get_primary() != hover) {
-                    // (the clicked one first: the camera and the arrows go by it)
-                    auto it = std::ranges::find_if(drag_state().objects_,
-                                                   [&](const Picked& picked) { return picked.object == hover; });
-                    std::rotate(drag_state().objects_.begin(), it, it + 1);
-                }
-                drag = true;
-            }
-        } else if ((input.left_presses_ != 0) && !shift && !ctrl) {
-            unpick();
-        }
-        if (get_primary() || scenery::has_selection()) {
-            drag_state().node_selected_ = false;
-        }
-        note_action("click - selected: %s", describe_selection().c_str());
-        if (debug_enabled()) {
-            get_log("level editor: click - selected: %s", describe_selection().c_str());
-        }
-        if (drag && organize::selection_locked(true)) {
-            drag = false; // (the Outliner's lock: selected, not moved)
-        }
-        if (drag) {
-            // (on a Rotate / Scale handle: that tool - level_editor_transform.h; else it moves)
-            drag_state().drag_mode_ = drag_state().axis_ >= 0 ? gizmo_mode() : xform::Mode::kShiftBy;
-            drag_state().modal_ = false;
-            drag_state().typed_ = {};
-            drag_state().dragging_ = true;
-            drag_state().drag_start_ = selection_pos();
-            drag_state().press_x_ = input.x;
-            drag_state().press_y_ = input.y;
-            drag_state().drag_moved_ = false;
-            begin_change();
-            start_drag(level_editor_state().pos_, dir, shift && !ctrl && !alt && drag_state().axis_ < 0, frame, input.x, input.y);
-        }
+        click_to_select(editor_frame);
     }
     if (box_candidate && !drag_state().dragging_) {
         organize::box_press({.x = back_x, .y = back_y},
                             static_cast<uint8_t>((ctrl ? actions::kCtrl : 0) | (shift ? actions::kShift : 0)));
     }
+}
+
+// The end of the frame: let go, the highlights, the ground marker, the camera tools.
+void finish_frame(const EditorFrame& editor_frame)
+{
+    const Mouse& input = editor_frame.input;
+    const platform::KeyState keys = editor_frame.keys;
+    const float back_x = editor_frame.back_x_;
+    const float back_y = editor_frame.back_y_;
     organize::box_track(input.left, back_x, back_y);
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
     if ((input.left_releases_ != 0) && !input.left) {
@@ -7544,6 +7811,47 @@ void tick_frame()
     view_cam::after_update(rig_now(), input.wheel,
                            input.right || (input.left_presses_ != 0) || (input.middle_presses_ != 0) ||
                                (input.wheel != 0) || flew || view_cam::get_orbiting());
+}
+
+} // namespace
+
+void tick_frame()
+{
+    tick_level_systems();
+    if (!level_editor_state().active_) {
+        return;
+    }
+    tick_hud_and_autosave();
+    EditorFrame editor_frame;
+    editor_frame.seconds = take_frame_seconds();
+    editor_frame.input = take_mouse();
+    if (!level_editor_state().camera_) {
+        return;
+    }
+    read_keys_and_pad(editor_frame);
+    if (global_keys_and_walk(editor_frame)) {
+        return;
+    }
+    handle_escape();
+    editor_frame.no_change_ = drag_state().dragging_ || level_editor_state().key_moving_ ||
+                              drag_state().field_editing_ || triggers::resizing();
+    tick_panels(editor_frame);
+    edit_keys(editor_frame);
+    view_keys();
+    tick_triggers_and_tools(editor_frame);
+    command_keys(editor_frame);
+    finish_chain_drawing(editor_frame.input);
+    look_and_fly(editor_frame);
+    cast_mouse_ray(editor_frame);
+    apply_ray_tools(editor_frame);
+    browser_keys(editor_frame);
+    move_with_keys(editor_frame);
+    log_mouse_debug(editor_frame);
+    update_tool_hovers(editor_frame);
+    update_drag(editor_frame);
+    update_hover(editor_frame);
+    handle_clicks(editor_frame);
+    finish_frame(editor_frame);
 }
 
 void blit()
