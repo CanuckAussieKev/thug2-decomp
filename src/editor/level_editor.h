@@ -52,7 +52,7 @@ class Script;
 //                             bar, the help (F1), the browser (B) and the autosave offer; the lines and gizmos drawn
 //                             through its draw list. level_editor_ui_backend.cpp is the only file tied to SDL2 /
 //                             Direct3D 9 (ImGui's backends); level_editor_ui_layout.cpp the layout and input routing
-//                             (pure); level_editor_ui_fonts.cpp Inter and JetBrains Mono in the exe
+//                             (pure); engine/ui/ui_fonts.cpp Inter and JetBrains Mono in the exe
 //   level_editor_nodes.cpp    the node layer: every node of the level's node arrays in families (spawns, crowns,
 //                             flags, rails, ladders, paths, objects, scenery, lights, sounds, particles, triggers,
 //                             other) for the Outliner, the read-only Inspector and the gizmos (points, chains,

@@ -367,7 +367,7 @@ add_executable(thug2 WIN32
     src/editor/level_editor_playtest_ui.cpp
     src/editor/level_editor_prefs.cpp
     src/editor/level_editor_ui_backend.cpp
-    src/editor/level_editor_ui_fonts.cpp
+    src/engine/ui/ui_fonts.cpp
     src/editor/level_editor_ui_layout.cpp
     src/editor/level_editor_ui_menus.cpp
     src/editor/level_editor_ui_strip.cpp
@@ -958,7 +958,7 @@ set_source_files_properties(
     PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
 target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
                                          "${CMAKE_BINARY_DIR}/editor_fonts")
-# (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them; the generated build_info.h)
+# (the UI fonts, compressed at build time: engine/ui/ui_fonts.cpp includes them; the generated build_info.h)
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports

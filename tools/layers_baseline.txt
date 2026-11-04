@@ -24,7 +24,6 @@ src/engine/gfx/engine.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/engine_texture_projection.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/face_texture_cfuncs.cpp -> src/game/skate/profile_manager.h
 src/engine/gfx/face_texture_cfuncs.cpp -> src/game/skate/skate_module.h
-src/engine/gfx/loading_console.cpp -> src/editor/level_editor_ui_fonts.h
 src/engine/gfx/model_appearance.cpp -> src/game/skate/cas_options.h
 src/engine/gfx/movie.cpp -> src/devtools/start_level.h
 src/engine/gfx/particle_system.cpp -> src/game/skate/skate_module.h

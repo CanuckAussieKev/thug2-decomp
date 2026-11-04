@@ -21,7 +21,7 @@
 #include <vector>
 #include <array>
 
-#include "editor/level_editor_ui_fonts.h"
+#include "engine/ui/ui_fonts.h"
 #include "engine/gfx/movie.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -242,7 +242,7 @@ void build_font()
     config.PixelSnapH = true;
     config.OversampleH = 2;
     static const auto kRanges = std::to_array<ImWchar>({0x0020, 0x007E, 0});
-    const frontend::level_editor::ui_fonts::CompressedFont mono = frontend::level_editor::ui_fonts::get_mono();
+    const frontend::ui_fonts::CompressedFont mono = frontend::ui_fonts::get_mono();
     ImFont* font = atlas.AddFontFromMemoryCompressedTTF(mono.data, mono.size, pixels, &config, kRanges.data());
     unsigned char* rgba = nullptr;
     int width = 0;

@@ -5,7 +5,7 @@
 #include <array>
 #include <span>
 
-#include "editor/level_editor_ui_fonts.h"
+#include "engine/ui/ui_fonts.h"
 #include "editor/level_editor_ui_layout.h"
 #include "imgui.h"
 #include "base/core/checked_index.h"
