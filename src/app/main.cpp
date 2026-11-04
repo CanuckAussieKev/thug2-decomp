@@ -25,6 +25,8 @@
 #include "engine/audio/audio_device.h"
 #include "engine/audio/muted_device.h"
 #include "engine/file/disk.h"
+#include "engine/file/file_sources.h"
+#include "engine/file/file_system.h"
 #include "fs_win32/win32_disk.h"
 #include "engine/media/movie.h"
 #include "engine/pad_input/input_source.h"
@@ -77,6 +79,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     load_system_direct_input();
     // NOT ORIGINAL: the operating system's files (engine/file/disk.h): Win32's, before anything opens one.
     fs::install_disk(fs::win32::disk());
+    // NOT ORIGINAL: where the game's data files come from (engine/file/file_system.h), in the order the game looks: the
+    // data overlay, the loaded .pre archives, the Data folder.
+    fs::file_system().add(file::overlay_source());
+    fs::file_system().add(file::archive_source());
+    fs::file_system().add(file::data_folder_source());
     // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
     app::install_command_tables();
     // NOT ORIGINAL: the extensions (the editor, the new front end, the dev tools) registered before any of the

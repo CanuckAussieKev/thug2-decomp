@@ -133,6 +133,7 @@ add_library(thug2_engine STATIC
     file/packs.cpp
     file/archive.cpp
     file/disk.cpp
+    file/file_system.cpp
     lists/key_map.cpp
     lists/chain_start.cpp
     lists/lookup_table.cpp

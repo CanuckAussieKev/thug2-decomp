@@ -453,14 +453,14 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
     return picked;
 }
 
-bool file_path(const char* relative, std::array<char, file::kOverlayPathSize>& path)
+bool file_path(const char* relative, std::span<char, file::kOverlayPathSize> path)
 {
     const std::set<std::string>* served = thugpro_cas_state().served_.load();
     if ((served == nullptr) || (relative == nullptr) || !served->contains(path_key(relative))) {
         return false;
     }
     const std::string full = thugpro_cas_state().data_ + relative;
-    if (full.size() >= sizeof(path) || !is_file(full)) {
+    if (full.size() >= path.size() || !is_file(full)) {
         return false;
     }
     std::memcpy(path.data(), full.c_str(), full.size() + 1);

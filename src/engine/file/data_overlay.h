@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <span>
 #include <string>
 #include "engine/file/file_load.h"
 
@@ -27,7 +28,7 @@ const std::string& get_folder();
 
 // The overlay's file for a game file name ("levels\mainmenu\mainmenu.qb", "data/..." or a development machine's
 // "c:\...\data\..." path), if it exists: its full path in `path`.
-bool get_overlay_path(const char* name, std::array<char, file::kOverlayPathSize>& path);
+bool get_overlay_path(const char* name, std::span<char, file::kOverlayPathSize> path);
 
 // [features] anteara_mod (read once; logs a line at start-up when on).
 bool anteara_mod();

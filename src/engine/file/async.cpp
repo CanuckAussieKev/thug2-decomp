@@ -14,7 +14,7 @@
 #include "engine/memory/task_list.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
-#include "engine/file/data_overlay.h"
+#include "engine/file/file_system.h"
 #include "engine/file/disk.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
@@ -195,7 +195,7 @@ bool AsyncFileHandle::unseal(const char* name, bool blocking, int priority)
     // archive (the platform's open reads the overlay's).
     // Original behaviour: a loaded archive's copy first.
     std::array<char, kOverlayPathSize> overlay{};
-    if (pre::hub() && !frontend::data_overlay::get_overlay_path(name, overlay)) {
+    if (pre::hub() && !fs::file_system().loose_override(name, overlay)) {
         pre_file_ = pre::unseal({.name = name, .mode = "rb"}, true);
         if (pre_file_) {
             outcome_val_ = 1;
@@ -512,11 +512,10 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
 {
     anchor_point() = 0;
     std::array<char, kOverlayPathSize> path{};
-    // Not original - the data overlay: a file of it is opened there.
+    // Not original - the data overlay: a file of it is opened there (the file system's loose path: the overlay's copy,
+    // else the data folder's).
     // Original behaviour: the data folder's file.
-    if (!frontend::data_overlay::get_overlay_path(name, path)) {
-        make_disk_path(std::span<char, kOverlayPathSize>(path).first<kDiskPathSize>(), name);
-    }
+    fs::file_system().loose_path(name, path);
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
     const bool overlapped = use_overlapped_io();

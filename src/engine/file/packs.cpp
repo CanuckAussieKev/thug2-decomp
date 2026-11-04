@@ -20,7 +20,7 @@
 #include "engine/file/archive.h"
 #include "engine/script/names.h"
 #include "formats/pre_format.h"
-#include "engine/file/data_overlay.h"
+#include "engine/file/file_system.h"
 #include "engine/script/params.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
@@ -104,7 +104,7 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
     // before any archive (synchronously, through FileLoad::unseal, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
     std::array<char, file::kOverlayPathSize> overlay_path{};
-    const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
+    const bool overlay = fs::file_system().loose_override(name, overlay_path);
 
     // Already loaded?
     if (PackedFile* entry = overlay ? nullptr : find_pre_entry(checksum)) {
@@ -185,7 +185,7 @@ void* load_file_into(const char* name, int* size, void* buffer)
     // Not original - the data overlay: a file of it is read from there (FileLoad::unseal), not an archive.
     // Original behaviour: archives first, then the cache and the data folder.
     std::array<char, file::kOverlayPathSize> overlay_path{};
-    const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
+    const bool overlay = fs::file_system().loose_override(name, overlay_path);
     void* data = overlay ? nullptr : pre::sole()->ingest_file(name, &file_size, static_cast<uint8_t*>(buffer));
     if (data) {
         gfx::loading_console::note_file("unpack", name, file_size); // (not original: the loading console)

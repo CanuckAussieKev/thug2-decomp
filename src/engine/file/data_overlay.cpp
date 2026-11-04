@@ -7,6 +7,7 @@
 #include <cctype>
 #include <cstring>
 #include <string>
+#include <span>
 #include <string_view>
 #include <vector>
 #include <array>
@@ -96,7 +97,7 @@ bool anteara_mod()
     return kOn;
 }
 
-bool get_overlay_path(const char* name, std::array<char, file::kOverlayPathSize>& path)
+bool get_overlay_path(const char* name, std::span<char, file::kOverlayPathSize> path)
 {
     static const bool kOverlay = is_folder(get_folder());
     if (!name) {
@@ -126,7 +127,7 @@ bool get_overlay_path(const char* name, std::array<char, file::kOverlayPathSize>
     if (full.empty()) {
         return objects::thugpro_cas::file_path(relative.data(), path);
     }
-    if (full.size() >= sizeof(path)) {
+    if (full.size() >= path.size()) {
         return false;
     }
     std::memcpy(path.data(), full.c_str(), full.size() + 1);
