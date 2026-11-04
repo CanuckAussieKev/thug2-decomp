@@ -55,7 +55,9 @@ src/
               thug2_base)
   engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, media (the movie codec's
               interface), network transport, pad input, ui (the
-              original's screen elements and our UI fonts), ext (the extension points) (library thug2_engine)
+              original's screen elements and our UI fonts), ext (the extension points); pad input's sources are
+              the input seam (engine/pad_input/input_source.h: SDL's is engine/pad_input/sdl_input) (library
+              thug2_engine)
   render_d3d9/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
               textures, materials, shaders, screen effects, 2D and text, movies' frames, the loading screen) and the
               GPU's vertex and index buffers, D3DX's last calls; it implements render::Device and render::UiBackend
@@ -64,6 +66,8 @@ src/
               thug2_audio_dsound, included and linked by app/ only)
   media_bink/ the movie codec, Bink (the player's binkw32.dll): the movies and the music / sound streams; it
               implements media::Movie (library thug2_media_bink, included and linked by app/ only)
+  input_dinput/ the original's DirectInput side: its keyboard, joysticks and mouse, the pad read, the device set-up;
+              an input::Source (library thug2_input_dinput, included and linked by app/ only)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
               network session; the transport stays in engine/net), commands (the game's script commands), world
               (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park

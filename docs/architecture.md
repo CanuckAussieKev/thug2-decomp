@@ -12,6 +12,7 @@ editor/  frontend/  devtools/   the level editor; the new front end and mouse me
 game/                       skating, the rider, goals, parks, saves, the online session (game/online)
 render_d3d9/                the graphics backend: Direct3D 9 (the original's PC platform layer); only app/ includes it
 audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
+input_dinput/               the original's DirectInput side, an input source; only app/ includes it
 engine/                     memory, lists, files, assets, script, objects, renderer, audio, media, network transport, pad input,
                             ui (the original's screen elements), ext (the extension points)
 -------------------------   the boundary: where bytes come from outside the game
@@ -38,9 +39,9 @@ platform's devices, is wired by `app/`. The SDL event pump calls the handlers re
 the start-up's, `app/pc_setup.cpp`; the window's focus WinMain's); `sys::create_sdl_window` returns the window's
 handle, which WinMain keeps where the platform's window is (`sys::game_window`); the sound output WinMain opens through
 `audio::Device` and keeps in the audio's state; the base layer's sinks are installed by `app/main.cpp`. What uses the engine's state is the engine's: the frame
-clock (`engine/sys/stopwatch`, `game_clock`), the renderer's Direct3D buffers and queries
-(`engine/gfx/pc_d3d_resources`), and the original's DirectInput side - its pad read, the registry options and input
-set-up (`engine/pad_input/direct_input`, `input_setup`).
+clock (`engine/sys/stopwatch`, `game_clock`), the input set-up and the tables the original's input read with - the
+ports' controls, the key names, the registry options (`engine/pad_input/input_setup`, `port_controls`); the
+original's DirectInput side itself is a backend (`src/input_dinput`, "The input seam" below).
 
 **The composition** (`src/app`): `main.cpp`, WinMain (`winmain.cpp`: the command line, the window, the devices),
 PartyMod's start-up (`pc_setup.cpp`) and the game's main (`startup.cpp`: the singletons, modules and the main loop).
@@ -52,7 +53,8 @@ the dev tools. Where something we added runs inside the original's frame, the or
 place - the front end's input logic (`ext::menu_frame`), the 3D frame (`before_draw_world`, `place_camera`,
 `near_plane` / `view_angle`, `view_drawn`, `draw_over_frame`), the main loop (`before_present`, `keeps_every_frame`,
 `device_lost`), the screen elements' layout pass, the input set-up and poll (`prepare_input`, `game_owner` and its
-`pass_pause_key`, `game_input_blocked`, `add_pad_buttons`), a scene loaded, the data overlay, the start-up's movies,
+`pass_pause_key`, `game_input_blocked`; the buttons a dev tool presses are an input source's, "The input seam"), a scene
+loaded, the data overlay, the start-up's movies,
 the career save and the high scores - and `ext::` calls each registered `ext::Extension` in turn. An extension
 overrides only its points (the defaults do nothing or pass the value on); a point that returns a value keeps the
 contract its one caller had (the first extension that owns the game takes the keyboard but for the Pause key; the
@@ -144,14 +146,15 @@ headers are part of its own), and reaches every one of them through those links:
 thug2_base  <-  thug2_formats  <-  thug2_wire
             <-  thug2_platform
 thug2_platform + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
-thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink (the backends: linked by the exe alone)
+thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink, thug2_input_dinput (the backends: linked by
+                  the exe alone)
 every library  <-  thug2 (src/app: thug2-decomp.exe)
 ```
 
 The checks in `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`:
 base; `thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
-library that calls them (SDL, Winsock, D3D9 and the GameSpy SDK by the platform; LZHAM and DirectInput by the
-engine; DirectSound by the sound backend; D3DX by the graphics backend; imgui's core by the graphics backend - the loading console's
+library that calls them (SDL, Winsock, D3D9 and the GameSpy SDK by the platform; LZHAM by the engine; DirectInput
+by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; imgui's core by the graphics backend - the loading console's
 panel -, the editor and the front end, and imgui's SDL2 and Direct3D 9 backends, `imgui_backends`, by the graphics
 backend alone). `node tools/cmake_layers.ts` (part of `npm test`)
 reads the `CMakeLists.txt` files and fails when a library links outside the map or doesn't reach a library the map
@@ -162,7 +165,7 @@ CMake repeats on the link line for a linker that reads each library once (GNU ld
 baseline line left fails. A sibling's own links are its own: the front end linking the editor doesn't count as
 reaching what the editor links. Only the exe links the backends: the editor and the front end reach the graphics
 backend through the engine's interfaces (`render::Device`, `render::UiBackend`), the engine reaches the sound output
-and the movie codec through `audio::Device` and `media::Movie`.
+and the movie codec through `audio::Device` and `media::Movie`, and DirectInput through its `input::Source`.
 
 Nothing is registered by a static initialiser: the start-up runs explicit tables (app's start-up initialisers, the
 command table, the component registry), so the linker drops no object the game needs (a static library leaves out an
@@ -224,8 +227,9 @@ everything above it uses the game's own types and may change them freely.
   - D3DX: only the backend calls it (`render_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
     Its maths - the vector transforms and the viewing matrices - is plain C++ in `base/maths/view_transforms.h`, the
     same float operations in the same order as the D3DX9 the game ran with (thug2_maths_check compares each with
-    d3dx9_43.dll; bit for bit with the x87 at 24 bits, as Direct3D 9 leaves it on the game's thread - but the matrix
-    inverse, whose one caller doesn't use the result).
+    d3dx9_43.dll; bit for bit with the x87 at 53 bits, the precision the game's thread runs at - the frames drawn
+    with the builders worked at 24 bits differed from D3DX's in their last bits -, but the matrix inverse, whose one
+    caller doesn't use the result).
   - Its vertex and index buffers (`vertex_buffers`): made, filled through their copies in memory, written again after
     a device reset, torn down. Code outside the backend reads and writes vertices by attribute through
     `gpu::VertexView` / `VertexWriter` (`engine/gfx/vertex_view.h`: a stride and offsets, never the bytes themselves).
@@ -263,6 +267,47 @@ everything above it uses the game's own types and may change them freely.
   (`use_sound_output`: the output's handle - Bink's DirectSound output on the game's DirectSound object). A call per
   movie or per frame. `app/main.cpp` installs Bink's (`media::bink::movie()`); only `media_bink/` includes the
   wrapper (tools/audio_headers.test.ts).
+- **The input seam** (`engine/pad_input/input_source.h`, `input_event.h`): where the game's input comes from. An
+  `input::Source` is one kind of device; `app/main.cpp` adds them in the order the original read them, which is the
+  call order at every point: the original's DirectInput side (`src/input_dinput`, static library
+  `thug2_input_dinput`, on the engine: `input::dinput::keyboard()`), SDL's game controllers and keyboard
+  (`engine/pad_input/sdl_input.cpp`, PartyMod's input: `sio::sdl_source()`), then the test-automation channel's
+  pressed buttons (`devtools/automation`, a dev tool's source: nothing pressed unless the workspace turns it on).
+  - The frame: the main loop's first step (`sio::read_keyboard`, 0x005BDD60) forgets the typed characters and has
+    each source read its devices (`read_frame`: DirectInput's keyboard state into its two buffers); then the SDL
+    window's events are pumped (`os_layer::process_window_events`, as before).
+  - A port's poll (`sio::InputPort::work_on`, once a frame for each port): the device made ready, each source's
+    `begin_poll` (SDL's: the menu flags, then the pending events - pumped again here, once a port, as PartyMod did),
+    the control data cleared, port 0 usable and connected, each source's `poll_port` adding its buttons, sticks and
+    pressures to the port's control bytes (`input::PortPoll`; SDL's: port 0's keyboard, then the port's controller;
+    then the automation channel's buttons), the bits inverted. While an extension blocks the game's input
+    (`ext::game_input_blocked`, the new front end) the keyboard and the controllers give nothing; the automation
+    channel's buttons still go in. A call per source per port - never per key.
+  - A port's pad (`has_pad`: DirectInput's joystick read, then the port's key bindings), its motors (`rumble`: SDL's
+    controllers), the start-up (`devices_made` - the original's "DirectInput made" test -, `start`: DirectInput's state
+    cleared, then SDL's controllers, settings, bindings and its window handler, then `ext::prepare_input`), and the
+    original pad read for `InputPort::pull_data`, which PartyMod's poll replaced (`set_pad_mode`, `set_default_keys`,
+    `read_pad`, `key_down`: DirectInput's).
+  - What our tools read of the devices (the level editor, the new front end, the mouse menus, the restart tester,
+    debug mode, THAW's BMX): the keyboard's state (`input::keys`: one array by SDL scan code - the USB keyboard usage -,
+    read by key), the mouse (`input::mouse`), the first attached controller (`input::controller`), the look's held
+    mouse and the cursor (`set_relative_mouse`, `show_cursor`), the size of the window an event names
+    (`window_size`) - each from the first source that has it (SDL's).
+  - Their events (`input::Event`, `input::add_event_handler`): the SDL source's window handler - third in the
+    platform's pump, after the quit request and the window's focus - does the game's input's own handling, then hands
+    each event to the handlers added (by `ext::prepare_input`, in the extensions' order; the editor's simulation
+    later): the event's kind, key, repeat and modifiers, the mouse's place, motion, button, wheel and window, a
+    controller's button or axis. Dear ImGui needs SDL's own events (its SDL2 platform backend takes text typed and
+    edited, the keys, the mouse and the wheel, the window's events): the event carries SDL's for as long as it is handed
+    round (`Event::native`), which the editor's UI passes untouched to `render::UiBackend::process_event`; nothing else
+    reads it, and a queued event keeps only ours (`Event::kept`). The scan codes are named by SDL's
+    `SDL_SCANCODE_*` constants (a numbering, not a call), and SDL's window queries (its size, `sys::sdl_window`) are the
+    platform's window's.
+  Only `input_dinput/` includes `<dinput.h>` and only app/ picks its source; outside the platform and the SDL source
+  nothing calls SDL's input (the keyboard's state, the mouse, the controllers, the cursor, the event pump), only the
+  SDL source includes `platform/keyboard.h`, and only it and app/ register with the platform's pump
+  (tools/input_headers.test.ts; the screenshot key's sidecar, a dev tool's note of the mouse over the window, is the
+  one exception). An editor exe adds the same sources (DirectInput's, SDL's) without the automation channel's.
 - `platform/`: the operating system and the SDKs - the SDL window and its event pump, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`);
   Winsock with IPv4 addresses and byte buffers (`sockets.h`), the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), the Windows audio session API
