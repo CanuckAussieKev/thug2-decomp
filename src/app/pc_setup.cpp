@@ -9,6 +9,9 @@
 #include <cstdlib>
 #include <ctime>
 
+#include <SDL2/SDL.h>
+
+#include "engine/gfx/engine_parts.h"
 #include "engine/gfx/glyphs.h"
 #include "engine/gfx/settings.h"
 #include "engine/net/online_hosts.h"
@@ -19,6 +22,18 @@
 #include "platform/sdl_events.h"
 
 namespace sys {
+
+namespace {
+
+// The event pump's first handler: SDL_QUIT asks the game to quit (0x007D6A2C).
+void handle_quit(SDL_Event* event)
+{
+    if (event->type == SDL_QUIT) {
+        render::engine_parts().set_quit_requested(true);
+    }
+}
+
+} // namespace
 
 void init_pc_setup()
 {
@@ -38,6 +53,7 @@ void init_pc_setup()
 
     script::init_script_patches();
     os_layer::init_events();
+    os_layer::register_event_handler(handle_quit);
     // the music shuffle's randomness (audio::shuffle_random)
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     debug_log::printf(StageMap::kInfo, "Patch Initialized\n");

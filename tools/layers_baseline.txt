@@ -476,7 +476,6 @@ src/platform/screenshot.cpp -> src/frontend/front_end.h
 src/platform/screenshot.cpp -> src/game/rider/rider.h
 src/platform/screenshot.cpp -> src/game/skate/game_mode.h
 src/platform/screenshot.cpp -> src/game/skate/skate_module.h
-src/platform/sdl_events.cpp -> src/engine/gfx/engine_parts.h
 src/platform/sdl_window.cpp -> src/engine/gfx/engine_parts.h
 src/platform/sdl_window.cpp -> src/engine/gfx/renderer.h
 src/platform/sdl_window.cpp -> src/frontend/automation.h
