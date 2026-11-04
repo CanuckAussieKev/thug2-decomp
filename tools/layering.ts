@@ -25,6 +25,8 @@ const BOUNDARY_FILES = new Set([
     "src/engine/script/qb.cpp",
     "src/engine/script/token_reader.cpp",
     "src/engine/script/precompiled.cpp",
+    // the format check lays the readers' in-place images out itself (moved from formats/check in stage 11 round 11)
+    "src/tests/format_check_files.cpp",
 ]);
 
 const VIEW =
