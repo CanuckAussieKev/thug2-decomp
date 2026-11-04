@@ -169,6 +169,7 @@ add_library(thug2_engine STATIC
     net/net_manager_apps.cpp
     net/net_conn_times.cpp
     net/transport.cpp
+    net/loopback_transport.cpp
     objects/composite.cpp
     objects/compositemgr.cpp
     objects/cutscene.cpp
