@@ -4,7 +4,6 @@
 #include <cstdint>
 #include "engine/script/cache.h"
 #include "engine/script/debug_cfuncs.h"
-#include "engine/script/game_cfuncs.h"
 #include "engine/script/skate_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/qb.h"

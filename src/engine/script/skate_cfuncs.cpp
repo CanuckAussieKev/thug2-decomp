@@ -24,7 +24,6 @@
 #include "engine/script/script_startup.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "engine/script/game_cfuncs.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/script/script_state.h"
