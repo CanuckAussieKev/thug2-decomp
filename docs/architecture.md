@@ -22,13 +22,14 @@ base/                       checksums, formatting, text, checked indexing, maths
 
 **The base layer** (`src/base`, static library `thug2_base`) is what every layer uses and nothing of the OS: `core`
 (checksums, printf-style formatting, text, number parsing, checked indexing, the enum, cast and pointer helpers, the
-compiler's few names), `maths` (vectors, matrices - their product is D3DX's in plain C++, bit for bit, checked by
-`thug2_maths_check` -, quaternions, shape tests), `lists` (two containers that don't use the game's heaps) and
-`util` (the bit stream, BPS patches). It includes only the standard library and GSL. What it can't do itself it
-hands to a sink the platform installs first thing in WinMain (`platform/output_sinks.h`): the debugger output
-(`base/core/dbg.h`) and error lines into thug2-decomp.log (`base/core/log_sink.h`). The game's heaps are
-`engine/memory` (they use the run log, the C runtime's heap and the game config), and what is built on them stays in
-the engine (`engine/lists`' chains and maps, `engine/util`'s LZSS compressor and text store).
+compiler's few names), `maths` (vectors, matrices - their product, the vector transforms and the viewing matrices are
+D3DX's in plain C++, bit for bit, checked by `thug2_maths_check` -, quaternions, shape tests), `lists` (two containers
+that don't use the game's heaps) and `util` (the bit stream, BPS patches). It includes only the standard library and GSL
+(and the compiler's SSE intrinsics: the reciprocal estimates D3DX's normalising uses). What it can't do itself it hands
+to a sink the platform installs first thing in WinMain (`platform/output_sinks.h`): the debugger output
+(`base/core/dbg.h`) and error lines into thug2-decomp.log (`base/core/log_sink.h`). The game's heaps are `engine/memory`
+(they use the run log, the C runtime's heap and the game config), and what is built on them stays in the engine
+(`engine/lists`' chains and maps, `engine/util`'s LZSS compressor and text store).
 
 **The platform layer** (`src/platform`, static library `thug2_platform`) is the OS and the SDKs, and includes only
 `base/` and their headers. It doesn't call up: what the game does on the platform's events, and where it keeps the
@@ -142,24 +143,24 @@ headers are part of its own), and reaches every one of them through those links:
 thug2_base  <-  thug2_formats  <-  thug2_wire
             <-  thug2_platform
 thug2_platform + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
-thug2_engine  <-  thug2_render_d3d9 (the graphics backend: linked by the exe - and the editor, below)
+thug2_engine  <-  thug2_render_d3d9 (the graphics backend: linked by the exe alone)
 every library  <-  thug2 (src/app: thug2-decomp.exe)
 ```
 
 The checks in `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`:
 base; `thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
-library that calls them (SDL, DirectSound, Winsock, D3D9, D3DX and the GameSpy SDK by the platform; LZHAM and
-DirectInput by the engine; imgui by the graphics backend - the loading console's panel -, the editor and the front
-end). `node tools/cmake_layers.ts` (part of `npm test`)
+library that calls them (SDL, DirectSound, Winsock, D3D9 and the GameSpy SDK by the platform; LZHAM and
+DirectInput by the engine; D3DX by the graphics backend; imgui's core by the graphics backend - the loading console's
+panel -, the editor and the front end, and imgui's SDL2 and Direct3D 9 backends, `imgui_backends`, by the graphics
+backend alone). `node tools/cmake_layers.ts` (part of `npm test`)
 reads the `CMakeLists.txt` files and fails when a library links outside the map or doesn't reach a library the map
 allows it, when a source sits in another library's folder, or when a `.cpp` is compiled by no target or by two.
 The one exception is the editor / front end / dev tools' sibling edges (round 29's): they link each other exactly
 where `tools/layers_baseline.txt` still has include lines between them - static libraries that need each other, which
 CMake repeats on the link line for a linker that reads each library once (GNU ld) - and a sibling link with no
 baseline line left fails. A sibling's own links are its own: the front end linking the editor doesn't count as
-reaching what the editor links. The editor is the one library besides the exe that links the graphics backend
-(tools/layers.json allows it): its Dear ImGui backend and its preview's and ground's drawing still call Direct3D 9
-until they go behind the engine's interfaces.
+reaching what the editor links. Only the exe links the graphics backend: the editor and the front end reach it
+through the engine's interfaces (`render::Device`, `render::UiBackend`).
 
 Nothing is registered by a static initialiser: the start-up runs explicit tables (app's start-up initialisers, the
 command table, the component registry), so the linker drops no object the game needs (a static library leaves out an
@@ -201,8 +202,28 @@ everything above it uses the game's own types and may change them freely.
   (`gfx::loading_console::install_panel`). `app/main.cpp` installs Direct3D 9's (`render::d3d9::device()`,
   `render_d3d9/d3d9_device.cpp`: each method is the platform layer's own function) before any original code runs;
   another backend (Vulkan) would be a second implementation chosen there. Nothing below `app/` includes or links it
-  (tools/layers.json: render_d3d9 is strict and only the app - and, for now, the editor - may include it), so the
-  engine builds without Direct3D.
+  (tools/layers.json: render_d3d9 is strict and only the app may include it), so the engine, the game, the editor and
+  the front end build without Direct3D.
+  - What our level editor asks of it (`render::Device`, "what our level editor asks"; `render_d3d9/editor_support.cpp`):
+    whether the device is made, its view modes (`engine/gfx/view_modes.h`), its old HUD's lines, a PC geom's meshes,
+    mesh array, instance and active flag, the buffers its ground tool makes and their upload and release, and the Add
+    palette's preview (the camera, a geom drawn, the frustum put back). The editor reads and edits a sector's meshes
+    through the PC geometry's records - `engine/gfx/mesh_records.h`: a vertex buffer's, an index buffer's, a mesh's and
+    the first part of an instance's, the original's layouts; the backend's `VertexBuffer`, `IdxStore`, `MeshRef` and
+    `Singleton` derive from them and add what they do.
+  - `render::UiBackend` (`engine/gfx/ui_backend.h`): what our Dear ImGui layers - the editor's UI and the new front
+    end - ask of it, a frame at a time: ImGui's platform and renderer backends started on a context, a frame begun and
+    its draw data drawn, the device objects dropped before a reset, the images ImGui shows (made from texels in memory)
+    and the two targets the renderer draws into for the UI (the preview, the thumbnails' atlas). Direct3D 9's
+    (`render_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app/main.cpp` beside the
+    device; a Vulkan one would be ImGui's SDL2 and Vulkan backends behind the same calls. The editor's
+    `level_editor_ui_backend` keeps what is the UI's own (whether a context is started, the log, the draw data scaled to
+    the back buffer). Only `render_d3d9/` includes ImGui's backend headers (tools/d3d_headers.test.ts).
+  - D3DX: only the backend calls it (`render_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
+    Its maths - the vector transforms and the viewing matrices - is plain C++ in `base/maths/view_transforms.h`, the
+    same float operations in the same order as the D3DX9 the game ran with (thug2_maths_check compares each with
+    d3dx9_43.dll; bit for bit with the x87 at 24 bits, as Direct3D 9 leaves it on the game's thread - but the matrix
+    inverse, whose one caller doesn't use the result).
   - Its vertex and index buffers (`vertex_buffers`): made, filled through their copies in memory, written again after
     a device reset, torn down. Code outside the backend reads and writes vertices by attribute through
     `gpu::VertexView` / `VertexWriter` (`engine/gfx/vertex_view.h`: a stride and offsets, never the bytes themselves).
@@ -214,12 +235,11 @@ everything above it uses the game's own types and may change them freely.
     and their own headers: `render_d3d9/d3d9_state.h` (the renderer's Direct3D objects - Direct3D itself, the device,
     the depth surfaces, the back buffer, the screen copies -, `render::d3d9::state()`; the backend-free rest of the
     renderer's state is `render::Renderer`, `engine/gfx/renderer.h`), `device_d3d.h`, `pc_d3d_resources.h`,
-    `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's), `render_d3d9/d3dx_jpg.h` and the editor's ImGui
-    texture id (`platform/imgui_texture_id.h`).
+    `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's), `render_d3d9/d3dx_jpg.h` and ImGui's
+    texture id over Direct3D's textures (`render_d3d9/imgui_texture_id.h`).
 - `platform/`: the operating system and the SDKs - the SDL window and its event pump, DirectSound's set-up, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
-  Winsock with IPv4 addresses and byte buffers (`sockets.h`), the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), D3DX
-  behind the renderer's own calls (`d3dx.h`: the graphics backend and the occluders' transform call it), the Windows audio session API
+  Winsock with IPv4 addresses and byte buffers (`sockets.h`), the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), the Windows audio session API
   (`mute_audio.h`), the owners of Win32 and C runtime handles (`unique_handle.h`) and the sinks behind the base
   layer's output (`output_sinks.h`).
 

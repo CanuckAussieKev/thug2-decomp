@@ -57,8 +57,8 @@ src/
               original's screen elements and our UI fonts), ext (the extension points) (library thug2_engine)
   render_d3d9/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
               textures, materials, shaders, screen effects, 2D and text, movies' frames, the loading screen) and the
-              GPU's vertex and index buffers; it implements render::Device (library thug2_render_d3d9, included by
-              app/ only - and the editor until its Direct3D code goes behind the engine's interfaces)
+              GPU's vertex and index buffers, D3DX's last calls; it implements render::Device and render::UiBackend
+              (library thug2_render_d3d9, included and linked by app/ only)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
               network session; the transport stays in engine/net), commands (the game's script commands), world
               (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park
