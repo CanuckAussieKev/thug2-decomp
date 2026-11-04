@@ -11,8 +11,9 @@
 // drawn and finished as a whole, and a lost device is reset by the engine's main loop in steps.
 //
 // The grain is coarse: a call per frame, per resource made or released, per state block, per draw batch (a flash, a
-// shatter, a splat set) - a few dozen a frame. Never per vertex or per object: what the engine does per vertex or
-// per object (a primitive's vertices, a sphere's visibility) stays a direct call (render_device.cpp's notes).
+// shatter, a splat set). Never per vertex or per object: what the engine does per vertex or per object stays a
+// direct call - a primitive's vertices (PcPrimitive's setters: plain writes into its vertex memory), the occluders
+// and a sphere's visibility (the culling, engine_glue.h), a splat triangle's collapse.
 //
 // The methods keep the names and arguments of the functions they stand for (the backend's own, in the files the
 // comments name), and each D3D9 method is that function: the same calls to Direct3D, in the same order.

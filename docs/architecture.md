@@ -189,6 +189,19 @@ everything above it uses the game's own types and may change them freely.
   depth surfaces, the back buffer, the screen copies -, `render::d3d9::state()`; the backend-free rest of the
   renderer's state is `render::Renderer`, `renderer.h`), `device_d3d.h`, `pc_d3d_resources.h`, `gpu/d3d9_handles.h`,
   `platform/d3d_matrix.h`, `d3dx_jpg.h` and the editor's ImGui texture id (`platform/imgui_texture_id.h`).
+- **The graphics backend** is the original's PC platform layer: the engine's `s_plat_*` calls and what they reach
+  (0x004B2270-0x004E0A90 in the reference build), the Direct3D files of our own and `gpu/`. The engine side (the
+  engine's own graphics, the objects, scripts, UI, file loading, the game, the dev tools) asks it for everything through
+  `render::Device` (`engine/gfx/render_device.h`): the frame (begun, drawn, finished), a lost device's reset in the main
+  loop's steps, the resources it makes and gives back (scenes, meshes, models, geoms, sprites, render targets, texture
+  dictionaries, viewports, particle systems, fonts), the state blocks (fog, gamma, the 2D clip, the primitives' states,
+  the world's lights), the effects a batch at a time (a flash, a shatter, a splat set, a texture shadow, the sun's
+  occlusion query) and what is shown (screenshots, the back buffer's copy, the disc error and loading screens). A call
+  per frame, resource, state block or batch - never per vertex or object: the primitives' vertices (CPU memory edited
+  per vertex), the occluders and sphere tests (per object) stay direct calls. The device returns the engine's own types
+  (`WorldScene`, `TextureSet`, `Typeface`, `ModelLights`); the backend's objects derive from them. `app/main.cpp`
+  installs Direct3D 9's (`render::d3d9::device()`, `engine/gfx/d3d9_device.cpp`: each method is the platform layer's
+  own function) before any original code runs; another backend (Vulkan) would be a second implementation chosen there.
 - `platform/`: the operating system and the SDKs - the SDL window and its event pump, DirectSound's set-up, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
   Winsock with IPv4 addresses and byte buffers (`sockets.h`), Direct3D's matrices over the game's (`d3d_matrix.h`),

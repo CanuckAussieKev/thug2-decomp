@@ -58,3 +58,24 @@ test("only Direct3D's own headers see <d3d9.h>", () => {
     assert.deepEqual(outside, []);
     for (const name of DIRECT3D_HEADERS) assert.ok(known.has(name), `${name} is listed but missing`);
 });
+
+// The graphics backend is chosen in one place: app/ installs Direct3D 9's render::Device (docs/architecture.md, "The
+// graphics backend"); the engine side reaches it only through render::device().
+test("only app/ picks the Direct3D 9 device", () => {
+    const pickers: string[] = [];
+    const walk = (folder: string): void => {
+        for (const entry of readdirSync(folder, { withFileTypes: true })) {
+            const path = join(folder, entry.name);
+            if (entry.isDirectory()) walk(path);
+            else if (/\.(cpp|h)$/.test(entry.name)) {
+                const name = relative(SRC, path).replaceAll("\\", "/");
+                if (/^\s*#\s*include\s*"engine\/gfx\/d3d9_device\.h"/m.test(readFileSync(path, "utf8")))
+                    pickers.push(name);
+            }
+        }
+    };
+    walk(SRC);
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "engine/gfx/d3d9_device.cpp").sort();
+    assert.deepEqual(outside, []);
+    assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the device");
+});
