@@ -56,7 +56,8 @@ public:
     // --- start-up ---
     // Its script commands (app's start-up calls each extension's at its own place in the order of the added commands).
     virtual void register_script_commands() {}
-    // sio::init_sdl_input, after the game's own input handler: its SDL event handlers registered, its keys read.
+    // os_layer::init_input, after the input sources started (SDL's own event handler first): its event handlers
+    // registered, its keys read.
     virtual void prepare_input() {}
 
     // --- the front end's input logic (modules::FrontEnd::input_logic, once a frame with the first controller) ---
@@ -72,9 +73,6 @@ public:
     virtual bool pass_pause_key(bool down) { return down; }
     // While true the game reads no key or controller (the extension has them all).
     virtual bool blocks_game_input() { return false; }
-    // Buttons pressed for a port, added to what the keyboard and the controller gave (sio's control bytes, not yet
-    // inverted: a set bit is a button down).
-    virtual void add_pad_buttons(int /*port*/, std::span<uint8_t> /*data*/) {}
 
     // --- the frame ---
     // render::draw_world, first: its own frame (it may run while the game is paused).
@@ -141,7 +139,6 @@ void menu_frame(modules::FrontEnd* front_end);
 // The extension that owns the game (the first whose owns_game is true), or none.
 Extension* game_owner();
 bool game_input_blocked();
-void add_pad_buttons(int port, std::span<uint8_t> data);
 void before_draw_world();
 void place_camera(gfx::ViewCam* camera, int viewport);
 // Each extension's near_plane / view_angle in turn, starting from the original's value.

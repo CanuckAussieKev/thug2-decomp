@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include "engine/pad_input/sdl_input.h"
+#include "engine/pad_input/input_source.h"
 #include "platform/keyboard.h"
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
+#include <span>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -44,8 +46,6 @@ constexpr int kAxisShift = 8;                  // a stick axis (-32768..32767) d
 constexpr int kAxisCentre = 128;
 constexpr int kStickRest = 0x80;
 constexpr int kStickFull = 255;
-constexpr int kStickCentred = 127;
-constexpr int kFullRumble = 255;
 
 constexpr int kTypedEnter = 0x19;
 constexpr int kSpecialF1 = 0x1F;                // the special keys F1-F4 give outside the on-screen keyboard
@@ -55,8 +55,6 @@ constexpr int kSpecialF4 = 0x1E;
 constexpr int kEscapeChar = 0x1B;
 constexpr int kDirectInputKeyCount = 256;
 constexpr size_t kMappingsBytes = 1024;
-constexpr int kAllButtonBits = 0xFFFF;
-constexpr int kByteBits = 8;
 constexpr int kInGameMenuElement = 0x5999551E; // (text unknown)
 
 } // namespace
@@ -384,7 +382,7 @@ uint8_t in_park_editor()
 // (PressTwoAnyOrder, 400 ms); without, the Xbox one, black (the original PC game's Key Pad 1 / spin left key). Not in a
 // menu or while editing a park, where those mean something else.
 // Original behaviour (PartyMod v1.0.4): the binding is read, nothing presses it.
-void press_caveman(std::array<uint8_t, kPortBufferBytes>& data)
+void press_caveman(std::span<uint8_t> data)
 {
     if ((sdl_input_state().in_menu_ != 0U) || (sdl_input_state().editing_park_ != 0U)) {
         return;
@@ -399,7 +397,7 @@ void press_caveman(std::array<uint8_t, kPortBufferBytes>& data)
 }
 
 // A controller's shoulder buttons: PS2 style, the park editor's (the right trigger is L1), or the PC game's.
-void read_pad_shoulders(std::array<uint8_t, kPortBufferBytes>& data, SDL_GameController* controller)
+void read_pad_shoulders(std::span<uint8_t> data, SDL_GameController* controller)
 {
     if (sdl_input_state().settings_.ps2_controls_ != 0U) {
         if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_) != 0U) {
@@ -470,14 +468,14 @@ void read_pad_shoulders(std::array<uint8_t, kPortBufferBytes>& data, SDL_GameCon
 // The control data's bytes: 2 and 3 the button bits (set while down here; inverted at the end - the game's
 // format has a bit set while a button is up), 4-7 the sticks, 8-19 the pressures, 20 the Xbox's black (bit 0)
 // and white (bit 1).
-void poll_controller(InputPort* device, SDL_GameController* controller)
+// (the port's device is usable and connected while the controller is attached: input::PortPoll's `connected`)
+void poll_controller(input::PortPoll& poll, SDL_GameController* controller)
 {
     if (SDL_GameControllerGetAttached(controller) == SDL_FALSE) {
         return;
     }
-    std::array<uint8_t, kPortBufferBytes>& data = device->control_data();
-    device->set_is_usable(1);
-    device->set_is_connected(true);
+    const std::span<uint8_t> data = poll.data;
+    poll.connected = true;
 
     if (is_controller_button_held(controller, sdl_input_state().pad_.menu) != 0U) {
         core::at(data, kControlButtonsHigh) |= 1 << 3;
@@ -663,7 +661,7 @@ uint8_t get_key_down(platform::KeyState keys, uint8_t key)
 }
 
 // The keyboard's shoulder keys: PS2 style, the park editor's (the right trigger is L1), or the PC game's.
-void read_key_shoulders(std::array<uint8_t, kPortBufferBytes>& data, platform::KeyState keys)
+void read_key_shoulders(std::span<uint8_t> data, platform::KeyState keys)
 {
     // (a binding's scan code is passed as its low byte)
     auto down = [keys](SDL_Scancode key) { return get_key_down(keys, static_cast<uint8_t>(key)) != 0; };
@@ -745,7 +743,7 @@ void read_key_shoulders(std::array<uint8_t, kPortBufferBytes>& data, platform::K
 }
 
 // The keyboard's sticks: opposite keys together cancel out.
-void read_key_sticks(std::array<uint8_t, kPortBufferBytes>& data, platform::KeyState keys)
+void read_key_sticks(std::span<uint8_t> data, platform::KeyState keys)
 {
     // (a binding's scan code is passed as its low byte)
     auto down = [keys](SDL_Scancode key) { return get_key_down(keys, static_cast<uint8_t>(key)) != 0; };
@@ -783,11 +781,9 @@ void read_key_sticks(std::array<uint8_t, kPortBufferBytes>& data, platform::KeyS
     }
 }
 
-void poll_keyboard(InputPort* device)
+// (port 0's: its device was set usable and connected by the poll, sio::poll_sources)
+void poll_keyboard(std::span<uint8_t> data)
 {
-    std::array<uint8_t, kPortBufferBytes>& data = device->control_data();
-    device->set_is_usable(1);
-    device->set_is_connected(true);
 
     const platform::KeyState keys = platform::keyboard_keys();
     update_menu_keys(keys);
@@ -1132,32 +1128,27 @@ void load_pad_binds()
     sdl_input_state().pad_.camera = static_cast<PadStick>(build_info::get_int(build_info::kGamepad, "CameraStick", kStickRight));
 }
 
-// PartyMod's view of the device has these flags as 32-bit words (the game's are bytes followed by padding): the
-// byte set and the padding after it cleared, as its word stores did. The held-down word's second byte is
-// keyboard_control_, cleared this way too.
-void set_usable(InputPort* device, bool on)
-{
-    device->set_is_usable(on ? 1 : 0);
-    std::memset(device->pad15().data(), 0, sizeof(device->pad15()));
-}
-void set_connected(InputPort* device, bool on)
-{
-    device->set_is_connected(on);
-    std::memset(device->pade1().data(), 0, sizeof(device->pade1()));
-}
-void set_held_down(InputPort* device, bool on)
-{
-    device->set_held_down(on ? 1 : 0);
-    device->set_keyboard_control(0);
-    std::memset(device->padee().data(), 0, sizeof(device->padee()));
-}
-
 } // namespace
 
 InputSettings& the_input_settings() { return sdl_input_state().settings_; }
 bool& using_keyboard() { return sdl_input_state().using_keyboard_; }
 
-void init_sdl_input()
+namespace {
+
+// The game controllers and the keyboard as an input source: started with the game's input, its events handled
+// before the ports read, port 0's keyboard and each port's controller polled, the controllers' motors.
+class SdlSource final : public input::Source {
+public:
+    void start() override { start_sdl_input(); }
+    void begin_poll(int port) override;
+    void poll_port(input::PortPoll& poll) override;
+    bool rumble(int port, uint16_t high, uint16_t low) override;
+
+private:
+    static void start_sdl_input();
+};
+
+void SdlSource::start_sdl_input()
 {
     debug_log::printf(StageMap::kInfo, "Initializing Input Manager!\n");
     SDL_Init(SDL_INIT_GAMECONTROLLER);
@@ -1185,80 +1176,34 @@ void init_sdl_input()
     sys::debug_mode::install();
     write_game_key_bindings();
     os_layer::register_event_handler(handle_input_event);
-    // (not PartyMod's - the extensions, engine/ext/extension.h: the mouse_menus feature's mouse events when it's on,
-    // the level editor's mouse and Escape key, the new front end's input - nothing when it's off - and the screenshot
-    // key)
-    ext::prepare_input();
 }
 
-void process_sdl_device(InputPort* device)
+// Whether a menu is up for the keyboard's menu keys (not while editing a park), then the pending events handled -
+// once for each port, as PartyMod's poll did.
+void SdlSource::begin_poll(int /*port*/)
 {
     sdl_input_state().editing_park_ = in_park_editor();
     sdl_input_state().in_menu_ =
         static_cast<uint8_t>((in_menu_flag() != 0U) && (sdl_input_state().editing_park_ == 0U));
-
-    device->set_capabilities(3);
-    device->set_rumble_motor_count(2);
-    core::at(device->rumble_cap(), 0) = kFullRumble;
-    core::at(device->rumble_cap(), 1) = kFullRumble;
-    device->set_cur_phase(InputPort::State::kReady);
-
     os_layer::pump_sdl_events();
-
-    set_usable(device, false);
-    set_connected(device, false);
-    std::array<uint8_t, kPortBufferBytes>& data = device->control_data();
-    core::at(data, 0) = 0;
-    core::at(data, 1) = kAnalogModeByte;
-    // The button bits are set for buttons down while the keyboard and the controller are read (so both can add
-    // to them) and inverted at the end.
-    core::at(data, kControlButtonsHigh) = 0;
-    core::at(data, kControlButtonsLow) = 0;
-    for (int i = kPressureTriangle; i < kControlExtraButtons; ++i) { // the button and shoulder pressures
-        core::at(data, i) = 0;
-    }
-    for (int i = kPressureRight; i < kPressureTriangle; ++i) { // the d-pad's
-        core::at(data, i) = 0;
-    }
-    for (int i = 4; i < kPressureRight; ++i) { // the sticks, centred
-        core::at(data, i) = kStickCentred;
-    }
-    core::at(data, kControlExtraButtons) = 0;
-
-    // Not original - an extension that blocks the game's input (engine/ext/extension.h; the new front end: while it's
-    // up, and until the keys that chose for it are let go, it has the keyboard and the controllers) - the game reads
-    // nothing pressed.
-    // Original behaviour: the keyboard and the controller always read.
-    const bool blocked = ext::game_input_blocked();
-    if (device->port_no() == 0) {
-        set_usable(device, true);
-        set_connected(device, true);
-        if (!get_keyboard_on_screen() && !blocked) {
-            poll_keyboard(device);
-        }
-    }
-    auto port = static_cast<uint32_t>(device->port_no());
-    if (port < kMaxPlayers && core::at(sdl_input_state().players_, port).controller &&
-        (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !blocked) {
-        poll_controller(device, core::at(sdl_input_state().players_, port).controller);
-    }
-    // (not original: the buttons an extension presses - engine/ext/extension.h; the test-automation channel's)
-    ext::add_pad_buttons(device->port_no(), data);
-
-    core::at(data, kControlButtonsHigh) = static_cast<uint8_t>(~core::at(data, kControlButtonsHigh));
-    core::at(data, kControlButtonsLow) = static_cast<uint8_t>(~core::at(data, kControlButtonsLow));
-    set_held_down(device, (kAllButtonBits ^ (core::at(data, kControlButtonsHigh) << kByteBits | core::at(data, kControlButtonsLow))) != 0);
-    device->set_start_or_a((((~core::at(data, kControlButtonsHigh) & (1 << 3)) != 0) ||
-                            ((~core::at(data, kControlButtonsLow) & (1 << kCrossBit)) != 0))
-                               ? 1
-                               : 0);
-
-    // (typed text only works with these set)
-    screen_flags().text_entry_ = true;
-    screen_flags().in_menu_flag_ = false;
 }
 
-void set_sdl_actuators(int port, uint16_t high, uint16_t low)
+// Port 0's keyboard (not while the on-screen keyboard is up), then the port's controller once it's a player's and
+// not locked out; neither while an extension has the input.
+void SdlSource::poll_port(input::PortPoll& poll)
+{
+    if (poll.port == 0 && !get_keyboard_on_screen() && !poll.blocked) {
+        poll_keyboard(poll.data);
+    }
+    auto port = static_cast<uint32_t>(poll.port);
+    if (port < kMaxPlayers && core::at(sdl_input_state().players_, port).controller &&
+        (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !poll.blocked) {
+        poll_controller(poll, core::at(sdl_input_state().players_, port).controller);
+    }
+}
+
+// Rumble on the controller playing as `port`.
+bool SdlSource::rumble(int port, uint16_t high, uint16_t low)
 {
     for (SDL_GameController* controller : sdl_input_state().controllers_) {
         if ((SDL_GameControllerGetAttached(controller) != SDL_FALSE) &&
@@ -1266,6 +1211,15 @@ void set_sdl_actuators(int port, uint16_t high, uint16_t low)
             SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), low, high, 0);
         }
     }
+    return true;
+}
+
+} // namespace
+
+input::Source& sdl_source()
+{
+    static core::NoDestroy<SdlSource> source;
+    return source.get();
 }
 
 } // namespace sio

@@ -2,7 +2,6 @@
 
 #include "devtools/extensions.h"
 
-#include <cstdint>
 #include <span>
 #include <string>
 
@@ -64,7 +63,6 @@ public:
             tick_frame(front_end);
         }
     }
-    void add_pad_buttons(int port, std::span<uint8_t> data) override { automation::add_pad_buttons(port, data); }
 };
 } // namespace
 

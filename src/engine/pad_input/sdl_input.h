@@ -13,33 +13,30 @@
 // Players: a controller becomes player 1 or 2 when one of its buttons is pressed (the second rumbles once and is
 // locked out until all its buttons are up). Port 0 also reads the keyboard. Each frame sio::InputPort::work_on
 // fills the device's PS2-format control data from them.
-namespace sio {
+namespace input {
+class Source;
+} // namespace input
 
-class InputPort;
+namespace sio {
 
 struct InputSettings {
     uint8_t ps2_controls_; // UsePS2Controls
     uint8_t ui_controls_;  // UIControls (read, unused)
 };
-// The settings (read by init_sdl_input).
+// The settings (read when the source starts).
 InputSettings& the_input_settings();
 
 // Whether the keyboard was used last (a key went down; a controller button or stick moves it to the
 // controller). Button glyphs depend on it.
 bool& using_keyboard();
 
-// Set input up (from os_layer::init_input): SDL's game controllers, the settings and bindings, the game's key
-// binding table (0x007D6770, DirectInput codes, for the menus' hints), the event handler; with PS2 controls,
-// the IsPS2 script command (sys::install_is_ps2).
-void init_sdl_input();
-
-// A device's frame (sio::InputPort::work_on): pending events handled, then the control data from the keyboard
-// (port 0) and the port's controller.
-void process_sdl_device(InputPort* device);
-
-// Rumble on the controller playing as `port` (os_layer::set_actuators): `high` and `low` frequency motors,
-// 0-65535.
-void set_sdl_actuators(int port, uint16_t high, uint16_t low);
+// The SDL input source (input::Source, engine/pad_input/input_source.h; app/ adds it): started from
+// os_layer::init_input - SDL's game controllers, the settings and bindings, the game's key binding table (0x007D6770,
+// DirectInput codes, for the menus' hints), the event handler; with PS2 controls, the IsPS2 script command
+// (sys::install_is_ps2) -; each port's poll (sio::InputPort::work_on) first handles the pending events, then fills the
+// port's control data from the keyboard (port 0) and the port's controller; rumble on the controller playing as a port
+// (os_layer::set_actuators).
+input::Source& sdl_source();
 
 // NOT ORIGINAL - whether the on-screen keyboard is up and whether a menu, dialog box or the quit dialog is on screen
 // (the front end sets them; the input reads them).

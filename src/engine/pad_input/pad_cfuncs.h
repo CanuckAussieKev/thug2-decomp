@@ -14,7 +14,7 @@ namespace sys {
 bool cfunc_is_ps2(script::Struct* params, script::Script* script);
 
 // Point the Function table's IsPS2 entry (0x0068146C) at cfunc_is_ps2. Until that table is the game's own source,
-// this stands in for its entry (done by sio::init_sdl_input with PS2 controls on, before the script functions are
+// this stands in for its entry (done by the SDL input source's start with PS2 controls on, before the script functions are
 // registered).
 void install_is_ps2();
 

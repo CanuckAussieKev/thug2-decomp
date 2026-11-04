@@ -27,7 +27,7 @@ namespace sys::screenshot {
 bool is_switched_on();
 // The key's SDL scan code (0 while off).
 int get_key();
-// Start listening for the key (sio::init_sdl_input, after the input settings are read).
+// Start listening for the key (os_layer::init_input, after the input sources started).
 void prepare_all();
 // Once a frame from the main loop, just before the frame is ended and presented (`rendering`: this frame is drawn).
 // Takes a requested picture (the frame's scene open, everything drawn), hands it to the writer and, when the writer

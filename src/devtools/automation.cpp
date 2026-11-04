@@ -52,6 +52,8 @@
 #include "game/skate/skate_module.h"
 #include "engine/sys/mlp.h"
 #include "devtools/screenshot.h"
+#include "engine/pad_input/input_source.h"
+#include "base/core/no_destroy.h"
 #include "platform/crash.h"
 #include "platform/run_log.h"
 #include "game/skate/point_tally.h"
@@ -2232,6 +2234,21 @@ void tick_frame(modules::FrontEnd* front_end)
 bool params_denied(script::Struct* params) { return struct_denied(params, 0); }
 
 std::string element_refusal(const UiWidget* element) { return refusal_of_element(element); }
+
+namespace {
+
+class AutomationSource final : public input::Source {
+public:
+    void poll_port(input::PortPoll& poll) override { add_pad_buttons(poll.port, poll.data); }
+};
+
+} // namespace
+
+input::Source& input_source()
+{
+    static ::core::NoDestroy<AutomationSource> source;
+    return source.get();
+}
 
 void add_pad_buttons(int port, std::span<uint8_t> data)
 {

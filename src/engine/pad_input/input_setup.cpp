@@ -7,7 +7,8 @@
 #include <cstring>
 
 #include "engine/gfx/settings.h"
-#include "engine/pad_input/sdl_input.h"
+#include "engine/pad_input/input_source.h"
+#include "engine/ext/extension.h"
 #include "engine/pad_input/direct_input.h"
 #include "engine/gfx/view_cam.h"
 #include "base/core/checked_index.h"
@@ -19,7 +20,8 @@ namespace os_layer {
 
 constexpr int kFillAllOnes = 0xFF; // memset's byte: every control starts as all ones
 
-// 0x005F3A50. Originally from PartyMod Fixes: rumble on the SDL game controller playing as `port` (PartyMod jumped from here). The
+// 0x005F3A50. Originally from PartyMod Fixes: rumble on the SDL game controller playing as `port` (PartyMod jumped from
+// here; the input source that has the port's motors - input::rumble). The
 // original drove the port's DirectInput force-feedback effect (0x007D6668[port]):
 //     if (!effect) return;
 //     if (left == 0 && right == 0) { effect->Halt(); return; }
@@ -32,7 +34,7 @@ constexpr int kFillAllOnes = 0xFF; // memset's byte: every control starts as all
 // (x87 throughout, truncated by _ftol.)
 void set_actuators(int port, int left, int right)
 {
-    sio::set_sdl_actuators(port, static_cast<uint16_t>(left), static_cast<uint16_t>(right));
+    input::rumble(port, static_cast<uint16_t>(left), static_cast<uint16_t>(right));
 }
 
 // 0x005F44F0
@@ -78,7 +80,12 @@ bool init_input(HINSTANCE instance, HWND window, const char* config)
     // Originally from PartyMod Fixes: SDL input (game controllers, the key bindings) in place of the original's
     //     DirectInput8Create(instance, 0x800, IID_IDirectInput8A, &direct_input, nullptr);
     //     direct_input->EnumDevices(0, 0x005F31D0 /* adds each joystick */, nullptr, DIEDFL_ATTACHEDONLY);
-    sio::init_sdl_input();
+    // - the input sources started (engine/pad_input/input_source.h: SDL's).
+    input::start();
+    // (not PartyMod's - the extensions, engine/ext/extension.h: the mouse_menus feature's mouse events when it's on,
+    // the level editor's mouse and Escape key, the new front end's input - nothing when it's off - and the screenshot
+    // key)
+    ext::prepare_input();
     init_key_names();
     return true;
 }

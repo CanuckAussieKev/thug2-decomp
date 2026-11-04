@@ -30,6 +30,8 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/cscript.h"
 #include "engine/pad_input/sdl_input.h"
+#include "engine/pad_input/input_source.h"
+#include "engine/ext/extension.h"
 #include "engine/ui/screen_element_manager.h"
 #include <gsl/pointers>
 #include <array>
@@ -109,6 +111,7 @@ constexpr int kSnapshotStart = 0x10;
 constexpr int kStickOffset = 0x7FFF; // a signed stick plus this is 0..65535
 constexpr int kByteBits = 8;
 constexpr int kAllButtonBits = 0xFFFF;
+constexpr int kStickCentred = 127; // a stick at rest in the control data
 constexpr size_t kTypedBufferBytes = 256;
 constexpr int kParkEditorTriggerElement = 0x31631B98; // the park editor's trigger-mapping element (text unknown)
 
@@ -125,6 +128,31 @@ bool pad_present(int port) { return poll_joystick(port) || has_key_bindings(port
 } // namespace
 
 void set_actuators(int port, int left, int right) { os_layer::set_actuators(port, left, right); }
+
+namespace {
+
+// PartyMod's view of the device has these flags as 32-bit words (the game's are bytes followed by padding): the
+// byte set and the padding after it cleared, as its word stores did. The held-down word's second byte is
+// keyboard_control_, cleared this way too.
+void set_usable(InputPort* device, bool on)
+{
+    device->set_is_usable(on ? 1 : 0);
+    std::memset(device->pad15().data(), 0, sizeof(device->pad15()));
+}
+void set_connected(InputPort* device, bool on)
+{
+    device->set_is_connected(on);
+    std::memset(device->pade1().data(), 0, sizeof(device->pade1()));
+}
+void set_held_down(InputPort* device, bool on)
+{
+    device->set_held_down(on ? 1 : 0);
+    device->set_keyboard_control(0);
+    std::memset(device->padee().data(), 0, sizeof(device->padee()));
+}
+
+} // namespace
+
 
 // 0x005BD920
 InputPort::InputPort(Place place)
@@ -156,7 +184,67 @@ InputPort::~InputPort()
 //                        case InputPort::State::kSettle: Settle(); break; }
 // where pull_data polls the pad into control_data_. Originally from PartyMod Fixes (its jump from here): SDL game controllers
 // and the keyboard (engine/pad_input/sdl_input.h).
-void InputPort::work_on(int /*unused*/) { process_sdl_device(this); }
+//
+// The poll (PartyMod's, its device state and the order kept): the device ready, each input source's start of the poll
+// (SDL's pending events), the control data cleared - no button down, the sticks centred -, port 0 usable and connected
+// (it has the keyboard), each source's buttons added in their order (SDL's keyboard and controller, then the
+// test-automation channel's - input::PortPoll), the button bits inverted into the game's format. Not original: while
+// an extension blocks the game's input (engine/ext/extension.h; the new front end: while it's up, and until the keys
+// that chose for it are let go, it has the keyboard and the controllers) the keyboard and the controllers read
+// nothing pressed (original behaviour: they always read).
+void InputPort::work_on(int /*unused*/)
+{
+    capabilities_ = 3;
+    rumble_motor_count_ = 2;
+    core::at(rumble_cap_, 0) = kFullRumble;
+    core::at(rumble_cap_, 1) = kFullRumble;
+    cur_phase_ = InputPort::State::kReady;
+
+    input::begin_poll(port_no_);
+
+    sio::set_usable(this, false);
+    sio::set_connected(this, false);
+    std::array<uint8_t, kPortBufferBytes>& data = control_data_;
+    core::at(data, 0) = 0;
+    core::at(data, 1) = kAnalogModeByte;
+    // The button bits are set for buttons down while the sources are read (so each can add to them) and inverted at
+    // the end.
+    core::at(data, kControlButtonsHigh) = 0;
+    core::at(data, kControlButtonsLow) = 0;
+    for (int i = kPressureTriangle; i < kControlExtraButtons; ++i) { // the button and shoulder pressures
+        core::at(data, i) = 0;
+    }
+    for (int i = kPressureRight; i < kPressureTriangle; ++i) { // the d-pad's
+        core::at(data, i) = 0;
+    }
+    for (int i = kControlRightStickX; i < kPressureRight; ++i) { // the sticks, centred
+        core::at(data, i) = kStickCentred;
+    }
+    core::at(data, kControlExtraButtons) = 0;
+
+    input::PortPoll poll{.port = port_no_, .data = data, .blocked = ext::game_input_blocked()};
+    if (port_no_ == 0) {
+        sio::set_usable(this, true);
+        sio::set_connected(this, true);
+    }
+    input::poll_port(poll);
+    if (poll.connected) {
+        is_usable_ = 1;
+        is_connected_ = true;
+    }
+
+    core::at(data, kControlButtonsHigh) = static_cast<uint8_t>(~core::at(data, kControlButtonsHigh));
+    core::at(data, kControlButtonsLow) = static_cast<uint8_t>(~core::at(data, kControlButtonsLow));
+    sio::set_held_down(this, (kAllButtonBits ^ (core::at(data, kControlButtonsHigh) << kByteBits | core::at(data, kControlButtonsLow))) != 0);
+    start_or_a_ = (((~core::at(data, kControlButtonsHigh) & (1 << 3)) != 0) ||
+                   ((~core::at(data, kControlButtonsLow) & (1 << kCrossBit)) != 0))
+                      ? 1
+                      : 0;
+
+    // (typed text only works with these set)
+    text_entry_flag() = true;
+    menu_flag() = false;
+}
 
 // 0x005BCC70
 void InputPort::acquire()

@@ -25,6 +25,9 @@
 #include "engine/audio/audio_device.h"
 #include "engine/audio/muted_device.h"
 #include "engine/media/movie.h"
+#include "engine/pad_input/input_source.h"
+#include "engine/pad_input/sdl_input.h"
+#include "devtools/automation.h"
 #include "media_bink/bink_movie.h"
 #include "render_d3d9/d3d9_device.h"
 #include "render_d3d9/d3d9_ui_backend.h"
@@ -98,6 +101,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): Bink's (the player's
     // binkw32.dll).
     media::install_movie(media::bink::movie());
+    // NOT ORIGINAL: the input sources (engine/pad_input/input_source.h), in the order each port's poll reads them: SDL's
+    // game controllers and keyboard, then the test-automation channel's pressed buttons (a dev tool: nothing pressed
+    // unless the workspace's [features] automation is on).
+    input::add_source(sio::sdl_source());
+    input::add_source(frontend::automation::input_source());
     // NOT ORIGINAL: the loading console's panel, which that backend draws (engine/gfx/loading_console.h).
     gfx::loading_console::install_panel(gfx::loading_console::panel_hooks());
     // NOT ORIGINAL: [features] debug_collision's log after each feeler query (game/rider/debug_collision.h).

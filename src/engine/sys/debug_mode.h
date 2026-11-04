@@ -52,7 +52,7 @@ bool cfunc_cd(script::Struct* params, script::Script* script);
 // NotCD: CD's opposite (the original: false).
 bool cfunc_not_cd(script::Struct* params, script::Script* script);
 // Point the Function table's CD and NotCD entries (0x0067FF38, 0x0067FF40) at ours when debug mode is on. Until that
-// table is the game's own source, this stands in for its entries (done by sio::init_sdl_input, before the script
+// table is the game's own source, this stands in for its entries (done by the SDL input source's start, before the script
 // functions are registered).
 void install();
 // Once a frame from the front end's input logic (through its extension): the viewer launched once, the F keys.

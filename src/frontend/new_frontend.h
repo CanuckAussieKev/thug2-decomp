@@ -48,7 +48,7 @@ struct FrontEnd;
 //
 // Input: the keyboard, controllers and the mouse (hover selects, click confirms, wheel moves, right click backs) are
 // read from SDL's events; while the new front end is up the game's own pad and keyboard polling gives the game
-// nothing (sio::process_sdl_device), the mouse doesn't drive the original menus (mouse_menus.h) and Enter isn't
+// nothing (sio::InputPort::work_on), the mouse doesn't drive the original menus (mouse_menus.h) and Enter isn't
 // passed on as the game's special key - and that lasts until the keys that chose are let go.
 //
 // The game's screens restyled (new_frontend_mirror.h), read from the screen tree each frame: the front end's roundbar
@@ -73,7 +73,7 @@ namespace frontend::new_frontend {
 // [features] new_frontend (read once).
 bool& is_switched_on();
 
-// sio::init_sdl_input: listens to SDL's events (nothing when off).
+// os_layer::init_input: listens to SDL's events (nothing when off).
 void prepare_all();
 // Its script commands for the overlay's pause menu items (NewFrontend_PauseItem, NewFrontend_Open), registered after
 // the game's own (sys::Main).

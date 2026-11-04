@@ -4,7 +4,6 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <span>
 #include <string>
 #include <utility>
@@ -81,13 +80,6 @@ bool game_input_blocked()
         }
     }
     return false;
-}
-
-void add_pad_buttons(int port, std::span<uint8_t> data)
-{
-    for (Extension* extension : registered()) {
-        extension->add_pad_buttons(port, data);
-    }
 }
 
 void before_draw_world()

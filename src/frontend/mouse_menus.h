@@ -42,7 +42,7 @@ namespace mouse_menus {
 // [features] mouse_menus (read once).
 bool& is_switched_on();
 
-// Start listening to SDL's mouse events (sio::init_sdl_input; nothing when the feature is off).
+// Start listening to SDL's mouse events (os_layer::init_input; nothing when the feature is off).
 void prepare_all();
 // The mouse menus as an extension (engine/ext/extension.h; app/ registers it first): its event handler, and once a
 // frame from the front end's first input handler (modules::FrontEnd::input_logic) the cursor shown or hidden, then

@@ -246,6 +246,7 @@ add_library(thug2_engine STATIC
     sys/game_hooks.cpp
     pad_input/device.cpp
     pad_input/input_hub.cpp
+    pad_input/input_source.cpp
     pad_input/sdl_input.cpp
     pad_input/input_setup.cpp
     pad_input/direct_input.cpp

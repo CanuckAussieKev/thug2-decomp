@@ -8,6 +8,9 @@
 namespace frontend {
 class UiWidget;
 }
+namespace input {
+class Source;
+}
 namespace modules {
 struct FrontEnd;
 }
@@ -121,9 +124,12 @@ bool& is_switched_on();
 // Once a frame from the front end's input logic (its extension): the command file, the running command, the
 // status file; and the -run script.
 void tick_frame(modules::FrontEnd* front_end);
-// The buttons a `press` holds, added to port 0's PS2-format control data (Sio's process_sdl_device, before the bits
-// are inverted: a set bit is a button down).
+// The buttons a `press` holds, added to port 0's PS2-format control data (its input source's poll, after the
+// keyboard's and the controller's, before the bits are inverted: a set bit is a button down).
 void add_pad_buttons(int port, std::span<uint8_t> data);
+// The channel's input source (engine/pad_input/input_source.h; app/ adds it after SDL's): add_pad_buttons for each
+// port's poll.
+input::Source& input_source();
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 

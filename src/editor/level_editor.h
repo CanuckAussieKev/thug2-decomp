@@ -206,7 +206,7 @@ bool cfunc_stop(script::Struct* params, script::Script* script);      // LevelEd
 // Our extra script commands, registered after the game's own table (sys::Main, after 0x005A5E70).
 void register_script_functions();
 
-// Start listening to SDL's mouse and key events (sio::init_sdl_input, through its extension).
+// Start listening to SDL's mouse and key events (os_layer::init_input, through its extension).
 void prepare_all();
 // Once a frame from the front end's input logic (its extension's menu_frame while it runs): a requested exit
 // (Escape) runs level_editor_exit here.

@@ -6,7 +6,7 @@ union SDL_Event;
 
 // The SDL event pump that replaces the game window's Win32 message pump (the window is SDL's; see
 // sdl_window.h). Each event goes to every registered handler, in the order they were registered: the quit
-// request (sys::init_pc_setup), the window's focus (sys::create_sdl_window), then input (sio::init_sdl_input).
+// request (sys::init_pc_setup), the window's focus (sys::create_sdl_window), then input (the SDL input source, engine/pad_input/sdl_input.h).
 namespace os_layer {
 
 using EventHandler = void (*)(SDL_Event* event);
