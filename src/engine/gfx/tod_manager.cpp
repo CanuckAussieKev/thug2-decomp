@@ -29,7 +29,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/model_component.h"
 #include "engine/script/cscript.h"
-#include "engine/script/game_cfuncs.h"
+#include "engine/script/node_hooks.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/script/node_prefixes.h"
@@ -204,7 +204,7 @@ uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
 // The front end (0x007CE464): +0x30 paused.
 bool is_game_halted() { return modules::front_end_instance()->is_halted(); }
 // Obj's create_from_node (0x005A32A0): the object of node `name` made.
-void create_from_node(uint32_t name) { commands::create_from_node_name(name); }
+void create_from_node(uint32_t name) { script::create_object_from_node(name); }
 
 // The scenes (render::CEngine's list 0x006FA7EC): nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1.
 // A node of the scene list (memory::ListNode): its scene, and whether it is the list's head.

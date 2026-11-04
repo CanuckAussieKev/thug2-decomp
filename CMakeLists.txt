@@ -334,6 +334,7 @@ add_executable(thug2 WIN32
     src/devtools/extensions.cpp
     src/engine/gfx/screenshot_capture.cpp
     src/game/commands/career_complete.cpp
+    src/game/commands/node_hooks.cpp
     src/devtools/test_view.cpp
     src/devtools/start_level.cpp
     src/devtools/automation.cpp
@@ -893,6 +894,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/texture_cfuncs.cpp
     src/game/skate/profile_cfuncs.cpp
     src/engine/script/expression.cpp
+    src/engine/script/node_hooks.cpp
     src/engine/script/node_manager.cpp
     src/engine/script/node_prefixes.cpp
     src/engine/script/nodes.cpp

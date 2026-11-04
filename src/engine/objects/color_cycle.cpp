@@ -2,7 +2,7 @@
 // 0x0041B280-0x0041B57F.
 
 #include "engine/objects/color_cycle.h"
-#include "engine/script/game_cfuncs.h"
+#include "engine/script/node_hooks.h"
 
 #include <cstdint>
 #include <cstring>
@@ -46,7 +46,7 @@ constexpr float kMilliseconds = 1000.0F; // 0x006453C0
 
 // 0x005A3E80 (cdecl; no source yet): the colour of the object `id` from `params` (color=), as the script command
 // SetObjectColor does.
-void set_object_color(uint32_t id, script::Struct* params) { commands::set_node_color(id, params); }
+void set_object_color(uint32_t id, script::Struct* params) { script::set_node_color_from(id, params); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

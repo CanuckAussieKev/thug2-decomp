@@ -19,6 +19,7 @@
 #include "engine/sys/startup_init.h"
 #include "app/extensions.h"
 #include "app/winmain.h"
+#include "game/commands/node_hooks.h"
 #include "game/online/transport_hooks.h"
 
 namespace {
@@ -55,6 +56,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     app::register_extensions();
     // NOT ORIGINAL: the online session's hooks into the network transport (game/online/transport_hooks.h).
     online::install_transport_hooks();
+    // NOT ORIGINAL: the node commands the engine's time of day and colour cycles call (game/commands/node_hooks.h).
+    commands::install_node_hooks();
     sys::run_startup_initialisers();
     return sys::win_main(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
 }
