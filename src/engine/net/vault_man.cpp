@@ -365,6 +365,130 @@ void VaultMan::free_directory_listing()
     ghttp_cleanup();
 }
 
+// The category list come: one category per line, the first one's items asked for.
+void VaultMan::read_categories(VaultMan* vault)
+{
+    if (vault->outcome_val_ != 1) {
+        vault->transfer_ = kNone;
+        vault->task_->drop_out();
+        memory::dealloc(vault->octets_);
+        get_run(vault->fail_script_);
+        return;
+    }
+    push_bottom_up();
+    // (an empty list leaves the transfer as it is: it's read again next time)
+    const char* line = text_tools::get_token(vault->octets_, "\r\n");
+    if (line) {
+        for (bool again = true; again; again = (line != nullptr)) {
+            void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
+            VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
+            Expects(category != nullptr);
+            prepend(&vault->categories_, &category->list_link());
+            text_tools::dup_from(category->label().data(), line);
+            line = text_tools::get_token(nullptr, "\r\n");
+        }
+        vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
+        if (vault->category_->skip()) {
+            vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
+        }
+        vault->transfer_ = kNone;
+        memory::dealloc(vault->octets_);
+        vault->list_items(vault->category_);
+    }
+    pop_heap();
+}
+
+// A category's items come: one item per line; then the next category's, or the menu once all are in.
+void VaultMan::read_items(VaultMan* vault)
+{
+    push_bottom_up();
+    if (vault->outcome_val_ != 1) {
+        vault->transfer_ = kNone;
+        vault->task_->drop_out();
+        memory::dealloc(vault->octets_);
+        get_run(vault->fail_script_);
+        pop_heap();
+        return;
+    }
+    // Each line: file:name:creator[:park, trick, skater or goal fields]:...:description
+    for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
+         line = text_tools::get_token(nullptr, "\r\n")) {
+        void* memory = memory::alloc_zeroed(sizeof(VaultItem));
+        VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
+        Expects(item != nullptr);
+        prepend(&vault->category_->items(), &item->list_link());
+        char* rest = line;
+        constexpr size_t kFileSize = 1024;
+        std::array<char, kFileSize> file{};
+        text_tools::dup_from(file.data(), prop(&rest));
+        // (the original makes the URL with sprintf: no limit - a longer one ran on into the label, written next)
+        text::format_to(item->url(), "http://www.thugonline.com/%s/%s/%s", vault->folder_.data(),
+                        vault->category_->label().data(), file.data());
+        text_tools::dup_from(item->label().data(), prop(&rest));
+        text_tools::dup_from(item->creator().data(), prop(&rest));
+        if (vault->kind_tag_ == kVaultParks) {
+            text_tools::dup_from(item->extent().data(), prop(&rest));
+            item->set_num_pieces(number_field(&rest));
+            item->set_num_gaps(number_field(&rest));
+            item->set_num_goals(number_field(&rest));
+            item->set_style_set(number_field(&rest));
+            item->set_tod_script(static_cast<uint32_t>(number_field(&rest)));
+        }
+        if (vault->kind_tag_ == kVaultTricks) {
+            item->set_points_held(number_field(&rest));
+        }
+        if (vault->kind_tag_ == kVaultSkaters) {
+            item->set_has_male_body(number_field(&rest));
+        }
+        if (vault->kind_tag_ == kVaultGoals) {
+            item->set_num_goals(number_field(&rest));
+        }
+        text_tools::dup_from(item->unknowncc().data(), prop(&rest));
+        text_tools::dup_from(item->summary_text().data(), rest);
+    }
+    vault->transfer_ = kNone;
+    memory::dealloc(vault->octets_);
+    vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
+    if (vault->category_ && !vault->category_->skip()) {
+        vault->list_items(vault->category_); // the next category's
+    } else {
+        // All in: the menu.
+        vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
+        vault->task_->drop_out();
+        const script::StructPtr params = script::make_struct();
+        params->append_word("category", vault->category_->label().data());
+        params->put_name_key("type", vault->kind_tag_);
+        get_run("net_vault_menu_create", params.get());
+    }
+    pop_heap();
+}
+
+// The user's uploads come: one item per line; then the category list.
+void VaultMan::read_uploads(VaultMan* vault)
+{
+    push_bottom_up();
+    // Each line: file:creator:size:...:description (the whole line also makes the URL).
+    for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
+         line = text_tools::get_token(nullptr, "\r\n")) {
+        void* memory = memory::alloc_zeroed(sizeof(VaultItem));
+        VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
+        Expects(item != nullptr);
+        prepend(&vault->category_->items(), &item->list_link());
+        text::format_to(item->url(), "http://www.thugonline.com/%s/%s", vault->folder_.data(), line);
+        char* rest = line;
+        text_tools::dup_from(item->label().data(), prop(&rest));
+        text_tools::dup_from(item->creator().data(), prop(&rest));
+        text_tools::dup_from(item->extent().data(), prop(&rest));
+        text_tools::dup_from(item->unknowncc().data(), prop(&rest));
+        text_tools::dup_from(item->summary_text().data(), rest);
+    }
+    vault->transfer_ = kNone;
+    vault->task_->drop_out();
+    memory::dealloc(vault->octets_);
+    vault->list_categories();
+    pop_heap();
+}
+
 // 0x0054B6E0
 void VaultMan::vault_task(tasks::Task<VaultMan>* task)
 {
@@ -422,121 +546,15 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         return;
     }
     case kCategories: {
-        if (vault->outcome_val_ != 1) {
-            vault->transfer_ = kNone;
-            vault->task_->drop_out();
-            memory::dealloc(vault->octets_);
-            get_run(vault->fail_script_);
-            return;
-        }
-        push_bottom_up();
-        // (an empty list leaves the transfer as it is: it's read again next time)
-        const char* line = text_tools::get_token(vault->octets_, "\r\n");
-        if (line) {
-            for (bool again = true; again; again = (line != nullptr)) {
-                void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
-                VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
-                Expects(category != nullptr);
-                prepend(&vault->categories_, &category->list_link());
-                text_tools::dup_from(category->label().data(), line);
-                line = text_tools::get_token(nullptr, "\r\n");
-            }
-            vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
-            if (vault->category_->skip()) {
-                vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
-            }
-            vault->transfer_ = kNone;
-            memory::dealloc(vault->octets_);
-            vault->list_items(vault->category_);
-        }
-        pop_heap();
+        read_categories(vault);
         return;
     }
     case kItems: {
-        push_bottom_up();
-        if (vault->outcome_val_ != 1) {
-            vault->transfer_ = kNone;
-            vault->task_->drop_out();
-            memory::dealloc(vault->octets_);
-            get_run(vault->fail_script_);
-            pop_heap();
-            return;
-        }
-        // Each line: file:name:creator[:park, trick, skater or goal fields]:...:description
-        for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
-             line = text_tools::get_token(nullptr, "\r\n")) {
-            void* memory = memory::alloc_zeroed(sizeof(VaultItem));
-            VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
-            Expects(item != nullptr);
-            prepend(&vault->category_->items(), &item->list_link());
-            char* rest = line;
-            constexpr size_t kFileSize = 1024;
-            std::array<char, kFileSize> file{};
-            text_tools::dup_from(file.data(), prop(&rest));
-            // (the original makes the URL with sprintf: no limit - a longer one ran on into the label, written next)
-            text::format_to(item->url(), "http://www.thugonline.com/%s/%s/%s", vault->folder_.data(),
-                            vault->category_->label().data(), file.data());
-            text_tools::dup_from(item->label().data(), prop(&rest));
-            text_tools::dup_from(item->creator().data(), prop(&rest));
-            if (vault->kind_tag_ == kVaultParks) {
-                text_tools::dup_from(item->extent().data(), prop(&rest));
-                item->set_num_pieces(number_field(&rest));
-                item->set_num_gaps(number_field(&rest));
-                item->set_num_goals(number_field(&rest));
-                item->set_style_set(number_field(&rest));
-                item->set_tod_script(static_cast<uint32_t>(number_field(&rest)));
-            }
-            if (vault->kind_tag_ == kVaultTricks) {
-                item->set_points_held(number_field(&rest));
-            }
-            if (vault->kind_tag_ == kVaultSkaters) {
-                item->set_has_male_body(number_field(&rest));
-            }
-            if (vault->kind_tag_ == kVaultGoals) {
-                item->set_num_goals(number_field(&rest));
-            }
-            text_tools::dup_from(item->unknowncc().data(), prop(&rest));
-            text_tools::dup_from(item->summary_text().data(), rest);
-        }
-        vault->transfer_ = kNone;
-        memory::dealloc(vault->octets_);
-        vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
-        if (vault->category_ && !vault->category_->skip()) {
-            vault->list_items(vault->category_); // the next category's
-        } else {
-            // All in: the menu.
-            vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
-            vault->task_->drop_out();
-            const script::StructPtr params = script::make_struct();
-            params->append_word("category", vault->category_->label().data());
-            params->put_name_key("type", vault->kind_tag_);
-            get_run("net_vault_menu_create", params.get());
-        }
-        pop_heap();
+        read_items(vault);
         return;
     }
     case kUploads: {
-        push_bottom_up();
-        // Each line: file:creator:size:...:description (the whole line also makes the URL).
-        for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
-             line = text_tools::get_token(nullptr, "\r\n")) {
-            void* memory = memory::alloc_zeroed(sizeof(VaultItem));
-            VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
-            Expects(item != nullptr);
-            prepend(&vault->category_->items(), &item->list_link());
-            text::format_to(item->url(), "http://www.thugonline.com/%s/%s", vault->folder_.data(), line);
-            char* rest = line;
-            text_tools::dup_from(item->label().data(), prop(&rest));
-            text_tools::dup_from(item->creator().data(), prop(&rest));
-            text_tools::dup_from(item->extent().data(), prop(&rest));
-            text_tools::dup_from(item->unknowncc().data(), prop(&rest));
-            text_tools::dup_from(item->summary_text().data(), rest);
-        }
-        vault->transfer_ = kNone;
-        vault->task_->drop_out();
-        memory::dealloc(vault->octets_);
-        vault->list_categories();
-        pop_heap();
+        read_uploads(vault);
         return;
     }
     default:

@@ -578,6 +578,68 @@ int handle_start_game(net::InboundMsgCtx* context)
     return kContinue;
 }
 
+namespace {
+
+// The session brief's game: none once the match has ended, else its type, time, target and (scavenger hunt,
+// elimiskate) which of its goals runs.
+void fill_brief_game(Hub* manager, SessionBrief& info)
+{
+    if (manager->has_match_ended()) {
+        info.game_type = kNetLobby;
+        info.time_left = 0;
+        info.time_limit = 0;
+        info.target_score = 0;
+    } else {
+        info.game_type = get_game_type();
+        info.time_left = get_game_mode()->get_goal_time_left() / kMillisecondsPerSecond;
+        info.time_limit = get_game_mode()->get_time_limit();
+        info.target_score = static_cast<uint32_t>(
+            manager->get_online_settings()->get_setting_value({.preference = kTargetScore, .field = kScore}));
+        if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
+            const bool scavenger = get_game_type() == kNetScavengerHunt;
+            auto* goals = objective_board();
+            if (goal_running(get_goal(goals, scavenger ? kScavenger : kElimiskate))) {
+                info.variant = 0;
+            } else if (goal_running(get_goal(goals, scavenger ? kScavengerInterval : kElimiskateInterval))) {
+                info.variant = 1;
+            } else if (goal_running(get_goal(goals, scavenger ? kScavengerCollect : kElimiskateBreak))) {
+                info.variant = 2;
+            }
+        }
+    }
+}
+
+// The scripts spawned so far sent to the joining player.
+void send_queued_scripts(Hub* manager, net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* player)
+{
+    // The scripts spawned so far (the list at +0x144): 0x49 each.
+    auto* node = manager->queued_scripts().next(); // (the queued scripts' first node)
+    node = node->data() == memory::ListNode::head_marker() ? nullptr : node;
+    for (auto* item = node ? static_cast<PendingScriptItem*>(node->data()) : nullptr; item;) {
+        desc = net::NetMessageInfo();
+        online::SpawnScript queued; // (not permanent: the joiner runs it once)
+        queued.name = item->own_script();
+        queued.object_id = item->entity_key();
+        queued.node = item->list_link();
+        std::array<uint8_t, kSpawnScriptSize> spawned{};
+        util::ByteWriter spawned_writer(spawned.data(), sizeof(spawned));
+        write_spawn_script(spawned_writer, queued);
+        desc.set_content(spawned.data());
+        desc.set_byte_count(sizeof(spawned));
+        desc.set_ident(MessageId::kSpawnScript);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(MessageGroup::kGame);
+        server->put_on_outbox(player_handle(player), &desc);
+        node = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
+        if (!node) {
+            break;
+        }
+        item = static_cast<PendingScriptItem*>(node->data());
+    }
+}
+
+} // namespace
+
 // 0x00532460
 int handle_send_game_state(net::InboundMsgCtx* context)
 {
@@ -600,29 +662,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     if (is_own_player(player)) {
         manager->set_ready_state(true); // (ready to play)
     } else {
-        if (manager->has_match_ended()) {
-            info.game_type = kNetLobby;
-            info.time_left = 0;
-            info.time_limit = 0;
-            info.target_score = 0;
-        } else {
-            info.game_type = get_game_type();
-            info.time_left = get_game_mode()->get_goal_time_left() / kMillisecondsPerSecond;
-            info.time_limit = get_game_mode()->get_time_limit();
-            info.target_score =
-                static_cast<uint32_t>(manager->get_online_settings()->get_setting_value({.preference = kTargetScore, .field = kScore}));
-            if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
-                const bool scavenger = get_game_type() == kNetScavengerHunt;
-                auto* goals = objective_board();
-                if (goal_running(get_goal(goals, scavenger ? kScavenger : kElimiskate))) {
-                    info.variant = 0;
-                } else if (goal_running(get_goal(goals, scavenger ? kScavengerInterval : kElimiskateInterval))) {
-                    info.variant = 1;
-                } else if (goal_running(get_goal(goals, scavenger ? kScavengerCollect : kElimiskateBreak))) {
-                    info.variant = 2;
-                }
-            }
-        }
+        fill_brief_game(manager, info);
         info.game_id = manager->get_game_id();
         info.level = manager->fetch_stage();
         info.teams = get_game_mode()->current_num_teams();
@@ -649,30 +689,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kGoalsData, .size = size}, goals, "goals data", MessageGroup::kGame,
                                       false, true);
         }
-        // The scripts spawned so far (the list at +0x144): 0x49 each.
-        auto* node = manager->queued_scripts().next(); // (the queued scripts' first node)
-        node = node->data() == memory::ListNode::head_marker() ? nullptr : node;
-        for (auto* item = node ? static_cast<PendingScriptItem*>(node->data()) : nullptr; item;) {
-            desc = net::NetMessageInfo();
-            online::SpawnScript queued; // (not permanent: the joiner runs it once)
-            queued.name = item->own_script();
-            queued.object_id = item->entity_key();
-            queued.node = item->list_link();
-            std::array<uint8_t, kSpawnScriptSize> spawned{};
-            util::ByteWriter spawned_writer(spawned.data(), sizeof(spawned));
-            write_spawn_script(spawned_writer, queued);
-            desc.set_content(spawned.data());
-            desc.set_byte_count(sizeof(spawned));
-            desc.set_ident(MessageId::kSpawnScript);
-            desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(MessageGroup::kGame);
-            server->put_on_outbox(player_handle(player), &desc);
-            node = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
-            if (!node) {
-                break;
-            }
-            item = static_cast<PendingScriptItem*>(node->data());
-        }
+        send_queued_scripts(manager, server, desc, player);
         if (!is_own_player(player)) {
             static_cast<modules::Skate*>(skate)->send_cheats(player);
         }

@@ -228,6 +228,38 @@ EnqueueFilter& enqueue_filter()
 
 void set_enqueue_filter(EnqueueFilter filter) noexcept { enqueue_filter() = filter; }
 
+namespace {
+
+// Every connection of the host that takes a message (`accepts`), or every one but handle & 0x7F, or the handle's:
+// each given to `queue`.
+template <class Accepts, class Queue>
+void for_each_target(AppHost* app, int handle, Accepts accepts, Queue queue)
+{
+    if (handle == kHandleBroadcast) {
+        lists::Hunt<Conn> search;
+        for (Conn* conn = search.head_element(&app->circuits()); conn; conn = search.following_item()) {
+            if (accepts(conn)) {
+                queue(conn);
+            }
+        }
+    } else if ((handle & kHandleExcludeBroadcast) != 0) {
+        const int excluded = handle & ~kHandleExcludeBroadcast;
+        lists::Hunt<Conn> search;
+        for (Conn* conn = search.head_element(&app->circuits()); conn; conn = search.following_item()) {
+            if (conn->hdl() != excluded && accepts(conn)) {
+                queue(conn);
+            }
+        }
+    } else {
+        Conn* conn = app->find_conn_with_id(handle); // (not checked for null)
+        if (accepts(conn)) {
+            queue(conn);
+        }
+    }
+}
+
+} // namespace
+
 // 0x00457EB0
 void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 {
@@ -236,30 +268,6 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         return;
     }
     push_network_heap();
-    // Every connection that takes it (`accepts`), or every one but handle & 0x7F, or the handle's.
-    auto for_each_target = [&](auto accepts, auto queue) {
-        if (handle == kHandleBroadcast) {
-            lists::Hunt<Conn> search;
-            for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-                if (accepts(conn)) {
-                    queue(conn);
-                }
-            }
-        } else if (handle & kHandleExcludeBroadcast) {
-            const int excluded = handle & ~kHandleExcludeBroadcast;
-            lists::Hunt<Conn> search;
-            for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-                if (conn->hdl() != excluded && accepts(conn)) {
-                    queue(conn);
-                }
-            }
-        } else {
-            Conn* conn = find_conn_with_id(handle); // (not checked for null)
-            if (accepts(conn)) {
-                queue(conn);
-            }
-        }
-    };
     auto not_disconnecting = [](Conn* conn) { return (get_standing(conn) & kConnClosing) == 0; };
 
     switch (desc->queue()) {
@@ -273,7 +281,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             return get_standing(conn) == kConnReady ||
                    handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident() == wire::MessageId::kClockStamp;
         };
-        for_each_target(ready, [&](Conn* conn) {
+        for_each_target(this, handle, ready, [&](Conn* conn) {
             if (desc->singular()) {
                 free_messages(conn, {.queue = desc->queue(), .id = desc->ident()});
             }
@@ -296,7 +304,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         PendingMsg* message =
             memory ? construct_queued_msg(memory, desc->ident(), desc->byte_count(), desc->content(), desc->compression())
                    : nullptr;
-        for_each_target(not_disconnecting, [&](Conn* conn) {
+        for_each_target(this, handle, not_disconnecting, [&](Conn* conn) {
             if (desc->singular()) {
                 free_messages(conn, {.queue = desc->queue(), .id = desc->ident()});
             }
@@ -318,7 +326,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
     case NetMessageInfo::kLaneOrdered: {
         gsl::owner<SeqQueuedMsg*> message =
             new_queued_msg(desc->ident(), desc->byte_count(), desc->content(), desc->group_id(), desc->compression());
-        for_each_target(not_disconnecting, [&](Conn* conn) {
+        for_each_target(this, handle, not_disconnecting, [&](Conn* conn) {
             ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
             OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, message) : nullptr;

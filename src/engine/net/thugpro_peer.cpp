@@ -768,6 +768,49 @@ bool on_off(const char* word, bool* on)
 
 void get_say(const char* line) { show_local_chat_line(line); }
 
+// /thugpro: the machine id and the host's (on a client) or our own time of day, weather, options and pro sets.
+void say_peer_state(bool client)
+{
+    constexpr size_t kLineSize = 160;
+    std::array<char, kLineSize> line{};
+    const HostListing& info = session().info;
+    const char* host_options = session().have ? "the host's" : "no host options yet";
+    text::format_to(line,
+                    "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
+                    "%02X",
+                    get_machine_id(), client ? host_options : "ours",
+                    client ? info.time_of_day_ : host_server_info().time_of_day_,
+                    client ? info.weather : host().weather, client ? get_level_options(info) : host().level_options_,
+                    client ? get_pro_sets(info) : host().pro_sets_);
+    get_say(line.data());
+}
+
+// /tod and /weather: the state named set here and sent to the players.
+void set_sky_state(bool tod, GameEffects& effects, const char* command, int words, const char* first, Hub* manager)
+{
+    constexpr size_t kLineSize = 160;
+    std::array<char, kLineSize> line{};
+    static const auto kTimes = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
+    static const auto kWeathers = std::to_array<const char*>({"default", "clear", "rain", "snow"});
+    const uint32_t state = tod ? state_named(first, kTimes.data(), 4) : state_named(first, kWeathers.data(), 4);
+    if (words < 2 || (state == 0U)) {
+        get_say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
+                    : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
+        return;
+    }
+    if (tod) {
+        effects.set_time_of_day(state);
+        get_broadcast({.id = kThugproUpdateTimeOfDay, .value = state});
+    } else {
+        host().weather = state;
+        effects.set_weather(state);
+        get_broadcast({.id = kThugproUpdateWeather, .value = state});
+    }
+    text::format_to(line, "\\c4thugpro:\\c0 %s %s%s", command, first,
+                    (manager && manager->in_net_game() && manager->get_on_server()) ? " (sent to the players)" : "");
+    get_say(line.data());
+}
+
 } // namespace
 
 bool handle_chat_command(const char* text)
@@ -792,16 +835,7 @@ bool handle_chat_command(const char* text)
     constexpr size_t kLineSize = 160;
     std::array<char, kLineSize> line{};
     if (_stricmp(command.data(), "thugpro") == 0) {
-        const HostListing& info = session().info;
-        const char* host_options = session().have ? "the host's" : "no host options yet";
-        text::format_to(
-            line,
-            "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
-            "%02X",
-            get_machine_id(), client ? host_options : "ours",
-            client ? info.time_of_day_ : host_server_info().time_of_day_, client ? info.weather : host().weather,
-            client ? get_level_options(info) : host().level_options_, client ? get_pro_sets(info) : host().pro_sets_);
-        get_say(line.data());
+        say_peer_state(client);
         return true;
     }
     const bool tod = _stricmp(command.data(), "tod") == 0;
@@ -817,25 +851,7 @@ bool handle_chat_command(const char* text)
     }
     GameEffects effects;
     if (tod || weather) {
-        static const auto kTimes = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
-        static const auto kWeathers = std::to_array<const char*>({"default", "clear", "rain", "snow"});
-        const uint32_t state = tod ? state_named(first.data(), kTimes.data(), 4) : state_named(first.data(), kWeathers.data(), 4);
-        if (words < 2 || (state == 0U)) {
-            get_say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
-                        : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
-            return true;
-        }
-        if (tod) {
-            effects.set_time_of_day(state);
-            get_broadcast({.id = kThugproUpdateTimeOfDay, .value = state});
-        } else {
-            host().weather = state;
-            effects.set_weather(state);
-            get_broadcast({.id = kThugproUpdateWeather, .value = state});
-        }
-        text::format_to(line, "\\c4thugpro:\\c0 %s %s%s", command.data(), first.data(),
-                        (manager && manager->in_net_game() && manager->get_on_server()) ? " (sent to the players)" : "");
-        get_say(line.data());
+        set_sky_state(tod, effects, command.data(), words, first.data(), manager);
         return true;
     }
     // /option n on|off, /proset n on|off: here now, to the players with the next game's server info (THUGPRO

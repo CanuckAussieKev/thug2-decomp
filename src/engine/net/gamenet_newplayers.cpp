@@ -273,6 +273,106 @@ void send_word(net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* to
     server->put_on_outbox(player_handle(to), &desc);
 }
 
+// The joining player told its own details (no appearance), after its important messages.
+void send_own_details(net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* player, JoinerRecord* info,
+                      NewPlayerMessage& msg, int8_t obj_id)
+{
+    msg.header.object_id = obj_id;
+    msg.header.team = static_cast<int8_t>(player->team());
+    msg.header.profile_id = player->profile_id();
+    msg.header.rating = player->skill_points();
+    msg.header.drive_scheme = player->drive_control_mode();
+    msg.header.score = 0;
+    msg.header.accumulated_score = 0;
+    msg.header.eliminated_time = 0;
+    std::memset(msg.header.name.data(), 0, sizeof(msg.header.name));
+    std::strncpy(msg.header.name.data(), info->label().data(), kNameSize - 1);
+    msg.header.flags = 1;
+    if (core::any(player->flag_bits() & PlayerFlag::kRejoining)) {
+        msg.header.flags = kArrivedResyncFlags;
+    }
+    if (is_observer(player)) {
+        msg.header.flags |= 4;
+    }
+    desc.set_content(nullptr);
+    desc.set_byte_count(0);
+    desc.set_ident(MessageId::kFlushImportant);
+    desc.set_rank(kTopRank);
+    server->put_on_outbox(player_handle(player), &desc);
+    std::array<uint8_t, kNewPlayerHeader> own{};
+    util::ByteWriter own_writer(own.data(), sizeof(own));
+    write_player_arrived(own_writer, msg.header);
+    desc.set_content(own.data());
+    desc.set_byte_count(kNewPlayerHeader);
+    desc.set_ident(MessageId::kPlayerArrived);
+    desc.set_compression(kCompressionLzss);
+    server->put_on_outbox(player_handle(player), &desc);
+    desc.set_compression(0);
+}
+
+// Every playing player sent to the joining one, the created park and its rails, then joined.
+void send_roster_to_joiner(Hub* manager, net::AppHost* server, net::NetMessageInfo& desc, PlayerSearch& search,
+                           PlayerRecord* player, NewPlayerMessage& msg, bool broadband)
+{
+    for (PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
+         other = step_roster_sweep(manager, &search, false)) {
+        if (other == player || is_own_player(player)) {
+            continue;
+        }
+        auto other_id = static_cast<int8_t>(get_skater_id(player_skater(other)));
+        msg.header.object_id = other_id;
+        msg.header.flags = core::to_underlying(other->flag_bits() & kPlayerFlagsSent);
+        msg.header.team = static_cast<int8_t>(other->team());
+        msg.header.profile_id = other->profile_id();
+        msg.header.rating = other->skill_points();
+        msg.header.drive_scheme = other->drive_control_mode();
+        msg.header.score = manager->get_entrant_points(get_skater_id(player_skater(other))); // (its score)
+        msg.header.accumulated_score = other->accumulated_score();
+        msg.header.eliminated_time = other->eliminated_time();
+        std::memset(msg.header.name.data(), 0, sizeof(msg.header.name));
+        std::strncpy(msg.header.name.data(), other->label().data(), kNameSize - 1);
+        const int size = other->account()->emit_into_buffer(msg.appearance.data(), kAppearanceSize, broadband ? 1 : 0);
+        send_new_player(server, desc, player, msg, static_cast<uint16_t>(size + kNewPlayerHeader));
+    }
+    uint32_t level = manager->level();
+    if (!is_own_player(player) && level == kLoadParkLevel) {
+        park_editing::ParkBuilderMode::write_compressed_map_if_built();
+        server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kParkMap, .size = kParkMapSize},
+                                  park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data(),
+                                  "level data", MessageGroup::kGame, false, true);
+        park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
+        void* rails = static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
+        server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kRailsData, .size = kRailsSize}, rails,
+                                  "rail data", MessageGroup::kGame, false, true);
+    }
+    send_word(server, desc, player, MessageId::kJoinAccepted, &level);
+}
+
+// The joining player's skater; every other player asked whether it's ready.
+void spawn_joiner_skater(Hub* manager, modules::Skate* skate, net::AppHost* server, net::NetMessageInfo& desc,
+                         PlayerSearch& search, PlayerRecord* player, JoinerRecord* info, int8_t obj_id, uint32_t& now)
+{
+    const int count = is_own_player(player) && manager->in_net_game() ? 0 : skater_count(skate);
+    const bool local_conn = player->conn()->is_host_local();
+    gsl::owner<objects::Rider*> skater =
+        skate->spawn_skater_entity(info->account(), local_conn, static_cast<int>(obj_id), count);
+    player->bind_rider(skater);
+    if (!is_own_player(player)) {
+        skater->conceal_skater(); // hidden
+    }
+    for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
+         other = step_roster_sweep(manager, &search, true)) {
+        if (other == player) {
+            continue;
+        }
+        send_word(server, desc, other, MessageId::kReadyQuery, &now);
+        if (!is_own_player(other) && !is_observer(other)) {
+            core::down_cast<objects::Rider>(player_skater(other))->reset_27c(); // reset
+            other->await_ready_response(now);
+        }
+    }
+}
+
 } // namespace
 
 // 0x0053D9D0
@@ -319,37 +419,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             static NewPlayerMessage msg; // (the original's is on its stack: 4 KB)
             auto obj_id = static_cast<int8_t>(info->entity_key());
             if (!is_own_player(player)) { // its own details (no appearance) after its important messages
-                msg.header.object_id = obj_id;
-                msg.header.team = static_cast<int8_t>(player->team());
-                msg.header.profile_id = player->profile_id();
-                msg.header.rating = player->skill_points();
-                msg.header.drive_scheme = player->drive_control_mode();
-                msg.header.score = 0;
-                msg.header.accumulated_score = 0;
-                msg.header.eliminated_time = 0;
-                std::memset(msg.header.name.data(), 0, sizeof(msg.header.name));
-                std::strncpy(msg.header.name.data(), info->label().data(), kNameSize - 1);
-                msg.header.flags = 1;
-                if (core::any(player->flag_bits() & PlayerFlag::kRejoining)) {
-                    msg.header.flags = kArrivedResyncFlags;
-                }
-                if (is_observer(player)) {
-                    msg.header.flags |= 4;
-                }
-                desc.set_content(nullptr);
-                desc.set_byte_count(0);
-                desc.set_ident(MessageId::kFlushImportant);
-                desc.set_rank(kTopRank);
-                server->put_on_outbox(player_handle(player), &desc);
-                std::array<uint8_t, kNewPlayerHeader> own{};
-                util::ByteWriter own_writer(own.data(), sizeof(own));
-                write_player_arrived(own_writer, msg.header);
-                desc.set_content(own.data());
-                desc.set_byte_count(kNewPlayerHeader);
-                desc.set_ident(MessageId::kPlayerArrived);
-                desc.set_compression(kCompressionLzss);
-                server->put_on_outbox(player_handle(player), &desc);
-                desc.set_compression(0);
+                send_own_details(server, desc, player, info, msg, obj_id);
             }
             if (!is_observer(player)) { // the new player to every other remote player
                 for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
@@ -372,62 +442,10 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                     send_new_player(server, desc, player, msg, length);
                 }
             } else { // every playing player to it, the created park and its rails, then joined
-                for (PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
-                     other = step_roster_sweep(manager, &search, false)) {
-                    if (other == player || is_own_player(player)) {
-                        continue;
-                    }
-                    auto other_id = static_cast<int8_t>(get_skater_id(player_skater(other)));
-                    msg.header.object_id = other_id;
-                    msg.header.flags = core::to_underlying(other->flag_bits() & kPlayerFlagsSent);
-                    msg.header.team = static_cast<int8_t>(other->team());
-                    msg.header.profile_id = other->profile_id();
-                    msg.header.rating = other->skill_points();
-                    msg.header.drive_scheme = other->drive_control_mode();
-                    msg.header.score = manager->get_entrant_points(get_skater_id(player_skater(other))); // (its score)
-                    msg.header.accumulated_score = other->accumulated_score();
-                    msg.header.eliminated_time = other->eliminated_time();
-                    std::memset(msg.header.name.data(), 0, sizeof(msg.header.name));
-                    std::strncpy(msg.header.name.data(), other->label().data(), kNameSize - 1);
-                    const int size =
-                        other->account()->emit_into_buffer(msg.appearance.data(), kAppearanceSize, broadband ? 1 : 0);
-                    send_new_player(server, desc, player, msg, static_cast<uint16_t>(size + kNewPlayerHeader));
-                }
-                uint32_t level = manager->level_;
-                if (!is_own_player(player) && level == kLoadParkLevel) {
-                    park_editing::ParkBuilderMode::write_compressed_map_if_built();
-                    server->send_bulk_message(
-                        player_handle(player), {.msg_id_ = MessageId::kParkMap, .size = kParkMapSize},
-                        park_editing::ParkBuilderMode::get_packed_park_data(false)->bytes().data(), "level data",
-                        MessageGroup::kGame, false, true);
-                    park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
-                    void* rails =
-                        static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
-                    server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kRailsData, .size = kRailsSize}, rails, "rail data",
-                                              MessageGroup::kGame, false, true);
-                }
-                send_word(server, desc, player, MessageId::kJoinAccepted, &level);
+                send_roster_to_joiner(manager, server, desc, search, player, msg, broadband);
             }
             if (!is_observer(player)) { // its skater; every other player asked whether it's ready
-                const int count = is_own_player(player) && manager->in_net_game() ? 0 : skater_count(skate);
-                const bool local_conn = player->conn()->is_host_local();
-                gsl::owner<objects::Rider*> skater =
-                    skate->spawn_skater_entity(info->account(), local_conn, static_cast<int>(obj_id), count);
-                player->bind_rider(skater);
-                if (!is_own_player(player)) {
-                    skater->conceal_skater(); // hidden
-                }
-                for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
-                     other = step_roster_sweep(manager, &search, true)) {
-                    if (other == player) {
-                        continue;
-                    }
-                    send_word(server, desc, other, MessageId::kReadyQuery, &now);
-                    if (!is_own_player(other) && !is_observer(other)) {
-                        core::down_cast<objects::Rider>(player_skater(other))->reset_27c(); // reset
-                        other->await_ready_response(now);
-                    }
-                }
+                spawn_joiner_skater(manager, skate, server, desc, search, player, info, obj_id, now);
             }
             send_word(server, desc, player, MessageId::kReadyQuery, &now);
             player->await_ready_response(now);

@@ -276,6 +276,11 @@ public:
     void set_fail_script(uint32_t value) { fail_script_ = value; }
 
 private:
+    // vault_task's finished transfers: the category list, a category's items, the user's uploads.
+    static void read_categories(VaultMan* vault);
+    static void read_items(VaultMan* vault);
+    static void read_uploads(VaultMan* vault);
+
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<VaultMan> (vault_task)
     int transfer_{kNone};                        // +0x004 Transfer
     int progress_{0};                            // +0x008 percent; 100 = finished

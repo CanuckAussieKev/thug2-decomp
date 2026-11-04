@@ -189,6 +189,18 @@ int dispatch_stream(InboundMsgCtx* context, BulkStreamNode* link, StreamDesc* de
     return result;
 }
 
+// Whether a reliable message is due to go: never sent (unless only resends are wanted), or not acked within the
+// resend threshold.
+template <class Link>
+bool resend_due(AppHost* app, Conn* conn, const Link& link, bool resends_only)
+{
+    if (link.stamp_ms() == 0) {
+        return !resends_only;
+    }
+    const uint32_t threshold = get_retry_delay(conn);
+    return get_timestamp(app) - link.stamp_ms() > threshold;
+}
+
 } // namespace
 
 // 0x004598C0
@@ -227,16 +239,8 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
             if (net::over_bandwidth_budget(this, conn)) {
                 return fits;
             }
-            // never sent (unless only resends are wanted), or not acked within the resend threshold
-            if (link->stamp_ms() == 0) {
-                if (resends_only) {
-                    continue;
-                }
-            } else {
-                const uint32_t threshold = get_retry_delay(conn);
-                if (get_timestamp(this) - link->stamp_ms() <= threshold) {
-                    continue;
-                }
+            if (!resend_due(this, conn, *link, resends_only)) {
+                continue;
             }
             if (!append_message(this, conn, link->shared_msg())) {
                 fits = false;
@@ -259,16 +263,8 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
             if (net::over_bandwidth_budget(this, conn)) {
                 return fits;
             }
-            // never sent (unless only resends are wanted), or not acked within the resend threshold
-            if (link->stamp_ms() == 0) {
-                if (resends_only) {
-                    continue;
-                }
-            } else {
-                const uint32_t threshold = get_retry_delay(conn);
-                if (get_timestamp(this) - link->stamp_ms() <= threshold) {
-                    continue;
-                }
+            if (!resend_due(this, conn, *link, resends_only)) {
+                continue;
             }
             if (!append_sequenced_message(conn, link)) {
                 fits = false;
