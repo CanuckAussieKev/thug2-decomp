@@ -10,7 +10,7 @@ app/                        main, WinMain, the start-up, the game's main: the co
 editor/  frontend/  devtools/   the level editor; the new front end and mouse menus; the developer tools
 game/                       skating, the rider, goals, parks, saves
 engine/                     memory, lists, files, assets, script, objects, renderer, audio, network, pad input,
-                            ui (the original's screen elements)
+                            ui (the original's screen elements), ext (the extension points)
 -------------------------   the boundary: where bytes come from outside the game
 formats/  wire/  gpu/       file formats; network messages; GPU buffers
 platform/                   Win32, the SDL window, DirectSound's set-up, the GameSpy SDK, crash reports, code addresses
@@ -42,6 +42,24 @@ set-up (`engine/pad_input/direct_input`, `input_setup`).
 PartyMod's start-up (`pc_setup.cpp`) and the game's main (`startup.cpp`: the singletons, modules and the main loop).
 It may include every layer. `src/devtools` sits beside the editor and the new front end: the screenshot key, the
 test-automation channel (`automation`), the restart tester, the start level and the test view.
+
+**The extension points** (`engine/ext/extension.h`): the engine and the game never call the editor, the front end or
+the dev tools. Where something we added runs inside the original's frame, the original code calls `ext::` at that
+place - the front end's input logic (`ext::menu_frame`), the 3D frame (`before_draw_world`, `place_camera`,
+`near_plane` / `view_angle`, `view_drawn`, `draw_over_frame`), the main loop (`before_present`, `keeps_every_frame`,
+`device_lost`), the screen elements' layout pass, the input set-up and poll (`prepare_input`, `game_owner` and its
+`pass_pause_key`, `game_input_blocked`, `add_pad_buttons`), a scene loaded, the data overlay, the start-up's movies,
+the career save and the high scores - and `ext::` calls each registered `ext::Extension` in turn. An extension
+overrides only its points (the defaults do nothing or pass the value on); a point that returns a value keeps the
+contract its one caller had (the first extension that owns the game takes the keyboard but for the Pause key; the
+near plane and field of view are passed from one extension to the next, starting from the original's). The grain is
+a few calls per frame, viewport or event. `app/extensions.cpp` is the exe's composition: it registers the extensions
+in the one order that is every point's call order (the mouse menus, the restart tester, THAW's BMX, the editor, debug
+mode, the start level, automation, the test view, the new front end, the screenshot key) and registers their script
+commands where the start-up did. An exe of the editor alone would register only the editor (and the game features it
+wants). Our NOT ORIGINAL game and engine features that run at those points (THAW's BMX, debug mode) are extensions
+too; what the editor drives inside the game stays in the game (`game/skate/edited_copy_career`: the edited copy
+kept out of the career save, its gaps asked of the extensions).
 
 **Where the UI lives** (what `frontend/` held was three things): the original's screen elements, which the game's HUD
 and menus use (`screen_element*`, `text_element`, `text_block`, `menu_element`, `sprite_element`, `scrolling_menu`,

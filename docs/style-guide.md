@@ -43,7 +43,8 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 
 ```
 src/
-  app/        main, WinMain, the start-up and the game's main (the composition: may include anything)
+  app/        main, WinMain, the start-up and the game's main, the exe's extensions (extensions.cpp) (the
+              composition: may include anything)
   platform/   the window and its events, crash reports, the run log, settings, the registry, code addresses (the
               Win32 / DirectSound / SDL / GameSpy side; library thug2_platform)
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
@@ -54,14 +55,15 @@ src/
               pointer helpers), maths, two containers (lists), the bit stream and BPS patches (util) (library
               thug2_base)
   engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network, pad input, ui (the
-              original's screen elements)
+              original's screen elements and our UI fonts), ext (the extension points)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module)
   frontend/   the new front end and the mouse menus
   editor/     the level editor
   devtools/   the developer tools (screenshot key, test-automation channel, restart tester, start level, test view)
 ```
 
-`engine/` doesn't include `game/`, `frontend/` or `editor/`; `formats/`, `wire/` and `platform/` include nothing of the
+`engine/` doesn't include `game/`, `frontend/` or `editor/`; the engine and the game reach the editor, the front end
+and the dev tools only through `engine/ext` (each of those is an `ext::Extension` that `app/` registers); `formats/`, `wire/` and `platform/` include nothing of the
 game but `base/` (they build as libraries of their own, on `thug2_base`); `base/` includes nothing but the standard library
 and GSL. One folder is one namespace (formats and wire
 keep the namespaces their headers had). The layers and their rules: docs/architecture.md.
