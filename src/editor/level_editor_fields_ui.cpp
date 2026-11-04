@@ -494,6 +494,260 @@ void get_when(ImFont* small_font, WhenTip when_tip)
     }
 }
 
+// The level, its properties being edited (each row sends them as they are then), the fonts and the requests the
+// level properties' rows share.
+struct LevelPanel {
+    const ShapeMesh::LevelView* level{};
+    level_props::Props* props{};
+    ImFont* mono{};
+    ImFont* small_font{};
+    std::vector<Request>* requests{};
+};
+
+// A new row of the table, its label in the first column; the value column next.
+void level_row(const char* label)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    gui::text_disabled("%s", label);
+    ImGui::TableNextColumn();
+}
+
+// Its name in the level select.
+void level_name_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    level_props::Props& props = *panel.props;
+    level_row("Name");
+    if (!level_typing().name_active_) {
+        dup_from(&level_typing().name, props.name);
+    }
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    const bool enter =
+        ImGui::InputTextWithHint("##name", level.have_defaults_ ? level.defaults.name.c_str() : "Original",
+                                 level_typing().name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
+    const bool left = ImGui::IsItemDeactivatedAfterEdit();
+    level_typing().name_active_ = ImGui::IsItemActive();
+    if ((enter || left) && props.name != level_typing().name.data()) {
+        props.name = level_typing().name.data();
+        send_props(panel.requests, props, true);
+    }
+    get_when(panel.small_font, {.when = "level select", .tip = "Name in the level select. Empty: original name."});
+}
+
+// Where the skater starts.
+void level_start_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    level_props::Props& props = *panel.props;
+    level_row("Start");
+    std::string current = "(original)";
+    for (const auto& restart : level.restarts) {
+        current = restart.first == props.start ? restart.second : current;
+    }
+    if ((props.start != 0U) && current == "(original)") {
+        current = "(missing restart)";
+    }
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    ImGui::PushFont(panel.mono);
+    if (ImGui::BeginCombo("##start", current.c_str())) {
+        if (ImGui::Selectable("(original)", props.start == 0)) {
+            props.start = 0;
+            send_props(panel.requests, props, true);
+        }
+        for (const auto& restart : level.restarts) {
+            ImGui::PushID(static_cast<int>(restart.first));
+            if (ImGui::Selectable(restart.second.c_str(), props.start == restart.first)) {
+                props.start = restart.first;
+                send_props(panel.requests, props, true);
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::PopFont();
+    get_when(panel.small_font, {.when = "on reload", .tip = "Start position"});
+    if ((level.selected_restart_ != 0U) && level.selected_restart_ != props.start) {
+        if (ImGui::SmallButton("Use Selected Restart")) {
+            props.start = level.selected_restart_;
+            send_props(panel.requests, props, true);
+        }
+    }
+}
+
+// Time of day.
+void level_tod_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    const level_props::Props& own = level.defaults;
+    level_props::Props& props = *panel.props;
+    static const auto kStates = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
+    level_row("Time of day");
+    std::array<char, kOwnStateTextSize> own_state{};
+    text::format_to(own_state, "(original: %s)",
+                    level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod)
+                                                                           : "afternoon");
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::BeginCombo("##tod", props.tod >= 0 ? core::at(kStates, props.tod) : own_state.data())) {
+        if (ImGui::Selectable(own_state.data(), props.tod < 0)) {
+            props.tod = -1;
+            send_props(panel.requests, props, true);
+        }
+        for (int i = 0; i < 4; ++i) {
+            if (ImGui::Selectable(core::at(kStates, i), props.tod == i)) {
+                props.tod = i;
+                send_props(panel.requests, props, true);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    get_when(panel.small_font, {.when = "live", .tip = "Time of day"});
+}
+
+// Whether time passes.
+void level_time_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    level_props::Props& props = *panel.props;
+    level_row("Time passes");
+    const char* own_time = level.have_defaults_ && level.defaults.time == 0 ? "(original: no)" : "(original: yes)";
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    const char* time_shown = own_time;
+    if (props.time == 1) {
+        time_shown = "yes";
+    } else if (props.time == 0) {
+        time_shown = "no";
+    }
+    if (ImGui::BeginCombo("##time", time_shown)) {
+        const auto labels = std::to_array<const char*>({own_time, "no", "yes"});
+        for (int i = -1; i <= 1; ++i) {
+            if (ImGui::Selectable(core::at(labels, i + 1), props.time == i)) {
+                props.time = i;
+                send_props(panel.requests, props, true);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    get_when(panel.small_font, {.when = "on reload", .tip = "Advance time of day (career only)"});
+}
+
+// Its sky (the feature map's sky row): another level's sky scene.
+void level_sky_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    const level_props::Props& own = level.defaults;
+    level_props::Props& props = *panel.props;
+    level_row("Sky");
+    const std::string own_sky =
+        "(original: " + (level.have_defaults_ && !own.sky.empty() ? own.sky : std::string("none")) + ")";
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    ImGui::PushFont(panel.mono);
+    if (ImGui::BeginCombo("##sky", props.sky.empty() ? own_sky.c_str() : props.sky.c_str())) {
+        if (ImGui::Selectable(own_sky.c_str(), props.sky.empty())) {
+            props.sky.clear();
+            send_props(panel.requests, props, true);
+        }
+        for (const std::string& sky : level_props::skies()) {
+            if (ImGui::Selectable(sky.c_str(), _stricmp(sky.c_str(), props.sky.c_str()) == 0)) {
+                props.sky = sky;
+                send_props(panel.requests, props, true);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::PopFont();
+    get_when(panel.small_font, {.when = "on reload", .tip = "Sky scene"});
+}
+
+// Ambient light.
+void level_ambient_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    const level_props::Props& own = level.defaults;
+    level_props::Props& props = *panel.props;
+    std::vector<Request>* requests = panel.requests;
+    level_row("Ambient");
+    bool ambient = props.has_ambient_;
+    if (ImGui::Checkbox("##ambient", &ambient)) {
+        props.has_ambient_ = ambient;
+        if (ambient && level.have_defaults_) {
+            std::memcpy(props.ambient.data(), own.ambient.data(), sizeof(props.ambient));
+        }
+        send_props(requests, props, true);
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!props.has_ambient_);
+    const auto& shown = props.has_ambient_ ? props.ambient : own.ambient;
+    std::array<float, 3> colour = {{static_cast<float>(core::at(shown, 0)) / kChannelMax,
+                                    static_cast<float>(core::at(shown, 1)) / kChannelMax,
+                                    static_cast<float>(core::at(shown, 2)) / kChannelMax}};
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::ColorEdit3("##ambientcolour", colour.data(),
+                          ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
+        for (int i = 0; i < 3; ++i) {
+            core::at(props.ambient, i) =
+                level_props::get_channel(maths::round_non_negative<int>(core::at(colour, i) * kChannelMax));
+        }
+        send_props(requests, props, false);
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+    }
+    ImGui::EndDisabled();
+    get_when(panel.small_font, {.when = "live", .tip = "Ambient light colour"});
+}
+
+// Fog: its colour, alpha and distance.
+void level_fog_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    const level_props::Props& own = level.defaults;
+    level_props::Props& props = *panel.props;
+    std::vector<Request>* requests = panel.requests;
+    level_row("Fog");
+    bool fog = props.has_fog_;
+    if (ImGui::Checkbox("##fog", &fog)) {
+        props.has_fog_ = fog;
+        if (fog && level.have_defaults_) {
+            std::memcpy(props.fog.data(), own.fog.data(), sizeof(props.fog));
+        }
+        send_props(requests, props, true);
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!props.has_fog_);
+    const auto& fog_props = props.has_fog_ ? props.fog : own.fog;
+    std::array<float, 4> fog_colour = {{static_cast<float>(core::at(fog_props, 0)) / kChannelMax,
+                                        static_cast<float>(core::at(fog_props, 1)) / kChannelMax,
+                                        static_cast<float>(core::at(fog_props, 2)) / kChannelMax,
+                                        static_cast<float>(core::at(fog_props, 3)) / kChannelMax}};
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    bool changed = false;
+    if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
+                          ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_AlphaBar)) {
+        for (int i = 0; i < 4; ++i) {
+            core::at(props.fog, i) =
+                level_props::get_channel(maths::round_non_negative<int>(core::at(fog_colour, i) * kChannelMax));
+        }
+        changed = true;
+    }
+    bool done = ImGui::IsItemDeactivatedAfterEdit();
+    int distance = core::at(fog_props, 4);
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::DragInt("##fogdist", &distance, kFogDistanceDragSpeed, 0, kMaxFogDistance, "distance %d")) {
+        core::at(props.fog, 4) = level_props::span_to(distance);
+        changed = true;
+    }
+    done = done || ImGui::IsItemDeactivatedAfterEdit();
+    if (changed) {
+        send_props(requests, props, false);
+    }
+    if (done) {
+        requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+    }
+    ImGui::EndDisabled();
+    get_when(panel.small_font, {.when = "live", .tip = "Fog colour, alpha and distance (alpha 0: no fog)"});
+}
+
 } // namespace
 
 void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
@@ -511,213 +765,18 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
     gui::text_disabled("Saved with the layout");
     ImGui::PopFont();
     level_props::Props props = level.props;
-    const level_props::Props& own = level.defaults;
     if (ImGui::BeginTable("##level", 2, ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn("##label", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch);
-        // Its name in the level select.
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        gui::text_disabled("Name");
-        ImGui::TableNextColumn();
-        if (!level_typing().name_active_) {
-            dup_from(&level_typing().name, props.name);
-        }
-        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        const bool enter = ImGui::InputTextWithHint("##name", level.have_defaults_ ? own.name.c_str() : "Original",
-                                                    level_typing().name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
-        const bool left = ImGui::IsItemDeactivatedAfterEdit();
-        level_typing().name_active_ = ImGui::IsItemActive();
-        if ((enter || left) && props.name != level_typing().name.data()) {
-            props.name = level_typing().name.data();
-            send_props(requests, props, true);
-        }
-        get_when(small_font, {.when = "level select", .tip = "Name in the level select. Empty: original name."});
-        // Where the skater starts.
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        gui::text_disabled("Start");
-        ImGui::TableNextColumn();
-        std::string current = "(original)";
-        for (const auto& restart : level.restarts) {
-            current = restart.first == props.start ? restart.second : current;
-        }
-        if ((props.start != 0U) && current == "(original)") {
-            current = "(missing restart)";
-        }
-        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        ImGui::PushFont(mono);
-        if (ImGui::BeginCombo("##start", current.c_str())) {
-            if (ImGui::Selectable("(original)", props.start == 0)) {
-                props.start = 0;
-                send_props(requests, props, true);
-            }
-            for (const auto& restart : level.restarts) {
-                ImGui::PushID(static_cast<int>(restart.first));
-                if (ImGui::Selectable(restart.second.c_str(), props.start == restart.first)) {
-                    props.start = restart.first;
-                    send_props(requests, props, true);
-                }
-                ImGui::PopID();
-            }
-            ImGui::EndCombo();
-        }
-        ImGui::PopFont();
-        get_when(small_font, {.when = "on reload", .tip = "Start position"});
-        if ((level.selected_restart_ != 0U) && level.selected_restart_ != props.start) {
-            if (ImGui::SmallButton("Use Selected Restart")) {
-                props.start = level.selected_restart_;
-                send_props(requests, props, true);
-            }
-        }
-        // Time of day.
-        static const auto kStates = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        gui::text_disabled("Time of day");
-        ImGui::TableNextColumn();
-        std::array<char, kOwnStateTextSize> own_state{};
-        text::format_to(own_state, "(original: %s)",
-                        level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod)
-                                                                               : "afternoon");
-        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        if (ImGui::BeginCombo("##tod", props.tod >= 0 ? core::at(kStates, props.tod) : own_state.data())) {
-            if (ImGui::Selectable(own_state.data(), props.tod < 0)) {
-                props.tod = -1;
-                send_props(requests, props, true);
-            }
-            for (int i = 0; i < 4; ++i) {
-                if (ImGui::Selectable(core::at(kStates, i), props.tod == i)) {
-                    props.tod = i;
-                    send_props(requests, props, true);
-                }
-            }
-            ImGui::EndCombo();
-        }
-        get_when(small_font, {.when = "live", .tip = "Time of day"});
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        gui::text_disabled("Time passes");
-        ImGui::TableNextColumn();
-        const char* own_time = level.have_defaults_ && own.time == 0 ? "(original: no)" : "(original: yes)";
-        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        const char* time_shown = own_time;
-        if (props.time == 1) {
-            time_shown = "yes";
-        } else if (props.time == 0) {
-            time_shown = "no";
-        }
-        if (ImGui::BeginCombo("##time", time_shown)) {
-            const auto labels = std::to_array<const char*>({own_time, "no", "yes"});
-            for (int i = -1; i <= 1; ++i) {
-                if (ImGui::Selectable(core::at(labels, i + 1), props.time == i)) {
-                    props.time = i;
-                    send_props(requests, props, true);
-                }
-            }
-            ImGui::EndCombo();
-        }
-        get_when(small_font, {.when = "on reload", .tip = "Advance time of day (career only)"});
-        // Its sky (the feature map's sky row): another level's sky scene.
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        gui::text_disabled("Sky");
-        ImGui::TableNextColumn();
-        const std::string own_sky =
-            "(original: " + (level.have_defaults_ && !own.sky.empty() ? own.sky : std::string("none")) + ")";
-        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        ImGui::PushFont(mono);
-        if (ImGui::BeginCombo("##sky", props.sky.empty() ? own_sky.c_str() : props.sky.c_str())) {
-            if (ImGui::Selectable(own_sky.c_str(), props.sky.empty())) {
-                props.sky.clear();
-                send_props(requests, props, true);
-            }
-            for (const std::string& sky : level_props::skies()) {
-                if (ImGui::Selectable(sky.c_str(), _stricmp(sky.c_str(), props.sky.c_str()) == 0)) {
-                    props.sky = sky;
-                    send_props(requests, props, true);
-                }
-            }
-            ImGui::EndCombo();
-        }
-        ImGui::PopFont();
-        get_when(small_font, {.when = "on reload", .tip = "Sky scene"});
-        // Ambient light.
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        gui::text_disabled("Ambient");
-        ImGui::TableNextColumn();
-        bool ambient = props.has_ambient_;
-        if (ImGui::Checkbox("##ambient", &ambient)) {
-            props.has_ambient_ = ambient;
-            if (ambient && level.have_defaults_) {
-                std::memcpy(props.ambient.data(), own.ambient.data(), sizeof(props.ambient));
-            }
-            send_props(requests, props, true);
-        }
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!props.has_ambient_);
-        const auto& shown = props.has_ambient_ ? props.ambient : own.ambient;
-        std::array<float, 3> colour = {{static_cast<float>(core::at(shown, 0)) / kChannelMax, static_cast<float>(core::at(shown, 1)) / kChannelMax,
-                           static_cast<float>(core::at(shown, 2)) / kChannelMax}};
-        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        if (ImGui::ColorEdit3("##ambientcolour", colour.data(), ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
-            for (int i = 0; i < 3; ++i) {
-                core::at(props.ambient, i) = level_props::get_channel(maths::round_non_negative<int>(core::at(colour, i) * kChannelMax));
-            }
-            send_props(requests, props, false);
-        }
-        if (ImGui::IsItemDeactivatedAfterEdit()) {
-            requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
-        }
-        ImGui::EndDisabled();
-        get_when(small_font, {.when = "live", .tip = "Ambient light colour"});
-        // Fog.
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        gui::text_disabled("Fog");
-        ImGui::TableNextColumn();
-        bool fog = props.has_fog_;
-        if (ImGui::Checkbox("##fog", &fog)) {
-            props.has_fog_ = fog;
-            if (fog && level.have_defaults_) {
-                std::memcpy(props.fog.data(), own.fog.data(), sizeof(props.fog));
-            }
-            send_props(requests, props, true);
-        }
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!props.has_fog_);
-        const auto& fog_props = props.has_fog_ ? props.fog : own.fog;
-        std::array<float, 4> fog_colour = {{static_cast<float>(core::at(fog_props, 0)) / kChannelMax,
-                                            static_cast<float>(core::at(fog_props, 1)) / kChannelMax,
-                                            static_cast<float>(core::at(fog_props, 2)) / kChannelMax,
-                                            static_cast<float>(core::at(fog_props, 3)) / kChannelMax}};
-        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        bool changed = false;
-        if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
-                              ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB |
-                                  ImGuiColorEditFlags_AlphaBar)) {
-            for (int i = 0; i < 4; ++i) {
-                core::at(props.fog, i) = level_props::get_channel(maths::round_non_negative<int>(core::at(fog_colour, i) * kChannelMax));
-            }
-            changed = true;
-        }
-        bool done = ImGui::IsItemDeactivatedAfterEdit();
-        int distance = core::at(fog_props, 4);
-        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        if (ImGui::DragInt("##fogdist", &distance, kFogDistanceDragSpeed, 0, kMaxFogDistance, "distance %d")) {
-            core::at(props.fog, 4) = level_props::span_to(distance);
-            changed = true;
-        }
-        done = done || ImGui::IsItemDeactivatedAfterEdit();
-        if (changed) {
-            send_props(requests, props, false);
-        }
-        if (done) {
-            requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
-        }
-        ImGui::EndDisabled();
-        get_when(small_font, {.when = "live", .tip = "Fog colour, alpha and distance (alpha 0: no fog)"});
+        const LevelPanel panel{
+            .level = &level, .props = &props, .mono = mono, .small_font = small_font, .requests = requests};
+        level_name_row(panel);
+        level_start_row(panel);
+        level_tod_row(panel);
+        level_time_row(panel);
+        level_sky_row(panel);
+        level_ambient_row(panel);
+        level_fog_row(panel);
         ImGui::EndTable();
     }
     if (!level_props::vacant(level.props)) {
