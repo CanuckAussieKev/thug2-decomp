@@ -701,10 +701,10 @@ void check_limits(std::vector<Issue>* out)
     }
 }
 
-void check_triggers(std::vector<Issue>* out, uint32_t world)
+// The editor's trigger volumes: one doing nothing yet, its middle inside solid collision or under a surface, a
+// gap end without its start or a start without its end.
+void check_added_triggers(std::vector<Issue>* out, uint32_t world)
 {
-    static const uint32_t kTriggerScript = get_checksums("TriggerScript");
-    static const uint32_t kProximNode = get_checksums("ProximNode");
     // The editor's trigger volumes.
     const std::vector<triggers::Added>& added = triggers::added_triggers();
     std::vector<triggers::Spec> specs;
@@ -756,6 +756,11 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
             }
         }
     }
+}
+
+// The level's trigger volumes: faces without a node, no TriggerScript or one that isn't a script.
+void check_level_triggers(std::vector<Issue>* out, const std::vector<triggers::LevelTrigger>& level)
+{
     // The level's trigger volumes.
     for (const triggers::LevelTrigger& level_trigger : level) {
         if (level_trigger.off) {
@@ -786,6 +791,14 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
             append_one(out, issue);
         }
     }
+}
+
+// Proximity nodes (not the editor's trigger volumes, which are GenericNodes of the same family): no script, or
+// scripts that aren't.
+void check_proxims(std::vector<Issue>* out)
+{
+    static const uint32_t kTriggerScript = get_checksums("TriggerScript");
+    static const uint32_t kProximNode = get_checksums("ProximNode");
     // Proximity nodes (not the editor's trigger volumes, which are GenericNodes of the same family).
     for (const nodes::Elem& elem : nodes::get_all()) {
         if (elem.family != nodes::Family::kFireOff || elem.hidden || elem.cls != kProximNode ||
@@ -832,6 +845,14 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
             }
         }
     }
+}
+
+void check_triggers(std::vector<Issue>* out, uint32_t world)
+{
+    check_added_triggers(out, world);
+    const std::vector<triggers::LevelTrigger>& level = triggers::level_triggers();
+    check_level_triggers(out, level);
+    check_proxims(out);
 }
 
 void check_online(std::vector<Issue>* out)
@@ -1054,6 +1075,97 @@ std::string line_of(const layout::FileLoad& one)
     return out;
 }
 
+// note_layout_applied's collision records (walls, faces, trick-object clusters) whose piece isn't in the level.
+template <class Sector, class Report>
+void check_collision_records(const layout::FileLoad& file, Sector& sector, Report& report)
+{
+    for (const walls::WallState& w : file.walls) {
+        if (!sector(w.checksum)) {
+            layout::FileLoad one;
+            one.walls.push_back(w);
+            report(w.checksum, "Collision " + get_name(w.checksum), one);
+        }
+    }
+    for (const faces::SectorFaces& sector_faces : file.faces) {
+        if (!sector(sector_faces.checksum)) {
+            layout::FileLoad one;
+            one.faces.push_back(sector_faces);
+            report(sector_faces.checksum, "Collision faces of " + get_name(sector_faces.checksum), one);
+        }
+    }
+    for (const clusters::Membership& membership : file.clusters) {
+        if (!sector(membership.sector)) {
+            layout::FileLoad one;
+            one.clusters.push_back(membership);
+            report(membership.sector, "Trick-object cluster of " + get_name(membership.sector), one);
+        }
+    }
+}
+
+// note_layout_applied's chain edits of level nodes (links, dropped points, terrains, facings, flat grinds,
+// speed-ups) and entity edits (path speeds, sound emitters) whose node isn't in the level.
+template <class Node, class Report>
+void check_chain_and_entity_records(const layout::FileLoad& file, Node& node, Report& report)
+{
+    const chains::State& chains = file.chains;
+    for (const chains::LinkEdit& link_edit : chains.links) {
+        if (!node(link_edit.name)) {
+            layout::FileLoad one;
+            one.chains.links.push_back(link_edit);
+            report(link_edit.name, "Links of " + get_name(link_edit.name), one);
+        }
+    }
+    for (const uint32_t name : chains.dropped) {
+        if (!node(name)) {
+            layout::FileLoad one;
+            one.chains.dropped.push_back(name);
+            report(name, "Dropped point " + get_name(name), one);
+        }
+    }
+    for (const chains::TerrainEdit& terrain_edit : chains.terrains) {
+        if (!node(terrain_edit.name)) {
+            layout::FileLoad one;
+            one.chains.terrains.push_back(terrain_edit);
+            report(terrain_edit.name, "Terrain of " + get_name(terrain_edit.name), one);
+        }
+    }
+    for (const chains::FacingEdit& facing_edit : chains.facings) {
+        if (!node(facing_edit.name)) {
+            layout::FileLoad one;
+            one.chains.facings.push_back(facing_edit);
+            report(facing_edit.name, "Facing of " + get_name(facing_edit.name), one);
+        }
+    }
+    for (const uint32_t name : chains.grind_flat_) {
+        if (!node(name)) {
+            layout::FileLoad one;
+            one.chains.grind_flat_.push_back(name);
+            report(name, "Flat grind of " + get_name(name), one);
+        }
+    }
+    for (const chains::SpeedEdit& speed_edit : chains.speeds) {
+        if (!node(speed_edit.name)) {
+            layout::FileLoad one;
+            one.chains.speeds.push_back(speed_edit);
+            report(speed_edit.name, "Rail speed-up of " + get_name(speed_edit.name), one);
+        }
+    }
+    for (const entities::Pace& pace : file.entities.speeds) {
+        if (!node(pace.name)) {
+            layout::FileLoad one;
+            one.entities.speeds.push_back(pace);
+            report(pace.name, "Path speed of " + get_name(pace.name), one);
+        }
+    }
+    for (const entities::EmitterSound& emitter_sound : file.entities.emitters) {
+        if (!node(emitter_sound.name)) {
+            layout::FileLoad one;
+            one.entities.emitters.push_back(emitter_sound);
+            report(emitter_sound.name, "Sound emitter " + get_name(emitter_sound.name), one);
+        }
+    }
+}
+
 } // namespace
 
 void note_layout_applied(const layout::FileLoad& file)
@@ -1144,85 +1256,9 @@ void note_layout_applied(const layout::FileLoad& file)
             report(proxim_edit.node, "Proximity node " + get_name(proxim_edit.node), one);
         }
     }
-    for (const walls::WallState& w : file.walls) {
-        if (!sector(w.checksum)) {
-            layout::FileLoad one;
-            one.walls.push_back(w);
-            report(w.checksum, "Collision " + get_name(w.checksum), one);
-        }
-    }
-    for (const faces::SectorFaces& sector_faces : file.faces) {
-        if (!sector(sector_faces.checksum)) {
-            layout::FileLoad one;
-            one.faces.push_back(sector_faces);
-            report(sector_faces.checksum, "Collision faces of " + get_name(sector_faces.checksum), one);
-        }
-    }
-    for (const clusters::Membership& membership : file.clusters) {
-        if (!sector(membership.sector)) {
-            layout::FileLoad one;
-            one.clusters.push_back(membership);
-            report(membership.sector, "Trick-object cluster of " + get_name(membership.sector), one);
-        }
-    }
+    check_collision_records(file, sector, report);
     // The chains' edits of level nodes (links, dropped points, terrains, facings, flat grinds, speed-ups).
-    const chains::State& chains = file.chains;
-    for (const chains::LinkEdit& link_edit : chains.links) {
-        if (!node(link_edit.name)) {
-            layout::FileLoad one;
-            one.chains.links.push_back(link_edit);
-            report(link_edit.name, "Links of " + get_name(link_edit.name), one);
-        }
-    }
-    for (const uint32_t name : chains.dropped) {
-        if (!node(name)) {
-            layout::FileLoad one;
-            one.chains.dropped.push_back(name);
-            report(name, "Dropped point " + get_name(name), one);
-        }
-    }
-    for (const chains::TerrainEdit& terrain_edit : chains.terrains) {
-        if (!node(terrain_edit.name)) {
-            layout::FileLoad one;
-            one.chains.terrains.push_back(terrain_edit);
-            report(terrain_edit.name, "Terrain of " + get_name(terrain_edit.name), one);
-        }
-    }
-    for (const chains::FacingEdit& facing_edit : chains.facings) {
-        if (!node(facing_edit.name)) {
-            layout::FileLoad one;
-            one.chains.facings.push_back(facing_edit);
-            report(facing_edit.name, "Facing of " + get_name(facing_edit.name), one);
-        }
-    }
-    for (const uint32_t name : chains.grind_flat_) {
-        if (!node(name)) {
-            layout::FileLoad one;
-            one.chains.grind_flat_.push_back(name);
-            report(name, "Flat grind of " + get_name(name), one);
-        }
-    }
-    for (const chains::SpeedEdit& speed_edit : chains.speeds) {
-        if (!node(speed_edit.name)) {
-            layout::FileLoad one;
-            one.chains.speeds.push_back(speed_edit);
-            report(speed_edit.name, "Rail speed-up of " + get_name(speed_edit.name), one);
-        }
-    }
-    for (const entities::Pace& pace : file.entities.speeds) {
-        if (!node(pace.name)) {
-            layout::FileLoad one;
-            one.entities.speeds.push_back(pace);
-            report(pace.name, "Path speed of " + get_name(pace.name), one);
-        }
-    }
-    for (const entities::EmitterSound& emitter_sound : file.entities.emitters) {
-        if (!node(emitter_sound.name)) {
-            layout::FileLoad one;
-            one.entities.emitters.push_back(emitter_sound);
-            report(emitter_sound.name, "Sound emitter " + get_name(emitter_sound.name), one);
-        }
-    }
+    check_chain_and_entity_records(file, node, report);
     if ((file.level.start != 0U) && !node(file.level.start)) {
         layout::FileLoad one;
         one.level = file.level;

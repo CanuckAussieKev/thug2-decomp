@@ -208,6 +208,121 @@ void pad_hints(const CtxInfo& context, Builder& b)
     b.get_raw("Back", "undo");
 }
 
+// Dragging: a typed amount's keys, or the tool's modifiers; what lets it go.
+void drag_hints(const CtxInfo& context, Builder& builder)
+{
+    const char* apply = context.modal ? "LMB" : nullptr;
+    if (!context.typed.empty()) {
+        builder.get_raw("Typed", context.typed);
+        builder.get_raw("Enter", "apply");
+        builder.get_raw("Backspace", "erase");
+        builder.get_raw("X/Y/Z", "axis");
+        builder.get_raw("Esc", "put it back");
+        return;
+    }
+    if (context.drag == Drag::kSpinBy) {
+        builder.get_raw("Mouse", "turns it");
+        builder.get_raw("Ctrl", "steps");
+        builder.get_raw("0-9", "degrees");
+    } else if (context.drag == Drag::kScale) {
+        builder.get_raw("Mouse", "scales it");
+        builder.get_raw("Ctrl", "tenths");
+        builder.get_raw("X/Y/Z", "axis");
+        builder.get_raw("0-9", "a factor");
+    } else if (context.drag == Drag::kMoveAxis) {
+        builder.get_raw("Mouse", "along the arrow");
+        builder.get_raw("Ctrl", "grid");
+        builder.get_raw("Ctrl+Shift", "world grid");
+        builder.get_raw("0-9", "an amount");
+    } else {
+        builder.get_raw("Mouse", "move");
+        builder.get_raw("Shift", "up / down");
+        builder.get_raw("Wheel", "push / pull");
+        builder.get_raw("Ctrl", "grid");
+        builder.get_raw("Ctrl+Shift", "world grid");
+        builder.get_raw("Alt+Shift", "surface");
+        builder.get_raw("Ctrl+Alt", "vertex");
+        builder.get_raw("X/Y/Z", "axis");
+    }
+    if (context.carried > 0) {
+        builder.get_raw("Alt", "leave the " + std::to_string(context.carried) + " carried");
+    }
+    if (apply) {
+        builder.get_raw(apply, "apply");
+    } else {
+        builder.get_raw("LMB", "let go: done");
+    }
+    builder.get_raw("Esc", "put it back");
+}
+
+// A modifier held: what it changes, then what it's bound to (the registry).
+void modifier_hints(const CtxInfo& context, Builder& builder)
+{
+    const bool selected = context.selection != Selection::kNone;
+    if (context.mods == actions::kAlt) {
+        builder.get_raw("Alt+LMB", "one piece (any)");
+        builder.get_raw("Alt+LMB", "drag: orbit");
+        builder.get_raw("Alt+Wheel", "cycle under cursor");
+    } else if (context.mods == actions::kShift) {
+        builder.get_raw("Shift+LMB", "add / remove");
+        if (selected) {
+            builder.get_raw("Shift+LMB", "drag: up / down");
+        }
+    } else if (context.mods == actions::kCtrl) {
+        if (context.selection == Selection::kScenery) {
+            builder.get_raw("Ctrl+LMB", "remove a part");
+        }
+        builder.get_raw("Ctrl+LMB", "drag: remove box");
+    }
+    for (const auto& mod : context.modded) {
+        builder.get_raw(mod.first, mod.second);
+    }
+}
+
+// Something selected: the tool, nudging and turning (a chain point's own), copying, framing, deleting.
+void selection_hints(const CtxInfo& context, Builder& builder)
+{
+    builder.get_raw("LMB", "drag: move");
+    if (context.selection == Selection::kWall) {
+        builder.act("delete", "collision off");
+        builder.act("home", "put back");
+        builder.get_raw("Esc", "deselect");
+        return;
+    }
+    if (!context.fly_always_) {
+        const char* tool = "tool (move)";
+        if (context.tool == 1) {
+            tool = "tool (rotate)";
+        } else if (context.tool == 2) {
+            tool = "tool (scale)";
+        }
+        builder.acts({"tool_move", "tool_rotate", "tool_scale"}, tool);
+    } else {
+        builder.act("tool_cycle", "next tool");
+    }
+    builder.get_fly(context, context.fly_always_ ? "nudge" : "fly");
+    builder.acts({"nudge_forward", "nudge_back", "nudge_left", "nudge_right"}, "nudge");
+    if (context.chain_point_) {
+        builder.act("lock", "whole chain");
+        builder.act("chain_insert", "insert a point");
+        builder.act("chain_extend", "draw on");
+    } else {
+        builder.acts({"turn_left", "turn_right"}, "turn");
+    }
+    builder.act("drop", "drop");
+    builder.act("duplicate", "copy");
+    builder.act("linked_duplicate", "linked copy");
+    if (context.selection == Selection::kScenery) {
+        builder.act("edge_rail", "rail along an edge");
+    }
+    builder.act("arrange_window", "arrange");
+    builder.act("frame_selection", "frame");
+    builder.act("follow_selection", context.following ? "stop following" : "follow");
+    builder.act("pie_context", "pie");
+    builder.act("delete", "delete");
+    builder.get_raw("Esc", "deselect");
+}
+
 } // namespace
 
 std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of)
@@ -277,48 +392,7 @@ std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of)
     }
     // Dragging.
     if (context.drag != Drag::kNone) {
-        const char* apply = context.modal ? "LMB" : nullptr;
-        if (!context.typed.empty()) {
-            builder.get_raw("Typed", context.typed);
-            builder.get_raw("Enter", "apply");
-            builder.get_raw("Backspace", "erase");
-            builder.get_raw("X/Y/Z", "axis");
-            builder.get_raw("Esc", "put it back");
-            return builder.hints();
-        }
-        if (context.drag == Drag::kSpinBy) {
-            builder.get_raw("Mouse", "turns it");
-            builder.get_raw("Ctrl", "steps");
-            builder.get_raw("0-9", "degrees");
-        } else if (context.drag == Drag::kScale) {
-            builder.get_raw("Mouse", "scales it");
-            builder.get_raw("Ctrl", "tenths");
-            builder.get_raw("X/Y/Z", "axis");
-            builder.get_raw("0-9", "a factor");
-        } else if (context.drag == Drag::kMoveAxis) {
-            builder.get_raw("Mouse", "along the arrow");
-            builder.get_raw("Ctrl", "grid");
-            builder.get_raw("Ctrl+Shift", "world grid");
-            builder.get_raw("0-9", "an amount");
-        } else {
-            builder.get_raw("Mouse", "move");
-            builder.get_raw("Shift", "up / down");
-            builder.get_raw("Wheel", "push / pull");
-            builder.get_raw("Ctrl", "grid");
-            builder.get_raw("Ctrl+Shift", "world grid");
-            builder.get_raw("Alt+Shift", "surface");
-            builder.get_raw("Ctrl+Alt", "vertex");
-            builder.get_raw("X/Y/Z", "axis");
-        }
-        if (context.carried > 0) {
-            builder.get_raw("Alt", "leave the " + std::to_string(context.carried) + " carried");
-        }
-        if (apply) {
-            builder.get_raw(apply, "apply");
-        } else {
-            builder.get_raw("LMB", "let go: done");
-        }
-        builder.get_raw("Esc", "put it back");
+        drag_hints(context, builder);
         return builder.hints();
     }
     // Looking / flying with the right button.
@@ -368,25 +442,7 @@ std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of)
     }
     // A modifier held: what it changes, then what it's bound to (the registry).
     if (context.mods != 0U) {
-        const bool selected = context.selection != Selection::kNone;
-        if (context.mods == actions::kAlt) {
-            builder.get_raw("Alt+LMB", "one piece (any)");
-            builder.get_raw("Alt+LMB", "drag: orbit");
-            builder.get_raw("Alt+Wheel", "cycle under cursor");
-        } else if (context.mods == actions::kShift) {
-            builder.get_raw("Shift+LMB", "add / remove");
-            if (selected) {
-                builder.get_raw("Shift+LMB", "drag: up / down");
-            }
-        } else if (context.mods == actions::kCtrl) {
-            if (context.selection == Selection::kScenery) {
-                builder.get_raw("Ctrl+LMB", "remove a part");
-            }
-            builder.get_raw("Ctrl+LMB", "drag: remove box");
-        }
-        for (const auto& mod : context.modded) {
-            builder.get_raw(mod.first, mod.second);
-        }
+        modifier_hints(context, builder);
         return builder.hints();
     }
     switch (context.selection) {
@@ -416,45 +472,7 @@ std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of)
         builder.act("help", "help");
         break;
     default: {
-        builder.get_raw("LMB", "drag: move");
-        if (context.selection == Selection::kWall) {
-            builder.act("delete", "collision off");
-            builder.act("home", "put back");
-            builder.get_raw("Esc", "deselect");
-            break;
-        }
-        if (!context.fly_always_) {
-            const char* tool = "tool (move)";
-            if (context.tool == 1) {
-                tool = "tool (rotate)";
-            } else if (context.tool == 2) {
-                tool = "tool (scale)";
-            }
-            builder.acts({"tool_move", "tool_rotate", "tool_scale"}, tool);
-        } else {
-            builder.act("tool_cycle", "next tool");
-        }
-        builder.get_fly(context, context.fly_always_ ? "nudge" : "fly");
-        builder.acts({"nudge_forward", "nudge_back", "nudge_left", "nudge_right"}, "nudge");
-        if (context.chain_point_) {
-            builder.act("lock", "whole chain");
-            builder.act("chain_insert", "insert a point");
-            builder.act("chain_extend", "draw on");
-        } else {
-            builder.acts({"turn_left", "turn_right"}, "turn");
-        }
-        builder.act("drop", "drop");
-        builder.act("duplicate", "copy");
-        builder.act("linked_duplicate", "linked copy");
-        if (context.selection == Selection::kScenery) {
-            builder.act("edge_rail", "rail along an edge");
-        }
-        builder.act("arrange_window", "arrange");
-        builder.act("frame_selection", "frame");
-        builder.act("follow_selection", context.following ? "stop following" : "follow");
-        builder.act("pie_context", "pie");
-        builder.act("delete", "delete");
-        builder.get_raw("Esc", "deselect");
+        selection_hints(context, builder);
         break;
     }
     }
