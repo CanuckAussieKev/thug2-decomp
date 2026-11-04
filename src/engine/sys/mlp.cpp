@@ -23,7 +23,7 @@
 #include "game/online/gamenet_manager.h"
 #include "game/online/thugpro_compat.h"
 #include "game/skate/skate_module.h"
-#include "game/skate/thugpro_cas.h"
+#include "engine/file/thugpro_cas.h"
 #include "engine/pad_input/device.h"
 #include "platform/sdl_events.h"
 #include "engine/sys/stopwatch.h"

@@ -15,7 +15,7 @@
 
 #include "engine/ext/extension.h"
 #include "engine/gfx/hd_ui.h"
-#include "game/skate/thugpro_cas.h"
+#include "engine/file/thugpro_cas.h"
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
 #include "engine/file/file_load.h"
@@ -131,7 +131,7 @@ bool get_overlay_path(const char* name, std::array<char, file::kOverlayPathSize>
             full = candidate;
         }
     }
-    // Last: a THUGPRO part's file from the user's THUGPRO install (TP-R10, game/skate/thugpro_cas.h).
+    // Last: a THUGPRO part's file from the user's THUGPRO install (TP-R10, engine/file/thugpro_cas.h).
     if (full.empty()) {
         return objects::thugpro_cas::file_path(relative.data(), path);
     }

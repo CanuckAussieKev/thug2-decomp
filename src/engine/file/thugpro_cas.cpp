@@ -1,7 +1,7 @@
 // NOT ORIGINAL - THUGPRO's own CAS parts and boards, read from the user's THUGPRO install by reference. See
 // thugpro_cas.h.
 
-#include "game/skate/thugpro_cas.h"
+#include "engine/file/thugpro_cas.h"
 
 #include <windows.h>
 

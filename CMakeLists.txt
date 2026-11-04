@@ -496,7 +496,7 @@ add_executable(thug2 WIN32
     src/game/skate/career_cfuncs.cpp
     src/game/skate/skater_profile.cpp
     src/game/skate/appearance_guard.cpp
-    src/game/skate/thugpro_cas.cpp
+    src/engine/file/thugpro_cas.cpp
     src/game/rider/rider.cpp
     src/game/rider/skater_query_cfuncs.cpp
     src/engine/gfx/device.cpp

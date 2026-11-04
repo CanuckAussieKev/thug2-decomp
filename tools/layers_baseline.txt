@@ -8,7 +8,6 @@ src/devtools/start_level.cpp -> src/editor/level_editor_layout.h
 src/devtools/start_level.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor_play.cpp -> src/frontend/mouse_menus.h
-src/engine/file/data_overlay.cpp -> src/game/skate/thugpro_cas.h
 src/engine/gfx/screen.cpp -> src/game/skate/career.h
 src/engine/gfx/screen.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/tod_manager.cpp -> src/game/front_end/front_end.h
@@ -25,7 +24,6 @@ src/engine/sys/debug_mode.cpp -> src/game/front_end/front_end.h
 src/engine/sys/mlp.cpp -> src/game/online/gamenet_manager.h
 src/engine/sys/mlp.cpp -> src/game/online/thugpro_compat.h
 src/engine/sys/mlp.cpp -> src/game/skate/skate_module.h
-src/engine/sys/mlp.cpp -> src/game/skate/thugpro_cas.h
 src/engine/sys/model_viewer.cpp -> src/game/front_end/front_end.h
 src/engine/sys/model_viewer.cpp -> src/game/online/gamenet_handlers.h
 src/formats/check/format_check.cpp -> src/wire/gamenet_messages.h
