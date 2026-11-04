@@ -335,37 +335,33 @@ float Seg::distance_sqr_to_point(const Vec4& point, Vec4* offset) const
     return (result.x * result.x) + (result.y * result.y) + (result.z * result.z);
 }
 
-// 0x00402640
-// Region-based closest points between two segments. With this = P0 + s*D0 and other = P1 + t*D1, the squared
-// distance is a quadratic in (s, t):  a00 s^2 + 2 a01 s t + a11 t^2 + 2 b0 s + 2 b1 t + c.  Its unconstrained
-// minimum is checked against the unit square, and the edge or corner it falls outside of is minimised instead.
-// The branch order follows the original exactly (it matters for which edge wins at region boundaries).
-double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) const
-{
-    const float dx = start.x - other.start.x;
-    const float dy = start.y - other.start.y;
-    const float dz = start.z - other.start.z;
-    const float d0x = end.x - start.x;
-    const float d0y = end.y - start.y;
-    const float d0z = end.z - start.z;
-    const float d1x = other.end.x - other.start.x;
-    const float d1y = other.end.y - other.start.y;
-    const float d1z = other.end.z - other.start.z;
+namespace {
 
-    const float a00 = (d0y * d0y) + (d0z * d0z) + (d0x * d0x);
-    const float a01 = (-d0y * d1y) + (-d0z * d1z) + (-d0x * d1x);
-    const float a11 = (d1y * d1y) + (d1z * d1z) + (d1x * d1x);
-    const float b0 = (d0z * dz) + (d0y * dy) + (d0x * dx);
-    const float length_sqr = (dy * dy) + (dz * dz) + (dx * dx);
-    const float det = std::fabs((a11 * a00) - (a01 * a01));
-    auto compute_b1 = [&] { return (-dy * d1y) + (-dz * d1z) + (-dx * d1x); };
-
+// Seg::distance_sqr_to_line's quadratic a00 s^2 + 2 a01 s t + a11 t^2 + 2 b0 s + 2 b1 t + c (c: length_sqr, b1 from
+// the offset dx dy dz and the other segment's direction), its determinant, and the minimum found: (s, t) and the
+// squared distance there.
+struct SegmentPairQuadratic {
+    float dx{};
+    float dy{};
+    float dz{};
+    float d1x{};
+    float d1y{};
+    float d1z{};
+    float a00{};
+    float a01{};
+    float a11{};
+    float b0{};
+    float length_sqr{};
+    float det{};
     float along_a = 0.0F;
     float along_b = 0.0F;
-    float sqr = length_sqr;
+    float sqr = 0.0F;
+
+    [[nodiscard]] float compute_b1() const { return (-dy * d1y) + (-dz * d1z) + (-dx * d1x); }
 
     // Minimise along one edge of the unit square.
-    auto edge_s0 = [&](float b1) { // s = 0, t free
+    void edge_s0(float b1) // s = 0, t free
+    {
         along_a = 0.0F;
         if (b1 >= 0.0F) {
             along_b = 0.0F;
@@ -377,8 +373,9 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
             along_b = -b1 / a11;
             sqr = (-(b1 / a11) * b1) + length_sqr;
         }
-    };
-    auto edge_t0 = [&] { // t = 0, s free
+    }
+    void edge_t0() // t = 0, s free
+    {
         along_b = 0.0F;
         if (b0 >= 0.0F) {
             along_a = 0.0F;
@@ -390,8 +387,9 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
             along_a = -b0 / a00;
             sqr = (-(b0 / a00) * b0) + length_sqr;
         }
-    };
-    auto edge_s1 = [&](float b1) { // s = 1, t free
+    }
+    void edge_s1(float b1) // s = 1, t free
+    {
         along_a = 1.0F;
         const float tmp = b1 + a01;
         if (tmp < 0.0F) {
@@ -406,9 +404,10 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
             along_b = 0.0F;
             sqr = b0 + b0 + length_sqr + a00;
         }
-    };
+    }
     // t = 1 with s free, when b0 + a01 < 0 (the caller checks).
-    auto edge_t1_inside = [&](float tmp, float b1) {
+    void edge_t1_inside(float tmp, float b1)
+    {
         along_b = 1.0F;
         if (-tmp < a00) {
             along_a = -tmp / a00;
@@ -417,16 +416,17 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
             along_a = 1.0F;
             sqr = tmp + b1 + tmp + b1 + length_sqr + a11 + a00;
         }
-    };
-    auto corner_s0_t1 = [&](float b1) {
+    }
+    void corner_s0_t1(float b1)
+    {
         along_a = 0.0F;
         along_b = 1.0F;
         sqr = b1 + b1 + length_sqr + a11;
-    };
+    }
 
-    // Comparisons are written so NaNs take the same branches as in the original.
-    if (!(det < kParallelDeterminant)) {
-        // Not parallel: scaled by det, the unconstrained minimum is at (s, t).
+    // Not parallel: scaled by det, the unconstrained minimum is at (s, t).
+    void minimise_crossing()
+    {
         const float b1 = compute_b1();
         along_a = (a01 * b1) - (a11 * b0);
         along_b = (a01 * b0) - (a00 * b1);
@@ -471,8 +471,10 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
             sqr = ((b0 + b0 + (along_a * a00) + (along_b * a01)) * along_a) +
                   ((b1 + b1 + (along_a * a01) + (along_b * a11)) * along_b) + length_sqr;
         }
-    } else if (a01 <= 0.0F) {
-        // Parallel, pointing the same way.
+    }
+    // Parallel, pointing the same way.
+    void minimise_same_way()
+    {
         if (a00 <= -b0) {
             along_b = 0.0F;
             along_a = 1.0F;
@@ -492,8 +494,10 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
             along_b = 0.0F;
             sqr = (along_a * b0) + length_sqr;
         }
-    } else {
-        // Parallel, pointing opposite ways.
+    }
+    // Parallel, pointing opposite ways.
+    void minimise_opposite_ways()
+    {
         if (b0 >= 0.0F) {
             along_a = 0.0F;
             along_b = 0.0F;
@@ -516,14 +520,63 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
             sqr = (along_a * b0) + length_sqr;
         }
     }
+};
+
+} // namespace
+
+// 0x00402640
+// Region-based closest points between two segments. With this = P0 + s*D0 and other = P1 + t*D1, the squared
+// distance is a quadratic in (s, t):  a00 s^2 + 2 a01 s t + a11 t^2 + 2 b0 s + 2 b1 t + c.  Its unconstrained
+// minimum is checked against the unit square, and the edge or corner it falls outside of is minimised instead.
+// The branch order follows the original exactly (it matters for which edge wins at region boundaries).
+double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) const
+{
+    const float dx = start.x - other.start.x;
+    const float dy = start.y - other.start.y;
+    const float dz = start.z - other.start.z;
+    const float d0x = end.x - start.x;
+    const float d0y = end.y - start.y;
+    const float d0z = end.z - start.z;
+    const float d1x = other.end.x - other.start.x;
+    const float d1y = other.end.y - other.start.y;
+    const float d1z = other.end.z - other.start.z;
+
+    const float a00 = (d0y * d0y) + (d0z * d0z) + (d0x * d0x);
+    const float a01 = (-d0y * d1y) + (-d0z * d1z) + (-d0x * d1x);
+    const float a11 = (d1y * d1y) + (d1z * d1z) + (d1x * d1x);
+    const float b0 = (d0z * dz) + (d0y * dy) + (d0x * dx);
+    const float length_sqr = (dy * dy) + (dz * dz) + (dx * dx);
+    const float det = std::fabs((a11 * a00) - (a01 * a01));
+    SegmentPairQuadratic quadratic{.dx = dx,
+                                   .dy = dy,
+                                   .dz = dz,
+                                   .d1x = d1x,
+                                   .d1y = d1y,
+                                   .d1z = d1z,
+                                   .a00 = a00,
+                                   .a01 = a01,
+                                   .a11 = a11,
+                                   .b0 = b0,
+                                   .length_sqr = length_sqr,
+                                   .det = det,
+                                   .sqr = length_sqr};
+
+    // Comparisons are written so NaNs take the same branches as in the original.
+    if (!(det < kParallelDeterminant)) {
+        quadratic.minimise_crossing();
+    } else if (a01 <= 0.0F) {
+        quadratic.minimise_same_way();
+    } else {
+        quadratic.minimise_opposite_ways();
+    }
 
     if (s_out) {
-        *s_out = along_a;
+        *s_out = quadratic.along_a;
     }
     if (t_out) {
-        *t_out = along_b;
+        *t_out = quadratic.along_b;
     }
-    return std::fabs(sqr);
+    return std::fabs(quadratic.sqr);
 }
 
 // 0x004032E0
