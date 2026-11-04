@@ -1,9 +1,9 @@
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor.h"
-#include "gpu/vertex_view.h"
+#include "engine/gfx/vertex_view.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/render_state.h"
+#include "render_d3d9/render_state.h"
 #include <span>
 
 #include <algorithm>

@@ -51,7 +51,7 @@ The index below lists each kind of shared constant or enum and the header that h
 | 2D layout sizes (640 x 480, the screen elements' 640 x 448) | `engine/gfx/screen.h` |
 | The new front end's 1280 x 720 design canvas | `frontend/new_frontend_model.h` |
 | The screen elements' float constants as the original stores them | `engine/ui/screen_constants.h` |
-| The renderer's render-state ids (`render::RenderStateId`); blend modes, Direct3D values (address modes, texture ops, lock flags, vertex format bits) | `engine/gfx/render_state.h` |
+| The renderer's render-state ids (`render::RenderStateId`); blend modes, Direct3D values (address modes, texture ops, lock flags, vertex format bits) | `render_d3d9/render_state.h` |
 | pi and a full turn | `base/maths/trig.h` (`maths::kPi`, `maths::kTwoPi`) |
 | A flat 4 x 4 matrix's float count and element indices | `base/maths/mat4.h` (`maths::kMatrixFloats`, `kMatXx` ... `kMatTw`) |
 | Units (inches per foot), double-to-integer limits | `base/maths/maths.h` |

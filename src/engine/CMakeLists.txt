@@ -1,7 +1,7 @@
 # The engine (src/engine): memory, files, assets, the script data model and interpreter, the object framework, the
 # renderer, collision, audio and sound, input, the network transport, the main loop and the original's screen
 # elements. One library for now (its modules form one include cycle). It includes only the layers below it - base,
-# platform, formats, wire and gpu (tools/layers.ts checks it); what it asks of the game goes through the hooks app/
+# platform, formats and wire (tools/layers.ts checks it); what it asks of the game goes through the hooks app/
 # installs. The sources keep their order in the exe's list before the split (the link order).
 add_library(thug2_engine STATIC
     ext/extension.cpp
@@ -30,7 +30,6 @@ add_library(thug2_engine STATIC
     ui/text_element.cpp
     ui/text_block.cpp
     file/data_overlay.cpp
-    gfx/screenshot_capture.cpp
     ui/ui_fonts.cpp
     gfx/anim_controller.cpp
     gfx/anim_track.cpp
@@ -46,9 +45,7 @@ add_library(thug2_engine STATIC
     gfx/rig.cpp
     gfx/settings.cpp
     gfx/glyphs.cpp
-    gfx/flash.cpp
     gfx/font.cpp
-    gfx/text.cpp
     gfx/tod_manager.cpp
     sys/model_viewer.cpp
     sys/viewer_object.cpp
@@ -58,8 +55,6 @@ add_library(thug2_engine STATIC
     objects/anim_movies.cpp
     objects/rail_manager.cpp
     file/thugpro_cas.cpp
-    gfx/device.cpp
-    gfx/movie.cpp
     audio/bink_stream.cpp
     audio/bink_stream_files.cpp
     audio/music_player.cpp
@@ -69,31 +64,10 @@ add_library(thug2_engine STATIC
     audio/music_api.cpp
     audio/music_cfuncs.cpp
     audio/continue_music.cpp
-    gfx/loading_bar.cpp
     gfx/loading_console.cpp
-    gfx/loading_console_panel.cpp
-    gfx/draw_frame.cpp
-    gfx/wireframe.cpp
-    gfx/view_mode.cpp
-    gfx/billboard_quad.cpp
     gfx/view_cam.cpp
     gfx/world_scene.cpp
     gfx/engine_glue.cpp
-    gfx/pc_engine.cpp
-    gfx/scene_load.cpp
-    gfx/pc_font.cpp
-    gfx/geom.cpp
-    gfx/pc_lights.cpp
-    gfx/primitive_states.cpp
-    gfx/loading_screen.cpp
-    gfx/pc_mesh.cpp
-    gfx/pc_mesh_life.cpp
-    gfx/pc_mesh_load.cpp
-    gfx/pc_mesh_render.cpp
-    gfx/pc_fog.cpp
-    gfx/texture_splats.cpp
-    gfx/shatter.cpp
-    gfx/pc_model.cpp
     gfx/particle_system.cpp
     gfx/particle_system_update.cpp
     gfx/particle_types.cpp
@@ -135,43 +109,11 @@ add_library(thug2_engine STATIC
     gfx/engine_particles.cpp
     gfx/particle_maths.cpp
     gfx/spawned_polys.cpp
-    gfx/pc_particles.cpp
-    gfx/pc_flexible_particles.cpp
-    gfx/pc_primitive.cpp
-    gfx/pc_scene.cpp
-    gfx/pc_sprite.cpp
-    gfx/pc_texture.cpp
-    gfx/pc_texture_projection.cpp
-    gfx/pc_viewport.cpp
-    gfx/pc_weather.cpp
-    gfx/pc_billboards.cpp
-    gfx/pc_buffers.cpp
-    gfx/pc_gamma.cpp
-    gfx/pc_grass.cpp
-    gfx/pc_instance.cpp
-    gfx/mesh_pass.cpp
-    gfx/pc_material.cpp
-    gfx/pc_material_load.cpp
-    gfx/render_state.cpp
     gfx/renderer.cpp
     gfx/render_device.cpp
-    gfx/d3d9_device.cpp
-    gfx/d3d9_state.cpp
     gfx/occlusion.cpp
-    gfx/shadow_base.cpp
-    gfx/mesh_list.cpp
-    gfx/pixel_shaders.cpp
-    gfx/simple_material.cpp
-    gfx/screen_fx.cpp
-    gfx/draw2d.cpp
-    gfx/sub_mesh.cpp
-    gfx/scene_render.cpp
-    gfx/glow.cpp
-    gfx/bitmap_texture.cpp
-    gfx/texture_file.cpp
     gfx/hd_ui.cpp
     gfx/graphics_options.cpp
-    gfx/graphics_options_d3d.cpp
     pad_input/key_names.cpp
     objects/anim_blender.cpp
     objects/ride_tracker.cpp
@@ -301,7 +243,6 @@ add_library(thug2_engine STATIC
     pad_input/input_hub.cpp
     pad_input/sdl_input.cpp
     pad_input/input_setup.cpp
-    gfx/pc_d3d_resources.cpp
     pad_input/direct_input.cpp
     pad_input/direct_input_state.cpp
     pad_input/pad_cfuncs.cpp
@@ -359,9 +300,9 @@ add_library(thug2_engine STATIC
 # (the UI fonts, compressed at build time: ui/ui_fonts.cpp includes them)
 target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
 add_dependencies(thug2_engine editor_fonts)
-# imgui: the loading console's panel (gfx/loading_console_panel.cpp); lzham: THUGPRO's compression method (net/net_lzham.cpp);
-# dinput8 / dxguid: DirectInput's data formats and effect GUIDs (pad_input/direct_input.cpp)
-target_link_libraries(thug2_engine PUBLIC thug2_gpu thug2_wire PRIVATE imgui lzham dinput8 dxguid)
+# lzham: THUGPRO's compression method (net/net_lzham.cpp); dinput8 / dxguid: DirectInput's data formats and effect
+# GUIDs (pad_input/direct_input.cpp)
+target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE lzham dinput8 dxguid)
 # The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
 # them deprecated unless this is defined.
 set_source_files_properties(net/net_manager.cpp net/net_manager_apps.cpp sys/model_viewer.cpp

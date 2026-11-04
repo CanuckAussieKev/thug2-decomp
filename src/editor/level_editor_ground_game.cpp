@@ -19,7 +19,7 @@
 #include <utility>
 #include <array>
 
-#include "gpu/d3d9_handles.h"
+#include "render_d3d9/d3d9_handles.h"
 #include "editor/level_editor.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/engine_geom.h"
@@ -32,17 +32,17 @@
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/gfx/sub_mesh.h"
+#include "render_d3d9/sub_mesh.h"
 #include "engine/gfx/sector.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
-#include "gpu/vertex_buffers.h"
+#include "render_d3d9/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "platform/crt.h"
-#include "engine/gfx/geom.h"
+#include "render_d3d9/geom.h"
 #include "engine/gfx/surface_material.h"
 #include "base/core/down_cast.h"
-#include "gpu/vertex_view.h"
+#include "engine/gfx/vertex_view.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "base/core/format.h"

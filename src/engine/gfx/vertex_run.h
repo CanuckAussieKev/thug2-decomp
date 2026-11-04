@@ -7,7 +7,7 @@
 
 #include "engine/gfx/engine_primitive.h"
 #include "engine/memory/mem.h"
-#include "gpu/vertex_view.h"
+#include "engine/gfx/vertex_view.h"
 #include "base/core/checked_index.h"
 #include "base/core/packed_colour.h"
 #include "base/maths/vec2.h"
@@ -68,7 +68,7 @@ constexpr std::size_t kVertexNormalColourUvBytes = 0x24;
 static_assert(sizeof(VertexColour) == kVertexColourBytes && sizeof(VertexColourUv) == kVertexColourUvBytes && sizeof(VertexNormalColourUv) == kVertexNormalColourUvBytes,
               "the Direct3D vertex layouts");
 
-// The vertex `index` in the layout V / its position (any layout, by the stride): gpu/vertex_view.h.
+// The vertex `index` in the layout V / its position (any layout, by the stride): engine/gfx/vertex_view.h.
 template <typename V>
 V& vertex_at(std::span<uint8_t> vertices, int index)
 {

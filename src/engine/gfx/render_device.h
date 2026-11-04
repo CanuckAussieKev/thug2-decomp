@@ -5,7 +5,7 @@
 // our own); the engine side is everything above it - the engine's own entry points, the scenes, models, effects and
 // lights as the engine sees them, the scripts, the game. Every call the engine side makes into the backend for a
 // frame, a resource, a state block or a draw batch goes through the one installed device; app/ makes it and installs
-// it at start-up (install_device), a run-time choice - Direct3D 9's (engine/gfx/d3d9_device.h) is the only one so far.
+// it at start-up (install_device), a run-time choice - Direct3D 9's (render_d3d9/d3d9_device.h) is the only one so far.
 // The interface is shaped so that another backend (Vulkan) can stand in: resources are made explicitly and given
 // back, states are set as the engine groups them (the fog, the gamma, the primitives' states), the frame is begun,
 // drawn and finished as a whole, and a lost device is reset by the engine's main loop in steps.
@@ -29,7 +29,7 @@
 #include <gsl/pointers>
 
 #include "base/core/checksums.h"
-#include "gpu/gpu_handles.h"
+#include "engine/gfx/gpu_handles.h"
 #include "base/maths/rect.h"
 
 namespace gfx {

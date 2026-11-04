@@ -16,7 +16,7 @@
 //
 // The pieces: screenshot.cpp (this: the key, the frame's request, what the sidecar says, the worker thread that
 // writes), screenshot_files.cpp (pure: names, pixels -> RGB, PNG, the sidecar's text) and
-// engine/gfx/screenshot_capture.cpp (the renderer backend: the only file of it that includes Direct3D).
+// render_d3d9/screenshot_capture.cpp (the renderer backend: the only file of it that includes Direct3D).
 //
 // thug2-decomp.ini: [features] screenshots=0 turns it off (default 1); [features] screenshot_dir= another folder
 // (relative: to the game folder); [Keybinds] Screenshot= the key - an SDL scan code (70 Print Screen, 69 F12) or a

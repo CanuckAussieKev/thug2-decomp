@@ -15,7 +15,7 @@
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_view.h"
-#include "engine/gfx/view_mode.h"
+#include "render_d3d9/view_mode.h"
 #include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"

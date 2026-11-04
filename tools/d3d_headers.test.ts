@@ -1,6 +1,6 @@
 // NOT ORIGINAL - where Direct3D's headers may be seen (docs/architecture.md "gpu/"): a header under src/ includes
 // <d3d9.h> / <d3dx9*.h> - itself or through another of the project's headers - only if it is one of Direct3D's own
-// headers below. Every other header holds the graphics handles (gpu/gpu_handles.h), so a file that doesn't talk to
+// headers below. Every other header holds the graphics handles (engine/gfx/gpu_handles.h), so a file that doesn't talk to
 // Direct3D never sees its API.
 
 import assert from "node:assert/strict";
@@ -13,11 +13,11 @@ const SRC = join(ROOT, "src");
 
 // Direct3D's own headers: the files that talk to Direct3D include them.
 const DIRECT3D_HEADERS = new Set([
-    "engine/gfx/d3d9_state.h",
-    "engine/gfx/device_d3d.h",
-    "engine/gfx/pc_d3d_resources.h",
-    "gpu/d3d9_handles.h",
-    "platform/d3d_matrix.h",
+    "render_d3d9/d3d9_state.h",
+    "render_d3d9/device_d3d.h",
+    "render_d3d9/pc_d3d_resources.h",
+    "render_d3d9/d3d9_handles.h",
+    "render_d3d9/d3d_matrix.h",
     "platform/d3dx_jpg.h",
     "platform/imgui_texture_id.h",
 ]);
@@ -69,13 +69,13 @@ test("only app/ picks the Direct3D 9 device", () => {
             if (entry.isDirectory()) walk(path);
             else if (/\.(cpp|h)$/.test(entry.name)) {
                 const name = relative(SRC, path).replaceAll("\\", "/");
-                if (/^\s*#\s*include\s*"engine\/gfx\/d3d9_device\.h"/m.test(readFileSync(path, "utf8")))
+                if (/^\s*#\s*include\s*"render_d3d9\/d3d9_device\.h"/m.test(readFileSync(path, "utf8")))
                     pickers.push(name);
             }
         }
     };
     walk(SRC);
-    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "engine/gfx/d3d9_device.cpp").sort();
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/d3d9_device.cpp").sort();
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the device");
 });

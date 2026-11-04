@@ -10,12 +10,12 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/render_camera.h"
 #include "base/maths/mat4.h"
-#include "gpu/gpu_handles.h"
+#include "engine/gfx/gpu_handles.h"
 
 // NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
 // counters, and the render state the device was last sent (the original's globals; each member's comment or its
 // record's gives the original's address where known). No graphics API's type: the Direct3D objects themselves are in
-// engine/gfx/d3d9_state.h, for the files that talk to Direct3D.
+// render_d3d9/d3d9_state.h, for the files that talk to Direct3D.
 namespace render {
 
 constexpr size_t kPsConstantFloats = 20; // the pixel shader constant bank

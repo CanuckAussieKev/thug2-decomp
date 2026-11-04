@@ -190,16 +190,18 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 # --- The layers (docs/architecture.md "Layers"; tools/layers.json is the map, tools/cmake_layers.ts checks that the
 # libraries below link as it says) ---------------------------------------------------------------------------------
 # One static library per folder of src/, each in its folder's CMakeLists.txt, linking only the layers below it:
-#   thug2_base <- thug2_platform, thug2_formats <- thug2_wire; thug2_platform <- thug2_gpu;
-#   thug2_gpu + thug2_wire <- thug2_engine <- thug2_game <- thug2_frontend, thug2_editor, thug2_devtools <- the exe (src/app).
+#   thug2_base <- thug2_platform, thug2_formats <- thug2_wire;
+#   thug2_platform + thug2_wire <- thug2_engine <- thug2_game <- thug2_frontend, thug2_editor, thug2_devtools <- the exe (src/app);
+#   thug2_engine <- thug2_render_d3d9 (the graphics backend: the exe links it, and the editor until its own Direct3D
+#   code - the ImGui backend, the preview's and the ground's drawing - goes behind the engine's interfaces).
 # The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 add_subdirectory(src/base)
 add_subdirectory(src/formats)
 add_subdirectory(src/wire)
 add_subdirectory(src/platform)
-add_subdirectory(src/gpu)
 add_subdirectory(src/engine)
+add_subdirectory(src/render_d3d9)
 add_subdirectory(src/game)
 add_subdirectory(src/frontend)
 add_subdirectory(src/editor)

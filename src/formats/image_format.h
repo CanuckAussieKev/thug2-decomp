@@ -16,7 +16,7 @@
 // then the palette (palette formats only) and the texels: bits / 8 per texel, padded to 4 bytes - swizzled unless
 // the texture's sizes aren't both powers of two (then the image's sizes, as they are).
 //
-// Read by render::read_texture_file / load_texture_memory (engine/gfx/texture_file.cpp).
+// Read by render::read_texture_file / load_texture_memory (render_d3d9/texture_file.cpp).
 namespace image_format {
 
 constexpr size_t kHeaderSize = 0x20;

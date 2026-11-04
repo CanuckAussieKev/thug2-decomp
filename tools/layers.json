@@ -1,6 +1,6 @@
 {
-    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs.",
-    "strict": ["base", "platform", "formats", "wire", "gpu", "engine", "game"],
+    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_d3d9) are included by app/ only - and by the editor, until its own Direct3D code (the ImGui backend, the preview's and the ground's drawing) goes behind the engine's interfaces.",
+    "strict": ["base", "platform", "formats", "wire", "engine", "render_d3d9", "game"],
     "libraries": {
         "base": {
             "folders": ["src/base/"],
@@ -9,27 +9,27 @@
         "platform": { "folders": ["src/platform/"], "allowed": ["base"] },
         "formats": { "folders": ["src/formats/"], "allowed": ["base"] },
         "wire": { "folders": ["src/wire/"], "allowed": ["base", "formats"] },
-        "gpu": { "folders": ["src/gpu/"], "allowed": ["base", "platform"] },
-        "engine": { "folders": ["src/engine/"], "allowed": ["base", "platform", "formats", "wire", "gpu"] },
+        "engine": { "folders": ["src/engine/"], "allowed": ["base", "platform", "formats", "wire"] },
+        "render_d3d9": { "folders": ["src/render_d3d9/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "game": {
             "folders": ["src/game/"],
-            "allowed": ["base", "platform", "formats", "wire", "gpu", "engine"]
+            "allowed": ["base", "platform", "formats", "wire", "engine"]
         },
         "frontend": {
             "folders": ["src/frontend/"],
-            "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game"]
+            "allowed": ["base", "platform", "formats", "wire", "engine", "game"]
         },
         "editor": {
             "folders": ["src/editor/"],
-            "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game"]
+            "allowed": ["base", "platform", "formats", "wire", "engine", "game", "render_d3d9"]
         },
         "devtools": {
             "folders": ["src/devtools/"],
-            "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game"]
+            "allowed": ["base", "platform", "formats", "wire", "engine", "game"]
         },
         "app": {
             "folders": ["src/app/", "src/tests/"],
-            "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game", "frontend", "editor", "devtools"]
+            "allowed": ["base", "platform", "formats", "wire", "engine", "render_d3d9", "game", "frontend", "editor", "devtools"]
         }
     }
 }

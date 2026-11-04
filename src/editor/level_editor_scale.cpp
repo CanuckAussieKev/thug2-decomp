@@ -19,7 +19,7 @@
 #include <array>
 
 #include "editor/level_editor.h"
-#include "engine/gfx/sub_mesh.h"
+#include "render_d3d9/sub_mesh.h"
 #include "engine/gfx/model.h"
 #include "engine/render/coll_movable.h"
 #include "engine/render/coll_obj.h"
@@ -31,10 +31,10 @@
 #include "engine/render/coll_line.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
-#include "engine/gfx/geom.h"
+#include "render_d3d9/geom.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"
-#include "gpu/vertex_view.h"
+#include "engine/gfx/vertex_view.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "base/core/format.h"

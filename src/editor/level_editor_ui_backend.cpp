@@ -23,7 +23,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "engine/gfx/d3d9_state.h"
+#include "render_d3d9/d3d9_state.h"
 #include "base/core/packed_colour.h"
 
 namespace frontend::level_editor::ui_backend {

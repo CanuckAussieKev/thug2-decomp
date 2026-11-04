@@ -1,8 +1,9 @@
 // NOT ORIGINAL - the source's layering rule (docs/architecture.md "Layers"): the named views of in-memory layouts
 // (raw::as / field_at / bytes / chars / owner_of, cell::of / pointer / address / at_address, memory::bits_as,
-// function_at, library_function) belong to the boundary layer only - src/formats, src/wire, src/gpu, src/platform,
-// and the QB bytecode readers until the script runtime is replaced. Anywhere else a use is an error: a layout to be
-// given its type, or data from outside to decode at the boundary.
+// function_at, library_function) belong to the boundary layer only - src/formats, src/wire, src/platform, the GPU
+// buffers (render_d3d9/vertex_buffers, engine/gfx/vertex_view.h), Direct3D's matrices (render_d3d9/d3d_matrix.h) and
+// the QB bytecode readers until the script runtime is replaced. Anywhere else a use is an error: a layout to be given
+// its type, or data from outside to decode at the boundary.
 //   node tools/layering.ts            each use outside the boundary (none allowed)
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -11,7 +12,7 @@ import { join, relative } from "node:path";
 const ROOT = join(import.meta.dirname, "..");
 
 /** The boundary: folders and files where the views are the code's job. */
-const BOUNDARY_FOLDERS = ["src/formats/", "src/wire/", "src/gpu/", "src/platform/"];
+const BOUNDARY_FOLDERS = ["src/formats/", "src/wire/", "src/platform/"];
 const BOUNDARY_FILES = new Set([
     // the helpers themselves
     "src/base/core/raw_view.h",
@@ -21,6 +22,14 @@ const BOUNDARY_FILES = new Set([
     "src/base/core/all_ones.h",
     // a script value's 32 bits, read as the kind its holder says (the QB value cell)
     "src/engine/script/cell.h",
+    // the GPU's vertex and index buffers and their views (src/gpu/ until stage 11 round 15)
+    "src/render_d3d9/vertex_buffers.cpp",
+    "src/render_d3d9/vertex_buffers.h",
+    "src/render_d3d9/d3d9_handles.h",
+    "src/engine/gfx/gpu_handles.h",
+    "src/engine/gfx/vertex_view.h",
+    // Direct3D's matrices over the game's (platform/ until stage 11 round 15)
+    "src/render_d3d9/d3d_matrix.h",
     // the QB bytecode and its pre-compiled images, read in place
     "src/engine/script/qb.cpp",
     "src/engine/script/token_reader.cpp",

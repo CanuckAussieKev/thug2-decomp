@@ -19,7 +19,7 @@ test("CMake commands are read with comments, quotes and nested parentheses", () 
 
 test("targets take their sources from their folder and collect their links", () => {
     const [target] = targetsOf(
-        "add_library(thug2_engine STATIC\n    gfx/a.cpp\n)\ntarget_link_libraries(thug2_engine PUBLIC thug2_gpu PRIVATE imgui)\n",
+        "add_library(thug2_engine STATIC\n    gfx/a.cpp\n)\ntarget_link_libraries(thug2_engine PUBLIC thug2_wire PRIVATE imgui)\n",
         "src/engine/CMakeLists.txt",
     );
     assert.deepEqual(target, {
@@ -27,7 +27,7 @@ test("targets take their sources from their folder and collect their links", () 
         kind: "library",
         file: "src/engine/CMakeLists.txt",
         sources: ["src/engine/gfx/a.cpp"],
-        links: ["thug2_gpu", "imgui"],
+        links: ["thug2_wire", "imgui"],
     });
 });
 
@@ -105,6 +105,35 @@ test("sibling links follow the include baseline both ways", () => {
     assert.deepEqual(problems(MAP, project({ thug2_frontend: ["thug2_game", "thug2_editor"] }), CPP, []), [
         "thug2_frontend links thug2_editor: frontend may not include editor",
         "thug2_frontend reaches thug2_editor, which frontend may not include",
+    ]);
+});
+
+test("a sibling's own links are its own", () => {
+    // the editor may include a backend its sibling may not: the front end linking the editor doesn't reach it
+    const map: LayerMap = {
+        libraries: {
+            ...MAP.libraries,
+            backend: { folders: ["src/backend/"], allowed: ["base", "engine"] },
+            editor: { folders: ["src/editor/"], allowed: ["base", "engine", "game", "backend"] },
+            app: { folders: ["src/app/"], allowed: ["base", "engine", "game", "editor", "frontend", "backend"] },
+        },
+    };
+    const baseline = ["src/frontend/a.cpp -> src/editor/b.h"];
+    const targets = project({
+        thug2_backend: ["thug2_engine"],
+        thug2_editor: ["thug2_game", "thug2_backend"],
+        thug2_frontend: ["thug2_game", "thug2_editor"],
+    });
+    assert.deepEqual(problems(map, targets, [...CPP, "src/backend/a.cpp"], baseline), []);
+    // (the front end linking the backend itself still fails)
+    const direct = project({
+        thug2_backend: ["thug2_engine"],
+        thug2_editor: ["thug2_game", "thug2_backend"],
+        thug2_frontend: ["thug2_game", "thug2_editor", "thug2_backend"],
+    });
+    assert.deepEqual(problems(map, direct, [...CPP, "src/backend/a.cpp"], baseline), [
+        "thug2_frontend links thug2_backend: frontend may not include backend",
+        "thug2_frontend reaches thug2_backend, which frontend may not include",
     ]);
 });
 

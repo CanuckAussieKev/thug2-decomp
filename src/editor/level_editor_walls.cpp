@@ -18,7 +18,7 @@
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/gfx/geom.h"
+#include "render_d3d9/geom.h"
 #include "base/core/format.h"
 
 namespace frontend::level_editor::walls {

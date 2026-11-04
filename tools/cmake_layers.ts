@@ -216,7 +216,9 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
                 found.push(`${target.name} links ${link}: ${library} may not include ${to}`);
         }
         if (target.kind !== "library") continue;
-        // what it reaches through its links (the sibling pairs aside) must be exactly what the map allows it
+        // what it reaches through its links (the sibling pairs aside) must be exactly what the map allows it; a sibling
+        // link is not followed - what the sibling links is the sibling's own (the editor's backend, say)
+        const siblings = siblingGroup(pairs, library);
         const reached = new Set<string>();
         const stack = projectLinks(target);
         while (stack.length > 0) {
@@ -224,12 +226,11 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
             const to = libraryOfTarget.get(name) as string;
             if (reached.has(to) || to === library) continue;
             reached.add(to);
-            stack.push(...projectLinks(byName.get(name) as Target));
+            if (!siblings.has(to)) stack.push(...projectLinks(byName.get(name) as Target));
         }
         for (const to of allowed) {
             if (!reached.has(to)) found.push(`${target.name} doesn't reach thug2_${to}, which ${library} may include`);
         }
-        const siblings = siblingGroup(pairs, library);
         for (const to of reached) {
             if (!allowed.has(to) && !siblings.has(to))
                 found.push(`${target.name} reaches thug2_${to}, which ${library} may not include`);
