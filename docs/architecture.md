@@ -14,6 +14,7 @@ render_d3d9/                the graphics backend: Direct3D 9 (the original's PC 
 audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
 input_dinput/               the original's DirectInput side, an input source; only app/ includes it
 fs_win32/                   the operating system's files (Win32's), under the file system; only app/ includes it
+net_winsock/                the network sockets and address lookups (Winsock's), under the transport; only app/ includes it
 engine/                     memory, lists, files, assets, script, objects, renderer, audio, media, network transport, pad input,
                             ui (the original's screen elements), ext (the extension points)
 -------------------------   the boundary: where bytes come from outside the game
@@ -147,14 +148,15 @@ headers are part of its own), and reaches every one of them through those links:
 thug2_base  <-  thug2_formats  <-  thug2_wire
             <-  thug2_platform
 thug2_platform + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
-thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink, thug2_input_dinput, thug2_fs_win32 (the
-                  backends: linked by the exe alone)
+thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink, thug2_input_dinput, thug2_fs_win32,
+                  thug2_net_winsock (the backends: linked by the exe alone)
 every library  <-  thug2 (src/app: thug2-decomp.exe)
 ```
 
 The checks in `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`:
 base; `thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
-library that calls them (SDL, Winsock, D3D9 and the GameSpy SDK by the platform; LZHAM by the engine; DirectInput
+library that calls them (SDL, D3D9 and the GameSpy SDK by the platform - the SDK links Winsock for itself -; Winsock by
+the network backend; LZHAM by the engine; DirectInput
 by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; imgui's core by the graphics backend - the loading console's
 panel -, the editor and the front end, and imgui's SDL2 and Direct3D 9 backends, `imgui_backends`, by the graphics
 backend alone). `node tools/cmake_layers.ts` (part of `npm test`)
@@ -344,11 +346,41 @@ everything above it uses the game's own types and may change them freely.
     `WritePrivateProfileString`) and the crash reports, which must work while the game is failing. Only `fs_win32/`,
     `platform/` and the offline checks (`src/tests`) call the file functions (Win32's, the C runtime's streams,
     std::fstream, std::filesystem), and only app/ installs the disk and adds the sources (tools/file_calls.test.ts).
+- **The network transport seam** (`engine/net/transport.h`): the game's sockets and its address and host-name lookups.
+  - `net::Transport` is what the network library (`engine/net`: the apps' socket made, bound and sent on, the client's
+    connect and receive, the server's receive, the manager's own address), the online session (`game/online`: the join
+    commands, the buddy list, the server list, the lobby's NAT cookie), the model viewer and WinMain's `-CONNECT` call:
+    one method per Winsock call the game made, with the same arguments and results - a UDP socket made
+    (`open_datagram`), made non-blocking, allowed to broadcast (LAN discovery), bound, named, connected, sent on
+    (`send`, `send_to`), received on (`receive`, `receive_from`) and closed; the last error, in Winsock's numbers
+    (`kErrorWouldBlock`, `kErrorAddressInUse`... - the ones the game tests); an address parsed or written as dotted text,
+    a host found by name with its name and first address. The socket is `net::SocketId`, Winsock's SOCKET value (what
+    the original kept and handed the GameSpy SDK); an address is `net::SocketAddress`, laid out as sockaddr_in (the game
+    copies it whole into its records and gives it to its packet hook), its port in network order (`network_port`,
+    `port_of`). The grain is a socket, a datagram sent or received - never a byte. `app/main.cpp` installs Winsock's
+    (`src/net_winsock`, static library `thug2_net_winsock`, on the engine: `net::winsock::transport()`) right after the
+    disk. Winsock itself is started by the GameSpy SDK (its `SocketStartUp`, at WinMain's availability check), as in
+    the original.
+  - The GameSpy SDK isn't behind the seam: it opens, starts and uses its own sockets (chat, query and reporting, NAT
+    negotiation, the server list, presence, HTTP, stats, CD keys) through its own platform layer, and its sources are
+    left as they are. Its glue (`platform/gamespy.cpp`) names Winsock's types where the SDK's functions take them. Twice
+    the game hands the SDK one of its own sockets - the hosting server's, for its reports
+    (`peerStartReportingWithSocket`), and the client's for a NAT negotiation (`NNBeginNegotiationWithSocket`) - and the
+    SDK then sends on it directly; the packets the game's sockets receive from addresses that aren't connections go to
+    the SDK through the packet hook (`peerParseQuery`, `NNProcessData`).
+  - A second implementation for local protocol tests: `engine/net/loopback_transport.h`, the game's sockets as queues
+    in this process (a datagram to a port lands in the socket bound to it, a broadcast in each; non-blocking; a datagram
+    too long for the buffer cut and reported; a full queue drops), the lookups forwarded to Winsock's. thug2-decomp.ini
+    `[debug] net_loopback=1` (default 0) makes app/ install it over Winsock's. Nothing reaches a network; the online
+    modes don't work over it (the SDK would be given its ids, not Winsock sockets).
+  - Only `net_winsock/` includes Winsock's headers, calls its functions and links ws2_32 (the GameSpy SDK's CMake links
+    it for the SDK; its glue names its types), and only app/ installs a transport (tools/net_calls.test.ts).
 - `platform/`: the operating system and the SDKs - the SDL window and its event pump, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`);
-  Winsock with IPv4 addresses and byte buffers (`sockets.h`), the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), the Windows audio session API
+  the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), the Windows audio session API
   (`mute_audio.h`), the run log and the ini (`run_log.h`) and the sinks behind the base layer's output
-  (`output_sinks.h`). Files are the file system's (`fs::Disk`, "The file system seam").
+  (`output_sinks.h`). Files are the file system's (`fs::Disk`, "The file system seam"), sockets the transport's
+  (`net::Transport`, "The network transport seam").
 
 `formats/` depends only on the standard library and `base/` (`ints.h`, `checksums.h`, `pointer_cell.h`, `raw_view.h`);
 `wire/` also on `formats/` (the byte stream). They build and are checked without the game.
