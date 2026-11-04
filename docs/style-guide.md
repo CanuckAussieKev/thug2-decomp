@@ -77,13 +77,15 @@ keep the namespaces their headers had). The layers and their rules: docs/archite
 ## Exceptions
 
 `.clang-tidy` enables the Guidelines' checks (`cppcoreguidelines-*`) with `bugprone-*`, `misc-*`, `modernize-*`,
-`performance-*`, the clang static analyzer (`clang-analyzer-*`) and the naming check, and runs them with zero warnings.
+`performance-*`, `readability-*` (taken whole) and the clang static analyzer (`clang-analyzer-*`), and runs them with
+zero warnings.
 **There is no `NOLINT` in `src/`** (`npm test` fails on one: `tools/no_nolint.test.ts`). A place that doesn't keep a
 check is changed so that it does; where the original's behaviour can't be kept without what a check flags, the check is
 configured by its own options or switched off in a `.clang-tidy`, the reason written beside it - those are the project's
 exceptions, all in one place:
 
-- **Off** (`.clang-tidy`): trailing return types (a style), recursion (the interpreter and the trees recurse by
+- **Off** (`.clang-tidy`): `readability-magic-numbers` (an alias of `cppcoreguidelines-avoid-magic-numbers`, which is
+  on with the same options), trailing return types (a style), recursion (the interpreter and the trees recurse by
   design), `misc-predictable-rand` (the game's numbers are the C runtime's `rand()` sequence, as the original's),
   `cppcoreguidelines-pro-type-static-cast-downcast` (every downcast goes through `core::down_cast`, below),
   `clang-analyzer-optin.core.EnumCastOutOfRange` (flag enums hold combinations no enumerator names, and a value from
@@ -96,7 +98,15 @@ exceptions, all in one place:
   (`platform/compiler.h`: a pragma inside a statement, the caller's return address - neither can be a function) by
   the macro check's `AllowedRegexp`; the game's time seed (`DisallowedSeedTypes`); the x87 reference's locals that
   inline assembly writes (`AsmFloat`... in `src/tests/maths_check.cpp`: clang-tidy can't see an `__asm` block's
-  writes; `AllowedTypes`); and the options listed in `.clang-tidy` for the other checks.
+  writes; `AllowedTypes`); `readability-function-cognitive-complexity` at a `Threshold` of 50, not the default 25,
+  with `IgnoreMacros` (the original's long switch-and-loop functions and the editor's UI functions are split into named
+  steps down to 50; most of the functions between 26 and 50 are one loop of the original or one ImGui panel, and
+  splitting them further would scatter a decompiled routine without making it clearer; the conditionals inside GSL's
+  `Expects` and the `THUG2_*` macros are not the reader's, so not counted); `readability-simplify-boolean-expr`
+  without De Morgan rewrites (`SimplifyDeMorgan: false`: `!(a < b)` is not `a >= b` for floats - a NaN fails every
+  comparison); `readability-implicit-bool-conversion` with `AllowPointerConditions` (ES.87); the shortest names
+  `readability-identifier-length` accepts (two letters, plus the coordinates `x y z w u v` and the operands `a` / `b`);
+  and the options listed in `.clang-tidy` for the other checks.
 - **What changed instead of an exception**, for the record: the original's integer divisions keep their quotient in
   a named integer; bit-for-bit float compares are `core::has_bits` / `same_bits` (`engine/core/same_bits.h`);
   repeated branches are merged; assignments and counts come out of conditions; switches say `default: break`;
