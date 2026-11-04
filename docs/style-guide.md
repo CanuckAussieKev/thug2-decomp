@@ -54,9 +54,10 @@ src/
   base/       the OS-free helpers under everything: core (checksums, formatting, text, checked indexing, the enum and
               pointer helpers), maths, two containers (lists), the bit stream and BPS patches (util) (library
               thug2_base)
-  engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network, pad input, ui (the
+  engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network transport, pad input, ui (the
               original's screen elements and our UI fonts), ext (the extension points)
-  game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module)
+  game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
+              network session; the transport stays in engine/net)
   frontend/   the new front end and the mouse menus
   editor/     the level editor
   devtools/   the developer tools (screenshot key, test-automation channel, restart tester, start level, test view)

@@ -8,8 +8,8 @@ include the layers below it, never the ones above.
 ```
 app/                        main, WinMain, the start-up, the game's main: the composition (may include anything)
 editor/  frontend/  devtools/   the level editor; the new front end and mouse menus; the developer tools
-game/                       skating, the rider, goals, parks, saves
-engine/                     memory, lists, files, assets, script, objects, renderer, audio, network, pad input,
+game/                       skating, the rider, goals, parks, saves, the online session (game/online)
+engine/                     memory, lists, files, assets, script, objects, renderer, audio, network transport, pad input,
                             ui (the original's screen elements), ext (the extension points)
 -------------------------   the boundary: where bytes come from outside the game
 formats/  wire/  gpu/       file formats; network messages; GPU buffers
@@ -68,7 +68,17 @@ pause / menu module is `game/front_end`, CREATE 100% CAS's commands `game/comman
 system source) `engine/file/data_overlay`. `src/frontend` is now the new front end and the mouse menus only. The
 namespaces are the ones the files had (`frontend::` for all of these).
 
-**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `engine/net`, `engine/memory`, `base/maths`), not from a header of a higher layer.
+**Where the network code lives**: `engine/net` is the transport only (the app, connection, dispatcher, manager and
+client objects, message framing and compression: `net_*`, `shared_state.h`); it includes no game header. The
+online session - the GameSpy lobby, rooms, buddies, the content vault, stats, the player roster, the game-flow
+messages and handlers, the THUGPRO peer mode and guards - is `game/online` (74 files, namespaces `online::` and
+`net::` as they were). The two things the transport asks of the session are hooks set by the exe before any original
+code runs (`online::install_transport_hooks`, game/online/transport_hooks.h): the peer-mode question
+(`net::set_peer_mode_query`) and the check on received messages (`net::set_received_message_check`). The engine
+files that still read the session (the hub's `in_net_game`, the player roster, the net-game state: objects, script
+commands, the animation channel, mlp) are the baseline's `engine -> game/online` lines, for rounds 8-10.
+
+**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
 **The boundary layer** is where the game meets bytes it doesn't lay out itself. Only there do byte layouts matter;
 everything above it uses the game's own types and may change them freely.

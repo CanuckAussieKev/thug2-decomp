@@ -5,7 +5,7 @@ online games with THUGPRO players?* Each item says what THUGPRO does (with evide
 matters (**blocks join**, **blocks host**, **blocks play** = crash, desync or refusal; **visible** = only looks or
 plays differently) and the work to close it (S = a day or less, M = a few days, L = a week or more).
 
-Sources: our repo (src/engine/net, thug2-thugpro-compat/thugpro);
+Sources: our repo (src/game/online, thug2-thugpro-compat/thugpro);
 THUGPRO's install (`%LOCALAPPDATA%\THUG Pro`: thugpro.dll, data\pre); Morten1337's sources in the session scratchpad
 (`thugpro_proxy` = the DLL, `thugpro` = scripts and level data, `thugpro_toolchain`): used for insight only, per his
 permission. Nothing here is copied from them. Addresses are the reference build's; THUGPRO's DLL patches the same layout (its
@@ -149,7 +149,7 @@ desync. What does cross:
 
 ## 9. Our side: what is ours on the online path
 
-- Rewritten and installed (src/engine/net, 221 REPLACE lines): the whole engine net library 0x4544E0-0x45BDA0 (App, Conn,
+- Rewritten and installed (src/engine/net and src/game/online, 221 REPLACE lines): the whole engine net library 0x4544E0-0x45BDA0 (App, Conn,
   Client, Server, Dispatcher, compression, metrics, latency), chat (0x00537BD0, 0x005A16B0, KeyboardTask 0x005334D0),
   GetMapName, IsNetworkGame / InNetGame, the online service task 0x00545880, top stats 0x0054DCB0, online hosts and
   identity (data writes).

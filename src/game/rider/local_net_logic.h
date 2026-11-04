@@ -17,7 +17,7 @@ struct InboundMsgCtx;
 // The skater's local network logic component (SkaterLocalNetLogic, type 0x7CD3E6D5, its factory 0x00513630): a local
 // skater's updates to the server (message 0x23) - its position, orientation, state and controls, each sent when it
 // changed (and everything every 15th frame of its client app, unless it's the server's own skater). The update
-// (0x00512EA0 / 0x005131A0) carries the big-level positions, TP-R6 - engine/net/thugpro_compat.h. Vtable 0x0064BEF0:
+// (0x00512EA0 / 0x005131A0) carries the big-level positions, TP-R6 - game/online/thugpro_compat.h. Vtable 0x0064BEF0:
 // 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 12 the shared invoke_method_by_name 0x0051ADC0.
 namespace objects {
 constexpr uint8_t kNotSent = 0xFF;                  // nothing sent yet
