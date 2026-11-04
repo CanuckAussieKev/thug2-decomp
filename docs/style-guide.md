@@ -50,14 +50,18 @@ src/
               sounds, saves, custom parks (library thug2_formats)
   wire/       the network messages and their framing (library thug2_wire)
   gpu/        the GPU's vertex and index buffers
-  engine/     core, maths, lists, files, assets, script, objects, renderer, 2D, audio, sound, network, pad input
+  base/       the OS-free helpers under everything: core (checksums, formatting, text, checked indexing, the enum and
+              pointer helpers), maths, two containers (lists), the bit stream and BPS patches (util) (library
+              thug2_base)
+  engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network, pad input
   game/       skating, the rider, goals, parks, saves
   frontend/   menus and screens
   editor/     the level editor
 ```
 
 `engine/` doesn't include `game/`, `frontend/` or `editor/`; `formats/` and `wire/` include nothing of the game but
-`engine/core`'s leaf headers (they build as libraries of their own). One folder is one namespace (formats and wire
+`base/` (they build as libraries of their own, on `thug2_base`); `base/` includes nothing but the standard library
+and GSL. One folder is one namespace (formats and wire
 keep the namespaces their headers had). The layers and their rules: docs/architecture.md.
 
 ## Code

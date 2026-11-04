@@ -8,13 +8,25 @@ include the layers below it, never the ones above.
 ```
 editor/  frontend/          the level editor; menus and screens
 game/                       skating, the rider, goals, parks, saves
-engine/                     core, maths, lists, files, assets, script, objects, renderer, audio, network, pad input
+engine/                     memory, lists, files, assets, script, objects, renderer, audio, network, pad input
 -------------------------   the boundary: where bytes come from outside the game
 formats/  wire/  gpu/       file formats; network messages; GPU buffers
 platform/                   Win32, Direct3D, DirectSound, DirectInput, SDL, the GameSpy SDK, code addresses
+-------------------------
+base/                       checksums, formatting, text, checked indexing, maths, the bit stream (no OS, no SDK)
 ```
 
-**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `engine/net`, `engine/core`, `engine/maths`), not from a header of a higher layer.
+**The base layer** (`src/base`, static library `thug2_base`) is what every layer uses and nothing of the OS: `core`
+(checksums, printf-style formatting, text, number parsing, checked indexing, the enum, cast and pointer helpers, the
+compiler's few names), `maths` (vectors, matrices - their product is D3DX's in plain C++, bit for bit, checked by
+`thug2_maths_check` -, quaternions, shape tests), `lists` (two containers that don't use the game's heaps) and
+`util` (the bit stream, BPS patches). It includes only the standard library and GSL. What it can't do itself it
+hands to a sink the platform installs first thing in WinMain (`platform/output_sinks.h`): the debugger output
+(`base/core/dbg.h`) and error lines into thug2-decomp.log (`base/core/log_sink.h`). The game's heaps are
+`engine/memory` (they use the run log, the C runtime's heap and the game config), and what is built on them stays in
+the engine (`engine/lists`' chains and maps, `engine/util`'s LZSS compressor and text store).
+
+**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `engine/net`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
 **The boundary layer** is where the game meets bytes it doesn't lay out itself. Only there do byte layouts matter;
 everything above it uses the game's own types and may change them freely.
@@ -41,10 +53,11 @@ everything above it uses the game's own types and may change them freely.
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
   Winsock with IPv4 addresses and byte buffers (`sockets.h`), Direct3D's matrices over the game's (`d3d_matrix.h`),
   the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), D3DX
-  behind the game's own calls (`d3dx.h`), the Windows audio session API (`mute_audio.h`) and the pointer whose bits are
-  all ones (`all_ones.h`: INVALID_HANDLE_VALUE, the list heads' marker).
+  behind the renderer's own calls (`d3dx.h`: only `engine/gfx` calls it), the Windows audio session API
+  (`mute_audio.h`), the owners of Win32 and C runtime handles (`unique_handle.h`) and the sinks behind the base
+  layer's output (`output_sinks.h`).
 
-`formats/` and `wire/` depend only on the standard library and `engine/core`'s leaf headers (`ints.h`,
+`formats/` and `wire/` depend only on the standard library and `base/` (`ints.h`,
 `checksums.h`, `pointer_cell.h`, `raw_view.h`); they build and are checked without the game.
 
 **The original's layouts stay in the boundary**: the named helpers that read memory through another type or keep a
