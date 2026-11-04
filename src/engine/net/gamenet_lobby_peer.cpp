@@ -186,7 +186,7 @@ void RoomManager::queue_packet(const uint8_t* data, int length, const void* from
     }
     // (a byte of the packet; the original read the one or two bytes it asked for even past a shorter packet: 0 here)
     const std::span<const uint8_t> bytes(data, length > 0 ? static_cast<size_t>(length) : 0);
-    auto byte_at = [&](size_t i) { return i < bytes.size() ? core::at(bytes, i) : uint8_t{0}; };
+    auto byte_at = [&](size_t index) { return index < bytes.size() ? core::at(bytes, index) : uint8_t{0}; };
     int type = 0;
     if ((byte_at(0) == kQueryMagic0 && byte_at(1) == kQueryMagic1) || byte_at(0) == '\\') {
         type = kPacketQuery;
@@ -223,16 +223,16 @@ void RoomManager::player_key_callback(const PlayerKeyQuery& query)
     int count = 0;
     PlayerSearch search;
     NewPlayerSearch new_search;
-    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
-         p = step_roster_sweep(manager, &search, true)) {
-        if (is_observer(p) && !core::any(p->flag_bits() & PlayerFlag::kPendingObserver)) {
+    for (PlayerRecord* player = start_roster_sweep(manager, &search, true); player;
+         player = step_roster_sweep(manager, &search, true)) {
+        if (is_observer(player) && !core::any(player->flag_bits() & PlayerFlag::kPendingObserver)) {
             continue;
         }
         if (count == index) {
             if (key == kKeyForPlayer) {
-                buffer_add(buffer, player_name(p));
+                buffer_add(buffer, player_name(player));
             } else {
-                buffer_add_int(buffer, p->skill_points()); // its rating
+                buffer_add_int(buffer, player->skill_points()); // its rating
             }
             return;
         }

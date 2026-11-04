@@ -76,25 +76,25 @@ constexpr uint32_t kCustomSkater = 0x0A7BE964;   // the custom skater's name
 constexpr uint32_t kStatCatalog = 0x61EB6BA9;    // the global array of stats (each a structure with a name)
 
 // The appearance's code (0x00488xxx-0x00489xxx).
-void free_face_texture(RiderIdentity* p) { p->appearance()->free_face_texture(); }
-void reset_appearance(RiderIdentity* p) { p->appearance()->get_reset(); }
-void load_appearance(RiderIdentity* p, uint32_t name, bool update)
+void free_face_texture(RiderIdentity* identity) { identity->appearance()->free_face_texture(); }
+void reset_appearance(RiderIdentity* identity) { identity->appearance()->get_reset(); }
+void load_appearance(RiderIdentity* identity, uint32_t name, bool update)
 {
-    p->appearance()->load_by_name(name, update);
+    identity->appearance()->load_by_name(name, update);
 }
-void make_face_texture(RiderIdentity* p) { p->appearance()->make_face_texture(); }
+void make_face_texture(RiderIdentity* identity) { identity->appearance()->make_face_texture(); }
 
 // A new empty structure (pooled; null if none) / one cleared and freed.
 
 // The script structure written to / read from a buffer (0x00479E20 returns the bytes, 0x0047A0C0 the end).
-int write_struct(script::Struct* s, uint8_t* buffer, int size)
+int write_struct(script::Struct* structure, uint8_t* buffer, int size)
 {
-    return static_cast<int>(script::emit_into_buffer(s, buffer, static_cast<uint32_t>(size), true, nullptr));
+    return static_cast<int>(script::emit_into_buffer(structure, buffer, static_cast<uint32_t>(size), true, nullptr));
 }
-uint8_t* read_struct(script::Struct* s, uint8_t* buffer, const uint8_t* limit)
+uint8_t* read_struct(script::Struct* structure, uint8_t* buffer, const uint8_t* limit)
 {
     const size_t size = buffer < limit ? static_cast<size_t>(limit - buffer) : 0;
-    return script::decode_from_bytes(s, buffer, size);
+    return script::decode_from_bytes(structure, buffer, size);
 }
 
 void push_skater_info_heap() { memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap()); }
@@ -314,13 +314,13 @@ void ChecksumSet::get_fill()
     script::Array* array = script::fetch_list(kConfigurableTricks);
     for (uint32_t i = 0; i < array->extent(); ++i) {
         const uint32_t item = array->fetch_part(i);
-        int j = 0;
-        for (; j < num_; ++j) {
-            if (item == core::at(items_, j)) {
+        int index = 0;
+        for (; index < num_; ++index) {
+            if (item == core::at(items_, index)) {
                 break;
             }
         }
-        if (j == num_) { // (not there yet)
+        if (index == num_) { // (not there yet)
             core::at(items_, num_++) = item;
         }
     }
@@ -543,20 +543,20 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
 {
     gsl::owner<script::Struct*> sent = script::new_struct();
     script::Struct* mine = details_params();
-    for (script::Component* c = mine->step_to_entry(nullptr); c;) {
-        script::Component* next = mine->step_to_entry(c);
-        switch (c->name) {
+    for (script::Component* entry = mine->step_to_entry(nullptr); entry;) {
+        script::Component* next = mine->step_to_entry(entry);
+        switch (entry->name) {
         case kTagTexture:
         case kDisplayName:
         case kStickerTexture:
         case kFileName:
         case kFirstName:
-            sent->append_word(c->name, script::QbValueKind::kString, c->value.text());
+            sent->append_word(entry->name, script::QbValueKind::kString, entry->value.text());
             break;
         case kStance:
         case kPushStyle:
         case kName:
-            sent->add_component_of_type(c->name, script::QbValueKind::kName, c->value.word());
+            sent->add_component_of_type(entry->name, script::QbValueKind::kName, entry->value.word());
             break;
         case kOllie:
         case kIsMale:
@@ -571,12 +571,12 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case kIsPro:
         case kSpin:
         case kRailBalance:
-            sent->add_component_of_type(c->name, script::QbValueKind::kInteger, c->value.word());
+            sent->add_component_of_type(entry->name, script::QbValueKind::kInteger, entry->value.word());
             break;
         default:
             break;
         }
-        c = next;
+        entry = next;
     }
     const int written = write_struct(sent, buffer, size);
     script::free_struct(sent);

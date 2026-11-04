@@ -91,10 +91,10 @@ void delete_script_array(script::Array* array)
         script::delete_array(array);
     }
 }
-void set_rgba(script::Array* rgba, int r, int g, int b, int a)
+void set_rgba(script::Array* rgba, int red, int green, int b, int a)
 {
-    rgba->set_element(0, r);
-    rgba->set_element(1, g);
+    rgba->set_element(0, red);
+    rgba->set_element(1, green);
     rgba->set_element(2, b);
     rgba->set_element(3, a);
 }

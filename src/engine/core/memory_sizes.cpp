@@ -57,25 +57,25 @@ Pools get_take_in()
     if (config_int("memory", "original_sizes", 0) != 0) {
         return kOriginal;
     }
-    Pools p = kDefaults;
-    p.script_cache_entries_ = total_of("script_cache_pool", p.script_cache_entries_);
-    p.components = total_of("component_pool", p.components);
-    p.structs = total_of("struct_pool", p.structs);
-    p.vectors = total_of("vector_pool", p.vectors);
-    p.pairs = total_of("pair_pool", p.pairs);
-    p.arrays = total_of("array_pool", p.arrays);
-    p.symbols = total_of("symbol_pool", p.symbols);
-    p.scripts = total_of("script_pool", p.scripts);
-    p.string_bytes_ = static_cast<uint32_t>(
-        std::clamp(config_int("memory", "string_heap", static_cast<int>(p.string_bytes_)), kMinStringHeapBytes, kMaxStringHeapBytes));
-    p.strings = static_cast<uint32_t>(total_of("string_count", static_cast<int>(p.strings)));
-    p.hash_items_ = total_of("hash_item_pool", p.hash_items_);
-    return p;
+    Pools pools = kDefaults;
+    pools.script_cache_entries_ = total_of("script_cache_pool", pools.script_cache_entries_);
+    pools.components = total_of("component_pool", pools.components);
+    pools.structs = total_of("struct_pool", pools.structs);
+    pools.vectors = total_of("vector_pool", pools.vectors);
+    pools.pairs = total_of("pair_pool", pools.pairs);
+    pools.arrays = total_of("array_pool", pools.arrays);
+    pools.symbols = total_of("symbol_pool", pools.symbols);
+    pools.scripts = total_of("script_pool", pools.scripts);
+    pools.string_bytes_ = static_cast<uint32_t>(
+        std::clamp(config_int("memory", "string_heap", static_cast<int>(pools.string_bytes_)), kMinStringHeapBytes, kMaxStringHeapBytes));
+    pools.strings = static_cast<uint32_t>(total_of("string_count", static_cast<int>(pools.strings)));
+    pools.hash_items_ = total_of("hash_item_pool", pools.hash_items_);
+    return pools;
 }
 
 uint32_t get_grown(uint32_t ours, uint32_t original) { return ours > original ? ours - original : 0; }
 
-uint32_t hash_item_bytes(const Pools& p) { return static_cast<uint32_t>(p.hash_items_) * kHashItemBytes; }
+uint32_t hash_item_bytes(const Pools& pools) { return static_cast<uint32_t>(pools.hash_items_) * kHashItemBytes; }
 
 } // namespace
 
@@ -92,15 +92,15 @@ const Pools& at_hand()
     return kCurrent;
 }
 
-uint32_t script_pool_bytes(const Pools& p)
+uint32_t script_pool_bytes(const Pools& pools)
 {
-    return (static_cast<uint32_t>(p.script_cache_entries_) * kScriptCacheEntryBytes) +
-           (static_cast<uint32_t>(p.components) * kComponentBytes) + (static_cast<uint32_t>(p.structs) * kStructBytes) +
-           (static_cast<uint32_t>(p.vectors) * kVectorBytes) + (static_cast<uint32_t>(p.pairs) * kPairBytes) +
-           (static_cast<uint32_t>(p.arrays) * kArrayBytes) + (static_cast<uint32_t>(p.symbols) * kSymbolBytes) +
-           (static_cast<uint32_t>(p.scripts) * kScriptBytes) +
-           (static_cast<uint32_t>(p.stored_randoms_) * kStoredRandomBytes) + p.string_bytes_ +
-           (p.strings * kStringEntryBytes);
+    return (static_cast<uint32_t>(pools.script_cache_entries_) * kScriptCacheEntryBytes) +
+           (static_cast<uint32_t>(pools.components) * kComponentBytes) + (static_cast<uint32_t>(pools.structs) * kStructBytes) +
+           (static_cast<uint32_t>(pools.vectors) * kVectorBytes) + (static_cast<uint32_t>(pools.pairs) * kPairBytes) +
+           (static_cast<uint32_t>(pools.arrays) * kArrayBytes) + (static_cast<uint32_t>(pools.symbols) * kSymbolBytes) +
+           (static_cast<uint32_t>(pools.scripts) * kScriptBytes) +
+           (static_cast<uint32_t>(pools.stored_randoms_) * kStoredRandomBytes) + pools.string_bytes_ +
+           (pools.strings * kStringEntryBytes);
 }
 
 uint32_t script_region_size()
@@ -144,11 +144,11 @@ uint32_t node_hash_slots()
             return kOriginalNodeHashSlots;
         }
         const int asked = std::clamp(config_int("memory", "node_hash_slots", 0x10000), 0x4000, 0x100000);
-        uint32_t n = kOriginalNodeHashSlots;
-        while (n < ints::as_unsigned(asked)) {
-            n <<= 1;
+        uint32_t slots = kOriginalNodeHashSlots;
+        while (slots < ints::as_unsigned(asked)) {
+            slots <<= 1;
         }
-        return n;
+        return slots;
     }();
     return kSlots;
 }

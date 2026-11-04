@@ -157,19 +157,19 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
                 break;
             }
         } // (else the length stays what the previous message had)
-        const uint8_t* p = packet.cursor();
+        const uint8_t* cursor = packet.cursor();
         if (context.type_code() == wire::MessageId::kSequenced) { // counted by the message inside
-            add_message_metric(metrics, static_cast<wire::MessageId>(*std::next(p, kSequencedInnerIdOffset)), context.body_size());
+            add_message_metric(metrics, static_cast<wire::MessageId>(*std::next(cursor, kSequencedInnerIdOffset)), context.body_size());
         }
         if (has_length) {
             if (context.body_size() != 0U) {
-                std::memcpy(buffer.data(), p, context.body_size());
+                std::memcpy(buffer.data(), cursor, context.body_size());
             }
         } else {
             // a whole buffer's worth, whatever the message's size (NOT ORIGINAL: no further than the packet's end -
             // the original read on past the connection's receive buffer)
             const size_t copy = packet.remaining() < kFixedSizeCopy ? packet.remaining() : kFixedSizeCopy;
-            std::memcpy(buffer.data(), p, copy);
+            std::memcpy(buffer.data(), cursor, copy);
         }
         if (is_outsider(conn)) {
             context.wire_options() |= kPacketForeign;

@@ -276,18 +276,18 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
     };
     if (is_squad_match()) {
         // Already done by the sender's team: nothing.
-        for (const PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
-             p = step_roster_sweep(manager, &search, false)) {
-            if (player_team(sender) == player_team(p) && goal_done_by(goal, get_skater_id(player_skater(p)))) {
+        for (const PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
+             player = step_roster_sweep(manager, &search, false)) {
+            if (player_team(sender) == player_team(player) && goal_done_by(goal, get_skater_id(player_skater(player)))) {
                 return kContinue;
             }
         }
         mark_goal_done_by(goal, get_skater_id(player_skater(sender)));
-        for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
-             p = step_roster_sweep(manager, &search, false)) {
+        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
+             player = step_roster_sweep(manager, &search, false)) {
             desc = net::NetMessageInfo();
             prepare();
-            context->receiver_app()->put_on_outbox(player_handle(p), &desc);
+            context->receiver_app()->put_on_outbox(player_handle(player), &desc);
         }
         return kContinue;
     }
@@ -297,9 +297,9 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
     desc = net::NetMessageInfo();
     mark_goal_done_by(goal, get_skater_id(player_skater(sender)));
     prepare();
-    for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
-         p = step_roster_sweep(manager, &search, false)) {
-        context->receiver_app()->put_on_outbox(player_handle(p), &desc);
+    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
+         player = step_roster_sweep(manager, &search, false)) {
+        context->receiver_app()->put_on_outbox(player_handle(player), &desc);
     }
     return kContinue;
 }
@@ -334,10 +334,10 @@ int handle_goal_started_report(net::InboundMsgCtx* context)
     desc.set_content(bytes.data());
     desc.set_byte_count(sizeof(bytes));
     desc.set_ident(MessageId::kGoalStarted);
-    for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
-         p = step_roster_sweep(manager, &search, false)) {
-        if (p != sender && player_team(sender) == player_team(p)) {
-            context->receiver_app()->put_on_outbox(player_handle(p), &desc);
+    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
+         player = step_roster_sweep(manager, &search, false)) {
+        if (player != sender && player_team(sender) == player_team(player)) {
+            context->receiver_app()->put_on_outbox(player_handle(player), &desc);
         }
     }
     return kContinue;
@@ -417,10 +417,10 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         desc.set_ident(MessageId::kFlagReturned);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(MessageGroup::kGame);
-        for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
-             p = step_roster_sweep(manager, &search, true)) {
-            if (!is_own_player(p)) {
-                context->receiver_app()->put_on_outbox(player_handle(p), &desc);
+        for (PlayerRecord* other_player = start_roster_sweep(manager, &search, true); other_player;
+             other_player = step_roster_sweep(manager, &search, true)) {
+            if (!is_own_player(other_player)) {
+                context->receiver_app()->put_on_outbox(player_handle(other_player), &desc);
             }
         }
         return kContinue;
@@ -442,9 +442,9 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     desc.set_ident(MessageId::kCrownSpawn);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
-    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
-         p = step_roster_sweep(manager, &search, true)) {
-        context->receiver_app()->put_on_outbox(player_handle(p), &desc);
+    for (PlayerRecord* other_player = start_roster_sweep(manager, &search, true); other_player;
+         other_player = step_roster_sweep(manager, &search, true)) {
+        context->receiver_app()->put_on_outbox(player_handle(other_player), &desc);
     }
     return kContinue;
 }

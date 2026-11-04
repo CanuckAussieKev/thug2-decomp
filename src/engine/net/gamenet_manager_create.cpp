@@ -102,8 +102,8 @@ Hub::Hub()
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
     crt::get_srand(crt::get_instant());
     for (int i = 0; i < kChallengeLength; ++i) {
-        const int c = crt::get_rand() % 62;
-        core::at(challenge_, i) = static_cast<char>(c < kChallengeDigits ? '0' + c : c < kChallengeLetters ? 'A' + c - kChallengeDigits : 'a' + c - kChallengeLetters);
+        const int pick = crt::get_rand() % 62;
+        core::at(challenge_, i) = static_cast<char>(pick < kChallengeDigits ? '0' + pick : pick < kChallengeLetters ? 'A' + pick - kChallengeDigits : 'a' + pick - kChallengeLetters);
     }
     core::at(challenge_, kChallengeLength) = '\0';
 }

@@ -117,8 +117,8 @@ bool is_file(const std::string& path)
 std::string get_relative(const char* path)
 {
     std::string out;
-    for (const char c : std::string_view(path)) {
-        out += c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (const char character : std::string_view(path)) {
+        out += character == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
     }
     if (out.starts_with("data\\")) {
         out.erase(0, kDataPrefixLength);
@@ -203,18 +203,18 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
     if (!part || depth > 4) {
         return;
     }
-    for (script::Component* c = part->step_to_entry(nullptr); c; c = part->step_to_entry(c)) {
-        switch (value_kind(*c)) {
+    for (script::Component* entry = part->step_to_entry(nullptr); entry; entry = part->step_to_entry(entry)) {
+        switch (value_kind(*entry)) {
         case script::QbValueKind::kString:
-            if (c->value.text() && is_path(c->value.text())) {
-                out->push_back(c->value.text());
+            if (entry->value.text() && is_path(entry->value.text())) {
+                out->push_back(entry->value.text());
             }
             break;
         case script::QbValueKind::kStruct:
-            collect_paths(c->value.structure(), out, depth + 1);
+            collect_paths(entry->value.structure(), out, depth + 1);
             break;
         case script::QbValueKind::kArray:
-            collect_array_paths(c->value.array(), out, depth + 1);
+            collect_array_paths(entry->value.array(), out, depth + 1);
             break;
         default:
             break;
@@ -274,36 +274,36 @@ std::vector<uint8_t> expand_lzss(std::span<const uint8_t> in, size_t length, siz
 {
     std::array<uint8_t, kLzssWindowBytes> window{};
     std::memset(window.data(), ' ', sizeof(window));
-    uint32_t r = kLzssWindowSize - kLzssMatchBase;
+    uint32_t window_position = kLzssWindowSize - kLzssMatchBase;
     std::vector<uint8_t> out;
     out.reserve(size);
-    size_t i = 0;
+    size_t in_position = 0;
     uint32_t flags = 0;
-    while (out.size() < size && i < length) {
+    while (out.size() < size && in_position < length) {
         flags >>= 1;
         if ((flags & kLzssFlagsMarker) == 0U) {
-            flags = core::at(in, i++) | kLzssFlagsFill;
+            flags = core::at(in, in_position++) | kLzssFlagsFill;
         }
         if ((flags & 1) != 0U) {
-            if (i >= length) {
+            if (in_position >= length) {
                 break;
             }
-            const uint8_t c = core::at(in, i++);
-            out.push_back(c);
-            core::at(window, r) = c;
-            r = (r + 1) & kLzssWindowMask;
+            const uint8_t byte = core::at(in, in_position++);
+            out.push_back(byte);
+            core::at(window, window_position) = byte;
+            window_position = (window_position + 1) & kLzssWindowMask;
         } else {
-            if (i + 1 >= length) {
+            if (in_position + 1 >= length) {
                 break;
             }
-            const uint32_t position = core::at(in, i) | ((core::at(in, i + 1) & 0xF0U) << 4);
-            const uint32_t last = (core::at(in, i + 1) & 0x0FU) + 2;
-            i += 2;
+            const uint32_t position = core::at(in, in_position) | ((core::at(in, in_position + 1) & 0xF0U) << 4);
+            const uint32_t last = (core::at(in, in_position + 1) & 0x0FU) + 2;
+            in_position += 2;
             for (uint32_t k = 0; k <= last && out.size() < size; ++k) {
-                const uint8_t c = core::at(window, (position + k) & 4095);
-                out.push_back(c);
-                core::at(window, r) = c;
-                r = (r + 1) & kLzssWindowMask;
+                const uint8_t byte = core::at(window, (position + k) & 4095);
+                out.push_back(byte);
+                core::at(window, window_position) = byte;
+                window_position = (window_position + 1) & kLzssWindowMask;
             }
         }
     }
@@ -363,38 +363,38 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
 std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<const uint8_t> qb, size_t size)
 {
     std::vector<std::pair<uint32_t, script::Tokens>> arrays;
-    script::Tokens p(qb);
-    while (std::cmp_less(p.position(), size)) {
-        p = script::skip_newline_tokens(p);
-        const script::Tokens before = p;
-        switch (script::as_token(*p)) {
+    script::Tokens tokens(qb);
+    while (std::cmp_less(tokens.position(), size)) {
+        tokens = script::skip_newline_tokens(tokens);
+        const script::Tokens before = tokens;
+        switch (script::as_token(*tokens)) {
         case script::QbToken::kEndOfFile:
             return arrays;
         case script::QbToken::kName: { // name = value
-            const uint32_t name = script::fetch_word32(p + 1);
-            script::Tokens q = script::skip_newline_tokens(p + script::kTokenWithWordBytes);
-            if (script::as_token(*q) != script::QbToken::kEquals) {
-                p = script::step_over_token(p);
+            const uint32_t name = script::fetch_word32(tokens + 1);
+            script::Tokens lookahead = script::skip_newline_tokens(tokens + script::kTokenWithWordBytes);
+            if (script::as_token(*lookahead) != script::QbToken::kEquals) {
+                tokens = script::step_over_token(tokens);
                 break;
             }
-            q = script::skip_newline_tokens(q + 1);
-            if (script::as_token(*q) == script::QbToken::kArrayStart) {
-                arrays.emplace_back(name, q);
+            lookahead = script::skip_newline_tokens(lookahead + 1);
+            if (script::as_token(*lookahead) == script::QbToken::kArrayStart) {
+                arrays.emplace_back(name, lookahead);
             }
-            p = script::skip_value(q);
+            tokens = script::skip_value(lookahead);
             break;
         }
         case script::QbToken::kScriptStart:
-            p = script::skip_to_end_of_script(p + script::kTokenWithNamedWordBytes);
+            tokens = script::skip_to_end_of_script(tokens + script::kTokenWithNamedWordBytes);
             break; // script name ... endscript
         case script::QbToken::kSectionMarker:
-            p += script::kTokenWithNamedWordBytes;
+            tokens += script::kTokenWithNamedWordBytes;
             break; // a section marker
         default:
-            p = script::step_over_token(p);
+            tokens = script::step_over_token(tokens);
             break;
         }
-        if (p <= before) {
+        if (tokens <= before) {
             return arrays; // (a token we can't move past: stop)
         }
     }

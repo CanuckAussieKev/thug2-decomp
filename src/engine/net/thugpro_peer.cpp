@@ -282,26 +282,26 @@ bool pro_set_level(uint32_t level_load)
 void apply_pro_set(int index, bool on, uint32_t level_load, Effects& effects)
 {
     // THUGPRO's toggle_geo_nomenu (its KillAllTextureSplats first left out: decals only).
-    const ProSetPrefixes& p = core::at(kProSets, index);
-    effects.kill_prefix(p.geo);
-    effects.kill_prefix(p.trg);
-    if (p.trg2) {
-        effects.kill_prefix(p.trg2);
+    const ProSetPrefixes& prefixes = core::at(kProSets, index);
+    effects.kill_prefix(prefixes.geo);
+    effects.kill_prefix(prefixes.trg);
+    if (prefixes.trg2) {
+        effects.kill_prefix(prefixes.trg2);
     }
-    effects.kill_prefix(p.geo_not_);
-    effects.kill_prefix(p.trg_not_);
-    effects.create_prefix(p.geo_not_);
-    effects.create_prefix(p.trg_not_);
+    effects.kill_prefix(prefixes.geo_not_);
+    effects.kill_prefix(prefixes.trg_not_);
+    effects.create_prefix(prefixes.geo_not_);
+    effects.create_prefix(prefixes.trg_not_);
     if (!on) {
         return;
     }
-    effects.create_prefix(p.geo);
-    effects.create_prefix(p.trg);
-    if (p.trg2) {
-        effects.create_prefix(p.trg2);
+    effects.create_prefix(prefixes.geo);
+    effects.create_prefix(prefixes.trg);
+    if (prefixes.trg2) {
+        effects.create_prefix(prefixes.trg2);
     }
-    effects.kill_prefix(p.geo_not_);
-    effects.kill_prefix(p.trg_not_);
+    effects.kill_prefix(prefixes.geo_not_);
+    effects.kill_prefix(prefixes.trg_not_);
     effects.kill_prefix("TRG_G_COMP_Spectator");
     if (level_load == checksums::hash_from_text("Load_sch")) {
         effects.kill_name(checksums::hash_from_text("G_COMP_Ramp04"));
@@ -317,13 +317,13 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     // level's setup made it (our ports run the defaults in their setup scripts).
     const uint8_t options = get_level_options(info);
     if (level_prefix && (*level_prefix != '\0')) {
-        for (int n = 1; n <= kLevelOptionCount; ++n) {
-            if ((options & (1 << (n - 1))) == 0) {
+        for (int option = 1; option <= kLevelOptionCount; ++option) {
+            if ((options & (1 << (option - 1))) == 0) {
                 continue;
             }
             constexpr size_t kNameSize = 96;
             std::array<char, kNameSize> name{};
-            text::format_to(name, "%s_LEVEL_CHANGE_0%d", level_prefix, n);
+            text::format_to(name, "%s_LEVEL_CHANGE_0%d", level_prefix, option);
             effects.launch_script(checksums::hash_from_text(name.data()), true);
         }
     }
@@ -842,30 +842,30 @@ bool handle_chat_command(const char* text)
     }
     // /option n on|off, /proset n on|off: here now, to the players with the next game's server info (THUGPRO
     // changes them in a game through its own flag broadcast, which THUG2's scripts don't have).
-    const int n = text::to_int(first.data());
+    const int level_number = text::to_int(first.data());
     bool on = false;
-    if (words < 3 || n < 1 || n > kLevelOptionCount || !on_off(second.data(), &on)) {
+    if (words < 3 || level_number < 1 || level_number > kLevelOptionCount || !on_off(second.data(), &on)) {
         get_say(option ? "\\c4thugpro:\\c0 /option <1-8> on|off" : "\\c4thugpro:\\c0 /proset <1-8> on|off (8: G_COMP)");
         return true;
     }
-    auto bit = static_cast<uint8_t>(1 << (n - 1));
+    auto bit = static_cast<uint8_t>(1 << (level_number - 1));
     const uint32_t load = manager ? manager->level() : 0;
     if (option) {
         host().level_options_ = static_cast<uint8_t>(on ? host().level_options_ | bit : host().level_options_ & ~bit);
         const char* prefix = current_level_prefix();
         constexpr size_t kNameSize = 96;
         std::array<char, kNameSize> name{};
-        text::format_to(name, "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
+        text::format_to(name, "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", level_number);
         const bool ran = (prefix != nullptr) && effects.launch_script(checksums::hash_from_text(name.data()), on);
-        text::format_to(line, "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
+        text::format_to(line, "\\c4thugpro:\\c0 level option %d %s%s", level_number, on ? "on" : "off",
                         ran ? "" : " (this level has no such option)");
     } else {
         host().pro_sets_ = static_cast<uint8_t>(on ? host().pro_sets_ | bit : host().pro_sets_ & ~bit);
         const bool here = pro_set_level(load);
         if (here) {
-            apply_pro_set(n - 1, on, load, effects);
+            apply_pro_set(level_number - 1, on, load, effects);
         }
-        text::format_to(line, "\\c4thugpro:\\c0 pro set %d %s%s", n, on ? "on" : "off",
+        text::format_to(line, "\\c4thugpro:\\c0 pro set %d %s%s", level_number, on ? "on" : "off",
                         here ? "" : " (only THPS4's levels and New York have them)");
     }
     get_say(line.data());

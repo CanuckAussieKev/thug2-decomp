@@ -299,13 +299,13 @@ bool RiderStoryProgress::all_gaps_got()
     script::Array* levels = script::fetch_list(kLevelsWithGaps);
     const uint32_t count = levels->extent();
     for (int level = 0; level < kLevels; ++level) {
-        uint32_t i = 0;
-        for (; i < count; ++i) {
-            if (level == script::fetch_int_value(levels->fetch_part(i))) {
+        uint32_t index = 0;
+        for (; index < count; ++index) {
+            if (level == script::fetch_int_value(levels->fetch_part(index))) {
                 break;
             }
         }
-        if (i == count) {
+        if (index == count) {
             continue; // (not listed)
         }
         if (!core::at(visited_, level) || !core::at(gaps_, level)->all_got()) {
@@ -544,13 +544,13 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
             if (view.built) {
                 gsl::owner<script::Array*> list = alloc_script_array(static_cast<uint32_t>(view.gaps.size()), script::QbValueKind::kStruct);
                 for (size_t i = 0; i < view.gaps.size(); ++i) {
-                    const frontend::level_editor::career::Gap& g = core::at(view.gaps, i);
+                    const frontend::level_editor::career::Gap& gap_info = core::at(view.gaps, i);
                     gsl::owner<script::Struct*> gap = script::new_struct();
-                    gap->append_word(kGapName, g.name.c_str());
-                    gap->put_int(checksums::Name{kGapCount}, g.count);
-                    gap->put_int(checksums::Name{kGapScore}, g.score);
-                    gap->put_vec3(checksums::Name{kGapPos}, {.x = core::at(g.pos, 0), .y = core::at(g.pos, 1), .z = core::at(g.pos, 2)});
-                    gap->put_vec3(checksums::Name{kGapDir}, {.x = core::at(g.dir, 0), .y = core::at(g.dir, 1), .z = core::at(g.dir, 2)});
+                    gap->append_word(kGapName, gap_info.name.c_str());
+                    gap->put_int(checksums::Name{kGapCount}, gap_info.count);
+                    gap->put_int(checksums::Name{kGapScore}, gap_info.score);
+                    gap->put_vec3(checksums::Name{kGapPos}, {.x = core::at(gap_info.pos, 0), .y = core::at(gap_info.pos, 1), .z = core::at(gap_info.pos, 2)});
+                    gap->put_vec3(checksums::Name{kGapDir}, {.x = core::at(gap_info.dir, 0), .y = core::at(gap_info.dir, 1), .z = core::at(gap_info.dir, 2)});
                     list->set_cell(static_cast<uint32_t>(i), script::Cell::of(gap));
                 }
                 entry->append_array_ref(kGapList, list);

@@ -91,9 +91,9 @@ int number_of(uint32_t value, ChoiceNumbers numbers)
     const auto last = numbers.last;
     const auto bias = numbers.bias;
     const auto otherwise = numbers.otherwise;
-    for (int n = first; n <= last; ++n) {
-        if (value == core::at(kNum, n)) {
-            return n + bias;
+    for (int slot = first; slot <= last; ++slot) {
+        if (value == core::at(kNum, slot)) {
+            return slot + bias;
         }
     }
     return otherwise;

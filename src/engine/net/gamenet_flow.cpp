@@ -126,11 +126,11 @@ constexpr int kGameIdRange = 0xFF;
 // JoinerRecord flags (+0x20).
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
-prefs::Preferences* net_game_options(Hub* m) { return &m->net_options(); }
+prefs::Preferences* net_game_options(Hub* hub) { return &hub->net_options(); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
-prefs::Preferences* game_preferences(Hub* m)
+prefs::Preferences* game_preferences(Hub* hub)
 {
-    return m->in_net_game() ? net_game_options(m) : get_skate()->get_split_view_settings();
+    return hub->in_net_game() ? net_game_options(hub) : get_skate()->get_split_view_settings();
 }
 uint32_t preference_checksum(prefs::Preferences* prefs, uint32_t name, uint32_t field)
 {
@@ -161,8 +161,8 @@ void Hub::reset_to_lobby()
         king->give_crown(false);
     }
     PlayerSearch search;
-    for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
-        p->clear_flags(); // carries no flag
+    for (PlayerRecord* player = start_roster_sweep(this, &search, true); player; player = step_roster_sweep(this, &search, true)) {
+        player->clear_flags(); // carries no flag
     }
     clear_queued_scripts();
     lobby_since_ = frame_clock::get_time(); // (back in the lobby: auto-serve waits from here)
@@ -236,11 +236,11 @@ void Hub::start_network_game()
     desc.set_ident(MessageId::kStartGame);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
-    for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
-        p->set_best_combo(0);
-        p->clear_flags(); // carries no flag
-        p->flag_bits() &= ~PlayerFlag::kCaptureBlocked;
-        server->put_on_outbox(player_handle(p), &desc);
+    for (PlayerRecord* player = start_roster_sweep(this, &search, true); player; player = step_roster_sweep(this, &search, true)) {
+        player->set_best_combo(0);
+        player->clear_flags(); // carries no flag
+        player->flag_bits() &= ~PlayerFlag::kCaptureBlocked;
+        server->put_on_outbox(player_handle(player), &desc);
         if (!in_net_game()) {
             break; // (split screen: the first player only)
         }

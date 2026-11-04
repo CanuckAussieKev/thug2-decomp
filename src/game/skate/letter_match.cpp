@@ -67,7 +67,7 @@ int horse_restarts()
 
 objects::Rider* get_skater(uint32_t id) { return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(id)); }
 
-char get_upper(char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - kCaseBit) : c; }
+char get_upper(char character) { return character >= 'a' && character <= 'z' ? static_cast<char>(character - kCaseBit) : character; }
 
 // strcpy (no bounds, as the original).
 void dup_from(char* dest, const char* text)

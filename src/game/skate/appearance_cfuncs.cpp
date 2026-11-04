@@ -349,16 +349,16 @@ bool cfunc_set_player_appearance_color(script::Struct* params, script::Script* /
     params->read_hash_value(kPart, &part, 1);
     script::Struct* slot = appearance_part(profile, part);
     if (slot) {
-        float h = 0.0F;
-        float s = 0.0F;
+        float hue = 0.0F;
+        float saturation = 0.0F;
         float v = 0.0F;
         int use_default = 0;
-        params->fetch_float(kH, &h, 1);
-        params->fetch_float(kS, &s, 1);
+        params->fetch_float(kH, &hue, 1);
+        params->fetch_float(kS, &saturation, 1);
         params->fetch_float(kV, &v, 1);
         params->fetch_int_value(kUseDefaultHsv, &use_default, 1);
-        slot->put_int(checksums::Name{kH}, truncate(h));
-        slot->put_int(checksums::Name{kS}, truncate(s));
+        slot->put_int(checksums::Name{kH}, truncate(hue));
+        slot->put_int(checksums::Name{kS}, truncate(saturation));
         slot->put_int(checksums::Name{kV}, truncate(v));
         slot->put_int(checksums::Name{kUseDefaultHsv}, use_default);
     }

@@ -385,10 +385,10 @@ int handle_host_options(net::InboundMsgCtx* context)
         desc.set_ident(MessageId::kGameEnded);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(MessageGroup::kGame);
-        for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
-             p = step_roster_sweep(manager, &search, true)) {
-            if (!is_own_player(p)) {
-                server->put_on_outbox(player_handle(p), &desc);
+        for (PlayerRecord* player = start_roster_sweep(manager, &search, true); player;
+             player = step_roster_sweep(manager, &search, true)) {
+            if (!is_own_player(player)) {
+                server->put_on_outbox(player_handle(player), &desc);
             }
         }
         break;
@@ -483,11 +483,11 @@ int handle_start_game(net::InboundMsgCtx* context)
     manager->set_start_info_words(start.start_points.data());
     manager->set_crown_start(int{start.crown_start_slot}); // the crown's spawn point
     manager->set_awaiting_start(false);
-    for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
-         p = step_roster_sweep(manager, &search, false)) {
-        if (!is_own_player(p)) {
-            core::down_cast<objects::Rider>(player_skater(p))->conceal_skater();
-            core::down_cast<objects::Rider>(player_skater(p))->reset_27c();
+    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
+         player = step_roster_sweep(manager, &search, false)) {
+        if (!is_own_player(player)) {
+            core::down_cast<objects::Rider>(player_skater(player))->conceal_skater();
+            core::down_cast<objects::Rider>(player_skater(player))->reset_27c();
         }
     }
     get_game_mode()->apply_match_style(start.game_type);
@@ -539,11 +539,11 @@ int handle_start_game(net::InboundMsgCtx* context)
     }
     manager->set_match_ended(false);
     // Every player's flags and score reset.
-    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
-         p = step_roster_sweep(manager, &search, true)) {
-        p->clear_flags();
-        p->clear_last_hit_time();
-        if (objects::Entity* skater = player_skater(p)) {
+    for (PlayerRecord* player = start_roster_sweep(manager, &search, true); player;
+         player = step_roster_sweep(manager, &search, true)) {
+        player->clear_flags();
+        player->clear_last_hit_time();
+        if (objects::Entity* skater = player_skater(player)) {
             auto* score = core::down_cast<objects::RiderPointKeeper>(
                 core::down_cast<objects::GameEntity>(skater)->fetch_module(kSkaterScore)); // its score component
             if (score->points_held()) {

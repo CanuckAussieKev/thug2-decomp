@@ -90,15 +90,15 @@ gsl::owner<ParamBag*> new_script_struct()
     void* memory = pool ? pool->carve() : memory::alloc(kStructBytes);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
-void delete_script_struct(ParamBag* s)
+void delete_script_struct(ParamBag* bag)
 {
-    if (!s) {
+    if (!bag) {
         return;
     }
-    s->get_clear();
-    script::delete_struct(s);
+    bag->get_clear();
+    script::delete_struct(bag);
 }
-void append_word(ParamBag* s, uint32_t name, const char* value) { s->append_word(name, value); }
+void append_word(ParamBag* bag, uint32_t name, const char* value) { bag->append_word(name, value); }
 void launch_script(uint32_t script, ParamBag* params)
 {
     script::launch_script(script, params, nullptr, false, nullptr);
@@ -269,11 +269,11 @@ bool handle_chat_command(Hub* manager, const char* text)
         get_log("where: level %u", level);
         auto* skater = modules::Skate::sole()->get_home_rider(); // the skate module's local skater
         if (skater) {
-            const maths::Vec4& p = skater->at_point();
-            const maths::Mat4& m = skater->basis_frame();
-            get_log("where: skater pos %.3f %.3f %.3f", p.x, p.y, p.z);
+            const maths::Vec4& position = skater->at_point();
+            const maths::Mat4& basis = skater->basis_frame();
+            get_log("where: skater pos %.3f %.3f %.3f", position.x, position.y, position.z);
             for (int row = 0; row < 3; ++row) {
-                get_log("where: skater matrix row %d %.6f %.6f %.6f", row, core::at(m.row, row).x, core::at(m.row, row).y, core::at(m.row, row).z);
+                get_log("where: skater matrix row %d %.6f %.6f %.6f", row, core::at(basis.row, row).x, core::at(basis.row, row).y, core::at(basis.row, row).z);
             }
         } else {
             get_log("where: no local skater");

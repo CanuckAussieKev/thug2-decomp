@@ -203,12 +203,12 @@ void PointTally::set_rider_number(int16_t id) { rider_no_ = id; }
 void PointTally::escape_spaces(std::span<char> out, const char* text)
 {
     size_t at = 0;
-    for (const char c : std::string_view(text)) {
-        if (c == ' ') {
+    for (const char character : std::string_view(text)) {
+        if (character == ' ') {
             core::at(out, at++) = '\\';
             core::at(out, at++) = '_';
         } else {
-            core::at(out, at++) = c;
+            core::at(out, at++) = character;
         }
     }
     core::at(out, at) = 0;
@@ -220,8 +220,8 @@ void PointTally::set_special_bar_colors()
     script::Array* colors = script::fetch_list(kSpecialBarColors);
     for (uint32_t i = 0; i < 3; ++i) {
         auto* color = colors->array_at(i);
-        for (uint32_t c = 0; c < 4; ++c) {
-            core::at(core::at(bar_colors_, i), c) = static_cast<uint8_t>(color->fetch_part(c));
+        for (uint32_t channel = 0; channel < 4; ++channel) {
+            core::at(core::at(bar_colors_, i), channel) = static_cast<uint8_t>(color->fetch_part(channel));
         }
     }
     special_rate_ = script::fetch_float(kSpecialBarInterpolatorRate);

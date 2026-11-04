@@ -180,24 +180,24 @@ void Contest::sort_leaders()
         }
         if (best != i) {
             // (a leader's copy: the name, the id, the scores and unknown1c - not the padding)
-            Leader& a = core::at(leaders_, best);
-            Leader& b = core::at(leaders_, i);
-            const text::Chars name(a.label);
-            const int id = a.ident;
-            const std::array<int, kRuns> scores = {{core::at(a.scores, 0), core::at(a.scores, 1), core::at(a.scores, 2)}};
-            const bool unknown = a.unknown1c;
-            a.label = b.label;
-            a.ident = b.ident;
+            Leader& best_leader = core::at(leaders_, best);
+            Leader& this_leader = core::at(leaders_, i);
+            const text::Chars name(best_leader.label);
+            const int id = best_leader.ident;
+            const std::array<int, kRuns> scores = {{core::at(best_leader.scores, 0), core::at(best_leader.scores, 1), core::at(best_leader.scores, 2)}};
+            const bool unknown = best_leader.unknown1c;
+            best_leader.label = this_leader.label;
+            best_leader.ident = this_leader.ident;
             for (int k = 0; k < kRuns; ++k) {
-                core::at(a.scores, k) = core::at(b.scores, k);
+                core::at(best_leader.scores, k) = core::at(this_leader.scores, k);
             }
-            a.unknown1c = b.unknown1c;
-            b.label = name;
-            b.ident = id;
+            best_leader.unknown1c = this_leader.unknown1c;
+            this_leader.label = name;
+            this_leader.ident = id;
             for (int k = 0; k < kRuns; ++k) {
-                core::at(b.scores, k) = core::at(scores, k);
+                core::at(this_leader.scores, k) = core::at(scores, k);
             }
-            b.unknown1c = unknown;
+            this_leader.unknown1c = unknown;
         }
     }
 }

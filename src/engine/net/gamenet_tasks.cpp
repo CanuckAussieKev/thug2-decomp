@@ -107,9 +107,9 @@ void level_change_task(tasks::Task<Hub>* task)
     if (PlayerRecord* king = is_crown_rule_active(manager)) {
         king->give_crown(false);
     }
-    for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
-         p = step_roster_sweep(manager, &search, true)) {
-        p->clear_flags(); // carries no flag
+    for (PlayerRecord* player = start_roster_sweep(manager, &search, true); player;
+         player = step_roster_sweep(manager, &search, true)) {
+        player->clear_flags(); // carries no flag
     }
     manager->level_change_job()->drop_out();
 }

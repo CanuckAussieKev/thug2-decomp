@@ -133,8 +133,8 @@ void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
 void copy_string(std::span<char> out, const char* source)
 {
     size_t at = 0;
-    for (const char c : std::string_view(source)) {
-        core::at(out, at++) = c;
+    for (const char character : std::string_view(source)) {
+        core::at(out, at++) = character;
     }
     core::at(out, at) = '\0';
 }

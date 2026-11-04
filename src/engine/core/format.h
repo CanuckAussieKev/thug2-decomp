@@ -126,83 +126,83 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
         }
         return types.at(next++);
     };
-    size_t i = 0;
+    size_t index = 0;
     auto peek = [&](size_t at) { return at < format.size() ? format.at(at) : '\0'; };
-    while (i < format.size()) {
-        if (format.at(i) != '%') {
-            ++i;
+    while (index < format.size()) {
+        if (format.at(index) != '%') {
+            ++index;
             continue;
         }
-        ++i;
-        if (peek(i) == '%') {
-            ++i;
+        ++index;
+        if (peek(index) == '%') {
+            ++index;
             continue;
         }
-        while (peek(i) == '-' || peek(i) == '+' || peek(i) == ' ' || peek(i) == '#' || peek(i) == '0') {
-            ++i;
+        while (peek(index) == '-' || peek(index) == '+' || peek(index) == ' ' || peek(index) == '#' || peek(index) == '0') {
+            ++index;
         }
-        if (peek(i) == '*') {
+        if (peek(index) == '*') {
             const ArgType width = take();
             if (!is_integer(width.kind) || width.size > kIntSize) {
                 format_width_or_precision_argument_is_not_an_int();
             }
-            ++i;
+            ++index;
         } else {
-            while (peek(i) >= '0' && peek(i) <= '9') {
-                ++i;
+            while (peek(index) >= '0' && peek(index) <= '9') {
+                ++index;
             }
         }
-        if (peek(i) == '.') {
-            ++i;
-            if (peek(i) == '*') {
+        if (peek(index) == '.') {
+            ++index;
+            if (peek(index) == '*') {
                 const ArgType precision = take();
                 if (!is_integer(precision.kind) || precision.size > kIntSize) {
                     format_width_or_precision_argument_is_not_an_int();
                 }
-                ++i;
+                ++index;
             } else {
-                while (peek(i) >= '0' && peek(i) <= '9') {
-                    ++i;
+                while (peek(index) >= '0' && peek(index) <= '9') {
+                    ++index;
                 }
             }
         }
         // the length modifier: the integer size it names (or the wide text / long double it marks)
         size_t size = kIntSize;
         bool wide = false;
-        if (peek(i) == 'h') {
-            ++i;
-            if (peek(i) == 'h') {
-                ++i;
+        if (peek(index) == 'h') {
+            ++index;
+            if (peek(index) == 'h') {
+                ++index;
             }
-        } else if (peek(i) == 'l') {
-            ++i;
+        } else if (peek(index) == 'l') {
+            ++index;
             size = kLongSize;
             wide = true;
-            if (peek(i) == 'l') {
-                ++i;
+            if (peek(index) == 'l') {
+                ++index;
                 size = kLongLongSize;
                 wide = false;
             }
-        } else if (peek(i) == 'I' && peek(i + 1) == '6' && peek(i + 2) == '4') {
-            i += 3;
+        } else if (peek(index) == 'I' && peek(index + 1) == '6' && peek(index + 2) == '4') {
+            index += 3;
             size = kLongLongSize;
-        } else if (peek(i) == 'j') {
-            ++i;
+        } else if (peek(index) == 'j') {
+            ++index;
             size = kLongLongSize;
-        } else if (peek(i) == 'z') {
-            ++i;
+        } else if (peek(index) == 'z') {
+            ++index;
             size = sizeof(size_t);
-        } else if (peek(i) == 't') {
-            ++i;
+        } else if (peek(index) == 't') {
+            ++index;
             size = sizeof(std::ptrdiff_t);
-        } else if (peek(i) == 'L') {
-            ++i;
+        } else if (peek(index) == 'L') {
+            ++index;
         }
-        if (i >= format.size()) {
+        if (index >= format.size()) {
             format_ends_inside_a_conversion();
             return;
         }
-        const char conversion = format.at(i++);
+        const char conversion = format.at(index++);
         switch (conversion) {
         case 'd':
         case 'i':

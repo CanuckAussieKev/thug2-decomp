@@ -162,20 +162,20 @@ tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->log
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
 uint32_t current_local_address() { return crt::get_inet_addr(net::Hub::fetch_own_address()); }
 
-void set_ready_state(Hub* m, bool ready) { m->set_ready_state(ready); }
+void set_ready_state(Hub* hub, bool ready) { hub->set_ready_state(ready); }
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
 void set_maximum_players(int count) { goals::game_mode()->set_rider_ceiling(count); }
-int32_t get_rating(Hub* m)
+int32_t get_rating(Hub* hub)
 {
     // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
     // single::PointerMember::get_pull)
-    return m->rating_service()->get_personal_stats()->skill_points_;
+    return hub->rating_service()->get_personal_stats()->skill_points_;
 }
 
-const char* preference_text(Hub* m, uint32_t name)
+const char* preference_text(Hub* hub, uint32_t name)
 {
     const char* text = nullptr;
-    m->net_options().fetch_setting(name)->fetch_text(kUiString, &text, 1);
+    hub->net_options().fetch_setting(name)->fetch_text(kUiString, &text, 1);
     return text;
 }
 
@@ -193,9 +193,9 @@ void authenticate_user(int local_id, uint32_t ip, const char* challenge, const c
 }
 
 void get_sprintf(char* out, text::FormatFor<uint32_t, uint32_t, int, const char*, const char*> format, uint32_t a,
-                 uint32_t b, int c, const char* d, const char* e)
+                 uint32_t b, int number, const char* first_text, const char* second_text)
 {
-    crt::get_sprintf(out, format, a, b, c, d, e);
+    crt::get_sprintf(out, format, a, b, number, first_text, second_text);
 }
 
 NetMessageInfo new_desc()

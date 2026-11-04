@@ -91,36 +91,36 @@ int sanitise(script::Struct* appearance)
     };
     std::vector<Change> changes;
     bool reset_body = false;
-    for (script::Component* c = appearance->step_to_entry(nullptr); c; c = appearance->step_to_entry(c)) {
-        if (!is_structure(c) || !c->value.structure()) {
+    for (script::Component* entry = appearance->step_to_entry(nullptr); entry; entry = appearance->step_to_entry(entry)) {
+        if (!is_structure(entry) || !entry->value.structure()) {
             continue;
         }
         uint32_t desc = 0;
-        if (!c->value.structure()->read_hash_value(kDescId, &desc, 0)) {
+        if (!entry->value.structure()->read_hash_value(kDescId, &desc, 0)) {
             continue; // (not a part)
         }
-        script::Array* list = part_list(c->name);
+        script::Array* list = part_list(entry->name);
         if (!list) {
-            get_log("appearance guard (TP-R9): slot 0x%08X isn't one of ours (part 0x%08X): taken out", c->name, desc);
-            remove.push_back(c->name);
+            get_log("appearance guard (TP-R9): slot 0x%08X isn't one of ours (part 0x%08X): taken out", entry->name, desc);
+            remove.push_back(entry->name);
             continue;
         }
         if (list_has(list, desc)) {
             continue;
         }
-        if (c->name == kBody) {
+        if (entry->name == kBody) {
             get_log("appearance guard (TP-R9): body 0x%08X isn't one of ours: the default custom skater instead", desc);
             reset_body = true;
             break;
         }
-        const uint32_t to = get_fallback(c->name, list);
+        const uint32_t to = get_fallback(entry->name, list);
         if (to == 0U) {
             get_log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours, nothing fits: taken out",
-                    c->name, desc);
-            remove.push_back(c->name);
+                    entry->name, desc);
+            remove.push_back(entry->name);
             continue;
         }
-        changes.push_back({.part = c->value.structure(), .slot = c->name, .from = desc, .to = to});
+        changes.push_back({.part = entry->value.structure(), .slot = entry->name, .from = desc, .to = to});
     }
     if (reset_body) {
         script::Struct* defaults = current_catalog().defaults();

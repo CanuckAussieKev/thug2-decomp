@@ -103,7 +103,7 @@ public:
             if (hex) {
                 at += 2;
             }
-            auto is_mantissa_digit = [&](char c) { return hex ? is_hex_digit(c) : number_detail::is_digit(c); };
+            auto is_mantissa_digit = [&](char character) { return hex ? is_hex_digit(character) : number_detail::is_digit(character); };
             std::size_t digits = 0;
             for (; is_mantissa_digit(char_at(at)); ++at) {
                 ++digits;
@@ -171,14 +171,14 @@ public:
 
 private:
     [[nodiscard]] char char_at(std::size_t index) const noexcept { return number_detail::char_at(text_, index); }
-    static constexpr char lower(char c) noexcept { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; }
-    static constexpr bool is_hex_digit(char c) noexcept
+    static constexpr char lower(char character) noexcept { return character >= 'A' && character <= 'Z' ? static_cast<char>(character - 'A' + 'a') : character; }
+    static constexpr bool is_hex_digit(char character) noexcept
     {
-        return number_detail::is_digit(c) || (lower(c) >= 'a' && lower(c) <= 'f');
+        return number_detail::is_digit(character) || (lower(character) >= 'a' && lower(character) <= 'f');
     }
-    static constexpr bool is_word_char(char c) noexcept
+    static constexpr bool is_word_char(char character) noexcept
     {
-        return number_detail::is_digit(c) || (lower(c) >= 'a' && lower(c) <= 'z') || c == '_';
+        return number_detail::is_digit(character) || (lower(character) >= 'a' && lower(character) <= 'z') || character == '_';
     }
 
     // White space before a field; false (the text ended) when none is left.
@@ -195,8 +195,8 @@ private:
     // `word` (any case) at `at`, moving past what matched.
     bool match_word(std::size_t& at, std::string_view word) const noexcept
     {
-        for (const char c : word) {
-            if (lower(char_at(at)) != c) {
+        for (const char character : word) {
+            if (lower(char_at(at)) != character) {
                 return false;
             }
             ++at;
@@ -232,33 +232,33 @@ private:
     // the point (or the zeros after it) counted in (only its sign matters: the range ends far from 1).
     static bool is_large(std::string_view number, bool hex) noexcept
     {
-        auto is_digit = [hex](char c) { return hex ? is_hex_digit(c) : number_detail::is_digit(c); };
+        auto is_digit = [hex](char character) { return hex ? is_hex_digit(character) : number_detail::is_digit(character); };
         auto at = [&](std::size_t index) { return number_detail::char_at(number, index); };
-        std::size_t i = 0;
+        std::size_t position = 0;
         int64_t whole = 0;
         int64_t lead = 0;
         bool seen = false;
-        for (; is_digit(at(i)); ++i) {
-            seen = seen || at(i) != '0';
+        for (; is_digit(at(position)); ++position) {
+            seen = seen || at(position) != '0';
             whole += seen ? 1 : 0;
         }
-        if (at(i) == '.') {
-            for (++i; is_digit(at(i)); ++i) {
-                seen = seen || at(i) != '0';
+        if (at(position) == '.') {
+            for (++position; is_digit(at(position)); ++position) {
+                seen = seen || at(position) != '0';
                 lead += seen ? 0 : 1;
             }
         }
         int64_t exponent = 0;
         constexpr int64_t kLimit = 1000000000; // (past any number's range)
         constexpr int64_t kBase = 10;
-        if (lower(at(i)) == (hex ? 'p' : 'e')) {
-            ++i;
-            const bool negative = at(i) == '-';
-            if (at(i) == '+' || at(i) == '-') {
-                ++i;
+        if (lower(at(position)) == (hex ? 'p' : 'e')) {
+            ++position;
+            const bool negative = at(position) == '-';
+            if (at(position) == '+' || at(position) == '-') {
+                ++position;
             }
-            for (; number_detail::is_digit(at(i)); ++i) {
-                exponent = std::min((exponent * kBase) + (at(i) - '0'), kLimit);
+            for (; number_detail::is_digit(at(position)); ++position) {
+                exponent = std::min((exponent * kBase) + (at(position) - '0'), kLimit);
             }
             exponent = negative ? -exponent : exponent;
         }

@@ -370,10 +370,10 @@ void PointTally::tick_frame()
     if (special_active_) {
         const double flash = (std::cos(static_cast<double>(special_phase_)) + 1.0) * 0.5;
         special_phase_ = static_cast<float>(static_cast<double>(special_rate_) + special_phase_);
-        for (int c = 0; c < 4; ++c) {
-            const int from = core::at(core::at(bar_colors_, 1), c);
-            core::at(rgba, c) =
-                static_cast<uint8_t>(ftol(((core::at(core::at(bar_colors_, 2), c) - from) * flash) + from));
+        for (int channel = 0; channel < 4; ++channel) {
+            const int from = core::at(core::at(bar_colors_, 1), channel);
+            core::at(rgba, channel) =
+                static_cast<uint8_t>(ftol(((core::at(core::at(bar_colors_, 2), channel) - from) * flash) + from));
         }
     }
     uint32_t color = 0;
@@ -718,8 +718,8 @@ void PointTally::get_bail(bool clear)
 {
     for (int i = 0; i < seen_.num(); ++i) {
         auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr)); // (inlined there)
-        for (int& k : seen->ongoing_) {
-            k = 0;
+        for (int& count : seen->ongoing_) {
+            count = 0;
         }
     }
     if (tricks_ != 0) {

@@ -339,9 +339,9 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
 // 0x005793D0
 GapEntry* GapTally::get_gap(int index)
 {
-    int i = 0;
-    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++i) {
-        if (i == index) {
+    int position = 0;
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++position) {
+        if (position == index) {
             return gap;
         }
     }

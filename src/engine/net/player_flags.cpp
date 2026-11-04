@@ -85,16 +85,16 @@ const char* get_team_name(const char* key) { return script::fetch_text(key); }
 void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
 {
     PlayerSearch search;
-    for (auto* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
-        if (p->get_flag_team() != team) {
+    for (auto* player = start_roster_sweep(manager, &search, false); player; player = step_roster_sweep(manager, &search, false)) {
+        if (player->get_flag_team() != team) {
             continue;
         }
         if (stop_at_first) {
-            p->flag_bits() &= ~PlayerFlag::kCarryingFlags;
+            player->flag_bits() &= ~PlayerFlag::kCarryingFlags;
             return;
         }
-        p->flag_bits() &= ~flag_of(team);
-        p->flag_bits() &= ~PlayerFlag::kCarryingFlags;
+        player->flag_bits() &= ~flag_of(team);
+        player->flag_bits() &= ~PlayerFlag::kCarryingFlags;
     }
 }
 

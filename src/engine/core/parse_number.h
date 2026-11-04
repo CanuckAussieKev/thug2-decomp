@@ -19,9 +19,9 @@ namespace text {
 namespace number_detail {
 
 // isspace in the "C" locale: space, \t \n \v \f \r
-constexpr bool is_space(char c) noexcept { return c == ' ' || (c >= '\t' && c <= '\r'); }
+constexpr bool is_space(char character) noexcept { return character == ' ' || (character >= '\t' && character <= '\r'); }
 
-constexpr bool is_digit(char c) noexcept { return c >= '0' && c <= '9'; }
+constexpr bool is_digit(char character) noexcept { return character >= '0' && character <= '9'; }
 
 // The character at `index` of the text, or the terminator the C text would have there.
 constexpr char char_at(std::string_view text, std::size_t index) noexcept
@@ -86,8 +86,8 @@ inline double to_double(const char* text) noexcept
     double value = 0.0;
     std::from_chars_result read{};
     auto is_hex_digit = [&](std::size_t index) {
-        const char c = char_at(first, index);
-        return number_detail::is_digit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+        const char character = char_at(first, index);
+        return number_detail::is_digit(character) || (character >= 'a' && character <= 'f') || (character >= 'A' && character <= 'F');
     };
     if (char_at(first, 0) == '0' && (char_at(first, 1) == 'x' || char_at(first, 1) == 'X') &&
         (is_hex_digit(2) || (char_at(first, 2) == '.' && is_hex_digit(3)))) {
@@ -102,13 +102,13 @@ inline double to_double(const char* text) noexcept
         // too large (HUGE_VAL) or too small (0): the sign of the exponent the text spells out, counting the digits
         // before the point as a decimal (or binary, for hex) exponent of their own
         const bool hex = char_at(first, 1) == 'x' || char_at(first, 1) == 'X';
-        std::size_t p = hex ? 2 : 0;
+        std::size_t position = hex ? 2 : 0;
         long whole_digits = 0;
         bool seen_nonzero = false;
-        for (; char_at(first, p) != '\0' && char_at(first, p) != '.' && char_at(first, p) != 'e' &&
-               char_at(first, p) != 'E' && char_at(first, p) != 'p' && char_at(first, p) != 'P';
-             ++p) {
-            seen_nonzero = seen_nonzero || char_at(first, p) != '0';
+        for (; char_at(first, position) != '\0' && char_at(first, position) != '.' && char_at(first, position) != 'e' &&
+               char_at(first, position) != 'E' && char_at(first, position) != 'p' && char_at(first, position) != 'P';
+             ++position) {
+            seen_nonzero = seen_nonzero || char_at(first, position) != '0';
             whole_digits += seen_nonzero ? 1 : 0;
         }
         bool large = whole_digits > 0;

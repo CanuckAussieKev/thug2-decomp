@@ -22,9 +22,9 @@ constexpr int kLetterDigitOffset = 10;    // 'a' is the digit ten
 // 0x00402080
 void to_lower_text(char* string)
 {
-    for (char& c : std::span<char>(string, std::strlen(string))) {
-        if (c >= 'A' && c <= 'Z') {
-            c += 'a' - 'A';
+    for (char& character : std::span<char>(string, std::strlen(string))) {
+        if (character >= 'A' && character <= 'Z') {
+            character += 'a' - 'A';
         }
     }
 }
@@ -32,16 +32,16 @@ void to_lower_text(char* string)
 // 0x004020B0
 void to_capitals(char* string)
 {
-    for (char& c : std::span<char>(string, std::strlen(string))) {
-        if (c >= 'a' && c <= 'z') {
-            c -= 'a' - 'A';
+    for (char& character : std::span<char>(string, std::strlen(string))) {
+        if (character >= 'a' && character <= 'z') {
+            character -= 'a' - 'A';
         }
     }
 }
 
 namespace {
 
-char get_lower(char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c; }
+char get_lower(char character) { return (character >= 'A' && character <= 'Z') ? static_cast<char>(character + ('a' - 'A')) : character; }
 
 } // namespace
 
@@ -60,13 +60,13 @@ const char* find_caseless(CaselessSearch search)
         if (get_lower(core::at(hay, at)) != first) {
             continue;
         }
-        std::size_t i = 1;
+        std::size_t matched = 1;
         // (the haystack's terminator ends a partial match, as it differs from the needle's next character)
-        while (i < wanted.size() && at + i < hay.size() &&
-               get_lower(core::at(wanted, i)) == get_lower(core::at(hay, at + i))) {
-            ++i;
+        while (matched < wanted.size() && at + matched < hay.size() &&
+               get_lower(core::at(wanted, matched)) == get_lower(core::at(hay, at + matched))) {
+            ++matched;
         }
-        if (i == wanted.size()) {
+        if (matched == wanted.size()) {
             return hay.substr(at).data();
         }
     }
@@ -144,15 +144,15 @@ int compare_caseless(const char* a, const char* b)
 // 0x004020E0
 int hex_digit_value(char digit)
 {
-    const char c = digit;
-    if (c >= '0' && c <= '9') {
-        return c - '0';
+    const char character = digit;
+    if (character >= '0' && character <= '9') {
+        return character - '0';
     }
-    if (c >= 'a' && c <= 'v') {
-        return c - 'a' + kLetterDigitOffset;
+    if (character >= 'a' && character <= 'v') {
+        return character - 'a' + kLetterDigitOffset;
     }
-    if (c >= 'A' && c <= 'V') {
-        return c - 'A' + kLetterDigitOffset;
+    if (character >= 'A' && character <= 'V') {
+        return character - 'A' + kLetterDigitOffset;
     }
     return 0;
 }
@@ -162,15 +162,15 @@ int next_word(std::span<char> word, core::CStringCursor& cursor)
 {
     core::Cursor<char> out(word);
     for (;;) {
-        const char c = *cursor;
-        if (c == '\0') {
+        const char character = *cursor;
+        if (character == '\0') {
             *out = '\0';
             return 2;
         }
-        if (c == ' ') {
+        if (character == ' ') {
             break;
         }
-        if (c == '\\') {
+        if (character == '\\') {
             ++cursor;
             const char escaped = *cursor;
             if (escaped == '_') {
@@ -187,7 +187,7 @@ int next_word(std::span<char> word, core::CStringCursor& cursor)
                 ++cursor;
             }
         } else {
-            *out++ = c;
+            *out++ = character;
             ++cursor;
         }
     }

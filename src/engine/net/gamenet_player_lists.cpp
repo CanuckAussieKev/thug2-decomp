@@ -226,9 +226,9 @@ void Hub::remove_new_player(JoinerRecord* player)
 // 0x00537010
 PlayerRecord* Hub::step_player_walk(PlayerSearch* search, bool observers)
 {
-    PlayerSearch* s = search;
-    auto* node = get_next_node(s->list_link_);
-    s->list_link_ = node;
+    PlayerSearch* sweep = search;
+    auto* node = get_next_node(sweep->list_link_);
+    sweep->list_link_ = node;
     auto* player = data_of<PlayerRecord>(node);
     if (!observers && player && is_observer(player)) {
         return step_player_walk(search, false);
@@ -239,11 +239,11 @@ PlayerRecord* Hub::step_player_walk(PlayerSearch* search, bool observers)
 // 0x005372C0
 PlayerRecord* Hub::begin_player_walk(PlayerSearch* search, bool observers)
 {
-    PlayerSearch* s = search;
+    PlayerSearch* sweep = search;
     memory::ListNode* head = &players_;
-    s->list_link_ = head;
+    sweep->list_link_ = head;
     memory::ListNode* node = get_next_node(head);
-    s->list_link_ = node;
+    sweep->list_link_ = node;
     auto* player = data_of<PlayerRecord>(node);
     if (!observers && player && is_observer(player)) {
         return step_player_walk(search, false);
@@ -254,21 +254,21 @@ PlayerRecord* Hub::begin_player_walk(PlayerSearch* search, bool observers)
 // 0x00537070
 JoinerRecord* Hub::begin_joiner_walk(NewPlayerSearch* search)
 {
-    NewPlayerSearch* s = search;
+    NewPlayerSearch* sweep = search;
     memory::ListNode* head = &joiners_;
-    s->list_link_ = head;
+    sweep->list_link_ = head;
     memory::ListNode* node = get_next_node(head);
-    s->list_link_ = node;
+    sweep->list_link_ = node;
     return data_of<JoinerRecord>(node);
 }
 
 // (no address: the lists' generic next, folded at 0x004573D0 - see the header)
 JoinerRecord* Hub::step_joiner_walk(NewPlayerSearch* search)
 {
-    NewPlayerSearch* s = search;
-    memory::ListNode* next = s->list_link_->next();
-    s->list_link_ = next->data() == memory::ListNode::head_marker() ? nullptr : next;
-    return s->list_link_ ? static_cast<JoinerRecord*>(next->data()) : nullptr;
+    NewPlayerSearch* sweep = search;
+    memory::ListNode* next = sweep->list_link_->next();
+    sweep->list_link_ = next->data() == memory::ListNode::head_marker() ? nullptr : next;
+    return sweep->list_link_ ? static_cast<JoinerRecord*>(next->data()) : nullptr;
 }
 
 // 0x005370A0
@@ -410,8 +410,8 @@ void Hub::queue_script(ScriptCall script_call)
     const auto object_id = script_call.object_id_;
     const auto script = script_call.script;
     memory::ListNode* head = &queued_scripts_;
-    for (const memory::ListNode* n = get_next_node(head); auto* queued = data_of<PendingScriptItem>(n);
-         n = get_next_node(n)) {
+    for (const memory::ListNode* queued_node = get_next_node(head); auto* queued = data_of<PendingScriptItem>(queued_node);
+         queued_node = get_next_node(queued_node)) {
         if (queued->own_script() == script) {
             return;
         }

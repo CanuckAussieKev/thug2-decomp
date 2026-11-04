@@ -91,16 +91,16 @@ int points_of(void* score) { return static_cast<modules::PointTally*>(score)->ge
 
 
 // A player that gets a score line: fully in (or local), not eliminated, and in netfirefight not out of lives.
-bool has_score_line(PlayerRecord* p)
+bool has_score_line(PlayerRecord* player)
 {
-    if (!core::any(p->flag_bits() & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) ||
-        core::any(p->flag_bits() & PlayerFlag::kEliminated)) {
+    if (!core::any(player->flag_bits() & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) ||
+        core::any(player->flag_bits() & PlayerFlag::kEliminated)) {
         return false;
     }
-    if (get_game_type() != kNetFirefight || !p->skater()) {
+    if (get_game_type() != kNetFirefight || !player->skater()) {
         return true;
     }
-    objects::ObjectModule* score = p->skater()->fetch_module(kSkaterScore);
+    objects::ObjectModule* score = player->skater()->fetch_module(kSkaterScore);
     return (score == nullptr) || points_of(core::down_cast<objects::RiderPointKeeper>(score)->points_held()) != 0;
 }
 
@@ -115,7 +115,7 @@ ScoreEntry* new_entry()
 }
 
 // The lowest team whose flag the player carries (-1: none - a shift by 31 then, as the original's).
-uint32_t flag_bit(PlayerRecord* p) { return 1U << (static_cast<uint32_t>(p->get_flag_team()) & kBitMask); }
+uint32_t flag_bit(PlayerRecord* player) { return 1U << (static_cast<uint32_t>(player->get_flag_team()) & kBitMask); }
 
 // At the end of the list.
 void get_append(lists::Foremost* head, ScoreEntry* entry)
@@ -135,14 +135,14 @@ int Hub::get_squad_points(int team)
     int total = 0;
     const PlayerRecord* local = find_own_player_record(this);
     const bool goal_attack = get_game_type() == kNetGoalAttack;
-    for (PlayerRecord* p = start_roster_sweep(this, &search, false); p; p = step_roster_sweep(this, &search, false)) {
-        if (!core::any(p->flag_bits() & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) || p->team() != team) {
+    for (PlayerRecord* player = start_roster_sweep(this, &search, false); player; player = step_roster_sweep(this, &search, false)) {
+        if (!core::any(player->flag_bits() & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) || player->team() != team) {
             continue;
         }
         if (goal_attack && !core::any(local->flag_bits() & PlayerFlag::kObserver)) {
             return objective_board()->num_goals_net_beaten_by(team);
         }
-        total += points_of(get_score_of(p));
+        total += points_of(get_score_of(player));
     }
     return total;
 }
@@ -203,25 +203,25 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             entry->set_shade(team + 2);
             entry->set_team_score(manager->get_squad_points(team));
         }
-        for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
-            if (!has_score_line(p)) {
+        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player; player = step_roster_sweep(manager, &search, false)) {
+            if (!has_score_line(player)) {
                 continue;
             }
-            if (core::any(p->flag_bits() & PlayerFlag::kLocal)) {
+            if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
                 constexpr size_t kMarkedSize = 64;
                 std::array<char, kMarkedSize> marked{};
-                text::format_to(marked, "> %s", core::at(teams, p->team())->text().data());
-                text::copy_into(core::at(teams, p->team())->text(), marked.data());
+                text::format_to(marked, "> %s", core::at(teams, player->team())->text().data());
+                text::copy_into(core::at(teams, player->team())->text(), marked.data());
             }
-            if (core::any(p->flag_bits() & PlayerFlag::kKing)) {
-                core::at(teams, p->team())->set_king(true);
+            if (core::any(player->flag_bits() & PlayerFlag::kKing)) {
+                core::at(teams, player->team())->set_king(true);
             }
-            if (core::any(p->flag_bits() & PlayerFlag::kLocal)) {
-                core::at(teams, p->team())->set_local(true);
+            if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
+                core::at(teams, player->team())->set_local(true);
             }
-            if (core::any(p->flag_bits() & PlayerFlag::kCarryingFlags)) {
-                core::at(teams, p->team())->set_has_flag(true);
-                core::at(teams, p->team())->flag_bits() |= flag_bit(p);
+            if (core::any(player->flag_bits() & PlayerFlag::kCarryingFlags)) {
+                core::at(teams, player->team())->set_has_flag(true);
+                core::at(teams, player->team())->flag_bits() |= flag_bit(player);
             }
         }
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
@@ -234,31 +234,31 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         }
     } else {
         // A line per player.
-        for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
-            if (!has_score_line(p)) {
+        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player; player = step_roster_sweep(manager, &search, false)) {
+            if (!has_score_line(player)) {
                 continue;
             }
             ScoreEntry* entry = new_entry();
-            if (core::any(p->flag_bits() & PlayerFlag::kLocal)) {
-                text::format_to(entry->text(), "> %s", p->label().data());
+            if (core::any(player->flag_bits() & PlayerFlag::kLocal)) {
+                text::format_to(entry->text(), "> %s", player->label().data());
             } else {
-                text::copy_into(entry->text(), p->label().data());
+                text::copy_into(entry->text(), player->label().data());
             }
-            entry->set_king(core::any(p->flag_bits() & PlayerFlag::kKing));
-            entry->set_local(core::any(p->flag_bits() & PlayerFlag::kLocal));
+            entry->set_king(core::any(player->flag_bits() & PlayerFlag::kKing));
+            entry->set_local(core::any(player->flag_bits() & PlayerFlag::kLocal));
             if (is_squad_match()) {
-                entry->set_shade(p->team() + 2);
+                entry->set_shade(player->team() + 2);
             } else {
-                entry->set_shade(static_cast<int>(get_skater_id(p->skater())) + 2);
+                entry->set_shade(static_cast<int>(get_skater_id(player->skater())) + 2);
             }
-            if (core::any(p->flag_bits() & PlayerFlag::kCarryingFlags)) {
+            if (core::any(player->flag_bits() & PlayerFlag::kCarryingFlags)) {
                 entry->set_has_flag(true);
-                entry->flag_bits() |= flag_bit(p);
+                entry->flag_bits() |= flag_bit(player);
             }
             if (!not_lobby) {
                 get_append(&list, entry);
             } else {
-                entry->set_priority(scavenger_hunt ? kHuntObjectCount - p->num_placed() : manager->get_entrant_points(get_skater_id(p->skater())));
+                entry->set_priority(scavenger_hunt ? kHuntObjectCount - player->num_placed() : manager->get_entrant_points(get_skater_id(player->skater())));
                 list.append_vertex(entry);
             }
         }

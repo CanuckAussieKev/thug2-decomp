@@ -67,17 +67,17 @@ struct Spec {
 class Sink {
 public:
     explicit Sink(std::span<char> out) : out_(out) {}
-    void put(char c)
+    void put(char character)
     {
         if (length_ + 1 < out_.size()) {
-            core::at(out_, length_) = c;
+            core::at(out_, length_) = character;
         }
         ++length_;
     }
     void put(std::string_view text)
     {
-        for (const char c : text) {
-            put(c);
+        for (const char character : text) {
+            put(character);
         }
     }
     // A character and how many times it is written.
@@ -88,10 +88,10 @@ public:
 
     void repeat(Fill fill)
     {
-        const auto c = fill.c;
+        const auto fill_char = fill.c;
         const auto count = fill.count;
         for (size_t i = 0; i < count; ++i) {
-            put(c);
+            put(fill_char);
         }
     }
     size_t finish()
@@ -212,7 +212,7 @@ void put_integer(Sink& sink, const Spec& spec, const FormatArg* arg)
     if (spec.conversion == 'X') {
         std::transform(digits.begin(), std::next(digits.begin(), static_cast<std::ptrdiff_t>(digit_count)),
                        digits.begin(),
-                       [](char c) { return c >= 'a' && c <= 'f' ? static_cast<char>(c - 'a' + 'A') : c; });
+                       [](char character) { return character >= 'a' && character <= 'f' ? static_cast<char>(character - 'a' + 'A') : character; });
     }
     if (magnitude == 0 && spec.precision == 0) {
         digit_count = 0; // (no digits for a zero of precision 0)
@@ -255,8 +255,8 @@ void put_pointer(Sink& sink, Spec spec, const FormatArg* arg)
 
 void put_char(Sink& sink, const Spec& spec, const FormatArg* arg)
 {
-    const auto c = static_cast<char>(static_cast<uint8_t>(integer_bits(arg)));
-    emit(sink, spec, {}, std::string_view(&c, 1), true);
+    const auto character = static_cast<char>(static_cast<uint8_t>(integer_bits(arg)));
+    emit(sink, spec, {}, std::string_view(&character, 1), true);
 }
 
 void put_text(Sink& sink, const Spec& spec, const FormatArg* arg)
@@ -295,11 +295,11 @@ void put_wide_text(Sink& sink, const Spec& spec, const FormatArg* arg)
     // (each character as one byte - the "C" locale's; one outside it as '?')
     const std::wstring_view wide(*text);
     std::string shown;
-    for (const wchar_t c : wide) {
+    for (const wchar_t wide_char : wide) {
         if (spec.precision >= 0 && std::cmp_greater_equal(shown.size(), spec.precision)) {
             break;
         }
-        const auto code = static_cast<unsigned>(c);
+        const auto code = static_cast<unsigned>(wide_char);
         shown += code <= std::numeric_limits<uint8_t>::max() ? static_cast<char>(code) : '?';
     }
     emit(sink, spec, {}, shown, true);
@@ -319,11 +319,11 @@ std::string float_digits(double value, std::chars_format form, int precision)
 // The exponent of a scientific text ("1.5e+03": 3).
 int exponent_of(std::string_view scientific)
 {
-    const size_t e = scientific.find('e');
-    if (e == std::string_view::npos) {
+    const size_t exponent_at = scientific.find('e');
+    if (exponent_at == std::string_view::npos) {
         return 0;
     }
-    std::string_view digits = scientific.substr(e + 1);
+    std::string_view digits = scientific.substr(exponent_at + 1);
     const bool negative = !digits.empty() && digits.front() == '-';
     if (!digits.empty() && (digits.front() == '-' || digits.front() == '+')) {
         digits.remove_prefix(1);
@@ -341,8 +341,8 @@ std::string with_point(std::string text)
     if (text.find('.') != std::string::npos) {
         return text;
     }
-    const size_t e = text.find('e');
-    text.insert(e == std::string::npos ? text.size() : e, 1, '.');
+    const size_t exponent_at = text.find('e');
+    text.insert(exponent_at == std::string::npos ? text.size() : exponent_at, 1, '.');
     return text;
 }
 
@@ -353,8 +353,8 @@ std::string without_trailing_zeros(std::string text)
     if (point == std::string::npos) {
         return text;
     }
-    const size_t e = text.find('e');
-    const size_t end = e == std::string::npos ? text.size() : e;
+    const size_t exponent_at = text.find('e');
+    const size_t end = exponent_at == std::string::npos ? text.size() : exponent_at;
     size_t last = end;
     while (last > point + 1 && core::at(text, last - 1) == '0') {
         --last;
@@ -425,7 +425,7 @@ void put_float(Sink& sink, const Spec& spec, const FormatArg* arg)
     }
     if (upper) {
         std::ranges::transform(body, body.begin(),
-                               [](char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - 'a' + 'A') : c; });
+                               [](char character) { return character >= 'a' && character <= 'z' ? static_cast<char>(character - 'a' + 'A') : character; });
     }
     const char form = static_cast<char>(spec.conversion | ('a' - 'A'));
     if (!finite && spec.alt && spec.precision == 0 && (form == 'f' || form == 'e')) {
@@ -446,86 +446,86 @@ void put_float(Sink& sink, const Spec& spec, const FormatArg* arg)
 // The conversion starting after the '%' at `text`; how many characters it took (0: not one - printed as it is).
 size_t read_spec(std::string_view text, Spec& spec, Args& args)
 {
-    size_t i = 0;
+    size_t index = 0;
     auto peek = [&](size_t at) { return at < text.size() ? core::at(text, at) : '\0'; };
-    for (;; ++i) {
-        const char c = peek(i);
-        if (c == '-') {
+    for (;; ++index) {
+        const char character = peek(index);
+        if (character == '-') {
             spec.left = true;
-        } else if (c == '+') {
+        } else if (character == '+') {
             spec.plus = true;
-        } else if (c == ' ') {
+        } else if (character == ' ') {
             spec.space = true;
-        } else if (c == '#') {
+        } else if (character == '#') {
             spec.alt = true;
-        } else if (c == '0') {
+        } else if (character == '0') {
             spec.zero = true;
         } else {
             break;
         }
     }
-    if (peek(i) == '*') {
+    if (peek(index) == '*') {
         spec.width = int_argument(args.next());
         if (spec.width < 0) {
             spec.left = true;
             spec.width = spec.width == std::numeric_limits<int>::min() ? std::numeric_limits<int>::max() : -spec.width;
         }
-        ++i;
+        ++index;
     } else {
-        while (peek(i) >= '0' && peek(i) <= '9') {
-            spec.width = (spec.width * kDecimal) + (peek(i++) - '0');
+        while (peek(index) >= '0' && peek(index) <= '9') {
+            spec.width = (spec.width * kDecimal) + (peek(index++) - '0');
         }
     }
-    if (peek(i) == '.') {
-        ++i;
+    if (peek(index) == '.') {
+        ++index;
         spec.precision = 0;
-        if (peek(i) == '*') {
+        if (peek(index) == '*') {
             spec.precision = int_argument(args.next());
             if (spec.precision < 0) {
                 spec.precision = -1;
             }
-            ++i;
+            ++index;
         } else {
-            while (peek(i) >= '0' && peek(i) <= '9') {
-                spec.precision = (spec.precision * kDecimal) + (peek(i++) - '0');
+            while (peek(index) >= '0' && peek(index) <= '9') {
+                spec.precision = (spec.precision * kDecimal) + (peek(index++) - '0');
             }
         }
     }
-    if (peek(i) == 'h') {
-        ++i;
+    if (peek(index) == 'h') {
+        ++index;
         spec.size = kModifierShort;
-        if (peek(i) == 'h') {
-            ++i;
+        if (peek(index) == 'h') {
+            ++index;
             spec.size = kModifierChar;
         }
-    } else if (peek(i) == 'l') {
-        ++i;
+    } else if (peek(index) == 'l') {
+        ++index;
         spec.wide = true;
-        if (peek(i) == 'l') {
-            ++i;
+        if (peek(index) == 'l') {
+            ++index;
             spec.size = kModifierWide;
             spec.wide = false;
         }
-    } else if (peek(i) == 'I' && peek(i + 1) == '6' && peek(i + 2) == '4') {
-        i += 3;
+    } else if (peek(index) == 'I' && peek(index + 1) == '6' && peek(index + 2) == '4') {
+        index += 3;
         spec.size = kModifierWide;
-    } else if (peek(i) == 'j') {
-        ++i;
+    } else if (peek(index) == 'j') {
+        ++index;
         spec.size = kModifierWide;
-    } else if (peek(i) == 'z') {
-        ++i;
+    } else if (peek(index) == 'z') {
+        ++index;
         spec.size = sizeof(size_t);
-    } else if (peek(i) == 't') {
-        ++i;
+    } else if (peek(index) == 't') {
+        ++index;
         spec.size = sizeof(std::ptrdiff_t);
-    } else if (peek(i) == 'L') {
-        ++i;
+    } else if (peek(index) == 'L') {
+        ++index;
     }
-    spec.conversion = peek(i);
+    spec.conversion = peek(index);
     if (spec.conversion == '\0') {
         return 0;
     }
-    return i + 1;
+    return index + 1;
 }
 
 } // namespace
@@ -534,24 +534,24 @@ size_t format_runtime_to(std::span<char> out, std::string_view format, std::span
 {
     Sink sink(out);
     Args next_args(args);
-    size_t i = 0;
-    while (i < format.size()) {
-        const char c = core::at(format, i);
-        if (c != '%') {
-            sink.put(c);
-            ++i;
+    size_t index = 0;
+    while (index < format.size()) {
+        const char character = core::at(format, index);
+        if (character != '%') {
+            sink.put(character);
+            ++index;
             continue;
         }
-        if (i + 1 < format.size() && core::at(format, i + 1) == '%') {
+        if (index + 1 < format.size() && core::at(format, index + 1) == '%') {
             sink.put('%');
-            i += 2;
+            index += 2;
             continue;
         }
         Spec spec;
-        const std::string_view rest = format.substr(i + 1);
+        const std::string_view rest = format.substr(index + 1);
         const size_t taken = read_spec(rest, spec, next_args);
         if (taken == 0) {
-            sink.put(format.substr(i));
+            sink.put(format.substr(index));
             break;
         }
         switch (spec.conversion) {
@@ -586,10 +586,10 @@ size_t format_runtime_to(std::span<char> out, std::string_view format, std::span
             break;
         default:
             // (not a conversion the game uses: printed as it is)
-            sink.put(format.substr(i, taken + 1));
+            sink.put(format.substr(index, taken + 1));
             break;
         }
-        i += taken + 1;
+        index += taken + 1;
     }
     return sink.finish();
 }

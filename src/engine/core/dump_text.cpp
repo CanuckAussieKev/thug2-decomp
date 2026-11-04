@@ -53,17 +53,17 @@ void dump_text(const char* text)
     }
     // (the newlines made into CR LF could run on past the end of the buffer, over the globals after it, in the
     // original: the bytes that do not fit are dropped here)
-    auto put = [&](char c) {
+    auto put = [&](char character) {
         if (position < dump_buffer().size()) {
-            core::at(dump_buffer(), position++) = c;
+            core::at(dump_buffer(), position++) = character;
         }
     };
-    for (const char c : std::string_view(text, static_cast<size_t>(length))) {
-        if (c == '\n') {
+    for (const char character : std::string_view(text, static_cast<size_t>(length))) {
+        if (character == '\n') {
             put('\r');
             put('\n');
         } else {
-            put(c);
+            put(character);
         }
     }
     dump_write_cursor() = position;

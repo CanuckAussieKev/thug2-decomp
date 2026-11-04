@@ -606,17 +606,17 @@ void FriendsManager::on_buddy_status(void* /*unused*/, const void* argument, Fri
             gsl::owner<script::Array*> memory = script::alloc_script_array();
             script::Array* buddies = memory ? memory::construct_in<script::Array>(memory) : nullptr;
             buddies->configure_size_kind(old->extent() + 1, script::QbValueKind::kStruct);
-            uint32_t i = 0;
-            for (; i < old->extent(); ++i) {
-                auto* entry = old->struct_at(i);
+            uint32_t index = 0;
+            for (; index < old->extent(); ++index) {
+                auto* entry = old->struct_at(index);
                 gsl::owner<script::Struct*> copy = script::new_struct();
                 copy->get_assign(entry);
-                buddies->set_cell(i, script::Cell::of(copy));
+                buddies->set_cell(index, script::Cell::of(copy));
             }
             gsl::owner<script::Struct*> entry = script::new_struct();
             entry->put_int("profile", buddy->account());
             entry->append_word("nick", buddy->nick().data());
-            buddies->set_cell(i, script::Cell::of(entry));
+            buddies->set_cell(index, script::Cell::of(entry));
             prefs->change_option_list(get_checksums("buddy_array"), buddies);
         }
         script::StructPtr params = script::make_struct();

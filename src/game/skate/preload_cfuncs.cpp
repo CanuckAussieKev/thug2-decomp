@@ -90,9 +90,9 @@ gsl::owner<render::RenderModel*> spawn_render_model(int /*unused*/)
     return render::spawn_model();
 } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
 void delete_model(gsl::owner<render::RenderModel*> model) { delete model; }
-void ingest_mesh(render::RenderModel* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
+void ingest_mesh(render::RenderModel* model, const char* file, int a, int b, int tex_dict_offset, uint32_t force_tex_dict, int multicolor, int default_heap, int by_name)
 {
-    model->add_file_geom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
+    model->add_file_geom(file, static_cast<uint32_t>(a), b != 0, tex_dict_offset, force_tex_dict != 0, multicolor != 0, default_heap != 0, by_name != 0);
 }
 // 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String, returned).
 text::Chars model_path(const char* name, const char* extension) { return gfx::make_model_path(name, extension); }
@@ -358,14 +358,14 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* 
         get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
     }
     --wanted;
-    for (int n = 0; n < wanted; ++n) {
+    for (int index = 0; index < wanted; ++index) {
         int allowed = 0;
         script::Struct* option = nullptr;
         for (bool again = true; again; again = (allowed == 0)) {
             option = get_element(list, static_cast<uint32_t>(maths::rnd(static_cast<int>(size))));
             option->fetch_int_value(kPickPermitted, &allowed, 1);
         }
-        get_choose(option, n);
+        get_choose(option, index);
     }
     return true;
 }

@@ -157,8 +157,8 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
             return true;
         }
         bool missing = false;
-        for (uint32_t g = 0; g < count; ++g) {
-            Objective* goal = goals->get_objective_at(static_cast<int>(g));
+        for (uint32_t index = 0; index < count; ++index) {
+            Objective* goal = goals->get_objective_at(static_cast<int>(index));
             // A goal that doesn't count (a parent: its first parent link's id set, or 0x005542F0 false) or that the
             // skater has won (its stage flag by the skater's id: the original's vtable +0x50).
             if (goal->parents()->objective_key_ != 0 || !goal->is_picked()) {

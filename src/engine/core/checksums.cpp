@@ -21,11 +21,11 @@ constexpr std::array<uint32_t, kByteValueCount> make_table()
 {
     std::array<uint32_t, kByteValueCount> table{};
     for (uint32_t i = 0; i < kByteValueCount; ++i) {
-        uint32_t c = i;
+        uint32_t entry = i;
         for (int bit = 0; bit < kBitsInByte; ++bit) {
-            c = ((c & 1) != 0U) ? kCrcPolynomial ^ (c >> 1) : c >> 1;
+            entry = ((entry & 1) != 0U) ? kCrcPolynomial ^ (entry >> 1) : entry >> 1;
         }
-        core::at(table, i) = c;
+        core::at(table, i) = entry;
     }
     return table;
 }
@@ -35,15 +35,15 @@ constexpr std::array<uint32_t, 256> kTable = make_table();
 uint32_t get_step(uint32_t crc, uint8_t byte) { return (crc >> kBitsInByte) ^ core::at(kTable, (crc ^ byte) & kByteMask); }
 
 // Names are case-insensitive and treat '/' and '\' as the same character.
-uint8_t name_char(char c)
+uint8_t name_char(char character)
 {
-    if (c >= 'A' && c <= 'Z') {
-        c += 'a' - 'A';
+    if (character >= 'A' && character <= 'Z') {
+        character += 'a' - 'A';
     }
-    if (c == '/') {
-        c = '\\';
+    if (character == '/') {
+        character = '\\';
     }
-    return static_cast<uint8_t>(c);
+    return static_cast<uint8_t>(character);
 }
 
 } // namespace
@@ -100,8 +100,8 @@ uint32_t generate_crc_caseless(const char* data, int size)
         return 0;
     }
     uint32_t crc = kInitialCrc;
-    for (const char c : std::span(data, static_cast<std::size_t>(size))) {
-        crc = get_step(crc, name_char(c));
+    for (const char character : std::span(data, static_cast<std::size_t>(size))) {
+        crc = get_step(crc, name_char(character));
     }
     return crc;
 }

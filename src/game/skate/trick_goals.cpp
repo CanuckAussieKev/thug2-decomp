@@ -281,14 +281,14 @@ void FallingTricksGoal::clear_tricks()
     trick_total_ = 0;
     stopwatch_ = 0;
     for (int i = 0; i < kMaxTricks; ++i) {
-        StackedTrickEntry& t = core::at(tricks_, i);
-        t.free = false;
-        t.trick = 0;
-        t.trick2 = 0;
-        t.key_combo_ = 0;
-        t.spin = 0;
-        t.taps = 1;
-        t.perfect = false;
+        StackedTrickEntry& entry = core::at(tricks_, i);
+        entry.free = false;
+        entry.trick = 0;
+        entry.trick2 = 0;
+        entry.key_combo_ = 0;
+        entry.spin = 0;
+        entry.taps = 1;
+        entry.perfect = false;
         core::at(group_used_, i) = false;
     }
     args()->remove_flag(kTricksAdded);
@@ -297,8 +297,8 @@ void FallingTricksGoal::clear_tricks()
 // 0x0056F180
 bool FallingTricksGoal::all_free()
 {
-    for (const StackedTrickEntry& t : tricks_) {
-        if (!t.free) {
+    for (const StackedTrickEntry& entry : tricks_) {
+        if (!entry.free) {
             return false;
         }
     }
@@ -340,14 +340,14 @@ void FallingTricksGoal::prepare_to_start()
     // The first trick comes 200 ms in (at once for a single combo).
     stopwatch_ = integer_or_flag(args().get(), kSingleCombo) ? 0 : combo_time - kFirstTrickDelayMs;
     for (int i = 0; i < kMaxTricks; ++i) {
-        StackedTrickEntry& t = core::at(tricks_, i);
-        t.free = true;
-        t.trick = 0;
-        t.trick2 = 0;
-        t.key_combo_ = 0;
-        t.spin = 0;
-        t.taps = 1;
-        t.perfect = false;
+        StackedTrickEntry& entry = core::at(tricks_, i);
+        entry.free = true;
+        entry.trick = 0;
+        entry.trick2 = 0;
+        entry.key_combo_ = 0;
+        entry.spin = 0;
+        entry.taps = 1;
+        entry.perfect = false;
         core::at(group_used_, i) = false;
     }
 }
@@ -361,18 +361,18 @@ void FallingTricksGoal::update_alphas()
     void* manager = frontend::UiTree::sole();
     const float faded = script::fetch_float(kFadedAlpha);
     const float unfaded = script::fetch_float(kUnfadedAlpha);
-    for (const StackedTrickEntry& t : tricks_) {
-        if (t.free) {
+    for (const StackedTrickEntry& entry : tricks_) {
+        if (entry.free) {
             continue;
         }
-        frontend::UiWidget* element = element_by_id(manager, t.element);
+        frontend::UiWidget* element = element_by_id(manager, entry.element);
         bool done = false;
         if (!check_given || (check != 0)) {
-            if (t.key_combo_ != 0U) {
-                done = key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) > 0;
-            } else if (t.trick != 0U) {
-                done = get_trick_count(score, t.trick, t.spin, t.perfect, 1) > 0 ||
-                       (t.trick2 != 0U) && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) > 0;
+            if (entry.key_combo_ != 0U) {
+                done = key_combo_count(score, entry.key_combo_, entry.spin, entry.perfect, entry.taps) > 0;
+            } else if (entry.trick != 0U) {
+                done = get_trick_count(score, entry.trick, entry.spin, entry.perfect, 1) > 0 ||
+                       (entry.trick2 != 0U) && get_trick_count(score, entry.trick2, entry.spin, entry.perfect, 1) > 0;
             }
         }
         change_opacity(element, done ? faded : unfaded);
@@ -403,11 +403,11 @@ void FallingTricksGoal::clear_tricks_and_menu()
     trick_total_ = 0;
     stopwatch_ = 0;
     for (int i = 0; i < kMaxTricks; ++i) {
-        StackedTrickEntry& t = core::at(tricks_, i);
-        t.free = true;
-        t.trick = 0;
-        t.trick2 = 0;
-        t.key_combo_ = 0;
+        StackedTrickEntry& entry = core::at(tricks_, i);
+        entry.free = true;
+        entry.trick = 0;
+        entry.trick2 = 0;
+        entry.key_combo_ = 0;
         core::at(group_used_, i) = false;
     }
     args()->remove_flag(kTricksAdded);
@@ -443,11 +443,11 @@ void FallingTricksGoal::drop_move_entry(int index)
     args()->fetch_int_value(kRedTricks, &red, 0);
     if (red == 1 && static_cast<double>(trick_total_ - 1) < static_cast<double>(max_tricks) * three_quarters()) {
         args()->put_int(checksums::Name{kRedTricks}, 0);
-        for (const StackedTrickEntry& t : tricks_) {
-            if (t.free) {
+        for (const StackedTrickEntry& entry : tricks_) {
+            if (entry.free) {
                 continue;
             }
-            frontend::UiWidget* trick = element_by_id(manager, t.element);
+            frontend::UiWidget* trick = element_by_id(manager, entry.element);
             run_on(get_spawn(kTurnRedScript, nullptr), trick);
         }
     }
@@ -509,20 +509,20 @@ void FallingTricksGoal::add_tricks(int count)
         int slot = 0;
         for (int i = 0; i < kMaxTricks; ++i) {
             if (core::at(tricks_, i).free) {
-                StackedTrickEntry& t = core::at(tricks_, i);
+                StackedTrickEntry& entry = core::at(tricks_, i);
                 slot = i;
-                t.free = false;
-                t.group = group;
-                t.key_combo_ = 0;
-                t.trick = 0;
-                t.trick2 = 0;
-                t.spin = 0;
-                t.taps = 1;
-                t.perfect = false;
+                entry.free = false;
+                entry.group = group;
+                entry.key_combo_ = 0;
+                entry.trick = 0;
+                entry.trick2 = 0;
+                entry.spin = 0;
+                entry.taps = 1;
+                entry.perfect = false;
                 break;
             }
         }
-        StackedTrickEntry& t = core::at(tricks_, slot);
+        StackedTrickEntry& trick_entry = core::at(tricks_, slot);
         const char* key_combo_text = nullptr;
         int taps = 1;
         std::array<char, kTrickTextBytes> text{};
@@ -535,10 +535,10 @@ void FallingTricksGoal::add_tricks(int count)
             const char* name = nullptr;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
-                t.trick = prefixed_checksum({.prefix = "FS ", .name = name});
-                t.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
+                trick_entry.trick = prefixed_checksum({.prefix = "FS ", .name = name});
+                trick_entry.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
             } else {
-                t.trick = checksums::hash_from_text(name);
+                trick_entry.trick = checksums::hash_from_text(name);
             }
             const char* trick_text = nullptr;
             trick->fetch_text(kText, &trick_text, 1);
@@ -560,19 +560,19 @@ void FallingTricksGoal::add_tricks(int count)
                 int spin = 0;
                 if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
                     spin = std::max(spin, kMinRandomSpinDegrees);
-                    t.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
-                    if (t.spin == 1) {
-                        t.spin = 0;
+                    trick_entry.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
+                    if (trick_entry.spin == 1) {
+                        trick_entry.spin = 0;
                     }
                 }
                 if (entry->fetch_int_value(kSpin, &spin, 0)) {
-                    t.spin = spin / kHalfTurnDegrees;
+                    trick_entry.spin = spin / kHalfTurnDegrees;
                 }
                 if (entry->has_bare_flag(kPerfect)) {
-                    t.perfect = true;
+                    trick_entry.perfect = true;
                 }
                 if (entry->fetch_int_value(kNumTaps, &taps, 0)) {
-                    t.taps = taps;
+                    trick_entry.taps = taps;
                 }
             }
             void* profile = modules::Skate::fetch_account(static_cast<script::Struct*>(nullptr));
@@ -586,7 +586,7 @@ void FallingTricksGoal::add_tricks(int count)
                 if (skater) {
                     core::at(skater->trick_slots(), special_slot)->other_params()->fetch_text(
                         kName, &trick_text, 1);
-                    t.taps = 1;
+                    trick_entry.taps = 1;
                 }
             }
             if (!trick_text) {
@@ -602,7 +602,7 @@ void FallingTricksGoal::add_tricks(int count)
                     uint32_t extra = 0;
                     if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
                         taps = 1;
-                        t.taps = 1;
+                        trick_entry.taps = 1;
                         break;
                     }
                     auto* extra_trick = script::fetch_list(extra)->struct_at(0);
@@ -611,17 +611,17 @@ void FallingTricksGoal::add_tricks(int count)
                 trick_params->fetch_text(kName, &trick_text, 1);
             }
             core::at(text, 0) = '\0';
-            if (t.spin != 0) {
+            if (trick_entry.spin != 0) {
                 THUG2_MSVC_WARNING(suppress : 4996)
-                if (t.perfect) {
+                if (trick_entry.perfect) {
                     text::format_to(text, "Perfect ");
                 }
                 // (written over "Perfect ": the original's too)
                 THUG2_MSVC_WARNING(suppress : 4996)
-                text::format_to(text, "\\c5%i\\c0 ", t.spin * kHalfTurnDegrees);
+                text::format_to(text, "\\c5%i\\c0 ", trick_entry.spin * kHalfTurnDegrees);
             }
             text::append_into(text, trick_text);
-            t.key_combo_ = key_combo;
+            trick_entry.key_combo_ = key_combo;
         }
 
         // The trick's container in the stack, its text, and its key combo's text.
@@ -649,7 +649,7 @@ void FallingTricksGoal::add_tricks(int count)
         script::free_struct(params);
 
         if (key_combo_text || (key_combo != 0U)) {
-            script::Struct* texts = script::read_sub_struct(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
+            script::Struct* texts = script::read_sub_struct(trick_entry.taps == 2 ? kTrickTextDoubleTap : kTrickText);
             if (!key_combo_text) {
                 texts->fetch_text(key_combo, &key_combo_text, 0);
             }
@@ -664,7 +664,7 @@ void FallingTricksGoal::add_tricks(int count)
             change_owner(manager, {.parent = container, .child = key_text});
             script::free_struct(params);
         }
-        t.element = static_cast<objects::Entity*>(container)->ident(); // its id
+        trick_entry.element = static_cast<objects::Entity*>(container)->ident(); // its id
         ++trick_total_;
 
         // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
@@ -704,15 +704,15 @@ void FallingTricksGoal::check_combos()
         }
         bool sound_played = false;
         int done = 0;
-        for (const StackedTrickEntry& t : tricks_) {
-            const bool in_group = !t.free && t.group == group;
-            if (t.key_combo_ != 0U) {
-                if (in_group && key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) > 0) {
+        for (const StackedTrickEntry& entry : tricks_) {
+            const bool in_group = !entry.free && entry.group == group;
+            if (entry.key_combo_ != 0U) {
+                if (in_group && key_combo_count(score, entry.key_combo_, entry.spin, entry.perfect, entry.taps) > 0) {
                     ++done;
                 }
-            } else if (t.trick != 0U) {
-                if ((in_group && get_trick_count(score, t.trick, t.spin, t.perfect, t.taps) > 0) ||
-                    ((t.trick2 != 0U) && in_group && get_trick_count(score, t.trick2, t.spin, t.perfect, t.taps) > 0)) {
+            } else if (entry.trick != 0U) {
+                if ((in_group && get_trick_count(score, entry.trick, entry.spin, entry.perfect, entry.taps) > 0) ||
+                    ((entry.trick2 != 0U) && in_group && get_trick_count(score, entry.trick2, entry.spin, entry.perfect, entry.taps) > 0)) {
                     ++done;
                 }
             }
@@ -783,8 +783,8 @@ bool FallingTricksGoal::tick_frame()
         int total = 0;
         args()->fetch_int_value(kTrickTrisTotal, &total, 1);
         int used = 0;
-        for (const StackedTrickEntry& t : tricks_) {
-            if (!t.free) {
+        for (const StackedTrickEntry& entry : tricks_) {
+            if (!entry.free) {
                 ++used;
             }
         }
@@ -845,16 +845,16 @@ void FallingTricksGoal::check_tricks()
     }
     bool sound_played = false;
     for (int i = 0; i < kMaxTricks; ++i) {
-        const StackedTrickEntry& t = core::at(tricks_, i);
-        if (t.free) {
+        const StackedTrickEntry& entry = core::at(tricks_, i);
+        if (entry.free) {
             continue;
         }
         bool done = false;
-        if (t.trick != 0U) {
-            done = get_trick_count(score, t.trick, t.spin, t.perfect, 1) != 0 ||
-                   (t.trick2 != 0U) && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) != 0;
+        if (entry.trick != 0U) {
+            done = get_trick_count(score, entry.trick, entry.spin, entry.perfect, 1) != 0 ||
+                   (entry.trick2 != 0U) && get_trick_count(score, entry.trick2, entry.spin, entry.perfect, 1) != 0;
         } else {
-            done = (t.key_combo_ != 0U) && key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) != 0;
+            done = (entry.key_combo_ != 0U) && key_combo_count(score, entry.key_combo_, entry.spin, entry.perfect, entry.taps) != 0;
         }
         if (!done) {
             continue;
@@ -893,16 +893,16 @@ void TrickBeatGoal::clear_tricks()
     trick_total_ = 0;
     beat_time_ = 0;
     for (int i = 0; i < kMaxTricks; ++i) {
-        BeatTrick& t = core::at(tricks_, i);
-        t.free = true; // (overwritten below: the original stores both)
-        t.trick = 0;
-        t.trick2 = 0;
-        t.landed = false;
-        t.key_combo_ = 0;
-        t.spin = 0;
-        t.taps = 1;
-        t.perfect = false;
-        t.free = false;
+        BeatTrick& entry = core::at(tricks_, i);
+        entry.free = true; // (overwritten below: the original stores both)
+        entry.trick = 0;
+        entry.trick2 = 0;
+        entry.landed = false;
+        entry.key_combo_ = 0;
+        entry.spin = 0;
+        entry.taps = 1;
+        entry.perfect = false;
+        entry.free = false;
         core::at(unknown45c_, i) = false;
     }
     args()->remove_flag(kTricksAdded);
@@ -930,15 +930,15 @@ void TrickBeatGoal::prepare_to_start()
     args()->fetch_int_value(kTotalToWin, &total_to_win_, 1);
     args()->put_int(checksums::Name{kTricksDoneCount}, 0);
     for (int i = 0; i < kMaxTricks; ++i) {
-        BeatTrick& t = core::at(tricks_, i);
-        t.free = true;
-        t.trick = 0;
-        t.trick2 = 0;
-        t.landed = false;
-        t.key_combo_ = 0;
-        t.spin = 0;
-        t.taps = 1;
-        t.perfect = false;
+        BeatTrick& entry = core::at(tricks_, i);
+        entry.free = true;
+        entry.trick = 0;
+        entry.trick2 = 0;
+        entry.landed = false;
+        entry.key_combo_ = 0;
+        entry.spin = 0;
+        entry.taps = 1;
+        entry.perfect = false;
         core::at(unknown45c_, i) = false;
     }
 }
@@ -956,12 +956,12 @@ void TrickBeatGoal::trick_landed(script::Struct* trick)
     }
     void* manager = frontend::UiTree::sole();
     const float alpha = script::fetch_float(kBeatFadedAlpha);
-    for (BeatTrick& t : tricks_) {
-        if (t.free || t.landed || t.trick != checksum) {
+    for (BeatTrick& entry : tricks_) {
+        if (entry.free || entry.landed || entry.trick != checksum) {
             continue;
         }
-        t.landed = true;
-        change_opacity(element_by_id(manager, t.element), alpha);
+        entry.landed = true;
+        change_opacity(element_by_id(manager, entry.element), alpha);
     }
 }
 
@@ -970,12 +970,12 @@ void TrickBeatGoal::clear_landed()
 {
     void* manager = frontend::UiTree::sole();
     const float alpha = script::fetch_float(kBeatUnfadedAlpha);
-    for (BeatTrick& t : tricks_) {
-        if (t.free || !t.landed) {
+    for (BeatTrick& entry : tricks_) {
+        if (entry.free || !entry.landed) {
             continue;
         }
-        t.landed = false;
-        change_opacity(element_by_id(manager, t.element), alpha);
+        entry.landed = false;
+        change_opacity(element_by_id(manager, entry.element), alpha);
     }
 }
 
@@ -1011,11 +1011,11 @@ bool TrickBeatGoal::activate()
 // 0x00574D80
 void TrickBeatGoal::pulse_tricks()
 {
-    for (const BeatTrick& t : tricks_) {
-        if (t.free || t.landed) {
+    for (const BeatTrick& entry : tricks_) {
+        if (entry.free || entry.landed) {
             continue;
         }
-        frontend::UiWidget* element = element_by_id(frontend::UiTree::sole(), t.element);
+        frontend::UiWidget* element = element_by_id(frontend::UiTree::sole(), entry.element);
         script::StructPtr params = script::make_struct();
         auto window = static_cast<float>(window_time_);
         params->put_int(checksums::Name{kWaitTime}, ftol(window / static_cast<double>(frame_clock::get_time_scale())));
@@ -1133,22 +1133,22 @@ void TrickBeatGoal::add_tricks(int count)
         int slot = 0;
         for (int i = 0; i < kMaxTricks; ++i) {
             if (core::at(tricks_, i).free) {
-                BeatTrick& t = core::at(tricks_, i);
+                BeatTrick& entry = core::at(tricks_, i);
                 slot = i;
-                t.free = true;
-                t.trick = 0;
-                t.trick2 = 0;
-                t.landed = false;
-                t.key_combo_ = 0;
-                t.spin = 0;
-                t.taps = 1;
-                t.perfect = false;
-                t.free = false;
-                t.unknown14 = 0;
+                entry.free = true;
+                entry.trick = 0;
+                entry.trick2 = 0;
+                entry.landed = false;
+                entry.key_combo_ = 0;
+                entry.spin = 0;
+                entry.taps = 1;
+                entry.perfect = false;
+                entry.free = false;
+                entry.unknown14 = 0;
                 break;
             }
         }
-        BeatTrick& t = core::at(tricks_, slot);
+        BeatTrick& trick_entry = core::at(tricks_, slot);
         const char* key_combo_text = nullptr;
         int taps = 1;
         std::array<char, kTrickTextBytes> text{};
@@ -1160,10 +1160,10 @@ void TrickBeatGoal::add_tricks(int count)
             const char* name = nullptr;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
-                t.trick = prefixed_checksum({.prefix = "FS ", .name = name});
-                t.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
+                trick_entry.trick = prefixed_checksum({.prefix = "FS ", .name = name});
+                trick_entry.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
             } else {
-                t.trick = checksums::hash_from_text(name);
+                trick_entry.trick = checksums::hash_from_text(name);
             }
             const char* trick_text = nullptr;
             trick->fetch_text(kText, &trick_text, 1);
@@ -1184,19 +1184,19 @@ void TrickBeatGoal::add_tricks(int count)
                 int spin = 0;
                 if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
                     spin = std::max(spin, kMinRandomSpinDegrees);
-                    t.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
-                    if (t.spin == 1) {
-                        t.spin = 0;
+                    trick_entry.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
+                    if (trick_entry.spin == 1) {
+                        trick_entry.spin = 0;
                     }
                 }
                 if (entry->fetch_int_value(kSpin, &spin, 0)) {
-                    t.spin = spin / kHalfTurnDegrees;
+                    trick_entry.spin = spin / kHalfTurnDegrees;
                 }
                 if (entry->has_bare_flag(kPerfect)) {
-                    t.perfect = true;
+                    trick_entry.perfect = true;
                 }
                 if (entry->fetch_int_value(kNumTaps, &taps, 0)) {
-                    t.taps = taps;
+                    trick_entry.taps = taps;
                 }
             }
             void* profile = modules::Skate::fetch_account(static_cast<script::Struct*>(nullptr));
@@ -1209,7 +1209,7 @@ void TrickBeatGoal::add_tricks(int count)
                 if (skater) {
                     core::at(skater->trick_slots(), special_slot)->other_params()->fetch_text(
                         kName, &trick_text, 1);
-                    t.taps = 1;
+                    trick_entry.taps = 1;
                 }
             }
             if (!trick_text) {
@@ -1224,7 +1224,7 @@ void TrickBeatGoal::add_tricks(int count)
                     uint32_t extra = 0;
                     if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
                         taps = 1;
-                        t.taps = 1;
+                        trick_entry.taps = 1;
                         break;
                     }
                     auto* extra_trick = script::fetch_list(extra)->struct_at(0);
@@ -1233,17 +1233,17 @@ void TrickBeatGoal::add_tricks(int count)
                 trick_params->fetch_text(kName, &trick_text, 1);
             }
             core::at(text, 0) = '\0';
-            if (t.spin != 0) {
+            if (trick_entry.spin != 0) {
                 THUG2_MSVC_WARNING(suppress : 4996)
-                if (t.perfect) {
+                if (trick_entry.perfect) {
                     text::format_to(text, "Perfect ");
                 }
                 THUG2_MSVC_WARNING(suppress : 4996)
-                text::format_to(text, "\\c5%i\\c0 ", t.spin * kHalfTurnDegrees); // (over "Perfect ", as in the original)
+                text::format_to(text, "\\c5%i\\c0 ", trick_entry.spin * kHalfTurnDegrees); // (over "Perfect ", as in the original)
             }
             text::append_into(text, trick_text);
-            t.key_combo_ = key_combo;
-            t.trick = checksums::hash_from_text(trick_text); // (trick_landed matches by the trick's name)
+            trick_entry.key_combo_ = key_combo;
+            trick_entry.trick = checksums::hash_from_text(trick_text); // (trick_landed matches by the trick's name)
         }
 
         gsl::owner<script::Struct*> params = script::new_struct();
@@ -1269,7 +1269,7 @@ void TrickBeatGoal::add_tricks(int count)
         script::free_struct(params);
 
         if (key_combo_text || (key_combo != 0U)) {
-            script::Struct* texts = script::read_sub_struct(t.taps == 2 ? kTrickTextDoubleTap : kTrickText);
+            script::Struct* texts = script::read_sub_struct(trick_entry.taps == 2 ? kTrickTextDoubleTap : kTrickText);
             if (!key_combo_text) {
                 texts->fetch_text(key_combo, &key_combo_text, 0);
             }
@@ -1284,7 +1284,7 @@ void TrickBeatGoal::add_tricks(int count)
             change_owner(manager, {.parent = container, .child = key_text});
             script::free_struct(params);
         }
-        t.element = static_cast<objects::Entity*>(container)->ident();
+        trick_entry.element = static_cast<objects::Entity*>(container)->ident();
         ++trick_total_;
         params = script::new_struct();
         if (!key_combo_text) {
@@ -1326,8 +1326,8 @@ bool TrickBeatGoal::tick_frame()
         !is_frozen()) {
         update_beat();
         int used = 0;
-        for (const BeatTrick& t : tricks_) {
-            if (!t.free) {
+        for (const BeatTrick& entry : tricks_) {
+            if (!entry.free) {
                 ++used;
             }
         }
