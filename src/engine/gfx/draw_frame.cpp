@@ -2,9 +2,9 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "engine/gfx/draw_frame.h"
+#include "engine/gfx/device_d3d.h"
 #include "gpu/d3d9_handles.h"
 #include "platform/d3dx.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/wireframe.h"

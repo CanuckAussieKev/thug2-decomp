@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <new>
 
+#include "engine/gfx/device_d3d.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/ext/extension.h"

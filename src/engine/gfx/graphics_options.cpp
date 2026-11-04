@@ -1,8 +1,8 @@
 // NOT ORIGINAL - image-quality options (see graphics_options.h).
 
+#include "engine/gfx/device_d3d.h"
 #include "gpu/gpu_handles.h"
 #include "gpu/d3d9_handles.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/graphics_options.h"
 
 #include <windows.h>

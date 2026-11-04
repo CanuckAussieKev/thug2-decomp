@@ -17,6 +17,7 @@
 #include <array>
 #include <iterator>
 
+#include "engine/gfx/device_d3d.h"
 #include "gpu/d3d9_handles.h"
 #include "base/core/stubs.h"
 #include "engine/gfx/graphics_options.h"
@@ -65,6 +66,8 @@ D3DPRESENT_PARAMETERS& present_parameters()
     static D3DPRESENT_PARAMETERS present_parameters; // (zero-initialised, as the global was)
     return present_parameters;
 }
+
+uint32_t presented_width() { return present_parameters().BackBufferWidth; }
 
 namespace {
 

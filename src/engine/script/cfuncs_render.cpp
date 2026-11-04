@@ -308,7 +308,7 @@ bool cfunc_debug_line(Struct* params, Script* /*script*/)
 // the script's params. Always true.
 bool cfunc_get_pause_pos_by_resolution(Struct* /*params*/, Script* script)
 {
-    const float x = render::present_parameters().BackBufferWidth == 640 ? 50.0F : 20.0F; // the back buffer's width
+    const float x = render::presented_width() == 640 ? 50.0F : 20.0F; // the back buffer's width
     script->args()->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = kPausePosY});
     return true;
 }
