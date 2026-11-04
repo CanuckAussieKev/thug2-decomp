@@ -377,7 +377,13 @@ View get_build(const MenuRead& read, const Policy& policy)
             if (label_at >= texts.size()) {
                 label_at = 0;
             }
-            row.label = !item.display.empty() ? item.display : texts.empty() ? std::string() : caption(core::at(texts, label_at));
+            if (!item.display.empty()) {
+                row.label = item.display;
+            } else if (texts.empty()) {
+                row.label = std::string();
+            } else {
+                row.label = caption(core::at(texts, label_at));
+            }
             for (size_t k = 0; k < texts.size(); ++k) {
                 if (!item.display.empty() || k != label_at) {
                     row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + core::at(texts, k);
@@ -586,7 +592,13 @@ View get_build(const MenuRead& read, const Policy& policy)
             view.rows.push_back(std::move(row));
         }
         const std::string name = clean_text(read.skater_name_);
-        view.big_name_ = !name.empty() ? name : view.selected >= 0 ? core::at(view.rows, view.selected).label : std::string();
+        if (!name.empty()) {
+            view.big_name_ = name;
+        } else if (view.selected >= 0) {
+            view.big_name_ = core::at(view.rows, view.selected).label;
+        } else {
+            view.big_name_ = std::string();
+        }
         view.stats = read.stats;
         view.title = text_tools::kTitleSkaters;
         return view;

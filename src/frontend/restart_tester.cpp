@@ -101,9 +101,13 @@ std::vector<Relaunch> level_restarts()
         node->fetch_text(restart_name, &label, 0);
         std::array<char, kHexTextSize> hex{};
         text::format_to(hex, "#%08X", name);
-        relaunch.text =
-            text ? text
-                 : (label && (*label != '\0') ? std::string(label) + " (" + hex.data() + ")" : std::string(hex.data()));
+        if (text) {
+            relaunch.text = text;
+        } else if (label && (*label != '\0')) {
+            relaunch.text = std::string(label) + " (" + hex.data() + ")";
+        } else {
+            relaunch.text = std::string(hex.data());
+        }
         node->fetch_vec(pos, &relaunch.pos, 0);
         script::Array* types = nullptr;
         if (node->fetch_list(types_key, &types, 0) && types) {

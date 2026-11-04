@@ -575,7 +575,10 @@ paint::Art load_image_file(const std::string& name)
                                                  ui_backend::PixelLayout::kDxt1, texels.data(), {.row_bytes_ = row_bytes, .rows = rows});
         return art;
     }
-    const uint32_t bits = format == 0 ? 32 : format == 2 ? 16 : format == 0x13 ? 8 : format;
+    // (the bits per texel: format 0 true colour, 2 16-bit, 0x13 8-bit palettized; else the format is the count)
+    const uint32_t other_bits = format == 0x13 ? 8 : format;
+    const uint32_t not_true_colour_bits = format == 2 ? 16 : other_bits;
+    const uint32_t bits = format == 0 ? 32 : not_true_colour_bits;
     const bool palettized = format == 0x13 || (format != 0 && format != 2 && format < 0x10);
     if (bits != kTrueColourBits && !(palettized && bits == kPaletteBits)) {
         return {}; // (16-bit and 4-bit images: no loading screen is one)
@@ -1143,11 +1146,13 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 item->adjustable = true;
                 item->slider_at_ = std::clamp((widget->aim_point().x - left) / (right - left), 0.0F, 1.0F);
                 item->slider_hue_ = id == kHueArrow;
-                item->slider_kind_ = id == core::at(kColourArrows, 0)   ? 1
-                                     : id == core::at(kColourArrows, 1) ? 2
-                                     : id == core::at(kColourArrows, 2) ? 3
-                                     : id == core::at(kColourArrows, 3) ? 4
-                                                              : 0;
+                item->slider_kind_ = 0; // (the colour arrows' sliders: 1-4)
+                for (int arrow = 0; arrow < 4; ++arrow) {
+                    if (id == core::at(kColourArrows, arrow)) {
+                        item->slider_kind_ = arrow + 1;
+                        break;
+                    }
+                }
             }
             if (item->stat_index_ >= 0 && (texture == kStar || texture == kCircle)) {
                 // A stat's star (build_stat_slider: ten of them; stats_menu_update_row lights the first `value` in
@@ -1865,9 +1870,9 @@ int read_selection(void* /*unused*/)
 void send_step(void* context, int direction)
 {
     auto* step = static_cast<StepContext*>(context);
-    const uint32_t event = step->horizontal
-                               ? (direction < 0 ? modules::FrontEnd::kPadLeft : modules::FrontEnd::kPadRight)
-                               : (direction < 0 ? modules::FrontEnd::kPadUp : modules::FrontEnd::kPadDown);
+    const uint32_t sideways_event = direction < 0 ? modules::FrontEnd::kPadLeft : modules::FrontEnd::kPadRight;
+    const uint32_t vertical_event = direction < 0 ? modules::FrontEnd::kPadUp : modules::FrontEnd::kPadDown;
+    const uint32_t event = step->horizontal ? sideways_event : vertical_event;
     mouse_menus::send_menu_pad_event(step->front_end_, event);
 }
 bool step_to(modules::FrontEnd* front_end, int row)
@@ -2002,9 +2007,8 @@ void mirror_mouse(modules::FrontEnd* front_end)
             if (stats) {
                 if (const paint::Hit* hit =
                         hit_at(static_cast<float>(widget.motion.x), static_cast<float>(widget.motion.y))) {
-                    const int row = hit->kind == paint::Hit::Kind::kItem     ? hit->index
-                                    : hit->kind == paint::Hit::Kind::kChoice ? hit->index / 16
-                                                                             : -1;
+                    const int choice_row = hit->kind == paint::Hit::Kind::kChoice ? hit->index / 16 : -1;
+                    const int row = hit->kind == paint::Hit::Kind::kItem ? hit->index : choice_row;
                     if (row >= 0 && row != menu_mirror().mirror_.get_shown().selected) {
                         step_to_stat(front_end, row);
                     }
@@ -2052,13 +2056,19 @@ void mirror_mouse(modules::FrontEnd* front_end)
                         if (shown.kind == mirror::Kind::kLinkChain && hit->index >= 0 &&
                             std::cmp_less(hit->index, shown.rows.size()) &&
                             core::at(shown.rows, hit->index).adjustable) {
-                            side = click_x < hit->x0 + (width * kEdgeFraction)    ? -1
-                                   : click_x >= hit->x1 - (width * kEdgeFraction) ? 1
-                                                                                  : 0;
+                            if (click_x < hit->x0 + (width * kEdgeFraction)) {
+                                side = -1;
+                            } else if (click_x >= hit->x1 - (width * kEdgeFraction)) {
+                                side = 1;
+                            }
                         }
-                        mouse_menus::send_menu_pad_event(front_end, side < 0   ? modules::FrontEnd::kPadLeft
-                                                                    : side > 0 ? modules::FrontEnd::kPadRight
-                                                                               : modules::FrontEnd::kPadChoose);
+                        uint32_t event = modules::FrontEnd::kPadChoose; // (an edge of a setting: its arrows)
+                        if (side < 0) {
+                            event = modules::FrontEnd::kPadLeft;
+                        } else if (side > 0) {
+                            event = modules::FrontEnd::kPadRight;
+                        }
+                        mouse_menus::send_menu_pad_event(front_end, event);
                     }
                 }
                 return; // (the screen may be another now)
@@ -2524,14 +2534,19 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
         return;
     case SDL_CONTROLLERAXISMOTION: {
         // The left stick as a d-pad: past half way (back inside a third: let go).
-        int* axis = widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX   ? &stick_repeat().stick_x_
-                    : widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY ? &stick_repeat().stick_y_
-                                                                     : nullptr;
+        int* axis = nullptr;
+        if (widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX) {
+            axis = &stick_repeat().stick_x_;
+        } else if (widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
+            axis = &stick_repeat().stick_y_;
+        }
         if (!axis) {
             return;
         }
         const int value = widget.caxis.value;
-        const int now = value > 16000 ? 1 : value < -16000 ? -1 : (std::abs(value) < 11000 ? 0 : *axis);
+        const int settled = std::abs(value) < 11000 ? 0 : *axis; // (between the two: as it was)
+        const int pushed_back = value < -16000 ? -1 : settled;
+        const int now = value > 16000 ? 1 : pushed_back;
         if (now == *axis) {
             return;
         }
@@ -2540,8 +2555,9 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
             stick_repeat().repeat_ = {};
             return;
         }
-        const Intake input =
-            axis == &stick_repeat().stick_x_ ? (now > 0 ? Intake::kRight : Intake::kLeft) : (now > 0 ? Intake::kDown : Intake::kUp);
+        const Intake sideways = now > 0 ? Intake::kRight : Intake::kLeft;
+        const Intake vertical = now > 0 ? Intake::kDown : Intake::kUp;
+        const Intake input = axis == &stick_repeat().stick_x_ ? sideways : vertical;
         press_direction(front_end, input);
         stick_repeat().repeat_ = {.direction = static_cast<int>(input), .wait = kRepeatDelay};
         return;
@@ -3008,10 +3024,14 @@ void before_screen_layout()
         const bool left_original =
             (active_menu() != nullptr) && !screen_cover().mirror_would_restyle_ && screen_cover().hold_frames_ == 0;
         if (!front_end || menu_mirror().mirror_.get_up() || showing() || left_original || screen_cover().await_time_ > kAwaitAtMost) {
+            const char* first_screen = "none";
+            if (menu_mirror().mirror_.get_up() || showing()) {
+                first_screen = "ours";
+            } else if (left_original) {
+                first_screen = "an original screen";
+            }
             get_log("new front end: the front end's first screen is up after %.2f s (%s)", screen_cover().await_time_,
-                    menu_mirror().mirror_.get_up() || showing() ? "ours"
-                    : left_original                ? "an original screen"
-                                                   : "none");
+                    first_screen);
             screen_cover().awaiting_front_end_ = false;
         }
     }

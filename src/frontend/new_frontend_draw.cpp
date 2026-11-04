@@ -40,6 +40,7 @@ namespace {
 
 constexpr float kBodyLineHeight = 1.5F; // and of the body text
 constexpr float kBodyTextSize = 14.0F;
+constexpr float kCapBlockAlpha = 0.3F; // a stat block up to the cap, faint
 constexpr float kChannelMax = 255.0F;
 constexpr float kColumnLeft = 48.0F;    // the left edge of the menu column, in design pixels
 constexpr float kColumnRight = 1232.0F; // its right edge
@@ -1400,10 +1401,14 @@ void levels_screen(Ctx& ctx, int* visible_rows)
     if (grow < kLaunchGrowDone) {
         ctx.dl->PushClipRect(ImVec2(ctx.f->get_x(0.0F), ctx.f->get_y(0.0F)),
                              ImVec2(ctx.f->get_x(kColumn + kScrimFeather), ctx.f->get_y(kDesignHeight)), true);
-        const char* title = menu.levels_purpose() == LevelsFor::kEdit     ? text_tools::kTitleEditLevel
-                            : menu.levels_purpose() == LevelsFor::kFreeze ? text_tools::kTitleChangeLevel
-                            : menu.levels_purpose() == LevelsFor::kNet    ? text_tools::kTitleNetLevel
-                                                                          : text_tools::kTitleFreeSkate;
+        const char* title = text_tools::kTitleFreeSkate;
+        if (menu.levels_purpose() == LevelsFor::kEdit) {
+            title = text_tools::kTitleEditLevel;
+        } else if (menu.levels_purpose() == LevelsFor::kFreeze) {
+            title = text_tools::kTitleChangeLevel;
+        } else if (menu.levels_purpose() == LevelsFor::kNet) {
+            title = text_tools::kTitleNetLevel;
+        }
         const float rule = get_header(ctx, {.x = kColumnInner, .y = 36.0F}, title, true, nullptr);
         // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
         std::vector<std::pair<std::string, uint32_t>> tabs;
@@ -1492,10 +1497,14 @@ void levels_screen(Ctx& ctx, int* visible_rows)
         skate.colour = kGround;
         skate.alpha = fade;
         const bool locked = menu.selected_locked();
-        const char* skate_text = locked                                      ? text_tools::kLocked
-                                 : menu.levels_purpose() == LevelsFor::kEdit ? text_tools::kEdit
-                                 : menu.levels_purpose() == LevelsFor::kNet  ? text_tools::kSelect
-                                                                             : text_tools::kSkate;
+        const char* skate_text = text_tools::kSkate;
+        if (locked) {
+            skate_text = text_tools::kLocked;
+        } else if (menu.levels_purpose() == LevelsFor::kEdit) {
+            skate_text = text_tools::kEdit;
+        } else if (menu.levels_purpose() == LevelsFor::kNet) {
+            skate_text = text_tools::kSelect;
+        }
         const float tw = get_measure(skate, *ctx.f, skate_text) / ctx.f->scale();
         const float arrow_w = locked ? 0.0F : (30.0F * 0.9F) + 10.0F;
         const float bh = (30.0F * 1.15F) + 12.0F;
@@ -1652,9 +1661,12 @@ void dialog_screen(Ctx& ctx, const mirror::Tracker& tracker, float window_width,
     for (const mirror::Row& row : v.rows) {
         choices += row.focusable ? 1 : 0;
     }
-    const char* kicker = choices >= 2   ? text_tools::kDialogConfirm
-                         : choices == 1 ? text_tools::kDialogNotice
-                                        : text_tools::kPleaseWait;
+    const char* kicker = text_tools::kPleaseWait; // (no choices: a wait; one: a notice; more: a question)
+    if (choices >= 2) {
+        kicker = text_tools::kDialogConfirm;
+    } else if (choices == 1) {
+        kicker = text_tools::kDialogNotice;
+    }
     const float kicker_top = get_kicker(ctx, kicker, {.x = left, .y = y0 + 44.0F}, {.colour = Menu::kHouseYellow});
     (void)kicker_top;
     // The title (Anton 72, up to two lines) under the kicker.
@@ -1932,9 +1944,14 @@ void stats_screen(Ctx& ctx, const mirror::Tracker& tracker, float window_width, 
         const float block_top = top + (row_h * 0.5F) - 7.0F;
         for (int k = 0; k < kStatsBlockCount; ++k) {
             const float sx = bar_left + (seg * static_cast<float>(k));
-            const ImU32 colour = k < value ? get_col(Menu::kHouseYellow)
-                                 : k < cap ? get_col(Menu::kHouseYellow, 0.3F)
-                                           : get_col(kRule);
+            ImU32 colour = 0; // (the value's blocks yellow, up to the cap faint yellow, the rest the rule's)
+            if (k < value) {
+                colour = get_col(Menu::kHouseYellow);
+            } else if (k < cap) {
+                colour = get_col(Menu::kHouseYellow, kCapBlockAlpha);
+            } else {
+                colour = get_col(kRule);
+            }
             get_cut(ctx.dl,
                     {.x0 = ctx.f->get_x(sx),
                      .y0 = ctx.f->get_y(block_top),

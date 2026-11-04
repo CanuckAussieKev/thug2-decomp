@@ -798,8 +798,9 @@ int read_stepper(void* context)
 void send_step(void* context, int direction)
 {
     auto* stepper = static_cast<Stepper*>(context);
-    const uint32_t event =
-        stepper->vertical ? (direction < 0 ? kPadUp : kPadDown) : (direction < 0 ? kPadLeft : kPadRight);
+    const uint32_t vertical_event = direction < 0 ? kPadUp : kPadDown;
+    const uint32_t sideways_event = direction < 0 ? kPadLeft : kPadRight;
+    const uint32_t event = stepper->vertical ? vertical_event : sideways_event;
     send_pad_event(stepper->front_end_, event);
 }
 

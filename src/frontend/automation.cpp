@@ -517,9 +517,13 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         } else if (what == "ingame") {
             command.condition = Condition::kInGame;
         } else if (what == "level" || what == "menu" || what == "focus") {
-            command.condition = what == "level"  ? Condition::kStageMap
-                                : what == "menu" ? Condition::kMenu
-                                                 : Condition::kFocus;
+            if (what == "level") {
+                command.condition = Condition::kStageMap;
+            } else if (what == "menu") {
+                command.condition = Condition::kMenu;
+            } else {
+                command.condition = Condition::kFocus;
+            }
             if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(::core::at(tokens, 2))
                                                                          : is_id(::core::at(tokens, 2)))) {
                 return fail("waitfor " + what + " <" + (what == "level" ? "name" : "id") + "> [seconds]");
@@ -1338,8 +1342,9 @@ void send_step(void* context, int direction)
 {
     auto* front_end = static_cast<modules::FrontEnd*>(context);
     const bool vertical = target_menu() && mouse_menus::menu_runs_top_to_bottom(target_menu().get_pull());
-    const uint32_t event = vertical ? (direction < 0 ? modules::FrontEnd::kPadUp : modules::FrontEnd::kPadDown)
-                                    : (direction < 0 ? modules::FrontEnd::kPadLeft : modules::FrontEnd::kPadRight);
+    const uint32_t vertical_event = direction < 0 ? modules::FrontEnd::kPadUp : modules::FrontEnd::kPadDown;
+    const uint32_t sideways_event = direction < 0 ? modules::FrontEnd::kPadLeft : modules::FrontEnd::kPadRight;
+    const uint32_t event = vertical ? vertical_event : sideways_event;
     mouse_menus::send_menu_pad_event(front_end, event);
 }
 
@@ -1907,7 +1912,11 @@ void write_status(Runner& runner)
     status.paused = (front_end != nullptr) && front_end->is_halted();
     status.loading = loading_screen_up();
     const uint32_t load = current_load_state();
-    status.where = (load == 0U) ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
+    if (load == 0U) {
+        status.where = "starting";
+    } else {
+        status.where = load == kLoadMainMenu ? "front_end" : "level";
+    }
     status.level = (load != 0U) ? get_name_of(load) : "";
     if (_strnicmp(status.level.c_str(), "load_", begin_level::kLoadPrefixLength) == 0) {
         status.level.erase(0, begin_level::kLoadPrefixLength);

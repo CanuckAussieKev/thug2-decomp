@@ -1031,9 +1031,13 @@ ActStep Menu::get_press(Intake input)
     case Intake::kDown:
         return move_by(1);
     case Intake::kLeft:
-        return levels ? set_section(section_ - 1) : options ? change_option(-1, false) : ActStep{};
-    case Intake::kRight:
-        return levels ? set_section(section_ + 1) : options ? change_option(1, false) : ActStep{};
+    case Intake::kRight: {
+        const int step = input == Intake::kLeft ? -1 : 1;
+        if (levels) {
+            return set_section(section_ + step);
+        }
+        return options ? change_option(step, false) : ActStep{};
+    }
     case Intake::kPrevTab:
         if (options) {
             set_option_group(bundle_ - 1);
