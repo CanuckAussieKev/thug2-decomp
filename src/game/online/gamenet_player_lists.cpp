@@ -39,7 +39,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
-#include "game/skate/cas_options.h"
+#include "engine/gfx/cas_options.h"
 #include "engine/objects/compositemgr.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"

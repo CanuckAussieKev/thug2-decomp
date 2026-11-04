@@ -14,7 +14,7 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/script/cscript.h"
-#include "game/skate/cas_options.h"
+#include "engine/gfx/cas_options.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/objects/entity.h"

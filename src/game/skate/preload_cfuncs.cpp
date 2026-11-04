@@ -31,7 +31,7 @@
 #include "engine/gfx/model_appearance.h"
 #include "engine/gfx/model_builder.h"
 #include "engine/gfx/model_utils.h"
-#include "game/skate/cas_options.h"
+#include "engine/gfx/cas_options.h"
 #include "engine/objects/model_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

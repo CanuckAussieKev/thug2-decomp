@@ -31,7 +31,7 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/tagging.h"
 #include "game/commands/game_cfuncs.h"
-#include "game/skate/cas_options.h"
+#include "engine/gfx/cas_options.h"
 #include "engine/assets/resource_registry.h"
 #include "game/park_editing/park_editor.h"
 #include "game/goals/objective.h"

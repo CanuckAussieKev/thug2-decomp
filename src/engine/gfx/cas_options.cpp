@@ -5,7 +5,7 @@
 #include <array>
 #include <span>
 
-#include "game/skate/cas_options.h"
+#include "engine/gfx/cas_options.h"
 
 #include "base/maths/random.h"
 #include "engine/script/param_struct.h"

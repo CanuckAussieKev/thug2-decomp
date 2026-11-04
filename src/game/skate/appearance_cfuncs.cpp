@@ -17,7 +17,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/model_appearance.h"
-#include "game/skate/cas_options.h"
+#include "engine/gfx/cas_options.h"
 #include "engine/objects/compositemgr.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

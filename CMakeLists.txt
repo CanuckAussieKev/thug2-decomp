@@ -928,7 +928,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/face_texture.cpp
     src/engine/gfx/custom_anim_key.cpp
     src/engine/gfx/model_utils.cpp
-    src/game/skate/cas_options.cpp
+    src/engine/gfx/cas_options.cpp
     src/engine/gfx/bone_look_at.cpp
     src/engine/gfx/boned_anim_frame_data_pose.cpp
     src/game/commands/cag_cfuncs.cpp
