@@ -141,14 +141,14 @@ Rect2 box_rect(const Cuboid& box)
 // The rectangle around a turned box's corners.
 Rect2 turned_box_rect(const Cuboid& box)
 {
-    const double c = std::cos(box.angle);
-    const double s = std::sin(box.angle);
+    const double cosine = std::cos(box.angle);
+    const double sine = std::sin(box.angle);
     Rect2 rect = {.left = box.x, .top = box.y, .right = box.x, .bottom = box.y};
     const std::array<std::array<float, 2>, 3> corners = {
         {{box.width, 0.0F}, {0.0F, box.height}, {box.width, box.height}}};
     for (const auto& corner : corners) {
-        auto x = static_cast<float>(box.x + (c * core::at(corner, 0)) - (s * core::at(corner, 1)));
-        auto y = static_cast<float>(box.y + (s * core::at(corner, 0)) + (c * core::at(corner, 1)));
+        auto x = static_cast<float>(box.x + (cosine * core::at(corner, 0)) - (sine * core::at(corner, 1)));
+        auto y = static_cast<float>(box.y + (sine * core::at(corner, 0)) + (cosine * core::at(corner, 1)));
         rect = union_of(rect, Rect2{.left = x, .top = y, .right = x, .bottom = y});
     }
     return rect;
@@ -321,12 +321,12 @@ bool box_contains(const Cuboid& box, maths::Vec2 at)
     const float x = at.x;
     const float y = at.y;
     // Back along the angle: the point's offset from the top left in the box's own axes.
-    const double c = std::cos(box.angle);
-    const double s = std::sin(box.angle);
+    const double cosine = std::cos(box.angle);
+    const double sine = std::sin(box.angle);
     const double dx = static_cast<double>(x) - box.x;
     const double dy = static_cast<double>(y) - box.y;
-    const double u = (c * dx) + (s * dy);
-    const double v = (-s * dx) + (c * dy);
+    const double u = (cosine * dx) + (sine * dy);
+    const double v = (-sine * dx) + (cosine * dy);
     return u >= std::min(0.0F, box.width) && u < std::max(0.0F, box.width) && v >= std::min(0.0F, box.height) &&
            v < std::max(0.0F, box.height);
 }
@@ -372,11 +372,13 @@ bool item_passed_over(const UiWidget* item)
 {
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
     const script::Struct* tags = as_object(item)->tag_table();
-    for (const script::Component* c = tags ? tags->head() : nullptr; c; c = c->next) {
-        if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName && c->value.word() == kTagBlank) {
+    for (const script::Component* component = tags ? tags->head() : nullptr; component; component = component->next) {
+        if (component->name == 0 && value_kind(*component) == script::QbValueKind::kName &&
+            component->value.word() == kTagBlank) {
             return true;
         }
-        if (c->name == kTagActive && value_kind(*c) == script::QbValueKind::kInteger && c->value.integer() == 0) {
+        if (component->name == kTagActive && value_kind(*component) == script::QbValueKind::kInteger &&
+            component->value.integer() == 0) {
             return true;
         }
     }
@@ -689,10 +691,10 @@ const char* event_name(uint32_t event)
 
 void log_element(const char* what, const UiWidget* element)
 {
-    const Rect2 r = element_rect(element);
+    const Rect2 rect = element_rect(element);
     get_log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what,
-            ident_no(element), current_type_name(kind_tag(element)), kind_tag(element), r.left, r.top, r.right,
-            r.bottom, bearing(element), get_alpha(element), current_flags(element));
+            ident_no(element), current_type_name(kind_tag(element)), kind_tag(element), rect.left, rect.top, rect.right,
+            rect.bottom, bearing(element), get_alpha(element), current_flags(element));
 }
 
 // --- the menus ---

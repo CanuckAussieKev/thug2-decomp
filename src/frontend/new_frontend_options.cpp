@@ -13,14 +13,14 @@ namespace frontend::new_frontend::options {
 
 namespace {
 
-std::string get_trim(const std::string& s)
+std::string get_trim(const std::string& text)
 {
-    const size_t a = s.find_first_not_of(" \t\r\n");
-    if (a == std::string::npos) {
+    const size_t first = text.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) {
         return {};
     }
-    const size_t b = s.find_last_not_of(" \t\r\n");
-    return s.substr(a, b - a + 1);
+    const size_t last = text.find_last_not_of(" \t\r\n");
+    return text.substr(first, last - first + 1);
 }
 
 bool get_same(const std::string& a, const std::string& b)
@@ -31,12 +31,12 @@ bool get_same(const std::string& a, const std::string& b)
 // A number's value (false if the text isn't one).
 bool get_number(const std::string& text, double* out)
 {
-    const std::string t = get_trim(text);
-    if (t.empty()) {
+    const std::string trimmed = get_trim(text);
+    if (trimmed.empty()) {
         return false;
     }
     char* end = nullptr;
-    *out = std::strtod(t.c_str(), &end);
+    *out = std::strtod(trimmed.c_str(), &end);
     return (end != nullptr) && *end == '\0';
 }
 
@@ -67,23 +67,23 @@ std::vector<Seg> get_lines(const std::string& text)
 // The line's section name if it is a section header ("[name]"), else false.
 bool section_of(const std::string& line, std::string* name)
 {
-    std::string t = get_trim(line);
-    if (t.size() < 2 || t.front() != '[') {
+    std::string trimmed = get_trim(line);
+    if (trimmed.size() < 2 || trimmed.front() != '[') {
         return false;
     }
-    const size_t close = t.find(']');
+    const size_t close = trimmed.find(']');
     if (close == std::string::npos) {
         return false;
     }
-    *name = get_trim(t.substr(1, close - 1));
+    *name = get_trim(trimmed.substr(1, close - 1));
     return true;
 }
 
 // The line's key if it is a key=value line (not a comment), and where its '=' is.
 bool get_key_of(const std::string& line, std::string* key, size_t* equals)
 {
-    std::string t = get_trim(line);
-    if (t.empty() || core::at(t, 0) == ';' || core::at(t, 0) == '#' || core::at(t, 0) == '[') {
+    std::string trimmed = get_trim(line);
+    if (trimmed.empty() || core::at(trimmed, 0) == ';' || core::at(trimmed, 0) == '#' || core::at(trimmed, 0) == '[') {
         return false;
     }
     const size_t eq = line.find('=');
@@ -215,8 +215,8 @@ int choice_of(const Spec& spec, const std::string& value, bool present)
     const bool is_number = get_number(v, &number);
     for (size_t i = 0; i < spec.choices.size(); ++i) {
         const char* choice = core::at(spec.choices, i).value;
-        double c = 0.0;
-        if (is_number && get_number(choice, &c) ? number == c : get_same(v, choice)) {
+        double number_value = 0.0;
+        if (is_number && get_number(choice, &number_value) ? number == number_value : get_same(v, choice)) {
             return static_cast<int>(i);
         }
     }
@@ -229,8 +229,8 @@ bool ini_get(const std::string& text, const IniKey& at, std::string* value)
     const std::string& section = at.section;
     const std::string& key = at.key;
     bool in_section = false;
-    for (const Seg& l : get_lines(text)) {
-        const std::string line = text.substr(l.start, l.end - l.start);
+    for (const Seg& segment : get_lines(text)) {
+        const std::string line = text.substr(segment.start, segment.end - segment.start);
         std::string name;
         if (section_of(line, &name)) {
             in_section = get_same(name, section);
@@ -257,8 +257,8 @@ std::string ini_set(const std::string& text, const IniKey& at, const std::string
     bool in_section = false;
     bool found = false;
     size_t insert_at = std::string::npos; // after the section's last line that isn't blank
-    for (const Seg& l : lines) {
-        const std::string line = text.substr(l.start, l.end - l.start);
+    for (const Seg& segment : lines) {
+        const std::string line = text.substr(segment.start, segment.end - segment.start);
         std::string name;
         if (section_of(line, &name)) {
             if (in_section) {
@@ -267,7 +267,7 @@ std::string ini_set(const std::string& text, const IniKey& at, const std::string
             in_section = get_same(name, section);
             if (in_section) {
                 found = true;
-                insert_at = l.next;
+                insert_at = segment.next;
             }
             continue;
         }
@@ -277,10 +277,10 @@ std::string ini_set(const std::string& text, const IniKey& at, const std::string
         size_t eq = 0;
         if (get_key_of(line, &name, &eq) && get_same(name, key)) {
             // (the value replaced; whatever stood after the line - its break - kept)
-            return text.substr(0, l.start + eq + 1) + value + text.substr(l.end);
+            return text.substr(0, segment.start + eq + 1) + value + text.substr(segment.end);
         }
         if (!get_trim(line).empty()) {
-            insert_at = l.next;
+            insert_at = segment.next;
         }
     }
     const std::string added = key + "=" + value;

@@ -49,11 +49,12 @@ const std::string& get_folder()
 void overlay_name(const char* name, std::array<char, file::kOverlayPathSize>& out)
 {
     int length = 0;
-    for (const char c : std::string_view(name)) {
+    for (const char character : std::string_view(name)) {
         if (length >= kOverlayNameLimit) {
             break;
         }
-        core::at(out, length++) = c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        core::at(out, length++) =
+            character == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
     }
     core::at(out, length) = '\0';
     // Without anything up to the last "data\" (the development machine's paths, or the game's own "data\" prefix).

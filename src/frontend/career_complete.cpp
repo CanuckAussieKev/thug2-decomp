@@ -176,8 +176,8 @@ bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
         }
         script::Array* goals = nullptr;
         if (level->fetch_list(name_hash("goals"), &goals, 0) && goals) {
-            for (uint32_t g = 0; g < goals->extent(); ++g, ++goal_count) {
-                store_beaten_goal(saved, checksums::Name{goals->fetch_part(g)}, number, checksums::Name{kCareer});
+            for (uint32_t index = 0; index < goals->extent(); ++index, ++goal_count) {
+                store_beaten_goal(saved, checksums::Name{goals->fetch_part(index)}, number, checksums::Name{kCareer});
             }
         }
         // Classic mode: its goals beaten, and the level's classic goal counter at their number - what each classic
@@ -185,8 +185,9 @@ bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
         // GetClassicLevelGoalCount 0x005AEAE0 reads it for the level select and GAME PROGRESS.
         script::Array* classic = nullptr;
         if (level->fetch_list(name_hash("classic_goals"), &classic, 0) && classic) {
-            for (uint32_t g = 0; g < classic->extent(); ++g, ++classic_count) {
-                store_beaten_goal(saved, checksums::Name{classic->fetch_part(g)}, number, checksums::Name{kClassic});
+            for (uint32_t index = 0; index < classic->extent(); ++index, ++classic_count) {
+                store_beaten_goal(saved, checksums::Name{classic->fetch_part(index)}, number,
+                                  checksums::Name{kClassic});
             }
             if (number < ints::as_signed(sizeof(career->counter()))) {
                 core::at(career->counter(), number) = static_cast<uint8_t>(classic->extent());

@@ -70,17 +70,17 @@ struct Request {
 const Request& the_request()
 {
     static const Request kRequest = [] {
-        Request r{.level = option_value(command_line(), "edit"), .edit = true};
-        if (r.level.empty()) {
-            r = {.level = option_value(command_line(), "level"), .edit = false};
+        Request request{.level = option_value(command_line(), "edit"), .edit = true};
+        if (request.level.empty()) {
+            request = {.level = option_value(command_line(), "level"), .edit = false};
         }
-        if (r.level.empty()) {
-            r = {.level = from_ini("edit_level"), .edit = true};
+        if (request.level.empty()) {
+            request = {.level = from_ini("edit_level"), .edit = true};
         }
-        if (r.level.empty()) {
-            r = {.level = from_ini("start_level"), .edit = false};
+        if (request.level.empty()) {
+            request = {.level = from_ini("start_level"), .edit = false};
         }
-        return r;
+        return request;
     }();
     return kRequest;
 }
@@ -157,8 +157,8 @@ StartSpot& start_spot()
 const std::string& at_text()
 {
     static const std::string kText = [] {
-        const std::string t = option_value(command_line(), "at");
-        return t.empty() ? from_ini("start_at") : t;
+        const std::string at_option = option_value(command_line(), "at");
+        return at_option.empty() ? from_ini("start_at") : at_option;
     }();
     return kText;
 }
@@ -288,40 +288,40 @@ std::string option_value(const std::string& line, const char* option)
 
 bool parse_spot(const std::string& text, Spot* out)
 {
-    std::string s = text;
+    std::string trimmed = text;
     // (the sidecar's "(x, y, z)": one pair of parentheses around the whole)
-    const size_t first = s.find_first_not_of(" \t");
-    const size_t last = s.find_last_not_of(" \t");
+    const size_t first = trimmed.find_first_not_of(" \t");
+    const size_t last = trimmed.find_last_not_of(" \t");
     if (first == std::string::npos) {
         return false;
     }
-    s = s.substr(first, last - first + 1);
-    if (!s.empty() && s.front() == '(' && s.back() == ')') {
-        s = s.substr(1, s.size() - 2);
+    trimmed = trimmed.substr(first, last - first + 1);
+    if (!trimmed.empty() && trimmed.front() == '(' && trimmed.back() == ')') {
+        trimmed = trimmed.substr(1, trimmed.size() - 2);
     }
     std::array<float, 4> values{};
     int count = 0;
     size_t at = 0;
     for (;;) {
-        at = s.find_first_not_of(" \t", at);
+        at = trimmed.find_first_not_of(" \t", at);
         if (at == std::string::npos || count == 4) {
             return false;
         }
-        const char* start = std::next(s.c_str(), static_cast<std::ptrdiff_t>(at));
+        const char* start = std::next(trimmed.c_str(), static_cast<std::ptrdiff_t>(at));
         char* end = nullptr;
         const double v = std::strtod(start, &end);
         if (end == start || !std::isfinite(v)) {
             return false;
         }
         core::at(values, count++) = static_cast<float>(v);
-        at = static_cast<size_t>(end - s.c_str());
-        at = s.find_first_not_of(" \t", at);
+        at = static_cast<size_t>(end - trimmed.c_str());
+        at = trimmed.find_first_not_of(" \t", at);
         if (at == std::string::npos) {
             break;
         }
-        if (core::at(s, at) == ',') {
+        if (core::at(trimmed, at) == ',') {
             ++at; // (a comma, or only spaces, between two numbers)
-        } else if (at > 0 && core::at(s, at - 1) != ' ' && core::at(s, at - 1) != '\t') {
+        } else if (at > 0 && core::at(trimmed, at - 1) != ' ' && core::at(trimmed, at - 1) != '\t') {
             return false; // (something glued to the number: "1x")
         }
     }

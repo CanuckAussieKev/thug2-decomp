@@ -104,7 +104,7 @@ private:
 
 // 0x004A6BD0 (cdecl): `m` turned about the world's axes by the three angles in `order` (the euler_sequence_ values;
 // others: nothing).
-void apply_angles(maths::Mat4* m, std::span<const float, 3> angles, int order);
+void apply_angles(maths::Mat4* matrix, std::span<const float, 3> angles, int order);
 
 // 0x004A5EE0: `out` = where a point at (x, y) on the
 // 640x480 layout is, `z` in front of `viewport`'s camera (`centre` added in the camera's frame, w + 1): the

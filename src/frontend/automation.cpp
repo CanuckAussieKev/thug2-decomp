@@ -136,8 +136,8 @@ uint32_t name_hash(const std::string& name) { return checksums::hash_from_text(n
 
 std::string get_lower(std::string text)
 {
-    for (char& c : text) {
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char& character : text) {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
     }
     return text;
 }
@@ -147,8 +147,8 @@ bool is_identifier(const std::string& text)
     if (text.empty() || (std::isdigit(static_cast<unsigned char>(::core::at(text, 0))) != 0)) {
         return false;
     }
-    for (const char c : text) {
-        if ((std::isalnum(static_cast<unsigned char>(c)) == 0) && c != '_') {
+    for (const char character : text) {
+        if ((std::isalnum(static_cast<unsigned char>(character)) == 0) && character != '_') {
             return false;
         }
     }
@@ -236,18 +236,18 @@ bool tokenize(const std::string& line, std::vector<std::string>* tokens, std::st
     std::string token;
     bool quoted = false;
     bool any = false;
-    for (const char c : line) {
+    for (const char character : line) {
         if (quoted) {
-            token += c;
-            if (c == '"') {
+            token += character;
+            if (character == '"') {
                 quoted = false;
             }
             continue;
         }
-        if (c == '#') {
+        if (character == '#') {
             break;
         }
-        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+        if (character == ' ' || character == '\t' || character == '\r' || character == '\n') {
             if (any) {
                 tokens->push_back(token);
             }
@@ -255,9 +255,9 @@ bool tokenize(const std::string& line, std::vector<std::string>* tokens, std::st
             any = false;
             continue;
         }
-        token += c;
+        token += character;
         any = true;
-        if (c == '"') {
+        if (character == '"') {
             quoted = true;
         }
     }
@@ -402,17 +402,17 @@ const std::unordered_map<uint32_t, bool>& denied_checksums()
 std::string json_string(const std::string& text)
 {
     std::string out = "\"";
-    for (const char c : text) {
-        auto u = static_cast<unsigned char>(c);
-        if (c == '"' || c == '\\') {
+    for (const char character : text) {
+        auto u = static_cast<unsigned char>(character);
+        if (character == '"' || character == '\\') {
             out += '\\';
-            out += c;
+            out += character;
         } else if (u < kFirstPrintableChar || u >= kDeleteChar) {
             std::array<char, kEscapeTextSize> escaped{};
             text::format_to(escaped, "\\u%04x", u);
             out += escaped.data();
         } else {
-            out += c;
+            out += character;
         }
     }
     return out + "\"";
@@ -1694,11 +1694,11 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
             get_fail(runner, "not in a level with the skater", false);
             return true;
         }
-        const std::vector<float>& n = command.numbers;
+        const std::vector<float>& numbers = command.numbers;
         frontend::test_view::Vec3 at = {};
         const std::string failed = frontend::test_view::jump_to(
-            {.x = ::core::at(n, 0), .y = ::core::at(n, 1), .z = ::core::at(n, 2)}, n.size() > 3,
-            n.size() > 3 ? ::core::at(n, 3) : 0.0F, &at, command.target == "board");
+            {.x = ::core::at(numbers, 0), .y = ::core::at(numbers, 1), .z = ::core::at(numbers, 2)}, numbers.size() > 3,
+            numbers.size() > 3 ? ::core::at(numbers, 3) : 0.0F, &at, command.target == "board");
         if (!failed.empty()) {
             get_fail(runner, failed, false);
             return true;

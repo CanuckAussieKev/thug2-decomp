@@ -37,7 +37,7 @@ struct SmearEffect {
     };
 
     // 0x004A5770 (a function Ghidra hadn't found): copy `i`.
-    DupFrom* get_copy(int i);
+    DupFrom* get_copy(int index);
     // 0x004A5780: a morph to the target over `ms` (0: the target at once), from now.
     void start_morph(int ms);
     // 0x004A57D0 (each frame): the settings morphed on, then the copies placed from them (copy n at n/16).

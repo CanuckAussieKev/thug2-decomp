@@ -42,36 +42,36 @@ ButtonNamer& button_namer()
     return button_namer;
 }
 
-std::string get_upper(std::string s)
+std::string get_upper(std::string text)
 {
-    for (char& c : s) {
-        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    for (char& character : text) {
+        character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
     }
-    return s;
+    return text;
 }
 
 // A trailing ':' and spaces off a label ("Songs:" -> "Songs").
 std::string caption(const std::string& text)
 {
-    std::string s = text;
-    while (!s.empty() && (s.back() == ':' || s.back() == ' ')) {
-        s.pop_back();
+    std::string trimmed = text;
+    while (!trimmed.empty() && (trimmed.back() == ':' || trimmed.back() == ' ')) {
+        trimmed.pop_back();
     }
-    return s;
+    return trimmed;
 }
 
 // The first whole number in `text` (-1: none) - "Points Available: 3", "3 Air points available".
 int first_number(const std::string& text)
 {
-    int n = -1;
-    for (const char c : text) {
-        if (c >= '0' && c <= '9') {
-            n = (n < 0 ? 0 : n * kDecimalBase) + (c - '0');
-        } else if (n >= 0) {
+    int number = -1;
+    for (const char character : text) {
+        if (character >= '0' && character <= '9') {
+            number = (number < 0 ? 0 : number * kDecimalBase) + (character - '0');
+        } else if (number >= 0) {
             break;
         }
     }
-    return n;
+    return number;
 }
 
 bool contains_upper(const std::string& text, const char* upper_word)
@@ -94,8 +94,8 @@ View stats_view(const MenuRead& read)
             continue;
         }
         Row row;
-        for (const std::string& t : item.texts) {
-            row.label = caption(clean_text(t));
+        for (const std::string& text : item.texts) {
+            row.label = caption(clean_text(text));
             if (!row.label.empty()) {
                 break;
             }
@@ -119,8 +119,8 @@ View stats_view(const MenuRead& read)
         return none;
     }
     const std::string title = clean_text(read.title);
-    for (const std::string& t : read.extra_texts_) {
-        const std::string clean = clean_text(t, true);
+    for (const std::string& text : read.extra_texts_) {
+        const std::string clean = clean_text(text, true);
         if (clean.empty() || get_upper(clean) == get_upper(title)) {
             continue;
         }
@@ -267,28 +267,29 @@ std::string clean_text(const std::string& raw, bool newlines)
     std::string out;
     out.reserve(raw.size());
     for (size_t i = 0; i < raw.size(); ++i) {
-        const char c = core::at(raw, i);
-        if (c == '\\' && i + 1 < raw.size()) {
-            const char e = core::at(raw, i + 1);
-            if (e == 'n' || e == 'N') {
+        const char character = core::at(raw, i);
+        if (character == '\\' && i + 1 < raw.size()) {
+            const char escape = core::at(raw, i + 1);
+            if (escape == 'n' || escape == 'N') {
                 out += newlines ? '\n' : ' ';
                 ++i;
                 continue;
             }
-            if (e == '_') {
+            if (escape == '_') {
                 out += ' ';
                 ++i;
                 continue;
             }
-            if (e == '\\') {
+            if (escape == '\\') {
                 // ("\\" in the file: an escaped backslash - the next character may start an escape of its own, as
                 // "\\n" in the scripts' strings reaches the game as \n)
                 ++i;
                 continue;
             }
-            if ((e == 'b' || e == 'B' || e == 'm' || e == 'M') && i + 2 < raw.size()) {
+            if ((escape == 'b' || escape == 'B' || escape == 'm' || escape == 'M') && i + 2 < raw.size()) {
                 // (a button: the key's name as the game spells it, between spaces when words touch it)
-                const std::string name = button_namer() ? button_namer()({.tag = e, .digit = core::at(raw, i + 2)}) : std::string();
+                const std::string name =
+                    button_namer() ? button_namer()({.tag = escape, .digit = core::at(raw, i + 2)}) : std::string();
                 if (!name.empty()) {
                     if (!out.empty() && out.back() != ' ' && out.back() != '/') {
                         out += ' ';
@@ -302,29 +303,29 @@ std::string clean_text(const std::string& raw, bool newlines)
                 i += 2;
                 continue;
             }
-            if ((e == 'c' || e == 'C') && i + 2 < raw.size()) {
+            if ((escape == 'c' || escape == 'C') && i + 2 < raw.size()) {
                 i += 2; // (a colour: its code character too)
                 continue;
             }
             ++i;
             continue;
         }
-        if (c == '\n' || c == '\r' || c == '\t') {
-            out += newlines && c == '\n' ? '\n' : ' ';
+        if (character == '\n' || character == '\r' || character == '\t') {
+            out += newlines && character == '\n' ? '\n' : ' ';
             continue;
         }
-        out += c;
+        out += character;
     }
     // Spaces collapsed (not across line ends), trimmed.
     std::string tidy;
-    for (const char c : out) {
-        if (c == ' ' && (tidy.empty() || tidy.back() == ' ' || tidy.back() == '\n')) {
+    for (const char character : out) {
+        if (character == ' ' && (tidy.empty() || tidy.back() == ' ' || tidy.back() == '\n')) {
             continue;
         }
-        if (c == '\n' && !tidy.empty() && tidy.back() == ' ') {
+        if (character == '\n' && !tidy.empty() && tidy.back() == ' ') {
             tidy.pop_back();
         }
-        tidy += c;
+        tidy += character;
     }
     while (!tidy.empty() && (tidy.back() == ' ' || tidy.back() == '\n')) {
         tidy.pop_back();
@@ -362,8 +363,8 @@ View get_build(const MenuRead& read, const Policy& policy)
                 continue; // (the text block, the spacer, a logo)
             }
             std::vector<std::string> texts;
-            for (const std::string& t : item.texts) {
-                const std::string clean = clean_text(t);
+            for (const std::string& text : item.texts) {
+                const std::string clean = clean_text(text);
                 if (!clean.empty()) {
                     texts.push_back(clean);
                 }
@@ -626,8 +627,8 @@ View get_build(const MenuRead& read, const Policy& policy)
         }
         any_focusable = true;
         bool words = false;
-        for (const std::string& t : item.texts) {
-            words = words || !clean_text(t).empty();
+        for (const std::string& text : item.texts) {
+            words = words || !clean_text(text).empty();
         }
         if (!words && item.checkbox < 0) {
             return original("an item without words");
@@ -651,8 +652,8 @@ View get_build(const MenuRead& read, const Policy& policy)
         view.unsettled = true;
         return view;
     }
-    for (const std::string& t : read.extra_texts_) {
-        const std::string clean = clean_text(t, true);
+    for (const std::string& text : read.extra_texts_) {
+        const std::string clean = clean_text(text, true);
         if (!clean.empty() && get_upper(clean) != get_upper(title)) {
             view.lines.push_back(clean);
         }
@@ -664,9 +665,9 @@ View get_build(const MenuRead& read, const Policy& policy)
     // A colour menu: hue, saturation and value all there - the numbers back from the markers' places.
     {
         std::array<float, 4> at = {{-1.0F, -1.0F, -1.0F, -1.0F}};
-        for (const Row& r : view.rows) {
-            if (r.track >= 1 && r.track <= 3) {
-                core::at(at, r.track) = r.track_at_;
+        for (const Row& row : view.rows) {
+            if (row.track >= 1 && row.track <= 3) {
+                core::at(at, row.track) = row.track_at_;
             }
         }
         if (core::at(at, 1) >= 0.0F && core::at(at, 2) >= 0.0F && core::at(at, 3) >= 0.0F) {
@@ -683,42 +684,42 @@ View get_build(const MenuRead& read, const Policy& policy)
 void skater_colour(const Hsv& colour, std::span<float, 3> rgb)
 {
     const float hue = colour.hue;
-    const float s = colour.sat * 0.01F;
+    const float saturation = colour.sat * 0.01F;
     const float v = colour.val * 0.01F;
-    float r = v;
-    float g = v;
-    float b = v;
-    if (s != 0.0F) {
+    float red = v;
+    float green = v;
+    float blue = v;
+    if (saturation != 0.0F) {
         const float sector = hue * (1.0F / 60.0F);
-        const int i = static_cast<int>(sector);
-        const float f = sector - static_cast<float>(i);
-        const float p = (1.0F - s) * v;
-        const float q = (1.0F - (s * f)) * v;
-        const float t = (1.0F - ((1.0F - f) * s)) * v;
-        switch (static_cast<unsigned>(i)) {
+        const int sector_index = static_cast<int>(sector);
+        const float fraction = sector - static_cast<float>(sector_index);
+        const float low = (1.0F - saturation) * v;
+        const float falling = (1.0F - (saturation * fraction)) * v;
+        const float rising = (1.0F - ((1.0F - fraction) * saturation)) * v;
+        switch (static_cast<unsigned>(sector_index)) {
         case 0:
-            r = v, g = t, b = p;
+            red = v, green = rising, blue = low;
             break;
         case 1:
-            r = q, g = v, b = p;
+            red = falling, green = v, blue = low;
             break;
         case 2:
-            r = p, g = v, b = t;
+            red = low, green = v, blue = rising;
             break;
         case 3:
-            r = p, g = q, b = v;
+            red = low, green = falling, blue = v;
             break;
         case 4:
-            r = t, g = p, b = v;
+            red = rising, green = low, blue = v;
             break;
         default:
-            r = v, g = p, b = q;
+            red = v, green = low, blue = falling;
             break;
         }
     }
-    core::at(rgb, 0) = std::min(1.0F, r * kBrightenFactor);
-    core::at(rgb, 1) = std::min(1.0F, g * kBrightenFactor);
-    core::at(rgb, 2) = std::min(1.0F, b * kBrightenFactor);
+    core::at(rgb, 0) = std::min(1.0F, red * kBrightenFactor);
+    core::at(rgb, 1) = std::min(1.0F, green * kBrightenFactor);
+    core::at(rgb, 2) = std::min(1.0F, blue * kBrightenFactor);
 }
 
 bool Tracker::tick_frame(const View& now, float dt)

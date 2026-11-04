@@ -86,8 +86,8 @@ float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
 float visible_alpha() { return ::modules::kCompetitionTiny; }      // 0.0001
 
 // UiWidget's pieces.
-void base_set_properties(UiWidget* e, Struct* params) { e->UiWidget::change_traits(params); }
-void base_set_morph(UiWidget* e, Struct* params) { e->UiWidget::blend_towards(params); }
+void base_set_properties(UiWidget* widget, Struct* params) { widget->UiWidget::change_traits(params); }
+void base_set_morph(UiWidget* widget, Struct* params) { widget->UiWidget::blend_towards(params); }
 
 // The viewport's camera (0x004A09C0, cdecl; null if none) and the camera's matrix, position and horizontal angle
 // in degrees (thiscall getters).
@@ -373,41 +373,41 @@ void ModelWidget::blend_towards(Struct* params)
 }
 
 // 0x004A6BD0
-void apply_angles(maths::Mat4* m, std::span<const float, 3> angles, int order)
+void apply_angles(maths::Mat4* matrix, std::span<const float, 3> angles, int order)
 {
     const float x = core::at(angles, 0);
     const float y = core::at(angles, 1);
     const float z = core::at(angles, 2);
     switch (order) {
     case 0:
-        m->spin_around_x(x);
-        m->rotate_y(y);
-        m->spin_around_z(z);
+        matrix->spin_around_x(x);
+        matrix->rotate_y(y);
+        matrix->spin_around_z(z);
         break;
     case 1:
-        m->spin_around_x(x);
-        m->spin_around_z(z);
-        m->rotate_y(y);
+        matrix->spin_around_x(x);
+        matrix->spin_around_z(z);
+        matrix->rotate_y(y);
         break;
     case 2:
-        m->rotate_y(y);
-        m->spin_around_x(x);
-        m->spin_around_z(z);
+        matrix->rotate_y(y);
+        matrix->spin_around_x(x);
+        matrix->spin_around_z(z);
         break;
     case 3:
-        m->rotate_y(y);
-        m->spin_around_z(z);
-        m->spin_around_x(x);
+        matrix->rotate_y(y);
+        matrix->spin_around_z(z);
+        matrix->spin_around_x(x);
         break;
     case 4:
-        m->spin_around_z(z);
-        m->spin_around_x(x);
-        m->rotate_y(y);
+        matrix->spin_around_z(z);
+        matrix->spin_around_x(x);
+        matrix->rotate_y(y);
         break;
     case kAngleOrderZYX:
-        m->spin_around_z(z);
-        m->rotate_y(y);
-        m->spin_around_x(x);
+        matrix->spin_around_z(z);
+        matrix->rotate_y(y);
+        matrix->spin_around_x(x);
         break;
     default:
         break;
@@ -507,15 +507,15 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
         const double x = core::at(corners, i).x;
         const double edge = -(static_cast<double>(core::at(corners, i).z) + place.z) * tan_half_angle; // the half-width there
         if (x < 0.0) {
-            const double k = (-edge - place.x) / x;
-            if (!left || k < need_left) {
-                need_left = k;
+            const double ratio = (-edge - place.x) / x;
+            if (!left || ratio < need_left) {
+                need_left = ratio;
             }
             left = true;
         } else if (x > 0.0) {
-            const double k = (edge - place.x) / x;
-            if (!right || k < need_right) {
-                need_right = k;
+            const double ratio = (edge - place.x) / x;
+            if (!right || ratio < need_right) {
+                need_right = ratio;
             }
             right = true;
         }
@@ -523,8 +523,8 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
     if (!left || !right) {
         return 1.0F;
     }
-    const double k = (need_left > need_right ? need_left : need_right) * 1.01;
-    return k > 1.0 ? static_cast<float>(k) : 1.0F;
+    const double ratio = (need_left > need_right ? need_left : need_right) * 1.01;
+    return ratio > 1.0 ? static_cast<float>(ratio) : 1.0F;
 }
 
 // 0x004A6D30. Where the element is (basis_frame_): following ParentParams' object (its position + the offset) or
@@ -653,15 +653,15 @@ void ModelWidget::tick_frame()
                     count = 0; // (a model without a box yet: left as it is this frame)
                     break;
                 }
-                for (int c = 0; c < kBoxCorners; ++c) {
+                for (int corner_index = 0; corner_index < kBoxCorners; ++corner_index) {
                     const maths::Vec4 corner = {
-                        .x = (((c & 1) != 0) ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
-                        .y = (((c & 2) != 0) ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
-                        .z = (((c & 4) != 0) ? box->max.z : box->min.z) + core::at(models_, i).offset.z,
+                        .x = (((corner_index & 1) != 0) ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
+                        .y = (((corner_index & 2) != 0) ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
+                        .z = (((corner_index & 4) != 0) ? box->max.z : box->min.z) + core::at(models_, i).offset.z,
                         .w = 1.0F};
-                    const maths::Vec4 e = corner * local;
-                    core::at(corners,
-                             count++) = {.x = e.x * scale.x, .y = e.y * scale.y, .z = e.z * scale.z, .w = 1.0F};
+                    const maths::Vec4 moved = corner * local;
+                    core::at(corners, count++) = {
+                        .x = moved.x * scale.x, .y = moved.y * scale.y, .z = moved.z * scale.z, .w = 1.0F};
                 }
             }
             const double tan_half_angle =
@@ -678,12 +678,12 @@ void ModelWidget::tick_frame()
     if (bob_height_ > 0.0F) {
         auto period = static_cast<uint32_t>(bob_period_);
         const uint32_t phase = frame_clock::get_time() % period * 2;
-        const double s =
+        const double hover_scale =
             std::sin(static_cast<double>(static_cast<int32_t>(phase)) * get_pi() / bob_period_) * bob_height_;
-        hover.x = static_cast<float>(s * core::at(basis_frame_.row, 1).x);
-        hover.y = static_cast<float>(s * core::at(basis_frame_.row, 1).y);
-        hover.z = static_cast<float>(s * core::at(basis_frame_.row, 1).z);
-        hover.w = static_cast<float>(s * core::at(basis_frame_.row, 1).w);
+        hover.x = static_cast<float>(hover_scale * core::at(basis_frame_.row, 1).x);
+        hover.y = static_cast<float>(hover_scale * core::at(basis_frame_.row, 1).y);
+        hover.z = static_cast<float>(hover_scale * core::at(basis_frame_.row, 1).z);
+        hover.w = static_cast<float>(hover_scale * core::at(basis_frame_.row, 1).w);
     }
     const bool visible = summed().alpha >= visible_alpha();
     for (int i = 0; i < model_total_; ++i) {

@@ -104,17 +104,21 @@ void manager_destroy_element(void* manager, uint32_t id, int recurse, int unknow
 
 // A state's top left from its position: the justification point (-1..1 across the size) at x, y. Two operand
 // orders occur in the original (the x87 products round differently): dims then scale, or scale then dims.
-void top_left_dims_first(const UiWidget* e, ElementState* s)
+void top_left_dims_first(const UiWidget* widget, ElementState* state)
 {
-    s->top = static_cast<float>(s->y - ((static_cast<double>(e->just_y()) + 1.0) * e->level_y() * s->scale_y_ * kHalf));
-    s->left = static_cast<float>(s->x - ((static_cast<double>(e->just_x()) + 1.0) * e->span() * s->scale_x_ * kHalf));
+    state->top = static_cast<float>(
+        state->y - ((static_cast<double>(widget->just_y()) + 1.0) * widget->level_y() * state->scale_y_ * kHalf));
+    state->left = static_cast<float>(
+        state->x - ((static_cast<double>(widget->just_x()) + 1.0) * widget->span() * state->scale_x_ * kHalf));
 }
-void top_left_scale_first(const UiWidget* e, ElementState* s, maths::Size size)
+void top_left_scale_first(const UiWidget* widget, ElementState* state, maths::Size size)
 {
     const auto width = static_cast<double>(size.width);
     const auto height = static_cast<double>(size.height);
-    s->top = static_cast<float>(s->y - ((static_cast<double>(e->just_y()) + 1.0) * s->scale_y_ * height * kHalf));
-    s->left = static_cast<float>(s->x - ((static_cast<double>(e->just_x()) + 1.0) * s->scale_x_ * width * kHalf));
+    state->top = static_cast<float>(state->y -
+                                    ((static_cast<double>(widget->just_y()) + 1.0) * state->scale_y_ * height * kHalf));
+    state->left = static_cast<float>(state->x -
+                                     ((static_cast<double>(widget->just_x()) + 1.0) * state->scale_x_ * width * kHalf));
 }
 
 uint32_t get_rgba(const uint8_t* bytes)
@@ -127,13 +131,13 @@ void set_rgba_bytes(uint8_t* bytes, uint32_t value) { std::memcpy(bytes, &value,
 
 // x87 FSIN / FCOS of a parent's angle and the rotated, scaled offset of a child's point: the parent's top left
 // plus (px cos - py sin, px sin + py cos), px / py scaled by the parent's summed scale.
-maths::Vec2 get_rotated(const UiWidget* parent, maths::Vec2 at, double c, double s)
+maths::Vec2 get_rotated(const UiWidget* parent, maths::Vec2 at, double cosine, double sine)
 {
     const double py = static_cast<double>(parent->summed().scale_y_) * at.y;
     const double px = static_cast<double>(parent->summed().scale_x_) * at.x;
     const float parent_top = parent->summed().top;
-    return {.x = static_cast<float>((px * c) - (py * s) + parent->summed().left),
-            .y = static_cast<float>((px * s) + (py * c) + parent_top)};
+    return {.x = static_cast<float>((px * cosine) - (py * sine) + parent->summed().left),
+            .y = static_cast<float>((px * sine) + (py * cosine) + parent_top)};
 }
 
 } // namespace
@@ -256,7 +260,7 @@ void UiWidget::set_focus_sent(int sent)
 // --- placement ------------------------------------------------------------------------------------------------
 
 // 0x004A8C30
-void UiWidget::place_top_left(ElementState* s) const { top_left_dims_first(this, s); }
+void UiWidget::place_top_left(ElementState* state) const { top_left_dims_first(this, state); }
 
 // 0x004A9100
 void UiWidget::change_location(float x, float y, bool now)
@@ -290,13 +294,13 @@ void UiWidget::set_pos3d(const maths::Vec4* pos, bool now)
 }
 
 // 0x004A92D0
-void UiWidget::fit_to_size(float w, float h, bool lock)
+void UiWidget::fit_to_size(float w, float height, bool lock)
 {
-    if (w != span_ || h != level_y_) {
+    if (w != span_ || height != level_y_) {
         object_flags() |= kDirty;
         span_ = w;
-        level_y_ = h;
-        top_left_scale_first(this, &aim_point_, {.width = w, .height = h});
+        level_y_ = height;
+        top_left_scale_first(this, &aim_point_, {.width = w, .height = height});
     }
     if (lock) {
         object_flags() |= kDimsLocked;
@@ -620,50 +624,54 @@ void UiWidget::update_layout()
         if (morph_length_ != 0) {
             auto elapsed = static_cast<uint32_t>(now - morph_start_);
             auto length = static_cast<uint32_t>(morph_length_);
-            auto t = static_cast<float>(static_cast<double>(elapsed) / static_cast<double>(length));
+            auto fraction = static_cast<float>(static_cast<double>(elapsed) / static_cast<double>(length));
             if (elapsed >= length) {
-                t = 1.0F;
+                fraction = 1.0F;
                 morph_length_ = 0;
             }
             float curve = 0.0F;
             switch ((object_flags() >> kMorphCurveShift) & 3) {
             case 1: // ease out
-                curve = static_cast<float>((static_cast<double>(t) + t) - (static_cast<double>(t) * t));
+                curve = static_cast<float>((static_cast<double>(fraction) + fraction) -
+                                           (static_cast<double>(fraction) * fraction));
                 break;
             case 2: // fast in
-                curve = static_cast<float>(static_cast<double>(t) * t);
+                curve = static_cast<float>(static_cast<double>(fraction) * fraction);
                 break;
             case 3: // gentle
-                curve = static_cast<float>((kSmoothstepThree - (static_cast<double>(t) + t)) * t * t);
+                curve = static_cast<float>((kSmoothstepThree - (static_cast<double>(fraction) + fraction)) * fraction *
+                                           fraction);
                 break;
             default:
-                curve = t;
+                curve = fraction;
                 break;
             }
             // what's left of the move this frame: the curve's for the position, the time's for the rest
-            const double k = (static_cast<double>(curve) - morph_curve_done_) / (1.0 - morph_curve_done_);
-            auto kt = static_cast<float>((static_cast<double>(t) - morph_done_) / (1.0 - morph_done_));
-            ElementState& s = shown_;
-            const float shown_y = s.y;
-            s.x = static_cast<float>(((static_cast<double>(aim_point_.x) - s.x) * k) + s.x);
-            s.y = static_cast<float>(((static_cast<double>(aim_point_.y) - shown_y) * k) + shown_y);
-            const float shown_scale_y = s.scale_y_;
-            s.scale_x_ =
-                static_cast<float>(((static_cast<double>(aim_point_.scale_x_) - s.scale_x_) * kt) + s.scale_x_);
-            s.scale_y_ =
+            const double eased = (static_cast<double>(curve) - morph_curve_done_) / (1.0 - morph_curve_done_);
+            auto kt = static_cast<float>((static_cast<double>(fraction) - morph_done_) / (1.0 - morph_done_));
+            ElementState& state = shown_;
+            const float shown_y = state.y;
+            state.x = static_cast<float>(((static_cast<double>(aim_point_.x) - state.x) * eased) + state.x);
+            state.y = static_cast<float>(((static_cast<double>(aim_point_.y) - shown_y) * eased) + shown_y);
+            const float shown_scale_y = state.scale_y_;
+            state.scale_x_ =
+                static_cast<float>(((static_cast<double>(aim_point_.scale_x_) - state.scale_x_) * kt) + state.scale_x_);
+            state.scale_y_ =
                 static_cast<float>(((static_cast<double>(aim_point_.scale_y_) - shown_scale_y) * kt) + shown_scale_y);
-            s.angle = static_cast<float>(((static_cast<double>(aim_point_.angle) - s.angle) * kt) + s.angle);
-            s.alpha = static_cast<float>(((static_cast<double>(aim_point_.alpha) - s.alpha) * kt) + s.alpha);
-            place_top_left(&s);
+            state.angle =
+                static_cast<float>(((static_cast<double>(aim_point_.angle) - state.angle) * kt) + state.angle);
+            state.alpha =
+                static_cast<float>(((static_cast<double>(aim_point_.alpha) - state.alpha) * kt) + state.alpha);
+            place_top_left(&state);
             std::array<uint8_t, 4> rgba{};
             for (int i = 0; i < 4; ++i) {
-                const int from = core::at(s.rgba, i);
+                const int from = core::at(state.rgba, i);
                 core::at(rgba, i) = static_cast<uint8_t>(get_truncated(
                     (static_cast<double>(core::at(aim_point_.rgba, i) - from) * kt) + static_cast<double>(from)));
             }
-            std::memcpy(s.rgba.data(), rgba.data(), 4);
+            std::memcpy(state.rgba.data(), rgba.data(), 4);
             morph_curve_done_ = curve;
-            morph_done_ = t;
+            morph_done_ = fraction;
         } else {
             get_assign(shown_, &aim_point_);
             object_flags() &= ~kDirty;
@@ -681,14 +689,14 @@ void UiWidget::update_layout()
             summed_.scale_y_ = static_cast<float>(static_cast<double>(parent->summed_.scale_y_) * shown_.scale_y_);
             parent = container_.get_pull();
             summed_.angle = static_cast<float>(static_cast<double>(shown_.angle) + parent->summed_.angle);
-            const double c = std::cos(static_cast<double>(parent->summed_.angle));
-            const double s = std::sin(static_cast<double>(parent->summed_.angle));
-            const maths::Vec2 centre = get_rotated(parent, {.x = shown_.x, .y = shown_.y}, c, s);
+            const double cosine = std::cos(static_cast<double>(parent->summed_.angle));
+            const double sine = std::sin(static_cast<double>(parent->summed_.angle));
+            const maths::Vec2 centre = get_rotated(parent, {.x = shown_.x, .y = shown_.y}, cosine, sine);
             summed_.x = centre.x;
             summed_.y = centre.y;
             parent = container_.get_pull();
             summed_.alpha = static_cast<float>(static_cast<double>(parent->summed_.alpha) * shown_.alpha);
-            const maths::Vec2 top_left = get_rotated(parent, {.x = shown_.left, .y = shown_.top}, c, s);
+            const maths::Vec2 top_left = get_rotated(parent, {.x = shown_.left, .y = shown_.top}, cosine, sine);
             summed_.left = top_left.x;
             summed_.top = top_left.y;
         } else {

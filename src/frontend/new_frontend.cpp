@@ -216,8 +216,8 @@ bool is_file_present(const std::string& path)
 std::string windows_fonts()
 {
     std::array<char, MAX_PATH> windows = {};
-    const UINT n = GetWindowsDirectoryA(windows.data(), MAX_PATH);
-    return std::string(windows.data(), n) + "\\Fonts\\";
+    const UINT length = GetWindowsDirectoryA(windows.data(), MAX_PATH);
+    return std::string(windows.data(), length) + "\\Fonts\\";
 }
 
 // A font named in the ini (or the default list): a full path as it is, else the overlay's frontend\fonts, else
@@ -277,8 +277,8 @@ std::string read_text(const std::string& path)
     }
     std::string text;
     std::array<char, kReadChunkSize> buffer{};
-    for (size_t n = 0; (n = std::fread(buffer.data(), 1, sizeof(buffer), file.get())) > 0;) {
-        text.append(buffer.data(), n);
+    for (size_t bytes_read = 0; (bytes_read = std::fread(buffer.data(), 1, sizeof(buffer), file.get())) > 0;) {
+        text.append(buffer.data(), bytes_read);
     }
     return text;
 }
@@ -465,8 +465,8 @@ void update_session(float dt)
         bailing = core::down_cast<objects::RiderPoseState>(state)->is_on(objects::PoseFlag::kBailing) != 0;
     }
     if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
-        if (const modules::PointTally* s = core::down_cast<objects::RiderPointKeeper>(score)->points_held()) {
-            const double points = static_cast<double>(s->pot()) * s->multiplier();
+        if (const modules::PointTally* tally = core::down_cast<objects::RiderPointKeeper>(score)->points_held()) {
+            const double points = static_cast<double>(tally->pot()) * tally->multiplier();
             if (points > 0.0 && points < kPointsCeiling) {
                 pending = static_cast<int>(points);
             }
@@ -731,8 +731,8 @@ void load_catalogue()
     } else {
         new_frontend_state().catalogue_ok_ = true;
         size_t levels = 0;
-        for (const Section& s : new_frontend_state().catalogue_.sections()) {
-            levels += s.levels.size();
+        for (const Section& section : new_frontend_state().catalogue_.sections()) {
+            levels += section.levels.size();
         }
         get_log("new front end: %zu sections, %zu levels from %s", new_frontend_state().catalogue_.sections().size(), levels, path.c_str());
     }
@@ -874,11 +874,11 @@ void apply_option(const ActStep& action)
 const StageMap* level_played(const Section** section)
 {
     const uint32_t load = current_load_state();
-    for (const Section& s : new_frontend_state().catalogue_.sections()) {
-        for (const StageMap& level : s.levels) {
+    for (const Section& catalogue_section : new_frontend_state().catalogue_.sections()) {
+        for (const StageMap& level : catalogue_section.levels) {
             if (name_hash(level.load.c_str()) == load) {
                 if (section) {
-                    *section = &s;
+                    *section = &catalogue_section;
                 }
                 return &level;
             }
@@ -1005,20 +1005,21 @@ UiWidget* active_menu(bool* in_dialog = nullptr, bool coming = false)
     stack.push_back({.element = first_child(root), .in_dialog_ = false});
     while (!stack.empty() && --budget > 0) {
         Walk& top = stack.back();
-        UiWidget* e = top.element;
-        if (!e) {
+        UiWidget* widget = top.element;
+        if (!widget) {
             stack.pop_back();
             continue;
         }
-        const bool here = top.in_dialog_ || id_of_element(e) == kDialogContainer;
-        top.element = get_next(e);
-        if (mouse_menus::is_menu(e) && (coming ? get_visible(e) : mouse_menus::menu_gets_pad_events(e))) {
-            found = e;
+        const bool here = top.in_dialog_ || id_of_element(widget) == kDialogContainer;
+        top.element = get_next(widget);
+        if (mouse_menus::is_menu(widget) &&
+            (coming ? get_visible(widget) : mouse_menus::menu_gets_pad_events(widget))) {
+            found = widget;
             if (here) {
-                dialog = e;
+                dialog = widget;
             }
         }
-        if (UiWidget* child = first_child(e)) {
+        if (UiWidget* child = first_child(widget)) {
             stack.push_back({.element = child, .in_dialog_ = here});
         }
     }
@@ -1121,16 +1122,16 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
     static const uint32_t kCircle = name_hash("circle");
     static const auto kColourArrows = std::to_array<uint32_t>({name_hash("hue_up_arrow"), name_hash("saturation_up_arrow"),
                                              name_hash("value_up_arrow"), name_hash("alpha_up_arrow")});
-    for (const UiWidget* e = element; e && --*budget > 0; e = get_next(e)) {
-        if (type_of(e) == sprite_type()) {
-            const uint32_t texture = core::down_cast<const ImageWidget>(e)->texture();
+    for (const UiWidget* widget = element; widget && --*budget > 0; widget = get_next(widget)) {
+        if (type_of(widget) == sprite_type()) {
+            const uint32_t texture = core::down_cast<const ImageWidget>(widget)->texture();
             if (texture == kLeft || texture == kRight) {
                 item->adjustable = true;
             }
             if (texture == kUp) {
                 // (colormenu_nowrap_arrow_left / right -53 .. 80 for the colour menus' markers, scalingmenu_arrow_left /
                 // right -49 .. 76 for the scaling ones)
-                const uint32_t id = id_of_element(e);
+                const uint32_t id = id_of_element(widget);
                 float left = -kScaleArrowLeft;
                 float right = kScaleArrowRight;
                 for (const uint32_t colour : kColourArrows) {
@@ -1140,7 +1141,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                     }
                 }
                 item->adjustable = true;
-                item->slider_at_ = std::clamp((e->aim_point().x - left) / (right - left), 0.0F, 1.0F);
+                item->slider_at_ = std::clamp((widget->aim_point().x - left) / (right - left), 0.0F, 1.0F);
                 item->slider_hue_ = id == kHueArrow;
                 item->slider_kind_ = id == core::at(kColourArrows, 0)   ? 1
                                      : id == core::at(kColourArrows, 1) ? 2
@@ -1154,16 +1155,16 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 // but unspent ones lit at alpha 0.3)
                 item->stat_value_ = std::max(item->stat_value_, 0);
                 item->stat_cap_ = std::max(item->stat_cap_, 0);
-                if (core::at(e->aim_point().rgba, 0) >= kLitRedThreshold) {
+                if (core::at(widget->aim_point().rgba, 0) >= kLitRedThreshold) {
                     ++item->stat_cap_;
-                    if (e->aim_point().alpha > kLitAlpha) {
+                    if (widget->aim_point().alpha > kLitAlpha) {
                         ++item->stat_value_;
                     }
                 }
             }
-            if (texture == kCheckbox && get_visible(e)) {
+            if (texture == kCheckbox && get_visible(widget)) {
                 item->checkbox = 0;
-                for (const UiWidget* mark = first_child(e); mark; mark = get_next(mark)) {
+                for (const UiWidget* mark = first_child(widget); mark; mark = get_next(mark)) {
                     if (type_of(mark) == sprite_type() && get_visible(mark) &&
                         core::down_cast<const ImageWidget>(mark)->texture() == kCheckmark) {
                         item->checkbox = 1;
@@ -1171,7 +1172,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 }
             }
         }
-        if (const UiWidget* child = first_child(e)) {
+        if (const UiWidget* child = first_child(widget)) {
             read_value_sprites(child, item, budget);
         }
     }
@@ -1291,8 +1292,8 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     }
     std::vector<const UiWidget*> skip = {menu};
     for (const char* id : {"helper_text_anchor", "submenu_title_anchor", "title_text"}) {
-        if (const UiWidget* e = game_screens::get_find(name_hash(id))) {
-            skip.push_back(e);
+        if (const UiWidget* widget = game_screens::get_find(name_hash(id))) {
+            skip.push_back(widget);
         }
     }
     if (screen && screen != menu) {
@@ -1303,9 +1304,9 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         std::vector<float> row_y;
         for (const UiWidget* child = first_child(menu); child; child = get_next(child)) {
             float y = absolute_y(child);
-            for (const UiWidget* t = first_child(child); t; t = get_next(t)) {
-                if (type_of(t) == text_type()) {
-                    y = absolute_y(t);
+            for (const UiWidget* text_child = first_child(child); text_child; text_child = get_next(text_child)) {
+                if (type_of(text_child) == text_type()) {
+                    y = absolute_y(text_child);
                     break;
                 }
             }
@@ -1396,8 +1397,8 @@ mirror::MenuRead read_stats(UiWidget* active)
         menus.push_back(active);
     } else {
         for (const uint32_t column : {kColumn1, kColumn2}) {
-            if (const UiWidget* m = game_screens::get_find(column); m && has_stat_rows(m)) {
-                menus.push_back(m);
+            if (const UiWidget* menu = game_screens::get_find(column); menu && has_stat_rows(menu)) {
+                menus.push_back(menu);
             }
         }
     }
@@ -1459,8 +1460,8 @@ mirror::MenuRead read_stats(UiWidget* active)
     }
     std::vector<const UiWidget*> skip(menus.begin(), menus.end());
     for (const char* id : {"helper_text_anchor", "title_text"}) {
-        if (const UiWidget* e = game_screens::get_find(name_hash(id))) {
-            skip.push_back(e);
+        if (const UiWidget* widget = game_screens::get_find(name_hash(id))) {
+            skip.push_back(widget);
         }
     }
     if (screen) {
@@ -1574,8 +1575,8 @@ UiWidget* keyboard_of(UiWidget* menu)
             std::vector<std::string> texts;
             int budget = kKeyTextBudget;
             collect_texts(key, &texts, {}, &budget, false);
-            for (const std::string& t : texts) {
-                singles += t.size() == 1 ? 1 : 0;
+            for (const std::string& text : texts) {
+                singles += text.size() == 1 ? 1 : 0;
             }
         }
     }
@@ -1615,9 +1616,9 @@ mirror::MenuRead read_keyboard(UiWidget* active)
             int budget = kKeyTextBudget; // (a wide key: a container of a score of cap sprites before its words)
             collect_texts(key, &texts, {}, &budget, false);
             std::string label;
-            for (const std::string& t : texts) {
-                if (!(t.size() >= 2 && core::at(t, 0) == '\\')) {
-                    label = t;
+            for (const std::string& text : texts) {
+                if (!(text.size() >= 2 && core::at(text, 0) == '\\')) {
+                    label = text;
                 }
             }
             key_row.push_back(label);
@@ -1934,12 +1935,12 @@ bool step_to_stat(modules::FrontEnd* front_end, int row)
     if (v.stats_editing_) {
         return false;
     }
-    const mirror::Row& r = core::at(v.rows, row);
-    if (r.index >= 0) {
+    const mirror::Row& row_ref = core::at(v.rows, row);
+    if (row_ref.index >= 0) {
         return step_to(front_end, row);
     }
     if (v.selected >= 0) {
-        mouse_menus::send_menu_pad_event(front_end, r.stat_column_ < core::at(v.rows, v.selected).stat_column_
+        mouse_menus::send_menu_pad_event(front_end, row_ref.stat_column_ < core::at(v.rows, v.selected).stat_column_
                                                         ? modules::FrontEnd::kPadLeft
                                                         : modules::FrontEnd::kPadRight);
     }
@@ -1978,11 +1979,11 @@ void mirror_mouse(modules::FrontEnd* front_end)
         return;
     }
     int w = 0;
-    int h = 0;
+    int height = 0;
     if (SDL_Window* window = sys::sdl_window()) {
-        SDL_GetWindowSize(window, &w, &h);
+        SDL_GetWindowSize(window, &w, &height);
     }
-    TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(h));
+    TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(height));
     auto hit_at = [&frame](float wx, float wy) -> const paint::Hit* {
         const float x = frame.design_x(wx);
         const float y = frame.design_y(wy);
@@ -1995,11 +1996,12 @@ void mirror_mouse(modules::FrontEnd* front_end)
     };
     const bool skaters = menu_mirror().mirror_.get_shown().kind == mirror::Kind::kSkaters;
     const bool stats = menu_mirror().mirror_.get_shown().kind == mirror::Kind::kStats;
-    for (const SDL_Event& e : events) {
-        switch (e.type) {
+    for (const SDL_Event& widget : events) {
+        switch (widget.type) {
         case SDL_MOUSEMOTION:
             if (stats) {
-                if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y))) {
+                if (const paint::Hit* hit =
+                        hit_at(static_cast<float>(widget.motion.x), static_cast<float>(widget.motion.y))) {
                     const int row = hit->kind == paint::Hit::Kind::kItem     ? hit->index
                                     : hit->kind == paint::Hit::Kind::kChoice ? hit->index / 16
                                                                              : -1;
@@ -2011,7 +2013,8 @@ void mirror_mouse(modules::FrontEnd* front_end)
             }
             // (the skater select: each step loads a skater - only a click selects there)
             if (!skaters) {
-                if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y))) {
+                if (const paint::Hit* hit =
+                        hit_at(static_cast<float>(widget.motion.x), static_cast<float>(widget.motion.y))) {
                     if (hit->kind == paint::Hit::Kind::kItem &&
                         hit->index != menu_mirror().mirror_.get_shown().selected) {
                         step_to(front_end, hit->index);
@@ -2020,10 +2023,11 @@ void mirror_mouse(modules::FrontEnd* front_end)
             }
             break;
         case SDL_MOUSEBUTTONDOWN:
-            if (e.button.button == SDL_BUTTON_RIGHT) {
+            if (widget.button.button == SDL_BUTTON_RIGHT) {
                 mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
-            } else if (e.button.button == SDL_BUTTON_LEFT) {
-                const paint::Hit* hit = hit_at(static_cast<float>(e.button.x), static_cast<float>(e.button.y));
+            } else if (widget.button.button == SDL_BUTTON_LEFT) {
+                const paint::Hit* hit =
+                    hit_at(static_cast<float>(widget.button.x), static_cast<float>(widget.button.y));
                 if (!hit) {
                     break;
                 }
@@ -2042,7 +2046,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
                         // (a row whose value Left / Right change - a slider, an option: its sides do that, as the
                         // game's own mouse control sends them - mouse_menus.cpp option_side; the middle chooses)
                         const mirror::View& shown = menu_mirror().mirror_.get_shown();
-                        const float click_x = frame.design_x(static_cast<float>(e.button.x));
+                        const float click_x = frame.design_x(static_cast<float>(widget.button.x));
                         const float width = hit->x1 - hit->x0;
                         int side = 0;
                         if (shown.kind == mirror::Kind::kLinkChain && hit->index >= 0 &&
@@ -2061,21 +2065,21 @@ void mirror_mouse(modules::FrontEnd* front_end)
             }
             break;
         case SDL_MOUSEWHEEL:
-            if (e.wheel.y != 0) {
+            if (widget.wheel.y != 0) {
                 StepContext context{.front_end_ = front_end, .horizontal = menu_mirror().mirror_.get_shown().horizontal};
-                send_step(&context, e.wheel.y > 0 ? -1 : 1);
+                send_step(&context, widget.wheel.y > 0 ? -1 : 1);
             }
             break;
         // (the main menu's Continue - ours: the game's menu has no such item; every other key the game's menu takes)
         case SDL_KEYDOWN:
-            if (menu_mirror().mirror_.get_shown().main_menu_ && (e.key.repeat == 0U) &&
-                (e.key.keysym.scancode == SDL_SCANCODE_X || e.key.keysym.scancode == SDL_SCANCODE_R)) {
+            if (menu_mirror().mirror_.get_shown().main_menu_ && (widget.key.repeat == 0U) &&
+                (widget.key.keysym.scancode == SDL_SCANCODE_X || widget.key.keysym.scancode == SDL_SCANCODE_R)) {
                 continue_last_level(front_end);
                 return;
             }
             break;
         case SDL_CONTROLLERBUTTONDOWN:
-            if (menu_mirror().mirror_.get_shown().main_menu_ && e.cbutton.button == SDL_CONTROLLER_BUTTON_X) {
+            if (menu_mirror().mirror_.get_shown().main_menu_ && widget.cbutton.button == SDL_CONTROLLER_BUTTON_X) {
                 continue_last_level(front_end);
                 return;
             }
@@ -2388,14 +2392,14 @@ void press_direction(modules::FrontEnd* front_end, Intake input)
     run_action(front_end, menu_state().get_press(input));
 }
 
-void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
+void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
 {
     int w = 0;
-    int h = 0;
+    int height = 0;
     if (SDL_Window* window = sys::sdl_window()) {
-        SDL_GetWindowSize(window, &w, &h);
+        SDL_GetWindowSize(window, &w, &height);
     }
-    TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(h));
+    TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(height));
     auto hit_at = [&frame](float wx, float wy) -> const paint::Hit* {
         const float x = frame.design_x(wx);
         const float y = frame.design_y(wy);
@@ -2406,11 +2410,11 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         }
         return nullptr;
     };
-    switch (e.type) {
+    switch (widget.type) {
     case SDL_KEYDOWN: {
-        const bool repeat = e.key.repeat != 0;
-        const bool shift = (e.key.keysym.mod & KMOD_SHIFT) != 0;
-        switch (e.key.keysym.scancode) {
+        const bool repeat = widget.key.repeat != 0;
+        const bool shift = (widget.key.keysym.mod & KMOD_SHIFT) != 0;
+        switch (widget.key.keysym.scancode) {
         case SDL_SCANCODE_UP:
         case SDL_SCANCODE_W:
             press_direction(front_end, Intake::kUp);
@@ -2472,7 +2476,7 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         return;
     }
     case SDL_CONTROLLERBUTTONDOWN:
-        switch (e.cbutton.button) {
+        switch (widget.cbutton.button) {
         case SDL_CONTROLLER_BUTTON_DPAD_UP:
             press_direction(front_end, Intake::kUp);
             stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kUp), .wait = kRepeatDelay};
@@ -2513,19 +2517,20 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         }
         return;
     case SDL_CONTROLLERBUTTONUP:
-        if (e.cbutton.button >= SDL_CONTROLLER_BUTTON_DPAD_UP && e.cbutton.button <= SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+        if (widget.cbutton.button >= SDL_CONTROLLER_BUTTON_DPAD_UP &&
+            widget.cbutton.button <= SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
             stick_repeat().repeat_ = {};
         }
         return;
     case SDL_CONTROLLERAXISMOTION: {
         // The left stick as a d-pad: past half way (back inside a third: let go).
-        int* axis = e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX   ? &stick_repeat().stick_x_
-                    : e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY ? &stick_repeat().stick_y_
-                                                                : nullptr;
+        int* axis = widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX   ? &stick_repeat().stick_x_
+                    : widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY ? &stick_repeat().stick_y_
+                                                                     : nullptr;
         if (!axis) {
             return;
         }
-        const int value = e.caxis.value;
+        const int value = widget.caxis.value;
         const int now = value > 16000 ? 1 : value < -16000 ? -1 : (std::abs(value) < 11000 ? 0 : *axis);
         if (now == *axis) {
             return;
@@ -2542,7 +2547,7 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         return;
     }
     case SDL_MOUSEMOTION:
-        if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y))) {
+        if (const paint::Hit* hit = hit_at(static_cast<float>(widget.motion.x), static_cast<float>(widget.motion.y))) {
             if (hit->kind == paint::Hit::Kind::kItem) {
                 run_action(front_end, menu_state().hover_item(hit->index));
             } else if (hit->kind == paint::Hit::Kind::kStageMap) {
@@ -2551,14 +2556,14 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         }
         return;
     case SDL_MOUSEBUTTONDOWN:
-        if (e.button.button == SDL_BUTTON_RIGHT) {
+        if (widget.button.button == SDL_BUTTON_RIGHT) {
             run_action(front_end, menu_state().get_press(Intake::kBack));
             return;
         }
-        if (e.button.button != SDL_BUTTON_LEFT) {
+        if (widget.button.button != SDL_BUTTON_LEFT) {
             return;
         }
-        if (const paint::Hit* hit = hit_at(static_cast<float>(e.button.x), static_cast<float>(e.button.y))) {
+        if (const paint::Hit* hit = hit_at(static_cast<float>(widget.button.x), static_cast<float>(widget.button.y))) {
             const paint::Hit clicked = *hit;
             switch (clicked.kind) {
             case paint::Hit::Kind::kItem:
@@ -2587,8 +2592,8 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         }
         return;
     case SDL_MOUSEWHEEL:
-        if (e.wheel.y != 0) {
-            run_action(front_end, menu_state().get_wheel(e.wheel.y));
+        if (widget.wheel.y != 0) {
+            run_action(front_end, menu_state().get_wheel(widget.wheel.y));
         }
         return;
     default:
@@ -2937,8 +2942,8 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     std::vector<SDL_Event> events;
     events.swap(new_frontend_state().events_);
-    for (const SDL_Event& e : events) {
-        handle_queued(front_end, e);
+    for (const SDL_Event& widget : events) {
+        handle_queued(front_end, widget);
         if (new_frontend_state().state_ != State::kShown) {
             return;
         }
@@ -3170,10 +3175,10 @@ void blit()
         return;
     }
     int w = 0;
-    int h = 0;
-    ui_backend::window_size(&w, &h);
-    if (w > 0 && h > 0) {
-        const TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(h));
+    int height = 0;
+    ui_backend::window_size(&w, &height);
+    if (w > 0 && height > 0) {
+        const TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(height));
         const float scale = std::round(frame.scale() * 100.0F) / 100.0F;
         if (!draw_context().fonts_resolved_) {
             draw_context().fonts_ = resolve_fonts();
@@ -3196,7 +3201,7 @@ void blit()
         ImGui::NewFrame();
         if (!showing() && !menu_mirror().mirror_.get_up() && !screen_cover().cover_.get_on()) {
             // (the front end come up, its first menu not yet: its ground and the main menu's art)
-            paint::get_waiting(frame, static_cast<float>(w), static_cast<float>(h), restyle_extras(), "career");
+            paint::get_waiting(frame, static_cast<float>(w), static_cast<float>(height), restyle_extras(), "career");
             ImGui::Render();
             ui_backend::render();
             end_context(previous);
@@ -3210,19 +3215,19 @@ void blit()
                 // (a dialog in the front end: over the screen it came from, else over the front end's ground and art -
                 // never over the 3D scene)
                 if (screen_cover().dialog_under_on_) {
-                    paint::restyled(screen_cover().dialog_under_, frame, static_cast<float>(w), static_cast<float>(h), nullptr,
-                                    &screen_cover().dialog_under_scroll_, &pause);
+                    paint::restyled(screen_cover().dialog_under_, frame, static_cast<float>(w),
+                                    static_cast<float>(height), nullptr, &screen_cover().dialog_under_scroll_, &pause);
                 } else {
-                    paint::get_waiting(frame, static_cast<float>(w), static_cast<float>(h), pause, "career");
+                    paint::get_waiting(frame, static_cast<float>(w), static_cast<float>(height), pause, "career");
                 }
             }
             if (menu_mirror().mirror_.get_up()) {
-                paint::restyled(menu_mirror().mirror_, frame, static_cast<float>(w), static_cast<float>(h), &menu_mirror().mirror_hits_,
-                                &menu_mirror().mirror_scroll_, &pause);
+                paint::restyled(menu_mirror().mirror_, frame, static_cast<float>(w), static_cast<float>(height),
+                                &menu_mirror().mirror_hits_, &menu_mirror().mirror_scroll_, &pause);
             } else {
                 std::vector<paint::Hit> unused;
-                paint::restyled(screen_cover().cover_tracker_, frame, static_cast<float>(w), static_cast<float>(h), &unused,
-                                &screen_cover().cover_scroll_, &pause);
+                paint::restyled(screen_cover().cover_tracker_, frame, static_cast<float>(w), static_cast<float>(height),
+                                &unused, &screen_cover().cover_scroll_, &pause);
             }
             ImGui::Render();
             ui_backend::render();
@@ -3246,7 +3251,8 @@ void blit()
             extras.session = pause.session;
         }
         int rows = 0;
-        paint::get_screen(menu_state(), frame, static_cast<float>(w), static_cast<float>(h), extras, &new_frontend_state().hits_, &rows);
+        paint::get_screen(menu_state(), frame, static_cast<float>(w), static_cast<float>(height), extras,
+                          &new_frontend_state().hits_, &rows);
         if (rows > 0) {
             menu_state().set_visible_rows(rows);
         }

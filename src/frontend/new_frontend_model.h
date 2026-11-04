@@ -149,7 +149,7 @@ constexpr float kSelectSeconds = 0.12F; // the selection snaps in (ease-out)
 constexpr float kWipeSeconds = 0.42F;   // a screen change: one diagonal wipe (the screen changes half-way)
 constexpr float kLaunchSeconds = 0.55F; // a level confirmed: the name sliced, the art up through the gap
 constexpr float kPanSeconds = 10.0F;    // the art pans across its range and back
-float ease_out(float t);                // cubic: 1 - (1 - t)^3, t clamped to 0..1
+float ease_out(float fraction);         // cubic: 1 - (1 - t)^3, t clamped to 0..1
 
 // A row's selection amount: moves toward 1 (selected) or 0 at 1 / kSelectSeconds a second; drawn eased.
 struct RowAnim {

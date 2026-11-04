@@ -94,28 +94,28 @@ std::vector<Relaunch> level_restarts()
             !node->read_hash_value(name_key, &name, 0)) {
             continue;
         }
-        Relaunch r{.name = name, .text = {}, .types = {}, .pos = {.x = 0, .y = 0, .z = 0, .w = 1}};
+        Relaunch relaunch{.name = name, .text = {}, .types = {}, .pos = {.x = 0, .y = 0, .z = 0, .w = 1}};
         // (its name when the game knows it - level names mostly aren't -, else its RestartName text and checksum)
         const char* text = script::look_up_hash_name(name);
         const char* label = nullptr;
         node->fetch_text(restart_name, &label, 0);
         std::array<char, kHexTextSize> hex{};
         text::format_to(hex, "#%08X", name);
-        r.text =
+        relaunch.text =
             text ? text
                  : (label && (*label != '\0') ? std::string(label) + " (" + hex.data() + ")" : std::string(hex.data()));
-        node->fetch_vec(pos, &r.pos, 0);
+        node->fetch_vec(pos, &relaunch.pos, 0);
         script::Array* types = nullptr;
         if (node->fetch_list(types_key, &types, 0) && types) {
-            for (uint32_t t = 0; t < types->extent(); ++t) {
-                const char* type = current_type_name(types->fetch_part(t));
-                if (!r.types.empty()) {
-                    r.types += " ";
+            for (uint32_t index = 0; index < types->extent(); ++index) {
+                const char* type = current_type_name(types->fetch_part(index));
+                if (!relaunch.types.empty()) {
+                    relaunch.types += " ";
                 }
-                r.types += type ? type : "?";
+                relaunch.types += type ? type : "?";
             }
         }
-        out.push_back(r);
+        out.push_back(relaunch);
     }
     level_nodes::end_node_walk();
     return out;
@@ -167,8 +167,8 @@ void get_next()
     std::vector<Relaunch> restarts = level_restarts();
     // (another level: another set of restarts - the visited ones are forgotten)
     uint32_t level = 0;
-    for (const Relaunch& r : restarts) {
-        level = (level * kNameHashMultiplier) + r.name;
+    for (const Relaunch& restart : restarts) {
+        level = (level * kNameHashMultiplier) + restart.name;
     }
     if (level != restart_tester_state().level_) {
         restart_tester_state().level_ = level;
@@ -183,23 +183,23 @@ void get_next()
         visited_state().clear(); // (a new round)
     }
     for (size_t i = 0; i < restarts.size(); ++i) {
-        const Relaunch& r = core::at(restarts, i);
-        if (visited_state().contains(r.name)) {
+        const Relaunch& restart = core::at(restarts, i);
+        if (visited_state().contains(restart.name)) {
             continue;
         }
-        visited_state().insert(r.name);
+        visited_state().insert(restart.name);
         gsl::owner<script::Struct*> params = script::new_struct();
-        params->put_name_key(checksums::Name{name_hash("node_name")}, r.name);
+        params->put_name_key(checksums::Name{name_hash("node_name")}, restart.name);
         script::launch_script(name_hash("ResetSkaters"), params, nullptr, false, "ResetSkaters");
         params->get_clear();
         script::delete_struct(params);
         get_log("restart tester: %u / %u %s at (%.0f, %.0f, %.0f), types [%s]%s",
-                static_cast<unsigned>(visited_state().size()), static_cast<unsigned>(restarts.size()), r.text.c_str(),
-                r.pos.x, r.pos.y, r.pos.z, r.types.c_str(),
+                static_cast<unsigned>(visited_state().size()), static_cast<unsigned>(restarts.size()),
+                restart.text.c_str(), restart.pos.x, restart.pos.y, restart.pos.z, restart.types.c_str(),
                 visited_state().size() == restarts.size() ? " - all restarts visited" : "");
         std::array<char, kMessageSize> text{};
         text::format_to(text, "Restart %u / %u: %s", static_cast<unsigned>(visited_state().size()),
-                        static_cast<unsigned>(restarts.size()), r.text.c_str());
+                        static_cast<unsigned>(restarts.size()), restart.text.c_str());
         get_message(text.data());
         if (visited_state().size() == restarts.size()) {
             get_message("All restarts visited", {.id = "restart_tester_done", .y = kDoneMessageY});

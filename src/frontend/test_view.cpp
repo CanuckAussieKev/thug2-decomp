@@ -38,7 +38,7 @@ Vec3 perpendicular(Vec3 a, Vec3 b)
     return {.x = (a.y * b.z) - (a.z * b.y), .y = (a.z * b.x) - (a.x * b.z), .z = (a.x * b.y) - (a.y * b.x)};
 }
 float len_of(Vec3 v) { return std::sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z)); }
-Vec3 scale_tool(Vec3 v, float s) { return {.x = v.x * s, .y = v.y * s, .z = v.z * s}; }
+Vec3 scale_tool(Vec3 v, float factor) { return {.x = v.x * factor, .y = v.y * factor, .z = v.z * factor}; }
 
 struct Lock {
     bool on;
@@ -105,24 +105,24 @@ std::optional<CameraRows> camera_rows(Vec3 direction)
     if (!(length > kMinDirectionLength)) {
         return std::nullopt;
     }
-    const Vec3 b = scale_tool(direction, -1.0F / length);
-    Vec3 r = perpendicular({.x = 0.0F, .y = 1.0F, .z = 0.0F}, b);
-    const float rl = len_of(r);
+    const Vec3 back = scale_tool(direction, -1.0F / length);
+    Vec3 right = perpendicular({.x = 0.0F, .y = 1.0F, .z = 0.0F}, back);
+    const float rl = len_of(right);
     if (!(rl > kMinRightLength)) {
         return std::nullopt;
     }
-    r = scale_tool(r, 1.0F / rl);
-    Vec3 u = perpendicular(b, r);
+    right = scale_tool(right, 1.0F / rl);
+    Vec3 u = perpendicular(back, right);
     u = scale_tool(u, 1.0F / len_of(u));
-    return CameraRows{.right = r, .up = u, .back = b};
+    return CameraRows{.right = right, .up = u, .back = back};
 }
 
 void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
 {
-    const double h = static_cast<double>(heading_degrees) * std::numbers::pi / 180.0;
-    auto s = static_cast<float>(std::sin(h));
-    auto c = static_cast<float>(std::cos(h));
-    *at = {.x = s, .y = 0.0F, .z = c};
+    const double heading_radians = static_cast<double>(heading_degrees) * std::numbers::pi / 180.0;
+    auto sine = static_cast<float>(std::sin(heading_radians));
+    auto cosine = static_cast<float>(std::cos(heading_radians));
+    *at = {.x = sine, .y = 0.0F, .z = cosine};
     *up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
     *right = perpendicular(*up, *at); // (cos, 0, -sin): heading 0 gives the identity
 }

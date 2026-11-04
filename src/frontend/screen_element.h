@@ -97,13 +97,13 @@ public:
     [[nodiscard]] maths::Vec2 fetch_location() const;
     [[nodiscard]] maths::Vec2 get_top_left() const;
     // 0x004A8C30: s->left / top from s's position and scale, the justification and the size.
-    void place_top_left(ElementState* s) const;
+    void place_top_left(ElementState* state) const;
     // 0x004A9100: the position morphed to (with `now` also the one shown).
     void change_location(float x, float y, bool now);
     // 0x004A91F0: pos3D (with `now` also the one shown); kPos3d.
     void set_pos3d(const maths::Vec4* pos, bool now);
     // 0x004A92D0: the size; kDimsLocked if `lock`.
-    void fit_to_size(float w, float h, bool lock);
+    void fit_to_size(float w, float height, bool lock);
     // 0x004A9390: the justification; the position moves so the element stays put.
     void change_alignment(float x, float y);
     // 0x004A94A0: the scale morphed to (`relative`: times the base scale; else it becomes the base) and with

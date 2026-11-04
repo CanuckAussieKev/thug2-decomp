@@ -62,14 +62,14 @@ float get_half() { return ::gfx::kHalf; }
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The shown colour with its alpha the shown alpha times the summed alpha (none below 0.0001).
-uint32_t shown_colour(const UiWidget* e)
+uint32_t shown_colour(const UiWidget* widget)
 {
     uint32_t rgba = 0;
-    std::memcpy(&rgba, e->shown().rgba.data(), 4);
+    std::memcpy(&rgba, widget->shown().rgba.data(), 4);
     uint8_t alpha = 0;
-    if (e->summed().alpha >= minimum_alpha()) { // (NaN: transparent)
-        alpha =
-            static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> kAlphaShift)) * e->summed().alpha));
+    if (widget->summed().alpha >= minimum_alpha()) { // (NaN: transparent)
+        alpha = static_cast<uint8_t>(
+            get_truncated(static_cast<double>(static_cast<int>(rgba >> kAlphaShift)) * widget->summed().alpha));
     }
     return (rgba & kRgbMask) | (static_cast<uint32_t>(alpha) << kAlphaShift);
 }
@@ -85,7 +85,10 @@ gsl::owner<render::TexturedQuad*> new_textured_piece() { return render::create_t
 gsl::owner<render::BillboardQuad*> new_sprite(int unused) { return (void)unused, render::build_sprite_quad(); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
-void* new_window2d(int x, int y, int w, int h) { return render::allocate_window_2d({.x = x, .y = y}, {.width = w, .height = h}); }
+void* new_window2d(int x, int y, int w, int height)
+{
+    return render::allocate_window_2d({.x = x, .y = y}, {.width = w, .height = height});
+}
 void free_window2d(void* window) { render::free_window_2d(static_cast<render::ScreenWindow*>(window)); }
 
 } // namespace

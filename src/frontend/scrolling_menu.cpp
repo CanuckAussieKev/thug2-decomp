@@ -38,14 +38,14 @@ void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
     event->set_event_consumed(how, script);
 }
 
-UiTree* manager_of(const UiWidget* e) { return core::down_cast<UiTree>(e->park_owner()); }
+UiTree* manager_of(const UiWidget* widget) { return core::down_cast<UiTree>(widget->park_owner()); }
 
 // With the manager's pad-event priorities, only the top priority element may have a pad event.
-bool may_have(UiWidget* e, objects::Signal* event)
+bool may_have(UiWidget* widget, objects::Signal* event)
 {
-    UiTree* manager = manager_of(e);
-    if (e->manager_uses_priorities() && manager->is_pad_event(event->kind_tag())) {
-        return e->has_priority() && manager->has_top_precedence(e->ident());
+    UiTree* manager = manager_of(widget);
+    if (widget->manager_uses_priorities() && manager->is_pad_event(event->kind_tag())) {
+        return widget->has_priority() && manager->has_top_precedence(widget->ident());
     }
     return true;
 }
@@ -93,14 +93,14 @@ maths::Box WindowedList::item_place(ElementPtr* item)
     y = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) * y);
     const auto w = static_cast<float>(static_cast<double>(menu_->shown().scale_x_) * item->get_pull()->span() *
                                       item->get_pull()->shown().scale_x_);
-    const auto h = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) * item->get_pull()->level_y() *
-                                      item->get_pull()->shown().scale_y_);
+    const auto item_height = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) *
+                                                item->get_pull()->level_y() * item->get_pull()->shown().scale_y_);
     const maths::Vec2 align = item->get_pull()->fetch_alignment();
     const float align_h = align.x;
     const float align_v = align.y;
     x = static_cast<float>(x - ((static_cast<double>(align_h) + 1.0) * w * kHalf));
-    y = static_cast<float>(y - ((static_cast<double>(align_v) + 1.0) * h * kHalf));
-    return {.at = {.x = x, .y = y}, .size = {.width = w, .height = h}};
+    y = static_cast<float>(y - ((static_cast<double>(align_v) + 1.0) * item_height * kHalf));
+    return {.at = {.x = x, .y = y}, .size = {.width = w, .height = item_height}};
 }
 
 // 0x004AE520 (reset_window_bottom: the last item's bottom - the vertical place, also for the horizontal one)

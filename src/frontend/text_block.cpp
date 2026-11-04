@@ -95,7 +95,7 @@ void delete_blur(SmearEffect* blur)
     }
 }
 
-LabelWidget* as_text(UiWidget* e) { return core::down_cast<LabelWidget>(e); }
+LabelWidget* as_text(UiWidget* widget) { return core::down_cast<LabelWidget>(widget); }
 
 } // namespace
 
