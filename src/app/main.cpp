@@ -20,6 +20,8 @@
 #include "app/command_table.h"
 #include "app/extensions.h"
 #include "app/winmain.h"
+#include "engine/gfx/d3d9_device.h"
+#include "engine/gfx/render_device.h"
 #include "game/commands/node_hooks.h"
 #include "game/front_end/pad_hooks.h"
 #include "game/online/transport_hooks.h"
@@ -74,6 +76,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     sio::install_game_hooks();
     // NOT ORIGINAL: what the engine's main loop and debug mode ask of the game (game/skate/sys_hooks.h).
     sys::install_game_hooks();
+    // NOT ORIGINAL: the graphics backend the engine draws with (engine/gfx/render_device.h): Direct3D 9, the only one.
+    render::install_device(render::d3d9::device());
     // NOT ORIGINAL: [features] debug_collision's log after each feeler query (game/rider/debug_collision.h).
     collision_overlay::install();
     sys::run_startup_initialisers();

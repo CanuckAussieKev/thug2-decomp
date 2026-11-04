@@ -20,7 +20,7 @@
 #include "engine/gfx/particle_sets.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pc_font.h"
-#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_device.h"
 #include "engine/gfx/scene_lights.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/gfx/screen.h"
@@ -130,13 +130,13 @@ void prepare_all(uint32_t text_pool_size)
     memory::push_mem_profile("MiscFXInitialize");
     init_effects();
     memory::pop_mem_profile();
-    start_engine();
+    device().start_engine();
 }
 
 // 0x0048BF20
 void end_render()
 {
-    finish_rendering();
+    device().finish_rendering();
     purge_doomed_cameras();
 }
 
@@ -153,7 +153,7 @@ void render_frame()
     imposter_manager()->tick_frame();
     update_after_imposters();
     if (!engine_parts().suppress_draw()) {
-        draw_world();
+        device().draw_world();
     }
 }
 

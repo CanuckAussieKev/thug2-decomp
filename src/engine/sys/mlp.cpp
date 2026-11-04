@@ -5,21 +5,14 @@
 
 #include <windows.h>
 
-#include <d3d9.h>
-
 #include <cstdint>
 #include <new>
 
-#include "engine/gfx/device_d3d.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/ext/extension.h"
 #include "engine/memory/task_list.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
-#include "engine/gfx/engine_glue.h"
-#include "engine/gfx/sub_mesh.h"
-#include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/screen.h"
 #include "engine/sys/game_hooks.h"
 #include "engine/file/thugpro_cas.h"
@@ -31,7 +24,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "engine/gfx/d3d9_state.h"
+#include "engine/gfx/render_device.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/objects/objects_shared.h"
@@ -54,8 +47,6 @@ constexpr uint64_t kFarBehindFrames = 20;         // a frame this many frames la
 
 bool text_entry() { return sio::text_entry_flag(); } // keeps the loop running while the window is inactive
 
-D3DPRESENT_PARAMETERS* present_parameters() { return &render::present_parameters(); }
-
 // NOT ORIGINAL grouping - the main loop's references and its skipped renders. Made on first use, never destroyed
 // (mlp_state()).
 struct MlpState {
@@ -76,26 +67,13 @@ int& skipped_total() { return mlp_state().skipped_total_; }
 
 // (the online session's GameSpy service, the skate module's rail debugging: engine/sys/game_hooks.h)
 void service_network() { sys::game_hooks().service_network(); }
-// Around a device Reset: the device objects released first (default pool) and made again after.
-void release_device_objects()
-{
-    render::release_render_target_textures();
-    render::release_buffers();
-    render::release_render_targets();
-}
-void restore_device_objects()
-{
-    render::restore_render_target_textures();
-    render::recreate_buffers();
-    render::create_render_targets();
-}
 // A task list's tasks, in order (0x004070A0; the profiling flag is passed but unused).
 void run_tasks(tasks::PileUp& list, bool profiling)
 {
     (void)profiling; // (the original passed it on as the pointer argument, which isn't read)
     list.work_on(nullptr);
 }
-void begin_scene() { render::begin_frame_draw(); }      // the device's BeginScene
+void begin_scene() { render::device().begin_frame_draw(); } // the device's BeginScene
 void render_frame() { render::engine::render_frame(); } // the world, then the 2D
 void after_render() { sys::game_hooks().after_render(); } // (uses the skate module)
 void end_scene() { render::engine::end_render(); }      // EndScene, Present
@@ -136,18 +114,18 @@ void Hub::reset_device_if_lost()
     if (!render::engine_parts().device_lost()) {
         return;
     }
-    if (render::d3d9::state().d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) { // (not yet: it can't be reset)
+    if (!render::device().can_reset()) { // (not yet: it is still lost)
         return;
     }
     // Not original - the extensions (engine/ext/extension.h; the level editor's UI: ImGui's default-pool objects
     // dropped before the reset, made again on its next frame).
     // Original behaviour: only the game's own.
     ext::device_lost(); // (then the new front end's)
-    release_device_objects();
-    if (render::d3d9::state().d3d_device()->Reset(present_parameters()) < 0) {
+    render::device().release_device_objects();
+    if (!render::device().reset()) {
         return;
     }
-    restore_device_objects();
+    render::device().restore_device_objects();
     render::engine_parts().set_device_lost(false);
 }
 
