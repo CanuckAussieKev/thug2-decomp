@@ -7,13 +7,13 @@
 #include <array>
 
 #include "engine/pad_input/input_hub.h"
-#include "engine/core/enum_ops.h"
-#include "engine/core/stubs.h"
+#include "base/core/enum_ops.h"
+#include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/gamenet_observer.h" // IWYU pragma: keep - the observer templates instantiated here need pad_input::Responder
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_commands.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -38,8 +38,8 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/down_cast.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "wire/net_wire.h"
 #include "wire/message_ids.h"

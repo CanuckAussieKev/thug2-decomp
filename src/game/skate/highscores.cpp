@@ -10,7 +10,7 @@
 #include <memory>
 #include <span>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "editor/level_editor_layout.h"
@@ -21,8 +21,8 @@
 #include "platform/run_log.h"
 #include <gsl/pointers>
 #include <gsl/assert>
-#include "engine/core/ints.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/ints.h"
+#include "base/core/no_destroy.h"
 
 namespace highscores {
 

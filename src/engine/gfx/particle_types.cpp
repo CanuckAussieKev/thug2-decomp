@@ -6,7 +6,7 @@
 #include "engine/gfx/particle_types.h"
 
 #include "engine/gfx/particle_system_internal.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/gfx/particle_system.h"
 
 namespace render {

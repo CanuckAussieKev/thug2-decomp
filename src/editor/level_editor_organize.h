@@ -7,7 +7,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_nodes.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 // NOT ORIGINAL - the level editor's organising (ours; see level_editor.h): what the Outliner adds over the level's own
 // nodes, the selection tools, and the layout snapshots.

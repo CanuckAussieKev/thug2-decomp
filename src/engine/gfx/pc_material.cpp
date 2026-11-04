@@ -14,21 +14,21 @@
 #include <span>
 
 #include "engine/memory/manager.h"
-#include "engine/maths/trig.h"
+#include "base/maths/trig.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/primitive_states.h"
 #include "engine/gfx/render_state.h"
 #include "platform/stopwatch.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/bitmap_texture.h"
 #include <bit>
 #include "platform/d3d_matrix.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
-#include "engine/maths/mat4.h"
-#include "engine/core/same_bits.h"
+#include "base/maths/mat4.h"
+#include "base/core/same_bits.h"
 
 namespace render {
 

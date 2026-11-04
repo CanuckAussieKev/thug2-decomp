@@ -6,14 +6,14 @@
 #include <span>
 
 #include "engine/gfx/texture_splats.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 // The engine's effects (Nx, platform-independent; each passes on to the PC code): fog settings, the level colour,
 // shattering, texture splats aged and killed, screen flashes, and the tables they're kept in - flashes 0x007004A8,
 // spawned polygons 0x007004AC, texture splat sets 0x007004B0, recent splat positions 0x007004B4, shatters 0x007004B8
 // (lists::HashTables of 16 buckets, each keyed by its value's address) - plus the vertex stack the splats and shatters
 // split triangles on (0x006FC4A0).
-#include "engine/lists/object_set.h"
+#include "base/lists/object_set.h"
 
 namespace render {
 

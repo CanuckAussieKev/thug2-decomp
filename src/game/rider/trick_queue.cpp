@@ -11,8 +11,8 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trick_objects.h"
@@ -37,8 +37,8 @@
 #include "game/rider/core_physics.h"
 #include "game/skate/point_tally.h"
 #include "engine/objects/rail_manager.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

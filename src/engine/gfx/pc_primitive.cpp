@@ -23,13 +23,13 @@
 #include "platform/platform_d3d.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/renderer.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/vec4.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
 
 namespace render {
 

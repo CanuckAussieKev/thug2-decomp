@@ -9,7 +9,7 @@
 #include <array>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_handler_util.h" // IWYU pragma: keep - the detail namespace (using-directive)
@@ -19,7 +19,7 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/winmain.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 namespace online {

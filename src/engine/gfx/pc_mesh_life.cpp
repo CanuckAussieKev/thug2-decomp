@@ -21,16 +21,16 @@
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pc_scene.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include <gsl/pointers>
 #include "engine/memory/mem.h"
 #include "engine/gfx/renderer.h"
-#include "engine/maths/mat4.h"
-#include "engine/core/raw_view.h"
+#include "base/maths/mat4.h"
+#include "base/core/raw_view.h"
 
 namespace render {
 

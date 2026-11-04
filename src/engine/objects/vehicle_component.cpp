@@ -21,11 +21,11 @@
 #include <span>
 #include <vector>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/debug_lines.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/random.h"
+#include "base/maths/mat4.h"
+#include "base/maths/random.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/proximity.h"
 #include "engine/objects/vehicle_internal.h"
@@ -44,12 +44,12 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace objects {
 

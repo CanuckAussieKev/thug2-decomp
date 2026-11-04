@@ -7,8 +7,8 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/dbg.h"
-#include "engine/core/format.h"
+#include "base/core/dbg.h"
+#include "base/core/format.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/audio/continue_music.h"
@@ -19,8 +19,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 
 namespace commands {
 

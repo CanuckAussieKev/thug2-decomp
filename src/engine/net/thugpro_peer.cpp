@@ -13,7 +13,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/net/chat.h"
@@ -41,12 +41,12 @@
 #include "engine/gfx/weather.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/parse_number.h"
-#include "engine/core/checked_index.h"
+#include "base/core/parse_number.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/field_reader.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/field_reader.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 

@@ -10,7 +10,7 @@
 #include <new>
 #include <span>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
@@ -23,10 +23,10 @@
 #include "engine/script/tokens.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include <gsl/pointers>
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 namespace script {
 

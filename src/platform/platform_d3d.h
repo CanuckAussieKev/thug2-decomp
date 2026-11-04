@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/core/cursor.h"
+#include "base/core/cursor.h"
 
 #include <windows.h>
 #include <d3d9.h>

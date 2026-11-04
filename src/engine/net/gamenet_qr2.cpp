@@ -29,10 +29,10 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/gathered_call.h"
-#include "engine/core/str.h"
+#include "base/core/gathered_call.h"
+#include "base/core/str.h"
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
 namespace online {

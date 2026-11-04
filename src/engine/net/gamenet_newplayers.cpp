@@ -8,7 +8,7 @@
 #include <array>
 
 #include "engine/memory/manager.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "platform/gamespy.h"
 #include "engine/memory/task_list.h"
 #include "game/park_editing/park_editor.h"
@@ -36,10 +36,10 @@
 #include "game/rider/state_history.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/str.h"
+#include "base/core/down_cast.h"
+#include "base/core/str.h"
 #include "engine/net/net_game_state.h"
 #include "engine/net/player_info.h"
 #include "wire/message_ids.h"

@@ -13,11 +13,11 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/wait_and_die.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/checked_index.h"
+#include "base/core/packed_colour.h"
 
 namespace render {
 namespace {

@@ -7,7 +7,7 @@
 #include <array>
 #include <string>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor.h"
 #include "frontend/screen_element.h"
@@ -22,8 +22,8 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/pad_input/device.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 namespace frontend::new_frontend::game_screens {

@@ -6,10 +6,10 @@
 #include <array>
 
 #include "engine/util/text_store.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // Pieces of the skater object (GameObjects::Rider, a composite object; 0x0057FE30-0x00580BD8): its stats (overrides at
 // +0x290, the cheats and online rules on top), the physics structure for what it rides (skater_physics, or a

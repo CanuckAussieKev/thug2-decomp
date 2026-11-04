@@ -4,7 +4,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 
 // The renderer's cached Direct3D 9 state (Nx engine, PC): every setter compares with what it last sent and only
 // calls the device when something changes. The cache is reset to the device's own defaults (reset_render_state)

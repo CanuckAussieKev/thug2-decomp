@@ -15,14 +15,14 @@
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/pc_flexible_particles.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/view_setup.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace render {
 

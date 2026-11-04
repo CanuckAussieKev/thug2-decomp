@@ -15,17 +15,17 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace gfx {
 

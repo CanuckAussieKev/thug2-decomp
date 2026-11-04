@@ -28,7 +28,7 @@
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 #include "engine/net/online_identity.h"

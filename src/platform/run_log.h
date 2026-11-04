@@ -4,7 +4,7 @@
 #include <vector>
 #include <array>
 
-#include "engine/core/format.h"
+#include "base/core/format.h"
 
 // Appends to thug2-decomp.log next to the game exe.
 void log_open();

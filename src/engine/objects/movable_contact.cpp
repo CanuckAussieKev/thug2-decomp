@@ -4,14 +4,14 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/ride_tracker.h"
 #include "engine/objects/smtptr.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
-#include "engine/maths/fwd.h"
+#include "base/maths/fwd.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 

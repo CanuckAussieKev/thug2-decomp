@@ -6,7 +6,7 @@
 #include <memory>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 // The memory manager: owns the game's regions and heaps, keeps a stack of "current" heaps (where allocations

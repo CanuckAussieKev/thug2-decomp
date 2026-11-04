@@ -10,12 +10,12 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/sector.h"
-#include "engine/maths/random.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/random.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/rigidbody_component.h"
 #include "engine/objects/smtptr.h"
@@ -24,8 +24,8 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/down_cast.h"
 #include "engine/objects/objects_shared.h"
 
 namespace objects {

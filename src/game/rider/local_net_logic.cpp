@@ -9,8 +9,8 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -24,7 +24,7 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/end_run.h"
 #include "game/rider/rider.h"
-#include "engine/util/bitstream.h"
+#include "base/util/bitstream.h"
 #include "game/skate/skate_module.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
@@ -32,9 +32,9 @@
 #include "engine/objects/rail_manager.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 #include "wire/object_updates.h"

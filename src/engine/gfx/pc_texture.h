@@ -6,8 +6,8 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec2.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec2.h"
 #include <gsl/pointers>
 #include <array>
 

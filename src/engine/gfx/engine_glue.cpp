@@ -31,21 +31,21 @@
 #include "engine/gfx/occlusion.h"
 #include "engine/gfx/shadow_base.h"
 #include "engine/gfx/bitmap_texture.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/gfx/pc_particles.h"
 #include "engine/objects/particle_component.h"
 #include <gsl/pointers>
 #include <array>
 #include <gsl/assert>
-#include "engine/core/checked_index.h"
-#include "engine/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/down_cast.h"
 #include "platform/crt.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 #include "platform/d3dx_jpg.h"
 
 namespace render {

@@ -5,12 +5,12 @@
 
 #include <cmath>
 #include <cstdint>
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_sphere.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/rigidbody_component.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/objects/objects_shared.h"
 
 namespace objects {

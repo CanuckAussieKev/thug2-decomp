@@ -1,7 +1,7 @@
 // Script-loaded fonts (LoadFont), with PartyMod's button glyph style (engine/gfx/glyphs.h) built in.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -11,7 +11,7 @@
 
 #include "engine/gfx/font.h"
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/gfx/glyphs.h"
 #include "engine/gfx/pc_font.h"
 #include "engine/lists/key_map.h"
@@ -19,8 +19,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/screen_2d.h"
 namespace render {
 

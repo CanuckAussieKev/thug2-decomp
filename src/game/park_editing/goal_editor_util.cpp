@@ -5,12 +5,12 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/format.h"
+#include "base/core/checksums.h"
+#include "base/core/format.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editing_state.h"
 

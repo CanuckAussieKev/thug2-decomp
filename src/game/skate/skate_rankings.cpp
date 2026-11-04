@@ -4,7 +4,7 @@
 
 #include "game/skate/skate_module.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -22,9 +22,9 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/rider/rider.h"
-#include "engine/core/ints.h"
+#include "base/core/ints.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 namespace modules {

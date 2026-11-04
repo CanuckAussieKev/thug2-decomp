@@ -8,7 +8,7 @@
 #include "engine/memory/slab_bank.h"
 #include "engine/gfx/sector.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 namespace park_editing::rail_editor_internal {
 

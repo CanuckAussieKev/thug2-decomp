@@ -6,10 +6,10 @@
 #include <cstring>
 #include <new>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/script/cell.h"
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
@@ -18,8 +18,8 @@
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

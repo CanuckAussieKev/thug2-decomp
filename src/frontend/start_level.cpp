@@ -14,7 +14,7 @@
 #include <string>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/memory_report.h"
 #include "engine/file/file_load.h"
 #include "frontend/front_end.h"
@@ -30,10 +30,10 @@
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 #include "platform/winmain.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::begin_level {
 

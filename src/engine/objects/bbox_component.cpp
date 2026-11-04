@@ -10,19 +10,19 @@
 #include <gsl/pointers>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/shape_tests.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "engine/maths/fwd.h"
+#include "base/maths/fwd.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 
 namespace objects {
 

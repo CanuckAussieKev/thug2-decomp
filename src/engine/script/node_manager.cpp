@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "engine/assets/resource_entry.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/memory_sizes.h"
@@ -21,10 +21,10 @@
 #include "platform/run_log.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/span_copy.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/span_copy.h"
+#include "base/core/no_destroy.h"
 
 namespace level_nodes {
 

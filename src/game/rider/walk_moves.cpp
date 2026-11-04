@@ -11,13 +11,13 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/enum_ops.h"
-#include "engine/core/dbg.h"
+#include "base/core/enum_ops.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/render/coll_cache.h"
 #include "engine/objects/movable_contact.h"
@@ -45,7 +45,7 @@
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/tagging.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/render/coll_obj.h"
 

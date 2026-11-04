@@ -55,7 +55,7 @@
 #include <span>
 
 #include "game/rider/debug_collision.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/probe_ray.h"
 #include "game/rider/core_physics.h"
@@ -65,9 +65,9 @@
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 
 namespace collision_overlay {
 

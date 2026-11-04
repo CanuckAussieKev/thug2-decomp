@@ -11,10 +11,10 @@
 #include <array>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
 #include "engine/lists/chain_start.h"
 #include "engine/objects/entity.h"
@@ -69,17 +69,17 @@
 #include "engine/objects/particle_component.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/balance_trick.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
 #include "wire/message_ids.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include <gsl/pointers>
 #include <span>
 #include <gsl/assert>

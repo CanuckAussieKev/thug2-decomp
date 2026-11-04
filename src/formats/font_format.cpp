@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the bitmap font format's readers: see font_format.h.
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "formats/byte_stream.h"
 #include "formats/font_format.h"
 

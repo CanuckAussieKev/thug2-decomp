@@ -1,6 +1,6 @@
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "formats/bundle_format.h"
-#include "engine/core/ints.h"
+#include "base/core/ints.h"
 #include "formats/byte_stream.h"
 
 #include <cstddef>

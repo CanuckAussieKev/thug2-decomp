@@ -15,10 +15,10 @@
 #include <array>
 #include <span>
 #include "formats/anim_format.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/cursor.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checked_index.h"
+#include "base/core/cursor.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
 #include "engine/gfx/frame_source.h"
 
 namespace maths {

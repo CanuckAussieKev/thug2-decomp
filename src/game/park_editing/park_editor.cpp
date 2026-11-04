@@ -11,7 +11,7 @@
 #include "game/park_editing/park.h"
 #include "game/park_editing/piece_menu.h"
 #include "frontend/front_end.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/tracker.h"
@@ -27,12 +27,12 @@
 #include "game/skate/skate_module.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/mem.h"
 #include "game/park_editing/park_editing_state.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
 
 namespace park_editing {
 

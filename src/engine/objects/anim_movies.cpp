@@ -10,14 +10,14 @@
 #include <gsl/assert>
 
 #include "engine/assets/resource_registry.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/objects/node_objects.h"
@@ -29,8 +29,8 @@
 #include "frontend/front_end.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/car_physics.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

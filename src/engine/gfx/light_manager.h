@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace maths {
 class Vec4;

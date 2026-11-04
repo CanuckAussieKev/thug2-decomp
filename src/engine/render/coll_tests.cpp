@@ -5,9 +5,9 @@
 #include <cmath>
 #include <span>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/dbg.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checked_index.h"
+#include "base/core/dbg.h"
+#include "base/maths/vec4.h"
 
 namespace render {
 

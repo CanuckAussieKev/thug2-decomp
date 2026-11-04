@@ -12,7 +12,7 @@
 #include <string_view>
 #include <span>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_glue.h"
@@ -22,8 +22,8 @@
 #include "engine/lists/key_map.h"
 #include "engine/sys/startup_init.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 
 namespace render {

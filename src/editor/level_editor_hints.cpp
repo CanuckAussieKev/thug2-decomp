@@ -2,7 +2,7 @@
 
 #include "editor/level_editor_hints.h"
 #include "editor/level_editor_actions.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <array>
 #include <cstddef>
 #include <initializer_list>

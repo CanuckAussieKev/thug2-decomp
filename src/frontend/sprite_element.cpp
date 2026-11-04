@@ -18,14 +18,14 @@
 #include "frontend/screen_element.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_texture.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/anim_movies.h"
 #include "game/goals/objective.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/gfx/screen.h"
 #include <gsl/pointers>
 #include <gsl/assert>

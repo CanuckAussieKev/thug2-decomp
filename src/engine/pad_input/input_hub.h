@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "engine/memory/task_list.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/mem.h"
 #include <gsl/pointers>
 #include <array>

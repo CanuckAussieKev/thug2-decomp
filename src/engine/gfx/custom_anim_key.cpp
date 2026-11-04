@@ -7,9 +7,9 @@
 #include "engine/gfx/custom_anim_key.h"
 
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
 #include "formats/anim_format.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/gfx/view_cam.h"
@@ -21,8 +21,8 @@
 #include <gsl/pointers>
 #include <array>
 #include <gsl/assert>
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 
 namespace gfx {
 

@@ -17,7 +17,7 @@
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor_internal.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
 #include "game/park/park_memory.h"
@@ -25,9 +25,9 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace park_editing {
 

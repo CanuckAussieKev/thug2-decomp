@@ -9,7 +9,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -25,9 +25,9 @@
 #include "game/skate/score_internal.h"
 #include "game/rider/trick_component.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "wire/message_ids.h"
 
 namespace modules {

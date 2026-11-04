@@ -1,11 +1,11 @@
 #include "engine/script/expression.h"
 
 #include "engine/script/qb.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/mem.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 #include <cmath>
 #include <cstddef>
@@ -14,7 +14,7 @@
 #include <array>
 #include <gsl/pointers>
 #include <span>
-#include "engine/core/span_copy.h"
+#include "base/core/span_copy.h"
 
 namespace script {
 

@@ -8,8 +8,8 @@
 #include "engine/gfx/shatter.h"
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_splats.h"
-#include "engine/lists/object_set.h"
-#include "engine/maths/vec4.h"
+#include "base/lists/object_set.h"
+#include "base/maths/vec4.h"
 
 // NOT ORIGINAL - the screen effects' state: glass shatters, texture splats, spawned polygons, shadow edges, the screen
 // copy, the bloom and the blur, the screenshot asked for (the original's globals).

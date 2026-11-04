@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 
 // Collision (Nx): collision objects (HitMesh - a level sector's faces, a movable object's), the queries that test
 // lines and boxes against them, and the caches that keep the objects near a box for repeated queries.

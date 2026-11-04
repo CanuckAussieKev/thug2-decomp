@@ -10,10 +10,10 @@
 #include <gsl/assert>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "engine/util/text_store.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/objects/tracker.h"
@@ -24,7 +24,7 @@
 #include "game/skate/gap_checklist.h"
 #include "game/rider/rider.h"
 #include "game/rider/trick_lists.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "game/park_editing/park_editor.h"
@@ -39,9 +39,9 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/balance_trick.h"
 #include "engine/objects/vehicle_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace objects {
 

@@ -23,9 +23,9 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 
 namespace objects {
 

@@ -12,7 +12,7 @@
 #include <SDL2/SDL.h>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor.h"
 #include "engine/gfx/screen.h"
@@ -22,10 +22,10 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::restart_tester {
 

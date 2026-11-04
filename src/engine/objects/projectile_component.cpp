@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/trigger_component.h"
 #include "game/skate/skate_module_calls.h"
@@ -18,8 +18,8 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/rider.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

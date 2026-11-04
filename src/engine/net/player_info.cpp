@@ -7,7 +7,7 @@
 #include <cstring>
 #include <span>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -24,11 +24,11 @@
 #include "engine/net/score_list.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/tagging.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "game/rider/rider.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 namespace online {

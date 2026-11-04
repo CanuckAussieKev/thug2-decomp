@@ -9,7 +9,7 @@
 #include <span>
 #include <gsl/assert>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/anim_blend.h"
@@ -33,7 +33,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 
 namespace objects {
 namespace {

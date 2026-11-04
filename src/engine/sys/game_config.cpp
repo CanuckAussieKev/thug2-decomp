@@ -11,11 +11,11 @@
 #include <string_view>
 #include <array>
 
-#include "engine/core/dbg.h"
-#include "engine/core/checked_index.h"
+#include "base/core/dbg.h"
+#include "base/core/checked_index.h"
 #include "platform/registry.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/language.h"
+#include "base/core/no_destroy.h"
+#include "base/core/language.h"
 
 namespace game_config {
 

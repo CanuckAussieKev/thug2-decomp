@@ -26,7 +26,7 @@
 #include <array>
 
 #include "editor/level_editor.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
@@ -52,13 +52,13 @@
 #include "platform/sdl_events.h"
 #include "platform/run_log.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/field_reader.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/trig.h"
+#include "base/core/format.h"
+#include "base/core/field_reader.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::play_test {
 

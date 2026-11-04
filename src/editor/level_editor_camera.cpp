@@ -22,11 +22,11 @@
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_prefs.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/field_reader.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/trig.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/field_reader.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::view_cam {
 

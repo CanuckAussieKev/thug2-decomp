@@ -10,9 +10,9 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/movable_contact.h"
@@ -34,9 +34,9 @@
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/rotate_component.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/render/coll_obj.h"
 
 namespace skater {

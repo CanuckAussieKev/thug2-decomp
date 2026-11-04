@@ -11,11 +11,11 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/util/text_store.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
@@ -33,8 +33,8 @@
 #include "engine/gfx/model_utils.h"
 #include "game/skate/cas_options.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 

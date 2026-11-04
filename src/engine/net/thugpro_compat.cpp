@@ -8,7 +8,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 
 namespace online::thugpro {

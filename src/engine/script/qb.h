@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/script/cell.h"
 #include "engine/script/tokens.h"

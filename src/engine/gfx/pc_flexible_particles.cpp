@@ -24,15 +24,15 @@
 #include "engine/gfx/engine.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/checked_index.h"
-#include "engine/core/cursor.h"
+#include "base/core/checked_index.h"
+#include "base/core/cursor.h"
 #include "gpu/vertex_view.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/packed_colour.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/trig.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
+#include "base/maths/trig.h"
 
 namespace render {
 

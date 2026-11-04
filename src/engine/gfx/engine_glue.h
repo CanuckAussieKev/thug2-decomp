@@ -6,8 +6,8 @@
 
 #include <gsl/pointers>
 #include <array>
-#include "engine/maths/rect.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/rect.h"
+#include "base/maths/vec4.h"
 
 namespace maths {
 class Vec4;

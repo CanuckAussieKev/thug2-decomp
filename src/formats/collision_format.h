@@ -6,9 +6,9 @@
 #include <span>
 
 #include "formats/byte_stream.h"
-#include "engine/core/enum_ops.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
+#include "base/core/enum_ops.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/raw_view.h"
 
 // NOT ORIGINAL - the collision file format (.col, PC: "x.col.xbx": a level's or a skinned model's collision), its
 // header read through util::ByteReader, its sections laid out and checked before the game fixes it up in place.

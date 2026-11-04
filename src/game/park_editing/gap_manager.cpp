@@ -14,12 +14,12 @@
 #include "game/skate/gap_checklist.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/skate/skate_module.h"
-#include "platform/compiler.h"
-#include "engine/core/checked_index.h"
+#include "base/core/compiler.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/checksums.h"
-#include "engine/core/str.h"
+#include "base/core/format.h"
+#include "base/core/checksums.h"
+#include "base/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of the gap names)
 

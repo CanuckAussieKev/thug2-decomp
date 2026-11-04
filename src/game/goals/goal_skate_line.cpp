@@ -4,11 +4,11 @@
 
 #include "game/goals/goal_skate_line.h"
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "game/goals/goal_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace goals {
 

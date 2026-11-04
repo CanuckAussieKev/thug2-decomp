@@ -8,8 +8,8 @@
 #include <utility>
 #include <vector>
 #include <array>
-#include "engine/maths/vec2.h"
-#include "engine/core/checked_index.h"
+#include "base/maths/vec2.h"
+#include "base/core/checked_index.h"
 
 struct ImFont;
 

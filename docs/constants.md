@@ -17,7 +17,7 @@ The values of one closed thing - the kinds, states, ids and flags a field or par
 the same underlying type the value always had (`enum class QbValueKind : uint8_t`), so sizes, layouts and code stay as
 they were. A value the file or the wire can carry that the enum doesn't list is still representable: the boundary
 layer converts the raw byte or word once, where it is read (`static_cast<MessageId>(reader.u8())`,
-`script::as_token(byte)`), and writes it back with `core::to_underlying` (`engine/core/enum_ops.h`). A set of bits is
+`script::as_token(byte)`), and writes it back with `core::to_underlying` (`base/core/enum_ops.h`). A set of bits is
 a flag enum: declared with `constexpr bool enable_flag_operators(Flags) { return true; }` beside it, it has |, &, ^, ~
 and the compound forms, and `core::any(flags & Flags::kX)` tests a bit. A field the original keeps wider than the
 enum stays its own width behind typed accessors (`Hub::service_state()`). Switches over an enum list every case and
@@ -45,16 +45,16 @@ The index below lists each kind of shared constant or enum and the header that h
 | Script value kinds (`script::QbValueKind`) | `engine/script/param_struct.h` |
 | Collision face flags and the probes' ignore / require masks | `engine/render/coll_obj.h` |
 | Path buffer sizes (a disk path, an overlay path) | `engine/file/file_load.h` |
-| Language numbers | `engine/core/language.h`; territory, hardware and display numbers: `engine/sys/game_config.h` |
-| UTF-8 byte values | `engine/core/str.h` |
+| Language numbers | `base/core/language.h`; territory, hardware and display numbers: `engine/sys/game_config.h` |
+| UTF-8 byte values | `base/core/str.h` |
 | A level's load script prefix | `frontend/start_level.h` |
 | 2D layout sizes (640 x 480, the screen elements' 640 x 448) | `engine/gfx/screen.h` |
 | The new front end's 1280 x 720 design canvas | `frontend/new_frontend_model.h` |
 | The screen elements' float constants as the original stores them | `frontend/screen_constants.h` |
 | The renderer's render-state ids (`render::RenderStateId`); blend modes, Direct3D values (address modes, texture ops, lock flags, vertex format bits) | `engine/gfx/render_state.h` |
-| pi and a full turn | `engine/maths/trig.h` (`maths::kPi`, `maths::kTwoPi`) |
-| A flat 4 x 4 matrix's float count and element indices | `engine/maths/mat4.h` (`maths::kMatrixFloats`, `kMatXx` ... `kMatTw`) |
-| Units (inches per foot), double-to-integer limits | `engine/maths/maths.h` |
+| pi and a full turn | `base/maths/trig.h` (`maths::kPi`, `maths::kTwoPi`) |
+| A flat 4 x 4 matrix's float count and element indices | `base/maths/mat4.h` (`maths::kMatrixFloats`, `kMatXx` ... `kMatTw`) |
+| Units (inches per foot), double-to-integer limits | `base/maths/maths.h` |
 | Key binding slots, ports, the draw distance setting | `platform/platform_input.h` |
 | Pad button masks, control data layout | `engine/pad_input/input_hub.h`, `engine/pad_input/device.h` |
 | Sound and music limits | `engine/sound/sfx.h`, `engine/audio/music_player.h` |
@@ -63,7 +63,7 @@ The index below lists each kind of shared constant or enum and the header that h
 | The level editor panels' shared colours and sizes | `editor/level_editor_ui_theme.h`, `editor/level_editor_ui_layout.h` |
 | The level editor's goal limits and defaults | `editor/level_editor_goals.h` |
 | The level editor's chain operations (`chains::ChainOp`) | `editor/level_editor_chains.h` |
-| The scoped-enum helpers (`core::to_underlying`, the flag operators, `core::any`) | `engine/core/enum_ops.h` |
+| The scoped-enum helpers (`core::to_underlying`, the flag operators, `core::any`) | `base/core/enum_ops.h` |
 
 ## Two kinds that stay in each file
 

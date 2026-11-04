@@ -14,8 +14,8 @@
 #include "engine/memory/slab_bank.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
 
 namespace park_editing {
 

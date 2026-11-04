@@ -9,9 +9,9 @@
 #include <ctime>
 #include <string>
 
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "platform/code_address.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include <gsl/pointers>
 #include <new>
 

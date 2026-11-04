@@ -20,9 +20,9 @@
 #include <array>
 
 #include "editor/level_editor.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "editor/level_editor_ground.h"
 #include "editor/level_editor_modules.h"
@@ -40,16 +40,16 @@
 #include "platform/crt.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/surface_material.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "gpu/vertex_view.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec4.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
-#include "engine/maths/maths.h"
+#include "base/maths/maths.h"
 
 namespace frontend::level_editor::ground {
 

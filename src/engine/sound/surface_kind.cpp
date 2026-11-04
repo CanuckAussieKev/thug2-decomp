@@ -9,11 +9,11 @@
 #include <array>
 
 #include "wire/message_ids.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
-#include "engine/maths/random.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/random.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -22,10 +22,10 @@
 #include "engine/sys/startup_init.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 #include <string_view>

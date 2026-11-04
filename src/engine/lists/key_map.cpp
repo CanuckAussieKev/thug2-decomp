@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <new>
 #include "engine/memory/mem.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/slab_bank.h"
 namespace lists {
 

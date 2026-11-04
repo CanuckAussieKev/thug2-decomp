@@ -7,10 +7,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/mat4.h"
-#include "engine/core/enum_ops.h"
-#include "engine/maths/rotation_blend.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/core/enum_ops.h"
+#include "base/maths/rotation_blend.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/career.h"
@@ -26,10 +26,10 @@
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/render/coll_obj.h"
-#include "engine/maths/trig.h"
+#include "base/maths/trig.h"
 
 namespace skater {
 

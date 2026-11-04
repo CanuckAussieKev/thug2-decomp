@@ -1,14 +1,14 @@
 #pragma once
 
 #include <cstddef>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <span>
 #include <cstdint>
 #include <array>
 
 #include "formats/byte_stream.h"
 #include <cstring>
-#include "engine/core/pointer_cell.h"
+#include "base/core/pointer_cell.h"
 
 // NOT ORIGINAL - the animation format (.ska, PC: "x.ska.xbx"; also cutscenes' camera / object animations), its
 // headers and custom keys read through util::ByteReader and its sections laid out and checked before the frame data

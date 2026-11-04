@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <span>
 #include "platform/d3d_forward.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 #include <gsl/pointers>
 
 // A texture (Nx engine, PC): its Direct3D texture and, for render targets, the surface. Every texture is on a list

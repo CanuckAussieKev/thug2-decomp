@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_line.h"
 #include "engine/objects/smtptr.h"
 

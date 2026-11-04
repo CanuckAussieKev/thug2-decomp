@@ -7,8 +7,8 @@
 #include <SDL2/SDL.h>
 
 #include "editor/level_editor.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor_layout.h"
 #include "frontend/mouse_menus.h"
@@ -18,7 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::perform {
 

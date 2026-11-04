@@ -5,7 +5,7 @@
 #include <array>
 
 #include "engine/net/gamenet_handler_util.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
@@ -26,7 +26,7 @@
 #include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/state_history.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include <gsl/pointers>
 #include "platform/crt.h"
 #include "engine/net/net_game_state.h"

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine/core/checked_index.h"
-#include "engine/core/raw_view.h"
+#include "base/core/checked_index.h"
+#include "base/core/raw_view.h"
 
 #include <bit>
 #include <cstddef>

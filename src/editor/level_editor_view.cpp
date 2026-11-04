@@ -14,7 +14,7 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
 #include "engine/render/coll_static.h"
@@ -26,16 +26,16 @@
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_walls.h"
 #include "engine/gfx/sector.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::view {

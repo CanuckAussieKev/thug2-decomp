@@ -2,14 +2,14 @@
 
 #include "engine/script/skate_cfuncs.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/dbg.h"
+#include "base/core/checked_index.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/script/cscript.h"
 #include "engine/script/node_prefixes.h"
@@ -25,8 +25,8 @@
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/script/game_cfuncs.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/script/script_state.h"
 
 namespace {

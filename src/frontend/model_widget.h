@@ -5,10 +5,10 @@
 #include <span>
 
 #include "frontend/screen_element.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/smtptr.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 namespace objects {
 class GameEntity;

@@ -26,9 +26,9 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "wire/message_ids.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "wire/gamenet_messages.h"
 #include "wire/net_wire.h"
 #include "formats/byte_stream.h"
@@ -37,9 +37,9 @@
 #include "wire/skate_net_messages.h"
 #include "formats/check/format_check_files.h"
 #include "formats/check/format_check_net.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace {
 

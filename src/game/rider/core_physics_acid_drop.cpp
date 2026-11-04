@@ -8,12 +8,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include "engine/maths/shape_tests.h"
-#include "engine/core/enum_ops.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/rotation_blend.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/core/enum_ops.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/rotation_blend.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
@@ -25,10 +25,10 @@
 #include "game/rider/walk_physics.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "game/rider/rider_shared.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/render/coll_obj.h"
 #include <gsl/pointers>
 

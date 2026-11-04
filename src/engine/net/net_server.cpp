@@ -17,7 +17,7 @@
 #include "engine/net/net_dispatcher.h"
 #include "platform/stopwatch.h"
 #include "engine/net/net_client.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "wire/net_wire.h"
 #include "platform/sockets.h"
 

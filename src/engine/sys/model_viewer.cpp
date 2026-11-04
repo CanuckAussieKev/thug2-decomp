@@ -12,17 +12,17 @@
 #include <cstring>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
 #include "frontend/front_end.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_handlers.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
@@ -42,11 +42,11 @@
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/script/cfuncs_scene.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "wire/net_wire.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace modules {

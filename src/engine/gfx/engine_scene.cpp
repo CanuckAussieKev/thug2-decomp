@@ -12,12 +12,12 @@
 #include <span>
 #include <new>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/sector.h"
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include "engine/lists/key_map.h"
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_static.h"
@@ -27,8 +27,8 @@
 #include "engine/render/coll_obj.h"
 #include <gsl/pointers>
 #include <gsl/assert>
-#include "engine/core/checked_index.h"
-#include "engine/core/cursor.h"
+#include "base/core/checked_index.h"
+#include "base/core/cursor.h"
 #include "platform/crt.h"
 
 namespace render {

@@ -3,10 +3,10 @@
 // was built with: docs/gamespy.md).
 
 #include "platform/gamespy.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 
 #include <cctype>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <cstdint>
 #include <string_view>
 #include <span>
@@ -60,9 +60,9 @@ THUG2_MSVC_WARNING(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN 
 #include "qr2/qr2.h"
 #include "serverbrowsing/sb_serverbrowsing.h"
 #include "platform/code_address.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 THUG2_MSVC_WARNING(pop)
 
 // Host-name overrides the SDK keeps without declaring them in a header (pt/ptMain.c), and the one the build adds

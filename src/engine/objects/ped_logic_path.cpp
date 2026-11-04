@@ -11,8 +11,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/random.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/random.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/motion.h"
@@ -22,9 +22,9 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/maths.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/maths.h"
 #include <gsl/pointers>
 
 namespace objects {

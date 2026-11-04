@@ -7,8 +7,8 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/util/text_store.h"
 #include "engine/file/async.h"
@@ -24,7 +24,7 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/language.h"
+#include "base/core/language.h"
 #include <gsl/pointers>
 namespace commands {
 

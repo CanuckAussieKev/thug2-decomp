@@ -16,14 +16,14 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include "engine/render/coll_static.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::ruler {
 

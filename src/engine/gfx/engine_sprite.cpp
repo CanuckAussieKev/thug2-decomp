@@ -8,7 +8,7 @@
 
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include <gsl/pointers>
 
 namespace render {

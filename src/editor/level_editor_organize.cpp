@@ -34,11 +34,11 @@
 #include "editor/level_editor_view.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/vec2.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/vec2.h"
 #include <span>
 
 namespace frontend::level_editor::organize {

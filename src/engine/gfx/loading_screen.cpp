@@ -25,14 +25,14 @@
 #include "engine/gfx/render_state.h"
 #include "platform/run_log.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <string>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/language.h"
+#include "base/core/language.h"
 
 namespace render {
 

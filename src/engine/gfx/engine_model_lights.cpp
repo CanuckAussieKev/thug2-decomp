@@ -8,13 +8,13 @@
 #include <cstring>
 #include <span>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/dbg.h"
+#include "base/core/checked_index.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/light_manager.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/no_destroy.h"
+#include "base/maths/vec4.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
 
 namespace render {

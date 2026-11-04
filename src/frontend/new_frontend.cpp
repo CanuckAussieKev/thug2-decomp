@@ -29,7 +29,7 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/file/file_load.h"
 #include "frontend/automation.h"
 #include "frontend/data_overlay.h"
@@ -58,7 +58,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/pad_input/device.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/career.h"
@@ -77,13 +77,13 @@
 #include "game/rider/skater_score.h"
 #include "game/skate/point_tally.h"
 #include "platform/unique_handle.h"
-#include "engine/core/parse_number.h"
+#include "base/core/parse_number.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 

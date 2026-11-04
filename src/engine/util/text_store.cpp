@@ -7,7 +7,7 @@
 
 #include "engine/memory/mem.h"
 #include <span>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace text {
 

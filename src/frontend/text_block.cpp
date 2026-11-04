@@ -8,23 +8,23 @@
 #include <array>
 #include <span>
 
-#include "engine/core/cursor.h"
+#include "base/core/cursor.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
-#include "engine/core/stubs.h"
+#include "base/core/str.h"
+#include "base/core/stubs.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/text_element.h"
 #include "engine/gfx/font.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
 #include "frontend/screen_element.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/anim_movies.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/rect.h"
+#include "base/maths/vec2.h"
+#include "base/maths/rect.h"
 #include <gsl/pointers>
 
 namespace frontend {

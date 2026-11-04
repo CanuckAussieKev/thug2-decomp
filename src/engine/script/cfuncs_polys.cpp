@@ -22,11 +22,11 @@
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/checked_index.h"
+#include "base/core/packed_colour.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec2.h"
-#include "engine/core/checksums.h"
+#include "base/maths/vec2.h"
+#include "base/core/checksums.h"
 #include <span>
 #include <vector>
 #include <gsl/assert>

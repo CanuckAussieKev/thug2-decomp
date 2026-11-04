@@ -13,9 +13,9 @@
 #include <array>
 #include <span>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/maths.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/maths.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/motion_path.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/names.h"
@@ -29,8 +29,8 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/gfx/rig.h"
 #include "engine/objects/motion.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
 
 namespace objects {

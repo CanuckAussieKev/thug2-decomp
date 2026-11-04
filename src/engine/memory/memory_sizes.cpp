@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "platform/run_log.h"
-#include "engine/core/ints.h"
+#include "base/core/ints.h"
 
 namespace memory::sizes {
 

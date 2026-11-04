@@ -5,7 +5,7 @@
 #include <span>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include <gsl/pointers>
 
 // The engine's text (render::GlyphString - the platform-independent part of the PC text, PcText in pc_font.h, its first 0x48

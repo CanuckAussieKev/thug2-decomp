@@ -2,7 +2,7 @@
 
 #include "engine/gfx/viewport_list.h"
 #include "engine/gfx/viewport.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/view_setup.h"
 
 #include <cstddef>

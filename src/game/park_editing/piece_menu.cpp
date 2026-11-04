@@ -11,10 +11,10 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "game/park_editing/park.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 namespace park_editing {
 

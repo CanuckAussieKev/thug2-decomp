@@ -10,8 +10,8 @@
 #include <span>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/core/checked_index.h"
+#include "base/maths/shape_tests.h"
+#include "base/core/checked_index.h"
 
 namespace render {
 

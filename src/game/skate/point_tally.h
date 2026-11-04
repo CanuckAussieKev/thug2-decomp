@@ -14,13 +14,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <span>
 
-#include "engine/lists/dynamic_table.h"
+#include "base/lists/dynamic_table.h"
 #include "engine/lists/lookup_table.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace script {
 class Struct;

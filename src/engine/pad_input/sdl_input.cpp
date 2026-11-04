@@ -15,7 +15,7 @@
 #include <SDL2/SDL.h>
 #include <array>
 
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "frontend/automation.h"
 #include "editor/level_editor.h"
 #include "frontend/mouse_menus.h"
@@ -31,8 +31,8 @@
 #include "platform/screenshot.h"
 #include "platform/sdl_events.h"
 #include "platform/platform_input.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 
 namespace sio {

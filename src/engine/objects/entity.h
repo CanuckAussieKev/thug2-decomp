@@ -5,8 +5,8 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/smtptr.h"
 
 // GameObjects::Entity, the base of every game object (0x4C bytes; GameEntity and its components build on it), and

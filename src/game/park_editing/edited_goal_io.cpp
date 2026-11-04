@@ -6,10 +6,10 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
-#include "engine/core/format.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "base/core/format.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cell.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/goal_editor_util.h"
@@ -19,9 +19,9 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
-#include "platform/compiler.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/str.h"
+#include "base/core/compiler.h"
+#include "base/core/checked_index.h"
+#include "base/core/str.h"
 #include "game/park_editing/park_editing_state.h"
 #include <gsl/pointers>
 

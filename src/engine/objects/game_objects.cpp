@@ -10,8 +10,8 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/bbox_component.h"
 #include "engine/objects/car_physics.h"
@@ -31,8 +31,8 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/path_follower.h"
 #include <gsl/pointers>
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

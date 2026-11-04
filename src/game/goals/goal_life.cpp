@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "game/goals/objective.h"
@@ -24,10 +24,10 @@
 #include "engine/net/player_info.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/rider.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace goals {

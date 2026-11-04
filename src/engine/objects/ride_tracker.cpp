@@ -1,9 +1,9 @@
 // What a point riding on a moving object is carried by. See ride_tracker.h.
 
 #include "engine/objects/ride_tracker.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

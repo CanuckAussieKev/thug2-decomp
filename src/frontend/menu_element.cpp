@@ -11,8 +11,8 @@
 #include "game/skate/contest.h"
 #include "engine/objects/entity.h"
 #include "frontend/screen_element.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec2.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec2.h"
 namespace frontend {
 
 namespace {

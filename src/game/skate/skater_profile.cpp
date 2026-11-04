@@ -7,7 +7,7 @@
 #include <span>
 
 #include "engine/memory/manager.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
@@ -17,9 +17,9 @@
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "game/rider/rider.h"
 #include <gsl/pointers>
 

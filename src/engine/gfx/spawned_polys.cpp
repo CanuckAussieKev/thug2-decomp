@@ -11,16 +11,16 @@
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/gfx/pc_primitive.h"
-#include "engine/lists/object_set.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/lists/object_set.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cfuncs_engine.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/effects_state.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/packed_colour.h"
 
 namespace render {
 

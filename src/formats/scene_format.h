@@ -7,7 +7,7 @@
 #include <array>
 
 #include "formats/byte_stream.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 // NOT ORIGINAL - the PC scene format (scenes "x.scn.xbx", models "x.mdl.xbx", skinned models "x.skin.xbx", the same
 // records) and the skin's strip breaks ("x.cas.xbx"), read record by record into plain structs.

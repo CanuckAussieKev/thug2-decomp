@@ -5,7 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include "engine/objects/trick_objects.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 #include <span>

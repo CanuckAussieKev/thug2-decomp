@@ -12,12 +12,12 @@
 #include <unordered_map>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/memory_sizes.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/script/cache.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -25,10 +25,10 @@
 #include "engine/script/cscript.h"
 #include "engine/script/tokens.h"
 #include "platform/run_log.h"
-#include "engine/core/bits_as.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/bits_as.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/script/script_state.h"
 
 namespace script {

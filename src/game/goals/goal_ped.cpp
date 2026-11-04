@@ -8,11 +8,11 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/compositemgr.h"
@@ -23,13 +23,13 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/span_copy.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/span_copy.h"
 #include <gsl/pointers>
 #include <span>
 #include <string_view>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 
 namespace goals {
 

@@ -3,10 +3,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/maths.h"
-#include "engine/core/enum_ops.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/maths.h"
+#include "base/core/enum_ops.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/rail_manager.h"
@@ -28,7 +28,7 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_score.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/render/coll_obj.h"
 

@@ -8,14 +8,14 @@
 #include <array>
 #include <span>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/pad_input/input_hub.h"
 #include "game/rider/thaw_bmx.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/trig.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec2.h"
+#include "base/maths/trig.h"
 
 namespace objects {
 

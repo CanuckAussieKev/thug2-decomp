@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 
 namespace render {

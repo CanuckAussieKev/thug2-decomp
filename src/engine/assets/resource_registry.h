@@ -7,7 +7,7 @@
 #include "engine/assets/resource_entry.h"
 #include "engine/sys/game_module.h"
 #include "engine/memory/mem.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 

@@ -2,12 +2,12 @@
 
 #include "frontend/new_frontend_model.h"
 #include "frontend/new_frontend_options.h"
-#include "engine/core/ints.h"
-#include "engine/core/parse_number.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/rect.h"
-#include "engine/core/str.h"
-#include "engine/maths/trig.h"
+#include "base/core/ints.h"
+#include "base/core/parse_number.h"
+#include "base/core/checked_index.h"
+#include "base/maths/rect.h"
+#include "base/core/str.h"
+#include "base/maths/trig.h"
 
 #include <algorithm>
 #include <cstddef>

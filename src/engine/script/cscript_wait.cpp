@@ -9,9 +9,9 @@
 #include <span>
 
 #include "engine/script/cscript.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/objects/entity.h"
@@ -25,7 +25,7 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace script {

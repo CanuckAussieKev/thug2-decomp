@@ -194,8 +194,8 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 # The file formats: readers and writers of the game's data files, saves and custom parks (round-trip checked by
 # thug2_format_check).
 add_library(thug2_formats STATIC
-    src/engine/core/checksums.cpp
-    src/engine/core/format.cpp
+    src/base/core/checksums.cpp
+    src/base/core/format.cpp
     src/formats/anim_format.cpp
     src/formats/bundle_format.cpp
     src/formats/collision_format.cpp
@@ -233,8 +233,8 @@ add_executable(thug2 WIN32
     src/engine/assets/asset_types.cpp
     src/engine/assets/resource_registry.cpp
     src/engine/memory/arena_alloc.cpp
-    src/engine/core/dbg.cpp
-    src/engine/core/log_sink.cpp
+    src/base/core/dbg.cpp
+    src/base/core/log_sink.cpp
     src/engine/util/lzss.cpp
     src/engine/memory/dump_text.cpp
     src/engine/memory/arena.cpp
@@ -243,10 +243,10 @@ add_executable(thug2 WIN32
     src/engine/memory/memory_sizes.cpp
     src/engine/memory/memory_report.cpp
     src/engine/memory/slab_bank.cpp
-    src/engine/core/single_instance.cpp
-    src/engine/core/stubs.cpp
+    src/base/core/single_instance.cpp
+    src/base/core/stubs.cpp
     src/engine/memory/task_list.cpp
-    src/engine/core/str.cpp
+    src/base/core/str.cpp
     src/engine/util/text_store.cpp
     src/engine/file/asset_bundle.cpp
     src/frontend/model_widget.cpp
@@ -752,9 +752,9 @@ add_executable(thug2 WIN32
     src/engine/objects/rigidbody_physics.cpp
     src/engine/objects/rigidbody_support.cpp
     src/engine/objects/rigidbody_contacts.cpp
-    src/engine/maths/quat_rotation.cpp
-    src/engine/maths/rigidbody_math.cpp
-    src/engine/maths/vector_transform.cpp
+    src/base/maths/quat_rotation.cpp
+    src/base/maths/rigidbody_math.cpp
+    src/base/maths/vector_transform.cpp
     src/engine/objects/velocity_component.cpp
     src/engine/objects/vibration_component.cpp
     src/engine/objects/wait_and_die.cpp
@@ -888,7 +888,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/model_utils.cpp
     src/game/skate/cas_options.cpp
     src/engine/gfx/bone_look_at.cpp
-    src/engine/maths/vector_rotate_z.cpp
+    src/base/maths/vector_rotate_z.cpp
     src/engine/gfx/boned_anim_frame_data_pose.cpp
     src/engine/gfx/cag_cfuncs.cpp
     src/engine/objects/model_swap_cfuncs.cpp
@@ -914,14 +914,14 @@ add_executable(thug2 WIN32
     src/engine/script/cfuncs_render.cpp
     src/engine/script/cfuncs_polys.cpp
     src/engine/script/cfuncs_memory.cpp
-    src/engine/maths/shape_tests.cpp
-    src/engine/maths/maths.cpp
-    src/engine/maths/mat4.cpp
-    src/engine/maths/random.cpp
-    src/engine/maths/rotation_blend.cpp
-    src/engine/maths/vec4.cpp
-    src/engine/util/bitstream.cpp
-    src/engine/util/bps.cpp
+    src/base/maths/shape_tests.cpp
+    src/base/maths/maths.cpp
+    src/base/maths/mat4.cpp
+    src/base/maths/random.cpp
+    src/base/maths/rotation_blend.cpp
+    src/base/maths/vec4.cpp
+    src/base/util/bitstream.cpp
+    src/base/util/bps.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
 target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPUT_VERSION=0x0800)
@@ -964,7 +964,7 @@ target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w1445
 # assembly over many inputs, and maths::matrix_multiply with D3DX's matrix product (src/tests/maths_check.cpp; the
 # reference half needs MSVC for 32-bit x86).
 add_executable(thug2_maths_check src/tests/maths_check.cpp src/tests/maths_check_d3dx.cpp
-    src/engine/maths/mat4.cpp src/engine/maths/vec4.cpp src/engine/maths/maths.cpp src/engine/core/dbg.cpp)
+    src/base/maths/mat4.cpp src/base/maths/vec4.cpp src/base/maths/maths.cpp src/base/core/dbg.cpp)
 target_include_directories(thug2_maths_check PRIVATE src)
 # (d3dx9: D3DX's matrix product, the reference for maths::matrix_multiply; its DLL next to the check)
 target_link_libraries(thug2_maths_check PRIVATE thug2_formats Microsoft.GSL::GSL d3dx9)
@@ -972,14 +972,14 @@ add_custom_command(TARGET thug2_maths_check POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_maths_check>/d3dx9_43.dll")
 target_compile_options(thug2_maths_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
-# NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (engine/core/
+# NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (base/core/
 # parse_number.h) compared with the C runtime's over many texts (src/tests/parse_check.cpp).
 add_executable(thug2_parse_check src/tests/parse_check.cpp)
 target_include_directories(thug2_parse_check PRIVATE src)
 target_link_libraries(thug2_parse_check PRIVATE thug2_formats Microsoft.GSL::GSL)
 target_compile_options(thug2_parse_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
-# NOT ORIGINAL - thug2_printf_check.exe: the printf-style formatting without C varargs (engine/core/format.h) compared
+# NOT ORIGINAL - thug2_printf_check.exe: the printf-style formatting without C varargs (base/core/format.h) compared
 # with the C runtime's snprintf over every conversion, flag, width, precision and edge value (src/tests/printf_check.cpp).
 add_executable(thug2_printf_check src/tests/printf_check.cpp)
 target_link_libraries(thug2_printf_check PRIVATE thug2_formats)

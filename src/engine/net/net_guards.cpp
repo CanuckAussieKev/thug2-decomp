@@ -7,7 +7,7 @@
 #include <span>
 #include <unordered_set>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "wire/gamenet_messages.h"
 #include "wire/skater_messages.h"
 #include "engine/net/net_dispatcher.h"

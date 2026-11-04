@@ -5,11 +5,11 @@
 #include <cstdint>
 #include <new>
 
-#include "engine/core/dbg.h"
-#include "engine/maths/maths.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/random.h"
-#include "engine/maths/vec4.h"
+#include "base/core/dbg.h"
+#include "base/maths/maths.h"
+#include "base/maths/mat4.h"
+#include "base/maths/random.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/control_pad.h"
@@ -39,8 +39,8 @@
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/skater_score.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "game/rider/rider_shared.h"
 #include "engine/render/coll_obj.h"
 

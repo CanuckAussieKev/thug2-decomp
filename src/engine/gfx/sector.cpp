@@ -4,14 +4,14 @@
 
 #include "engine/gfx/sector.h"
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_obj.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {

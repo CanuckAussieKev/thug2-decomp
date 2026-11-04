@@ -7,17 +7,17 @@
 #include <array>
 #include <span>
 
-#include "engine/core/enum_ops.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/core/enum_ops.h"
+#include "base/core/checked_index.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_movable.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tests.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/ints.h"
+#include "base/core/ints.h"
 #include "engine/render/collision_state.h"
 namespace render {
 

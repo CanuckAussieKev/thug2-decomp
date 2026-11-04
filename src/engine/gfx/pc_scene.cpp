@@ -11,7 +11,7 @@
 #include <cstring>
 #include <new>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_effects.h"
@@ -20,8 +20,8 @@
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pc_grass.h"
 #include "engine/gfx/scene_file_stream.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "formats/scene_format.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/sub_mesh.h"
@@ -31,8 +31,8 @@
 #include <array>
 #include <span>
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
 

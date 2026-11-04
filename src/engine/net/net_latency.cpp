@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "engine/net/net_latency.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace net {
 

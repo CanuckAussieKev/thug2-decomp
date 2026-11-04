@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <new>
 
-#include "engine/maths/maths.h"
-#include "engine/maths/random.h"
+#include "base/maths/maths.h"
+#include "base/maths/random.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/control_pad.h"
@@ -25,10 +25,10 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace objects {
 

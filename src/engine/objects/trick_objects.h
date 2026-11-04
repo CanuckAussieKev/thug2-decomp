@@ -10,7 +10,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/net/player_info.h"
 
 // Pieces of the trick object code at the end of the viewer range (0x005880E0-0x0058817C) and the trick object

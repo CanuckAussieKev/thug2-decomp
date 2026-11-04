@@ -2,7 +2,7 @@
 
 #include "game/save_cards/save_files_cfuncs.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -13,12 +13,12 @@
 #include <string_view>
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/script/cell.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard.h"
@@ -35,9 +35,9 @@
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "game/save_cards/save_cards_state.h"
 
 namespace {

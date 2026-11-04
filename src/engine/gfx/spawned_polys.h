@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/gfx/engine_primitive.h"
 #include <gsl/pointers>

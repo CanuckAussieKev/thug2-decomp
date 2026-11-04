@@ -3,7 +3,7 @@
 #include "engine/objects/matrix_component.h"
 
 #include "engine/objects/entity.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace objects {

@@ -67,7 +67,7 @@ keep the namespaces their headers had). The layers and their rules: docs/archite
   file and network formats.
 - Standard C++ only, buildable by MSVC and GCC: no inline assembly (the original's x87 maths is plain `<cmath>` -
   results may differ from the original's in the last bits, which is accepted), no compiler-specific keywords outside
-  `src/platform/compiler.h`.
+  `src/base/core/compiler.h`.
 - Conditions say what they test (readability-implicit-bool-conversion): a pointer stands alone (`if (p)`, `if (!p)` -
   ES.87), everything else is compared: `n != 0`, `(flags & kBit) != 0U`, `*text != '\0'`, a Win32 BOOL `!= FALSE`,
   an SDL_bool `!= SDL_FALSE`, a flag enum `core::any(flags & Flags::kA)`; a bool counted or stored as a number is
@@ -95,7 +95,7 @@ exceptions, all in one place:
 - **Configured** (`CheckOptions`): public data is named as plain data, without the member suffix (the format
   records' and messages' fields; `PublicMemberCase`); the libraries' own names (`SDL_*`, `sockaddr`, the GameSpy
   SDK's host-name globals) by the naming check's `IgnoredRegexp`s; `THUG2_MSVC_WARNING` / `THUG2_RETURN_ADDRESS`
-  (`platform/compiler.h`: a pragma inside a statement, the caller's return address - neither can be a function) by
+  (`base/core/compiler.h`: a pragma inside a statement, the caller's return address - neither can be a function) by
   the macro check's `AllowedRegexp`; the game's time seed (`DisallowedSeedTypes`); the x87 reference's locals that
   inline assembly writes (`AsmFloat`... in `src/tests/maths_check.cpp`: clang-tidy can't see an `__asm` block's
   writes; `AllowedTypes`); `readability-function-cognitive-complexity` at a `Threshold` of 50, not the default 25,
@@ -108,7 +108,7 @@ exceptions, all in one place:
   `readability-identifier-length` accepts (two letters, plus the coordinates `x y z w u v` and the operands `a` / `b`);
   and the options listed in `.clang-tidy` for the other checks.
 - **What changed instead of an exception**, for the record: the original's integer divisions keep their quotient in
-  a named integer; bit-for-bit float compares are `core::has_bits` / `same_bits` (`engine/core/same_bits.h`);
+  a named integer; bit-for-bit float compares are `core::has_bits` / `same_bits` (`base/core/same_bits.h`);
   repeated branches are merged; assignments and counts come out of conditions; switches say `default: break`;
   `value + 0.5` truncations are `maths::round_non_negative`; Direct3D's interfaces come from `<d3d9.h>` (a forward
   declaration of a COM interface is a second declaration of the SDK's class); the C runtime heap is
@@ -117,15 +117,15 @@ exceptions, all in one place:
   SDK, the original's integer fields used as numbers) are named `constexpr` constants with an alias for the field's
   type, and the closed sets among them are scoped enums (below);
   the original's whole-object clears and copies of objects that aren't trivially copyable are `raw::zero_object` /
-  `raw::copy_object` (`engine/core/raw_view.h`, with the other named views).
+  `raw::copy_object` (`base/core/raw_view.h`, with the other named views).
 - **The script values' cells** (`engine/script/cell.h`): one 32-bit word, read as the kind its holder says
   (`std::bit_cast`, `cell::pointer`) - a boundary file for the layering rule, like the QB readers.
 - **No `reinterpret_cast`, no integer-to-pointer cast** anywhere in `src/` (both checks on). Bytes from outside
   are read by the boundary layer's readers (`formats/`, `wire/`); casts between related classes are `static_cast`;
   what is left of the original's ways of reaching memory has a name, so it can be counted and removed:
-  `cell::of` / `cell::pointer<T>` / `cell::address` (`engine/core/pointer_cell.h`: a pointer kept in a 32-bit
+  `cell::of` / `cell::pointer<T>` / `cell::address` (`base/core/pointer_cell.h`: a pointer kept in a 32-bit
   cell - script values, callbacks' user words, addresses used as ids), `raw::as<T>` / `raw::field_at<T>` /
-  `raw::bytes` / `raw::chars` / `raw::owner_of<T>` (`engine/core/raw_view.h`: one of the original's in-memory
+  `raw::bytes` / `raw::chars` / `raw::owner_of<T>` (`base/core/raw_view.h`: one of the original's in-memory
   layouts read through another type or at a byte offset), `memory::bits_as<T>` (a field's bits as another type of
   its size), `code_address` / `function_at<F>` / `crt::library_function<F>` (`platform/`: code addresses).
   Code outside the boundary uses none of them: a field gets its member, a pointer its type (`npm test` fails on any
@@ -134,7 +134,7 @@ exceptions, all in one place:
   original's reads of an argument's stack slot are 0 for a name, on for a flag, 0 for a number). Byte layouts that stay (file records used
   in place, vertex buffers) are read through the boundary's accessors instead: `collision_format::FaceTable`
   (`formats/`), `gpu::VertexView` / `VertexWriter` (`gpu/`).
-- **Downcasts** go through `core::down_cast<Derived>(base)` (`engine/core/down_cast.h`): code that has checked an
+- **Downcasts** go through `core::down_cast<Derived>(base)` (`base/core/down_cast.h`): code that has checked an
   object's type tag (or asked a manager for an object of a type) converts the base pointer with it; Debug builds
   assert the object really is a Derived (a class's own `is_instance(const Base&)` if it has one, else `dynamic_cast`).
   The `static_cast` inside it is the one downcast in `src/` (so the static-cast-downcast check is off).
@@ -143,7 +143,7 @@ exceptions, all in one place:
   pointer-taking function wants one - never passed through `...` (printf-style calls take `.data()`). A C API
   struct's own char array (`WIN32_FIND_DATA::cFileName`, `ImFontConfig::Name`...) is passed with `std::data()`.
   **Array parameters are `std::span<T, N>`** (a fixed extent: the caller passes its `std::array`; a pointer needs an
-  explicit span). Every subscript goes through `core::at(container, index)` (`engine/core/checked_index.h`:
+  explicit span). Every subscript goes through `core::at(container, index)` (`base/core/checked_index.h`:
   `gsl::at` with any integer or plain-enum index; constant indexes too, or `std::get<N>` / `.front()` / `.back()`):
   out of range ends the game with a report instead of reading past the end. `maths::Vec4` / `Mat4` check their own
   `operator[]` (the unchecked-container check's `ExcludeClasses`). Locals of `std::array` type are value-initialised
@@ -171,7 +171,7 @@ exceptions, all in one place:
   slot, an instance's source mesh) aren't owners. A delete-expression takes a declared owner, never a call's result.
 - cppcoreguidelines-owning-memory is on (0 warnings).
 - **Sets of objects known by their address** (what the original kept in a KeyMap keyed by each object's address) are
-  `lists::ObjectSet<T>` (`engine/lists/object_set.h`): exact pointer keys, in insertion order, a walk that may drop the
+  `lists::ObjectSet<T>` (`base/lists/object_set.h`): exact pointer keys, in insertion order, a walk that may drop the
   object it visits.
 - **Pools** (`memory::PoolPair`, `SlabBank`) are sized by `sizeof` of what they hold; a pool's `carve` refuses an
   object bigger than its items (a class that grew past the original's byte size ends the game with a report).
@@ -194,25 +194,25 @@ exceptions, all in one place:
   integer divisions by a count that can be 0 state it the same way. A one-line helper taking such a pointer checks it
   itself. Texts copied into the game's buffers go through `text::copy_into` / `append_into` (a text that doesn't fit
   ends the game) or, for texts from outside the game (other players, the online service), `text::copy_cut` (cut to
-  fit) - `engine/core/str.h`; no `strcpy` / `strcat`.
+  fit) - `base/core/str.h`; no `strcpy` / `strcat`.
 - **`const` wherever nothing changes** (`misc-const-correctness`): locals and what pointers point at. Placement new
   goes through `memory::construct_in` / `construct_value_in` / `construct_global_in` (`engine/memory/mem.h`) and the
-  original's unbounded inline copies through `text::copy_unbounded` / `append_unbounded` (`engine/core/str.h`), so
+  original's unbounded inline copies through `text::copy_unbounded` / `append_unbounded` (`base/core/str.h`), so
   the check sees the writes. `src/tests/maths_check.cpp`'s x87 reference declares the locals its inline assembly
   writes with `AsmFloat` / `AsmDouble` / ... (the check's `AllowedTypes`); the ones it only reads are const.
 - **Mixed-sign comparisons** say which conversion they make: `std::cmp_less` and its kin where the answer is the same
   for every value (an int against a narrower unsigned, a container's `size()`), `ints::as_signed` /
-  `ints::as_unsigned` (`engine/core/ints.h`) where the original compares a 32-bit count as an int or an int as a
+  `ints::as_unsigned` (`base/core/ints.h`) where the original compares a 32-bit count as an int or an int as a
   count - the same bits, so a negative index still reads huge.
 - **Signed bytes** widened on purpose are written `int{byte}`; **text read as a number** goes through
-  `text::to_int` / `text::to_double` (`engine/core/parse_number.h`: atoi's / atof's answers, over
+  `text::to_int` / `text::to_double` (`base/core/parse_number.h`: atoi's / atof's answers, over
   `std::from_chars`; `thug2_parse_check` compares them with the C runtime's); a `T**` passed as `void*` is cast
   explicitly.
 - **No C-style variadics of our own**: printf-style functions are variadic templates over a plain-text function
   (`get_log`, `debug::printf`...). The one left is the run-time-check callback, whose type the C runtime gives.
 - **State, not globals** (`cppcoreguidelines-avoid-non-const-global-variables`): what the original kept in globals is a
   subsystem's state record, reached through one accessor backed by a function-local `core::NoDestroy<T>`
-  (`engine/core/no_destroy.h`):
+  (`base/core/no_destroy.h`):
 
   ```cpp
   SoundState& sound_state()
@@ -280,7 +280,7 @@ exceptions, all in one place:
   the value always had, so layouts and code don't change; a value from a file or the wire that the enum doesn't list
   stays representable - the boundary layer converts the byte once as it reads it and writes it with
   `core::to_underlying`. Bit sets are flag enums (`enable_flag_operators` beside them gives |, &, ~; a test reads
-  `core::any(flags & Flags::kX)`) - `engine/core/enum_ops.h`. A switch over an enum lists every case and has no
+  `core::any(flags & Flags::kX)`) - `base/core/enum_ops.h`. A switch over an enum lists every case and has no
   `default:` then. Checksums, sizes, offsets, tunings and values used as numbers stay `constexpr` constants.
 - **Named constants**: a number that means something has a name, defined once by its owner - a file's in its unnamed
   namespace, a subsystem's in that subsystem's header, a value two layers share in the lower one (no central constants

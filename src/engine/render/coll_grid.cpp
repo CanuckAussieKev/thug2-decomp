@@ -12,14 +12,14 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace render {
 

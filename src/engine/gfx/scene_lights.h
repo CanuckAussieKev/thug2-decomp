@@ -5,9 +5,9 @@
 #include <array>
 #include <span>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
-#include "engine/lists/object_set.h"
+#include "base/lists/object_set.h"
 
 namespace script {
 class Array;

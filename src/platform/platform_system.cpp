@@ -12,10 +12,10 @@
 
 #include "platform/mute_audio.h"
 #include "engine/audio/music_player.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 
 namespace os_layer {
 

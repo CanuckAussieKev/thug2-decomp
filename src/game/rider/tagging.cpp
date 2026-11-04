@@ -12,10 +12,10 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -43,12 +43,12 @@
 #include "game/rider/skater_score.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "wire/message_ids.h"
 
 namespace objects {

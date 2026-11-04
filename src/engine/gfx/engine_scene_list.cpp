@@ -9,24 +9,24 @@
 #include <array>
 #include <span>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_grid.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/gfx/pc_scene.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 

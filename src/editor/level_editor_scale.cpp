@@ -33,13 +33,13 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/geom.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "gpu/vertex_view.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/vec4.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/vec4.h"
 
 namespace frontend::level_editor::scale_tool {
 

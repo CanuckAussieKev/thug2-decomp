@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/cursor.h"
+#include "base/core/cursor.h"
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/projected_vertex.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 // Texture splats on PC (Nx engine): textures projected onto the world (skid marks, splashes) - per texture a set of
 // up to 256 triangles kept in a table (0x007004B0, lists::KeyMap keyed by the set's address), drawn with a

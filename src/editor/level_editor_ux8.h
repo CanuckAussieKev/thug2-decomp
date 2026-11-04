@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include "editor/level_editor_nav.h"
 #include "platform/keyboard.h"
 

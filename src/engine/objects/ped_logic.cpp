@@ -10,8 +10,8 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/motion_path.h"
@@ -26,8 +26,8 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 namespace {

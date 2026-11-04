@@ -19,11 +19,11 @@
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
 #include "formats/rail_buffer_format.h"
-#include "platform/compiler.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/same_bits.h"
-#include "engine/core/str.h"
+#include "base/core/compiler.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/same_bits.h"
+#include "base/core/str.h"
 #include "formats/check/format_check_net.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy into the test messages' fixed fields)

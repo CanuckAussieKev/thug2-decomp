@@ -2,7 +2,7 @@
 // form (the map that's saved and sent), the gaps attached to pieces, and the memory bar.
 
 #include "game/park_editing/park.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "formats/park_map_format.h"
 #include "formats/byte_stream.h"
 
@@ -13,8 +13,8 @@
 #include <memory>
 #include <span>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "game/park/park_memory.h"
 #include "engine/script/cscript.h"
@@ -22,11 +22,11 @@
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

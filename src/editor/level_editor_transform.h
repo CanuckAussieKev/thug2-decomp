@@ -7,7 +7,7 @@
 #include <vector>
 #include <array>
 
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include "editor/level_editor.h"
 
 // NOT ORIGINAL - the level editor's transform tools (ours; see level_editor.h):

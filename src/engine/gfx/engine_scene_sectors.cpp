@@ -23,12 +23,12 @@
 #include "engine/gfx/weather.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include <span>
 #include <gsl/assert>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 
 namespace render {
 

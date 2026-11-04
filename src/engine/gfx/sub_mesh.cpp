@@ -16,16 +16,16 @@
 #include <array>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include "engine/gfx/render_state.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include <gsl/pointers>
 #include <gsl/assert>
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 namespace render {
 

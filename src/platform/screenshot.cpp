@@ -27,7 +27,7 @@
 #include <array>
 
 #include "build_info.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "frontend/automation.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor.h"
@@ -49,16 +49,16 @@
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "engine/maths/fwd.h"
+#include "base/maths/fwd.h"
 #include "platform/unique_handle.h"
 #include "platform/code_address.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace sys::screenshot {
 

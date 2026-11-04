@@ -30,12 +30,12 @@
 #endif
 
 #include "platform/run_log.h"
-#include "platform/compiler.h"
-#include "engine/core/pointer_cell.h"
+#include "base/core/compiler.h"
+#include "base/core/pointer_cell.h"
 #include "platform/code_address.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace {
 
@@ -408,7 +408,7 @@ bool is_fatal_exception(uint32_t code, bool* any_module)
 }
 
 namespace {
-// [debug] soft_bounds=1 (engine/core/checked_index.h): an index outside an array is logged once per place, with the
+// [debug] soft_bounds=1 (base/core/checked_index.h): an index outside an array is logged once per place, with the
 // calls that led there, and the game carries on.
 struct SeenPlaces {
     static constexpr size_t kPlaces = 256;

@@ -1,7 +1,7 @@
 // Occlusion polygons and view culling: see occlusion.h. The plane maths follows the original's x87 code: some
 // intermediate values stay in double precision (in registers), the rest are rounded to floats where it stored them.
 
-#include "engine/core/within.h"
+#include "base/core/within.h"
 #include "engine/gfx/occlusion.h"
 #include "platform/d3dx.h"
 
@@ -12,13 +12,13 @@
 #include <span>
 
 #include "engine/gfx/draw_frame.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 
 namespace render {
 

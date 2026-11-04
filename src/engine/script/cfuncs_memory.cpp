@@ -8,13 +8,13 @@
 #include <array>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/dump_text.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/gfx/spawned_polys.h"
@@ -22,8 +22,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/script_startup.h"
 #include "engine/script/cfuncs_scene.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/sys/game_config.h"
 #include "engine/script/script_state.h"
 

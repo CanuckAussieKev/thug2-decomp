@@ -7,8 +7,8 @@
 #include <cstdint>
 
 #include "engine/memory/manager.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/rotation_blend.h"
+#include "base/maths/mat4.h"
+#include "base/maths/rotation_blend.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/motion_internal.h"
 #include "engine/objects/entity_hub.h"
@@ -16,9 +16,9 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
 
 namespace objects {
 

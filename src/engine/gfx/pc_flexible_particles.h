@@ -6,8 +6,8 @@
 
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/particle_types.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/checksums.h"
+#include "base/maths/vec4.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 #include <d3d9.h>

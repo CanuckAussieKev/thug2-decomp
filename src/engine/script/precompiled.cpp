@@ -9,15 +9,15 @@
 
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/script/cell.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"
 #include "formats/byte_stream.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
-#include "engine/core/checked_index.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/raw_view.h"
+#include "base/core/checked_index.h"
 
 
 namespace script {

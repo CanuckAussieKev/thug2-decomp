@@ -7,7 +7,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/screen_effects.h"
 
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include <gsl/pointers>
 #include <array>
 #include "platform/d3d_forward.h"

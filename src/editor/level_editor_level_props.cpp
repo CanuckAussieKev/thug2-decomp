@@ -16,7 +16,7 @@
 #include <array>
 
 #include "editor/level_editor_fields.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/node_manager.h"
@@ -24,10 +24,10 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::level_props {
 

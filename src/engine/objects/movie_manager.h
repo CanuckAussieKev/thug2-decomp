@@ -7,7 +7,7 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/node_objects.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 // The movie manager (GameObjects::VideoHub, 0x0057A180-0x0057B240): the queue of camera animations and cutscenes

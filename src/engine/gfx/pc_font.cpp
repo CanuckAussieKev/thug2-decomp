@@ -10,10 +10,10 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/text.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/screen_2d.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 #include <gsl/pointers>
 
 namespace render {

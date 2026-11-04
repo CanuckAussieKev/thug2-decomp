@@ -8,7 +8,7 @@
 #include <array>
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/net/service.h"
 #include "wire/gamenet_messages.h"
 #include "engine/script/preferences.h"

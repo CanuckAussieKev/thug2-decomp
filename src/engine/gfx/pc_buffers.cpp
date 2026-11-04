@@ -16,7 +16,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
 #include "gpu/vertex_buffers.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/mesh_pass.h"
 

@@ -6,7 +6,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/net/service.h"
 #include "platform/gamespy.h"
 #include "engine/memory/manager.h"
@@ -19,11 +19,11 @@
 #include "engine/net/stats_man.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/loading_bar.h"
-#include "platform/compiler.h"
-#include "engine/core/checked_index.h"
+#include "base/core/compiler.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include <gsl/assert>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strncpy: the original's own)

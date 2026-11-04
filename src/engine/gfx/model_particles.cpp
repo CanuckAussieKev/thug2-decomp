@@ -9,18 +9,18 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/packed_colour.h"
-#include "engine/core/str.h"
+#include "base/core/packed_colour.h"
+#include "base/core/str.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/particle_system_internal.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {

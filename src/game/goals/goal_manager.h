@@ -12,7 +12,7 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "engine/lists/lookup_table.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace script {

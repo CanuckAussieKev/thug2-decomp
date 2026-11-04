@@ -15,11 +15,11 @@
 #include <span>
 #include <string_view>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
-#include "engine/core/stubs.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "base/core/stubs.h"
 #include "engine/gfx/movie.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/audio/music_api.h"
 #include "engine/audio/stream.h"
 #include "engine/script/cscript.h"
@@ -27,11 +27,11 @@
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 #include "engine/objects/stream_component.h"
-#include "platform/compiler.h"
-#include "engine/core/checked_index.h"
+#include "base/core/compiler.h"
+#include "base/core/checked_index.h"
 #include "engine/audio/audio_state.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/str.h"
+#include "base/core/no_destroy.h"
+#include "base/core/str.h"
 #include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 

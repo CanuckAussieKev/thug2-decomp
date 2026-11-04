@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
 #include "engine/render/coll_obj.h"
 #include <gsl/pointers>
 

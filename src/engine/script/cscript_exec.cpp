@@ -40,7 +40,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/net/gamenet_manager.h"
@@ -56,8 +56,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/loading_console.h"
 #include "platform/run_log.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 

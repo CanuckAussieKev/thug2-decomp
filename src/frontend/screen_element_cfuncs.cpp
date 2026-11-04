@@ -12,9 +12,9 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/manager.h"
-#include "engine/core/cursor.h"
+#include "base/core/cursor.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "frontend/model_widget.h"
 #include "frontend/menu_element.h"
 #include "frontend/screen_element_cfuncs.h"
@@ -28,10 +28,10 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/rect.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
+#include "base/maths/rect.h"
 #include <utility>
 #include <gsl/assert>
 

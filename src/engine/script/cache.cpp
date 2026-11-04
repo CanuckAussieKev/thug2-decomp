@@ -16,7 +16,7 @@
 #include "engine/script/tokens.h"
 #include "formats/lzss.h"
 #include <gsl/pointers>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/script/script_state.h"
 
 namespace script {

@@ -6,10 +6,10 @@
 #include <cstring>
 #include <span>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 #include "formats/collision_format.h"
 

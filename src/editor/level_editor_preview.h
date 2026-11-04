@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "editor/level_editor.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 namespace frontend::level_editor::ui {
 struct ShapeMesh;

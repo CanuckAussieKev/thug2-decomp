@@ -8,8 +8,8 @@
 #include <array>
 
 #include "engine/memory/manager.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/objects/ride_tracker.h"
@@ -25,8 +25,8 @@
 #include "game/rider/thaw_bmx.h"
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/render/coll_obj.h"
 
 namespace skater {

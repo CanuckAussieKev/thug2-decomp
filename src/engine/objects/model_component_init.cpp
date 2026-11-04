@@ -25,16 +25,16 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/model_component.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checksums.h"
-#include "engine/core/str.h"
+#include "base/core/checksums.h"
+#include "base/core/str.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
 
 namespace objects {
 

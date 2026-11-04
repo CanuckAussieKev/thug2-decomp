@@ -7,8 +7,8 @@
 #include <utility>
 
 #include "frontend/new_frontend_text.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/rect.h"
+#include "base/core/checked_index.h"
+#include "base/maths/rect.h"
 
 // NOT ORIGINAL - the new front end's pure parts (ours; see new_frontend.h): its data file, its small state file, the
 // layout's frame, and the menus' state machine with their animation - no game, no renderer: they run

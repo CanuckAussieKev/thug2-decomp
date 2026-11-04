@@ -21,8 +21,8 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 namespace {

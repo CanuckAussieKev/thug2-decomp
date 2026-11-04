@@ -6,7 +6,7 @@
 #include <array>
 
 #include "game/park_editing/park_editor.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/ride_tracker.h"
@@ -15,7 +15,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/thaw_bmx.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/render/coll_obj.h"
 
 namespace objects {

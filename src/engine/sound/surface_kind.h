@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace maths {
 class Vec4;

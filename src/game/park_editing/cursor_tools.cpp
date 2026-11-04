@@ -1,6 +1,6 @@
 // The park editor's cursor: clipboards, area selection, the gap being built, keeping it in the park.
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -11,9 +11,9 @@
 #include "engine/memory/slab_bank.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "game/park/park_memory.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace park_editing {
 

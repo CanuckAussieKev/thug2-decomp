@@ -16,8 +16,8 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/viewport.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/trig.h"
+#include "base/maths/mat4.h"
+#include "base/maths/trig.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
@@ -30,12 +30,12 @@
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/maths/shape_tests.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/gfx/renderer.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include <gsl/pointers>
 
 namespace frontend {

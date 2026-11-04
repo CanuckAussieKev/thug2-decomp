@@ -13,9 +13,9 @@
 #include <span>
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
-#include "engine/core/enum_ops.h"
-#include "engine/core/format.h"
+#include "base/core/checksums.h"
+#include "base/core/enum_ops.h"
+#include "base/core/format.h"
 #include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
 #include "platform/gamespy.h"
 #include "engine/memory/manager.h"
@@ -56,13 +56,13 @@
 #include "game/park_editing/goal_editor.h"
 #include "engine/net/score_list.h"
 #include "platform/crt.h"
-#include "platform/compiler.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/compiler.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "wire/gamenet_messages.h"
 #include "wire/net_wire.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/str.h"
+#include "base/core/no_destroy.h"
+#include "base/core/str.h"
 #include "engine/net/net_address.h"
 #include "wire/message_ids.h"
 #include "engine/net/online_identity.h"

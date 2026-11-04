@@ -34,8 +34,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "platform/unique_handle.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace objects::thugpro_cas {

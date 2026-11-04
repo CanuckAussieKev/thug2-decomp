@@ -5,9 +5,9 @@
 #include <cstdint>
 
 #include "engine/memory/mem.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/vec4.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
 
 namespace maths {
 class BBox;

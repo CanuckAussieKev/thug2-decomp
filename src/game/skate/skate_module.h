@@ -11,7 +11,7 @@
 #include <cstdint>
 
 #include "engine/lists/chain_start.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/sys/game_module.h"
 #include "engine/memory/mem.h"
 #include <gsl/pointers>

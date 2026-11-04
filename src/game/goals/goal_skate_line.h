@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "game/goals/objective.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace goals {
 

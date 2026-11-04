@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <initializer_list>
 
-#include "engine/maths/maths.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/maths.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/ride_tracker.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/career.h"
@@ -21,7 +21,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_sound.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/render/coll_obj.h"
 

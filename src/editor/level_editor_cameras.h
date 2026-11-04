@@ -8,7 +8,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 struct ImFont;
 

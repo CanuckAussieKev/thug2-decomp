@@ -11,7 +11,7 @@
 #include <cstdint>
 
 #include "engine/gfx/debug_lines.h"
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/render/coll_movable.h"
@@ -25,11 +25,11 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 
 namespace objects {

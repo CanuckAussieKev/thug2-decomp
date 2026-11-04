@@ -12,7 +12,7 @@
 #include <span>
 
 #include "engine/gfx/device.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/d3dx.h"
 #include "engine/gfx/geom.h"
@@ -24,13 +24,13 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/mesh_pass.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <bit>
 
 namespace render {

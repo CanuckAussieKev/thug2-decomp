@@ -10,7 +10,7 @@
 #include <array>
 #include <span>
 #include "engine/pad_input/input_hub.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 namespace objects {
 

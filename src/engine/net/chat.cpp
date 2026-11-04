@@ -9,13 +9,13 @@
 #include <array>
 #include <span>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/gfx/screen.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -35,11 +35,11 @@
 #include "engine/gfx/draw_frame.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "wire/net_wire.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/gfx/renderer.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"

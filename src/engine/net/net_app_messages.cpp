@@ -11,8 +11,8 @@
 #include <gsl/assert>
 
 #include "wire/message_ids.h"
-#include "engine/core/enum_ops.h"
-#include "engine/core/checksums.h"
+#include "base/core/enum_ops.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/lists/chain_start.h"
@@ -28,9 +28,9 @@
 #include "wire/net_wire.h"
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/cursor.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/cursor.h"
 
 namespace net {
 

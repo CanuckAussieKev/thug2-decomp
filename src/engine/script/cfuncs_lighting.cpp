@@ -19,7 +19,7 @@
 #include "engine/sys/game_config.h"
 #include "platform/registry.h"
 #include "engine/gfx/view_setup.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace commands {
 

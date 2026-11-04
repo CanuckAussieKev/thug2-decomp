@@ -10,17 +10,17 @@
 #include <array>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "game/park_editing/park.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

@@ -7,8 +7,8 @@
 #include <cstring>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/objects/compositemgr.h"
@@ -24,9 +24,9 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/script/script_state.h"
-#include "engine/core/language.h"
+#include "base/core/language.h"
 #include <gsl/pointers>
 #include <span>
 #include <gsl/assert>

@@ -11,8 +11,8 @@
 #include <array>
 
 #include "engine/memory/slab_bank.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/checksums.h"
+#include "base/maths/vec4.h"
+#include "base/core/checksums.h"
 
 namespace park_editing {
 

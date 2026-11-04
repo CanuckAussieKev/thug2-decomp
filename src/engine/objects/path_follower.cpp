@@ -8,14 +8,14 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/entity.h"
 #include "engine/script/nodes.h"
-#include "engine/maths/random.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/maths/random.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

@@ -6,7 +6,7 @@
 
 #include "engine/render/coll_world.h"
 
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_line.h"
@@ -15,9 +15,9 @@
 #include "engine/gfx/engine.h"
 #include "engine/sys/startup_init.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/render/collision_state.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 
 namespace render {

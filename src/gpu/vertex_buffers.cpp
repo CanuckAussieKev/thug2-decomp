@@ -13,10 +13,10 @@
 #include <cstring>
 #include <gsl/pointers>
 
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 #include "platform/crt.h"
 #include "engine/memory/mem.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 
 namespace render {

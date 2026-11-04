@@ -9,13 +9,13 @@
 #include <cstring>
 
 #include "engine/assets/resource_registry.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/dbg.h"
+#include "base/core/checked_index.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/memory_sizes.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/file/async.h"
@@ -29,8 +29,8 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/tod_manager.h"
 #include "game/save_cards/memcard.h"
-#include "engine/maths/maths.h"
-#include "engine/maths/random.h"
+#include "base/maths/maths.h"
+#include "base/maths/random.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/component_types.h"
@@ -60,7 +60,7 @@
 #include "engine/objects/collide_and_die.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/language.h"
+#include "base/core/language.h"
 
 namespace sys {
 

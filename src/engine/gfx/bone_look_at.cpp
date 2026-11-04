@@ -12,16 +12,16 @@
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/rig.h"
-#include "engine/maths/quat_rotation.h"
+#include "base/maths/quat_rotation.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
 
 namespace gfx {
 

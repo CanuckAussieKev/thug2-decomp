@@ -13,11 +13,11 @@
 
 #include "editor/level_editor_ux8.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
-#include "engine/maths/vec2.h"
-#include "engine/core/str.h"
+#include "base/maths/vec2.h"
+#include "base/core/str.h"
 #include "editor/level_editor_ui_layout.h"
 
 namespace frontend::level_editor::ui_strip {

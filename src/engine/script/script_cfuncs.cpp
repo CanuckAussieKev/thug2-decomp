@@ -9,11 +9,11 @@
 #include <array>
 #include <string_view>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/sys/game_config.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -23,8 +23,8 @@
 #include "engine/gfx/tod_manager.h"
 #include <gsl/pointers>
 #include <gsl/assert>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 
 namespace {
 constexpr int kDecimalBase = 10;

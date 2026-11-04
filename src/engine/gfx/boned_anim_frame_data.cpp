@@ -16,12 +16,12 @@
 #include "formats/anim_format.h"
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/custom_anim_key.h"
-#include "engine/maths/maths.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/maths.h"
+#include "base/maths/vec4.h"
 #include "formats/byte_stream.h"
 #include "engine/objects/walk_hang.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include <gsl/assert>
 #include <gsl/pointers>
 

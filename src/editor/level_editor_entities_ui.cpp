@@ -11,7 +11,7 @@
 #include <array>
 
 #include "editor/level_editor_ui.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_nodes.h"
@@ -20,8 +20,8 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::entities {

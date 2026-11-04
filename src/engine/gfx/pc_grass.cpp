@@ -15,7 +15,7 @@
 #include <span>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_scene_list.h"
@@ -27,18 +27,18 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/bitmap_texture.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "gpu/vertex_buffers.h"
 #include <bit>
 #include "gpu/vertex_view.h"
 #include "engine/gfx/pc_scene.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/render_state.h"
 
 namespace render {

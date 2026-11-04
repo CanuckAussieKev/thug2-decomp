@@ -8,11 +8,11 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/compositemgr.h"
@@ -39,9 +39,9 @@
 #include "engine/objects/model_component.h"
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/trig.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/trig.h"
 
 namespace {
 constexpr double kQuarterPi = 0.78539818525314331;

@@ -6,11 +6,11 @@
 #include <span>
 #include <array>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/cursor.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/cursor.h"
+#include "base/core/no_destroy.h"
 
 namespace lzss {
 

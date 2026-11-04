@@ -6,7 +6,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/mem.h"
 #include "frontend/screen_element.h"
 #include "engine/lists/chain_start.h"
@@ -31,12 +31,12 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/str.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat, kept)
 

@@ -3,18 +3,18 @@
 
 #include "engine/gfx/texture_cfuncs.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <array>
 
 #include "engine/gfx/engine_texture.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 
 namespace commands {

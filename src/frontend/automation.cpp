@@ -24,10 +24,10 @@
 #include <array>
 #include <span>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/script/cell.h"
 #include "platform/winmain.h"
-#include "engine/core/parse_number.h"
+#include "base/core/parse_number.h"
 #include "frontend/front_end.h"
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend.h"
@@ -105,11 +105,11 @@ constexpr int kMaxCommandsPerFrame = 32;
 constexpr int kFullPressure = 0xFF;
 
 #include "frontend/automation_tables.inc"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/memory/mem.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;     // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516; // "focus"

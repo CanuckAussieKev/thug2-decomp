@@ -17,7 +17,7 @@
 #include <array>
 #include <iterator>
 
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/pc_gamma.h"
 #include "engine/gfx/render_state.h"
@@ -27,12 +27,12 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "platform/registry.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "engine/maths/rect.h"
-#include "engine/core/language.h"
+#include "base/maths/rect.h"
+#include "base/core/language.h"
 #include "engine/gfx/graphics_options_d3d.h"
 
 namespace render {

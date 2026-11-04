@@ -31,8 +31,8 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/script_startup.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/down_cast.h"
+#include "base/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace gfx {

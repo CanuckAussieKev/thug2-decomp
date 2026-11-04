@@ -8,16 +8,16 @@
 #include <vector>
 #include <gsl/assert>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/render/coll_obj.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_shadows.h"
-#include "engine/lists/object_set.h"
-#include "engine/maths/vec4.h"
+#include "base/lists/object_set.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/effects_state.h"
 

@@ -12,9 +12,9 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "formats/collision_format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include <algorithm>
 #include <iterator>
 #include <span>

@@ -13,10 +13,10 @@
 #include "engine/memory/arena_alloc.h"
 #include "engine/objects/smtptr.h"
 #include "game/rider/rider.h"
-#include "engine/maths/maths.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/trig.h"
+#include "base/maths/maths.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/maths/trig.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
@@ -32,9 +32,9 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/looping_sound.h"
 #include "platform/stopwatch.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 
 namespace objects {
 

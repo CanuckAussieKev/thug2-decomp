@@ -26,7 +26,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_node_create.h"
 #include "editor/level_editor_node_edit.h"
@@ -35,7 +35,7 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/viewport.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -46,12 +46,12 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "platform/run_log.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/vec4.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/vec4.h"
 #include "engine/script/qb.h"
 
 namespace frontend::level_editor::entities {

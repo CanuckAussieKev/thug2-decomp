@@ -10,10 +10,10 @@
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "game/park_editing/park_editing_state.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "formats/park_map_format.h"
 
 namespace park_editing {

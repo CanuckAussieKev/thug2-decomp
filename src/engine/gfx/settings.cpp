@@ -10,7 +10,7 @@
 
 #include "platform/platform_config.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
 #include "platform/platform_input.h"

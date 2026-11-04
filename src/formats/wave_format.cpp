@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the sound effects' file reader: see wave_format.h.
 
 #include "formats/wave_format.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "formats/byte_stream.h"
 
 #include <cstddef>

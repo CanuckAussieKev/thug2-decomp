@@ -10,8 +10,8 @@
 // strings with their terminator, pairs / vectors as their floats, structures recursively, arrays as their type,
 // two-byte count and elements; scripts are written as the checksum 0xB9C4F664. A zero byte ends a structure.
 
-#include "engine/core/within.h"
-#include "engine/core/checksums.h"
+#include "base/core/within.h"
+#include "base/core/checksums.h"
 #include <cstddef>
 #include <cstdint>
 

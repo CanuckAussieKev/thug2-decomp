@@ -23,7 +23,7 @@
 #include <array>
 
 #include "formats/stream_index_format.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "formats/bundle_format.h"
 #include "formats/pre_format.h"
 #include "formats/anim_format.h"
@@ -38,13 +38,13 @@
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
 #include "formats/check/format_check_files.h"
-#include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/cursor.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/same_bits.h"
+#include "base/core/ints.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/cursor.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/core/same_bits.h"
 
 namespace format_check_files {
 

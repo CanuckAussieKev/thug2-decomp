@@ -20,7 +20,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/trick_goals.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace goals {

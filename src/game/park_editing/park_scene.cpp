@@ -22,9 +22,9 @@
 #include "game/park/park_memory.h"
 #include "engine/script/nodes.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace park_editing {

@@ -6,14 +6,14 @@
 #include <cstdint>
 #include <cstring>
 
-#include "engine/core/enum_ops.h"
-#include "engine/core/checksums.h"
+#include "base/core/enum_ops.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "frontend/menu_element.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/text_element.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
 #include "engine/script/cscript.h"
@@ -35,11 +35,11 @@
 #include <gsl/pointers>
 #include <array>
 #include <gsl/assert>
-#include "platform/compiler.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/format.h"
-#include "engine/core/str.h"
+#include "base/core/compiler.h"
+#include "base/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/format.h"
+#include "base/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat into its fixed buffers, kept)
 

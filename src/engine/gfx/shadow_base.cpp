@@ -27,15 +27,15 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/cursor.h"
-#include "engine/lists/object_set.h"
+#include "base/core/checked_index.h"
+#include "base/core/cursor.h"
+#include "base/lists/object_set.h"
 #include <span>
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 
 namespace render {
 

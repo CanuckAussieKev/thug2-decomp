@@ -2,7 +2,7 @@
 
 #include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 #include <cstdlib>
 #include <cstring>

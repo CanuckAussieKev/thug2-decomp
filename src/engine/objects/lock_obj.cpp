@@ -5,16 +5,16 @@
 
 #include <cmath>
 #include <cstdint>
-#include "engine/maths/mat4.h"
-#include "engine/maths/random.h"
+#include "base/maths/mat4.h"
+#include "base/maths/random.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "frontend/screen_element_cfuncs.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec2.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec2.h"
 
 namespace objects {
 

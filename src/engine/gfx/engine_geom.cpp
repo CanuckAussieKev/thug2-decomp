@@ -7,16 +7,16 @@
 #include <new>
 #include <span>
 
-#include "engine/core/span_copy.h"
-#include "engine/core/dbg.h"
+#include "base/core/span_copy.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/core/no_destroy.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
 namespace render {
 
 constexpr float kStubSphereW = 10000.0F; // the stubbed bounding sphere's fourth component

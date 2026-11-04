@@ -5,7 +5,7 @@
 #include <cstring>
 
 #include "engine/file/file_load.h"
-#include "engine/core/ints.h"
+#include "base/core/ints.h"
 
 // NOT ORIGINAL - a scene file read through the file system with scene_format's reads (scene_format::MemoryStream's
 // interface): its size taken when opened, every read and skip counted against it. A failed read zero-fills its

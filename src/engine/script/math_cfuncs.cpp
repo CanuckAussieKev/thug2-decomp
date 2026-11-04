@@ -6,8 +6,8 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/cag_cfuncs.h"

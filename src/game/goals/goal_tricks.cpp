@@ -8,7 +8,7 @@
 #include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/objects/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -16,9 +16,9 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "game/goals/create_a_trick.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

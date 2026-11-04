@@ -10,15 +10,15 @@
 
 #include "engine/audio/stream_commands.h"
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/audio/stream.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
 #include "platform/bink.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/mem.h"
 #include "engine/audio/audio_state.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace audio {
 

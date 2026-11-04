@@ -5,10 +5,10 @@
 #include <vector>
 #include "engine/memory/slab_bank.h"
 #include <gsl/pointers>
-#include "engine/core/checksums.h"
-#include "engine/core/enum_ops.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/core/enum_ops.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cell.h"
 #include <memory>
 

@@ -5,7 +5,7 @@
 #include <array>
 
 #include "engine/audio/music_api.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace objects {
 class AudioStreamModule;

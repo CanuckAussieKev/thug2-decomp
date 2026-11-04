@@ -20,7 +20,7 @@
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
 #include "platform/stopwatch.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "wire/net_wire.h"
 #include "platform/sockets.h"
 #include "engine/net/net_address.h"

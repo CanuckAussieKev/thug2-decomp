@@ -9,9 +9,9 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/format.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/core/format.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cell.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
@@ -29,8 +29,8 @@
 #include "engine/script/struct_buffer.h"
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {

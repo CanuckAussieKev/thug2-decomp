@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 

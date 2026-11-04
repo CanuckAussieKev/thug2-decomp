@@ -9,7 +9,7 @@
 #include <array>
 
 #include "engine/memory/mem.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/lists/lookup_table.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_names.h"
@@ -34,10 +34,10 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "wire/message_ids.h"
 #include <gsl/pointers>
 #include <gsl/assert>

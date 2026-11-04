@@ -11,8 +11,8 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 
 namespace render {

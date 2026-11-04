@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/buddy_man.h"
@@ -19,7 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/script/fwd.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"

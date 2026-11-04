@@ -28,13 +28,13 @@ Checks:
   # shuffles, the pad's reconnect delay, the scripts' Random); the check flags every rand() call and has no options.
   # Nothing in the game needs unpredictable numbers.
   - '-misc-predictable-rand'
-  # Downcasts: every one goes through core::down_cast (engine/core/down_cast.h), which checks the object's type tag
+  # Downcasts: every one goes through core::down_cast (base/core/down_cast.h), which checks the object's type tag
   # in Debug before its one static_cast; the check would flag that static_cast and has no option to name it.
   # (cppcoreguidelines-pro-type-static-cast-downcast)
   - '-cppcoreguidelines-pro-type-static-cast-downcast'
   # --- off: it contradicts the project's enum rule ---
   # Enum casts outside the listed values (an optional analyzer check): flag enums hold combinations no enumerator
-  # names (FaceFlag, PlayerFlag - engine/core/enum_ops.h), a value read from a file or the wire that the enum doesn't
+  # names (FaceFlag, PlayerFlag - base/core/enum_ops.h), a value read from a file or the wire that the enum doesn't
   # list stays representable (docs/style-guide.md "Enums"), and Direct3D's own D3DTS_WORLDMATRIX(n) is a cast past
   # its enum's list. The check flags each, and the C++ library's own flag enums too; it has no options.
   - '-clang-analyzer-optin.core.EnumCastOutOfRange'
@@ -63,7 +63,7 @@ CheckOptions:
   # The game seeds the C runtime's rand() with the time, as the original does (the music shuffles): no seed type is
   # refused (the default refuses time_t). Constant seeds are still flagged.
   bugprone-random-generator-seed.DisallowedSeedTypes: ''
-  # The two compiler-specific macros of platform/compiler.h that can't be functions: a pragma inside a statement
+  # The two compiler-specific macros of base/core/compiler.h that can't be functions: a pragma inside a statement
   # (__pragma / _Pragma: a warning switched for one line) and the caller's return address (_ReturnAddress must be in
   # the function whose return address it is).
   cppcoreguidelines-macro-usage.AllowedRegexp: '^THUG2_(MSVC_WARNING|RETURN_ADDRESS)$'

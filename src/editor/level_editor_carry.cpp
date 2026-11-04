@@ -14,15 +14,15 @@
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::carry {
 

@@ -1,9 +1,9 @@
 // The engine's text: see engine_text.h.
 
 #include "engine/gfx/engine_text.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstdint>
 #include <cstring>
@@ -12,7 +12,7 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/screen_2d.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include <gsl/pointers>
 
 namespace render {

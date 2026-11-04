@@ -12,8 +12,8 @@
 #include <string_view>
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
@@ -27,11 +27,11 @@
 #include "formats/lzss.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/gathered_call.h"
-#include "engine/core/language.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/core/gathered_call.h"
+#include "base/core/language.h"
 
 namespace pre {
 

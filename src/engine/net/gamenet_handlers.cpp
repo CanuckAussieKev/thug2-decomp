@@ -10,7 +10,7 @@
 #include <span>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/net/gamenet_game_cfuncs.h"
@@ -25,7 +25,7 @@
 #include "engine/objects/trick_objects.h"
 #include "engine/script/preferences.h"
 #include "game/skate/skate_net.h"
-#include "engine/util/bitstream.h"
+#include "base/util/bitstream.h"
 #include "engine/script/game_cfuncs.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/assets/resource_registry.h"
@@ -37,7 +37,7 @@
 #include "engine/sys/mlp.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "wire/net_wire.h"
 #include "platform/registry.h"
 #include "wire/message_ids.h"

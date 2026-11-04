@@ -8,24 +8,24 @@
 #include <array>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/viewport.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/shape_tests.h"
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_obj.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/texture_projection_component.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace render {
 

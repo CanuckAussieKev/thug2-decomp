@@ -12,8 +12,8 @@
 #include <utility>
 #include <vector>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
@@ -26,9 +26,9 @@
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/language.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/language.h"
 
 namespace packs {
 

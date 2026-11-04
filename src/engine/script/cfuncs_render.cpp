@@ -8,12 +8,12 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/gfx/debug_lines.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/screen.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
@@ -30,11 +30,11 @@
 #include "engine/gfx/pc_lights.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/device.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/format.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace commands {
 

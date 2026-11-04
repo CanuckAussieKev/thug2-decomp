@@ -34,7 +34,7 @@
 #include "game/rider/core_physics.h"
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 

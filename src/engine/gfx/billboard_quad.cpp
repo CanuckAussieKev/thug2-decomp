@@ -13,12 +13,12 @@
 #include <array>
 #include <utility>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/screen.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 

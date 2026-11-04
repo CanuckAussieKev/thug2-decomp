@@ -16,14 +16,14 @@
 #include <random>
 #include <span>
 
-#include "engine/maths/trig.h"
-#include "engine/core/parse_number.h"
-#include "engine/core/checked_index.h"
+#include "base/maths/trig.h"
+#include "base/core/parse_number.h"
+#include "base/core/checked_index.h"
 
 #if defined(_MSC_VER) && defined(_M_IX86)
 #include <array>
-#include "engine/core/format.h"
-#include "engine/maths/mat4.h"
+#include "base/core/format.h"
+#include "base/maths/mat4.h"
 #include "tests/maths_check_d3dx.h"
 #endif
 

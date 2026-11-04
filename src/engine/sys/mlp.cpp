@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <new>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "editor/level_editor_ui.h"
 #include "engine/memory/task_list.h"
@@ -32,7 +32,7 @@
 #include "platform/winmain.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/draw_frame.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"

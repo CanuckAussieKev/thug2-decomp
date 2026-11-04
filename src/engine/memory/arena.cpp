@@ -4,11 +4,11 @@
 #include <span>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/script/cfuncs_engine.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace memory {

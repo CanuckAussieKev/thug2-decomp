@@ -13,10 +13,10 @@
 #include "editor/level_editor_arrange.h"
 #include "editor/level_editor_links.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::level_editor {
 

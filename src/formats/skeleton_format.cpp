@@ -1,5 +1,5 @@
 #include "formats/skeleton_format.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "formats/byte_stream.h"
 
 #include <cstdint>

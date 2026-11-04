@@ -13,7 +13,7 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
@@ -21,10 +21,10 @@
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/span_copy.h"
-#include "engine/core/cursor.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/span_copy.h"
+#include "base/core/cursor.h"
+#include "base/core/no_destroy.h"
 
 namespace level_nodes {
 

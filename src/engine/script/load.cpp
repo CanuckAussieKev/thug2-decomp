@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/file/packs.h"
@@ -25,8 +25,8 @@
 #include "engine/util/lzss.h"
 #include "formats/byte_stream.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace {

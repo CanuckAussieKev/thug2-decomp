@@ -2,7 +2,7 @@
 // precision: double where it keeps values in registers, float where it stores them).
 
 #include "engine/gfx/particle_maths.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 #include <bit>
 #include <cstdint>

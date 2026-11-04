@@ -16,10 +16,10 @@
 #include <array>
 
 #include "platform/crash.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 
 namespace {
 

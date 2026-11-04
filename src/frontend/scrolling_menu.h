@@ -6,7 +6,7 @@
 
 #include "frontend/screen_element.h"
 #include "engine/objects/signal.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 
 // The scrolling menus (VScrollingMenu / HScrollingMenu): an element holding a vmenu / hmenu that shows a window of
 // its items, scrolling to keep the focused item in view (items outside the window get alpha 0).

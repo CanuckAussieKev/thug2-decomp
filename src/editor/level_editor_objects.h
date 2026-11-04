@@ -7,7 +7,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_scenery.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 
 namespace objects {
 class GameEntity;

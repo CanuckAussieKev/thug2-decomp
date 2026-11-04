@@ -10,18 +10,18 @@
 #include <array>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
 #include "formats/skeleton_format.h"
 #include "formats/byte_stream.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/debug_lines.h"
 #include "engine/objects/cutscene.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <bit>
 
 namespace gfx {

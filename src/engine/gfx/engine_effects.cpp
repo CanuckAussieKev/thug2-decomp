@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <span>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine.h"
@@ -22,21 +22,21 @@
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/texture_splats.h"
-#include "engine/lists/object_set.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
+#include "base/lists/object_set.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_obj.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/engine_texture.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace render {
 

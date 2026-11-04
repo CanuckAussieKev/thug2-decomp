@@ -12,7 +12,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
 #include "engine/pad_input/input_hub.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace online::detail {

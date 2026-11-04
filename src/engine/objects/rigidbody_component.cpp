@@ -15,9 +15,9 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/random.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/random.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/smtptr.h"
 #include "engine/script/cscript.h"
@@ -29,11 +29,11 @@
 #include "engine/script/fwd.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/objects/objects_shared.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
 
 namespace objects {
 namespace {

@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
 #include "engine/gfx/anim_controller.h"
 
 namespace script {

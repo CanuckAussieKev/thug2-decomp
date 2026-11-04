@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <cstring>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/dbg.h"
+#include "base/core/checked_index.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/movie.h"
 #include "platform/mute_audio.h"
@@ -18,7 +18,7 @@
 #include "engine/audio/stream_files.h"
 #include "platform/bink.h"
 #include "engine/audio/audio_state.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "platform/overlapped.h"
 
 namespace audio {

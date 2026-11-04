@@ -13,7 +13,7 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
 #include "wire/gamenet_messages.h"
@@ -33,13 +33,13 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/loading_bar.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
-#include "engine/core/str.h"
+#include "base/core/checksums.h"
+#include "base/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strncpy, kept)
 

@@ -8,7 +8,7 @@
 #include <span>
 #include <string_view>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
@@ -24,7 +24,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/script_tables.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace script {
 

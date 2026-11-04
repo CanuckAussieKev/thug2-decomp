@@ -8,11 +8,11 @@
 #include <array>
 #include <span>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/dbg.h"
+#include "base/core/checked_index.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/mesh_list.h"

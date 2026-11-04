@@ -15,7 +15,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/net/buddy_status.h"
 #include "engine/gfx/pc_mesh.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/packed_colour.h"
 #include <gsl/pointers>
 
 namespace render::model_geoms {

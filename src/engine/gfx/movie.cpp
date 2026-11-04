@@ -19,8 +19,8 @@
 #include <string>
 #include <string_view>
 
-#include "engine/core/dbg.h"
-#include "engine/core/checksums.h"
+#include "base/core/dbg.h"
+#include "base/core/checksums.h"
 #include "frontend/start_level.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/render_state.h"
@@ -36,13 +36,13 @@
 #include "platform/run_log.h"
 #include "platform/winmain.h"
 #include "platform/bink.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/rect.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/rect.h"
+#include "base/maths/vec2.h"
 
 namespace render {
 

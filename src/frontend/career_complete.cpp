@@ -5,13 +5,13 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "game/rider/stats_manager.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/career.h"
@@ -19,8 +19,8 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace frontend::career_complete {

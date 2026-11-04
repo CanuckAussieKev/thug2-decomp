@@ -7,8 +7,8 @@
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/sector.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/raw_view.h"
+#include "base/maths/vec4.h"
+#include "base/core/raw_view.h"
 
 // The engine's scene calls the park editor's pieces and generator make (Nx). Sectors are looked
 // up by name; the park's pieces are clones of the park editor's own sectors.

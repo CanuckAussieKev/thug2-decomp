@@ -14,9 +14,9 @@
 #include <gsl/pointers>
 
 #include "engine/memory/manager.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/rotation_blend.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/rotation_blend.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/camera_util.h"
 #include "engine/objects/entity.h"
@@ -30,9 +30,9 @@
 #include "engine/objects/node_components.h"
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/trig.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/trig.h"
 
 namespace objects {
 

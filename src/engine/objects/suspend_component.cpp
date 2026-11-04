@@ -11,7 +11,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/model.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -26,10 +26,10 @@
 #include "engine/objects/model_component.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/maths.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/maths.h"
 #include <bit>
 
 namespace objects {

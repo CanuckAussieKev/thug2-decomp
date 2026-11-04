@@ -7,7 +7,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -35,8 +35,8 @@
 #include "game/rider/skater_score.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "platform/compiler.h"
-#include "engine/core/down_cast.h"
+#include "base/core/compiler.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 

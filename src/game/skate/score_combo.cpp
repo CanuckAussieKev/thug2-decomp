@@ -11,11 +11,11 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/lists/dynamic_table.h"
+#include "base/lists/dynamic_table.h"
 #include "engine/lists/lookup_table.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/script/param_struct.h"
@@ -40,11 +40,11 @@
 #include "platform/stopwatch.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "game/rider/adjust_physics.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/str.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/str.h"
+#include "base/core/format.h"
 #include "wire/message_ids.h"
 
 namespace modules {

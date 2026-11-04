@@ -7,9 +7,9 @@
 #include <array>
 
 #include "engine/memory/manager.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_handlers.h"
 #include "engine/net/gamenet_manager.h"
@@ -33,9 +33,9 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "wire/message_ids.h"
 #include "engine/net/player_info.h"
 

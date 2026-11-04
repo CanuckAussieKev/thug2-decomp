@@ -9,12 +9,12 @@
 #include <unordered_map>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/objects/control_pad.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/trick_component.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace skater::thaw_bmx {
 

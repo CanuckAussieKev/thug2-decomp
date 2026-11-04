@@ -4,7 +4,7 @@
 #include <span>
 
 #include "engine/gfx/particle_system.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // What the flexible particle types' engine constructors and destructors share (particle_system.cpp).
 namespace render::particle_parts {

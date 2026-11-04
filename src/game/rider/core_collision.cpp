@@ -2,7 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
@@ -14,8 +14,8 @@
 #include "game/rider/rider.h"
 #include "game/rider/skater_sound.h"
 #include "engine/objects/trigger_events.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/render/coll_obj.h"
 
 namespace skater {

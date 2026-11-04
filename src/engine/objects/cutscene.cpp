@@ -2,7 +2,7 @@
 
 #include "engine/objects/cutscene.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstdint>
 #include <string>
@@ -11,14 +11,14 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "frontend/front_end.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"
 #include "platform/stopwatch.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace objects {
 

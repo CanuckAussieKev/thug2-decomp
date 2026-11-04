@@ -7,16 +7,16 @@
 #include <array>
 
 #include "engine/gfx/debug_lines.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_line.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_world.h"
 #include "engine/objects/entity.h"
 #include "game/rider/debug_collision.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "platform/code_address.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/render/collision_state.h"
 
 namespace render {

@@ -2,8 +2,8 @@
 // PNG encoding by stb_image_write v1.16 (Sean Barrett, public domain / MIT - see THIRD_PARTY_NOTICES.md).
 
 #include "platform/screenshot_files.h"
-#include "platform/compiler.h"
-#include "engine/core/parse_number.h"
+#include "base/core/compiler.h"
+#include "base/core/parse_number.h"
 
 #include <algorithm>
 #include <cctype>
@@ -17,14 +17,14 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include "engine/core/checked_index.h"
-#include "engine/core/gathered_call.h"
-#include "engine/maths/rect.h"
+#include "base/core/checked_index.h"
+#include "base/core/gathered_call.h"
+#include "base/maths/rect.h"
 
 THUG2_MSVC_WARNING(push, 0)
 #define STBI_WRITE_NO_STDIO
 #include "stb_image_write.h" // (its implementation: the stb_image_write library, CMakeLists.txt)
-#include "engine/core/format.h"
+#include "base/core/format.h"
 THUG2_MSVC_WARNING(pop)
 
 namespace sys::screenshot {

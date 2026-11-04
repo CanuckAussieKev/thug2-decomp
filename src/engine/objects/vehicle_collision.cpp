@@ -14,10 +14,10 @@
 #include <cstdint>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/gfx/debug_lines.h"
-#include "engine/maths/rotation_blend.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/rotation_blend.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/render/coll_rect.h"
 #include "engine/objects/vehicle_internal.h"
@@ -25,8 +25,8 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trigger_events.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

@@ -10,7 +10,7 @@
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/rig.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"
@@ -22,8 +22,8 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

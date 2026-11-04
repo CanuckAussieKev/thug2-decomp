@@ -7,12 +7,12 @@
 
 #include "engine/gfx/engine_primitive.h"
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/gfx/pc_primitive.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/vec4.h"
+#include "base/core/no_destroy.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
 
 namespace render {
 

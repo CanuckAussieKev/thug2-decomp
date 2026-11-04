@@ -6,7 +6,7 @@
 
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 #include <gsl/pointers>
 
 // The engine's fonts and texts on PC (Nx engine): the PC font (the engine's Typeface over a bitmap font, TypefaceData) and

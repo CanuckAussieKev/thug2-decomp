@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "editor/level_editor_ux8.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 // NOT ORIGINAL - the level editor's tool strip and status bar (ours; see level_editor_ui.h). The top of the screen is a
 // menu bar (File, Edit, View, Tools, Help - level_editor_ui_menus.cpp) over one slim strip of the core controls: the

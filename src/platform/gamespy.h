@@ -5,7 +5,7 @@
 // game passes (FriendsManager's first word). Callbacks are passed as code pointers with the SDK's cdecl signatures.
 #pragma once
 
-#include "engine/core/pointer_cell.h"
+#include "base/core/pointer_cell.h"
 #include "platform/code_address.h"
 
 #include <cstddef>

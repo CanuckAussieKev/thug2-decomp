@@ -11,9 +11,9 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "game/save_cards/save_types.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "game/save_cards/save_cards_state.h"
 
 namespace save_cards {

@@ -2,7 +2,7 @@
 // them in registers, rounded to float where it stores them).
 
 #include "engine/gfx/geom.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/gfx/pc_mesh.h"
 
 #include <cmath>
@@ -16,24 +16,24 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "gpu/vertex_buffers.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/model.h"
-#include "engine/core/ints.h"
+#include "base/core/ints.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <span>
 #include "gpu/vertex_view.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/mesh_pass.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/checksums.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

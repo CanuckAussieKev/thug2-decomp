@@ -3,14 +3,14 @@
 // precision) until the original stores them as floats.
 
 #include "game/rider/nonlocal_net_logic.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
 #include "engine/render/probe_ray.h"
@@ -32,13 +32,13 @@
 #include "game/rider/state_history.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "game/rider/core_physics.h"
 #include "engine/render/coll_obj.h"
-#include "engine/maths/trig.h"
+#include "base/maths/trig.h"
 
 namespace objects {
 

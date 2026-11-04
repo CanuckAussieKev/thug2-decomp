@@ -2,7 +2,7 @@
 // where it keeps values in registers, floats where it stores them.
 
 #include "engine/gfx/pc_texture_projection.h"
-#include "engine/core/cursor.h"
+#include "base/core/cursor.h"
 #include "engine/gfx/geom.h"
 #include "platform/d3dx.h"
 
@@ -16,7 +16,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_effects.h"
@@ -28,11 +28,11 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/texture_splats.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "platform/crt.h"
 #include "engine/sys/startup_init.h"
 #include "gpu/vertex_view.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"

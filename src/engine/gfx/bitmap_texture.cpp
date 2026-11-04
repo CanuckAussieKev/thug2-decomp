@@ -14,7 +14,7 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/renderer.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 
 namespace render {
 

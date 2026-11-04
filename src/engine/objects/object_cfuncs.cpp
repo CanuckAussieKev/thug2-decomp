@@ -9,8 +9,8 @@
 #include "engine/gfx/rig.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
@@ -23,10 +23,10 @@
 #include "engine/objects/particle_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/gfx/particle_sets.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec2.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec2.h"
 #include <bit>
 
 namespace commands {

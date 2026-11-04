@@ -14,8 +14,8 @@
 
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_rails.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/down_cast.h"
+#include "base/maths/vec4.h"
+#include "base/core/down_cast.h"
 
 namespace script {
 class Array;

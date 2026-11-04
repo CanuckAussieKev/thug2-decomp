@@ -5,7 +5,7 @@
 #include <memory>
 #include <array>
 
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include "editor/level_editor.h"
 
 // NOT ORIGINAL - what the level editor (level_editor.cpp) offers the modules that keep their own state and draw their

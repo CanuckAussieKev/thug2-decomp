@@ -21,7 +21,7 @@
 #include "engine/objects/signal.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace pad_input {
 struct Payload;

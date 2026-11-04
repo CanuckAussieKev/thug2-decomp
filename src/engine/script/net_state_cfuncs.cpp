@@ -9,12 +9,12 @@
 #include <initializer_list>
 #include <array>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "platform/crt.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
@@ -38,8 +38,8 @@
 #include "game/skate/game_mode.h"
 #include "engine/assets/resource_registry.h"
 #include "game/rider/core_physics.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/net/service.h"
 #include "engine/script/script_state.h"

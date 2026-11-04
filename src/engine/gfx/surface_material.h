@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // A scene material (Nx engine, PC; 0x110 bytes, constructor 0x004D1A90): up to four passes, each with flags, a
 // texture, a colour, a blend mode, addressing, a mip bias and an optional UV wibble; colour and texture animations;

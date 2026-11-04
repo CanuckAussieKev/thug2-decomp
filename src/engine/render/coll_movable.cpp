@@ -6,15 +6,15 @@
 #include <new>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/render/coll_obj.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

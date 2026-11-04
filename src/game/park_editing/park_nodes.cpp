@@ -11,7 +11,7 @@
 #include <span>
 
 #include "engine/assets/resource_entry.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "game/park_editing/goal_editor_util.h"
 #include "game/park_editing/park.h"
@@ -24,12 +24,12 @@
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/game_cfuncs.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/trig.h"
+#include "base/core/format.h"
+#include "base/maths/vec4.h"
+#include "base/maths/trig.h"
 
 namespace park_editing {
 

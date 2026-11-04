@@ -3,11 +3,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 namespace script {
 class Struct;

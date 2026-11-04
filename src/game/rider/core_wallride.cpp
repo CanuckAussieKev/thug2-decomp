@@ -3,8 +3,8 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/ride_tracker.h"
 #include "engine/script/param_struct.h"
@@ -14,8 +14,8 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/skater_sound.h"
 #include "game/rider/matrix_queries.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/render/coll_obj.h"
 
 namespace skater {

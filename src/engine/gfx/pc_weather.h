@@ -6,7 +6,7 @@
 #include <span>
 
 #include "engine/gfx/weather.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 // The PC weather (Nx engine: the engine's WeatherSystem - constructor 0x004A14C0, destructor body 0x004A1080, its script
 // setters 0x004A10B0-0x004A1450 - over it; made by start_engine, 0x006FA7C8): rain (lines, with splashes where drops

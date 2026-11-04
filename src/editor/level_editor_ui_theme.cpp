@@ -8,8 +8,8 @@
 #include "editor/level_editor_ui_fonts.h"
 #include "editor/level_editor_ui_layout.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace frontend::level_editor::ui_theme {
 

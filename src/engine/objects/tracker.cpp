@@ -12,13 +12,13 @@
 #include <span>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/lists/key_map.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/smtptr.h"
 #include "frontend/screen_element_manager.h"
@@ -27,14 +27,14 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/script_startup.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "platform/all_ones.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/all_ones.h"
 #include <gsl/pointers>
 #include <gsl/assert>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/objects/objects_shared.h"
 
 namespace objects {

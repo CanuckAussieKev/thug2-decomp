@@ -11,7 +11,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 namespace commands {
 
 namespace {

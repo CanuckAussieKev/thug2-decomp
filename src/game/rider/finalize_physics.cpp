@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "game/rider/looping_sound.h"
 #include "game/rider/rider.h"
 #include "engine/objects/entity.h"
@@ -15,7 +15,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_sound.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 
 namespace objects {
 

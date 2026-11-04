@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/script/param_struct.h"

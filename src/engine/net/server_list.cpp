@@ -13,8 +13,8 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
@@ -33,7 +33,7 @@
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/texture_cfuncs.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "game/goals/objective.h"
 #include "engine/script/fwd.h"
 #include "engine/memory/fwd.h"
@@ -44,15 +44,15 @@
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
 #include "formats/byte_stream.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "wire/gamenet_messages.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/gathered_call.h"
-#include "engine/core/str.h"
+#include "base/core/gathered_call.h"
+#include "base/core/str.h"
 #include "engine/net/online_identity.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)

@@ -21,8 +21,8 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace commands {

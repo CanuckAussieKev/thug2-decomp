@@ -6,17 +6,17 @@
 #include <cstring>
 #include <new>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/scene_file_stream.h"
 #include "formats/scene_format.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/lists/key_map.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/render_state.h"
-#include "engine/core/same_bits.h"
+#include "base/core/same_bits.h"
 #include <array>
 #include <gsl/assert>
 

@@ -8,22 +8,22 @@
 #include <array>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/pc_viewport.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/gfx/screen.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/view_setup.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/rect.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec2.h"
+#include "base/maths/rect.h"
 namespace render {
 
 constexpr uint32_t kLastScreenMode = 5;

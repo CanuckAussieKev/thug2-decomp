@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
@@ -19,12 +19,12 @@
 #include <array>
 #include <span>
 #include <gsl/assert>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/script/tokens.h"
 #include "platform/crt.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/script/script_state.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 namespace script {
 

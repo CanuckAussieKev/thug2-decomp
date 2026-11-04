@@ -6,7 +6,7 @@
 #include <initializer_list>
 #include <array>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "platform/gamespy.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -28,7 +28,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 namespace online {

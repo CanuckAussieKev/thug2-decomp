@@ -7,7 +7,7 @@
 #include <span>
 
 #include "engine/memory/mem.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 #include <gsl/assert>
 

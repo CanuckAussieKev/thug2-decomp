@@ -5,9 +5,9 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/checksums.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/core/checksums.h"
 
 // The rail manager (GameObjects::GrindRailHub, 0x0057C170-0x0057EE65): a level's (or a moving object's) grind rails and
 // climbing nodes, made from the node array's rail_nodes / ClimbingNodes. The skate module's is at +0x24; an object's

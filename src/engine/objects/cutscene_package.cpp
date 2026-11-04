@@ -22,9 +22,9 @@
 #include "game/skate/skate_module.h"
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/file/asset_bundle.h"
 #include "formats/bundle_format.h"
 #include "formats/byte_stream.h"
@@ -40,11 +40,11 @@
 #include "engine/gfx/engine.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/render_state.h"
 #include "engine/memory/mem.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/objects/objects_shared.h"
 
 namespace objects {

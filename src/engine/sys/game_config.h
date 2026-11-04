@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <span>
 
-#include "engine/core/language.h"
+#include "base/core/language.h"
 
 // The game's own configuration (0x005B5C90-0x005B6370): the command line's options (CD / NotCD, NoExtraMem,
 // Bootstrap, Pal / NTSC, FrameRate=50|60), the language from the registry (HKCU, then HKLM, ...\Install\language),
@@ -15,7 +15,7 @@ namespace game_config {
 using Arguments = std::span<char* const>;
 
 // The territory, hardware and display numbers (the settings below hold one of each; the language numbers:
-// engine/core/language.h).
+// base/core/language.h).
 constexpr int kTerritoryEurope = 1;
 constexpr int kTerritoryUs = 2;
 constexpr int kTerritoryAsia = 3;

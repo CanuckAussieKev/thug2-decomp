@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "engine/gfx/particle_sets.h"
 #include "engine/script/cscript.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace render {
 

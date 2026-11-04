@@ -23,7 +23,7 @@
 #include <new>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/net/gamenet_manager.h"
@@ -36,7 +36,7 @@
 #include "engine/script/struct_buffer.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 #include <gsl/pointers>

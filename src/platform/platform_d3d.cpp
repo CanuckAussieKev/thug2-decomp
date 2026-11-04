@@ -5,13 +5,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <unordered_map>
 
 #include "engine/gfx/pc_flexible_particles.h"
-#include "engine/core/raw_view.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/raw_view.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 
 namespace os_layer {

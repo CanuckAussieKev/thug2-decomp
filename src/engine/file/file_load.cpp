@@ -8,13 +8,13 @@
 #include <span>
 #include <string_view>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/file/archive.h"
 #include "frontend/data_overlay.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace file {
 

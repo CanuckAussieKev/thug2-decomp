@@ -23,8 +23,8 @@
 #include <array>
 
 #include "editor/level_editor.h"
-#include "engine/maths/vec2.h"
-#include "engine/core/checksums.h"
+#include "base/maths/vec2.h"
+#include "base/core/checksums.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_carry.h"
@@ -45,13 +45,13 @@
 #include "gpu/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "engine/gfx/geom.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
 #include "gpu/vertex_view.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/trig.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::arrange {
 

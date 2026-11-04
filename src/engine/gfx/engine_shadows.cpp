@@ -16,11 +16,11 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_utils.h"
-#include "engine/core/checked_index.h"
-#include "engine/lists/object_set.h"
-#include "engine/maths/mat4.h"
+#include "base/core/checked_index.h"
+#include "base/lists/object_set.h"
+#include "base/maths/mat4.h"
 #include "engine/gfx/effects_state.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {

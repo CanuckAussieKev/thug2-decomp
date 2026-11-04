@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 
 #include <gsl/pointers>
 #include <array>

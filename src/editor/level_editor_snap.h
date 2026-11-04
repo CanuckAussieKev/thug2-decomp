@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // NOT ORIGINAL - the level editor's snapping while dragging (ours; see level_editor.h and level_editor_transform.h). Held while dragging (or always, with the toolbar's Snap on and its Snap to):
 //   - Ctrl: the grid (the toolbar's size: 1, 5, 10, 25, 50, 100) relative to where the drag started - it moves by whole

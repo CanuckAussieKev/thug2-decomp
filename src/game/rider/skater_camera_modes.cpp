@@ -13,8 +13,8 @@
 #include "game/rider/walk_camera.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/objects/camera_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/maths/trig.h"
+#include "base/core/down_cast.h"
+#include "base/maths/trig.h"
 
 namespace objects {
 

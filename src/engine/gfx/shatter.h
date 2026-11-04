@@ -5,10 +5,10 @@
 #include <span>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 
-#include "engine/lists/object_set.h"
+#include "base/lists/object_set.h"
 
 // Shattering on PC (Nx engine; the Shatter script command): a mesh broken into triangles that fly apart - each
 // shatter (0x40 bytes) keeps its triangles' vertices and their positions, and the shatters are in a table

@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"

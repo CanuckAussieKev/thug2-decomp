@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/pad_input/input_hub.h"
 
 namespace script {

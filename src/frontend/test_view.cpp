@@ -10,8 +10,8 @@
 #include <numbers>
 
 #include "engine/gfx/view_cam.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -19,8 +19,8 @@
 #include "game/rider/rider.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::test_view {
 

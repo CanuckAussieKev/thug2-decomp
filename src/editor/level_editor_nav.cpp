@@ -3,8 +3,8 @@
 #include "editor/level_editor_nav.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_organize.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/trig.h"
+#include "base/core/checked_index.h"
+#include "base/maths/trig.h"
 
 #include <algorithm>
 #include <cmath>

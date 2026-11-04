@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 // Full-screen effects (Nx engine, PC): the frame is drawn into one of the screen-copy render targets
 // (0x00786D1C, the current one 0x00786D68) instead of the back buffer, then downsampled, blurred (the motion blur,

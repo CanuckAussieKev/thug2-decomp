@@ -8,9 +8,9 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
-#include "engine/maths/mat4.h"
-#include "engine/core/enum_ops.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/core/enum_ops.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/control_pad.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
@@ -28,11 +28,11 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "engine/render/coll_obj.h"
-#include "engine/maths/trig.h"
+#include "base/maths/trig.h"
 
 namespace skater {
 

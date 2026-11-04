@@ -16,7 +16,7 @@
 #include "engine/file/file_load.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>

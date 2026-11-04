@@ -22,10 +22,10 @@
 #include "game/skate/game_mode.h"
 #include "game/rider/rider.h"
 #include "engine/objects/entity.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/raw_view.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "wire/net_wire.h"
 
 namespace objects {

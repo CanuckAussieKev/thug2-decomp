@@ -10,7 +10,7 @@
 
 #include "engine/assets/resource_registry.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/net/buddy_status.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_obj.h"
@@ -25,9 +25,9 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/gfx/scene_load.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/engine_mesh.h"
 
 namespace objects {

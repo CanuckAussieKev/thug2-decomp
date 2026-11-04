@@ -10,7 +10,7 @@
 #include <span>
 
 #include "wire/message_ids.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/lists/chain_start.h"
@@ -22,7 +22,7 @@
 #include "engine/net/net_manager.h"
 #include "formats/byte_stream.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "wire/net_wire.h"
 
 namespace net {

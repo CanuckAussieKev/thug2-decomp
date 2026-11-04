@@ -11,7 +11,7 @@
 #include <span>
 #include <string_view>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
@@ -33,8 +33,8 @@
 #include "engine/objects/input_component.h"
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 

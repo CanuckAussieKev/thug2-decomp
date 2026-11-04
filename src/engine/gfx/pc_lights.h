@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/gfx/engine_model_lights.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 #include <array>
 

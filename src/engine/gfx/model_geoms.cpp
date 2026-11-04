@@ -11,11 +11,11 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/gfx/bone_volumes.h"
 #include "engine/gfx/debug_lines.h"
 #include "engine/gfx/engine.h"
@@ -27,15 +27,15 @@
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/pager_message.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/maths.h"
+#include "base/core/checked_index.h"
+#include "base/maths/maths.h"
 
 namespace render {
 

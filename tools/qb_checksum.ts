@@ -1,5 +1,5 @@
 // NOT ORIGINAL - canonical byte checksum for offline QB tools.
-// Mirrors src/engine/core/checksums.cpp: ASCII case fold and slash normalization.
+// Mirrors src/base/core/checksums.cpp: ASCII case fold and slash normalization.
 export function checksum(name: string): number {
     let crc = 0xffffffff;
     for (let byte of Buffer.from(name, "utf8")) {

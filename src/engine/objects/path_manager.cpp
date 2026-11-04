@@ -14,8 +14,8 @@
 #include "engine/objects/smtptr.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 
 namespace objects {
 

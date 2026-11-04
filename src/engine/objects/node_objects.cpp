@@ -21,7 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/car_physics.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

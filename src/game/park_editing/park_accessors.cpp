@@ -12,14 +12,14 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "formats/park_map_format.h"
 #include "game/park/park_memory.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace park_editing {
 

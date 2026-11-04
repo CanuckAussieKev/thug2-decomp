@@ -4,15 +4,15 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
-#include "engine/core/str.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "base/core/str.h"
 #include "engine/gfx/font.h"
 #include "engine/gfx/pc_font.h"
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/gfx/screen_2d.h"
 
 namespace render {

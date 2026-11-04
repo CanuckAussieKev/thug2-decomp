@@ -2,7 +2,7 @@
 
 #include "engine/script/script_state.h"
 
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace script {
 

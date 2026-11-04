@@ -11,10 +11,10 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/enum_ops.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/core/enum_ops.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"
@@ -38,8 +38,8 @@
 #include "game/rider/balance_trick.h"
 #include "engine/gfx/model.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/render/coll_obj.h"
 
 namespace skater::thaw_bmx {

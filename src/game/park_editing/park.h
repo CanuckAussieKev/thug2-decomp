@@ -22,12 +22,12 @@
 
 #include "formats/park_map_format.h"
 #include "game/park_editing/park_rails.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/memory/mem.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/assets/resource_entry.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace render {

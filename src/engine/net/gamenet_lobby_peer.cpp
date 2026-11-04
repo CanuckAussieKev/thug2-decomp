@@ -10,10 +10,10 @@
 #include <gsl/pointers>
 #include <span>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/player_info.h"
-#include "engine/core/enum_ops.h"
-#include "engine/core/dbg.h"
+#include "base/core/enum_ops.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/buddy_man.h"
@@ -29,7 +29,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/memory/fwd.h"
 #include "engine/net/fwd.h"
 #include "engine/gfx/face_texture.h"
@@ -40,11 +40,11 @@
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
 #include "formats/byte_stream.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/memory/mem.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/str.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/core/str.h"
 #include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's own)

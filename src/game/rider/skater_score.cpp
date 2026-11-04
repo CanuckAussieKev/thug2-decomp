@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/script/cscript.h"
@@ -19,7 +19,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/rider.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 
 namespace objects {

@@ -3,7 +3,7 @@
 // and connecting to / disconnecting from the internet.
 
 #include <cstdint>
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include <cstring>
 #include <array>
 
@@ -32,9 +32,9 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/net/stats_man.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/str.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/str.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 

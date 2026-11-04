@@ -19,7 +19,7 @@
 #include <string>
 #include <string_view>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/net/gamenet_qr2.h"
@@ -38,10 +38,10 @@
 #include "platform/sdl_window.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/script/game_cfuncs.h"
-#include "engine/core/parse_number.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/parse_number.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"

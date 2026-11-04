@@ -6,12 +6,12 @@
 #include <span>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/pager_message.h"
 #include "engine/lists/pointer_ring.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // The engine's particle systems of the particle component (Nx; the PC class over them is PcParticleSystem,
 // pc_particles.h): a system made from a block of parameters, its bounding box and sphere worked out from the

@@ -10,9 +10,9 @@
 #include <span>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cell.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/cache.h"
@@ -22,7 +22,7 @@
 #include "engine/script/tokens.h"
 #include "engine/script/script_cfuncs.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/script/cscript.h"
 
 namespace level_nodes {

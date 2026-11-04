@@ -11,9 +11,9 @@
 #include <initializer_list>
 #include <span>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/draw_frame.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 
 // NOT ORIGINAL - the renderer's state: the Direct3D 9 device and what was made with it, the frame's camera, matrices
 // and counters, and the render state the device was last sent (the original's globals; each member's comment or its

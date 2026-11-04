@@ -9,7 +9,7 @@
 #include <new>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
 #include "engine/file/file_load.h"
@@ -19,10 +19,10 @@
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
 #include <array>
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "platform/overlapped.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace file {
 

@@ -6,8 +6,8 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -17,10 +17,10 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/cursor.h"
-#include "engine/core/str.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/cursor.h"
+#include "base/core/str.h"
 #include "game/skate/skate_module_calls.h" // IWYU pragma: keep - modules::Skate::sole(), which the check doesn't tie to this header
 
 namespace goals {

@@ -2,7 +2,7 @@
 
 #include "game/rider/rider_shared.h"
 
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace skater {
 

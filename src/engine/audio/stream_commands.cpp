@@ -8,8 +8,8 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/stubs.h"
-#include "engine/maths/vec4.h"
+#include "base/core/stubs.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/stream_component.h"
 #include "engine/audio/music_player.h"
@@ -20,10 +20,10 @@
 #include "engine/sys/game_config.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/viewport.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/audio/audio_state.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
 
 namespace audio {
 

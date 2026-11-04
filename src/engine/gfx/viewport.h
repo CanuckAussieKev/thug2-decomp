@@ -6,10 +6,10 @@
 #include <span>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/smtptr.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/rect.h"
+#include "base/maths/vec2.h"
+#include "base/maths/rect.h"
 
 namespace gfx {
 class ViewCam;

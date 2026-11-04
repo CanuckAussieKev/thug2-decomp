@@ -1,7 +1,7 @@
 // Shattering on PC: see shatter.h.
 
 #include "engine/gfx/shatter.h"
-#include "engine/core/cursor.h"
+#include "base/core/cursor.h"
 #include "engine/gfx/geom.h"
 
 #include <windows.h>
@@ -23,15 +23,15 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/texture_splats.h"
-#include "engine/lists/object_set.h"
-#include "engine/maths/mat4.h"
+#include "base/lists/object_set.h"
+#include "base/maths/mat4.h"
 #include "gpu/vertex_buffers.h"
 #include "gpu/vertex_view.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {

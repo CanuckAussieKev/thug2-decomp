@@ -14,13 +14,13 @@
 #include "editor/level_editor.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/gfx/sub_mesh.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/geom.h"
 #include "gpu/vertex_buffers.h"
 #include "gpu/vertex_view.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 
 namespace frontend::level_editor::snap {
 

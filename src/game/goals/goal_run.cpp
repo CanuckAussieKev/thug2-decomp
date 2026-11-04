@@ -7,11 +7,11 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/enum_ops.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/enum_ops.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
@@ -30,8 +30,8 @@
 #include "engine/gfx/tod_manager.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 namespace goals {

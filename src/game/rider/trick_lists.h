@@ -6,7 +6,7 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "engine/util/text_store.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 // Two kinds of list entries the skater's trick code (0x00512000-) keeps (each a lists::Elem of its own type with a
 // one-slot vtable: the scalar deleting destructor). Their constructors and destructors were placed at

@@ -12,8 +12,8 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/dbg.h"
-#include "engine/maths/mat4.h"
+#include "base/core/dbg.h"
+#include "base/maths/mat4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/motion_path.h"
@@ -26,10 +26,10 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/maths.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
+#include "base/maths/maths.h"
 
 namespace objects {
 namespace {

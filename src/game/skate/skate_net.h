@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "engine/util/bitstream.h"
+#include "base/util/bitstream.h"
 
 // The skate module's network side (0x0056C920-0x0056F090): the message handlers it gives the server and client
 // apps - the game's start, the scores, the scavenger hunt, graffiti colours, scripts run on every machine, the

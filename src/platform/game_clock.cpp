@@ -6,7 +6,7 @@
 
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace frame_clock {
 

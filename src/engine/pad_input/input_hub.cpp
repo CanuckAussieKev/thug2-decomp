@@ -12,8 +12,8 @@
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
 #include "engine/pad_input/device.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include <gsl/pointers>
 #include <array>
 

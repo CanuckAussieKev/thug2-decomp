@@ -7,7 +7,7 @@
 #include "frontend/screen_element.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/entity_hub.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <memory>
 
 namespace script {

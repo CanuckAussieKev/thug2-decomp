@@ -3,7 +3,7 @@
 #include "wire/net_wire.h"
 
 #include "wire/message_ids.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "formats/byte_stream.h"
 
 #include <cstddef>

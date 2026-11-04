@@ -10,7 +10,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/sys/game_config.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
@@ -25,11 +25,11 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/trick_goals.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/memory/mem.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 namespace goals {

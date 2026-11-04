@@ -9,7 +9,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/maths/maths.h"
+#include "base/maths/maths.h"
 namespace objects {
 namespace {
 constexpr uint32_t kVehicleKick = 0x93B713A6; // Vehicle_Kick

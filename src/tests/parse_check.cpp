@@ -1,5 +1,5 @@
-// NOT ORIGINAL - thug2_parse_check.exe: text::to_int / text::to_double (engine/core/parse_number.h) against the C
-// runtime's atoi / atol / atof, and text::FieldReader (engine/core/field_reader.h) against its sscanf_s with the formats
+// NOT ORIGINAL - thug2_parse_check.exe: text::to_int / text::to_double (base/core/parse_number.h) against the C
+// runtime's atoi / atol / atof, and text::FieldReader (base/core/field_reader.h) against its sscanf_s with the formats
 // the game reads, over hand-picked texts and many random ones. Exit code 0 when every answer agrees.
 
 #include <bit>
@@ -15,11 +15,11 @@
 #include <vector>
 #include <array>
 
-#include "engine/core/parse_number.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/field_reader.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/parse_number.h"
+#include "base/core/checked_index.h"
+#include "base/core/field_reader.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 
 namespace {
 

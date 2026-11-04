@@ -9,8 +9,8 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/audio/music_api.h"
 #include "engine/audio/stream_commands.h"
@@ -22,8 +22,8 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/format.h"
 
 namespace objects {
 namespace {

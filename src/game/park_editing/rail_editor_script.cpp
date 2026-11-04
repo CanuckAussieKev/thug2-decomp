@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/script/cell.h"
 #include "game/park_editing/park.h"
@@ -15,13 +15,13 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/editor_camera.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/stubs.h"
-#include "engine/core/checked_index.h"
+#include "base/core/stubs.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {

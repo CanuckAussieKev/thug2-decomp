@@ -8,8 +8,8 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/dbg.h"
-#include "engine/maths/vec4.h"
+#include "base/core/dbg.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -27,9 +27,9 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 
 namespace objects {
 namespace {

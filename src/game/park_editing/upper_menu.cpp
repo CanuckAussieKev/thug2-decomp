@@ -7,7 +7,7 @@
 #include "engine/memory/mem.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "game/park_editing/park.h"
 
 namespace park_editing {

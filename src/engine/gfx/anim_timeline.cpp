@@ -18,8 +18,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/script/fwd.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace gfx {
 

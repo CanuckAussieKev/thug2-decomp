@@ -5,11 +5,11 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
-#include "engine/lists/object_set.h"
+#include "base/lists/object_set.h"
 #include <gsl/pointers>
 
 namespace gfx {

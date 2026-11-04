@@ -6,7 +6,7 @@
 #include "engine/memory/mem.h"
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include <gsl/pointers>
 #include <array>
 

@@ -14,15 +14,15 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
-#include "engine/maths/fwd.h"
+#include "base/maths/fwd.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/maths.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
+#include "base/maths/maths.h"
 namespace objects {
 namespace {
 constexpr int kDefaultPriority = 50;

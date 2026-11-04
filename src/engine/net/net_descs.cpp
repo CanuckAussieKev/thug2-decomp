@@ -2,7 +2,7 @@
 // InboundMsgCtx (net_dispatcher.h) - their constructors and StreamDesc's destructor.
 
 #include <cstdint>
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"

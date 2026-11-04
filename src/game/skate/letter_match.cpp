@@ -6,19 +6,19 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/dbg.h"
-#include "engine/core/str.h"
+#include "base/core/dbg.h"
+#include "base/core/str.h"
 #include "engine/sys/game_config.h"
 #include "engine/util/text_store.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/objects/proximity.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "game/skate/point_tally.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace modules {
 

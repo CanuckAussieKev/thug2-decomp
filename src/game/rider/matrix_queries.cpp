@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/maths/maths.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/maths.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/car_physics.h"
@@ -15,8 +15,8 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

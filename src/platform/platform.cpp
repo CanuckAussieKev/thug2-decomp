@@ -11,7 +11,7 @@
 #include "platform/platform_input.h"
 #include "platform/sdl_events.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
 #include "platform/platform_state.h"

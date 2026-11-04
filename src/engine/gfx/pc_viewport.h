@@ -4,9 +4,9 @@
 #include <cstdint>
 
 #include "engine/gfx/viewport.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/rect.h"
+#include "base/maths/vec4.h"
+#include "base/maths/vec2.h"
+#include "base/maths/rect.h"
 #include <gsl/pointers>
 #include <array>
 

@@ -24,14 +24,14 @@
 #include <gsl/assert>
 
 #include "engine/memory/manager.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "formats/wave_format.h"
 #include "formats/byte_stream.h"
 #include "frontend/data_overlay.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/sound_component.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/music_api.h"
@@ -40,14 +40,14 @@
 #include "platform/platform_system.h"
 #include "platform/stopwatch.h"
 #include "platform/unique_handle.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/sound/sound_state.h"
 #include "engine/gfx/renderer.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/file/file_load.h"
-#include "engine/core/span_copy.h"
+#include "base/core/span_copy.h"
 
 namespace sound {
 

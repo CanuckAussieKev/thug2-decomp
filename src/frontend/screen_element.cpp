@@ -20,13 +20,13 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/gfx/weather.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "game/goals/objective.h"
-#include "engine/maths/rect.h"
-#include "engine/maths/vec2.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/rect.h"
+#include "base/maths/vec2.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
 #include "engine/gfx/screen.h"
 
 namespace frontend {

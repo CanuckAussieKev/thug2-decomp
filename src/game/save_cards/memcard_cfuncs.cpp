@@ -11,10 +11,10 @@
 #include <array>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard.h"
 #include "formats/save_file_format.h"
@@ -27,11 +27,11 @@
 #include "engine/script/struct_buffer.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "game/save_cards/save_cards_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace {
 

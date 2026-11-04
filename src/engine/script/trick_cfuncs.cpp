@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "frontend/front_end.h"
 #include "engine/gfx/texture_cfuncs.h"
 #include "engine/net/gamenet_manager.h"
@@ -28,8 +28,8 @@
 #include "engine/objects/compositemgr.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/create_a_trick.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/net/player_info.h"
 #include <gsl/pointers>

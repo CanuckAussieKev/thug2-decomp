@@ -4,10 +4,10 @@
 #include <cstdint>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/maths/vec2.h"
 #include "engine/gfx/engine_geom.h"
 #include <gsl/pointers>
 

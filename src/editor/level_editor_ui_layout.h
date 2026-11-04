@@ -1,5 +1,5 @@
 #pragma once
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 
 // NOT ORIGINAL - the level editor's UI layout and input routing (ours; see level_editor_ui.h): pure.
 namespace frontend::level_editor::ui_layout {

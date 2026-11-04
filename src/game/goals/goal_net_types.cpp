@@ -6,9 +6,9 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/enum_ops.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/enum_ops.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
 #include "engine/net/gamenet_manager.h"
@@ -23,8 +23,8 @@
 #include "game/rider/rider.h"
 #include "engine/net/player_info.h"
 #include "game/skate/point_tally.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
 
 namespace goals {

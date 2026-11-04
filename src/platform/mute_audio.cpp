@@ -7,8 +7,8 @@
 #include <mmdeviceapi.h>
 
 #include "platform/run_log.h"
-#include "engine/util/com_ptr.h"
-#include "engine/core/raw_view.h"
+#include "base/util/com_ptr.h"
+#include "base/core/raw_view.h"
 
 namespace sound {
 

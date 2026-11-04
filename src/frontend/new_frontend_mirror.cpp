@@ -13,11 +13,11 @@
 #include <array>
 #include <vector>
 
-#include "engine/core/checksums.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/maths/maths.h"
+#include "base/core/checksums.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/maths/maths.h"
 
 namespace frontend::new_frontend::mirror {
 

@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "engine/assets/resource_registry.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "game/park_editing/park_editor.h"
@@ -17,9 +17,9 @@
 #include "game/skate/skate_module_calls.h"
 #include "engine/script/cfuncs_scene.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace commands {

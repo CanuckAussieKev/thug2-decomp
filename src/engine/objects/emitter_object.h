@@ -11,10 +11,10 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/checksums.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/core/checksums.h"
 
 namespace lists {
 class KeyMap;

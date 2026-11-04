@@ -2,8 +2,8 @@
 
 #include <cstdint>
 #include <array>
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
 
 namespace gfx {
 class CtodManager;

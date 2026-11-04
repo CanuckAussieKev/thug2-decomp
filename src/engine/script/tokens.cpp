@@ -11,7 +11,7 @@
 #include <gsl/assert>
 
 #include "platform/run_log.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace script {
 

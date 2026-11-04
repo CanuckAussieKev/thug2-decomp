@@ -16,10 +16,10 @@
 #include <array>
 #include <gsl/assert>
 
-#include "engine/core/cursor.h"
-#include "engine/core/dbg.h"
+#include "base/core/cursor.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
@@ -30,13 +30,13 @@
 #include "engine/gfx/render_state.h"
 #include "engine/pad_input/device.h"
 #include "platform/platform_d3d.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 
 namespace render {
 

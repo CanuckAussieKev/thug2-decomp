@@ -8,8 +8,8 @@
 
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/viewport.h"
-#include "engine/maths/maths.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/maths.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/proximity.h"
 #include "engine/script/names.h"
@@ -21,7 +21,7 @@
 #include "engine/objects/entity.h"
 #include "engine/gfx/weather.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 namespace {

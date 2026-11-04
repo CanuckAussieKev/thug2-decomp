@@ -9,7 +9,7 @@
 #include <gsl/assert>
 
 #include "engine/net/player_info.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -41,8 +41,8 @@
 #include "engine/net/stats_man.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
 #include "wire/message_ids.h"
 

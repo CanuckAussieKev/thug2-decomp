@@ -6,7 +6,7 @@
 
 #include <cstdint>
 #include <array>
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 
 // The Direct3D 9 device (Nx engine, PC).
 namespace render {

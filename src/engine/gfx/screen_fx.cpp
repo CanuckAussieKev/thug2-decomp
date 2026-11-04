@@ -14,14 +14,14 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/packed_colour.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/packed_colour.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include "engine/gfx/graphics_options_d3d.h"
 
 namespace render {

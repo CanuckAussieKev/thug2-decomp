@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <utility>
 
 // Occlusion polygons and view culling (Nx engine, PC). Levels place four-cornered occlusion polygons; each frame

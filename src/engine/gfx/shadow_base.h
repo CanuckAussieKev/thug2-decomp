@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 
 // Shadows (Nx engine, PC): a shadow caster renders its model into a texture from a light's point of view (in
 // the table at 0x007CA970, found by its target); the meshes around it are drawn again with that texture projected on them.

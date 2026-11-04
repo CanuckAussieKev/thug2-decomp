@@ -12,8 +12,8 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/pager_message.h"
 #include "engine/objects/skeleton_component.h"
@@ -24,11 +24,11 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/gfx/weather.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/maths.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/maths.h"
 
 namespace objects {
 

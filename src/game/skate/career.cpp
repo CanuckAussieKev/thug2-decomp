@@ -10,16 +10,16 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "editor/level_editor_career.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/script/cell.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

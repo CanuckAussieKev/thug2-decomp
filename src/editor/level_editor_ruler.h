@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 #include "editor/level_editor.h"
 
 namespace frontend::level_editor::overlays {

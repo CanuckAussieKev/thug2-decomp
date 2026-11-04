@@ -1,6 +1,6 @@
 // Drawing a scene's meshes: see scene_render.h.
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/scene_render.h"
 
 #include <windows.h>
@@ -20,9 +20,9 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shadow_base.h"
 #include "engine/gfx/view_mode.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "platform/crt.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
 

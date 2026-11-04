@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <cstring>
 #include <span>
-#include "engine/core/checked_index.h"
-#include "engine/core/pointer_cell.h"
+#include "base/core/checked_index.h"
+#include "base/core/pointer_cell.h"
 #include "formats/byte_stream.h"
 
 namespace collision_format {

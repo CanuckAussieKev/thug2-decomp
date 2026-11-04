@@ -2,8 +2,8 @@
 
 #include "editor/level_editor_ux8.h"
 #include "platform/keyboard.h"
-#include "engine/maths/vec2.h"
-#include "engine/core/span_copy.h"
+#include "base/maths/vec2.h"
+#include "base/core/span_copy.h"
 
 #include <SDL2/SDL.h>
 #include <windows.h>
@@ -29,8 +29,8 @@
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ux8_pie.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::ux8 {
 

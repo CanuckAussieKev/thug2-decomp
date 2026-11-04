@@ -18,12 +18,12 @@
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "imgui.h"
-#include "engine/util/com_ptr.h"
+#include "base/util/com_ptr.h"
 #include "platform/platform_d3d.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/packed_colour.h"
 
 namespace frontend::level_editor::ui_backend {
 

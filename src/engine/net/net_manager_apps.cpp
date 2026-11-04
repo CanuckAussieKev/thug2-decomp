@@ -10,15 +10,15 @@
 #include <cstring>
 #include "wire/message_ids.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_server.h"
 #include <gsl/pointers>
-#include "platform/compiler.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/compiler.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/shared_state.h"
 #include "engine/net/net_access_c.h"
 

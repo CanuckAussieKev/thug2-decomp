@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/packed_colour.h"
 #include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::overlays {

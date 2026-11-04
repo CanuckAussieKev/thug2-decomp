@@ -2,7 +2,7 @@
 // level_editor.h.
 
 #include "editor/level_editor.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "platform/keyboard.h"
 
 #include <SDL2/SDL.h>
@@ -28,8 +28,8 @@
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
-#include "engine/maths/vec2.h"
-#include "engine/core/format.h"
+#include "base/maths/vec2.h"
+#include "base/core/format.h"
 #include "editor/level_editor_arcs.h"
 #include "editor/level_editor_budget.h"
 #include "editor/level_editor_camera.h"
@@ -73,8 +73,8 @@
 #include "editor/level_editor_ux9.h"
 #include "editor/level_editor_view.h"
 #include "editor/level_editor_walls.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "frontend/mouse_menus.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/occlusion.h"
@@ -88,13 +88,13 @@
 #include "engine/script/param_struct.h"
 #include "platform/sdl_events.h"
 #include "platform/run_log.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "engine/maths/rect.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/trig.h"
+#include "base/maths/rect.h"
+#include "base/core/checksums.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor {
 

@@ -7,11 +7,11 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/random.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/random.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/audio/music_api.h"
 #include "engine/script/cscript.h"
@@ -20,10 +20,10 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "engine/gfx/cag_cfuncs.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 
 namespace commands {
 

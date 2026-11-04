@@ -2,8 +2,8 @@
 
 #include "editor/level_editor_ui_layout.h"
 #include "editor/level_editor_ui.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/rect.h"
+#include "base/core/checked_index.h"
+#include "base/maths/rect.h"
 
 #include <algorithm>
 #include <cmath>

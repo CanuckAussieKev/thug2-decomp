@@ -28,10 +28,10 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_ui_layout.h"
 

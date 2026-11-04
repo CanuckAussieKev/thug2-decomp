@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/loading_bar.h"
 
 #include <windows.h>
@@ -17,7 +17,7 @@
 #include "engine/gfx/loading_screen.h"
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"

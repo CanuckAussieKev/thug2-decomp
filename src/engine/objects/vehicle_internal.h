@@ -7,14 +7,14 @@
 #include <bit>
 #include <cstdint>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_rect.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/trigger_component.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 
 namespace objects::vehicle {
 

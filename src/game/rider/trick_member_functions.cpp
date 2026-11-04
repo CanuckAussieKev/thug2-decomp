@@ -9,8 +9,8 @@
 #include <utility>
 #include <gsl/assert>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/objects/trick_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -26,7 +26,7 @@
 #include "game/rider/gap_entry.h"
 #include "game/rider/stats_manager.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

@@ -8,8 +8,8 @@
 #include "editor/level_editor.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "engine/render/coll_obj.h"
 
 namespace render {

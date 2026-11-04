@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
 #include "formats/byte_stream.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 

@@ -5,7 +5,7 @@
 #include <array>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 // The engine's 2D pieces (Nx engine): the sprite (render::BillboardQuad; the PC sprite PcSprite - pc_sprite.h - extends it and
 // draws it) and the textured quad (render::TexturedQuad, used as it is on PC). Each setter stores its value and tells

@@ -6,8 +6,8 @@
 #include <span>
 
 #include "engine/gfx/particle_sets.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 
 // The PC particle systems the particle component makes (Nx engine; the particle manager's virtual [1]): camera-facing
 // quads emitted in bursts, each burst (up to five at once) a run of particles a period apart along the same path

@@ -10,9 +10,9 @@
 #include <gsl/pointers>
 
 #include "engine/gfx/view_cam.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/rotation_blend.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/rotation_blend.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/camera_util.h"
 #include "engine/objects/compositemgr.h"
@@ -25,8 +25,8 @@
 #include "engine/objects/camera_component.h"
 #include "game/rider/skater_camera_component.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

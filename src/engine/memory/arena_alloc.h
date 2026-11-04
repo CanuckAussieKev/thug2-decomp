@@ -7,7 +7,7 @@
 
 #include <gsl/pointers>
 
-#include "platform/all_ones.h"
+#include "base/core/all_ones.h"
 
 // The lowest layer of the memory manager: regions of memory, the allocators that carve them up from either
 // end, and the header in front of every allocated block.

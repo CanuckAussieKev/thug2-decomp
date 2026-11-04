@@ -1,7 +1,7 @@
 #include "formats/anim_format.h"
-#include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/pointer_cell.h"
+#include "base/core/checked_index.h"
 
 #include <cstddef>
 #include <cstdint>

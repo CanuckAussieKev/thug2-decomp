@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "engine/render/coll_obj.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
@@ -27,18 +27,18 @@
 #include "editor/level_editor_shared_coll.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_view.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
 
 namespace frontend::level_editor::faces {
 

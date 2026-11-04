@@ -25,7 +25,7 @@
 #include <array>
 
 #include "editor/level_editor.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "editor/level_editor_fields.h"
@@ -37,8 +37,8 @@
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_triggers.h"
 #include "engine/lists/key_map.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/rail_manager.h"
@@ -51,12 +51,12 @@
 #include "engine/sound/surface_kind.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/vec4.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/vec4.h"
 #include "engine/script/qb.h"
 
 namespace frontend::level_editor::chains {

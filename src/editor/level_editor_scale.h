@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace render {
 class HitMesh;

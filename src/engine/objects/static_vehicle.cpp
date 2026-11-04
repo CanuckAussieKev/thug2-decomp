@@ -10,14 +10,14 @@
 
 #include "engine/gfx/model.h"
 #include "engine/gfx/rig.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/fwd.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/maths/fwd.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
 
 namespace objects {

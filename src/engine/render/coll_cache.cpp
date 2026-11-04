@@ -13,9 +13,9 @@
 #include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_world.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/render/collision_state.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace render {
 

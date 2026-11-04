@@ -12,8 +12,8 @@
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_transform.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/trig.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/trig.h"
 namespace frontend::level_editor::adjust {
 
 namespace {

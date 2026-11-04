@@ -10,10 +10,10 @@
 #include <array>
 #include <memory>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/memory/task_list.h"
 #include "engine/lists/chain_start.h"
 #include "engine/net/buddy_man.h"
@@ -31,15 +31,15 @@
 #include "engine/gfx/loading_bar.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/parse_number.h"
+#include "base/core/parse_number.h"
 #include "engine/memory/arena_alloc.h"
 #include "platform/code_address.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/gathered_call.h"
+#include "base/core/gathered_call.h"
 #include "wire/message_ids.h"
 
 namespace {

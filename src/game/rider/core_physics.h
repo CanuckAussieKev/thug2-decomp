@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/rotation_blend.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/rotation_blend.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
 #include "game/rider/skater_state.h"

@@ -13,26 +13,26 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_view.h"
 #include "engine/render/coll_static.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/script/param_struct.h"
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/gfx/cag_cfuncs.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/render/coll_obj.h"
-#include "engine/maths/trig.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::skate_view {
 

@@ -5,9 +5,9 @@
 #include <array>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
-#include "engine/core/format.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "base/core/format.h"
 #include "engine/memory/manager.h"
 #include "engine/script/cell.h"
 #include "game/park_editing/goal_editor.h"
@@ -15,7 +15,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace park_editing {
 

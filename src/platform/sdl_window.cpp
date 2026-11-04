@@ -19,8 +19,8 @@
 #include "platform/debug_log.h"
 #include "platform/sdl_events.h"
 #include "platform/winmain.h"
-#include "engine/core/ints.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/ints.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 

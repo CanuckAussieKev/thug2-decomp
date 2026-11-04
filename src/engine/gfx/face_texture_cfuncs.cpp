@@ -17,7 +17,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/model_appearance.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 #include <span>

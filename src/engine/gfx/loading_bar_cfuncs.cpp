@@ -9,7 +9,7 @@
 #include "engine/gfx/loading_bar.h"
 #include "engine/gfx/loading_screen.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/screen_2d.h"
 
 namespace render {

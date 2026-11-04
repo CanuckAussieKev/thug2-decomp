@@ -19,11 +19,11 @@
 
 #include "editor/level_editor.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/gfx/sub_mesh.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_tri.h"
@@ -34,9 +34,9 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "gpu/vertex_view.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::shared_collision {

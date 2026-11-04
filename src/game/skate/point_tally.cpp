@@ -11,11 +11,11 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/sys/game_config.h"
-#include "engine/lists/dynamic_table.h"
+#include "base/lists/dynamic_table.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/text_block.h"
 #include "frontend/text_element.h"
@@ -28,10 +28,10 @@
 #include "game/skate/score_internal.h"
 #include "engine/gfx/viewport_list.h"
 #include "game/goals/create_a_trick.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/skate_module_calls.h"
 

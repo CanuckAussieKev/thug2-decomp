@@ -8,16 +8,16 @@
 #include <cstdint>
 #include <gsl/assert>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/rider.h"
 #include "platform/game_clock.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/raw_view.h"
-#include "engine/core/checksums.h"
+#include "base/core/raw_view.h"
+#include "base/core/checksums.h"
 
 namespace skater::physics {
 

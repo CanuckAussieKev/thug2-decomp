@@ -2,7 +2,7 @@
 
 #include "engine/net/net_compress.h"
 #include "wire/message_ids.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -12,14 +12,14 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/net/net_lzham.h"
 #include "engine/net/thugpro_peer.h"
 #include "engine/util/lzss.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/cursor.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/cursor.h"
 
 namespace net {
 

@@ -5,7 +5,7 @@
 #include <array>
 
 #include "formats/byte_stream.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 // NOT ORIGINAL - the sound effects' files ("data\sounds\...\x.snd": RIFF / WAVE, IMA ADPCM samples), read through
 // util::ByteReader.

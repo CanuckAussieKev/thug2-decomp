@@ -8,7 +8,7 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/gfx/rig.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 #include "engine/assets/resource_registry.h"
@@ -22,9 +22,9 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace objects {

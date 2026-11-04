@@ -2,8 +2,8 @@
 
 #include "engine/objects/motion.h"
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 

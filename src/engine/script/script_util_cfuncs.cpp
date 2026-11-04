@@ -10,11 +10,11 @@
 #include <string_view>
 #include <utility>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
-#include "engine/core/format.h"
-#include "engine/core/str.h"
-#include "engine/maths/random.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "base/core/format.h"
+#include "base/core/str.h"
+#include "base/maths/random.h"
 #include "engine/script/cell.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -23,8 +23,8 @@
 #include "engine/script/script_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <gsl/assert>

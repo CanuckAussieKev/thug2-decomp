@@ -11,9 +11,9 @@
 #include "engine/memory/mem.h"
 #include "engine/script/param_struct.h"
 #include "formats/byte_stream.h"
-#include "engine/core/ints.h"
-#include "engine/core/checksums.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/ints.h"
+#include "base/core/checksums.h"
+#include "base/core/enum_ops.h"
 #include <gsl/pointers>
 
 

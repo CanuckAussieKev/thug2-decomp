@@ -11,7 +11,7 @@
 #include "formats/bundle_format.h"
 #include "engine/file/packs.h"
 #include "formats/byte_stream.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace file {
 

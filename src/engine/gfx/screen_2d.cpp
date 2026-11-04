@@ -2,7 +2,7 @@
 
 #include "engine/gfx/screen_2d.h"
 
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_texture.h" // IWYU pragma: keep - the loading picture owner's complete type
 
 namespace render {

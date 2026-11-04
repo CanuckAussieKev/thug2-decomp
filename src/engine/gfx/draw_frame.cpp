@@ -16,7 +16,7 @@
 
 #include "editor/level_editor.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "frontend/new_frontend.h"
 #include "frontend/test_view.h"
 #include "engine/gfx/view_cam.h"
@@ -49,13 +49,13 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/weather.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/gfx/graphics_options_d3d.h"
 
 namespace render {

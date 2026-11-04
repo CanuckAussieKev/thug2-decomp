@@ -5,7 +5,7 @@
 
 #include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 
 namespace script {
 class Struct;

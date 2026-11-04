@@ -14,12 +14,12 @@
 #include "editor/level_editor_scenery.h"
 #include "engine/render/coll_static.h"
 #include "engine/gfx/sector.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/geom.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 
 namespace frontend::level_editor::walls {
 

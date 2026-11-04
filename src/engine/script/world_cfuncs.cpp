@@ -20,7 +20,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 #include <gsl/assert>

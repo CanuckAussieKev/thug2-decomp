@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // The model builder (gfx::ModelAssembler, an GameObjects::Entity, 0x54 bytes, vtable 0x00648920): builds a model from an
 // appearance by running a build script on itself - the script's member functions (ModelAddGeom, GeomReplaceTexture,

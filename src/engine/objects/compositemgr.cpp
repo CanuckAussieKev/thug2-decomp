@@ -8,7 +8,7 @@
 #include <new>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
@@ -24,9 +24,9 @@
 #include "engine/sys/startup_init.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/lists/pointer_ring.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 namespace objects {
 namespace {

@@ -25,7 +25,7 @@
 // test with the menu's own (0x004A8100's start), and the stepping with a direct "focus this item".
 
 #include <cstdint>
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 namespace frontend {
 class UiWidget;

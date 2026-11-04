@@ -22,9 +22,9 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
 
 namespace objects {
 namespace {

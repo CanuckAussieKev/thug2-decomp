@@ -5,7 +5,7 @@
 #include <span>
 #include <array>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace util {
 class ByteReader;

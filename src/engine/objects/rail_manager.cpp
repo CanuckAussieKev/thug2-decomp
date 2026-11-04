@@ -11,12 +11,12 @@
 #include <span>
 #include <utility>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/smtptr.h"
 #include "engine/objects/trick_objects.h"
@@ -26,9 +26,9 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/walk_physics.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
 
 namespace objects {
 

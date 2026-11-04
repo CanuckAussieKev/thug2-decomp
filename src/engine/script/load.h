@@ -5,7 +5,7 @@
 
 #include "engine/script/param_struct.h"
 #include "engine/script/tokens.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // Loading .qb files: defining their global symbols (values, structures, arrays and compressed scripts) and
 // restarting the running scripts whose code changed.

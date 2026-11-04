@@ -7,10 +7,10 @@
 #include <new>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/file/asset_bundle.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine_glue.h"
@@ -22,7 +22,7 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/objects/objects_shared.h"
 
 namespace audio {

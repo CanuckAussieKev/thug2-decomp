@@ -18,10 +18,10 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/trigger_events.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 
 // The event lists (trigger_events.h).

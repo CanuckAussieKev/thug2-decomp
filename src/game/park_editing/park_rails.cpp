@@ -11,12 +11,12 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
+#include "base/maths/vec4.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
 
 namespace park_editing {
 

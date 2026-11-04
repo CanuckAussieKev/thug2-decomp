@@ -6,9 +6,9 @@
 #include <span>
 #include <windows.h> // OVERLAPPED: the asynchronous reads
 
-#include "engine/core/checked_index.h"
-#include "platform/all_ones.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/all_ones.h"
+#include "base/core/checksums.h"
 
 namespace bink {
 struct Movie;

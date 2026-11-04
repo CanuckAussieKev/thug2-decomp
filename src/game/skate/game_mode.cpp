@@ -7,7 +7,7 @@
 
 #include "game/skate/game_mode.h"
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/script/param_struct.h"
@@ -18,8 +18,8 @@
 #include "game/skate/skate_module.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
-#include "platform/all_ones.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/all_ones.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 #include <gsl/assert>

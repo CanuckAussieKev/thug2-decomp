@@ -5,7 +5,7 @@
 #include <array>
 
 #include "engine/memory/mem.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include <span>
 

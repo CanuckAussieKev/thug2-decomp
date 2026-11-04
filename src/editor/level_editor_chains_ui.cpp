@@ -8,15 +8,15 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/checksums.h"
+#include "base/core/enum_ops.h"
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_ui.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "editor/level_editor_ui_theme.h"
-#include "engine/maths/maths.h"
+#include "base/maths/maths.h"
 
 namespace frontend::level_editor::ui {
 

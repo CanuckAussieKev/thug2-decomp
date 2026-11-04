@@ -9,7 +9,7 @@
 #include <iterator>
 #include <span>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/face_texture.h"
@@ -18,8 +18,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/objects/entity.h"
-#include "engine/core/ints.h"
-#include "engine/core/checksums.h"
+#include "base/core/ints.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

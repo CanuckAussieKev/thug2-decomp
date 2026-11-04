@@ -16,16 +16,16 @@
 #include <vector>
 
 #include "editor/level_editor_nodes.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "editor/level_editor_node_create.h"
 #include "editor/level_editor_objects.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "editor/level_editor.h"
 
 namespace frontend::level_editor::fields {

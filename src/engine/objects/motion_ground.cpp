@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/random.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/random.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_tests.h"
 #include "engine/render/coll_tri.h"
@@ -16,8 +16,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/maths.h"
+#include "base/core/checked_index.h"
+#include "base/maths/maths.h"
 
 namespace objects {
 

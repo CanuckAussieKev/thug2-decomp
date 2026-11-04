@@ -1,6 +1,6 @@
 #include "engine/memory/slab_bank.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -14,7 +14,7 @@
 
 #include "engine/memory/mem.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace memory {
 namespace {

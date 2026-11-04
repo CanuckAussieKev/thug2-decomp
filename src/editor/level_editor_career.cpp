@@ -8,12 +8,12 @@
 #include <array>
 
 #include "editor/level_editor_triggers.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::career {
 

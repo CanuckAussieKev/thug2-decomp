@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/gfx/model.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 // The PC model (Nx engine): a model's geoms, and their bounding spheres together.
 namespace render {

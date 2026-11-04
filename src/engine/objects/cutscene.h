@@ -27,9 +27,9 @@ namespace render {
 struct FrameSource;
 } // namespace render
 #include "engine/file/asset_bundle.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/node_objects.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include <gsl/pointers>
 
 namespace objects {

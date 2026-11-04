@@ -7,9 +7,9 @@
 
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/surface_material.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/vec4.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
 
 // The PC primitive drawer (Nx engine: the engine's class - constructor 0x0049C660, destructor body 0x0049C6A0 - over
 // it; lens_flare.cpp's Prim, the chain component's lines): a run of vertices in one of five layouts by flexible

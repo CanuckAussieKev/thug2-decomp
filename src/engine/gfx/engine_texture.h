@@ -4,8 +4,8 @@
 #include <cstdint>
 
 #include "engine/memory/mem.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec2.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec2.h"
 
 // The engine's texture (render::BitmapTexture; the PC texture PcTexture - pc_texture.h - extends it), and the folded
 // dispatchers the engine's classes call their virtual slots through.

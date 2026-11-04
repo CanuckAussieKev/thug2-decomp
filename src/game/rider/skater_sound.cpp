@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"
 #include "game/rider/thaw_bmx.h"

@@ -3,9 +3,9 @@
 #include "engine/gfx/window2d.h"
 #include <gsl/assert>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/gfx/screen_2d.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 namespace render {
 
 // 0x004A1580

@@ -10,14 +10,14 @@
 #include <array>
 
 #include "engine/gfx/view_cam.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/camera_util.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/maths/trig.h"
+#include "base/maths/trig.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -25,8 +25,8 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_component.h"
 #include "engine/objects/vehicle_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 namespace {

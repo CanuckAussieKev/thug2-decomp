@@ -11,8 +11,8 @@
 #include "engine/memory/mem.h"
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_app.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_app_view.h"
 #include "engine/net/net_messages.h"
 

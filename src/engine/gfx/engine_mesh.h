@@ -5,7 +5,7 @@
 #include <array>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 
 // The engine's mesh (render::SubMesh - the platform-independent part of the PC mesh, PcMesh in pc_mesh.h, its first 0xBC
 // bytes; vtable 0x006492E4): a skinned model's collision (from a .col file kept loaded by name) and its hierarchy.

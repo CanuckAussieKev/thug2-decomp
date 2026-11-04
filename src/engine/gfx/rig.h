@@ -7,10 +7,10 @@
 
 #include "engine/memory/mem.h"
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/core/checked_index.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/core/checked_index.h"
 
 namespace script {
 class Struct;

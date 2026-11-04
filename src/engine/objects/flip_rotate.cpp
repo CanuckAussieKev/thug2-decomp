@@ -8,16 +8,16 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/vehicle_component.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/flip_and_rotate.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <algorithm>
 
 namespace objects {

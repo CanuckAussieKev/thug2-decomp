@@ -4,7 +4,7 @@
 #include "game/rider/controls.h"
 
 #include <cstdint>
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/trigger_component.h"

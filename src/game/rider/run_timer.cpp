@@ -1,6 +1,6 @@
 // The skater's run timer component (GameObjects::RiderRunClock): see run_timer.h.
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "game/rider/run_timer.h"
 
 #include <cstdint>
@@ -18,7 +18,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/walk_physics.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 
 namespace objects {
 namespace {

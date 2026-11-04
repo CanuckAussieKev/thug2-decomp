@@ -7,7 +7,7 @@
 #include <array>
 #include <span>
 #include "engine/memory/mem.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // The node arrays the level's objects come from (level_nodes::CNodeManager, a reference-counted singleton at
 // 0x006F0D84 / 0x006F0D88): up to 20 named script arrays of node structures, and a hash from every node's name

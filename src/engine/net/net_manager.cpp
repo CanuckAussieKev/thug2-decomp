@@ -14,7 +14,7 @@
 #include "engine/net/net_app.h"
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "platform/sockets.h"
 #include "engine/net/shared_state.h"
 

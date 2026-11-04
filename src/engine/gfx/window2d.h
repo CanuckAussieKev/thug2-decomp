@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/memory/mem.h"
-#include "engine/maths/rect.h"
+#include "base/maths/rect.h"
 
 // The engine's 2D windows (Nx; the PC's PcWindow - pc_billboards.h - derives from it): a rectangle of the 640 x 448
 // screen the window screen elements clip their sprites to. Ten are made at start-up (the PC's create_window_pool) onto

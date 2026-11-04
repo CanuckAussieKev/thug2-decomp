@@ -9,7 +9,7 @@
 #include <gsl/assert>
 
 #include "engine/memory/manager.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/player_info.h"
@@ -24,8 +24,8 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_camera_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 

@@ -16,10 +16,10 @@
 #include <array>
 #include <gsl/pointers>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/span_copy.h"
+#include "base/core/span_copy.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/mesh_list.h"
@@ -31,7 +31,7 @@
 #include "engine/gfx/simple_material.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/mesh_pass.h"

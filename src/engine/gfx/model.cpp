@@ -12,7 +12,7 @@
 #include "engine/gfx/scene_load.h"
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/bone_volumes.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <bit>
 #include <cstddef>
 #include <gsl/pointers>

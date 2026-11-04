@@ -12,7 +12,7 @@
 #include "formats/byte_stream.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "wire/gamenet_messages.h"
 
 namespace online::thugpro {

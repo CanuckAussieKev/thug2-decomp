@@ -8,8 +8,8 @@
 #include <SDL2/SDL.h>
 #include <array>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "engine/script/cell.h"
 #include "engine/script/names.h"
 #include "frontend/front_end.h"

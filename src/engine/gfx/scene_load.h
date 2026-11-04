@@ -5,7 +5,7 @@
 #include "engine/memory/slab_bank.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 
 // The PC engine's scene and mesh loaders (Nx engine's platform calls, cdecl): a scene's geometry from a file
 // or from memory - its materials (with the texture dictionary's textures), its sectors (each with a PC geom), the

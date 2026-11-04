@@ -3,10 +3,10 @@
 
 #include "engine/gfx/glyphs.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/pad_input/sdl_input.h"
 #include "platform/platform_config.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 
 #include <cstdint>
 

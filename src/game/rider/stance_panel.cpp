@@ -6,7 +6,7 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/sprite_element.h"
@@ -17,7 +17,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 
 namespace objects {
 

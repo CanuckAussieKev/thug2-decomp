@@ -6,10 +6,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/core/dbg.h"
-#include "engine/core/enum_ops.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/core/dbg.h"
+#include "base/core/enum_ops.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/movable_contact.h"
@@ -26,9 +26,9 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/objects/ride_tracker.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/render/coll_obj.h"
 
 namespace skater {

@@ -20,7 +20,7 @@
 #include "engine/lists/key_map.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_mesh.h"
 #include <d3d9.h>
 #include <span>

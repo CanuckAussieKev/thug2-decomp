@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/script/cell.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
@@ -30,11 +30,11 @@
 #include "engine/sys/game_config.h"
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "game/save_cards/save_cards_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace {

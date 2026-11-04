@@ -3,7 +3,7 @@
 #include "game/skate/profile_manager.h"
 
 #include <cstdint>
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/util/text_store.h"
@@ -13,8 +13,8 @@
 #include "engine/gfx/model_appearance.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace objects {
 

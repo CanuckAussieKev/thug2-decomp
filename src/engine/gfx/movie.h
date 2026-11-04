@@ -4,8 +4,8 @@
 #include <cstdint>
 
 #include "platform/bink.h"
-#include "engine/maths/rect.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/rect.h"
+#include "base/maths/vec2.h"
 
 #include <d3d9.h>
 

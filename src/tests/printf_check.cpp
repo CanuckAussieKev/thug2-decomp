@@ -1,4 +1,4 @@
-// NOT ORIGINAL - thug2_printf_check.exe: text::format (engine/core/format.h) compared with the linked C runtime's
+// NOT ORIGINAL - thug2_printf_check.exe: text::format (base/core/format.h) compared with the linked C runtime's
 // snprintf over every conversion the game uses, each flag, width, precision and length modifier, and the edge values
 // (limits, zero, -0, halves at every precision, huge and tiny floats, infinities, NaNs, null texts). Prints each
 // difference (at most 40) and the totals; exit code 1 if any.
@@ -15,8 +15,8 @@
 #include <string_view>
 #include <vector>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace {
 

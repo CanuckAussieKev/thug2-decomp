@@ -11,8 +11,8 @@
 #include <array>
 #include <memory>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
@@ -50,8 +50,8 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 

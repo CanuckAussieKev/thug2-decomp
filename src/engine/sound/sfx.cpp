@@ -10,7 +10,7 @@
 #include <span>
 #include <string_view>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "engine/audio/music_player.h"
 #include "engine/script/param_struct.h"
@@ -19,9 +19,9 @@
 #include "engine/objects/movie_manager.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/sound/sound_state.h"
 
 namespace sound {

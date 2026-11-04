@@ -3,7 +3,7 @@
 
 #include "engine/net/net_app.h"
 #include "wire/message_ids.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/net/net_lists.h"
 
 #include <algorithm>
@@ -17,7 +17,7 @@
 #include <string_view>
 #include <utility>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
@@ -34,10 +34,10 @@
 #include <array>
 #include <gsl/assert>
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/span_copy.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/span_copy.h"
+#include "base/core/format.h"
 
 namespace net {
 

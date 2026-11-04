@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
@@ -19,8 +19,8 @@
 #include "game/skate/skate_module.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 
 namespace goals {

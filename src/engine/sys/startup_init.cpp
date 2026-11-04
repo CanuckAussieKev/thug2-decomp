@@ -20,7 +20,7 @@
 #include <array>
 
 #include "engine/script/names.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace sys {
 

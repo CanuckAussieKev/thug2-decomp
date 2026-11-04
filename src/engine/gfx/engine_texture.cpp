@@ -8,9 +8,9 @@
 #include <string_view>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace render {
 

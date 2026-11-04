@@ -16,7 +16,7 @@
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_ui_strip.h"
 #include "editor/level_editor_ux8.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "imgui.h"
 #include "editor/level_editor_gui_text.h"
 

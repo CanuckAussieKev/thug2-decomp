@@ -6,10 +6,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include "engine/script/member_code.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/maths/mat4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/control_pad.h"
@@ -17,11 +17,11 @@
 #include "engine/objects/walk_hang.h"
 #include "game/rider/walk_fields.h"
 #include "game/rider/walk_physics.h"
-#include "engine/maths/trig.h"
+#include "base/maths/trig.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/input_component.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 

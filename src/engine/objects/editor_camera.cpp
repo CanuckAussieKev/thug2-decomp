@@ -15,7 +15,7 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/objects/control_pad.h"
 #include "engine/render/probe_ray.h"
 #include "engine/script/cache.h"
@@ -31,12 +31,12 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/vec4.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
-#include "engine/maths/trig.h"
+#include "base/maths/trig.h"
 
 namespace objects {
 

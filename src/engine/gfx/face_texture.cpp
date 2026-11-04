@@ -16,15 +16,15 @@
 #include "engine/file/packs.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/span_copy.h"
+#include "base/core/checked_index.h"
+#include "base/core/span_copy.h"
 #include <gsl/pointers>
 #include <iterator>
 #include <span>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace gfx {
 

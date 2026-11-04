@@ -6,14 +6,14 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checksums.h"
-#include "engine/core/dbg.h"
-#include "engine/core/str.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "base/core/str.h"
 #include "editor/level_editor_layout.h"
 #include "engine/script/params.h"
 #include <gsl/pointers>
 #include "engine/memory/mem.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 
 namespace render {
 

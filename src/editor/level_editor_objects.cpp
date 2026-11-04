@@ -16,7 +16,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_scenery.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scale.h"
 #include "engine/gfx/model.h"
@@ -31,15 +31,15 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/vec4.h"
-#include "engine/maths/trig.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/vec4.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {

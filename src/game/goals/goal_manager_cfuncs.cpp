@@ -10,8 +10,8 @@
 #include "game/goals/goal_net_types.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checksums.h"
+#include "base/core/down_cast.h"
+#include "base/core/checksums.h"
 
 namespace goals {
 

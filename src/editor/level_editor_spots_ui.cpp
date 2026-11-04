@@ -10,12 +10,12 @@
 #include <utility>
 
 #include "editor/level_editor_fields.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_ui.h"
 #include "engine/script/param_struct.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ui {

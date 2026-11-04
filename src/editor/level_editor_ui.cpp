@@ -2,7 +2,7 @@
 // renderer are level_editor_ui_backend.cpp's.
 
 #include "editor/level_editor_actions.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
 #include "editor/level_editor_ui.h"
@@ -32,7 +32,7 @@
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_notes.h"
 #include "editor/level_editor_ux9.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "editor/level_editor_clusters.h"
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_node_edit.h"
@@ -54,11 +54,11 @@
 #include "editor/level_editor_view.h"
 #include "platform/run_log.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/maths.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
+#include "base/maths/maths.h"
 
 namespace frontend::level_editor::ui {
 

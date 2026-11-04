@@ -16,14 +16,14 @@
 #include <span>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "frontend/front_end.h"
 #include "frontend/screen_element.h"
 #include "game/skate/profile_manager.h"
 #include "platform/platform.h"
 #include "platform/platform_input.h"
 #include "engine/memory/mem.h"
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
 #include "engine/lists/list_walk.h"
 #include "engine/audio/music_player.h"
@@ -34,10 +34,10 @@
 #include "frontend/screen_element_manager.h"
 #include <gsl/pointers>
 #include <array>
-#include "platform/compiler.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/compiler.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
 #include "engine/objects/objects_shared.h"

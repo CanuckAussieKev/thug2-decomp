@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <span>
 
-#include "engine/maths/shape_tests.h"
-#include "engine/core/checksums.h"
+#include "base/maths/shape_tests.h"
+#include "base/core/checksums.h"
 
 // Bone volumes: a capsule around each bone of a skeleton (from the bone to its parent, its radius from the global
 // array 0x00E7085E's description of the bone) that lines are tested against - what a model's geoms use to tell which

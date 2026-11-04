@@ -7,8 +7,8 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/walk_hang.h"
 #include "engine/script/param_struct.h"
@@ -17,7 +17,7 @@
 #include "game/rider/rider.h"
 #include "game/park_editing/park_editor.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace skater {
 

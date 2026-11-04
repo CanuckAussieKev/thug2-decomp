@@ -24,11 +24,11 @@
 #include "editor/level_editor_ui_backend.h"
 #include "platform/run_log.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/no_destroy.h"
+#include "base/core/packed_colour.h"
 #include "editor/level_editor.h"
 
 namespace frontend::level_editor::thumbs {

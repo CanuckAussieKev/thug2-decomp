@@ -8,19 +8,19 @@
 
 #include "engine/objects/proximity_component.h"
 
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/member_code.h"
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/script/names.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
 namespace objects {
 

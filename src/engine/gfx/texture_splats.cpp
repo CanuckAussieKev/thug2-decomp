@@ -2,7 +2,7 @@
 // x87 code: double precision where it keeps values in registers, floats where it stores them.
 
 #include "engine/gfx/texture_splats.h"
-#include "engine/core/cursor.h"
+#include "base/core/cursor.h"
 #include "engine/gfx/geom.h"
 #include "platform/d3dx.h"
 
@@ -28,18 +28,18 @@
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/scene_lights.h"
 #include "engine/gfx/render_state.h"
-#include "engine/lists/object_set.h"
+#include "base/lists/object_set.h"
 #include "gpu/vertex_view.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 namespace render {
 

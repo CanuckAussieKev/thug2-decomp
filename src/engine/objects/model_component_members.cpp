@@ -9,8 +9,8 @@
 #include "wire/message_ids.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_appearance.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_game_state.h"
@@ -21,12 +21,12 @@
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/objects/control_pad.h"
 #include "engine/gfx/engine_geom.h"
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <cstring>
 
 namespace objects {

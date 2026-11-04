@@ -5,15 +5,15 @@
 #include <array>
 #include <span>
 
-#include "engine/core/packed_colour.h"
+#include "base/core/packed_colour.h"
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/smtptr.h"
 #include <gsl/pointers>
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec2.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec2.h"
 
 namespace script {
 class Script;

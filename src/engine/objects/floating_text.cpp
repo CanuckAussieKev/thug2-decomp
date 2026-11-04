@@ -13,7 +13,7 @@
 #include <span>
 #include <string_view>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/script/cscript.h"
@@ -26,10 +26,10 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
-#include "engine/core/ints.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 
 namespace frontend {
 

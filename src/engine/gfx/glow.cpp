@@ -18,10 +18,10 @@
 #include "platform/platform_d3d.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "engine/core/packed_colour.h"
+#include "base/core/packed_colour.h"
 
 namespace render {
 

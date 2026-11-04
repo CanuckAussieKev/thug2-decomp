@@ -1,6 +1,6 @@
 // The D3DX9 calls the game makes (see d3dx.h): Microsoft's D3DX9 through its standard API.
 #include "platform/d3dx.h"
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 #include <windows.h>
 

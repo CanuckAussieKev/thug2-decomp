@@ -13,7 +13,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "engine/script/fwd.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 
 namespace objects {
 

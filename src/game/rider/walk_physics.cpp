@@ -38,11 +38,11 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
 
 namespace objects {
 namespace {

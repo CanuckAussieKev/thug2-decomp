@@ -10,7 +10,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/gfx/viewport.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/renderer.h"
 

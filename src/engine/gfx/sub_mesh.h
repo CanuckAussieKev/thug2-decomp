@@ -5,7 +5,7 @@
 #include <array>
 #include <span>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "gpu/vertex_buffers.h"
 #include <gsl/pointers>
 

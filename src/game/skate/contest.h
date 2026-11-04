@@ -10,9 +10,9 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/util/text_store.h"
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 namespace script {
 class Struct;

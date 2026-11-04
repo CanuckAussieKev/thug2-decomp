@@ -14,7 +14,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/view_cam.h"
@@ -22,13 +22,13 @@
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/viewport.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/checked_index.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
+#include "base/core/checksums.h"
 
 namespace render {
 

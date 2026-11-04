@@ -6,16 +6,16 @@
 #include <cstring>
 #include <span>
 
-#include "engine/core/enum_ops.h"
-#include "engine/core/cursor.h"
+#include "base/core/enum_ops.h"
+#include "base/core/cursor.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/tod_manager.h"
-#include "engine/core/format.h"
-#include "engine/core/checksums.h"
+#include "base/core/format.h"
+#include "base/core/checksums.h"
 
 namespace goals {
 

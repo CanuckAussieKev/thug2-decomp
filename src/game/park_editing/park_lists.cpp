@@ -10,9 +10,9 @@
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "game/park/park_memory.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "formats/park_map_format.h"
 
 namespace park_editing {

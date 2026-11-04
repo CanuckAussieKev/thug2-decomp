@@ -13,10 +13,10 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_prefs.h"
-#include "engine/maths/vec2.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/trig.h"
+#include "base/maths/vec2.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::xform {
 

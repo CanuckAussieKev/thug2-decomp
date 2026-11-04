@@ -10,7 +10,7 @@
 #include <new>
 
 #include "engine/assets/resource_entry.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
@@ -20,8 +20,8 @@
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include <string_view>
 
 namespace assets {

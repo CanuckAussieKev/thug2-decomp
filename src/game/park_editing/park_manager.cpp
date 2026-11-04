@@ -6,15 +6,15 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "game/park_editing/park_editing_state.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 
 namespace park_editing {
 

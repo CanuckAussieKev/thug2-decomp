@@ -8,15 +8,15 @@
 #include <utility>
 #include <gsl/assert>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "platform/stopwatch.h"
 #include "engine/script/script_startup.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
 
 namespace gfx {
 

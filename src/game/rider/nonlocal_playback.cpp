@@ -6,10 +6,10 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "wire/message_ids.h"
-#include "engine/maths/rotation_blend.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/rotation_blend.h"
+#include "base/maths/vec4.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_lists.h"
@@ -33,10 +33,10 @@
 #include "engine/objects/control_pad.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "game/rider/core_physics.h"
 #include "engine/render/coll_obj.h"
 

@@ -18,7 +18,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace objects {
 namespace {

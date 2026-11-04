@@ -13,7 +13,7 @@
 #include <initializer_list>
 #include <span>
 
-#include "engine/core/cursor.h"
+#include "base/core/cursor.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/surface_material.h"
@@ -29,13 +29,13 @@
 #include "platform/crt.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/raw_view.h"
+#include "base/maths/vec4.h"
+#include "base/core/raw_view.h"
 
 namespace render {
 

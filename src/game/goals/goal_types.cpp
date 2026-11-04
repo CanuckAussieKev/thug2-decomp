@@ -5,12 +5,12 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/mem.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -25,7 +25,7 @@
 #include "game/skate/point_tally.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 namespace goals {
 

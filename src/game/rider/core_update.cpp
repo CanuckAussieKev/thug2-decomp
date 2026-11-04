@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "game/rider/collision_events.h"
 #include "game/rider/core_fields.h"

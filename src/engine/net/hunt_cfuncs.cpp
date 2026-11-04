@@ -20,7 +20,7 @@
 #include "engine/pad_input/device.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 

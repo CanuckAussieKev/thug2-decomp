@@ -7,7 +7,7 @@
 #include <span>
 
 #include "formats/byte_stream.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace online {
 

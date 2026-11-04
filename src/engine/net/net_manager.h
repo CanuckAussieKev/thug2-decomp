@@ -1,14 +1,14 @@
 #pragma once
 
 #include "wire/message_ids.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 
 #include "engine/memory/arena_alloc.h"
 #include "engine/net/net_messages.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/mem.h"
 #include <gsl/pointers>
 #include <array>

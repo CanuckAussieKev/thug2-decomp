@@ -7,11 +7,11 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
 #include <gsl/pointers>
 
 // The PC geom (Nx engine): a sector's or a model's renderable geometry - its meshes, or an instance of another

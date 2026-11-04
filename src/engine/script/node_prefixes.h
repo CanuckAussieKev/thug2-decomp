@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 // The nodes by name prefix (level_nodes): when a node array is added, each node name's prefixes - the part before
 // each '_' (but not "TRG") and the name without its trailing digits - get the node's index, in one table per node

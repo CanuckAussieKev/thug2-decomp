@@ -3,9 +3,9 @@
 
 #include <cstdint>
 #include "engine/net/player_info.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/gfx/engine_texture.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include <cstring>
 #include <iterator>
 #include <span>
@@ -15,14 +15,14 @@
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/pad_input/input_hub.h" // IWYU pragma: keep - the complete InputHandler type (deleted here)
 #include "platform/gamespy.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/net/buddy_status.h"
 #include "engine/net/gamenet_game_cfuncs.h"
 #include "engine/net/net_client.h"
@@ -61,9 +61,9 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/str.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/str.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 #include "engine/net/online_identity.h"

@@ -10,7 +10,7 @@
 #include <span>
 
 #include "engine/net/player_info.h"
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/gamenet_commands.h"
@@ -47,14 +47,14 @@
 #include "game/rider/skater_score.h"
 #include "engine/net/gamenet_lists.h"
 #include "wire/play_messages.h"
-#include "engine/core/ints.h"
+#include "base/core/ints.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "wire/message_ids.h"
 
 namespace {

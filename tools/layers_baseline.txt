@@ -404,7 +404,6 @@ src/formats/check/format_check.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check.cpp -> src/wire/message_ids.h
 src/formats/check/format_check.cpp -> src/wire/net_wire.h
 src/formats/check/format_check.cpp -> src/wire/skate_net_messages.h
-src/formats/check/format_check_net.cpp -> src/platform/compiler.h
 src/formats/check/format_check_net.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check_net.cpp -> src/wire/play_messages.h
 src/formats/check/format_check_net.cpp -> src/wire/skater_messages.h

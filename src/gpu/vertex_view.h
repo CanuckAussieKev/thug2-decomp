@@ -10,7 +10,7 @@
 
 #include <gsl/assert>
 
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 // NOT ORIGINAL - a vertex buffer's bytes (the copy kept in memory, or a mesh file's vertex block) read and written
 // by attribute: `stride` bytes per vertex, each attribute a run of floats at its offset in the vertex (the position

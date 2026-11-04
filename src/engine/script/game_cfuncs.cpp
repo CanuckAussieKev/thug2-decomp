@@ -4,7 +4,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/objects/camera_component.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <windows.h>
 
@@ -21,14 +21,14 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/assets/resource_entry.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/file/file_load.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/tod_manager.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/script/nodes.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
@@ -64,14 +64,14 @@
 #include "platform/winmain.h"
 #include "engine/gfx/movie.h"
 #include "platform/crt.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/script/cfuncs_scene.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include <span>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/sys/game_config.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"

@@ -1,14 +1,14 @@
 // The game's settings in the registry.
 
 #include "platform/registry.h"
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 #include <windows.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <array>
-#include "engine/core/format.h"
+#include "base/core/format.h"
 
 namespace sys {
 

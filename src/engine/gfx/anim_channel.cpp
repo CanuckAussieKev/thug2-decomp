@@ -14,7 +14,7 @@
 #include <span>
 
 #include "wire/message_ids.h"
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
@@ -23,7 +23,7 @@
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"
-#include "engine/maths/maths.h"
+#include "base/maths/maths.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -40,12 +40,12 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/startup_init.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

@@ -21,8 +21,8 @@
 #include "engine/script/struct_buffer.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "game/park_editing/park_editing_state.h"
 #include "engine/net/player_info.h"
 

@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/dbg.h"
+#include "base/core/dbg.h"
 #include "wire/message_ids.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -25,7 +25,7 @@
 #include "game/skate/trick_goals.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 
 namespace goals {

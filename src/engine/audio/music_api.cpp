@@ -7,9 +7,9 @@
 #include <cstring>
 #include <array>
 
-#include "engine/core/stubs.h"
+#include "base/core/stubs.h"
 #include "engine/file/async.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/stream_component.h"
 #include "engine/audio/continue_music.h"
 #include "engine/audio/music_player.h"
@@ -19,11 +19,11 @@
 #include "engine/gfx/viewport.h"
 #include "engine/sys/game_config.h"
 #include "engine/objects/anim_movies.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/audio/audio_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace audio {
 

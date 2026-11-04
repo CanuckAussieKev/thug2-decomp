@@ -9,21 +9,21 @@
 #include <array>
 #include <span>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/dbg.h"
+#include "base/core/checked_index.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/util/text_store.h"
 #include "engine/gfx/model.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include <gsl/pointers>
 #include "platform/crt.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
 
 namespace gfx {
 

@@ -6,8 +6,8 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_static.h"

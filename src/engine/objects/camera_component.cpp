@@ -4,8 +4,8 @@
 #include "engine/objects/camera_component.h"
 
 #include "engine/gfx/view_cam.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/car_physics.h"

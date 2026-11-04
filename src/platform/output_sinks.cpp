@@ -4,8 +4,8 @@
 
 #include <windows.h>
 
-#include "engine/core/dbg.h"
-#include "engine/core/log_sink.h"
+#include "base/core/dbg.h"
+#include "base/core/log_sink.h"
 #include "platform/debug_log.h"
 
 namespace platform {

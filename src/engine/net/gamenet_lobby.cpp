@@ -11,7 +11,7 @@
 #include <initializer_list>
 
 #include "engine/memory/task_list.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/buddy_man.h"
@@ -19,7 +19,7 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the server's name)

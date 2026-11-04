@@ -10,9 +10,9 @@
 #include <span>
 
 #include "engine/memory/arena_alloc.h"
-#include "engine/maths/quat_rotation.h"
-#include "engine/maths/vec4.h"
-#include "engine/core/checksums.h"
+#include "base/maths/quat_rotation.h"
+#include "base/maths/vec4.h"
+#include "base/core/checksums.h"
 
 namespace objects {
 class AnimBlenderComponent;

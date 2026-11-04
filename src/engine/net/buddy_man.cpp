@@ -17,14 +17,14 @@
 #include <memory>
 #include <string_view>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/stubs.h"
-#include "engine/core/str.h"
+#include "base/core/stubs.h"
+#include "base/core/str.h"
 #include "engine/memory/task_list.h"
 #include "engine/lists/list_walk.h"
-#include "engine/maths/random.h"
+#include "base/maths/random.h"
 #include "engine/net/buddy_status.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_lobby.h"
@@ -47,15 +47,15 @@
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/parse_number.h"
+#include "base/core/parse_number.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include <gsl/assert>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
-#include "engine/core/gathered_call.h"
+#include "base/core/gathered_call.h"
 #include "engine/net/online_identity.h"
 #include "platform/crt.h"
 

@@ -25,7 +25,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/objects/model_component.h"
 #include "game/rider/rider.h"
-#include "engine/core/down_cast.h"
+#include "base/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 
 namespace objects {

@@ -2,7 +2,7 @@
 
 #include "editor/level_editor_actions.h"
 #include "platform/keyboard.h"
-#include "engine/core/span_copy.h"
+#include "base/core/span_copy.h"
 
 #include <SDL2/SDL_scancode.h>
 #include <windows.h>
@@ -19,8 +19,8 @@
 #include <vector>
 
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include <string_view>
 
 namespace frontend::level_editor::actions {

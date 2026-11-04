@@ -8,9 +8,9 @@
 #include <array>
 #include <span>
 
-#include "engine/core/enum_ops.h"
-#include "engine/maths/shape_tests.h"
-#include "engine/maths/vec4.h"
+#include "base/core/enum_ops.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_obj.h"
@@ -18,8 +18,8 @@
 #include "engine/render/coll_tests.h"
 #include "engine/render/coll_tri.h"
 #include "engine/gfx/engine_scene_list.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
 
 namespace render {
 

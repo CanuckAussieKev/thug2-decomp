@@ -1,6 +1,6 @@
 #pragma once
 
-// NOT ORIGINAL - the OS behind the base layer's output (engine/core/dbg.h's debugger messages, engine/core/log_sink.h's
+// NOT ORIGINAL - the OS behind the base layer's output (base/core/dbg.h's debugger messages, base/core/log_sink.h's
 // error lines), installed first thing in WinMain.
 namespace platform {
 

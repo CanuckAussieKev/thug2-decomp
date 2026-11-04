@@ -33,12 +33,12 @@
 #include "platform/run_log.h"
 #include "engine/pad_input/device.h"
 #include "frontend/menu_element.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/memory/mem.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "engine/maths/vec2.h"
+#include "base/maths/vec2.h"
 
 namespace mouse_menus {
 

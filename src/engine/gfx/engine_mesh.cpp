@@ -3,7 +3,7 @@
 
 #include "engine/gfx/engine_mesh.h"
 
-#include "engine/core/str.h"
+#include "base/core/str.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -17,7 +17,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/render/coll_tri.h"
 #include "formats/collision_format.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 namespace render {
 

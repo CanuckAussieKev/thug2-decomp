@@ -41,11 +41,11 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/engine_glue.h"
 #include "frontend/front_end.h"
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/checksums.h"
-#include "engine/maths/vec4.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

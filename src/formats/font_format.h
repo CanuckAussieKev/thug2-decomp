@@ -6,7 +6,7 @@
 #include <array>
 
 #include "formats/byte_stream.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 // NOT ORIGINAL - the bitmap font format (PC: "fonts/x.fnt.xbx"), read through util::ByteReader.
 //

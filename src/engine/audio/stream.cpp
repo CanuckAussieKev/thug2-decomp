@@ -12,15 +12,15 @@
 #include <vector>
 #include <array>
 
-#include "engine/core/checked_index.h"
-#include "engine/core/dbg.h"
+#include "base/core/checked_index.h"
+#include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "formats/stream_index_format.h"
 #include "formats/byte_stream.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/audio/audio_state.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include <gsl/pointers>
 
 namespace audio {

@@ -6,9 +6,9 @@
 #include <span>
 
 #include "engine/memory/mem.h"
-#include "engine/core/packed_colour.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/vec4.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
 
 // The engine's primitive (Nx; the platform-independent base of the PC primitive drawer in pc_primitive.h): a run of
 // vertices set through its virtuals - here only "STUB" messages; the PC class does the work. Primitives that own their

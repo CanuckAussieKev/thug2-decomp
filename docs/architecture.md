@@ -48,7 +48,7 @@ everything above it uses the game's own types and may change them freely.
 `checksums.h`, `pointer_cell.h`, `raw_view.h`); they build and are checked without the game.
 
 **The original's layouts stay in the boundary**: the named helpers that read memory through another type or keep a
-pointer in an integer - `cell::` (`engine/core/pointer_cell.h`), `raw::` (`engine/core/raw_view.h`),
+pointer in an integer - `cell::` (`base/core/pointer_cell.h`), `raw::` (`base/core/raw_view.h`),
 `memory::bits_as`, `function_at` - are used only there. Above it every field has its member and every pointer its
 type; data from outside is decoded where it arrives. `npm test` forbids the helpers above the boundary
 (`tools/layering.ts`). The QB bytecode readers (`engine/script/qb.cpp`,

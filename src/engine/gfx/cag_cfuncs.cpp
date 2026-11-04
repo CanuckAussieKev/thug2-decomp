@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/maths/maths.h"
+#include "base/maths/maths.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
@@ -17,10 +17,10 @@
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 
 namespace commands {
 

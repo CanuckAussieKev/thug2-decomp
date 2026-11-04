@@ -11,7 +11,7 @@
 #include <array>
 #include <span>
 
-#include "engine/core/span_copy.h"
+#include "base/core/span_copy.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_geom.h"
@@ -20,16 +20,16 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/sector.h"
 #include "engine/lists/key_map.h"
-#include "engine/maths/shape_tests.h"
+#include "base/maths/shape_tests.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/packed_colour.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/packed_colour.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/light_sets.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

@@ -2,7 +2,7 @@
 
 #include "editor/level_editor_shadows.h"
 #include "editor/level_editor.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 #include <algorithm>
 #include <cctype>

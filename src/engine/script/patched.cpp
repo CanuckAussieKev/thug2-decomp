@@ -10,11 +10,11 @@
 #include <vector>
 #include <array>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/file/packs.h"
 #include "platform/debug_log.h"
-#include "engine/util/bps.h"
-#include "engine/core/no_destroy.h"
+#include "base/util/bps.h"
+#include "base/core/no_destroy.h"
 
 namespace script {
 

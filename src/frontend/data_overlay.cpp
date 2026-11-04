@@ -17,7 +17,7 @@
 #include "engine/gfx/hd_ui.h"
 #include "game/skate/thugpro_cas.h"
 #include "platform/run_log.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "engine/file/file_load.h"
 
 namespace frontend::data_overlay {

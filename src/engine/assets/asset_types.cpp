@@ -9,11 +9,11 @@
 #include <array>
 
 #include "engine/assets/resource_entry.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/checksums.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/file/async.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/boned_anim_frame_data.h"
@@ -33,9 +33,9 @@
 #include "engine/script/param_struct.h"
 #include <gsl/pointers>
 #include <gsl/assert>
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/core/gathered_call.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/core/gathered_call.h"
 
 namespace assets {
 

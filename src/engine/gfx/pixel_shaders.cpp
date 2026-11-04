@@ -19,13 +19,13 @@
 #include "engine/gfx/view_mode.h"
 #include "engine/lists/key_map.h"
 #include "engine/gfx/shader_slots.h"
-#include "engine/lists/object_set.h"
+#include "base/lists/object_set.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/gfx/shadow_base.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 
 namespace render {

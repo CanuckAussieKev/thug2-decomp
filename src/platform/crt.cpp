@@ -2,9 +2,9 @@
 #include <windows.h>
 
 #include "platform/crt.h"
-#include "platform/all_ones.h"
+#include "base/core/all_ones.h"
 #include "platform/code_address.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -16,7 +16,7 @@
 #include <span>
 #include <string_view>
 #include <utility>
-#include "engine/core/raw_view.h"
+#include "base/core/raw_view.h"
 
 namespace crt {
 

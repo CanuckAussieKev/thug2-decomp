@@ -17,8 +17,8 @@
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8_pie.h"
 #include "imgui.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "editor/level_editor_ui_layout.h"
 

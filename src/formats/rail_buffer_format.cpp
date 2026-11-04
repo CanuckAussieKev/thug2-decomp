@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the packed rails' reader: see rail_buffer_format.h.
 
 #include "formats/rail_buffer_format.h"
-#include "engine/core/checked_index.h"
+#include "base/core/checked_index.h"
 #include "formats/byte_stream.h"
 
 #include <cstdint>

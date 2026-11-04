@@ -7,7 +7,7 @@
 #include <array>
 
 #include "engine/gfx/surface_material.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/gfx/projected_vertex.h"
 
 // Texture projections on PC (Nx engine: the engine's TextureProjection - constructor 0x0049FE20, destructor body

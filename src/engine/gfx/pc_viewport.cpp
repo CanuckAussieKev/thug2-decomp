@@ -13,17 +13,17 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport.h"
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "platform/platform_d3d.h"
 #include "engine/gfx/shader_slots.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
-#include "engine/maths/vec2.h"
-#include "engine/maths/rect.h"
+#include "base/maths/vec2.h"
+#include "base/maths/rect.h"
 #include "engine/gfx/screen.h"
 
 namespace render {

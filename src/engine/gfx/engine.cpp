@@ -8,9 +8,9 @@
 #include <memory>
 #include <span>
 
-#include "engine/core/checksums.h"
+#include "base/core/checksums.h"
 #include "engine/memory/mem.h"
-#include "engine/core/str.h"
+#include "base/core/str.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_imposters.h"
@@ -34,11 +34,11 @@
 #include "engine/gfx/weather.h"
 #include <gsl/pointers>
 #include <array>
-#include "platform/compiler.h"
+#include "base/core/compiler.h"
 #include "engine/memory/arena_alloc.h"
-#include "engine/core/format.h"
+#include "base/core/format.h"
 #include "platform/crt.h"
-#include "engine/core/no_destroy.h"
+#include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unbounded as it builds them)

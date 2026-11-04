@@ -14,23 +14,23 @@
 #include <utility>
 #include <array>
 
-#include "engine/core/enum_ops.h"
+#include "base/core/enum_ops.h"
 #include "editor/level_editor.h"
-#include "engine/maths/vec2.h"
-#include "engine/core/checksums.h"
+#include "base/maths/vec2.h"
+#include "base/core/checksums.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scenery.h"
-#include "engine/maths/mat4.h"
+#include "base/maths/mat4.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/ints.h"
-#include "engine/core/checked_index.h"
-#include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/maths/vec4.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "base/maths/vec4.h"
 
 namespace frontend::level_editor::nodes {
 

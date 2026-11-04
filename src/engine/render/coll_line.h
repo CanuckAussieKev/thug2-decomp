@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/maths/vec4.h"
+#include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 
 namespace objects {
