@@ -128,6 +128,15 @@ CheckOptions:
   # outside a condition), the literal suffixes upper-case as readability-uppercase-literal-suffix wants them.
   readability-implicit-bool-conversion.AllowPointerConditions: true
   readability-implicit-bool-conversion.UseUpperCaseLiteralSuffix: true
+  # Names are at least 2 characters (the check's default is 3). Allowed single letters: the coordinates and components
+  # x y z w u v (a vector's or a texture's own letters) for variables, and a / b for parameters (a function of two
+  # symmetrical operands, as bugprone-easily-swappable-parameters above allows them). Loop counters keep the check's
+  # default (i, j, k, _).
+  readability-identifier-length.MinimumVariableNameLength: 2
+  readability-identifier-length.MinimumParameterNameLength: 2
+  readability-identifier-length.MinimumLoopCounterNameLength: 2
+  readability-identifier-length.IgnoredVariableNames: '^[xyzwuv]$'
+  readability-identifier-length.IgnoredParameterNames: '^[xyzwuvab]$'
   readability-identifier-naming.NamespaceCase: lower_case
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase
