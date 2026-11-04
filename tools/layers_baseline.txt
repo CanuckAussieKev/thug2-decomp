@@ -20,9 +20,6 @@ src/engine/gfx/tod_manager.cpp -> src/game/park_editing/park_editor.h
 src/engine/gfx/tod_manager.cpp -> src/game/skate/game_mode.h
 src/engine/gfx/tod_manager.cpp -> src/game/skate/skate_module.h
 src/engine/gfx/viewport.cpp -> src/game/skate/skate_module.h
-src/engine/objects/anim_blender.cpp -> src/game/rider/thaw_bmx.h
-src/engine/objects/camera_lookaround.cpp -> src/game/rider/thaw_bmx.h
-src/engine/objects/control_pad.cpp -> src/game/rider/thaw_bmx.h
 src/engine/pad_input/device.cpp -> src/game/front_end/front_end.h
 src/engine/pad_input/device.cpp -> src/game/online/net_game_state.h
 src/engine/pad_input/device.cpp -> src/game/park_editing/park_editor.h

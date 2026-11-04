@@ -22,7 +22,7 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/lists/chain_start.h"
-#include "game/rider/thaw_bmx.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -386,8 +386,8 @@ int AnimBlenderComponent::pass_to_channel(uint32_t name, script::Struct* params,
     // flips a branch as it's played (Skater_Playanim's obj_is_flipped), so the channel takes the rider's flipped flag
     // before it plays - on the bike his Flip turns the flag only (game/rider/thaw_bmx.h play_flip). 0x0047DC40 with
     // its last argument 0: the flag set, nothing sent. Original behaviour: the channel's flip as it was.
-    if ((name == kPlayAnim || name == kObjPlayAnim) && channel && skater::thaw_bmx::is_switched_on()) {
-        const int flip = skater::thaw_bmx::play_flip(entity());
+    if ((name == kPlayAnim || name == kObjPlayAnim) && channel && game_hooks().bike.switched_on()) {
+        const int flip = game_hooks().bike.play_flip(entity());
         if (flip >= 0) {
             channel->set_flipped(entity()->ident(), bool_arg(static_cast<uint32_t>(flip)), 0U, bool_arg(0U));
         }

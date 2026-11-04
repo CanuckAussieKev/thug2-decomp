@@ -10,7 +10,7 @@
 #include "engine/objects/control_pad.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "game/rider/thaw_bmx.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -122,15 +122,14 @@ void FreeLookModule::tick_frame()
         pad->stick_click_right().reset_activation();
     }
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    if (!locked_ && !turning_ && dpad_look_ && skater::thaw_bmx::is_switched_on()) {
+    if (!locked_ && !turning_ && dpad_look_ && game_hooks().bike.switched_on()) {
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
         const PadSnapshot* snapshot = pad;
-        const skater::thaw_bmx::LookInputs in = skater::thaw_bmx::d_pad_look_inputs(
+        const BikeHooks::Look in = game_hooks().bike.d_pad_look(
             snapshot->up_dir().held_down() != 0, snapshot->btn_down().held_down() != 0,
-            snapshot->left_side().held_down() != 0, snapshot->right_side().held_down() != 0,
-            skater::thaw_bmx::kLookInvertDefault);
+            snapshot->left_side().held_down() != 0, snapshot->right_side().held_down() != 0);
         const float tilt = in.tilt * (in.tilt < 0.0F ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, {.target = tilt, .frame = frame});
         get_ease(heading_, {.target = in.heading, .frame = frame});
@@ -176,9 +175,9 @@ int FreeLookModule::invoke_method_by_name(uint32_t name, script::Struct* params,
     }
     // NOT ORIGINAL - THAW's BMX: THAW's members (its 0x5B0B50 / 0x5B0B60: +0x40 on / off), bike_start's and
     // bmx_finish_off's - only while the feature is on (else 2, as THUG2's).
-    if ((name == kLookaroundOnDPadOn || name == kLookaroundOnDPadOff) && skater::thaw_bmx::is_switched_on()) {
+    if ((name == kLookaroundOnDPadOn || name == kLookaroundOnDPadOff) && game_hooks().bike.switched_on()) {
         dpad_look_ = name == kLookaroundOnDPadOn;
-        skater::thaw_bmx::note_d_pad_camera(dpad_look_);
+        game_hooks().bike.note_d_pad_camera(dpad_look_);
         return 1;
     }
     return 2;

@@ -10,7 +10,7 @@
 
 #include "base/core/checksums.h"
 #include "engine/pad_input/input_hub.h"
-#include "game/rider/thaw_bmx.h"
+#include "engine/objects/game_hooks.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/stopwatch.h"
 #include "base/core/checked_index.h"
@@ -213,8 +213,8 @@ void PadSnapshot::get_reset()
     core::at(polar_, 0) = {.angle = 0.0F, .length = 0.0F};
     core::at(polar_, 1) = {.angle = 0.0F, .length = 0.0F};
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
-    if (skater::thaw_bmx::is_switched_on()) {
-        skater::thaw_bmx::update_pad_sticks(this, {});
+    if (game_hooks().bike.switched_on()) {
+        game_hooks().bike.update_pad_sticks(this, {});
     }
 }
 
@@ -302,8 +302,8 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     update_lock(core::at(lock_, 1), core::at(polar_, 1).length, static_cast<double>(maths::kPi) - angle < kQuarterPi);
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
     // game/rider/thaw_bmx.h. Original behaviour: none.
-    if (skater::thaw_bmx::is_switched_on()) {
-        skater::thaw_bmx::update_pad_sticks(this, data);
+    if (game_hooks().bike.switched_on()) {
+        game_hooks().bike.update_pad_sticks(this, data);
     }
 }
 
@@ -322,8 +322,8 @@ ControlButton* PadSnapshot::read_button(uint32_t name)
     }
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons by name (leftup ... rightright - its bike
     // scripts' DoBalanceTrick ButtonA=leftright, HeldLongerThan button=leftdown). Original behaviour: null.
-    if (skater::thaw_bmx::is_switched_on()) {
-        return static_cast<ControlButton*>(skater::thaw_bmx::pad_stick_button(this, name));
+    if (game_hooks().bike.switched_on()) {
+        return static_cast<ControlButton*>(game_hooks().bike.pad_stick_button(this, name));
     }
     return nullptr;
 }
