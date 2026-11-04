@@ -470,6 +470,13 @@ public:
     [[nodiscard]] const objects::AnimDoneCallback& anim_done() const { return anim_done_; }
 
 private:
+    // (Parts of 0x0052C2C0, update_contacts: a contact's normal flattened and how fast what it hit moves along it;
+    // on foot the barrier jump, a climb, a halt and the push down steep ground - true when update_contacts ends there;
+    // two contacts facing apart - true when the skater was stopped in that corner.)
+    void flatten_contact(objects::WalkContact& contact, render::ProbeRay* feeler);
+    bool stop_on_foot(render::ProbeRay* feeler);
+    bool stop_in_corner(render::ProbeRay* feeler);
+
     int state_{};                      // +0x18 0 walking, 1 in the air, 2 hanging, 3 on a ladder, 4 an animated move
     int state_time_{};                 // +0x1C the game clock when the state changed
     int previous_state_{};             // +0x20

@@ -543,78 +543,7 @@ void AttributeTracker::tick_frame()
         if (goal.cur_standing_ != 0 || goal.met_) {
             continue;
         }
-        bool meets = false;
-        switch (goal.kind_) {
-        case kRise:
-            meets = jump_phase_ == 2 &&
-                    goal.aim_point_ * static_cast<double>(kFeet) <= static_cast<double>(jump_end_.y) - jump_start_.y;
-            break;
-        case kDrop:
-            meets = jump_phase_ == 2 &&
-                    goal.aim_point_ * static_cast<double>(kFeet) <= static_cast<double>(jump_start_.y) - jump_end_.y;
-            break;
-        case kAirCombo:
-            if (air_phase_ == 2 && air_best_ >= goal.aim_point_) {
-                script::StructPtr params = script::make_struct();
-                params->put_int(checksums::Name{kScore}, air_best_);
-                launch_script(kShowVertComboMessage, params.get());
-                params.reset();
-                meets = true;
-            }
-            break;
-        case kAirHeight:
-            meets = air_phase_ != 0 && goal.aim_point_ * static_cast<double>(kFeet) <= air_height_;
-            break;
-        case kAirValue58:
-            meets = air_phase_ != 0 && goal.aim_point_ <= static_cast<double>(value58_);
-            break;
-        case kComboScore:
-            meets = points_held_ >= goal.aim_point_;
-            break;
-        case kMultiplier:
-            meets = goal.aim_point_ <= static_cast<double>(multiplier_);
-            break;
-        case kCountA80:
-            meets = count_a80_ >= goal.aim_point_;
-            break;
-        case kCountA84:
-            meets = count_a84_ >= goal.aim_point_;
-            break;
-        case kTrickCount: {
-            const int target = goal.aim_point_;
-            const uint32_t trick = goal.trick_;
-            if (count_tricks(score, trick, 0, 0, static_cast<int>(goal.value20_)) >= target) {
-                meets = true;
-            } else if (trick == kManual) {
-                const int manuals = count_tricks(score, trick, 0, 0, 1);
-                meets = manuals + count_tricks(score, kManualPairTrick, 0, 0, 1) >= target;
-            }
-            break;
-        }
-        case kLeapReach:
-            if (jump_phase_ == 2) {
-                const maths::Vec4 start = {.x = jump_start_.x, .y = 0.0F, .z = jump_start_.z, .w = 1.0F};
-                const maths::Vec4 end = {.x = jump_end_.x, .y = 0.0F, .z = jump_end_.z, .w = 1.0F};
-                const double distance = span_to(end, start);
-                meets = goal.aim_point_ * static_cast<double>(kFeet) <= distance;
-            }
-            break;
-        case kAirDistance:
-            if (air_phase_ == 2) {
-                auto target = static_cast<float>(goal.aim_point_);
-                air_end_.y = 0.0F;
-                air_start_.y = 0.0F;
-                const double distance = span_to(air_end_, air_start_);
-                meets = target * static_cast<double>(kFeet) <= distance;
-            }
-            break;
-        case kScore562370:
-            // (it reads the goal's +0x18, the 0xCD021293 entry)
-            meets = score->count_tricks_named(goal.text_) >= goal.aim_point_;
-            break;
-        default:
-            break;
-        }
+        const bool meets = goal_met(goal, score);
         if (meets) {
             meet_goal(i);
             met = true;
@@ -628,6 +557,84 @@ void AttributeTracker::tick_frame()
     score_before_combo_ = points_held_;
     last_points_ = path_vertices_;
     last_multiplier_ = multiplier_;
+}
+
+// Whether an open goal is met by what the skater did (an air combo's also announced).
+bool AttributeTracker::goal_met(const Goal& goal, modules::PointTally* score)
+{
+    bool meets = false;
+    switch (goal.kind_) {
+    case kRise:
+        meets = jump_phase_ == 2 &&
+                goal.aim_point_ * static_cast<double>(kFeet) <= static_cast<double>(jump_end_.y) - jump_start_.y;
+        break;
+    case kDrop:
+        meets = jump_phase_ == 2 &&
+                goal.aim_point_ * static_cast<double>(kFeet) <= static_cast<double>(jump_start_.y) - jump_end_.y;
+        break;
+    case kAirCombo:
+        if (air_phase_ == 2 && air_best_ >= goal.aim_point_) {
+            script::StructPtr params = script::make_struct();
+            params->put_int(checksums::Name{kScore}, air_best_);
+            launch_script(kShowVertComboMessage, params.get());
+            params.reset();
+            meets = true;
+        }
+        break;
+    case kAirHeight:
+        meets = air_phase_ != 0 && goal.aim_point_ * static_cast<double>(kFeet) <= air_height_;
+        break;
+    case kAirValue58:
+        meets = air_phase_ != 0 && goal.aim_point_ <= static_cast<double>(value58_);
+        break;
+    case kComboScore:
+        meets = points_held_ >= goal.aim_point_;
+        break;
+    case kMultiplier:
+        meets = goal.aim_point_ <= static_cast<double>(multiplier_);
+        break;
+    case kCountA80:
+        meets = count_a80_ >= goal.aim_point_;
+        break;
+    case kCountA84:
+        meets = count_a84_ >= goal.aim_point_;
+        break;
+    case kTrickCount: {
+        const int target = goal.aim_point_;
+        const uint32_t trick = goal.trick_;
+        if (count_tricks(score, trick, 0, 0, static_cast<int>(goal.value20_)) >= target) {
+            meets = true;
+        } else if (trick == kManual) {
+            const int manuals = count_tricks(score, trick, 0, 0, 1);
+            meets = manuals + count_tricks(score, kManualPairTrick, 0, 0, 1) >= target;
+        }
+        break;
+    }
+    case kLeapReach:
+        if (jump_phase_ == 2) {
+            const maths::Vec4 start = {.x = jump_start_.x, .y = 0.0F, .z = jump_start_.z, .w = 1.0F};
+            const maths::Vec4 end = {.x = jump_end_.x, .y = 0.0F, .z = jump_end_.z, .w = 1.0F};
+            const double distance = span_to(end, start);
+            meets = goal.aim_point_ * static_cast<double>(kFeet) <= distance;
+        }
+        break;
+    case kAirDistance:
+        if (air_phase_ == 2) {
+            auto target = static_cast<float>(goal.aim_point_);
+            air_end_.y = 0.0F;
+            air_start_.y = 0.0F;
+            const double distance = span_to(air_end_, air_start_);
+            meets = target * static_cast<double>(kFeet) <= distance;
+        }
+        break;
+    case kScore562370:
+        // (it reads the goal's +0x18, the 0xCD021293 entry)
+        meets = score->count_tricks_named(goal.text_) >= goal.aim_point_;
+        break;
+    default:
+        break;
+    }
+    return meets;
 }
 
 // 0x0051D6A0

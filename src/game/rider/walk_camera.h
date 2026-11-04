@@ -104,6 +104,10 @@ public:
     void set_override_rate(float value) { override_rate_ = value; }
 
 private:
+    // (Part of 0x005251D0, tick_frame: with the stick still, the camera's facing swung to the skater's - slerped by
+    // its speed, or all the way.)
+    void swing_facing(maths::Vec4& facing, const maths::Vec4& skater_facing, float turn);
+
     int instant_frames_{}; // +0x18 frames left that jump straight to the target (3 after a teleport)
     bool flush_{};         // +0x1C a flush requested
     bool snap_next_{};     // +0x1D (reset_now)

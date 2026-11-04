@@ -102,6 +102,10 @@ public:
     void set_points_held(modules::PointTally* value) { points_held_ = value; }
 
 private:
+    // (Part of 0x00512770, end_gap: a gap's trick marked done when no trick is needed or it was done since the gap
+    // started.)
+    void note_gap_trick(TrickListEntry* gap);
+
     memory::ListNode gaps_{};                   // +0x18 lists::Foremost<TrickListEntry>
     memory::ListNode gap_move_chain_{};         // +0x2C lists::Foremost<TrickNameEntry>
     uint32_t tick_{};                           // +0x40 counted by Update

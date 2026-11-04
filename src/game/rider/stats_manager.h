@@ -14,6 +14,10 @@ class Script;
 class Struct;
 } // namespace script
 
+namespace modules {
+class PointTally;
+} // namespace modules
+
 // The stats manager component (StatsManager, type 0x4FF8DAC6, vtable 0x0064C294, 0xAA0 bytes; made by 0x0051CB90):
 // the story mode's stat challenges - up to 70 goals (the global array 0x4E46CC28, per difficulty) a skater meets by
 // what it does: a combo's score or multiplier, air height and distance, a jump's rise or drop, tricks and gaps
@@ -112,6 +116,9 @@ public:
     std::array<Goal, kGoals>& goals() { return goals_; }
 
 private:
+    // (Part of 0x0051CF90, tick_frame: whether an open goal is met by what the skater did.)
+    bool goal_met(const Goal& goal, modules::PointTally* score);
+
     bool first_update_{}; // +0x18 the next update only clears the phases
     std::array<uint8_t, 3> pad19{};
     std::array<Goal, kGoals> goals_{}; // +0x1C

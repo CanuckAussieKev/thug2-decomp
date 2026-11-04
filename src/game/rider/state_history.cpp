@@ -191,6 +191,114 @@ void send_event(GameEntity* skater, uint32_t type, const char* name, uint32_t fl
     params.get_clear();
 }
 
+// Two skaters who ran into each other in a network game: this machine's player and the other one, the other's
+// skater, the host that tells the players.
+struct SkaterHit {
+    online::PlayerRecord* me;
+    online::PlayerRecord* them;
+    GameEntity* skater;
+    net::AppHost* app;
+};
+
+// The hit in a tag game (passing "it") or team tag (tagging or converting): true when the game is over and
+// no more hits are checked.
+bool pass_tag(const SkaterHit& hit)
+{
+    online::PlayerRecord* me = hit.me;
+    online::PlayerRecord* them = hit.them;
+    GameEntity* skater = hit.skater;
+    net::AppHost* app = hit.app;
+    const uint32_t type = get_game_type();
+    if (type == kGameTag || get_game_type() == kGameTag2) {
+        if (tag_game_over()) {
+            return true;
+        }
+        if (!is_it(me)) {
+            return false;
+        }
+        make_it(them, true);
+        online::PlayerSearch search;
+        for (online::PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
+            if (is_host_local(player)) {
+                continue;
+            }
+            net::NetMessageInfo msg;
+            auto tagged = static_cast<uint8_t>(skater->ident());
+            msg.set_content(&tagged);
+            msg.set_ident(online::MessageId::kKing);
+            msg.set_byte_count(1);
+            msg.set_queue(net::NetMessageInfo::kLaneOrdered);
+            msg.set_group_id(online::MessageGroup::kGame);
+            app->put_on_outbox(get_connection(player), &msg);
+        }
+    } else if (get_game_type() == kGameTeamTag) {
+        if (manager_flag_3a()) {
+            return true;
+        }
+        if (!on_a_team(me)) {
+            return false;
+        }
+        net::NetMessageInfo msg;
+        std::array<uint8_t, 2> tagged{};
+        core::at(tagged, 0) = static_cast<uint8_t>(skater->ident());
+        core::at(tagged, 1) = static_cast<uint8_t>(get_team(me));
+        const bool same_team = get_team(me) == them->team();
+        online::PlayerSearch search;
+        for (online::PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
+            if (is_host_local(player)) {
+                if (same_team) {
+                    tag_on_team(them);
+                } else {
+                    convert_to_team(them, get_team(me));
+                }
+                continue;
+            }
+            msg.set_ident(same_team ? online::MessageId::kTeamTagged : online::MessageId::kTeamConverted);
+            msg.set_content(tagged.data());
+            msg.set_group_id(online::MessageGroup::kGame);
+            msg.set_queue(net::NetMessageInfo::kLaneOrdered);
+            msg.set_byte_count(2);
+            app->put_on_outbox(get_connection(player), &msg);
+        }
+    }
+    return false;
+}
+
+// Where two skaters' moves meet: a point on each.
+struct MeetPoints {
+    maths::Vec4 mine;
+    maths::Vec4 theirs;
+};
+
+// Where two skaters' moves (`mine`, `theirs`) meet within `radius`: the segments' closest points, else the first
+// of the four pairs of ends close enough; false if they don't.
+bool find_meeting(const maths::Seg& mine, float radius, const maths::Seg& theirs, MeetPoints& points)
+{
+    maths::Vec4& my_point = points.mine;
+    maths::Vec4& their_point = points.theirs;
+    float scratch = 0.0F;
+    if (maths::closest_points_between_lines(mine, theirs, my_point, their_point, scratch, scratch, true)) {
+        if (!(length_of(my_point - their_point) < radius)) {
+            return false;
+        }
+    } else if (length_of(theirs.start - mine.start) < radius) {
+        their_point = theirs.start;
+        my_point = mine.start;
+    } else if (length_of(theirs.start - mine.end) < radius) {
+        their_point = theirs.start;
+        my_point = mine.end;
+    } else if (length_of(theirs.end - mine.start) < radius) {
+        their_point = theirs.end;
+        my_point = mine.start;
+    } else if (length_of(theirs.end - mine.end) < radius) {
+        their_point = theirs.end;
+        my_point = mine.end;
+    } else {
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 // --- StateHistoryMessage ---
@@ -353,28 +461,12 @@ void RiderFrameLog::check_for_collisions(int first)
         theirs.end = theirs.start + their_dir * static_cast<float>(their_history->get_collision_reach(their_driving));
 
         // Where they meet: the segments' closest points, else the first of the four pairs of ends close enough.
-        maths::Vec4 my_point{};
-        maths::Vec4 their_point{};
-        float scratch = 0.0F;
-        if (maths::closest_points_between_lines(mine, theirs, my_point, their_point, scratch, scratch, true)) {
-            if (!(length_of(my_point - their_point) < radius)) {
-                continue;
-            }
-        } else if (length_of(theirs.start - mine.start) < radius) {
-            their_point = theirs.start;
-            my_point = mine.start;
-        } else if (length_of(theirs.start - mine.end) < radius) {
-            their_point = theirs.start;
-            my_point = mine.end;
-        } else if (length_of(theirs.end - mine.start) < radius) {
-            their_point = theirs.end;
-            my_point = mine.start;
-        } else if (length_of(theirs.end - mine.end) < radius) {
-            their_point = theirs.end;
-            my_point = mine.end;
-        } else {
+        MeetPoints meet{};
+        if (!find_meeting(mine, radius, theirs, meet)) {
             continue;
         }
+        const maths::Vec4& my_point = meet.mine;
+        const maths::Vec4& their_point = meet.theirs;
 
         // Who hits whom: the faster skater (a driver beats one on foot); otherwise only the game's "it" does.
         bool must_be_it = false;
@@ -424,60 +516,8 @@ void RiderFrameLog::check_for_collisions(int first)
             }
         }
 
-        const uint32_t type = get_game_type();
-        if (type == kGameTag || get_game_type() == kGameTag2) {
-            if (tag_game_over()) {
-                return;
-            }
-            if (!is_it(me)) {
-                continue;
-            }
-            make_it(them, true);
-            online::PlayerSearch search;
-            for (online::PlayerRecord* player = start_roster_sweep(&search); player;
-                 player = step_roster_sweep(&search)) {
-                if (is_host_local(player)) {
-                    continue;
-                }
-                net::NetMessageInfo msg;
-                auto tagged = static_cast<uint8_t>(skater->ident());
-                msg.set_content(&tagged);
-                msg.set_ident(online::MessageId::kKing);
-                msg.set_byte_count(1);
-                msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-                msg.set_group_id(online::MessageGroup::kGame);
-                app->put_on_outbox(get_connection(player), &msg);
-            }
-        } else if (get_game_type() == kGameTeamTag) {
-            if (manager_flag_3a()) {
-                return;
-            }
-            if (!on_a_team(me)) {
-                continue;
-            }
-            net::NetMessageInfo msg;
-            std::array<uint8_t, 2> tagged{};
-            core::at(tagged, 0) = static_cast<uint8_t>(skater->ident());
-            core::at(tagged, 1) = static_cast<uint8_t>(get_team(me));
-            const bool same_team = get_team(me) == them->team();
-            online::PlayerSearch search;
-            for (online::PlayerRecord* player = start_roster_sweep(&search); player;
-                 player = step_roster_sweep(&search)) {
-                if (is_host_local(player)) {
-                    if (same_team) {
-                        tag_on_team(them);
-                    } else {
-                        convert_to_team(them, get_team(me));
-                    }
-                    continue;
-                }
-                msg.set_ident(same_team ? online::MessageId::kTeamTagged : online::MessageId::kTeamConverted);
-                msg.set_content(tagged.data());
-                msg.set_group_id(online::MessageGroup::kGame);
-                msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-                msg.set_byte_count(2);
-                app->put_on_outbox(get_connection(player), &msg);
-            }
+        if (pass_tag({.me = me, .them = them, .skater = skater, .app = app})) {
+            return;
         }
     }
 }

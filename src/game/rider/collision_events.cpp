@@ -505,28 +505,14 @@ const char* balance_name(uint32_t kind)
     }
 }
 
-void get_emit(int before)
+// The paths that ran between two frames, in order, named in the event; the strongest returned.
+const PathRecord* note_paths(Occurrence& event, uint32_t from, uint32_t to)
 {
-    const Sample& now = sample_at(0);
-    const Sample& old = sample_at(before);
-    Occurrence event;
-    Detail detail;
-    event.frame = now.frame;
-    event.frames = static_cast<int>(now.frame - old.frame);
-    event.pos_before_ = old.pos;
-    event.pos = now.pos;
-    event.vel_before_ = old.vel;
-    event.vel_after_ = now.vel;
-    event.ground_normal_ = now.ground_normal_;
-    event.heading_before_ = get_heading_of(old.facing);
-    event.heading = get_heading_of(now.facing);
-
-    // The paths that ran between the two (in order), and the strongest.
     const PathRecord* strongest = nullptr;
     std::array<bool, static_cast<int>(RouteWay::kTotalOf)> seen = {};
     for (int i = 0; i < collision_events_state().path_count_; ++i) {
         const PathRecord& record = core::at(collision_events_state().paths_, (collision_events_state().path_next_ - collision_events_state().path_count_ + i + kPathRecords) % kPathRecords);
-        if (record.frame < old.frame || record.frame > now.frame) {
+        if (record.frame < from || record.frame > to) {
             continue;
         }
         const int path = static_cast<int>(record.path);
@@ -544,8 +530,20 @@ void get_emit(int before)
     if (event.paths.empty()) {
         event.paths = "-";
     }
+    return strongest;
+}
 
-    // Between which checkpoints the velocity turned against the old direction (the first time).
+// Where the velocity turned against the old direction: the checkpoint, and whether it was the adjust-physics
+// component's velocity negated.
+struct FlipFound {
+    const Mark* flip;
+    bool uber_frig;
+};
+
+// Between which checkpoints from `old` to frame `to` the velocity turned against the old direction (the first
+// time), named in the event.
+FlipFound find_flip(Occurrence& event, const Sample& old, uint32_t to)
+{
     std::array<float, 2> dir_old{};
     get_horizontal(old.vel, dir_old);
     const Mark* previous = nullptr;
@@ -554,7 +552,7 @@ void get_emit(int before)
     event.flipped = "-";
     for (int i = 0; i < mark_ring().marker_total_; ++i) {
         const Mark& mark = core::at(mark_ring().marks_, (mark_ring().mark_next_ - mark_ring().marker_total_ + i + kMarks) % kMarks);
-        if (mark.frame < old.frame || mark.frame > now.frame) {
+        if (mark.frame < old.frame || mark.frame > to) {
             continue;
         }
         const bool against =
@@ -583,6 +581,32 @@ void get_emit(int before)
         }
         previous = against ? nullptr : &mark;
     }
+    return {.flip = flip, .uber_frig = uber_frig};
+}
+
+void get_emit(int before)
+{
+    const Sample& now = sample_at(0);
+    const Sample& old = sample_at(before);
+    Occurrence event;
+    Detail detail;
+    event.frame = now.frame;
+    event.frames = static_cast<int>(now.frame - old.frame);
+    event.pos_before_ = old.pos;
+    event.pos = now.pos;
+    event.vel_before_ = old.vel;
+    event.vel_after_ = now.vel;
+    event.ground_normal_ = now.ground_normal_;
+    event.heading_before_ = get_heading_of(old.facing);
+    event.heading = get_heading_of(now.facing);
+
+    // The paths that ran between the two (in order), and the strongest.
+    const PathRecord* strongest = note_paths(event, old.frame, now.frame);
+
+    // Between which checkpoints the velocity turned against the old direction (the first time).
+    const FlipFound found = find_flip(event, old, now.frame);
+    const Mark* flip = found.flip;
+    const bool uber_frig = found.uber_frig;
 
     // The ground at its steepest; the buttons held in the window.
     const Sample* steepest = &now;

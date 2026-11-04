@@ -513,30 +513,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
 
         // Its gap trick done: no trick needed, or the trick was done since the gap started.
         if (gap_trick_script(gap) != 0U) {
-            bool done = false;
-            if ((gap_key_combo(gap) == 0U) && (gap_trick_text(gap) == 0U) && gap->element_list()->extent() == 0) {
-                done = true;
-            } else {
-                done = false;
-                if (((gap_key_combo(gap) != 0U) &&
-                     gap_trick_count(gap) < key_combo_count(points_held_, gap_key_combo(gap), gap_spin(gap),
-                                                            static_cast<uint32_t>(gap_perfect(gap)), gap_taps(gap))) ||
-                    ((gap_trick_text(gap) != 0U) &&
-                     gap_trick_count(gap) < get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap),
-                                                            static_cast<uint32_t>(gap_perfect(gap)), gap_taps(gap))) ||
-                    (gap->element_list()->extent() > 0 &&
-                     tricks_array_count(points_held_, gap->element_list(), gap_tricks_count(gap)) > 0)) {
-                    done = true;
-                }
-            }
-            if (done) {
-                for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
-                    if (trick_gap_id(trick) == get_gap_id(gap)) {
-                        trick->set_flag(); // (0x00578670: the gap trick's done)
-                        break;
-                    }
-                }
-            }
+            note_gap_trick(gap);
         }
         gap_tally_ref()->set_gap_positions(text, {.pos = gap_start_pos(gap), .dir = gap_start_dir(gap)});
         int points = 0;
@@ -566,6 +543,35 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
             }
         }
         gap = get_first<TrickListEntry>(gaps_);
+    }
+}
+
+// A gap's trick done: no trick needed, or the trick was done since the gap started - marked in the move chain.
+void RiderGapTracker::note_gap_trick(TrickListEntry* gap)
+{
+    bool done = false;
+    if ((gap_key_combo(gap) == 0U) && (gap_trick_text(gap) == 0U) && gap->element_list()->extent() == 0) {
+        done = true;
+    } else {
+        done = false;
+        if (((gap_key_combo(gap) != 0U) &&
+             gap_trick_count(gap) < key_combo_count(points_held_, gap_key_combo(gap), gap_spin(gap),
+                                                    static_cast<uint32_t>(gap_perfect(gap)), gap_taps(gap))) ||
+            ((gap_trick_text(gap) != 0U) &&
+             gap_trick_count(gap) < get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap),
+                                                    static_cast<uint32_t>(gap_perfect(gap)), gap_taps(gap))) ||
+            (gap->element_list()->extent() > 0 &&
+             tricks_array_count(points_held_, gap->element_list(), gap_tricks_count(gap)) > 0)) {
+            done = true;
+        }
+    }
+    if (done) {
+        for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
+            if (trick_gap_id(trick) == get_gap_id(gap)) {
+                trick->set_flag(); // (0x00578670: the gap trick's done)
+                break;
+            }
+        }
     }
 }
 

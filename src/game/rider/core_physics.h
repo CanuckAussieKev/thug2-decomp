@@ -20,6 +20,7 @@ namespace objects {
 struct GrindPoint;
 class GrindRailHub;
 class PadInputModule;
+class PadSnapshot;
 class ActivationZoneModule;
 class RiderSfxPlayer;
 class MoveExecutor;
@@ -793,6 +794,31 @@ public:
     [[nodiscard]] objects::RiderBoardPhysics* physics_control() const { return physics_control_; }
 
 private:
+    // (Parts of 0x00509BD0, check_for_ground: the hit under the skater - how far away, how far above it along the
+    // skater's up - and on skatable ground whether the skater keeps to it; true when it does, check_for_ground
+    // ending there.)
+    struct GroundReach {
+        float distance;
+        float along;
+    };
+    bool keep_to_ground(GroundReach hit, bool bike);
+    // (Parts of 0x0050CA00, do_air_physics: what the ride carries the skater by; the way out of vert (the wall
+    // feeler, the break time, the triggers); along a vert wall; a landing feeler's hit - landed (true) or pushed off.)
+    maths::Vec4 carried_by_ride();
+    void leave_vert(objects::PadInputModule* input, objects::GameEntity* object);
+    void follow_vert_wall();
+    bool land_on_hit(maths::Vec4& from, const maths::Vec4& carried, objects::GameEntity* object);
+    // (Parts of 0x00504060, get_spin: the spin buttons tapped or held, the second pair of spin buttons, and turning to
+    // face the ramp - each setting the turn's speed; the first two return whether the skater spins.)
+    bool read_tap_spin(objects::PadSnapshot* pad, float& speed);
+    bool read_held_spin(objects::PadSnapshot* pad, float& speed);
+    void read_second_spin(objects::PadSnapshot* pad, float& speed);
+    void face_ramp(float& speed);
+    // (Part of 0x00507500, wall_plant: in the air, whether the skater may plant on the wall it hit - upright, not
+    // too soon, high enough, a steep wall, a wall plant trick pressed (else a few frames to press it late in), a late
+    // plant's wall found again.)
+    bool air_plant_allowed(bool late, bool check_only);
+
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)
     void grind_along(objects::GrindPoint* start_node, objects::GrindPoint* go_on_to, bool no_next_segment,

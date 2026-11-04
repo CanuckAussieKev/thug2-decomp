@@ -129,115 +129,17 @@ void SkaterPhysicsModule::get_spin()
         state_->set_flag(PoseFlag::kSpin, 0);
     }
 
-    bool spinning = false;
     float speed = 0.0F;
-    float& queued = queued_spin_;
     auto frame_length = [this] { return static_cast<double>(frame_length_); };
-    if (tap_spin_ != 0U) {
-        // Each tap queues half a turn (unless the other button is down).
-        if (pad->shoulder_left_a().fired() != 0U) {
-            take_press(&pad->shoulder_left_a());
-            if (pad->shoulder_right_a().held_down() == 0U) {
-                queued = static_cast<float>(static_cast<double>(queued) + maths::kPi);
-            }
-        }
-        if (pad->shoulder_right_a().fired() != 0U) {
-            take_press(&pad->shoulder_right_a());
-            if (pad->shoulder_left_a().held_down() == 0U) {
-                queued = static_cast<float>(static_cast<double>(queued) - maths::kPi);
-            }
-        }
-        if (queued != 0.0F) {
-            spinning = true;
-            speed = queued < 0.0F ? -1.0F : 1.0F;
-            const double turn = stat_value(object, kTapSpinSpeed) * speed;
-            const double step = turn * frame_length();
-            if (std::fabs(queued) < std::fabs(step)) {
-                queued = 0.0F;
-            } else {
-                queued = static_cast<float>(queued - step);
-            }
-            speed = static_cast<float>(turn);
-        }
-    } else {
-        // Holding one button (not both) turns once it's been held longer than the spin delay - always, with
-        // PartyMod's PS2 controls (it NOPs the delay checks' jumps; the delay is still read). Held long enough,
-        // the skater can no longer be turned to face the ramp.
-        objects::ControlButton* left = &pad->shoulder_left_a();
-        objects::ControlButton* right = &pad->shoulder_right_a();
-        if ((left->held_down() != 0U) && (right->held_down() == 0U)) {
-            float held = get_held_seconds(left);
-            if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
-                speed = static_cast<float>(stat_value(object, kSpinSpeed));
-                spinning = true;
-                held = get_held_seconds(left);
-                if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < held) {
-                    state_->set_flag(PoseFlag::kSpin, 0);
-                }
-            }
-        }
-        if ((right->held_down() != 0U) && (left->held_down() == 0U)) {
-            float held = get_held_seconds(right);
-            if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
-                speed = static_cast<float>(-stat_value(object, kSpinSpeed));
-                spinning = true;
-                held = get_held_seconds(right);
-                if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < held) {
-                    state_->set_flag(PoseFlag::kSpin, 0);
-                }
-            }
-        }
-    }
+    const bool spinning = tap_spin_ != 0U ? read_tap_spin(pad, speed) : read_held_spin(pad, speed);
 
     // The second pair of spin buttons: the speed ramps up from 0 at one held time to full at another.
     if ((state_->flag(PoseFlag::kNoSecondSpin).on == 0U) && !spinning) {
-        int held = 0;
-        if (pad->left_side().held_down() != 0U) {
-            speed = static_cast<float>(stat_value(object, kSpinSpeed));
-            held = get_held_time(&pad->left_side());
-            if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held)) {
-                state_->set_flag(PoseFlag::kSpin, 0);
-            }
-        }
-        if (pad->right_side().held_down() != 0U) {
-            speed = static_cast<float>(-stat_value(object, kSpinSpeed));
-            held = get_held_time(&pad->right_side());
-            if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held)) {
-                state_->set_flag(PoseFlag::kSpin, 0);
-            }
-        }
-        auto start = static_cast<float>(tuning_float_lookup(kSpinRampStart, 1, object));
-        const double end = tuning_float_lookup(kSpinRampEnd, 1, object);
-        const double held_time = held;
-        if (held_time <= start) {
-            speed = 0.0F;
-        }
-        if (held_time < end) {
-            speed = static_cast<float>((held_time - start) * speed / (end - start));
-        }
+        read_second_spin(pad, speed);
     }
 
     if (speed == 0.0F) {
-        // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
-        flags = state_;
-        if ((flags->flag(PoseFlag::kVertAir).on != 0U) && (flags->flag(PoseFlag::kSpin).on != 0U)) {
-            const float tilt = maths::confine(core::at(object->basis_frame().row, 2).y, -1.0F, 1.0F);
-            auto angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
-            if (tuning_float_lookup(kFaceRampMaxTilt, 1, object) * kRadiansPerDegree > angle) {
-                state_->set_flag(PoseFlag::kSpin, 0);
-            } else {
-                auto off = static_cast<float>(maths::get_turn_around_axis(core::at(object->basis_frame().row, 2), vert_facing_,
-                                                                          core::at(object->basis_frame().row, 1)));
-                auto rate = static_cast<float>(tuning_float_lookup(kFaceRampSpeed, 1, object));
-                const double turn = static_cast<double>(maths::get_sign(off)) * rate;
-                speed = static_cast<float>(turn);
-                if (std::fabs(off) < std::fabs(turn * frame_length())) {
-                    // (the last bit: exactly what's left)
-                    speed = static_cast<float>(off / frame_length());
-                    state_->set_flag(PoseFlag::kSpin, 0);
-                }
-            }
-        }
+        face_ramp(speed);
         if (speed == 0.0F) {
             return;
         }
@@ -261,6 +163,131 @@ void SkaterPhysicsModule::get_spin()
     }
     void* display = score_->points_held();
     static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
+}
+
+// Each tap of a spin button queues half a turn, spun at the tap spin speed.
+bool SkaterPhysicsModule::read_tap_spin(objects::PadSnapshot* pad, float& speed)
+{
+    bool spinning = false;
+    objects::GameEntity* object = entity();
+    float& queued = queued_spin_;
+    // Each tap queues half a turn (unless the other button is down).
+    if (pad->shoulder_left_a().fired() != 0U) {
+        take_press(&pad->shoulder_left_a());
+        if (pad->shoulder_right_a().held_down() == 0U) {
+            queued = static_cast<float>(static_cast<double>(queued) + maths::kPi);
+        }
+    }
+    if (pad->shoulder_right_a().fired() != 0U) {
+        take_press(&pad->shoulder_right_a());
+        if (pad->shoulder_left_a().held_down() == 0U) {
+            queued = static_cast<float>(static_cast<double>(queued) - maths::kPi);
+        }
+    }
+    if (queued != 0.0F) {
+        spinning = true;
+        speed = queued < 0.0F ? -1.0F : 1.0F;
+        const double turn = stat_value(object, kTapSpinSpeed) * speed;
+        const double step = turn * static_cast<double>(frame_length_);
+        if (std::fabs(queued) < std::fabs(step)) {
+            queued = 0.0F;
+        } else {
+            queued = static_cast<float>(queued - step);
+        }
+        speed = static_cast<float>(turn);
+    }
+    return spinning;
+}
+
+// A spin button held.
+bool SkaterPhysicsModule::read_held_spin(objects::PadSnapshot* pad, float& speed)
+{
+    bool spinning = false;
+    objects::GameEntity* object = entity();
+    // Holding one button (not both) turns once it's been held longer than the spin delay - always, with
+    // PartyMod's PS2 controls (it NOPs the delay checks' jumps; the delay is still read). Held long enough,
+    // the skater can no longer be turned to face the ramp.
+    objects::ControlButton* left = &pad->shoulder_left_a();
+    objects::ControlButton* right = &pad->shoulder_right_a();
+    if ((left->held_down() != 0U) && (right->held_down() == 0U)) {
+        float held = get_held_seconds(left);
+        if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
+            speed = static_cast<float>(stat_value(object, kSpinSpeed));
+            spinning = true;
+            held = get_held_seconds(left);
+            if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < held) {
+                state_->set_flag(PoseFlag::kSpin, 0);
+            }
+        }
+    }
+    if ((right->held_down() != 0U) && (left->held_down() == 0U)) {
+        float held = get_held_seconds(right);
+        if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
+            speed = static_cast<float>(-stat_value(object, kSpinSpeed));
+            spinning = true;
+            held = get_held_seconds(right);
+            if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < held) {
+                state_->set_flag(PoseFlag::kSpin, 0);
+            }
+        }
+    }
+    return spinning;
+}
+
+// The second pair of spin buttons: the speed ramps up from 0 at one held time to full at another.
+void SkaterPhysicsModule::read_second_spin(objects::PadSnapshot* pad, float& speed)
+{
+    objects::GameEntity* object = entity();
+    int held = 0;
+    if (pad->left_side().held_down() != 0U) {
+        speed = static_cast<float>(stat_value(object, kSpinSpeed));
+        held = get_held_time(&pad->left_side());
+        if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held)) {
+            state_->set_flag(PoseFlag::kSpin, 0);
+        }
+    }
+    if (pad->right_side().held_down() != 0U) {
+        speed = static_cast<float>(-stat_value(object, kSpinSpeed));
+        held = get_held_time(&pad->right_side());
+        if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held)) {
+            state_->set_flag(PoseFlag::kSpin, 0);
+        }
+    }
+    auto start = static_cast<float>(tuning_float_lookup(kSpinRampStart, 1, object));
+    const double end = tuning_float_lookup(kSpinRampEnd, 1, object);
+    const double held_time = held;
+    if (held_time <= start) {
+        speed = 0.0F;
+    }
+    if (held_time < end) {
+        speed = static_cast<float>((held_time - start) * speed / (end - start));
+    }
+}
+
+// Not spinning: the skater turned to face along the ramp while it's allowed and they're tilted far enough.
+void SkaterPhysicsModule::face_ramp(float& speed)
+{
+    objects::GameEntity* object = entity();
+    // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
+    objects::RiderPoseState* flags = state_;
+    if ((flags->flag(PoseFlag::kVertAir).on != 0U) && (flags->flag(PoseFlag::kSpin).on != 0U)) {
+        const float tilt = maths::confine(core::at(object->basis_frame().row, 2).y, -1.0F, 1.0F);
+        auto angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
+        if (tuning_float_lookup(kFaceRampMaxTilt, 1, object) * kRadiansPerDegree > angle) {
+            state_->set_flag(PoseFlag::kSpin, 0);
+        } else {
+            auto off = static_cast<float>(maths::get_turn_around_axis(
+                core::at(object->basis_frame().row, 2), vert_facing_, core::at(object->basis_frame().row, 1)));
+            auto rate = static_cast<float>(tuning_float_lookup(kFaceRampSpeed, 1, object));
+            const double turn = static_cast<double>(maths::get_sign(off)) * rate;
+            speed = static_cast<float>(turn);
+            if (std::fabs(off) < std::fabs(turn * static_cast<double>(frame_length_))) {
+                // (the last bit: exactly what's left)
+                speed = static_cast<float>(off / static_cast<double>(frame_length_));
+                state_->set_flag(PoseFlag::kSpin, 0);
+            }
+        }
+    }
 }
 
 // 0x00507120

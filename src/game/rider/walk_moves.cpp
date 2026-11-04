@@ -1208,6 +1208,118 @@ bool FootMovement::try_barrier_jump()
     return true;
 }
 
+// A contact's normal flattened and made unit length; how fast the object hit moves along it (not what it rides).
+void FootMovement::flatten_contact(Contact& contact, render::ProbeRay* feeler)
+{
+    maths::Vec4& normal = contact.normal;
+    const double length =
+        std::sqrt(((static_cast<double>(normal.x) * normal.x) + (static_cast<double>(normal.y) * normal.y)) +
+                  (static_cast<double>(normal.z) * normal.z));
+    if (length > 0.0) {
+        const double inverse = 1.0 / length;
+        normal.x = static_cast<float>(inverse * normal.x);
+        normal.y = static_cast<float>(inverse * normal.y);
+        normal.z = static_cast<float>(inverse * normal.z);
+    }
+    contact.object_speed_ = 0.0F;
+    if (feeler->hit_object_alive()) {
+        objects::MovingSurfaceModule* ride = ride_;
+        bool ridden = false;
+        if (auto* tracker = ride->ride().get()) {
+            if (!tracker->entity().get_pull()) {
+                static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
+            } else {
+                ridden = tracker->entity().get_pull() == feeler->get_hit_object();
+            }
+        }
+        if (!ridden) {
+            const maths::Vec4& moving = feeler->get_hit_object()->vel();
+            contact.object_speed_ = static_cast<float>(
+                ((static_cast<double>(moving.z) * normal.z) + (static_cast<double>(moving.y) * normal.y)) +
+                (static_cast<double>(moving.x) * normal.x));
+        }
+    }
+}
+
+// On foot: a barrier jump, a climb onto what is below, a halt (true: update_contacts ends there); else the push
+// down steep ground.
+bool FootMovement::stop_on_foot(render::ProbeRay* feeler)
+{
+    maths::Vec4& position = pos_;
+    // Walking into a barrier ahead for barrier_jump_delay: a jump over it (or another kind of jump) tried.
+    if ((contact_at(this, 0).hit || contact_at(this, 1).hit || contact_at(this, kBarrierSideContact).hit) &&
+        control_full_) {
+        if (!barrier_timed_) {
+            barrier_since_ = get_now();
+            barrier_timed_ = true;
+        }
+        const int since = barrier_since_;
+        const float delay = walk_parameter(kBarrierJumpDelay);
+        auto elapsed = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - since));
+        if (static_cast<double>(elapsed) > delay && (climb_onto_bottom(false) || try_barrier_jump())) {
+            release_hit(feeler);
+            return true;
+        }
+    } else {
+        barrier_timed_ = false;
+    }
+    if ((input_->pad_primary().shoulder_right_a().held_down() != 0U) && !jump_held_ && climb_onto_bottom(true)) {
+        release_hit(feeler);
+        return true;
+    }
+    if (halted(this)) {
+        release_hit(feeler);
+        return true;
+    }
+    // On steep ground: pushed down the slope by push_strength.
+    if (state_ == 0 && floor_normal_.y < kSteepGround) {
+        const maths::Vec4& ground = floor_normal_;
+        float x = ground.x;
+        float y = 0.0F;
+        float z = ground.z;
+        const float w = ground.w;
+        const double length = std::sqrt((static_cast<double>(x) * x) + (static_cast<double>(z) * z));
+        if (length > 0.0) {
+            const double inverse = 1.0 / length;
+            x = static_cast<float>(x * inverse);
+            y = static_cast<float>(0.0 * inverse);
+            z = static_cast<float>(z * inverse);
+        }
+        const double push = static_cast<double>(walk_parameter(kPushStrength)) * frame_length_;
+        position.x = static_cast<float>((x * push) + position.x);
+        position.y = static_cast<float>((y * push) + position.y);
+        position.z = static_cast<float>((z * push) + position.z);
+        position.w = static_cast<float>((w * push) + position.w);
+    }
+    return false;
+}
+
+// In a corner (two contacts facing apart): stopped (true).
+bool FootMovement::stop_in_corner(render::ProbeRay* feeler)
+{
+    for (int first_slot = 0; first_slot < objects::kWalkContactCount; ++first_slot) {
+        const auto& first = contact_at(this, first_slot);
+        if (!first.hit) {
+            continue;
+        }
+        for (int second_slot = first_slot + 1; second_slot < objects::kWalkContactCount; ++second_slot) {
+            const auto& second = contact_at(this, second_slot);
+            if (!second.hit) {
+                continue;
+            }
+            const double apart = ((static_cast<double>(first.normal.z) * second.normal.z) +
+                                  (static_cast<double>(first.normal.y) * second.normal.y)) +
+                                 (static_cast<double>(second.normal.x) * first.normal.x);
+            if (apart <= 0.0) {
+                halt(this);
+                release_hit(feeler);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 // 0x0052C2C0
 bool FootMovement::update_contacts()
 {
@@ -1272,80 +1384,12 @@ bool FootMovement::update_contacts()
         contact.normal = feeler->surface_dir();
         contact.normal.y = 0.0F;
         any = true;
-        maths::Vec4& normal = contact.normal;
-        const double length =
-            std::sqrt(((static_cast<double>(normal.x) * normal.x) + (static_cast<double>(normal.y) * normal.y)) +
-                      (static_cast<double>(normal.z) * normal.z));
-        if (length > 0.0) {
-            const double inverse = 1.0 / length;
-            normal.x = static_cast<float>(inverse * normal.x);
-            normal.y = static_cast<float>(inverse * normal.y);
-            normal.z = static_cast<float>(inverse * normal.z);
-        }
-        contact.object_speed_ = 0.0F;
-        if (feeler->hit_object_alive()) {
-            objects::MovingSurfaceModule* ride = ride_;
-            bool ridden = false;
-            if (auto* tracker = ride->ride().get()) {
-                if (!tracker->entity().get_pull()) {
-                    static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
-                } else {
-                    ridden = tracker->entity().get_pull() == feeler->get_hit_object();
-                }
-            }
-            if (!ridden) {
-                const maths::Vec4& moving = feeler->get_hit_object()->vel();
-                contact.object_speed_ = static_cast<float>(
-                    ((static_cast<double>(moving.z) * normal.z) + (static_cast<double>(moving.y) * normal.y)) +
-                    (static_cast<double>(moving.x) * normal.x));
-            }
-        }
+        flatten_contact(contact, feeler);
     }
 
     if (state_ == 0) {
-        // Walking into a barrier ahead for barrier_jump_delay: a jump over it (or another kind of jump) tried.
-        if ((contact_at(this, 0).hit || contact_at(this, 1).hit || contact_at(this, kBarrierSideContact).hit) && control_full_) {
-            if (!barrier_timed_) {
-                barrier_since_ = get_now();
-                barrier_timed_ = true;
-            }
-            const int since = barrier_since_;
-            const float delay = walk_parameter(kBarrierJumpDelay);
-            auto elapsed = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - since));
-            if (static_cast<double>(elapsed) > delay && (climb_onto_bottom(false) || try_barrier_jump())) {
-                release_hit(feeler);
-                return false;
-            }
-        } else {
-            barrier_timed_ = false;
-        }
-        if ((input_->pad_primary().shoulder_right_a().held_down() != 0U) && !jump_held_ && climb_onto_bottom(true)) {
-            release_hit(feeler);
+        if (stop_on_foot(feeler)) {
             return false;
-        }
-        if (halted(this)) {
-            release_hit(feeler);
-            return false;
-        }
-        // On steep ground: pushed down the slope by push_strength.
-        if (state_ == 0 && floor_normal_.y < kSteepGround) {
-            const maths::Vec4& ground = floor_normal_;
-            float x = ground.x;
-            float y = 0.0F;
-            float z = ground.z;
-            const float w = ground.w;
-            const double length = std::sqrt((static_cast<double>(x) * x) + (static_cast<double>(z) * z));
-            if (length > 0.0) {
-                const double inverse = 1.0 / length;
-                x = static_cast<float>(x * inverse);
-                y = static_cast<float>(0.0 * inverse);
-                z = static_cast<float>(z * inverse);
-            }
-            const double push = static_cast<double>(walk_parameter(kPushStrength)) * frame_length_;
-            position.x = static_cast<float>((x * push) + position.x);
-            position.y = static_cast<float>((y * push) + position.y);
-            position.z = static_cast<float>((z * push) + position.z);
-            position.w = static_cast<float>((w * push) + position.w);
         }
     }
     if (!any) {
@@ -1391,25 +1435,8 @@ bool FootMovement::update_contacts()
     }
 
     // In a corner (two of them facing apart): stopped.
-    for (int first_slot = 0; first_slot < objects::kWalkContactCount; ++first_slot) {
-        const auto& first = contact_at(this, first_slot);
-        if (!first.hit) {
-            continue;
-        }
-        for (int second_slot = first_slot + 1; second_slot < objects::kWalkContactCount; ++second_slot) {
-            const auto& second = contact_at(this, second_slot);
-            if (!second.hit) {
-                continue;
-            }
-            const double apart = ((static_cast<double>(first.normal.z) * second.normal.z) +
-                                  (static_cast<double>(first.normal.y) * second.normal.y)) +
-                                 (static_cast<double>(second.normal.x) * first.normal.x);
-            if (apart <= 0.0) {
-                halt(this);
-                release_hit(feeler);
-                return true;
-            }
-        }
+    if (stop_in_corner(feeler)) {
+        return true;
     }
 
     // Slid along them: the part of the velocity into each taken off (the fall's first, then the front ones'); stopped

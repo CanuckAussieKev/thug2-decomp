@@ -268,6 +268,43 @@ FootView::ZoomOffsets FootView::get_zoomed_offsets()
     return offsets;
 }
 
+// With the stick still and the skater turned away by more than the lock angle, the facing swung toward the
+// skater's (slerped by its speed between the two slerp speeds, or all the way).
+void FootView::swing_facing(maths::Vec4& facing, const maths::Vec4& skater_facing, float turn)
+{
+    bool swing = false;
+    if (turn == 0.0F) {
+        auto cosine = static_cast<float>((static_cast<double>(skater_facing.x) * facing.x) +
+                                         (static_cast<double>(skater_facing.z) * facing.z) +
+                                         (static_cast<double>(skater_facing.y) * facing.y));
+        if (!(std::cos(static_cast<double>(get_param(kLockAngle)) * kDegrees) > cosine)) {
+            float full = 0.0F;
+            float least = 0.0F;
+            if (!walk_->using_dpad()) {
+                full = get_param(kFullSlerpSpeed);
+                least = get_param(kMinSlerpSpeed);
+            } else {
+                full = get_param(kDpadFullSlerpSpeed);
+                least = get_param(kDpadMinSlerpSpeed);
+            }
+            const maths::Vec4& velocity = skater_->vel();
+            const double speed = std::sqrt((static_cast<double>(velocity.x) * velocity.x) +
+                                           (static_cast<double>(velocity.z) * velocity.z));
+            auto speed_f = static_cast<float>(speed);
+            if (!(speed < full)) {
+                swing = true;
+            } else if (speed_f > least) {
+                maths::Vec4 lerped{};
+                facing = *lerp_by_range(&lerped, &facing, &skater_facing, speed_f, least, full);
+                facing.make_unit();
+            }
+        }
+    }
+    if (swing || snap_next_) {
+        facing = skater_facing;
+    }
+}
+
 // 0x005251D0
 void FootView::tick_frame()
 {
@@ -303,37 +340,7 @@ void FootView::tick_frame()
     if (flush_) {
         facing = skater_facing;
     } else {
-        bool swing = false;
-        if (turn == 0.0F) {
-            auto cosine = static_cast<float>((static_cast<double>(skater_facing.x) * facing.x) +
-                                             (static_cast<double>(skater_facing.z) * facing.z) +
-                                             (static_cast<double>(skater_facing.y) * facing.y));
-            if (!(std::cos(static_cast<double>(get_param(kLockAngle)) * kDegrees) > cosine)) {
-                float full = 0.0F;
-                float least = 0.0F;
-                if (!walk_->using_dpad()) {
-                    full = get_param(kFullSlerpSpeed);
-                    least = get_param(kMinSlerpSpeed);
-                } else {
-                    full = get_param(kDpadFullSlerpSpeed);
-                    least = get_param(kDpadMinSlerpSpeed);
-                }
-                const maths::Vec4& velocity = skater_->vel();
-                const double speed = std::sqrt((static_cast<double>(velocity.x) * velocity.x) +
-                                               (static_cast<double>(velocity.z) * velocity.z));
-                auto speed_f = static_cast<float>(speed);
-                if (!(speed < full)) {
-                    swing = true;
-                } else if (speed_f > least) {
-                    maths::Vec4 lerped{};
-                    facing = *lerp_by_range(&lerped, &facing, &skater_facing, speed_f, least, full);
-                    facing.make_unit();
-                }
-            }
-        }
-        if (swing || snap_next_) {
-            facing = skater_facing;
-        }
+        swing_facing(facing, skater_facing, turn);
     }
     if (!(turn == 0.0F) && !flush_) {
         turn_by_stick(static_cast<double>(get_param(kFacingControl)) * turn, &facing);
