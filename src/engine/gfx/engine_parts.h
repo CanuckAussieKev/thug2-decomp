@@ -8,15 +8,12 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine_scene_list.h"
-#include "platform/bink.h"
+#include "engine/media/movie.h"
 
 // NOT ORIGINAL - the engine's state: its managers (flexible particles, imposters, weather, screen effects), the scenes'
 // list and the collision scenes, the render mode and the drawing switches, the movie and window flags, the fog colour
 // and the game's texture dictionaries (the original's globals).
 namespace render {
-
-// A Bink movie (platform/bink.h).
-using Bink = bink::Movie;
 
 constexpr std::size_t kCollisionSceneCount = 16;
 
@@ -45,8 +42,8 @@ public:
     void set_device_lost(bool value) { device_lost_ = value; }
     [[nodiscard]] bool quit_requested() const { return quit_requested_; }
     void set_quit_requested(bool value) { quit_requested_ = value; }
-    [[nodiscard]] Bink* current_movie() const { return current_movie_; }
-    void set_current_movie(Bink* value) { current_movie_ = value; }
+    [[nodiscard]] media::MovieHeader* current_movie() const { return current_movie_; }
+    void set_current_movie(media::MovieHeader* value) { current_movie_ = value; }
     [[nodiscard]] TextureSet* game_texture_dict() const { return game_texture_dict_; }
     void set_game_texture_dict(TextureSet* value) { game_texture_dict_ = value; }
     [[nodiscard]] TextureSet* particle_texture_dict() const { return particle_texture_dict_; }
@@ -75,7 +72,7 @@ private:
     int movie_dump_count_{};
     bool device_lost_{};
     bool quit_requested_{};
-    Bink* current_movie_{}; // a Bink movie playing
+    media::MovieHeader* current_movie_{}; // a Bink movie playing (media::Movie)
 
     // The game's texture dictionaries (texture_dict.cpp).
     // The game's texture dictionaries: the textures every level shares, and the particles'.

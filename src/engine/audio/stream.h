@@ -10,15 +10,12 @@
 #include "base/core/all_ones.h"
 #include "base/core/checksums.h"
 
-namespace bink {
-struct Movie;
-}
-namespace render {
-using Bink = bink::Movie;
+namespace media {
+struct MovieHeader;
 }
 
 // The PC's streamed audio (the platform layer under Pcm's music and streams): the music and three sound
-// streams, each played by a Bink file through binkw32's DirectSound output, serviced by a thread every 5 ms.
+// streams, each played by a Bink file (media::Movie: binkw32, into the sound output), serviced by a thread every 5 ms.
 // The pcm.wad stream class left from the console versions (WadStream) is still created in places, but its
 // playing is compiled out on PC (its update, volume and "done" calls are linker-folded stubs).
 namespace audio {
@@ -194,7 +191,7 @@ struct BinkStream {
 
     // The fields other code reads and sets.
     [[nodiscard]] OVERLAPPED* async_ctl() const { return async_ctl_; }
-    [[nodiscard]] render::Bink* bink() const { return bink_; }
+    [[nodiscard]] media::MovieHeader* bink() const { return bink_; }
     [[nodiscard]] bool finished() const { return finished_; }
     void set_unknown6b(bool value) { unknown6b_ = value; }
     [[nodiscard]] bool stop_requested() const { return stop_requested_; }
@@ -212,7 +209,7 @@ private:
     bool unknown19_;   // +0x19
     std::array<uint8_t, kBinkUnknown1aBytes> unknown1a_{};
     int plays_;                 // +0x24 plays left (counted down at the last frame; 0 after one: finished)
-    render::Bink* bink_{nullptr}; // +0x28 null while paused
+    media::MovieHeader* bink_{nullptr}; // +0x28 the Bink movie (media::Movie); null while paused
     void* memory_{nullptr};       // +0x2C freed with the stream
     uint32_t unknown30_{};      // +0x30
     std::array<uint32_t, kStatusWordCount> status_words_{}; // +0x34: indexed by status_index_ (see Status)

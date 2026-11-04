@@ -12,10 +12,9 @@
 #include <string_view>
 
 #include "base/core/checksums.h"
-#include "engine/gfx/engine_parts.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
-#include "platform/bink.h"
+#include "engine/media/movie.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/audio/audio_state.h"
@@ -222,7 +221,7 @@ void sync_music_to_time(float seconds)
         return;
     }
     WaitForSingleObject(stream_lock(), INFINITE);
-    render::Bink* bink = music_slot().bink()->bink(); // (a WadStream, or a paused Bink stream, would crash here)
+    media::MovieHeader* bink = music_slot().bink()->bink(); // (a WadStream, or a paused Bink stream, would crash here)
     const int frame =
         ftol(static_cast<double>(bink->frame_rate_) * seconds / static_cast<double>(bink->frame_rate_div_));
     uint32_t off = bink->frame_num_ - static_cast<uint32_t>(frame);
@@ -230,7 +229,7 @@ void sync_music_to_time(float seconds)
         off = 0U - off;
     }
     if (static_cast<int>(off) > kMaxSeekDistance) {
-        bink::go_to(bink, {.frame = static_cast<uint32_t>(frame), .flags = 1});
+        media::movie().go_to(bink, {.frame = static_cast<uint32_t>(frame), .flags = 1});
     }
     ReleaseMutex(stream_lock());
 }

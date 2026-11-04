@@ -38,7 +38,7 @@
 #include "engine/audio/audio_device.h"
 #include "platform/run_log.h"
 #include "platform/process_flags.h"
-#include "platform/bink.h"
+#include "engine/media/movie.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
@@ -223,9 +223,10 @@ void draw_movie_frame(GpuTexture* texture, maths::Vec2 at, maths::Size size, flo
 
 namespace {
 
-void video_set_loudness(Bink* bink, uint32_t track, int volume)
+void video_set_loudness(media::MovieHeader* bink, uint32_t track, int volume)
 {
-    bink::set_volume(bink, {.track = track, .volume = audio::device().track_volume(volume)}); // (the output's level)
+    // (the level the sound output gives it)
+    media::movie().set_volume(bink, {.track = track, .volume = audio::device().track_volume(volume)});
 }
 
 // The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
@@ -306,14 +307,14 @@ void end_movie(GpuTexture* texture)
 }
 
 // 0x0044FCC0
-void draw_movie(Bink* bink, GpuTexture* texture)
+void draw_movie(media::MovieHeader* bink, GpuTexture* texture)
 {
     d3d9::state().d3d_device()->BeginScene();
     d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0); // the target, to black (Z 1.0)
     draw_movie_frame(texture, {.x = 0.0F, .y = 0.0F}, {.width = kMovieDrawWidth, .height = kMovieDrawHeight}, 1.0F);
     d3d9::state().d3d_device()->EndScene();
     d3d9::state().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
-    bink::next_frame(bink);
+    media::movie().next_frame(bink);
 }
 
 // 0x0044F840
@@ -367,7 +368,7 @@ bool skip_pressed(sio::Hub* input, std::array<uint16_t, 4>& seen_up)
 // 0x0044FDC0
 void play_movie_file(const char* name)
 {
-    if (!bink::use_direct_sound(audio::get_sound_device())) {
+    if (!media::movie().use_sound_output(audio::get_sound_device())) {
         debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
     }
     create_sound_manager();
@@ -392,7 +393,7 @@ void play_movie_file(const char* name)
 
     audio::stop_music();
     audio::halt_streams(-1); // (all of them)
-    engine_parts().set_current_movie(bink::open(path.c_str(), 0));
+    engine_parts().set_current_movie(media::movie().open(path.c_str(), 0));
     if (!engine_parts().current_movie()) {
         release_sound_manager();
         return;
@@ -407,7 +408,7 @@ void play_movie_file(const char* name)
     if (texture) {
         sio::Hub* input = sio::create_manager(false);
         std::array<uint16_t, 4> seen_up = {};
-        bink::set_sound_on_off(engine_parts().current_movie(), 1);
+        media::movie().set_sound_on_off(engine_parts().current_movie(), 1);
         video_set_loudness(engine_parts().current_movie(), 0,
                            static_cast<int>(static_cast<double>(volume) * kOnePercent // 0.01
                                             * kFloat16384));                           // 16384
@@ -418,7 +419,7 @@ void play_movie_file(const char* name)
                 SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             }
             if (!sys::app_active()) {
-                bink::pause(engine_parts().current_movie(), 1);
+                media::movie().pause(engine_parts().current_movie(), 1);
                 while (!sys::app_active()) {
                     Sleep(kPollMilliseconds);
                     os_layer::process_window_events();
@@ -439,17 +440,22 @@ void play_movie_file(const char* name)
                     os_layer::process_window_events();
                     continue;
                 }
-                bink::pause(engine_parts().current_movie(), 0);
+                media::movie().pause(engine_parts().current_movie(), 0);
             }
-            if (bink::wait(engine_parts().current_movie()) != 0) {
+            if (media::movie().wait(engine_parts().current_movie()) != 0) {
                 continue;
             }
-            Bink* bink = engine_parts().current_movie();
-            bink::do_frame(bink);
+            media::MovieHeader* bink = engine_parts().current_movie();
+            media::movie().do_frame(bink);
             auto* d3d_texture = d3d9::object(texture);
             D3DLOCKED_RECT locked;
             if (SUCCEEDED(d3d_texture->LockRect(0, &locked, nullptr, 0))) {
-                bink::copy_to_buffer(bink, locked.pBits, {.pitch = locked.Pitch, .height = bink->height, .x = 0, .y = 0, .flags = kMovieSurfaceType | kMovieSurfaceFlag}); // the surface type, copy all
+                media::movie().copy_to_buffer(bink, locked.pBits,
+                                              {.pitch = locked.Pitch,
+                                               .height = bink->height,
+                                               .x = 0,
+                                               .y = 0,
+                                               .flags = kMovieSurfaceType | kMovieSurfaceFlag}); // the surface type, copy all
                 d3d_texture->UnlockRect(0);
             }
             draw_movie(engine_parts().current_movie(), texture);
@@ -473,7 +479,7 @@ void play_movie_file(const char* name)
     engine_parts().set_movie_playing(false);
     toggle_fog(fog);
     end_movie(texture);
-    bink::close(engine_parts().current_movie());
+    media::movie().close(engine_parts().current_movie());
     engine_parts().set_current_movie(nullptr);
     set_texture_stage_state(0, 4, 4); // alpha: modulate
     release_sound_manager();

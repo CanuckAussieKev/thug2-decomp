@@ -1,4 +1,4 @@
-#include "platform/bink.h"
+#include "media_bink/bink.h"
 
 #include "platform/crt.h"
 

@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 
-#include "platform/bink.h"
+#include "engine/media/movie.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/rect.h"
 #include "base/maths/vec2.h"
@@ -55,7 +55,7 @@ GpuTexture* begin_movie(uint32_t width, uint32_t height);
 // 0x0044F9F0: the render states back; the texture released.
 void end_movie(GpuTexture* texture);
 // 0x0044FCC0: one frame: clear, draw the texture over the screen, present; then Bink on to the next frame.
-void draw_movie(Bink* bink, GpuTexture* texture);
+void draw_movie(media::MovieHeader* bink, GpuTexture* texture);
 
 // 0x0044F840: whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
 bool button_pressed_again(const std::array<uint8_t, kControlDataBytes>& control_data, uint16_t* seen_up, uint32_t mask);

@@ -14,7 +14,7 @@
 #include "engine/audio/stream.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
-#include "platform/bink.h"
+#include "engine/media/movie.h"
 #include "base/core/checked_index.h"
 #include "engine/memory/mem.h"
 #include "engine/audio/audio_state.h"
@@ -127,7 +127,7 @@ BinkStream::BinkStream(bool unknown19, int plays)
 long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!bink_sound_set()) {
-        if (!bink::use_direct_sound(music_state().sound_device())) {
+        if (!media::movie().use_sound_output(music_state().sound_device())) {
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         }
         bink_sound_set() = true;
@@ -137,12 +137,12 @@ long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size
         return kInvalidArg;
     }
     const void* data = core::at(stream_files(), slot).data;
-    render::Bink* bink = bink::open(data, kBinkFromMemory);
+    media::MovieHeader* bink = media::movie().open(data, kBinkFromMemory);
     bink_ = bink;
     if (!bink) {
         return kInvalidArg;
     }
-    bink::set_video_on_off(bink, 0);
+    media::movie().set_video_on_off(bink, 0);
     // (the file's first four bytes, "BIKi")
     std::memcpy(from_where_.data(), core::at(stream_files(), slot).data, sizeof(uint32_t));
     wad_entry_ = slot;

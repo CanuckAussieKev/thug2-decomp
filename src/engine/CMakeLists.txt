@@ -57,6 +57,7 @@ add_library(thug2_engine STATIC
     file/thugpro_cas.cpp
     audio/audio_device.cpp
     audio/muted_device.cpp
+    media/movie.cpp
     audio/bink_stream.cpp
     audio/bink_stream_files.cpp
     audio/music_player.cpp

@@ -24,6 +24,8 @@
 #include "audio_dsound/dsound_device.h"
 #include "engine/audio/audio_device.h"
 #include "engine/audio/muted_device.h"
+#include "engine/media/movie.h"
+#include "media_bink/bink_movie.h"
 #include "render_d3d9/d3d9_device.h"
 #include "render_d3d9/d3d9_ui_backend.h"
 #include "engine/gfx/ui_backend.h"
@@ -93,6 +95,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h).
     audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())
                                                : audio::dsound::device());
+    // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): Bink's (the player's
+    // binkw32.dll).
+    media::install_movie(media::bink::movie());
     // NOT ORIGINAL: the loading console's panel, which that backend draws (engine/gfx/loading_console.h).
     gfx::loading_console::install_panel(gfx::loading_console::panel_hooks());
     // NOT ORIGINAL: [features] debug_collision's log after each feeler query (game/rider/debug_collision.h).

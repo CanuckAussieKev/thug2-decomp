@@ -34,6 +34,8 @@ const BOUNDARY_FILES = new Set([
     "src/render_d3d9/imgui_texture_id.h",
     // D3DX's buffers over the callers' out-parameters (platform/ until stage 11 round 16)
     "src/render_d3d9/d3dx.cpp",
+    // binkw32's exports looked up by name (platform/ until stage 11 round 17)
+    "src/media_bink/bink.cpp",
     // the QB bytecode and its pre-compiled images, read in place
     "src/engine/script/qb.cpp",
     "src/engine/script/token_reader.cpp",

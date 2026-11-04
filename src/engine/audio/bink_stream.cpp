@@ -12,11 +12,11 @@
 #include "base/core/checked_index.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
-#include "engine/gfx/engine_parts.h"
 #include "engine/audio/audio_device.h"
+#include "engine/audio/audio_handles.h"
 #include "platform/process_flags.h"
 #include "engine/audio/stream_files.h"
-#include "platform/bink.h"
+#include "engine/media/movie.h"
 #include "engine/audio/audio_state.h"
 #include "base/core/no_destroy.h"
 #include "platform/overlapped.h"
@@ -29,10 +29,10 @@ constexpr unsigned kFacilityWin32Failure = 0x80070000U; // ...under the failure 
 constexpr float kMeanScale = 0.5F;                      // the two channels' mean
 constexpr int kReadChunkBytes = 0x2000;
 
-using render::Bink;
-void video_set_loudness(Bink* bink, uint32_t track, int volume)
+void video_set_loudness(media::MovieHeader* bink, uint32_t track, int volume)
 {
-    bink::set_volume(bink, {.track = track, .volume = device().track_volume(volume)}); // (the output's level for it)
+    // (the level the sound output gives it)
+    media::movie().set_volume(bink, {.track = track, .volume = device().track_volume(volume)});
 }
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // video_open: use the I/O buffer size set (bink_set_io_size)
@@ -57,7 +57,7 @@ bool& sound_system_set() { return stream_file_state().bink_sound_set(); } // als
 uint32_t& io_size() { return bink_io_state().io_size_; }
 bool pause_locked() { return bink_io_state().pause_locked_; }
 
-void* sound_device() { return music_state().sound_device(); }
+SoundOutput* sound_device() { return music_state().sound_device(); }
 
 // The pcm.wad entries open as Bink streams (the stream files, stream_files.h; opened by 0x00452A90): when last let go
 // of (the counter at 0x0069CB9C), and how many streams use it.
@@ -82,20 +82,20 @@ Result from_win32(DWORD error) { return static_cast<Result>((error & kWin32Error
 Result BinkStream::unseal(const char* path)
 {
     if (!sound_system_set()) {
-        if (!bink::use_direct_sound(sound_device())) {
+        if (!media::movie().use_sound_output(sound_device())) {
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         }
         sound_system_set() = true;
     }
     if (io_size() != kIoSize) {
-        bink::set_io_size(kIoSize);
+        media::movie().set_io_size(kIoSize);
         io_size() = kIoSize;
     }
-    bink_ = bink::open(path, kBinkIoSize);
+    bink_ = media::movie().open(path, kBinkIoSize);
     if (!bink_) {
         return kInvalidArgument;
     }
-    bink::set_video_on_off(bink_, 0);
+    media::movie().set_video_on_off(bink_, 0);
     std::memcpy(from_where_.data(), path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
     from_handle_ = false;
     return 0;
@@ -139,7 +139,7 @@ void BinkStream::set_volume_and_pan(float left, float right)
     }
     if (bink_) {
         video_set_loudness(bink_, 0, level);
-        bink::set_pan(bink_, {.track = 0, .pan = pan});
+        media::movie().set_pan(bink_, {.track = 0, .pan = pan});
     }
     silent_ = level == 0;
 }
@@ -147,9 +147,9 @@ void BinkStream::set_volume_and_pan(float left, float right)
 // 0x00452E30
 void BinkStream::destruct()
 {
-    Bink* bink = bink_;
+    media::MovieHeader* bink = bink_;
     bink_ = nullptr;
-    bink::close(bink); // (even with none open)
+    media::movie().close(bink); // (even with none open)
     if (file_ref_ != INVALID_HANDLE_VALUE && !shared_file_) {
         CloseHandle(file_ref_);
     }
@@ -175,16 +175,16 @@ int BinkStream::tick_frame()
         if (!pause_requested_) {
             if (!bink_) {
                 // Reopen where it was paused.
-                bink_ = bink::open(from_where_.data(), from_handle_ ? kBinkFileHandle : kBinkIoSize);
+                bink_ = media::movie().open(from_where_.data(), from_handle_ ? kBinkFileHandle : kBinkIoSize);
                 if (bink_) {
-                    bink::set_video_on_off(bink_, 0);
-                    bink::go_to(bink_, {.frame = resume_frame_, .flags = 1});
+                    media::movie().set_video_on_off(bink_, 0);
+                    media::movie().go_to(bink_, {.frame = resume_frame_, .flags = 1});
                     change_loudness(loudness_);
                 }
             }
         } else if (bink_) {
             resume_frame_ = bink_->frame_num_;
-            bink::close(bink_);
+            media::movie().close(bink_);
             bink_ = nullptr;
         }
         is_halted_ = pause_requested_;
@@ -192,12 +192,12 @@ int BinkStream::tick_frame()
     if (!bink_) {
         return 0;
     }
-    while (bink::wait(bink_) == 0) {
+    while (media::movie().wait(bink_) == 0) {
         if (!sys::app_active()) {
             break;
         }
-        bink::do_frame(bink_);
-        bink::next_frame(bink_);
+        media::movie().do_frame(bink_);
+        media::movie().next_frame(bink_);
         if (bink_->frame_num_ == bink_->frames) {
             if (plays_ > 0) {
                 --plays_;

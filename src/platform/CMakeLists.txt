@@ -1,10 +1,9 @@
 # The platform layer (src/platform): the OS and SDK side - the SDL window and its event pump, the run log and crash
-# reports, the C runtime's game-visible parts, the settings file, the registry, Bink, Winsock,
+# reports, the C runtime's game-visible parts, the settings file, the registry, Winsock,
 # the GameSpy SDK's glue, D3DX and the screenshot files. It includes nothing of the project but base (tools/layers.ts
 # checks it); what the game does on its events and with its devices is passed in or handed back by app/ (WinMain,
 # the start-up).
 add_library(thug2_platform STATIC
-    bink.cpp
     crash.cpp
     crt.cpp
     debug_log.cpp
