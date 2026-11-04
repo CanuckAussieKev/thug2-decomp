@@ -1,6 +1,6 @@
 // Script commands (CFunctions) 0x005B4260-0x005B45F0: the front end theme's colours (see theme_cfuncs.h).
 
-#include "frontend/theme_cfuncs.h"
+#include "engine/ui/theme_cfuncs.h"
 
 #include <cstdint>
 

@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <array>
 
-#include "frontend/screen_element.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_manager.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/trick_objects.h"
 #include "game/skate/game_mode.h"

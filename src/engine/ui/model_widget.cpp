@@ -1,7 +1,7 @@
 // The front end's 3D model screen element (Element3d) - and, with thug2-decomp.ini [features] widescreen_menus,
 // the widescreen front end's rule for the ones spanning the 4:3 menu layout (widescreen_stretch).
 
-#include "frontend/model_widget.h"
+#include "engine/ui/model_widget.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,8 +26,8 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/contest.h"
 #include "engine/sys/stopwatch.h"
-#include "frontend/screen_element.h"
-#include "frontend/screen_constants.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_constants.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/objects/model_component.h"
 #include "base/core/down_cast.h"

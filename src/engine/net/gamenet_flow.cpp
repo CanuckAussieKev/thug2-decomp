@@ -11,8 +11,8 @@
 #include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/gamenet_observer.h" // IWYU pragma: keep - the observer templates instantiated here need pad_input::Responder
-#include "frontend/screen_element.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_manager.h"
 #include "base/maths/random.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_commands.h"

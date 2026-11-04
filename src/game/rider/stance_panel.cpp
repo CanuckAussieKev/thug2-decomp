@@ -7,9 +7,9 @@
 #include <array>
 
 #include "base/core/checked_index.h"
-#include "frontend/screen_element.h"
-#include "frontend/screen_element_manager.h"
-#include "frontend/sprite_element.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_manager.h"
+#include "engine/ui/sprite_element.h"
 #include "game/rider/rider.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"

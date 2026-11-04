@@ -1,8 +1,8 @@
 // Screen elements: UiWidget, the base of every front-end element (its states, placement, morphs, the tree,
 // the layout pass, its properties and member functions).
 
-#include "frontend/screen_element.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_manager.h"
 
 #include <bit>
 #include <cmath>

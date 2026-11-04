@@ -9,8 +9,8 @@
 #include <gsl/assert>
 
 #include "base/maths/vec4.h"
-#include "frontend/screen_element.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_manager.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
 #include "engine/script/cscript.h"

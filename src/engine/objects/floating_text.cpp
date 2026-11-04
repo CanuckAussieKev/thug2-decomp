@@ -14,8 +14,8 @@
 #include <string_view>
 
 #include "base/maths/vec4.h"
-#include "frontend/screen_element.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_clock.h"

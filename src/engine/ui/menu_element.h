@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 
 namespace objects {
 struct Signal;

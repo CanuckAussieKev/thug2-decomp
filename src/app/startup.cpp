@@ -24,7 +24,7 @@
 #include "frontend/front_end.h"
 #include "editor/level_editor.h"
 #include "frontend/new_frontend.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element_manager.h"
 #include "frontend/test_view.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/tod_manager.h"

@@ -1,6 +1,6 @@
 // The picture elements (TextureElement, SpriteElement) and the window element: see sprite_element.h.
 
-#include "frontend/sprite_element.h"
+#include "engine/ui/sprite_element.h"
 
 #include <memory>
 #include <cstdint>
@@ -15,8 +15,8 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/contest.h"
 #include "engine/objects/entity.h"
-#include "frontend/screen_element.h"
-#include "frontend/screen_constants.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_constants.h"
 #include "engine/gfx/engine_texture.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

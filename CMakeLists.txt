@@ -296,7 +296,7 @@ add_executable(thug2 WIN32
     src/engine/memory/task_list.cpp
     src/engine/util/text_store.cpp
     src/engine/file/asset_bundle.cpp
-    src/frontend/model_widget.cpp
+    src/engine/ui/model_widget.cpp
     src/game/park_editing/cursor.cpp
     src/game/park_editing/park_floor.cpp
     src/game/park_editing/park_manager.cpp
@@ -308,14 +308,14 @@ add_executable(thug2 WIN32
     src/game/park_editing/copy_buffer.cpp
     src/game/park_editing/gap_slots.cpp
     src/game/park_editing/piece_menu.cpp
-    src/frontend/screen_element.cpp
-    src/frontend/menu_element.cpp
-    src/frontend/screen_element_manager.cpp
-    src/frontend/scrolling_menu.cpp
-    src/frontend/sprite_element.cpp
-    src/frontend/screen_element_cfuncs.cpp
-    src/frontend/text_element.cpp
-    src/frontend/text_block.cpp
+    src/engine/ui/screen_element.cpp
+    src/engine/ui/menu_element.cpp
+    src/engine/ui/screen_element_manager.cpp
+    src/engine/ui/scrolling_menu.cpp
+    src/engine/ui/sprite_element.cpp
+    src/engine/ui/screen_element_cfuncs.cpp
+    src/engine/ui/text_element.cpp
+    src/engine/ui/text_block.cpp
     src/frontend/front_end.cpp
     src/frontend/mouse_menus.cpp
     src/frontend/data_overlay.cpp
@@ -921,7 +921,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/boned_anim_frame_data_pose.cpp
     src/engine/gfx/cag_cfuncs.cpp
     src/engine/objects/model_swap_cfuncs.cpp
-    src/frontend/theme_cfuncs.cpp
+    src/engine/ui/theme_cfuncs.cpp
     src/game/rider/skater_misc_cfuncs.cpp
     src/game/rider/skater_score_cfuncs.cpp
     src/engine/objects/cutscene_list_cfuncs.cpp

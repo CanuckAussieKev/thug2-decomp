@@ -1,6 +1,6 @@
 // The text element and its blur effect: see text_element.h.
 
-#include "frontend/text_element.h"
+#include "engine/ui/text_element.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -12,15 +12,15 @@
 #include "engine/memory/mem.h"
 #include "base/core/str.h"
 #include "base/core/stubs.h"
-#include "frontend/sprite_element.h"
+#include "engine/ui/sprite_element.h"
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/contest.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
-#include "frontend/screen_element.h"
-#include "frontend/screen_constants.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_constants.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/cursor.h"

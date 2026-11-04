@@ -1,6 +1,6 @@
 // The screen element manager: see screen_element_manager.h.
 
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element_manager.h"
 
 #include <new>
 
@@ -13,8 +13,8 @@
 #include "engine/memory/mem.h"
 #include "engine/objects/signal.h"
 #include "frontend/new_frontend.h"
-#include "frontend/screen_element.h"
-#include "frontend/text_element.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/text_element.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"

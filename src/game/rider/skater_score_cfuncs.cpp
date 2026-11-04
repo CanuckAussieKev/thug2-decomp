@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "engine/memory/manager.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element_manager.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
 #include "engine/objects/entity.h"

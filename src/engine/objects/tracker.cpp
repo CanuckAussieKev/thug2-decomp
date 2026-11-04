@@ -21,7 +21,7 @@
 #include "base/maths/vec4.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/smtptr.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/cscript.h"

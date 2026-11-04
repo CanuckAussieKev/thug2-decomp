@@ -1,6 +1,6 @@
 // The text block element: see text_block.h.
 
-#include "frontend/text_block.h"
+#include "engine/ui/text_block.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -13,12 +13,12 @@
 #include "engine/memory/mem.h"
 #include "base/core/str.h"
 #include "base/core/stubs.h"
-#include "frontend/screen_element_manager.h"
-#include "frontend/text_element.h"
+#include "engine/ui/screen_element_manager.h"
+#include "engine/ui/text_element.h"
 #include "engine/gfx/font.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/tod_manager.h"

@@ -4,7 +4,7 @@
 #include <array>
 #include <span>
 
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/smtptr.h"

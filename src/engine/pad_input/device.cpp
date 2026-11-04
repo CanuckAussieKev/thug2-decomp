@@ -18,7 +18,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checksums.h"
 #include "frontend/front_end.h"
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 #include "game/skate/profile_manager.h"
 #include "engine/pad_input/input_setup.h"
 #include "platform/sdl_events.h"
@@ -32,7 +32,7 @@
 #include "engine/script/cscript.h"
 #include "engine/pad_input/sdl_input.h"
 #include "game/park_editing/park_editor.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element_manager.h"
 #include <gsl/pointers>
 #include <array>
 #include "base/core/compiler.h"

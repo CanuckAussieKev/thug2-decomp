@@ -3,15 +3,15 @@
 #include <cstdint>
 #include <new>
 
-#include "frontend/scrolling_menu.h"
+#include "engine/ui/scrolling_menu.h"
 
 #include "base/core/checksums.h"
-#include "frontend/menu_element.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/menu_element.h"
+#include "engine/ui/screen_element_manager.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 #include "base/core/down_cast.h"
 #include "base/maths/rect.h"
 #include "base/maths/vec2.h"

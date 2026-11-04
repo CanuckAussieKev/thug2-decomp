@@ -27,7 +27,7 @@
 #include "engine/sys/game_clock.h"
 #include "platform/run_log.h"
 #include "engine/script/fwd.h"
-#include "frontend/screen_constants.h"
+#include "engine/ui/screen_constants.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/script_startup.h"

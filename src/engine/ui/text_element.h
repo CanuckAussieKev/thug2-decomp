@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 
 namespace script {
 class Array;

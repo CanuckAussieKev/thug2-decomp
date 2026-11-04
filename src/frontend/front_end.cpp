@@ -17,7 +17,7 @@
 #include "engine/memory/task_list.h"
 #include "frontend/automation.h"
 #include "frontend/mouse_menus.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/tracker.h"
 #include "engine/audio/music_player.h"

@@ -12,9 +12,9 @@
 
 #include "base/core/str.h"
 #include "engine/sys/game_config.h"
-#include "frontend/screen_element.h"
-#include "frontend/screen_element_manager.h"
-#include "frontend/text_element.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_manager.h"
+#include "engine/ui/text_element.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_manager_cfuncs.h"

@@ -8,7 +8,7 @@
 
 #include "base/core/enum_ops.h"
 #include "engine/memory/mem.h"
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 #include "engine/lists/chain_start.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
@@ -17,7 +17,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element_manager.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/point_tally.h"

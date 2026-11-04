@@ -5,7 +5,7 @@
 #include <array>
 #include <span>
 
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 
 namespace frontend {
 

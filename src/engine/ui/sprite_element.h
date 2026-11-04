@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 
 // The picture elements: TextureElement (a texture drawn in its own 2D piece), SpriteElement (a sprite, also
 // placed in 3D with pos3D) and WindowElement (a 2D window - a clip rectangle - its descendants' sprites draw in).

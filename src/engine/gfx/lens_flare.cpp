@@ -8,9 +8,9 @@
 #include <span>
 
 #include "engine/memory/mem.h"
-#include "frontend/screen_element.h"
-#include "frontend/screen_element_cfuncs.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_cfuncs.h"
+#include "engine/ui/screen_element_manager.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/engine_texture.h"

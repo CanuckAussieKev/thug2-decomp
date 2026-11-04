@@ -1,7 +1,7 @@
 // The menus (vmenu / hmenu) and the container element: see menu_element.h.
 
-#include "frontend/menu_element.h"
-#include "frontend/screen_element_manager.h"
+#include "engine/ui/menu_element.h"
+#include "engine/ui/screen_element_manager.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/contest.h"
 #include "engine/objects/entity.h"
-#include "frontend/screen_element.h"
+#include "engine/ui/screen_element.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec2.h"
 namespace frontend {
