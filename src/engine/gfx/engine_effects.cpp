@@ -28,7 +28,7 @@
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_obj.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
 #include "base/core/checked_index.h"

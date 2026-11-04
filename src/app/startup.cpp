@@ -54,7 +54,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/sys/game_module.h"
 #include "app/pc_setup.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/node_manager.h"
 #include "engine/sys/game_config.h"
 #include "engine/objects/collide_and_die.h"

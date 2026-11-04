@@ -66,7 +66,7 @@
 #include "game/rider/trick_component.h"
 #include "game/rider/walk_camera.h"
 #include "game/rider/walk_physics.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/goals/create_a_trick.h"
 #include "game/goals/goal_manager.h"
 #include "engine/gfx/texture_dict.h"

@@ -13,7 +13,7 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"

@@ -27,7 +27,7 @@
 #include "engine/net/stats_man.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/game_mode.h"

@@ -18,7 +18,7 @@
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/trick_component.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/balance_trick.h"

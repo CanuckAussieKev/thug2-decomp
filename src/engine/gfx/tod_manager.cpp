@@ -34,7 +34,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/script/node_prefixes.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/gfx/movie.h"

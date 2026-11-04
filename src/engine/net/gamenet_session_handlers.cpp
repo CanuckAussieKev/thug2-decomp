@@ -28,7 +28,7 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"

@@ -33,7 +33,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/skate/point_tally.h"
 #include "platform/run_log.h"
 #include "game/rider/skater_state.h"

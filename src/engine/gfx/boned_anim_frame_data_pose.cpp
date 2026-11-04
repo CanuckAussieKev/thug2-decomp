@@ -15,7 +15,7 @@
 #include "formats/anim_format.h"
 #include "formats/byte_stream.h"
 #include "engine/objects/walk_hang.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"
 #include "base/core/span_copy.h"

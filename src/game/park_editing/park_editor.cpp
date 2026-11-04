@@ -19,7 +19,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/game_cfuncs.h"

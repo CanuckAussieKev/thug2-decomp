@@ -24,7 +24,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/end_run.h"
 #include "game/rider/rider.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "engine/gfx/tod_manager.h"

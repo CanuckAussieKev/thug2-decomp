@@ -43,7 +43,7 @@
 #include "game/rider/rider.h"
 #include "platform/platform_config.h"
 #include "engine/sys/mlp.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "platform/screenshot_files.h"
 #include "platform/sdl_events.h"
 #include "platform/sdl_window.h"

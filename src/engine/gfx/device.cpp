@@ -24,7 +24,7 @@
 #include "engine/gfx/text.h"
 #include "platform/platform_d3d.h"
 #include "platform/sdl_window.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
 #include "base/core/checked_index.h"

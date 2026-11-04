@@ -20,7 +20,7 @@
 #include "engine/objects/suspend_component.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/script/fwd.h"

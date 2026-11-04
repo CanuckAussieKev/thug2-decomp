@@ -17,7 +17,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/collide_and_die.h"
 #include "engine/objects/car_physics.h"

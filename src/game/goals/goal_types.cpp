@@ -19,7 +19,7 @@
 #include "game/skate/contest.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/engine.h"
 #include "game/skate/point_tally.h"

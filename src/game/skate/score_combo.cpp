@@ -37,7 +37,7 @@
 #include "game/rider/run_timer.h"
 #include "game/rider/stats_manager.h"
 #include "game/rider/trick_component.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "base/core/down_cast.h"

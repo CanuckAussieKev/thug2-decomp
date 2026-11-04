@@ -17,7 +17,7 @@
 #include "engine/net/net_conn.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"

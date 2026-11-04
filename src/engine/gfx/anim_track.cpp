@@ -16,7 +16,7 @@
 #include "engine/objects/flip_rotate.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/script_startup.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

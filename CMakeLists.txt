@@ -856,10 +856,10 @@ add_executable(thug2 WIN32
     src/platform/sdl_events.cpp
     src/platform/sdl_window.cpp
     src/platform/registry.cpp
-    src/platform/stopwatch.cpp
+    src/engine/sys/stopwatch.cpp
     src/app/startup.cpp
     src/engine/sys/mlp.cpp
-    src/platform/game_clock.cpp
+    src/engine/sys/game_clock.cpp
     src/engine/sys/system_cfuncs.cpp
     src/engine/sys/game_module.cpp
     src/app/winmain.cpp

@@ -28,7 +28,7 @@
 #include "engine/pad_input/device.h"
 #include "platform/sdl_events.h"
 #include "devtools/screenshot.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "platform/process_flags.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/draw_frame.h"

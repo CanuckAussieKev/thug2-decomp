@@ -58,7 +58,7 @@
 #include "game/rider/state_history.h"
 #include "game/rider/trick_component.h"
 #include "engine/sound/surface_kind.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/sys/model_viewer.h"
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/engine.h"

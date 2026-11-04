@@ -25,7 +25,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "game/rider/skater_score.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/collide_and_die.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/vehicle_sound.h"

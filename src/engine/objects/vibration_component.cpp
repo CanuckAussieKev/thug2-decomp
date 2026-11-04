@@ -10,7 +10,7 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/objects/car_physics.h"

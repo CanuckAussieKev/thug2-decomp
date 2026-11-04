@@ -19,7 +19,7 @@
 #include "engine/objects/motion_path.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/rider/skitch.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"

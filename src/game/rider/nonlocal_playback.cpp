@@ -28,7 +28,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/special_item.h"
 #include "game/rider/state_history.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/objects/control_pad.h"
 #include "game/skate/skate_module.h"

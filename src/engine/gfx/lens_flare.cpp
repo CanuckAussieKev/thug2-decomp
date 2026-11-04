@@ -23,7 +23,7 @@
 #include "base/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "base/core/checked_index.h"
 #include "base/core/packed_colour.h"
 #include "base/core/no_destroy.h"

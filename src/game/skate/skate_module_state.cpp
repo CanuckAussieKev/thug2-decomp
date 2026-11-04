@@ -42,7 +42,7 @@
 #include "engine/objects/rail_manager.h"
 #include "game/rider/rider.h"
 #include "engine/sound/surface_kind.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/flexible_particle_manager.h"

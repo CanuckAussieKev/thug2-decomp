@@ -18,7 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/viewport.h"
 #include "base/core/checked_index.h"
 #include "engine/audio/audio_state.h"

@@ -12,7 +12,7 @@
 #include "game/goals/goal_names.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/tod_manager.h"
 #include "base/core/format.h"
 #include "base/core/checksums.h"

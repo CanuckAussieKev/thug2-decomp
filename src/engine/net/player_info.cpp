@@ -16,7 +16,7 @@
 #include "engine/net/net_conn.h"
 #include "engine/objects/entity.h"
 #include "game/skate/profile_manager.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"

@@ -24,7 +24,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/names.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "platform/run_log.h"
 #include "engine/script/fwd.h"
 #include "frontend/screen_constants.h"

@@ -1,10 +1,10 @@
 // The game clock: real time scaled by the game's speed (stopped while paused).
 
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 
 #include <cstdint>
 
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "base/core/no_destroy.h"
 

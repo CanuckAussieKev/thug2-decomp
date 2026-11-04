@@ -16,7 +16,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "frontend/screen_element_manager.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"

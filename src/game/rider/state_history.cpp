@@ -21,7 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
 #include "game/rider/walk_physics.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/game_util_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"

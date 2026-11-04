@@ -26,7 +26,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_net.h"
 #include "platform/platform_config.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_glue.h"
 #include "game/skate/skate_module.h"

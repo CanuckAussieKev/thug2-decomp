@@ -19,7 +19,7 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/collide_and_die.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"

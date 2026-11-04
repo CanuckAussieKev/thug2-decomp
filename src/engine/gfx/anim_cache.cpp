@@ -12,7 +12,7 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/script_startup.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"

@@ -29,7 +29,7 @@
 #include "engine/net/net_messages.h"
 #include "wire/net_wire.h"
 #include "formats/byte_stream.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include <gsl/pointers>
 #include <array>
 #include <gsl/assert>

@@ -27,7 +27,7 @@
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/viewport.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/particle_component.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/startup_init.h"

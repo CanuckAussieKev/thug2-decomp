@@ -17,7 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checksums.h"

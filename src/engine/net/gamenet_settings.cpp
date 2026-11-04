@@ -19,7 +19,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/net/net_manager.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/fwd.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"

@@ -28,7 +28,7 @@
 #include "engine/script/params.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"

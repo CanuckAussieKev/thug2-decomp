@@ -12,7 +12,7 @@
 #include "engine/net/net_client.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/park_editing/goal_editor.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

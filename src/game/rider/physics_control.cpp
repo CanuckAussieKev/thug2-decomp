@@ -15,7 +15,7 @@
 #include "game/rider/rider.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/walk_physics.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/walk_camera.h"
 #include "engine/objects/control_pad.h"

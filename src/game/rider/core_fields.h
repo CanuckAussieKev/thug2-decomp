@@ -20,7 +20,7 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/rider.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "base/core/raw_view.h"
 #include "base/core/checksums.h"
 

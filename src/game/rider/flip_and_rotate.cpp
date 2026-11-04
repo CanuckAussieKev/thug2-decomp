@@ -14,7 +14,7 @@
 #include "engine/objects/anim_blender.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/thaw_bmx.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/rider/core_physics.h"
 #include "engine/objects/control_pad.h"
 #include "game/rider/skitch.h"

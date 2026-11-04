@@ -37,7 +37,7 @@
 #include "engine/pad_input/input_hub.h"
 #include "game/rider/trick_component.h"
 #include "engine/sys/mlp.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/file/async.h"
 #include "frontend/front_end.h"
 #include "engine/gfx/view_cam.h"

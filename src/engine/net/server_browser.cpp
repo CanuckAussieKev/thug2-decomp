@@ -30,7 +30,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/loading_bar.h"
 #include "base/core/compiler.h"

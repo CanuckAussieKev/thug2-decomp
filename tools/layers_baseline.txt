@@ -451,7 +451,6 @@ src/game/skate/trick_goals.cpp -> src/frontend/screen_element_manager.h
 src/game/skate/trick_goals.cpp -> src/frontend/text_element.h
 src/gpu/vertex_buffers.cpp -> src/engine/gfx/renderer.h
 src/gpu/vertex_buffers.cpp -> src/engine/memory/mem.h
-src/platform/game_clock.cpp -> src/engine/objects/control_pad.h
 src/platform/platform.cpp -> src/engine/gfx/renderer.h
 src/platform/platform.cpp -> src/engine/gfx/settings.h
 src/platform/platform.cpp -> src/engine/gfx/view_cam.h
@@ -467,8 +466,6 @@ src/platform/platform_input.cpp -> src/engine/gfx/renderer.h
 src/platform/platform_input.cpp -> src/engine/gfx/view_cam.h
 src/platform/platform_input.cpp -> src/engine/gfx/view_setup.h
 src/platform/platform_input.cpp -> src/engine/pad_input/device.h
-src/platform/stopwatch.cpp -> src/engine/gfx/engine.h
-src/platform/stopwatch.cpp -> src/engine/sys/game_config.h
 src/wire/gamenet_messages.cpp -> src/formats/byte_stream.h
 src/wire/net_wire.cpp -> src/formats/byte_stream.h
 src/wire/play_messages.cpp -> src/formats/byte_stream.h

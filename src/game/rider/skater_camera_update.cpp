@@ -20,7 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
 #include "game/rider/skater_camera_component.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/rider/core_physics.h"
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"

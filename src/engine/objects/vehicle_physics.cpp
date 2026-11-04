@@ -18,7 +18,7 @@
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/vehicle_internal.h"
 #include "engine/render/probe_ray.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trigger_events.h"

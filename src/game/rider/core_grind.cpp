@@ -32,7 +32,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
 #include "game/rider/walk_physics.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/rider/balance_trick.h"
 #include "game/skate/point_tally.h"
 #include "game/park_editing/park_editor.h"

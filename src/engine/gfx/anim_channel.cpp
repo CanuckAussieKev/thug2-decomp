@@ -37,7 +37,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/sys/startup_init.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"

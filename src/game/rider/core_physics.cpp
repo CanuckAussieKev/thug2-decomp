@@ -28,7 +28,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/trick_component.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "platform/run_log.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"

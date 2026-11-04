@@ -8,7 +8,7 @@
 #include "game/rider/core_fields.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/thaw_bmx.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/render/probe_ray.h"
 
 namespace skater {

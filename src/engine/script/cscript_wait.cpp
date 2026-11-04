@@ -22,8 +22,8 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/tokens.h"
-#include "platform/game_clock.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/game_clock.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>

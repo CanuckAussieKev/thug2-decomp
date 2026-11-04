@@ -25,7 +25,7 @@
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/loading_console.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"

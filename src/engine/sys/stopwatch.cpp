@@ -1,7 +1,7 @@
 // The game clock.
 
 #include "engine/gfx/engine.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 
 #include <cstdint>
 #include <cstring>

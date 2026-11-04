@@ -13,7 +13,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/lock_obj.h"
 #include "engine/objects/model_component.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/skeleton_component.h"
 #include "base/core/down_cast.h"

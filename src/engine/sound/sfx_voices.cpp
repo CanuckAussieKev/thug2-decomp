@@ -38,7 +38,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_config.h"
 #include "platform/platform_system.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "platform/unique_handle.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"

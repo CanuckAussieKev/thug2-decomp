@@ -25,7 +25,7 @@
 #include "engine/net/net_manager.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/game_cfuncs.h"
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"

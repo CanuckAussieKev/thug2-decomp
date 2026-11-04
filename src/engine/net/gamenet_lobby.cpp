@@ -18,7 +18,7 @@
 #include "engine/net/online_identity.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "base/core/compiler.h"
 #include "engine/net/net_game_state.h"
 

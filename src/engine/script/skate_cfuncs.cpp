@@ -16,7 +16,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/sys/model_viewer.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/scene_lights.h"

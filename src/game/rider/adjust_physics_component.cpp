@@ -13,7 +13,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/walk_hang.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/rider/core_physics.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"

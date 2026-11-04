@@ -17,7 +17,7 @@
 #include "game/rider/controls.h"
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/trick_component.h"

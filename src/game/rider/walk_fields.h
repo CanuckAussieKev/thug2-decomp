@@ -7,7 +7,7 @@
 
 #include "engine/objects/control_pad.h"
 #include "engine/script/param_struct.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "base/core/raw_view.h"
 
 namespace objects::walk_fields {

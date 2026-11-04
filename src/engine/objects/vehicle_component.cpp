@@ -33,7 +33,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/car_physics.h"

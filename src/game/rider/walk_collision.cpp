@@ -27,7 +27,7 @@
 #include "game/rider/trick_component.h"
 #include "game/rider/walk_fields.h"
 #include "game/rider/walk_physics.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"

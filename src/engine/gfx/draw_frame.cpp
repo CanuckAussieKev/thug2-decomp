@@ -43,7 +43,7 @@
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
 #include "devtools/screenshot.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/particle_component.h"

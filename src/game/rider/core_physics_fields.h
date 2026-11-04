@@ -13,7 +13,7 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/rider.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "base/core/raw_view.h"

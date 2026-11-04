@@ -29,7 +29,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/texture_cfuncs.h"

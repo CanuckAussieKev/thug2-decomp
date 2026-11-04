@@ -14,7 +14,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/member_code.h"
 #include "engine/script/param_struct.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "engine/objects/control_pad.h"
 #include "base/core/checksums.h"
 #include "engine/script/names.h"

@@ -18,7 +18,7 @@
 #include "engine/audio/stream_commands.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/fwd.h"
 #include "engine/memory/fwd.h"
 #include "engine/gfx/face_texture.h"

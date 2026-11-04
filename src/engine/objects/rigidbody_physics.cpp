@@ -20,7 +20,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "base/core/checked_index.h"
 #include "engine/objects/objects_shared.h"
 #include "base/core/checksums.h"

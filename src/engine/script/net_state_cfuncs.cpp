@@ -32,7 +32,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
 #include "game/skate/skate_net.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "engine/sys/mlp.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"

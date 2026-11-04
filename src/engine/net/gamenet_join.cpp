@@ -44,7 +44,7 @@
 #include "game/skate/profile_manager.h"
 #include "engine/sys/game_config.h"
 #include "engine/sys/mlp.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "platform/run_log.h"
 #include "engine/assets/resource_registry.h"
 #include "game/skate/game_mode.h"

@@ -18,7 +18,7 @@
 #include "engine/objects/pager_message.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"

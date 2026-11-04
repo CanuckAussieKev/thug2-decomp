@@ -19,7 +19,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/walk_physics.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/camera_component.h"

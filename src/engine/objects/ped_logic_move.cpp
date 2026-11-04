@@ -31,7 +31,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/looping_sound.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"

@@ -14,7 +14,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/script/fwd.h"
 #include "game/skate/point_tally.h"
 #include "engine/net/fwd.h"

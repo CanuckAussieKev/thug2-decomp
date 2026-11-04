@@ -7,9 +7,9 @@
 #include "base/maths/random.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "engine/sys/game_config.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/control_pad.h"
 
 namespace commands {

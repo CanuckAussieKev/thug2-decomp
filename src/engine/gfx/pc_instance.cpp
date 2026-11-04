@@ -26,7 +26,7 @@
 #include "engine/gfx/scene_render.h"
 #include "base/maths/mat4.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "platform/crt.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/model.h"

@@ -19,7 +19,7 @@
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/primitive_states.h"
 #include "engine/gfx/render_state.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/bitmap_texture.h"
 #include <bit>

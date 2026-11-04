@@ -19,7 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/looping_sound.h"
 #include "game/rider/rider.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
 #include "game/skate/game_mode.h"

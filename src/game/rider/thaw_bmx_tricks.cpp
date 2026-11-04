@@ -30,7 +30,7 @@
 #include "game/rider/rider.h"
 #include "game/rider/special_item.h"
 #include "game/rider/thaw_bmx.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
 #include "game/rider/skater_state.h"

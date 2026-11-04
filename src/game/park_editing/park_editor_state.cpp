@@ -12,7 +12,7 @@
 #include "game/park/park_memory.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/sys/model_viewer.h"
 #include "game/park_editing/park_editing_state.h"
 

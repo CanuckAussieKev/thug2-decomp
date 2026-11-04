@@ -23,7 +23,7 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "game/rider/skater_score.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/game_cfuncs.h"

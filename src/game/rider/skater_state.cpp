@@ -11,7 +11,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "platform/game_clock.h"
+#include "engine/sys/game_clock.h"
 #include "game/rider/skitch.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"

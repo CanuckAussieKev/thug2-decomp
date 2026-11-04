@@ -25,7 +25,7 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "game/save_cards/save_types.h"
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"

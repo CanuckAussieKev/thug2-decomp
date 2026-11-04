@@ -17,7 +17,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/math_cfuncs.h"
 #include "engine/script/param_struct.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/gfx/weather.h"
 #include "base/core/checked_index.h"

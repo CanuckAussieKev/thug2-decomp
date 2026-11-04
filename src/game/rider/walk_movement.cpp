@@ -18,7 +18,7 @@
 #include "game/rider/walk_fields.h"
 #include "game/rider/walk_physics.h"
 #include "base/maths/trig.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/objects/input_component.h"
 #include "engine/objects/model_component.h"
 #include "base/core/checked_index.h"

@@ -37,7 +37,7 @@
 #include "engine/sys/debug_mode.h"
 #include "engine/sys/game_config.h"
 #include "engine/sys/mlp.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/sys/viewer_object.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"

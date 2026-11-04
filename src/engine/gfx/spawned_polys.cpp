@@ -15,7 +15,7 @@
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/script/cfuncs_engine.h"
-#include "platform/stopwatch.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
