@@ -198,6 +198,7 @@ add_subdirectory(src/wire)
 add_subdirectory(src/platform)
 add_subdirectory(src/gpu)
 add_subdirectory(src/engine)
+add_subdirectory(src/game)
 
 # --- The game ----------------------------------------------------------------------------------------------------
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
@@ -205,18 +206,6 @@ add_subdirectory(src/engine)
 add_executable(thug2 WIN32
     src/app/main.cpp
     src/app/extensions.cpp
-    src/game/park_editing/cursor.cpp
-    src/game/park_editing/park_floor.cpp
-    src/game/park_editing/park_manager.cpp
-    src/game/park_editing/park_map.cpp
-    src/game/park_editing/park_rails.cpp
-    src/game/park_editing/rail_editor.cpp
-    src/game/park_editing/rail_editor_draw.cpp
-    src/game/park_editing/rail_editor_script.cpp
-    src/game/park_editing/copy_buffer.cpp
-    src/game/park_editing/gap_slots.cpp
-    src/game/park_editing/piece_menu.cpp
-    src/game/front_end/front_end.cpp
     src/frontend/mouse_menus.cpp
     src/frontend/new_frontend.cpp
     src/frontend/new_frontend_extension.cpp
@@ -229,8 +218,6 @@ add_executable(thug2 WIN32
     src/devtools/restart_tester.cpp
     src/devtools/screenshot.cpp
     src/devtools/extensions.cpp
-    src/game/commands/career_complete.cpp
-    src/game/commands/node_hooks.cpp
     src/devtools/test_view.cpp
     src/devtools/start_level.cpp
     src/devtools/automation.cpp
@@ -277,7 +264,6 @@ add_executable(thug2 WIN32
     src/editor/level_editor_triggers_ui.cpp
     src/editor/level_editor_entities.cpp
     src/editor/level_editor_entities_ui.cpp
-    src/game/skate/edited_copy_career.cpp
     src/editor/level_editor_extension.cpp
     src/editor/level_editor_preview.cpp
     src/editor/level_editor_overlays.cpp
@@ -310,251 +296,24 @@ add_executable(thug2 WIN32
     src/editor/level_editor_arrange.cpp
     src/editor/level_editor_arrange_ui.cpp
     src/editor/level_editor_links.cpp
-    src/game/skate/contest.cpp
-    src/game/skate/letter_match.cpp
-    src/game/skate/point_tally.cpp
-    src/game/skate/score_combo.cpp
-    src/game/skate/score_net.cpp
-    src/game/skate/skate_module_state.cpp
-    src/game/skate/skate_module_skaters.cpp
-    src/game/skate/skate_rankings.cpp
-    src/game/goals/objective.cpp
-    src/game/goals/goal_run.cpp
-    src/game/goals/goal_life.cpp
-    src/game/goals/goal_tricks.cpp
-    src/game/goals/goal_manager.cpp
-    src/game/goals/goal_manager_cfuncs.cpp
-    src/game/goals/goal_manager_cfuncs2.cpp
-    src/game/goals/goal_manager_cfuncs3.cpp
-    src/game/goals/goal_manager_goals.cpp
-    src/game/goals/goal_manager_events.cpp
-    src/game/goals/goal_manager_update.cpp
-    src/game/goals/goal_ped.cpp
-    src/game/goals/goal_net_types.cpp
-    src/game/goals/goal_skate_line.cpp
-    src/game/skate/game_mode.cpp
-    src/game/goals/goal_types.cpp
-    src/game/goals/create_a_trick.cpp
-    src/game/skate/competition_cfuncs.cpp
-    src/game/skate/skater_profile_cfuncs.cpp
-    src/game/skate/appearance_cfuncs.cpp
-    src/game/skate/preload_cfuncs.cpp
-    src/game/skate/victory_conditions.cpp
-    src/game/skate/trick_goals.cpp
-    src/game/skate/skate_net.cpp
-    src/game/skate/skate_net_relay.cpp
-    src/game/skate/skate_module.cpp
-    src/game/rider/trick_lists.cpp
-    src/game/skate/gap_checklist.cpp
-    src/game/rider/manual_balance.cpp
-    src/game/rider/vehicle_camera.cpp
-    src/game/rider/walk_camera.cpp
-    src/game/rider/walk_physics.cpp
-    src/game/rider/walk_movement.cpp
-    src/game/rider/walk_collision.cpp
-    src/game/rider/adjust_physics.cpp
-    src/game/rider/adjust_physics_component.cpp
-    src/game/rider/balance_trick.cpp
-    src/game/rider/skater_camera_modes.cpp
-    src/game/rider/trick_queue.cpp
-    src/game/rider/trick_member_functions.cpp
-    src/game/world/trick_objects.cpp
-    src/game/world/object_hooks.cpp
-    src/game/skate/render_hooks.cpp
-    src/game/front_end/pad_hooks.cpp
-    src/game/skate/sys_hooks.cpp
-    src/game/skate/profile_manager.cpp
-    src/game/skate/highscores.cpp
-    src/game/skate/career.cpp
-    src/game/skate/career_cfuncs.cpp
-    src/game/skate/skater_profile.cpp
-    src/game/skate/appearance_guard.cpp
-    src/game/rider/rider.cpp
-    src/game/rider/skater_query_cfuncs.cpp
-    src/game/world/avoid.cpp
-    src/game/world/ped_logic.cpp
-    src/game/world/ped_logic_path.cpp
-    src/game/world/ped_logic_move.cpp
-    src/game/world/projectile_components.cpp
     src/app/component_types.cpp
-    src/game/park_editing/goal_editor_util.cpp
-    src/game/park_editing/edited_goal.cpp
-    src/game/park_editing/edited_goal_io.cpp
-    src/game/park_editing/goal_editor.cpp
-    src/game/park_editing/goal_editor_members.cpp
-    src/game/park_editing/goal_editor_nodes.cpp
-    src/game/world/editor_camera.cpp
-    src/game/online/transport_hooks.cpp
-    src/game/online/session_queries.cpp
-    src/game/online/chat.cpp
-    src/game/online/stats.cpp
-    src/game/online/buddy_man.cpp
-    src/game/online/vault_man.cpp
-    src/game/online/stats_man.cpp
-    src/game/online/gamenet_join.cpp
-    src/game/online/gamenet_manager.cpp
-    src/game/online/gamenet_commands.cpp
-    src/game/online/gamenet_game_commands.cpp
-    src/game/online/gamenet_lists.cpp
-    src/game/online/gamenet_members.cpp
-    src/game/online/gamenet_player_lists.cpp
-    src/game/online/gamenet_settings.cpp
-    src/game/online/gamenet_state.cpp
-    src/game/online/gamenet_handlers.cpp
-    src/game/online/gamenet_game_handlers.cpp
-    src/game/online/gamenet_server_handlers.cpp
-    src/game/online/gamenet_session_handlers.cpp
-    src/game/online/gamenet_tasks.cpp
-    src/game/online/player_info.cpp
-    src/game/online/player_flags.cpp
-    src/game/online/score_list.cpp
-    src/game/online/rooms.cpp
-    src/game/online/server_list.cpp
-    src/game/online/net_game_state.cpp
-    src/game/online/server_browser.cpp
-    src/game/online/buddy_status.cpp
-    src/game/online/gamenet_players.cpp
-    src/game/online/gamenet_game_cfuncs.cpp
-    src/game/online/gamenet_flow.cpp
-    src/game/online/gamenet_qr2.cpp
-    src/game/online/gamenet_lobby.cpp
-    src/game/online/gamenet_lobby_peer.cpp
-    src/game/online/gamenet_lobby_cfuncs.cpp
-    src/game/online/gamenet_lobby_menus.cpp
-    src/game/online/gamenet_newplayers.cpp
-    src/game/online/gamenet_manager_create.cpp
-    src/game/park_editing/park_accessors.cpp
-    src/game/park_editing/cursor_tools.cpp
-    src/game/park_editing/upper_menu.cpp
-    src/game/park_editing/park_lists.cpp
-    src/game/park_editing/park_io.cpp
-    src/game/park_editing/park_editing_state.cpp
-    src/game/park_editing/park_cfuncs.cpp
-    src/game/park_editing/park_pieces.cpp
-    src/game/park_editing/park_metapieces.cpp
-    src/game/park_editing/park_generator.cpp
-    src/game/park_editing/park_editor_state.cpp
-    src/game/park_editing/gap_manager.cpp
-    src/game/park_editing/park_editor.cpp
-    src/game/park_editing/park_editor_cfuncs.cpp
-    src/game/park_editing/park_scene.cpp
-    src/game/park_editing/park_nodes.cpp
-    src/game/online/service.cpp
-    src/game/online/online_hosts.cpp
-    src/game/online/online_identity.cpp
-    src/game/online/thugpro_compat.cpp
-    src/game/online/net_guards.cpp
-    src/game/online/thugpro_join.cpp
-    src/game/online/thugpro_peer.cpp
-    src/game/park/park_cursor.cpp
-    src/game/park/park_editor.cpp
-    src/game/park/park_memory.cpp
-    src/game/world/projectile_component.cpp
-    src/game/world/vehicle_wheel.cpp
-    src/game/world/vehicle_sound.cpp
-    src/game/world/vehicle_component.cpp
-    src/game/world/vehicle_physics.cpp
-    src/game/world/vehicle_collision.cpp
-    src/game/rider/rotation.cpp
-    src/game/rider/local_net_logic.cpp
-    src/game/rider/nonlocal_net_logic.cpp
-    src/game/rider/end_run.cpp
-    src/game/rider/finalize_physics.cpp
-    src/game/rider/flip_and_rotate.cpp
-    src/game/rider/floating_name.cpp
-    src/game/rider/gap_entry.cpp
-    src/game/rider/looping_sound.cpp
-    src/game/rider/matrix_queries.cpp
-    src/game/rider/physics_control.cpp
-    src/game/rider/rotate_component.cpp
-    src/game/rider/run_timer.cpp
-    src/game/rider/skater_score.cpp
-    src/game/rider/skater_sound.cpp
-    src/game/rider/skater_state.cpp
-    src/game/rider/stance_panel.cpp
-    src/game/rider/controls.cpp
-    src/game/rider/core_physics.cpp
-    src/game/rider/core_physics_state.cpp
-    src/game/rider/core_physics_speed.cpp
-    src/game/rider/core_physics_feelers.cpp
-    src/game/rider/core_physics_skitch.cpp
-    src/game/rider/core_member_functions.cpp
-    src/game/rider/core_physics_life.cpp
-    src/game/rider/core_physics_ground.cpp
-    src/game/rider/core_physics_moves.cpp
-    src/game/rider/skater_camera_component.cpp
-    src/game/rider/skater_camera_update.cpp
-    src/game/rider/core_physics_turning.cpp
-    src/game/rider/core_physics_walls.cpp
-    src/game/rider/core_physics_wallplant.cpp
-    src/game/rider/core_physics_acid_drop.cpp
-    src/game/rider/debug_collision.cpp
-    src/game/rider/collision_events.cpp
-    src/game/rider/core_jump.cpp
-    src/game/rider/core_collision.cpp
-    src/game/rider/core_grind.cpp
-    src/game/rider/rider_shared.cpp
-    src/game/rider/core_states.cpp
-    src/game/rider/core_rail.cpp
-    src/game/rider/core_ground.cpp
-    src/game/rider/core_wallride.cpp
-    src/game/rider/walk_moves.cpp
-    src/game/rider/core_update.cpp
-    src/game/rider/nonlocal_playback.cpp
-    src/game/rider/state_history.cpp
-    src/game/rider/vehicle_sound.cpp
-    src/game/rider/skitch.cpp
-    src/game/rider/special_item.cpp
-    src/game/rider/stats_manager.cpp
-    src/game/rider/tagging.cpp
-    src/game/rider/thaw_bmx.cpp
-    src/game/rider/thaw_bmx_parked.cpp
-    src/game/rider/thaw_bmx_physics.cpp
-    src/game/rider/thaw_bmx_sticks.cpp
-    src/game/rider/thaw_bmx_tricks.cpp
-    src/game/rider/trick_component.cpp
     src/app/pc_setup.cpp
     src/app/startup.cpp
     src/app/winmain.cpp
     src/app/startup_init.cpp
-    src/game/save_cards/memcard.cpp
-    src/game/save_cards/save_cards_state.cpp
-    src/game/save_cards/memcard_cfuncs.cpp
-    src/game/save_cards/save_types.cpp
-    src/game/save_cards/save_files_cfuncs.cpp
-    src/game/save_cards/save_contents.cpp
-    src/game/skate/profile_cfuncs.cpp
     src/app/command_table.cpp
-    src/game/commands/member_function_code.cpp
-    src/game/commands/world_cfuncs.cpp
-    src/game/commands/trick_cfuncs.cpp
-    src/game/commands/game_util_cfuncs.cpp
-    src/game/online/hunt_cfuncs.cpp
-    src/game/commands/face_texture_cfuncs.cpp
-    src/game/commands/cag_cfuncs.cpp
-    src/game/commands/model_swap_cfuncs.cpp
-    src/game/rider/skater_misc_cfuncs.cpp
-    src/game/rider/skater_score_cfuncs.cpp
-    src/game/commands/game_cfuncs.cpp
-    src/game/commands/game_flow_cfuncs.cpp
-    src/game/commands/net_state_cfuncs.cpp
-    src/game/commands/node_object_cfuncs.cpp
-    src/game/rider/walk_hang.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
 # The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
 # them deprecated unless this is defined.
-set_source_files_properties(
-    src/game/online/gamenet_lobby_cfuncs.cpp
-    src/app/winmain.cpp
-    PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
+set_source_files_properties(src/app/winmain.cpp PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
 target_include_directories(thug2 PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
                                          "${CMAKE_BINARY_DIR}/editor_fonts")
 # (the UI fonts, compressed at build time: engine/ui/ui_fonts.cpp includes them; the generated build_info.h)
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_engine thug2_gpu thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
+target_link_libraries(thug2 PRIVATE thug2_game thug2_engine thug2_gpu thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
