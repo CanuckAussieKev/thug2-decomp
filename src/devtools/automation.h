@@ -49,10 +49,10 @@ class Struct;
 //                                         level is Load_<name>, with the skater) - those two for a second in a row,
 //                                         past the level's first frames -, menu <id> (the element exists), focus <id>
 //                                         (the element is focused, or a focused menu's selected item)
-//   level <name>                          free skate in a level, as -level (frontend/start_level.h)
+//   level <name>                          free skate in a level, as -level (devtools/start_level.h)
 //   teleport <x> <y> <z> [heading]        the local skater put there STANDING (walking, no momentum), on the ground
 //                                         below; heading in degrees (0 = +z, 90 = +x, as the screenshot sidecar);
-//                                         none: the way it faced (frontend/test_view.h). In a level only.
+//                                         none: the way it faced (devtools/test_view.h). In a level only.
 //   camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]
 //                                         viewport 0's camera held at that position looking along (dx, dy, dz) every
 //                                         frame (comparable frames), moved by (vx, vy, vz) a game frame if given (a

@@ -25,7 +25,7 @@
 #include "editor/level_editor.h"
 #include "frontend/new_frontend.h"
 #include "engine/ui/screen_element_manager.h"
-#include "frontend/test_view.h"
+#include "devtools/test_view.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/tod_manager.h"
 #include "game/save_cards/memcard.h"
@@ -162,7 +162,7 @@ int game_main(int argc, char** argv)
         // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
         frontend::level_editor::register_script_functions();
         frontend::career_complete::register_script_functions();
-        frontend::test_view::register_script_functions(); // (TeleportSkaterStanding - frontend/test_view.h)
+        frontend::test_view::register_script_functions(); // (TeleportSkaterStanding - devtools/test_view.h)
         skater::thaw_bmx::
             register_script_functions(); // (ThawBmx_Available, the bike's members - game/rider/thaw_bmx.h)
         frontend::new_frontend::

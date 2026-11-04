@@ -28,7 +28,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   from that folder). In a workspace it never takes the foreground: keys are posted to the window (KEYS_POST +
   KEYS_NO_FOCUS) and pictures taken with PrintWindow, so it runs while the user uses the PC. Pictures go to
   %TEMP%\thug2-shots unless -ShotDir. Don't pipe it into `Select-Object -First` (that stops it before it closes the game).
-- **Commands instead of keys (prefer these):** the game's test-automation channel (src/frontend/automation.h; on in
+- **Commands instead of keys (prefer these):** the game's test-automation channel (src/devtools/automation.h; on in
   the workspaces - `[features] automation=1`, set by make_workspace.ps1; never on in the main install). The game reads
   `<folder>\thug2-decomp-commands.txt` once a frame and writes `<folder>\thug2-decomp-status.json` (readable while it
   runs - the log isn't). Nothing is dropped and nothing waits a fixed time: a cold start to the free-skate level select
@@ -52,7 +52,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     the trick object manager's log_trick_objects; the result says how many objects / clusters and changed hands: THUG2's
     own change mask crashed past 128), `echo <text>`, `quit`. A failure or refusal
     skips the rest of the batch.
-  - **Looking at one spot frame by frame** (src/frontend/test_view.h, src/platform/screenshot.h start_series):
+  - **Looking at one spot frame by frame** (src/devtools/test_view.h, src/platform/screenshot.h start_series):
     `teleport <x> <y> <z> [heading]` puts the skater there standing (walking, no momentum, on the ground below;
     heading in degrees as the screenshot sidecar gives it), `camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]` holds
     viewport 0's camera at that pose (a screenshot sidecar's [camera] lines), moved by (vx, vy, vz) every game frame
@@ -94,7 +94,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `window_shot.ps1 -ProcessId <pid> -Path <png>` - one game window with PrintWindow, also in the background.
   `game_shot.ps1 -Path <png>` - the game's window while it's in front. **Never capture the whole screen.**
 - `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
-  (`foun`, `z_dt`, `BO`, `Load_TR`...; src/frontend/start_level.h - also `[features] start_level=` in the
+  (`foun`, `z_dt`, `BO`, `Load_TR`...; src/devtools/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T
   (src/engine/sys/debug_mode.h).
 - `node tools/game/edit_level.ts [<level>] [--game <folder>] [--list]` - for the user: no level lists the installed
@@ -103,7 +103,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   folder; never closes one. Not for agents' test runs (no lock, no workspace handling).
 - `node tools/game/try_spot.ts <level> <x,y,z[,heading]> [--game <folder>]` - for the user: the game started with
   `-level <level> -at <spot>`: free skate there, and once the level is up the skater stands still at the spot (on the
-  ground below it, facing `heading` degrees: 0 = +z, 90 = +x; src/frontend/start_level.h - also
+  ground below it, facing `heading` degrees: 0 = +z, 90 = +x; src/devtools/start_level.h - also
   `[features] start_at=`). `--game` goes before a spot that starts with a minus. `--list collfix` prints the spots in
   `spots.json`'s list `collfix` (in front of THUGPRO's collision overlays in the THPS3 ports)
   with each one's command; `--list collfix <n>` starts the n-th. Refuses while a game
@@ -122,7 +122,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
   `<level> : running after 50 s; responding=True loaded=True CComponent=<in use>/peak <peak>/<count> CStruct=...` or
   the errors (the pools: the log's `script pools in use in <level>` line, written once the level is up -
-  src/frontend/start_level.cpp; and any `pool ... full` / `80% full` line).
+  src/devtools/start_level.cpp; and any `pool ... full` / `80% full` line).
 
 Reference sources the agents read (re-fetch anonymously if needed; none of their code is in the repo except where
 the THIRD_PARTY_NOTICES.md files - the decomp's, the content pipeline's and the converters' - say): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene

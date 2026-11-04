@@ -10,7 +10,7 @@ class ViewCam;
 // NOT ORIGINAL - test views (ours, added at the user's request: "add an engine function that lets you teleport to a
 // given position, while standing (not skating) so you don't move, then you can screenshot every frame from that
 // position"; not the game's and not PartyMod's). Used by the test-automation channel's `teleport` and `camera`
-// commands (frontend/automation.h) and the script command below; the frame series that goes with them is the
+// commands (devtools/automation.h) and the script command below; the frame series that goes with them is the
 // screenshot code's (devtools/screenshot.h, start_series).
 //
 // - Teleport: the local skater put at a point STANDING (walking, no momentum), on the ground below it (the game's

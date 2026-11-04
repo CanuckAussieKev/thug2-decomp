@@ -169,7 +169,7 @@ TargetState advance_target(Target& target, bool wait, int (*read)(void* context)
 // elements under the cursor when none), its menu's state, and which events were sent or why none were.
 bool& debug_enabled();
 
-// For the test-automation channel (frontend/automation.h): whether a menu takes the pad events now (the game's
+// For the test-automation channel (devtools/automation.h): whether a menu takes the pad events now (the game's
 // test, as hovering uses it), and a menu pad event launched as input_logic launches it (pad_up, pad_choose...).
 bool menu_gets_pad_events(frontend::UiWidget* menu);
 void send_menu_pad_event(modules::FrontEnd* front_end, uint32_t event);

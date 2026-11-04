@@ -1,6 +1,6 @@
-// Test views: teleport standing, the camera lock (frontend/test_view.h). NOT ORIGINAL.
+// Test views: teleport standing, the camera lock (devtools/test_view.h). NOT ORIGINAL.
 
-#include "frontend/test_view.h"
+#include "devtools/test_view.h"
 
 #include <cmath>
 #include <cstdint>

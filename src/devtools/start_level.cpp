@@ -1,6 +1,6 @@
-// Start in a level (frontend/start_level.h).
+// Start in a level (devtools/start_level.h).
 
-#include "frontend/start_level.h"
+#include "devtools/start_level.h"
 
 #include <windows.h>
 
@@ -21,7 +21,7 @@
 #include "editor/level_editor.h"
 #include "editor/level_editor_layout.h"
 #include "frontend/mouse_menus.h"
-#include "frontend/test_view.h"
+#include "devtools/test_view.h"
 #include "engine/gfx/screen.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

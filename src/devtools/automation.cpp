@@ -1,6 +1,6 @@
-// The test-automation channel (frontend/automation.h). NOT ORIGINAL.
+// The test-automation channel (devtools/automation.h). NOT ORIGINAL.
 
-#include "frontend/automation.h"
+#include "devtools/automation.h"
 
 #include <share.h>
 #include <windows.h>
@@ -33,8 +33,8 @@
 #include "frontend/new_frontend.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
-#include "frontend/start_level.h"
-#include "frontend/test_view.h"
+#include "devtools/start_level.h"
+#include "devtools/test_view.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/net/gamenet_manager.h"
@@ -104,7 +104,7 @@ constexpr int kMenuSettleFrames = 30;
 constexpr int kMaxCommandsPerFrame = 32;
 constexpr int kFullPressure = 0xFF;
 
-#include "frontend/automation_tables.inc"
+#include "devtools/automation_tables.inc"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>

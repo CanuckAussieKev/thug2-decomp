@@ -39,7 +39,7 @@ namespace render {
 // other movies play as usual.
 bool play_movie(script::Struct* params, script::Script* script);
 // The skip_intro_movies flag (read from the ini once - also on for a run started with -edit / edit_level,
-// frontend/start_level.h).
+// devtools/start_level.h).
 bool& skip_intro_movies();
 
 // A Bink movie (platform/bink.h).

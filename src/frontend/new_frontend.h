@@ -31,7 +31,7 @@ struct FrontEnd;
 // options' Level in the front end, a network lobby's CHANGE LEVEL), ours comes up over it from its first frame - the
 // same levels, the game's locks always - and a choice does what that select's item does (the network game's level
 // preference set and the host options made again, or the lobby's change of level; CREATED PARK: the game's own park
-// menu); Back is that select's Back. The automation channel's `fe` commands (frontend/automation.h) drive ours.
+// menu); Back is that select's Back. The automation channel's `fe` commands (devtools/automation.h) drive ours.
 // The levels are data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts, written by
 // make_menu_level.ts from the overlay's sectioned level select - the same sections, lists and load scripts). Without
 // it Free Skate goes on to the original's level select. The last level played: thug2-decomp-frontend.txt next to the ini (the level the game last
@@ -100,7 +100,7 @@ bool owns_mouse();
 // cover kept, and the front end's first frames covered until its first menu is up.
 void before_screen_layout();
 
-// --- the automation channel's `fe` commands (frontend/automation.h) ---
+// --- the automation channel's `fe` commands (devtools/automation.h) ---
 // `args` after "fe": select <screen>/<item> (waits for the screen - shown, not moving - then selects and chooses the
 // item), focus <screen>/<item> (selects only), back, press <up|down|left|right|confirm|back|resume|prevtab|nexttab>.
 // The result ("ok", "error: ...", "refused: ...") with *done true; "" and *done false while select / focus waits

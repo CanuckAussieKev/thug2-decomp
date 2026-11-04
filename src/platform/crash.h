@@ -41,7 +41,7 @@ void install_crash_handling(bool console);
 bool is_fatal_exception(uint32_t code, bool* any_module);
 
 // Deliberate faults, to check that all of the above works: the automation channel's `crash <kind>` (workspaces only -
-// src/frontend/automation.h).
+// src/devtools/automation.h).
 enum class TestFault : uint8_t {
     kAccess,           // a write to address 0: EXCEPTION, then unhandled
     kRunTimeCheck,     // a call that leaves ESP wrong (Debug /RTC builds): RUN-TIME CHECK FAILURE

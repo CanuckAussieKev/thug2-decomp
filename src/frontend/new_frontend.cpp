@@ -31,7 +31,7 @@
 
 #include "base/core/checksums.h"
 #include "engine/file/file_load.h"
-#include "frontend/automation.h"
+#include "devtools/automation.h"
 #include "engine/file/data_overlay.h"
 #include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
@@ -44,12 +44,12 @@
 #include "frontend/new_frontend_model.h"
 #include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
-#include "frontend/restart_tester.h"
+#include "devtools/restart_tester.h"
 #include "engine/audio/continue_music.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/ui/sprite_element.h"
-#include "frontend/start_level.h"
+#include "devtools/start_level.h"
 #include "engine/ui/text_element.h"
 #include "engine/gfx/font.h"
 #include "engine/gfx/glyphs.h"
@@ -405,7 +405,7 @@ MenuTick& menu_tick()
 }
 
 // The Level Editor chosen on the Create screen: the level loads, then Start pauses it and the pause menu's LEVEL
-// EDITOR opens the editor (as -edit does - frontend/start_level.h).
+// EDITOR opens the editor (as -edit does - devtools/start_level.h).
 enum class Edit : uint8_t { kDisengaged, kWaitLevel, kWaitPause };
 // NOT ORIGINAL grouping - the options being edited: the session, its time and presses, the values at its start, a
 // pending restart, the note (were globals). Made on first use, never destroyed (edit_session()).

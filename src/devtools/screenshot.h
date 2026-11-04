@@ -46,7 +46,7 @@ void show_notice(const std::string& text);
 // Viewport 0's camera as last drawn (note_view), if drawn within the last 10 frames.
 bool last_view(std::span<float, 3> position, std::span<float, 3> forward);
 
-// A frame series (the test-automation channel's `capture` - frontend/automation.h; works with the key off too):
+// A frame series (the test-automation channel's `capture` - devtools/automation.h; works with the key off too):
 // the next `frames` rendered frames (at most kMaxSeriesFrames), every one, as frame_0001.png ... in `folder`
 // (relative: to the screenshot folder; "": series_<time> there), with one sidecar series.txt (the screenshot
 // sidecar's state at the first frame, the series' count, and a line a frame: the game's frame, its vblank count and

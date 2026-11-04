@@ -1,6 +1,6 @@
-// The restart tester (frontend/restart_tester.h).
+// The restart tester (devtools/restart_tester.h).
 
-#include "frontend/restart_tester.h"
+#include "devtools/restart_tester.h"
 #include "platform/keyboard.h"
 
 #include <cstdint>

@@ -1,5 +1,5 @@
 // NOT ORIGINAL - start the game in a level with the skater standing at a spot, to try something there by hand
-// (src/frontend/start_level.h: `-level <level> -at x,y,z[,heading]`).
+// (src/devtools/start_level.h: `-level <level> -at x,y,z[,heading]`).
 //
 //   node tools/game/try_spot.ts <level> <x,y,z[,heading]>   THUG2 started in free skate there; once the level is up
 //                                                            the skater stands at the spot (on the ground below it),

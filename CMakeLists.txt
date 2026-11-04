@@ -326,13 +326,13 @@ add_executable(thug2 WIN32
     src/frontend/new_frontend_model.cpp
     src/frontend/new_frontend_options.cpp
     src/editor/level_editor.cpp
-    src/frontend/restart_tester.cpp
+    src/devtools/restart_tester.cpp
     src/devtools/screenshot.cpp
     src/engine/gfx/screenshot_capture.cpp
     src/game/commands/career_complete.cpp
-    src/frontend/test_view.cpp
-    src/frontend/start_level.cpp
-    src/frontend/automation.cpp
+    src/devtools/test_view.cpp
+    src/devtools/start_level.cpp
+    src/devtools/automation.cpp
     src/editor/level_editor_hud.cpp
     src/editor/level_editor_layout.cpp
     src/editor/level_editor_objects.cpp

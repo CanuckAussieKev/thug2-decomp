@@ -16,7 +16,7 @@
 #include <array>
 
 #include "base/core/format.h"
-#include "frontend/automation.h"
+#include "devtools/automation.h"
 #include "editor/level_editor.h"
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend.h"
@@ -1247,7 +1247,7 @@ void process_sdl_device(InputPort* device)
         (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !new_frontend) {
         poll_controller(device, core::at(sdl_input_state().players_, port).controller);
     }
-    // (not original: the buttons the test-automation channel presses - frontend/automation.h)
+    // (not original: the buttons the test-automation channel presses - devtools/automation.h)
     frontend::automation::add_pad_buttons(device->port_no(), data);
 
     core::at(data, kControlButtonsHigh) = static_cast<uint8_t>(~core::at(data, kControlButtonsHigh));

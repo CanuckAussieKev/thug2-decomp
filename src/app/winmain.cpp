@@ -43,7 +43,7 @@
 #include "platform/sdl_window.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/script/game_cfuncs.h"
-#include "frontend/automation.h"
+#include "devtools/automation.h"
 #include "base/core/parse_number.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -205,7 +205,7 @@ void handle_window_event(SDL_Event* event)
     }
     if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
         render::engine_parts().set_device_lost(false);
-        // Not PartyMod's - with the test-automation channel on (frontend/automation.h) the game keeps drawing in
+        // Not PartyMod's - with the test-automation channel on (devtools/automation.h) the game keeps drawing in
         // the background, so a test's picture of its window (PrintWindow) shows the frame now, not the last one
         // drawn before the window lost the focus (the main loop draws nothing while the flag is off).
         // Original behaviour (PartyMod v1.0.4): Focused() = false always.

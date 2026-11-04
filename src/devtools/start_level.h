@@ -40,7 +40,7 @@ struct FrontEnd;
 //   thug2-decomp.ini [features] start_at=x,y,z[,heading]   (the command line wins)
 //
 // With -level / -edit (or start_level / edit_level): once the level is up - the skater there, not paused, a second
-// settled - the skater is put at (x, y, z) STANDING, as the test views' teleport does it (frontend/test_view.h: on
+// settled - the skater is put at (x, y, z) STANDING, as the test views' teleport does it (devtools/test_view.h: on
 // the ground below the point, walking, no momentum, the camera behind it), facing `heading` (degrees, 0 = +z, 90 =
 // +x - as the screenshot sidecar gives it) or the way it faced. Once per run, before -edit's editor opens. Without a
 // level it is logged and ignored; never in network games (the level is loaded in free skate). A malformed spot is

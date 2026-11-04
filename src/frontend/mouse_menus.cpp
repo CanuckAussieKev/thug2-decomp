@@ -10,15 +10,15 @@
 #include <SDL2/SDL.h>
 #include <array>
 
-#include "frontend/automation.h"
+#include "devtools/automation.h"
 #include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
 #include "frontend/new_frontend.h"
-#include "frontend/restart_tester.h"
+#include "devtools/restart_tester.h"
 #include "game/rider/thaw_bmx.h"
-#include "frontend/start_level.h"
+#include "devtools/start_level.h"
 #include "engine/sys/debug_mode.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
@@ -1024,7 +1024,7 @@ void tick_frame(modules::FrontEnd* front_end)
         frontend::new_frontend::tick_frame(front_end);
         return;
     }
-    // (not original either: the restart tester's key, F8 - frontend/restart_tester.h)
+    // (not original either: the restart tester's key, F8 - devtools/restart_tester.h)
     frontend::restart_tester::tick_frame(front_end);
     // (and THAW's BMX's key, F7 - game/rider/thaw_bmx.h)
     skater::thaw_bmx::tick_frame(front_end);
@@ -1034,9 +1034,9 @@ void tick_frame(modules::FrontEnd* front_end)
     frontend::level_editor::play_test::tick_frame(front_end);
     // (and debug mode's viewer and F keys - engine/sys/debug_mode.h)
     sys::debug_mode::tick_frame(front_end);
-    // (and the start level: -level <name> - frontend/start_level.h)
+    // (and the start level: -level <name> - devtools/start_level.h)
     frontend::begin_level::tick_frame(front_end);
-    // (and the test-automation channel: commands from a file - frontend/automation.h)
+    // (and the test-automation channel: commands from a file - devtools/automation.h)
     frontend::automation::tick_frame(front_end);
     // (and the new front end - frontend/new_frontend.h: while it's up it has the mouse; the original menus under it
     // get no mouse events, the cursor stays shown)

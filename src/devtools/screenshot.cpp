@@ -28,7 +28,7 @@
 
 #include "build_info.h"
 #include "base/core/checksums.h"
-#include "frontend/automation.h"
+#include "devtools/automation.h"
 #include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_hud.h"

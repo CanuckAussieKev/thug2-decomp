@@ -18,7 +18,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/mat4.h"
 #include "frontend/new_frontend.h"
-#include "frontend/test_view.h"
+#include "devtools/test_view.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/draw2d.h"
 #include "engine/gfx/engine_effects.h"
@@ -578,7 +578,7 @@ void draw_viewport(int index)
     // where the editor flies.
     // Original behaviour: the camera is drawn where the game put it.
     frontend::level_editor::place_camera(static_cast<gfx::ViewCam*>(camera));
-    // Not original - the automation channel's camera lock (frontend/test_view.h): viewport 0's camera held at a pose.
+    // Not original - the automation channel's camera lock (devtools/test_view.h): viewport 0's camera held at a pose.
     // Original behaviour: the camera is drawn where the game put it.
     frontend::test_view::place_camera(static_cast<gfx::ViewCam*>(camera), index);
     view_setup().set_drawn_viewport(index); // the viewport being drawn
