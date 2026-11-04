@@ -473,9 +473,9 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
     ParkLayout* manager = ParkLayout::singleton();
     // The lowest piece in the area (not above the floor: 0 at most) - risers below count 15 higher, floor risers 1.
     int lowest = 0;
-    for (int x = area.x; x < area.x + area.w; ++x) {
-        for (int z = area.z; z < area.z + area.l; ++z) {
-            for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following()) {
+    for (int cell_x = area.x; cell_x < area.x + area.w; ++cell_x) {
+        for (int cell_z = area.z; cell_z < area.z + area.l; ++cell_z) {
+            for (const MapListNode* node = manager->get_cell_chain(cell_x, cell_z); node; node = node->following()) {
                 const PieceGroup* meta = node->get_piece_group()->get_cast();
                 int y = int{meta->cell_footprint().y};
                 if (meta->name_key() == kRiserBelow) {
@@ -489,9 +489,9 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
     }
     const int dy = -lowest;
     // Every metapiece wholly inside (not restart points or risers below), raised by that.
-    for (int x = area.x; x < area.x + area.w; ++x) {
-        for (int z = area.z; z < area.z + area.l; ++z) {
-            for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following()) {
+    for (int cell_x = area.x; cell_x < area.x + area.w; ++cell_x) {
+        for (int cell_z = area.z; cell_z < area.z + area.l; ++cell_z) {
+            for (const MapListNode* node = manager->get_cell_chain(cell_x, cell_z); node; node = node->following()) {
                 PieceGroup* meta = node->get_piece_group()->get_cast();
                 if (meta->is_spawn_marker() || !meta->fits_inside_region(&area) || meta->name_key() == kRiserBelow) {
                     continue;

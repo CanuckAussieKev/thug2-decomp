@@ -19,12 +19,12 @@ struct CollSphere {
 // (v1 - v0) x (v2 - v0) points to; a determinant below 0.03 misses) at a distance along it - *t, set when it gets
 // that far - between 0 and 1. The barycentric bounds allow the determinant times 1.00001.
 bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, const maths::Vec4& v0,
-                       const maths::Vec4& v1, const maths::Vec4& v2, float* t);
+                       const maths::Vec4& v1, const maths::Vec4& v2, float* hit_distance);
 
 // 0x0040B610: whether the line through `base` along `end` - `base` passes within the sphere's radius of its centre,
 // and the nearer crossing (*t, measured from `start`) is at most `limit`.
 bool line_hits_sphere(const maths::Vec4& start, const maths::Vec4& base, const CollSphere& sphere,
-                      const maths::Vec4& end, float* t, float limit);
+                      const maths::Vec4& end, float* hit_distance, float limit);
 
 // A ray in the plane: its start and its direction.
 struct Ray2 {
@@ -36,7 +36,7 @@ struct Ray2 {
 
 // 0x0040B750: whether the 2D segments (ax, ay) + s (adx, ady) and (bx, by) + u (bdx, bdy) cross for s and u in
 // 0..1; *s set (0 for parallel ones).
-bool segments_cross_2d(Ray2 a, Ray2 b, float* s);
+bool segments_cross_2d(Ray2 a, Ray2 b, float* along_first);
 
 // Where the nearest point's results go: the squared distance and the parameter.
 struct TriangleNearest {

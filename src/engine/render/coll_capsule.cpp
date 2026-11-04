@@ -48,20 +48,21 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     }
     normal->make_unit();
 
-    float s = 0.0F;
-    float t = 0.0F;
+    float edge1_scale = 0.0F;
+    float edge2_scale = 0.0F;
     float along = 0.0F;
-    const double distance = segment_triangle_distance_squared(capsule->line, *normal, *v0, *v1, *v2, {.out = &s, .t_out_ = &t, .along_out_ = &along});
+    const double distance = segment_triangle_distance_squared(
+        capsule->line, *normal, *v0, *v1, *v2, {.out = &edge1_scale, .t_out_ = &edge2_scale, .along_out_ = &along});
 
     // The face's nearest point: v0 + s e1 + t e2.
-    const auto e2t_x = static_cast<float>((static_cast<double>(v2->x) - v0->x) * t);
-    const double e2t_y = (static_cast<double>(v2->y) - v0->y) * t;
-    const float e2t_z = get_difference(v2->z, v0->z) * t;
-    const float e2t_w = get_difference(v2->w, v0->w) * t;
-    const auto e1s_x = static_cast<float>((static_cast<double>(v1->x) - v0->x) * s);
-    const double e1s_y = (static_cast<double>(v1->y) - v0->y) * s;
-    const double e1s_z = static_cast<double>(get_difference(v1->z, v0->z)) * s;
-    const float e1s_w = get_difference(v1->w, v0->w) * s;
+    const auto e2t_x = static_cast<float>((static_cast<double>(v2->x) - v0->x) * edge2_scale);
+    const double e2t_y = (static_cast<double>(v2->y) - v0->y) * edge2_scale;
+    const float e2t_z = get_difference(v2->z, v0->z) * edge2_scale;
+    const float e2t_w = get_difference(v2->w, v0->w) * edge2_scale;
+    const auto e1s_x = static_cast<float>((static_cast<double>(v1->x) - v0->x) * edge1_scale);
+    const double e1s_y = (static_cast<double>(v1->y) - v0->y) * edge1_scale;
+    const double e1s_z = static_cast<double>(get_difference(v1->z, v0->z)) * edge1_scale;
+    const float e1s_w = get_difference(v1->w, v0->w) * edge1_scale;
     const auto px = static_cast<float>(static_cast<double>(e1s_x) + v0->x);
     const auto py = static_cast<float>(e1s_y + v0->y);
     const auto pz = static_cast<float>(e1s_z + v0->z);

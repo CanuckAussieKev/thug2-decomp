@@ -82,7 +82,7 @@ public:
     // within 0.1 of one of its ends) into joined_.
     void join_hits();
     // 0x00417860: the rect drawn, then the joined hits (or the hits) - compiled out of this build.
-    void debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames);
+    void debug_draw(uint32_t red, uint32_t green, uint32_t b, int frames);
 
     // The fields other code reads and sets.
     CollRect& rect() { return rect_; }

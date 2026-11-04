@@ -246,6 +246,6 @@ inline bool is_static_collider(const void* object)
 gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_array, int count, objects::GameEntity* owner);
 
 // 0x00414D60: the geometry's debug rendering (compiled out: returns).
-void draw_geometry_diagnostic(const TriMeshSource* geometry, const maths::Mat4* transform, int a, int b, int c);
+void draw_geometry_diagnostic(const TriMeshSource* geometry, const maths::Mat4* transform, int a, int b, int flag_c);
 
 } // namespace render

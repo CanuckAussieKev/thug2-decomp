@@ -392,10 +392,10 @@ bool ParkBuilderMode::is_inside_park(maths::Vec4 pos, float margin)
 }
 
 // 0x0058DF80
-bool ParkBuilderMode::find_restart(void* a, void* b, void* c)
+bool ParkBuilderMode::find_restart(void* a, void* b, void* out_distance)
 {
     return hub()->builder()->find_nearest_rail_point(static_cast<const maths::Vec4*>(a), static_cast<maths::Vec4*>(b),
-                                                    static_cast<float*>(c));
+                                                     static_cast<float*>(out_distance));
 }
 
 // 0x0058DFA0
@@ -519,11 +519,12 @@ void ParkBuilderMode::tick_frame()
     pad_ly_ = static_cast<float>(move_y);
     const double move_x = dead_zone(pad_lx_);
     pad_lx_ = static_cast<float>(move_x);
-    const double b = move_x * move_speed_ * seconds;
-    const double a = move_y * move_speed_ * seconds;
+    const double step_x = move_x * move_speed_ * seconds;
+    const double step_y = move_y * move_speed_ * seconds;
     float offset_cell_x = 0.0F;
     float offset_cell_z = 0.0F;
-    turn_move(static_cast<double>(camera_angle_) * kAngleScaleToRad, a, b, {.x = &offset_cell_x, .z = &offset_cell_z});
+    turn_move(static_cast<double>(camera_angle_) * kAngleScaleToRad, step_y, step_x,
+              {.x = &offset_cell_x, .z = &offset_cell_z});
 
     // The right stick turns (0-360) and tilts (10-90) the camera.
     const double turn_y = dead_zone(pad_ry_);

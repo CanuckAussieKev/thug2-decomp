@@ -53,8 +53,8 @@ constexpr int kGridCentre = 29;
 void copy_text(std::span<char> to, const char* from)
 {
     size_t at = 0;
-    for (const char c : std::string_view(from)) {
-        core::at(to, at++) = c;
+    for (const char character : std::string_view(from)) {
+        core::at(to, at++) = character;
     }
     core::at(to, at) = '\0';
 }
@@ -236,9 +236,9 @@ int ParkLayout::get_ground_level(CellBox area, bool* uniform)
     }
     const int first = core::at(core::at(floor_, area.x), area.z).level_y_;
     int highest = -kFarOutHeight;
-    for (int x = area.x; x < area.x + area.w; ++x) {
-        for (int z = area.z; z < area.z + area.l; ++z) {
-            const int height = core::at(core::at(floor_, x), z).level_y_;
+    for (int cell_x = area.x; cell_x < area.x + area.w; ++cell_x) {
+        for (int cell_z = area.z; cell_z < area.z + area.l; ++cell_z) {
+            const int height = core::at(core::at(floor_, cell_x), cell_z).level_y_;
             if (uniform && height != first) {
                 *uniform = false;
             }
@@ -325,10 +325,10 @@ void ParkLayout::highlight_gap_pieces(bool on, GapDetails* gap)
 
 void ParkLayout::clear_floor_change_marks()
 {
-    for (int x = shell_bounds_.x; x < shell_bounds_.x + shell_bounds_.w; ++x) {
-        for (int z = shell_bounds_.z; z < shell_bounds_.z + shell_bounds_.l; ++z) {
-            core::at(core::at(floor_, x), z).touched_ = false;
-            core::at(core::at(floor_, x), z).delta_ = 0;
+    for (int cell_x = shell_bounds_.x; cell_x < shell_bounds_.x + shell_bounds_.w; ++cell_x) {
+        for (int cell_z = shell_bounds_.z; cell_z < shell_bounds_.z + shell_bounds_.l; ++cell_z) {
+            core::at(core::at(floor_, cell_x), cell_z).touched_ = false;
+            core::at(core::at(floor_, cell_x), cell_z).delta_ = 0;
         }
     }
     for (const MapListNode* node = concrete_metas_; node; node = node->following()) {

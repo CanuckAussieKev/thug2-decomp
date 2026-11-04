@@ -39,10 +39,10 @@ void free_clipboard(Clipboard* clipboard) { Clipboard::dealloc(clipboard); }
 
 // The park editor (the singleton 0x00590160 makes, 0x0058D290 releases): whether an area of w x l cells fits
 // the clipboard (0x0058D6D0).
-bool editor_allows_copy(int w, int l)
+bool editor_allows_copy(int w, int length)
 {
     ParkBuilderMode::fabricate(false);
-    const bool allowed = park_editing::ParkBuilderMode::main_heap_has_room(w, l);
+    const bool allowed = park_editing::ParkBuilderMode::main_heap_has_room(w, length);
     ParkBuilderMode::get_release();
     return allowed;
 }

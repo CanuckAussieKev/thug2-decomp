@@ -53,9 +53,10 @@ inline void wipe_tint(render::Geom* geometry) { geometry->wipe_tint(); }
 
 // WorldScene:
 // 0x0049DF30: a copy of the sector `name` (of this scene) in `destination`; its name
-inline uint32_t duplicate_scene_sector(render::WorldScene* scene, uint32_t name, render::WorldScene* destination, int a, int b, int c)
+inline uint32_t duplicate_scene_sector(render::WorldScene* scene, uint32_t name, render::WorldScene* destination, int a,
+                                       int b, int new_name)
 {
-    return scene->clone_sector_named(name, destination, a, b != 0, static_cast<uint32_t>(c));
+    return scene->clone_sector_named(name, destination, a, b != 0, static_cast<uint32_t>(new_name));
 }
 // 0x0049CF80: delete the sector `name`; false if it isn't in the scene
 inline bool remove_scene_sector(render::WorldScene* scene, uint32_t name) { return scene->delete_sector_named(name); }

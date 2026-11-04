@@ -77,7 +77,7 @@ public:
     // without a hit. Returned unrounded, as the original leaves it in ST0. (What the bytes are isn't known yet.)
     [[nodiscard]] double get_hit_vertex_value() const;
     // 0x00417150: the line drawn in colour (r, g, b) - compiled out of this build.
-    void debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames);
+    void debug_draw(uint32_t red, uint32_t green, uint32_t b, int frames);
 
     // 0x0043A930 (operator=): every field of `other` copied (the hit record by CollisionHit::copy_from); the object
     // hit's smart pointer let go of first, then pointed at `other`'s (so a feeler assigned to itself loses it).

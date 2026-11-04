@@ -486,16 +486,16 @@ namespace {
 void grow_to_take(CellBox& cells, const CellBox* pos)
 {
     const int w = pos->x + pos->w;
-    const int h = pos->y + pos->h;
-    const int l = pos->z + pos->l;
+    const int end_height = pos->y + pos->h;
+    const int end_length = pos->z + pos->l;
     if (std::cmp_greater(w, cells.w)) {
         cells.w = static_cast<uint8_t>(w);
     }
-    if (std::cmp_greater(h, cells.h)) {
-        cells.h = static_cast<uint8_t>(h);
+    if (std::cmp_greater(end_height, cells.h)) {
+        cells.h = static_cast<uint8_t>(end_height);
     }
-    if (std::cmp_greater(l, cells.l)) {
-        cells.l = static_cast<uint8_t>(l);
+    if (std::cmp_greater(end_length, cells.l)) {
+        cells.l = static_cast<uint8_t>(end_length);
     }
 }
 
@@ -537,24 +537,24 @@ void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, MetaPlacemen
 
 NamedSlot* PieceBlueprint::get_entry(NamedSlot* out, int index)
 {
-    int n = 0; // the entries counted so far, a nested metapiece's pieces each one
+    int counted = 0; // the entries counted so far, a nested metapiece's pieces each one
     // (when `index` is past the end the original returns a stack leftover; here an empty entry)
     NamedSlot result = {};
     for (uint32_t i = 0; i < filled_slots(); ++i) {
         const NamedSlot* outer = &slot(static_cast<int>(i));
         PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(outer->piece, nullptr);
         if ((entry->flag_bits() & kSector) != 0U) { // a single piece
-            if (n == index) {
+            if (counted == index) {
                 *out = *outer;
                 return out;
             }
-            ++n;
+            ++counted;
             continue;
         }
         for (uint32_t j = 0; j < entry->filled_slots(); ++j) {
             const NamedSlot* inner = &core::down_cast<PieceBlueprint>(entry)->slot(static_cast<int>(j));
-            if (n != index) {
-                ++n;
+            if (counted != index) {
+                ++counted;
                 continue;
             }
             // The nested piece placed in this metapiece: turned with its metapiece (the turn not wrapped).

@@ -131,10 +131,7 @@ uint32_t gap_fire_script(DuplicatedTile* piece) { return GapRegistry::sole()->ge
 // cfunc_parse_node_array (0x005A34E0): the node manager's node array parsed (its objects made).
 void parse_node_array() { commands::cfunc_parse_node_array(nullptr, nullptr); }
 
-assets::NodeTableResource* node_table_resource(ParkAssembler& d)
-{
-    return &*d.node_table();
-}
+assets::NodeTableResource* node_table_resource(ParkAssembler& assembler) { return &*assembler.node_table(); }
 Struct* elem(Array* nodes, int index)
 {
     return nodes->struct_at(static_cast<uint32_t>(index));

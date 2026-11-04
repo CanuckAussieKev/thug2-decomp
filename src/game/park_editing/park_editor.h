@@ -129,7 +129,7 @@ public:
     // 0x0058DEC0: whether `pos` (x and z) lies inside the park more than `margin` from its edges.
     static bool is_inside_park(maths::Vec4 pos, float margin);
     // 0x0058DF80: the generator's restart point search (0x00592A10).
-    static bool find_restart(void* a, void* b, void* c);
+    static bool find_restart(void* a, void* b, void* out_distance);
     // 0x0058DFA0: the park's player count.
     static int get_player_limit();
     // 0x0058EBE0: the menu commands: the previous / next set, the previous / next piece (the piece menu refreshed

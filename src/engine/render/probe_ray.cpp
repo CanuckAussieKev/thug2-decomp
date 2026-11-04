@@ -187,9 +187,9 @@ double ProbeRay::get_hit_vertex_value() const
     const maths::Seg opposite(core::at(corner, 1), core::at(corner, 2));
     maths::Vec4 on_line{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     maths::Vec4 on_edge{}; // (the original's are left unset when the lines are parallel)
-    float s = 0.0F;
-    float t = 0.0F;
-    maths::closest_points_between_lines(from_corner, opposite, on_line, on_edge, s, t, false);
+    float along_ray = 0.0F;
+    float along_edge = 0.0F;
+    maths::closest_points_between_lines(from_corner, opposite, on_line, on_edge, along_ray, along_edge, false);
     // Where a difference's x, y and z go.
     struct DeltaOut {
         double* x{};
@@ -222,9 +222,9 @@ double ProbeRay::get_hit_vertex_value() const
 }
 
 // 0x00417150 (the colour: alpha 0xFF over the low byte of b, then g and r ORed in whole, as the original)
-void ProbeRay::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
+void ProbeRay::debug_draw(uint32_t red, uint32_t green, uint32_t b, int frames)
 {
-    const uint32_t colour = ((((b | 0xFFFFFF00U) << 8) | g) << 8) | r;
+    const uint32_t colour = ((((b | 0xFFFFFF00U) << 8) | green) << 8) | red;
     gfx::push_diag_line(&line_.start, &line_.end, colour, colour, frames);
 }
 

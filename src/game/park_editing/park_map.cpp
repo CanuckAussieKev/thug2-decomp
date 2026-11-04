@@ -77,8 +77,8 @@ void read_structure(script::Struct* structure, void* buffer, size_t size)
 void copy_string(std::span<char> dest, const char* source)
 {
     size_t at = 0;
-    for (const char c : std::string_view(source)) {
-        core::at(dest, at++) = c;
+    for (const char character : std::string_view(source)) {
+        core::at(dest, at++) = character;
     }
     core::at(dest, at) = '\0';
 }
@@ -202,11 +202,11 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     shell_size_ = map_.shell_size();
     set_theme(map_.theme());
     builder_->set_player_cap(map_.max_players());
-    for (int x = 0; x < kFloorSize; ++x) {
-        for (int z = 0; z < kFloorSize; ++z) {
-            core::at(core::at(floor_, x), z).level_y_ =
-                int{map_.floor_height(static_cast<size_t>((x * kFloorSize) + z))};
-            core::at(core::at(floor_, x), z).heights_used_ = 0;
+    for (int cell_x = 0; cell_x < kFloorSize; ++cell_x) {
+        for (int cell_z = 0; cell_z < kFloorSize; ++cell_z) {
+            core::at(core::at(floor_, cell_x), cell_z).level_y_ =
+                int{map_.floor_height(static_cast<size_t>((cell_x * kFloorSize) + cell_z))};
+            core::at(core::at(floor_, cell_x), cell_z).heights_used_ = 0;
         }
     }
 
@@ -265,9 +265,9 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
 void ParkLayout::reset_park()
 {
     destroy_concrete_metas(0);
-    for (int z = 0; z < kFloorSize; ++z) {
+    for (int cell_z = 0; cell_z < kFloorSize; ++cell_z) {
         for (auto& column : floor_) {
-            FloorCell& cell = core::at(column, z);
+            FloorCell& cell = core::at(column, cell_z);
             cell.level_y_ = 0;
             cell.heights_used_ = 0;
             cell.touched_ = false;

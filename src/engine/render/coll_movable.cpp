@@ -31,12 +31,12 @@ constexpr uint32_t kDiagnosticBoxColour = 0x80808080U;
 
 namespace {
 
-void set_identity(maths::Mat4& m)
+void set_identity(maths::Mat4& matrix)
 {
-    core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-    core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
-    core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
-    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // 0x0048D090: a box drawn with a transform (debug rendering; not rewritten yet).
@@ -111,9 +111,9 @@ maths::Mat4* MatrixTranspose::transpose_from(const maths::Mat4* source)
         transpose_in_place();
         return this;
     }
-    for (int r = 0; r < 4; ++r) {
-        for (int c = 0; c < 4; ++c) {
-            core::at(row, r)[c] = core::at(source->row, c)[r];
+    for (int row_index = 0; row_index < 4; ++row_index) {
+        for (int column = 0; column < 4; ++column) {
+            core::at(row, row_index)[column] = core::at(source->row, column)[row_index];
         }
     }
     return this;
@@ -122,11 +122,11 @@ maths::Mat4* MatrixTranspose::transpose_from(const maths::Mat4* source)
 // 0x00412150
 void MatrixTranspose::transpose_in_place()
 {
-    for (int r = 0; r < 4; ++r) {
-        for (int c = r + 1; c < 4; ++c) {
-            const float swap = core::at(row, r)[c];
-            core::at(row, r)[c] = core::at(row, c)[r];
-            core::at(row, c)[r] = swap;
+    for (int row_index = 0; row_index < 4; ++row_index) {
+        for (int column = row_index + 1; column < 4; ++column) {
+            const float swap = core::at(row, row_index)[column];
+            core::at(row, row_index)[column] = core::at(row, column)[row_index];
+            core::at(row, column)[row_index] = swap;
         }
     }
 }
@@ -228,11 +228,11 @@ void CollScaled::line_to_local(const maths::Seg* line, maths::Seg* out) const
 // 0x00412490 (each 1 / scale kept unrounded for its row's three products)
 void CollScaled::update_inverse()
 {
-    for (int r = 0; r < 3; ++r) {
-        const double inverse = 1.0 / size_factor_[r];
-        core::at(inverse_.row, 0)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).x);
-        core::at(inverse_.row, 1)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).y);
-        core::at(inverse_.row, 2)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).z);
+    for (int axis = 0; axis < 3; ++axis) {
+        const double inverse = 1.0 / size_factor_[axis];
+        core::at(inverse_.row, 0)[axis] = static_cast<float>(inverse * core::at(basis_frame_.row, axis).x);
+        core::at(inverse_.row, 1)[axis] = static_cast<float>(inverse * core::at(basis_frame_.row, axis).y);
+        core::at(inverse_.row, 2)[axis] = static_cast<float>(inverse * core::at(basis_frame_.row, axis).z);
     }
     maths::Vec4& back = core::at(inverse_.row, 3);
     back.x = -core::at(basis_frame_.row, 3).x;

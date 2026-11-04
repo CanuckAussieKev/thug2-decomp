@@ -120,9 +120,10 @@ void uncouple(RailAuthoring* editor, EditedRail* rail)
     }
 }
 
-bool get_inside(const EditedRailPoint* p, float x0, float z0, float x1, float z1)
+bool get_inside(const EditedRailPoint* rail_point, float x0, float z0, float x1, float z1)
 {
-    return p->at_point().x > x0 && p->at_point().x < x1 && p->at_point().z > z0 && p->at_point().z < z1;
+    return rail_point->at_point().x > x0 && rail_point->at_point().x < x1 && rail_point->at_point().z > z0 &&
+           rail_point->at_point().z < z1;
 }
 
 } // namespace
@@ -200,7 +201,7 @@ void EditedRail::get_clear()
 int EditedRail::rail_point_total() const
 {
     int count = 0;
-    for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
+    for (const EditedRailPoint* rail_point = point_chain_; rail_point; rail_point = rail_point->following()) {
         ++count;
     }
     return count;
@@ -209,26 +210,26 @@ int EditedRail::rail_point_total() const
 // 0x004F3BB0
 EditedRailPoint* EditedRail::fetch_vertex_at(int index) const
 {
-    EditedRailPoint* p = point_chain_;
+    EditedRailPoint* rail_point = point_chain_;
     while (index != 0) {
-        if (!p) {
+        if (!rail_point) {
             return nullptr;
         }
-        p = p->following();
+        rail_point = rail_point->following();
         --index;
     }
-    return p;
+    return rail_point;
 }
 
 // 0x004F3BD0
 void EditedRail::clear_colours()
 {
-    for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (p->post()) {
-            clear_sector_colour(p->post());
+    for (const EditedRailPoint* rail_point = point_chain_; rail_point; rail_point = rail_point->following()) {
+        if (rail_point->post()) {
+            clear_sector_colour(rail_point->post());
         }
-        if (p->segment()) {
-            clear_sector_colour(p->segment());
+        if (rail_point->segment()) {
+            clear_sector_colour(rail_point->segment());
         }
     }
 }
@@ -236,16 +237,16 @@ void EditedRail::clear_colours()
 // 0x004F41C0
 void EditedRail::delete_segments()
 {
-    for (EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        remove_scene_sector(p->segment());
+    for (EditedRailPoint* rail_point = point_chain_; rail_point; rail_point = rail_point->following()) {
+        remove_scene_sector(rail_point->segment());
     }
 }
 
 // 0x004F4220
 void EditedRail::delete_posts()
 {
-    for (EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        remove_scene_sector(p->post());
+    for (EditedRailPoint* rail_point = point_chain_; rail_point; rail_point = rail_point->following()) {
+        remove_scene_sector(rail_point->post());
     }
 }
 
@@ -253,22 +254,22 @@ void EditedRail::delete_posts()
 bool EditedRail::find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared,
                                     int* index, int skip) const
 {
-    const EditedRailPoint* p = point_chain_;
-    if (!p) {
+    const EditedRailPoint* rail_point = point_chain_;
+    if (!rail_point) {
         return false;
     }
     float best = kFarthestDistanceSquared;
-    for (int i = 0; p; p = p->following(), ++i) {
+    for (int i = 0; rail_point; rail_point = rail_point->following(), ++i) {
         if (i == skip) {
             continue;
         }
-        const double dx = static_cast<double>(p->at_point().x) - position->x;
-        const double dz = static_cast<double>(p->at_point().z) - position->z;
-        const double d = (dx * dx) + (dz * dz);
-        if (d < best) {
-            best = static_cast<float>(d);
-            *point = p->at_point();
-            *distance_squared = static_cast<float>(d);
+        const double dx = static_cast<double>(rail_point->at_point().x) - position->x;
+        const double dz = static_cast<double>(rail_point->at_point().z) - position->z;
+        const double distance_sqr = (dx * dx) + (dz * dz);
+        if (distance_sqr < best) {
+            best = static_cast<float>(distance_sqr);
+            *point = rail_point->at_point();
+            *distance_squared = static_cast<float>(distance_sqr);
             *index = i;
         }
     }
@@ -279,8 +280,8 @@ bool EditedRail::find_nearest_point(const maths::Vec4* position, maths::Vec4* po
 int EditedRail::count_points_inside(float x0, float z0, float x1, float z1) const
 {
     int count = 0;
-    for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (get_inside(p, x0, z0, x1, z1)) {
+    for (const EditedRailPoint* rail_point = point_chain_; rail_point; rail_point = rail_point->following()) {
+        if (get_inside(rail_point, x0, z0, x1, z1)) {
             ++count;
         }
     }
@@ -295,12 +296,12 @@ void EditedRail::change_colour(int index)
     const uint32_t rgba = static_cast<uint8_t>(colour->fetch_part(0)) |
                           static_cast<uint8_t>(colour->fetch_part(1)) << 8 |
                           static_cast<uint32_t>(static_cast<uint8_t>(colour->fetch_part(2))) << 16 | 0x80000000U;
-    for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (p->post()) {
-            set_sector_colour(p->post(), rgba);
+    for (const EditedRailPoint* rail_point = point_chain_; rail_point; rail_point = rail_point->following()) {
+        if (rail_point->post()) {
+            set_sector_colour(rail_point->post(), rgba);
         }
-        if (p->segment()) {
-            set_sector_colour(p->segment(), rgba);
+        if (rail_point->segment()) {
+            set_sector_colour(rail_point->segment(), rgba);
         }
     }
 }
@@ -308,8 +309,9 @@ void EditedRail::change_colour(int index)
 // 0x004F44B0
 bool EditedRail::any_point_outside(float x0, float z0, float x1, float z1) const
 {
-    for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (p->at_point().x < x0 || p->at_point().x > x1 || p->at_point().z < z0 || p->at_point().z > z1) {
+    for (const EditedRailPoint* rail_point = point_chain_; rail_point; rail_point = rail_point->following()) {
+        if (rail_point->at_point().x < x0 || rail_point->at_point().x > x1 || rail_point->at_point().z < z0 ||
+            rail_point->at_point().z > z1) {
             return true;
         }
     }
@@ -392,8 +394,8 @@ EditedRailPoint* EditedRail::cut_at(EditedRailPoint* point)
 void EditedRail::copy_from(const EditedRail* source)
 {
     get_clear();
-    for (const EditedRailPoint* p = source->point_chain_; p; p = p->following()) {
-        add_point_copy(p);
+    for (const EditedRailPoint* rail_point = source->point_chain_; rail_point; rail_point = rail_point->following()) {
+        add_point_copy(rail_point);
     }
 }
 
@@ -402,12 +404,12 @@ EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, Edit
 {
     bool last_inside = false;
     const EditedRailPoint* first = nullptr; // an inside point waiting for a second
-    for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (!get_inside(p, x0, z0, x1, z1)) {
+    for (const EditedRailPoint* rail_point = point_chain_; rail_point; rail_point = rail_point->following()) {
+        if (!get_inside(rail_point, x0, z0, x1, z1)) {
             first = nullptr;
             last_inside = false;
         } else if (!last_inside) {
-            first = p;
+            first = rail_point;
             last_inside = true;
         } else {
             if (first) {
@@ -418,7 +420,7 @@ EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, Edit
                 rail->add_point_copy(first);
                 first = nullptr;
             }
-            list->add_point_copy(p);
+            list->add_point_copy(rail_point);
             last_inside = true;
         }
     }
@@ -560,18 +562,18 @@ bool RailAuthoring::cut_rail(EditedRail* rail, EditedRailPoint* point)
 // 0x004F7410
 bool RailAuthoring::cut_point_in_or_out(EditedRail* rail, float x0, float z0, float x1, float z1, int inside)
 {
-    EditedRailPoint* p = rail->point_chain();
-    while (p) {
-        EditedRailPoint* next = p->following();
-        const bool cut = get_inside(p, x0, z0, x1, z1) ? inside == 1 : inside == 0;
+    EditedRailPoint* rail_point = rail->point_chain();
+    while (rail_point) {
+        EditedRailPoint* next = rail_point->following();
+        const bool cut = get_inside(rail_point, x0, z0, x1, z1) ? inside == 1 : inside == 0;
         if (cut) {
-            EditedRailPoint* rest = rail->cut_at(p);
+            EditedRailPoint* rest = rail->cut_at(rail_point);
             if (rest) {
                 get_new_rail()->set_point_chain(rest);
                 return true;
             }
         }
-        p = next;
+        rail_point = next;
     }
     return false;
 }
@@ -580,14 +582,14 @@ bool RailAuthoring::cut_point_in_or_out(EditedRail* rail, float x0, float z0, fl
 void RailAuthoring::delete_points(float x0, float z0, float x1, float z1, int inside)
 {
     if (x0 > x1) {
-        const float t = x0;
+        const float swap = x0;
         x0 = x1;
-        x1 = t;
+        x1 = swap;
     }
     if (z0 > z1) {
-        const float t = z0;
+        const float swap = z0;
         z0 = z1;
-        z1 = t;
+        z1 = swap;
     }
     bool changed = false;
     for (bool again = true; again; again = changed) {
@@ -615,10 +617,10 @@ EditedRail* RailAuthoring::find_rail(uint32_t id) const
 // 0x004F3CA0
 EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
 {
-    int i = 0;
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following(), ++i) {
+    int index = 0;
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following(), ++index) {
         std::array<char, kClusterNameSize> cluster{};
-        text::format_to(cluster, "CreatedRailCluster%d", i);
+        text::format_to(cluster, "CreatedRailCluster%d", index);
         if (name == checksums::hash_from_text(cluster.data())) {
             return rail;
         }
@@ -648,7 +650,8 @@ int RailAuthoring::rail_point_total() const
 {
     int count = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-        for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
+        for (const EditedRailPoint* rail_point = rail->point_chain(); rail_point;
+             rail_point = rail_point->following()) {
             ++count;
         }
     }
@@ -659,8 +662,8 @@ int RailAuthoring::rail_point_total() const
 void RailAuthoring::un_highlight_all()
 {
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-        for (EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
-            p->clear_glow();
+        for (EditedRailPoint* rail_point = rail->point_chain(); rail_point; rail_point = rail_point->following()) {
+            rail_point->clear_glow();
         }
     }
 }
@@ -669,12 +672,13 @@ void RailAuthoring::un_highlight_all()
 void RailAuthoring::change_live(bool active)
 {
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-        for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
-            if (p->post()) {
-                enable_sector(p->post(), active);
+        for (const EditedRailPoint* rail_point = rail->point_chain(); rail_point;
+             rail_point = rail_point->following()) {
+            if (rail_point->post()) {
+                enable_sector(rail_point->post(), active);
             }
-            if (p->segment()) {
-                enable_sector(p->segment(), active);
+            if (rail_point->segment()) {
+                enable_sector(rail_point->segment(), active);
             }
         }
     }
@@ -700,14 +704,14 @@ void RailAuthoring::delete_all_posts()
 bool RailAuthoring::any_point_outside(float x0, float z0, float x1, float z1) const
 {
     if (x0 > x1) {
-        const float t = x0;
+        const float swap = x0;
         x0 = x1;
-        x1 = t;
+        x1 = swap;
     }
     if (z0 > z1) {
-        const float t = z0;
+        const float swap = z0;
         z0 = z1;
-        z1 = t;
+        z1 = swap;
     }
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         if (rail->any_point_outside(x0, z0, x1, z1)) {
@@ -721,14 +725,14 @@ bool RailAuthoring::any_point_outside(float x0, float z0, float x1, float z1) co
 int RailAuthoring::count_points_inside(float x0, float z0, float x1, float z1) const
 {
     if (x0 > x1) {
-        const float t = x0;
+        const float swap = x0;
         x0 = x1;
-        x1 = t;
+        x1 = swap;
     }
     if (z0 > z1) {
-        const float t = z0;
+        const float swap = z0;
         z0 = z1;
-        z1 = t;
+        z1 = swap;
     }
     int count = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
@@ -750,14 +754,15 @@ bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4*
     float distance = 0.0F;
     std::memcpy(&distance, static_cast<const void*>(&index), sizeof(distance));
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-        int i = 0;
-        if (rail->find_nearest_point(position, &nearest, &distance, &i, rail->ident() == skip_rail ? bypass_idx : -1) &&
+        int nearest_index = 0;
+        if (rail->find_nearest_point(position, &nearest, &distance, &nearest_index,
+                                     rail->ident() == skip_rail ? bypass_idx : -1) &&
             distance < best) {
             best = distance;
             *point = nearest;
             *distance_squared = distance;
             *rail_id = rail->ident();
-            *index = i;
+            *index = nearest_index;
             found = true;
         }
     }
@@ -794,19 +799,20 @@ void RailAuthoring::get_pack()
         // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
         for (; rail; rail = rail->preceding()) {
             uint16_t points = 0;
-            for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
+            for (const EditedRailPoint* rail_point = rail->point_chain(); rail_point;
+                 rail_point = rail_point->following()) {
                 ++points;
             }
             core::at(packed.point_counts_, count++) = points;
-            const EditedRailPoint* p = rail->point_chain();
-            if (!p) {
+            const EditedRailPoint* rail_point = rail->point_chain();
+            if (!rail_point) {
                 continue;
             }
-            while (p->following()) {
-                p = p->following();
+            while (rail_point->following()) {
+                rail_point = rail_point->following();
             }
-            for (; p; p = p->preceding()) {
-                p->get_pack(core::at(packed.records_, record++));
+            for (; rail_point; rail_point = rail_point->preceding()) {
+                rail_point->get_pack(core::at(packed.records_, record++));
             }
         }
     }
@@ -852,12 +858,16 @@ void RailAuthoring::unpack()
         EditedRail* rail = get_new_rail();
         for (unsigned int i = points; i != 0; --i) {
             const std::array<uint16_t, kPackedPointWords>& record = core::at(packed.records_, record_index++);
-            if (EditedRailPoint* p = rail->append_rail_vertex()) {
-                p->set_has_post(core::at(record, 4) != 0);
-                p->set_level_y(static_cast<float>(static_cast<double>(core::at(record, 3)) * kHeightUnpackScale));
-                p->at_point().x = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 0))) * kPositionUnpackScale);
-                p->at_point().y = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 1))) * kPositionUnpackScale);
-                p->at_point().z = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 2))) * kPositionUnpackScale);
+            if (EditedRailPoint* rail_point = rail->append_rail_vertex()) {
+                rail_point->set_has_post(core::at(record, 4) != 0);
+                rail_point->set_level_y(
+                    static_cast<float>(static_cast<double>(core::at(record, 3)) * kHeightUnpackScale));
+                rail_point->at_point().x = static_cast<float>(
+                    static_cast<double>(static_cast<int16_t>(core::at(record, 0))) * kPositionUnpackScale);
+                rail_point->at_point().y = static_cast<float>(
+                    static_cast<double>(static_cast<int16_t>(core::at(record, 1))) * kPositionUnpackScale);
+                rail_point->at_point().z = static_cast<float>(
+                    static_cast<double>(static_cast<int16_t>(core::at(record, 2))) * kPositionUnpackScale);
             }
         }
     }

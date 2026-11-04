@@ -86,9 +86,9 @@ struct CellBox {
     uint8_t h;
     uint8_t l;
 
-    static CellBox get_make(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t h, uint8_t l)
+    static CellBox get_make(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t height, uint8_t length)
     {
-        return {.x = x, .y = y, .z = z, .w = w, .h = h, .l = l};
+        return {.x = x, .y = y, .z = z, .w = w, .h = height, .l = length};
     }
     // A cell: its x, y (height) and z.
     struct CellAt {
@@ -557,7 +557,7 @@ private:
     MapListNode* list_;
 
 public:
-    explicit MapListHolder(MapListNode* l) : list_(l) {}
+    explicit MapListHolder(MapListNode* list) : list_(list) {}
     ~MapListHolder()
     {
         if (list_) {

@@ -33,10 +33,10 @@ memory::ListNode* get_first(memory::ListNode* head)
 }
 // The children in turn: the head-data test first, then the null one (the original's order).
 template <typename F>
-void for_each_child(memory::ListNode* head, F f)
+void for_each_child(memory::ListNode* head, F visit)
 {
     for (const memory::ListNode* node = head->next(); node->data() != kHeadData && node; node = node->next()) {
-        f(static_cast<HitMesh*>(node->data()));
+        visit(static_cast<HitMesh*>(node->data()));
     }
 }
 

@@ -59,7 +59,7 @@ bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere,
 // where the capsule round the segment meets the centre's path - *t the first time within 0..1, the point the
 // segment's nearest to the centre then (*count 1). Whether it touches.
 bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_motion, const CollSphere* sphere,
-                            const maths::Vec4* motion, float* t, float limit, int* count,
+                            const maths::Vec4* motion, float* hit_distance, float limit, int* count,
                             std::span<maths::Vec4, 2> point);
 // The triangle a corner is of: its three corners.
 struct CornerTriangle {
@@ -79,15 +79,15 @@ struct CornerEdge {
 // inside the sphere already - *t 0 and no hit; moving away from it - no hit; else swept_sphere_hits_edge on that edge.
 // (`normal` isn't used; a corner that isn't one of the triangle's leaves the edge's other end unset.)
 bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* sphere, const maths::Vec4* motion,
-                              const maths::Vec4* edge_motion, CornerTriangle triangle, CornerEdge edge_line, float* t,
-                              float limit, int* count, maths::Vec4* point, maths::Vec4* normal);
+                              const maths::Vec4* edge_motion, CornerTriangle triangle, CornerEdge edge_line,
+                              float* hit_distance, float limit, int* count, maths::Vec4* point, maths::Vec4* normal);
 // 0x0040EC90 (cdecl): the sphere moving by `motion` (up to `limit` of it) against the triangle: the face's unit
 // normal to `normal`; where it touches first to `point` (*t how far along). A sphere already within its radius of
 // the plane: by where its centre lies against the three edges - the face (its nearest point, if the move's capsule
 // holds it), an edge or a corner; else the point where the sphere's front first meets the plane, again by the
 // edges.
 bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1,
-                                const maths::Vec4* v2, float* t, float limit, const maths::Vec4* motion,
+                                const maths::Vec4* v2, float* hit_distance, float limit, const maths::Vec4* motion,
                                 maths::Vec4* point, maths::Vec4* normal);
 // Where a sphere's contact goes: its point and its normal.
 struct SphereContact {

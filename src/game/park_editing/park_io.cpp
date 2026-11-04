@@ -95,7 +95,7 @@ PieceGroup* new_abstract_meta()
     return meta;
 }
 // Element `i` of a script array of integers, as a byte.
-uint8_t byte_at(script::Array* array, uint32_t i) { return static_cast<uint8_t>(array->fetch_part(i)); }
+uint8_t byte_at(script::Array* array, uint32_t index) { return static_cast<uint8_t>(array->fetch_part(index)); }
 
 } // namespace
 
@@ -112,8 +112,8 @@ void ParkLayout::set_up_abstract_metas()
 
     std::array<uint32_t, kMaxPieceNames> piece_names{}; // every piece a metapiece uses
     uint32_t num_piece_names = 0;
-    for (uint32_t n = 0; n < all->extent(); ++n) {
-        auto* desc = all->struct_at(n);
+    for (uint32_t index = 0; index < all->extent(); ++index) {
+        auto* desc = all->struct_at(index);
         PieceGroup* meta = new_abstract_meta();
         uint32_t single = 0;
         script::Array* pieces = nullptr;
@@ -295,10 +295,10 @@ void ParkLayout::write_compressed_map()
     map.set_theme(editor_value78());
     map.set_max_players(generator_max_players(builder_));
     text::copy_unbounded(map.name().data(), park_name_.data());
-    for (int x = 0; x < kFloorSize; ++x) {
-        for (int z = 0; z < kFloorSize; ++z) {
-            map.set_floor_height(static_cast<size_t>((x * kFloorSize) + z),
-                                 static_cast<int8_t>(core::at(core::at(floor_, x), z).level_y_));
+    for (int cell_x = 0; cell_x < kFloorSize; ++cell_x) {
+        for (int cell_z = 0; cell_z < kFloorSize; ++cell_z) {
+            map.set_floor_height(static_cast<size_t>((cell_x * kFloorSize) + cell_z),
+                                 static_cast<int8_t>(core::at(core::at(floor_, cell_x), cell_z).level_y_));
         }
     }
     // the records after the header and the floor (park_map_format.h). NOT ORIGINAL: no further than the map's end
@@ -547,44 +547,48 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         PieceGroup* meta = metas.list()->get_piece_group()->get_cast();
         meta->flag_bits() |= PieceGroup::kHighlightable;
         pos = meta->cell_footprint();
-        const CellBox d = meta->cell_footprint();
+        const CellBox footprint = meta->cell_footprint();
         const float length = gap->fetch_magnitude(half);
         const double w = cell_size_x();
-        const double l = cell_size_z();
-        const double y = static_cast<double>(d.y) * cell_size_y();
+        const double cell_length = cell_size_z();
+        const double y = static_cast<double>(footprint.y) * cell_size_y();
         int along_x = 0;
         float x = at.x;
         double z = at.z;
         switch (core::at(gap->quarter_turns(), half)) {
         case 0:
             along_x = 1;
-            x = static_cast<float>(((static_cast<double>(d.w + d.x) * w) - (w * kHalf)) - 1.0);
-            z = ((static_cast<double>(d.z - core::at(gap->reach_right(), half)) * l) + (length * kHalf)) - l;
+            x = static_cast<float>(((static_cast<double>(footprint.w + footprint.x) * w) - (w * kHalf)) - 1.0);
+            z = ((static_cast<double>(footprint.z - core::at(gap->reach_right(), half)) * cell_length) +
+                 (length * kHalf)) -
+                cell_length;
             at.y = static_cast<float>(y);
             break;
         case 1:
             x = static_cast<float>(
-                ((static_cast<double>(d.x - core::at(gap->reach_right(), half)) * w) + (length * kHalf)) - w);
-            z = ((static_cast<double>(d.z) * l) - (l * kHalf)) + 1.0;
+                ((static_cast<double>(footprint.x - core::at(gap->reach_right(), half)) * w) + (length * kHalf)) - w);
+            z = ((static_cast<double>(footprint.z) * cell_length) - (cell_length * kHalf)) + 1.0;
             at.y = static_cast<float>(y);
             break;
         case 2:
             along_x = 1;
-            x = static_cast<float>(((static_cast<double>(d.x) * w) - (w * kHalf)) + 1.0);
-            z = ((static_cast<double>(d.z - core::at(gap->reach_left(), half)) * l) + (length * kHalf)) - l;
+            x = static_cast<float>(((static_cast<double>(footprint.x) * w) - (w * kHalf)) + 1.0);
+            z = ((static_cast<double>(footprint.z - core::at(gap->reach_left(), half)) * cell_length) +
+                 (length * kHalf)) -
+                cell_length;
             at.y = static_cast<float>(y);
             break;
         case 3:
             x = static_cast<float>(
-                ((static_cast<double>(d.x - core::at(gap->reach_left(), half)) * w) + (length * kHalf)) - w);
-            z = ((static_cast<double>(d.l + d.z) * l) - (l * kHalf)) - 1.0;
+                ((static_cast<double>(footprint.x - core::at(gap->reach_left(), half)) * w) + (length * kHalf)) - w);
+            z = ((static_cast<double>(footprint.l + footprint.z) * cell_length) - (cell_length * kHalf)) - 1.0;
             at.y = static_cast<float>(y);
             break;
         default:
             break;
         }
         at.x = static_cast<float>(x - (w * gap_grid_offset()));
-        at.z = static_cast<float>(z - (l * gap_grid_offset()));
+        at.z = static_cast<float>(z - (cell_length * gap_grid_offset()));
         // The gap's trigger piece, its length in cells
         void* piece = builder_->make_gap_marker_piece(&at, length, along_x);
         static_cast<ParkTile*>(piece)->set_length(static_cast<float>(length / w));
@@ -610,9 +614,9 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
         for (const MapListNode* node = metas.list(); node; node = node->following()) {
             PieceGroup* meta = node->get_piece_group()->get_cast();
             core::at(halves, half) = meta;
-            const CellBox& d = meta->cell_footprint();
-            if (d.x == core::at(gap->at_point(), half).x && d.y == core::at(gap->at_point(), half).y &&
-                d.z == core::at(gap->at_point(), half).z) {
+            const CellBox& footprint = meta->cell_footprint();
+            if (footprint.x == core::at(gap->at_point(), half).x && footprint.y == core::at(gap->at_point(), half).y &&
+                footprint.z == core::at(gap->at_point(), half).z) {
                 break;
             }
         }
@@ -634,8 +638,9 @@ void ParkLayout::print_map_list(const MapListNode* list)
     debug::printf("contents of map list:\n");
     for (const MapListNode* node = list; node; node = node->following()) {
         debug::printf("   address=%p area=", node->piece_group());
-        const CellBox& d = node->piece_group()->cell_footprint();
-        debug::printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", d.x, static_cast<int>(d.y), d.z, d.w, d.h, d.l);
+        const CellBox& footprint = node->piece_group()->cell_footprint();
+        debug::printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", footprint.x, static_cast<int>(footprint.y), footprint.z,
+                      footprint.w, footprint.h, footprint.l);
     }
 }
 

@@ -260,9 +260,9 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
             continue;
         }
         const auto [x0, x1, z0, z1] = cells_of(&object);
-        for (int x = x0; x <= x1; ++x) {
-            for (int z = z0; z <= z1; ++z) {
-                ++core::at(core::at(cells_, x), z).count();
+        for (int cell_x = x0; cell_x <= x1; ++cell_x) {
+            for (int cell_z = z0; cell_z <= z1; ++cell_z) {
+                ++core::at(core::at(cells_, cell_x), cell_z).count();
             }
         }
     }
@@ -284,9 +284,10 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
             continue;
         }
         const auto [x0, x1, z0, z1] = cells_of(&object);
-        for (int x = x0; x <= x1; ++x) {
-            for (int z = z0; z <= z1; ++z) {
-                core::at(core::at(core::at(cells_, x), z).object_run(), core::at(filled, (x * kSize) + z)++) = &object;
+        for (int cell_x = x0; cell_x <= x1; ++cell_x) {
+            for (int cell_z = z0; cell_z <= z1; ++cell_z) {
+                core::at(core::at(core::at(cells_, cell_x), cell_z).object_run(),
+                         core::at(filled, (cell_x * kSize) + cell_z)++) = &object;
             }
         }
     }
@@ -372,9 +373,9 @@ std::span<HitMesh* const> CollGrid::objects_in_box(const maths::BBox* box)
     x1 = confine(x1, columns_);
     z1 = confine(z1, rows_);
     int found = 0;
-    for (int x = x0; x <= x1; ++x) {
-        for (int z = z0; z <= z1; ++z) {
-            const CollGridCell& cell = core::at(core::at(cells_, x), z);
+    for (int cell_x = x0; cell_x <= x1; ++cell_x) {
+        for (int cell_z = z0; cell_z <= z1; ++cell_z) {
+            const CollGridCell& cell = core::at(core::at(cells_, cell_x), cell_z);
             for (int i = 0; i < cell.count(); ++i) {
                 HitMesh* object = core::at(cell.object_run(), i);
                 if (listable(object) && object->visit_stamp() != stamp) {
@@ -447,9 +448,9 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
         }
     } else {
         const uint8_t stamp = ++grid_query().stamp_;
-        for (int x = x0; x <= x1; ++x) {
-            for (int z = z0; z <= z1; ++z) {
-                const CollGridCell& cell = core::at(core::at(cells_, x), z);
+        for (int cell_x = x0; cell_x <= x1; ++cell_x) {
+            for (int cell_z = z0; cell_z <= z1; ++cell_z) {
+                const CollGridCell& cell = core::at(core::at(cells_, cell_x), cell_z);
                 for (int i = 0; i < cell.count(); ++i) {
                     HitMesh* object = core::at(cell.object_run(), i);
                     if (listable(object) && object->visit_stamp() != stamp && found < kMostFound) {

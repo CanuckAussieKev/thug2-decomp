@@ -235,9 +235,10 @@ MapListNode* ParkLayout::get_intersecting_metas(CellBox area, int rot, PieceGrou
     const bool precise = static_cast<uint8_t>(skip_inner_shell) != 0;
     MapListNode* list = nullptr;
     if (!meta) {
-        for (int x = area.x; x < area.x + area.w; ++x) {
-            for (int z = area.z; z < area.z + area.l; ++z) {
-                for (const MapListNode* node = core::at(core::at(cell_metas_, x), z); node; node = node->following()) {
+        for (int cell_x = area.x; cell_x < area.x + area.w; ++cell_x) {
+            for (int cell_z = area.z; cell_z < area.z + area.l; ++cell_z) {
+                for (const MapListNode* node = core::at(core::at(cell_metas_, cell_x), cell_z); node;
+                     node = node->following()) {
                     if (precise && ((node->get_piece_group()->flag_bits() & PieceGroup::kBuiltShell) != 0U)) {
                         continue;
                     }
@@ -277,9 +278,10 @@ MapListNode* ParkLayout::get_intersecting_metas(CellBox area, int rot, PieceGrou
 MapListNode* ParkLayout::collect_pieces_in_region(CellBox area)
 {
     MapListNode* list = nullptr;
-    for (int x = area.x; x < area.x + area.w; ++x) {
-        for (int z = area.z; z < area.z + area.l; ++z) {
-            for (const MapListNode* node = core::at(core::at(cell_metas_, x), z); node; node = node->following()) {
+    for (int cell_x = area.x; cell_x < area.x + area.w; ++cell_x) {
+        for (int cell_z = area.z; cell_z < area.z + area.l; ++cell_z) {
+            for (const MapListNode* node = core::at(core::at(cell_metas_, cell_x), cell_z); node;
+                 node = node->following()) {
                 add_meta_to_list(node->get_piece_group(), &list);
             }
         }
@@ -327,9 +329,9 @@ bool ParkLayout::build_riser_list(CellBox area, RiserSpan riser_span, uint32_t f
     } else {
         area.stretch_vertically();
     }
-    for (int x = area.x; x < area.x + area.w; ++x) {
-        for (int z = area.z; z < area.z + area.l; ++z) {
-            FloorCell& cell = core::at(core::at(floor_, x), z);
+    for (int cell_x = area.x; cell_x < area.x + area.w; ++cell_x) {
+        for (int cell_z = area.z; cell_z < area.z + area.l; ++cell_z) {
+            FloorCell& cell = core::at(core::at(floor_, cell_x), cell_z);
             if (!cell.touched_) {
                 const int amount = scroll_offset({.flags = flags, .current = cell.level_y_, .height = height});
                 cell.level_y_ += amount;
@@ -377,9 +379,9 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
         dims.y = static_cast<int8_t>(entry->y + meta->cell_footprint().y);
         dims.z = static_cast<uint8_t>(entry->z + meta->cell_footprint().z);
         const int z_end = dims.z + dims.l;
-        for (int x = dims.x; x < dims.x + dims.w; ++x) {
-            for (int z = dims.z; z < z_end; ++z) {
-                FloorCell& cell = core::at(core::at(floor_, x), z);
+        for (int cell_x = dims.x; cell_x < dims.x + dims.w; ++cell_x) {
+            for (int cell_z = dims.z; cell_z < z_end; ++cell_z) {
+                FloorCell& cell = core::at(core::at(floor_, cell_x), cell_z);
                 if (add != 0) {
                     const int top = dims.y + dims.h;
                     cell.level_y_ = std::max(cell.level_y_, top);

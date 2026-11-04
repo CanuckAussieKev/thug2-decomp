@@ -364,14 +364,14 @@ void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
 {
     if ((piece->flag_bits() & ParkTile::kCursor) == 0U) {
         ParkTile* previous = nullptr;
-        for (ParkTile* p = pieces_; p; previous = p, p = p->following()) {
-            if (p != piece) {
+        for (ParkTile* tile = pieces_; tile; previous = tile, tile = tile->following()) {
+            if (tile != piece) {
                 continue;
             }
             if (previous) {
-                previous->set_following(p->following());
+                previous->set_following(tile->following());
             } else {
-                pieces_ = p->following();
+                pieces_ = tile->following();
             }
             break;
         }

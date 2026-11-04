@@ -93,13 +93,13 @@ CellBox area_from_structure(script::Struct* area)
     int x = 0;
     int z = 0;
     int w = 0;
-    int l = 0;
+    int length = 0;
     area->fetch_int_value(kX, &x, 0);
     area->fetch_int_value(kZ, &z, 0);
     area->fetch_int_value(kW, &w, 0);
-    area->fetch_int_value(kL, &l, 0);
+    area->fetch_int_value(kL, &length, 0);
     return CellBox::get_make(static_cast<uint8_t>(x), 0, static_cast<uint8_t>(z), static_cast<uint8_t>(w), 1,
-                             static_cast<uint8_t>(l));
+                             static_cast<uint8_t>(length));
 }
 
 // The world rectangles of `area` the rails and the goals must be within: its corner and the corner plus its size
@@ -337,22 +337,22 @@ CellBox* get_resize_area(CellBox* out, script::Struct* params)
 {
     CellBox area = hub()->build_area();
     int w = area.w;
-    int l = area.l;
+    int length = area.l;
     params->fetch_int_value("w", &w, 0);
-    params->fetch_int_value("l", &l, 0);
+    params->fetch_int_value("l", &length, 0);
     int inc_w = w - area.w;
-    int inc_l = l - area.l;
+    int inc_l = length - area.l;
     if (params->fetch_int_value("inc_w", &inc_w, 0)) {
         w = area.w + inc_w;
     }
     if (params->fetch_int_value("inc_l", &inc_l, 0)) {
-        l = area.l + inc_l;
+        length = area.l + inc_l;
     }
     // (the corner moves by half the change, to keep the park centred)
     area.x = static_cast<uint8_t>(area.x - static_cast<uint8_t>(inc_w / 2));
     area.z = static_cast<uint8_t>(area.z - static_cast<uint8_t>(inc_l / 2));
     area.w = static_cast<uint8_t>(w);
-    area.l = static_cast<uint8_t>(l);
+    area.l = static_cast<uint8_t>(length);
     *out = area;
     return out;
 }
@@ -456,8 +456,8 @@ bool cfunc_can_change_park_dimension(script::Struct* params, script::Script* /*s
     if (params->fetch_list(0U, &size, 0)) {
         // [w l]: whether it's another size than the park's
         const uint32_t w = size->fetch_part(0);
-        const uint32_t l = size->fetch_part(1);
-        return w != bounds.w || l != bounds.l;
+        const uint32_t length = size->fetch_part(1);
+        return w != bounds.w || length != bounds.l;
     }
     const bool up = params->has_bare_flag(kUp);
     if (params->has_bare_flag(kWidth)) {

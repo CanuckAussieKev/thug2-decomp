@@ -256,11 +256,11 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
             z = static_cast<float>(static_cast<double>(delta->z) + z);
         }
     }
-    auto moved = [delta](const maths::Vec4& p) {
-        return maths::Vec4{.x = static_cast<float>(static_cast<double>(p.x) + delta->x),
-                           .y = static_cast<float>(static_cast<double>(p.y) + delta->y),
-                           .z = static_cast<float>(static_cast<double>(p.z) + delta->z),
-                           .w = static_cast<float>(static_cast<double>(p.w) + delta->w)};
+    auto moved = [delta](const maths::Vec4& point) {
+        return maths::Vec4{.x = static_cast<float>(static_cast<double>(point.x) + delta->x),
+                           .y = static_cast<float>(static_cast<double>(point.y) + delta->y),
+                           .z = static_cast<float>(static_cast<double>(point.z) + delta->z),
+                           .w = static_cast<float>(static_cast<double>(point.w) + delta->w)};
     };
     const maths::Vec4 min = moved(bounds_.min);
     const maths::Vec4 max = moved(bounds_.max);
@@ -337,10 +337,10 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
     }
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
         if (positions) {
-            maths::Vec4& p = core::at(position_run, i);
-            p.x *= scale->x;
-            p.y *= scale->y;
-            p.z *= scale->z;
+            maths::Vec4& position = core::at(position_run, i);
+            position.x *= scale->x;
+            position.y *= scale->y;
+            position.z *= scale->z;
         } else {
             const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(i)).first<3>();
             core::at(v, 0) *= scale->x;
@@ -387,10 +387,10 @@ void TriMeshSource::add_occlusion_polys()
             int matches = 0;
             for (int k = 0; k < 3; ++k) {
                 auto corner = static_cast<uint16_t>(face_vertex(i, k));
-                for (int m = 0; m < 3; ++m) {
-                    if (corner == static_cast<uint16_t>(face_vertex(j, m))) {
+                for (int corner_index = 0; corner_index < 3; ++corner_index) {
+                    if (corner == static_cast<uint16_t>(face_vertex(j, corner_index))) {
                         core::at(shared, k) = corner;
-                        core::at(other, m) = static_cast<int>(face_vertex(j, m));
+                        core::at(other, corner_index) = static_cast<int>(face_vertex(j, corner_index));
                         ++matches;
                         break;
                     }
@@ -400,15 +400,15 @@ void TriMeshSource::add_occlusion_polys()
                 continue;
             }
             // both normals ((v1 - v0) x (v2 - v0)), rounded where the original's x87 code stores them
-            const maths::Vec4 a = read_stored_vertex(static_cast<int>(face_vertex(i, 0)));
-            const maths::Vec4 b = read_stored_vertex(static_cast<int>(face_vertex(i, 1)));
-            const maths::Vec4 c = read_stored_vertex(static_cast<int>(face_vertex(i, 2)));
-            const double cx = static_cast<double>(c.x) - a.x;
-            const double cy = static_cast<double>(c.y) - a.y;
-            const double cz = static_cast<double>(c.z) - a.z;
-            auto bx = static_cast<float>(static_cast<double>(b.x) - a.x);
-            auto by = static_cast<float>(static_cast<double>(b.y) - a.y);
-            const double bz = static_cast<double>(b.z) - a.z;
+            const maths::Vec4 vertex_a = read_stored_vertex(static_cast<int>(face_vertex(i, 0)));
+            const maths::Vec4 vertex_b = read_stored_vertex(static_cast<int>(face_vertex(i, 1)));
+            const maths::Vec4 vertex_c = read_stored_vertex(static_cast<int>(face_vertex(i, 2)));
+            const double cx = static_cast<double>(vertex_c.x) - vertex_a.x;
+            const double cy = static_cast<double>(vertex_c.y) - vertex_a.y;
+            const double cz = static_cast<double>(vertex_c.z) - vertex_a.z;
+            auto bx = static_cast<float>(static_cast<double>(vertex_b.x) - vertex_a.x);
+            auto by = static_cast<float>(static_cast<double>(vertex_b.y) - vertex_a.y);
+            const double bz = static_cast<double>(vertex_b.z) - vertex_a.z;
             auto n1x = static_cast<float>((by * cz) - (bz * cy));
             auto n1y = static_cast<float>((bz * cx) - (cz * bx));
             auto n1z = static_cast<float>((cy * bx) - (by * cx));
@@ -418,7 +418,7 @@ void TriMeshSource::add_occlusion_polys()
             core::at(points, 0) = a2;
             core::at(points, 1) = b2;
             core::at(points, 2) = c2;
-            auto difference = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
+            auto difference = [](float lhs, float rhs) { return static_cast<float>(static_cast<double>(lhs) - rhs); };
             const float cx2 = difference(c2.x, a2.x);
             const float cy2 = difference(c2.y, a2.y);
             const float cz2 = difference(c2.z, a2.z);
@@ -452,13 +452,15 @@ void TriMeshSource::add_occlusion_polys()
             }
             // the quad: face i's corners with face j's other corner between the two shared ones
             int extra = -1;
-            for (int m = 0; m < 3; ++m) {
-                if (core::at(other, m) == -1) {
-                    extra = static_cast<int>(face_vertex(j, m));
+            for (int corner_index = 0; corner_index < 3; ++corner_index) {
+                if (core::at(other, corner_index) == -1) {
+                    extra = static_cast<int>(face_vertex(j, corner_index));
                     break;
                 }
             }
-            auto corner = [this, i](int k) { return read_stored_vertex(static_cast<int>(face_vertex(i, k))); };
+            auto corner = [this, i](int corner_index) {
+                return read_stored_vertex(static_cast<int>(face_vertex(i, corner_index)));
+            };
             if (core::at(shared, 0) >= 0 && core::at(shared, 1) >= 0) {
                 core::at(points, 0) = corner(0);
                 core::at(points, 1) = read_stored_vertex(extra);
@@ -516,14 +518,14 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
         }
         node = node->greater_child();
     }
-    const uint32_t n = node->leaf_face_count();
+    const uint32_t face_count = node->leaf_face_count();
     const auto first = static_cast<size_t>(face_walk().face_count_);
-    face_walk().face_count_ += static_cast<int>(n);
+    face_walk().face_count_ += static_cast<int>(face_count);
     if (std::cmp_greater(face_walk().face_count_, tri_count_)) {
         face_walk().face_count_ = -1;
         return;
     }
-    const std::span<uint16_t> out = face_walk().face_buffer_.subspan(first, n);
+    const std::span<uint16_t> out = face_walk().face_buffer_.subspan(first, face_count);
     std::ranges::copy(node->leaf_face_run(), out.begin());
 }
 
@@ -550,8 +552,8 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
         }
         return count_faces_behind(node->less_child(), point, unused);
     }
-    const uint32_t n = node->leaf_face_count();
-    for (uint32_t i = 0; i < n; ++i) {
+    const uint32_t face_count = node->leaf_face_count();
+    for (uint32_t i = 0; i < face_count; ++i) {
         const int face = core::at(node->leaf_face_run(), i);
         const maths::Vec4 normal = get_triangle_normal(face);
         const maths::Vec4 corner = read_stored_vertex(static_cast<int>(face_vertex(core::at(node->leaf_face_run(), i), 0)));

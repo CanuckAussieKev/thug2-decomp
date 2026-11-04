@@ -111,41 +111,41 @@ constexpr double kSizeSlack = 2.0;
 constexpr float kInverseCell = 0.008333333767950535F;
 
 // The super sectors brought up to date (on the bottom-up heap).
-void get_update_super_sectors(ParkAssembler& d)
+void get_update_super_sectors(ParkAssembler& assembler)
 {
-    d.flag_bits() &= ~ParkAssembler::kSceneChanged;
+    assembler.flag_bits() &= ~ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
-    update_super_sectors_of(d.scene_handle());
+    update_super_sectors_of(assembler.scene_handle());
     memory::leave_heap_scope();
-    d.flag_bits() |= ParkAssembler::kSuperSectorsUpdated;
+    assembler.flag_bits() |= ParkAssembler::kSuperSectorsUpdated;
 }
 
 // Take `piece` out of the list (unless it's the cursor's), delete its sector and the piece (inline in the original, as
 // 0x00592570 does).
-void delete_piece(ParkAssembler& d, DuplicatedTile* piece)
+void delete_piece(ParkAssembler& assembler, DuplicatedTile* piece)
 {
     if ((piece->flag_bits() & DuplicatedTile::kCursor) == 0U) {
         DuplicatedTile* previous = nullptr;
-        for (DuplicatedTile* p = d.pieces(); p; previous = p, p = p->following()) {
-            if (p == piece) {
+        for (DuplicatedTile* tile = assembler.pieces(); tile; previous = tile, tile = tile->following()) {
+            if (tile == piece) {
                 if (previous) {
-                    previous->set_following(p->following());
+                    previous->set_following(tile->following());
                 } else {
-                    d.set_pieces(p->following());
+                    assembler.set_pieces(tile->following());
                 }
                 break;
             }
         }
     }
-    remove_scene_sector(d.scene_handle(), piece->sector());
+    remove_scene_sector(assembler.scene_handle(), piece->sector());
     if (park_editing_state().collision_allowed()) {
-        get_update_super_sectors(d);
+        get_update_super_sectors(assembler);
     }
     set_counts_dirty(); // (given the piece)
     gsl::owner<decltype(piece)> owned = memory::owned_element(piece); // (the generator's list's)
     delete owned;
-    if (!d.pieces()) {
-        d.flag_bits() &= ~ParkAssembler::kHasPieces;
+    if (!assembler.pieces()) {
+        assembler.flag_bits() &= ~ParkAssembler::kHasPieces;
     }
 }
 
@@ -189,9 +189,9 @@ uint32_t ParkAssembler::sample_light_colour(const maths::Vec4* position, uint32_
            (channel((sum * core::at(falloff_, 2)) + blue) << kBlueShift);
 }
 
-void ParkAssembler::light_piece(ParkTile* p)
+void ParkAssembler::light_piece(ParkTile* source)
 {
-    const DuplicatedTile* piece = get_cloned(p);
+    const DuplicatedTile* piece = get_cloned(source);
     render::Geom* geometry = fetch_shape(look_up_sector(piece->sector()));
     render::Geom* source_geometry = fetch_shape(look_up_sector(piece->blend_source()->sector()));
     const int count = get_vertex_count(geometry);
@@ -294,9 +294,9 @@ void ParkAssembler::unplant_restart_point(CellBox* area, int player)
 void* ParkAssembler::make_gap_marker_piece(maths::Vec4* position, float /*length*/, int rot)
 {
     TemplateTile* source = nullptr;
-    for (TemplateTile* s = sources_; s; s = s->following()) {
-        if (s->sector() == kGapMarkerLabel) {
-            source = s;
+    for (TemplateTile* candidate = sources_; candidate; candidate = candidate->following()) {
+        if (candidate->sector() == kGapMarkerLabel) {
+            source = candidate;
             break;
         }
     }
@@ -331,9 +331,9 @@ void ParkAssembler::destroy_pieces(int keep_rails)
     }
 }
 
-void ParkAssembler::destroy_piece(void* p)
+void ParkAssembler::destroy_piece(void* memory)
 {
-    auto* piece = static_cast<DuplicatedTile*>(p);
+    auto* piece = static_cast<DuplicatedTile*>(memory);
     const uint32_t flags = piece->flag_bits();
     piece->flag_bits() = flags | DuplicatedTile::kDestroy;
     if ((flags & DuplicatedTile::kDestroyNow) != 0U) {
@@ -375,9 +375,9 @@ void ParkAssembler::unload_pieces()
     flag_bits_ &= ~ParkAssembler::kSourcesLoaded;
 }
 
-void ParkAssembler::add_piece_to_scene(ParkTile* p)
+void ParkAssembler::add_piece_to_scene(ParkTile* tile)
 {
-    DuplicatedTile* piece = get_cloned(p);
+    DuplicatedTile* piece = get_cloned(tile);
     flag_bits_ |= ParkAssembler::kSceneChanged;
     const int cursor = ((piece->flag_bits() & DuplicatedTile::kCursor) != 0U) ? 1 : 0;
     piece->set_sector(park_editing::duplicate_scene_sector(source_world_, piece->blend_source()->sector(),
@@ -389,7 +389,7 @@ void ParkAssembler::add_piece_to_scene(ParkTile* p)
     if ((piece->flag_bits() & DuplicatedTile::kGap) != 0U) {
         place_gap_piece(piece);
     }
-    light_piece(p);
+    light_piece(tile);
 }
 
 void ParkAssembler::rebuild_all()

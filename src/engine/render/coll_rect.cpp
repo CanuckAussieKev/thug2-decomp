@@ -95,11 +95,11 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         placed->basis_frame().rotate_vector(turned, hit.normal);
         hit.normal = turned;
     }
-    for (int e = 1; e >= 0; --e) {
-        RectHitEnd& end = core::at(hit.ends, e);
-        end.on_triangle_edge_ = core::at(kinds, e) != 0;
+    for (int end_index = 1; end_index >= 0; --end_index) {
+        RectHitEnd& end = core::at(hit.ends, end_index);
+        end.on_triangle_edge_ = core::at(kinds, end_index) != 0;
         maths::Vec4 edge{};
-        switch (core::at(kinds, e)) {
+        switch (core::at(kinds, end_index)) {
         case 1:
             edge = {.x = e1x, .y = e1y, .z = static_cast<float>(e1z), .w = get_difference(v1.w, v0.w)};
             break;
@@ -186,10 +186,10 @@ double dot3(float ax, float ay, float az, float bx, float by, float bz)
 // 0x00417AD0
 RectHit* copy_from(RectHit& hit, const RectHit* other)
 {
-    for (int e = 0; e < 2; ++e) {
-        core::at(hit.ends, e).point = core::at(other->ends, e).point;
-        core::at(hit.ends, e).edge = core::at(other->ends, e).edge;
-        core::at(hit.ends, e).on_triangle_edge_ = core::at(other->ends, e).on_triangle_edge_;
+    for (int end_index = 0; end_index < 2; ++end_index) {
+        core::at(hit.ends, end_index).point = core::at(other->ends, end_index).point;
+        core::at(hit.ends, end_index).edge = core::at(other->ends, end_index).edge;
+        core::at(hit.ends, end_index).on_triangle_edge_ = core::at(other->ends, end_index).on_triangle_edge_;
     }
     hit.normal = other->normal;
     hit.checksum = other->checksum;
@@ -206,14 +206,18 @@ RectHit* get_assign(RectHit& hit, const RectHit* other)
 // 0x0040FEE0 (the far corner's x part, and its y part for the box, summed in double precision first)
 bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCache* cache)
 {
-    const maths::Vec4& o = rect->origin;
-    const maths::Vec4& a = rect->side_a_;
-    const maths::Vec4& b = rect->side_b_;
-    maths::BBox box(o);
-    box.append_spot({.x = a.x + o.x, .y = a.y + o.y, .z = a.z + o.z, .w = a.w + o.w});
-    box.append_spot({.x = o.x + b.x, .y = b.y + o.y, .z = b.z + o.z, .w = b.w + o.w});
-    box.append_spot({.x = static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
-                     .y = static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), .z = (a.z + o.z) + b.z, .w = (a.w + o.w) + b.w});
+    const maths::Vec4& origin = rect->origin;
+    const maths::Vec4& side_a = rect->side_a_;
+    const maths::Vec4& side_b = rect->side_b_;
+    maths::BBox box(origin);
+    box.append_spot(
+        {.x = side_a.x + origin.x, .y = side_a.y + origin.y, .z = side_a.z + origin.z, .w = side_a.w + origin.w});
+    box.append_spot(
+        {.x = origin.x + side_b.x, .y = side_b.y + origin.y, .z = side_b.z + origin.z, .w = side_b.w + origin.w});
+    box.append_spot({.x = static_cast<float>((static_cast<double>(origin.x) + side_a.x) + side_b.x),
+                     .y = static_cast<float>((static_cast<double>(side_a.y) + origin.y) + side_b.y),
+                     .z = (side_a.z + origin.z) + side_b.z,
+                     .w = (side_a.w + origin.w) + side_b.w});
     const bool use_cache = (cache != nullptr) && cache->box().get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(rect);
@@ -243,9 +247,11 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     }
     // the rect's diagonal
     maths::Seg diagonal;
-    diagonal.start = o;
-    diagonal.end = {.x = static_cast<float>((static_cast<double>(a.x) + o.x) + b.x), .y = (a.y + o.y) + b.y, .z = (a.z + o.z) + b.z,
-                    .w = (a.w + o.w) + b.w};
+    diagonal.start = origin;
+    diagonal.end = {.x = static_cast<float>((static_cast<double>(side_a.x) + origin.x) + side_b.x),
+                    .y = (side_a.y + origin.y) + side_b.y,
+                    .z = (side_a.z + origin.z) + side_b.z,
+                    .w = (side_a.w + origin.w) + side_b.w};
     const std::span<CollGrid* const> grids = grids_along(&diagonal);
     if (grids.empty()) {
         return false;
@@ -272,14 +278,18 @@ bool CollStaticInstance::collide_with_rect(const CollRect* rect, const maths::BB
 {
     CollRect local;
     rect_to_local(rect, &local);
-    const maths::Vec4& o = local.origin;
-    const maths::Vec4& a = local.side_a_;
-    const maths::Vec4& b = local.side_b_;
-    maths::BBox box(o);
-    box.append_spot({.x = a.x + o.x, .y = a.y + o.y, .z = a.z + o.z, .w = a.w + o.w});
-    box.append_spot({.x = b.x + o.x, .y = b.y + o.y, .z = b.z + o.z, .w = b.w + o.w});
-    box.append_spot({.x = static_cast<float>(b.x + (static_cast<double>(a.x) + o.x)),
-                     .y = static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), .z = (a.z + o.z) + b.z, .w = (a.w + o.w) + b.w});
+    const maths::Vec4& origin = local.origin;
+    const maths::Vec4& side_a = local.side_a_;
+    const maths::Vec4& side_b = local.side_b_;
+    maths::BBox box(origin);
+    box.append_spot(
+        {.x = side_a.x + origin.x, .y = side_a.y + origin.y, .z = side_a.z + origin.z, .w = side_a.w + origin.w});
+    box.append_spot(
+        {.x = side_b.x + origin.x, .y = side_b.y + origin.y, .z = side_b.z + origin.z, .w = side_b.w + origin.w});
+    box.append_spot({.x = static_cast<float>(side_b.x + (static_cast<double>(side_a.x) + origin.x)),
+                     .y = static_cast<float>((static_cast<double>(side_a.y) + origin.y) + side_b.y),
+                     .z = (side_a.z + origin.z) + side_b.z,
+                     .w = (side_a.w + origin.w) + side_b.w});
     return rect_against_faces(this, &local, &box, hits, this);
 }
 
@@ -288,13 +298,17 @@ void CollScaled::rect_to_local(const CollRect* rect, CollRect* out) const
 {
     inverse_.carry_point_through(out->origin, rect->origin);
     maths::Vec4 corner{};
-    const maths::Vec4& o = rect->origin;
-    inverse_.carry_point_through(
-        corner, {.x = o.x + rect->side_a_.x, .y = rect->side_a_.y + o.y, .z = rect->side_a_.z + o.z, .w = rect->side_a_.w + o.w});
+    const maths::Vec4& origin = rect->origin;
+    inverse_.carry_point_through(corner, {.x = origin.x + rect->side_a_.x,
+                                          .y = rect->side_a_.y + origin.y,
+                                          .z = rect->side_a_.z + origin.z,
+                                          .w = rect->side_a_.w + origin.w});
     out->side_a_ = {.x = corner.x - out->origin.x, .y = corner.y - out->origin.y, .z = corner.z - out->origin.z,
                     .w = corner.w - out->origin.w};
-    inverse_.carry_point_through(
-        corner, {.x = rect->side_b_.x + o.x, .y = rect->side_b_.y + o.y, .z = rect->side_b_.z + o.z, .w = rect->side_b_.w + o.w});
+    inverse_.carry_point_through(corner, {.x = rect->side_b_.x + origin.x,
+                                          .y = rect->side_b_.y + origin.y,
+                                          .z = rect->side_b_.z + origin.z,
+                                          .w = rect->side_b_.w + origin.w});
     out->side_b_ = {.x = corner.x - out->origin.x, .y = corner.y - out->origin.y, .z = corner.z - out->origin.z,
                     .w = corner.w - out->origin.w};
 }
@@ -345,16 +359,19 @@ void BoxProbe::join_hits()
         core::at(used, i) = false;
         const maths::Vec4& p0 = core::at(core::at(hits, i).ends, 0).point;
         const maths::Vec4& p1 = core::at(core::at(hits, i).ends, 1).point;
-        maths::Vec4& d = core::at(direction, i);
-        d = {.x = get_difference(p1.x, p0.x), .y = get_difference(p1.y, p0.y), .z = get_difference(p1.z, p0.z),
-             .w = get_difference(p1.w, p0.w)};
-        const double length = std::sqrt(((static_cast<double>(d.y) * d.y) + (static_cast<double>(d.x) * d.x)) +
-                                        (static_cast<double>(d.z) * d.z));
+        maths::Vec4& delta = core::at(direction, i);
+        delta = {.x = get_difference(p1.x, p0.x),
+                 .y = get_difference(p1.y, p0.y),
+                 .z = get_difference(p1.z, p0.z),
+                 .w = get_difference(p1.w, p0.w)};
+        const double length =
+            std::sqrt(((static_cast<double>(delta.y) * delta.y) + (static_cast<double>(delta.x) * delta.x)) +
+                      (static_cast<double>(delta.z) * delta.z));
         if (length > 0.0) {
             const double inverse = 1.0 / length;
-            d.x = static_cast<float>(inverse * d.x);
-            d.y = static_cast<float>(inverse * d.y);
-            d.z = static_cast<float>(inverse * d.z);
+            delta.x = static_cast<float>(inverse * delta.x);
+            delta.y = static_cast<float>(inverse * delta.y);
+            delta.z = static_cast<float>(inverse * delta.z);
         }
     }
     // duplicates of a later hit (the same ends, either way round, the normals within 0.99) dropped
@@ -419,26 +436,28 @@ void BoxProbe::join_hits()
 }
 
 // 0x00417860 (the colour as in ProbeRay::debug_draw; each hit drawn in a colour of its own)
-void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
+void BoxProbe::debug_draw(uint32_t red, uint32_t green, uint32_t b, int frames)
 {
-    const maths::Vec4& o = rect_.origin;
-    const maths::Vec4& a = rect_.side_a_;
-    const maths::Vec4& s = rect_.side_b_;
-    const uint32_t colour = ((((b | 0xFFFFFF00U) << 8) | g) << 8) | r;
-    const maths::Vec4 oa{.x = o.x + a.x, .y = a.y + o.y, .z = a.z + o.z, .w = a.w + o.w};
-    const maths::Vec4 oab{.x = oa.x + s.x, .y = oa.y + s.y, .z = oa.z + s.z, .w = oa.w + s.w};
-    const maths::Vec4 ob{.x = o.x + s.x, .y = s.y + o.y, .z = s.z + o.z, .w = s.w + o.w};
-    gfx::push_diag_line(&o, &oa, colour, colour, frames);
+    const maths::Vec4& origin = rect_.origin;
+    const maths::Vec4& side_a = rect_.side_a_;
+    const maths::Vec4& side_b = rect_.side_b_;
+    const uint32_t colour = ((((b | 0xFFFFFF00U) << 8) | green) << 8) | red;
+    const maths::Vec4 oa{
+        .x = origin.x + side_a.x, .y = side_a.y + origin.y, .z = side_a.z + origin.z, .w = side_a.w + origin.w};
+    const maths::Vec4 oab{.x = oa.x + side_b.x, .y = oa.y + side_b.y, .z = oa.z + side_b.z, .w = oa.w + side_b.w};
+    const maths::Vec4 ob{
+        .x = origin.x + side_b.x, .y = side_b.y + origin.y, .z = side_b.z + origin.z, .w = side_b.w + origin.w};
+    gfx::push_diag_line(&origin, &oa, colour, colour, frames);
     gfx::push_diag_line(&oa, &oab, colour, colour, frames);
     gfx::push_diag_line(&oab, &ob, colour, colour, frames);
-    gfx::push_diag_line(&ob, &o, colour, colour, frames);
+    gfx::push_diag_line(&ob, &origin, colour, colour, frames);
     const std::span<const RectHit> hits = joined_count_ > 0 ? std::span<const RectHit>(joined_) : std::span<const RectHit>(hits_.hits);
     const int count = joined_count_ > 0 ? joined_count_ : hits_.count;
     for (int i = count - 1; i >= 0; --i) {
         b += kHitColourBlueStep;
-        g += kHitColourGreenStep;
-        r += kHitColourRedStep;
-        const uint32_t hit_colour = ((((b | 0xFFFFFF00U) << 8) | g) << 8) | r;
+        green += kHitColourGreenStep;
+        red += kHitColourRedStep;
+        const uint32_t hit_colour = ((((b | 0xFFFFFF00U) << 8) | green) << 8) | red;
         gfx::push_diag_line(&core::at(core::at(hits, i).ends, 0).point, &core::at(core::at(hits, i).ends, 1).point, hit_colour, hit_colour, 1);
     }
 }

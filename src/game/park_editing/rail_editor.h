@@ -208,7 +208,7 @@ maths::Vec4* transform_rail_point(maths::Vec4* out, const maths::Vec4* point, co
                                   const maths::Vec4* position, float angle);
 // 0x004F3E40: whether the turn at `b` from `a` to `c` (on the ground plane) is gentle enough: the cosine between the
 // two directions at least that of Rail_Corner_Leave_Angle.
-bool rail_corner_ok(const maths::Vec4* a, const maths::Vec4* b, const maths::Vec4* c);
+bool rail_corner_ok(const maths::Vec4* a, const maths::Vec4* b, const maths::Vec4* target);
 // 0x004F3F30 / 0x004F3F70: whether `a` and `b` are more than 4000 (a segment's longest) / 4500 (the dotted line's
 // reach) apart. 1 or 0.
 int rail_too_far(const maths::Vec4* a, const maths::Vec4* b);

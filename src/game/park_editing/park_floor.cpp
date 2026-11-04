@@ -390,14 +390,14 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
         meta->flag_bits() |= PieceGroup::kFence;
         place_meta_piece_in_park(at, meta);
     };
-    for (int x = park.x; x < park.w + park.x; x += 2) {
-        auto px = static_cast<uint8_t>(x);
+    for (int cell_x = park.x; cell_x < park.w + park.x; cell_x += 2) {
+        auto px = static_cast<uint8_t>(cell_x);
         add_fence({.test = CellBox::get_make(px, 0, park.z, 2, 1, 1), .at = CellBox::get_make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0)}, 0);
         auto far = static_cast<uint8_t>(park.z + park.l);
         add_fence({.test = CellBox::get_make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1), .at = CellBox::get_make(px, 0, far, 0, 0, 0)}, 2);
     }
-    for (int z = park.z; z < park.l + park.z; z += 2) {
-        auto pz = static_cast<uint8_t>(z);
+    for (int cell_z = park.z; cell_z < park.l + park.z; cell_z += 2) {
+        auto pz = static_cast<uint8_t>(cell_z);
         add_fence({.test = CellBox::get_make(park.x, 0, pz, 1, 1, 2), .at = CellBox::get_make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0)}, 1);
         auto far = static_cast<uint8_t>(park.w + park.x);
         add_fence({.test = CellBox::get_make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2), .at = CellBox::get_make(far, 0, pz, 0, 0, 0)}, 3);
@@ -405,10 +405,11 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
     mark_progress("RebuildInnerShell-After adding fence pieces");
 
     // No floor height outside the park (the first 56 x 56 cells).
-    for (int x = 0; x < kShellCells; ++x) {
-        for (int z = 0; z < kShellCells; ++z) {
-            if (std::cmp_less(x, park.x) || std::cmp_less(z, park.z) || x >= park.w + park.x || z >= park.l + park.z) {
-                core::at(core::at(floor_, x), z).level_y_ = 0;
+    for (int cell_x = 0; cell_x < kShellCells; ++cell_x) {
+        for (int cell_z = 0; cell_z < kShellCells; ++cell_z) {
+            if (std::cmp_less(cell_x, park.x) || std::cmp_less(cell_z, park.z) || cell_x >= park.w + park.x ||
+                cell_z >= park.l + park.z) {
+                core::at(core::at(floor_, cell_x), cell_z).level_y_ = 0;
             }
         }
     }
@@ -454,9 +455,10 @@ bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
             if ((meta->flag_bits() & PieceGroup::kBuiltShell) == 0U) {
                 continue;
             }
-            const CellBox d = meta->cell_footprint();
-            if (d.x >= build_area_.x && d.z >= build_area_.z && d.w + d.x <= build_area_.w + build_area_.x &&
-                d.l + d.z <= build_area_.l + build_area_.z) {
+            const CellBox footprint = meta->cell_footprint();
+            if (footprint.x >= build_area_.x && footprint.z >= build_area_.z &&
+                footprint.w + footprint.x <= build_area_.w + build_area_.x &&
+                footprint.l + footprint.z <= build_area_.l + build_area_.z) {
                 continue;
             }
             free_placed_piece(node->get_placed_piece(), 0);
@@ -466,13 +468,13 @@ bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
     }
     // Every cell of the area and the ring round it.
     const std::span<const FloorCell> cells(&core::at(core::at(floor_, 0), 0), size_t{kFloorSize} * kFloorSize);
-    for (int x = area->x - 1; x < area->w + 1 + area->x; ++x) {
-        for (int z = area->z - 1; z < area->l + 1 + area->z; ++z) {
+    for (int cell_x = area->x - 1; cell_x < area->w + 1 + area->x; ++cell_x) {
+        for (int cell_z = area->z - 1; cell_z < area->l + 1 + area->z; ++cell_z) {
             FloorPieceRequest request{};
-            request.height = core::at(cells, (x * kFloorSize) + z).level_y_;
+            request.height = core::at(cells, (cell_x * kFloorSize) + cell_z).level_y_;
             request.index = request.height - 1;
-            request.x = x;
-            request.z = z;
+            request.x = cell_x;
+            request.z = cell_z;
             rebuild_floor_piece(&request);
         }
     }
