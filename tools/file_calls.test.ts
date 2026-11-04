@@ -34,13 +34,14 @@ function using(pattern: RegExp): string[] {
 
 // The folders that may call the file functions themselves.
 const ALLOWED = ["fs_win32/", "platform/", "tests/"];
-const outside = (names: string[]): string[] => names.filter((name) => !ALLOWED.some((folder) => name.startsWith(folder)));
+const outside = (names: string[]): string[] =>
+    names.filter((name) => !ALLOWED.some((folder) => name.startsWith(folder)));
 
 // Win32's file calls, the C runtime's streams, the C++ streams and std::filesystem.
 const FILE_CALLS = new RegExp(
     String.raw`\b(CreateFile[AW]?|ReadFile(Ex)?|WriteFile(Ex)?|SetFilePointer(Ex)?|GetFileSize(Ex)?|FlushFileBuffers|` +
-        String.raw`GetOverlappedResult|DeleteFile[AW]|MoveFile(Ex)?[AW]|CopyFile[AW]?|CreateDirectory[AW]|RemoveDirectory[AW]|` +
-        String.raw`FindFirstFile[AW]|FindNextFile[AW]|GetFileAttributes(Ex)?[AW]|GetDiskFreeSpace(Ex)?[AW]|` +
+        "GetOverlappedResult|DeleteFile[AW]|MoveFile(Ex)?[AW]|CopyFile[AW]?|CreateDirectory[AW]|RemoveDirectory[AW]|" +
+        "FindFirstFile[AW]|FindNextFile[AW]|GetFileAttributes(Ex)?[AW]|GetDiskFreeSpace(Ex)?[AW]|" +
         String.raw`fopen|fopen_s|_fsopen|_wfopen|_wfopen_s|_wfsopen|freopen|_open|_wopen|_sopen_s|fread|fseek|ftell|fclose|fgets|fscanf)\s*\(|` +
         String.raw`\bstd::(i|o)?fstream\b|\bstd::filesystem::|#\s*include\s*<(fstream|filesystem)>`,
 );
