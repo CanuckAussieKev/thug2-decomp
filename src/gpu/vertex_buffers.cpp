@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <gsl/assert>
 #include <gsl/pointers>
 
 #include "base/core/raw_view.h"
@@ -41,6 +42,14 @@ VertexBuffersState& vertex_buffers_state()
 {
     static core::NoDestroy<VertexBuffersState> state;
     return state.get();
+}
+
+// The renderer's device (set before any buffer is made; the buffers can't exist without one).
+IDirect3DDevice9& buffer_device()
+{
+    IDirect3DDevice9* device = vertex_buffers_state().device_;
+    Expects(device != nullptr);
+    return *device;
 }
 
 buffer_lists::Node*& vertex_buffers() { return vertex_buffers_state().vertex_buffer_list_; }
@@ -106,8 +115,8 @@ VertexBuffer::VertexBuffer(uint32_t bytes, BufferFlags creation)
     const auto usage_flags = creation.usage_flags_;
     const auto buffer_flags = creation.buffer_flags_;
     if ((buffer_flags & kShared) == 0U) {
-        vertex_buffers_state().device_->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
-                                         raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
+        buffer_device().CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
+                         raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
     }
     size_ = bytes;
     usage = usage_flags;
@@ -165,8 +174,8 @@ void VertexBuffer::recreate()
     if ((flags & kShared) != 0U) {
         d_3d(this)->AddRef();
     } else {
-        vertex_buffers_state().device_->CreateVertexBuffer(size_, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                         raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
+        buffer_device().CreateVertexBuffer(size_, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+                         raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
     }
     if ((flags & kNoCopy) != 0U) {
         return;
@@ -182,8 +191,8 @@ void VertexBuffer::recreate()
 IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
     : size_(bytes), usage_(usage_flags), format_(index_format), indices_(static_cast<uint16_t*>(alloc_block(bytes)))
 {
-    vertex_buffers_state().device_->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
-                                    D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer_), nullptr);
+    buffer_device().CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
+                    D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer_), nullptr);
     enlist(index_buffers(), this);
 }
 
