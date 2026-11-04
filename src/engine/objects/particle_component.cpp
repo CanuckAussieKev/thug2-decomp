@@ -11,7 +11,7 @@
 #include "engine/gfx/particle_sets.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/cscript.h"

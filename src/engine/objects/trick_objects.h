@@ -11,7 +11,7 @@
 #include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
 #include "base/core/checksums.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 
 // Pieces of the trick object code at the end of the viewer range (0x005880E0-0x0058817C) and the trick object
 // manager's (0x007CE500) lookups, graffiti colours and graffiti log (0x00588200-0x005889E0); the rest of it (its

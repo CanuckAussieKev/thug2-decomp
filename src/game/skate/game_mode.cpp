@@ -12,7 +12,7 @@
 #include "engine/memory/mem.h"
 #include "engine/script/param_struct.h"
 #include "game/goals/objective.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "game/skate/skate_module.h"
@@ -20,7 +20,7 @@
 #include "game/goals/goal_manager.h"
 #include "base/core/all_ones.h"
 #include "base/core/no_destroy.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include <gsl/pointers>
 #include <gsl/assert>
 

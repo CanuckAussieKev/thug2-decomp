@@ -11,8 +11,8 @@
 #include "base/maths/vec4.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
-#include "engine/net/gamenet_manager.h"
-#include "engine/net/player_info.h"
+#include "game/online/gamenet_manager.h"
+#include "game/online/player_info.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
@@ -25,7 +25,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 
 namespace objects {

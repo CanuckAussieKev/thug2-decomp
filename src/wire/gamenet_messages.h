@@ -290,7 +290,7 @@ bool read_news(util::ByteReader& reader, News* news);
 
 namespace thugpro {
 
-// NOT ORIGINAL - THUGPRO's connection request trailer (after THUG2's 92 bytes; engine/net/thugpro_join.h, TP-R12):
+// NOT ORIGINAL - THUGPRO's connection request trailer (after THUG2's 92 bytes; game/online/thugpro_join.h, TP-R12):
 //   +0x5C char[10] "_THUG_PRO_"   (0) x2   +0x68 u32 its protocol version   +0x6C u32 its release type
 //   +0x70 u32 its scripts' hash   +0x74 u32 its machine id   +0x78 u8 modified scripts   (0) x3
 constexpr size_t kMagicSize = 10;
@@ -308,7 +308,7 @@ struct ConnectTrailer {
 bool read_connect_trailer(util::ByteReader& reader, ConnectTrailer* message);
 bool write_connect_trailer(util::ByteWriter& writer, const ConnectTrailer& message);
 
-// NOT ORIGINAL - THUGPRO's messages (engine/net/thugpro_peer.h: the peer mode; register TP-R2 ... TP-R5):
+// NOT ORIGINAL - THUGPRO's messages (game/online/thugpro_peer.h: the peer mode; register TP-R2 ... TP-R5):
 //   76 chat (21 + the text's length; at most 149): the sender's machine id (u32), then THUG2's chat - the object id
 //     (u8), the name (char[16], ended inside it), the text and its NUL (at most 128 bytes)
 //   155 server info (16): the time of day (u32), the weather (u32), the flags (u64: bits 0-7 the level options,

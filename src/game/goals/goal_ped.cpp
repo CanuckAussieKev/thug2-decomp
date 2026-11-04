@@ -13,7 +13,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
 #include "base/maths/random.h"
-#include "engine/net/buddy_status.h"
+#include "game/online/buddy_status.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"

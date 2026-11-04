@@ -18,7 +18,7 @@ enum class MessageGroup : uint8_t {
 };
 
 // The id byte of every message (a transport message or the game's, one space of ids). Ids the game doesn't
-// list stay representable: a packet is read as its byte (THUGPRO's own ids: engine/net/thugpro_peer.h).
+// list stay representable: a packet is read as its byte (THUGPRO's own ids: game/online/thugpro_peer.h).
 enum class MessageId : uint8_t {
     kNone = 0x00, // (no message: an id not set yet)
     // the transport's (net_wire.h: their layouts)

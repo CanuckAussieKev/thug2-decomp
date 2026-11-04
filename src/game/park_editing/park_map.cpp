@@ -24,7 +24,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "game/park_editing/park_editing_state.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 
 namespace park_editing {
 

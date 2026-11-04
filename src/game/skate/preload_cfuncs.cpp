@@ -16,7 +16,7 @@
 #include "base/core/str.h"
 #include "engine/util/text_store.h"
 #include "base/maths/random.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -35,7 +35,7 @@
 #include "engine/objects/model_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include <gsl/pointers>
 
 namespace commands {

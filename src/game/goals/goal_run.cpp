@@ -15,7 +15,7 @@
 #include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/trick_objects.h"
@@ -32,7 +32,7 @@
 #include "game/rider/skater_state.h"
 #include "base/core/down_cast.h"
 #include "base/core/format.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace goals {
 

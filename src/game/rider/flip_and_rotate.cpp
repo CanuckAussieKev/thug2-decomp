@@ -7,10 +7,10 @@
 #include <array>
 
 #include "wire/message_ids.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/thaw_bmx.h"
@@ -26,7 +26,7 @@
 #include "engine/objects/model_component.h"
 #include "game/rider/rider.h"
 #include "base/core/down_cast.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace objects {
 

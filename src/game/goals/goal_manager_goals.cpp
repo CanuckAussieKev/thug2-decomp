@@ -12,14 +12,14 @@
 #include "game/goals/goal_net_types.h"
 #include "game/goals/goal_names.h"
 #include "game/goals/goal_types.h"
-#include "engine/net/gamenet_commands.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_commands.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/trick_goals.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
 

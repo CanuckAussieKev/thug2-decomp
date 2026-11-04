@@ -37,7 +37,7 @@
 #include "devtools/test_view.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/signal.h"
 #include "engine/lists/key_map.h"
@@ -59,7 +59,7 @@
 #include "platform/unique_handle.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace frontend::automation {
 

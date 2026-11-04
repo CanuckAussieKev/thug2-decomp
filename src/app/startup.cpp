@@ -28,7 +28,7 @@
 #include "game/save_cards/memcard.h"
 #include "base/maths/maths.h"
 #include "base/maths/random.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/component_types.h"
 #include "engine/objects/compositemgr.h"
@@ -55,7 +55,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/collide_and_die.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/core/language.h"
 
 namespace sys {

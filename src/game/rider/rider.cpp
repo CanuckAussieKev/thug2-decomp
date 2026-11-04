@@ -14,7 +14,7 @@
 
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checksums.h"
-#include "engine/net/buddy_status.h"
+#include "game/online/buddy_status.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
@@ -37,8 +37,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/assets/resource_registry.h"
 #include "game/front_end/front_end.h"
-#include "engine/net/gamenet_manager.h"
-#include "engine/net/player_info.h"
+#include "game/online/gamenet_manager.h"
+#include "game/online/player_info.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/model_component.h"
@@ -101,7 +101,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "wire/message_ids.h"
 
 namespace objects {

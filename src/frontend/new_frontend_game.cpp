@@ -12,7 +12,7 @@
 #include "editor/level_editor.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/entity.h"
@@ -24,7 +24,7 @@
 #include "engine/pad_input/device.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace frontend::new_frontend::game_screens {
 

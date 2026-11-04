@@ -223,7 +223,7 @@ public:
     void set_temp_bloom_params(script::Struct* params);
     void enable_bloom(int on);
 
-    // NOT ORIGINAL (THUGPRO's time of day in network games - engine/net/thugpro_peer.h): the first non-sky system's
+    // NOT ORIGINAL (THUGPRO's time of day in network games - game/online/thugpro_peer.h): the first non-sky system's
     // state (0 if both are sky systems), and whether set_tod_instant(state) can run - it loops for ever unless the
     // current state and `state` are among the four, and reads each state's structure on the way.
     [[nodiscard]] uint32_t current_state() const;
@@ -292,7 +292,7 @@ void add_bloom_params(BloomParams bloom, script::Struct* out);
 using TodParamsFilter = bool (*)(TodParams* params);
 void set_tod_params_filter(TodParamsFilter filter);
 
-// NOT ORIGINAL - THUGPRO's time of day in network games (engine/net/thugpro_peer.h): in a multiplayer game the original
+// NOT ORIGINAL - THUGPRO's time of day in network games (game/online/thugpro_peer.h): in a multiplayer game the original
 // leaves the lights as they are - reset_level_lights, set_tod_instant and enable_bloom do nothing. THUGPRO's DLL lifts
 // that (its 4 byte patches at 0x00573BF8, 0x00574683, 0x00574410; its 4th, 0x00574375, makes set_temp_bloom_params
 // always take the multiplayer branch - what it already does in a multiplayer game). When the unlock is set and says

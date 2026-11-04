@@ -25,9 +25,9 @@
 #include "engine/audio/music_player.h"
 #include "engine/memory/manager.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "engine/net/gamenet_qr2.h"
-#include "engine/net/gamenet_manager.h"
-#include "engine/net/online_identity.h"
+#include "game/online/gamenet_qr2.h"
+#include "game/online/gamenet_manager.h"
+#include "game/online/online_identity.h"
 #include "engine/pad_input/device.h"
 #include "platform/run_log.h"
 #include "app/startup.h"
@@ -49,8 +49,8 @@
 #include "base/core/format.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
-#include "engine/net/player_info.h"
+#include "game/online/net_game_state.h"
+#include "game/online/player_info.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -363,7 +363,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     // (the reference build's own patch loads a DLL here - LoadLibraryA(<the name at 0x0064B198>) in a code cave (0x005480A1)
     // called in place of gsi_start_available_check, which the cave then jumps to. PartyMod is part of the game's
     // source here, so nothing is loaded.)
-    // (the game name: "thps6pc", or [Miscellaneous] OnlineGameName - engine/net/online_identity.h)
+    // (the game name: "thps6pc", or [Miscellaneous] OnlineGameName - game/online/online_identity.h)
     gsi_start_available_check(net::get_game_name());
     int available = 0;
     while ((available = gsi_available_check_think()) == 0) {

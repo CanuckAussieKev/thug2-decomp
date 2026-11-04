@@ -20,8 +20,8 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/screen.h"
-#include "engine/net/gamenet_manager.h"
-#include "engine/net/thugpro_compat.h"
+#include "game/online/gamenet_manager.h"
+#include "game/online/thugpro_compat.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/thugpro_cas.h"
 #include "engine/pad_input/device.h"
@@ -33,7 +33,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "engine/objects/objects_shared.h"
 
 namespace frame_loop {
@@ -214,7 +214,7 @@ void Hub::get_main_loop()
         sio::read_keyboard();
         os_layer::process_window_events();
         service_network();
-        // Not original - THUGPRO's big-level positions in network games (TP-R6, engine/net/thugpro_compat.h).
+        // Not original - THUGPRO's big-level positions in network games (TP-R6, game/online/thugpro_compat.h).
         online::thugpro::refresh_position_scale();
         // Not original - THUGPRO's own CAS parts from the user's install, once the CAS lists are loaded (TP-R10).
         objects::thugpro_cas::load_once();

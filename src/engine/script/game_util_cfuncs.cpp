@@ -28,7 +28,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/span_copy.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 #include <gsl/pointers>
 #include <span>
 #include <string_view>

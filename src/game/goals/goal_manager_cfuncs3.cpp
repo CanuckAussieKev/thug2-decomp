@@ -14,7 +14,7 @@
 #include "game/goals/goal_manager_cfuncs.h"
 #include "game/goals/goal_names.h"
 #include "game/goals/goal_types.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/script/cscript.h"
@@ -26,7 +26,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "base/core/down_cast.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace goals {
 

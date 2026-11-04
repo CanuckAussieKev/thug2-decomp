@@ -23,7 +23,7 @@
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/game_objects.h"
@@ -58,7 +58,7 @@
 #include "engine/sys/game_config.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "engine/script/script_state.h"
 
 namespace {

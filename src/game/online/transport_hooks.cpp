@@ -4,8 +4,8 @@
 
 #include "engine/net/net_compress.h"
 #include "engine/net/net_dispatcher.h"
-#include "engine/net/net_guards.h"
-#include "engine/net/thugpro_peer.h"
+#include "game/online/net_guards.h"
+#include "game/online/thugpro_peer.h"
 
 namespace online {
 

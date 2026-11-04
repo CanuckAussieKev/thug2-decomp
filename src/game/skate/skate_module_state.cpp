@@ -20,10 +20,10 @@
 #include "engine/script/fwd.h"
 #include "game/goals/goal_manager.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/proximity.h"
@@ -52,7 +52,7 @@
 #include "engine/sys/mlp.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "wire/message_ids.h"
 
 namespace modules {

@@ -13,7 +13,7 @@
 #include "base/maths/vec4.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/model_component_nx.h"

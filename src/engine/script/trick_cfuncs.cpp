@@ -11,7 +11,7 @@
 #include "base/core/dbg.h"
 #include "game/front_end/front_end.h"
 #include "engine/gfx/texture_cfuncs.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/audio/music_player.h"
 #include "engine/script/cscript.h"
@@ -30,8 +30,8 @@
 #include "game/goals/create_a_trick.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
-#include "engine/net/player_info.h"
+#include "game/online/net_game_state.h"
+#include "game/online/player_info.h"
 #include <gsl/pointers>
 
 namespace commands {

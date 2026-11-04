@@ -10,7 +10,7 @@
 #include <array>
 
 #include "base/maths/mat4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/cscript.h"

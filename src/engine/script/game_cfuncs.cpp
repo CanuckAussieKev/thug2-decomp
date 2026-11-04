@@ -41,7 +41,7 @@
 #include "engine/file/async.h"
 #include "game/front_end/front_end.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"
@@ -74,9 +74,9 @@
 #include "base/core/no_destroy.h"
 #include "engine/sys/game_config.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "engine/script/script_state.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 
 namespace {
 constexpr size_t kPasswordStarsBytes = 32;

@@ -7,8 +7,8 @@
 
 #include "engine/memory/manager.h"
 #include "engine/ui/screen_element_manager.h"
-#include "engine/net/gamenet_manager.h"
-#include "engine/net/player_info.h"
+#include "game/online/gamenet_manager.h"
+#include "game/online/player_info.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -18,7 +18,7 @@
 #include "game/skate/point_tally.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace commands {
 

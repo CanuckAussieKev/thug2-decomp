@@ -13,7 +13,7 @@
 #include "engine/objects/control_pad.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/vibration_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"

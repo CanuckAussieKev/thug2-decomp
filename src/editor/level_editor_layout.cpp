@@ -46,7 +46,7 @@
 #include "editor/level_editor_scale.h"
 #include "engine/gfx/screen.h"
 #include "base/maths/mat4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -62,7 +62,7 @@
 #include <gsl/pointers>
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace frontend::level_editor::layout {
 

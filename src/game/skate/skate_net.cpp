@@ -17,13 +17,13 @@
 #include "engine/memory/task_list.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
-#include "engine/net/player_info.h"
-#include "engine/net/thugpro_compat.h"
-#include "engine/net/thugpro_peer.h"
+#include "game/online/player_info.h"
+#include "game/online/thugpro_compat.h"
+#include "game/online/thugpro_peer.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/objects/trick_objects.h"
@@ -55,7 +55,7 @@
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "base/core/format.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "wire/message_ids.h"
 #include "wire/object_updates.h"
 
@@ -338,7 +338,7 @@ void SkateNet::add_client_handlers(Skate* skate, net::AppHost* client, int index
             append_listener(client, id, handle_scavenger_hunt, 0, skate);
         }
     }
-    // NOT ORIGINAL - the THUGPRO peer mode's messages, 155-159 (engine/net/thugpro_peer.h)
+    // NOT ORIGINAL - the THUGPRO peer mode's messages, 155-159 (game/online/thugpro_peer.h)
     if (online::thugpro::peer_mode()) {
         online::thugpro::add_client_handlers(client, skate);
     }

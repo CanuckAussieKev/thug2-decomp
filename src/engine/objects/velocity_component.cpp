@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"

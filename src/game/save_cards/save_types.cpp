@@ -1,7 +1,7 @@
 // The save file types and the memory card commands' helpers (see save_types.h).
 
 #include "game/save_cards/save_types.h"
-#include "engine/net/buddy_status.h"
+#include "game/online/buddy_status.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -17,7 +17,7 @@
 #include "formats/park_map_format.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard_cfuncs.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/tracker.h"
 #include "game/skate/career.h"
 #include "engine/objects/entity.h"
@@ -33,7 +33,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "game/save_cards/save_cards_state.h"
 
 namespace {

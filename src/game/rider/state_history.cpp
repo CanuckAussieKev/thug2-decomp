@@ -12,10 +12,10 @@
 #include <string_view>
 
 #include "base/maths/vec4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 #include "engine/objects/game_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -35,7 +35,7 @@
 #include "formats/byte_stream.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "wire/message_ids.h"
 
 namespace objects {

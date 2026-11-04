@@ -23,7 +23,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/net/gamenet_handlers.h"
+#include "game/online/gamenet_handlers.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_manager.h"

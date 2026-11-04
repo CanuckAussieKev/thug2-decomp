@@ -11,7 +11,7 @@
 #include "game/goals/goal_names.h"
 #include "engine/gfx/view_cam.h"
 #include "base/maths/vec4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -26,7 +26,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/model_component.h"
 #include "base/core/down_cast.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 namespace goals {
 
 namespace {

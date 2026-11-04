@@ -16,7 +16,7 @@
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
 #include "engine/ext/extension.h"
-#include "engine/net/thugpro_peer.h"
+#include "game/online/thugpro_peer.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/tracker.h"
@@ -654,7 +654,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
 {
     FrontEnd* front_end = handler->content();
     // (not original - once a frame, with the first controller's handler: the THUGPRO peer mode's host options
-    // applied once a level is up - engine/net/thugpro_peer.h -, then the extensions' frames - engine/ext/extension.h:
+    // applied once a level is up - game/online/thugpro_peer.h -, then the extensions' frames - engine/ext/extension.h:
     // the dev tools' keys and commands, the level editor's input logic, the new front end, the mouse's menu events)
     if (handler->ordinal() == 0) {
         online::thugpro::tick_frame();

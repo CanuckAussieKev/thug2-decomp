@@ -24,7 +24,7 @@
 #include "game/rider/balance_trick.h"
 #include "game/rider/walk_physics.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace skater {
 

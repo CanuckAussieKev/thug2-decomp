@@ -15,7 +15,7 @@
 #include "game/goals/goal_names.h"
 #include "game/goals/goal_types.h"
 #include "engine/lists/chain_start.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/objects/entity.h"
@@ -36,7 +36,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 #include "wire/message_ids.h"
 #include <gsl/pointers>

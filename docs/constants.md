@@ -31,14 +31,14 @@ The index below lists each kind of shared constant or enum and the header that h
 
 | Kind | Header |
 |---|---|
-| Player slots of a network game (8: the rider slots, the per-skater records) | `engine/net/player_info.h` (`online::kPlayerSlotCount`, the player flags) |
-| Network message ids, the transport's and the game's (`online::MessageId`), and the sequenced message groups (`MessageGroup`) | `wire/message_ids.h` (THUGPRO's own ids: `engine/net/thugpro_peer.h`; the model viewer link's: `engine/sys/viewer_object.h`) |
+| Player slots of a network game (8: the rider slots, the per-skater records) | `game/online/player_info.h` (`online::kPlayerSlotCount`, the player flags) |
+| Network message ids, the transport's and the game's (`online::MessageId`), and the sequenced message groups (`MessageGroup`) | `wire/message_ids.h` (THUGPRO's own ids: `game/online/thugpro_peer.h`; the model viewer link's: `engine/sys/viewer_object.h`) |
 | The transport's stream layouts | `wire/net_wire.h` |
 | The object-update stream (the skaters' states) | `wire/object_updates.h` |
-| GameSpy game / product ids, the SDK threads' stack | `engine/net/online_identity.h` |
-| Server list sizes; the online service's states (`online::ServiceState`) | `engine/net/server_list.h`, `engine/net/service.h` |
-| Join refusal reasons and join phases (`JoinRefusedReason`, `EntryPhase`) | `engine/net/gamenet_manager.h` |
-| A player's flags (`online::PlayerFlag`, a flag enum) | `engine/net/player_info.h` |
+| GameSpy game / product ids, the SDK threads' stack | `game/online/online_identity.h` |
+| Server list sizes; the online service's states (`online::ServiceState`) | `game/online/server_list.h`, `game/online/service.h` |
+| Join refusal reasons and join phases (`JoinRefusedReason`, `EntryPhase`) | `game/online/gamenet_manager.h` |
+| A player's flags (`online::PlayerFlag`, a flag enum) | `game/online/player_info.h` |
 | Park floor size and levels, the saved park map's layout | `formats/park_map_format.h` |
 | Park editor limits and sizes | `game/park_editing/park.h` |
 | QB script tokens (`script::QbToken`) and token sizes | `engine/script/qb.h` |

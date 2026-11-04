@@ -1,7 +1,7 @@
 // What a save holds and how it is put back (see save_contents.h).
 
 #include "game/save_cards/save_contents.h"
-#include "engine/net/buddy_status.h"
+#include "game/online/buddy_status.h"
 
 #include <cstdint>
 #include <array>
@@ -13,7 +13,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard_cfuncs.h"
 #include "game/save_cards/save_types.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
 #include "engine/audio/music_player.h"
@@ -32,7 +32,7 @@
 #include "engine/gfx/rig.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "game/save_cards/save_cards_state.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>

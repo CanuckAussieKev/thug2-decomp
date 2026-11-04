@@ -14,7 +14,7 @@
 #include "engine/lists/key_map.h"
 #include "base/maths/random.h"
 #include "base/maths/vec4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/script/param_struct.h"
@@ -26,7 +26,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include <gsl/pointers>
 #include <string_view>
 #include <gsl/assert>

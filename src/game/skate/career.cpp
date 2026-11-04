@@ -18,7 +18,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>

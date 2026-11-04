@@ -9,7 +9,7 @@
 
 #include "base/maths/maths.h"
 #include "base/maths/random.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"
@@ -27,7 +27,7 @@
 #include "engine/objects/input_component.h"
 #include "base/core/ints.h"
 #include "base/core/down_cast.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 
 namespace objects {

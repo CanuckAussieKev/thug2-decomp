@@ -12,15 +12,15 @@
 #include "engine/gfx/model_utils.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
 #include "base/core/down_cast.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace render {
 class RenderModel;

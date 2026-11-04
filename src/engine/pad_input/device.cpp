@@ -40,7 +40,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "engine/objects/objects_shared.h"
 
 namespace sio {

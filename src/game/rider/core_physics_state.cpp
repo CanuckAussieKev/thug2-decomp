@@ -11,7 +11,7 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "base/maths/shape_tests.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/model_component.h"
@@ -39,7 +39,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "engine/objects/ride_tracker.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace skater {
 

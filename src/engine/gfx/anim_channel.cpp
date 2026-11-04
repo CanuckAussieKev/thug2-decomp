@@ -24,10 +24,10 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"
 #include "base/maths/maths.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/objects/anim_blender.h"
@@ -44,7 +44,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
 #include <gsl/assert>

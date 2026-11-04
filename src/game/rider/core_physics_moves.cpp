@@ -30,12 +30,12 @@
 #include "game/rider/trick_component.h"
 #include "engine/gfx/model_utils.h"
 #include "game/skate/skate_module.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_state.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "engine/render/coll_obj.h"
 #include <bit>
 

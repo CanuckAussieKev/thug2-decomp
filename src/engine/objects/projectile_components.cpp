@@ -10,10 +10,10 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/net/buddy_status.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/buddy_status.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/ped_logic.h"
 #include "engine/objects/suspend_component.h"
@@ -35,7 +35,7 @@
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
 #include "base/core/down_cast.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "wire/message_ids.h"
 
 namespace objects {

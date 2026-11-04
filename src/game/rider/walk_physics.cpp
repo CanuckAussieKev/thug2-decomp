@@ -40,7 +40,7 @@
 #include "game/rider/skater_score.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec4.h"
 

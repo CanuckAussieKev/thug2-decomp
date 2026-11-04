@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/script/cscript.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
@@ -13,7 +13,7 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace objects {
 

@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/render/probe_ray.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

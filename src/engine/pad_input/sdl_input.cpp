@@ -29,7 +29,7 @@
 #include "engine/pad_input/direct_input.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace sio {
 

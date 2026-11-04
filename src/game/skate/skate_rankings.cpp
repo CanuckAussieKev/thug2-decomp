@@ -15,9 +15,9 @@
 #include "engine/memory/mem.h"
 #include "engine/lists/chain_start.h"
 #include "game/goals/goal_manager.h"
-#include "engine/net/gamenet_manager.h"
-#include "engine/net/player_info.h"
-#include "engine/net/score_list.h"
+#include "game/online/gamenet_manager.h"
+#include "game/online/player_info.h"
+#include "game/online/score_list.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
@@ -25,7 +25,7 @@
 #include "base/core/ints.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/format.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace modules {
 

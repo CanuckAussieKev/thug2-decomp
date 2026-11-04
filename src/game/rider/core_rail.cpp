@@ -24,12 +24,12 @@
 #include "game/skate/point_tally.h"
 #include "game/park_editing/park_editor.h"
 #include "game/skate/skate_module.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_score.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "engine/render/coll_obj.h"
 
 namespace skater {

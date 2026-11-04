@@ -43,7 +43,7 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cache.h"
 #include "engine/script/cell.h"
@@ -58,7 +58,7 @@
 #include "platform/run_log.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include <gsl/pointers>
 
 namespace script {

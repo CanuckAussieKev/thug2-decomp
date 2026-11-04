@@ -1232,14 +1232,14 @@ void CtodManager::set_tod_instant(uint32_t state)
     refresh_all(false);
 }
 
-// NOT ORIGINAL (engine/net/thugpro_peer.h)
+// NOT ORIGINAL (game/online/thugpro_peer.h)
 uint32_t CtodManager::current_state() const
 {
     const int index = current_system();
     return index < kSystems ? core::at(systems_, index).state : 0;
 }
 
-// NOT ORIGINAL (engine/net/thugpro_peer.h): set_tod_instant's walk, without moving - at most once round the four states:
+// NOT ORIGINAL (game/online/thugpro_peer.h): set_tod_instant's walk, without moving - at most once round the four states:
 // `state` is reached (an unknown current state or target never is) and every state on the way has its structure.
 bool CtodManager::can_set_tod_instant(uint32_t state) const
 {

@@ -49,7 +49,7 @@ request without the text (reason 6), with a version below 0.7 (31), "modified" w
 banned machine id (36) - the scripts hash itself isn't compared by the host. Its join request is THUG2's with the
 machine id as the profile id. Its client maps reasons 31-37 to its own texts. Ours now sends exactly that (TP-R12, the
 user's decision on the hash; our own release type "TUG2"), shows 31-37 in words (TP-R13), and as host skips the CD-key
-check (TP-R12). The join path is source (src/engine/net/gamenet_join.cpp). Hosting reads THUG2's 92 bytes of either
+check (TP-R12). The join path is source (src/game/online/gamenet_join.cpp). Hosting reads THUG2's 92 bytes of either
 request; a 48-byte request is too short and ignored.
 
 | | |

@@ -648,43 +648,43 @@ add_executable(thug2 WIN32
     src/engine/render/coll_tests.cpp
     src/engine/render/coll_tri.cpp
     src/game/online/transport_hooks.cpp
-    src/engine/net/chat.cpp
-    src/engine/net/stats.cpp
-    src/engine/net/buddy_man.cpp
-    src/engine/net/vault_man.cpp
-    src/engine/net/stats_man.cpp
-    src/engine/net/gamenet_join.cpp
-    src/engine/net/gamenet_manager.cpp
-    src/engine/net/gamenet_commands.cpp
-    src/engine/net/gamenet_game_commands.cpp
-    src/engine/net/gamenet_lists.cpp
-    src/engine/net/gamenet_members.cpp
-    src/engine/net/gamenet_player_lists.cpp
-    src/engine/net/gamenet_settings.cpp
-    src/engine/net/gamenet_state.cpp
-    src/engine/net/gamenet_handlers.cpp
-    src/engine/net/gamenet_game_handlers.cpp
-    src/engine/net/gamenet_server_handlers.cpp
-    src/engine/net/gamenet_session_handlers.cpp
-    src/engine/net/gamenet_tasks.cpp
-    src/engine/net/player_info.cpp
-    src/engine/net/player_flags.cpp
-    src/engine/net/score_list.cpp
-    src/engine/net/rooms.cpp
-    src/engine/net/server_list.cpp
-    src/engine/net/net_game_state.cpp
-    src/engine/net/server_browser.cpp
-    src/engine/net/buddy_status.cpp
-    src/engine/net/gamenet_players.cpp
-    src/engine/net/gamenet_game_cfuncs.cpp
-    src/engine/net/gamenet_flow.cpp
-    src/engine/net/gamenet_qr2.cpp
-    src/engine/net/gamenet_lobby.cpp
-    src/engine/net/gamenet_lobby_peer.cpp
-    src/engine/net/gamenet_lobby_cfuncs.cpp
-    src/engine/net/gamenet_lobby_menus.cpp
-    src/engine/net/gamenet_newplayers.cpp
-    src/engine/net/gamenet_manager_create.cpp
+    src/game/online/chat.cpp
+    src/game/online/stats.cpp
+    src/game/online/buddy_man.cpp
+    src/game/online/vault_man.cpp
+    src/game/online/stats_man.cpp
+    src/game/online/gamenet_join.cpp
+    src/game/online/gamenet_manager.cpp
+    src/game/online/gamenet_commands.cpp
+    src/game/online/gamenet_game_commands.cpp
+    src/game/online/gamenet_lists.cpp
+    src/game/online/gamenet_members.cpp
+    src/game/online/gamenet_player_lists.cpp
+    src/game/online/gamenet_settings.cpp
+    src/game/online/gamenet_state.cpp
+    src/game/online/gamenet_handlers.cpp
+    src/game/online/gamenet_game_handlers.cpp
+    src/game/online/gamenet_server_handlers.cpp
+    src/game/online/gamenet_session_handlers.cpp
+    src/game/online/gamenet_tasks.cpp
+    src/game/online/player_info.cpp
+    src/game/online/player_flags.cpp
+    src/game/online/score_list.cpp
+    src/game/online/rooms.cpp
+    src/game/online/server_list.cpp
+    src/game/online/net_game_state.cpp
+    src/game/online/server_browser.cpp
+    src/game/online/buddy_status.cpp
+    src/game/online/gamenet_players.cpp
+    src/game/online/gamenet_game_cfuncs.cpp
+    src/game/online/gamenet_flow.cpp
+    src/game/online/gamenet_qr2.cpp
+    src/game/online/gamenet_lobby.cpp
+    src/game/online/gamenet_lobby_peer.cpp
+    src/game/online/gamenet_lobby_cfuncs.cpp
+    src/game/online/gamenet_lobby_menus.cpp
+    src/game/online/gamenet_newplayers.cpp
+    src/game/online/gamenet_manager_create.cpp
     src/game/park_editing/park_accessors.cpp
     src/game/park_editing/cursor_tools.cpp
     src/game/park_editing/upper_menu.cpp
@@ -701,13 +701,13 @@ add_executable(thug2 WIN32
     src/game/park_editing/park_editor_cfuncs.cpp
     src/game/park_editing/park_scene.cpp
     src/game/park_editing/park_nodes.cpp
-    src/engine/net/service.cpp
-    src/engine/net/online_hosts.cpp
-    src/engine/net/online_identity.cpp
-    src/engine/net/thugpro_compat.cpp
-    src/engine/net/net_guards.cpp
-    src/engine/net/thugpro_join.cpp
-    src/engine/net/thugpro_peer.cpp
+    src/game/online/service.cpp
+    src/game/online/online_hosts.cpp
+    src/game/online/online_identity.cpp
+    src/game/online/thugpro_compat.cpp
+    src/game/online/net_guards.cpp
+    src/game/online/thugpro_join.cpp
+    src/game/online/thugpro_peer.cpp
     src/engine/net/net_dispatcher.cpp
     src/engine/net/net_app_messages.cpp
     src/engine/net/net_client.cpp
@@ -917,7 +917,7 @@ add_executable(thug2 WIN32
     src/engine/script/skate_cfuncs.cpp
     src/engine/script/trick_cfuncs.cpp
     src/engine/script/game_util_cfuncs.cpp
-    src/engine/net/hunt_cfuncs.cpp
+    src/game/online/hunt_cfuncs.cpp
     src/engine/gfx/face_texture_cfuncs.cpp
     src/engine/gfx/face_texture.cpp
     src/engine/gfx/custom_anim_key.cpp
@@ -955,7 +955,7 @@ target_compile_definitions(thug2 PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPU
 # The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
 # them deprecated unless this is defined.
 set_source_files_properties(
-    src/engine/net/gamenet_lobby_cfuncs.cpp src/engine/net/net_manager.cpp
+    src/game/online/gamenet_lobby_cfuncs.cpp src/engine/net/net_manager.cpp
     src/engine/net/net_manager_apps.cpp src/engine/sys/model_viewer.cpp src/platform/crt.cpp src/platform/sockets.cpp
     src/app/winmain.cpp
     PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)

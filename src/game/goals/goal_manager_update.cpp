@@ -19,7 +19,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_manager_cfuncs.h"
 #include "game/goals/goal_names.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/script/param_struct.h"
@@ -30,7 +30,7 @@
 #include <gsl/pointers>
 #include "engine/memory/mem.h"
 #include "base/core/format.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace goals {
 

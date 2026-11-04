@@ -16,7 +16,7 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "base/maths/random.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/render/probe_ray.h"
@@ -47,7 +47,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/engine_parts.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/maths/vec4.h"
 #include "wire/message_ids.h"
 

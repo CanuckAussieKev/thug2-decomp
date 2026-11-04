@@ -27,7 +27,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "engine/render/coll_obj.h"
 #include "base/maths/trig.h"
 

@@ -11,7 +11,7 @@
 #include "base/core/dbg.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -21,11 +21,11 @@
 #include "game/skate/victory_conditions.h"
 #include "game/rider/end_run.h"
 #include "game/rider/rider.h"
-#include "engine/net/player_info.h"
+#include "game/online/player_info.h"
 #include "game/skate/point_tally.h"
 #include "base/core/down_cast.h"
 #include "base/core/format.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 
 namespace goals {
 

@@ -12,7 +12,7 @@
 
 #include "engine/gfx/debug_lines.h"
 #include "base/maths/shape_tests.h"
-#include "engine/net/gamenet_manager.h"
+#include "game/online/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/render/coll_movable.h"
 #include "engine/objects/anim_blender.h"
@@ -27,7 +27,7 @@
 #include "engine/objects/input_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "engine/net/net_game_state.h"
+#include "game/online/net_game_state.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
