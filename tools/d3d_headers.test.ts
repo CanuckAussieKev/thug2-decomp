@@ -19,7 +19,7 @@ const DIRECT3D_HEADERS = new Set([
     "render_d3d9/d3d9_handles.h",
     "render_d3d9/d3d_matrix.h",
     "platform/d3dx_jpg.h",
-    "platform/imgui_texture_id.h",
+    "render_d3d9/imgui_texture_id.h",
 ]);
 
 const SDK_HEADER = /^\s*#\s*include\s*<(d3d9|d3d9types|d3d9caps|d3dx9\w*)\.h>/m;
@@ -59,23 +59,37 @@ test("only Direct3D's own headers see <d3d9.h>", () => {
     for (const name of DIRECT3D_HEADERS) assert.ok(known.has(name), `${name} is listed but missing`);
 });
 
-// The graphics backend is chosen in one place: app/ installs Direct3D 9's render::Device (docs/architecture.md, "The
-// graphics backend"); the engine side reaches it only through render::device().
-test("only app/ picks the Direct3D 9 device", () => {
-    const pickers: string[] = [];
+// The source files (relative to src/, / separators) whose text matches `pattern`.
+function including(pattern: RegExp): string[] {
+    const found: string[] = [];
     const walk = (folder: string): void => {
         for (const entry of readdirSync(folder, { withFileTypes: true })) {
             const path = join(folder, entry.name);
             if (entry.isDirectory()) walk(path);
-            else if (/\.(cpp|h)$/.test(entry.name)) {
-                const name = relative(SRC, path).replaceAll("\\", "/");
-                if (/^\s*#\s*include\s*"render_d3d9\/d3d9_device\.h"/m.test(readFileSync(path, "utf8")))
-                    pickers.push(name);
-            }
+            else if (/\.(cpp|h)$/.test(entry.name) && pattern.test(readFileSync(path, "utf8")))
+                found.push(relative(SRC, path).replaceAll("\\", "/"));
         }
     };
     walk(SRC);
-    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/d3d9_device.cpp").sort();
+    return found.sort();
+}
+
+// The graphics backend is chosen in one place: app/ installs Direct3D 9's render::Device (docs/architecture.md, "The
+// graphics backend"); the engine side reaches it only through render::device().
+test("only app/ picks the Direct3D 9 device", () => {
+    const pickers = including(/^\s*#\s*include\s*"render_d3d9\/d3d9_device\.h"/m);
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/d3d9_device.cpp");
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the device");
+});
+
+// Dear ImGui's platform and renderer backends are the graphics backend's (render::UiBackend, engine/gfx/ui_backend.h):
+// only render_d3d9/ includes their headers, and only app/ picks Direct3D 9's UI backend.
+test("only render_d3d9/ includes ImGui's backends; only app/ picks the UI backend", () => {
+    const backends = including(/^\s*#\s*include\s*"backends\/imgui_impl_\w+\.h"/m);
+    assert.deepEqual(backends.filter((name) => !name.startsWith("render_d3d9/")), []);
+    const pickers = including(/^\s*#\s*include\s*"render_d3d9\/d3d9_ui_backend\.h"/m);
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/d3d9_ui_backend.cpp");
+    assert.deepEqual(outside, []);
+    assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the UI backend");
 });

@@ -30,6 +30,8 @@ const BOUNDARY_FILES = new Set([
     "src/engine/gfx/vertex_view.h",
     // Direct3D's matrices over the game's (platform/ until stage 11 round 15)
     "src/render_d3d9/d3d_matrix.h",
+    // Dear ImGui's texture ids over Direct3D's textures (platform/ until stage 11 round 16)
+    "src/render_d3d9/imgui_texture_id.h",
     // the QB bytecode and its pre-compiled images, read in place
     "src/engine/script/qb.cpp",
     "src/engine/script/token_reader.cpp",

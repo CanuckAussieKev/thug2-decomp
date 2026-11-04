@@ -2,16 +2,19 @@
 
 #include <cstdint>
 #include "base/core/packed_colour.h"
+#include "engine/gfx/ui_backend.h"
 
 union SDL_Event;
 
-// NOT ORIGINAL - the level editor's UI layer, its backend (ours; see level_editor_ui.h): the one file that ties Dear
-// ImGui to the platform and the renderer - ImGui's official SDL2 platform backend (the game's window and input are
-// SDL2's: platform/sdl_window.h, engine/pad_input/sdl_input.cpp) and its Direct3D 9 renderer backend (the game's device,
-// 0x007D69E0). Renderer-independence rules (the user's requirement - OpenGL or Vulkan later only swap this file):
-//   - only level_editor_ui_backend.cpp includes Direct3D or an ImGui backend header;
+// NOT ORIGINAL - the level editor's UI layer, its backend (ours; see level_editor_ui.h): the editor's and the new front
+// end's way to Dear ImGui's platform and renderer backends - the installed render::UiBackend (engine/gfx/ui_backend.h;
+// app/ installs Direct3D 9's, render_d3d9/d3d9_ui_backend.h: ImGui's official SDL2 platform backend - the game's
+// window and input are SDL2's: platform/sdl_window.h, engine/pad_input/sdl_input.cpp - and its Direct3D 9 renderer
+// backend on the game's device). Renderer-independence rules (the user's requirement - Vulkan later only swaps the
+// UI backend):
+//   - no editor or front-end file includes Direct3D or an ImGui backend header (render_d3d9 alone does);
 //   - every gizmo and line is drawn through ImGui draw lists (level_editor_ui.cpp), projected to the screen;
-//   - a texture handed to ImGui goes through get_texture_id.
+//   - a picture ImGui shows is the UI backend's (an image it made, or its preview / atlas target).
 // ImGui's coordinates are the window's pixels (what SDL's mouse events are in); Render scales its draw data to the
 // back buffer when the two differ.
 namespace frontend::level_editor::ui_backend {
@@ -38,9 +41,6 @@ struct SizeOut {
     int* height{};
 };
 void back_buffer_size(SizeOut size);
-// The one place a renderer texture becomes an ImGui texture id.
-uint64_t get_texture_id(void* renderer_texture);
-
 // Several ImGui contexts may use these backends (the editor's and the new front end's - frontend/new_frontend.h):
 // Init / Ready / process_event / NewFrame / Render act on the CURRENT context (each keeps its own backend data).
 // invalidate_context_objects drops only the current context's device objects (its font texture), not the editor's
@@ -50,12 +50,9 @@ void invalidate_context_objects();
 // A picture for ImGui made from texels in memory (the new front end's loading screens): `rows` rows of `row_bytes`
 // bytes - 32-bit BGRA texels (A8R8G8B8), or rows of 4x4 DXT1 blocks. A managed texture (it survives a device reset);
 // 0 when it can't be made. release_texture frees it.
-enum class PixelLayout : uint8_t { kBgra32, kDxt1 };
+using PixelLayout = render::UiPixelLayout;
 // An image's bytes per row and its row count.
-struct RowLayout {
-    int row_bytes_{};
-    int rows{};
-};
+using RowLayout = render::UiRowLayout;
 
 uint64_t create_texture(int width, int height, PixelLayout format, const void* data, RowLayout row_layout);
 void release_texture(uint64_t id);

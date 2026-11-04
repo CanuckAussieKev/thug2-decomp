@@ -21,6 +21,8 @@
 #include "app/extensions.h"
 #include "app/winmain.h"
 #include "render_d3d9/d3d9_device.h"
+#include "render_d3d9/d3d9_ui_backend.h"
+#include "engine/gfx/ui_backend.h"
 #include "engine/gfx/loading_console.h"
 #include "render_d3d9/loading_console_panel.h"
 #include "engine/gfx/render_device.h"
@@ -80,6 +82,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     sys::install_game_hooks();
     // NOT ORIGINAL: the graphics backend the engine draws with (engine/gfx/render_device.h): Direct3D 9, the only one.
     render::install_device(render::d3d9::device());
+    // NOT ORIGINAL: Dear ImGui's platform and renderer backends for our UI layers - the level editor's, the new front
+    // end's (engine/gfx/ui_backend.h): Direct3D 9's.
+    render::install_ui_backend(render::d3d9::ui_backend());
     // NOT ORIGINAL: the loading console's panel, which that backend draws (engine/gfx/loading_console.h).
     gfx::loading_console::install_panel(gfx::loading_console::panel_hooks());
     // NOT ORIGINAL: [features] debug_collision's log after each feeler query (game/rider/debug_collision.h).

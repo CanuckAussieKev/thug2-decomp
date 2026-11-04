@@ -64,6 +64,8 @@ add_library(thug2_render_d3d9 STATIC
     graphics_options_d3d.cpp
     pc_d3d_resources.cpp
     vertex_buffers.cpp
+    d3d9_ui_backend.cpp
 )
-# imgui: the loading console's panel (loading_console_panel.cpp: its font atlas)
-target_link_libraries(thug2_render_d3d9 PUBLIC thug2_engine PRIVATE imgui)
+# imgui: the loading console's panel (loading_console_panel.cpp: its font atlas); imgui_backends: ImGui's SDL2 and
+# Direct3D 9 backends (d3d9_ui_backend.cpp: render::UiBackend)
+target_link_libraries(thug2_render_d3d9 PUBLIC thug2_engine PRIVATE imgui imgui_backends)

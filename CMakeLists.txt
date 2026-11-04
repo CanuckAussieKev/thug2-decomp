@@ -61,8 +61,9 @@ set_target_properties(d3dx9 PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${THUG2_D3DX9_NATIVE}/include")
 
 # --- Dear ImGui 1.91.9b (MIT, see THIRD_PARTY_NOTICES.md) -----------------------------------------------
-# The level editor's UI layer (src/editor/level_editor_ui*.cpp): the core, the official SDL2 platform backend
-# and the Direct3D 9 renderer backend. Only level_editor_ui_backend.cpp includes the backends' headers.
+# Our UI layers (the level editor's src/editor/level_editor_ui*.cpp, the new front end's src/frontend/new_frontend*.cpp):
+# the core (imgui), and the official SDL2 platform backend with the Direct3D 9 renderer backend (imgui_backends: the
+# graphics backend's - only render_d3d9/d3d9_ui_backend.cpp includes their headers; render::UiBackend).
 FetchContent_Declare(imgui
     URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz
     URL_HASH SHA256=8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb
@@ -72,14 +73,16 @@ add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
+target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT)
+target_compile_options(imgui PRIVATE /W0)
+add_library(imgui_backends STATIC
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp)
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR}
-    PRIVATE "${CMAKE_BINARY_DIR}/sdl2-include/SDL2") # (the SDL2 backend includes <SDL.h>)
-target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT)
-target_link_libraries(imgui PRIVATE sdl2)
-target_compile_options(imgui PRIVATE /W0)
+target_include_directories(imgui_backends PRIVATE "${CMAKE_BINARY_DIR}/sdl2-include/SDL2") # (the SDL2 backend includes <SDL.h>)
+target_link_libraries(imgui_backends PUBLIC imgui PRIVATE sdl2)
+target_compile_options(imgui_backends PRIVATE /W0)
 
 # --- stb_image_write 1.16 (Sean Barrett, public domain or MIT, see THIRD_PARTY_NOTICES.md) ---------
 # The screenshot key's PNG writer (src/platform/screenshot_files.cpp): the stb repository at commit 1ee679c (2021-07-12, stb_image_write's last change), headers only.
