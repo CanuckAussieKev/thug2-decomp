@@ -150,18 +150,18 @@ int compare_occluders(const void* a, const void* b)
     // (qsort hands out const pointers; the occluders are the array's own)
     Occluder* first = mutable_within(occluder_array().data(), static_cast<const Occluder*>(a));
     Occluder* second = mutable_within(occluder_array().data(), static_cast<const Occluder*>(b));
-    if (!first->poly->enabled) {
+    if (first->poly->enabled == 0U) {
         core::at(first->hidden, 0) = 0;
     }
-    if (!second->poly->enabled) {
+    if (second->poly->enabled == 0U) {
         core::at(second->hidden, 0) = 0;
     }
     const int first_hidden0 = core::at(first->hidden, 0);
     const int second_hidden0 = core::at(second->hidden, 0);
-    if (!first->poly->enabled) {
+    if (first->poly->enabled == 0U) {
         core::at(first->hidden, 1) = 0;
     }
-    if (!second->poly->enabled) {
+    if (second->poly->enabled == 0U) {
         core::at(second->hidden, 1) = 0;
     }
     const int first_sum = first_hidden0 + core::at(first->hidden, 1);
@@ -197,7 +197,7 @@ void activate_occluder_poly(uint32_t checksum, bool enabled)
 {
     for (uint32_t i = 0; i < poly_count(); ++i) {
         if (core::at(polys(), i).checksum == checksum) {
-            core::at(polys(), i).enabled = enabled;
+            core::at(polys(), i).enabled = static_cast<uint8_t>(enabled);
         }
     }
 }
@@ -222,7 +222,7 @@ void add_occluders()
     uint32_t added = 0;
     for (uint32_t looked = 0;;) {
         OccluderPolygon& poly = core::at(polys(), next++);
-        if (!poly.in_use_ && poly.enabled) {
+        if ((poly.in_use_ == 0U) && (poly.enabled != 0U)) {
             if (occluders < kOccluderLimit) {
                 Occluder& occluder = core::at(occluder_array(), occluders++);
                 occluder.poly = &poly;

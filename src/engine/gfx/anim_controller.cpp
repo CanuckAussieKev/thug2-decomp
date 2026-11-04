@@ -325,7 +325,7 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
         if (!params->read_hash_value(kWeightedAnim, &anim, 0)) {
             params->read_hash_value(kAnimName, &anim, 0);
         }
-        if (anim) {
+        if (anim != 0U) {
             frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
         }
         params->fetch_float(kWeight, &weight_, 1);
@@ -588,11 +588,11 @@ int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* para
         script->args()->push_float(checksums::Name{kPartialAnimTime}, partial_->ongoing());
         script->args()->put_name_key(checksums::Name{kPartialAnim}, partial_->anim());
         Struct* out = script->args().get();
-        out->put_int(checksums::Name{kPartialAnimComplete}, is_accomplished(partial_));
+        out->put_int(checksums::Name{kPartialAnimComplete}, static_cast<int>(is_accomplished(partial_)));
         return 1;
     }
     case kReverse:
-        partial_->set_direction(partial_->direction() ? 0 : -1);
+        partial_->set_direction((partial_->direction() != 0) ? 0 : -1);
         return 1;
     default:
         return kNotMine;

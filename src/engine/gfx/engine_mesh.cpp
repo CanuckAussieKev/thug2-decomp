@@ -29,7 +29,7 @@ SubMesh::SubMesh() { core::at(collision_name_, 0) = 0; }
 // 0x00490A90
 void SubMesh::detach_hit_mesh()
 {
-    if (core::at(collision_name_, 0)) {
+    if (core::at(collision_name_, 0) != '\0') {
         packs::offload(collision_name_.data());
         core::at(collision_name_, 0) = 0;
     }

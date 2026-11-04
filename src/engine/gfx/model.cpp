@@ -33,7 +33,7 @@ namespace {
 // A flag of flag_bits_ set from a bit (the setters take a flag's low bit, as the original's shifts and masks).
 uint8_t set_flag(uint8_t flags, uint8_t flag, int bit)
 {
-    return static_cast<uint8_t>(bit ? flags | flag : flags & ~flag);
+    return static_cast<uint8_t>((bit != 0) ? flags | flag : flags & ~flag);
 }
 
 // The first geom's entry (as the original: through the head's next even when there's no head).
@@ -117,14 +117,14 @@ bool RenderModel::change_scale(const maths::Vec4* scale)
     // (compared as bit patterns)
     auto is_one = [](float value) { return std::bit_cast<uint32_t>(value) == kFloatOneBits; };
     const bool scaled = !(is_one(scale->x) && is_one(scale->y) && is_one(scale->z));
-    flag_bits_ = set_flag(flag_bits_, kModelScaled, scaled);
+    flag_bits_ = set_flag(flag_bits_, kModelScaled, static_cast<int>(scaled));
     return true;
 }
 
 // 0x00492F30
 maths::Vec4* RenderModel::fetch_bound_sphere(maths::Vec4* out)
 {
-    if (!(flag_bits_ & kModelSphereValid)) {
+    if ((flag_bits_ & kModelSphereValid) == 0) {
         maths::Vec4 sphere;
         enclosing_ball_ = *plat_get_bounding_sphere(&sphere);
         flag_bits_ |= kModelSphereValid;
@@ -136,7 +136,7 @@ maths::Vec4* RenderModel::fetch_bound_sphere(maths::Vec4* out)
 // 0x00492F90
 void RenderModel::set_bone_volumes(gfx::BoneVolumes* volumes)
 {
-    if (!geom_ring_.size()) {
+    if (geom_ring_.size() == 0) {
         return;
     }
     ModelGeom* first = first_entry(this);
@@ -148,7 +148,7 @@ void RenderModel::set_bone_volumes(gfx::BoneVolumes* volumes)
 // 0x00492FC0
 gfx::BoneVolumes* RenderModel::get_bone_volumes()
 {
-    if (!geom_ring_.size()) {
+    if (geom_ring_.size() == 0) {
         return nullptr;
     }
     const ModelGeom* first = first_entry(this);
@@ -195,7 +195,7 @@ uint32_t RenderModel::get_strip_break_flags()
         const ModelGeom* entry = table_row(node);
         if (entry->scene) {
             flags |= entry->scene->bone_count();
-        } else if (entry->asset_name_) {
+        } else if (entry->asset_name_ != 0U) {
             if (const auto* mesh =
                     static_cast<const PcMesh*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1))) {
                 flags |= mesh->bone_count();
@@ -255,7 +255,7 @@ bool RenderModel::destroy_lights()
 // 0x00493C60
 bool RenderModel::change_live(uint8_t active)
 {
-    if ((flag_bits_ & kModelHidden) && active) {
+    if (((flag_bits_ & kModelHidden) != 0) && (active != 0U)) {
         return false;
     }
     if (((flag_bits_ >> 1) & 1) != active) {
@@ -271,7 +271,7 @@ bool RenderModel::change_live(uint8_t active)
 bool RenderModel::conceal(uint8_t hide)
 {
     flag_bits_ = set_flag(flag_bits_, kModelHidden, hide & 1);
-    return change_live(hide == 0);
+    return change_live(static_cast<uint8_t>(hide == 0));
 }
 
 // 0x00493CD0
@@ -390,7 +390,7 @@ bool RenderModel::is_part_concealed(uint32_t name)
     bool hidden = true;
     int index = 0;
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++index) {
-        if (name == table_row(node)->name && (visible_geoms_ & geom_bit(index))) {
+        if (name == table_row(node)->name && ((visible_geoms_ & geom_bit(index)) != 0U)) {
             hidden = false;
         }
     }

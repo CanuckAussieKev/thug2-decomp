@@ -169,8 +169,8 @@ void change_phase(RenderStateId state, uint32_t value)
     auto& gfx = renderer();
     switch (state) {
     case RenderStateId::kZWrite:
-        if (value) {
-            if (!gfx.z_write()) {
+        if (value != 0U) {
+            if (gfx.z_write() == 0U) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
                 gfx.set_z_write(1);
             }
@@ -180,8 +180,8 @@ void change_phase(RenderStateId state, uint32_t value)
         }
         return;
     case RenderStateId::kZTest:
-        if (value) {
-            if (!get_z_test()) {
+        if (value != 0U) {
+            if (get_z_test() == 0U) {
                 render::set_render_state(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
                 get_z_test() = 1;
             }
@@ -195,13 +195,13 @@ void change_phase(RenderStateId state, uint32_t value)
             return;
         }
         alpha_test_level() = value;
-        if (value) {
+        if (value != 0U) {
             render::set_render_state(D3DRS_ALPHAREF, value);
-            if (!alpha_test()) {
+            if (alpha_test() == 0U) {
                 render::set_render_state(D3DRS_ALPHATESTENABLE, TRUE);
                 alpha_test() = 1;
             }
-        } else if (alpha_test()) {
+        } else if (alpha_test() != 0U) {
             render::set_render_state(D3DRS_ALPHATESTENABLE, FALSE);
             alpha_test() = 0;
         }
@@ -251,26 +251,26 @@ void change_phase(RenderStateId state, uint32_t value)
     case RenderStateId::kAlphaBlend:
         if (value != alpha_blend()) {
             alpha_blend() = value;
-            render::set_render_state(D3DRS_ALPHABLENDENABLE, value != 0);
+            render::set_render_state(D3DRS_ALPHABLENDENABLE, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kAlphaTest:
         if (value != alpha_test()) {
             alpha_test() = value;
-            render::set_render_state(D3DRS_ALPHATESTENABLE, value != 0);
+            render::set_render_state(D3DRS_ALPHATESTENABLE, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kSpecular:
         if (value != gfx.specular_state()) {
             gfx.set_specular(value);
-            render::set_render_state(D3DRS_SPECULARENABLE, value != 0);
-            render::set_render_state(D3DRS_LOCALVIEWER, value != 0);
+            render::set_render_state(D3DRS_SPECULARENABLE, static_cast<uint32_t>(value != 0));
+            render::set_render_state(D3DRS_LOCALVIEWER, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kFog:
         if (value != gfx.fog_active()) {
             gfx.set_fog_active(value);
-            render::set_render_state(D3DRS_FOGENABLE, value != 0);
+            render::set_render_state(D3DRS_FOGENABLE, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kDepthBias:
@@ -284,7 +284,7 @@ void change_phase(RenderStateId state, uint32_t value)
     case RenderStateId::kLighting:
         if (value != get_lighting()) {
             get_lighting() = value;
-            render::set_render_state(D3DRS_LIGHTING, value != 0);
+            render::set_render_state(D3DRS_LIGHTING, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kFilter0:
@@ -295,7 +295,7 @@ void change_phase(RenderStateId state, uint32_t value)
         uint32_t& cached = core::at(filters(), sampler);
         const uint32_t mag = value & 0xFFFF0000;
         if (mag != (cached & kHighHalfMask)) {
-            set_sampler(sampler, D3DSAMP_MAGFILTER, (value & kMagLinearBit) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+            set_sampler(sampler, D3DSAMP_MAGFILTER, ((value & kMagLinearBit) != 0U) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
             cached = (cached & kLowHalfMask) | mag;
         }
         const uint32_t min = value & 0xFFFF;
@@ -310,7 +310,7 @@ void change_phase(RenderStateId state, uint32_t value)
     }
     case RenderStateId::kLocalViewer:
         if (value != local_viewer()) {
-            local_viewer() = value != 0;
+            local_viewer() = static_cast<uint8_t>(value != 0);
             render::set_render_state(D3DRS_LOCALVIEWER, value);
         }
         return;
@@ -340,14 +340,14 @@ void set_texture(int stage, void* texture)
 // 0x004DA760
 void choose_blend_mode(uint32_t mode)
 {
-    const uint32_t wanted = forced_blend() ? forced_blend() : mode;
+    const uint32_t wanted = (forced_blend() != 0U) ? forced_blend() : mode;
     if (wanted == get_blend_mode()) {
         return;
     }
     const uint32_t kind = wanted & 0xFFFFFF;
     if (kind != (get_blend_mode() & kBlendModeMask)) {
         // Fog goes black under the additive and subtractive modes (1-4).
-        if (renderer().fog_active()) {
+        if (renderer().fog_active() != 0U) {
             if (kind >= 1 && kind <= 4) {
                 render::set_render_state(D3DRS_FOGCOLOR, 0);
             } else {
@@ -715,7 +715,7 @@ void apply_render_state()
     renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
     renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)
-    if (renderer().antialiasing() || graphics_options::chosen_samples()) { // the antialiasing setting
+    if (renderer().antialiasing() || (graphics_options::chosen_samples() != 0)) { // the antialiasing setting
         renderer().d3d_device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
     }
 }

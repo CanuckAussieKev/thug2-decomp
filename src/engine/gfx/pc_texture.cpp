@@ -73,7 +73,7 @@ TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit
 // at); empty when the texture is not being edited or the buffer is not there.
 std::span<uint32_t> run_of(const PcTexture* texture, uint32_t* pixels)
 {
-    if (!(texture->flag_bits() & 1) || !pixels) {
+    if (((texture->flag_bits() & 1) == 0U) || !pixels) {
         return {};
     }
     const TextureRef* image = get_edit(texture)->texture;
@@ -81,11 +81,11 @@ std::span<uint32_t> run_of(const PcTexture* texture, uint32_t* pixels)
 }
 std::span<uint32_t> edit_pixels(const PcTexture* texture)
 {
-    return (texture->flag_bits() & 1) ? run_of(texture, get_edit(texture)->pixels) : std::span<uint32_t>();
+    return ((texture->flag_bits() & 1) != 0U) ? run_of(texture, get_edit(texture)->pixels) : std::span<uint32_t>();
 }
 std::span<uint32_t> edit_original(const PcTexture* texture)
 {
-    return (texture->flag_bits() & 1) ? run_of(texture, get_edit(texture)->original) : std::span<uint32_t>();
+    return ((texture->flag_bits() & 1) != 0U) ? run_of(texture, get_edit(texture)->original) : std::span<uint32_t>();
 }
 
 gsl::owner<PcTexture*> alloc_pc_texture() { return new PcTexture; }
@@ -96,7 +96,7 @@ TextureRef* image_of(const BitmapTexture* texture) { return core::down_cast<cons
 
 TextureRef* PcTexture::get_texture() const
 {
-    return flag_bits() & 1 ? get_edit(this)->texture : static_cast<TextureRef*>(image_);
+    return ((flag_bits() & 1) != 0U) ? get_edit(this)->texture : static_cast<TextureRef*>(image_);
 }
 
 // 0x004C7EF0
@@ -109,7 +109,7 @@ void PcTexture::set_texture(TextureRef* texture)
 // 0x004C9D00
 PcTexture::~PcTexture()
 {
-    if (flag_bits() & 1) {
+    if ((flag_bits() & 1) != 0U) {
         end_edit();
     }
     if (auto* texture = static_cast<TextureRef*>(image_)) {
@@ -150,7 +150,7 @@ bool PcTexture::write_back(int /*unused1*/, const void* /*unused2*/)
     const uint32_t width = fetch_breadth();
     const uint32_t height = fetch_tallness();
     core::Cursor<uint32_t> row(texels, static_cast<std::ptrdiff_t>(height - 1) * static_cast<std::ptrdiff_t>(width));
-    for (uint32_t y = height; y; --y) {
+    for (uint32_t y = height; y != 0U; --y) {
         for (uint32_t x = 0; x < width; ++x) {
             row[x] = *pixels++;
         }
@@ -165,7 +165,7 @@ bool PcTexture::end_edit()
 {
     // (the edit's fields read whether or not it is one, as the original)
     auto* edit = get_edit(this);
-    void* texture = flag_bits() & 1 ? edit->texture : image_;
+    void* texture = ((flag_bits() & 1) != 0U) ? edit->texture : image_;
     if (edit->pixels) {
         memory::Hub::dealloc(edit->pixels);
         get_edit(this)->pixels = nullptr;
@@ -231,7 +231,7 @@ PcTexture::PcTexture(const PcTexture* source) : unknownc_(source->unknownc_)
     // (the source's size through its virtual functions)
     const uint32_t width = source->fetch_breadth();
     const uint32_t height = source->fetch_tallness();
-    if (!(source->flag_bits() & 1)) {
+    if ((source->flag_bits() & 1) == 0U) {
         image_ = copy;
         return;
     }
@@ -354,7 +354,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
                                             static_cast<size_t>(from_rect.Pitch) * rows);
         size_t write_at = 0;
         size_t read_at = 0;
-        for (uint32_t row = rows; row; --row) {
+        for (uint32_t row = rows; row != 0U; --row) {
             core::copy_into(read.subspan(read_at, row_bytes), write.subspan(write_at));
             write_at += into_rect.Pitch;
             read_at += from_rect.Pitch;
@@ -392,7 +392,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
                                                 static_cast<size_t>(width) * height);
         size_t row = static_cast<size_t>(height - 1) * width;
         size_t into_at = 0;
-        for (uint32_t y = height; y; --y) {
+        for (uint32_t y = height; y != 0U; --y) {
             core::copy_into(surface.subspan(row, width), pixels.subspan(into_at));
             into_at += width;
             row -= width;
@@ -593,7 +593,7 @@ bool PcTexture::modulate(uint32_t colour, bool cumulative)
 bool PcTexture::resize_from(const BitmapTexture* source_texture, int /*unused*/)
 {
     const auto* source = core::down_cast<const PcTexture>(source_texture);
-    if (!(flag_bits() & 1) || !(source->flag_bits() & 1)) {
+    if (((flag_bits() & 1) == 0U) || ((source->flag_bits() & 1) == 0U)) {
         return false;
     }
     const TextureRef* into = get_edit(this)->texture;
@@ -630,11 +630,11 @@ void PcTexture::read_rect(std::span<uint32_t> out, TexelArea area)
     const auto width = area.width;
     const auto height = area.height;
     const uint32_t image_width = get_texture()->image_width_;
-    if (flag_bits() & 1 && get_edit(this)->pixels) {
+    if (((flag_bits() & 1) != 0U) && get_edit(this)->pixels) {
         const std::span<const uint32_t> pixels = edit_pixels(this);
         size_t from_at = (static_cast<size_t>(y) * image_width) + x;
         size_t out_at = 0;
-        for (uint32_t row = height; row; --row) {
+        for (uint32_t row = height; row != 0U; --row) {
             core::copy_into(pixels.subspan(from_at, width), out.subspan(out_at));
             out_at += width;
             from_at += image_width;
@@ -649,7 +649,7 @@ void PcTexture::read_rect(std::span<uint32_t> out, TexelArea area)
     const std::span<const uint32_t> palette = render::TextureRef::palette_entries();
     core::Cursor<const uint8_t> row(texels, x + ((static_cast<int>(rows) - y - 1) * static_cast<int>(columns)));
     core::Cursor<uint32_t> out_cursor(out);
-    for (uint32_t r = rows; r; --r) {
+    for (uint32_t r = rows; r != 0U; --r) {
         for (uint32_t c = 0; c < columns; ++c) {
             *out_cursor++ = core::at(palette, row[c]);
         }
@@ -667,11 +667,11 @@ void PcTexture::write_rect(std::span<const uint32_t> in, TexelArea area)
     const auto height = area.height;
     const uint32_t image_width = get_texture()->image_width_;
     const uint32_t image_height = get_texture()->image_height_;
-    if (flag_bits() & 1 && get_edit(this)->pixels) {
+    if (((flag_bits() & 1) != 0U) && get_edit(this)->pixels) {
         const std::span<uint32_t> pixels = edit_pixels(this);
         size_t into_at = (static_cast<size_t>(y) * image_width) + x;
         size_t in_at = 0;
-        for (uint32_t row = height; row; --row) {
+        for (uint32_t row = height; row != 0U; --row) {
             core::copy_into(in.subspan(in_at, width), pixels.subspan(into_at));
             in_at += width;
             into_at += image_width;
@@ -682,7 +682,7 @@ void PcTexture::write_rect(std::span<const uint32_t> in, TexelArea area)
                                     static_cast<size_t>(image_height) * image_width);
     core::Cursor<uint8_t> row(texels, ((static_cast<int>(image_height) - y - 1) * static_cast<int>(image_width)) + x);
     core::Cursor<const uint32_t> in_cursor(in);
-    for (uint32_t r = height; r; --r) {
+    for (uint32_t r = height; r != 0U; --r) {
         for (uint32_t c = 0; c < width; ++c) {
             row[c] = nearest_palette_index(*in_cursor++);
         }
@@ -734,10 +734,10 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
     int row_x = ftol(origin_coord_x * kSubpixelScale);
     int row_y = ftol(static_cast<double>(origin_coord_y) * kSubpixelScale);
     core::Cursor<uint32_t> out(rotated);
-    for (uint32_t row = height; row; --row, row_x += yx_step, row_y += yy_step) {
+    for (uint32_t row = height; row != 0U; --row, row_x += yx_step, row_y += yy_step) {
         int x = row_x;
         int y = row_y;
-        for (uint32_t column = width; column; --column, x += xx_step, y += xy_step) {
+        for (uint32_t column = width; column != 0U; --column, x += xx_step, y += xy_step) {
             const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
             const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
             *out = sample_at(pixels, {.width = static_cast<int>(width), .height = static_cast<int>(height)}, {.sx = static_cast<int16_t>(cx >> kSubpixelBits), .sy = static_cast<int16_t>(cy >> kSubpixelBits), .fx = cx & kSubpixelMask, .fy = cy & kSubpixelMask});
@@ -757,7 +757,7 @@ bool PcTexture::get_stretch(Stretch stretch)
     auto amount = stretch.amount;
     const uint32_t width = get_texture()->image_width_;
     const uint32_t height = get_texture()->image_height_;
-    if (!amount) {
+    if (amount == 0) {
         return true;
     }
     const int at = position;
@@ -772,7 +772,7 @@ bool PcTexture::get_stretch(Stretch stretch)
     uint16_t new_width = 0;
     uint16_t new_height = 0;
     int offset = 0;
-    if (!vertical) { // (the part left of the column stretched by -amount, or the part from it by amount)
+    if (vertical == 0) { // (the part left of the column stretched by -amount, or the part from it by amount)
         if (end >= width) {
             amount = static_cast<int>(width) - at - 1;
         }
@@ -862,7 +862,7 @@ bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
                                           static_cast<size_t>(height) * width * 4);
     core::Cursor<uint32_t> into{edit_pixels(this)};
     core::Cursor<const uint8_t> row(texels, static_cast<std::ptrdiff_t>(height - 1) * static_cast<std::ptrdiff_t>(width) * 4); // (bottom row first, by its alpha)
-    for (uint32_t y = height; y; --y, row -= width * 4) {
+    for (uint32_t y = height; y != 0U; --y, row -= width * 4) {
         core::Cursor<const uint8_t> from = row;
         for (uint32_t x = 0; x < width; ++x, from += 4, ++into) {
             const uint8_t alpha = from[3];
@@ -890,7 +890,7 @@ bool PcTexture::shift_hue_sat_value(HsvShift shift, bool cumulative)
     const auto value = shift.value;
     const std::span<uint32_t> into = edit_pixels(this);
     std::span<const uint32_t> from;
-    if (flag_bits() & 1) {
+    if ((flag_bits() & 1) != 0U) {
         from = get_edit(this)->original && !cumulative ? edit_original(this) : into;
     }
     const int width = fetch_breadth();
@@ -976,7 +976,7 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
                 column = std::min(column, part_width - 1);
                 const uint32_t pixel = core::at(part, row_start + column);
                 const uint32_t texels_wide = get_texture()->width;
-                if (flag_bits() & 1 && get_edit(this)->pixels) {
+                if (((flag_bits() & 1) != 0U) && get_edit(this)->pixels) {
                     core::at(edit, (static_cast<uint16_t>(y) * texels_wide) + static_cast<uint16_t>(x)) = pixel;
                 }
             }
@@ -1014,7 +1014,7 @@ bool PcTexture::squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colou
     auto amount = stretch.amount;
     const uint32_t height = get_texture()->image_height_;
     const uint32_t width = get_texture()->image_width_;
-    if (!amount) {
+    if (amount == 0) {
         return true;
     }
     const int at = position;
@@ -1030,7 +1030,7 @@ bool PcTexture::squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colou
     uint16_t read_height = 0;
     uint16_t new_width = 0;
     uint16_t new_height = 0;
-    if (!vertical) {
+    if (vertical == 0) {
         if (end >= ints::as_signed(width)) {
             amount = static_cast<int>(width) - at - 1;
         }
@@ -1079,7 +1079,7 @@ bool PcTexture::squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colou
     copy_sub_image(part, into_x, into_y, {.width = read_width, .height = read_height}, squashed, {.width = new_width, .height = new_height});
     write_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
     if (!fill) { // (what was uncovered filled with the squashed part's edge column / row)
-        if (!vertical) {
+        if (vertical == 0) {
             const bool right = amount > 0;
             const int source = right ? 0 : new_width - 1;
             manager = memory::Hub::get_pull();
@@ -1218,7 +1218,7 @@ uint32_t pixel_layout(PixelFormat pixel_format, uint32_t last)
 {
     const auto compression = pixel_format.compression;
     const auto depth = pixel_format.depth;
-    if (compression) {
+    if (compression != 0U) {
         if (compression == 1 || compression == 2) {
             return D3DFMT_DXT1;
         }
@@ -1302,7 +1302,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         texture->height = std::max<uint16_t>(texture->height, 4);
         auto** d3d = (&texture->texture);
         bool damaged = false;
-        if (header.palette_size) {
+        if (header.palette_size != 0U) {
             // Palettized: an A8R8G8B8 texture made, the palette and the levels read - and dropped (the texture's
             // texels left as they are, as the original).
             texture->depth = kDepth32;
@@ -1390,7 +1390,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
                                     static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),
                                     D3DPOOL_MANAGED, d3d, nullptr);
         // (no palette read: the memory loader expects none, as the original)
-        if (!header.palette_size) {
+        if (header.palette_size == 0U) {
             texture->palette = nullptr;
         }
         bool damaged = false;

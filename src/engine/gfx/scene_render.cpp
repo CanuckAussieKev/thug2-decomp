@@ -85,13 +85,13 @@ public:
     bool get_visible(MeshRef* mesh) const
     {
         const uint32_t mesh_flags = mesh_traits(mesh);
-        if (!(mesh_flags & kMeshFlagActive) || (mesh_flags & kMeshFlagsHidden)) {
+        if (((mesh_flags & kMeshFlagActive) == 0U) || ((mesh_flags & kMeshFlagsHidden) != 0U)) {
             return false;
         }
         if (no_culling_) {
             return true;
         }
-        if (!(mesh->viewports() & viewport_bit_)) {
+        if ((mesh->viewports() & viewport_bit_) == 0) {
             return false;
         }
         const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius());
@@ -100,7 +100,7 @@ public:
         if (!sphere_in_view(centre, radius)) {
             return false;
         }
-        if ((flags_ & kRenderOcclusion) && sphere_occluded(centre, {.radius = radius, .weight = 1})) {
+        if (((flags_ & kRenderOcclusion) != 0U) && sphere_occluded(centre, {.radius = radius, .weight = 1})) {
             return false;
         }
         return true;
@@ -152,7 +152,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
     auto flags = scene_pass.flags;
     const auto viewport = scene_pass.viewport;
     Lap pass(flags);
-    if (scene->unknown40()) {
+    if (scene->unknown40() != 0U) {
         return;
     }
     // Not original - the level editor's Collision only view (engine/gfx/view_mode.h): no scene drawn in the 3D passes.
@@ -160,7 +160,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
     if (view_mode::world_hidden()) {
         return;
     }
-    if (flags & kDrawStencilOnly) {
+    if ((flags & kDrawStencilOnly) != 0U) {
         draw_shadow_volumes(scene, viewport);
         return;
     }
@@ -170,13 +170,13 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
     }
     pass.set_viewport(viewport);
 
-    if (flags & kRenderOpaque) {
+    if ((flags & kRenderOpaque) != 0U) {
         for (int i = 0; i < scene->first_transparent(); ++i) {
             MeshRef* mesh = core::at(scene->mesh_run(), i);
             if (!pass.get_visible(mesh)) {
                 continue;
             }
-            if (!(flags & kRenderNearFirst)) {
+            if ((flags & kRenderNearFirst) == 0U) {
                 pass.blit(mesh);
             } else {
                 // The near ones now; their depth kept for the far ones after. (Not a number: never drawn.)
@@ -188,7 +188,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
             }
             pass.remember(mesh);
         }
-        if (flags & kRenderNearFirst) {
+        if ((flags & kRenderNearFirst) != 0U) {
             const int count = pass.drawn();
             for (int j = 0; j < count; ++j) {
                 MeshRef* mesh = core::at(get_drawn(), j);
@@ -197,7 +197,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
                 }
             }
         }
-        if (scene->flags() & kSceneFlagShadows) { // shadows on the meshes drawn
+        if ((scene->flags() & kSceneFlagShadows) != 0U) { // shadows on the meshes drawn
             if (renderer().z_write() == 1) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
                 renderer().set_z_write(0);
@@ -211,18 +211,18 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
             if (min_filter == D3DTEXF_ANISOTROPIC) {
                 renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             }
-            if (!renderer().z_write()) {
+            if (renderer().z_write() == 0U) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
                 renderer().set_z_write(1);
             }
         }
         pass.forget_drawn();
-        if (flags & kRenderStats) {
+        if ((flags & kRenderStats) != 0U) {
             count_pass(1);
         }
     }
 
-    if (!(flags & kRenderTransparent)) {
+    if ((flags & kRenderTransparent) == 0U) {
         return;
     }
     // The transparent meshes up to the flagged ones.
@@ -265,10 +265,10 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
             pass.remember(mesh);
         }
     }
-    if (scene->flags() & kSceneFlagShadows) {
+    if ((scene->flags() & kSceneFlagShadows) != 0U) {
         draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
     }
-    if (flags & kRenderStats) {
+    if ((flags & kRenderStats) != 0U) {
         count_pass(2);
     }
 }

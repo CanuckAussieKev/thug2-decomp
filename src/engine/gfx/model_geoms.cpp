@@ -101,7 +101,7 @@ void delete_own_scene(gsl::owner<PcMesh*> mesh)
 // drawn (0x004A31E0).
 TextureSet* load_textures(const char* file_name, int tex_dict_offset, bool force_tex_dict)
 {
-    return load_model_textures(file_name, tex_dict_offset, force_tex_dict);
+    return load_model_textures(file_name, tex_dict_offset, static_cast<uint32_t>(force_tex_dict));
 }
 gsl::owner<PcMesh*> load_scene(const char* file_name, TextureSet* textures, int tex_dict_offset, bool shadow_volume)
 {
@@ -302,8 +302,8 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         std::array<char, kTexNameBytes> tex_name{};
         tex_params.flag0 = 0;
         tex_params.tex_dict_offset_ = tex_dict_offset;
-        tex_params.force_tex_dict_ = force_tex_dict;
-        tex_params.has_skinning_ = engine::split_skin_name(file_name, tex_name);
+        tex_params.force_tex_dict_ = static_cast<uint8_t>(force_tex_dict);
+        tex_params.has_skinning_ = static_cast<uint8_t>(engine::split_skin_name(file_name, tex_name));
         append_string(tex_name.data(), ".tex");
         if (by_name) {
             assets->get_asset_data_by_name(tex_name.data(), 1);
@@ -328,7 +328,8 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     } else {
         memory::push_mem_profile(file_name);
         TextureSet* textures = load_textures(file_name, tex_dict_offset, force_tex_dict);
-        gsl::owner<PcMesh*> own_scene = load_scene(file_name, textures, tex_dict_offset, (flag_bits_ >> kSkinFlagBit) & 1);
+        gsl::owner<PcMesh*> own_scene =
+            load_scene(file_name, textures, tex_dict_offset, ((flag_bits_ >> kSkinFlagBit) & 1) != 0);
         scene = own_scene; // (the geom's own: delete_own_scene frees it)
         memory::pop_mem_profile();
         entry->scene = scene;
@@ -396,10 +397,11 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
     const bool normal = display_mode_ == 0;
     int index = 0;
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++index) {
-        const bool active = normal && (flag_bits_ & kModelEnabledBit) && (visible_geoms_ & geom_bit(index));
-        set_geom_active(get_geom(node), active);
+        const bool active =
+            normal && ((flag_bits_ & kModelEnabledBit) != 0) && ((visible_geoms_ & geom_bit(index)) != 0U);
+        set_geom_active(get_geom(node), static_cast<uint8_t>(active));
     }
-    if (flag_bits_ & kModelScaled) {
+    if ((flag_bits_ & kModelScaled) != 0) {
         for (int row = 0; row < 3; ++row) {
             const float factor = size_factor_[row];
             for (int i = 0; i < 4; ++i) {
@@ -473,7 +475,7 @@ int RenderModel::test_bone_volumes(const maths::Seg* line, gfx::Rig* skeleton, c
                                                                        &bone_hit));
         const float distance = bone_hit.distance;
         extra = bone_hit.t;
-        if (!hit || distance < nearest) {
+        if ((hit == 0) || distance < nearest) {
             nearest = distance;
             hit_extra = extra;
             hit = result;

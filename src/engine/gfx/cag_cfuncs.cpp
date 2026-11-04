@@ -131,10 +131,10 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
         info->fetch_int_value(kFlipH, &flip_h, 1);
         int flip_v = 0;
         info->fetch_int_value(kFlipV, &flip_v, 1);
-        if (flip_h) {
+        if (flip_h != 0) {
             workspace->get_mirror();
         }
-        if (flip_v) {
+        if (flip_v != 0) {
             render::BitmapTexture::flip_vertically();
         }
         float rot = 0.0F;
@@ -188,7 +188,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
     }
     int test = 0;
     params->fetch_int_value(kTest, &test, 0);
-    if (test) {
+    if (test != 0) {
         gsl::owner<render::BitmapTexture*> sprite = alloc_pc_texture(kWorkspaceSprite, kSpriteSize, kSpriteSize, kPaletteDepthBits, kWorkspaceAlignment);
         sprite->copy_from(tag);
     }

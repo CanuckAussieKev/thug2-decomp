@@ -109,7 +109,7 @@ void draw_list(const memory::ListNode* head, const std::array<float, 3>& y_axis,
     for (const memory::ListNode* node = head_of_scene_list(head); node;) {
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data())->mesh;
-        if (mesh->flags() & kMeshActiveFlag) {
+        if ((mesh->flags() & kMeshActiveFlag) != 0U) {
             draw_billboard_mesh(mesh, y_axis, x_axis, z_axis);
         }
         node = next;
@@ -124,7 +124,7 @@ int compare_batches(const void* a, const void* b)
     const auto* first = *static_cast<BillboardBatch* const*>(a);
     const auto* second = *static_cast<BillboardBatch* const*>(b);
     if (!first) {
-        return second != nullptr;
+        return static_cast<int>(second != nullptr);
     }
     if (!second) {
         return -1;
@@ -177,7 +177,7 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         toggle_fog(false);
     }
     if (renderer().shaders_available()) {
-        if (mesh->flags() & 4) {
+        if ((mesh->flags() & 4) != 0U) {
             mesh->set_pixel_shader_colored();
         } else {
             set_pixel_shader(mesh->pixel_shader(), nullptr);
@@ -240,7 +240,7 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         if (has_table) {
             auto index = static_cast<uint32_t>(int{static_cast<int8_t>(core::at(vertex_bytes_of_mesh, i))});
             uint32_t value = 0;
-            if (index) {
+            if (index != 0U) {
                 value = core::at(table, index - 1);
             } else {
                 std::memcpy(&value, from.rest().first(4).data(), 4);
@@ -265,7 +265,7 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         renderer().d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count(), 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < mesh->material()->pass_count(); ++pass) {
-            mesh->material()->submit_pass(pass, mesh->flags() & 4 ? mesh->color().data() : nullptr);
+            mesh->material()->submit_pass(pass, ((mesh->flags() & 4) != 0U) ? mesh->color().data() : nullptr);
             renderer().d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count(), 0, primitives);
         }
     }
@@ -483,7 +483,7 @@ void BillboardBatch::render()
     for (const memory::ListNode* node = head_of_scene_list(core::at(lists_, 2)); node;) {
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data())->mesh;
-        if (mesh->flags() & kMeshActiveFlag) {
+        if ((mesh->flags() & kMeshActiveFlag) != 0U) {
             const auto& axis = mesh->billboard()->axis;
             const auto& d = manager->view();
             double rx = (static_cast<double>(core::at(d, 1)) * core::at(axis, 2)) -
@@ -574,16 +574,16 @@ void BillboardSet::remove_mesh(MeshRef* mesh)
 // 0x004CEAB0
 void BillboardSet::render(unsigned int which)
 {
-    if (which & 1) {
+    if ((which & 1) != 0U) {
         for (int i = 0; i < count_; ++i) {
-            if (!(core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard)) {
+            if ((core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard) == 0U) {
                 core::at(batches_, i)->render();
             }
         }
     }
-    if (which & 2) {
+    if ((which & 2) != 0U) {
         for (int i = 0; i < count_; ++i) {
-            if (core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard) {
+            if ((core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard) != 0U) {
                 core::at(batches_, i)->render();
             }
         }

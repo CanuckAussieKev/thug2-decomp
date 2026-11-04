@@ -215,32 +215,32 @@ float clamp_to_range(float value, float min, float max)
 // 0x004426D0
 void set_sun(const Settings* settings, uint32_t mask)
 {
-    if (mask & kTheta) {
+    if ((mask & kTheta) != 0U) {
         get_theta() = settings->theta;
     }
-    if (mask & kPhi) {
+    if ((mask & kPhi) != 0U) {
         get_phi() = settings->phi;
     }
-    if (mask & kRadius) {
+    if ((mask & kRadius) != 0U) {
         get_radius() = settings->radius;
     }
-    if (mask & kSize) {
+    if ((mask & kSize) != 0U) {
         get_size() = settings->size;
     }
-    if (mask & kColor) {
+    if ((mask & kColor) != 0U) {
         get_color() = settings->color;
     }
-    if (mask & kShown) {
+    if ((mask & kShown) != 0U) {
         get_shown() = settings->shown;
     }
-    if (mask & kTexture) {
+    if ((mask & kTexture) != 0U) {
         if (lens_flare_state().flare_sun_texture_) {
             delete_texture(memory::owned_element(lens_flare_state().flare_sun_texture_));
         }
         lens_flare_state().flare_sun_texture_ = nullptr;
         lens_flare_state().flare_sun_texture_ = find_texture(settings->texture);
     }
-    if (mask & kCoronaTexture) {
+    if ((mask & kCoronaTexture) != 0U) {
         // (the sun's texture is the one deleted, as the original)
         if (get_corona_texture() && lens_flare_state().flare_sun_texture_) {
             delete_texture(memory::owned_element(lens_flare_state().flare_sun_texture_));
@@ -431,7 +431,7 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     quad->set_blend_mode(kBlend);
     quad->prepare_all({.layout_flags_ = 3, .primitive_type_ = 4, .count = 4});
     quad->set_blend_mode(kAdd);
-    quad->set_unknown14(true);
+    quad->set_unknown14(1U);
     quad->get_ready();
 }
 
@@ -444,7 +444,7 @@ void show_flare(const maths::Vec4* sun, float time)
     if (container.is_null()) {
         script::launch_script(kCreateLensFlare, nullptr, nullptr, false, nullptr);
     }
-    if (!script::fetch_int_value(kDoUpdateLensFlare)) {
+    if (script::fetch_int_value(kDoUpdateLensFlare) == 0) {
         container.get_release();
         return;
     }
@@ -510,7 +510,7 @@ void render(gfx::ViewCam* camera)
     request.data = 0;
     add_query(&request);
     uint32_t visible = 0;
-    if (get_query()) {
+    if (get_query() != 0U) {
         visible = query_result(get_query());
     }
     if (visible == 0) { // (no query, or the sun not seen)

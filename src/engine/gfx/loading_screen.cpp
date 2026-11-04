@@ -206,7 +206,7 @@ void hide_loading_screen()
 {
     get_lock();
     renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
-    if (renderer().loading_bar_timer()) {
+    if (renderer().loading_bar_timer() != 0U) {
         stop_timer(renderer().loading_bar_timer());
         renderer().set_loading_bar_timer(0);
     }
@@ -230,7 +230,7 @@ void show_progress_bar(float seconds)
     screen_2d().tick_seconds() = kTickSeconds;                                                    // a tick's seconds (0x3CF5C28F)
     screen_2d().total_seconds() = static_cast<float>(static_cast<double>(seconds) * kLoadSecondsScale); // (0x006463C4)
     update_loading_bar_colors();
-    if (!renderer().loading_bar_timer()) {
+    if (renderer().loading_bar_timer() == 0U) {
         renderer().set_loading_bar_timer(start_timer(kLoadingTimerPeriod, &draw_loading_screen_frame));
     }
 }

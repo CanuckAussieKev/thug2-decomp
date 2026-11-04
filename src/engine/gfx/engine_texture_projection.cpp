@@ -150,7 +150,7 @@ void TextureProjection::configure_from_data(script::Struct* params)
     bitmap_ = engine_parts().particle_texture_dict()->fetch_skin(texture);
     int flag = 0;
     params->fetch_int_value(kEnabled, &flag, 0);
-    if (flag) {
+    if (flag != 0) {
         flag_bits_ |= kProjectionFlag1;
     } else {
         flag_bits_ &= ~kProjectionFlag1;
@@ -173,9 +173,9 @@ void TextureProjection::update_matrix()
     maths::Mat4 view{};
     maths::create_look_at_matrix(view, anchor_point_, target, up);
     maths::Mat4 lens{};
-    if (flag_bits_ & kProjectionOrthographic) {
+    if ((flag_bits_ & kProjectionOrthographic) != 0U) {
         maths::create_orthographic_matrix(lens, {.width = extent_, .height = extent_, .near_depth_ = kProjectionNearDepth, .far_depth_ = range_});
-    } else if (flag_bits_ & kProjectionPerspective) {
+    } else if ((flag_bits_ & kProjectionPerspective) != 0U) {
         maths::create_perspective_matrix(lens, {.fov = field_of_view_, .aspect = aspect_, .near_depth_ = kProjectionNearDepth, .far_depth_ = range_});
     } else {
         return;

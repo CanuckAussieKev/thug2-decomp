@@ -122,7 +122,7 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     const std::array<std::array<float, 2>, 4> uvs = {{{0.0F, 0.0F}, {1.0F, 0.0F}, {1.0F, 1.0F}, {0.0F, 1.0F}}};
     for (int i = 0; i < 4; ++i) {
         set_corner_colour(poly->primitive(), i, core::at(poly->colours(), i));
-        if (layout & 2) {
+        if ((layout & 2) != 0U) {
             poly->primitive()->set_uv(i, {.x = core::at(core::at(uvs, i), 0), .y = core::at(core::at(uvs, i), 1)});
         }
         set_corner(poly->primitive(), i, core::at(corners, i));

@@ -176,14 +176,14 @@ uint32_t* PcModelLights::read_diffuse_light_tint(uint32_t* out, int light)
 void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius)
 {
     uint32_t color = 0;
-    if (overrides & 1) {
+    if ((overrides & 1) != 0U) {
         color = ambient;
     } else {
         fetch_ambient_hue(&color);
     }
     send_color(std::span<float>(ambient_constant()).first<3>(), color, size_factor());
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
-        if (overrides & (2U << (i & kShiftCountMask))) {
+        if ((overrides & (2U << (i & kShiftCountMask))) != 0U) {
             send_color(light_color_constant(i), core::at(colors_of(*this), i), core::at(intensities(), i));
             send_negated(light_direction_constant(i), core::at(directions_of(*this), i));
         } else {
@@ -192,12 +192,12 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
             send_negated(light_direction_constant(i), *render::get_light_direction(static_cast<int>(i)));
         }
     }
-    if (!radius) {
+    if (radius == 0U) {
         return;
     }
     std::array<DynamicLightBase*, kModelLightSlots> dynamic{};
     const uint32_t count = find_dynamic_lights(position, radius, dynamic);
-    if (!count) {
+    if (count == 0U) {
         const std::span<float, 3> off = light_color_constant(first_dynamic_);
         core::at(off, 0) = core::at(off, 1) = core::at(off, 2) = 0.0F;
         return;

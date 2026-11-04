@@ -1296,7 +1296,7 @@ void PcShadedParticles::render()
                 float v0 = 0.0F;
                 float u1 = 1.0F;
                 float v1 = 1.0F;
-                if (flag_bits() & kFlagRandomUvQuadrants) {
+                if ((flag_bits() & kFlagRandomUvQuadrants) != 0U) {
                     switch (index % 4) {
                     case 0:
                         u0 = kUvHalf, v0 = kUvHalf;

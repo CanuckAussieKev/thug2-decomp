@@ -261,7 +261,7 @@ objects::GameEntity* get_owner(BlendChannel* channel)
 online::PlayerRecord* find_own_player_record(uint32_t object_id)
 {
     auto* player = (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));
-    if (!player || !player->is_own_player()) {
+    if (!player || (player->is_own_player() == 0)) {
         return nullptr;
     }
     return player;
@@ -362,7 +362,7 @@ void BlendChannel::destroy_body()
 BlendChannel* BlendChannel::teardown(uint8_t flags)
 {
     destroy_body();
-    if (flags & 1) {
+    if ((flags & 1) != 0) {
         memory::dealloc(this);
     }
     return this;
@@ -528,7 +528,7 @@ void BlendChannel::push_timeline(float period)
 // 0x0047ED60
 bool BlendChannel::blend_pose(int index)
 {
-    if (render::engine_parts().suppress_draw() || !lookup_key_) {
+    if (render::engine_parts().suppress_draw() || (lookup_key_ == 0U)) {
         return false;
     }
     Rig* skeleton = skeleton_of(bone_rig_);
@@ -596,7 +596,7 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
             post_out(app, message, MessageId::kFlip, data.data(), 2, false);
         }
     }
-    const bool was = (flag_bits_ >> 29) & 1;
+    const bool was = ((flag_bits_ >> 29) & 1) != 0U;
     flag_bits_ = (flag_bits_ & ~kFlipped) | (flip ? kFlipped : 0);
     return was;
 }
@@ -606,7 +606,7 @@ void BlendChannel::toggle_flipped()
 {
     const net::AppHost* app = online::online_hub()->fetch_patron(0);
     const uint32_t unused = app->clock();
-    set_flipped(get_owner(this)->ident(), !((flag_bits_ >> kFlippedFlagBit) & 1), unused, true);
+    set_flipped(get_owner(this)->ident(), ((flag_bits_ >> kFlippedFlagBit) & 1) == 0U, unused, true);
 }
 
 // 0x0047E010
@@ -642,7 +642,7 @@ bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
     const uint32_t anim = first ? first->anim() : 0;
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
-        if (component->name) {
+        if (component->name != 0U) {
             continue;
         }
         script::Array* array = nullptr;
@@ -903,7 +903,7 @@ void BlendChannel::init_buffers(BufferCounts buffer_counts)
 void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int loop_type, float blend_period,
                              float speed, Struct* params)
 {
-    if (!anim) {
+    if (anim == 0U) {
         anim = kDefault;
     }
     if (send && ident_ == 0) {
@@ -983,12 +983,12 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
             return 0;
         }
     }
-    if (!lookup_key_) {
+    if (lookup_key_ == 0U) {
         return 0;
     }
     uint32_t anim = 0;
     params->read_hash_value(kAnim, &anim, 0);
-    if (!anim) {
+    if (anim == 0U) {
         script::dump_to_log(params, 0);
     }
     float speed = 1.0F;
@@ -1339,7 +1339,7 @@ int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
     int index = 0;
     AnimTrack* timeline = masked(timelines_.next());
     if (params->fetch_int_value(kIndex, &index, 0)) {
-        for (; timeline && index; --index) {
+        for (; timeline && (index != 0); --index) {
             timeline = masked(elem(timeline)->next());
         }
     }

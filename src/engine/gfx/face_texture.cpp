@@ -472,7 +472,7 @@ bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Script* /*s
     params->read_hash_value(gfx::kTexture, &name, 0);
     render::BitmapTexture* texture = gfx::find_texture(name);
     if (texture && gfx::face_overlay()) {
-        gfx::draw_over(texture, gfx::face_overlay(), false);
+        gfx::draw_over(texture, gfx::face_overlay(), 0U);
     }
     return true;
 }
@@ -511,7 +511,7 @@ bool cfunc_massage_face_texture(Struct* params, script::Script* /*script*/)
         if (points_params) {
             FaceAnchors points{}; // (the original's isn't cleared)
             gfx::read_face_points(&points, points_params);
-            gfx::massage_face_texture(texture, &points, generate_palette, false, gfx::kNoColour);
+            gfx::massage_face_texture(texture, &points, static_cast<uint8_t>(generate_palette), false, gfx::kNoColour);
         }
     }
     return true;

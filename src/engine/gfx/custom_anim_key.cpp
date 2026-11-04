@@ -172,7 +172,7 @@ bool CameraKey::inside_range(float start, float end, bool inclusive)
 // 0x00486390
 bool CameraKey::work_on(void* object)
 {
-    if (!tick()) {
+    if (tick() == 0) {
         return false;
     }
     read_debug_global();

@@ -89,20 +89,20 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         core::at(m->blend_modes(), pass) = (in.blend_mode & kBlendModeMask) | in.fixed_alpha << kAlphaShift;
         core::at(core::at(m->pass_color(), pass), 3) =
             static_cast<float>(static_cast<double>(in.fixed_alpha) * (1.0F / kAlphaScale)); // the fixed alpha
-        if (pass == 0 && !keep_culling && (core::at(m->blend_modes(), 0) & kBlendModeMask)) {
+        if (pass == 0 && !keep_culling && ((core::at(m->blend_modes(), 0) & kBlendModeMask) != 0U)) {
             m->set_two_sided(1);
         }
         core::at(m->address_modes(), pass) = in.address_v << kAddressVShift | in.address_u;
         std::memcpy(core::at(m->reflection_tiling(), pass).data(), in.reflection_tiling.data(), sizeof(in.reflection_tiling));
         core::at(m->unknownc0(), pass) = in.unknown_c0;
-        if (in.flags & scene_format::kPassUvWibble) {
+        if ((in.flags & scene_format::kPassUvWibble) != 0U) {
             m->set_has_uv_wibble(true);
             void* w = memory::alloc(sizeof(UvOscillator));
             UvOscillator* wibble = w ? memory::construct_in<UvOscillator>(w) : nullptr;
             core::at(m->uv_wibble(), pass) = wibble;
             std::memcpy(wibble, in.uv_wibble.data(), sizeof(in.uv_wibble));
         }
-        if (pass == 0 && (in.flags & scene_format::kPassColorAnims)) {
+        if (pass == 0 && ((in.flags & scene_format::kPassColorAnims) != 0U)) {
             auto anims = static_cast<uint32_t>(record.color_anims.size());
             m->set_color_anim_count(anims);
             m->set_color_anims(static_cast<ColorAnim*>(memory::alloc(anims * sizeof(ColorAnim))));
@@ -116,7 +116,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
                 std::memcpy(anim.keys, track.keys.data(), track.keys.size());
             }
         }
-        if (in.flags & scene_format::kPassTextureAnim) {
+        if ((in.flags & scene_format::kPassTextureAnim) != 0U) {
             if (!m->texture_anim()) {
                 m->set_texture_anim(static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim))));
                 std::memset(m->texture_anim(), 0, sizeof(TextureAnim));
@@ -134,7 +134,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
                 key.texture = find_texture(textures, frame.texture);
             }
         }
-        if (!in.texture) { // (with a texture animation, its first key's)
+        if (in.texture == 0U) { // (with a texture animation, its first key's)
             core::at(m->textures(), pass) = nullptr;
             continue;
         }

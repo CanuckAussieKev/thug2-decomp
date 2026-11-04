@@ -14,7 +14,7 @@ namespace render {
 // 0x0048CF50
 void* get_anim_data(uint32_t checksum, int unused)
 {
-    if (!checksum) {
+    if (checksum == 0U) {
         return nullptr;
     }
     return assets::asset_manager()->get_asset_data(checksum, unused);

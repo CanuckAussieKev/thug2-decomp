@@ -47,12 +47,15 @@ bool& blur_disabled() { return settings_state().blur_disabled_; }
 
 void load_graphics_settings()
 {
-    settings_state().settings_.antialiasing = build_info::fetch_flag(build_info::kGraphics, "AntiAliasing", false);
-    settings_state().settings_.hq_shadows_ = build_info::fetch_flag(build_info::kGraphics, "HQShadows", false);
-    settings_state().settings_.distance_clipping_ = build_info::fetch_flag(build_info::kGraphics, "DistanceClipping", false);
+    settings_state().settings_.antialiasing =
+        static_cast<uint32_t>(build_info::fetch_flag(build_info::kGraphics, "AntiAliasing", false));
+    settings_state().settings_.hq_shadows_ =
+        static_cast<uint32_t>(build_info::fetch_flag(build_info::kGraphics, "HQShadows", false));
+    settings_state().settings_.distance_clipping_ =
+        static_cast<uint32_t>(build_info::fetch_flag(build_info::kGraphics, "DistanceClipping", false));
     settings_state().settings_.clipping_distance_ =
         static_cast<uint32_t>(build_info::get_int(build_info::kGraphics, "ClippingDistance", kMaxDrawDistanceSetting));
-    settings_state().settings_.fog = build_info::fetch_flag(build_info::kGraphics, "Fog", false);
+    settings_state().settings_.fog = static_cast<uint32_t>(build_info::fetch_flag(build_info::kGraphics, "Fog", false));
     settings_state().blur_disabled_ = build_info::fetch_flag(build_info::kGraphics, "DisableBlur", true);
     // (NOT ORIGINAL: engine/gfx/occlusion.h)
     occlusion_off() = !build_info::fetch_flag(build_info::kGraphics, "OcclusionCulling", true);
@@ -64,7 +67,7 @@ void write_graphics_settings()
 {
     renderer().set_antialiasing(static_cast<uint8_t>(settings_state().settings_.antialiasing) != 0);
     view_setup().set_hq_shadows(static_cast<uint8_t>(settings_state().settings_.hq_shadows_));
-    view_setup().set_distance_clipping(static_cast<uint8_t>(settings_state().settings_.distance_clipping_));
+    view_setup().set_distance_clipping(static_cast<uint8_t>(settings_state().settings_.distance_clipping_) != 0U);
     uint32_t distance = settings_state().settings_.clipping_distance_;
     if (distance > kMaxDrawDistanceSetting) {
         distance = kMaxDrawDistanceSetting;
@@ -74,7 +77,7 @@ void write_graphics_settings()
     // (the engine's distance: 100 to 595)
     gfx::set_draw_distance_setting(static_cast<int>(static_cast<uint32_t>(
         (static_cast<float>(distance) * os_layer::kDrawDistanceStep) + os_layer::kDrawDistanceBase)));
-    view_setup().set_fog_setting(static_cast<uint8_t>(settings_state().settings_.fog));
+    view_setup().set_fog_setting(static_cast<uint8_t>(settings_state().settings_.fog) != 0U);
 }
 
 } // namespace render

@@ -170,7 +170,7 @@ bool ViewRegion::flag_camera_for_removal(gfx::ViewCam* camera)
 // 0x004A0D70
 void ViewRegion::remove_flagged_camera()
 {
-    if (!(flag_bits_ & 1)) {
+    if ((flag_bits_ & 1) == 0U) {
         return;
     }
     delete viewer_.get_pull(); // (its destructor clears the pointer)
@@ -309,7 +309,7 @@ uint32_t request_occlusion_query(OcclusionRequest* request)
     }
     uint32_t slot = kOcclusionSlots - 1; // (none free: the last, not marked)
     for (uint32_t i = 0; i < kOcclusionSlots; ++i) {
-        if (!core::at(view_setup().occlusion_slots(), i)) {
+        if (core::at(view_setup().occlusion_slots(), i) == 0U) {
             core::at(view_setup().occlusion_slots(), i) = 1;
             slot = i;
             break;
@@ -326,7 +326,7 @@ void issue_occlusion_queries()
 {
     for (int i = 0; i < kOcclusionRequests; ++i) {
         OcclusionRequest& request = core::at(view_setup().occlusion_requests(), i);
-        if (request.slot && request.callback && !request.issued) {
+        if ((request.slot != 0U) && request.callback && (request.issued == 0U)) {
             request.callback(request.data, static_cast<uint8_t>(request.slot));
             request.issued = 1;
         }

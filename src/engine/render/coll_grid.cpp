@@ -61,7 +61,7 @@ int confine(int value, int size)
 // An object's box as the grid sees it.
 const maths::BBox* cuboid(HitMesh* object) { return object->get_world_bounds(); }
 
-bool listable(HitMesh* object) { return !(object->flag_bits() & kUnlistedFlags); }
+bool listable(HitMesh* object) { return (object->flag_bits() & kUnlistedFlags) == 0; }
 
 bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 memory::ListNode* masked(memory::ListNode* node) { return is_head(node) ? nullptr : node; }

@@ -240,7 +240,7 @@ void get_skip(ParticleBurst& burst, int particles)
     random_c() = c;
     int steps = particles * 4;
     if (steps > 0) {
-        for (; steps; --steps) {
+        for (; steps != 0; --steps) {
             random_step(a, b, c);
         }
         random_c() = c;

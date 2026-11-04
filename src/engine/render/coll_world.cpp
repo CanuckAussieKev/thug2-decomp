@@ -66,7 +66,7 @@ private:
 
 public:
     LineQuery(const maths::Seg* line, HitMeshCache* cache)
-        : box_(ends_box(*line)), use_cache_(cache && cache->box().get_holds(box_))
+        : box_(ends_box(*line)), use_cache_((cache != nullptr) && cache->box().get_holds(box_))
     {
         maths::Vec4 grown = box_.max;
         grown.x += kQueryBoxMargin;
@@ -204,7 +204,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
     for (const memory::ListNode* node = collision_state().movables().next(); node->data() != memory::ListNode::head_marker() && node;
          node = node->next()) {
         auto* object = static_cast<HitMesh*>(node->data());
-        if (object && !(object->flag_bits() & kUnlistedFlags) && may_touch(object, &query.box())) {
+        if (object && ((object->flag_bits() & kUnlistedFlags) == 0) && may_touch(object, &query.box())) {
             owner = test_movable(object, line, query, hit, owner);
         }
     }

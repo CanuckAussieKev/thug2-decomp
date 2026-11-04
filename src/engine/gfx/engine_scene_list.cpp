@@ -126,7 +126,7 @@ bool unload_all_scenes()
 {
     const memory::ListNode* node = head_of_scene_list();
     if (!is_head(node) && node) {
-        for (bool again = true; again; again = node) {
+        for (bool again = true; again; again = (node != nullptr)) {
             const memory::ListNode* next = get_next_node(node);
             WorldScene* scene = scene_of(node);
             TextureSet* textures = scene->texture_set();
@@ -156,7 +156,7 @@ void print_coll_statics()
     frame_clock::get_time();
     const memory::ListNode* node = head_of_scene_list();
     if (!is_head(node) && node) {
-        for (bool again = true; again; again = node) {
+        for (bool again = true; again; again = (node != nullptr)) {
             const memory::ListNode* next = get_next_node(node);
             WorldScene* scene = scene_of(node);
             if (!scene->is_sky()) {
@@ -175,7 +175,7 @@ CollGrid* get_first_coll_grid()
     if (is_head(node) || !node) {
         return nullptr;
     }
-    for (bool again = true; again; again = node) {
+    for (bool again = true; again; again = (node != nullptr)) {
         const memory::ListNode* next = get_next_node(node);
         if (CollGrid* grid = scene_of(node)->coll_grid()) {
             return grid;
@@ -213,7 +213,7 @@ std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
     if (is_head(node) || !node) {
         return {};
     }
-    for (bool again = true; again; again = node) {
+    for (bool again = true; again; again = (node != nullptr)) {
         const memory::ListNode* next = get_next_node(node);
         WorldScene* scene = scene_of(node);
         CollGrid* grid = scene->coll_grid();
@@ -246,7 +246,7 @@ uint32_t new_sector_name()
         bool used = false;
         const memory::ListNode* node = head_of_scene_list();
         if (!is_head(node) && node) {
-            for (bool again = true; again; again = node) {
+            for (bool again = true; again; again = (node != nullptr)) {
                 const memory::ListNode* next = get_next_node(node);
                 if (scene_of(node)->look_up_sector(name)) {
                     used = true;

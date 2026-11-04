@@ -124,7 +124,7 @@ void display_loading_screen(const char* name, bool keep, bool black)
 {
     free_loading_screen_sprite();
     show_loading_screen(name, keep, black);
-    stored_loading_screen_shown() = true;
+    stored_loading_screen_shown() = 1U;
 }
 
 // 0x004908C0
@@ -132,7 +132,7 @@ void remove_loading_screen()
 {
     hide_loading_screen();
     free_loading_screen_sprite();
-    stored_loading_screen_shown() = false;
+    stored_loading_screen_shown() = 0U;
 }
 
 } // namespace render

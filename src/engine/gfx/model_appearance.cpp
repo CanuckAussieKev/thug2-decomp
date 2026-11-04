@@ -210,7 +210,7 @@ void ModelLook::set_part(checksums::Name part_name, uint32_t descriptor_id, scri
     slot->get_clear();
     int use_default_hsv = 1;
     params->fetch_int_value(kUseDefaultHsv, &use_default_hsv, 0);
-    if (!use_default_hsv) {
+    if (use_default_hsv == 0) {
         // (asserted; missing, 0 - the original's h was what its stack slot held, `params` itself, s / v garbage)
         int h = 0;
         int s = 0;
@@ -331,7 +331,7 @@ int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
     if (no_face_texture) {
         end = 0;
     } else {
-        end = (face_skin_ && face_texture_is_valid(face_skin_)) || has_face_texture_;
+        end = static_cast<uint8_t>(((face_skin_ != nullptr) && face_texture_is_valid(face_skin_)) || has_face_texture_);
     }
     return static_cast<int>(bytes) + 1;
 }

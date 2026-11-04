@@ -108,7 +108,7 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     for (const memory::ListNode* node = first_movable(); node->data() != memory::ListNode::head_marker() && node;
          node = node->next()) {
         auto* object = static_cast<HitMesh*>(node->data());
-        if (!object || (object->flag_bits() & kUnlistedFlags) || !object->inside_bounds(&grown)) {
+        if (!object || ((object->flag_bits() & kUnlistedFlags) != 0) || !object->inside_bounds(&grown)) {
             continue;
         }
         core::at(entries_, num_).bounds = object->get_local_bounds();
@@ -152,7 +152,7 @@ void HitMeshCache::remove_movable(HitMesh* object)
 void register_coll_cache(HitMeshCache* cache)
 {
     for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
-        if (!(caches_in_use() & (1U << i))) {
+        if ((caches_in_use() & (1U << i)) == 0U) {
             core::at(caches(), i) = cache;
             caches_in_use() |= 1U << i;
             return;
@@ -164,7 +164,7 @@ void register_coll_cache(HitMeshCache* cache)
 void unregister_coll_cache(HitMeshCache* cache)
 {
     for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
-        if ((caches_in_use() & (1U << i)) && core::at(caches(), i) == cache) {
+        if (((caches_in_use() & (1U << i)) != 0U) && core::at(caches(), i) == cache) {
             caches_in_use() &= ~(1U << i);
             return;
         }
@@ -175,7 +175,7 @@ void unregister_coll_cache(HitMeshCache* cache)
 void remove_movable_from_caches(HitMesh* object)
 {
     for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
-        if (caches_in_use() & (1U << i)) {
+        if ((caches_in_use() & (1U << i)) != 0U) {
             core::at(caches(), i)->remove_movable(object);
         }
     }
@@ -185,7 +185,7 @@ void remove_movable_from_caches(HitMesh* object)
 void remove_from_caches(HitMesh* object)
 {
     for (int i = 0; i < kCacheSlotIndexLimit; ++i) {
-        if (caches_in_use() & (1U << i)) {
+        if ((caches_in_use() & (1U << i)) != 0U) {
             core::at(caches(), i)->remove_static(object);
             core::at(caches(), i)->remove_movable(object);
         }

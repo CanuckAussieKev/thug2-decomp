@@ -316,7 +316,7 @@ void draw_movie(Bink* bink, void* texture)
 bool button_pressed_again(const std::array<uint8_t, kControlDataBytes>& control_data, uint16_t* seen_up, uint32_t mask)
 {
     auto up = static_cast<uint16_t>(core::at(control_data, 2) << kBitsPerByte | core::at(control_data, 3));
-    if (up & mask) {
+    if ((up & mask) != 0U) {
         *seen_up |= static_cast<uint16_t>(mask);
         return false;
     }
@@ -386,7 +386,7 @@ void play_movie_file(const char* name)
                                             * kFloat16384));                           // 16384
         int frames = 0;
         for (;;) {
-            if (screen_saver_timeout && screen_saver_frames++ >= kScreenSaverFrames) {
+            if ((screen_saver_timeout != 0U) && screen_saver_frames++ >= kScreenSaverFrames) {
                 screen_saver_frames = 0;
                 SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             }
@@ -414,7 +414,7 @@ void play_movie_file(const char* name)
                 }
                 bink::pause(engine_parts().current_movie(), 0);
             }
-            if (bink::wait(engine_parts().current_movie())) {
+            if (bink::wait(engine_parts().current_movie()) != 0) {
                 continue;
             }
             Bink* bink = engine_parts().current_movie();
@@ -443,9 +443,9 @@ void play_movie_file(const char* name)
                     continue;
                 }
                 const auto& data = device->control_data();
-                if (core::at(data, 2) << kBitsPerByte & kStart) {
+                if ((core::at(data, 2) << kBitsPerByte & kStart) != 0U) {
                     core::at(seen_up, port) |= kStart;
-                } else if (core::at(seen_up, port) & kStart) {
+                } else if ((core::at(seen_up, port) & kStart) != 0U) {
                     skip = true;
                 }
                 if (!skip && button_pressed_again(data, &core::at(seen_up, port), kCross)) {
@@ -496,7 +496,7 @@ bool is_intro_movie(const char* name)
 bool from_start_up_script(void* script)
 {
     static const uint32_t kStartUp = checksums::hash_from_text("startup_loading_screen");
-    return script && static_cast<script::Script*>(script)->script_title() == kStartUp;
+    return (script != nullptr) && static_cast<script::Script*>(script)->script_title() == kStartUp;
 }
 } // namespace
 

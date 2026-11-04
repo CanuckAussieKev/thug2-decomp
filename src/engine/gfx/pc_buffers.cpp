@@ -67,7 +67,7 @@ void MeshRef::set_pixel_shader_colored()
     double r = 0.0;
     double g = 0.0;
     double b = 0.0;
-    if (renderer().instance_colour_on()) {
+    if (renderer().instance_colour_on() != 0U) {
         r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0F / kColourScale);
         g = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0F / kColourScale);
         b = core::at(renderer().instance_colour(), 2) * static_cast<double>(1.0F / kColourScale);
@@ -77,7 +77,7 @@ void MeshRef::set_pixel_shader_colored()
         b = static_cast<double>(core::at(color_, 2)) + core::at(color_, 2);
     }
     for (uint32_t pass = 0; pass < material_->pass_count(); ++pass) {
-        if (core::at(material_->pass_flags(), pass) & kPassFlagKeepColour) { // (the colour isn't to be changed)
+        if ((core::at(material_->pass_flags(), pass) & kPassFlagKeepColour) != 0U) { // (the colour isn't to be changed)
             continue;
         }
         renderer().scale_pass_colour(pass, {.r = r, .g = g, .b = b});

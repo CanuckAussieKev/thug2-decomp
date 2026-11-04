@@ -437,7 +437,7 @@ bool create_texture_splat_at(const SplatSettings& settings)
     auto* texture = settings.texture;
     engine_effects_state().splat_reserve_ = script::fetch_int_value(kSplatCriticalRemainingPolys); // (asserted)
     RecentSplat* recent = nullptr;
-    if (follow) {
+    if (follow != 0U) {
         // A recent position of the same id near enough: the splat is made from it. Old ones go.
         const uint32_t now = frame_clock::get_time();
         recent_splats().for_each([&](RecentSplat* candidate) {
@@ -509,7 +509,7 @@ bool create_texture_splat_at(const SplatSettings& settings)
     core::at(sectors, count) = nullptr;
     core::at(objects, count) = nullptr;
     bool made = false;
-    if (follow && recent->pos.x == from->x && recent->pos.z == from->z) {
+    if ((follow != 0U) && recent->pos.x == from->x && recent->pos.z == from->z) {
         made = false; // (it hasn't moved)
     } else {
         SplatParams params;
@@ -526,7 +526,7 @@ bool create_texture_splat_at(const SplatSettings& settings)
         params.set_unknown40(unknown40);
         TextureSplats* splats = render::create_texture_splat(sectors.data(), objects.data(), &params);
         made = splats != nullptr;
-        if (!follow && splats) {
+        if ((follow == 0U) && splats) {
             age_texture_splats(splats, frame_milliseconds());
             light_texture_splats(splats);
             splats->texture = texture->checksum();

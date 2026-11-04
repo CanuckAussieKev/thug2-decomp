@@ -50,7 +50,7 @@ public:
     VertexView(const uint8_t* bytes, size_t stride, size_t count) : bytes_(bytes, stride * count), stride_(stride) {}
 
     // How many vertices the view holds.
-    [[nodiscard]] size_t count() const { return stride_ ? bytes_.size() / stride_ : 0; }
+    [[nodiscard]] size_t count() const { return (stride_ != 0U) ? bytes_.size() / stride_ : 0; }
 
     // The `N` floats at `offset` in vertex `index` (a position: float3 at offset 0).
     template <size_t N>
@@ -102,7 +102,7 @@ public:
     // `count` vertices of `stride` bytes at `bytes`.
     VertexWriter(uint8_t* bytes, size_t stride, size_t count) : bytes_(bytes, stride * count), stride_(stride) {}
 
-    [[nodiscard]] size_t count() const { return stride_ ? bytes_.size() / stride_ : 0; }
+    [[nodiscard]] size_t count() const { return (stride_ != 0U) ? bytes_.size() / stride_ : 0; }
 
     template <size_t N>
     void set_floats(size_t index, size_t offset, const std::array<float, N>& values) const

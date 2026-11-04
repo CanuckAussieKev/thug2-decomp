@@ -26,7 +26,7 @@ void toggle_fog(bool on)
     if ((renderer().fog_active() != 0) == on) {
         return;
     }
-    renderer().set_fog_active(on);
+    renderer().set_fog_active(static_cast<uint32_t>(on));
     if (!engine_parts().loading_screen_up()) {
         renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
     }
@@ -51,7 +51,7 @@ void set_fog_color(uint32_t rgba)
     const uint32_t g = (rgba >> 8) & 0xFF;
     const uint32_t b = (rgba >> 16) & 0xFF;
     const uint32_t a = rgba >> 24;
-    if (a && !renderer().fog_active()) {
+    if ((a != 0U) && (renderer().fog_active() == 0U)) {
         renderer().set_fog_active(1);
         if (!engine_parts().loading_screen_up()) {
             renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, 1);

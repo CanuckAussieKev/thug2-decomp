@@ -123,7 +123,7 @@ int oldest_slot(const TextureSplats& splats, uint32_t count)
     int oldest = 0;
     int most = core::at(splats.correction_steps_, 0) - static_cast<int>(core::at(splats.alive, 0));
     for (uint32_t i = 0; i < count; ++i) {
-        if (!core::at(splats.alive, i)) {
+        if (core::at(splats.alive, i) == 0U) {
             return static_cast<int>(i);
         }
         const int age = core::at(splats.correction_steps_, i) - static_cast<int>(core::at(splats.alive, i));
@@ -325,7 +325,7 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
 // 0x004B8220
 bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
 {
-    if (!effects_state().vertex_stack().used()) {
+    if (effects_state().vertex_stack().used() == 0U) {
         return false;
     }
     const std::span<uint8_t> v2 = texture_splats_state().splat_vertex2_; // (the three popped, last pushed first)
@@ -554,7 +554,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
             continue;
         }
         for (MeshRef* const mesh : geom->mesh_run()) {
-            if (mesh->flags() & 2) {
+            if ((mesh->flags() & 2) != 0U) {
                 continue;
             }
             uint8_t* vertices = nullptr;

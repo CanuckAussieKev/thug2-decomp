@@ -118,7 +118,7 @@ long MeshRef::apply_vertex_colors()
     const std::span<const uint8_t> per_vertex(per_vertex_bytes_, vertex_count_);
     for (uint32_t i = 0; i < vertex_count_; ++i) {
         const int index = int{static_cast<int8_t>(core::at(per_vertex, i))};
-        if (index) {
+        if (index != 0) {
             vertices.set_word(i, color_offset_, core::at(colors, index - 1)); // (the vertex's colour word)
         }
     }
@@ -164,7 +164,7 @@ void MeshRef::clean_strip()
                 core::at(strip, start) = last;
                 uint32_t kept = 0;
                 const size_t moved = static_cast<size_t>(core::at(index_counts_, 0) - i) + 3; // (indices: bytes / 2)
-                if (!(run & 1)) {
+                if ((run & 1) == 0U) {
                     std::ranges::copy(strip.subspan(from, moved), std::next(strip.begin(), static_cast<std::ptrdiff_t>(start) + 1));
                     kept = 4;
                 } else {
@@ -293,13 +293,13 @@ void recreate_buffers()
 // 0x004D69E0
 MeshRef::~MeshRef()
 {
-    if (flags_ & kMeshFlagBillboard) {
+    if ((flags_ & kMeshFlagBillboard) != 0U) {
         billboard_pool().remove_mesh(this);
     }
     if (transform) {
         memory::Hub::dealloc(transform);
     }
-    if (!(flags_ & 1)) { // (its own buffers, not another mesh's)
+    if ((flags_ & 1) == 0U) { // (its own buffers, not another mesh's)
         for (IdxStore*& ib : index_buffers_) {
             if (ib) {
                 ib->teardown();

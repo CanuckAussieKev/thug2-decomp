@@ -180,7 +180,7 @@ void finish_rendering()
     }
     renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     renderer().reset_draw_counts(); // the frame's draw counts
-    if (core::at(effects_state().pending_screen_shot(), 0)) {
+    if (core::at(effects_state().pending_screen_shot(), 0) != '\0') {
         screen_shot(effects_state().pending_screen_shot().data(), 0);
         core::at(effects_state().pending_screen_shot(), 0) = 0;
         effects_state().set_screen_shot_name_exact(false);
@@ -194,7 +194,7 @@ void finish_rendering()
         ++effects_state().screen_blur_frames();
         return;
     }
-    if (renderer().render_camera().letterbox_active_) {
+    if (renderer().render_camera().letterbox_active_ != 0U) {
         if (!engine_parts().suppress_draw()) {
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0F, 0);
         }

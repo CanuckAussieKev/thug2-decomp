@@ -63,7 +63,7 @@ PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
 void PcShatter::make_positions_and_material(int count)
 {
     positions = static_cast<float*>(memory::alloc(kPositionBytes * count));
-    if (own_material_) {
+    if (own_material_ != 0U) {
         void* memory = memory::alloc(sizeof(MaterialRef));
         material = memory ? memory::construct_in<MaterialRef>(memory) : nullptr;
     } else {
@@ -186,7 +186,7 @@ void update_shatter(PcShatter* shatter, float step)
     }
     // the normals turned too
     const uint8_t normal_offset = shatter->mesh()->normal_offset();
-    if (!normal_offset) {
+    if (normal_offset == 0U) {
         return;
     }
     for (int i = 0; std::cmp_less(i, shatter->triangle_count()); ++i) {
@@ -251,7 +251,7 @@ void shatter_geom(PcGeom* geom)
             a = b;
             b = c;
         }
-        if (!count) {
+        if (count == 0) {
             continue; // (the buffers left locked, as the original)
         }
         auto* shatter = memory::make_owned<PcShatter>(count, mesh, 0);

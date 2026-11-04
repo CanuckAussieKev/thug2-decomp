@@ -478,7 +478,7 @@ void EmitterInstance::update_ground_brightness(bool movables)
     const float y = at_point_.y;
     feeler.line().start = {.x = at_point_.x, .y = static_cast<float>(static_cast<double>(y) + 1.0), .z = at_point_.z, .w = at_point_.w};
     feeler.line().end = {.x = at_point_.x, .y = static_cast<float>(static_cast<double>(y) - kGroundProbeDepth), .z = at_point_.z, .w = at_point_.w};
-    if (feeler.get_hit_shape(movables, false)) {
+    if (feeler.get_hit_shape(movables, false) != 0) {
         const double value = feeler.get_hit_vertex_value();
         brightness_ = static_cast<float>(value + value);
     }
@@ -512,7 +512,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
         delete this;
         return;
     }
-    if (unknown78_ && !objects::find_object(unknown78_)) { // (following an object that's gone)
+    if ((unknown78_ != 0U) && !objects::find_object(unknown78_)) { // (following an object that's gone)
         delete this;
         return;
     }
@@ -522,7 +522,8 @@ void EmitterInstance::tick_frame(float time, bool skip)
     run_emit_script();
     update_bounds();
     unknown130_ = true;
-    if (modules::viewport_count() == 1 && viewport_camera(0) && unknown133_ && sphere_hidden(&bounds_, bounds_.w)) {
+    if (modules::viewport_count() == 1 && viewport_camera(0) && unknown133_ &&
+        (sphere_hidden(&bounds_, bounds_.w) != 0)) {
         unknown130_ = false;
         if (emit_rate_ == 0.0F) { // out of view and not emitting: the particles only age
             for (int i = 0; i < particle_count_; ++i) {

@@ -28,7 +28,7 @@ constexpr int kShiftCountMask = 31; // x86 shifts a 32-bit value by the low five
 // copied, [30] the bones pointed at, [31] strips broken, [32] the shadow, [4] instance strips cleaned, [6] the colour.
 inline void load_geom(Geom* geom, PcMesh* scene, RenderModel* model, bool multicolor)
 {
-    geom->init_instance(scene, model, multicolor);
+    geom->init_instance(scene, model, static_cast<int>(multicolor));
 }
 inline void clear_geom_color(Geom* geom) { geom->wipe_tint(); }
 inline bool set_geom_material_color(Geom* geom, uint32_t material, int pass, uint32_t rgba)

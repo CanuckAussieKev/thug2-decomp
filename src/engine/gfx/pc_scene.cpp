@@ -119,7 +119,7 @@ const maths::BBox* PcSector::fetch_empty_bounds()
 {
     auto* empty = &pc_scene_state().empty_bounding_box_; // (the game's, made the first time: its guard's bit 0)
     uint32_t& made = pc_scene_state().empty_bounding_box_guard_;
-    if (!(made & 1)) {
+    if ((made & 1) == 0U) {
         made |= 1;
         new (empty) maths::BBox();
     }
@@ -172,7 +172,7 @@ void PcScene::post_load(void* arena_word)
 // --- the screen effects ---
 
 // 0x004C63C0
-void PcScreenEffects::set_bloom(int on) { effects_state().set_bloom_on(on != 0); }
+void PcScreenEffects::set_bloom(int on) { effects_state().set_bloom_on(static_cast<uint32_t>(on != 0)); }
 // 0x004C63E0
 void PcScreenEffects::set_bloom_cut_off(uint32_t colour) { effects_state().set_bloom_cut_off(colour); }
 // 0x004C63F0
@@ -184,7 +184,10 @@ void PcScreenEffects::set_bloom_alphas(int first, int second)
 // 0x004C6410
 void PcScreenEffects::set_bloom_colour(uint32_t colour) { pc_scene_state().screen_effect_unknown990_ = colour; }
 // 0x004C6420
-void PcScreenEffects::set_dof_on(int on) { pc_scene_state().screen_effect_unknown5724_ = on != 0; }
+void PcScreenEffects::set_dof_on(int on)
+{
+    pc_scene_state().screen_effect_unknown5724_ = static_cast<uint32_t>(on != 0);
+}
 // 0x004C6460
 void PcScreenEffects::set_dof_colour_a(uint32_t colour) { pc_scene_state().screen_effect_unknown994_ = colour; }
 // 0x004C6470
@@ -218,11 +221,11 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
     maths::BBox* bounds = &geom->scene()->meshes()->bounds();
     bounds->append_spot(*min);
     bounds->append_spot(*max);
-    if (sector->flags() & kSectorFlagBillboard) {
+    if ((sector->flags() & kSectorFlagBillboard) != 0U) {
         mesh->make_billboard(static_cast<int>(billboard_type), pivot, axis);
         billboard_pool().append_mesh(mesh);
     }
-    if (sector->flags() & kSectorFlagSetsMeshFlag) {
+    if ((sector->flags() & kSectorFlagSetsMeshFlag) != 0U) {
         mesh->flags() |= kMeshFlagFromSector;
     }
     geom->append_mesh(mesh);

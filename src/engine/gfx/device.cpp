@@ -166,7 +166,7 @@ void init_direct_3d()
     bool multisample = gfx.antialiasing();
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): its sample count, whatever AntiAliasing says.
     graphics_options::choose_multisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, sys::get_windowed());
-    if (graphics_options::chosen_samples()) {
+    if (graphics_options::chosen_samples() != 0) {
         multisample = true;
     }
     device_width() = core::at(widths, first);
@@ -289,7 +289,7 @@ HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multis
     pp.BackBufferHeight = height;
     pp.MultiSampleType = multisample ? D3DMULTISAMPLE_2_SAMPLES : D3DMULTISAMPLE_NONE;
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the chosen sample count and quality instead of 2.
-    if (graphics_options::chosen_samples()) {
+    if (graphics_options::chosen_samples() != 0) {
         pp.MultiSampleType =
             multisample ? static_cast<D3DMULTISAMPLE_TYPE>(graphics_options::chosen_samples()) : D3DMULTISAMPLE_NONE;
         pp.MultiSampleQuality = multisample ? graphics_options::chosen_quality() : 0;
@@ -376,7 +376,7 @@ void create_render_targets()
     if (caps.PixelShaderVersion >= D3DPS_VERSION(1, 1)) {
         renderer().set_shaders_available(true);
     }
-    if (caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET) {
+    if ((caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET) != 0U) {
         gfx.set_stream_offset_supported(true);
     }
     gfx.set_max_anisotropy(caps.MaxAnisotropy);
@@ -386,10 +386,11 @@ void create_render_targets()
         graphics_options::get_pull().anisotropy,
         (caps.TextureFilterCaps & kMinAnisotropyFilterCap) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */, caps.MaxAnisotropy);
     graphics_options::create_scene_target();
-    if (caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER) {
+    if ((caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER) != 0U) {
         gfx.set_border_addressing_supported(true);
     }
-    gfx.set_blend_factor_supported((caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) && (caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR));
+    gfx.set_blend_factor_supported(((caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) != 0U) &&
+                                   ((caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) != 0U));
     renderer().set_back_buffer_width(static_cast<int>(pp.BackBufferWidth));
     renderer().set_back_buffer_height(static_cast<int>(pp.BackBufferHeight));
     adapter_info().back_buffer_format_ = pp.BackBufferFormat;

@@ -22,7 +22,7 @@ float get_store(double value) { return static_cast<float>(value); }
 float through_x87(float value)
 {
     auto bits = std::bit_cast<uint32_t>(value);
-    if ((bits & kExponentMask) == kExponentMask && (bits & kMantissaMask)) {
+    if ((bits & kExponentMask) == kExponentMask && ((bits & kMantissaMask) != 0U)) {
         bits |= kQuietNanBit;
     }
     return std::bit_cast<float>(bits);

@@ -21,7 +21,7 @@ bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
 {
     std::array<char, kTexturePathSize> path{};
     text::format_to(path, "%s", name);
-    if (static_cast<uint8_t>(in_images)) {
+    if (static_cast<uint8_t>(in_images) != 0U) {
         if (std::string_view(name).starts_with("../")) {
             text::format_to(path, "%s", std::next(name, 3));
         } else {

@@ -183,7 +183,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
             continue;
         }
         for (MeshRef* const mesh : geom->mesh_run()) {
-            if (mesh->flags() & 2) {
+            if ((mesh->flags() & 2) != 0U) {
                 continue;
             }
             uint8_t* vertices = nullptr;
@@ -246,7 +246,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 uint8_t* pieces = nullptr;
                 core::Cursor<uint8_t> end;
                 MeshRef* format = nullptr;
-                if (fineness()) {
+                if (fineness() != 0U) {
                     // how fine to split it: the cross product of its edges, squared, over 16 times the fineness
                     const auto& p0 = v0.position;
                     const auto& p1 = v1.position;
@@ -291,7 +291,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     ++count;
                     full = (3 * count) + 2 >= kBatchVertices;
                 };
-                if (fineness()) {
+                if (fineness() != 0U) {
                     // the pieces (made by the splitter as bytes, a projected vertex each)
                     const auto made_count = static_cast<size_t>(end.position()) / sizeof(ProjectedVertex);
                     const gpu::VertexView made(pieces, sizeof(ProjectedVertex), made_count);
@@ -306,7 +306,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 if (!full) {
                     batch->set_blend_name(blend_mode());
                 }
-                if (fineness()) {
+                if (fineness() != 0U) {
                     if (format) {
                         format->~MeshRef(); // (its destructor body)
                         memory::Hub::dealloc(format);

@@ -42,7 +42,8 @@ void* read_texture_dictionary(const char* path, int level, int unknown2, int unk
 void* load_scene_file(const char* name, void* tex_dict, bool with_super_sectors, bool is_sky, bool is_dictionary,
                       bool is_net)
 {
-    return load_scene(name, static_cast<TextureSet*>(tex_dict), with_super_sectors, is_sky, is_dictionary, is_net);
+    return load_scene(name, static_cast<TextureSet*>(tex_dict), with_super_sectors, is_sky, is_dictionary,
+                      static_cast<int>(is_net));
 }
 
 } // namespace

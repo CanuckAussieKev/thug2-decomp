@@ -227,7 +227,7 @@ void TextureSet::drop_textures(bool all)
         if (textures_->step_iterator() && textures_->iter_item()) {
             next = static_cast<BitmapTexture*>(textures_->iter_item()->value);
         }
-        if (all || !(texture->flag_bits() & kTexturePermanent)) {
+        if (all || ((texture->flag_bits() & kTexturePermanent) == 0U)) {
             const uint32_t key = texture->checksum();
             gsl::owner<BitmapTexture*> owned = memory::owned_element(texture); // (the dictionary's)
             delete owned;
@@ -351,7 +351,7 @@ TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
     const bool skin = engine::split_skin_name(name, base);
     std::array<char, kDictPathSize> file{};
     text::format_to(file, "%s.tex", base.data());
-    return load_tex_dict(file.data(), 0, offset, skin, a4);
+    return load_tex_dict(file.data(), 0, offset, static_cast<uint32_t>(skin), a4);
 }
 
 // 0x0049EFD0

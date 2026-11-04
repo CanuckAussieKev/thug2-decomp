@@ -628,12 +628,12 @@ TypefaceData* TypefaceData::read_in(const char* name)
         }
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
-    if (core::at(font->special_map_, kSpecialGlyphSlot)) {
+    if (core::at(font->special_map_, kSpecialGlyphSlot) != 0U) {
         for (int c = 0; c < render::kGlyphMapEntries; ++c) {
-            if (!core::at(font->map_, c) && c != 'A' && c != 'a') {
+            if ((core::at(font->map_, c) == 0U) && c != 'A' && c != 'a') {
                 core::at(font->map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
             }
-            if (c < kSpecialGlyphSlot && !core::at(font->special_map_, c)) {
+            if (c < kSpecialGlyphSlot && (core::at(font->special_map_, c) == 0U)) {
                 core::at(font->special_map_, c) = core::at(font->special_map_, kSpecialGlyphSlot);
             }
         }

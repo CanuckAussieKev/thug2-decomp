@@ -62,7 +62,7 @@ AnimTimeline::~AnimTimeline() { list_link_.uncouple(); }
 AnimTimeline* AnimTimeline::teardown(uint8_t flags)
 {
     this->~AnimTimeline();
-    if (flags & 1) {
+    if ((flags & 1) != 0) {
         memory::dealloc(this);
     }
     return this;

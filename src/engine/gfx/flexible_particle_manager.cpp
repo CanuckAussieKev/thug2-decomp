@@ -61,7 +61,7 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 FlexibleParticleManager::FlexibleParticleManager()
 {
     int size = script::fetch_int_value(kHeapSizeSymbol);
-    if (!size) {
+    if (size == 0) {
         size = kDefaultHeapSize;
     }
     zone_ = new memory::MemoryArena(static_cast<uint32_t>(size));
@@ -133,7 +133,7 @@ int FlexibleParticleManager::compare_distance(const void* a, const void* b)
     const double distance1 =
         ((static_cast<double>(z1) * z1) + (static_cast<double>(y1) * y1)) + (static_cast<double>(x1) * x1);
     const int order = truncate(distance2 - distance1);
-    if (order) {
+    if (order != 0) {
         return order;
     }
     return static_cast<int>(second->rank()) - static_cast<int>(first->rank());
@@ -149,7 +149,7 @@ void FlexibleParticleManager::render_systems(bool force)
             core::at(systems, count++) = system; // (no bound, as the original)
         }
     }
-    if (!count) {
+    if (count == 0) {
         return;
     }
     crt::get_qsort(static_cast<void*>(systems.data()), static_cast<size_t>(count), sizeof(EmitterInstance*),
@@ -184,12 +184,12 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
     if (!made) {
         return nullptr;
     }
-    if (!(made->flag_bits() & 4U)) { // (not everything allocated)
+    if ((made->flag_bits() & 4U) == 0U) { // (not everything allocated)
         delete made;
         return nullptr;
     }
     EmitterInstance* const system = made; // (the manager's ring's, below)
-    system->set_unknown12e(perm != 0);
+    system->set_unknown12e(static_cast<uint8_t>(perm));
     system->flag_bits() |= 1U;
     system->set_wants_time(1);
     system->flag_bits() |= kSystemFlagLive;
@@ -257,7 +257,7 @@ void FlexibleParticleManager::destroy_non_persistent()
     EmitterInstance* system = first_system(systems_ptr_);
     while (system) {
         EmitterInstance* next = next_system(system);
-        if (!system->unknown12e()) {
+        if (system->unknown12e() == 0U) {
             gsl::owner<EmitterInstance*> owned = memory::owned_element(system); // (the manager's ring's)
             delete owned;
         }
@@ -272,7 +272,7 @@ void FlexibleParticleManager::set_colour_scale(std::span<const float, 4> rgba)
         return;
     }
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
-        if (system->flag_bits() & kSystemFlagLive) {
+        if ((system->flag_bits() & kSystemFlagLive) != 0U) {
             system->set_colour_scale(rgba);
         }
     }

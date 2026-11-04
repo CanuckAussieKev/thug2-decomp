@@ -55,7 +55,7 @@ void HitMesh::assign_shape_data(TriMeshSource* geometry)
 HitMesh::~HitMesh()
 {
     TriMeshSource* geometry = geometry_;
-    if (geometry && (flag_bits_ & kOwnsGeometry) && !(flag_bits_ & kSharedGeometry)) {
+    if (geometry && ((flag_bits_ & kOwnsGeometry) != 0) && ((flag_bits_ & kSharedGeometry) == 0)) {
         free_shape_data(geometry);
         memory::Hub::dealloc(geometry);
     }

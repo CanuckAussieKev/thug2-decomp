@@ -165,13 +165,13 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
     const auto primitive_type = primitive_layout.primitive_type_;
     const auto count = primitive_layout.count;
     vertex_format_ = 2;
-    if (layout_flags & 1) {
+    if ((layout_flags & 1) != 0U) {
         vertex_format_ = kFvfColour;
     }
-    if (layout_flags & 2) {
+    if ((layout_flags & 2) != 0U) {
         vertex_format_ |= kFvfTex1;
     }
-    if (layout_flags & 4) {
+    if ((layout_flags & 4) != 0U) {
         vertex_format_ |= kFvfNormal;
     }
     if (owns_vertices() == 1) {
@@ -195,7 +195,7 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
         default:
             break;
         }
-        if (size) {
+        if (size != 0) {
             // (the 0x102 layout_'s allocation is memory::alloc's inline; the others through it)
             vertices_ = static_cast<uint8_t*>(memory::alloc(count * size));
             stride_ = size;
@@ -210,7 +210,7 @@ void PcPrimitive::prepare_all(PrimitiveLayout primitive_layout)
 // 0x004C5320
 void PcPrimitive::end_setup()
 {
-    if (!(vertex_format_ & kFvfTex1) || core::at(material_.textures(), 0) != nullptr) {
+    if (((vertex_format_ & kFvfTex1) == 0U) || core::at(material_.textures(), 0) != nullptr) {
         flag_bits() = (flag_bits() & ~2U) | 4;
     }
 }
@@ -272,7 +272,7 @@ void PcPrimitive::blit(std::span<const float> positions, std::span<const uint32_
     default:
         break;
     }
-    if (size) {
+    if (size != 0) {
         stride_ = size;
         vertices_ = primitive_vertex_buffer().data(); // (a buffer of the game's)
     }

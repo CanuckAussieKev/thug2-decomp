@@ -237,7 +237,7 @@ private:
 // which compared the vtable).
 inline bool is_static_collider(const void* object)
 {
-    return object && static_cast<const HitMesh*>(object)->kind() == HitMeshKind::kStatic;
+    return (object != nullptr) && static_cast<const HitMesh*>(object)->kind() == HitMeshKind::kStatic;
 }
 
 // 0x00414990 (cdecl): a movable collision object made from `count` geometries (consecutive in memory): type 1 a box

@@ -156,7 +156,7 @@ void MeshRef::render()
         renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
         renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
     }
-    if (!core::at(index_counts_, 0)) {
+    if (core::at(index_counts_, 0) == 0U) {
         return;
     }
     D3DMATRIX world;
@@ -171,7 +171,7 @@ void MeshRef::render()
     auto* mat = material_;
     if (renderer().shaders_available()) {
         mat->hand_in();
-        if (!renderer().instance_colour_on() && !(flags_ & 4)) {
+        if ((renderer().instance_colour_on() == 0U) && ((flags_ & 4) == 0U)) {
             set_pixel_shader_with_constants(pixel_shader_, mat->pass_count());
         } else {
             set_pixel_shader_colored();
@@ -181,13 +181,13 @@ void MeshRef::render()
     }
     DWORD min_filter = 0;
     DWORD z_write = 0;
-    if (flags_ & kFlagForceLinear) {
+    if ((flags_ & kFlagForceLinear) != 0U) {
         renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
         if (min_filter != D3DTEXF_LINEAR) {
             renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         }
     }
-    if (flags_ & kFlagKeepZWrite) {
+    if ((flags_ & kFlagKeepZWrite) != 0U) {
         renderer().d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
         if (z_write == 1) {
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
@@ -254,13 +254,13 @@ void MeshRef::render()
         for (uint32_t pass = 0; pass < mat->pass_count(); ++pass) {
             std::array<float, 3> instance{};
             const float* tint = nullptr;
-            if (renderer().instance_colour_on()) {
+            if (renderer().instance_colour_on() != 0U) {
                 for (int k = 0; k < 3; ++k) {
                     core::at(instance, k) = static_cast<float>(core::at(renderer().instance_colour(), k) *
                                                                static_cast<double>(1.0F / kByteMax));
                 }
                 tint = instance.data();
-            } else if (flags_ & 4) {
+            } else if ((flags_ & 4) != 0U) {
                 tint = color_.data();
             }
             mat->submit_pass(pass, tint);
@@ -269,10 +269,10 @@ void MeshRef::render()
             count_draw(index_count_at(this, level) - 2U);
         }
     }
-    if ((flags_ & kFlagForceLinear) && min_filter != D3DTEXF_LINEAR) {
+    if (((flags_ & kFlagForceLinear) != 0U) && min_filter != D3DTEXF_LINEAR) {
         renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     }
-    if ((flags_ & kFlagKeepZWrite) && z_write == 1) {
+    if (((flags_ & kFlagKeepZWrite) != 0U) && z_write == 1) {
         renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
     }
     if (unknown98 != -1) {

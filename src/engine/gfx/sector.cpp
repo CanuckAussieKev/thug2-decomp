@@ -50,7 +50,7 @@ WorldCell::WorldCell() = default;
 // 0x0049E630
 WorldCell::~WorldCell()
 {
-    if (hit_body_ && (flag_bits_ & kSectorClone)) {
+    if (hit_body_ && ((flag_bits_ & kSectorClone) != 0U)) {
         gsl::owner<HitMesh*> copy = memory::owned_element(hit_body_); // (a clone's own)
         delete copy;
     }
@@ -191,7 +191,7 @@ bool WorldCell::is_operative()
     if (geom_handle_) {
         return geom_of(geom_handle_)->is_operative();
     }
-    return !(low_byte(coll_flags(hit_body_)) & 4);
+    return (low_byte(coll_flags(hit_body_)) & 4) == 0;
 }
 
 // 0x0049EA30
@@ -221,7 +221,7 @@ void WorldCell::mark_as_occluder(bool occluder)
         set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & kCollidableMask));
         return;
     }
-    if (!(low_byte(coll_flags(hit_body_)) & kSectorHitBit)) {
+    if ((low_byte(coll_flags(hit_body_)) & kSectorHitBit) == 0) {
         hit_body_->flag_bits() |= kSectorHitBit;
         hit_body_->add_occlusion_polys(); // its occlusion polygons added
     }
@@ -244,7 +244,7 @@ void WorldCell::place_at_absolute_point(const maths::Vec4* position)
 {
     if (hit_body_) {
         hit_body_->place_at_absolute_point(position);
-        if (flag_bits_ & kSectorInGrid) {
+        if ((flag_bits_ & kSectorInGrid) != 0U) {
             flag_bits_ |= kSectorMoved;
         }
     }
@@ -258,7 +258,7 @@ void WorldCell::change_facing(const maths::Mat4* orientation)
 {
     if (hit_body_) {
         hit_body_->change_facing(orientation);
-        if (flag_bits_ & kSectorInGrid) {
+        if ((flag_bits_ & kSectorInGrid) != 0U) {
             flag_bits_ |= kSectorMoved;
         }
     }
@@ -287,7 +287,7 @@ void WorldCell::change_scale(const maths::Vec4* scale)
     if (hit_body_) {
         const maths::Vec4* about = geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_absolute_point();
         hit_body_->scale_about(about, scale);
-        if (flag_bits_ & kSectorInGrid) {
+        if ((flag_bits_ & kSectorInGrid) != 0U) {
             flag_bits_ |= kSectorMoved;
         }
     }
@@ -305,7 +305,7 @@ void WorldCell::choose_raw_verts(const maths::Vec4* vertices)
     // TriMeshSource: every vertex set (0x00415C10)
     // (the vertices are made for the collision's vertex count)
     hit_body_->geometry()->choose_raw_verts({vertices, hit_body_->geometry()->num_vertices()});
-    if (flag_bits_ & kSectorInGrid) {
+    if ((flag_bits_ & kSectorInGrid) != 0U) {
         flag_bits_ |= kSectorMoved;
     }
 }
@@ -330,7 +330,7 @@ void WorldCell::set_uv_wibble_params(const Geom::UvWibble& wibble)
 void WorldCell::force_uv_wobble(bool on)
 {
     if (geom_handle_) {
-        geom_of(geom_handle_)->enable_explicit_uv_wibble(on);
+        geom_of(geom_handle_)->enable_explicit_uv_wibble(static_cast<int>(on));
     }
 }
 

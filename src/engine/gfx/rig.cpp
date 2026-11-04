@@ -199,7 +199,7 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool /*unused*/)
         core::at(inverse_binds(), i) = matrix;
     }
     for (int i = 0; i < num_; ++i) {
-        if (!core::at(flip_names_, i)) {
+        if (core::at(flip_names_, i) == 0U) {
             core::at(flip_indices_, i) = -1;
             continue;
         }
@@ -213,7 +213,7 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool /*unused*/)
 // 0x004A3D30
 Rig::Rig(RigData* data)
 {
-    if (data->flag_bits() & 1) {
+    if ((data->flag_bits() & 1) != 0U) {
         flag_bits_ = kMirrorData;
     }
     bone_array_ = new_bones(data->num());
@@ -359,7 +359,7 @@ bool Rig::apply_bone_scales(script::Struct* params) const
             continue;
         }
         uint32_t name = core::at(bones(), i).name;
-        if ((flag_bits_ & kMirrorData) && name == kMirroredBone) {
+        if (((flag_bits_ & kMirrorData) != 0U) && name == kMirroredBone) {
             name = kMirroredBoneScale;
         }
         if (in_exceptions(name)) {
@@ -394,7 +394,7 @@ void Rig::link_bones(RigData* data) const
 {
     for (int i = 0; i < data->num(); ++i) {
         const uint32_t parent = core::at(data->parent_names(), i);
-        const int index = parent ? data->fetch_slot_no(parent) : 0;
+        const int index = (parent != 0U) ? data->fetch_slot_no(parent) : 0;
         core::at(bones(), i).parent = &core::at(matrices(), index);
         core::at(bones(), i).flags = 0;
     }
@@ -518,15 +518,15 @@ void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* tr
     for (int i = 0; i < bone_total_; ++i) {
         const Joint& bone = core::at(bones(), i);
         maths::Mat4& matrix = core::at(matrices(), i);
-        if (bone.flags & Joint::kInactive) {
+        if ((bone.flags & Joint::kInactive) != 0U) {
             continue;
         }
-        if (core::at(payload_->lod_masks(), i) & lod_bit) { // (collapsed into its parent at this LOD)
+        if ((core::at(payload_->lod_masks(), i) & lod_bit) != 0U) { // (collapsed into its parent at this LOD)
             matrix = *bone.parent;
             continue;
         }
         quat_to_bone_matrix(&matrix, &core::at(translation_run, i), std::span<const float, 4>(core::at(rotation_run, i).data(), 4), false, false);
-        if (bone.flags & Joint::kScaled) {
+        if ((bone.flags & Joint::kScaled) != 0U) {
             matrix.scale_tool(bone.scale);
             if (zero_scale(bone.scale)) {
                 core::at(matrix.row, 3) = core::at(bone.parent->row, 3);
@@ -541,11 +541,11 @@ void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* tr
     for (int i = 0; i < bone_total_; ++i) {
         const Joint& bone = core::at(bones(), i);
         maths::Mat4& matrix = core::at(matrices(), i);
-        if (bone.flags & Joint::kInactive) {
+        if ((bone.flags & Joint::kInactive) != 0U) {
             continue;
         }
         bool collapsed = false;
-        if (bone.flags & Joint::kScaledLocal) {
+        if ((bone.flags & Joint::kScaledLocal) != 0U) {
             for (int k = 0; k < 4; ++k) {
                 core::at(matrix.row, 0)[k] *= bone.scale.x;
                 core::at(matrix.row, 1)[k] *= bone.scale.y;
@@ -572,7 +572,7 @@ void Rig::tick_frame(const Stance* pose) { tick_frame(pose->rotations.data(), po
 // 0x004A4000
 void Rig::collapse_zero_scaled_bones()
 {
-    if (!(flag_bits_ & kCollapseZeroScaled)) {
+    if ((flag_bits_ & kCollapseZeroScaled) == 0U) {
         return;
     }
     int first = 1;

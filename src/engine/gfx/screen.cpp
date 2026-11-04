@@ -167,7 +167,7 @@ void set_letterbox(bool letterbox)
         set_screen_offset_y(
             static_cast<uint32_t>((kLetterboxOffset * renderer().display_factor_y()) + static_cast<float>(bar)));
     }
-    renderer().set_letterbox_active(letterbox);
+    renderer().set_letterbox_active(static_cast<uint8_t>(letterbox));
 }
 
 // 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are
@@ -175,7 +175,7 @@ void set_letterbox(bool letterbox)
 bool cfunc_set_screen_blur(script::Struct* params, script::Script* /*script*/)
 {
     int amount = 0;
-    params->fetch_int_value(0U, &amount, false); // the unnamed integer
+    params->fetch_int_value(0U, &amount, 0); // the unnamed integer
     script_screen_blur() = amount;
     set_screen_blur(static_cast<uint32_t>(amount));
     return true;

@@ -131,7 +131,7 @@ float quat_w(QuatPart part, uint16_t time, bool nan_to_zero)
         left = 0.0;
     }
     const double w = std::sqrt(left);
-    return static_cast<float>((time & kTimeSignBit) ? -w : w);
+    return static_cast<float>(((time & kTimeSignBit) != 0) ? -w : w);
 }
 
 // The frame cache (0x006F92B0) and its members (not rewritten here).
@@ -166,7 +166,7 @@ uint16_t reference_bits(uint16_t bits, int change)
 bool read_key_table(void* file, std::span<int16_t, kShortKeyTableSize> table)
 {
     for (int16_t& value : table) {
-        if (!file::get_take_in(&value, 2, 1, static_cast<file::Hdl>(file))) {
+        if (file::get_take_in(&value, 2, 1, static_cast<file::Hdl>(file)) == 0) {
             return false;
         }
     }
@@ -205,7 +205,7 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
     const auto& shared = boned_anim_frame_data_state().quat_table_;
     const uint16_t first = get_word(data);
     uint16_t header = 0;
-    if (flags & kQuatLongHeaderFlag) {
+    if ((flags & kQuatLongHeaderFlag) != 0U) {
         header = get_word(data + 2);
         out->time = static_cast<uint16_t>((header & kTimeSignBit) | (first & kTimeValueMask));
         data += 4;
@@ -227,9 +227,9 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
         data += 2;
         return v;
     };
-    if (!(header & kKeyCompressedBit)) {
+    if ((header & kKeyCompressedBit) == 0) {
         // Uncompressed: three shorts (or three bytes moved up).
-        if (flags & kQuatByteValuesFlag) {
+        if ((flags & kQuatByteValuesFlag) != 0U) {
             for (int i = 0; i < 3; ++i) {
                 core::at(out->value, i) = static_cast<int16_t>(data[i] << kBitsPerByte);
             }
@@ -241,10 +241,10 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
             data += kQuatValueBytes;
         }
     } else {
-        if (!(header & kKeyByteBitsMask)) {
+        if ((header & kKeyByteBitsMask) == 0) {
             // All three from a table entry.
             const uint8_t b = *data++;
-            if (flags & kQuatFileTableFlag) {
+            if ((flags & kQuatFileTableFlag) != 0U) {
                 for (int i = 0; i < 3; ++i) {
                     core::at(out->value, i) = static_cast<int16_t>(get_word(table, (b * kFileTableEntryBytes) + (2 * i)));
                 }
@@ -261,7 +261,7 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
         // The time: 11 bits here (and the sign).
         out->time = static_cast<uint16_t>((out->time & kTimeSignBit) | (out->time & kCompressedTimeMask));
     }
-    if (flags & kQuatLongHeaderFlag) {
+    if ((flags & kQuatLongHeaderFlag) != 0U) {
         out->time = static_cast<uint16_t>((out->time & kTimeSignBit) | (first & kTimeValueMask));
     }
     return data;
@@ -271,13 +271,13 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
 KeyCursor decompress_trans_key(KeyCursor data, ShortKey* out)
 {
     const uint8_t head = *data++;
-    if (head & kTransShortTimeFlag) {
+    if ((head & kTransShortTimeFlag) != 0) {
         out->time = static_cast<uint16_t>(head & kTransShortTimeMask);
     } else {
         out->time = get_word(data);
         data += 2;
     }
-    if (head & kTransTableFlag) {
+    if ((head & kTransTableFlag) != 0) {
         const int entry = *data++ * 4;
         for (int i = 0; i < 3; ++i) {
             core::at(out->value, i) = core::at(boned_anim_frame_data_state().trans_table_, entry + i);
@@ -304,7 +304,7 @@ void expand_quat_key(FloatKey* out, const ShortKey* in)
 void expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
 {
     out->time = time_word(out->time, in->time);
-    if (!core::at(in->value, 0) && !core::at(in->value, 1) && !core::at(in->value, 2)) {
+    if ((core::at(in->value, 0) == 0) && (core::at(in->value, 1) == 0) && (core::at(in->value, 2) == 0)) {
         core::at(out->value, 0) = core::at(out->value, 1) = core::at(out->value, 2) = 0.0F;
         core::at(out->value, 3) = 1.0F;
         return;
@@ -352,7 +352,7 @@ void get_trans(const void* key, std::span<float, 4> out, bool floats)
 // 0x00483A00
 void get_short_quat(const ShortKey* key, std::span<float, 4> out)
 {
-    if (!core::at(key->value, 0) && !core::at(key->value, 1) && !core::at(key->value, 2)) {
+    if ((core::at(key->value, 0) == 0) && (core::at(key->value, 1) == 0) && (core::at(key->value, 2) == 0)) {
         core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = 0.0F;
         core::at(out, 3) = 1.0F;
         return;
@@ -542,10 +542,10 @@ std::span<const uint8_t> JointClipFrames::translation_key_run() const
     if (!trans_keys_) {
         return {};
     }
-    if (flag_bits_ & anim_format::kCompressed) {
+    if ((flag_bits_ & anim_format::kCompressed) != 0U) {
         return {trans_keys_, total_size(translation_sizes())};
     }
-    const size_t key_size = (flag_bits_ & (anim_format::kWideKeys | anim_format::kBoneNames)) ? 16 : 8;
+    const size_t key_size = ((flag_bits_ & (anim_format::kWideKeys | anim_format::kBoneNames)) != 0U) ? 16 : 8;
     return {trans_keys_, static_cast<size_t>(static_cast<uint16_t>(trans_key_count_)) * key_size};
 }
 std::span<const uint8_t> JointClipFrames::own_key_table() const
@@ -700,7 +700,7 @@ int AnimCacheEntry::find_quat_keys(KeyQuery query, uint8_t** first, uint8_t** se
 {
     const auto bone = query.bone;
     const auto frame = query.frame;
-    if (flag_bits_ & kFlagUnusable) {
+    if ((flag_bits_ & kFlagUnusable) != 0) {
         return -2;
     }
     flag_bits_ |= kFlagQuerying;
@@ -774,7 +774,7 @@ int AnimCacheEntry::find_trans_keys(AnimCacheEntry::KeyQuery query, uint8_t** fi
 {
     const auto bone = query.bone;
     const auto frame = query.frame;
-    if (flag_bits_ & kFlagUnusable) {
+    if ((flag_bits_ & kFlagUnusable) != 0) {
         return -2;
     }
     flag_bits_ |= kFlagQuerying;
@@ -849,7 +849,7 @@ int AnimCacheEntry::find_quat_keys_backwards(AnimCacheEntry::KeyQuery query, uin
 {
     const auto bone = query.bone;
     const auto frame = query.frame;
-    if (flag_bits_ & kFlagUnusable) {
+    if ((flag_bits_ & kFlagUnusable) != 0) {
         return -2;
     }
     flag_bits_ |= kFlagQuerying;
@@ -918,7 +918,7 @@ int AnimCacheEntry::find_quat_keys_backwards(AnimCacheEntry::KeyQuery query, uin
 // 0x004836C0
 int AnimCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot)
 {
-    if (flag_bits_ & kFlagUnusable) {
+    if ((flag_bits_ & kFlagUnusable) != 0) {
         return -2;
     }
     flag_bits_ |= kFlagQuerying;
@@ -985,7 +985,7 @@ int AnimCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** f
 // through anim_format's reader within the animation (create_custom_anim_key's reader form).
 bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout)
 {
-    if (!header.custom_key_count) {
+    if (header.custom_key_count == 0U) {
         events_ptr_ = nullptr;
         event_count_ = static_cast<int16_t>(header.custom_key_count);
         return true;
@@ -1013,13 +1013,13 @@ bool JointClipFrames::set_up_compressed(const anim_format::AnimHeader& header, c
     quat_sizes_ = anim_format::rotation_size_list(layout);
     trans_sizes_ = anim_format::translation_size_list(layout);
     bone_labels_ = nullptr;
-    if (layout.key_table) {
+    if (layout.key_table != 0U) {
         key_table_ = anim_format::key_table_bytes(layout);
     }
-    if (layout.partial_bones) {
+    if (layout.partial_bones != 0U) {
         partial_bones_ = anim_format::partial_bone_bits(layout);
     }
-    if (layout.rotation_keys) {
+    if (layout.rotation_keys != 0U) {
         quat_keys_ = anim_format::rotation_key_bytes(layout);
         trans_keys_ = anim_format::translation_key_bytes(layout);
     }
@@ -1033,7 +1033,7 @@ bool JointClipFrames::set_up_float_keys(const anim_format::AnimHeader& header, c
     quat_key_count_ = static_cast<int16_t>(header.rotation_key_count);
     trans_key_count_ = static_cast<int16_t>(header.translation_key_count);
     bone_labels_ = anim_format::bone_name_list(layout); // (null without them)
-    if (layout.partial_bones) {
+    if (layout.partial_bones != 0U) {
         partial_bones_ = anim_format::partial_bone_bits(layout);
     }
     key_counts_ = anim_format::key_count_bytes(layout);
@@ -1064,7 +1064,7 @@ bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void* /*unused*/, flo
     for (int bone = 0; bone < bone_count_; ++bone) {
         int quat_count = 0;
         int trans_count = 0;
-        if (flag_bits_ & kFlagWideKeyCounts) {
+        if ((flag_bits_ & kFlagWideKeyCounts) != 0U) {
             quat_count = anim_format::wide_key_count(key_count_run(), 2 * bone);
             trans_count = anim_format::wide_key_count(key_count_run(), (2 * bone) + 1);
         } else {
@@ -1148,15 +1148,19 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
         }
     }
     AnimCacheEntry* entry = cache_slot_;
-    const std::span<const uint32_t> bone_masks = mask && source->bone_masks() ? std::span<const uint32_t>(source->bone_masks(), static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
+    const std::span<const uint32_t> bone_masks =
+        (mask != 0U) && source->bone_masks()
+            ? std::span<const uint32_t>(source->bone_masks(), static_cast<size_t>(bone_count_))
+            : std::span<const uint32_t>();
     for (int bone = 0; bone < bone_count_; ++bone) {
         const std::span<float, 4> rotation(core::at(rotations, bone).data(), 4);
         const std::span<float, 4> translation(core::at(translations, bone).data(), 4);
         const uint16_t quat_size = core::at(quat_sizes, bone);
         const uint16_t trans_size = core::at(trans_sizes, bone);
-        bool skip = mask ? (core::at(bone_masks, bone) & mask) != 0 : false;
-        if (flag_bits_ & kFlagPartialBones) {
-            skip = !(core::at(partial_bone_run(), 1 + (bone / kPartialMaskBits)) & (1U << (bone % kPartialMaskBits)));
+        bool skip = (mask != 0U) ? (core::at(bone_masks, bone) & mask) != 0 : false;
+        if ((flag_bits_ & kFlagPartialBones) != 0U) {
+            skip =
+                (core::at(partial_bone_run(), 1 + (bone / kPartialMaskBits)) & (1U << (bone % kPartialMaskBits))) == 0U;
         }
         if (skip) {
             core::at(valid, bone) = 0;
@@ -1228,7 +1232,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                 }
             }
             // The translation (none for a bone without keys when flag 0x20000 says so).
-            if (!((flag_bits_ & kFlagNoTransKeys) && trans_size == 0)) {
+            if (!(((flag_bits_ & kFlagNoTransKeys) != 0U) && trans_size == 0)) {
                 bool done = false;
                 if (cache_slot_) {
                     uint8_t* first = nullptr;
@@ -1239,7 +1243,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     if (found != -2) {
                         auto from = static_cast<float>(trans_key_time(first));
                         auto to = static_cast<float>(trans_key_time(second));
-                        const bool add = (flag_bits_ & 0x4000) && (flag_bits_ & 0x20000);
+                        const bool add = ((flag_bits_ & 0x4000) != 0U) && ((flag_bits_ & 0x20000) != 0U);
                         const std::array<float, 4> before{core::at(translation, 0), core::at(translation, 1), core::at(translation, 2),
                                                           core::at(translation, 3)};
                         const FloatKey key_a = anim_format::float_key_at(first);
@@ -1300,7 +1304,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     std::array<float, 4> before{};
                     std::memcpy(before.data(), translation.data(), sizeof(before));
                     interpolate_short_trans(translation, &a, &b, t);
-                    if ((flag_bits_ & kFlagQuerying) && (flag_bits_ & kFlagNoTransKeys)) {
+                    if (((flag_bits_ & kFlagQuerying) != 0U) && ((flag_bits_ & kFlagNoTransKeys) != 0U)) {
                         for (int i = 0; i < 4; ++i) {
                             core::at(translation, i) = core::at(before, i) + core::at(translation, i);
                         }

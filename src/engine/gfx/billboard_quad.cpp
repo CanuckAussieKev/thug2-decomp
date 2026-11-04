@@ -122,7 +122,7 @@ void QuadSprite::draw()
     auto bottom = static_cast<float>((static_cast<double>(height) * scale_y) + top);
 
     const uint32_t argb = (color_ & 0xFF00FF00) | ((color_ & 0xFF) << 16) | ((color_ >> 16) & 0xFF);
-    if (!(argb & kAlphaMask)) {
+    if ((argb & kAlphaMask) == 0U) {
         return;
     }
 

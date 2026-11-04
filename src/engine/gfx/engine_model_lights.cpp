@@ -174,7 +174,7 @@ const maths::Vec4* ModelLights::read_light_aim(int /*unused*/)
     get_stub("STUB: CModelLights::GetLightDirection\n"); // "STUB: CModelLights::GetLightDirection\n"
     uint32_t& guard = engine_model_lights_state().light_direction_guard_;
     auto* direction = &engine_model_lights_state().light_direction_;
-    if (!(guard & 1)) {
+    if ((guard & 1) == 0U) {
         guard |= 1;
         std::memset(direction, 0, sizeof(maths::Vec4));
     }

@@ -65,7 +65,7 @@ uint16_t HitMesh::read_face_terrain(int face) const
 // 0x00412760
 StaticCollider::~StaticCollider()
 {
-    if ((flag_bits() & kOwnsGeometry) && octets_) {
+    if (((flag_bits() & kOwnsGeometry) != 0) && octets_) {
         memory::free_malloc(octets_);
         octets_ = nullptr;
     }
@@ -151,7 +151,7 @@ const maths::BBox* StaticCollider::get_world_bounds()
 // 0x00412840
 CollStaticInstance::~CollStaticInstance()
 {
-    if ((flag_bits() & kOwnsGeometry) && octets_) {
+    if (((flag_bits() & kOwnsGeometry) != 0) && octets_) {
         memory::free_malloc(octets_);
         octets_ = nullptr;
     }

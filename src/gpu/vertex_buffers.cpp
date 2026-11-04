@@ -103,13 +103,13 @@ VertexBuffer::VertexBuffer(uint32_t bytes, BufferFlags creation)
 {
     const auto usage_flags = creation.usage_flags_;
     const auto buffer_flags = creation.buffer_flags_;
-    if (!(buffer_flags & kShared)) {
+    if ((buffer_flags & kShared) == 0U) {
         renderer().d3d_device()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
     }
     size_ = bytes;
     usage = usage_flags;
-    data_ = (buffer_flags & kNoCopy) ? nullptr : static_cast<uint8_t*>(alloc_block(bytes));
+    data_ = ((buffer_flags & kNoCopy) != 0U) ? nullptr : static_cast<uint8_t*>(alloc_block(bytes));
     flags = buffer_flags;
     arena_offset_ = 0;
     lock_flags_ = kNotLocked;
@@ -124,9 +124,9 @@ long VertexBuffer::get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint
 {
     *out = data_ ? std::span<uint8_t>(data_, size_).subspan(offset).data() : data_;
     lock_offset_ = offset;
-    lock_size_ = bytes ? bytes : size_;
+    lock_size_ = (bytes != 0U) ? bytes : size_;
     lock_flags_ = flags_for_lock;
-    if (flags_for_lock & D3DLOCK_DISCARD) {
+    if ((flags_for_lock & D3DLOCK_DISCARD) != 0U) {
         return d_3d(this)->Lock(offset, bytes, raw::as<void*>(out), flags_for_lock);
     }
     return 0;
@@ -135,16 +135,16 @@ long VertexBuffer::get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint
 // 0x004D40E0
 long VertexBuffer::get_unlock()
 {
-    if ((flags & kShared) && !buffer_) {
+    if (((flags & kShared) != 0U) && !buffer_) {
         lock_flags_ = kNotLocked;
         return 0;
     }
-    if (!(lock_flags_ & D3DLOCK_READONLY)) {
-        if (lock_flags_ & D3DLOCK_DISCARD) {
+    if ((lock_flags_ & D3DLOCK_READONLY) == 0U) {
+        if ((lock_flags_ & D3DLOCK_DISCARD) != 0U) {
             lock_flags_ = kNotLocked;
             return d_3d(this)->Unlock();
         }
-        if (flags & kShared) {
+        if ((flags & kShared) != 0U) {
             lock_offset_ += arena_offset_;
         }
         void* card = nullptr;
@@ -160,17 +160,17 @@ long VertexBuffer::get_unlock()
 // 0x004D41E0
 void VertexBuffer::recreate()
 {
-    if (flags & kShared) {
+    if ((flags & kShared) != 0U) {
         d_3d(this)->AddRef();
     } else {
         renderer().d3d_device()->CreateVertexBuffer(size_, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
     }
-    if (flags & kNoCopy) {
+    if ((flags & kNoCopy) != 0U) {
         return;
     }
     void* card = nullptr;
-    if (d_3d(this)->Lock((flags & kShared) ? arena_offset_ : 0, size_, &card, 0) >= 0) {
+    if (d_3d(this)->Lock(((flags & kShared) != 0U) ? arena_offset_ : 0, size_, &card, 0) >= 0) {
         std::memcpy(card, data_, size_);
         d_3d(this)->Unlock();
     }

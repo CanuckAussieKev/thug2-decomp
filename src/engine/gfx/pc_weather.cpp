@@ -144,7 +144,7 @@ void step_slot(uint32_t& next)
         return;
     }
     uint32_t value = next;
-    if (value & 1) {
+    if ((value & 1) != 0U) {
         value ^= kSlotFeedbackMask;
     }
     next = value >> 1;
@@ -233,7 +233,7 @@ void PcWeather::render()
     } else {
         render_snow({.x = x, .y = z});
     }
-    if (!drops()) {
+    if (drops() == 0) {
         return;
     }
     for (uint8_t& slot : stage) { // (each falling drop a frame on; one finishing is freed)
@@ -251,7 +251,7 @@ void PcWeather::render_rain(maths::Vec2 centre)
 {
     const auto x = centre.x;
     const auto z = centre.y;
-    if (!drops()) {
+    if (drops() == 0) {
         return;
     }
     const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0F / 128.0F));
@@ -353,7 +353,7 @@ void PcWeather::render_snow(maths::Vec2 centre)
 {
     const auto x = centre.x;
     const auto z = centre.y;
-    if (!drops()) {
+    if (drops() == 0) {
         return;
     }
     const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0F / 128.0F));
@@ -473,7 +473,7 @@ void PcWeather::render_splashes(float x, float z)
         at.z = static_cast<float>(at.z + (heading.z * out));
         at.w = static_cast<float>(at.w + (heading.w * out));
         double side = (1.0 - (maths::rnd(kRandomRange) * (1.0 / kRandomUnit))) * along;
-        side *= next_splash_ & 1 ? kSplashRadius : -kSplashRadius;
+        side *= ((next_splash_ & 1) != 0) ? kSplashRadius : -kSplashRadius;
         auto across = static_cast<float>(-static_cast<double>(heading.x)); // (stored, as the original)
         at.x = static_cast<float>((heading.z * side) + at.x);
         at.y = static_cast<float>(at.y + (side * 0.0F));
@@ -482,7 +482,7 @@ void PcWeather::render_splashes(float x, float z)
         feeler.change_origin(&at);
         at.y = -kProbeHeight;
         feeler.change_finish(&at);
-        const float landing = feeler.get_hit_shape(false, false) ? feeler.contact_pos().y : 50000.0F;
+        const float landing = (feeler.get_hit_shape(false, false) != 0) ? feeler.contact_pos().y : 50000.0F;
         core::at(splash_x_, next_splash_) = at.x;
         core::at(splash_y_, next_splash_) = static_cast<float>(static_cast<double>(landing) + kSplashLift);
         core::at(splash_z_, next_splash_) = at.z;
@@ -508,7 +508,7 @@ void PcWeather::render_splashes(float x, float z)
     uint32_t used = 0;
     for (int i = 0; i < kSplashCount; ++i) {
         const int frames = core::at(splash_frames_, i);
-        if (!frames) {
+        if (frames == 0) {
             continue;
         }
         const double half = static_cast<double>(splash_size()) * 0.5F;
@@ -534,7 +534,7 @@ void PcWeather::render_splashes(float x, float z)
         core::at(splash_frames_, i) = frames - 1;
     }
     const uint32_t triangles = used / 6 / 3;
-    if (triangles) {
+    if (triangles != 0U) {
         renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads.data(), kSplashVertexBytes);
         count_draw(triangles);
     }
@@ -589,7 +589,7 @@ void PcWeather::tick_grid()
             feeler.change_origin(&at);
             at.y = -kProbeHeight;
             feeler.change_finish(&at);
-            const int height = feeler.get_hit_shape(false, false)
+            const int height = (feeler.get_hit_shape(false, false) != 0)
                                    ? ftol(static_cast<double>(feeler.contact_pos().y) * 16.0F)
                                    : kNoGround;
             int found = -1;

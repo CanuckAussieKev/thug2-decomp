@@ -107,7 +107,7 @@ void PcText::refresh_all()
 }
 
 // 0x004B3DA0
-void PcText::update_hidden() { text->change_concealed(invisible()); }
+void PcText::update_hidden() { text->change_concealed(static_cast<uint8_t>(invisible())); }
 
 // 0x004B3F50
 void PcText::update_settings()

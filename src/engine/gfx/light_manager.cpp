@@ -300,7 +300,7 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
     uint32_t count = 0;
     for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
         DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i); // (not checked for null, as the original)
-        if (!(light->intensity() > 0.0F) || !light->owner()) {
+        if (!(light->intensity() > 0.0F) || (light->owner() == 0U)) {
             continue;
         }
         const double dx = static_cast<double>(position->x) - core::at(light->pos(), 0);
@@ -383,7 +383,7 @@ DynamicLightBase* new_dynamic_light(int type)
             core::at(light_sets().dynamic_lights(), i) = create_dynamic_light(type);
             return core::at(light_sets().dynamic_lights(), i);
         }
-        if (!light->owner()) {
+        if (light->owner() == 0U) {
             return core::at(light_sets().dynamic_lights(), i);
         }
     }

@@ -225,7 +225,7 @@ uint32_t WorldScene::duplicate_scene_sector(WorldCell* sector, WorldScene* scene
     if (!clone) {
         return 0;
     }
-    if (name) {
+    if (name != 0U) {
         clone->set_checksum(name);
     }
     put_sector(scene, clone);
@@ -274,7 +274,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
             sector->change_bits(kSectorInGrid);
         }
     }
-    if (script::fetch_int_value(kUpdateWeatherGrid)) {
+    if (script::fetch_int_value(kUpdateWeatherGrid) != 0) {
         weather()->tick_grid(); // (through the jump 0x004A1090)
     }
     return true;

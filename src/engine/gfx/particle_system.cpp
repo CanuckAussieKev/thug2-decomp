@@ -385,7 +385,7 @@ void EmitterInstance::update_bounds()
 // 0x00496CE0
 void EmitterInstance::set_colour_scale(std::span<const float, 4> rgba)
 {
-    if (flag_bits_ & kFlagWantsTime) {
+    if ((flag_bits_ & kFlagWantsTime) != 0U) {
         for (int i = 0; i < 4; ++i) {
             core::at(colour_scale_, i) = core::at(rgba, i);
         }
@@ -418,7 +418,7 @@ namespace {
 // 0x00497790 / 0x00497900: a script slot set (see SetEmitScript).
 void bind_script(EmitterInstance* system, script::Script*& slot, uint32_t script, script::Struct* params, void* object)
 {
-    if (!script) {
+    if (script == 0U) {
         if (script::Script* old = slot) {
             script::Script::destroy(old);
         }
@@ -452,7 +452,7 @@ void EmitterInstance::set_update_script(uint32_t script, script::Struct* params,
 // 0x00497A70
 void EmitterInstance::set_wants_time(uint8_t on)
 {
-    if (on) {
+    if (on != 0U) {
         flag_bits_ |= kFlagWantsTimeU;
     } else {
         flag_bits_ &= ~kFlagWantsTimeU;

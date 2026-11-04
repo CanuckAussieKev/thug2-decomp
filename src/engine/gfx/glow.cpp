@@ -156,7 +156,7 @@ void update_glows(bool queries)
             }
             uint32_t query = 0;
             for (; query < kGlowQueryLimit; ++query) {
-                if (!core::at(queries_in_use(), query)) {
+                if (core::at(queries_in_use(), query) == 0U) {
                     core::at(queries_in_use(), query) = 1;
                     break;
                 }

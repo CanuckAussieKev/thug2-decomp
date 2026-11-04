@@ -134,7 +134,7 @@ void update_loading_bar_colors()
 void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /*unused*/, unsigned long /*unused*/,
                                          unsigned long /*unused*/, unsigned long /*unused*/)
 {
-    if (!renderer().loading_bar_timer() || !engine_parts().loading_screen_up()) {
+    if ((renderer().loading_bar_timer() == 0U) || !engine_parts().loading_screen_up()) {
         return;
     }
     WaitForSingleObject(screen_2d().screen_mutex(), INFINITE);

@@ -59,8 +59,8 @@ void blend_bones(Stance& to, Stance& from, BoneBlend bone_blend, bool mark_copie
     const auto bones = bone_blend.bones;
     const auto t = bone_blend.t;
     for (int k = 0; k < bones; ++k) {
-        if (core::at(to.valid, k)) {
-            if (core::at(from.valid, k)) {
+        if (core::at(to.valid, k) != 0U) {
+            if (core::at(from.valid, k) != 0U) {
                 std::array<float, 4> blended{};
                 maths::QuatRotation& rotation = core::at(to.rotations, k);
                 interpolate_rotation(blended, std::span<const float, 4>(rotation.data(), 4),
@@ -69,7 +69,7 @@ void blend_bones(Stance& to, Stance& from, BoneBlend bone_blend, bool mark_copie
                 lerp_vector(blended.data(), core::at(to.translations, k).data(), core::at(from.translations, k).data(), t);
                 copy4(core::at(to.translations, k).data(), blended.data());
             }
-        } else if (core::at(from.valid, k)) {
+        } else if (core::at(from.valid, k) != 0U) {
             copy4(core::at(to.rotations, k).data(), core::at(from.rotations, k).data());
             if (mark_copied) {
                 core::at(to.valid, k) = 1;

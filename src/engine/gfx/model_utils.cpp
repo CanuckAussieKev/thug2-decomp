@@ -102,7 +102,8 @@ uint32_t current_object_id(objects::MeshInstanceModule* component)
 }
 bool hideable(objects::MeshInstanceModule* component)
 {
-    return current_object_id(component) && !(component->mesh_instance()->flag_bits() & render::kModelHidden);
+    return (current_object_id(component) != 0U) &&
+           ((component->mesh_instance()->flag_bits() & render::kModelHidden) == 0);
 }
 
 } // namespace
@@ -206,7 +207,7 @@ void conceal(HiddenModels& models)
             ++count;
         }
     }
-    if (!count) {
+    if (count == 0) {
         return;
     }
     if (!memory::manager_ready_flag()) {

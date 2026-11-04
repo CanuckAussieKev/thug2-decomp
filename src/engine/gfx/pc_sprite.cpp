@@ -2,8 +2,9 @@
 
 #include "engine/gfx/pc_sprite.h"
 
-#include <memory>
+#include <cstdint>
 #include <cstring>
+#include <memory>
 
 #include "engine/gfx/billboard_quad.h"
 #include "engine/gfx/engine_sprite.h"
@@ -28,7 +29,7 @@ void PcSprite::refresh_all()
 }
 
 // 0x004C70B0
-void PcSprite::update_hidden() { sprite->change_concealed(invisible()); }
+void PcSprite::update_hidden() { sprite->change_concealed(static_cast<uint8_t>(invisible())); }
 
 // 0x004C71B0
 void PcSprite::update_settings()

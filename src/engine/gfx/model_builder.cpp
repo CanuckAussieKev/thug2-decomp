@@ -418,7 +418,7 @@ bool ModelAssembler::blend_tint_over(script::Struct* params)
     } else {
         slot->fetch_int_value(kUseDefaultHsv, &use_default, 0);
     }
-    if (use_default) {
+    if (use_default != 0) {
         int h = 0;
         int s = 0;
         int v = 0;
@@ -578,7 +578,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
 {
     script::Struct* slot = built_appearance()->get_part(part);
     if (!slot) {
-        if (!cast_part) {
+        if (cast_part == 0U) {
             return false;
         }
         // (no option: a crash, as the original)
@@ -592,7 +592,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
     }
     int use_default = 0;
     slot->fetch_int_value(kKeepStockScale, &use_default, 0);
-    if (use_default) {
+    if (use_default != 0) {
         return false;
     }
     int x = 0;
@@ -646,7 +646,7 @@ bool ModelAssembler::apply_object_scale()
     }
     int use_default = 0;
     slot->fetch_int_value(kKeepStockScale, &use_default, 0);
-    if (use_default) {
+    if (use_default != 0) {
         return false;
     }
     int x = 0;
@@ -733,7 +733,7 @@ bool ModelAssembler::choose_uv_shift(checksums::Name part_name, uint32_t materia
     }
     int use_default = static_cast<int>(part); // (the original's stack slot: the part)
     slot->fetch_int_value(kUseDefaultUv, &use_default, 0);
-    if (use_default) {
+    if (use_default != 0) {
         return false;
     }
     float u = 0.0F;

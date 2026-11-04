@@ -177,11 +177,11 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
     if (!m) {
         return false;
     }
-    if (core::at(m->pass_flags(), 0) & kAnimatedGrass) {
+    if ((core::at(m->pass_flags(), 0) & kAnimatedGrass) != 0U) {
         return make_animated_grass(geom, mesh);
     }
     int layers = static_cast<int>(m->unknown18());
-    if (!layers) {
+    if (layers == 0) {
         return false;
     }
     layers = std::min(layers, kMaxLayers);

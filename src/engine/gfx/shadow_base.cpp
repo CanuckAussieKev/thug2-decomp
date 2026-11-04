@@ -215,7 +215,7 @@ int clip_shadow_triangles(std::span<const uint16_t> indices)
         const ProjectedVertex& v0 = core::at(get_projected(), core::at(corner, 0));
         const ProjectedVertex& v1 = core::at(get_projected(), core::at(corner, 1));
         const ProjectedVertex& v2 = core::at(get_projected(), core::at(corner, 2));
-        if (v0.clip & v1.clip & v2.clip) {
+        if ((v0.clip & v1.clip & v2.clip) != 0U) {
             continue; // all outside the same side
         }
         const double facing = ((static_cast<double>(core::at(v2.projected, 1)) - core::at(v1.projected, 1)) *
@@ -277,7 +277,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
     const auto* list = static_cast<const SceneRef*>(scene);
     for (MeshRef* const mesh : list->mesh_run()) {
         const uint32_t flags = mesh->flags();
-        if (!(flags & kSceneFlagCastsShadow) || !(flags & kSceneFlagShadowed)) {
+        if (((flags & kSceneFlagCastsShadow) == 0U) || ((flags & kSceneFlagShadowed) == 0U)) {
             continue;
         }
         if (const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius());
@@ -318,7 +318,7 @@ void render_shadow_textures()
     const uint32_t saved_fog = renderer().fog_active();
     renderer().d3d_device()->GetRenderTarget(0, &render_target);
     renderer().d3d_device()->GetDepthStencilSurface(&depth);
-    if (renderer().fog_active()) {
+    if (renderer().fog_active() != 0U) {
         renderer().set_fog_active(0);
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
@@ -360,7 +360,7 @@ void render_shadow_textures()
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
     if (saved_fog != renderer().fog_active()) {
         renderer().set_fog_active(saved_fog);
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, saved_fog != 0);
+        renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, static_cast<DWORD>(saved_fog != 0));
     }
     renderer().set_pixel_shader_locked(nullptr);
     set_view_and_projection(saved_view, saved_projection, 0);
@@ -389,7 +389,7 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
     renderer().d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
     const uint32_t saved_fog = renderer().fog_active();
-    if (renderer().fog_active()) {
+    if (renderer().fog_active() != 0U) {
         renderer().set_fog_active(0);
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
@@ -437,7 +437,7 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
             renderer().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, kShadowDepthBiasBits);
         }
         for (const MeshRef* const mesh : meshes) {
-            if (mesh->flags() & 2) {
+            if ((mesh->flags() & 2) != 0U) {
                 continue;
             }
             if (const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius());
@@ -447,7 +447,7 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
             project_shadow_vertices(std::span<const float>(mesh->positions(), 3 * static_cast<size_t>(mesh->position_count())), to_texture.data());
             const int triangles = clip_shadow_triangles(std::span<const uint16_t>(mesh->triangles(), 3 * static_cast<size_t>(mesh->triangle_count())));
-            if (triangles) {
+            if (triangles != 0) {
                 renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles().data(),
                                               sizeof(ShadowCornerPoint));
                 renderer().count_draw(triangles); // the frame's draw calls and triangles
@@ -459,7 +459,7 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, saved_min_filter);
     if (saved_fog != renderer().fog_active()) {
         renderer().set_fog_active(saved_fog);
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, saved_fog != 0);
+        renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, static_cast<DWORD>(saved_fog != 0));
     }
     if (renderer().depth_bias() != 0) {
         renderer().set_depth_bias(0);

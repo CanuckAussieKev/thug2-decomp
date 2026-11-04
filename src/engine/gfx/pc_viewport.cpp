@@ -130,7 +130,7 @@ float PcViewport::project_to_screen(const maths::Vec4* point, maths::Vec2* at, i
 // 0x004CBC00
 uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_t query)
 {
-    if (renderer().radeon8500() || !query) {
+    if (renderer().radeon8500() || (query == 0U)) {
         return 0;
     }
     change_phase(RenderStateId::kZWrite, 0);
@@ -153,7 +153,7 @@ uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
     const auto y0 = box.y0;
     const auto x1 = box.x1;
     const auto y1 = box.y1;
-    if (renderer().radeon8500() || !query) {
+    if (renderer().radeon8500() || (query == 0U)) {
         return 0;
     }
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);

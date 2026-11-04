@@ -186,7 +186,7 @@ void link_primitive(Primitive* primitive)
 // 0x0049C7F0
 void unlink_primitive(Primitive* primitive)
 {
-    Primitive** list = (primitive->flag_bits() & kNewFlag) ? &new_primitives() : &drawn_primitives();
+    Primitive** list = ((primitive->flag_bits() & kNewFlag) != 0U) ? &new_primitives() : &drawn_primitives();
     Primitive* before = *list;
     if (before == primitive) {
         *list = before->following();

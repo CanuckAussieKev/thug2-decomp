@@ -202,7 +202,7 @@ void PcGeom::make_mesh_table(void* vertex_arena)
         ++count;
     }
     mesh_count_ = count;
-    if (count) {
+    if (count != 0U) {
         meshes_ = static_cast<MeshRef**>(memory::alloc(4 * count));
         ListNode* node = load_list_->next();
         if (!is_head(node) && node) {
@@ -325,7 +325,7 @@ gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
     gsl::owner<render::PcGeom*> geom{memory::make_owned<PcGeom>()};
     geom->scene_ = temp_scene;
     auto count = static_cast<uint32_t>(instance_->scene()->mesh_count());
-    geom->meshes_ = count ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
+    geom->meshes_ = (count != 0U) ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
     geom->mesh_count_ = count;
     for (uint32_t i = 0; i < geom->mesh_count_; ++i) {
         core::at(geom->mesh_run(), i) = core::at(scene_meshes(instance_->scene()), i)->replicate(share);
@@ -427,7 +427,7 @@ uint32_t* PcGeom::plat_get_color(uint32_t* out)
     } else if (meshes_) {
         mesh = core::at(mesh_run(), 0);
     }
-    if (mesh && (mesh->flags() & 4)) {
+    if (mesh && ((mesh->flags() & 4) != 0U)) {
         core::at(color, 0) = float_to_channel(core::at(mesh_tint(mesh), 0));
         core::at(color, 1) = float_to_channel(core::at(mesh_tint(mesh), 1));
         core::at(color, 2) = float_to_channel(core::at(mesh_tint(mesh), 2));
@@ -562,7 +562,7 @@ maths::Vec4* PcGeom::get_absolute_point()
         return &pos;
     }
     pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    if (core::at(mesh_run(), 0)) { // (no check of the array itself, as the original)
+    if (core::at(mesh_run(), 0) != nullptr) { // (no check of the array itself, as the original)
         mesh_position(core::at(mesh_run(), 0), &pos);
     }
     return &pos;
@@ -598,7 +598,7 @@ maths::Mat4* PcGeom::fetch_facing()
 // 0x004B57C0
 void PcGeom::rotate_y(int turns)
 {
-    if (!turns) {
+    if (turns == 0) {
         return;
     }
     if (!instance_) {

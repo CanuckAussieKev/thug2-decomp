@@ -244,7 +244,7 @@ void Sparkle::set_colour_scale(std::span<const float, 4> rgba)
 void Sparkle::set_emit_script(checksums::Name script_name, uint32_t object_id)
 {
     const uint32_t script = script_name.value();
-    if (args_.emit_script()) {
+    if (args_.emit_script() != 0U) {
         script::stop_scripts_by_tag(args_.emit_script());
     }
     args_.set_emit_script(script);
@@ -298,7 +298,7 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
 // 0x00496590
 void EffectsDirector::retire_particle(Sparkle* particle)
 {
-    if (particle->args().emit_script()) {
+    if (particle->args().emit_script() != 0U) {
         script::stop_scripts_by_tag(particle->args().emit_script());
         particle->args().set_emit_script(0);
     }
@@ -326,7 +326,7 @@ void EffectsDirector::retire_particle(Sparkle* particle)
 // 0x00496640
 void EffectsDirector::draw_particles()
 {
-    if (!systems_.size()) {
+    if (systems_.size() == 0) {
         return;
     }
     for (const auto* node = systems_.first(); node != systems_.head(); node = node->next) {

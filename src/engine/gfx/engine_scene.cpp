@@ -62,7 +62,7 @@ void copy_string(std::span<char> to, const char* from)
     std::size_t i = 0;
     for (core::CStringCursor at(from);; ++at, ++i) {
         core::at(to, i) = *at;
-        if (!*at) {
+        if (*at == '\0') {
             break;
         }
     }
@@ -149,7 +149,7 @@ WorldCell* WorldScene::look_up_sector(uint32_t name)
 // 0x0049CB40
 bool WorldScene::remove_scene_sector(void* sector)
 {
-    if (sector_attribute_bits(sector) & kSectorBitProtected) {
+    if ((sector_attribute_bits(sector) & kSectorBitProtected) != 0U) {
         apply_sector_bits(sector, kSectorBitMarked);
         sector_kept_ = true;
         return false;
@@ -242,7 +242,7 @@ bool WorldScene::unload_collision()
         delete[] coll_statics_; // (0x0049CE00, the array's deleting destructor)
         coll_statics_ = nullptr;
     }
-    if (core::at(pip_name_, 0)) {
+    if (core::at(pip_name_, 0) != '\0') {
         packs::offload(pip_name_.data());
         core::at(pip_name_, 0) = 0;
     }

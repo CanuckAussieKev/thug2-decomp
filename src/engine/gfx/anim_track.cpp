@@ -94,7 +94,7 @@ AnimTrack::~AnimTrack()
 AnimTrack* AnimTrack::teardown_track(uint8_t flags)
 {
     this->~AnimTrack();
-    if (flags & 1) {
+    if ((flags & 1) != 0) {
         operator delete(this);
     }
     return this;
@@ -195,7 +195,7 @@ void AnimTrack::load_events(uint32_t anim)
         return;
     }
     const uint32_t table_name = core::down_cast<objects::AnimBlenderComponent>(component)->get_first_channel58();
-    if (!table_name) {
+    if (table_name == 0U) {
         return;
     }
     Struct* table = script::read_sub_struct(table_name);
@@ -375,7 +375,7 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
     }
     settings = script::new_struct();
     settings->put_name_key(checksums::Name{kType}, kTumbleController);
-    settings->put_int(checksums::Name{kFlipped}, flipped);
+    settings->put_int(checksums::Name{kFlipped}, static_cast<int>(flipped));
     attach_controller(settings);
     script::free_struct(settings);
 

@@ -133,7 +133,7 @@ int intersects_segment(BoneVolume& volume, const maths::Seg* segment, float* s)
 // 0x0048B350
 BoneVolumes::BoneVolumes(uint32_t count) : num_(count)
 {
-    if (count) {
+    if (count != 0U) {
         volumes_ = new_volume_array(num_);
     }
 }
@@ -145,7 +145,7 @@ void BoneVolumes::enrol(uint32_t count)
     num_ = count;
     volumes_ = nullptr;
     users_ = users;
-    if (count) {
+    if (count != 0U) {
         volumes_ = new_volume_array(num_);
     }
     get_table().store_entry(count, this);
@@ -168,7 +168,7 @@ void BoneVolumes::get_fill(RigData* data)
 {
     script::Array* descriptions = script::fetch_list(kBoneDescriptions);
     for (uint32_t i = 1; i < num_; ++i) {
-        if (core::at(volume_run(), i)) {
+        if (core::at(volume_run(), i) != nullptr) {
             continue;
         }
         for (uint32_t j = 0; j < descriptions->extent(); ++j) {
@@ -198,7 +198,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
     const uint32_t bone = bone_name.value();
     RigData* data = skeleton->payload();
     const std::span<const maths::Mat4> inverse_binds = data->inverse_binds();
-    if (bone) {
+    if (bone != 0U) {
         const int index = skeleton->fetch_bone_slot(bone);
         const Joint* bone_state = skeleton->get_bone(index);
         maths::Mat4 pose = core::at(skeleton->matrices(), index);
@@ -211,8 +211,9 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         const float radius = volume ? volume->capsule_.radius : 0.0F;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), core::at(parent.row, 3), radius);
         float distance_squared = 0.0F;
-        if (!capsule.intersects_segment(
-                *segment, {.s = nullptr, .t = bone_hit ? &bone_hit->t : nullptr, .squared_gap_ = &distance_squared})) {
+        if (capsule.intersects_segment(
+                *segment, {.s = nullptr, .t = bone_hit ? &bone_hit->t : nullptr, .squared_gap_ = &distance_squared}) ==
+            0) {
             return 0;
         }
         if (bone_hit) {
@@ -247,8 +248,9 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         const maths::Capsule capsule = get_between(core::at(at.row, 3), parent, static_cast<float>(radius + extra_radius));
         float hit_t = 0.0F;
         float distance_squared = 0.0F;
-        if (capsule.intersects_segment(*segment, {.s = nullptr, .t = &hit_t, .squared_gap_ = &distance_squared}) &&
-            (!hit || distance_squared < nearest)) {
+        if ((capsule.intersects_segment(*segment, {.s = nullptr, .t = &hit_t, .squared_gap_ = &distance_squared}) !=
+             0) &&
+            ((hit == 0U) || distance_squared < nearest)) {
             hit = bone_state->name;
             nearest = distance_squared;
             nearest_t = hit_t;

@@ -133,7 +133,7 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
                 .w = get_difference(motion->w, edge_motion->w) + centre.w};
     float s = 0.0F;
     float u = 0.0F;
-    if (!capsule.intersects_segment(path, {.s = &s, .t = &u, .squared_gap_ = nullptr})) {
+    if (capsule.intersects_segment(path, {.s = &s, .t = &u, .squared_gap_ = nullptr}) == 0) {
         return false;
     }
     if (within01(s)) {
@@ -552,7 +552,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
             {.x = static_cast<float>(moved_x + low), .y = static_cast<float>(moved_y + low), .z = moved_z + low, .w = moved_w + r});
         box.append_spot({.x = static_cast<float>(moved_x + r), .y = static_cast<float>(moved_y) + r, .z = moved_z + r, .w = moved_w + r});
     }
-    const bool use_cache = cache && cache->box().get_holds(box);
+    const bool use_cache = (cache != nullptr) && cache->box().get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(sphere);
         if (!grid) {

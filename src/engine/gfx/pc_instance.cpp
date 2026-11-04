@@ -130,7 +130,10 @@ constexpr RenderStateId kStateLighting = RenderStateId::kLighting; // change_pha
 
 int bones_on_device(const SceneRef* scene) { return static_cast<int>(scene->unknown78()); }
 // Its bones drawn by the vertex shader: it has bones, and its scene doesn't skin them on the CPU (+0x78).
-bool skinned_by_shader(const Singleton* instance) { return instance->bones() && bones_on_device(instance->scene()) <= 0; }
+bool skinned_by_shader(const Singleton* instance)
+{
+    return (instance->bones() != nullptr) && bones_on_device(instance->scene()) <= 0;
+}
 // The scene's first byte's top bit: drawn unlit.
 bool scene_unlit(const SceneRef* scene) { return static_cast<int8_t>(scene->flags() & kLowByteMask) < 0; }
 
@@ -199,7 +202,7 @@ Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths
         return;
     }
     for (const MeshRef* mesh : scene_->mesh_run()) {
-        if (!(mesh->fvf() & kMeshLit) || (mesh_traits(mesh) & kMeshNotLit)) {
+        if (((mesh->fvf() & kMeshLit) == 0U) || ((mesh_traits(mesh) & kMeshNotLit) != 0U)) {
             return;
         }
     }
@@ -209,7 +212,7 @@ Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths
 // 0x004D10C0
 Singleton::~Singleton()
 {
-    if (flags_ & 1) {
+    if ((flags_ & 1) != 0U) {
         if (SceneRef* list = scene_) {
             list->destroy_body();
             memory::Hub::dealloc(list);
@@ -250,12 +253,12 @@ void Singleton::render(uint32_t draw_bits)
         if (scene_unlit(scene_)) {
             draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
         } else {
-            if (flags_ & 4) {
+            if ((flags_ & 4) != 0U) {
                 renderer().set_instance_colour_on(1); // the instance's colour on
                 renderer().set_instance_colour(color_);
             }
             draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
-            if (flags_ & 4) {
+            if ((flags_ & 4) != 0U) {
                 renderer().set_instance_colour_on(0);
             }
         }
@@ -271,7 +274,7 @@ void Singleton::render(uint32_t draw_bits)
     }
 
     set_last_bones(nullptr);
-    if ((flags_ & 2) && !scene_unlit(scene_)) {
+    if (((flags_ & 2) != 0U) && !scene_unlit(scene_)) {
         refresh_instance_lighting(this);
         change_phase(kStateLighting, 1);
         send_lights();
@@ -314,8 +317,9 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
     set_world_transform((instance->transform()).data());
     const maths::Vec4 sphere = sphere_of(instance->scene()->centre(), instance->scene()->radius());
     const maths::Vec4* centre = &sphere;
-    if ((flags & kRenderFlagUnculled) ||
-        (sphere_in_view(centre, instance->scene()->radius()) && !sphere_occluded(centre, {.radius = instance->scene()->radius(), .weight = 1}))) {
+    if (((flags & kRenderFlagUnculled) != 0U) ||
+        (sphere_in_view(centre, instance->scene()->radius()) &&
+         !sphere_occluded(centre, {.radius = instance->scene()->radius(), .weight = 1}))) {
         if (instance->bones()) {
             set_flag_786e_b4();
             instance->render(kRenderOpaque | kRenderTransparent);
@@ -339,12 +343,12 @@ void draw_instance_batch(BatchPass batch_pass)
     set_last_bones(nullptr);
     if (instances()) {
         for (Singleton* instance = instances(); instance; instance = instance->next()) {
-            if (!instance->active() || !(instance->viewports() & mask)) {
+            if (!instance->active() || ((instance->viewports() & mask) == 0U)) {
                 continue;
             }
             const SceneRef* list = instance->scene();
-            if (!((flags & kRenderOpaque) && list->mesh_count() > list->transparent_count()) &&
-                !((flags & kRenderTransparent) && list->transparent_count() > 0)) {
+            if (!(((flags & kRenderOpaque) != 0U) && list->mesh_count() > list->transparent_count()) &&
+                !(((flags & kRenderTransparent) != 0U) && list->transparent_count() > 0)) {
                 continue;
             }
             const maths::Vec4& position = *get_position(instance);
@@ -375,7 +379,8 @@ void draw_instance_batch(BatchPass batch_pass)
                 if (!skinned_by_shader(instance)) {
                     break;
                 }
-                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinA))) {
+                if (((flags & kRenderOpaque) != 0U) ||
+                    (((flags & kRenderTransparent) != 0U) && ((flags & kRenderFlagSkinA) != 0U))) {
                     instance->render(flags);
                 }
             }
@@ -390,7 +395,8 @@ void draw_instance_batch(BatchPass batch_pass)
                 const double dy = static_cast<double>(position.y) - core::at(camera, 1);
                 const double dz = static_cast<double>(position.z) - core::at(camera, 2);
                 renderer().set_near_camera(!((dz * dz) + (dy * dy) + (dx * dx) > near_squared)); // near the camera
-                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinB))) {
+                if (((flags & kRenderOpaque) != 0U) ||
+                    (((flags & kRenderTransparent) != 0U) && ((flags & kRenderFlagSkinB) != 0U))) {
                     instance->render(flags);
                 }
             }

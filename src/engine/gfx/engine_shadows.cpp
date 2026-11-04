@@ -201,7 +201,7 @@ ShadowVolume::~ShadowVolume()
 {
     view_camera_.reset();
     if (edges_) {
-        if (edges_->count) {
+        if (edges_->count != 0) {
             remove_shadow_volume(this);
             release_shadow_edges(model_key_);
         }

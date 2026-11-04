@@ -85,9 +85,9 @@ uint32_t button_for_tag(char digit)
 uint8_t should_use_glyph(uint8_t index)
 {
     if (key_names()) {
-        return index >= 0x04 && index <= kLastKeyboardGlyph;
+        return static_cast<uint8_t>(index >= 0x04 && index <= kLastKeyboardGlyph);
     }
-    return index <= kLastPadGlyph;
+    return static_cast<uint8_t>(index <= kLastPadGlyph);
 }
 
 } // namespace render

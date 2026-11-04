@@ -179,7 +179,7 @@ void begin_screen_effects()
             renderer().d3d_device()->SetDepthStencilSurface(renderer().z_buffer_surface());
         }
     } else {
-        if (!effects_state().bloom_on() || !renderer().shaders_available()) { // no bloom (or no pixel shaders)
+        if ((effects_state().bloom_on() == 0U) || !renderer().shaders_available()) { // no bloom (or no pixel shaders)
             return;
         }
         current_screen_copy()->GetSurfaceLevel(0, &surface);
@@ -247,24 +247,28 @@ void get_bloom()
     D3DSURFACE_DESC unused;
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap) {
-        draw_screen_quad(tap > 0, b, a, {.x = 0.0F, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(static_cast<uint32_t>(tap > 0), b, a, {.x = 0.0F, .y = tap_offset(tap)},
+                         tap_colour(tap_weight(tap)), true);
     }
     b = screen_copy(4);
     a = screen_copy(3);
     for (int tap = 0; tap < 4; ++tap) {
-        draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0F}, tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(static_cast<uint32_t>(tap > 0), a, b, {.x = tap_offset(tap), .y = 0.0F},
+                         tap_colour(tap_weight(tap)), true);
     }
     draw_screen_quad(0, screen_copy(kScreenCopyBlurA), screen_copy(3), {.x = 0.0F, .y = 0.0F}, kNeutralColour, true);
     b = screen_copy(kScreenCopyBlurB);
     a = screen_copy(kScreenCopyBlurA);
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap) {
-        draw_screen_quad(tap > 0, b, a, {.x = 0.0F, .y = tap_offset(tap)}, tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(static_cast<uint32_t>(tap > 0), b, a, {.x = 0.0F, .y = tap_offset(tap)},
+                         tap_colour(tap_weight(tap)), true);
     }
     b = screen_copy(kScreenCopyBlurB);
     a = screen_copy(kScreenCopyBlurA);
     for (int tap = 0; tap < 4; ++tap) {
-        draw_screen_quad(tap > 0, a, b, {.x = tap_offset(tap), .y = 0.0F}, tap_colour(tap_weight(tap)), true);
+        draw_screen_quad(static_cast<uint32_t>(tap > 0), a, b, {.x = tap_offset(tap), .y = 0.0F},
+                         tap_colour(tap_weight(tap)), true);
     }
     set_target(current_screen_copy(), renderer().z_buffer_surface());
     if (!kBlurSecondPass) {
@@ -281,12 +285,12 @@ void get_bloom()
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     choose_blend_mode(1);
     for (int pass = 0; pass < 2; ++pass) {
-        IDirect3DTexture9* blurred = pass ? screen_copy(kScreenCopyBlurA) : screen_copy(3);
+        IDirect3DTexture9* blurred = (pass != 0) ? screen_copy(kScreenCopyBlurA) : screen_copy(3);
         D3DSURFACE_DESC desc;
         current_screen_copy()->GetLevelDesc(0, &desc);
         const double half_x = 0.5 / as_unsigned(desc.Width);
         const double half_y = 0.5 / as_unsigned(desc.Height);
-        const uint32_t alpha = pass ? effects_state().bloom_alpha_second() : effects_state().bloom_alpha_first();
+        const uint32_t alpha = (pass != 0) ? effects_state().bloom_alpha_second() : effects_state().bloom_alpha_first();
         auto half_x_float = static_cast<float>(half_x);
         auto half_y_float = static_cast<float>(half_y);
         auto width = static_cast<float>(renderer().back_buffer_width());

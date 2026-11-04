@@ -42,7 +42,10 @@ namespace {
 
 // A mesh's material and what the list looks at.
 MaterialRef* material_of(const MeshRef* mesh) { return mesh->material(); }
-bool get_transparent(const MaterialRef* material) { return material && (core::at(material->pass_flags(), 0) & kPassFlagTransparent); }
+bool get_transparent(const MaterialRef* material)
+{
+    return (material != nullptr) && ((core::at(material->pass_flags(), 0) & kPassFlagTransparent) != 0U);
+}
 uint16_t& load_index(MeshRef* mesh) { return mesh->load_index(); }
 uint16_t& get_index_count(MeshRef* mesh) { return core::at(mesh->index_counts(), 0); }
 IdxStore*& index_buffer_of(MeshRef* mesh) { return core::at(mesh->index_buffers(), 0); }
@@ -224,7 +227,7 @@ void SceneRef::recount()
         }
         ++transparent_count_;
         first_transparent_ = std::min(first_transparent_, i);
-        if (material->sort_flag()) {
+        if (material->sort_flag() != 0U) {
             ++flagged_count_;
             first_flagged_ = std::min(first_flagged_, i);
         }
@@ -248,7 +251,7 @@ void SceneRef::detach_meshes(std::span<MeshRef* const> list)
     while (removed > 0) {
         const int n = mesh_count_;
         int j = 0;
-        while (j < mesh_count_ && core::at(mesh_run(), j)) {
+        while (j < mesh_count_ && (core::at(mesh_run(), j) != nullptr)) {
             ++j;
         }
         if (j >= mesh_count_) {
@@ -307,7 +310,7 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
     // Breaks found per mesh load index. (The original's table has 64 entries; a larger index overruns it.)
     std::array<int, kStripBreakSlots> breaks = {};
     for (const StripBreak& record : std::span<const StripBreak>(records, count)) {
-        if (!(record.mask & mask)) {
+        if ((record.mask & mask) == 0U) {
             continue;
         }
         const uint32_t mesh_index = record.mesh_and_index_ >> 16;
@@ -346,7 +349,7 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         for (uint32_t i = 0; i < get_index_count(mesh); ++i) {
             const uint16_t value = core::at(indices, i) & 0x7FFF;
             core::at(tri_strip_scratch(), n++) = value;
-            if (core::at(indices, i) & kIndexRepeatBit) { // repeated: a strip break
+            if ((core::at(indices, i) & kIndexRepeatBit) != 0) { // repeated: a strip break
                 core::at(tri_strip_scratch(), n++) = value;
                 core::at(tri_strip_scratch(), n++) = value;
             }

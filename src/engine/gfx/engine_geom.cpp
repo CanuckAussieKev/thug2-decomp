@@ -66,7 +66,7 @@ Geom* Geom::replicate(int instance, WorldScene* scene)
 {
     Geom* clone = plat_replicate(instance, scene); // (the whole word passed on)
     if (clone) {
-        clone->clone_kind_ = static_cast<uint8_t>(instance) ? 1 : 2;
+        clone->clone_kind_ = (static_cast<uint8_t>(instance) != 0U) ? 1 : 2;
         if (hit_triangles_) {
             clone->hit_triangles_ = hit_triangles_;
         }
@@ -81,7 +81,7 @@ Geom* Geom::clone_for_model(int instance, RenderModel* model)
     Geom* clone = clone_instance(instance, model); // (the whole word passed on)
     if (clone) {
         clone->render_colours_ = nullptr;
-        clone->clone_kind_ = static_cast<uint8_t>(instance) ? 1 : 2;
+        clone->clone_kind_ = (static_cast<uint8_t>(instance) != 0U) ? 1 : 2;
     }
     return clone;
 }
@@ -213,7 +213,7 @@ PlatBoundingBox& plat_bounding_box()
 maths::BBox* Geom::fetch_bounds()
 {
     uint32_t& guard = plat_bounding_box().plat_bounding_box_guard_;
-    if (!(guard & 1)) {
+    if ((guard & 1) == 0U) {
         guard |= 1;
         new (&plat_bounding_box().plat_bounding_box_) maths::BBox();
     }

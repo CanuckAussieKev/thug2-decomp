@@ -205,7 +205,8 @@ public:
     // NOT ORIGINAL - the per-bone key counts (two bytes a count, two counts a bone with the wide counts, else one).
     [[nodiscard]] std::span<const uint8_t> key_count_run() const
     {
-        return {key_counts_, static_cast<size_t>(bone_count_) * ((flag_bits_ & anim_format::kWideCounts) ? 4 : 2)};
+        return {key_counts_,
+                static_cast<size_t>(bone_count_) * (((flag_bits_ & anim_format::kWideCounts) != 0U) ? 4 : 2)};
     }
 private:
     uint8_t* key_counts_{nullptr};            // +0x18

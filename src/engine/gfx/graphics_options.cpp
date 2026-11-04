@@ -89,7 +89,11 @@ void get_release(T*& p)
     }
 }
 
-bool in_use() { return graphics_options_state().samples_ > 0 && graphics_options_state().scene_colour_ && graphics_options_state().scene_depth_; }
+bool in_use()
+{
+    return graphics_options_state().samples_ > 0 && (graphics_options_state().scene_colour_ != nullptr) &&
+           (graphics_options_state().scene_depth_ != nullptr);
+}
 
 } // namespace
 
@@ -104,7 +108,7 @@ void read_in()
     graphics_options_state().options_.draw_distance_scale_ = parse_scale(text.data());
     build_info::fetch_text(build_info::kGraphics, "lod_distance_scale", "1", text.data(), sizeof(text));
     graphics_options_state().options_.lod_distance_scale_ = parse_scale(text.data());
-    if (graphics_options_state().options_.anisotropy || graphics_options_state().options_.msaa ||
+    if ((graphics_options_state().options_.anisotropy != 0) || (graphics_options_state().options_.msaa != 0) ||
         graphics_options_state().options_.draw_distance_scale_ != 1.0F ||
         graphics_options_state().options_.lod_distance_scale_ != 1.0F) {
         get_log("graphics options: anisotropy=%d msaa=%d draw_distance_scale=%.3g lod_distance_scale=%.3g",
@@ -118,7 +122,7 @@ int parse_multisample(int value) { return value < 2 ? 0 : (value > kMaxMultisamp
 
 float parse_scale(const char* text)
 {
-    if (!text || !*text) {
+    if (!text || (*text == '\0')) {
         return 1.0F;
     }
     char* end = nullptr;
@@ -168,13 +172,13 @@ void choose_multisample(IDirect3D9* d3d, uint32_t back_buffer_format, uint32_t d
 {
     graphics_options_state().samples_ = 0;
     graphics_options_state().quality_ = 0;
-    if (!graphics_options_state().options_.msaa || !d3d) {
+    if ((graphics_options_state().options_.msaa == 0) || !d3d) {
         return;
     }
     SupportQuery query = {.d3d = d3d, .colour = static_cast<D3DFORMAT>(back_buffer_format), .depth = static_cast<D3DFORMAT>(depth_format),
                           .windowed = windowed ? TRUE : FALSE, .quality = 0};
     graphics_options_state().samples_ = pick_samples(graphics_options_state().options_.msaa, &get_supported, &query);
-    if (graphics_options_state().samples_) {
+    if (graphics_options_state().samples_ != 0) {
         graphics_options_state().quality_ = query.quality - 1; // (the highest)
     }
     get_log("graphics options: msaa=%d asked, %d samples (quality %lu) chosen", graphics_options_state().options_.msaa, graphics_options_state().samples_,

@@ -153,7 +153,9 @@ private:
 
 // Whether `geom` (a sector's or a model's, or null) is a PC geom (NOT ORIGINAL: the level editor's check, which
 // compared the vtable).
-inline bool is_pc_geom(const void* geom) { return geom && static_cast<const Geom*>(geom)->kind() == GeomKind::kPc; }
-
+inline bool is_pc_geom(const void* geom)
+{
+    return (geom != nullptr) && static_cast<const Geom*>(geom)->kind() == GeomKind::kPc;
+}
 
 } // namespace render

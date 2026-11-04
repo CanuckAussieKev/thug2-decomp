@@ -96,7 +96,7 @@ struct ScaledVertex {
 };
 static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
 
-bool skin_scaling_on() { return mesh_pass().skin_scaling_on() && !mesh_pass().skin_settings().colours.empty(); }
+bool skin_scaling_on() { return (mesh_pass().skin_scaling_on() != 0U) && !mesh_pass().skin_settings().colours.empty(); }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
 void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
@@ -147,7 +147,7 @@ uint32_t vertex_format(uint32_t type)
         return type;
     }
     // (type t is the table's word 6 - t)
-    return type ? core::at(mesh_pass().vertex_shaders(), kShaderTypeLimit - type) : 0;
+    return (type != 0U) ? core::at(mesh_pass().vertex_shaders(), kShaderTypeLimit - type) : 0;
 }
 
 // The bone-scaled positions written into a vertex buffer (0x004D47F0 / 0x004D4350: the memory loader's and the file
@@ -290,7 +290,7 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
         out.set_floats<3>(n, kOutNormalOffset,
                           {static_cast<float>(unpack11(normal) * static_cast<double>(kUnpack11Scale)),
                            static_cast<float>(unpack11(normal >> kBitsPer11) * static_cast<double>(kUnpack11Scale)),
-                           static_cast<float>(static_cast<int>(z & kSignBit10 ? z - kRange10 : z) *
+                           static_cast<float>(static_cast<int>(((z & kSignBit10) != 0U) ? z - kRange10 : z) *
                                               static_cast<double>(kUnpackZScale))});
         out.set_word(n, kOutColourOffset, in.word(n, kInColourOffset)); // the colour
         for (uint32_t set = 0; set < sets; ++set) {
@@ -302,7 +302,7 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
         }
         const uint32_t weights = in.word(n, 0xC);
         const uint32_t w = weights >> 22;
-        const double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(kUnpackZScale);
+        const double third = static_cast<int>(((w & 0x200) != 0U) ? w - 0x400 : w) * static_cast<double>(kUnpackZScale);
         const auto second = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(kUnpack11Scale));
         out.set_floats<3>(n, kOutWeightsOffset,
                           {static_cast<float>(unpack11(weights) * static_cast<double>(kUnpack11Scale)), second,
@@ -343,7 +343,7 @@ bool MeshRef::ingest_from_file(scene_format::FileStream& in, uint32_t material_c
 // 0x004D6530
 void MeshRef::build_collision()
 {
-    if (position_count_ || !core::at(index_counts_, 0)) {
+    if ((position_count_ != 0U) || (core::at(index_counts_, 0) == 0U)) {
         return;
     }
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
@@ -370,7 +370,7 @@ void MeshRef::build_collision()
             continue;
         }
         const std::span<uint16_t> out = found.subspan(3U * count, 3);
-        if (k & 1) { // (every other triangle of a strip winds the other way)
+        if ((k & 1) != 0U) { // (every other triangle of a strip winds the other way)
             core::at(out, 0) = b;
             core::at(out, 1) = a;
         } else {
@@ -381,7 +381,7 @@ void MeshRef::build_collision()
         ++count;
     }
     core::at(index_buffers_, 0)->get_unlock();
-    if (count) {
+    if (count != 0U) {
         triangles_ = static_cast<uint16_t*>(alloc_block(count * kTriangleIndexBytesU));
         core::copy_into(std::span<const uint16_t>(found.first(3U * count)),
                         std::span<uint16_t>(triangles_, 3U * count));

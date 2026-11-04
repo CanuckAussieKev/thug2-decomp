@@ -369,7 +369,7 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
 // 0x0048FC00
 void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 {
-    if (!name) {
+    if (name == 0U) {
         return;
     }
     const LevelLamp* light = find_scene_light(name);
@@ -448,7 +448,7 @@ void queue_scene_lights(std::span<const uint32_t> nodes, int frames, script::Str
     queue_params() = copy;
     Expects(copy != nullptr);
     copy->append_structure_if_any(params);
-    if (count) {
+    if (count != 0) {
         queued_nodes() = static_cast<uint32_t*>(memory::alloc_block(count * 4));
         queued_count() = count; // (set before the copy: the run is of the count)
         core::copy_into(nodes, queued_run());
@@ -467,7 +467,7 @@ void update_scene_light_queue()
         clear_scene_light_queue();
         return;
     }
-    const int target = queue_frames() ? queued_count() * queue_frame() / queue_frames() : queued_count();
+    const int target = (queue_frames() != 0) ? queued_count() * queue_frame() / queue_frames() : queued_count();
     for (; queue_done() < target; ++queue_done()) {
         script::Struct* node = level_nodes::fetch_vertex(core::at(queued_run(), queue_done()), true);
         update_scene_light(level_nodes::get_node_name(node), queue_params());

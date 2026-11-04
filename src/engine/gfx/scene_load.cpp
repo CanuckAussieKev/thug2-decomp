@@ -78,7 +78,7 @@ SceneRef* new_mesh_list(bool mesh_flag)
     void* memory = memory::alloc(sizeof(SceneRef));
     SceneRef* list = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
     Expects(list != nullptr);
-    list->set_unknown40(mesh_flag);
+    list->set_unknown40(static_cast<uint8_t>(mesh_flag));
     return list;
 }
 

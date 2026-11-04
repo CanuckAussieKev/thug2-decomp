@@ -88,7 +88,8 @@ constexpr uint32_t kSetsPaletteFlag = 0xC164842A; // (name unknown) brightness /
 // A dictionary's calls (no source yet).
 render::BitmapTexture* read_texture_file(void* dictionary, const char* file, bool flag1, bool allocate_vram, bool flag3)
 {
-    return static_cast<render::TextureSet*>(dictionary)->ingest_skin(file, flag1, allocate_vram, flag3);
+    return static_cast<render::TextureSet*>(dictionary)
+        ->ingest_skin(file, static_cast<uint32_t>(flag1), static_cast<uint32_t>(allocate_vram), flag3);
 }
 render::BitmapTexture* fetch_skin(void* dictionary, uint32_t checksum)
 {
@@ -126,7 +127,7 @@ uint32_t find_name_of_value(Struct* structure, uint32_t value, int depth)
         // (the global structure the component's value names, looked up for every component)
         Struct* named = script::read_sub_struct(raw_value(component));
         Component* next = structure->step_to_entry(component);
-        if (!found) {
+        if (found == 0U) {
             if (value_kind(*component) == script::QbValueKind::kStruct) {
                 found = find_name_of_value(component->value.structure(), value, depth + 1);
             } else if (named) {
@@ -264,7 +265,7 @@ bool cfunc_put32_bit_image_into_texture(Struct* params, Script* /*script*/)
         if (value == 1) {
             palette_gen = true;
         }
-        texture->write_back(palette_gen, nullptr);
+        texture->write_back(static_cast<int>(palette_gen), nullptr);
     }
     return true;
 }
@@ -280,10 +281,10 @@ bool cfunc_flip_texture(Struct* params, Script* /*script*/)
     if (texture) {
         params->fetch_int_value(kHoriz, &horizontal, 0); // horiz
         params->fetch_int_value(kVERT, &vertical, 0);   // vert
-        if (horizontal) {
+        if (horizontal != 0) {
             texture->get_mirror();
         }
-        if (vertical) {
+        if (vertical != 0) {
             render::BitmapTexture::flip_vertically();
         }
     }
@@ -405,7 +406,7 @@ bool cfunc_adjust_texture_hsv(Struct* params, Script* /*script*/)
             flag = true;
         }
         texture->shift_hue_sat_value({.hue = hue, .saturation = saturation, .value = value}, flag);
-        texture->write_back(false, nullptr);
+        texture->write_back(0, nullptr);
     }
     return true;
 }
@@ -444,13 +445,13 @@ bool cfunc_combine_textures(Struct* params, Script* /*script*/)
     if (!top_texture) {
         return true;
     }
-    if (combined) {
+    if (combined != 0U) {
         // a new texture of the two
         static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())
-            ->copy_texture_with_overlay(combined, source_texture, top_texture, palette_gen);
+            ->copy_texture_with_overlay(combined, source_texture, top_texture, static_cast<uint32_t>(palette_gen));
         return true;
     }
-    source_texture->get_overlay(top_texture, palette_gen);
+    source_texture->get_overlay(top_texture, static_cast<int>(palette_gen));
     return true;
 }
 

@@ -57,8 +57,11 @@ public:
         axis_tag_ = 3 | static_cast<int32_t>(static_cast<uint32_t>(count) << kLeafCountShift);
         chain_link_ = collision_format::tree_link_to(faces);
     }
-    [[nodiscard]] HitTreeNode* less_child() const { return &core::at(child_pair(), (chain_link_ & 1) ? 1 : 0); }
-    [[nodiscard]] HitTreeNode* greater_child() const { return &core::at(child_pair(), (chain_link_ & 1) ? 0 : 1); }
+    [[nodiscard]] HitTreeNode* less_child() const { return &core::at(child_pair(), ((chain_link_ & 1) != 0U) ? 1 : 0); }
+    [[nodiscard]] HitTreeNode* greater_child() const
+    {
+        return &core::at(child_pair(), ((chain_link_ & 1) != 0U) ? 0 : 1);
+    }
 
     // 0x00415C90 / 0x00415CE0: the nodes in this subtree / the faces in its leaves.
     [[nodiscard]] int tally_nodes() const;

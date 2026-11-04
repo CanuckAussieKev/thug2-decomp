@@ -189,7 +189,7 @@ uint32_t AnimCacheEntry::get_release()
     // (a busy entry: forever, as the original - the flags were read once. Volatile: an empty loop that never ends
     // is undefined behaviour in C++, a compiler may drop it.)
     const volatile uint16_t flags = flag_bits_;
-    while (flags & kBusy) {
+    while ((flags & kBusy) != 0) {
     }
     flag_bits_ = flags | kReleasing;
     if (release_callback_) {
@@ -243,7 +243,7 @@ int AnimCacheEntry::new_slot()
 // 0x00480C90
 void AnimCacheEntry::free_slot(int index)
 {
-    if (!(flag_bits_ & kUserMask)) {
+    if ((flag_bits_ & kUserMask) == 0) {
         return;
     }
     // (the original reads slots_ptr_[index] first - with -1, a user that never had a slot, the field before it - and
@@ -413,7 +413,7 @@ AnimCacheEntry* ClipStore::add_row(const void* key, int16_t bones, int rotation_
     }
     const uint32_t allocated = core::at(slot_array_, i)->carve(key, bones, {.rotation = rotation_keys, .translation = translation_keys}, type);
     taken_count_ += allocated;
-    if (!allocated) {
+    if (allocated == 0U) {
         return nullptr;
     }
     ++num_;
@@ -426,7 +426,8 @@ const void* ClipStore::find_oldest(uint32_t size, uint32_t* users)
     const void* key = nullptr;
     uint32_t oldest = frame_clock::get_time();
     for (const AnimCacheEntry* entry : slot_array_) {
-        if (entry->allocated() >= size && entry->last_used() < oldest && !(entry->flag_bits() & AnimCacheEntry::kKeep)) {
+        if (entry->allocated() >= size && entry->last_used() < oldest &&
+            ((entry->flag_bits() & AnimCacheEntry::kKeep) == 0)) {
             *users = entry->flag_bits() & AnimCacheEntry::kUserMask;
             oldest = entry->last_used();
             key = entry->lookup_key();
@@ -453,7 +454,7 @@ bool ClipStore::free_oldest(FreeLimit free_limit)
 void ClipStore::drain(bool unused_only)
 {
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag() && (!unused_only || !(entry->flag_bits() & AnimCacheEntry::kUserMask))) {
+        if ((entry->kind_tag() != 0) && (!unused_only || ((entry->flag_bits() & AnimCacheEntry::kUserMask) == 0))) {
             taken_count_ -= entry->get_release();
         }
     }
@@ -492,7 +493,7 @@ void ClipStore::remove_user(const void* key, int slot)
     for (AnimCacheEntry* entry : slot_array_) {
         if (entry->lookup_key() == key) {
             entry->free_slot(slot);
-            if (!(entry->flag_bits() & AnimCacheEntry::kUserMask) && evict_unused_) {
+            if (((entry->flag_bits() & AnimCacheEntry::kUserMask) == 0) && evict_unused_) {
                 drop_out(key);
             }
         }
@@ -503,7 +504,7 @@ void ClipStore::remove_user(const void* key, int slot)
 int ClipStore::defragment()
 {
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag() && !(entry->flag_bits() & AnimCacheEntry::kUserMask)) {
+        if ((entry->kind_tag() != 0) && ((entry->flag_bits() & AnimCacheEntry::kUserMask) == 0)) {
             taken_count_ -= entry->get_release();
         }
     }
@@ -522,7 +523,7 @@ int ClipStore::defragment()
             memory::dealloc(copy);
         }
         for (AnimCacheEntry* entry : slot_array_) {
-            if (entry->kind_tag()) {
+            if (entry->kind_tag() != 0) {
                 taken_count_ -= entry->get_release();
             }
         }
@@ -545,7 +546,7 @@ int ClipStore::defragment()
     uint32_t offset = 0;
     push_anim_heap();
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag()) {
+        if (entry->kind_tag() != 0) {
             memory::Hub::dealloc(entry->payload());
             entry->set_payload(nullptr);
             for (AnimCacheSlot* slot : entry->slots_ptr()) {
@@ -556,7 +557,7 @@ int ClipStore::defragment()
         }
     }
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag()) {
+        if (entry->kind_tag() != 0) {
             entry->set_payload(static_cast<uint8_t*>(memory::alloc(entry->allocated())));
         }
     }
@@ -564,7 +565,7 @@ int ClipStore::defragment()
     // ...and the keys copied back, the pointers into them moved with them.
     old = 0;
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag()) {
+        if (entry->kind_tag() != 0) {
             const std::span<uint8_t> block(entry->payload(), entry->allocated());
             copy_forwards(block, copied.subspan(offset, entry->allocated()));
             offset += entry->allocated();

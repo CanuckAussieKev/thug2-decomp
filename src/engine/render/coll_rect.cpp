@@ -214,7 +214,7 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     box.append_spot({.x = o.x + b.x, .y = b.y + o.y, .z = b.z + o.z, .w = b.w + o.w});
     box.append_spot({.x = static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
                      .y = static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), .z = (a.z + o.z) + b.z, .w = (a.w + o.w) + b.w});
-    const bool use_cache = cache && cache->box().get_holds(box);
+    const bool use_cache = (cache != nullptr) && cache->box().get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(rect);
         if (!grid) {

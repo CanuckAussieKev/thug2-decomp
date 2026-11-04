@@ -113,7 +113,7 @@ bool interesting_command(const char* name)
 
 bool interesting_log_line(const char* line)
 {
-    if (!line || !*line) {
+    if (!line || (*line == '\0')) {
         return false;
     }
     // (the data overlay's files are already there as opened; the rest is bookkeeping)
@@ -183,7 +183,7 @@ LoadingConsoleState& loading_console_state()
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
 HANDLE screen_mutex() { return render::screen_2d().screen_mutex(); }
 
-bool load_screen_shown() { return render::engine_parts().loading_screen_up() != 0; } // the main loop draws nothing then
+bool load_screen_shown() { return render::engine_parts().loading_screen_up(); } // the main loop draws nothing then
 
 bool screen_picture() { return render::screen_2d().loading_screen_picture() != nullptr; } // the loading screen's picture is up
 
@@ -361,7 +361,7 @@ void draw_text(maths::Vec2 pen, const char* text, size_t columns, colour::Packed
     const float y = pen.y;
     const uint32_t color = colour_word.value();
     size_t i = 0;
-    for (core::CStringCursor at(text); *at && i < columns; ++at, ++i) {
+    for (core::CStringCursor at(text); (*at != '\0') && i < columns; ++at, ++i) {
         auto c = static_cast<unsigned char>(*at);
         const Glyph& glyph = core::at(console_font().glyphs_, c < kAsciiLimit ? c : '?');
         if (glyph.visible) {
@@ -536,7 +536,7 @@ void screen_shown(bool freeze, bool blank)
     }
     console_timer().blank_ = blank;
     console_timer().timer_draws_ = !freeze;
-    if (!freeze && !console_timer().timer_) {
+    if (!freeze && (console_timer().timer_ == 0U)) {
         console_timer().timer_ = timeSetEvent(kTimerPeriodMilliseconds, kTimerResolutionMilliseconds, &screen_tick, 0, TIME_PERIODIC);
     }
 }
@@ -548,7 +548,7 @@ void screen_hidden()
     }
     loading_console_state().active_ = false;
     console_timer().timer_draws_ = false;
-    if (console_timer().timer_) {
+    if (console_timer().timer_ != 0U) {
         timeKillEvent(console_timer().timer_);
         console_timer().timer_ = 0;
     }
@@ -602,7 +602,7 @@ void note_script_call(uint32_t name, bool cfunction, script::Struct* params)
                 what = script::look_up_hash_name(checksum);
             }
         }
-        if (what && *what) {
+        if (what && (*what != '\0')) {
             get_note("%s %s", text, get_file_name(what));
         } else {
             get_note("%s", text);
@@ -623,7 +623,7 @@ void note_log_line(const char* line)
     strncpy_s(text.data(), text.size(), line, _TRUNCATE);
     // (a log line can come from any thread, also while a crash is being logged: never wait for the lock)
     const double now = get_now();
-    if (!TryAcquireSRWLockExclusive(&loading_console_state().lock_)) {
+    if (TryAcquireSRWLockExclusive(&loading_console_state().lock_) == FALSE) {
         return;
     }
     loading_console_state().ring_.append_one(text.data(), now - loading_console_state().start_);

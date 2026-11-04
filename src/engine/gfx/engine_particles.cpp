@@ -18,7 +18,7 @@ namespace {
 float through_x87(float value)
 {
     auto bits = std::bit_cast<uint32_t>(value);
-    if ((bits & kExponentMask) == kExponentMask && (bits & kMantissaMask)) {
+    if ((bits & kExponentMask) == kExponentMask && ((bits & kMantissaMask) != 0U)) {
         bits |= kQuietNanBit;
     }
     return std::bit_cast<float>(bits);
@@ -45,7 +45,7 @@ void Sparkle::tick_frame()
 // 0x00494E40
 void Sparkle::get_release()
 {
-    if (args_.emit_script()) {
+    if (args_.emit_script() != 0U) {
         script::stop_scripts_by_tag(args_.emit_script());
         args_.set_emit_script(0);
     }

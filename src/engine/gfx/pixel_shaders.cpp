@@ -227,14 +227,14 @@ void* generated_pixel_shader(const void* material)
         text.append_one("tex t%d\n", pass);
     }
     // The first pass into r0.
-    if (present & 1) {
-        if (!(alpha_flags & 1)) {
+    if ((present & 1) != 0U) {
+        if ((alpha_flags & 1) == 0U) {
             text.append_one("mul_x2 r0.a, v0.a, t0.a\n");
         } else {
             text.append_one("mov r0.a, t0.a\n");
         }
         text.append_one("+mul_x2 r0.rgb, c0, t0\n");
-    } else if (!(alpha_flags & 1)) {
+    } else if ((alpha_flags & 1) == 0U) {
         text.append_one("mul_x2 r0.a, v0.a, t0.a\n");
         text.append_one("+mov r0.rgb, r8\n");
     } else {
@@ -250,16 +250,16 @@ void* generated_pixel_shader(const void* material)
         const uint32_t previous = reg;
         reg = 4;
         const uint32_t bit = 1U << pass;
-        if (present & bit) {
+        if ((present & bit) != 0U) {
             text.append_one("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
             if (!brighten) {
-                if (!(alpha_flags & bit)) {
+                if ((alpha_flags & bit) == 0U) {
                     append_alpha_modulate(text, mode == kBlendModeAlpha, pass);
                 } else {
                     text.append_one("+mov r1.a, t%d\n", pass);
                 }
             }
-        } else if (!(alpha_flags & bit)) {
+        } else if ((alpha_flags & bit) == 0U) {
             text.append_one("mov r1.rgb, t%d\n", pass);
             if (!brighten) {
                 append_alpha_modulate(text, mode == kBlendModeAlpha, pass);
@@ -348,9 +348,9 @@ void material_pixel_shader(const void* material, void** shader)
     }
     const uint32_t alpha_flags = pass_alpha_flags(material);
     if (get_blend_mode(material, 0) == kBlendModeBrighten) {
-        *shader = hdl(alpha_flags ? kPixelShader940 : kPixelShader944);
+        *shader = hdl((alpha_flags != 0U) ? kPixelShader940 : kPixelShader944);
     } else {
-        *shader = hdl(alpha_flags ? kPixelShader960 : kPixelShader964);
+        *shader = hdl((alpha_flags != 0U) ? kPixelShader960 : kPixelShader964);
     }
 }
 

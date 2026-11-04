@@ -66,7 +66,8 @@ void OverlayDraw::drop_out()
 }
 
 // 0x004DFA70
-OverlayDraw::OverlayDraw(float new_priority, bool new_hidden) : hidden_(new_hidden), priority(new_priority)
+OverlayDraw::OverlayDraw(float new_priority, bool new_hidden)
+    : hidden_(static_cast<uint8_t>(new_hidden)), priority(new_priority)
 {
     if (!new_hidden) {
         splice();
@@ -83,7 +84,7 @@ void OverlayDraw::change_rank(float new_priority)
         return;
     }
     priority = new_priority;
-    if (!hidden_) {
+    if (hidden_ == 0U) {
         drop_out();
         splice();
     }
@@ -100,7 +101,7 @@ void OverlayDraw::set_z(float new_z)
         return;
     }
     priority = 0.0F;
-    if (!hidden_) {
+    if (hidden_ == 0U) {
         drop_out();
         splice();
     }
@@ -113,7 +114,7 @@ void OverlayDraw::change_concealed(uint8_t new_hidden)
         return;
     }
     hidden_ = new_hidden;
-    if (new_hidden) {
+    if (new_hidden != 0U) {
         drop_out();
     } else {
         splice();
@@ -134,13 +135,13 @@ void draw_2d()
     change_phase(RenderStateId::kZTest, z_test_next_frame());
     uint32_t z_test = 0;
     for (OverlayDraw* item = foremost(); item; item = item->next()) {
-        if (item->hidden()) {
+        if (item->hidden() != 0U) {
             continue;
         }
         item->open_sketch();
         item->draw();
         item->close_sketch();
-        if (!z_test && item->z() > 0.0F) {
+        if ((z_test == 0U) && item->z() > 0.0F) {
             z_test = 1;
         }
     }

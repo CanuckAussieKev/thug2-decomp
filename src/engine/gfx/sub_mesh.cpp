@@ -235,7 +235,7 @@ MeshRef* MeshRef::replicate(bool share)
         int k = -1; // (each level of detail: the copy's buffer is stored through its slot)
         for (IdxStore*& slot : copy->index_buffers_) {
             ++k;
-            if (!core::at(copy->index_counts_, k)) {
+            if (core::at(copy->index_counts_, k) == 0U) {
                 continue;
             }
             gsl::owner<IdxStore*> buffer = new_index_buffer(core::at(copy->index_counts_, k) * 2);
@@ -262,7 +262,7 @@ MeshRef* MeshRef::replicate(bool share)
             std::memcpy(copy->per_vertex_bytes_, per_vertex_bytes_, vertex_count_);
         }
     }
-    if (position_count_) {
+    if (position_count_ != 0U) {
         copy->triangles_ = static_cast<uint16_t*>(alloc_block(triangle_count_ * kTriangleIndexBytes));
         std::memcpy(copy->triangles_, triangles_, triangle_count_ * kTriangleIndexBytes);
         copy->positions_ = static_cast<float*>(alloc_block(position_count_ * kPositionBytes));

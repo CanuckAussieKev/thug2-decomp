@@ -198,7 +198,7 @@ void set_level_color(std::span<const float, 4> color)
 }
 void set_bloom_structure(script::Struct* params) { render::screen_effects()->set_bloom_params(params, 0); }
 // Whether this is a multiplayer game (a network game, or more than one local player): the lights stay as set.
-bool is_multiplayer() { return modules::Skate::is_multiplayer() & 1; }
+bool is_multiplayer() { return (modules::Skate::is_multiplayer() & 1) != 0; }
 // The game mode's name (modules::Skate's game mode 0x007CE470).
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
 // The front end (0x007CE464): +0x30 paused.
@@ -258,10 +258,17 @@ TodManagerState& tod_manager_state()
     return state.get();
 }
 
-bool get_filter(TodParams* params) { return tod_manager_state().params_filter_ && tod_manager_state().params_filter_(params); }
+bool get_filter(TodParams* params)
+{
+    return (tod_manager_state().params_filter_ != nullptr) && tod_manager_state().params_filter_(params);
+}
 
 // What the original tests (is_multiplayer), then the unlock (THUGPRO's network games): the lights left alone.
-bool lights_locked() { return is_multiplayer() && !(tod_manager_state().multiplayer_unlock_ && tod_manager_state().multiplayer_unlock_()); }
+bool lights_locked()
+{
+    return is_multiplayer() &&
+           !((tod_manager_state().multiplayer_unlock_ != nullptr) && tod_manager_state().multiplayer_unlock_());
+}
 
 } // namespace
 
@@ -321,7 +328,7 @@ void CtodManager::get_level_color(uint32_t* out)
         return;
     }
     double t = 1.0;
-    if (system.transition_length_) {
+    if (system.transition_length_ != 0) {
         t = get_fraction({.time = system.time, .length = system.transition_length_});
         if (!(t <= get_one())) {
             t = get_one();
@@ -458,7 +465,7 @@ void CtodManager::parse_params(script::Struct* structure, TodParams* out)
     }
 
     structure->fetch_int_value(kBloomOn, &out->bloom_on_, 0);
-    if (!out->bloom_on_) {
+    if (out->bloom_on_ == 0) {
         return;
     }
     structure->fetch_int_value(kBloom1, &out->bloom1, 0);
@@ -484,7 +491,7 @@ TodParams CtodManager::get_tod_params(int index)
         return system.current;
     }
     float t = 1.0F;
-    if (system.transition_length_) {
+    if (system.transition_length_ != 0) {
         const double fraction = get_fraction({.time = system.time, .length = system.transition_length_});
         t = static_cast<float>(fraction);
         if (!(fraction <= get_one())) {
@@ -666,14 +673,14 @@ void apply_color_to_scene(render::WorldScene* scene, uint32_t color, ColourSpan 
     if (!sector) {
         return;
     }
-    if (!light_group) {
+    if (light_group == 0U) {
         for (bool again = true; again; again = (sector = next()) != nullptr) {
             if (remaining-- == 0) {
                 return;
             }
             colour(sector, color);
         }
-    } else if (!reset_light_group) {
+    } else if (reset_light_group == 0U) {
         for (bool again = true; again; again = (sector = next()) != nullptr) {
             if (remaining-- == 0) {
                 return;
@@ -728,7 +735,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
             set_scene_color_of(level, color);
         }
     }
-    if ((whole_level || reset_light_group) && !part_only) {
+    if ((whole_level || (reset_light_group != 0U)) && !part_only) {
         // The models: those of objects without a sector of their name, or an outdoor one, get the colour.
         for (objects::ObjectModule* model = objects::object_hub_slot()->find_first_module_of_kind(kModel); model;
              model = model->next_of_type()) {
@@ -736,7 +743,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
             if (!sector || sector->light_group() == kOutdoor) {
                 set_model_color(model, color);
             }
-            if (reset_light_group && sector && sector->light_group() == reset_light_group) {
+            if ((reset_light_group != 0U) && sector && sector->light_group() == reset_light_group) {
                 set_model_color(model, kNeutralColor);
             }
         }
@@ -906,7 +913,7 @@ void CtodManager::mark_permanently_dead(script::Struct* params)
 void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color)
 {
     const script::StructPtr params = script::make_struct();
-    if (on) {
+    if (on != 0) {
         add_bloom_params({.on = on, .bloom1 = bloom1, .bloom2 = bloom2, .strength = strength, .color = color}, params.get());
     } else {
         params->put_int(checksums::Name{kOn}, 0);
@@ -956,7 +963,7 @@ void CtodManager::update_system(int index)
     const int start = ftol(part * step);
     const int end = ftol((part + 1) * step);
     float t = 1.0F;
-    if (system.transition_length_) {
+    if (system.transition_length_ != 0) {
         const double fraction = get_fraction({.time = system.time, .length = system.transition_length_});
         t = static_cast<float>(fraction);
         if (!(fraction <= get_one())) {
@@ -983,7 +990,7 @@ void CtodManager::update_system(int index)
         }
         read_group(index);
     }
-    if (!sky && !temp_bloom_.on) {
+    if (!sky && (temp_bloom_.on == 0)) {
         set_bloom(params.bloom_on_, params.bloom1, params.bloom2, params.bloom_strength_, params.bloom_color_);
     }
 
@@ -996,7 +1003,7 @@ void CtodManager::update_system(int index)
         script_params->put_name_key(checksums::Name{kNextTod}, system.next_state_);
         script_params->put_sub_struct(kTodStateParams, system.params);
         if (!sky) {
-            if (transition_script_) {
+            if (transition_script_ != 0U) {
                 script_params->put_name_key(checksums::Name{kTransitionScript}, transition_script_);
             }
             script::spawn_script(kStateTransition, script_params.get());
@@ -1005,7 +1012,7 @@ void CtodManager::update_system(int index)
 
     if (system.time > system.transition_length_) {
         next_state(index);
-        if (!system.sky && !temp_bloom_.on) {
+        if (!system.sky && (temp_bloom_.on == 0)) {
             const TodParams& current = system.current;
             set_bloom(current.bloom_on_, current.bloom1, current.bloom2, current.bloom_strength_, current.bloom_color_);
         }
@@ -1019,7 +1026,7 @@ void CtodManager::reset_level_lights(uint32_t state_name)
         return;
     }
     TodParams params{};
-    if (!state_name) {
+    if (state_name == 0U) {
         params = get_tod_params(-1);
         apply_tod_params(params);
         level_lights_reset_ = false;
@@ -1069,7 +1076,7 @@ void CtodManager::refresh_all(bool temp_state)
         params->put_name_key(checksums::Name{kCurrentTod}, previous_tod_state(system.state));
         params->put_name_key(checksums::Name{kNextTod}, system.state);
         params->put_sub_struct(kTodStateParams, system.params);
-        if (transition_script_) {
+        if (transition_script_ != 0U) {
             params->put_name_key(checksums::Name{kTransitionScript}, transition_script_);
         }
         params->put_name_key(checksums::Name{0U}, kInstantChange);
@@ -1126,7 +1133,7 @@ void CtodManager::set_temp_bloom_params(script::Struct* params)
         temp_bloom_.color = color_from_array(array);
     }
     // Off: back to the state's bloom (in a single player game).
-    if (!temp_bloom_.on && !is_multiplayer()) {
+    if ((temp_bloom_.on == 0) && !is_multiplayer()) {
         const BloomParams bloom = bloom_of(system_at(this, current_system()).current);
         set_bloom(bloom.on, bloom.bloom1, bloom.bloom2, bloom.strength, bloom.color);
         return;
@@ -1236,7 +1243,7 @@ bool CtodManager::can_set_tod_instant(uint32_t state) const
         return false;
     }
     uint32_t s = next_tod_state(current.state);
-    for (int step = 0; step < 4 && s; ++step, s = next_tod_state(s)) {
+    for (int step = 0; step < 4 && (s != 0U); ++step, s = next_tod_state(s)) {
         if (s == state) {
             return true;
         }
@@ -1365,7 +1372,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     CtodManager* manager = tod_manager();
     const TodParams p = manager->get_tod_params(index);
     gsl::owner<script::Struct*> out = script::new_struct();
-    out->put_int(checksums::Name{kActive}, manager->active());
+    out->put_int(checksums::Name{kActive}, static_cast<int>(manager->active()));
     int current = 0;
     while (current < CtodManager::kSystems && core::at(manager->systems(), current).sky) {
         ++current;

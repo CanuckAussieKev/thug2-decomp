@@ -402,7 +402,7 @@ void draw_screen_blur()
             set_sampler_state(i, kSamplerMagFilter, 2);
         }
     }
-    if (effects_state().bloom_on()) {
+    if (effects_state().bloom_on() != 0U) {
         get_bloom();
     }
     set_render_state(RenderStateId::kAddressMode0, kClampBothWays);
@@ -458,7 +458,7 @@ void draw_screen_blur()
     //   quad[0].y = quad[1].y = bar;
     //   quad[0].v = quad[1].v = inset_v + bar;   (sic: a pixel count added to a texture coordinate)
     //   quad[2].y -= bar; quad[3].y -= bar; quad[2].v -= bar; quad[3].v -= bar;
-    if (amount) {
+    if (amount != 0U) {
         choose_blend_mode(effects_state().screen_blur_frames() > 2 ? kBlendModeAlpha : 0);
         color = amount << kAlphaShift | kNeutralRgb;
         for (ScreenVertex& v : quad) {
@@ -593,7 +593,7 @@ void draw_viewport(int index)
     vp.min_z_ = 0.0F;
     vp.max_z_ = 1.0F;
     renderer().set_device_viewport(vp);
-    if (renderer().render_camera().letterbox_active_ && !get_front_end_widescreen()) {
+    if ((renderer().render_camera().letterbox_active_ != 0U) && !get_front_end_widescreen()) {
         // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
         //   int screen_height = renderer().back_buffer_height();
@@ -764,7 +764,7 @@ void draw_world()
 
         // Full-screen effects and the 2D on top.
         full_screen_viewport();
-        if (renderer().render_camera().letterbox_active_) {
+        if (renderer().render_camera().letterbox_active_ != 0U) {
             // Originally from PartyMod Fixes (its call at 0x004B33CA): fitted to the aspect wanted. The original:
             //   int screen_height = renderer().back_buffer_height();
             //   renderer().device_viewport().y = screen_height / 8;
