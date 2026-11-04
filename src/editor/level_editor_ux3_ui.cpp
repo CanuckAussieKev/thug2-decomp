@@ -338,7 +338,7 @@ void history_window()
     }
     ImGui::EndChild();
     ImGui::End();
-    if (any && jump) {
+    if (any && (jump != 0)) {
         get_queue([jump] { jump_history(jump); });
     }
 }
@@ -494,7 +494,7 @@ void snapshots_window()
     const bool enter = ImGui::InputTextWithHint("##name", "Name", snapshots().snapshot_name_.data(), sizeof(snapshots().snapshot_name_),
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
-    if ((ImGui::Button("Save Snapshot") || enter) && core::at(snapshots().snapshot_name_, 0)) {
+    if ((ImGui::Button("Save Snapshot") || enter) && (core::at(snapshots().snapshot_name_, 0) != '\0')) {
         const std::string name = snapshots().snapshot_name_.data();
         get_queue([name] {
             std::string message;
@@ -892,7 +892,7 @@ bool row_passes(const nodes::Elem& node, const std::string& name, const char* se
         last = search;
         filter = organize::parse_filter(last);
     }
-    if (!*search) {
+    if (*search == '\0') {
         return true;
     }
     const std::string label = filter.labeled || !filter.text.empty() ? row_label(node.name) : "";
@@ -1056,7 +1056,7 @@ void inspector_section(const ui::ShapeMesh& model)
 {
     (void)model;
     const SelectionIds s = current_selection();
-    const bool any = !s.objects.empty() || !s.sectors.empty() || s.node;
+    const bool any = !s.objects.empty() || !s.sectors.empty() || (s.node != 0U);
     ImGui::Spacing();
     // The clipboard (Ctrl+Shift+C / Ctrl+Shift+V).
     if (ImGui::CollapsingHeader("Copy / paste###ux3clip")) {
@@ -1233,7 +1233,8 @@ void remember_sections()
             continue;
         }
         core::at(sections().section_state_, i) = value;
-        WritePrivateProfileStringA("editor_sections", std::next(core::at(kSections, i), 3), value ? "1" : "0", ini.c_str());
+        WritePrivateProfileStringA("editor_sections", std::next(core::at(kSections, i), 3), (value != 0) ? "1" : "0",
+                                   ini.c_str());
     }
 }
 

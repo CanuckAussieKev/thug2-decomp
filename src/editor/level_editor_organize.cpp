@@ -78,7 +78,7 @@ bool parse_hex8(const std::string& text, uint32_t* value)
         return false;
     }
     for (const char c : text) {
-        if (!std::isxdigit(static_cast<unsigned char>(c))) {
+        if (std::isxdigit(static_cast<unsigned char>(c)) == 0) {
             return false;
         }
     }
@@ -116,7 +116,7 @@ std::string write_records(const State& state)
             out += "-";
         }
         for (size_t i = 0; i < g.members.size(); ++i) {
-            out += i ? "," : "";
+            out += (i != 0U) ? "," : "";
             out += core::at(g.members, i).kind;
             out += ":" + hex_text(core::at(g.members, i).id);
         }
@@ -340,7 +340,7 @@ Filter parse_filter(const std::string& search)
 bool row_passes(const Filter& filter, nodes::Family family, const std::string& name, const std::string& label,
                 bool in_group, bool locked, bool hidden)
 {
-    if (filter.families && !(filter.families & nodes::get_bit(family))) {
+    if ((filter.families != 0U) && ((filter.families & nodes::get_bit(family)) == 0U)) {
         return false;
     }
     if (!filter.group.empty() && !in_group) {
@@ -420,7 +420,7 @@ bool alike(const Thing& a, const Thing& b, Similar by)
             if (a.family != b.family) {
                 return false;
             }
-            if (a.source && a.source == b.source) {
+            if ((a.source != 0U) && a.source == b.source) {
                 return true;
             }
             return std::fabs(a.size.x - b.size.x) <= kSizeTolerance && std::fabs(a.size.y - b.size.y) <= kSizeTolerance &&
@@ -443,7 +443,7 @@ bool valid_snapshot_name(const std::string& name)
         return false;
     }
     for (const char c : name) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-') {
+        if ((std::isalnum(static_cast<unsigned char>(c)) == 0) && c != '_' && c != '-') {
             return false;
         }
     }
@@ -523,7 +523,7 @@ uint32_t scene_now()
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
 }
 
 // Every object with a model the editor can select (the level's object nodes and the copies), once each.
@@ -539,7 +539,7 @@ std::vector<uint32_t> selectable_objects()
         }
     };
     for (const nodes::Elem& n : nodes::get_all()) {
-        if (n.family == nodes::Family::kObject && n.name) {
+        if (n.family == nodes::Family::kObject && (n.name != 0U)) {
             add(n.name);
         }
     }
@@ -782,7 +782,7 @@ bool selection_locked(bool say)
         return false;
     }
     const SelectionIds s = current_selection();
-    bool locked = (s.node && latched(s.node));
+    bool locked = ((s.node != 0U) && latched(s.node));
     for (const uint32_t id : s.objects) {
         locked = locked || latched(id);
     }
@@ -807,7 +807,7 @@ void make_group(const std::string& wanted)
     for (const uint32_t id : s.sectors) {
         g.members.push_back({.kind = 's', .id = id});
     }
-    if (s.node) {
+    if (s.node != 0U) {
         g.members.push_back({.kind = 'n', .id = s.node});
     }
     if (g.members.empty()) {
@@ -856,18 +856,18 @@ void select_group(int index)
             } else {
                 ++missing;
             }
-        } else if (!node) {
+        } else if (node == 0U) {
             node = m.id;
         }
     }
     std::string note;
     if (!ids.objects.empty()) {
-        if (!ids.sectors.empty() || node) {
+        if (!ids.sectors.empty() || (node != 0U)) {
             note = " (objects only)";
         }
         ids.sectors.clear();
     } else if (!ids.sectors.empty()) {
-        if (node) {
+        if (node != 0U) {
             note = " (scenery only)";
         }
     } else {
@@ -875,7 +875,7 @@ void select_group(int index)
     }
     set_selection(ids);
     show_message("Group \"" + core::at(level_editor_organize_state().state_.groups, index).name + "\" selected" + note +
-                 (missing ? " - " + std::to_string(missing) + " missing" : ""));
+                 ((missing != 0) ? " - " + std::to_string(missing) + " missing" : ""));
 }
 
 void delete_group(int index)
@@ -926,7 +926,7 @@ void add_to_group(int index)
     for (const uint32_t id : s.sectors) {
         add('s', id);
     }
-    if (s.node) {
+    if (s.node != 0U) {
         add('n', s.node);
     }
     get_change(next, "Add to group");
@@ -974,11 +974,11 @@ void apply_box()
 {
     const Rect2 box = rect_of(box_drag().x0, box_drag().y0, box_drag().x1, box_drag().y1);
     const bool crossing = crossing_drag(box_drag().x0, box_drag().x1);
-    const int op = (box_drag().mods & actions::kShift) ? 1 : (box_drag().mods & actions::kCtrl) ? 2 : 0;
+    const int op = ((box_drag().mods & actions::kShift) != 0) ? 1 : ((box_drag().mods & actions::kCtrl) != 0) ? 2 : 0;
     const uint32_t filter = pick_filter_now();
     std::vector<uint32_t> objects;
     std::vector<uint32_t> sectors;
-    if (filter & picking::kObjects) {
+    if ((filter & picking::kObjects) != 0U) {
         for (const uint32_t id : selectable_objects()) {
             OrientedBox ob{};
             Rect2 r{};
@@ -988,7 +988,7 @@ void apply_box()
             }
         }
     }
-    if (filter & picking::kScenery) {
+    if ((filter & picking::kScenery) != 0U) {
         for (const uint32_t checksum : selectable_sectors()) {
             OrientedBox ob{};
             Rect2 r{};
@@ -1014,11 +1014,11 @@ void apply_box()
         uint32_t best = 0;
         float best_d = kFarthest;
         int in_box = 0;
-        if (filter & picking::kNodes) {
+        if ((filter & picking::kNodes) != 0U) {
             const float cx = (box.x0 + box.x1) * 0.5F;
             const float cy = (box.y0 + box.y1) * 0.5F;
             for (const nodes::Elem& n : nodes::get_all()) {
-                if (!n.has_pos_ || !n.name || n.family == nodes::Family::kObject ||
+                if (!n.has_pos_ || (n.name == 0U) || n.family == nodes::Family::kObject ||
                     n.family == nodes::Family::kScenery || nodes::shape_of(n.family) == nodes::Shape::kNone ||
                     gizmo_hidden(n.name) || !gizmo_pickable(n.name)) {
                     continue;
@@ -1036,7 +1036,7 @@ void apply_box()
                 }
             }
         }
-        if (best && op != 2) {
+        if ((best != 0U) && op != 2) {
             next.node = best;
             text::format_to(text, "Box: %d nodes, nearest selected", in_box);
         } else if (op == 0) {
@@ -1109,7 +1109,7 @@ void select_similar(Similar by)
                      " of the same " + similar_name(by));
         return;
     }
-    if (s.node) {
+    if (s.node != 0U) {
         // (nodes select one at a time: the Outliner shows the similar ones - its search set to the family)
         const int index = nodes::get_find(s.node);
         if (index < 0) {
@@ -1138,7 +1138,7 @@ void select_all()
 {
     const SelectionIds s = current_selection();
     SelectionIds next;
-    if (!s.sectors.empty() || !(pick_filter_now() & picking::kObjects)) {
+    if (!s.sectors.empty() || ((pick_filter_now() & picking::kObjects) == 0U)) {
         next.sectors = combine(s.sectors, selectable_sectors(), 1);
     } else {
         next.objects = combine(s.objects, selectable_objects(), 1);
@@ -1176,7 +1176,7 @@ std::vector<std::string> snapshots()
 {
     std::vector<std::string> names;
     const uint32_t scene = scene_now();
-    if (!scene) {
+    if (scene == 0U) {
         return names;
     }
     WIN32_FIND_DATAA found;
@@ -1184,9 +1184,9 @@ std::vector<std::string> snapshots()
     if (find == INVALID_HANDLE_VALUE) {
         return names;
     }
-    for (bool again = true; again; again = FindNextFileA(find, &found)) {
+    for (bool again = true; again; again = (FindNextFileA(find, &found) != FALSE)) {
         std::string name;
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+        if (((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0U) &&
             snapshot_of(std::data(found.cFileName), scene, &name)) {
             names.push_back(name);
         }
@@ -1242,7 +1242,7 @@ bool switch_snapshot(const std::string& name, std::string* message)
 {
     const std::string path = layouts_folder() + "\\" + snapshot_file_name(scene_now(), name);
     const std::ifstream in(path, std::ios::binary);
-    if (!scene_now() || !in) {
+    if ((scene_now() == 0U) || !in) {
         *message = "No snapshot \"" + name + "\" for this level";
         return false;
     }
@@ -1271,7 +1271,7 @@ bool switch_snapshot(const std::string& name, std::string* message)
 bool delete_snapshot(const std::string& name, std::string* message)
 {
     const std::string path = layouts_folder() + "\\" + snapshot_file_name(scene_now(), name);
-    if (!valid_snapshot_name(name) || !DeleteFileA(path.c_str())) {
+    if (!valid_snapshot_name(name) || (DeleteFileA(path.c_str()) == FALSE)) {
         *message = "Couldn't delete the snapshot \"" + name + "\"";
         return false;
     }

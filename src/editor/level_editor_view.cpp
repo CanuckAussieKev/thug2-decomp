@@ -224,7 +224,7 @@ FaceStyle style_of(const FaceFacts& facts)
 {
     FaceStyle style;
     const bool wall = facts.collision_only_ && !facts.companion;
-    if (core::any(facts.flags & render::FaceFlag::kTrigger) && facts.trigger_colour_) {
+    if (core::any(facts.flags & render::FaceFlag::kTrigger) && (facts.trigger_colour_ != 0U)) {
         style.fill = (facts.trigger_colour_ & kRgbMaskU) | kTriggerFillAlpha;
     } else {
         style.fill = surface_colour(get_classify(facts.taken ? facts.flags & ~render::FaceFlag::kNotCollidable : facts.flags, wall));
@@ -335,7 +335,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
     const V3 max = to_v3(tri->bounds().max);
     V3 first = {};
     V3 last = {};
-    if (tri->vertices() && tri->num_vertices()) {
+    if (tri->vertices() && (tri->num_vertices() != 0U)) {
         first = to_v3(tri->read_stored_vertex(0));
         last = to_v3(tri->read_stored_vertex(tri->num_vertices() - 1));
     }
@@ -449,7 +449,7 @@ bool geom_active(void* geom) { return static_cast<render::Geom*>(geom)->is_opera
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
 }
 
 bool hide_sector(uint32_t checksum)
@@ -707,7 +707,8 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             }
             any = true;
             view_stats().stats_.taken += facts.taken ? 1 : 0;
-            view_stats().stats_.triggers += core::any(facts.flags & render::FaceFlag::kTrigger) && facts.trigger_colour_ ? 1 : 0;
+            view_stats().stats_.triggers +=
+                core::any(facts.flags & render::FaceFlag::kTrigger) && (facts.trigger_colour_ != 0U) ? 1 : 0;
         }
         if (any) {
             ++view_stats().stats_.sectors;

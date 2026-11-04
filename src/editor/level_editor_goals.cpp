@@ -446,7 +446,7 @@ std::string write_record(const Goal& g)
     if (g.type == KindTag::kGap) {
         std::string gaps;
         for (size_t i = 0; i < g.gaps.size(); ++i) {
-            gaps += (i ? "|" : "") + core::at(g.gaps, i);
+            gaps += ((i != 0U) ? "|" : "") + core::at(g.gaps, i);
         }
         text("gaps", gaps);
         text("trick", g.trick);
@@ -454,7 +454,7 @@ std::string write_record(const Goal& g)
     if (get_trick_type(g.type)) {
         std::string sets;
         for (int i = 0; i < kComboSetCount; ++i) {
-            if (g.sets & (1U << i)) {
+            if ((g.sets & (1U << i)) != 0U) {
                 sets += (sets.empty() ? "" : ",") + std::to_string(i);
             }
         }
@@ -727,7 +727,7 @@ void fill_image(const Goal& goal, GoalInLevel goal_in_level, const std::vector<i
         // 0, num_taps 0})
         int sets = 0;
         for (int i = 0; i < combo_set_count(goal.type) && sets < kMaxChosenSets; ++i) {
-            if (!(goal.sets & (1U << i))) {
+            if ((goal.sets & (1U << i)) == 0U) {
                 continue;
             }
             core::at(g.key_combo_sets(), sets).set = static_cast<uint8_t>(i);
@@ -985,7 +985,7 @@ void initialize_goal(uint32_t goal)
 void remove_entity(const std::string& name)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(get_checksums(name)));
-    if (object && !(object->object_flags() & objects::kObjectFlagDead)) {
+    if (object && ((object->object_flags() & objects::kObjectFlagDead) == 0U)) {
         object->flag_as_dead();
     }
 }
@@ -1170,7 +1170,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     const auto& point = ray->hit().point;
@@ -1372,7 +1372,7 @@ bool remove_checkpoint(const std::string& id)
 bool restore_points(const std::string& id)
 {
     const int i = index_of_goal_id(id);
-    if (i < 0 || !missing_points(core::at(level_editor_goals_state().goals_, i))) {
+    if (i < 0 || (missing_points(core::at(level_editor_goals_state().goals_, i)) == 0)) {
         return false;
     }
     push_undo();
@@ -1399,7 +1399,7 @@ bool export_goal(const std::string& id, std::string* message)
     auto* component =
         editor ? core::down_cast<park_editing::ObjectiveAuthoring>(editor->fetch_module(kGoalEditor)) : nullptr;
     const uint32_t level = current_level();
-    if (!component || !level) {
+    if (!component || (level == 0U)) {
         *message = "Goal editor unavailable";
         return false;
     }
@@ -1461,7 +1461,7 @@ int get_apply(const std::vector<Goal>& goals)
         ++made;
     }
     sync_nodes(level_editor_goals_state().goals_);
-    if (made) {
+    if (made != 0) {
         get_log("level editor: the layout's %d goals put in place", made);
     }
     if (!live_now()) {

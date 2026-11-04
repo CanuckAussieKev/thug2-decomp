@@ -364,7 +364,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         static const std::array<const char*, 3> kIds = {{"tool_move", "tool_rotate", "tool_scale"}};
         static const std::array<const char*, 3> kTips = {{"Move tool", "Rotate tool", "Scale tool"}};
         for (int t = 0; t < 3; ++t) {
-            if (t) {
+            if (t != 0) {
                 ImGui::SameLine(0.0F, inner);
             }
             if (flip_over(core::at(kLabels, t), s.tool == t)) {
@@ -481,10 +481,10 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
     }
     case kProblemsItem: {
         int colours = 0;
-        if (s.errors) {
+        if (s.errors != 0) {
             ImGui::PushStyleColor(ImGuiCol_Button, kErrorsButtonColour);
             ++colours;
-        } else if (s.warnings) {
+        } else if (s.warnings != 0) {
             ImGui::PushStyleColor(ImGuiCol_Button, kWarningsButtonColour);
             ++colours;
         }

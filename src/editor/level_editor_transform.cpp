@@ -443,9 +443,9 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
 
 V3 repeat_target(V3 from, const RepeatStep& step)
 {
-    const V3 offset = step.quarters       ? get_quarter_turn(step.offset, step.quarters)
-                      : step.turn != 0.0F ? turn_about_up(step.offset, step.turn)
-                                          : step.offset;
+    const V3 offset = (step.quarters != 0) ? get_quarter_turn(step.offset, step.quarters)
+                      : step.turn != 0.0F  ? turn_about_up(step.offset, step.turn)
+                                           : step.offset;
     return from + offset;
 }
 

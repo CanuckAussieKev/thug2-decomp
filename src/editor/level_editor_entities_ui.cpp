@@ -44,7 +44,7 @@ const char* short_name(const std::string& path)
 bool get_live(uint32_t id)
 {
     const objects::Entity* object = objects::find_object(id);
-    return object && !(object->object_flags() & objects::kObjectFlagDead);
+    return (object != nullptr) && ((object->object_flags() & objects::kObjectFlagDead) == 0U);
 }
 
 // The rigid body's fields (THUG2's bouncy objects), in the order the levels write them.
@@ -220,7 +220,7 @@ void sound_section(uint32_t name)
             current = s.second;
         }
     }
-    if (e.sound && current == "(none)") {
+    if ((e.sound != 0U) && current == "(none)") {
         current = nodes::caption(e.sound);
     }
     ImGui::SetNextItemWidth(-1.0F);
@@ -279,18 +279,18 @@ void inspector_section(int node, checksums::Name object_name, ImFont* mono, std:
     const std::vector<nodes::Elem>& all = nodes::get_all();
     uint32_t name = object;
     int family = -1;
-    if (!name && node >= 0 && std::cmp_less(node, all.size())) {
+    if ((name == 0U) && node >= 0 && std::cmp_less(node, all.size())) {
         name = core::at(all, node).name;
     }
-    const int index = name ? nodes::get_find(name) : -1;
+    const int index = (name != 0U) ? nodes::get_find(name) : -1;
     if (index >= 0) {
         family = static_cast<int>(core::at(all, index).family);
     }
-    if (!name) {
+    if (name == 0U) {
         return;
     }
     script::Struct* s = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
-    if (object) {
+    if (object != 0U) {
         model_section(object, s, requests);
         physics_section(object, s, requests);
         moving_section(object);

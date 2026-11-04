@@ -137,7 +137,7 @@ std::string ref_text(const RefTo& ref, bool member, bool scenery)
         text::format_to(text, "%08X", ref.id);
     }
     std::string out = text.data();
-    if (member && scenery && (ref.quarters & 3)) {
+    if (member && scenery && ((ref.quarters & 3) != 0)) {
         text::format_to(text, "@%d", ref.quarters & 3);
         out += text.data();
     }
@@ -163,7 +163,7 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
         }
         char* end = nullptr;
         const long n = std::strtol(std::next(body.c_str()), &end, 10);
-        if (*end || n < 0 || n > kMaxCloneNumber) {
+        if ((*end != '\0') || n < 0 || n > kMaxCloneNumber) {
             return false;
         }
         ref->clone = static_cast<int>(n);
@@ -174,7 +174,7 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
     }
     char* end = nullptr;
     const unsigned long v = std::strtoul(body.c_str(), &end, 16);
-    if (*end || !v) {
+    if ((*end != '\0') || (v == 0U)) {
         return false;
     }
     ref->id = static_cast<uint32_t>(v);
@@ -190,7 +190,7 @@ std::string write_record(const LinkRecord& record)
     out += ref_text(record.source, false, record.scenery);
     out += ' ';
     for (size_t i = 0; i < record.members.size(); ++i) {
-        if (i) {
+        if (i != 0U) {
             out += ',';
         }
         out += ref_text(core::at(record.members, i), true, record.scenery);
@@ -266,7 +266,7 @@ std::vector<Remake>& remakes()
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
 }
 
 Placement placement_of(uint32_t sector)
@@ -366,7 +366,7 @@ void propagate_scenery(const GroupSet& group)
     } else {
         scenery::set_selection(saved);
     }
-    if (done) {
+    if (done != 0) {
         get_log("level editor: linked copies of %s scaled with it (%d)", object_edit::caption(group.source).c_str(),
                 done);
     }
@@ -589,7 +589,7 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
     int groups = 0;
     for (const LinkRecord& record : records) {
         const uint32_t source = resolve(record.source);
-        if (!source) {
+        if (source == 0U) {
             continue;
         }
         std::vector<Member> members;

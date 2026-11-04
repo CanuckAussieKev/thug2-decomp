@@ -91,7 +91,7 @@ void pane(float ui_scale)
     ImGui::SeparatorText("Align and Distribute");
     static const auto kAxes = std::to_array<const char*>({"X", "Y", "Z"});
     for (int axis = 0; axis < 3; ++axis) {
-        if (axis) {
+        if (axis != 0) {
             ImGui::SameLine();
         }
         ImGui::RadioButton(core::at(kAxes, axis), &s.axis, axis);
@@ -106,7 +106,7 @@ void pane(float ui_scale)
     s.reference = static_cast<Reference>(reference);
     static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
     for (int edge = 0; edge < 3; ++edge) {
-        if (edge) {
+        if (edge != 0) {
             ImGui::SameLine();
         }
         std::array<char, kLabelTextSize> label{};
@@ -240,7 +240,7 @@ void get_panel(float x, float y, float ui_scale)
     case Kind::kDistribute: {
         static const auto kAxes = std::to_array<const char*>({"X", "Y", "Z"});
         for (int axis = 0; axis < 3; ++axis) {
-            if (axis) {
+            if (axis != 0) {
                 ImGui::SameLine();
             }
             track(ImGui::RadioButton(core::at(kAxes, axis), &edit.axis, axis));
@@ -248,7 +248,7 @@ void get_panel(float x, float y, float ui_scale)
         if (edit.kind == Kind::kJustify) {
             static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
             for (int e = 0; e < 3; ++e) {
-                if (e) {
+                if (e != 0) {
                     ImGui::SameLine();
                 }
                 track(ImGui::RadioButton(core::at(kEdges, e), &edit.edge, e));

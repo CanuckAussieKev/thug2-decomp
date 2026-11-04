@@ -60,7 +60,7 @@ Membership get_from_node(uint32_t sector, bool trick_object, bool has_cluster, u
     Membership m;
     m.sector = sector;
     m.trick = trick_object;
-    m.cluster = trick_object ? (has_cluster && cluster ? cluster : sector) : 0;
+    m.cluster = trick_object ? (has_cluster && (cluster != 0U) ? cluster : sector) : 0;
     return m;
 }
 
@@ -105,13 +105,13 @@ bool read_record(std::istringstream& in, Membership* out)
     std::string cluster;
     std::string more;
     Membership m;
-    if (!(in >> sector >> cluster) || !read_hex8(sector, &m.sector) || !m.sector || (in >> more)) {
+    if (!(in >> sector >> cluster) || !read_hex8(sector, &m.sector) || (m.sector == 0U) || (in >> more)) {
         return false;
     }
     if (cluster == "-") {
         m.trick = false;
     } else {
-        if (!read_hex8(cluster, &m.cluster) || !m.cluster) {
+        if (!read_hex8(cluster, &m.cluster) || (m.cluster == 0U)) {
             return false;
         }
         m.trick = true;
@@ -166,7 +166,7 @@ objects::TrickObjectCluster* cluster_object(objects::TrickSpotHub* manager, uint
 void enrol(uint32_t name, uint32_t cluster)
 {
     objects::TrickSpotHub* manager = objects::trick_spot_hub();
-    if (!manager || !cluster) {
+    if (!manager || (cluster == 0U)) {
         return;
     }
     manager->add_cluster(cluster); // (false: there already)
@@ -188,7 +188,7 @@ void unregister(ClusterMember member)
     const auto name = member.name;
     const auto cluster = member.cluster;
     objects::TrickSpotHub* manager = objects::trick_spot_hub();
-    if (!manager || !cluster) {
+    if (!manager || (cluster == 0U)) {
         return;
     }
     if (const objects::TrickObjectCluster* object = cluster_object(manager, cluster)) {
@@ -274,7 +274,7 @@ bool stage_map(uint32_t sector, Membership* m)
     const bool all = !game_config::from_cd() && script::fetch_int_value(kAllTrickObjects) != 0;
     bool trick = all || node->has_entry_named(kTrickObject);
     // (the load's gate 0x00565BB0: such a node isn't registered - absent from this game)
-    if (trick && modules::Skate::should_be_absent(node)) {
+    if (trick && (modules::Skate::should_be_absent(node) != 0)) {
         trick = false;
     }
     uint32_t cluster = 0;
@@ -310,28 +310,28 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
 {
     std::vector<uint32_t> pieces;
     for (const uint32_t s : sectors) {
-        if (s && !scenery::is_clone(s)) {
+        if ((s != 0U) && !scenery::is_clone(s)) {
             pieces.push_back(s);
         }
     }
     const std::shared_ptr<Step> before = get_capture(pieces);
     int changed = 0;
     for (const uint32_t s : pieces) {
-        const Membership to{.sector = s, .trick = trick, .cluster = trick ? (cluster ? cluster : s) : 0};
+        const Membership to{.sector = s, .trick = trick, .cluster = trick ? ((cluster != 0U) ? cluster : s) : 0};
         if (get_same(get_now(s), to)) {
             continue;
         }
         place_in(to);
         ++changed;
     }
-    if (!changed) {
+    if (changed == 0) {
         return false;
     }
     push_module_undo(before);
     std::array<char, kLineTextSize> text{};
     if (trick) {
         text::format_to(text, "%d piece%s set to cluster %s", changed, changed == 1 ? "" : "s",
-                        cluster ? get_name_of(cluster).c_str() : "their own names");
+                        (cluster != 0U) ? get_name_of(cluster).c_str() : "their own names");
     } else {
         text::format_to(text, "%d piece%s cleared", changed, changed == 1 ? "" : "s");
     }
@@ -464,7 +464,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     const std::string typed = level_editor_clusters_state().typed_.data();
     bool valid = !typed.empty();
     for (const char c : typed) {
-        valid = valid && (std::isalnum(static_cast<unsigned char>(c)) || c == '_');
+        valid = valid && ((std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_');
     }
     ImGui::BeginDisabled(!valid);
     if (ImGui::Button("Set Cluster")) {

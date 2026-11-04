@@ -446,7 +446,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         for (const auto& r : level.restarts) {
             current = r.first == props.start ? r.second : current;
         }
-        if (props.start && current == "(original)") {
+        if ((props.start != 0U) && current == "(original)") {
             current = "(missing restart)";
         }
         ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
@@ -468,7 +468,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         }
         ImGui::PopFont();
         get_when(small_font, {.when = "on reload", .tip = "Start position"});
-        if (level.selected_restart_ && level.selected_restart_ != props.start) {
+        if ((level.selected_restart_ != 0U) && level.selected_restart_ != props.start) {
             if (ImGui::SmallButton("Use Selected Restart")) {
                 props.start = level.selected_restart_;
                 send_props(requests, props, true);

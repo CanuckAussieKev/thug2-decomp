@@ -450,7 +450,7 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
         return;
     }
     const render::HitMesh* coll = sector->hit_body();
-    if (!render::is_static_collider(coll) || (coll->flag_bits() & 4)) {
+    if (!render::is_static_collider(coll) || ((coll->flag_bits() & 4) != 0)) {
         return;
     }
     const auto* tri = coll->geometry();
@@ -488,7 +488,7 @@ bool cast_feeler(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     const auto& p = ray->hit().point;
@@ -659,9 +659,9 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             if (std::fabs(flight.normal.y) < kWallNormalY) {
                 text += " - hits a wall";
             }
-            if (core::at(arcs.landed_on_, i) &&
+            if ((core::at(arcs.landed_on_, i) != 0U) &&
                 std::ranges::find(sectors, core::at(arcs.landed_on_, i)) == sectors.end() &&
-                scenery::sector_geometry(core::at(arcs.landed_on_, i))) {
+                (scenery::sector_geometry(core::at(arcs.landed_on_, i)) != nullptr)) {
                 text += " on " + object_edit::caption(core::at(arcs.landed_on_, i));
             }
             painter.draw_label(flight.landing, colour, text, kLandingLabelOffsetX,

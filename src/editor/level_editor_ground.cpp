@@ -269,8 +269,8 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, 
     }
     const V3 along = make_unit(e1 - e0);
     for (int end = 0; end < 2; ++end) {
-        const V3 e = end ? e1 : e0;
-        const V3 away = end ? along : along * -1.0F;
+        const V3 e = (end != 0) ? e1 : e0;
+        const V3 away = (end != 0) ? along : along * -1.0F;
         const V3 corner = get_at(e, foot);
         for (size_t i = 0; i + 1 < profile.size(); ++i) {
             const V3 p = get_at(e + out * core::at(profile, i).first, foot + core::at(profile, i).second);
@@ -370,7 +370,7 @@ std::vector<std::array<uint16_t, 3>> strip_triangles(const std::vector<uint16_t>
         if (a == b || b == c || a == c) {
             continue;
         }
-        if (i % 2) {
+        if ((i % 2) != 0U) {
             std::swap(a, b);
         }
         triangles.push_back({a, b, c});
@@ -389,20 +389,20 @@ bool layout_for(VertexFormat format, Layout* layout)
         return false;
     }
     int at = kPositionBytes;
-    if (fvf & render::kFvfNormal) {
+    if ((fvf & render::kFvfNormal) != 0U) {
         layout->normal = at, at += kNormalBytes;
     }
-    if (fvf & kFvfPointSize) {
+    if ((fvf & kFvfPointSize) != 0U) {
         layout->size = at, at += 4;
     }
-    if (fvf & render::kFvfDiffuse) {
+    if ((fvf & render::kFvfDiffuse) != 0U) {
         layout->diffuse = at, at += 4;
     }
-    if (fvf & render::kFvfSpecular) {
+    if ((fvf & render::kFvfSpecular) != 0U) {
         layout->specular = at, at += 4;
     }
     layout->tex_count_ = static_cast<int>((fvf >> kFvfTexCountShift) & kFvfTexCountMask);
-    if (layout->tex_count_) {
+    if (layout->tex_count_ != 0) {
         layout->tex = at;
     }
     at += kTexCoordBytes * layout->tex_count_;
@@ -449,7 +449,7 @@ bool read_float(const std::string& text, float* out)
 {
     char* end = nullptr;
     *out = std::strtof(text.c_str(), &end);
-    return !text.empty() && end && *end == '\0' && std::isfinite(*out);
+    return !text.empty() && (end != nullptr) && *end == '\0' && std::isfinite(*out);
 }
 
 std::vector<std::string> split_commas(const std::string& text)
@@ -475,7 +475,7 @@ bool is_hex8(const std::string& text, uint32_t* value)
     }
     char* end = nullptr;
     const unsigned long v = std::strtoul(std::next(text.c_str(), 2), &end, 16);
-    if (!end || *end) {
+    if (!end || (*end != '\0')) {
         return false;
     }
     *value = static_cast<uint32_t>(v);
@@ -488,7 +488,7 @@ bool valid_word(const std::string& name)
         return false;
     }
     for (const char c : name) {
-        if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_')) {
+        if (!((std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_')) {
             return false;
         }
     }
@@ -516,10 +516,10 @@ std::string link_record(const Spec& s, const char* material_name)
     text::format_to(colour, "%08X", s.colour);
     std::array<char, kMaterialTextSize> material{};
     text::format_to(material, "0x%08X", s.material);
-    const std::string material_text =
-        material_name && *material_name && valid_word(material_name) && name_checksum_for(material_name) == s.material
-            ? std::string(material_name)
-            : std::string(material.data());
+    const std::string material_text = material_name && (*material_name != '\0') && valid_word(material_name) &&
+                                              name_checksum_for(material_name) == s.material
+                                          ? std::string(material_name)
+                                          : std::string(material.data());
     out << s.name << (s.lower ? " lower" : " raise") << " rect=" << get_number(s.x0) << ',' << get_number(s.z0) << ','
         << get_number(s.x1) << ',' << get_number(s.z1) << " base=" << get_number(s.base)
         << " height=" << get_number(s.height) << " ramps=" << ramp_letter(core::at(s.ramps, 0)) << ',' << ramp_letter(core::at(s.ramps, 1))
@@ -531,7 +531,7 @@ std::string link_record(const Spec& s, const char* material_name)
         for (size_t i = 0; i < s.hides.size(); ++i) {
             std::array<char, kHexTextSize> hex{};
             text::format_to(hex, "0x%08X", core::at(s.hides, i));
-            out << (i ? "," : "") << hex.data();
+            out << ((i != 0U) ? "," : "") << hex.data();
         }
     }
     return out.str();
@@ -612,12 +612,13 @@ bool read_record(const std::string& text, Spec* out)
         } else if (key == "color") {
             char* end = nullptr;
             const unsigned long v = std::strtoul(value.c_str(), &end, 16);
-            ok = once(&have_colour) && value.size() == kChecksumDigits && end && !*end;
+            ok = once(&have_colour) && value.size() == kChecksumDigits && (end != nullptr) && (*end == '\0');
             s.colour = static_cast<uint32_t>(v);
         } else if (key == "terrain") {
             char* end = nullptr;
             const long v = std::strtol(value.c_str(), &end, 10);
-            ok = once(&have_terrain) && !value.empty() && end && !*end && v >= 0 && v <= kMaxTerrain;
+            ok = once(&have_terrain) && !value.empty() && (end != nullptr) && (*end == '\0') && v >= 0 &&
+                 v <= kMaxTerrain;
             s.terrain = static_cast<uint16_t>(v);
         } else if (key == "hides") {
             ok = once(&have_hides);
@@ -634,7 +635,7 @@ bool read_record(const std::string& text, Spec* out)
             return false;
         }
     }
-    if (!have_rect || !have_base || !have_height || !have_material || !s.material) {
+    if (!have_rect || !have_base || !have_height || !have_material || (s.material == 0U)) {
         return false;
     }
     if (!normalise(&s)) {

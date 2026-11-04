@@ -164,7 +164,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
         }
     }
     vertices_.resize(base_.size() * 3);
-    rejection_.assign(count ? count : 1, 0);
+    rejection_.assign((count != 0U) ? count : 1, 0);
     if (bytes_.empty()) {
         bytes_.push_back(0);
     }
@@ -227,7 +227,7 @@ void Companion::change_live(bool active)
     entity_.flag_bits() = static_cast<uint16_t>(active ? entity_.flag_bits() & ~4U : entity_.flag_bits() | 4U);
 }
 
-bool Companion::live_now() const { return !(entity_.flag_bits() & 4); }
+bool Companion::live_now() const { return (entity_.flag_bits() & 4) == 0; }
 
 void Companion::change_tri_flags(int face, render::FaceFlag flags)
 {
@@ -370,7 +370,8 @@ render::TriMeshSource* get_collision_only(render::WorldCell* sector)
         return nullptr;
     }
     const render::StaticCollider* coll = coll_of(sector);
-    if (!coll || (coll->flag_bits() & kUnusableCollisionFlags) || !coll->geometry() || !coll->geometry()->faces()) {
+    if (!coll || ((coll->flag_bits() & kUnusableCollisionFlags) != 0) || !coll->geometry() ||
+        !coll->geometry()->faces()) {
         return nullptr;
     }
     return coll->geometry();
@@ -390,7 +391,7 @@ std::vector<uint32_t> named_for(uint32_t checksum)
     static const auto kSuffixes = std::to_array<const char*>({"_col", "_ic", "_col01", "_ic01"});
     std::vector<uint32_t> found;
     const char* name = get_name_of(checksum);
-    if (!name || !*name) {
+    if (!name || (*name == '\0')) {
         return found;
     }
     const uint32_t base = checksums::hash_from_text(name);

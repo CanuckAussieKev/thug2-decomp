@@ -70,7 +70,7 @@ constexpr float kHalf = 0.5F; // half
 
 int CellCache::get_find(uint64_t key) const
 {
-    if (!key) {
+    if (key == 0U) {
         return -1;
     }
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -90,7 +90,7 @@ int CellCache::get_take(CellUse cell_use)
         // (a free cell, else the one shown longest ago - not one on screen this frame)
         int best = -1;
         for (size_t i = 0; i < keys.size(); ++i) {
-            if (!core::at(keys, i)) {
+            if (core::at(keys, i) == 0U) {
                 best = static_cast<int>(i);
                 break;
             }
@@ -158,7 +158,7 @@ bool parse_entry(const std::string& text, int* tab, uint32_t* id)
         return false;
     }
     for (size_t i = 2; i < text.size(); ++i) {
-        if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i)))) {
+        if (std::isxdigit(static_cast<unsigned char>(core::at(text, i))) == 0) {
             return false;
         }
     }
@@ -222,7 +222,7 @@ std::string get_key_of(const std::string& scene)
 {
     std::string key = scene;
     for (char& c : key) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
+        if ((std::isalnum(static_cast<unsigned char>(c)) == 0) && c != '_') {
             c = '_';
         }
     }
@@ -324,7 +324,7 @@ void tick_cycle(const ui::ShapeMesh& model)
             break;
         }
         const int cell = cells_state().get_find(key);
-        if (cell < 0 || core::at(cells_state().drawn(), cell)) {
+        if (cell < 0 || (core::at(cells_state().drawn(), cell) != 0U)) {
             continue;
         }
         auto failed = failed_state().find(key);
@@ -401,7 +401,7 @@ namespace {
 
 bool get_matches(const std::string& text, const char* filter)
 {
-    if (!filter || !*filter) {
+    if (!filter || (*filter == '\0')) {
         return true;
     }
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
@@ -426,7 +426,7 @@ void star(ImDrawList* draw, ImVec2 centre, StarLook star_look, bool filled)
     std::array<ImVec2, kStarPoints> points;
     for (int i = 0; i < kStarPoints; ++i) {
         const float angle = -1.5707963F + (0.62831853F * static_cast<float>(i));
-        const float r = (i & 1) ? radius * 0.45F : radius;
+        const float r = ((i & 1) != 0) ? radius * 0.45F : radius;
         core::at(points, i) = ImVec2(centre.x + (std::cos(angle) * r), centre.y + (std::sin(angle) * r));
     }
     if (filled) {
@@ -626,7 +626,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                     break;
                 }
                 const int i = core::at(shown, n);
-                if (column) {
+                if (column != 0) {
                     ImGui::SameLine(0.0F, spacing);
                 }
                 ImGui::PushID(i);
@@ -650,7 +650,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 const uint64_t key = get_key(tab, core::at(items, i).id);
                 const int c = cells_state().get_take({.key = key, .frame = level_editor_thumbs_state().frame_});
                 wanted.push_back(key);
-                if (c >= 0 && texture && core::at(cells_state().drawn(), c)) {
+                if (c >= 0 && (texture != 0U) && (core::at(cells_state().drawn(), c) != 0U)) {
                     float u0 = 0.0F;
                     float v0 = 0.0F;
                     float u1 = 0.0F;

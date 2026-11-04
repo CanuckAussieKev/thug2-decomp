@@ -232,7 +232,7 @@ uint32_t team_colour(const char* text)
 
 uint32_t spawn_colour(SpawnPointKind types, uint32_t team)
 {
-    if (team && core::any(types & (SpawnPointKind::kCtf | SpawnPointKind::kTeam))) {
+    if ((team != 0U) && core::any(types & (SpawnPointKind::kCtf | SpawnPointKind::kTeam))) {
         return team;
     }
     if (core::any(types & SpawnPointKind::kMultiplayer)) {
@@ -416,8 +416,8 @@ void get_scan()
                 break;
             case Family::kBitMark: {
                 const uint32_t team = team_colour(object_edit::get_name_of(node.type));
-                node.colour = team ? team : team_colour(name);
-                if (!node.colour) {
+                node.colour = (team != 0U) ? team : team_colour(name);
+                if (node.colour == 0U) {
                     node.colour = kFlagFallbackColour;
                 }
                 break;
@@ -475,7 +475,7 @@ void get_scan()
             }
             node.trigger_script_ = s->has_entry_named(kTriggerScript);
             ++core::at(level_editor_nodes_state().counts_, static_cast<int>(node.family));
-            if (node.name) {
+            if (node.name != 0U) {
                 by_name().emplace(node.name, static_cast<int>(level_editor_nodes_state().nodes_.size()));
             }
             level_editor_nodes_state().nodes_.push_back(std::move(node));
@@ -675,7 +675,7 @@ std::string array_text(script::Array* array, int depth)
     std::string text = "[";
     const uint32_t shown = std::min<uint32_t>(array->extent(), 12);
     for (uint32_t i = 0; i < shown; ++i) {
-        if (i) {
+        if (i != 0U) {
             text += " ";
         }
         std::array<char, kNameBufferSize> buffer{};
@@ -763,7 +763,9 @@ void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* 
             out->push_back({.name = get_name_text(c->value.word()), .value = "(flag)", .included = included});
             continue;
         }
-        out->push_back({.name = c->name ? get_name_text(c->name) : "(unnamed)", .value = value_text(c, depth), .included = included});
+        out->push_back({.name = (c->name != 0U) ? get_name_text(c->name) : "(unnamed)",
+                        .value = value_text(c, depth),
+                        .included = included});
     }
 }
 
@@ -783,7 +785,7 @@ bool level_is_shared(const char** game)
         return false;
     }
     const uint32_t level = skate->level(); // its level's load script
-    if (!level) {
+    if (level == 0U) {
         return false;
     }
     struct LevelList {

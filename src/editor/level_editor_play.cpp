@@ -35,8 +35,8 @@ bool get_key_down(platform::KeyState keys)
     if (keys.empty()) {
         return false;
     }
-    const bool ctrl = core::at(keys, SDL_SCANCODE_LCTRL) || core::at(keys, SDL_SCANCODE_RCTRL);
-    return core::at(keys, SDL_SCANCODE_F5) || (ctrl && core::at(keys, SDL_SCANCODE_P));
+    const bool ctrl = (core::at(keys, SDL_SCANCODE_LCTRL) != 0U) || (core::at(keys, SDL_SCANCODE_RCTRL) != 0U);
+    return (core::at(keys, SDL_SCANCODE_F5) != 0U) || (ctrl && (core::at(keys, SDL_SCANCODE_P) != 0U));
 }
 
 namespace {
@@ -82,7 +82,7 @@ PlayStart& play_start()
 bool enter_script_loaded()
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(checksums::hash_from_text("level_editor_enter"));
-    return symbol && symbol->type() == script::QbValueKind::kScriptBody;
+    return (symbol != nullptr) && symbol->type() == script::QbValueKind::kScriptBody;
 }
 
 } // namespace
@@ -126,7 +126,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool down = get_key_down(keys);
     const bool pressed = down && play_start().key_up_;
     play_start().key_up_ = !down;
-    const bool paused = front_end && front_end->is_halted();
+    const bool paused = (front_end != nullptr) && front_end->is_halted();
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     switch (play_start().phase_) {
     case Phase::kUnpause:

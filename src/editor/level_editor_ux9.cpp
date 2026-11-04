@@ -104,7 +104,7 @@ bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     const auto& p = ray->hit().point;
@@ -219,7 +219,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     }
     ImGui::DragFloat("Grid", &goal_form().grid_, 1.0F, 0.0F, kGridSpacingMax,
                      goal_form().grid_ > 0.0F ? "%.0f" : "off");
-    gui::text_disabled("Material: %s", d.material ? object_edit::caption(d.material).c_str() : "(automatic)");
+    gui::text_disabled("Material: %s", (d.material != 0U) ? object_edit::caption(d.material).c_str() : "(automatic)");
     if (ImGui::Button("Use Selected Material")) {
         goal_form().queue_.emplace_back([] {
             const std::vector<uint32_t>& selection = scenery::get_selection();

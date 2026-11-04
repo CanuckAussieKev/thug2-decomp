@@ -69,7 +69,7 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
     for (const BitInfo& info : get_bits()) {
         std::array<char, kOverlayItemSize> item{};
         text::format_to(item, "%s##ov%u", info.label, info.bit);
-        if (ImGui::MenuItem(item.data(), *info.key ? info.key : nullptr, get_shown(info.bit))) {
+        if (ImGui::MenuItem(item.data(), (*info.key != '\0') ? info.key : nullptr, get_shown(info.bit))) {
             assign_value(info.bit, !get_shown(info.bit));
         }
         get_tip(info.tip);

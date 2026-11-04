@@ -146,7 +146,7 @@ namespace {
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
 }
 
 // A level's own point node as a new node of its kind (false: not a kind the editor makes).
@@ -207,7 +207,7 @@ std::vector<uint32_t> selected_nodes()
             nodes.push_back(id);
         }
     };
-    if (s.node) {
+    if (s.node != 0U) {
         add(s.node);
     }
     for (const uint32_t id : s.objects) {
@@ -270,7 +270,7 @@ bool dup_from(std::string* message)
         record.scale = scale_tool::get_object_scale(object);
         fragment.copies.push_back(record);
     }
-    if (s.node) {
+    if (s.node != 0U) {
         const int index = nodes::get_find(s.node);
         bool done = false;
         if (index >= 0 && node_create::is_added(s.node)) {
@@ -301,7 +301,7 @@ bool dup_from(std::string* message)
     }
     const int count = static_cast<int>(fragment.clones.size() + fragment.copies.size() + fragment.added.size() +
                                        fragment.triggers.size());
-    if (!count) {
+    if (count == 0) {
         *message = skipped.empty() ? "Nothing selected to copy" : "Can't copy " + skipped.front();
         return false;
     }
@@ -348,7 +348,7 @@ bool graft(std::string* message)
     std::vector<std::string> missing;
     std::vector<uint32_t> copies;
     const int added = merge(fragment, &now, hooks, &missing, &copies);
-    if (!added) {
+    if (added == 0) {
         *message = "Nothing pasted - not in this level: " + (missing.empty() ? std::string("?") : missing.front()) +
                    (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more" : "");
         return false;
@@ -429,9 +429,9 @@ bool paste_fields(std::string* message)
     }
     std::string why;
     const int set = set_fields_on_nodes(nodes, copied_props().fields, "Paste fields", &why);
-    *message = set ? "Pasted " + std::to_string(set) + " fields onto " + std::to_string(nodes.size()) + " nodes" +
-                         (why.empty() ? "" : " (" + why + ")")
-                   : "No field pasted: " + why;
+    *message = (set != 0) ? "Pasted " + std::to_string(set) + " fields onto " + std::to_string(nodes.size()) +
+                                " nodes" + (why.empty() ? "" : " (" + why + ")")
+                          : "No field pasted: " + why;
     return set > 0;
 }
 

@@ -284,7 +284,7 @@ bool read_number(const std::string& text, float* out)
 {
     char* end = nullptr;
     *out = std::strtof(text.c_str(), &end);
-    return !text.empty() && end && *end == '\0' && std::isfinite(*out);
+    return !text.empty() && (end != nullptr) && *end == '\0' && std::isfinite(*out);
 }
 
 bool read_triple(const std::string& text, V3* out)
@@ -461,7 +461,7 @@ uint32_t checksum_of(const std::string& name)
 
 std::string name_for(uint32_t checksum, const char* known)
 {
-    if (known && *known && valid_name(known) && get_checksums(known) == checksum) {
+    if ((known != nullptr) && (*known != '\0') && valid_name(known) && get_checksums(known) == checksum) {
         return known;
     }
     std::array<char, kNumberTextSize> text{};
@@ -570,7 +570,7 @@ V3 handle_direction(HandleOf handle_of)
     const auto yaw = handle_of.yaw;
     const auto handle = handle_of.handle;
     const int axis = (handle >> 1) % 3;
-    const float sign = (handle & 1) ? 1.0F : -1.0F;
+    const float sign = ((handle & 1) != 0) ? 1.0F : -1.0F;
     const V3 unit = axis == 0   ? V3{.x = 1.0F, .y = 0.0F, .z = 0.0F}
                     : axis == 1 ? V3{.x = 0.0F, .y = 1.0F, .z = 0.0F}
                                 : V3{.x = 0.0F, .y = 0.0F, .z = 1.0F};
@@ -630,7 +630,7 @@ std::vector<uint8_t> get_body(const Spec& spec)
             out.push_back(script::token_byte(script::QbToken::kEquals));
             out.push_back(script::token_byte(script::QbToken::kArrayStart));
             for (size_t i = 0; i < spec.flags.size(); ++i) {
-                if (i) {
+                if (i != 0U) {
                     out.push_back(script::token_byte(script::QbToken::kComma));
                 }
                 put_name(&out, checksum_of(core::at(spec.flags, i)));
@@ -804,13 +804,13 @@ std::string link_record(const Placed& placed)
     if (!s.flags.empty()) {
         out << " flags=";
         for (size_t i = 0; i < s.flags.size(); ++i) {
-            out << (i ? "," : "") << core::at(s.flags, i);
+            out << ((i != 0U) ? "," : "") << core::at(s.flags, i);
         }
     }
     if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd) {
         out << " score=" << s.score;
     }
-    if (s.replaces) {
+    if (s.replaces != 0U) {
         text::format_to(number, " replaces=%08X", s.replaces);
         out << number.data();
     }
@@ -921,12 +921,14 @@ bool read_record(const std::string& line, Placed* placed)
         } else if (key == "score") {
             char* end = nullptr;
             const long score = std::strtol(value.c_str(), &end, 10);
-            ok = once(&have_score) && !value.empty() && end && *end == '\0' && score >= 0 && score <= kMaxGapScore;
+            ok = once(&have_score) && !value.empty() && (end != nullptr) && *end == '\0' && score >= 0 &&
+                 score <= kMaxGapScore;
             s.score = static_cast<int>(score);
         } else if (key == "replaces") {
             char* end = nullptr;
             const unsigned long checksum = std::strtoul(value.c_str(), &end, 16);
-            ok = once(&have_replaces) && !value.empty() && value.size() <= kHexNameDigits && end && *end == '\0';
+            ok = once(&have_replaces) && !value.empty() && value.size() <= kHexNameDigits && (end != nullptr) &&
+                 *end == '\0';
             s.replaces = static_cast<uint32_t>(checksum);
         } else if (key == "exit") {
             ok = once(&have_exit) && (value == "0" || value == "1");
@@ -934,7 +936,7 @@ bool read_record(const std::string& line, Placed* placed)
         } else if (key == "strength") {
             char* end = nullptr;
             const long strength = std::strtol(value.c_str(), &end, 10);
-            ok = once(&have_strength) && !value.empty() && end && *end == '\0' && strength >= kBoostMin &&
+            ok = once(&have_strength) && !value.empty() && (end != nullptr) && *end == '\0' && strength >= kBoostMin &&
                  strength <= kBoostMax;
             s.strength = static_cast<int>(strength);
         } else if (key == "sound") {
@@ -1009,7 +1011,7 @@ std::string proxim_record(const ProximEdit& e, const char* known)
             out << radius.data();
         }
     }
-    if (known && *known) {
+    if (known && (*known != '\0')) {
         out << "  # " << known;
     }
     return out.str();
@@ -1089,7 +1091,7 @@ std::vector<uint8_t> proxim_body(ProximScripts scripts)
     const auto exit = scripts.exit;
     const auto own = scripts.own;
     std::vector<uint8_t> out;
-    if (!enter && !exit) {
+    if ((enter == 0U) && (exit == 0U)) {
         return out;
     }
     auto branch = [&](uint32_t script) {
@@ -1250,7 +1252,7 @@ void on_kill(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->kill = true;
     uint32_t target = 0;
-    if (params && params->read_hash_value(current_node_name(), &target, 0) && target) {
+    if (params && params->read_hash_value(current_node_name(), &target, 0) && (target != 0U)) {
         trigger_edit().calls_->target = target;
     }
 }
@@ -1263,7 +1265,7 @@ void on_teleport(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->teleport = true;
     uint32_t target = 0;
-    if (params && params->read_hash_value(current_node_name(), &target, 0) && target) {
+    if (params && params->read_hash_value(current_node_name(), &target, 0) && (target != 0U)) {
         trigger_edit().calls_->target = target;
     }
 }
@@ -1271,7 +1273,7 @@ void on_start_gap(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->start_gap_ = true;
     uint32_t id = 0;
-    if (params && params->read_hash_value(get_gap_id(), &id, 0) && !trigger_edit().calls_->gap_id_) {
+    if (params && params->read_hash_value(get_gap_id(), &id, 0) && (trigger_edit().calls_->gap_id_ == 0U)) {
         trigger_edit().calls_->gap_id_ = id;
     }
 }
@@ -1346,8 +1348,8 @@ const Calls& calls_of(uint32_t script)
 
 bool is_script(uint32_t name)
 {
-    const script::SymbolTableEntry* symbol = name ? script::resolve_symbol(name) : nullptr;
-    return symbol && symbol->type() == script::QbValueKind::kScriptBody;
+    const script::SymbolTableEntry* symbol = (name != 0U) ? script::resolve_symbol(name) : nullptr;
+    return (symbol != nullptr) && symbol->type() == script::QbValueKind::kScriptBody;
 }
 
 Calls get_walk(uint32_t script)
@@ -1491,7 +1493,7 @@ void read_level_gaps()
         }
         script::Struct* s = nodes::struct_of(node);
         uint32_t script = 0;
-        if (s && s->read_hash_value(kTriggerScript, &script, 0) && script &&
+        if ((s != nullptr) && s->read_hash_value(kTriggerScript, &script, 0) && (script != 0U) &&
             std::ranges::find(scripts, script) == scripts.end()) {
             scripts.push_back(script);
         }
@@ -1650,7 +1652,7 @@ int spec_index(const std::string& name)
 bool is_sector_enabled(uint32_t checksum)
 {
     render::WorldCell* sector = scenery::sector_of(checksum);
-    return sector && sector->is_operative();
+    return (sector != nullptr) && sector->is_operative();
 }
 
 // Where a breakable goes: its position and its size.
@@ -1667,7 +1669,7 @@ bool break_place(const Spec& spec, BreakPlace place)
     auto* const size = place.size;
     const uint32_t piece = checksum_of(spec.target);
     OrientedBox box{};
-    if (!piece || !scenery::cuboid(piece, &box)) {
+    if ((piece == 0U) || !scenery::cuboid(piece, &box)) {
         return false;
     }
     V3 min{};
@@ -1884,7 +1886,7 @@ void get_sync()
     // collision switch's one owner: WorldCell::change_live for a wall), on again once no copy stands in for them.
     std::vector<uint32_t> replaced;
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (a.alive && a.spec.replaces && scenery::sector_of(a.spec.replaces)) {
+        if (a.alive && (a.spec.replaces != 0U) && scenery::sector_of(a.spec.replaces)) {
             replaced.push_back(a.spec.replaces);
         }
     }
@@ -1916,7 +1918,7 @@ void get_sync()
     std::ranges::sort(wanted);
     if (redefined || wanted != trigger_edit().gaps_added_) {
         goals::GapTally* checklist = get_checklist();
-        if (checklist && !script::fetch_int_value(kParseNodeArrayIgnoreGaps)) {
+        if (checklist && (script::fetch_int_value(kParseNodeArrayIgnoreGaps) == 0)) {
             if (!trigger_edit().level_gaps_read_) {
                 read_level_gaps();
             }
@@ -1989,7 +1991,7 @@ void get_forget()
 
 void on_array_removed(uint32_t name)
 {
-    if (!name || name != level_editor_triggers_state().level_array_) {
+    if ((name == 0U) || name != level_editor_triggers_state().level_array_) {
         return;
     }
     if (!level_editor_triggers_state().specs_.empty()) {
@@ -2015,13 +2017,13 @@ void note_level()
 {
     node_create::set_array_removed_listener(&on_array_removed);
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get()) {
-        if (level_editor_triggers_state().level_array_ &&
+        if ((level_editor_triggers_state().level_array_ != 0U) &&
             array_loaded(manager, level_editor_triggers_state().level_array_)) {
             return;
         }
         const uint32_t level = manager->get_last_node_array_name();
-        if (level && level != level_editor_triggers_state().level_array_) {
-            if (level_editor_triggers_state().level_array_) {
+        if ((level != 0U) && level != level_editor_triggers_state().level_array_) {
+            if (level_editor_triggers_state().level_array_ != 0U) {
                 get_forget();
             }
             level_editor_triggers_state().level_array_ = level;
@@ -2090,7 +2092,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     const auto& point = ray->hit().point;
@@ -2212,7 +2214,7 @@ void kickoff()
     // (breakables broken while playing: their pieces back to edit - and to break again)
     for (const Spec& spec : level_editor_triggers_state().specs_) {
         const uint32_t piece = spec.kind == Kind::kBreak ? checksum_of(spec.target) : 0;
-        render::WorldCell* sector = piece ? scenery::sector_of(piece) : nullptr;
+        render::WorldCell* sector = (piece != 0U) ? scenery::sector_of(piece) : nullptr;
         if (sector && node_alive(spec.name) && !is_sector_enabled(piece) && !scenery::get_hidden(piece)) {
             sector->change_live(true);
             get_log("level editor: breakable %s's piece back (broken while playing)", spec.name.c_str());
@@ -2397,7 +2399,7 @@ void make_editable(uint32_t sector)
     if (!t) {
         return;
     }
-    if (!t->script) {
+    if (t->script == 0U) {
         hud::get_message("No TriggerScript to copy", hud::kShortMessageSeconds);
         return;
     }
@@ -2492,7 +2494,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         *sector = l.sector;
         any = true;
     }
-    if (any && *sector) {
+    if (any && (*sector != 0U)) {
         level_editor_triggers_state().inspected_ = *sector;
     }
     return any;
@@ -2537,7 +2539,7 @@ struct Painter {
         box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < kBoxCorners; ++i) {
             for (const int bit : {1, 2, 4}) {
-                if (!(i & bit)) {
+                if ((i & bit) == 0) {
                     get_seg(core::at(c, i), core::at(c, i | bit), argb, thickness);
                 }
             }
@@ -2594,23 +2596,23 @@ std::string describe(const Calls& calls, Kind kind)
         if (calls.water) {
             text += " (water)";
         }
-        if (calls.target) {
+        if (calls.target != 0U) {
             text += " -> " + get_label_of(calls.target);
         }
         break;
     case Kind::kJumpTo:
-        if (calls.target) {
+        if (calls.target != 0U) {
             text += " -> " + get_label_of(calls.target);
         }
         break;
     case Kind::kGapEnd:
         text += ": " + (calls.gap_text_.empty() ? get_label_of(calls.gap_id_) : calls.gap_text_);
-        if (calls.gap_score_) {
+        if (calls.gap_score_ != 0) {
             text += " (" + std::to_string(calls.gap_score_) + ")";
         }
         break;
     case Kind::kGapStart:
-        if (calls.gap_id_) {
+        if (calls.gap_id_ != 0U) {
             text += ": " + get_label_of(calls.gap_id_);
         }
         break;
@@ -2626,7 +2628,7 @@ std::string describe(const Calls& calls, Kind kind)
         break;
     }
     case Kind::kViewCam:
-        if (calls.camera_node_) {
+        if (calls.camera_node_ != 0U) {
             text += " -> " + get_label_of(calls.camera_node_);
         }
         break;
@@ -2639,7 +2641,7 @@ std::string describe(const Calls& calls, Kind kind)
 bool get_node_pos(uint32_t name, V3* pos)
 {
     maths::Vec4 p;
-    if (!name || !level_nodes::fetch_vertex(name, false) || !level_nodes::fetch_place(name, &p)) {
+    if ((name == 0U) || !level_nodes::fetch_vertex(name, false) || !level_nodes::fetch_place(name, &p)) {
         return false;
     }
     *pos = {.x = p.x, .y = p.y, .z = p.z};
@@ -2863,7 +2865,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             draw_proxim(e.node, false);
         }
     }
-    if (selected && is_proxim(selected)) {
+    if ((selected != 0U) && is_proxim(selected)) {
         draw_proxim(selected, true);
     }
     // Breakables: cracks over the piece's box (each face's middle, five jagged rays); jump boosts: an arrow up as
@@ -2889,7 +2891,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
                     V3 previous = centre;
                     for (int step = 1; step <= 3; ++step) {
                         const float reach = static_cast<float>(step) / 3.0F;
-                        const float jag = (step & 1) ? 0.18F : -0.12F;
+                        const float jag = ((step & 1) != 0) ? 0.18F : -0.12F;
                         const V3 next = centre + across * (std::cos(angle + jag) * width * 0.8F * reach) +
                                         up * (std::sin(angle + jag) * half.y * 0.8F * reach);
                         paint.get_seg(previous, next, colour, kCrackThickness);
@@ -3232,10 +3234,10 @@ void fire_on_leaving(objects::Entity* skater, uint32_t node)
 {
     script::Struct* s = level_nodes::fetch_vertex(node, false);
     uint32_t script = 0;
-    if (!s || !s->read_hash_value(kTriggerScript, &script, 0) || !script) {
+    if (!s || !s->read_hash_value(kTriggerScript, &script, 0) || (script == 0U)) {
         return;
     }
-    if (modules::Skate::should_be_absent(s)) {
+    if (modules::Skate::should_be_absent(s) != 0) {
         return;
     }
     static const uint32_t kOnlineFlag = get_checksums("NetEnabled");
@@ -3453,7 +3455,7 @@ int apply_proxims(const std::vector<ProximEdit>& edits)
 
 // --- the feature map's game side ---
 
-Calls script_calls(uint32_t script) { return script ? calls_of(script) : Calls{}; }
+Calls script_calls(uint32_t script) { return (script != 0U) ? calls_of(script) : Calls{}; }
 
 void add_boost()
 {
@@ -3567,7 +3569,10 @@ void set_proxim(const ProximEdit& edit, bool undo)
     sync_proxims();
 }
 
-bool is_proxim(uint32_t node) { return node && have_proxim_manager() && objects::proxim_get_node(node) != nullptr; }
+bool is_proxim(uint32_t node)
+{
+    return (node != 0U) && have_proxim_manager() && objects::proxim_get_node(node) != nullptr;
+}
 
 bool has_handles(uint32_t node) { return is_trigger(node) || is_proxim(node); }
 

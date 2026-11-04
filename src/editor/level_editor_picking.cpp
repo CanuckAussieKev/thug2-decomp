@@ -93,7 +93,7 @@ bool material_see_through(PassBlend pass_blend)
 {
     const auto pass_flags = pass_blend.pass_flags_;
     const auto blend_mode = pass_blend.blend_mode_;
-    if (pass_flags & kPassSeeThroughFlag) {
+    if ((pass_flags & kPassSeeThroughFlag) != 0U) {
         return true;
     }
     switch (blend_mode & render::kBlendModeMask) {
@@ -122,7 +122,7 @@ Resolved settle_up(const std::vector<Met>& met)
     Resolved r;
     bool searching = true; // (a plain click's search: until the first occluding entry)
     for (const Met* m : order) {
-        if (!m->locked && m->passed && !r.passed) {
+        if (!m->locked && m->passed && (r.passed == 0U)) {
             r.passed = m->id;
             r.passed_t_ = m->t;
         }
@@ -160,7 +160,7 @@ float gizmo_slack(float depth, float units_per_pixel, float pixels)
 
 Choice get_choose(const Candidates& c, uint32_t filter, bool everything)
 {
-    if (c.node >= 0 && (filter & kNodes)) {
+    if (c.node >= 0 && ((filter & kNodes) != 0U)) {
         return Choice::kNode;
     }
     Choice best = Choice::kNone;
@@ -175,9 +175,9 @@ Choice get_choose(const Candidates& c, uint32_t filter, bool everything)
         }
     };
     if (everything) {
-        consider(c.object && (filter & kObjects), true, c.object_t_, Choice::kObject, false);
-        consider(c.scenery && (filter & kScenery), true, c.scenery_t_, Choice::kScenery, true);
-        consider(c.passed && (filter & kScenery), true, c.passed_t_, Choice::kPassed, true);
+        consider(c.object && ((filter & kObjects) != 0U), true, c.object_t_, Choice::kObject, false);
+        consider(c.scenery && ((filter & kScenery) != 0U), true, c.scenery_t_, Choice::kScenery, true);
+        consider(c.passed && ((filter & kScenery) != 0U), true, c.passed_t_, Choice::kPassed, true);
         return best;
     }
     consider(c.blocked, false, c.block_t_, Choice::kNone, false);
@@ -190,15 +190,15 @@ std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects,
                                   uint32_t filter)
 {
     std::vector<TableRow> order;
-    if (node >= 0 && (filter & kNodes)) {
+    if (node >= 0 && ((filter & kNodes) != 0U)) {
         order.push_back({.kind = Choice::kNode, .id = static_cast<uint32_t>(node), .t = 0.0F});
     }
-    if (filter & kObjects) {
+    if ((filter & kObjects) != 0U) {
         for (const Layered& o : objects) {
             order.push_back({.kind = Choice::kObject, .id = o.id, .t = o.t});
         }
     }
-    if (filter & kScenery) {
+    if ((filter & kScenery) != 0U) {
         for (const Layered& s : scenery) {
             if (!s.passed) {
                 order.push_back({.kind = Choice::kScenery, .id = s.id, .t = s.t});

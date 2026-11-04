@@ -100,7 +100,7 @@ constexpr float kHalf = 0.5F; // half
 std::string set_stem(const std::string& name)
 {
     size_t end = name.size();
-    while (end > 0 && std::isdigit(static_cast<unsigned char>(core::at(name, end - 1)))) {
+    while (end > 0 && (std::isdigit(static_cast<unsigned char>(core::at(name, end - 1))) != 0)) {
         --end;
     }
     while (end > 0 && core::at(name, end - 1) == '_') {
@@ -283,7 +283,7 @@ void set_speed(State* state, uint32_t name, float mph)
 void set_emitter(State* state, const EmitterSound& emitter)
 {
     auto it = std::ranges::find_if(state->emitters, [&](const EmitterSound& e) { return e.name == emitter.name; });
-    if (!emitter.sound && emitter.radius <= 0.0F) {
+    if ((emitter.sound == 0U) && emitter.radius <= 0.0F) {
         if (it != state->emitters.end()) {
             state->emitters.erase(it);
         }
@@ -325,7 +325,7 @@ bool parse_hex(const std::string& text, uint32_t* out)
         return false;
     }
     for (const char c : text) {
-        if (!std::isxdigit(static_cast<unsigned char>(c))) {
+        if (std::isxdigit(static_cast<unsigned char>(c)) == 0) {
             return false;
         }
     }
@@ -379,7 +379,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
 {
     std::string name_text;
     uint32_t name = 0;
-    if (!(in >> name_text) || !parse_hex(name_text, &name) || !name) {
+    if (!(in >> name_text) || !parse_hex(name_text, &name) || (name == 0U)) {
         return false;
     }
     if (kind == "speed") {
@@ -504,7 +504,7 @@ double get_now() { return std::chrono::duration<double>(std::chrono::steady_cloc
 
 script::Struct* look_up_node_params(uint32_t name)
 {
-    return name && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
+    return (name != 0U) && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
 }
 
 uint32_t class_of(script::Struct* node)
@@ -519,7 +519,7 @@ uint32_t class_of(script::Struct* node)
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
 }
 
 std::string model_of(script::Struct* node)
@@ -741,7 +741,7 @@ objects::EmitterNode* get_emitter(uint32_t name)
 
 void stop_playing(Playing* p)
 {
-    if (const sound::AudioMixer* m = audio_mixer_handle(); m && p->id && !sound::no_sound()) {
+    if (const sound::AudioMixer* m = audio_mixer_handle(); m && (p->id != 0U) && !sound::no_sound()) {
         sound::AudioMixer::stop_sound(p->id);
     }
     p->id = 0;
@@ -759,7 +759,7 @@ void update_sounds()
 {
     const sound::AudioMixer* m = audio_mixer_handle();
     std::vector<EmitterSound> emitters = effective_emitters();
-    const bool off = !m || sound::no_sound() || !in_level() || layout::network_active();
+    const bool off = (m == nullptr) || sound::no_sound() || !in_level() || layout::network_active();
     // (those no longer wanted, or of another sound now: stopped)
     for (auto it = entity_playback().playing_.begin(); it != entity_playback().playing_.end();) {
         auto e = std::ranges::find_if(emitters, [&](const EmitterSound& x) { return x.name == it->name; });
@@ -774,7 +774,7 @@ void update_sounds()
         return;
     }
     for (const EmitterSound& e : emitters) {
-        if (!e.sound) {
+        if (e.sound == 0U) {
             continue;
         }
         auto p = std::ranges::find_if(entity_playback().playing_, [&](const Playing& x) { return x.name == e.name; });
@@ -806,7 +806,7 @@ void update_sounds()
             continue;
         }
         volume.percent_tweak(e.volume);
-        if (p->id && sound::AudioMixer::is_sound_playing(p->id, nullptr)) {
+        if ((p->id != 0U) && sound::AudioMixer::is_sound_playing(p->id, nullptr)) {
             sound::AudioMixer::set_sound_params_scaled(p->id, &volume, 100.0F);
         } else if (!volume.is_audio_off()) {
             p->id = sound::AudioMixer::emit_sound(e.sound, &volume, {.pitch = 100.0F, .unique_id_ = e.name}, nullptr,
@@ -920,11 +920,11 @@ void scan_baked()
     }
     for (const nodes::Elem& n : nodes::get_all()) {
         script::Struct* s = nodes::struct_of(n);
-        if (!s || !n.name) {
+        if (!s || (n.name == 0U)) {
             continue;
         }
         uint32_t sound = 0;
-        if (n.family == nodes::Family::kSound && s->read_hash_value(k_ed_sound(), &sound, 0) && sound) {
+        if (n.family == nodes::Family::kSound && s->read_hash_value(k_ed_sound(), &sound, 0) && (sound != 0U)) {
             EmitterSound e;
             e.name = n.name;
             e.sound = sound;
@@ -958,7 +958,7 @@ bool path_of(uint32_t name, std::vector<V3>* points, bool* closed)
     }
     uint32_t next = level_nodes::fetch_link(node, 0);
     std::vector<uint32_t> seen;
-    while (next && points->size() < kMaxPathPoints) {
+    while ((next != 0U) && points->size() < kMaxPathPoints) {
         if (std::ranges::find(seen, next) != seen.end()) {
             *closed = next == seen.front();
             break;
@@ -971,7 +971,7 @@ bool path_of(uint32_t name, std::vector<V3>* points, bool* closed)
         level_nodes::fetch_place(point, &pos);
         points->push_back({.x = pos.x, .y = pos.y, .z = pos.z});
         seen.push_back(next);
-        next = level_nodes::get_link_count(point) ? level_nodes::fetch_link(point, 0) : 0;
+        next = (level_nodes::get_link_count(point) != 0U) ? level_nodes::fetch_link(point, 0) : 0;
     }
     return points->size() >= 2;
 }
@@ -1024,7 +1024,7 @@ void preview_start(uint32_t id)
 
 void preview_tick(double seconds)
 {
-    if (!entity_preview().preview_.id || !entity_preview().preview_.playing) {
+    if ((entity_preview().preview_.id == 0U) || !entity_preview().preview_.playing) {
         return;
     }
     entity_preview().preview_.distance += mph_to_units(preview_mph(entity_preview().preview_.id)) * static_cast<float>(std::min(seconds, kMaxStepSeconds));
@@ -1077,7 +1077,7 @@ void build_palette()
     std::vector<std::pair<std::string, Source>> particles;
     for (const nodes::Elem& n : nodes::get_all()) {
         script::Struct* s = nodes::struct_of(n);
-        if (!s || !n.name || n.hidden || node_create::is_added(n.name) || object_edit::is_copy(n.name)) {
+        if (!s || (n.name == 0U) || n.hidden || node_create::is_added(n.name) || object_edit::is_copy(n.name)) {
             continue;
         }
         const uint32_t cls = class_of(s);
@@ -1095,7 +1095,7 @@ void build_palette()
             }
             std::string label = cls == kPedestrian ? "Ped: " : "Car: ";
             label += nodes::caption(type);
-            if (profile && profile != type) {
+            if ((profile != 0U) && profile != type) {
                 label += " / " + nodes::caption(profile);
             }
             if (!model.empty()) {
@@ -1114,7 +1114,7 @@ void build_palette()
                 continue;
             }
             const std::string label =
-                "Particles: " + nodes::caption(texture ? texture : type) + "  like " + nodes::caption(n.name);
+                "Particles: " + nodes::caption((texture != 0U) ? texture : type) + "  like " + nodes::caption(n.name);
             particles.emplace_back(label, Source{.kind = SourceKind::kDupFrom, .names = {n.name}});
         }
     }
@@ -1230,7 +1230,7 @@ void halt() { stop_preview(); }
 
 void stop_preview()
 {
-    if (!entity_preview().preview_.id) {
+    if (entity_preview().preview_.id == 0U) {
         return;
     }
     object_edit::get_restore(entity_preview().preview_.saved);
@@ -1239,14 +1239,14 @@ void stop_preview()
 
 void preview_suspend()
 {
-    if (entity_preview().preview_.id) {
+    if (entity_preview().preview_.id != 0U) {
         object_edit::get_restore(entity_preview().preview_.saved);
     }
 }
 
 void preview_resume()
 {
-    if (entity_preview().preview_.id) {
+    if (entity_preview().preview_.id != 0U) {
         preview_place(entity_preview().preview_.distance);
     }
 }
@@ -1270,7 +1270,8 @@ void tick(bool editor_active, uint32_t selected, bool dragging)
     for (auto& action : queue) {
         action();
     }
-    if (entity_preview().preview_.id && (!editor_active || dragging || selected != entity_preview().preview_.id)) {
+    if ((entity_preview().preview_.id != 0U) &&
+        (!editor_active || dragging || selected != entity_preview().preview_.id)) {
         stop_preview();
     }
     preview_tick(seconds);
@@ -1371,7 +1372,7 @@ bool picked_node_index(checksums::Name node_name, int family)
         return true;
     }
     if (f == nodes::Family::kObject) {
-        return !live_object(name);
+        return live_object(name) == nullptr;
     }
     return false;
 }
@@ -1493,7 +1494,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         }
     };
     // The previewed path.
-    if (entity_preview().preview_.id) {
+    if (entity_preview().preview_.id != 0U) {
         for (size_t i = 0; i + 1 < entity_preview().preview_.points.size(); ++i) {
             line(core::at(entity_preview().preview_.points, i), core::at(entity_preview().preview_.points, i + 1), kPathPreviewColour, kPathPreviewWidth);
         }
@@ -1529,7 +1530,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         box_corners(n->pos, axes, {.x = -1.0F, .y = 0.0F, .z = -1.0F}, {.x = 1.0F, .y = 1.0F, .z = 1.0F}, corners);
         for (int i = 0; i < kBoxCorners; ++i) {
             for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
-                if (!(i & bit)) {
+                if ((i & bit) == 0) {
                     line(core::at(corners, i), core::at(corners, i | bit), kGhost, 1.0F);
                 }
             }
@@ -1630,7 +1631,7 @@ void change_emitter(const EmitterSound& e)
 float emitter_radius(uint32_t name, bool* sphere)
 {
     const objects::EmitterNode* emitter = get_emitter(name);
-    *sphere = emitter && emitter->form_ == objects::EmitterShape::kSphere;
+    *sphere = (emitter != nullptr) && emitter->form_ == objects::EmitterShape::kSphere;
     return emitter ? emitter->radius_ : 0.0F;
 }
 std::vector<std::pair<uint32_t, std::string>> get_sounds()
@@ -1648,7 +1649,7 @@ std::vector<std::pair<uint32_t, std::string>> get_sounds()
     return out;
 }
 void set_ui_active(bool active) { level_editor_entities_state().ui_active_ = active; }
-bool get_previewing(uint32_t id) { return entity_preview().preview_.id == id && id; }
+bool get_previewing(uint32_t id) { return entity_preview().preview_.id == id && (id != 0U); }
 bool preview_playing() { return entity_preview().preview_.playing; }
 void preview_play(uint32_t id)
 {
@@ -1663,7 +1664,7 @@ void preview_step(uint32_t id)
     if (entity_preview().preview_.id != id) {
         preview_start(id);
     }
-    if (!entity_preview().preview_.id) {
+    if (entity_preview().preview_.id == 0U) {
         return;
     }
     entity_preview().preview_.playing = false;

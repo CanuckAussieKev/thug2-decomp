@@ -65,7 +65,7 @@ int get_landed(const Checklist& list)
 {
     int landed = 0;
     for (const Gap& gap : list.gaps) {
-        landed += gap.count ? 1 : 0;
+        landed += (gap.count != 0) ? 1 : 0;
     }
     return landed;
 }
@@ -93,7 +93,7 @@ Checklist get_take_in(goals::GapTally* checklist)
         gap.name = checklist->get_gap_title(i);
         gap.score = checklist->get_gap_points(i);
         gap.count = checklist->count_gaps_found(i);
-        if (gap.count) {
+        if (gap.count != 0) {
             maths::Vec4 pos{};
             maths::Vec4 dir{};
             checklist->get_gap_positions(i, {.pos = &pos, .dir = &dir});
@@ -123,7 +123,7 @@ void get_edited_copy(bool on)
         checklist->get_clear();
         for (const Gap& gap : level_editor_career_state().baseline_.gaps) {
             checklist->register_gap_entry(gap.name.c_str(), {.count = gap.count, .score = gap.score});
-            if (gap.count) {
+            if (gap.count != 0) {
                 checklist->set_gap_positions(gap.name.c_str(), {.pos = {.x = core::at(gap.pos, 0), .y = core::at(gap.pos, 1), .z = core::at(gap.pos, 2), .w = core::at(gap.pos, 3)}, .dir = {.x = core::at(gap.dir, 0), .y = core::at(gap.dir, 1), .z = core::at(gap.dir, 2), .w = core::at(gap.dir, 3)}});
             }
         }
@@ -150,7 +150,8 @@ bool save_view(goals::GapTally* checklist, Checklist* out)
     std::vector<std::string> editor_gaps;
     std::vector<std::string> level_gaps;
     const bool editor = triggers::get_editor_gaps(checklist, &editor_gaps, &level_gaps);
-    const bool baseline = level_editor_career_state().on_ && checklist && checklist == level_editor_career_state().of_;
+    const bool baseline =
+        level_editor_career_state().on_ && (checklist != nullptr) && checklist == level_editor_career_state().of_;
     if (!baseline && !editor) {
         return false;
     }

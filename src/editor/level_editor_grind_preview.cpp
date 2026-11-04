@@ -82,7 +82,7 @@ Rail rail_of(const Graph& graph, int start)
         stack.pop_back();
         rail.points.push_back(p);
         for (const int q : core::at(around, p)) {
-            if (!core::at(seen, q)) {
+            if (core::at(seen, q) == 0U) {
                 core::at(seen, q) = 1;
                 stack.push_back(q);
             }
@@ -90,7 +90,7 @@ Rail rail_of(const Graph& graph, int start)
     }
     std::ranges::sort(rail.points);
     for (const auto& link : graph.links) {
-        if (link.first >= 0 && link.first < graph.count && core::at(seen, link.first) && link.second >= 0 &&
+        if (link.first >= 0 && link.first < graph.count && (core::at(seen, link.first) != 0U) && link.second >= 0 &&
             link.second < graph.count && link.first != link.second) {
             rail.links.push_back(link);
         }
@@ -223,10 +223,10 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
         core::at(positions, i) = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
-        if (node.label() == name && !(node.flag_bits() & objects::kRailFlagClimbing)) {
+        if (node.label() == name && ((node.flag_bits() & objects::kRailFlagClimbing) == 0U)) {
             start = i;
         }
-        if (node.succ() && !(node.flag_bits() & objects::kRailFlagClimbing)) {
+        if (node.succ() && ((node.flag_bits() & objects::kRailFlagClimbing) == 0U)) {
             const int next = static_cast<int>(node.succ() - rails->nodes());
             if (next >= 0 && next < rails->num()) {
                 graph.links.emplace_back(i, next);
@@ -308,8 +308,8 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     int transfers = 0;
     for (const int e : ends) {
         for (int q = 0; q < graph.count && transfers < kMaxTransfers; ++q) {
-            if (core::at(in_rail, q) || core::at(degree, q) != 1 ||
-                (core::at(rails->node_run(), q).flag_bits() & objects::kRailFlagClimbing)) {
+            if ((core::at(in_rail, q) != 0U) || core::at(degree, q) != 1 ||
+                ((core::at(rails->node_run(), q).flag_bits() & objects::kRailFlagClimbing) != 0U)) {
                 continue;
             }
             const V3 d = core::at(positions, q) - core::at(positions, e);
@@ -335,11 +335,12 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     std::array<char, kRailTextSize> text{};
     text::format_to(text, "%s: %d points, %d segments, %.0f long, %s%s%s%s", nodes::caption(name).c_str(),
                     static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), len_of(rail, positions),
-                    level_editor_grind_preview_state().terrain_.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
+                    level_editor_grind_preview_state().terrain_.c_str(), active ? "" : ", off",
+                    (speed_ups != 0) ? ", speed-ups" : "",
                     rail.links.empty() ? ", a single point (not grindable)" : "");
     painter.draw_label(core::at(positions, start), kStartColour, text.data(), kLabelOffsetX, -kRailLabelRise);
     level_editor_grind_preview_state().describe_ = text.data();
-    if (transfers || !get_branches(rail).empty()) {
+    if ((transfers != 0) || !get_branches(rail).empty()) {
         text::format_to(text, "%d transfers within %.0f, %d branches", transfers, kTransferReach,
                         static_cast<int>(get_branches(rail).size()));
         painter.draw_label(core::at(positions, start), kTransferColour, text.data(), kLabelOffsetX, -kTransferLabelRise);

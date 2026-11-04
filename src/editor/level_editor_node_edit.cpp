@@ -227,7 +227,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
     }
     // Its object (a flag a CTF or team game made; any object of the node's name): moved and turned as the node.
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-    if (object && !(object->object_flags() & objects::kObjectFlagDead)) {
+    if (object && ((object->object_flags() & objects::kObjectFlagDead) == 0U)) {
         object_edit::State state = object_edit::store_away(object);
         state.pos = pos;
         maths::Mat4 matrix;
@@ -243,7 +243,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
 // The level's node named `name` (the node manager's: the one the game finds), null if none or no level.
 script::Struct* struct_named(uint32_t name)
 {
-    return name && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
+    return (name != 0U) && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
 }
 
 const nodes::Elem* node_named(uint32_t name)
@@ -256,7 +256,7 @@ const nodes::Elem* node_named(uint32_t name)
 
 bool get_movable(const nodes::Elem& node)
 {
-    if (!node.has_pos_ || !node.name) {
+    if (!node.has_pos_ || (node.name == 0U)) {
         return false;
     }
     switch (node.family) {
@@ -282,7 +282,8 @@ const char* when_applied(const nodes::Elem& node)
 {
     script::Struct* s = nodes::struct_of(node);
     uint32_t shape = 0;
-    const bool sector_shape = s && s->read_hash_value(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
+    const bool sector_shape =
+        (s != nullptr) && s->read_hash_value(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
     case nodes::Family::kRail:
     case nodes::Family::kLadder:
@@ -311,7 +312,7 @@ const char* when_applied(const nodes::Elem& node)
 bool is_rail(uint32_t name)
 {
     V3 pos{};
-    return name && scenery::get_rail_point(name, &pos, true); // (a ladder's point too)
+    return (name != 0U) && scenery::get_rail_point(name, &pos, true); // (a ladder's point too)
 }
 
 bool is_chain(uint32_t name) { return is_rail(name) || chains::is_path(name); }
@@ -334,7 +335,7 @@ bool get_take_in(uint32_t name, Values* values)
 {
     // (a rail point: where the rail manager has it - its node keeps the level's pos=; no angles of its own)
     V3 point{};
-    if (name && scenery::get_rail_point(name, &point, true)) {
+    if ((name != 0U) && scenery::get_rail_point(name, &point, true)) {
         values->pos = point;
         values->angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F};
         return true;

@@ -160,7 +160,7 @@ std::vector<organize::Member> selection_members()
     for (const uint32_t id : s.sectors) {
         members.push_back({.kind = 's', .id = id});
     }
-    if (s.node) {
+    if (s.node != 0U) {
         members.push_back({.kind = 'n', .id = s.node});
     }
     return members;
@@ -300,11 +300,11 @@ SDL_GameController* find_controller()
 {
     // (the controllers the game's input opened - sio/sdl_input.cpp: the first attached)
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
-        if (!SDL_IsGameController(i)) {
+        if (SDL_IsGameController(i) == SDL_FALSE) {
             continue;
         }
         SDL_GameController* c = SDL_GameControllerFromInstanceID(SDL_JoystickGetDeviceInstanceID(i));
-        if (c && SDL_GameControllerGetAttached(c)) {
+        if (c && (SDL_GameControllerGetAttached(c) != SDL_FALSE)) {
             return c;
         }
     }
@@ -338,7 +338,7 @@ Pad read_pad()
                  nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), .deadzone = kTriggerDeadzone});
     uint32_t now = 0;
     for (int b = 0; b < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, kControllerButtonBits); ++b) {
-        if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b))) {
+        if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)) != 0U) {
             now |= 1U << b;
         }
     }
@@ -349,7 +349,7 @@ Pad read_pad()
     auto press = [&](SDL_GameControllerButton b) { return (pressed >> b & 1U) != 0; };
     p.a_down_ = down(SDL_CONTROLLER_BUTTON_A);
     p.a_presses_ = press(SDL_CONTROLLER_BUTTON_A) ? 1 : 0;
-    p.a_releases_ = (released >> SDL_CONTROLLER_BUTTON_A & 1U) ? 1 : 0;
+    p.a_releases_ = ((released >> SDL_CONTROLLER_BUTTON_A & 1U) != 0U) ? 1 : 0;
     p.b = press(SDL_CONTROLLER_BUTTON_B);
     p.x = press(SDL_CONTROLLER_BUTTON_X);
     p.y = press(SDL_CONTROLLER_BUTTON_Y);
@@ -368,7 +368,7 @@ Pad read_pad()
     const uint32_t mine = now & ~(1U << SDL_CONTROLLER_BUTTON_START) & ~(1U << SDL_CONTROLLER_BUTTON_GUIDE);
     p.used = mine != 0 || p.move_x_ != 0 || p.move_y_ != 0 || p.look_x_ != 0 || p.look_y_ != 0 || p.up_down_ != 0;
     // (anything that edits stops a simulation first)
-    if (p.a_presses_ || p.back || p.lb || p.rb || p.up || p.down || p.left || p.right) {
+    if ((p.a_presses_ != 0) || p.back || p.lb || p.rb || p.up || p.down || p.left || p.right) {
         stop_simulation();
     }
     return p;
@@ -555,7 +555,7 @@ void tick_frame(TickCycle& f)
         dy = -f.pad.move_y_ * 100.0F;
     }
     pie_menu().pie_.hovered = nav::slice_at(dx, dy, static_cast<int>(pie_menu().pie_.items.size()), pie::kDeadzone);
-    const bool clicked = f.left_presses_ && *f.left_presses_ > 0;
+    const bool clicked = (f.left_presses_ != nullptr) && *f.left_presses_ > 0;
     if (f.left_presses_) {
         *f.left_presses_ = 0; // (the view doesn't see clicks while a pie is up)
     }
@@ -566,7 +566,7 @@ void tick_frame(TickCycle& f)
         pie_menu().pie_.open = false;
         return;
     }
-    if (clicked || (f.pad.active && f.pad.a_presses_)) {
+    if (clicked || (f.pad.active && (f.pad.a_presses_ != 0))) {
         run_slice();
         return;
     }

@@ -259,7 +259,7 @@ bool get_ground_y(V3 from, float* y)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = from.x, .y = from.y - 5000.0F, .z = from.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     *y = ray->hit().point.y;
@@ -295,7 +295,7 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         for (const uint32_t id : carry::carried_objects()) {
             auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
             OrientedBox box{};
-            if (!object || (object->object_flags() & objects::kObjectFlagDead) ||
+            if (!object || ((object->object_flags() & objects::kObjectFlagDead) != 0U) ||
                 !object_edit::model_box(object, &box)) {
                 continue;
             }

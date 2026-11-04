@@ -224,7 +224,7 @@ bool get_cast(V3 from, V3 to, Hit* hit)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
@@ -258,8 +258,8 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
     bool found = false;
     for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
-        if (!node.succ() || (node.flag_bits() & objects::kRailFlagClimbing) ||
-            !(node.flag_bits() & objects::kRailFlagActive)) {
+        if (!node.succ() || ((node.flag_bits() & objects::kRailFlagClimbing) != 0U) ||
+            ((node.flag_bits() & objects::kRailFlagActive) == 0U)) {
             continue;
         }
         const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
@@ -465,7 +465,7 @@ void pane(PaneArea area, float scale)
     ImGui::InputText("Name", level_editor_gap_wizard_state().name_.data(), sizeof(level_editor_gap_wizard_state().name_));
     ImGui::SliderInt("Score", &level_editor_gap_wizard_state().score_, kMinScore, kMaxScore, "%d", ImGuiSliderFlags_AlwaysClamp);
     for (int t = 0; t < kTypes; ++t) {
-        if (t) {
+        if (t != 0) {
             ImGui::SameLine();
         }
         ImGui::RadioButton(current_type_name(static_cast<KindTag>(t)), &level_editor_gap_wizard_state().type_, t);

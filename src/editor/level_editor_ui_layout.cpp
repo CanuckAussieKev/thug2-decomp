@@ -156,7 +156,7 @@ std::string mark_letters(uint8_t marks)
 {
     std::string letters;
     for (int bit = 0; bit < kMaxMarkers; ++bit) {
-        if (marks & (1U << bit)) {
+        if ((marks & (1U << bit)) != 0U) {
             letters.push_back(core::at(kMarks, bit).letter);
         }
     }

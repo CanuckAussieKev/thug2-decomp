@@ -165,7 +165,7 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return 0;
     }
     if (!ray->hit().object) {
@@ -178,7 +178,7 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
 
 script::Struct* look_up_node_params(uint32_t name, const nodes::Elem** out)
 {
-    const int index = name ? nodes::get_find(name) : -1;
+    const int index = (name != 0U) ? nodes::get_find(name) : -1;
     if (index < 0) {
         return nullptr;
     }
@@ -232,7 +232,8 @@ uint32_t ground_under(const Gather& g, V3 p)
     }
     V3 point = {};
     const uint32_t hit = first_hit({.x = p.x, .y = p.y + kRayUp, .z = p.z}, {.x = p.x, .y = p.y - kRayDown, .z = p.z}, &point);
-    if (!hit || std::ranges::find(g.members, hit) != g.members.end() || scenery::sector_geometry(hit)) {
+    if ((hit == 0U) || std::ranges::find(g.members, hit) != g.members.end() ||
+        (scenery::sector_geometry(hit) != nullptr)) {
         return hit;
     }
     for (const auto& box : g.boxes) {
@@ -285,7 +286,7 @@ void gather_object(objects::Entity* object, void* data)
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
 }
 
 } // namespace
@@ -337,7 +338,7 @@ Taken arm()
         }
     }
     for (const nodes::Elem& node : nodes::get_all()) {
-        if (!node.name || node.hidden || !node_edit::get_movable(node) || node_edit::is_chain(node.name)) {
+        if ((node.name == 0U) || node.hidden || !node_edit::get_movable(node) || node_edit::is_chain(node.name)) {
             continue;
         }
         node_edit::Values values;
@@ -384,7 +385,7 @@ void get_follow(void (*on_node)(uint32_t name))
             stored_carried().noted.push_back(id);
         }
         const V3 to = get_apply(step, object_edit::pos_of(object));
-        if (step.quarters & 3) {
+        if ((step.quarters & 3) != 0) {
             object_edit::turn_about(object, object_edit::pos_of(object), angle); // (its heading; turned about itself)
         }
         object_edit::get_place(object, to);
@@ -395,7 +396,7 @@ void get_follow(void (*on_node)(uint32_t name))
             continue;
         }
         values.pos = get_apply(step, values.pos);
-        if (step.quarters & 3) {
+        if ((step.quarters & 3) != 0) {
             values.angles.y = turned_heading(values.angles.y, step.quarters);
         }
         node_edit::assign_value(name, values);

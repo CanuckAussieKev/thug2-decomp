@@ -142,7 +142,7 @@ void current_settings(const Goal& goal, ImFont* mono)
             changed = true;
         }
         if (int_field("Per-checkpoint##goal", &g.checkpoint_time_, kCheckpointDragSpeed, 0, kMaxCheckpointTime,
-                      g.checkpoint_time_ ? "%d s" : "Off", &done)) {
+                      (g.checkpoint_time_ != 0) ? "%d s" : "Off", &done)) {
             changed = true;
         }
     }
@@ -170,7 +170,7 @@ void current_settings(const Goal& goal, ImFont* mono)
         ImGui::BeginChild("##goalgaps",
                           ImVec2(0.0F, std::min(kGapListMaxHeight,
                                                 (kGapRowHeight * static_cast<float>(gaps.size())) + kGapListPadding)),
-                          true);
+                          ImGuiChildFlags_Borders);
         for (const std::string& name : gaps) {
             auto it = std::ranges::find(g.gaps, name);
             bool on = it != g.gaps.end();
@@ -199,7 +199,7 @@ void current_settings(const Goal& goal, ImFont* mono)
         }
         ImGui::PushFont(mono);
         if (g.type != KindTag::kTrickBeat) {
-            if (int_field("Spin##goal", &g.spin, kSpinDragSpeed, 0, kMaxSpin, g.spin ? "%d" : "Off", &done)) {
+            if (int_field("Spin##goal", &g.spin, kSpinDragSpeed, 0, kMaxSpin, (g.spin != 0) ? "%d" : "Off", &done)) {
                 changed = true;
             }
         }
@@ -256,7 +256,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
 {
     std::string id;
     int point = -1;
-    if (!node || !point_of_node(node, &id, &point)) {
+    if ((node == 0U) || !point_of_node(node, &id, &point)) {
         return;
     }
     std::vector<Goal> all = get_all();

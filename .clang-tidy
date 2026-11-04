@@ -122,6 +122,11 @@ CheckOptions:
   # (a NaN fails every comparison - the original's `!(min <= max)` box tests count NaN as not a box), so the
   # original's negated comparisons stay as written.
   readability-simplify-boolean-expr.SimplifyDeMorgan: false
+  # Conditions on a pointer stay `if (p)` / `if (!p)` (C++ Core Guidelines ES.87: no redundant == / != in a
+  # condition); every other implicit conversion to or from bool is spelled out (`n != 0`, `f != 0.0F`, `p != nullptr`
+  # outside a condition), the literal suffixes upper-case as readability-uppercase-literal-suffix wants them.
+  readability-implicit-bool-conversion.AllowPointerConditions: true
+  readability-implicit-bool-conversion.UseUpperCaseLiteralSuffix: true
   readability-identifier-naming.NamespaceCase: lower_case
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase

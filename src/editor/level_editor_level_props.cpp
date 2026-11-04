@@ -100,7 +100,7 @@ bool valid_sky(const std::string& sky)
     }
     std::string lower;
     for (const char c : sky) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
+        if ((std::isalnum(static_cast<unsigned char>(c)) == 0) && c != '_') {
             return false;
         }
         lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -121,7 +121,7 @@ std::string write_record(const Props& props)
     if (!props.name.empty()) {
         line += " name=" + fields::escape(props.name);
     }
-    if (props.start) {
+    if (props.start != 0U) {
         text::format_to(text, " start=%08X", props.start);
         line += text.data();
     }
@@ -129,7 +129,7 @@ std::string write_record(const Props& props)
         line += std::string(" tod=") + tod_name(props.tod);
     }
     if (props.time == 0 || props.time == 1) {
-        line += props.time ? " time=1" : " time=0";
+        line += (props.time != 0) ? " time=1" : " time=0";
     }
     if (props.has_ambient_) {
         text::format_to(text, " ambient=%d,%d,%d", core::at(props.ambient, 0), core::at(props.ambient, 1),
@@ -163,7 +163,7 @@ bool read_record(std::istringstream& in, Props* props)
                 return false;
             }
         } else if (key == "start") {
-            if (!fields::parse_name("0x" + value, &p.start) || value.size() != kStartHexDigits || !p.start) {
+            if (!fields::parse_name("0x" + value, &p.start) || value.size() != kStartHexDigits || (p.start == 0U)) {
                 return false;
             }
         } else if (key == "tod") {
@@ -334,7 +334,7 @@ script::Struct* current_level_structure()
 {
     const modules::Skate* skate = modules::Skate::sole();
     const uint32_t load = skate ? skate->level() : 0;
-    if (!load) {
+    if (load == 0U) {
         return nullptr;
     }
     static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
@@ -480,9 +480,9 @@ const std::vector<std::string>& skies()
         const char* sky = nullptr;
         uint32_t load = 0;
         // (a level structure: it names its load script - not some other structure with a sky=)
-        if (e->type() != script::QbValueKind::kStruct || !e->value().structure() ||
+        if (e->type() != script::QbValueKind::kStruct || (e->value().structure() == nullptr) ||
             !e->value().structure()->read_hash_value(kLoadScript, &load, 0) ||
-            !e->value().structure()->fetch_text(kSky, &sky, 0) || !sky || !valid_sky(sky)) {
+            !e->value().structure()->fetch_text(kSky, &sky, 0) || (sky == nullptr) || !valid_sky(sky)) {
             continue;
         }
         bool there = false;
@@ -536,11 +536,12 @@ void on_edited_copy_up(const Props& props)
 {
     static const uint32_t kClass = checksums::hash_from_text("Class");
     static const uint32_t kRestart = checksums::hash_from_text("Restart");
-    script::Struct* node =
-        props.start && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(props.start, false) : nullptr;
+    script::Struct* node = (props.start != 0U) && level_nodes::node_manager_instance()
+                               ? level_nodes::fetch_vertex(props.start, false)
+                               : nullptr;
     uint32_t cls = 0;
     if (!node || !node->read_hash_value(kClass, &cls, 0) || cls != kRestart) {
-        if (props.start) {
+        if (props.start != 0U) {
             get_log("level editor: the edited copy's start %08X isn't a restart of this level - not used", props.start);
         }
         return;

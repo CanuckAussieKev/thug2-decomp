@@ -206,7 +206,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
     const V3 max = to_v3(tri->bounds().max);
     V3 first = {};
     V3 last = {};
-    if (tri->vertices() && tri->num_vertices()) {
+    if (tri->vertices() && (tri->num_vertices() != 0U)) {
         first = to_v3(tri->read_stored_vertex(0));
         last = to_v3(tri->read_stored_vertex(tri->num_vertices() - 1));
     }
@@ -317,7 +317,7 @@ void add_overlay(const overlays::Painter& painter)
             std::array<V3, 4> clipped{};
             const int count =
                 view::clip_triangle_to_near(painter.camera(), painter.frame(), painter.near_z(), std::span<const V3>(c.points).subspan(f * 3).first<3>(), clipped);
-            if (!count) {
+            if (count == 0) {
                 continue;
             }
             Polygon poly = {};
@@ -379,8 +379,8 @@ void add_overlay(const overlays::Painter& painter)
         int drawn = 0;
         for (int i = 0; i < rails->num(); ++i) {
             const objects::GrindPoint& node = core::at(rails->node_run(), i);
-            if (!node.succ() || (node.flag_bits() & objects::kRailFlagClimbing) ||
-                !(node.flag_bits() & objects::kRailFlagActive)) {
+            if (!node.succ() || ((node.flag_bits() & objects::kRailFlagClimbing) != 0U) ||
+                ((node.flag_bits() & objects::kRailFlagActive) == 0U)) {
                 continue;
             }
             const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};

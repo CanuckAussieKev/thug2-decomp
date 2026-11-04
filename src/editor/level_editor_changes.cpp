@@ -82,7 +82,7 @@ bool is_hex8(const std::string& w)
         return false;
     }
     for (const char c : w) {
-        if (!std::isxdigit(static_cast<unsigned char>(c))) {
+        if (std::isxdigit(static_cast<unsigned char>(c)) == 0) {
             return false;
         }
     }
@@ -206,7 +206,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             if (x != 0.0F || y != 0.0F || z != 0.0F) {
                 what += " moved (" + get_num(x) + ", " + get_num(y) + ", " + get_num(z) + ")";
             }
-            if (quarters) {
+            if (quarters != 0) {
                 what += std::string(" turned ") + std::to_string(quarters * kDegreesPerQuarter) + "\xC2\xB0";
             }
             what += scale_of();
@@ -249,7 +249,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                 fields += core::at(words, i).starts_with("f.") ? 1 : 0;
             }
             std::string what = pos ? (angles ? "moved / turned" : "moved") : angles ? "turned" : "";
-            if (fields) {
+            if (fields != 0) {
                 what += (what.empty() ? "" : ", ") + std::to_string(fields) + (fields == 1 ? " field" : " fields") +
                         " edited";
             }

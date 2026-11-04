@@ -202,7 +202,7 @@ float hint_width(const std::pair<std::string, std::string>& hint, const Fonts& f
     float width = 0.0F;
     std::vector<std::string> tokens = hints::get_tokens(hint.first);
     for (size_t t = 0; t < tokens.size(); ++t) {
-        if (t) {
+        if (t != 0U) {
             width += (ui_layout::kBothSides * s) + ImGui::CalcTextSize("+").x;
         }
         width += token_width(core::at(tokens, t), fonts);
@@ -227,13 +227,13 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
     for (size_t i = 0; i < hints.size(); ++i) {
         // (what doesn't fit is left out, an ellipsis in its place - never drawn over the right-hand text)
         if (max_width > 0.0F) {
-            const float gap = i ? 12.0F * s : 0.0F;
+            const float gap = (i != 0U) ? 12.0F * s : 0.0F;
             const float width = hint_width(core::at(hints, i), fonts);
             const bool last = i + 1 == hints.size();
             const float reserve = last ? 0.0F : (12.0F * s) + ImGui::CalcTextSize(ellipsis).x;
             if (used + gap + width + reserve > max_width) {
                 if (used + gap + ImGui::CalcTextSize(ellipsis).x <= max_width) {
-                    if (i) {
+                    if (i != 0U) {
                         ImGui::SameLine(0.0F, gap);
                     }
                     gui::text_disabled("%s", ellipsis);
@@ -243,13 +243,13 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
             }
             used += gap + width;
         }
-        if (i) {
+        if (i != 0U) {
             ImGui::SameLine(0.0F, kHintGap * s);
         }
         ImGui::BeginGroup();
         std::vector<std::string> tokens = hints::get_tokens(core::at(hints, i).first);
         for (size_t t = 0; t < tokens.size(); ++t) {
-            if (t) {
+            if (t != 0U) {
                 ImGui::SameLine(0.0F, 1.0F * s);
                 gui::text_disabled("+");
                 ImGui::SameLine(0.0F, 1.0F * s);

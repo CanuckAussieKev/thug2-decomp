@@ -172,7 +172,7 @@ bool parse_int(const std::string& text, int32_t* out)
     errno = 0;
     char* end = nullptr;
     const long long value = std::strtoll(t.c_str(), &end, 10);
-    if (errno || !end || *end || value < INT32_MIN || value > INT32_MAX) {
+    if (errno || !end || (*end != '\0') || value < INT32_MIN || value > INT32_MAX) {
         return false;
     }
     *out = static_cast<int32_t>(value);
@@ -188,7 +188,7 @@ bool parse_float(const std::string& text, float* out)
     errno = 0;
     char* end = nullptr;
     const double value = std::strtod(t.c_str(), &end);
-    if (errno || !end || *end || !std::isfinite(value) || std::fabs(value) > kMaxFloatMagnitude) {
+    if (errno || !end || (*end != '\0') || !std::isfinite(value) || std::fabs(value) > kMaxFloatMagnitude) {
         return false;
     }
     *out = static_cast<float>(value);
@@ -212,7 +212,7 @@ std::string get_join(const std::vector<std::string>& parts, const char* separato
 {
     std::string text;
     for (size_t i = 0; i < parts.size(); ++i) {
-        text += (i ? separator : "") + core::at(parts, i);
+        text += ((i != 0U) ? separator : "") + core::at(parts, i);
     }
     return text;
 }
@@ -224,13 +224,13 @@ uint32_t hash_of_name(const std::string& name) { return checksums::hash_from_tex
 std::string get_name_text(uint32_t checksum, const NameLookup& names)
 {
     const char* name = names ? names(checksum) : nullptr;
-    return name && *name ? std::string(name) : "#" + hex8(checksum);
+    return name && (*name != '\0') ? std::string(name) : "#" + hex8(checksum);
 }
 
 std::string record_name(uint32_t checksum, const NameLookup& names)
 {
     const char* name = names ? names(checksum) : nullptr;
-    if (name && is_identifier(name) && hash_of_name(name) == checksum) {
+    if ((name != nullptr) && is_identifier(name) && hash_of_name(name) == checksum) {
         return name;
     }
     return "0x" + hex8(checksum);
@@ -746,7 +746,7 @@ script::Struct* get_included(const script::Component* c)
 
 bool is_flag(const script::Component* c)
 {
-    return c->name == 0 && value_kind(*c) == script::QbValueKind::kName && !get_included(c);
+    return c->name == 0 && value_kind(*c) == script::QbValueKind::kName && (get_included(c) == nullptr);
 }
 
 // The key a component goes by: its name, a bare flag's name.
@@ -979,7 +979,7 @@ Touched* find_touched(uint32_t node, uint32_t key)
 
 script::Struct* level_node(uint32_t name)
 {
-    return name && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
+    return (name != 0U) && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
 }
 
 // Whether `key` is a flag of the node (its own or a shared structure's), or should be taken as one (`value` a flag).
@@ -1313,7 +1313,7 @@ void forget_level()
 int apply_early(uint32_t array, const std::vector<NodeEdits>& edits)
 {
     // (the level's objects aren't made yet: the node layer isn't asked - only the node manager's structures)
-    if (!array || !level_nodes::node_manager_instance()) {
+    if ((array == 0U) || !level_nodes::node_manager_instance()) {
         return 0;
     }
     int applied = 0;

@@ -197,17 +197,17 @@ int key_from_name(const std::string& name)
 std::string format_chord(Chord chord)
 {
     const char* key = get_key_name(chord.scancode);
-    if (!*key) {
+    if (*key == '\0') {
         return "";
     }
     std::string text;
-    if (chord.mods & kCtrl) {
+    if ((chord.mods & kCtrl) != 0) {
         text += "Ctrl+";
     }
-    if (chord.mods & kShift) {
+    if ((chord.mods & kShift) != 0) {
         text += "Shift+";
     }
-    if (chord.mods & kAlt) {
+    if ((chord.mods & kAlt) != 0) {
         text += "Alt+";
     }
     return text + key;
@@ -228,14 +228,14 @@ bool parse_chord(const std::string& text, Chord* chord)
                             : word == "shift"                   ? kShift
                             : word == "alt" || word == "option" ? kAlt
                                                                 : 0;
-        if (!bit) {
+        if (bit == 0U) {
             break;
         }
         c.mods |= bit;
         rest = get_trim(rest.substr(plus + 1));
     }
     c.scancode = key_from_name(rest);
-    if (!c.scancode) {
+    if (c.scancode == 0) {
         return false;
     }
     *chord = c;
@@ -294,7 +294,7 @@ bool chord_matches(Chord chord, KeyState key_state)
 {
     const auto scancode = key_state.scancode;
     const auto held = key_state.held;
-    if (!chord.scancode || chord.scancode != scancode) {
+    if ((chord.scancode == 0) || chord.scancode != scancode) {
         return false;
     }
     if (((chord.mods & kCtrl) != 0) != ((held & kCtrl) != 0)) {
@@ -307,7 +307,7 @@ int get_specificity(Chord chord)
 {
     int n = 0;
     for (const uint8_t bit : {kCtrl, kShift, kAlt}) {
-        n += (chord.mods & bit) ? 1 : 0;
+        n += ((chord.mods & bit) != 0) ? 1 : 0;
     }
     return n;
 }
@@ -339,7 +339,7 @@ std::vector<int> settle_up(const std::vector<std::vector<Chord>>& bound, int sca
 
 bool hold_matches(Chord chord, bool key_down, uint8_t held)
 {
-    if (!chord.scancode || !key_down) {
+    if ((chord.scancode == 0) || !key_down) {
         return false;
     }
     if (((chord.mods & kCtrl) != 0) != ((held & kCtrl) != 0)) {
@@ -348,7 +348,7 @@ bool hold_matches(Chord chord, bool key_down, uint8_t held)
     return (held & chord.mods) == chord.mods;
 }
 
-bool same_binding(Chord a, Chord b) { return a.scancode && a == b; }
+bool same_binding(Chord a, Chord b) { return (a.scancode != 0) && a == b; }
 
 int fuzzy_score(const std::string& query, std::string_view text)
 {
@@ -370,7 +370,7 @@ int fuzzy_score(const std::string& query, std::string_view text)
             run = 0;
             continue;
         }
-        const bool word_start = ti == 0 || !std::isalnum(static_cast<unsigned char>(core::at(t, ti - 1)));
+        const bool word_start = ti == 0 || (std::isalnum(static_cast<unsigned char>(core::at(t, ti - 1))) == 0);
         score += 1 + (word_start ? kWordStartBonus : 0) + (run * 4) + (ti == 0 ? kFirstLetterBonus : 0);
         ++run;
         ++qi;
@@ -688,13 +688,13 @@ std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }
 uint8_t held_mods(platform::KeyState keys)
 {
     uint8_t held = 0;
-    if (core::at(keys, SDL_SCANCODE_LCTRL) || core::at(keys, SDL_SCANCODE_RCTRL)) {
+    if ((core::at(keys, SDL_SCANCODE_LCTRL) != 0U) || (core::at(keys, SDL_SCANCODE_RCTRL) != 0U)) {
         held |= kCtrl;
     }
-    if (core::at(keys, SDL_SCANCODE_LSHIFT) || core::at(keys, SDL_SCANCODE_RSHIFT)) {
+    if ((core::at(keys, SDL_SCANCODE_LSHIFT) != 0U) || (core::at(keys, SDL_SCANCODE_RSHIFT) != 0U)) {
         held |= kShift;
     }
-    if (core::at(keys, SDL_SCANCODE_LALT) || core::at(keys, SDL_SCANCODE_RALT)) {
+    if ((core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U)) {
         held |= kAlt;
     }
     return held;
@@ -750,7 +750,7 @@ int enrol(const ActStep& action)
     std::array<char, kIniValueSize> text = {""};
     GetPrivateProfileStringA("editor_keys", action.id.c_str(), "", text.data(), sizeof(text), ini_path().c_str());
     std::vector<Chord> keys;
-    if (core::at(text, 0) && parse_keys(text.data(), &keys)) {
+    if ((core::at(text, 0) != '\0') && parse_keys(text.data(), &keys)) {
         r.back().keys = keys;
     }
     return static_cast<int>(r.size()) - 1;
@@ -778,7 +778,7 @@ void set_checked(int index, std::function<int()> checked)
 bool is_switched_on(int index)
 {
     const ActStep* a = get_pull(index);
-    return a && a->kind != Kind::kDetailsOf && (!a->enabled || a->enabled());
+    return (a != nullptr) && a->kind != Kind::kDetailsOf && (!a->enabled || a->enabled());
 }
 
 int get_checked(int index)
@@ -854,7 +854,7 @@ void begin_frame(platform::KeyState keys)
     std::vector<std::vector<Chord>> bound(r.size());
     bool have_bound = false;
     for (int s = 0; s < SDL_NUM_SCANCODES; ++s) {
-        const bool pressed = core::at(keys, s) && !core::at(level_editor_actions_state().was_, s);
+        const bool pressed = (core::at(keys, s) != 0U) && (core::at(level_editor_actions_state().was_, s) == 0U);
         core::at(level_editor_actions_state().was_, s) = core::at(keys, s);
         if (!pressed || is_modifier(s)) {
             continue;
@@ -865,7 +865,7 @@ void begin_frame(platform::KeyState keys)
                 if (const ActStep* a = get_pull(level_editor_actions_state().capture_)) {
                     std::vector<Chord> next = a->keys;
                     const Chord chord = {.scancode = s, .mods = held};
-                    if (!*get_key_name(s)) {
+                    if (*get_key_name(s) == '\0') {
                         get_log("level editor: key %d can't be bound (not one the keymap names)", s);
                     } else {
                         if (std::cmp_less(level_editor_actions_state().capture_slot_, next.size())) {
@@ -972,7 +972,7 @@ void load_keys()
         }
         std::array<char, kIniValueSize> text = {""};
         GetPrivateProfileStringA("editor_keys", a.id.c_str(), "", text.data(), sizeof(text), path.c_str());
-        if (!core::at(text, 0)) {
+        if (core::at(text, 0) == '\0') {
             continue;
         }
         std::vector<Chord> keys;

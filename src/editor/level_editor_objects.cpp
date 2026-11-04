@@ -267,10 +267,10 @@ std::string caption(uint32_t checksum)
 // 0x004219F0, places only those).
 bool model_box(objects::GameEntity* object, OrientedBox* out)
 {
-    if (object->composite_flags() & (objects::kCompositeFlagHidden | objects::kCompositeFlagDestroying)) {
+    if ((object->composite_flags() & (objects::kCompositeFlagHidden | objects::kCompositeFlagDestroying)) != 0U) {
         return false;
     }
-    if (object->object_flags() & objects::kObjectFlagDead) {
+    if ((object->object_flags() & objects::kObjectFlagDead) != 0U) {
         return false;
     }
     if (object->fetch_module(kSkaterPhysicsControl) || object->fetch_module(kCamModuleName)) {
@@ -289,7 +289,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     // off: they are placed through their skeletons, not 0x004219F0's matrix).
     const bool cloned = core::down_cast<objects::MeshInstanceModule>(component)->level_object();
     const uint8_t flags = model->flag_bits();
-    if (!cloned && (!(flags & 1) || (flags & 4))) {
+    if (!cloned && (((flags & 1) == 0) || ((flags & 4) != 0))) {
         return false;
     }
     render::Geom* geometry = model->get_geom_by_name(0);
@@ -302,7 +302,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
         min = {.x = bounds->min.x, .y = bounds->min.y, .z = bounds->min.z};
         max = {.x = bounds->max.x, .y = bounds->max.y, .z = bounds->max.z};
     }
-    if (flags & kModelHasSizeFactor) {
+    if ((flags & kModelHasSizeFactor) != 0) {
         const maths::Vec4& scale = model->size_factor();
         min = {.x = min.x * scale.x, .y = min.y * scale.y, .z = min.z * scale.z};
         max = {.x = max.x * scale.x, .y = max.y * scale.y, .z = max.z * scale.z};
@@ -450,7 +450,7 @@ State store_away(objects::GameEntity* object)
 bool get_restore(const State& state)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(state.id));
-    if (!object || (object->object_flags() & objects::kObjectFlagDead)) {
+    if (!object || ((object->object_flags() & objects::kObjectFlagDead) != 0U)) {
         return false;
     }
     object->basis_frame() = state.matrix;
@@ -472,7 +472,7 @@ std::string get_model_file(uint32_t name)
     static const uint32_t kModel = checksums::hash_from_text("model");
     script::Struct* node = node_of(name);
     const char* model = nullptr;
-    if (!node || !node->fetch_text(kModel, &model, 0) || !model || !*model) {
+    if (!node || !node->fetch_text(kModel, &model, 0) || !model || (*model == '\0')) {
         return {};
     }
     const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
@@ -501,8 +501,8 @@ void* resolve_tint(scenery::TintOwner owner)
         return scenery::sector_geometry(owner.id);
     }
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(owner.id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? model_geometry(object, owner.index)
-                                                                         : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? model_geometry(object, owner.index)
+                                                                                 : nullptr;
 }
 
 bool can_copy(uint32_t source)
@@ -517,10 +517,10 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
     if (!can_copy(source)) {
         return nullptr;
     }
-    if (!name) {
+    if (name == 0U) {
         // (a name no object has: "level_editor_copy_<source>_<n>", shown as "<source's name> copy <n>")
         std::array<char, kCopyNameSize> text{};
-        for (bool again = true; again; again = objects::find_object(name)) {
+        for (bool again = true; again; again = (objects::find_object(name) != nullptr)) {
             ++object_copies().copy_counter_;
             text::format_to(text, "level_editor_copy_%08X_%d", source, object_copies().copy_counter_);
             name = checksums::hash_from_text(text.data());
@@ -582,7 +582,7 @@ bool remove_copy(uint32_t name)
     }
     level_editor_objects_state().copies_.erase(it);
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-    if (!object || (object->object_flags() & objects::kObjectFlagDead)) {
+    if (!object || ((object->object_flags() & objects::kObjectFlagDead) != 0U)) {
         return false;
     }
     object->flag_as_dead();
@@ -662,7 +662,7 @@ std::vector<TableRow> copyable()
                                 : cls == kPedestrian ? "Pedestrian "
                                                      : "Vehicle ";
             label += caption(name);
-            if (model && *model) {
+            if (model && (*model != '\0')) {
                 const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
                 label += std::string("  (") + (base ? std::next(base) : model) + ")";
             }

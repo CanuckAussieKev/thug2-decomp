@@ -106,8 +106,8 @@ bool decode(const std::string& encoded, std::string* text)
             *text += c;
             continue;
         }
-        if (i + 2 >= encoded.size() || !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 1))) ||
-            !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 2)))) {
+        if (i + 2 >= encoded.size() || (std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 1))) == 0) ||
+            (std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 2))) == 0)) {
             return false;
         }
         *text += static_cast<char>(std::strtol(encoded.substr(i + 1, 2).c_str(), nullptr, kHexBase));
@@ -127,7 +127,7 @@ bool valid_name(const std::string& name)
         return false;
     }
     for (const char c : name) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
+        if ((std::isalnum(static_cast<unsigned char>(c)) == 0) && c != '_') {
             return false;
         }
     }
@@ -152,7 +152,7 @@ bool read_triple(const std::string& text, V3* out)
             at = std::next(at);
         }
     }
-    if (*at) {
+    if (*at != '\0') {
         return false;
     }
     *out = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)};
@@ -221,7 +221,7 @@ bool read_record(std::istringstream& in, Note* out)
         } else if (key == "color") {
             char* stop = nullptr;
             const unsigned long rgb = std::strtoul(value.c_str(), &stop, 16);
-            if (colour || value.size() != kColourDigits || *stop) {
+            if (colour || value.size() != kColourDigits || (*stop != '\0')) {
                 return false;
             }
             out->colour = static_cast<uint32_t>(rgb);
@@ -343,7 +343,7 @@ ImU32 get_colour(uint32_t rgb, int alpha = 255)
 
 bool get_matches(const std::string& text, const char* filter)
 {
-    if (!filter || !*filter) {
+    if (!filter || (*filter == '\0')) {
         return true;
     }
     std::string a = text;

@@ -241,7 +241,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         return false;
     }
     render::StaticCollider* coll = static_of(sector);
-    if (!coll || !coll->geometry() || !(coll->flag_bits() & render::HitMesh::kOwnsGeometry)) {
+    if (!coll || !coll->geometry() || ((coll->flag_bits() & render::HitMesh::kOwnsGeometry) == 0)) {
         *why = "the copy has no collision of its own";
         return false;
     }
@@ -272,7 +272,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     int level = -1; // (each level of detail's slot: the buffer is stored through the slot itself)
     for (render::IdxStore*& slot : first->index_buffers()) {
         ++level;
-        if (level > 0 && !core::at(first->index_counts(), level)) {
+        if (level > 0 && (core::at(first->index_counts(), level) == 0U)) {
             continue;
         }
         gsl::owner<render::IdxStore*> buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
@@ -308,7 +308,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         }
         for (int k = 0; k < kBoxCorners; ++k) {
             render::IdxStore* buffer = core::at(other->index_buffers(), k);
-            if (!core::at(other->index_counts(), k) || !buffer || !buffer->indices()) {
+            if ((core::at(other->index_counts(), k) == 0U) || !buffer || !buffer->indices()) {
                 continue;
             }
             if (std::ranges::any_of(std::span<const uint16_t>(buffer->indices(), core::at(other->index_counts(), k)),
@@ -413,7 +413,7 @@ bool get_make(const Spec& spec, std::string* why)
             return false;
         }
         const uint32_t made = scene->clone_sector_named(spec.material, scene, 0, true, name);
-        sector = made ? lookup_sector(scene, made) : nullptr;
+        sector = (made != 0U) ? lookup_sector(scene, made) : nullptr;
         if (!sector) {
             *why = "the material's piece wasn't copied";
             return false;
@@ -502,7 +502,7 @@ const char* why_not_donor(uint32_t checksum)
     }
     const render::MeshRef* first = core::at(meshes_of(geom), 0);
     Layout layout;
-    if (!first || first->billboard() || (first->flags() & kSharedMeshFlags)) {
+    if (!first || first->billboard() || ((first->flags() & kSharedMeshFlags) != 0U)) {
         return "a billboard or shared mesh";
     }
     if (!layout_for({.fvf = vertex_format(first), .stride = first->stride()}, &layout) || layout.tex_count_ < 1) {
@@ -521,7 +521,7 @@ const char* why_not_donor(uint32_t checksum)
         return "a see-through material";
     }
     const render::StaticCollider* coll = static_of(sector);
-    if (!coll || !coll->geometry() || !coll->geometry()->tri_count()) {
+    if (!coll || !coll->geometry() || (coll->geometry()->tri_count() == 0U)) {
         return "no collision";
     }
     return nullptr;
@@ -530,8 +530,8 @@ const char* why_not_donor(uint32_t checksum)
 bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
 {
     note_level();
-    uint32_t chosen = wanted && !why_not_donor(wanted) ? wanted : 0;
-    if (!chosen) {
+    uint32_t chosen = (wanted != 0U) && !why_not_donor(wanted) ? wanted : 0;
+    if (chosen == 0U) {
         // (the nearest piece that can lend its material - a floor-like one, its top near the ground, first)
         struct Walk {
             const Spec* spec{};
@@ -562,12 +562,12 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                 }
             },
             &walk);
-        chosen = walk.best_floor_ ? walk.best_floor_ : walk.best;
+        chosen = (walk.best_floor_ != 0U) ? walk.best_floor_ : walk.best;
     }
-    if (!chosen) {
-        *why = wanted ? std::string("that piece can't lend its material (") + why_not_donor(wanted) +
-                            ") and no other piece of the level can"
-                      : "no piece of the level can lend its material";
+    if (chosen == 0U) {
+        *why = (wanted != 0U) ? std::string("that piece can't lend its material (") + why_not_donor(wanted) +
+                                    ") and no other piece of the level can"
+                              : "no piece of the level can lend its material";
         return false;
     }
     spec->material = chosen;
@@ -578,7 +578,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     layout_for({.fvf = vertex_format(mesh), .stride = mesh->stride()}, &layout);
     const uint8_t* data = core::at(mesh->vertex_buffers(), 0)->data();
     const std::span<const uint8_t> vertex_bytes(data, size_t{mesh->vertex_count()} * mesh->stride());
-    if (layout.diffuse >= 0 && mesh->vertex_count()) {
+    if (layout.diffuse >= 0 && (mesh->vertex_count() != 0U)) {
         std::array<double, 4> sum = {};
         for (uint32_t v = 0; v < mesh->vertex_count(); ++v) {
             uint32_t c = 0;

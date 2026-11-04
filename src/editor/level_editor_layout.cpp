@@ -170,7 +170,7 @@ bool read_hex(std::istringstream& in, uint32_t* value)
     }
     char* end = nullptr;
     *value = static_cast<uint32_t>(std::strtoul(word.c_str(), &end, kHexBase));
-    return end && *end == '\0';
+    return (end != nullptr) && *end == '\0';
 }
 
 bool read_placed(std::istringstream& in, Placement* p)
@@ -330,7 +330,7 @@ std::string emit_out(const FileLoad& file)
         if (!a.types.empty()) {
             out << " types=";
             for (size_t i = 0; i < a.types.size(); ++i) {
-                out << (i ? "," : "") << core::at(a.types, i);
+                out << ((i != 0U) ? "," : "") << core::at(a.types, i);
             }
         }
         node_create::Kind kind{};
@@ -450,7 +450,7 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
         }
         if (!header) {
             file->version = header_version(line);
-            if (!file->version) {
+            if (file->version == 0) {
                 return false;
             }
             header = true;
@@ -677,7 +677,10 @@ const char* mode_refusal(const ModeFlags& mode)
     return "a competitive game mode";
 }
 
-std::string edited_text(const char* text) { return std::string(text && *text ? text : "LEVEL") + " (EDITED)"; }
+std::string edited_text(const char* text)
+{
+    return std::string(text && (*text != '\0') ? text : "LEVEL") + " (EDITED)";
+}
 
 std::string edited_title(const char* level_text, const std::string& name)
 {
@@ -718,7 +721,10 @@ bool saved_layout_scene(const std::string& file_name, uint32_t* scene)
     return true;
 }
 
-uint32_t scene_of_level_text(const char* level) { return level && *level ? checksums::hash_from_text(level) : 0; }
+uint32_t scene_of_level_text(const char* level)
+{
+    return level && (*level != '\0') ? checksums::hash_from_text(level) : 0;
+}
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
@@ -805,7 +811,7 @@ LayoutSave& layout_save()
 bool in_net_game()
 {
     void* net = online::net_game_state().online_hub();
-    return net && static_cast<online::Hub*>(net)->in_net_game();
+    return (net != nullptr) && static_cast<online::Hub*>(net)->in_net_game();
 }
 
 // The level loaded: its load script (the skate module 0x007CE478, +0x378 - as automation.h and the node layer read it).
@@ -824,8 +830,8 @@ std::string autosave_path_for(uint32_t scene) { return get_folder() + "\\" + aut
 bool write_time(const std::string& path, uint64_t* time)
 {
     WIN32_FILE_ATTRIBUTE_DATA data;
-    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data) ||
-        (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+    if ((GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data) == FALSE) ||
+        ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0U)) {
         return false;
     }
     *time = (static_cast<uint64_t>(data.ftLastWriteTime.dwHighDateTime) << kHighWordShift) | data.ftLastWriteTime.dwLowDateTime;
@@ -855,9 +861,9 @@ bool write_whole(FilePlace place, const char* data, size_t size)
         return false;
     }
     DWORD written = 0;
-    bool ok = WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
+    bool ok = (WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) != FALSE) && written == size;
     file.reset(); // (closed before it's moved)
-    ok = ok && MoveFileExA(temporary.data(), path, MOVEFILE_REPLACE_EXISTING);
+    ok = ok && (MoveFileExA(temporary.data(), path, MOVEFILE_REPLACE_EXISTING) != FALSE);
     if (!ok) {
         DeleteFileA(temporary.data());
     }
@@ -893,7 +899,7 @@ object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::spa
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
 }
 
 // The level's changes as they are now (false: not in a level).
@@ -1036,7 +1042,7 @@ std::string get_apply(const FileLoad& file)
     for (const CloneRecord& record : file.clones) {
         const uint32_t made = scenery::get_duplicate(record.source);
         clone_made.push_back(made); // (UX7: by the records' order, 0 for one not made - the linked copies)
-        if (made) {
+        if (made != 0U) {
             clones.push_back({.checksum = made, .placement = record.placement, .hidden = false});
         }
     }
@@ -1051,11 +1057,11 @@ std::string get_apply(const FileLoad& file)
         }
     }
     for (const CopyRecord& record : file.copies) {
-        const bool there = object_edit::is_copy(record.name) && live_object(record.name);
-        if ((there || object_edit::make_copy(
-                          record.source,
-                          {.x = core::at(record.pos, 0), .y = core::at(record.pos, 1), .z = core::at(record.pos, 2)},
-                          record.name)) &&
+        const bool there = object_edit::is_copy(record.name) && (live_object(record.name) != nullptr);
+        if ((there || (object_edit::make_copy(
+                           record.source,
+                           {.x = core::at(record.pos, 0), .y = core::at(record.pos, 1), .z = core::at(record.pos, 2)},
+                           record.name) != nullptr)) &&
             object_edit::get_restore(state_of(record.name, record.pos, record.rows, record.scale))) {
             ++copies;
         }
@@ -1137,7 +1143,7 @@ std::string get_apply(const FileLoad& file)
         get_log("level editor: the layout's %d linked-copy groups in place", links);
     }
     apply_extensions(file.extra); // (other modules' records: level_editor_organize.h)
-    if (faces || clusters || cameras) {
+    if ((faces != 0) || (clusters != 0) || (cameras != 0)) {
         get_log("level editor: the layout's %d collision faces, %d trick-object clusters, %d cameras put in place",
                 faces, clusters, cameras);
     }
@@ -1264,7 +1270,7 @@ bool store_away(std::string* message)
     get_log("level editor: %s - %s", text.data(), path.c_str());
     // (saved: the autosave's changes are in the layout now, or the user chose these over them)
     const std::string autosave = autosave_path_for(file.scene);
-    if (DeleteFileA(autosave.c_str())) {
+    if (DeleteFileA(autosave.c_str()) != FALSE) {
         get_log("level editor: autosave deleted - %s", autosave.c_str());
     }
     layout_save().snapshot_ready_ = false;
@@ -1397,7 +1403,7 @@ bool discard_autosave(std::string* message)
     }
     const std::string path = autosave_path_for(scenery::world_scene_key(scene));
     layout_save().offer_pending_ = false;
-    if (!DeleteFileA(path.c_str())) {
+    if (DeleteFileA(path.c_str()) == FALSE) {
         *message = "No autosave to discard";
         return false;
     }
@@ -1475,8 +1481,10 @@ std::unordered_map<uint32_t, LevelInfo> levels_by_load()
         e->value().structure()->fetch_text(kName, &title, 0);
         const char* qb = nullptr;
         e->value().structure()->fetch_text(kQb, &qb, 0);
-        levels.emplace(load, LevelInfo{.scene = scene_of_level_text(level), .title = title ? title : "", .structure = e->value().structure(),
-                                       .node_array_ = qb && *qb ? level_nodes::node_array_checksum(qb) : 0});
+        levels.emplace(load, LevelInfo{.scene = scene_of_level_text(level),
+                                       .title = title ? title : "",
+                                       .structure = e->value().structure(),
+                                       .node_array_ = qb && (*qb != '\0') ? level_nodes::node_array_checksum(qb) : 0});
     }
     return levels;
 }
@@ -1490,9 +1498,9 @@ std::vector<uint32_t> saved_scenes()
     if (find == INVALID_HANDLE_VALUE) {
         return scenes;
     }
-    for (bool again = true; again; again = FindNextFileA(find, &found)) {
+    for (bool again = true; again; again = (FindNextFileA(find, &found) != FALSE)) {
         uint32_t scene = 0;
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+        if (((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0U) &&
             saved_layout_scene(std::data(found.cFileName), &scene)) {
             scenes.push_back(scene);
         }
@@ -1540,8 +1548,9 @@ void on_scene_loaded(const char* name, bool is_net)
 
 void tick()
 {
-    const bool up = render::current_level() != 0 && objects::find_object(kSkater) && scenery::main_scene();
-    if (layout_save().switch_ && up && ++layout_save().switch_wait_ >= kSettleFrames) {
+    const bool up = render::current_level() != 0 && (objects::find_object(kSkater) != nullptr) &&
+                    (scenery::main_scene() != nullptr);
+    if ((layout_save().switch_ != 0) && up && ++layout_save().switch_wait_ >= kSettleFrames) {
         const int to = layout_save().switch_;
         layout_save().switch_ = 0;
         switch_in_place(to);
@@ -1599,13 +1608,13 @@ void tick()
 
 void on_node_array_added(uint32_t array)
 {
-    if (!layout_save().request_ || get_refused()) {
+    if ((layout_save().request_ == 0U) || get_refused()) {
         return;
     }
     // (the level picked as its edited copy - its level structure names its node array (qb=) and its scene (level=))
     std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
     auto level = levels.find(layout_save().request_);
-    if (level == levels.end() || !level->second.node_array_ || level->second.node_array_ != array) {
+    if (level == levels.end() || (level->second.node_array_ == 0U) || level->second.node_array_ != array) {
         return;
     }
     FileLoad file;
@@ -1649,7 +1658,7 @@ bool saved_props(uint32_t scene, level_props::Props* props)
 bool network_active()
 {
     const net::Hub* net = net::Hub::sole();
-    return network_session(net && net->is_online(), in_net_game(), layout_save().net_scene_);
+    return network_session((net != nullptr) && net->is_online(), in_net_game(), layout_save().net_scene_);
 }
 
 ModeFlags current_mode()
@@ -1699,7 +1708,7 @@ bool get_refused(std::string* why)
 void panel_message(const char* text)
 {
     static const uint32_t kScript = checksums::hash_from_text("create_panel_message");
-    if (!text || !*text || render::current_level() == 0 || !script::script_exists(kScript)) {
+    if (!text || (*text == '\0') || render::current_level() == 0 || !script::script_exists(kScript)) {
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
@@ -1718,7 +1727,8 @@ bool has_saved_layout()
 {
     render::WorldScene* scene = scenery::main_scene();
     uint64_t time = 0;
-    return render::current_level() != 0 && scene && write_time(path_for(scenery::world_scene_key(scene)), &time);
+    return render::current_level() != 0 && (scene != nullptr) &&
+           write_time(path_for(scenery::world_scene_key(scene)), &time);
 }
 
 std::string level_title()
@@ -1739,7 +1749,7 @@ std::string level_title()
         std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
         auto it = levels.find(load);
         cached = it != levels.end() && !it->second.title.empty() ? it->second.title
-                 : scene                                         ? object_edit::caption(scene)
+                 : (scene != 0U)                                 ? object_edit::caption(scene)
                                                                  : "";
     }
     return cached;
@@ -1792,7 +1802,7 @@ bool reset_level(ResetText reset_text)
     // (the edited copy's files: the saved layout - its level select entry - and the autosave)
     int deleted = 0;
     for (const std::string& path : {path_for(file.scene), autosave_path_for(file.scene)}) {
-        if (DeleteFileA(path.c_str())) {
+        if (DeleteFileA(path.c_str()) != FALSE) {
             ++deleted;
             get_log("level editor: reset - deleted %s", path.c_str());
         }
@@ -1801,7 +1811,7 @@ bool reset_level(ResetText reset_text)
     layout_save().snapshot_written_ = true;
     layout_save().autosave_ours_ = false;
     layout_save().offer_pending_ = false;
-    *message = deleted ? "Level reset; saved layout deleted" : "Level reset";
+    *message = (deleted != 0) ? "Level reset; saved layout deleted" : "Level reset";
     get_log("level editor: %s", message->c_str());
     return true;
 }
@@ -1841,7 +1851,7 @@ bool cfunc_pick_level(script::Struct* params, script::Script* /*script*/)
     if (params) {
         params->read_hash_value(kLevel, &load, 0);
     }
-    const bool edited = params && params->has_bare_flag(kEditedLayout);
+    const bool edited = (params != nullptr) && params->has_bare_flag(kEditedLayout);
     // (never in a network session or a career-type mode: the level as shipped)
     std::string why;
     const bool network = get_refused(&why);
@@ -1853,8 +1863,8 @@ bool cfunc_pick_level(script::Struct* params, script::Script* /*script*/)
     // structure now, before load_level reads it (put back once the level is up - Tick - or another level is picked)
     level_nodes::set_node_array_added_hook(&on_node_array_added);
     level_props::restore_structure();
-    const bool loaded_already = load && load == current_load() && render::current_level() != 0;
-    if (layout_save().request_ && !loaded_already) {
+    const bool loaded_already = (load != 0U) && load == current_load() && render::current_level() != 0;
+    if ((layout_save().request_ != 0U) && !loaded_already) {
         std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
         auto level = levels.find(layout_save().request_);
         level_props::Props props;
@@ -1864,11 +1874,11 @@ bool cfunc_pick_level(script::Struct* params, script::Script* /*script*/)
     }
     // (the level already loaded: the level select won't load it again - switched in place once its menus are gone)
     if (loaded_already && !network && (layout_save().request_ != 0) != layout_save().edited_copy_) {
-        layout_save().switch_ = layout_save().request_ ? 1 : -1;
+        layout_save().switch_ = (layout_save().request_ != 0U) ? 1 : -1;
         layout_save().switch_wait_ = 0;
     }
     get_log("level editor: level picked - %s%s", object_edit::caption(load).c_str(),
-            layout_save().request_ ? " (its edited copy)" : " (as shipped)");
+            (layout_save().request_ != 0U) ? " (its edited copy)" : " (as shipped)");
     return true;
 }
 

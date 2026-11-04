@@ -113,7 +113,7 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     const auto& p = ray->hit().point;
@@ -126,7 +126,7 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
 {
     std::vector<V3> corners;
-    const render::WorldCell* sector = checksum ? scenery::sector_of(checksum) : nullptr;
+    const render::WorldCell* sector = (checksum != 0U) ? scenery::sector_of(checksum) : nullptr;
     if (!sector) {
         return corners;
     }

@@ -208,7 +208,7 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
                get_component(m.max, axis) > get_component(o.min, axis) - slack + kEps;
     };
     for (int axis = 0; axis < 3; ++axis) {
-        if (!(axes & (1 << axis))) {
+        if ((axes & (1 << axis)) == 0) {
             continue;
         }
         float best = reach;
@@ -503,7 +503,7 @@ const std::array<V3, 3> kWorld = {
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
 }
 
 void get_corners(const OrientedBox& box, std::vector<V3>* out)
@@ -766,13 +766,13 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
         Placement placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
         scenery::placement_now(unit.sectors.front(), &placement);
         const uint32_t copy = scenery::get_duplicate(source);
-        if (!copy) {
+        if (copy == 0U) {
             continue;
         }
         scenery::set_selection({copy});
         // (its turns and scale as the piece's own: the copy is the source as it is now)
         const int quarters = (((placement.quarters - source_at.quarters) % 4) + 4) % 4;
-        if (quarters) {
+        if (quarters != 0) {
             scenery::get_turn(quarters);
         }
         const V3 ratio = {.x = placement.scale.x / source_at.scale.x, .y = placement.scale.y / source_at.scale.y,
@@ -1017,10 +1017,11 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
     const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; !meshes.empty() && i < count && i < kMaxMeshesRead && out->size() < kMaxTrianglesRead; ++i) {
         render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshSharedFlags)) {
+        if (!mesh || mesh->billboard() || ((mesh->flags() & kMeshSharedFlags) != 0U)) {
             continue;
         }
-        render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        render::VertexBuffer* vertices =
+            (mesh->vertex_buffer_count() != 0U) ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
         if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes) {
             continue;
@@ -1096,9 +1097,10 @@ void set_edge_picking(bool on)
     level_editor_arrange_state().edge_hover_ = -1;
     if (on) {
         const size_t runs = edge_runs().size();
-        hud::get_message(
-            runs ? "Rail Along Edge: click a top edge (Shift: more)" : "Rail Along Edge: no top edges found", hud::kMessageSeconds);
-        if (!runs) {
+        hud::get_message((runs != 0U) ? "Rail Along Edge: click a top edge (Shift: more)"
+                                      : "Rail Along Edge: no top edges found",
+                         hud::kMessageSeconds);
+        if (runs == 0U) {
             stored_edge_picking() = false;
         }
     }
@@ -1134,7 +1136,7 @@ bool edge_click(maths::Vec2 at)
         return true;
     }
     const platform::KeyState keys = platform::keyboard_keys();
-    const bool more = core::at(keys, SDL_SCANCODE_LSHIFT) || core::at(keys, SDL_SCANCODE_RSHIFT);
+    const bool more = (core::at(keys, SDL_SCANCODE_LSHIFT) != 0U) || (core::at(keys, SDL_SCANCODE_RSHIFT) != 0U);
     std::array<char, kReportTextSize> text{};
     text::format_to(text, "Rail added: %d points, %.0f long", static_cast<int>(run.points.size()), run.length);
     // (Shift: the piece stays selected for the next edge; else the rail's first point is selected)
@@ -1417,12 +1419,12 @@ struct Painter {
         box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < kBoxCorners; ++i) {
             for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
-                if (!(i & bit)) {
+                if ((i & bit) == 0) {
                     get_seg(core::at(c, i), core::at(c, i | bit), argb, kBoxLineWidth);
                 }
             }
         }
-        if (!fill) {
+        if (fill == 0U) {
             return;
         }
         // (its six faces, see-through: two triangles each - only when all four corners are in front)
@@ -1530,7 +1532,7 @@ void add_ghost(const Painter& p)
     constexpr uint32_t kLine = 0xD080E0FF;
     constexpr uint32_t kFill = 0x2880E0FF;
     if (armed >= 0) {
-        get_marker(p, at, {.yaw = edit::get_yaw(), .colour = colour ? colour : kMarkerColour});
+        get_marker(p, at, {.yaw = edit::get_yaw(), .colour = (colour != 0U) ? colour : kMarkerColour});
         return;
     }
     if (!edit::browser_item(&tab, &id)) {

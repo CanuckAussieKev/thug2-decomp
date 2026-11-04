@@ -271,7 +271,7 @@ ux8::Fonts ux8_fonts()
 
 bool get_matches(const std::string& text, const char* filter)
 {
-    if (!*filter) {
+    if (*filter == '\0') {
         return true;
     }
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
@@ -379,7 +379,7 @@ void collision_legend(const ShapeMesh& model)
 // The Inspector's part: an invisible wall selected (Shift+click), and what's hidden in the editor.
 void view_section(const ShapeMesh& model)
 {
-    if (model.view.wall) {
+    if (model.view.wall != 0U) {
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::PushFont(level_editor_ui_state().heading_);
@@ -428,7 +428,7 @@ void view_section(const ShapeMesh& model)
             get_ask(Request::Kind::kClearWall);
         }
     }
-    if (model.view.scenery_collision_ >= 0 && !model.view.wall) {
+    if (model.view.scenery_collision_ >= 0 && (model.view.wall == 0U)) {
         // A drawn piece's collision switched off by itself (it stays drawn; the same switch, level_editor_walls.h).
         ImGui::Spacing();
         ImGui::Separator();
@@ -594,7 +594,8 @@ void update_cache()
         list.clear();
     }
     for (size_t i = 0; i < nodes.size(); ++i) {
-        ui_cache().cache_.labels.push_back(core::at(nodes, i).name ? nodes::caption(core::at(nodes, i).name) : "(no name)");
+        ui_cache().cache_.labels.push_back((core::at(nodes, i).name != 0U) ? nodes::caption(core::at(nodes, i).name)
+                                                                           : "(no name)");
         core::at(ui_cache().cache_.by_family_, static_cast<int>(core::at(nodes, i).family)).push_back(static_cast<int>(i));
     }
 }
@@ -659,7 +660,7 @@ void family_chips(const ShapeMesh& model)
     const float right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x;
     for (int f = 0; f < nodes::kFamilies; ++f) {
         auto family = static_cast<nodes::Family>(f);
-        if (!core::at(counts, f)) {
+        if (core::at(counts, f) == 0) {
             continue;
         }
         const bool on = (model.nodes.families & nodes::get_bit(family)) != 0;
@@ -731,7 +732,7 @@ void get_outliner(const ShapeMesh& model)
     for (int f = 0; f < nodes::kFamilies; ++f) {
         auto family = static_cast<nodes::Family>(f);
         const std::vector<int>& members = core::at(ui_cache().cache_.by_family_, f);
-        if (members.empty() || !(model.nodes.families & nodes::get_bit(family))) {
+        if (members.empty() || ((model.nodes.families & nodes::get_bit(family)) == 0U)) {
             continue;
         }
         shown.clear();
@@ -747,7 +748,7 @@ void get_outliner(const ShapeMesh& model)
             continue;
         }
         const bool holds_selected = follow && std::cmp_less(selected, nodes.size()) && core::at(nodes, selected).family == family;
-        if (holds_selected || core::at(level_editor_ui_state().outliner_search_, 0) ||
+        if (holds_selected || (core::at(level_editor_ui_state().outliner_search_, 0) != '\0') ||
             level_editor_ui_state().changed_only_) {
             ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
         }
@@ -835,7 +836,7 @@ void get_outliner(const ShapeMesh& model)
                                              row_right - marks_width + (kMarksGap * level_editor_ui_state().scale_)));
                     bool first = true;
                     for (int bit = 0; bit < kMaxMarkers; ++bit) {
-                        if (!(marks & (1U << bit))) {
+                        if ((marks & (1U << bit)) == 0U) {
                             continue;
                         }
                         if (!first) {
@@ -897,14 +898,14 @@ void node_section(const ShapeMesh& model, int index)
     const nodes::Elem& node = core::at(nodes, index);
     if (model.nodes.node_only_) {
         ImGui::PushFont(level_editor_ui_state().heading_);
-        gui::text_wrapped("%s", node.name ? nodes::caption(node.name).c_str() : "(no name)");
+        gui::text_wrapped("%s", (node.name != 0U) ? nodes::caption(node.name).c_str() : "(no name)");
         ImGui::PopFont();
     } else {
         ImGui::Spacing();
         ImGui::SeparatorText("Node");
     }
-    std::string cls = node.cls ? nodes::caption(node.cls) : "(no class)";
-    if (node.type) {
+    std::string cls = (node.cls != 0U) ? nodes::caption(node.cls) : "(no class)";
+    if (node.type != 0U) {
         cls += " \xC2\xB7 " + nodes::caption(node.type);
     }
     get_muted(cls.c_str());
@@ -1068,7 +1069,7 @@ void node_section(const ShapeMesh& model, int index)
             field_label("Radius");
             get_mono("%.0f", node.radius);
         }
-        if (node.terrain) {
+        if (node.terrain != 0U) {
             field_label("Terrain");
             get_mono("%s", nodes::caption(node.terrain).c_str());
         }
@@ -1181,7 +1182,7 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
     ImGui::BeginChild("##members",
                       ImVec2(0.0F, (rows * ImGui::GetFrameHeightWithSpacing()) +
                                        (kMemberListPadding * level_editor_ui_state().scale_)),
-                      false);
+                      ImGuiChildFlags_None);
     for (size_t i = 0; i < members.size(); ++i) {
         const ShapeMesh::Selection::Member& member = core::at(members, i);
         ImGui::PushID(static_cast<int>(i));
@@ -1234,14 +1235,14 @@ void get_inspector(const ShapeMesh& model)
             goal_edit::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_,
                                          level_editor_ui_state().small_); // (a goal's point)
         }
-    } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
+    } else if (s.objects == 0 && s.sectors == 0 && (model.view.wall == 0U)) {
         gui::text_disabled("Nothing selected");
     } else if (s.objects > 0 || s.sectors > 0) {
         ImGui::PushFont(level_editor_ui_state().heading_);
         gui::text_wrapped("%s", s.name.c_str());
         ImGui::PopFont();
         get_muted(s.kind.c_str());
-        if (s.checksum) {
+        if (s.checksum != 0U) {
             ImGui::SameLine();
             get_mono("0x%08X", s.checksum);
         }
@@ -1466,7 +1467,7 @@ void get_help(const ShapeMesh& model)
             for (const Row& row : rows) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
-                if (*row.section) {
+                if (*row.section != '\0') {
                     ImGui::PushFont(level_editor_ui_state().heading_);
                     ImGui::TextUnformatted(row.section);
                     ImGui::PopFont();
@@ -1504,13 +1505,13 @@ void browser_preview(const ShapeMesh& model)
     const ImVec2 a = ImGui::GetItemRectMin();
     const ImVec2 b = ImGui::GetItemRectMax();
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    if (preview.texture) {
+    if (preview.texture != 0U) {
         draw->AddImage(static_cast<ImTextureID>(preview.texture), a, b);
     } else {
         draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
     }
     draw->AddRect(a, b, ImGui::GetColorU32(ImGuiCol_Border));
-    if (!preview.texture) {
+    if (preview.texture == 0U) {
         const char* text = preview.index < 0 ? "(no selection)" : "(no preview)";
         const ImVec2 size = ImGui::CalcTextSize(text);
         draw->AddText(ImVec2((a.x + b.x - size.x) * kHalf, (a.y + b.y - size.y) * kHalf),
@@ -1534,7 +1535,7 @@ void browser_preview(const ShapeMesh& model)
         core::at(request.a, 2) = wheel;
         level_editor_ui_state().requests_.push_back(request);
     }
-    if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && preview.texture) {
+    if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && (preview.texture != 0U)) {
         gui::tooltip("Drag to rotate, wheel to zoom");
     }
     if (!preview.name.empty()) {
@@ -1575,7 +1576,7 @@ void get_browser(const ShapeMesh& model)
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     browser_preview(model);
     for (int tab = 0; tab < 2; ++tab) {
-        if (tab) {
+        if (tab != 0) {
             ImGui::SameLine();
         }
         const bool on = model.browser_tab_ == tab;
@@ -1897,7 +1898,7 @@ bool route_event(const SDL_Event* event, bool editor_capture)
     switch (event->type) {
     case SDL_MOUSEMOTION: {
         const ui_layout::Route r = route(static_cast<float>(event->motion.x), static_cast<float>(event->motion.y));
-        if (r.mouse_to_ui_ || level_editor_ui_state().ui_buttons_) {
+        if (r.mouse_to_ui_ || (level_editor_ui_state().ui_buttons_ != 0U)) {
             ui_backend::process_event(event);
         }
         return true; // (the editor keeps the position and the look's movement; mouse_to_editor says if it may pick)
@@ -1918,7 +1919,7 @@ bool route_event(const SDL_Event* event, bool editor_capture)
     }
     case SDL_MOUSEBUTTONUP: {
         const uint32_t bit = 1U << (event->button.button & 31);
-        if (level_editor_ui_state().ui_buttons_ & bit) {
+        if ((level_editor_ui_state().ui_buttons_ & bit) != 0U) {
             level_editor_ui_state().ui_buttons_ &= ~bit;
             ui_backend::process_event(event);
             return false;

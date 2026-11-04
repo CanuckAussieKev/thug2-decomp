@@ -31,7 +31,10 @@ namespace {
 
 // Whether the backends are started for the current ImGui context: each context (the editor's, the new front end's -
 // frontend/new_frontend.h) has its own backend data, which the backends keep in its IO.
-bool context_ready() { return ImGui::GetCurrentContext() && ImGui::GetIO().BackendRendererUserData != nullptr; }
+bool context_ready()
+{
+    return (ImGui::GetCurrentContext() != nullptr) && ImGui::GetIO().BackendRendererUserData != nullptr;
+}
 bool& failed_logged()
 {
     static bool failed_logged{};
@@ -233,7 +236,7 @@ uint64_t create_texture(int width, int height, PixelLayout format, const void* d
 
 void release_texture(uint64_t id)
 {
-    if (id) {
+    if (id != 0U) {
         os_layer::imgui_texture_of(id)->Release();
     }
 }

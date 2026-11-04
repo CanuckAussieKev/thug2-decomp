@@ -107,7 +107,7 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     const auto& normal = ray->hit().normal;
@@ -156,10 +156,11 @@ std::vector<V3> sector_vertices(checksums::Name sector, size_t limit)
     const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; !meshes.empty() && i < count && i < kMeshScanLimit && out.size() < limit; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag)) {
+        if (!mesh || mesh->billboard() || ((mesh->flags() & kMeshHiddenFlag) != 0U)) {
             continue;
         }
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        const render::VertexBuffer* vertices =
+            (mesh->vertex_buffer_count() != 0U) ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         if (!vertices || !vertices->data() || mesh->stride() < kPositionBytes) {
             continue;
         }

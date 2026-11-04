@@ -469,7 +469,7 @@ bool get_orbiting() { return level_editor_camera_state().orbit_.orbiting; }
 void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 last_ray)
 {
     // The wheel with the right button held: the flying speed (Unreal's).
-    if (m.right && *m.wheel && !level_editor_camera_state().orbit_.orbiting) {
+    if (m.right && (*m.wheel != 0) && !level_editor_camera_state().orbit_.orbiting) {
         *rig.speed = std::clamp(*rig.speed * std::pow(kWheelSpeedStep, static_cast<float>(*m.wheel)), kMinFlySpeed, kMaxFlySpeed);
         *m.wheel = 0;
         std::array<char, kSpeedTextSize> text{};
@@ -481,7 +481,7 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
         exit_ortho(rig);
     }
     // Alt+left: held back until it moves (an orbit) or is let go (an Alt+click).
-    if (!level_editor_camera_state().orbit_.pending && *m.left_presses_ && alt && !rig.dragging && !m.right) {
+    if (!level_editor_camera_state().orbit_.pending && (*m.left_presses_ != 0) && alt && !rig.dragging && !m.right) {
         level_editor_camera_state().orbit_ = OrbitState{};
         level_editor_camera_state().orbit_.pending = true;
         *m.left_presses_ = 0;
@@ -545,7 +545,7 @@ void apply_orbit(const Rig& rig)
     level_editor_camera_state().orbit_.wheel = 0;
     if (rig.have_selection_) {
         // (the editor puts the camera round it at its orbit distance: the wheel nearer / further)
-        if (wheel) {
+        if (wheel != 0) {
             *rig.orbit_distance_ =
                 std::clamp(*rig.orbit_distance_ * std::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrbitDistance, kMaxOrbitDistance);
         }
@@ -556,7 +556,7 @@ void apply_orbit(const Rig& rig)
     }
     const TickCycle after = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
     V3 pos = orbit_about(*rig.pos, level_editor_camera_state().orbit_.pivot, before, after);
-    if (wheel) {
+    if (wheel != 0) {
         const V3 offset = pos - level_editor_camera_state().orbit_.pivot;
         const float length = std::sqrt(get_dot(offset, offset));
         const float wanted = std::clamp(length * std::pow(0.85F, static_cast<float>(wheel)), 20.0F, 30000.0F);
@@ -597,7 +597,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         }
     }
     // 1..9 recall a bookmark, Ctrl+1..9 store it. (Alt+1..4 are the view modes - level_editor_overlays.h.)
-    const bool alt = core::at(keys, SDL_SCANCODE_LALT) || core::at(keys, SDL_SCANCODE_RALT);
+    const bool alt = (core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U);
     for (int i = 0; i < kBookmarks; ++i) {
         const bool store = actions::squeezed(actions::kBookmarkStore1 + i);
         if (alt || (!store && !actions::squeezed(actions::kBookmark1 + i))) {
@@ -683,7 +683,7 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
         static uint64_t last;
         const uint64_t now = SDL_GetPerformanceCounter();
         const double seconds =
-            stored_flight().t == 0.0F || !last
+            stored_flight().t == 0.0F || (last == 0U)
                 ? 1.0 / 60.0
                 : static_cast<double>(now - last) / static_cast<double>(SDL_GetPerformanceFrequency());
         last = now;
@@ -723,7 +723,7 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
     *rig.pitch = stored_ortho().pitch;
     const V3 forward = get_forward(stored_ortho().yaw, stored_ortho().pitch);
     if (rig.have_selection_) {
-        if (wheel && !rig.dragging) {
+        if ((wheel != 0) && !rig.dragging) {
             stored_ortho().equivalent =
                 std::clamp(stored_ortho().equivalent * std::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrthoEquivalent, kMaxOrthoEquivalent);
         }

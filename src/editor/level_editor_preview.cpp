@@ -151,11 +151,11 @@ void draw_meshes(render::PcGeom* geom)
                 continue;
             }
             const uint32_t flags = mesh->flags();
-            if (!(flags & kMeshDrawnFlag) || (flags & kMeshSkipFlags)) {
+            if (((flags & kMeshDrawnFlag) == 0U) || ((flags & kMeshSkipFlags) != 0U)) {
                 continue;
             }
             render::MaterialRef* material = mesh->material();
-            const bool transparent = material && (core::at(material->pass_flags(), 0) & 0x40);
+            const bool transparent = (material != nullptr) && ((core::at(material->pass_flags(), 0) & 0x40) != 0U);
             if (transparent != (pass == 1)) {
                 continue;
             }
@@ -182,13 +182,14 @@ void draw_geometry(render::PcGeom* geom)
 bool box_of(Kind kind, uint32_t id, OrientedBox* box)
 {
     if (kind == Kind::kSector) {
-        return scenery::sector_geometry(id) && scenery::cuboid(id, box);
+        return (scenery::sector_geometry(id) != nullptr) && scenery::cuboid(id, box);
     }
     if (kind != Kind::kObject) {
         return false;
     }
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags() & objects::kObjectFlagDead) && object_edit::model_box(object, box);
+    return (object != nullptr) && ((object->object_flags() & objects::kObjectFlagDead) == 0U) &&
+           object_edit::model_box(object, box);
 }
 bool subject_box(OrientedBox* box) { return box_of(level_editor_preview_state().kind_, level_editor_preview_state().id_, box); }
 

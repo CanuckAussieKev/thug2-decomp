@@ -110,7 +110,7 @@ void pane(float scale, PaneFonts fonts)
     ImGui::Checkbox("Show", &show_trails());
     // The legend.
     for (int m = 0; m < kMotions; ++m) {
-        if (m % kSeparatorEvery) {
+        if ((m % kSeparatorEvery) != 0) {
             ImGui::SameLine();
         }
         gui::text_colored(get_colour(motion_colour(static_cast<Motion>(m))), "%s",
@@ -175,7 +175,7 @@ void pane(float scale, PaneFonts fonts)
             ImGui::PopID();
         }
         ImGui::EndTable();
-        if (remove) {
+        if (remove != 0) {
             delete_run(remove);
         }
     }

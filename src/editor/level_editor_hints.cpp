@@ -42,7 +42,7 @@ std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vecto
     const auto mods = hint_limit.mods;
     const auto limit = hint_limit.limit;
     std::vector<std::pair<std::string, std::string>> out;
-    if (!mods) {
+    if (mods == 0U) {
         return out;
     }
     for (const actions::ActStep& a : actions) {
@@ -53,7 +53,7 @@ std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vecto
             continue;
         }
         for (const actions::Chord& c : a.keys) {
-            if (c.scancode && c.mods == mods) {
+            if ((c.scancode != 0) && c.mods == mods) {
                 const std::string text = actions::format_chord(c);
                 if (!text.empty()) {
                     out.emplace_back(text, a.name);
@@ -366,7 +366,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.act("simulate", "stop simulating");
     }
     // A modifier held: what it changes, then what it's bound to (the registry).
-    if (c.mods) {
+    if (c.mods != 0U) {
         const bool selected = c.selection != Selection::kNone;
         if (c.mods == actions::kAlt) {
             b.get_raw("Alt+LMB", "one piece (any)");

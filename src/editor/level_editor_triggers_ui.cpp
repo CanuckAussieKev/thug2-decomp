@@ -95,7 +95,7 @@ void update_lists()
     }
     static const uint32_t kTriggerScript = 0x2CA8A299;
     for (const nodes::Elem& node : nodes::get_all()) {
-        if (node.family == nodes::Family::kSpawn && !node.hidden && node.name) {
+        if (node.family == nodes::Family::kSpawn && !node.hidden && (node.name != 0U)) {
             level_editor_triggers_ui_state().restarts_.push_back(get_name_of(node.name));
         }
         if (!node.trigger_script_ || node.added) {
@@ -103,7 +103,7 @@ void update_lists()
         }
         script::Struct* s = nodes::struct_of(node);
         uint32_t script = 0;
-        if (s && s->read_hash_value(kTriggerScript, &script, 0) && script) {
+        if (s && s->read_hash_value(kTriggerScript, &script, 0) && (script != 0U)) {
             const std::string name = get_name_of(script);
             if (std::ranges::find(level_editor_triggers_ui_state().scripts_, name) ==
                 level_editor_triggers_ui_state().scripts_.end()) {
@@ -239,7 +239,7 @@ void proxim_section(uint32_t node)
             gui::tooltip("World-aligned box");
         }
     }
-    if (now && ImGui::Button("Revert")) {
+    if ((now != nullptr) && ImGui::Button("Revert")) {
         get_queue([node] { set_proxim(ProximEdit{.node = node}, true); });
     }
     gui::text_disabled("Drag the handles to resize");
@@ -273,7 +273,7 @@ void level_trigger_details(const LevelTrigger& l)
     gui::text_colored(get_colour(l.off ? kDisabledColour : kind_colour(l.kind)), "%s", describe_level_trigger(l).c_str());
     gui::text_disabled("Level trigger %s: %d trigger faces%s", nodes::caption(l.sector).c_str(), l.face_count_,
                         l.has_node_ ? "" : " (no node)");
-    gui::text_disabled("TriggerScript: %s", l.script ? nodes::caption(l.script).c_str() : "(none)");
+    gui::text_disabled("TriggerScript: %s", (l.script != 0U) ? nodes::caption(l.script).c_str() : "(none)");
     gui::text_disabled("Box (%.0f, %.0f, %.0f) .. (%.0f, %.0f, %.0f)", l.min.x, l.min.y, l.min.z, l.max.x, l.max.y,
                         l.max.z);
     const uint32_t sector = l.sector;
@@ -298,7 +298,7 @@ void level_trigger_details(const LevelTrigger& l)
             gui::tooltip("Move as an invisible wall (size is fixed)");
         }
     }
-    ImGui::BeginDisabled(!switchable || !l.script);
+    ImGui::BeginDisabled(!switchable || (l.script == 0U));
     if (ImGui::Button("Make Editable Copy")) {
         get_queue([sector] { make_editable(sector); });
     }
@@ -388,7 +388,7 @@ void pane(PaneArea area, PaneState pane_state)
     gui::text_disabled("Breakables: select scenery, then Breaks When Hit");
     // The legend.
     for (int k = 0; k < kKinds; ++k) {
-        if (k % kSeparatorEvery) {
+        if ((k % kSeparatorEvery) != 0) {
             ImGui::SameLine();
         }
         gui::text_colored(get_colour(kind_colour(static_cast<Kind>(k))), "%s", kind_name(static_cast<Kind>(k)));
@@ -612,7 +612,7 @@ void inspector_section(int index)
     if (ImGui::IsItemHovered()) {
         gui::tooltip("Run the script when leaving too");
     }
-    if (s.replaces) {
+    if (s.replaces != 0U) {
         gui::text_disabled("Replaces %s", nodes::caption(s.replaces).c_str());
     }
     if (a->problem) {
@@ -629,7 +629,7 @@ void inspector_section(int index)
 
 void scenery_section(uint32_t sector)
 {
-    if (!sector) {
+    if (sector == 0U) {
         return;
     }
     const Added* a = breakable_of(sector);

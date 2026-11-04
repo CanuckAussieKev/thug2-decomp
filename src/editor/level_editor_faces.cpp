@@ -135,7 +135,7 @@ std::string write_records(const std::vector<SectorFaces>& sectors)
         text::format_to(text, "faces %08X ", s.checksum);
         out += text.data();
         for (size_t i = 0; i < s.faces.size(); ++i) {
-            text::format_to(text, "%s%u:%04X", i ? "," : "", static_cast<unsigned>(core::at(s.faces, i).first),
+            text::format_to(text, "%s%u:%04X", (i != 0U) ? "," : "", static_cast<unsigned>(core::at(s.faces, i).first),
                             static_cast<unsigned>(core::to_underlying(core::at(s.faces, i).second)));
             out += text.data();
         }
@@ -571,11 +571,11 @@ bool home_selection()
             ++faces;
         }
     }
-    if (faces) {
+    if (faces != 0) {
         push_module_undo(before);
         view::stale_cache();
     }
-    hud::get_message(faces ? "Face flags reverted" : "Face flags already original");
+    hud::get_message((faces != 0) ? "Face flags reverted" : "Face flags already original");
     return true;
 }
 
@@ -604,10 +604,10 @@ int get_apply(const std::vector<SectorFaces>& sectors)
             }
         }
     }
-    if (count) {
+    if (count != 0) {
         view::stale_cache();
     }
-    if (missing) {
+    if (missing != 0) {
         get_log("level editor: %d edited collision faces aren't in this level's collision - skipped", missing);
     }
     return count;

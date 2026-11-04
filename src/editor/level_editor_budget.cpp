@@ -208,7 +208,8 @@ bool region_use(memory::Zone* region, double* size, double* used)
 bool level_up()
 {
     constexpr uint32_t kSkater = 0x5B8AB877; // Skater
-    return render::current_level() != 0 && objects::find_object(kSkater) && scenery::main_scene();
+    return render::current_level() != 0 && (objects::find_object(kSkater) != nullptr) &&
+           (scenery::main_scene() != nullptr);
 }
 
 // The baseline: taken in the first frame a level (each load) is up.
@@ -273,8 +274,8 @@ std::vector<Meter> get_meters()
             ++added_nodes;
             continue;
         }
-        crowns_shipped += n.type == kCrown;
-        restarts_shipped += n.cls == kRestart;
+        crowns_shipped += static_cast<int>(n.type == kCrown);
+        restarts_shipped += static_cast<int>(n.cls == kRestart);
     }
     const node_create::Counts counts = node_create::counts_now();
     // A budget line: what is used, the limit and what this level added.
@@ -301,7 +302,7 @@ std::vector<Meter> get_meters()
           "GetRestartNode 0x0046B790: a 256-name stack array for every restart (more overruns it)");
     int added_lights = 0;
     for (const nodes::Elem& n : nodes) {
-        added_lights += n.added && !n.hidden && n.family == nodes::Family::kLight;
+        added_lights += static_cast<int>(n.added && !n.hidden && n.family == nodes::Family::kLight);
     }
     count("Level lights", {.used = static_cast<double>(counts.level_lights_), .limit = static_cast<double>(node_create::kMaxLevelLights), .added = static_cast<double>(added_lights)},
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");

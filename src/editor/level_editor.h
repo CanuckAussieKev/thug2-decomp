@@ -402,7 +402,7 @@ V3 get_quarter_turn(V3 v, int quarters);
 inline V3 per_axis(V3 v, V3 s) { return {.x = v.x * s.x, .y = v.y * s.y, .z = v.z * s.z}; }
 // A per-axis scale as seen after `quarters` quarter turns about up: odd turns swap its x and z (get_quarter_turn(per_axis(v,
 // s), q) == per_axis(get_quarter_turn(v, q), turned_scale(s, q))).
-inline V3 turned_scale(V3 s, int quarters) { return (quarters & 1) ? V3{.x = s.z, .y = s.y, .z = s.x} : s; }
+inline V3 turned_scale(V3 s, int quarters) { return ((quarters & 1) != 0) ? V3{.x = s.z, .y = s.y, .z = s.x} : s; }
 inline bool is_unit_scale(V3 s) { return s.x == 1.0F && s.y == 1.0F && s.z == 1.0F; }
 inline bool is_uniform_scale(V3 s) { return s.x == s.y && s.y == s.z; }
 

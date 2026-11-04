@@ -282,7 +282,7 @@ std::string record_key(const std::string& line)
                 want = 1;
             }
         }
-        key += (words ? " " : "") + word;
+        key += ((words != 0) ? " " : "") + word;
         ++words;
     }
     return key;
@@ -321,7 +321,7 @@ bool get_cast(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false)) {
+    if (ray->get_collision_along(&start, &end, false) == 0) {
         return false;
     }
     const auto& n = ray->hit().normal;
@@ -425,7 +425,7 @@ bool get_marked(checksums::Name node_name, uint8_t bits)
 {
     const uint32_t name = node_name.value();
     auto it = marks_state().find(name);
-    return it != marks_state().end() && (it->second & bits);
+    return it != marks_state().end() && ((it->second & bits) != 0);
 }
 
 // Whether the editor changed scenery near a point (moved pieces, copies): then a problem there isn't the level's own.
@@ -456,7 +456,8 @@ bool scenery_changed_near(V3 point, float margin)
 
 void append_one(std::vector<Issue>* out, Issue issue, const std::string& detail = "")
 {
-    issue.key = issue_key(issue.rule, issue.node ? issue.node : issue.sector, detail.empty() ? issue.text : detail);
+    issue.key =
+        issue_key(issue.rule, (issue.node != 0U) ? issue.node : issue.sector, detail.empty() ? issue.text : detail);
     out->push_back(std::move(issue));
 }
 
@@ -764,7 +765,7 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
             issue.severity = Severity::kDetailsOf;
             issue.text = "Trigger faces of " + get_name(t.sector) + " have no node";
             append_one(out, issue);
-        } else if (!t.script) {
+        } else if (t.script == 0U) {
             issue.node = t.sector;
             issue.rule = Rule::kTriggerScript;
             issue.severity = Severity::kDetailsOf;
@@ -795,14 +796,14 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
             s->read_hash_value(kTriggerScript, &script, 0);
         }
         const triggers::ProximEdit* edit = triggers::proxim_of(n.name);
-        const bool edited = edit && (!edit->enter.empty() || !edit->exit.empty());
-        if (!script && !edited) {
+        const bool edited = (edit != nullptr) && (!edit->enter.empty() || !edit->exit.empty());
+        if ((script == 0U) && !edited) {
             issue.rule = Rule::kTriggerScript;
             issue.severity = own ? Severity::kDetailsOf : Severity::kWarning;
             issue.level_own_ = own;
             issue.text = "Proximity node " + get_name(n.name) + " has no TriggerScript";
             append_one(out, issue);
-        } else if (script && !script::script_exists(script)) {
+        } else if ((script != 0U) && !script::script_exists(script)) {
             issue.rule = Rule::kTriggerScript;
             issue.severity = Severity::kError;
             issue.level_own_ = own;
@@ -878,9 +879,9 @@ MpCounts count_multiplayer(bool shipped)
             continue;
         }
         if (n.family == nodes::Family::kSpawn) {
-            counts.player1 += core::any(n.restart_types_ & nodes::SpawnPointKind::kPlayer1);
-            counts.multiplayer += core::any(n.restart_types_ & nodes::SpawnPointKind::kMultiplayer);
-            counts.horse += core::any(n.restart_types_ & nodes::SpawnPointKind::kHorse);
+            counts.player1 += static_cast<int>(core::any(n.restart_types_ & nodes::SpawnPointKind::kPlayer1));
+            counts.multiplayer += static_cast<int>(core::any(n.restart_types_ & nodes::SpawnPointKind::kMultiplayer));
+            counts.horse += static_cast<int>(core::any(n.restart_types_ & nodes::SpawnPointKind::kHorse));
         }
         if (n.type == kCrown) {
             ++counts.crowns;
@@ -985,7 +986,7 @@ void fix(const Issue& issue)
     switch (issue.rule) {
     case Rule::kBelowGround: {
         node_edit::Values values;
-        if (!issue.node || !node_edit::get_take_in(issue.node, &values)) {
+        if ((issue.node == 0U) || !node_edit::get_take_in(issue.node, &values)) {
             return;
         }
         push_module_undo(std::make_shared<NodePlace>(issue.node, values));
@@ -1205,7 +1206,7 @@ void note_layout_applied(const layout::FileLoad& file)
             report(e.name, "Sound emitter " + get_name(e.name), one);
         }
     }
-    if (file.level.start && !node(file.level.start)) {
+    if ((file.level.start != 0U) && !node(file.level.start)) {
         layout::FileLoad one;
         one.level = file.level;
         report(file.level.start, "The level's start, restart " + get_name(file.level.start), one);
@@ -1343,10 +1344,10 @@ ImVec4 severity_colour(Severity severity)
 void go_to(const Issue& issue)
 {
     bool done = false;
-    if (issue.node) {
+    if (issue.node != 0U) {
         done = go_to_node_named(issue.node);
     }
-    if (!done && issue.sector) {
+    if (!done && (issue.sector != 0U)) {
         done = go_to_scenery(issue.sector);
     }
     if (!done && issue.has_pos_) {
@@ -1364,8 +1365,8 @@ void problems_tab(float scale, ImFont* mono)
     int own = 0;
     int ignored = 0;
     for (const Issue& issue : level_editor_checks_state().issues_) {
-        own += issue.level_own_;
-        ignored += ignored_state().contains(issue.key);
+        own += static_cast<int>(issue.level_own_);
+        ignored += static_cast<int>(ignored_state().contains(issue.key));
     }
     std::array<char, kLabelTextSize> label{};
     text::format_to(label, "Original Level (%d)", own);
@@ -1385,11 +1386,11 @@ void problems_tab(float scale, ImFont* mono)
     ImGui::Separator();
     int shown = 0;
     for (const Issue& issue : level_editor_checks_state().issues_) {
-        shown += get_shown(issue);
+        shown += static_cast<int>(get_shown(issue));
     }
-    if (!shown) {
+    if (shown == 0) {
         gui::text_colored(kNoProblemsColour, "No problems");
-        if (own) {
+        if (own != 0) {
             gui::text_disabled("(%d in the original level)", own);
         }
         return;
@@ -1424,7 +1425,7 @@ void problems_tab(float scale, ImFont* mono)
             ImGui::PopStyleColor();
         }
         ImGui::TableNextColumn();
-        const bool can_go = issue.node || issue.sector || issue.has_pos_;
+        const bool can_go = (issue.node != 0U) || (issue.sector != 0U) || issue.has_pos_;
         ImGui::BeginDisabled(!can_go);
         if (ImGui::SmallButton("Go to")) {
             const Issue copy = issue;

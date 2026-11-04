@@ -56,7 +56,7 @@ Step step_between(const Placement& from, const Placement& to)
 void step_collision(render::TriMeshSource* tri, const Placement& from, const Placement& to)
 {
     const Step step = step_between(from, to);
-    if (step.turns) {
+    if (step.turns != 0) {
         const maths::Vec4 centre = {.x = step.centre.x, .y = step.centre.y, .z = step.centre.z, .w = 0.0F};
         tri->rotate_y(&centre, step.turns);
     }
@@ -227,7 +227,7 @@ bool is_wall(uint32_t checksum)
 {
     render::WorldCell* sector = scenery::sector_of(checksum);
     render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
-    return coll && tri_of(coll) && geom_of(sector) == nullptr;
+    return (coll != nullptr) && (tri_of(coll) != nullptr) && geom_of(sector) == nullptr;
 }
 
 bool cuboid(uint32_t checksum, V3* min, V3* max)
@@ -305,13 +305,13 @@ bool disengaged(uint32_t checksum)
     }
     render::WorldCell* sector = scenery::sector_of(checksum);
     render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
-    return coll && geom_of(sector) == nullptr && flag_off(coll);
+    return (coll != nullptr) && geom_of(sector) == nullptr && flag_off(coll);
 }
 
 bool get_moved(uint32_t checksum, Placement* placement)
 {
     auto it = tracks_state().find(checksum);
-    if (it == tracks_state().end() || !track_of(checksum)) {
+    if (it == tracks_state().end() || (track_of(checksum) == nullptr)) {
         return false;
     }
     *placement = it->second.placement;

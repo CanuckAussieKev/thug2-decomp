@@ -236,7 +236,7 @@ int surface_nudge(uint32_t fvf, uint32_t stride)
     constexpr uint32_t kXyz = 0x002;
     constexpr uint32_t kNormal = 0x010;
     // (an FVF's texture coordinate size bits are 0 for the scene's 2D coordinates: a larger value is a shader handle)
-    if (fvf >= kFvfShaderHandleLimit || (fvf & kPositionMask) != kXyz || !(fvf & kNormal) ||
+    if (fvf >= kFvfShaderHandleLimit || (fvf & kPositionMask) != kXyz || ((fvf & kNormal) == 0U) ||
         stride < kMinVertexStride) {
         return -1;
     }
@@ -333,7 +333,7 @@ CollisionCopy copy_collision(render::TriMeshSource* data)
 bool same_collision(const CollisionCopy& copy)
 {
     const render::TriMeshSource* data = copy.data;
-    return data && data->vertices() == copy.vertex_array_ && data->num_vertices() == copy.num_vertices_ &&
+    return (data != nullptr) && data->vertices() == copy.vertex_array_ && data->num_vertices() == copy.num_vertices_ &&
            data->compressed() == copy.compressed && copy.vertices.size() == get_vertex_bytes(data);
 }
 
@@ -356,7 +356,7 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
         const maths::Vec4 factor = {.x = scale.x, .y = scale.y, .z = scale.z, .w = 1.0F};
         data->scale_tool(&centre, &factor);
     }
-    if (quarters & 3) {
+    if ((quarters & 3) != 0) {
         data->rotate_y(&centre, quarters & 3);
     }
     const V3 delta = to - from;
@@ -494,14 +494,14 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
             copy.positions.push_back(std::move(positions));
             copy.normals.push_back(std::move(normals));
         }
-        if (mesh->positions() && mesh->position_count()) {
+        if (mesh->positions() && (mesh->position_count() != 0U)) {
             const std::span<const float> position_list(mesh->positions(), 3U * size_t{mesh->position_count()});
             copy.list_copy_.assign(position_list.begin(), position_list.end());
         }
         original->meshes.push_back(std::move(copy));
     }
     render::TriMeshSource* data = collision_data(sector);
-    original->have_collision_ = data && data->vertices();
+    original->have_collision_ = (data != nullptr) && (data->vertices() != nullptr);
     if (original->have_collision_) {
         original->collision = copy_collision(data);
     }
@@ -625,8 +625,8 @@ gsl::owner<render::HitMesh*> collision_of(objects::GameEntity* object)
 
 bool get_alive(objects::GameEntity* object)
 {
-    return object && !(object->object_flags() & objects::kObjectFlagDead) &&
-           !(object->composite_flags() & objects::kCompositeFlagDestroying);
+    return (object != nullptr) && ((object->object_flags() & objects::kObjectFlagDead) == 0U) &&
+           ((object->composite_flags() & objects::kCompositeFlagDestroying) == 0U);
 }
 
 // The entry of an object, if it's still the object (and the collision) it was made for.
@@ -657,8 +657,8 @@ bool take_tri(render::HitMovingTriangles* tri, ObjectEntry* entry)
     if (!geometry) {
         return true;
     }
-    const bool owns =
-        (tri->flag_bits() & render::HitMesh::kOwnsGeometry) && !(tri->flag_bits() & render::HitMesh::kSharedGeometry);
+    const bool owns = ((tri->flag_bits() & render::HitMesh::kOwnsGeometry) != 0) &&
+                      ((tri->flag_bits() & render::HitMesh::kSharedGeometry) == 0);
     if (!owns) {
         render::TriMeshSource* own = geometry->replicate(0, false);
         if (!own) {
@@ -727,7 +727,10 @@ V3 get_object_scale(objects::GameEntity* object)
     return entry ? entry->scale : get_uniform(1.0F);
 }
 
-bool object_scalable(objects::GameEntity* object) { return object && get_alive(object) && model_of(object); }
+bool object_scalable(objects::GameEntity* object)
+{
+    return (object != nullptr) && get_alive(object) && (model_of(object) != nullptr);
+}
 
 V3 object_limit(objects::GameEntity* object)
 {

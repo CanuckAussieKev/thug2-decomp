@@ -635,7 +635,7 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
     new (node) script::Struct;
     // A chain point drawn on from another copies that one's fields (its own name, place and links aside; not a trick
     // object of the other's cluster) - level_editor_chains.h.
-    script::Struct* like = spec.like && hub() ? level_nodes::fetch_vertex(spec.like, false) : nullptr;
+    script::Struct* like = (spec.like != 0U) && hub() ? level_nodes::fetch_vertex(spec.like, false) : nullptr;
     if (like) {
         node->merge_structure(like);
         for (const char* key : {"Name", "Pos", "Angles", "Links", "Cluster", "ed_hidden_class", "ed_hidden_type"}) {
@@ -652,7 +652,7 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
         if (like && f.key == "TerrainType" && spec.terrain.empty()) {
             continue; // (the copied one)
         }
-        if (like && key) {
+        if (like && (key != 0U)) {
             node->erase_module(key);
         }
         switch (f.type) {
@@ -867,7 +867,7 @@ void get_forget()
 bool in_level()
 {
     const level_nodes::NodeManager* manager = hub();
-    return manager && manager->num() > (level_editor_node_create_state().registered_ ? 1U : 0U) &&
+    return (manager != nullptr) && manager->num() > (level_editor_node_create_state().registered_ ? 1U : 0U) &&
            render::current_level() != 0;
 }
 
@@ -1142,7 +1142,7 @@ bool can_hide(const nodes::Elem& node, const char** why)
         *why = "Added nodes are deleted, not hidden";
         return false;
     }
-    if (!node.name) {
+    if (node.name == 0U) {
         *why = "A node without a name can't be hidden";
         return false;
     }
@@ -1241,8 +1241,8 @@ bool conceal(uint32_t name, bool hide)
         }
         // (a flag a CTF game made: killed - it comes back when the game makes it again)
         auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-        if (object && !(object->object_flags() & objects::kObjectFlagDead) && cls != kProxim && cls != kEmitter &&
-            cls != kLight) {
+        if (object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) && cls != kProxim &&
+            cls != kEmitter && cls != kLight) {
             object->flag_as_dead();
         }
         stored_hidden().push_back(h);
@@ -1262,7 +1262,7 @@ bool conceal(uint32_t name, bool hide)
         node->erase_module(kClass);
         node->erase_module(kType);
         node->put_name_key(checksums::Name{kClass}, cls);
-        if (type) {
+        if (type != 0U) {
             node->put_name_key(checksums::Name{kType}, type);
         }
         if (cls == kProxim && have_proxim() && h.proxim_active_) {

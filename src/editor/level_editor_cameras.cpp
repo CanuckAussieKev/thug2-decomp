@@ -455,7 +455,7 @@ bool shot_offsets(uint32_t name, ShotOffsets offsets)
 bool cfunc_play_camera(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
-    if (!params || !params->read_hash_value(get_checksums("camera"), &name, 0) || !name) {
+    if (!params || !params->read_hash_value(get_checksums("camera"), &name, 0) || (name == 0U)) {
         get_log("level editor: LevelEditor_PlayCamera needs camera=<node>");
         return false;
     }
@@ -539,7 +539,7 @@ bool get_preview(uint32_t name)
 {
     const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
-    return c && look_through(*c);
+    return (c != nullptr) && look_through(*c);
 }
 
 bool aim_from_view(uint32_t name)
@@ -723,7 +723,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
 void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
 {
     const std::vector<ViewCam> all = get_all();
-    const ViewCam* c = node ? get_find(all, node) : nullptr;
+    const ViewCam* c = (node != 0U) ? get_find(all, node) : nullptr;
     if (!c) {
         return;
     }
