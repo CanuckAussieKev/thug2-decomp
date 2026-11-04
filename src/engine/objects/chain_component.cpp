@@ -14,7 +14,6 @@
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/pager_message.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/param_struct.h"

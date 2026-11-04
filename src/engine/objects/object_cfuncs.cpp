@@ -11,7 +11,6 @@
 #include "engine/gfx/viewport_list.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

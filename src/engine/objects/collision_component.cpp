@@ -11,7 +11,6 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
-#include "engine/net/buddy_status.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_static.h"

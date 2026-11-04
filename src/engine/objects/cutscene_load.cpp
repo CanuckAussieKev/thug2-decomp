@@ -14,7 +14,6 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"

@@ -13,7 +13,6 @@
 #include "engine/gfx/pc_lights.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/net/buddy_status.h"
 #include "engine/gfx/pc_mesh.h"
 #include "base/core/packed_colour.h"
 #include <gsl/pointers>

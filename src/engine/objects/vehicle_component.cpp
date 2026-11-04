@@ -26,7 +26,6 @@
 #include "engine/gfx/debug_lines.h"
 #include "base/maths/mat4.h"
 #include "base/maths/random.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/proximity.h"
 #include "engine/objects/vehicle_internal.h"
 #include "engine/objects/vehicle_wheel.h"

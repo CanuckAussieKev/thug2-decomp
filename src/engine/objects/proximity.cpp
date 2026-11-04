@@ -13,7 +13,6 @@
 #include "engine/gfx/sector.h"
 #include "base/maths/shape_tests.h"
 #include "engine/render/coll_obj.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

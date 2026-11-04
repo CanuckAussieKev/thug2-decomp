@@ -20,7 +20,6 @@
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/camera_lookaround.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"

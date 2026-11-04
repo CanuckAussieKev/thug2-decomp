@@ -18,7 +18,6 @@
 #include "engine/gfx/rig.h"
 #include "base/maths/quat_rotation.h"
 #include "base/maths/vec4.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"

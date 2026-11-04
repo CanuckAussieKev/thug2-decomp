@@ -15,7 +15,6 @@
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/rig.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/objects/pager_message.h"
 #include "engine/objects/suspend_component.h"

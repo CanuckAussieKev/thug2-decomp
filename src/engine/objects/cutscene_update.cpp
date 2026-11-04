@@ -17,7 +17,6 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/rig.h"
 #include "base/maths/mat4.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/matrix_component.h"
 #include "engine/objects/model_component.h"

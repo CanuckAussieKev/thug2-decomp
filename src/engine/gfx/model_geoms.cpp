@@ -28,7 +28,6 @@
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
 #include "base/maths/vec4.h"
-#include "engine/net/buddy_status.h"
 #include "engine/objects/pager_message.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
