@@ -33,8 +33,8 @@ the engine (`engine/lists`' chains and maps, `engine/util`'s LZSS compressor and
 `base/` and their headers. It doesn't call up: what the game does on the platform's events, and where it keeps the
 platform's devices, is wired by `app/`. The SDL event pump calls the handlers registered with it (the quit request is
 the start-up's, `app/pc_setup.cpp`; the window's focus WinMain's); `sys::create_sdl_window` returns the window's
-handle and `os_layer::init_direct_sound` the DirectSound device, which WinMain keeps in the renderer and the audio's
-state; the base layer's sinks are installed by `app/main.cpp`. What uses the engine's state is the engine's: the frame
+handle, which WinMain keeps where the platform's window is (`sys::game_window`), and `os_layer::init_direct_sound` the
+DirectSound device, which it keeps in the audio's state; the base layer's sinks are installed by `app/main.cpp`. What uses the engine's state is the engine's: the frame
 clock (`engine/sys/stopwatch`, `game_clock`), the renderer's Direct3D buffers and queries
 (`engine/gfx/pc_d3d_resources`), and the original's DirectInput side - its pad read, the registry options and input
 set-up (`engine/pad_input/direct_input`, `input_setup`).
@@ -180,7 +180,15 @@ everything above it uses the game's own types and may change them freely.
 - `gpu/` (static library `thug2_gpu`, on platform): the Direct3D vertex and index buffers (`vertex_buffers`): made, filled through their copies in memory,
   written again after a device reset, torn down. Game code sees the buffers' API, not the device; it reads and writes
   vertices by attribute through `gpu::VertexView` / `VertexWriter` (`vertex_view.h`: a stride and offsets, never the
-  bytes themselves).
+  bytes themselves). The graphics handles (`gpu_handles.h`): what a header outside Direct3D's own files holds of the
+  graphics API's objects - `render::GpuDevice`, `GpuTexture`, `GpuSurface`, `GpuVertexBuffer`, `GpuIndexBuffer`,
+  `GpuInstance` -, pointers to incomplete types whose value is the object's own pointer (no wrapper or table: a handle
+  costs what the original's pointer did). The files that talk to Direct3D convert them (`d3d9_handles.h`:
+  `d3d9::object`, `handle`, and `out` for Direct3D's out-parameters). `<d3d9.h>` is included only by Direct3D's files
+  and their own headers: `engine/gfx/d3d9_state.h` (the renderer's Direct3D objects - Direct3D itself, the device, the
+  depth surfaces, the back buffer, the screen copies -, `render::d3d9::state()`; the backend-free rest of the
+  renderer's state is `render::Renderer`, `renderer.h`), `device_d3d.h`, `pc_d3d_resources.h`, `gpu/d3d9_handles.h`,
+  `platform/d3d_matrix.h`, `d3dx_jpg.h` and the editor's ImGui texture id (`platform/imgui_texture_id.h`).
 - `platform/`: the operating system and the SDKs - the SDL window and its event pump, DirectSound's set-up, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
   Winsock with IPv4 addresses and byte buffers (`sockets.h`), Direct3D's matrices over the game's (`d3d_matrix.h`),

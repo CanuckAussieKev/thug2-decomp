@@ -125,7 +125,8 @@ exceptions, all in one place:
   a named integer; bit-for-bit float compares are `core::has_bits` / `same_bits` (`base/core/same_bits.h`);
   repeated branches are merged; assignments and counts come out of conditions; switches say `default: break`;
   `value + 0.5` truncations are `maths::round_non_negative`; Direct3D's interfaces come from `<d3d9.h>` (a forward
-  declaration of a COM interface is a second declaration of the SDK's class); the C runtime heap is
+  declaration of a COM interface is a second declaration of the SDK's class), which only Direct3D's own files include -
+  every other header holds the graphics handles (`gpu/gpu_handles.h`); the C runtime heap is
   `crt::alloc_block` / `dealloc`; configuration macros (`DIRECTINPUT_VERSION`, Winsock's deprecation switch) are
   CMake definitions; plain enums held as integers (table indexes, values fixed by a file, a script, the wire or an
   SDK, the original's integer fields used as numbers) are named `constexpr` constants with an alias for the field's
