@@ -207,7 +207,7 @@ bool simulate_key_keeps(int scancode, bool ctrl, bool alt, bool fly_keys_safe);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-// Once a frame from the front end's input logic while the editor isn't running (mouse_menus::tick_frame): the trail
+// Once a frame from the front end's input logic while the editor isn't running (its extension): the trail
 // recorded, a restart's play from here finished.
 void tick_frame(modules::FrontEnd* front_end);
 // The editor starting (LevelEditor_Start: the run under way ends; the level's side file read if it has no runs) and

@@ -44,7 +44,7 @@ void get_keep(const Resume& resume, int level_load);
 // level load, and only once.
 bool take_resume(Resume* resume, int level_load);
 
-// Once a frame from the front end's input logic while the editor isn't running (mouse_menus::tick_frame): the pause menu
+// Once a frame from the front end's input logic while the editor isn't running (its extension): the pause menu
 // closed after leaving, the play key in play.
 void tick_frame(modules::FrontEnd* front_end);
 

@@ -10,6 +10,8 @@
 #include "editor/level_editor.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_layout.h"
+#include "editor/level_editor_play.h"
+#include "editor/level_editor_playtest.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
 #include "engine/ext/extension.h"
@@ -22,6 +24,18 @@ class LevelEditorExtension final : public ext::Extension {
 public:
     void register_script_commands() override { register_script_functions(); }
     void prepare_input() override { prepare_all(); }
+
+    // While it runs: its own input logic (a requested exit - Escape - runs level_editor_exit); otherwise play from
+    // here's way back to the editor (F5 / Ctrl+P) and play testing (the skater's trail, a restart's play from here).
+    void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
+    {
+        if (game_owned) {
+            input_logic();
+            return;
+        }
+        perform::tick_frame(front_end);
+        play_test::tick_frame(front_end);
+    }
 
     bool owns_game() override { return live_now(); }
     bool pass_pause_key(bool down) override { return level_editor::pass_pause_key(down); }

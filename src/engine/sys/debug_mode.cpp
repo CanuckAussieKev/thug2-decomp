@@ -221,3 +221,27 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
 }
 
 } // namespace sys::debug_mode
+
+namespace sys::debug_mode {
+
+namespace {
+
+class DebugModeExtension final : public ext::Extension {
+public:
+    void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
+    {
+        if (!game_owned) {
+            tick_frame(front_end);
+        }
+    }
+};
+
+} // namespace
+
+ext::Extension& extension()
+{
+    static DebugModeExtension debug_mode;
+    return debug_mode;
+}
+
+} // namespace sys::debug_mode

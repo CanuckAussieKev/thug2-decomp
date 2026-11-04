@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+namespace ext {
+class Extension;
+}
 namespace modules {
 struct FrontEnd;
 }
@@ -52,8 +55,10 @@ bool cfunc_not_cd(script::Struct* params, script::Script* script);
 // table is the game's own source, this stands in for its entries (done by sio::init_sdl_input, before the script
 // functions are registered).
 void install();
-// Once a frame from the front end's input logic (mouse_menus::tick_frame): the viewer launched once, the F keys.
+// Once a frame from the front end's input logic (through its extension): the viewer launched once, the F keys.
 void tick_frame(modules::FrontEnd* front_end);
+// Debug mode as an extension (engine/ext/extension.h; app/ registers it): its frame, while no extension owns the game.
+ext::Extension& extension();
 // Where the viewer's two sticks go (left and right, x and y).
 struct ViewerSticks {
     float* left_x_{};

@@ -273,7 +273,6 @@ src/engine/objects/walk_hang.cpp -> src/game/skate/skate_module.h
 src/engine/pad_input/device.cpp -> src/game/front_end/front_end.h
 src/engine/pad_input/device.cpp -> src/game/park_editing/park_editor.h
 src/engine/pad_input/device.cpp -> src/game/skate/profile_manager.h
-src/engine/pad_input/sdl_input.cpp -> src/frontend/mouse_menus.h
 src/engine/pad_input/sdl_input.cpp -> src/game/rider/thaw_bmx.h
 src/engine/render/probe_ray.cpp -> src/game/rider/debug_collision.h
 src/engine/script/game_cfuncs.cpp -> src/game/front_end/front_end.h
@@ -363,12 +362,6 @@ src/formats/check/format_check.cpp -> src/wire/skate_net_messages.h
 src/formats/check/format_check_net.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check_net.cpp -> src/wire/play_messages.h
 src/formats/check/format_check_net.cpp -> src/wire/skater_messages.h
-src/frontend/mouse_menus.cpp -> src/devtools/automation.h
-src/frontend/mouse_menus.cpp -> src/devtools/restart_tester.h
-src/frontend/mouse_menus.cpp -> src/devtools/start_level.h
-src/frontend/mouse_menus.cpp -> src/editor/level_editor.h
-src/frontend/mouse_menus.cpp -> src/editor/level_editor_play.h
-src/frontend/mouse_menus.cpp -> src/editor/level_editor_playtest.h
 src/frontend/new_frontend.cpp -> src/devtools/automation.h
 src/frontend/new_frontend.cpp -> src/devtools/restart_tester.h
 src/frontend/new_frontend.cpp -> src/devtools/start_level.h
@@ -376,8 +369,6 @@ src/frontend/new_frontend.cpp -> src/editor/level_editor.h
 src/frontend/new_frontend.cpp -> src/editor/level_editor_playtest.h
 src/frontend/new_frontend.cpp -> src/editor/level_editor_ui_backend.h
 src/frontend/new_frontend_game.cpp -> src/editor/level_editor.h
-src/game/front_end/front_end.cpp -> src/devtools/automation.h
-src/game/front_end/front_end.cpp -> src/frontend/mouse_menus.h
 src/gpu/vertex_buffers.cpp -> src/engine/gfx/renderer.h
 src/gpu/vertex_buffers.cpp -> src/engine/memory/mem.h
 src/wire/gamenet_messages.cpp -> src/formats/byte_stream.h

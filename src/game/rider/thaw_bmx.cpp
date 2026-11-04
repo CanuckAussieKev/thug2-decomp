@@ -476,3 +476,27 @@ void tick_frame(modules::FrontEnd* front_end)
 }
 
 } // namespace skater::thaw_bmx
+
+namespace skater::thaw_bmx {
+
+namespace {
+
+class ThawBmxExtension final : public ext::Extension {
+public:
+    void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
+    {
+        if (!game_owned) {
+            tick_frame(front_end);
+        }
+    }
+};
+
+} // namespace
+
+ext::Extension& extension()
+{
+    static ThawBmxExtension bmx;
+    return bmx;
+}
+
+} // namespace skater::thaw_bmx

@@ -6,6 +6,9 @@
 
 #include "base/maths/vec4.h"
 
+namespace ext {
+class Extension;
+}
 namespace modules {
 struct FrontEnd;
 }
@@ -164,8 +167,10 @@ void register_script_functions();
 // From Rider::reset_components (its special items destroyed - the bike with them): off the bike, out of the vehicle,
 // the board and the camera back (the script thaw_bmx_after_reset).
 void on_skater_reset(objects::Rider* skater);
-// Once a frame from the front end's input logic (mouse_menus::tick_frame): the key.
+// Once a frame from the front end's input logic (through its extension): the key.
 void tick_frame(modules::FrontEnd* front_end);
+// The key as an extension (engine/ext/extension.h; app/ registers it): its frame, while no extension owns the game.
+ext::Extension& extension();
 
 // ---------------------------------------------------------------------------------------------------------------
 // Phase 3 (thaw_bmx_physics.cpp): THAW's bike branches in the skater's core physics, re-expressed on THUG2's code.

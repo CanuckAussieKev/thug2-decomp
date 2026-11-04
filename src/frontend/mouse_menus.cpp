@@ -10,20 +10,12 @@
 #include <SDL2/SDL.h>
 #include <array>
 
-#include "devtools/automation.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
-#include "editor/level_editor_play.h"
-#include "editor/level_editor_playtest.h"
 #include "frontend/new_frontend.h"
-#include "devtools/restart_tester.h"
-#include "game/rider/thaw_bmx.h"
-#include "devtools/start_level.h"
-#include "engine/sys/debug_mode.h"
+#include "engine/ext/extension.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/gfx/screen.h"
-#include "engine/net/thugpro_peer.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
@@ -1004,43 +996,25 @@ void prepare_all()
     os_layer::register_event_handler(handle_mouse_event);
 }
 
-void tick_frame(modules::FrontEnd* front_end)
+namespace {
+
+// The front end's frame while an extension owns the game (the level editor has the mouse while it runs): no menu
+// events (the clicks and wheel meanwhile are dropped), the cursor left as the editor sets it - before the other
+// extensions' frames (the editor's input logic runs in its own).
+// Original behaviour (of the mouse_menus feature): the mouse drives the menus.
+void stand_aside()
 {
-    // (not original either: the THUGPRO peer mode's host options applied once a level is up -
-    // engine/net/thugpro_peer.h)
-    online::thugpro::tick_frame();
-    // Not original either - the level editor (editor/level_editor.h) has the mouse while it runs: no menu
-    // events (the clicks and wheel meanwhile are dropped), the cursor left as the editor sets it; its own input logic
-    // runs here instead.
-    // Original behaviour (of the mouse_menus feature): the mouse drives the menus.
-    if (frontend::level_editor::live_now()) {
-        mouse_menus_state().mouse_.moved = false;
-        mouse_menus_state().mouse_.left_clicks_ = 0;
-        mouse_menus_state().mouse_.right_clicks_ = 0;
-        mouse_menus_state().mouse_.wheel = 0;
-        clear_pending("the level editor runs");
-        frontend::level_editor::input_logic();
-        // (not original either: the new front end steps aside while the editor is up - frontend/new_frontend.h)
-        frontend::new_frontend::tick_frame(front_end);
-        return;
-    }
-    // (not original either: the restart tester's key, F8 - devtools/restart_tester.h)
-    frontend::restart_tester::tick_frame(front_end);
-    // (and THAW's BMX's key, F7 - game/rider/thaw_bmx.h)
-    skater::thaw_bmx::tick_frame(front_end);
-    // (and play from here's way back to the level editor, F5 / Ctrl+P - editor/level_editor_play.h)
-    frontend::level_editor::perform::tick_frame(front_end);
-    // (and play testing: the skater's trail recorded, a restart's play from here - editor/level_editor_playtest.h)
-    frontend::level_editor::play_test::tick_frame(front_end);
-    // (and debug mode's viewer and F keys - engine/sys/debug_mode.h)
-    sys::debug_mode::tick_frame(front_end);
-    // (and the start level: -level <name> - devtools/start_level.h)
-    frontend::begin_level::tick_frame(front_end);
-    // (and the test-automation channel: commands from a file - devtools/automation.h)
-    frontend::automation::tick_frame(front_end);
-    // (and the new front end - frontend/new_frontend.h: while it's up it has the mouse; the original menus under it
-    // get no mouse events, the cursor stays shown)
-    frontend::new_frontend::tick_frame(front_end);
+    mouse_menus_state().mouse_.moved = false;
+    mouse_menus_state().mouse_.left_clicks_ = 0;
+    mouse_menus_state().mouse_.right_clicks_ = 0;
+    mouse_menus_state().mouse_.wheel = 0;
+    clear_pending("the level editor runs");
+}
+
+// The mouse's menu events, after every extension's frame (the new front end's last: while it's up it has the mouse;
+// the original menus under it get no mouse events, the cursor stays shown).
+void drive_menus(modules::FrontEnd* front_end)
+{
     if (frontend::new_frontend::blocks_game_input() || frontend::new_frontend::owns_mouse()) {
         mouse_menus_state().mouse_.moved = false;
         mouse_menus_state().mouse_.left_clicks_ = 0;
@@ -1126,6 +1100,31 @@ void tick_frame(modules::FrontEnd* front_end)
             send_pad_event(front_end, notches > 0 ? kPadUp : kPadDown);
         }
     }
+}
+
+class MouseMenusExtension final : public ext::Extension {
+public:
+    void prepare_input() override { prepare_all(); }
+    void menu_frame(modules::FrontEnd* /*front_end*/, bool game_owned) override
+    {
+        if (game_owned) {
+            stand_aside();
+        }
+    }
+    void after_menu_frame(modules::FrontEnd* front_end, bool game_owned) override
+    {
+        if (!game_owned) {
+            drive_menus(front_end);
+        }
+    }
+};
+
+} // namespace
+
+ext::Extension& extension()
+{
+    static MouseMenusExtension mouse;
+    return mouse;
 }
 
 bool menu_gets_pad_events(UiWidget* menu) { return menu_takes_pad_events(menu); }

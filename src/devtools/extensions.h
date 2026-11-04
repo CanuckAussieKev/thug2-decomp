@@ -5,12 +5,17 @@ class Extension;
 }
 
 // NOT ORIGINAL - the dev tools as extensions (engine/ext/extension.h), one each. app/ registers them.
+namespace frontend::restart_tester {
+// F8 (restart_tester.h): its frame, while no extension owns the game.
+ext::Extension& extension();
+} // namespace frontend::restart_tester
 namespace frontend::begin_level {
-// -level / -edit (start_level.h): the intro movies skipped for -edit.
+// -level / -edit (start_level.h): its frame, while no extension owns the game; the intro movies skipped for -edit.
 ext::Extension& extension();
 } // namespace frontend::begin_level
 namespace frontend::automation {
-// The test-automation channel (automation.h): the buttons a `press` holds.
+// The test-automation channel (automation.h): its frame (commands from a file), while no extension owns the game; the
+// buttons a `press` holds.
 ext::Extension& extension();
 } // namespace frontend::automation
 namespace frontend::test_view {

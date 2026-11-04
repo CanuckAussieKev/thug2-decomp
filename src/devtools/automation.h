@@ -118,7 +118,7 @@ namespace frontend::automation {
 
 // [features] automation (read once).
 bool& is_switched_on();
-// Once a frame from the front end's input logic (mouse_menus::tick_frame): the command file, the running command, the
+// Once a frame from the front end's input logic (its extension): the command file, the running command, the
 // status file; and the -run script.
 void tick_frame(modules::FrontEnd* front_end);
 // The buttons a `press` holds, added to port 0's PS2-format control data (Sio's process_sdl_device, before the bits

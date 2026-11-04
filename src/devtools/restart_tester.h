@@ -17,7 +17,7 @@ struct FrontEnd;
 namespace frontend::restart_tester {
 
 bool& is_switched_on();
-// Once a frame from the front end's input logic (mouse_menus::tick_frame).
+// Once a frame from the front end's input logic (its extension).
 void tick_frame(modules::FrontEnd* front_end);
 
 } // namespace frontend::restart_tester

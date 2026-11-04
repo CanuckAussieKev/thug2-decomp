@@ -13,6 +13,8 @@ class NewFrontendExtension final : public ext::Extension {
 public:
     void register_script_commands() override { register_script_functions(); }
     void prepare_input() override { prepare_all(); }
+    // (also while an extension owns the game: it steps aside while the level editor is up)
+    void menu_frame(modules::FrontEnd* front_end, bool /*game_owned*/) override { tick_frame(front_end); }
 
     bool blocks_game_input() override { return new_frontend::blocks_game_input(); }
 

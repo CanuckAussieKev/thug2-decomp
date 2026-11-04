@@ -7,15 +7,42 @@
 #include <string>
 
 #include "devtools/automation.h"
+#include "devtools/restart_tester.h"
 #include "devtools/screenshot.h"
 #include "devtools/start_level.h"
 #include "devtools/test_view.h"
 #include "engine/ext/extension.h"
 
+namespace frontend::restart_tester {
+namespace {
+class RestartTesterExtension final : public ext::Extension {
+public:
+    void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
+    {
+        if (!game_owned) {
+            tick_frame(front_end);
+        }
+    }
+};
+} // namespace
+
+ext::Extension& extension()
+{
+    static RestartTesterExtension restart_tester;
+    return restart_tester;
+}
+} // namespace frontend::restart_tester
+
 namespace frontend::begin_level {
 namespace {
 class StartLevelExtension final : public ext::Extension {
 public:
+    void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
+    {
+        if (!game_owned) {
+            tick_frame(front_end);
+        }
+    }
     bool skips_intro_movies() override { return edit_requested(); }
 };
 } // namespace
@@ -31,6 +58,12 @@ namespace frontend::automation {
 namespace {
 class AutomationExtension final : public ext::Extension {
 public:
+    void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
+    {
+        if (!game_owned) {
+            tick_frame(front_end);
+        }
+    }
     void add_pad_buttons(int port, std::span<uint8_t> data) override { automation::add_pad_buttons(port, data); }
 };
 } // namespace

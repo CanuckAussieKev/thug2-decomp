@@ -3026,7 +3026,7 @@ void tick_frame(modules::FrontEnd* front_end)
     // ours steps aside completely - not drawn, nothing restyled, nothing covered, the original's elements as the tool
     // left them - and comes back only once the pause menu really is back (the user's report of 2026-10-25: our pause
     // menu stayed drawn over the level editor - its hand-off never finished, as this isn't called while the editor
-    // runs... mouse_menus::tick_frame calls it then too, for this).
+    // runs... its extension's menu_frame calls it then too, for this).
     if (level_editor::live_now()) {
         step_aside_for_tool();
         return;

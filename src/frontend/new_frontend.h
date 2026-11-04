@@ -48,7 +48,7 @@ struct FrontEnd;
 //
 // Input: the keyboard, controllers and the mouse (hover selects, click confirms, wheel moves, right click backs) are
 // read from SDL's events; while the new front end is up the game's own pad and keyboard polling gives the game
-// nothing (sio::process_sdl_device), the mouse doesn't drive the original menus (mouse_menus::tick_frame) and Enter isn't
+// nothing (sio::process_sdl_device), the mouse doesn't drive the original menus (mouse_menus.h) and Enter isn't
 // passed on as the game's special key - and that lasts until the keys that chose are let go.
 //
 // The game's screens restyled (new_frontend_mirror.h), read from the screen tree each frame: the front end's roundbar
@@ -78,7 +78,7 @@ void prepare_all();
 // Its script commands for the overlay's pause menu items (NewFrontend_PauseItem, NewFrontend_Open), registered after
 // the game's own (sys::Main).
 void register_script_functions();
-// Once a frame, from the front end's input logic (mouse_menus::tick_frame): decides whether it's up, runs the menus'
+// Once a frame, from the front end's input logic (its extension): decides whether it's up, runs the menus'
 // input and time, does what they ask.
 void tick_frame(modules::FrontEnd* front_end);
 // After the game's 2D pass (render::draw_world): the frame, when it's up.

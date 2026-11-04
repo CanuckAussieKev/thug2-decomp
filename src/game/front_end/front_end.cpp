@@ -15,8 +15,8 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
-#include "devtools/automation.h"
-#include "frontend/mouse_menus.h"
+#include "engine/ext/extension.h"
+#include "engine/net/thugpro_peer.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/tracker.h"
@@ -653,11 +653,12 @@ void FrontEnd::get_pause_game(bool pause)
 void FrontEnd::input_logic(FrontEndInputHandler* handler)
 {
     FrontEnd* front_end = handler->content();
-    // (not original - the mouse_menus feature: once a frame, with the first controller's handler, the mouse's menu
-    // events; nothing when it's off - Update checks; the level editor's input logic runs there too, whatever the
-    // setting)
+    // (not original - once a frame, with the first controller's handler: the THUGPRO peer mode's host options
+    // applied once a level is up - engine/net/thugpro_peer.h -, then the extensions' frames - engine/ext/extension.h:
+    // the dev tools' keys and commands, the level editor's input logic, the new front end, the mouse's menu events)
     if (handler->ordinal() == 0) {
-        mouse_menus::tick_frame(front_end);
+        online::thugpro::tick_frame();
+        ext::menu_frame(front_end);
     }
     objects::EventWaitBoard* tracker = objects::get_tracker();
     tracker->log_frame();

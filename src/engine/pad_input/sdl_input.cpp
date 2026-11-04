@@ -17,7 +17,6 @@
 
 #include "base/core/format.h"
 #include "engine/ext/extension.h"
-#include "frontend/mouse_menus.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/pad_input/device.h"
@@ -1184,10 +1183,9 @@ void init_sdl_input()
     sys::debug_mode::install();
     write_game_key_bindings();
     os_layer::register_event_handler(handle_input_event);
-    // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
-    mouse_menus::prepare_all();
-    // (not PartyMod's either - the extensions, engine/ext/extension.h: the level editor's mouse and Escape key, the
-    // new front end's input - nothing when it's off - and the screenshot key)
+    // (not PartyMod's - the extensions, engine/ext/extension.h: the mouse_menus feature's mouse events when it's on,
+    // the level editor's mouse and Escape key, the new front end's input - nothing when it's off - and the screenshot
+    // key)
     ext::prepare_input();
 }
 

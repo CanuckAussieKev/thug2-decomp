@@ -33,6 +33,9 @@ class UiWidget;
 namespace modules {
 struct FrontEnd;
 }
+namespace ext {
+class Extension;
+}
 
 namespace mouse_menus {
 
@@ -41,9 +44,11 @@ bool& is_switched_on();
 
 // Start listening to SDL's mouse events (sio::init_sdl_input; nothing when the feature is off).
 void prepare_all();
-// Once a frame, from the front end's first input handler (modules::FrontEnd::input_logic): the cursor shown or hidden,
-// then the mouse's movement, clicks and wheel turned into menu events.
-void tick_frame(modules::FrontEnd* front_end);
+// The mouse menus as an extension (engine/ext/extension.h; app/ registers it first): its event handler, and once a
+// frame from the front end's first input handler (modules::FrontEnd::input_logic) the cursor shown or hidden, then
+// the mouse's movement, clicks and wheel turned into menu events - after every other extension's frame; while an
+// extension owns the game (the level editor), the mouse's events dropped before the others' frames.
+ext::Extension& extension();
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
