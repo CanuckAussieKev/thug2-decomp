@@ -76,7 +76,8 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_score.h"
 #include "game/skate/point_tally.h"
-#include "platform/unique_handle.h"
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "base/core/parse_number.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"
@@ -207,11 +208,7 @@ std::string ini_string(const char* key, const char* fallback)
     return value.data();
 }
 
-bool is_file_present(const std::string& path)
-{
-    const DWORD attributes = GetFileAttributesA(path.c_str());
-    return attributes != INVALID_FILE_ATTRIBUTES && ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U);
-}
+bool is_file_present(const std::string& path) { return fs::disk().kind(path.c_str()) == fs::PathKind::kFile; }
 
 std::string windows_fonts()
 {
@@ -271,13 +268,13 @@ paint::FontFiles resolve_fonts()
 
 std::string read_text(const std::string& path)
 {
-    const util::UniqueFile file = util::open_file(path.c_str(), "rb");
+    const fs::OwnedStream file = fs::open_stream(path.c_str(), "rb", fs::StreamSharing::kSecure);
     if (!file) {
         return {};
     }
     std::string text;
     std::array<char, kReadChunkSize> buffer{};
-    for (size_t bytes_read = 0; (bytes_read = std::fread(buffer.data(), 1, sizeof(buffer), file.get())) > 0;) {
+    for (size_t bytes_read = 0; (bytes_read = fs::disk().stream_read(file.get(), buffer.data(), 1, sizeof(buffer))) > 0;) {
         text.append(buffer.data(), bytes_read);
     }
     return text;
@@ -287,16 +284,15 @@ std::string read_text(const std::string& path)
 bool write_atomically(const std::string& path, std::string_view text)
 {
     const std::string temporary = path + ".new";
-    util::UniqueFile file = util::open_file(temporary.c_str(), "wb");
+    fs::OwnedStream file = fs::open_stream(temporary.c_str(), "wb", fs::StreamSharing::kSecure);
     if (!file) {
         return false;
     }
-    bool ok = std::fwrite(text.data(), 1, text.size(), file.get()) == text.size();
-    ok = std::fflush(file.get()) == 0 && ok;
+    bool ok = fs::disk().stream_write(file.get(), text.data(), 1, text.size()) == text.size();
+    ok = fs::disk().stream_flush(file.get()) == 0 && ok;
     file.reset(); // (closed before it's moved)
-    if (!ok ||
-        (MoveFileExA(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) == FALSE)) {
-        DeleteFileA(temporary.c_str());
+    if (!ok || !fs::disk().replace(temporary.c_str(), path.c_str(), true)) {
+        fs::disk().remove(temporary.c_str());
         return false;
     }
     return true;

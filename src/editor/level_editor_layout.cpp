@@ -11,7 +11,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <initializer_list>
 #include <ios>
 #include <iterator>
@@ -22,6 +21,8 @@
 #include <vector>
 #include <array>
 
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "editor/level_editor_cameras.h"
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_clusters.h"
@@ -56,7 +57,6 @@
 #include "platform/crash.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
-#include "platform/unique_handle.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
@@ -80,7 +80,6 @@ constexpr std::size_t kRadiusLineSize = 32; // a radius line
 constexpr std::size_t kFileNameSize = 32; // "XXXXXXXX.autosave.txt" with room
 constexpr std::size_t kSavedFileNameLength = 12; // "XXXXXXXX.txt"
 constexpr int kSceneNameDigits = 8; // the scene checksum's hex digits in a file name
-constexpr int kHighWordShift = 32; // bits of the file time's low word
 constexpr int kTemporarySuffixRoom = 8; // room after the path for ".tmp"
 constexpr std::size_t kSummarySize = 360; // the layout-applied summary line
 constexpr std::size_t kRefusalTextSize = 256; // the "refused" message text
@@ -919,12 +918,11 @@ std::string autosave_path_for(uint32_t scene) { return get_folder() + "\\" + aut
 // A file's last-write time (false: no such file).
 bool write_time(const std::string& path, uint64_t* time)
 {
-    WIN32_FILE_ATTRIBUTE_DATA data;
-    if ((GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data) == FALSE) ||
-        ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0U)) {
+    fs::FileStat data;
+    if (!fs::disk().stat(path.c_str(), &data) || data.folder) {
         return false;
     }
-    *time = (static_cast<uint64_t>(data.ftLastWriteTime.dwHighDateTime) << kHighWordShift) | data.ftLastWriteTime.dwLowDateTime;
+    *time = data.write_time;
     return true;
 }
 
@@ -944,18 +942,19 @@ bool write_whole(FilePlace place, const char* data, size_t size)
     if (text::format_to(temporary, "%s.tmp", path) == 0) {
         return false;
     }
-    CreateDirectoryA(folder, nullptr);
-    util::UniqueHandle file(
-        CreateFileA(temporary.data(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    fs::disk().make_folder(folder);
+    fs::OwnedFile file(fs::disk().open(temporary.data(), {.access = fs::Access::kWrite, .sharing = fs::Sharing::kNone,
+                                                          .disposition = fs::Disposition::kCreateAlways,
+                                                          .hint = fs::Hint::kNormal}));
     if (!file) {
         return false;
     }
-    DWORD written = 0;
-    bool ok = (WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) != FALSE) && written == size;
+    uint32_t written = 0;
+    bool ok = fs::disk().write(file.get(), data, static_cast<uint32_t>(size), &written) && written == size;
     file.reset(); // (closed before it's moved)
-    ok = ok && (MoveFileExA(temporary.data(), path, MOVEFILE_REPLACE_EXISTING) != FALSE);
+    ok = ok && fs::disk().replace(temporary.data(), path, false);
     if (!ok) {
-        DeleteFileA(temporary.data());
+        fs::disk().remove(temporary.data());
     }
     return ok;
 }
@@ -1108,15 +1107,13 @@ bool get_capture(FileLoad* file)
 // A layout file of this level read (false: none - `message` - or not one; logged).
 bool read_for(const std::string& path, uint32_t scene, FileLoad* file, std::string* message, const char* none)
 {
-    const std::ifstream in(path, std::ios::binary);
-    if (!in) {
+    std::string text;
+    if (!fs::read_text(path, &text)) {
         *message = none;
         return false;
     }
-    std::stringstream text;
-    text << in.rdbuf();
     int line = 0;
-    if (!get_take_in(text.str(), file, &line) || file->scene != scene) {
+    if (!get_take_in(text, file, &line) || file->scene != scene) {
         *message = "Couldn't read " + path.substr(path.find_last_of('\\') + 1);
         get_log("level editor: %s %s (line %d)", message->c_str(), path.c_str(), line);
         return false;
@@ -1338,12 +1335,10 @@ bool store_away(std::string* message)
         *message = "No level loaded";
         return false;
     }
-    CreateDirectoryA(get_folder().c_str(), nullptr);
+    fs::disk().make_folder(get_folder().c_str());
     const std::string path = path_for(file.scene);
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out << emit_out(file);
-    out.close();
-    if (!out) {
+    const fs::Written written = fs::write_text(path, emit_out(file));
+    if (!written.written || !written.closed) {
         *message = "Couldn't write " + path;
         get_log("level editor: %s", message->c_str());
         return false;
@@ -1362,7 +1357,7 @@ bool store_away(std::string* message)
     get_log("level editor: %s - %s", text.data(), path.c_str());
     // (saved: the autosave's changes are in the layout now, or the user chose these over them)
     const std::string autosave = autosave_path_for(file.scene);
-    if (DeleteFileA(autosave.c_str()) != FALSE) {
+    if (fs::disk().remove(autosave.c_str())) {
         get_log("level editor: autosave deleted - %s", autosave.c_str());
     }
     layout_save().snapshot_ready_ = false;
@@ -1495,7 +1490,7 @@ bool discard_autosave(std::string* message)
     }
     const std::string path = autosave_path_for(scenery::world_scene_key(scene));
     layout_save().offer_pending_ = false;
-    if (DeleteFileA(path.c_str()) == FALSE) {
+    if (!fs::disk().remove(path.c_str())) {
         *message = "No autosave to discard";
         return false;
     }
@@ -1586,19 +1581,13 @@ std::unordered_map<uint32_t, LevelInfo> levels_by_load()
 std::vector<uint32_t> saved_scenes()
 {
     std::vector<uint32_t> scenes;
-    WIN32_FIND_DATAA found;
-    HANDLE find = FindFirstFileA((get_folder() + "\\*.txt").c_str(), &found);
-    if (find == INVALID_HANDLE_VALUE) {
-        return scenes;
-    }
-    for (bool again = true; again; again = (FindNextFileA(find, &found) != FALSE)) {
+    fs::list((get_folder() + "\\*.txt").c_str(), [&](const fs::Found& found) {
         uint32_t scene = 0;
-        if (((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0U) &&
-            saved_layout_scene(std::data(found.cFileName), &scene)) {
+        if (!found.folder && saved_layout_scene(found.name, &scene)) {
             scenes.push_back(scene);
         }
-    }
-    FindClose(find);
+        return true;
+    });
     return scenes;
 }
 
@@ -1734,14 +1723,12 @@ void on_node_array_added(uint32_t array)
 bool saved_props(uint32_t scene, level_props::Props* props)
 {
     FileLoad file;
-    const std::ifstream in(path_for(scene), std::ios::binary);
-    if (!in) {
+    std::string text;
+    if (!fs::read_text(path_for(scene), &text)) {
         return false;
     }
-    std::stringstream text;
-    text << in.rdbuf();
     int line = 0;
-    if (!get_take_in(text.str(), &file, &line) || file.scene != scene) {
+    if (!get_take_in(text, &file, &line) || file.scene != scene) {
         return false;
     }
     *props = file.level;
@@ -1899,7 +1886,7 @@ bool reset_level(ResetText reset_text)
     // (the edited copy's files: the saved layout - its level select entry - and the autosave)
     int deleted = 0;
     for (const std::string& path : {path_for(file.scene), autosave_path_for(file.scene)}) {
-        if (DeleteFileA(path.c_str()) != FALSE) {
+        if (fs::disk().remove(path.c_str())) {
             ++deleted;
             get_log("level editor: reset - deleted %s", path.c_str());
         }

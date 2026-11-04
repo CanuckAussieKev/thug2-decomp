@@ -48,7 +48,6 @@ constexpr std::size_t kSpotCapacity = 32;
 constexpr std::size_t kShortTextBytes = 16;
 constexpr std::size_t kLoadPrefixLength = 5;      // "Load_"
 constexpr std::size_t kFileTextBytes = 64;
-constexpr int kHighWordShift = 32;
 constexpr double kDegreesPerHalfTurn = 180.0;
 constexpr double kPiDecimal = 3.14159265358979;
 constexpr float kSamePointDistanceSq = 0.25F; // two hits closer than this (squared, in feet) are one spot

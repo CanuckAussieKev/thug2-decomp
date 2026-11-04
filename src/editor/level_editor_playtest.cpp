@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <ios>
 #include <map>
 #include <set>
@@ -25,6 +24,8 @@
 #include <windows.h>
 #include <array>
 
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "editor/level_editor.h"
 #include "base/core/checksums.h"
 #include "game/front_end/front_end.h"
@@ -668,14 +669,12 @@ std::string trails_path(uint32_t scene)
 
 bool ingest_file(uint32_t scene, bool quiet)
 {
-    const std::ifstream file(trails_path(scene), std::ios::binary);
-    if (!file) {
+    std::string text;
+    if (!fs::read_text(trails_path(scene), &text)) {
         return false;
     }
-    std::stringstream text;
-    text << file.rdbuf();
     LevelTrails read;
-    if (!parse(text.str(), &read)) {
+    if (!parse(text, &read)) {
         get_log("level editor: %s isn't a trails file - not read", trails_path(scene).c_str());
         return false;
     }
@@ -691,13 +690,9 @@ bool ingest_file(uint32_t scene, bool quiet)
 
 bool save_file(uint32_t scene)
 {
-    CreateDirectoryA(game_folder_path("thug2-decomp-layouts").c_str(), nullptr);
-    std::ofstream file(trails_path(scene), std::ios::binary | std::ios::trunc);
-    if (!file) {
-        return false;
-    }
-    file << get_format(levels()[scene]);
-    return static_cast<bool>(file);
+    fs::disk().make_folder(game_folder_path("thug2-decomp-layouts").c_str());
+    // (whether it was written: as the stream's state before its close)
+    return fs::write_text(trails_path(scene), get_format(levels()[scene])).written;
 }
 
 std::vector<GapRead> read_gaps()

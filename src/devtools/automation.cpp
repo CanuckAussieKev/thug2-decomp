@@ -2,7 +2,6 @@
 
 #include "devtools/automation.h"
 
-#include <share.h>
 #include <windows.h>
 
 #include <SDL2/SDL.h>
@@ -58,7 +57,8 @@
 #include "platform/run_log.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
-#include "platform/unique_handle.h"
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "game/online/net_game_state.h"
@@ -1174,7 +1174,7 @@ bool skater_present() { return objects::find_object(kSkater) != nullptr; }
 // --- trace: the skater frame by frame ---------------------------------------------------------------------------
 
 struct Trace {
-    util::UniqueFile file;
+    fs::OwnedStream file;
     int left = 0;
 };
 Trace& trace_state()
@@ -1194,14 +1194,14 @@ std::string start_trace(int frames)
 {
     stop_trace();
     const std::string path = game_folder_path("thug2-decomp-trace.txt");
-    util::UniqueFile file(_fsopen(path.c_str(), "w", _SH_DENYWR));
+    fs::OwnedStream file = fs::open_stream(path.c_str(), "w", fs::StreamSharing::kDenyWrite);
     if (!file) {
         return "can't write " + path;
     }
-    text::print_to(
+    fs::print_to(
         file.get(),
         "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
-    std::fflush(file.get());
+    fs::disk().stream_flush(file.get());
     trace_state().file = std::move(file);
     trace_state().left = frames;
     return {};
@@ -1231,14 +1231,14 @@ void trace_frame()
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysicsComponent));
         const unsigned ground_flags = core ? static_cast<unsigned>(core->floor_feeler().hit().face_flags_) : 0;
         const unsigned ground_object = core ? core->floor_feeler().hit().object_checksum_ : 0;
-        text::print_to(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
+        fs::print_to(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
                        frame_loop::frames_run(), static_cast<double>(skater->at_point().x),
                        static_cast<double>(skater->at_point().y), static_cast<double>(skater->at_point().z),
                        static_cast<double>(skater->vel().x), static_cast<double>(skater->vel().y),
                        static_cast<double>(skater->vel().z),
                        static_cast<double>(::core::at(skater->basis_frame().row, 1).y), where, physics, bailing, trick,
                        pot, static_cast<double>(multiplier), landed, ground_flags, ground_object);
-        std::fflush(trace.file.get());
+        fs::disk().stream_flush(trace.file.get());
     }
     if (--trace.left <= 0) {
         stop_trace();
@@ -1330,13 +1330,13 @@ void add_line(Runner& runner, const std::string& text)
 void poll_file(Runner& runner)
 {
     const std::string path = game_folder_path("thug2-decomp-commands.txt");
-    WIN32_FILE_ATTRIBUTE_DATA info;
-    if (GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &info) == FALSE) {
+    fs::FileStat info;
+    if (!fs::disk().stat(path.c_str(), &info)) {
         runner.looked = true;
         return;
     }
-    const uint64_t size = (static_cast<uint64_t>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
-    const uint64_t time = file_time_value(info.ftLastWriteTime);
+    const uint64_t size = info.size;
+    const uint64_t time = info.write_time;
     if (!runner.looked) {
         runner.looked = true;
         // (a file from before this run - written more than 10 s before the game started - isn't run)
@@ -1364,20 +1364,19 @@ void poll_file(Runner& runner)
         runner.queue.clear();
         runner.lines_read_ = runner.lines_done_ = 0;
     }
-    util::UniqueHandle file(CreateFileA(path.c_str(), GENERIC_READ,
-                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+    fs::OwnedFile file(fs::disk().open(path.c_str(), {.access = fs::Access::kRead,
+                                                      .sharing = fs::Sharing::kReadWriteDelete,
+                                                      .disposition = fs::Disposition::kOpenExisting,
+                                                      .hint = fs::Hint::kNormal}));
     if (!file) {
         return; // (try again next frame)
     }
-    LARGE_INTEGER at;
-    at.QuadPart = static_cast<LONGLONG>(runner.offset);
     std::string data;
-    if ((SetFilePointerEx(file.get(), at, nullptr, FILE_BEGIN) != FALSE) && size > runner.offset &&
+    if (fs::disk().seek_to(file.get(), runner.offset) && size > runner.offset &&
         size - runner.offset < (1U << kCommandFileLimitShift)) {
         data.resize(static_cast<size_t>(size - runner.offset));
-        DWORD read = 0;
-        if (ReadFile(file.get(), &::core::at(data, 0), static_cast<DWORD>(data.size()), &read, nullptr) == FALSE) {
+        uint32_t read = 0;
+        if (!fs::disk().read(file.get(), &::core::at(data, 0), static_cast<uint32_t>(data.size()), &read, nullptr)) {
             read = 0;
         }
         data.resize(read);
@@ -1780,9 +1779,9 @@ bool run_jump_to(Runner& runner, const OrderCode& command)
     }
     std::array<char, kStatusResultSize> result{};
     text::format_to(result, "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
-    if (FILE* trace_file = trace_state().file.get()) { // (a trace marks each teleport: the rides it holds)
-        text::print_to(trace_file, "# %s -> %s\n", runner.text.c_str(), result.data());
-        std::fflush(trace_file);
+    if (fs::DiskStream* trace_file = trace_state().file.get()) { // (a trace marks each teleport: the rides it holds)
+        fs::print_to(trace_file, "# %s -> %s\n", runner.text.c_str(), result.data());
+        fs::disk().stream_flush(trace_file);
     }
     get_finish(runner, result.data());
     return true;
@@ -2112,14 +2111,15 @@ void write_status(Runner& runner)
     status.frames = frame_loop::frames_run();
     std::string text = status_json(status);
     const std::string path = game_folder_path("thug2-decomp-status.json");
-    const util::UniqueHandle file(CreateFileA(path.c_str(), GENERIC_WRITE,
-                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    const fs::OwnedFile file(fs::disk().open(path.c_str(), {.access = fs::Access::kWrite,
+                                                            .sharing = fs::Sharing::kReadWriteDelete,
+                                                            .disposition = fs::Disposition::kCreateAlways,
+                                                            .hint = fs::Hint::kNormal}));
     if (!file) {
         return;
     }
-    DWORD written = 0;
-    WriteFile(file.get(), text.data(), static_cast<DWORD>(text.size()), &written, nullptr);
+    uint32_t written = 0;
+    fs::disk().write(file.get(), text.data(), static_cast<uint32_t>(text.size()), &written);
 }
 
 // The command line as the process got it (the game's own parsing cuts the process's buffer into words later: a 0

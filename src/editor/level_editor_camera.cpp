@@ -12,11 +12,12 @@
 #include <ios>
 #include <span>
 #include <windows.h>
-#include <fstream>
 #include <sstream>
 #include <array>
 #include <string>
 
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
@@ -326,26 +327,20 @@ void load_bookmarks()
     for (Bookmark& bookmark : level_editor_camera_state().marks_) {
         bookmark = Bookmark{};
     }
-    const std::ifstream file(bookmarks_path(), std::ios::binary);
-    if (!file) {
+    std::string text;
+    if (!fs::read_text(bookmarks_path(), &text)) {
         return;
     }
-    std::stringstream text;
-    text << file.rdbuf();
-    if (!parse_bookmarks(text.str(), level_editor_camera_state().marks_)) {
+    if (!parse_bookmarks(text, level_editor_camera_state().marks_)) {
         get_log("level editor: %s isn't a bookmarks file - not read", bookmarks_path().c_str());
     }
 }
 
 bool save_bookmarks()
 {
-    CreateDirectoryA(game_folder_path("thug2-decomp-layouts").c_str(), nullptr);
-    std::ofstream file(bookmarks_path(), std::ios::binary | std::ios::trunc);
-    if (!file) {
-        return false;
-    }
-    file << format_bookmarks(level_editor_camera_state().marks_);
-    return static_cast<bool>(file);
+    fs::disk().make_folder(game_folder_path("thug2-decomp-layouts").c_str());
+    // (whether it was written: as the stream's state before its close)
+    return fs::write_text(bookmarks_path(), format_bookmarks(level_editor_camera_state().marks_)).written;
 }
 
 V3 get_forward(float yaw, float pitch) { return frame_from_yaw_pitch(yaw, pitch).back * -1.0F; }

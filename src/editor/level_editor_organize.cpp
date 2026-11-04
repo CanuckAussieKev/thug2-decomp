@@ -12,9 +12,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
 #include <ios>
-#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -22,6 +20,8 @@
 #include <array>
 #include <vector>
 
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_fields.h"
@@ -1188,19 +1188,13 @@ std::vector<std::string> snapshots()
     if (scene == 0U) {
         return names;
     }
-    WIN32_FIND_DATAA found;
-    HANDLE find = FindFirstFileA((layouts_folder() + "\\" + hex_text(scene) + ".*.txt").c_str(), &found);
-    if (find == INVALID_HANDLE_VALUE) {
-        return names;
-    }
-    for (bool again = true; again; again = (FindNextFileA(find, &found) != FALSE)) {
+    fs::list((layouts_folder() + "\\" + hex_text(scene) + ".*.txt").c_str(), [&](const fs::Found& found) {
         std::string name;
-        if (((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0U) &&
-            snapshot_of(std::data(found.cFileName), scene, &name)) {
+        if (!found.folder && snapshot_of(found.name, scene, &name)) {
             names.push_back(name);
         }
-    }
-    FindClose(find);
+        return true;
+    });
     std::ranges::sort(names);
     return names;
 }
@@ -1216,12 +1210,10 @@ bool write_snapshot_file(const std::string& name, std::string* message)
         *message = "Not in a level";
         return false;
     }
-    CreateDirectoryA(layouts_folder().c_str(), nullptr);
+    fs::disk().make_folder(layouts_folder().c_str());
     const std::string path = layouts_folder() + "\\" + snapshot_file_name(scene_now(), name);
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out << text;
-    out.close();
-    if (!out) {
+    const fs::Written written = fs::write_text(path, text);
+    if (!written.written || !written.closed) {
         *message = "Couldn't write " + path;
         return false;
     }
@@ -1250,13 +1242,12 @@ bool save_snapshot(const std::string& name, std::string* message)
 bool switch_snapshot(const std::string& name, std::string* message)
 {
     const std::string path = layouts_folder() + "\\" + snapshot_file_name(scene_now(), name);
-    const std::ifstream in(path, std::ios::binary);
-    if ((scene_now() == 0U) || !in) {
+    std::string text;
+    const bool read = fs::read_text(path, &text);
+    if ((scene_now() == 0U) || !read) {
         *message = "No snapshot \"" + name + "\" for this level";
         return false;
     }
-    std::stringstream text;
-    text << in.rdbuf();
     // (the layout as it is now kept first: in the active snapshot, else in "previous")
     const std::string keep = level_editor_organize_state().state_.snapshot.empty() || level_editor_organize_state().state_.snapshot == name ? "previous" : level_editor_organize_state().state_.snapshot;
     if (keep != name) {
@@ -1268,7 +1259,7 @@ bool switch_snapshot(const std::string& name, std::string* message)
         }
         level_editor_organize_state().state_.snapshot = kept;
     }
-    if (!apply_layout_step(text.str(), "Switch snapshot", message)) {
+    if (!apply_layout_step(text, "Switch snapshot", message)) {
         return false;
     }
     level_editor_organize_state().state_.snapshot = name;
@@ -1280,7 +1271,7 @@ bool switch_snapshot(const std::string& name, std::string* message)
 bool delete_snapshot(const std::string& name, std::string* message)
 {
     const std::string path = layouts_folder() + "\\" + snapshot_file_name(scene_now(), name);
-    if (!valid_snapshot_name(name) || (DeleteFileA(path.c_str()) == FALSE)) {
+    if (!valid_snapshot_name(name) || !fs::disk().remove(path.c_str())) {
         *message = "Couldn't delete the snapshot \"" + name + "\"";
         return false;
     }

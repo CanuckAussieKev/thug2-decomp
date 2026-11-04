@@ -12,13 +12,11 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
-#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -50,7 +48,8 @@
 #include "platform/run_log.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "base/maths/fwd.h"
-#include "platform/unique_handle.h"
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "platform/code_address.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
@@ -70,7 +69,6 @@ constexpr std::size_t kTakenTextSize = 64;
 constexpr std::size_t kMouseNoteSize = 96;
 constexpr std::size_t kSeriesLineSize = 96;
 constexpr std::size_t kKeySettingSize = 64;
-constexpr int kHighWordShift = 32;
 constexpr int kNoteFrames = 10; // the sidecar's note holds for this many frames
 constexpr double kMillisecondsPerSecond = 1000.0;
 constexpr float kMessageX = 320.0F; // the on-screen note's place
@@ -204,20 +202,18 @@ std::string_view file_name_of(const char* path)
 
 std::string file_time(const char* path)
 {
-    WIN32_FILE_ATTRIBUTE_DATA data = {};
-    if (GetFileAttributesExA(path, GetFileExInfoStandard, &data) == FALSE) {
+    fs::FileStat data;
+    if (!fs::disk().stat(path, &data)) {
         return {};
     }
-    FILETIME local;
-    SYSTEMTIME time;
-    if ((FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) == FALSE) ||
-        (FileTimeToSystemTime(&local, &time) == FALSE)) {
+    fs::LocalTime time;
+    if (!fs::disk().local_time(data.write_time, &time)) {
         return {};
     }
     std::array<char, kFileInfoTextSize> text{};
-    text::format_to(text, "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", time.wYear, time.wMonth, time.wDay, time.wHour,
-                    time.wMinute, time.wSecond,
-                    (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow);
+    text::format_to(text, "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", unsigned{time.year}, unsigned{time.month},
+                    unsigned{time.day}, unsigned{time.hour}, unsigned{time.minute}, unsigned{time.second},
+                    static_cast<unsigned long long>(data.size));
     return text.data();
 }
 
@@ -390,13 +386,15 @@ void emit_out(const std::shared_ptr<Job>& job)
         job->error = "the PNG couldn't be made";
     } else {
         auto write_new = [](const std::string& path, const void* data, size_t size) {
-            const util::UniqueHandle file(
-                CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr));
+            const fs::OwnedFile file(fs::disk().open(path.c_str(), {.access = fs::Access::kWrite,
+                                                                    .sharing = fs::Sharing::kNone,
+                                                                    .disposition = fs::Disposition::kCreateNew,
+                                                                    .hint = fs::Hint::kNormal}));
             if (!file) {
                 return false;
             }
-            DWORD written = 0;
-            return WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
+            uint32_t written = 0;
+            return fs::disk().write(file.get(), data, static_cast<uint32_t>(size), &written) && written == size;
         };
         const std::string png_path = job->folder + job->png;
         const std::string txt_path = job->folder + job->txt;
@@ -448,10 +446,8 @@ std::string folder_path()
 std::string get_folder()
 {
     std::string folder = folder_path();
-    std::error_code error;
-    std::filesystem::create_directories(std::filesystem::path(folder), error);
-    const DWORD attributes = GetFileAttributesA(folder.c_str());
-    if (attributes == INVALID_FILE_ATTRIBUTES || ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U)) {
+    fs::disk().make_folders(folder.c_str());
+    if (fs::disk().kind(folder.c_str()) != fs::PathKind::kFolder) {
         get_log("screenshot: can't make the folder %s", folder.c_str());
         return {};
     }
@@ -479,7 +475,7 @@ void get_take()
     localtime_s(&local, &now);
     const Stamp stamp{.year = local.tm_year + 1900, .month = local.tm_mon + 1, .day = local.tm_mday, .hour = local.tm_hour, .minute = local.tm_min, .second = local.tm_sec};
     const std::string png = pick_name(file_stem(stamp), [&folder](const std::string& name) {
-        return GetFileAttributesA((folder + name).c_str()) != INVALID_FILE_ATTRIBUTES;
+        return fs::disk().kind((folder + name).c_str()) != fs::PathKind::kNone;
     });
     if (png.empty()) {
         get_log("screenshot: no free name in %s", folder.c_str());
@@ -548,13 +544,14 @@ std::string& series_result_state()
 
 bool write_new_file(const std::string& path, const void* data, size_t size)
 {
-    const util::UniqueHandle file(
-        CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    const fs::OwnedFile file(fs::disk().open(path.c_str(), {.access = fs::Access::kWrite, .sharing = fs::Sharing::kNone,
+                                                            .disposition = fs::Disposition::kCreateAlways,
+                                                            .hint = fs::Hint::kNormal}));
     if (!file) {
         return false;
     }
-    DWORD written = 0;
-    return (WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) != FALSE) && written == size;
+    uint32_t written = 0;
+    return fs::disk().write(file.get(), data, static_cast<uint32_t>(size), &written) && written == size;
 }
 
 void write_series_frame(const std::shared_ptr<Series>& series, const TickCycle& frame, int number)
@@ -780,10 +777,8 @@ std::string start_series(int frames, const std::string& folder)
     if (path.back() != '\\') {
         path += '\\';
     }
-    std::error_code error;
-    std::filesystem::create_directories(std::filesystem::path(path), error);
-    const DWORD attributes = GetFileAttributesA(path.c_str());
-    if (attributes == INVALID_FILE_ATTRIBUTES || ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U)) {
+    fs::disk().make_folders(path.c_str());
+    if (fs::disk().kind(path.c_str()) != fs::PathKind::kFolder) {
         return "can't make the folder " + path;
     }
     auto series = std::make_shared<Series>();

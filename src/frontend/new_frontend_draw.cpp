@@ -24,7 +24,8 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "platform/unique_handle.h"
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -380,17 +381,17 @@ constexpr auto kTextRanges = std::to_array<ImWchar>({0x0020, 0x007E, 0x00B7, 0x0
 
 bool read_file(const std::string& path, std::vector<uint8_t>* out)
 {
-    const util::UniqueFile file = util::open_file(path.c_str(), "rb");
+    const fs::OwnedStream file = fs::open_stream(path.c_str(), "rb", fs::StreamSharing::kSecure);
     if (!file) {
         return false;
     }
-    std::fseek(file.get(), 0, SEEK_END);
-    const long size = std::ftell(file.get());
-    std::fseek(file.get(), 0, SEEK_SET);
+    fs::disk().stream_seek(file.get(), 0, SEEK_END);
+    const long size = fs::disk().stream_tell(file.get());
+    fs::disk().stream_seek(file.get(), 0, SEEK_SET);
     bool ok = size > kMinFontFileBytes && size < kMaxFontFileMegabytes * kBytesPerKilobyte * kBytesPerKilobyte;
     if (ok) {
         out->resize(static_cast<size_t>(size));
-        ok = std::fread(out->data(), 1, out->size(), file.get()) == out->size();
+        ok = fs::disk().stream_read(file.get(), out->data(), 1, out->size()) == out->size();
     }
     return ok;
 }

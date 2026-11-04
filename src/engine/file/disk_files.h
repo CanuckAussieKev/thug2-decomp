@@ -4,6 +4,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/core/format.h"
 #include "engine/file/disk.h"
 
 // NOT ORIGINAL - owners and whole-file helpers over fs::Disk (engine/file/disk.h) for the files our tools keep in the
@@ -77,6 +78,14 @@ struct Written {
     bool closed = false;
 };
 Written write_text(const std::string& path, std::string_view text);
+
+// fprintf to a stream: the text written whole (a %c of 0 included), as text::print_to writes to a FILE*.
+template <typename... Args>
+void print_to(DiskStream* stream, text::FormatFor<Args...> format, Args... args)
+{
+    const std::string made = text::format<Args...>(format, args...);
+    disk().stream_write(stream, made.data(), 1, made.size());
+}
 
 // A folder listing told to `visit(const Found&) -> bool` (fs::Disk::list).
 template <typename Visit>

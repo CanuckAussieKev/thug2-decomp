@@ -8,7 +8,6 @@
 
 #include <d3d9.h>
 
-#include <share.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -38,7 +37,7 @@
 #include <gsl/assert>
 #include "base/core/checked_index.h"
 #include "base/core/down_cast.h"
-#include "platform/crt.h"
+#include "engine/file/disk.h"
 #include "base/core/format.h"
 #include "engine/gfx/renderer.h"
 #include "render_d3d9/d3d9_state.h"
@@ -111,8 +110,8 @@ void screen_shot(const char* name, int /*unused*/)
         // the first numbered name with no file yet
         int number = 0;
         text::format_to(file, "%s%03d.jpg", name, number);
-        while (gsl::owner<FILE*> existing = memory::adopt<FILE*>(_fsopen(file.data(), "rb", _SH_DENYNO))) { // (fopen)
-            crt::get_fclose(existing);
+        while (fs::DiskStream* existing = fs::disk().open_stream(file.data(), "rb", fs::StreamSharing::kAll)) { // (fopen)
+            fs::disk().stream_close(existing);
             ++number;
             text::format_to(file, "%s%03d.jpg", name, number);
         }
