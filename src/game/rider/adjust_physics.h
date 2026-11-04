@@ -61,6 +61,10 @@ public:
     [[nodiscard]] uint8_t uber_frigged() const { return uber_frigged_; }
 
 private:
+    // (Part of 0x004F8420, keep_above_ground: off a moving object the skater stands on that isn't what the feeler
+    // hit, with its velocity.)
+    void leave_moved_ride(skater::SkaterPhysicsModule* core);
+
     int uber_frig_tries_{}; // +0x18 the uber frig's tries in a row (0-5: its offsets from the frame's start)
     uint8_t uber_frigged_{0}; // +0x1C set while the uber frig put the skater back this frame
     std::array<uint8_t, 3> pad1d_{};

@@ -71,19 +71,9 @@ void SkaterPhysicsModule::off_wall_edge(bool reset_display)
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kGroundGone, nullptr);
 }
 
-// 0x0050F830
-void SkaterPhysicsModule::step_wall_ride()
+// (Part of 0x0050F830) What the wall riding skater rides on carries it by (its turn applied too).
+maths::Vec4 SkaterPhysicsModule::carried_on_wall()
 {
-    set_flag(this, PoseFlag::kAcidDrop, 0);
-    set_flag(this, PoseFlag::kFromAcidDrop, 0);
-    set_flag(this, PoseFlag::kRecoverInAir, 0);
-    set_flag(this, PoseFlag::kNoAcidDrop, 0);
-    flip_spin_started_ = 0;
-    rail_node_ = nullptr;
-    last_rail_script_ = 0;
-    wall_ride_start_ = get_now();
-
-    // What the skater rides on carries it (its turn too).
     maths::Vec4 carried = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (objects::RideTracker* tracker = get_tracker(this)) {
         if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
@@ -98,6 +88,23 @@ void SkaterPhysicsModule::step_wall_ride()
             }
         }
     }
+    return carried;
+}
+
+// 0x0050F830
+void SkaterPhysicsModule::step_wall_ride()
+{
+    set_flag(this, PoseFlag::kAcidDrop, 0);
+    set_flag(this, PoseFlag::kFromAcidDrop, 0);
+    set_flag(this, PoseFlag::kRecoverInAir, 0);
+    set_flag(this, PoseFlag::kNoAcidDrop, 0);
+    flip_spin_started_ = 0;
+    rail_node_ = nullptr;
+    last_rail_script_ = 0;
+    wall_ride_start_ = get_now();
+
+    // What the skater rides on carries it (its turn too).
+    const maths::Vec4 carried = carried_on_wall();
 
     // The move: velocity * t + (0, gravity, 0, 1) * t * t / 2 (rounded as the original), plus the carry; then the
     // velocity += (0, gravity, 0, 1) * t.

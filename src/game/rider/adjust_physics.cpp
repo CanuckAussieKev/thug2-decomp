@@ -57,6 +57,35 @@ void change_phase(skater::SkaterPhysicsModule* core, int state) { core->set_phys
 
 } // namespace
 
+// Standing on a moving object (on the ground or in the air, not skitching nor wallriding) that isn't what the
+// feeler hit: off it, with its velocity.
+void RiderPhysicsTweaks::leave_moved_ride(skater::SkaterPhysicsModule* core)
+{
+    GameEntity* object = entity();
+    objects::RiderPoseState* flags = core->state();
+    if ((flags->flag(PoseFlag::kSkitching).on == 0U) && (flags->flag(PoseFlag::kAcidDrop).on == 0U) && ride_->ride()) {
+        const RideTracker* ride = ride_->ride().get();
+        bool leave = true;
+        if (ride->entity().get_pull()) {
+            const int state = flags->cur_phase();
+            if (state == 0 || state == 1) {
+                render::ProbeRay& feeler = core->feeler();
+                if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity().get_pull()) {
+                    leave = false;
+                }
+            } else {
+                leave = false;
+            }
+            if (leave) {
+                object->vel() += ride_->ride()->entity().get_pull()->vel();
+            }
+        }
+        if (leave) {
+            ride_->stop_riding();
+        }
+    }
+}
+
 // 0x004F8420
 void RiderPhysicsTweaks::keep_above_ground()
 {
@@ -118,28 +147,7 @@ void RiderPhysicsTweaks::keep_above_ground()
 
     // Ground. Standing on a moving object (the skater on the ground or in the air, not skitching (+0x88) nor
     // wallriding (+0x78)) that isn't what the feeler hit: off it, with its velocity.
-    objects::RiderPoseState* flags = core->state();
-    if ((flags->flag(PoseFlag::kSkitching).on == 0U) && (flags->flag(PoseFlag::kAcidDrop).on == 0U) && ride_->ride()) {
-        const RideTracker* ride = ride_->ride().get();
-        bool leave = true;
-        if (ride->entity().get_pull()) {
-            const int state = flags->cur_phase();
-            if (state == 0 || state == 1) {
-                render::ProbeRay& feeler = core->feeler();
-                if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity().get_pull()) {
-                    leave = false;
-                }
-            } else {
-                leave = false;
-            }
-            if (leave) {
-                object->vel() += ride_->ride()->entity().get_pull()->vel();
-            }
-        }
-        if (leave) {
-            ride_->stop_riding();
-        }
-    }
+    leave_moved_ride(core);
 
     // Kept just over the ground.
     {

@@ -59,6 +59,34 @@ void release_feeler_object(render::ProbeRay& feeler)
 
 } // namespace
 
+// (Part of 0x00508780) A ledge: the feeler raised by the snap height, then lowered 2 at a time until it hits
+// (the snap height going down with it, to 4); snapped up onto it (true) unless the raised feeler hits.
+bool SkaterPhysicsModule::snap_up_ledge(render::ProbeRay& hit, objects::GameEntity* object)
+{
+    float snap = tuning_float_lookup(kAirSnapUp, object);
+    hit.line().start.y = hit.line().start.y + snap;
+    hit.line().end.y = hit.line().end.y + snap;
+    if (hit.get_hit_shape(true, false) == 0) {
+        if (snap > kSnapLimit) {
+            double lower = 0.0;
+            for (bool again = true; again; again = lower > kSnapLimitD) {
+                hit.line().start.y = hit.line().start.y - kSnapDrop;
+                hit.line().end.y = hit.line().end.y - kSnapDrop;
+                if (hit.get_hit_shape(true, false) != 0) {
+                    break;
+                }
+                lower = static_cast<double>(snap) - kSnapDropD;
+                snap = static_cast<float>(lower);
+            } // (the unrounded value compared)
+        }
+        maths::Vec4& position2 = entity()->at_point();
+        position2.y = snap + position2.y;
+        destroy_feeler(&hit);
+        return true;
+    }
+    return false;
+}
+
 // 0x00508780
 bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 {
@@ -143,25 +171,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     const objects::GameEntity* ledge_skater = object_of(this);
     if (core::at(ledge_skater->basis_frame().row, 1).y > kUprightY && ledge_skater->vel().y > 0.0F &&
         normal.y < kBarelyUpNormalY) {
-        float snap = tuning_float_lookup(kAirSnapUp, object);
-        hit.line().start.y = hit.line().start.y + snap;
-        hit.line().end.y = hit.line().end.y + snap;
-        if (hit.get_hit_shape(true, false) == 0) {
-            if (snap > kSnapLimit) {
-                double lower = 0.0;
-                for (bool again = true; again; again = lower > kSnapLimitD) {
-                    hit.line().start.y = hit.line().start.y - kSnapDrop;
-                    hit.line().end.y = hit.line().end.y - kSnapDrop;
-                    if (hit.get_hit_shape(true, false) != 0) {
-                        break;
-                    }
-                    lower = static_cast<double>(snap) - kSnapDropD;
-                    snap = static_cast<float>(lower);
-                } // (the unrounded value compared)
-            }
-            maths::Vec4& position2 = entity()->at_point();
-            position2.y = snap + position2.y;
-            destroy_feeler(&hit);
+        if (snap_up_ledge(hit, object)) {
             return true;
         }
     }

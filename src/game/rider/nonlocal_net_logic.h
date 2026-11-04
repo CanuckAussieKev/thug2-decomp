@@ -10,10 +10,12 @@
 
 namespace objects {
 
+class AnimBlenderComponent;
 class MeshInstanceModule;
 class RiderFrameLog;
 class RiderPoseState;
 struct GrindPoint;
+struct StateHistoryMessage;
 } // namespace objects
 
 // The skater's non-local network logic component (SkaterNonLocalNetLogic, type 0x850EEF66, vtable 0x0064BFAC, 0x2C0
@@ -94,6 +96,9 @@ public:
     void play_history_events();
 
 private:
+    // (Part of 0x00516180, play_history_events: one of the history's other messages played.)
+    void play_event(StateHistoryMessage* msg, AnimBlenderComponent* blender);
+
     uint32_t sync_frame_{};       // +0x18 the client app's frame when playback started (0: not yet)
     int sync_time_{};             // +0x1C the history's time then, less the app's frames since
     uint32_t last_event_time_{0}; // +0x20 the history's events played up to here

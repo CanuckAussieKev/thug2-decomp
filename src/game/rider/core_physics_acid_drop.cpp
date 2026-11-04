@@ -90,6 +90,27 @@ double SkaterPhysicsModule::fall_time(float height, float upward)
     return time;
 }
 
+// (Part of 0x00502240) Whether a feeler down hit a vert wall facing away from `direction` (or, walking up to
+// one, towards it): its normal kept.
+bool SkaterPhysicsModule::hits_drop_wall(render::ProbeRay& feeler, const maths::Vec4& direction, maths::Vec4& normal)
+{
+    if ((feeler.get_hit_shape(true, false) != 0) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)) &&
+        std::fabs(feeler.surface_dir().y) < kMaxWallY) {
+        maths::Vec4 flat = {
+            .x = feeler.surface_dir().x, .y = 0.0F, .z = feeler.surface_dir().z, .w = feeler.surface_dir().w};
+        normal = feeler.surface_dir();
+        flat.make_unit();
+        const double facing = (static_cast<double>(flat.z) * direction.z) +
+                              (static_cast<double>(flat.y) * direction.y) + (static_cast<double>(flat.x) * direction.x);
+        const bool walking_in =
+            walking_state(objects::RiderPoseState::PhysicsMode::kWalking) && walk_->get_state() == 1;
+        if ((walking_in && facing <= kWalkFacing) || facing >= kFacing) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // 0x00502240
 bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, const maths::Vec4* last_position,
                                          maths::Vec4* velocity, AcidDrop* drop)
@@ -176,21 +197,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const auto w = static_cast<float>(sw + base.w);
         feeler.line().start = {.x = x, .y = y + lift, .z = z, .w = w};
         feeler.line().end = {.x = x, .y = static_cast<float>(y - static_cast<double>(kFeelerDepth)), .z = z, .w = w};
-        if ((feeler.get_hit_shape(true, false) != 0) &&
-            (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)) &&
-            std::fabs(feeler.surface_dir().y) < kMaxWallY) {
-            maths::Vec4 flat = {
-                .x = feeler.surface_dir().x, .y = 0.0F, .z = feeler.surface_dir().z, .w = feeler.surface_dir().w};
-            normal = feeler.surface_dir();
-            flat.make_unit();
-            const double facing = (static_cast<double>(flat.z) * direction.z) +
-                                  (static_cast<double>(flat.y) * direction.y) +
-                                  (static_cast<double>(flat.x) * direction.x);
-            const bool walking_in = walking_state(objects::RiderPoseState::PhysicsMode::kWalking) && walk_->get_state() == 1;
-            if ((walking_in && facing <= kWalkFacing) || facing >= kFacing) {
-                found = true;
-                break;
-            }
+        if (hits_drop_wall(feeler, direction, normal)) {
+            found = true;
+            break;
         }
         double next = step;
         if (step > kFarStep) {

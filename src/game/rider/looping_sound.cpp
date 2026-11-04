@@ -183,32 +183,9 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
     }
 }
 
-// 0x00513BB0
-void RiderRollingAudio::tick_frame()
+// The sound for the state, chosen again when something changed (not when the bike's was chosen: `bike` >= 0).
+void RiderRollingAudio::choose_sound(int bike)
 {
-    if (on_ == 0U) {
-        hold_off(true);
-        return;
-    }
-    LoopingSoundVolume volume;
-    // Not original: THAW's BMX (game/rider/thaw_bmx.h; THAW 0x0046A097 / 0x0046A0D3) - on the bike its roll and grind
-    // (BIKE_ROLL, BIKE_GRIND) on every terrain, nothing in the air or sliding; chosen every frame, and again from the
-    // terrain once off the bike.
-    int bike = -1;
-    if (skater::thaw_bmx::is_switched_on()) {
-        using skater::thaw_bmx::BikeSound;
-        BikeSound kind = BikeSound::kAir;
-        if (cur_phase_ == kStateGround) {
-            kind = BikeSound::kRoll;
-        } else if (cur_phase_ == kStateRail && (sliding_ == 0U) && (no_rail_sound_ == 0U)) {
-            kind = BikeSound::kGrind;
-        }
-        bike = skater::thaw_bmx::bike_sound_of(entity(), kind, &sound_);
-        if (bike >= 0) {
-            have_sound_ = static_cast<uint8_t>(bike);
-            sound_changed_ = 1;
-        }
-    }
     // The sound for the state, chosen again when something changed.
     switch (bike >= 0 ? -1 : cur_phase_) {
     case kStateGround:
@@ -238,6 +215,35 @@ void RiderRollingAudio::tick_frame()
     default:
         break;
     }
+}
+
+// 0x00513BB0
+void RiderRollingAudio::tick_frame()
+{
+    if (on_ == 0U) {
+        hold_off(true);
+        return;
+    }
+    LoopingSoundVolume volume;
+    // Not original: THAW's BMX (game/rider/thaw_bmx.h; THAW 0x0046A097 / 0x0046A0D3) - on the bike its roll and grind
+    // (BIKE_ROLL, BIKE_GRIND) on every terrain, nothing in the air or sliding; chosen every frame, and again from the
+    // terrain once off the bike.
+    int bike = -1;
+    if (skater::thaw_bmx::is_switched_on()) {
+        using skater::thaw_bmx::BikeSound;
+        BikeSound kind = BikeSound::kAir;
+        if (cur_phase_ == kStateGround) {
+            kind = BikeSound::kRoll;
+        } else if (cur_phase_ == kStateRail && (sliding_ == 0U) && (no_rail_sound_ == 0U)) {
+            kind = BikeSound::kGrind;
+        }
+        bike = skater::thaw_bmx::bike_sound_of(entity(), kind, &sound_);
+        if (bike >= 0) {
+            have_sound_ = static_cast<uint8_t>(bike);
+            sound_changed_ = 1;
+        }
+    }
+    choose_sound(bike);
     if ((sound_id_ != 0U) && ((have_sound_ == 0U) || playing_checksum_ != sound_name_key(&sound_))) {
         sound::AudioMixer::stop_sound(sound_id_);
         sound_id_ = 0;

@@ -85,6 +85,10 @@ public:
     void set_on(uint8_t value) { on_ = value; }
 
 private:
+    // (Part of 0x00513BB0, tick_frame: the sound for the state chosen again when something changed - unless the bike's
+    // was chosen, `bike` >= 0.)
+    void choose_sound(int bike);
+
     uint32_t sound_id_{};                // +0x18 the playing sound's unique id (0: none)
     uint32_t playing_checksum_{};        // +0x1C
     float lean_pitch_angle_{};           // +0x20 the pitch worked out

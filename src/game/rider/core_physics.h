@@ -818,6 +818,13 @@ private:
     // too soon, high enough, a steep wall, a wall plant trick pressed (else a few frames to press it late in), a late
     // plant's wall found again.)
     bool air_plant_allowed(bool late, bool check_only);
+    // (Parts of 0x0050F830, 0x00502240, 0x00508780 and 0x0050EE70: what the ride carries a wall riding skater by;
+    // whether a feeler down hit a vert wall for an acid drop (its normal kept); a ledge snapped up onto (true) in the
+    // air; the balance trick on the ground - braking, pushing off, a skitch or a manual.)
+    maths::Vec4 carried_on_wall();
+    bool hits_drop_wall(render::ProbeRay& feeler, const maths::Vec4& direction, maths::Vec4& normal);
+    bool snap_up_ledge(render::ProbeRay& hit, objects::GameEntity* object);
+    void tick_balance_trick(bool bike);
 
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)

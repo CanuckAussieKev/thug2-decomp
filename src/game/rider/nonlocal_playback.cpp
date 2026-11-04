@@ -568,6 +568,97 @@ void RiderRemoteSync::extrapolate_on_rail()
     }
 }
 
+// One of the history's other messages played: an animation's, the board's, the model's, a special item's.
+void RiderRemoteSync::play_event(StateHistoryMessage* msg, AnimBlenderComponent* blender)
+{
+    switch (msg->ident_) {
+    case online::MessageId::kPlayAnim: // an animation played (the primary channel)
+        if (gfx::BlendChannel* channel = blender->find_channel(0)) {
+            channel->play_anim(msg->name_, false, msg->from_, msg->to_, static_cast<int8_t>(msg->loop_type_),
+                               msg->blend_period_, msg->speed_, nullptr);
+        }
+        break;
+    case online::MessageId::kBoardRotated: // the board rotated (the byte passed as it was sent)
+        core::down_cast<RiderSpinAndFlip>(flip_and_rotate_)
+            ->apply_board_turned(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->rotated_, 0, false);
+        break;
+    case online::MessageId::kWobbleTarget:
+        if (gfx::BlendChannel* channel = blender->find_channel(0)) {
+            channel->choose_wobble_goal(msg->wobble_target_, false);
+        }
+        break;
+    case online::MessageId::kFlip:
+        if (gfx::BlendChannel* channel = blender->find_channel(0)) {
+            channel->set_flipped(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->flipped_, 0,
+                                 false); // (the byte passed as it was sent)
+        }
+        break;
+    case online::MessageId::kWobbleDetails: // (the five details passed by address)
+        if (gfx::BlendChannel* channel = blender->find_channel(0)) {
+            channel->set_wobble_details(msg->wobble_details_, false);
+        }
+        break;
+    case online::MessageId::kLoopType:
+        if (gfx::BlendChannel* channel = blender->find_channel(0)) {
+            channel->change_repeat_mode(static_cast<int8_t>(msg->loop_type_), false);
+        }
+        break;
+    case online::MessageId::kHideGeom:
+        mesh_set_->conceal_mesh(msg->name_, msg->hidden_, false);
+        break;
+    case online::MessageId::kAnimSpeed:
+        if (gfx::BlendChannel* channel = blender->find_channel(0)) {
+            channel->set_speed(msg->speed_, false, false, false);
+        }
+        break;
+    case online::MessageId::kSpinModel: { // the model's three parts set going, by the message's bits
+        mesh_set_->set_pivot({.x = 0.0F, .y = kModelPivotHeight, .z = 0.0F, .w = 1.0F});
+        const int time = get_now();
+        for (uint32_t bit = 0; bit < 3; ++bit) {
+            if ((msg->spin_axes_ & (1U << bit)) != 0U) {
+                append_one(core::at(mesh_set_->twist_rate(), bit),
+                           {.period = static_cast<float>(msg->spin_period_),
+                            .start = static_cast<uint32_t>(time),
+                            .base = msg->spin_start_,
+                            .range = msg->spin_range_,
+                            .power = msg->spin_power_},
+                           msg->spin_hold_, false);
+            }
+        }
+        break;
+    }
+    case online::MessageId::
+        kCreateSpecialItem: { // a special item made: its +0x5CB5CB7E component told its name and owner
+        auto* items = core::down_cast<PickupItemHandler>(entity()->fetch_module(PickupItemHandler::kType));
+        script::Struct* structure = script::read_sub_struct(msg->name_); // (the original also passes 1)
+        GameEntity* item = items->create_item(msg->item_slot_, structure);
+        gsl::owner<script::Struct*> params = script::spawn_param_bag();
+        if (params) {
+            params = new (params) script::Struct;
+        }
+        params->put_name_key(checksums::Name{kItemName}, msg->bone_);
+        params->put_name_key(checksums::Name{kItemOwner}, entity()->ident());
+        item->fetch_module(kItemComponent)->configure_from_data(params);
+        if (params) {
+            params->get_clear();
+            script::delete_struct(params);
+        }
+        break;
+    }
+    case online::MessageId::kDestroySpecialItem: // the special item gone
+        core::down_cast<PickupItemHandler>(entity()->fetch_module(PickupItemHandler::kType))
+            ->destroy_item(msg->item_slot_);
+        break;
+    case online::MessageId::kCancelSpins:
+        for (ModelSpinAxis& axis : mesh_set_->twist_rate()) {
+            get_clear(axis);
+        }
+        break;
+    default:
+        break;
+    }
+}
+
 // 0x00516180 (its EAX - left over from the loop - isn't read)
 void RiderRemoteSync::play_history_events()
 {
@@ -583,86 +674,7 @@ void RiderRemoteSync::play_history_events()
     for (bool again = true; again; again = slot != first) {
         StateHistoryMessage* msg = &core::at(messages, slot);
         if (get_time(*msg) > last_event_time_ && get_time(*msg) <= now) {
-            switch (msg->ident_) {
-            case online::MessageId::kPlayAnim: // an animation played (the primary channel)
-                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
-                    channel->play_anim(msg->name_, false, msg->from_, msg->to_, static_cast<int8_t>(msg->loop_type_),
-                                       msg->blend_period_, msg->speed_, nullptr);
-                }
-                break;
-            case online::MessageId::kBoardRotated: // the board rotated (the byte passed as it was sent)
-                core::down_cast<RiderSpinAndFlip>(flip_and_rotate_)
-                    ->apply_board_turned(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->rotated_, 0,
-                                         false);
-                break;
-            case online::MessageId::kWobbleTarget:
-                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
-                    channel->choose_wobble_goal(msg->wobble_target_, false);
-                }
-                break;
-            case online::MessageId::kFlip:
-                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
-                    channel->set_flipped(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->flipped_, 0,
-                                         false); // (the byte passed as it was sent)
-                }
-                break;
-            case online::MessageId::kWobbleDetails: // (the five details passed by address)
-                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
-                    channel->set_wobble_details(msg->wobble_details_, false);
-                }
-                break;
-            case online::MessageId::kLoopType:
-                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
-                    channel->change_repeat_mode(static_cast<int8_t>(msg->loop_type_), false);
-                }
-                break;
-            case online::MessageId::kHideGeom:
-                mesh_set_->conceal_mesh(msg->name_, msg->hidden_, false);
-                break;
-            case online::MessageId::kAnimSpeed:
-                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
-                    channel->set_speed(msg->speed_, false, false, false);
-                }
-                break;
-            case online::MessageId::kSpinModel: { // the model's three parts set going, by the message's bits
-                mesh_set_->set_pivot({.x = 0.0F, .y = kModelPivotHeight, .z = 0.0F, .w = 1.0F});
-                const int time = get_now();
-                for (uint32_t bit = 0; bit < 3; ++bit) {
-                    if ((msg->spin_axes_ & (1U << bit)) != 0U) {
-                        append_one(core::at(mesh_set_->twist_rate(), bit), {.period = static_cast<float>(msg->spin_period_), .start = static_cast<uint32_t>(time), .base = msg->spin_start_, .range = msg->spin_range_, .power = msg->spin_power_}, msg->spin_hold_, false);
-                    }
-                }
-                break;
-            }
-            case online::MessageId::kCreateSpecialItem: { // a special item made: its +0x5CB5CB7E component told its name and owner
-                auto* items = core::down_cast<PickupItemHandler>(entity()->fetch_module(PickupItemHandler::kType));
-                script::Struct* structure = script::read_sub_struct(msg->name_); // (the original also passes 1)
-                GameEntity* item = items->create_item(msg->item_slot_, structure);
-                gsl::owner<script::Struct*> params = script::spawn_param_bag();
-                if (params) {
-                    params = new (params) script::Struct;
-                }
-                params->put_name_key(checksums::Name{kItemName}, msg->bone_);
-                params->put_name_key(checksums::Name{kItemOwner}, entity()->ident());
-                item->fetch_module(kItemComponent)->configure_from_data(params);
-                if (params) {
-                    params->get_clear();
-                    script::delete_struct(params);
-                }
-                break;
-            }
-            case online::MessageId::kDestroySpecialItem: // the special item gone
-                core::down_cast<PickupItemHandler>(entity()->fetch_module(PickupItemHandler::kType))
-                    ->destroy_item(msg->item_slot_);
-                break;
-            case online::MessageId::kCancelSpins:
-                for (ModelSpinAxis& axis : mesh_set_->twist_rate()) {
-                    get_clear(axis);
-                }
-                break;
-            default:
-                break;
-            }
+            play_event(msg, blender);
         }
         slot = (slot + 1) % kHistory;
     }

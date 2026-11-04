@@ -115,32 +115,7 @@ void SkaterPhysicsModule::do_ground_physics()
     }
 
     // The balance trick.
-    crouch_stats_ = 0;
-    const uint32_t kind = balance_->trick();
-    if (kind == 0) {
-        if (bike ? thaw_bmx::should_brake(this) : should_brake()) {
-            get_brake();
-        } else {
-            braking_ = 0;
-            if (bike ? thaw_bmx::can_kick(this) && thaw_bmx::may_accelerate(this) : can_push_off()) {
-                push_off();
-            }
-        }
-    } else if (kind == kSkitch) {
-        balance_->skitch().tick_frame();
-        perfect_cheat(kPerfectSkitch, balance_->skitch());
-    } else if (kind == kNoseManual || kind == kManual) {
-        braking_ = 0;
-        if (motoskateboard_ != 0U) {
-            crouch_stats_ = 1;
-            if (can_push_off()) {
-                push_off();
-            }
-        }
-        balance_->manual().tick_frame();
-        static_cast<objects::MoveExecutor*>(trick_)->set_trick_objects(true);
-        perfect_cheat(kPerfectManual, balance_->manual());
-    }
+    tick_balance_trick(bike);
     collision_events::checkpoint(this, "gravity"); // (not original)
     apply_ground_friction();
     check_side_feelers();
@@ -219,6 +194,37 @@ void SkaterPhysicsModule::do_ground_physics()
     }
     static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(floor_feeler_.hit().object_checksum_);
     queued_spin_ = 0.0F;
+}
+
+// (Part of 0x0050EE70) The balance trick: none - braking or pushing off; a skitch; a manual.
+void SkaterPhysicsModule::tick_balance_trick(bool bike)
+{
+    crouch_stats_ = 0;
+    const uint32_t kind = balance_->trick();
+    if (kind == 0) {
+        if (bike ? thaw_bmx::should_brake(this) : should_brake()) {
+            get_brake();
+        } else {
+            braking_ = 0;
+            if (bike ? thaw_bmx::can_kick(this) && thaw_bmx::may_accelerate(this) : can_push_off()) {
+                push_off();
+            }
+        }
+    } else if (kind == kSkitch) {
+        balance_->skitch().tick_frame();
+        perfect_cheat(kPerfectSkitch, balance_->skitch());
+    } else if (kind == kNoseManual || kind == kManual) {
+        braking_ = 0;
+        if (motoskateboard_ != 0U) {
+            crouch_stats_ = 1;
+            if (can_push_off()) {
+                push_off();
+            }
+        }
+        balance_->manual().tick_frame();
+        static_cast<objects::MoveExecutor*>(trick_)->set_trick_objects(true);
+        perfect_cheat(kPerfectManual, balance_->manual());
+    }
 }
 
 // (Part of 0x0050EE70) The move along the ground: the step, then kept to the ground (skitching: a feeler down the
