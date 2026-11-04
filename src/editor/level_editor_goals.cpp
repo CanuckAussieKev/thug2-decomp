@@ -480,17 +480,183 @@ std::string write_record(const Goal& goal)
     return out.substr(kGoalPrefixLength); // (after "goal ")
 }
 
+namespace {
+
+// Spaces, tabs and carriage returns skipped.
+void skip_blanks(const std::string& text, size_t& at)
+{
+    while (at < text.size() &&
+           (core::at(text, at) == ' ' || core::at(text, at) == '\t' || core::at(text, at) == '\r')) {
+        ++at;
+    }
+}
+
+// A record's key=value field.
+struct GoalField {
+    std::string key;
+    std::string value;
+};
+
+// A key=value token from `at` (a value either up to the next space or "quoted"); false when it is malformed.
+bool next_field(const std::string& text, size_t& at, GoalField& field)
+{
+    std::string& key = field.key;
+    std::string& value = field.value;
+    const size_t equals = text.find('=', at);
+    if (equals == std::string::npos || equals == at) {
+        return false;
+    }
+    key = text.substr(at, equals - at);
+    if (key.find_first_of(" \t\"") != std::string::npos) {
+        return false;
+    }
+    at = equals + 1;
+    if (at < text.size() && core::at(text, at) == '"') {
+        const size_t close = text.find('"', at + 1);
+        if (close == std::string::npos) {
+            return false;
+        }
+        value = text.substr(at + 1, close - at - 1);
+        at = close + 1;
+        if (at < text.size() && core::at(text, at) != ' ' && core::at(text, at) != '\t' && core::at(text, at) != '\r') {
+            return false; // (text after the closing quote)
+        }
+    } else {
+        const size_t stop = text.find_first_of(" \t\r", at);
+        value = text.substr(at, stop == std::string::npos ? std::string::npos : stop - at);
+        at = stop == std::string::npos ? text.size() : stop;
+    }
+    return true;
+}
+
+// gaps=: the gaps' names (|-separated, cleaned; empty ones dropped).
+void read_gaps(const std::string& value, Goal& goal)
+{
+    goal.gaps.clear();
+    if (!value.empty()) {
+        for (const std::string& gap : get_split(value, '|')) {
+            const std::string clean = clean_text(gap, 60);
+            if (!clean.empty()) {
+                goal.gaps.push_back(clean);
+            }
+        }
+    }
+}
+
+// sets=: the key combo sets (comma-separated numbers, or none).
+bool read_sets(const std::string& value, Goal& goal)
+{
+    bool ok = true;
+    goal.sets = 0;
+    if (value != "none") {
+        for (const std::string& part : get_split(value, ',')) {
+            int set = 0;
+            ok = ok && read_int(part, &set) && set >= 0 && set < kComboSetCount;
+            if (ok) {
+                goal.sets |= 1U << set;
+            }
+        }
+    }
+    return ok;
+}
+
+// The whole-number fields (time=, score=, ...) and single=; another key - a later version's - skipped.
+bool read_number_field(const GoalField& field, Goal& goal)
+{
+    const std::string& key = field.key;
+    const std::string& value = field.value;
+    bool ok = true;
+    struct IntKey {
+        const char* key;
+        int* field;
+    };
+    const auto ints = std::to_array<IntKey>({{.key = "time", .field = &goal.time},
+                                             {.key = "score", .field = &goal.score},
+                                             {.key = "laps", .field = &goal.laps},
+                                             {.key = "cptime", .field = &goal.checkpoint_time_},
+                                             {.key = "spin", .field = &goal.spin},
+                                             {.key = "accel", .field = &goal.accel_interval_},
+                                             {.key = "tricktime", .field = &goal.combo_time_},
+                                             {.key = "stopat", .field = &goal.stop_at_},
+                                             {.key = "maxtricks", .field = &goal.max_tricks_},
+                                             {.key = "combo", .field = &goal.combo_size_},
+                                             {.key = "block", .field = &goal.block_size_},
+                                             {.key = "towin", .field = &goal.to_win_}});
+    bool known = false;
+    for (const IntKey& int_key_entry : ints) {
+        if (key == int_key_entry.key) {
+            known = true;
+            ok = read_int(value, int_key_entry.field);
+        }
+    }
+    if (key == "single") {
+        int single = 0;
+        ok = read_int(value, &single) && (single == 0 || single == 1);
+        goal.single_combo_ = single == 1;
+    } // (another key: a later version's - skipped)
+    (void)known;
+    return ok;
+}
+
+// The goal being read: whether its type was given, its points as numbered.
+struct GoalReading {
+    bool have_type{};
+    std::vector<std::pair<int, Point>> points;
+};
+
+// One key=value field into the goal; false when its value is wrong.
+bool read_goal_field(const GoalField& field, Goal& goal, GoalReading& reading)
+{
+    const std::string& key = field.key;
+    const std::string& value = field.value;
+    bool ok = true;
+    if (key == "type") {
+        ok = type_of(value, &goal.type);
+        reading.have_type = ok;
+    } else if (key == "name") {
+        goal.name = clean_text(value, kMaxNameChars);
+    } else if (key == "ped") {
+        goal.ped = clean_text(value, kMaxPedChars);
+    } else if (key == "text") {
+        goal.text = clean_text(value, kMaxMessageChars);
+    } else if (key == "win") {
+        goal.win = clean_text(value, kMaxMessageChars);
+    } else if (key == "trick") {
+        goal.trick = clean_text(value, kMaxTrickChars);
+    } else if (key == "gaps") {
+        read_gaps(value, goal);
+    } else if (key == "control") {
+        ok = value == "Skate" || value == "Walk";
+        goal.walk = value == "Walk";
+    } else if (key == "sets") {
+        ok = read_sets(value, goal);
+    } else if (key == "accelpct") {
+        ok = read_numbers(value, std::span<float>(&goal.accel_percent_, 1), 1);
+    } else if (key.size() >= 2 && core::at(key, 0) == 'p' &&
+               key.find_first_not_of("0123456789", 1) == std::string::npos) {
+        int index = 0;
+        std::array<float, kPointValueCount> v{};
+        ok = read_int(key.substr(1), &index) && index >= 0 && index < kMaxPoints &&
+             read_numbers(value, v, kPointValueCount);
+        if (ok) {
+            reading.points.emplace_back(index,
+                                        Point{.pos = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)},
+                                              .heading = core::at(v, 3),
+                                              .height = core::at(v, 4)});
+        }
+    } else {
+        ok = read_number_field(field, goal);
+    }
+    return ok;
+}
+
+} // namespace
+
 bool read_record(const std::string& text, Goal* out)
 {
     // Tokens: the id, then key=value with a value either up to the next space or "quoted".
     size_t at = 0;
-    auto skip = [&] {
-        while (at < text.size() &&
-               (core::at(text, at) == ' ' || core::at(text, at) == '\t' || core::at(text, at) == '\r')) {
-            ++at;
-        }
-    };
-    skip();
+    skip_blanks(text, at);
     const size_t end = text.find_first_of(" \t\r", at);
     const std::string id = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
     if (!node_create::valid_name(id) || id.size() > kMaxIdLength) {
@@ -500,126 +666,26 @@ bool read_record(const std::string& text, Goal* out)
     Goal goal;
     goal.id = id;
     std::vector<std::string> seen;
-    std::vector<std::pair<int, Point>> points;
-    bool have_type = false;
+    GoalReading reading;
+    std::vector<std::pair<int, Point>>& points = reading.points;
     while (true) {
-        skip();
+        skip_blanks(text, at);
         if (at >= text.size()) {
             break;
         }
-        const size_t equals = text.find('=', at);
-        if (equals == std::string::npos || equals == at) {
+        GoalField field;
+        if (!next_field(text, at, field)) {
             return false;
         }
-        std::string key = text.substr(at, equals - at);
-        if (key.find_first_of(" \t\"") != std::string::npos) {
+        if (std::ranges::find(seen, field.key) != seen.end()) {
             return false;
         }
-        at = equals + 1;
-        std::string value;
-        if (at < text.size() && core::at(text, at) == '"') {
-            const size_t close = text.find('"', at + 1);
-            if (close == std::string::npos) {
-                return false;
-            }
-            value = text.substr(at + 1, close - at - 1);
-            at = close + 1;
-            if (at < text.size() && core::at(text, at) != ' ' && core::at(text, at) != '\t' &&
-                core::at(text, at) != '\r') {
-                return false; // (text after the closing quote)
-            }
-        } else {
-            const size_t stop = text.find_first_of(" \t\r", at);
-            value = text.substr(at, stop == std::string::npos ? std::string::npos : stop - at);
-            at = stop == std::string::npos ? text.size() : stop;
-        }
-        if (std::ranges::find(seen, key) != seen.end()) {
-            return false;
-        }
-        seen.push_back(key);
-        bool ok = true;
-        if (key == "type") {
-            ok = type_of(value, &goal.type);
-            have_type = ok;
-        } else if (key == "name") {
-            goal.name = clean_text(value, kMaxNameChars);
-        } else if (key == "ped") {
-            goal.ped = clean_text(value, kMaxPedChars);
-        } else if (key == "text") {
-            goal.text = clean_text(value, kMaxMessageChars);
-        } else if (key == "win") {
-            goal.win = clean_text(value, kMaxMessageChars);
-        } else if (key == "trick") {
-            goal.trick = clean_text(value, kMaxTrickChars);
-        } else if (key == "gaps") {
-            goal.gaps.clear();
-            if (!value.empty()) {
-                for (const std::string& gap : get_split(value, '|')) {
-                    const std::string clean = clean_text(gap, 60);
-                    if (!clean.empty()) {
-                        goal.gaps.push_back(clean);
-                    }
-                }
-            }
-        } else if (key == "control") {
-            ok = value == "Skate" || value == "Walk";
-            goal.walk = value == "Walk";
-        } else if (key == "sets") {
-            goal.sets = 0;
-            if (value != "none") {
-                for (const std::string& part : get_split(value, ',')) {
-                    int set = 0;
-                    ok = ok && read_int(part, &set) && set >= 0 && set < kComboSetCount;
-                    if (ok) {
-                        goal.sets |= 1U << set;
-                    }
-                }
-            }
-        } else if (key == "accelpct") {
-            ok = read_numbers(value, std::span<float>(&goal.accel_percent_, 1), 1);
-        } else if (key.size() >= 2 && core::at(key, 0) == 'p' && key.find_first_not_of("0123456789", 1) == std::string::npos) {
-            int index = 0;
-            std::array<float, kPointValueCount> v{};
-            ok = read_int(key.substr(1), &index) && index >= 0 && index < kMaxPoints && read_numbers(value, v, kPointValueCount);
-            if (ok) {
-                points.emplace_back(index, Point{.pos = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)}, .heading = core::at(v, 3), .height = core::at(v, 4)});
-            }
-        } else {
-            struct IntKey {
-                const char* key;
-                int* field;
-            };
-            const auto ints = std::to_array<IntKey>({{.key = "time", .field = &goal.time},
-                                                     {.key = "score", .field = &goal.score},
-                                                     {.key = "laps", .field = &goal.laps},
-                                                     {.key = "cptime", .field = &goal.checkpoint_time_},
-                                                     {.key = "spin", .field = &goal.spin},
-                                                     {.key = "accel", .field = &goal.accel_interval_},
-                                                     {.key = "tricktime", .field = &goal.combo_time_},
-                                                     {.key = "stopat", .field = &goal.stop_at_},
-                                                     {.key = "maxtricks", .field = &goal.max_tricks_},
-                                                     {.key = "combo", .field = &goal.combo_size_},
-                                                     {.key = "block", .field = &goal.block_size_},
-                                                     {.key = "towin", .field = &goal.to_win_}});
-            bool known = false;
-            for (const IntKey& int_key_entry : ints) {
-                if (key == int_key_entry.key) {
-                    known = true;
-                    ok = read_int(value, int_key_entry.field);
-                }
-            }
-            if (key == "single") {
-                int single = 0;
-                ok = read_int(value, &single) && (single == 0 || single == 1);
-                goal.single_combo_ = single == 1;
-            } // (another key: a later version's - skipped)
-            (void)known;
-        }
-        if (!ok) {
+        seen.push_back(field.key);
+        if (!read_goal_field(field, goal, reading)) {
             return false;
         }
     }
-    if (!have_type) {
+    if (!reading.have_type) {
         return false;
     }
     // (the points: p0.. with none missing, within the type's most)
