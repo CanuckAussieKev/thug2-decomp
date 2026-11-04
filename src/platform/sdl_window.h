@@ -2,8 +2,9 @@
 
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
+#include <windows.h>
+
 struct SDL_Window;
-struct HWND__; // (windows.h's HWND)
 
 // The game's window on PC: an SDL window ([Graphics] in thug2-decomp.ini: ResolutionX / ResolutionY - 0 = the
 // desktop's -, Windowed, Borderless) in place of the original's Win32 one (create_game_window 0x005F5860, 640x480
@@ -14,7 +15,7 @@ namespace sys {
 // Read the settings, make the window (WinMain) and show it; the cursor hidden; the game's focus flag (0x007CCBE4) set.
 // Returns the window's Win32 handle. (WinMain registers the handler of its focus events first: they set the focus
 // flag and allow / stop device recreation, 0x00786AB4.)
-HWND__* create_sdl_window();
+HWND create_sdl_window();
 
 // The Windowed setting, and the window's size (at least 640x480; 0 before the window is made unless set).
 bool& get_windowed();

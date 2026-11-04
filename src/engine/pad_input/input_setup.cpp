@@ -9,7 +9,6 @@
 #include "engine/gfx/settings.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/pad_input/direct_input.h"
-#include "platform/sdl_events.h"
 #include "engine/gfx/view_cam.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"

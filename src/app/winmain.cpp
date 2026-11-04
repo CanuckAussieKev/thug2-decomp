@@ -45,7 +45,6 @@
 #include "engine/script/game_cfuncs.h"
 #include "frontend/automation.h"
 #include "base/core/parse_number.h"
-#include "base/core/pointer_cell.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/renderer.h"

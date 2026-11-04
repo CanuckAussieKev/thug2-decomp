@@ -1,12 +1,12 @@
 #pragma once
 
 #include <windows.h>
+#include <mmsystem.h>
+#include <dsound.h>
 
 #include <cstdint>
 #include <span>
 #include "base/maths/rect.h"
-
-struct IDirectSound8;
 
 // The Win32 platform layer's system side (0x005F5740-0x005F5AF0): finding the game's CD, the game window (PartyMod's
 // SDL window replaces it: platform/sdl_window.h), DirectSound, and two decoders - the sound files' 4-bit ADPCM and
