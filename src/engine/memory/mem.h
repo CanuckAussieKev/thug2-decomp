@@ -7,6 +7,8 @@
 
 #include <gsl/pointers>
 
+#include "base/core/owned_element.h" // IWYU pragma: export (memory::owned_element; the base layer's)
+
 namespace memory {
 
 class Arena;
@@ -69,14 +71,6 @@ template <typename T>
 gsl::owner<T> adopt(void* block)
 {
     return static_cast<T>(block);
-}
-// NOT ORIGINAL - an object a container owns (a list's or a table's element, a pool's record) as the owner the
-// container's own code frees or hands on: the container's slots are plain pointers - links, template arguments,
-// void* values - which can't carry gsl::owner; the call marks where the container gives the ownership up.
-template <typename T>
-gsl::owner<T*> owned_element(T* element) noexcept
-{
-    return element;
 }
 // NOT ORIGINAL - an object just made (an owner) held by a std::unique_ptr from here on (its delete, or Deleter's).
 template <typename T, typename Deleter = std::default_delete<T>>

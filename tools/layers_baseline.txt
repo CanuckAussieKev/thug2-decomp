@@ -15,5 +15,3 @@ src/frontend/new_frontend.cpp -> src/editor/level_editor.h
 src/frontend/new_frontend.cpp -> src/editor/level_editor_playtest.h
 src/frontend/new_frontend.cpp -> src/editor/level_editor_ui_backend.h
 src/frontend/new_frontend_game.cpp -> src/editor/level_editor.h
-src/gpu/vertex_buffers.cpp -> src/engine/gfx/renderer.h
-src/gpu/vertex_buffers.cpp -> src/engine/memory/mem.h

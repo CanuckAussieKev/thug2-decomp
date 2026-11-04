@@ -12,6 +12,10 @@
 
 namespace render {
 
+// The device the buffers are created on: the renderer hands it over whenever it makes or drops its own
+// (Renderer::set_d3d_device), so the gpu code asks nothing of the engine.
+void set_buffer_device(IDirect3DDevice9* device);
+
 // A vertex buffer (0x24 bytes, constructor 0x004D3FF0; made by 0x004D5760): the size, the Direct3D buffer - its own,
 // or a share of an arena's (flag 4) -, a copy of the vertices in memory (none with flag 1) written to the card when
 // unlocked, and the lock's state. Every one is on a list (0x007865E4) of C runtime nodes, so they can be made again

@@ -15,9 +15,8 @@
 
 #include "base/core/raw_view.h"
 #include "platform/crt.h"
-#include "engine/memory/mem.h"
+#include "base/core/owned_element.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -35,6 +34,7 @@ void dealloc(gsl::owner<void*> memory) { crt::dealloc(memory); }
 struct VertexBuffersState {
     buffer_lists::Node* vertex_buffer_list_ = nullptr; // (the original's 0x007865E4)
     buffer_lists::Node* index_buffer_list_ = nullptr; // (0x007865E8)
+    IDirect3DDevice9* device_ = nullptr; // (the renderer's device, set through set_buffer_device)
 };
 
 VertexBuffersState& vertex_buffers_state()
@@ -95,6 +95,8 @@ constexpr uint32_t kShared = 4;
 
 } // namespace
 
+void set_buffer_device(IDirect3DDevice9* device) { vertex_buffers_state().device_ = device; }
+
 buffer_lists::Node* buffer_lists::vertex_buffers() { return vertex_buffers_state().vertex_buffer_list_; }
 buffer_lists::Node* buffer_lists::index_buffers() { return vertex_buffers_state().index_buffer_list_; }
 
@@ -104,7 +106,7 @@ VertexBuffer::VertexBuffer(uint32_t bytes, BufferFlags creation)
     const auto usage_flags = creation.usage_flags_;
     const auto buffer_flags = creation.buffer_flags_;
     if ((buffer_flags & kShared) == 0U) {
-        renderer().d3d_device()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
+        vertex_buffers_state().device_->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
     }
     size_ = bytes;
@@ -163,7 +165,7 @@ void VertexBuffer::recreate()
     if ((flags & kShared) != 0U) {
         d_3d(this)->AddRef();
     } else {
-        renderer().d3d_device()->CreateVertexBuffer(size_, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+        vertex_buffers_state().device_->CreateVertexBuffer(size_, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
     }
     if ((flags & kNoCopy) != 0U) {
@@ -180,7 +182,7 @@ void VertexBuffer::recreate()
 IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
     : size_(bytes), usage_(usage_flags), format_(index_format), indices_(static_cast<uint16_t*>(alloc_block(bytes)))
 {
-    renderer().d3d_device()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
+    vertex_buffers_state().device_->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
                                     D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer_), nullptr);
     enlist(index_buffers(), this);
 }
