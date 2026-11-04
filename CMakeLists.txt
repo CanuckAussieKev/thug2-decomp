@@ -197,6 +197,7 @@ add_subdirectory(src/formats)
 add_subdirectory(src/wire)
 add_subdirectory(src/platform)
 add_subdirectory(src/gpu)
+add_subdirectory(src/engine)
 
 # --- The game ----------------------------------------------------------------------------------------------------
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
@@ -204,23 +205,6 @@ add_subdirectory(src/gpu)
 add_executable(thug2 WIN32
     src/app/main.cpp
     src/app/extensions.cpp
-    src/engine/ext/extension.cpp
-    src/engine/assets/resource_entry.cpp
-    src/engine/assets/asset_types.cpp
-    src/engine/assets/resource_registry.cpp
-    src/engine/memory/arena_alloc.cpp
-    src/engine/util/lzss.cpp
-    src/engine/memory/dump_text.cpp
-    src/engine/memory/arena.cpp
-    src/engine/memory/manager.cpp
-    src/engine/memory/mem.cpp
-    src/engine/memory/memory_sizes.cpp
-    src/engine/memory/memory_report.cpp
-    src/engine/memory/slab_bank.cpp
-    src/engine/memory/task_list.cpp
-    src/engine/util/text_store.cpp
-    src/engine/file/asset_bundle.cpp
-    src/engine/ui/model_widget.cpp
     src/game/park_editing/cursor.cpp
     src/game/park_editing/park_floor.cpp
     src/game/park_editing/park_manager.cpp
@@ -232,17 +216,8 @@ add_executable(thug2 WIN32
     src/game/park_editing/copy_buffer.cpp
     src/game/park_editing/gap_slots.cpp
     src/game/park_editing/piece_menu.cpp
-    src/engine/ui/screen_element.cpp
-    src/engine/ui/menu_element.cpp
-    src/engine/ui/screen_element_manager.cpp
-    src/engine/ui/scrolling_menu.cpp
-    src/engine/ui/sprite_element.cpp
-    src/engine/ui/screen_element_cfuncs.cpp
-    src/engine/ui/text_element.cpp
-    src/engine/ui/text_block.cpp
     src/game/front_end/front_end.cpp
     src/frontend/mouse_menus.cpp
-    src/engine/file/data_overlay.cpp
     src/frontend/new_frontend.cpp
     src/frontend/new_frontend_extension.cpp
     src/frontend/new_frontend_draw.cpp
@@ -254,7 +229,6 @@ add_executable(thug2 WIN32
     src/devtools/restart_tester.cpp
     src/devtools/screenshot.cpp
     src/devtools/extensions.cpp
-    src/engine/gfx/screenshot_capture.cpp
     src/game/commands/career_complete.cpp
     src/game/commands/node_hooks.cpp
     src/devtools/test_view.cpp
@@ -292,7 +266,6 @@ add_executable(thug2 WIN32
     src/editor/level_editor_playtest_ui.cpp
     src/editor/level_editor_prefs.cpp
     src/editor/level_editor_ui_backend.cpp
-    src/engine/ui/ui_fonts.cpp
     src/editor/level_editor_ui_layout.cpp
     src/editor/level_editor_ui_menus.cpp
     src/editor/level_editor_ui_strip.cpp
@@ -366,32 +339,11 @@ add_executable(thug2 WIN32
     src/game/skate/skater_profile_cfuncs.cpp
     src/game/skate/appearance_cfuncs.cpp
     src/game/skate/preload_cfuncs.cpp
-    src/engine/gfx/anim_controller.cpp
-    src/engine/gfx/anim_track.cpp
-    src/engine/gfx/boned_anim_frame_data.cpp
-    src/engine/gfx/screen.cpp
-    src/engine/gfx/screen_2d.cpp
-    src/engine/gfx/viewport.cpp
-    src/engine/gfx/view_setup.cpp
-    src/engine/gfx/weather.cpp
-    src/engine/gfx/window2d.cpp
-    src/engine/gfx/engine_shadows.cpp
-    src/engine/gfx/engine_shadow_edges.cpp
-    src/engine/gfx/rig.cpp
-    src/engine/gfx/settings.cpp
-    src/engine/gfx/glyphs.cpp
-    src/engine/gfx/flash.cpp
-    src/engine/gfx/font.cpp
-    src/engine/gfx/text.cpp
-    src/engine/gfx/tod_manager.cpp
     src/game/skate/victory_conditions.cpp
     src/game/skate/trick_goals.cpp
     src/game/skate/skate_net.cpp
     src/game/skate/skate_net_relay.cpp
     src/game/skate/skate_module.cpp
-    src/engine/sys/model_viewer.cpp
-    src/engine/sys/viewer_object.cpp
-    src/engine/objects/game_objects.cpp
     src/game/rider/trick_lists.cpp
     src/game/skate/gap_checklist.cpp
     src/game/rider/manual_balance.cpp
@@ -406,143 +358,24 @@ add_executable(thug2 WIN32
     src/game/rider/skater_camera_modes.cpp
     src/game/rider/trick_queue.cpp
     src/game/rider/trick_member_functions.cpp
-    src/engine/objects/movie_manager.cpp
-    src/engine/objects/movie_cfuncs.cpp
-    src/engine/objects/anim_movies.cpp
     src/game/world/trick_objects.cpp
     src/game/world/object_hooks.cpp
     src/game/skate/render_hooks.cpp
     src/game/front_end/pad_hooks.cpp
     src/game/skate/sys_hooks.cpp
-    src/engine/objects/rail_manager.cpp
     src/game/skate/profile_manager.cpp
     src/game/skate/highscores.cpp
     src/game/skate/career.cpp
     src/game/skate/career_cfuncs.cpp
     src/game/skate/skater_profile.cpp
     src/game/skate/appearance_guard.cpp
-    src/engine/file/thugpro_cas.cpp
     src/game/rider/rider.cpp
     src/game/rider/skater_query_cfuncs.cpp
-    src/engine/gfx/device.cpp
-    src/engine/gfx/movie.cpp
-    src/engine/audio/bink_stream.cpp
-    src/engine/audio/bink_stream_files.cpp
-    src/engine/audio/music_player.cpp
-    src/engine/audio/stream.cpp
-    src/engine/audio/stream_play.cpp
-    src/engine/audio/stream_commands.cpp
-    src/engine/audio/music_api.cpp
-    src/engine/audio/music_cfuncs.cpp
-    src/engine/audio/continue_music.cpp
-    src/engine/gfx/loading_bar.cpp
-    src/engine/gfx/loading_console.cpp
-    src/engine/gfx/draw_frame.cpp
-    src/engine/gfx/wireframe.cpp
-    src/engine/gfx/view_mode.cpp
-    src/engine/gfx/billboard_quad.cpp
-    src/engine/gfx/view_cam.cpp
-    src/engine/gfx/world_scene.cpp
-    src/engine/gfx/engine_glue.cpp
-    src/engine/gfx/scene_load.cpp
-    src/engine/gfx/pc_font.cpp
-    src/engine/gfx/geom.cpp
-    src/engine/gfx/pc_lights.cpp
-    src/engine/gfx/primitive_states.cpp
-    src/engine/gfx/loading_screen.cpp
-    src/engine/gfx/pc_mesh.cpp
-    src/engine/gfx/pc_mesh_life.cpp
-    src/engine/gfx/pc_mesh_load.cpp
-    src/engine/gfx/pc_mesh_render.cpp
-    src/engine/gfx/pc_fog.cpp
-    src/engine/gfx/texture_splats.cpp
-    src/engine/gfx/shatter.cpp
-    src/engine/gfx/pc_model.cpp
-    src/engine/gfx/particle_system.cpp
-    src/engine/gfx/particle_system_update.cpp
-    src/engine/gfx/particle_types.cpp
-    src/engine/gfx/flexible_particle_manager.cpp
-    src/engine/gfx/model_appearance.cpp
-    src/engine/gfx/model_builder.cpp
-    src/engine/gfx/bone_volumes.cpp
-    src/engine/gfx/engine.cpp
-    src/engine/gfx/engine_parts.cpp
-    src/engine/gfx/model_particles.cpp
-    src/engine/gfx/engine_primitive.cpp
-    src/engine/gfx/engine_scene.cpp
-    src/engine/gfx/particle_sets.cpp
-    src/engine/gfx/model.cpp
-    src/engine/gfx/model_geoms.cpp
-    src/engine/gfx/sector.cpp
-    src/engine/gfx/engine_sprite.cpp
-    src/engine/gfx/screen_effects.cpp
-    src/engine/gfx/engine_texture.cpp
-    src/engine/gfx/texture_dict.cpp
-    src/engine/gfx/engine_scene_sectors.cpp
-    src/engine/gfx/engine_scene_list.cpp
-    src/engine/gfx/frame_source.cpp
-    src/engine/gfx/engine_font.cpp
-    src/engine/gfx/engine_text.cpp
-    src/engine/gfx/engine_geom.cpp
-    src/engine/gfx/engine_imposters.cpp
-    src/engine/gfx/engine_model_lights.cpp
-    src/engine/gfx/light_manager.cpp
-    src/engine/gfx/light_sets.cpp
-    src/engine/gfx/scene_lights.cpp
-    src/engine/gfx/engine_mesh.cpp
-    src/engine/gfx/loading_bar_cfuncs.cpp
-    src/engine/gfx/engine_texture_projection.cpp
-    src/engine/gfx/viewport_list.cpp
-    src/engine/gfx/engine_effects.cpp
-    src/engine/gfx/effects_state.cpp
-    src/engine/gfx/engine_particles.cpp
-    src/engine/gfx/particle_maths.cpp
-    src/engine/gfx/spawned_polys.cpp
-    src/engine/gfx/pc_particles.cpp
-    src/engine/gfx/pc_flexible_particles.cpp
-    src/engine/gfx/pc_primitive.cpp
-    src/engine/gfx/pc_scene.cpp
-    src/engine/gfx/pc_sprite.cpp
-    src/engine/gfx/pc_texture.cpp
-    src/engine/gfx/pc_texture_projection.cpp
-    src/engine/gfx/pc_viewport.cpp
-    src/engine/gfx/pc_weather.cpp
-    src/engine/gfx/pc_billboards.cpp
-    src/engine/gfx/pc_buffers.cpp
-    src/engine/gfx/pc_gamma.cpp
-    src/engine/gfx/pc_grass.cpp
-    src/engine/gfx/pc_instance.cpp
-    src/engine/gfx/mesh_pass.cpp
-    src/engine/gfx/pc_material.cpp
-    src/engine/gfx/pc_material_load.cpp
-    src/engine/gfx/render_state.cpp
-    src/engine/gfx/renderer.cpp
-    src/engine/gfx/occlusion.cpp
-    src/engine/gfx/shadow_base.cpp
-    src/engine/gfx/mesh_list.cpp
-    src/engine/gfx/pixel_shaders.cpp
-    src/engine/gfx/simple_material.cpp
-    src/engine/gfx/screen_fx.cpp
-    src/engine/gfx/draw2d.cpp
-    src/engine/gfx/sub_mesh.cpp
-    src/engine/gfx/scene_render.cpp
-    src/engine/gfx/glow.cpp
-    src/engine/gfx/bitmap_texture.cpp
-    src/engine/gfx/texture_file.cpp
-    src/engine/gfx/hd_ui.cpp
-    src/engine/gfx/graphics_options.cpp
-    src/engine/pad_input/key_names.cpp
-    src/engine/objects/anim_blender.cpp
-    src/engine/objects/ride_tracker.cpp
     src/game/world/avoid.cpp
     src/game/world/ped_logic.cpp
     src/game/world/ped_logic_path.cpp
     src/game/world/ped_logic_move.cpp
     src/game/world/projectile_components.cpp
-    src/engine/objects/collision_component.cpp
-    src/engine/objects/matrix_component.cpp
-    src/engine/objects/camera_lookaround.cpp
-    src/engine/objects/camera_util.cpp
     src/app/component_types.cpp
     src/game/park_editing/goal_editor_util.cpp
     src/game/park_editing/edited_goal.cpp
@@ -550,29 +383,7 @@ add_executable(thug2 WIN32
     src/game/park_editing/goal_editor.cpp
     src/game/park_editing/goal_editor_members.cpp
     src/game/park_editing/goal_editor_nodes.cpp
-    src/engine/objects/object_proximity.cpp
-    src/engine/objects/pager_message.cpp
     src/game/world/editor_camera.cpp
-    src/engine/file/async.cpp
-    src/engine/file/file_load.cpp
-    src/engine/file/packs.cpp
-    src/engine/file/archive.cpp
-    src/engine/lists/key_map.cpp
-    src/engine/lists/chain_start.cpp
-    src/engine/lists/lookup_table.cpp
-    src/engine/render/coll_cache.cpp
-    src/engine/render/coll_capsule.cpp
-    src/engine/render/coll_obj.cpp
-    src/engine/render/coll_movable.cpp
-    src/engine/render/coll_static.cpp
-    src/engine/render/coll_line.cpp
-    src/engine/render/coll_grid.cpp
-    src/engine/render/coll_rect.cpp
-    src/engine/render/coll_sphere.cpp
-    src/engine/render/coll_world.cpp
-    src/engine/render/probe_ray.cpp
-    src/engine/render/coll_tests.cpp
-    src/engine/render/coll_tri.cpp
     src/game/online/transport_hooks.cpp
     src/game/online/session_queries.cpp
     src/game/online/chat.cpp
@@ -635,107 +446,11 @@ add_executable(thug2 WIN32
     src/game/online/net_guards.cpp
     src/game/online/thugpro_join.cpp
     src/game/online/thugpro_peer.cpp
-    src/engine/net/net_dispatcher.cpp
-    src/engine/net/net_app_messages.cpp
-    src/engine/net/net_client.cpp
-    src/engine/net/net_server.cpp
-    src/engine/net/net_app.cpp
-    src/engine/net/net_app_view.cpp
-    src/engine/net/net_latency.cpp
-    src/engine/net/net_lists.cpp
-    src/engine/net/net_manager.cpp
-    src/engine/net/net_metrics.cpp
-    src/engine/net/net_compress.cpp
-    src/engine/net/session_query.cpp
-    src/engine/net/net_lzham.cpp
-    src/engine/net/net_descs.cpp
-    src/engine/net/net_conn.cpp
-    src/engine/net/net_messages.cpp
-    src/engine/net/net_manager_apps.cpp
-    src/engine/net/net_conn_times.cpp
-    src/engine/objects/composite.cpp
-    src/engine/objects/compositemgr.cpp
-    src/engine/objects/cutscene.cpp
-    src/engine/objects/cutscene_data.cpp
-    src/engine/objects/cutscene_load.cpp
-    src/engine/objects/cutscene_update.cpp
-    src/engine/objects/cutscene_package.cpp
-    src/engine/objects/cutscene_play.cpp
-    src/engine/objects/control_pad.cpp
-    src/engine/objects/proximity.cpp
-    src/engine/script/preferences.cpp
-    src/engine/script/struct_buffer.cpp
-    src/engine/objects/emitter_object.cpp
-    src/engine/objects/node_objects.cpp
-    src/engine/objects/path_manager.cpp
-    src/engine/objects/path_follower.cpp
-    src/engine/sound/sfx.cpp
-    src/engine/sound/sound_cfuncs.cpp
-    src/engine/sound/sfx_voices.cpp
-    src/engine/sound/surface_kind.cpp
-    src/engine/gfx/anim_blend.cpp
-    src/engine/gfx/anim_timeline.cpp
-    src/engine/gfx/anim_cache.cpp
-    src/engine/gfx/anim_channel.cpp
-    src/engine/objects/signal.cpp
-    src/engine/objects/flip_rotate.cpp
-    src/engine/objects/lock_obj.cpp
-    src/engine/objects/chain_component.cpp
-    src/engine/objects/lock_obj_update.cpp
-    src/engine/objects/model_component.cpp
-    src/engine/objects/model_component_init.cpp
-    src/engine/objects/model_component_members.cpp
-    src/engine/objects/model_light_update.cpp
-    src/engine/objects/motion_path.cpp
-    src/engine/objects/bbox_component.cpp
-    src/engine/objects/color_cycle.cpp
-    src/engine/objects/camera_component.cpp
-    src/engine/objects/car_physics.cpp
-    src/engine/objects/collide_and_die.cpp
-    src/engine/objects/dynamic_light.cpp
-    src/engine/objects/fam.cpp
-    src/engine/objects/flexible_particle.cpp
-    src/engine/objects/floating_text.cpp
-    src/engine/objects/input_component.cpp
-    src/engine/objects/motion.cpp
-    src/engine/objects/motion_component.cpp
-    src/engine/objects/motion_update.cpp
-    src/engine/objects/motion_ground.cpp
-    src/engine/objects/motion_rotate.cpp
-    src/engine/objects/movable_contact.cpp
-    src/engine/objects/node_components.cpp
-    src/engine/objects/entity.cpp
-    src/engine/objects/entity_hub.cpp
-    src/engine/objects/objects_shared.cpp
-    src/engine/objects/particle_component.cpp
-    src/engine/objects/proximity_component.cpp
     src/game/park/park_cursor.cpp
     src/game/park/park_editor.cpp
     src/game/park/park_memory.cpp
-    src/engine/objects/smtptr.cpp
-    src/engine/objects/tracker.cpp
-    src/engine/objects/trigger_component.cpp
     src/game/world/projectile_component.cpp
-    src/engine/objects/display_matrix_component.cpp
-    src/engine/objects/static_vehicle.cpp
     src/game/world/vehicle_wheel.cpp
-    src/engine/objects/shadow_component.cpp
-    src/engine/objects/skeleton_component.cpp
-    src/engine/objects/sound_component.cpp
-    src/engine/objects/stream_component.cpp
-    src/engine/objects/suspend_component.cpp
-    src/engine/objects/texture_projection_component.cpp
-    src/engine/objects/rigidbody_component.cpp
-    src/engine/objects/rigidbody_physics.cpp
-    src/engine/objects/rigidbody_support.cpp
-    src/engine/objects/rigidbody_contacts.cpp
-    src/engine/objects/velocity_component.cpp
-    src/engine/objects/vibration_component.cpp
-    src/engine/objects/wait_and_die.cpp
-    src/engine/objects/game_hooks.cpp
-    src/engine/gfx/game_hooks.cpp
-    src/engine/pad_input/game_hooks.cpp
-    src/engine/sys/game_hooks.cpp
     src/game/world/vehicle_sound.cpp
     src/game/world/vehicle_component.cpp
     src/game/world/vehicle_physics.cpp
@@ -757,9 +472,6 @@ add_executable(thug2 WIN32
     src/game/rider/skater_sound.cpp
     src/game/rider/skater_state.cpp
     src/game/rider/stance_panel.cpp
-    src/engine/pad_input/device.cpp
-    src/engine/pad_input/input_hub.cpp
-    src/engine/pad_input/sdl_input.cpp
     src/game/rider/controls.cpp
     src/game/rider/core_physics.cpp
     src/game/rider/core_physics_state.cpp
@@ -801,19 +513,8 @@ add_executable(thug2 WIN32
     src/game/rider/thaw_bmx_sticks.cpp
     src/game/rider/thaw_bmx_tricks.cpp
     src/game/rider/trick_component.cpp
-    src/engine/pad_input/input_setup.cpp
-    src/engine/gfx/pc_d3d_resources.cpp
-    src/engine/pad_input/direct_input.cpp
-    src/engine/pad_input/direct_input_state.cpp
-    src/engine/pad_input/pad_cfuncs.cpp
-    src/engine/sys/debug_mode.cpp
     src/app/pc_setup.cpp
-    src/engine/sys/stopwatch.cpp
     src/app/startup.cpp
-    src/engine/sys/mlp.cpp
-    src/engine/sys/game_clock.cpp
-    src/engine/sys/system_cfuncs.cpp
-    src/engine/sys/game_module.cpp
     src/app/winmain.cpp
     src/app/startup_init.cpp
     src/game/save_cards/memcard.cpp
@@ -822,74 +523,29 @@ add_executable(thug2 WIN32
     src/game/save_cards/save_types.cpp
     src/game/save_cards/save_files_cfuncs.cpp
     src/game/save_cards/save_contents.cpp
-    src/engine/gfx/texture_cfuncs.cpp
     src/game/skate/profile_cfuncs.cpp
-    src/engine/script/expression.cpp
-    src/engine/script/node_hooks.cpp
-    src/engine/script/node_manager.cpp
-    src/engine/script/node_prefixes.cpp
-    src/engine/script/nodes.cpp
-    src/engine/script/cache.cpp
-    src/engine/script/cscript_manager.cpp
-    src/engine/script/cscript_wait.cpp
-    src/engine/script/cscript_exec.cpp
     src/app/command_table.cpp
     src/game/commands/member_function_code.cpp
-    src/engine/script/load.cpp
-    src/engine/script/cscript_core.cpp
-    src/engine/script/names.cpp
-    src/engine/script/token_reader.cpp
-    src/engine/script/tokens.cpp
-    src/engine/script/patched.cpp
     src/game/commands/world_cfuncs.cpp
-    src/engine/script/script_startup.cpp
-    src/engine/script/precompiled.cpp
-    src/engine/script/qb.cpp
-    src/engine/script/script_state.cpp
-    src/engine/script/param_struct.cpp
-    src/engine/script/skate_cfuncs.cpp
     src/game/commands/trick_cfuncs.cpp
     src/game/commands/game_util_cfuncs.cpp
     src/game/online/hunt_cfuncs.cpp
     src/game/commands/face_texture_cfuncs.cpp
-    src/engine/gfx/face_texture.cpp
-    src/engine/gfx/custom_anim_key.cpp
-    src/engine/gfx/model_utils.cpp
-    src/engine/gfx/cas_options.cpp
-    src/engine/gfx/bone_look_at.cpp
-    src/engine/gfx/boned_anim_frame_data_pose.cpp
     src/game/commands/cag_cfuncs.cpp
     src/game/commands/model_swap_cfuncs.cpp
-    src/engine/ui/theme_cfuncs.cpp
     src/game/rider/skater_misc_cfuncs.cpp
     src/game/rider/skater_score_cfuncs.cpp
-    src/engine/objects/cutscene_list_cfuncs.cpp
-    src/engine/sys/game_config.cpp
     src/game/commands/game_cfuncs.cpp
     src/game/commands/game_flow_cfuncs.cpp
     src/game/commands/net_state_cfuncs.cpp
     src/game/commands/node_object_cfuncs.cpp
-    src/engine/script/script_util_cfuncs.cpp
-    src/engine/script/math_cfuncs.cpp
-    src/engine/script/debug_cfuncs.cpp
-    src/engine/objects/object_cfuncs.cpp
-    src/engine/script/script_cfuncs.cpp
-    src/engine/script/array_cfuncs.cpp
-    src/engine/script/cfuncs_lighting.cpp
-    src/engine/script/cfuncs_scene.cpp
-    src/engine/gfx/lens_flare.cpp
     src/game/rider/walk_hang.cpp
-    src/engine/objects/walk_lerp.cpp
-    src/engine/script/cfuncs_render.cpp
-    src/engine/script/cfuncs_polys.cpp
-    src/engine/script/cfuncs_memory.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
 # The files that call Winsock's IPv4-only functions the game uses (inet_addr, inet_ntoa, gethostbyname): Winsock marks
 # them deprecated unless this is defined.
 set_source_files_properties(
-    src/game/online/gamenet_lobby_cfuncs.cpp src/engine/net/net_manager.cpp
-    src/engine/net/net_manager_apps.cpp src/engine/sys/model_viewer.cpp
+    src/game/online/gamenet_lobby_cfuncs.cpp
     src/app/winmain.cpp
     PROPERTIES COMPILE_DEFINITIONS _WINSOCK_DEPRECATED_NO_WARNINGS)
 target_include_directories(thug2 PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated"
@@ -898,7 +554,7 @@ target_include_directories(thug2 PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_gpu thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
+target_link_libraries(thug2 PRIVATE thug2_engine thug2_gpu thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
