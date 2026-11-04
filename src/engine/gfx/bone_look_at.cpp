@@ -2,6 +2,7 @@
 
 #include "engine/gfx/bone_look_at.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -430,12 +431,7 @@ int BoneLookAt::find_bone(uint32_t bone)
 // 0x00487D90
 bool BoneLookAt::all_active()
 {
-    for (const Bone& bone : bones_) {
-        if (bone.bone_ != kNoBone && !bone.active_) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(bones_, [](const Bone& bone) { return bone.bone_ == kNoBone || bone.active_; });
 }
 
 // 0x00487DC0

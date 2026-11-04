@@ -3,6 +3,7 @@
 
 #include <winsock2.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <array>
 
@@ -170,12 +171,7 @@ bool cfunc_can_host_game(script::Struct* /*params*/, script::Script* /*script*/)
         return false;
     }
     const int profile = manager->presence_service()->account();
-    for (const int allowed : kHostProfiles) {
-        if (profile == allowed) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kHostProfiles, [&](const int allowed) { return profile == allowed; });
 }
 
 } // namespace online

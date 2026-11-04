@@ -2,6 +2,7 @@
 
 #include "game/skate/victory_conditions.h"
 
+#include <algorithm>
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
@@ -106,12 +107,7 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
             const int team = player->team();
             core::at(totals, team) += total_score(score);
         }
-        for (const int total : totals) {
-            if (total >= points_held_) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(totals, [&](const int total) { return total >= points_held_; });
     }
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         if (total_score(get_rider_at(skate, i)->get_points_total()) >= points_held_) {

@@ -3,6 +3,7 @@
 
 #include "frontend/front_end.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -255,12 +256,9 @@ FrontEnd::~FrontEnd()
 // 0x0054ECA0
 bool FrontEnd::pads_plugged_in()
 {
-    for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
-        if (handler->dev()->is_attached()) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(pad_listeners_, [](const std::unique_ptr<FrontEndInputHandler>& handler) {
+        return handler->dev()->is_attached();
+    });
 }
 
 // 0x0054ECD0

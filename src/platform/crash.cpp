@@ -8,6 +8,7 @@
 
 #include <werapi.h>
 
+#include <algorithm>
 #include <atomic>
 #include <csignal>
 #include <cstdarg>
@@ -44,6 +45,8 @@ constexpr int kCallRel32Opcode = 0xE8;
 constexpr int kCallIndirectOpcode = 0xFF;
 constexpr int kModRmBase = 8;
 constexpr int kModRmFieldMask = 7;
+// The lengths of an FF /2 call: ModRM alone, + SIB or a byte's displacement, + both, + four bytes', + SIB and four.
+constexpr std::array kIndirectCallLengths = {2, 3, 4, 6, 7};
 
 // The stack scans and the dump of the top of the stack (eight words a line: the words 0-4 are not named).
 constexpr int kStackScanAddresses = 24;
@@ -150,13 +153,10 @@ bool after_call(uintptr_t address)
     if (core::at(before, 2) == kCallRel32Opcode) {
         return true;
     }
-    for (const int length : {2, 3, 4, 6, 7}) {
-        if (core::at(before, kCallLookback - length) == kCallIndirectOpcode &&
-            ((core::at(before, kModRmBase - length) >> 3) & kModRmFieldMask) == 2) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kIndirectCallLengths, [&](const int length) {
+        return core::at(before, kCallLookback - length) == kCallIndirectOpcode &&
+               ((core::at(before, kModRmBase - length) >> 3) & kModRmFieldMask) == 2;
+    });
 }
 
 // The return addresses found on the stack from `esp` up (a scan, not a walk: optimized code - the game's - has no
@@ -487,13 +487,13 @@ void install_crash_handling(bool console)
 
 bool parse_test_fault(const std::string& name, TestFault* out)
 {
-    for (const FaultName& entry : kFaultNames) {
-        if (_stricmp(name.c_str(), entry.name) == 0) {
-            *out = entry.fault;
-            return true;
-        }
+    const auto found = std::ranges::find_if(
+        kFaultNames, [&](const FaultName& entry) { return _stricmp(name.c_str(), entry.name) == 0; });
+    if (found == kFaultNames.end()) {
+        return false;
     }
-    return false;
+    *out = found->fault;
+    return true;
 }
 
 const char* test_fault_name(TestFault fault)

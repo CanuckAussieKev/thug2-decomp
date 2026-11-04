@@ -1,6 +1,7 @@
 // The goal editor component (park_editing::ObjectiveAuthoring): see goal_editor.h. From the disassembly of 0x004E6FB0-
 // 0x004EBC3D (the component's own code; the edited goals' is in edited_goal.cpp / edited_goal_io.cpp).
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -272,20 +273,17 @@ bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float heigh
     const float y = pos.y + height;
     const float z = pos.z;
     const float radius = script::fetch_float(0x71B20276);
-    for (const EditedGoal& goal : goals_) {
+    return std::ranges::any_of(goals_, [&](const EditedGoal& goal) {
         if (!goal.taken_count() || goal.level() != level || std::cmp_less_equal(goal.vertex_total(), index)) {
-            continue;
+            return false;
         }
         const EditedGoalPoint& point = core::at(goal.path_vertices(), index);
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
         auto dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
         const double dy = (static_cast<double>(point.pos.y) + point.height) - y;
         const double dz = static_cast<double>(point.pos.z) - z;
-        if (std::sqrt(((dz * dz) + (dy * dy)) + (static_cast<double>(dx) * dx)) < radius) {
-            return true;
-        }
-    }
-    return false;
+        return std::sqrt(((dz * dz) + (dy * dy)) + (static_cast<double>(dx) * dx)) < radius;
+    });
 }
 
 // 0x004E8240
@@ -323,14 +321,11 @@ void ObjectiveAuthoring::clear_incomplete_goals()
 // 0x004E8300
 bool ObjectiveAuthoring::any_park_goal_outside(float x0, float z0, float x1, float z1)
 {
-    for (const EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() == kParkEditorLevel && goal.vertex_total() > 1 &&
-            get_outside(core::at(goal.path_vertices(), 1).pos.x, core::at(goal.path_vertices(), 1).pos.z, x0, z0, x1,
-                        z1)) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(goals_, [&](const EditedGoal& goal) {
+        return goal.taken_count() && goal.level() == kParkEditorLevel && goal.vertex_total() > 1 &&
+               get_outside(core::at(goal.path_vertices(), 1).pos.x, core::at(goal.path_vertices(), 1).pos.z, x0, z0, x1,
+                           z1);
+    });
 }
 
 // 0x004E8390

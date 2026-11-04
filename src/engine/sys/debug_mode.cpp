@@ -3,6 +3,7 @@
 #include "engine/sys/debug_mode.h"
 #include "platform/keyboard.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <SDL2/SDL.h>
 #include <array>
@@ -42,12 +43,7 @@ bool is_startup_script(const script::Script* script)
     const uint32_t name = script->script_title();
     static const auto kStartup = std::to_array<uint32_t>({name_hash("default_system_startup"), name_hash("autolaunch"),
                                         name_hash("startup_loading_screen"), name_hash("LoadPermSongs")});
-    for (const uint32_t startup : kStartup) {
-        if (name == startup) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kStartup, [&](const uint32_t startup) { return name == startup; });
 }
 
 // The table's CD entry is {"CD", function 0x005B9760 - return true}, and NotCD's {"NotCD", 0x005B9E50 - return false}.

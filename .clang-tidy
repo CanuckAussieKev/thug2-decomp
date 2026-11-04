@@ -45,6 +45,7 @@ Checks:
   - 'readability-static-definition-in-anonymous-namespace'
   - 'readability-suspicious-call-argument'
   - 'readability-uppercase-literal-suffix'
+  - 'readability-use-anyofallof'
   - 'readability-use-concise-preprocessor-directives'
   - 'readability-use-std-min-max'
   - 'clang-analyzer-*'

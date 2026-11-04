@@ -241,12 +241,7 @@ bool front_end_menu(uint32_t menu_id)
 {
     static const auto kMenus = std::to_array<uint32_t>({name_hash("main_vmenu"), name_hash("newfe_career_vmenu"),
                                       name_hash("career_options_vmenu"), name_hash("main_menu")});
-    for (const uint32_t id : kMenus) {
-        if (id == menu_id) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kMenus, [&](const uint32_t id) { return id == menu_id; });
 }
 
 bool excluded_title(const std::string& clean_title)
@@ -254,12 +249,7 @@ bool excluded_title(const std::string& clean_title)
     // (screens whose meaning is a picture, not their list: the gamma test card, the screen's position)
     static const auto kTitles = std::to_array<const char*>({"GAMMA", "SCREEN SETUP", "SCREEN"});
     const std::string upper = get_upper(clean_title);
-    for (const char* title : kTitles) {
-        if (upper == title) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kTitles, [&](const char* title) { return upper == title; });
 }
 
 std::string clean_text(const std::string& raw, bool newlines)

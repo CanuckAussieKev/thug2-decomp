@@ -8,6 +8,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -414,12 +415,9 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script* /*script*/
     if (params->fetch_int_value(0U, &controller, 0)) {
         return controller_pressed(core::at(front_end->pad_listeners(), controller).get(), button);
     }
-    for (const auto& pad_listener : front_end->pad_listeners()) {
-        if (controller_pressed(pad_listener.get(), button)) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(front_end->pad_listeners(), [&](const auto& pad_listener) {
+        return controller_pressed(pad_listener.get(), button);
+    });
 }
 
 // 0x0059FA40: GetAnalogueInfo [controller=n (0)]: the controller's sticks as leftx / lefty / rightx / righty in

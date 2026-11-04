@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cctype>
 #include <cstddef>
@@ -168,13 +169,13 @@ bool get_found(const char* path)
     if (our_keys().contains(key)) {
         return false; // (one of our own parts' files: never taken from THUGPRO's install)
     }
-    for (const std::string& candidate : get_candidates(path)) {
-        if (is_file(thugpro_cas_state().data_ + candidate)) {
-            their_files().insert(key);
-            return true;
-        }
+    const bool found = std::ranges::any_of(get_candidates(path), [](const std::string& candidate) {
+        return is_file(thugpro_cas_state().data_ + candidate);
+    });
+    if (found) {
+        their_files().insert(key);
     }
-    return false;
+    return found;
 }
 
 // Every path a part's structure names (strings with a slash), its structures and arrays included.

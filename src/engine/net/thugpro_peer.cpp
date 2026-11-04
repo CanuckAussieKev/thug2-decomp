@@ -3,6 +3,7 @@
 
 #include "engine/net/thugpro_peer.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -271,12 +272,8 @@ bool is_time_of_day(uint32_t state) { return gfx::next_tod_state(state) != 0; }
 
 bool pro_set_level(uint32_t level_load)
 {
-    for (const char* load : kProSetLevels) {
-        if (checksums::hash_from_text(load) == level_load) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kProSetLevels,
+                               [&](const char* load) { return checksums::hash_from_text(load) == level_load; });
 }
 
 void apply_pro_set(int index, bool on, uint32_t level_load, Effects& effects)

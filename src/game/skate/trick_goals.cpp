@@ -297,12 +297,7 @@ void FallingTricksGoal::clear_tricks()
 // 0x0056F180
 bool FallingTricksGoal::all_free()
 {
-    for (const StackedTrickEntry& entry : tricks_) {
-        if (!entry.free) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(tricks_, [](const StackedTrickEntry& entry) { return entry.free; });
 }
 
 namespace {

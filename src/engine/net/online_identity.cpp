@@ -18,6 +18,7 @@
 
 #include "engine/net/online_identity.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <cstring>
@@ -45,12 +46,9 @@ bool valid_name(const char* name)
     if (length == 0 || length > kMaxName) {
         return false;
     }
-    for (const char character : std::string_view(name)) {
-        if (std::isalnum(static_cast<unsigned char>(character)) == 0) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(std::string_view(name), [](const char character) {
+        return std::isalnum(static_cast<unsigned char>(character)) != 0;
+    });
 }
 
 bool valid_key(const char* key)
@@ -58,12 +56,9 @@ bool valid_key(const char* key)
     if (std::strlen(key) != kKeyLength) {
         return false;
     }
-    for (const char character : std::string_view(key)) {
-        if (std::isgraph(static_cast<unsigned char>(character)) == 0) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(std::string_view(key), [](const char character) {
+        return std::isgraph(static_cast<unsigned char>(character)) != 0;
+    });
 }
 
 std::array<char, kNameSettingBytes>& name_setting()

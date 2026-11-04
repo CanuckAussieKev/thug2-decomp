@@ -147,12 +147,9 @@ bool is_identifier(const std::string& text)
     if (text.empty() || (std::isdigit(static_cast<unsigned char>(::core::at(text, 0))) != 0)) {
         return false;
     }
-    for (const char character : text) {
-        if ((std::isalnum(static_cast<unsigned char>(character)) == 0) && character != '_') {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(text, [](const char character) {
+        return (std::isalnum(static_cast<unsigned char>(character)) != 0) || character == '_';
+    });
 }
 
 bool is_hex(const std::string& text)
@@ -902,12 +899,9 @@ bool value_denied(script::QbValueKind type, script::Cell value, int depth)
         if (!array->find_array_value()) {
             return false;
         }
-        for (const script::Cell& element : array->cells()) {
-            if (value_denied(array->kind_tag(), element, depth + 1)) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(array->cells(), [&](const script::Cell& element) {
+            return value_denied(array->kind_tag(), element, depth + 1);
+        });
     }
     default:
         return false;
@@ -936,18 +930,15 @@ bool handlers_denied(const UiWidget* element, bool choose_only)
         return false;
     }
     const objects::SignalRouteTable* table = script->signal_routes();
-    for (const objects::SignalRouteTable::TableRow& entry : table->entries()) {
+    return std::ranges::any_of(table->entries(), [&](const objects::SignalRouteTable::TableRow& entry) {
         if (entry.script == objects::kNullScript) {
-            continue;
+            return false;
         }
         if (choose_only && entry.type != kPadChoose && entry.type != kPadStart) {
-            continue;
+            return false;
         }
-        if (checksum_denied(entry.script) || struct_denied(entry.params, 0)) {
-            return true;
-        }
-    }
-    return false;
+        return checksum_denied(entry.script) || struct_denied(entry.params, 0);
+    });
 }
 
 // Why choosing this element would be refused ("" if it wouldn't): its id, its own handlers, its parents' choose
@@ -1543,12 +1534,7 @@ bool condition_holds(const OrderCode& command)
                 return true;
             }
         }
-        for (const UiWidget* element : selected) {
-            if (ident_no(element) == id) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(selected, [&](const UiWidget* element) { return ident_no(element) == id; });
     }
     default:
         return false;

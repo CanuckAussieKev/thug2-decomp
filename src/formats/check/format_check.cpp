@@ -8,6 +8,7 @@
 // its summary and contents decoded into a plain tree and encoded again - byte for byte what the game wrote, by the
 // same rules as the game's structure writer (engine/script/struct_buffer.cpp). Exit code 0 when everything passes.
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -428,12 +429,7 @@ bool is_save_file(const std::filesystem::path& path)
     for (char& character : extension) {
         character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
     }
-    for (const char* known : kExtensions) {
-        if (extension == known) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(kExtensions, [&](const char* known) { return extension == known; });
 }
 
 void check_save_file(const std::filesystem::path& path)

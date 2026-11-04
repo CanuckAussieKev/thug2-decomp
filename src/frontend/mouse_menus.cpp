@@ -734,12 +734,9 @@ bool handles_event(const UiWidget* item, uint32_t type)
         return false;
     }
     const objects::SignalRouteTable* table = script->signal_routes();
-    for (const objects::SignalRouteTable::TableRow& entry : table->entries()) {
-        if (entry.type == type && entry.script != objects::kNullScript) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(table->entries(), [&](const objects::SignalRouteTable::TableRow& entry) {
+        return entry.type == type && entry.script != objects::kNullScript;
+    });
 }
 
 // The child at `index` (null if none).

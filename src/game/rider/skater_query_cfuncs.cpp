@@ -284,12 +284,7 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
             modules::PointTally* score = get_score_of(player->skater());
             core::at(teams, player->team()) += total_score(score);
         }
-        for (const int total : teams) {
-            if (total >= target) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(teams, [&](const int total) { return total >= target; });
     }
     for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
          player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {

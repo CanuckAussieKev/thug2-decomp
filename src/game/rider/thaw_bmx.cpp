@@ -3,6 +3,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/keyboard.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -247,12 +248,7 @@ bool half_stick_key()
     if (!is_switched_on()) {
         return false;
     }
-    for (const auto& entry : get_states()) {
-        if (entry.second.on) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(get_states(), [](const auto& entry) { return entry.second.on; });
 }
 
 script::Struct* physics_structure(const SkaterPhysicsModule* core)

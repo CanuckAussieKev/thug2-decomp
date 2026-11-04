@@ -103,12 +103,8 @@ bool interesting_command(const char* name)
         }
     }
     // (Add* is mostly AddParams / AddFlag-style bookkeeping: only the loading ones)
-    for (const char* exact : {"AddScene", "AddCollision", "AddSoundBanks", "AddMusicTrack", "AddStream"}) {
-        if (_stricmp(name, exact) == 0) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(std::array{"AddScene", "AddCollision", "AddSoundBanks", "AddMusicTrack", "AddStream"},
+                               [&](const char* exact) { return _stricmp(name, exact) == 0; });
 }
 
 bool interesting_log_line(const char* line)
@@ -117,12 +113,9 @@ bool interesting_log_line(const char* line)
         return false;
     }
     // (the data overlay's files are already there as opened; the rest is bookkeeping)
-    for (const char* prefix : {"data overlay:", "replaced 0x", "shadow checks:", "self-test", "  "}) {
-        if (std::strncmp(line, prefix, std::strlen(prefix)) == 0) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::none_of(
+        std::array{"data overlay:", "replaced 0x", "shadow checks:", "self-test", "  "},
+        [&](const char* prefix) { return std::strncmp(line, prefix, std::strlen(prefix)) == 0; });
 }
 
 void Ring::append_one(const char* text, double time)
