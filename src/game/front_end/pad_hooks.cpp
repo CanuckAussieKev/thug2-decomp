@@ -19,7 +19,7 @@ int menu_port() { return objects::profile_roster()->cursor_pos(); }
 bool editing_park()
 {
     const park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
-    return editor && editor->editor_state() == park_editing::ParkBuilderMode::kStateEdit;
+    return editor != nullptr && editor->editor_state() == park_editing::ParkBuilderMode::kStateEdit;
 }
 
 bool half_stick_key() { return skater::thaw_bmx::half_stick_key(); }

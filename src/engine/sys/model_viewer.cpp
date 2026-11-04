@@ -24,7 +24,6 @@
 #include "base/maths/vec4.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_app.h"
-#include "engine/net/net_dispatcher.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
