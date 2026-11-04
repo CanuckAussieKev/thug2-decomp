@@ -144,6 +144,267 @@ constexpr auto kAddKinds = std::to_array<fields::Kind>({fields::Kind::kInteger, 
                                   fields::Kind::kChars,   fields::Kind::kVec4,  fields::Kind::kBitMark,
                                   fields::Kind::kNames});
 
+// The node, the fonts and the requests the fields' rows share.
+struct FieldsPanel {
+    const nodes::Elem* node{};
+    ImFont* mono{};
+    ImFont* small_font{};
+    std::vector<Request>* requests{};
+};
+
+// The typing state follows the node (its boxes cleared for another node) and the node layer's generation.
+void follow_typing(int node_index)
+{
+    if (typing().node != node_index || typing().generation != nodes::get_generation()) {
+        if (typing().node != node_index) {
+            typing().buffers.clear();
+            typing().active_set_ = false;
+        }
+        typing().node = node_index;
+        typing().generation = nodes::get_generation();
+    }
+}
+
+// The name column: greyed when shared by the class, the warning colour when edited; its kind on hover.
+void field_name_cell(const fields::Row& row)
+{
+    const std::string name = fields::get_name_text(row.key, fields::get_name_of);
+    if (row.included) {
+        gui::text_disabled("%s", name.c_str());
+    } else if (row.edited) {
+        gui::text_colored(ui_theme::kWarningColour, "%s", name.c_str());
+    } else {
+        ImGui::TextUnformatted(name.c_str());
+    }
+    if (ImGui::IsItemHovered()) {
+        const char* shared = "";
+        if (row.included) {
+            shared = " (shared by the class)";
+        } else if (row.overridden) {
+            shared = " (overrides the class)";
+        }
+        gui::tooltip("%s%s%s", fields::kind_name(row.value.kind), shared, row.edited ? "\nModified" : "");
+    }
+}
+
+// A typed field's box: checked as it's typed, sent when Enter or leaving it changed it; whether its box is active.
+bool typed_field(const FieldsPanel& panel, const fields::Row& row, const std::string& text)
+{
+    bool still_active = false;
+    const bool active = typing().active_set_ && typing().active == row.key;
+    ScratchBuf& buffer = typing().buffers[row.key];
+    if (!active) {
+        dup_from(&buffer, text);
+    }
+    const bool enter = ImGui::InputText("##value", buffer.data(), buffer.size(),
+                                        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+    const bool left = ImGui::IsItemDeactivatedAfterEdit();
+    if (ImGui::IsItemActive()) {
+        typing().active = row.key;
+        typing().active_set_ = true;
+        still_active = true;
+    }
+    std::string note;
+    const std::string error = active || enter || left ? get_check(row, panel.node->name, buffer.data(), &note) : "";
+    if ((enter || left) && std::strcmp(buffer.data(), text.c_str()) != 0) {
+        if (error.empty()) {
+            set_field(panel.requests, {.node = panel.node->name, .key = row.key}, row.value.kind, buffer.data());
+        }
+        typing().active_set_ = false;
+    } else if (enter || left) {
+        typing().active_set_ = false;
+    }
+    if (!error.empty() || !note.empty()) {
+        ImGui::PushFont(panel.small_font);
+        gui::text_colored(error.empty() ? ui_theme::kWarningColour : kError, "%s",
+                          error.empty() ? note.c_str() : error.c_str());
+        ImGui::PopFont();
+    }
+    return still_active;
+}
+
+// The value column: read-only text (why on hover), a flag's checkbox or a typed box; whether its box is active.
+bool field_value_cell(const FieldsPanel& panel, const fields::Row& row)
+{
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    const std::string text = fields::get_format(row.value, fields::get_name_of);
+    if (!row.editable) {
+        ImGui::BeginDisabled(true);
+        gui::text_wrapped("%s", text.c_str());
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            gui::tooltip("%s", row.why.c_str());
+        }
+    } else if (row.value.kind == fields::Kind::kBitMark) {
+        bool on = row.value.on;
+        if (ImGui::Checkbox("##flag", &on)) {
+            set_field(panel.requests, {.node = panel.node->name, .key = row.key}, fields::Kind::kBitMark,
+                      on ? "on" : "off");
+        }
+    } else {
+        return typed_field(panel, row, text);
+    }
+    return false;
+}
+
+// The when column: when a change is seen, then Home (revert) for an edited field and x (remove) for one that can go.
+void field_when_cell(const FieldsPanel& panel, const fields::Row& row)
+{
+    ImGui::PushFont(panel.small_font);
+    ImVec4 colour;
+    if (row.when == fields::When::kLive) {
+        colour = kLive;
+    } else if (row.when == fields::When::kReload) {
+        colour = kReload;
+    } else {
+        colour = ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+    }
+    gui::text_colored(
+        row.editable || row.when == fields::When::kElsewhere ? colour : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
+        "%s", row.editable || row.when == fields::When::kElsewhere ? when_label(row.when) : "read-only");
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("%s", row.editable ? row.note : row.why.c_str());
+    }
+    if (row.edited) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Home")) {
+            simple(panel.requests, Request::Kind::kFieldHome, {.node = panel.node->name, .key = row.key});
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("Revert");
+        }
+    }
+    if (row.editable && !row.included && row.value.kind != fields::Kind::kBitMark && row.key != fields::key_links()) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("x")) {
+            simple(panel.requests, Request::Kind::kFieldRemove, {.node = panel.node->name, .key = row.key});
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("%s", row.overridden ? "Remove override" : "Remove field");
+        }
+    }
+    ImGui::PopFont();
+}
+
+// The fields' table; whether a typed box is still active.
+bool fields_table(const FieldsPanel& panel, const std::vector<fields::Row>& rows)
+{
+    bool still_active = false;
+    if (ImGui::BeginTable("##fields", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthStretch, kNameColumnWeight);
+        ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch, kValueColumnWeight);
+        ImGui::TableSetupColumn("##when", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::PushFont(panel.mono);
+        for (const fields::Row& row : rows) {
+            ImGui::PushID(static_cast<int>(row.key));
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            field_name_cell(row);
+            ImGui::TableNextColumn();
+            if (field_value_cell(panel, row)) {
+                still_active = true;
+            }
+            ImGui::TableNextColumn();
+            field_when_cell(panel, row);
+            ImGui::PopID();
+        }
+        ImGui::PopFont();
+        ImGui::EndTable();
+    }
+    return still_active;
+}
+
+// The new field as typed: its name given, the name usable (and its checksum), the value parsed.
+struct NewField {
+    bool named{};
+    bool name_ok_{};
+    uint32_t key{};
+    bool value_ok_{};
+};
+
+// Why the new field can't be added (nullptr when it can).
+const char* why_not_added(const NewField& new_field, const std::vector<fields::Row>& rows)
+{
+    const uint32_t key = new_field.key;
+    bool exists = false;
+    for (const fields::Row& row : rows) {
+        exists = exists || row.key == key;
+    }
+    if (!new_field.named) {
+        return "Enter a field name";
+    }
+    if (!new_field.name_ok_) {
+        return "Use letters, digits and _";
+    }
+    if (exists) {
+        return "Field already exists";
+    }
+    if (key == fields::get_key_name() || key == fields::key_class() || key == fields::get_key_type() ||
+        key == fields::key_pos() || key == fields::key_angles() || key == fields::key_links()) {
+        return "Edited elsewhere";
+    }
+    if (!new_field.value_ok_) {
+        return "Invalid value";
+    }
+    return nullptr;
+}
+
+// The new field's boxes: its name, its kind, its value.
+void new_field_boxes(const FieldsPanel& panel)
+{
+    ImGui::PushFont(panel.small_font);
+    gui::text_disabled("Add Field:");
+    ImGui::PopFont();
+    ImGui::PushFont(panel.mono);
+    ImGui::SetNextItemWidth(kNewNameWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    ImGui::InputTextWithHint("##newname", "name", typing().new_name_.data(), typing().new_name_.size());
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(kNewKindWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::BeginCombo("##newkind", fields::kind_name(core::at(kAddKinds, typing().new_kind_)))) {
+        for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(core::at(kAddKinds, 0))); ++i) {
+            if (ImGui::Selectable(fields::kind_name(core::at(kAddKinds, i)), i == typing().new_kind_)) {
+                typing().new_kind_ = i;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-kApplyReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    ImGui::InputTextWithHint("##newvalue", "value", typing().new_value_.data(), typing().new_value_.size());
+    ImGui::PopFont();
+}
+
+// A field the node doesn't have yet.
+void add_field_row(const FieldsPanel& panel, const std::vector<fields::Row>& rows)
+{
+    new_field_boxes(panel);
+    uint32_t key = 0;
+    fields::Value value;
+    std::string error;
+    std::string name = typing().new_name_.data();
+    const bool name_ok = fields::parse_name(name, &key) && core::at(name, 0) != '#' && core::at(name, 0) != '0';
+    const bool value_ok =
+        fields::parse(core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), &value, &error);
+    const char* why =
+        why_not_added({.named = !name.empty(), .name_ok_ = name_ok, .key = key, .value_ok_ = value_ok}, rows);
+    ImGui::SameLine();
+    ImGui::BeginDisabled(why != nullptr);
+    if (ImGui::Button("Add")) {
+        set_field(panel.requests, {.node = panel.node->name, .key = key}, core::at(kAddKinds, typing().new_kind_),
+                  typing().new_value_.data(), name);
+        typing().new_name_ = {};
+        typing().new_value_ = {};
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        const char* tip = "Add field (applies on reload)";
+        if (why) {
+            tip = why == std::string("Invalid value") ? error.c_str() : why;
+        }
+        gui::tooltip("%s", tip);
+    }
+}
+
 } // namespace
 
 void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
@@ -153,14 +414,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         return;
     }
     const nodes::Elem& node = core::at(nodes, node_index);
-    if (typing().node != node_index || typing().generation != nodes::get_generation()) {
-        if (typing().node != node_index) {
-            typing().buffers.clear();
-            typing().active_set_ = false;
-        }
-        typing().node = node_index;
-        typing().generation = nodes::get_generation();
-    }
+    follow_typing(node_index);
     const std::vector<fields::Row> rows = fields::rows_of(node);
     bool any_edited = false;
     for (const fields::Row& row : rows) {
@@ -172,123 +426,8 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
     }
-    bool still_active = false;
-    if (ImGui::BeginTable("##fields", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthStretch, kNameColumnWeight);
-        ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch, kValueColumnWeight);
-        ImGui::TableSetupColumn("##when", ImGuiTableColumnFlags_WidthFixed);
-        ImGui::PushFont(mono);
-        for (const fields::Row& row : rows) {
-            ImGui::PushID(static_cast<int>(row.key));
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            const std::string name = fields::get_name_text(row.key, fields::get_name_of);
-            if (row.included) {
-                gui::text_disabled("%s", name.c_str());
-            } else if (row.edited) {
-                gui::text_colored(ui_theme::kWarningColour, "%s", name.c_str());
-            } else {
-                ImGui::TextUnformatted(name.c_str());
-            }
-            if (ImGui::IsItemHovered()) {
-                const char* shared = "";
-                if (row.included) {
-                    shared = " (shared by the class)";
-                } else if (row.overridden) {
-                    shared = " (overrides the class)";
-                }
-                gui::tooltip("%s%s%s", fields::kind_name(row.value.kind), shared, row.edited ? "\nModified" : "");
-            }
-            ImGui::TableNextColumn();
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            const std::string text = fields::get_format(row.value, fields::get_name_of);
-            if (!row.editable) {
-                ImGui::BeginDisabled(true);
-                gui::text_wrapped("%s", text.c_str());
-                ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                    gui::tooltip("%s", row.why.c_str());
-                }
-            } else if (row.value.kind == fields::Kind::kBitMark) {
-                bool on = row.value.on;
-                if (ImGui::Checkbox("##flag", &on)) {
-                    set_field(requests, {.node = node.name, .key = row.key}, fields::Kind::kBitMark, on ? "on" : "off");
-                }
-            } else {
-                const bool active = typing().active_set_ && typing().active == row.key;
-                ScratchBuf& buffer = typing().buffers[row.key];
-                if (!active) {
-                    dup_from(&buffer, text);
-                }
-                const bool enter =
-                    ImGui::InputText("##value", buffer.data(), buffer.size(),
-                                     ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
-                const bool left = ImGui::IsItemDeactivatedAfterEdit();
-                if (ImGui::IsItemActive()) {
-                    typing().active = row.key;
-                    typing().active_set_ = true;
-                    still_active = true;
-                }
-                std::string note;
-                const std::string error =
-                    active || enter || left ? get_check(row, node.name, buffer.data(), &note) : "";
-                if ((enter || left) && std::strcmp(buffer.data(), text.c_str()) != 0) {
-                    if (error.empty()) {
-                        set_field(requests, {.node = node.name, .key = row.key}, row.value.kind, buffer.data());
-                    }
-                    typing().active_set_ = false;
-                } else if (enter || left) {
-                    typing().active_set_ = false;
-                }
-                if (!error.empty() || !note.empty()) {
-                    ImGui::PushFont(small_font);
-                    gui::text_colored(error.empty() ? ui_theme::kWarningColour : kError, "%s",
-                                       error.empty() ? note.c_str() : error.c_str());
-                    ImGui::PopFont();
-                }
-            }
-            ImGui::TableNextColumn();
-            ImGui::PushFont(small_font);
-            ImVec4 colour;
-            if (row.when == fields::When::kLive) {
-                colour = kLive;
-            } else if (row.when == fields::When::kReload) {
-                colour = kReload;
-            } else {
-                colour = ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
-            }
-            gui::text_colored(
-                row.editable || row.when == fields::When::kElsewhere ? colour
-                                                                     : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
-                "%s", row.editable || row.when == fields::When::kElsewhere ? when_label(row.when) : "read-only");
-            if (ImGui::IsItemHovered()) {
-                gui::tooltip("%s", row.editable ? row.note : row.why.c_str());
-            }
-            if (row.edited) {
-                ImGui::SameLine();
-                if (ImGui::SmallButton("Home")) {
-                    simple(requests, Request::Kind::kFieldHome, {.node = node.name, .key = row.key});
-                }
-                if (ImGui::IsItemHovered()) {
-                    gui::tooltip("Revert");
-                }
-            }
-            if (row.editable && !row.included && row.value.kind != fields::Kind::kBitMark &&
-                row.key != fields::key_links()) {
-                ImGui::SameLine();
-                if (ImGui::SmallButton("x")) {
-                    simple(requests, Request::Kind::kFieldRemove, {.node = node.name, .key = row.key});
-                }
-                if (ImGui::IsItemHovered()) {
-                    gui::tooltip("%s", row.overridden ? "Remove override" : "Remove field");
-                }
-            }
-            ImGui::PopFont();
-            ImGui::PopID();
-        }
-        ImGui::PopFont();
-        ImGui::EndTable();
-    }
+    const FieldsPanel panel{.node = &node, .mono = mono, .small_font = small_font, .requests = requests};
+    const bool still_active = fields_table(panel, rows);
     if (!still_active && typing().active_set_) {
         // (the active box went away without being let go: a row that's gone)
         bool there = false;
@@ -297,67 +436,8 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         }
         typing().active_set_ = there && typing().active_set_;
     }
-    // A field the node doesn't have yet.
     if (!node.added) {
-        ImGui::PushFont(small_font);
-        gui::text_disabled("Add Field:");
-        ImGui::PopFont();
-        ImGui::PushFont(mono);
-        ImGui::SetNextItemWidth(kNewNameWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        ImGui::InputTextWithHint("##newname", "name", typing().new_name_.data(), typing().new_name_.size());
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(kNewKindWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        if (ImGui::BeginCombo("##newkind", fields::kind_name(core::at(kAddKinds, typing().new_kind_)))) {
-            for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(core::at(kAddKinds, 0))); ++i) {
-                if (ImGui::Selectable(fields::kind_name(core::at(kAddKinds, i)), i == typing().new_kind_)) {
-                    typing().new_kind_ = i;
-                }
-            }
-            ImGui::EndCombo();
-        }
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(-kApplyReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        ImGui::InputTextWithHint("##newvalue", "value", typing().new_value_.data(), typing().new_value_.size());
-        ImGui::PopFont();
-        uint32_t key = 0;
-        fields::Value value;
-        std::string error;
-        std::string name = typing().new_name_.data();
-        const bool name_ok = fields::parse_name(name, &key) && core::at(name, 0) != '#' && core::at(name, 0) != '0';
-        const bool value_ok = fields::parse(core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), &value, &error);
-        bool exists = false;
-        for (const fields::Row& row : rows) {
-            exists = exists || row.key == key;
-        }
-        // (why the field can't be added: nullptr when it can)
-        const char* why = nullptr;
-        if (name.empty()) {
-            why = "Enter a field name";
-        } else if (!name_ok) {
-            why = "Use letters, digits and _";
-        } else if (exists) {
-            why = "Field already exists";
-        } else if (key == fields::get_key_name() || key == fields::key_class() || key == fields::get_key_type() ||
-                   key == fields::key_pos() || key == fields::key_angles() || key == fields::key_links()) {
-            why = "Edited elsewhere";
-        } else if (!value_ok) {
-            why = "Invalid value";
-        }
-        ImGui::SameLine();
-        ImGui::BeginDisabled(why != nullptr);
-        if (ImGui::Button("Add")) {
-            set_field(requests, {.node = node.name, .key = key}, core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), name);
-            typing().new_name_ = {};
-            typing().new_value_ = {};
-        }
-        ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-            const char* tip = "Add field (applies on reload)";
-            if (why) {
-                tip = why == std::string("Invalid value") ? error.c_str() : why;
-            }
-            gui::tooltip("%s", tip);
-        }
+        add_field_row(panel, rows);
     }
     ImGui::PushFont(small_font);
     if (any_edited) {
