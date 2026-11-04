@@ -250,6 +250,90 @@ uint32_t prefixed_checksum(PrefixedName prefixed_name)
     return checksums::hash_from_text(buffer.data());
 }
 
+// A trick picked at random from the goal's trick list: its checksums (both sides for a grind), its text and its
+// key combo (a checksum, else its text).
+void pick_listed_trick(script::Struct* args, BeatTrick& trick_entry, std::array<char, kTrickTextBytes>& text,
+                       uint32_t& key_combo, const char*& key_combo_text)
+{
+    script::Array* tricks = nullptr;
+    args->fetch_list(kBeatTricks, &tricks, 1);
+    auto* trick = tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent())));
+    const char* name = nullptr;
+    trick->fetch_text(kTrick, &name, 1);
+    if (trick->has_bare_flag(kGrind)) {
+        trick_entry.trick = prefixed_checksum({.prefix = "FS ", .name = name});
+        trick_entry.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
+    } else {
+        trick_entry.trick = checksums::hash_from_text(name);
+    }
+    const char* trick_text = nullptr;
+    trick->fetch_text(kText, &trick_text, 1);
+    text::copy_into(text, trick_text);
+    if (!trick->read_hash_value(kKeyCombo, &key_combo, 0)) {
+        trick->fetch_text(kKeyCombo, &key_combo_text, 0);
+    }
+}
+
+// A key combo's trick's name: the trick named, or its extra trick for each tap past the first (a trick without
+// one: a single tap).
+const char* tapped_trick_name(uint32_t trick_name, BeatTrick& trick_entry, int taps)
+{
+    const char* trick_text = nullptr;
+    script::Struct* trick = script::read_sub_struct(trick_name);
+    if (!trick) {
+        trick = script::fetch_list(trick_name)->struct_at(0);
+    }
+    script::Struct* trick_params = nullptr;
+    trick->read_sub_struct(kParams, &trick_params, 1);
+    while (taps > 1) {
+        --taps;
+        uint32_t extra = 0;
+        if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
+            trick_entry.taps = 1; // (a single tap; the count isn't read again)
+            break;
+        }
+        auto* extra_trick = script::fetch_list(extra)->struct_at(0);
+        extra_trick->read_sub_struct(kParams, &trick_params, 1);
+    }
+    trick_params->fetch_text(kName, &trick_text, 1);
+    return trick_text;
+}
+
+// A key combo entry's spin: RandomSpin (at least a turn: a random number of half turns past the first) or Spin.
+void read_beat_spin(script::Struct* entry, BeatTrick& trick_entry)
+{
+    int spin = 0;
+    if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
+        spin = std::max(spin, kMinRandomSpinDegrees);
+        trick_entry.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
+        if (trick_entry.spin == 1) {
+            trick_entry.spin = 0;
+        }
+    }
+    if (entry->fetch_int_value(kSpin, &spin, 0)) {
+        trick_entry.spin = spin / kHalfTurnDegrees;
+    }
+}
+
+// The key combo's text (a double tap's, or the combo's own text) under a trick's in its container.
+void add_key_combo_text(void* manager, void* container, uint32_t key_combo, const char* key_combo_text, int taps)
+{
+    script::Struct* texts = script::read_sub_struct(taps == 2 ? kTrickTextDoubleTap : kTrickText);
+    if (!key_combo_text) {
+        texts->fetch_text(key_combo, &key_combo_text, 0);
+    }
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->append_word(kText, key_combo_text);
+    params->put_name_key(checksums::Name{kFont}, kSmall);
+    params->put_name_key(checksums::Name{0U}, kNotFocusable);
+    gsl::owner<void*> key_text = new_text();
+    set_id(key_text, objects::kUnassignedId);
+    add_to_manager(manager, key_text);
+    change_traits(key_text, params);
+    change_owner(manager, {.parent = container, .child = key_text});
+    script::free_struct(params);
+}
+
 } // namespace
 
 // --- Skatetris ---------------------------------------------------------------------------------------------------
@@ -1173,6 +1257,30 @@ void TrickBeatGoal::update_beat()
     }
 }
 
+// The first free trick slot, cleared and taken (0 when none is free).
+int TrickBeatGoal::take_free_slot()
+{
+    int slot = 0;
+    for (int i = 0; i < kMaxTricks; ++i) {
+        if (core::at(tricks_, i).free) {
+            BeatTrick& entry = core::at(tricks_, i);
+            slot = i;
+            entry.free = true;
+            entry.trick = 0;
+            entry.trick2 = 0;
+            entry.landed = false;
+            entry.key_combo_ = 0;
+            entry.spin = 0;
+            entry.taps = 1;
+            entry.perfect = false;
+            entry.free = false;
+            entry.unknown14 = 0;
+            break;
+        }
+    }
+    return slot;
+}
+
 // 0x00575450
 void TrickBeatGoal::add_tricks(int count)
 {
@@ -1182,47 +1290,13 @@ void TrickBeatGoal::add_tricks(int count)
         args()->fetch_list(kBeatKeyCombos, &key_combos, 0);
         uint32_t key_combo = 0;
         uint32_t trick_name = 0;
-        int slot = 0;
-        for (int i = 0; i < kMaxTricks; ++i) {
-            if (core::at(tricks_, i).free) {
-                BeatTrick& entry = core::at(tricks_, i);
-                slot = i;
-                entry.free = true;
-                entry.trick = 0;
-                entry.trick2 = 0;
-                entry.landed = false;
-                entry.key_combo_ = 0;
-                entry.spin = 0;
-                entry.taps = 1;
-                entry.perfect = false;
-                entry.free = false;
-                entry.unknown14 = 0;
-                break;
-            }
-        }
+        const int slot = take_free_slot();
         BeatTrick& trick_entry = core::at(tricks_, slot);
         const char* key_combo_text = nullptr;
         int taps = 1;
         std::array<char, kTrickTextBytes> text{};
         if (!key_combos) {
-            script::Array* tricks = nullptr;
-            args()->fetch_list(kBeatTricks, &tricks, 1);
-            auto* trick =
-                tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent())));
-            const char* name = nullptr;
-            trick->fetch_text(kTrick, &name, 1);
-            if (trick->has_bare_flag(kGrind)) {
-                trick_entry.trick = prefixed_checksum({.prefix = "FS ", .name = name});
-                trick_entry.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
-            } else {
-                trick_entry.trick = checksums::hash_from_text(name);
-            }
-            const char* trick_text = nullptr;
-            trick->fetch_text(kText, &trick_text, 1);
-            text::copy_into(text, trick_text);
-            if (!trick->read_hash_value(kKeyCombo, &key_combo, 0)) {
-                trick->fetch_text(kKeyCombo, &key_combo_text, 0);
-            }
+            pick_listed_trick(args().get(), trick_entry, text, key_combo, key_combo_text);
         } else {
             const int index = pick_key_combo(key_combos);
             if (index == -1) {
@@ -1233,17 +1307,7 @@ void TrickBeatGoal::add_tricks(int count)
             } else {
                 auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
                 entry->read_hash_value(kKeyCombo, &key_combo, 1);
-                int spin = 0;
-                if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
-                    spin = std::max(spin, kMinRandomSpinDegrees);
-                    trick_entry.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
-                    if (trick_entry.spin == 1) {
-                        trick_entry.spin = 0;
-                    }
-                }
-                if (entry->fetch_int_value(kSpin, &spin, 0)) {
-                    trick_entry.spin = spin / kHalfTurnDegrees;
-                }
+                read_beat_spin(entry, trick_entry);
                 if (entry->has_bare_flag(kPerfect)) {
                     trick_entry.perfect = true;
                 }
@@ -1265,24 +1329,7 @@ void TrickBeatGoal::add_tricks(int count)
                 }
             }
             if (!trick_text) {
-                script::Struct* trick = script::read_sub_struct(trick_name);
-                if (!trick) {
-                    trick = script::fetch_list(trick_name)->struct_at(0);
-                }
-                script::Struct* trick_params = nullptr;
-                trick->read_sub_struct(kParams, &trick_params, 1);
-                while (taps > 1) {
-                    --taps;
-                    uint32_t extra = 0;
-                    if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
-                        taps = 1;
-                        trick_entry.taps = 1;
-                        break;
-                    }
-                    auto* extra_trick = script::fetch_list(extra)->struct_at(0);
-                    extra_trick->read_sub_struct(kParams, &trick_params, 1);
-                }
-                trick_params->fetch_text(kName, &trick_text, 1);
+                trick_text = tapped_trick_name(trick_name, trick_entry, taps);
             }
             core::at(text, 0) = '\0';
             if (trick_entry.spin != 0) {
@@ -1321,20 +1368,7 @@ void TrickBeatGoal::add_tricks(int count)
         script::free_struct(params);
 
         if (key_combo_text || (key_combo != 0U)) {
-            script::Struct* texts = script::read_sub_struct(trick_entry.taps == 2 ? kTrickTextDoubleTap : kTrickText);
-            if (!key_combo_text) {
-                texts->fetch_text(key_combo, &key_combo_text, 0);
-            }
-            params = script::new_struct();
-            params->append_word(kText, key_combo_text);
-            params->put_name_key(checksums::Name{kFont}, kSmall);
-            params->put_name_key(checksums::Name{0U}, kNotFocusable);
-            gsl::owner<void*> key_text = new_text();
-            set_id(key_text, objects::kUnassignedId);
-            add_to_manager(manager, key_text);
-            change_traits(key_text, params);
-            change_owner(manager, {.parent = container, .child = key_text});
-            script::free_struct(params);
+            add_key_combo_text(manager, container, key_combo, key_combo_text, trick_entry.taps);
         }
         trick_entry.element = static_cast<objects::Entity*>(container)->ident();
         ++trick_total_;

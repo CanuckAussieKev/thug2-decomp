@@ -158,6 +158,8 @@ public:
     void update_beat();
     // 0x00575450: `count` new tricks added.
     void add_tricks(int count);
+    // (Part of add_tricks: the first free trick slot, cleared and taken.)
+    int take_free_slot();
     // 0x005761D0: the landed tricks removed (each counted).
     void remove_landed_tricks();
 

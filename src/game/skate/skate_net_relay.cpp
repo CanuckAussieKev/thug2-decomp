@@ -862,6 +862,56 @@ int SkateNet::handle_history_value(net::InboundMsgCtx* context)
     return 1;
 }
 
+namespace {
+
+// A relayed message's skater: the object (by its id, read signed) when it is one of the skaters.
+objects::Entity* relayed_skater(Skate* skate, uint8_t id)
+{
+    if (!objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(static_cast<int8_t>(id)))) {
+        return nullptr;
+    }
+    return static_cast<objects::Entity*>(skate->get_rider_by_number(static_cast<uint32_t>(static_cast<int8_t>(id))));
+}
+
+// An animation's blend period relayed: in a network game only the camera's own player's (else 0).
+float relayed_blend_period(float scaled_time, const objects::Entity* target)
+{
+    online::Hub* net = online::online_hub();
+    if (net->in_net_game()) {
+        // (only the camera's own player's)
+        PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident()));
+        PlayerRecord* camera = net->fetch_viewed_player();
+        if (!camera || player != camera) {
+            scaled_time = 0.0F;
+        }
+    }
+    return scaled_time;
+}
+
+// The wobble details' five settings picked by the message's bits: two bits, then one each.
+void set_wobble_details(objects::StateHistoryMessage* message, uint32_t bits)
+{
+    // five settings picked by the bits: two bits, then one each
+    static const std::array<float, 4> kFirst = {
+        {std::bit_cast<float>(0x3D4CCCCDU), std::bit_cast<float>(0x3DCCCCCDU), std::bit_cast<float>(kWobble1On),
+         0.0F}}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
+    core::at(message->wobble_details_, 0) = core::at(kFirst, bits & 3);
+    core::at(message->wobble_details_, 1) =
+        ((bits >> 2 & 1) != 0U) ? std::bit_cast<float>(kWobble1On)
+                                : std::bit_cast<float>(kWobble1Off); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
+    core::at(message->wobble_details_, 2) =
+        ((bits >> 3 & 1) != 0U) ? std::bit_cast<float>(kWobble2On)
+                                : std::bit_cast<float>(kWobble2Off); // 20 / 0.0022 (0x006486AC / 0x006486B0)
+    core::at(message->wobble_details_, 3) =
+        ((bits >> 4 & 1) != 0U) ? std::bit_cast<float>(kWobble3On)
+                                : std::bit_cast<float>(kWobble3Off); // 10 / 0.0017 (0x00646710 / 0x006486A8)
+    core::at(message->wobble_details_, 4) =
+        ((bits >> kWobble4Shift & 1) != 0U) ? std::bit_cast<float>(kWobble4On)
+                                            : std::bit_cast<float>(kWobble4Off); // 1 / 1.5 (0x006453A8 / 0x00646744)
+}
+
+} // namespace
+
 // 0x0056A450
 int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
 {
@@ -870,12 +920,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
     auto object = [&](uint8_t id) {
         return objects::ObjectHubBase::look_up_entity(static_cast<uint32_t>(static_cast<int8_t>(id)));
     };
-    auto skater = [&](uint8_t id) -> objects::Entity* {
-        if (!object(id)) {
-            return nullptr;
-        }
-        return static_cast<objects::Entity*>(skate->get_rider_by_number(static_cast<uint32_t>(static_cast<int8_t>(id))));
-    };
+    auto skater = [&](uint8_t id) { return relayed_skater(skate, id); };
     // (the messages: wire/skater_messages.h; NOT ORIGINAL: one too short for its fields is dropped - the
     // original read on past its end)
     util::ByteReader reader(context->body(), context->body_size());
@@ -893,15 +938,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
             return 1;
         }
         float scaled_time = get_scaled(sent.blend_period, kRelayTimeScale);
-        online::Hub* net = online::online_hub();
-        if (net->in_net_game()) {
-            // (only the camera's own player's)
-            PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident()));
-            PlayerRecord* camera = net->fetch_viewed_player();
-            if (!camera || player != camera) {
-                scaled_time = 0.0F;
-            }
-        }
+        scaled_time = relayed_blend_period(scaled_time, target);
         message = new_message(get_history(target), online::MessageId::kPlayAnim);
         message->name_ = sent.anim;
         message->from_ = get_scaled(sent.from, kRelayTimeScale);
@@ -952,24 +989,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         message = new_message(get_history(target), online::MessageId::kWobbleDetails);
         message->object_id_ = sent.second;
         const uint32_t bits = sent.first;
-        // five settings picked by the bits: two bits, then one each
-        static const std::array<float, 4> kFirst = {
-            {std::bit_cast<float>(0x3D4CCCCDU), std::bit_cast<float>(0x3DCCCCCDU), std::bit_cast<float>(kWobble1On),
-             0.0F}}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
-        core::at(message->wobble_details_, 0) = core::at(kFirst, bits & 3);
-        core::at(message->wobble_details_, 1) =
-            ((bits >> 2 & 1) != 0U) ? std::bit_cast<float>(kWobble1On)
-                                    : std::bit_cast<float>(kWobble1Off); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
-        core::at(message->wobble_details_, 2) =
-            ((bits >> 3 & 1) != 0U) ? std::bit_cast<float>(kWobble2On)
-                                    : std::bit_cast<float>(kWobble2Off); // 20 / 0.0022 (0x006486AC / 0x006486B0)
-        core::at(message->wobble_details_, 3) =
-            ((bits >> 4 & 1) != 0U) ? std::bit_cast<float>(kWobble3On)
-                                    : std::bit_cast<float>(kWobble3Off); // 10 / 0.0017 (0x00646710 / 0x006486A8)
-        core::at(message->wobble_details_, 4) =
-            ((bits >> kWobble4Shift & 1) != 0U)
-                ? std::bit_cast<float>(kWobble4On)
-                : std::bit_cast<float>(kWobble4Off); // 1 / 1.5 (0x006453A8 / 0x00646744)
+        set_wobble_details(message, bits);
         break;
     }
     case online::MessageId::kLoopType: {

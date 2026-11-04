@@ -539,6 +539,55 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     return 1;
 }
 
+namespace {
+
+// A team game's scores: the leading team (none on a tie) - at the end, won or lost; else, when it changed, the
+// leader's message.
+int announce_leading_team(online::Hub* net, bool final, std::array<char, kTextBytes>& text)
+{
+    // The leading team (none on a tie).
+    const int teams = goals::game_mode()->current_num_teams();
+    int best = -1;
+    int best_score = 0;
+    for (int team = 0; team < teams; ++team) {
+        const int score = net->get_squad_points(team);
+        if (score > best_score) {
+            best_score = score;
+            best = team;
+        } else if (score == best_score) {
+            best = -1;
+        }
+    }
+    if (best == -1) {
+        return 1;
+    }
+    PlayerRecord* local = net->get_own_player();
+    if (final) {
+        const objects::Entity* skater = player_skater(local);
+        if (skater) {
+            skater->post_own_event(local->team() == best ? kWonGame : kLostGame, nullptr);
+        }
+        return 1;
+    }
+    if (net->get_last_leading_team() == best || !goals::game_mode()->is_true(kShowLeaderMessages) ||
+        net->has_match_ended()) {
+        return 1;
+    }
+    if (player_skater(local) && local->team() == best) {
+        get_run(kLeaderYourTeam, nullptr, player_skater(local));
+    } else {
+        text::format_to(text, "team_%d_name", best + 1);
+        const script::StructPtr params = script::make_struct();
+        params->get_clear();
+        params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(text.data()));
+        get_run(kLeaderOtherTeam, params.get(), player_skater(local));
+    }
+    net->set_last_leading_team(best);
+    return 1;
+}
+
+} // namespace
+
 // 0x0056D250
 int SkateNet::handle_scores(net::InboundMsgCtx* context)
 {
@@ -597,45 +646,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     const bool final = message->final;
     std::array<char, kTextBytes> text{};
     if ((goals::game_mode()->is_squad_match() != 0) && goals::game_mode()->get_name_key() != kNetElimiskate) {
-        // The leading team (none on a tie).
-        const int teams = goals::game_mode()->current_num_teams();
-        int best = -1;
-        int best_score = 0;
-        for (int team = 0; team < teams; ++team) {
-            const int score = net->get_squad_points(team);
-            if (score > best_score) {
-                best_score = score;
-                best = team;
-            } else if (score == best_score) {
-                best = -1;
-            }
-        }
-        if (best == -1) {
-            return 1;
-        }
-        PlayerRecord* local = net->get_own_player();
-        if (final) {
-            const objects::Entity* skater = player_skater(local);
-            if (skater) {
-                skater->post_own_event(local->team() == best ? kWonGame : kLostGame, nullptr);
-            }
-            return 1;
-        }
-        if (net->get_last_leading_team() == best || !goals::game_mode()->is_true(kShowLeaderMessages) ||
-            net->has_match_ended()) {
-            return 1;
-        }
-        if (player_skater(local) && local->team() == best) {
-            get_run(kLeaderYourTeam, nullptr, player_skater(local));
-        } else {
-            text::format_to(text, "team_%d_name", best + 1);
-            const script::StructPtr params = script::make_struct();
-            params->get_clear();
-            params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(text.data()));
-            get_run(kLeaderOtherTeam, params.get(), player_skater(local));
-        }
-        net->set_last_leading_team(best);
-        return 1;
+        return announce_leading_team(net, final, text);
     }
     // The leading player (none on a tie).
     PlayerSearch search;
@@ -810,6 +821,30 @@ int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
     return 1;
 }
 
+namespace {
+
+// An object's first state: what came before it is where the skater is now.
+void seed_first_state(objects::RiderFrameLog* history, objects::GameEntity* skater)
+{
+    // The first: what came before is where the skater is now.
+    maths::Mat4 matrix{};
+    matrix = skater->basis_frame();
+    maths::Vec4 eulers{};
+    matrix.get_euler_angles(eulers);
+    StateEntry& first = core::at(history->states(), 0);
+    for (int k = 0; k < 3; ++k) {
+        // (TP-R6: in a big level as sent there; THUGPRO's own left this one in halves / quarters)
+        if (k == 1) {
+            core::at(first.pos, 1) = thugpro::pack_height(skater->at_point().y);
+        } else {
+            core::at(first.pos, k) = thugpro::pack_horizontal(skater->at_point()[k]);
+        }
+        core::at(first.angles, k) = eulers[k];
+    }
+}
+
+} // namespace
+
 // 0x0056E470
 int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
 {
@@ -868,21 +903,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         if (history->state_count() > 0) {
             previous = (history->state_count() - 1) % objects::RiderFrameLog::kEntries;
         } else {
-            // The first: what came before is where the skater is now.
-            maths::Mat4 matrix{};
-            matrix = skater->basis_frame();
-            maths::Vec4 eulers{};
-            matrix.get_euler_angles(eulers);
-            StateEntry& first = core::at(history->states(), 0);
-            for (int k = 0; k < 3; ++k) {
-                // (TP-R6: in a big level as sent there; THUGPRO's own left this one in halves / quarters)
-                if (k == 1) {
-                    core::at(first.pos, 1) = thugpro::pack_height(skater->at_point().y);
-                } else {
-                    core::at(first.pos, k) = thugpro::pack_horizontal(skater->at_point()[k]);
-                }
-                core::at(first.angles, k) = eulers[k];
-            }
+            seed_first_state(history, skater);
             previous = 0;
         }
         const StateEntry& prev = core::at(history->states(), previous);

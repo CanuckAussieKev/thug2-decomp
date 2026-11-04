@@ -290,6 +290,11 @@ public:
     TrickLog* newest_logged_trick() { return get_trick(log_.num() - 1); }
 
 private:
+    // (Parts of 0x00563990, fire_off: a named trick's text shown, coloured, and joined to the trick before it; the
+    // multiplier raised for a trick - less for one repeated past the degrade start.)
+    void show_trick_text(TrickLog* trick, const char* text, uint32_t flags);
+    void raise_multiplier(const TrickSeen* seen, int kind, bool not_counted, uint32_t flags);
+
     // (score_combo.cpp)
     int tricks_since_no_spin();
     void reset_robot(bool run);

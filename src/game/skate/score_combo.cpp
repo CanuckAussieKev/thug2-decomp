@@ -381,6 +381,55 @@ void PointTally::tick_frame()
     element->change_rgba(color, true);
 }
 
+// A named trick's text shown: coloured, and the trick before it (the last one named, not "...") joined to it.
+void PointTally::show_trick_text(TrickLog* trick, const char* text, uint32_t flags)
+{
+    escape_spaces(trick->text_, text);
+    // "\c3%s%s\c0 " / "\c2%s%s\c0 " / "%s%s " with "" and the text: the colour around the text, then a space
+    const char* special_colour = ((flags & kTrickSpecial) != 0U) ? "\\c2" : "";
+    const char* colour = ((flags & kTrickColour3) != 0U) ? "\\c3" : special_colour;
+    text::format_to(trick->shown_, "%s%s%s ", colour, trick->text_.data(), (*colour != '\0') ? "\\c0" : "");
+    // The trick before it (the last one named, not "...") gets the " + " joining them.
+    for (int i = log_.num() - 2; i >= 0; --i) {
+        auto& shown = get_trick(i)->shown_;
+        const size_t length = std::strlen(shown.data());
+        if (core::at(shown, 0) == '.' || (length == 0U)) {
+            continue;
+        }
+        if (core::at(shown, length - 1) == ' ') {
+            core::at(shown, length - 1) = 0;
+        }
+        text::append_unbounded(shown.data(), "\\_+ "); // "\_+ "
+        break;
+    }
+}
+
+// The multiplier raised for a trick: by one, or less for one repeated past the degrade start (not for a trick
+// without a multiplier).
+void PointTally::raise_multiplier(const TrickSeen* seen, int kind, bool not_counted, uint32_t flags)
+{
+    const int degrade_start = script::fetch_int_value(kTrickMultDegradeStart);
+    ++combo_tricks_;
+    bool add_one = true;
+    if (multiplier_ != 0.0F && !not_counted) {
+        // (the original read the kind + 4th word from landed_: ongoing_'s word for the kind)
+        const int times = core::at(seen->ongoing_, kind);
+        if (times >= degrade_start) {
+            add_one = false;
+            const double added = 1.0 - ((times - degrade_start + 1) * 0.5);
+            auto added_f = static_cast<float>(added);
+            if (added > 0.0 && ((flags & kTrickNoMultiplier) == 0U)) {
+                multiplier_ = static_cast<float>(static_cast<double>(added_f) + multiplier_);
+            }
+        } else if ((flags & kTrickNoMultiplier) != 0U) {
+            add_one = false;
+        }
+    }
+    if (add_one) {
+        multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
+    }
+}
+
 // 0x00563990
 void PointTally::fire_off(const char* text, ScoreFlash score_flash)
 {
@@ -433,24 +482,7 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
     core::at(trick->shown_, 0) = 0;
     trick->rotation_deg_ = 0;
     if (!unnamed) {
-        escape_spaces(trick->text_, text);
-        // "\c3%s%s\c0 " / "\c2%s%s\c0 " / "%s%s " with "" and the text: the colour around the text, then a space
-        const char* special_colour = ((flags & kTrickSpecial) != 0U) ? "\\c2" : "";
-        const char* colour = ((flags & kTrickColour3) != 0U) ? "\\c3" : special_colour;
-        text::format_to(trick->shown_, "%s%s%s ", colour, trick->text_.data(), (*colour != '\0') ? "\\c0" : "");
-        // The trick before it (the last one named, not "...") gets the " + " joining them.
-        for (int i = log_.num() - 2; i >= 0; --i) {
-            auto& shown = get_trick(i)->shown_;
-            const size_t length = std::strlen(shown.data());
-            if (core::at(shown, 0) == '.' || (length == 0U)) {
-                continue;
-            }
-            if (core::at(shown, length - 1) == ' ') {
-                core::at(shown, length - 1) = 0;
-            }
-            text::append_unbounded(shown.data(), "\\_+ "); // "\_+ "
-            break;
-        }
+        show_trick_text(trick, text, flags);
     }
     if (last_no_spin_ == tricks_ - 1) {
         spin_trick_ = tricks_;
@@ -479,26 +511,7 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
     ++tricks_;
     if (!unnamed) {
         const float old_multiplier = multiplier_;
-        const int degrade_start = script::fetch_int_value(kTrickMultDegradeStart);
-        ++combo_tricks_;
-        bool add_one = true;
-        if (multiplier_ != 0.0F && !not_counted) {
-            // (the original read the kind + 4th word from landed_: ongoing_'s word for the kind)
-            const int times = core::at(seen->ongoing_, kind);
-            if (times >= degrade_start) {
-                add_one = false;
-                const double added = 1.0 - ((times - degrade_start + 1) * 0.5);
-                auto added_f = static_cast<float>(added);
-                if (added > 0.0 && ((flags & kTrickNoMultiplier) == 0U)) {
-                    multiplier_ = static_cast<float>(static_cast<double>(added_f) + multiplier_);
-                }
-            } else if ((flags & kTrickNoMultiplier) != 0U) {
-                add_one = false;
-            }
-        }
-        if (add_one) {
-            multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
-        }
+        raise_multiplier(seen, kind, not_counted, flags);
         if (multiplier_ == 1.0F) {
             auto* timer = core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer));
             timer->set_seconds_remaining(core::down_cast<objects::Rider>(timer->entity())->get_scaled_physics(kPhysicsRunTimerDuration));

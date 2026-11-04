@@ -1009,29 +1009,7 @@ void Skate::run_frame_logic()
         }
         unplugged = true;
         if (unplugged_frames_ > script::fetch_int_value(kUnpluggedFrameCount)) {
-            unplugged_frames_ = 0;
-            gsl::owner<script::Struct*> params = script::spawn_param_bag();
-            if (params) {
-                params = new (params) script::Struct;
-            }
-            online::Hub* net = online::online_hub();
-            if (net->in_net_game()) {
-                goals::GoalManager* goals = goals::get_objective_board();
-                goals->disengage_every_objective(false);
-                goals->release_every_objective();
-                Expects(params != nullptr);
-                params->put_name_key(checksums::Name{0U}, kLeavingNetGame);
-                leave_server();
-                if (static_cast<uint8_t>(net->is_client_side()) != 0U) {
-                    net->remove_players();
-                    net->disconnect_clients();
-                }
-            }
-            Expects(params != nullptr);
-            params->put_int(checksums::Name{kDeviceNum}, device->dev()->port_no());
-            script::launch_script(kControllerUnplugged, params, nullptr, false, nullptr);
-            script::free_struct(params);
-            ++unplugged_frames_;
+            show_unplugged_dialog(skater);
             return;
         }
     }
@@ -1040,6 +1018,35 @@ void Skate::run_frame_logic()
     } else {
         unplugged_frames_ = 0;
     }
+}
+
+// (Part of 0x00567710) The controller unplugged dialog for `skater`'s pad: a net game left first.
+void Skate::show_unplugged_dialog(objects::Rider* skater)
+{
+    const objects::PadInputModule::Responder* device = skater->pad_input()->handler();
+    unplugged_frames_ = 0;
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
+    if (params) {
+        params = new (params) script::Struct;
+    }
+    online::Hub* net = online::online_hub();
+    if (net->in_net_game()) {
+        goals::GoalManager* goals = goals::get_objective_board();
+        goals->disengage_every_objective(false);
+        goals->release_every_objective();
+        Expects(params != nullptr);
+        params->put_name_key(checksums::Name{0U}, kLeavingNetGame);
+        leave_server();
+        if (static_cast<uint8_t>(net->is_client_side()) != 0U) {
+            net->remove_players();
+            net->disconnect_clients();
+        }
+    }
+    Expects(params != nullptr);
+    params->put_int(checksums::Name{kDeviceNum}, device->dev()->port_no());
+    script::launch_script(kControllerUnplugged, params, nullptr, false, nullptr);
+    script::free_struct(params);
+    ++unplugged_frames_;
 }
 
 // 0x00568C90 (the logic task's code)

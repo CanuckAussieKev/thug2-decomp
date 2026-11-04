@@ -169,6 +169,8 @@ public:
     // 0x00567710: one frame: the time of day, the suspend frame, the movies, Game_Update, the proximity nodes, the
     // unplugged controllers.
     void run_frame_logic();
+    // (Part of run_frame_logic: the controller unplugged dialog for `skater`'s pad - leaving a net game first.)
+    void show_unplugged_dialog(objects::Rider* skater);
     // 0x00564D30 (an object walk's callback): its suspend component's visibility.
     static void update_suspend_visibility(objects::Entity* object, void* data);
 

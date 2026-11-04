@@ -473,6 +473,41 @@ bool file_path(const char* relative, std::array<char, file::kOverlayPathSize>& p
     return true;
 }
 
+namespace {
+
+// A part list THUGPRO also has: its name, our array, and THUGPRO's tokens of it (in the files' data).
+struct PartListPair {
+    uint32_t name;
+    script::Array* ours;
+    script::Tokens theirs;
+};
+
+// How many of THUGPRO's parts in a list are new to ours (by their desc ids).
+int count_new_parts(const PartListPair& target, script::Array* theirs)
+{
+    int their_new = 0;
+    if (theirs->kind_tag() == script::QbValueKind::kStruct) {
+        std::set<uint32_t> descs;
+        for (uint32_t i = 0; i < target.ours->extent(); ++i) {
+            uint32_t desc = 0;
+            auto* part = target.ours->struct_at(i);
+            if (part && part->read_hash_value(kDescId, &desc, 0)) {
+                descs.insert(desc);
+            }
+        }
+        for (uint32_t i = 0; i < theirs->extent(); ++i) {
+            uint32_t desc = 0;
+            auto* part = theirs->struct_at(i);
+            if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.contains(desc)) {
+                ++their_new;
+            }
+        }
+    }
+    return their_new;
+}
+
+} // namespace
+
 void load_once()
 {
     if (cas_check().done_) {
@@ -509,12 +544,7 @@ void load_once()
         return;
     }
     // The arrays that are also our part lists, and every path our own parts name (never served from THUGPRO's).
-    struct Target {
-        uint32_t name;
-        script::Array* ours;
-        script::Tokens theirs; // (in `files`' data)
-    };
-    std::vector<Target> targets;
+    std::vector<PartListPair> targets;
     for (auto& [name, data] : files) {
         const size_t size = data.size();
         data.resize(size + kWalkPaddingBytes, 0); // (the walk stops at a 0 token)
@@ -525,7 +555,7 @@ void load_once()
             }
         }
     }
-    for (const Target& target : targets) {
+    for (const PartListPair& target : targets) {
         for (uint32_t i = 0; i < target.ours->extent(); ++i) {
             std::vector<const char*> paths;
             collect_paths(target.ours->struct_at(i), &paths);
@@ -539,7 +569,7 @@ void load_once()
     int skipped = 0;
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(manager->script_heap());
-    for (const Target& target : targets) {
+    for (const PartListPair& target : targets) {
         gsl::owner<script::Array*> theirs = script::alloc_script_array();
         if (!theirs) {
             break;
@@ -547,24 +577,7 @@ void load_once()
         new (theirs) script::Array;
         script::parse_array(theirs, target.theirs, nullptr);
         std::vector<uint32_t> picked = pick_new(target.ours, theirs, get_found);
-        int their_new = 0;
-        if (theirs->kind_tag() == script::QbValueKind::kStruct) {
-            std::set<uint32_t> descs;
-            for (uint32_t i = 0; i < target.ours->extent(); ++i) {
-                uint32_t desc = 0;
-                auto* part = target.ours->struct_at(i);
-                if (part && part->read_hash_value(kDescId, &desc, 0)) {
-                    descs.insert(desc);
-                }
-            }
-            for (uint32_t i = 0; i < theirs->extent(); ++i) {
-                uint32_t desc = 0;
-                auto* part = theirs->struct_at(i);
-                if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.contains(desc)) {
-                    ++their_new;
-                }
-            }
-        }
+        const int their_new = count_new_parts(target, theirs);
         if (!picked.empty()) {
             const uint32_t old = target.ours->extent();
             target.ours->rescale(old + static_cast<uint32_t>(picked.size()));
