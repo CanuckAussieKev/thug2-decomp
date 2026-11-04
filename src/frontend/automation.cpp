@@ -428,6 +428,319 @@ std::string json_list(const std::vector<std::string>& items)
 
 // --- the pieces -------------------------------------------------------------------------------------------------
 
+namespace {
+
+// A command line's words, and the keyword (lower case) its first.
+struct CommandWords {
+    const std::vector<std::string>* tokens{};
+    const std::string* line{};
+    std::string keyword;
+};
+
+// The error for a command line that is wrong.
+bool fail_with(std::string* error, const std::string& why)
+{
+    *error = why;
+    return false;
+}
+
+bool parse_run(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    if (count < 2 || !is_identifier(::core::at(tokens, 1))) {
+        return fail_with(error, "run <script> [name=value | flag]...");
+    }
+    command.op = Op::kRun;
+    command.target = ::core::at(tokens, 1);
+    for (size_t i = 2; i < count; ++i) {
+        Param param;
+        if (!parse_param(::core::at(tokens, i), &param, error)) {
+            return false;
+        }
+        command.params.push_back(param);
+    }
+    return true;
+}
+
+bool parse_choose(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    const std::string& keyword = words.keyword;
+    command.op = keyword == "choose" ? Op::kChoose : Op::kFocus;
+    command.seconds = kDefaultChooseSeconds;
+    if (count < 2 || count > 3 || !is_id(::core::at(tokens, 1)) ||
+        (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxWaitSeconds, &command.seconds))) {
+        return fail_with(error, keyword + " <id> [seconds]");
+    }
+    command.target = ::core::at(tokens, 1);
+    return true;
+}
+
+bool parse_hold(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    // (test tooling: press's button held without waiting - the next commands run while it's down)
+    command.op = Op::kHold;
+    command.frames = kDefaultPressFrames;
+    if (count < 2 || count > 3 ||
+        (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxHoldFrames, &command.frames))) {
+        return fail_with(error, "hold <button> [frames]");
+    }
+    const Button* button = find_button(::core::at(tokens, 1));
+    if (!button) {
+        return fail_with(error, "no such button: " + ::core::at(tokens, 1));
+    }
+    command.target = button->name;
+    return true;
+}
+
+bool parse_press(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kPress;
+    command.frames = kDefaultPressFrames;
+    if (count < 2 || count > 3 ||
+        (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxPressFrames, &command.frames))) {
+        return fail_with(error, "press <button> [frames]");
+    }
+    const Button* button = find_button(::core::at(tokens, 1));
+    if (!button) {
+        return fail_with(error, "no such button: " + ::core::at(tokens, 1));
+    }
+    command.target = button->name;
+    return true;
+}
+
+bool parse_wait(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kStall;
+    if (count != 2 || !read_count(::core::at(tokens, 1), 0, kMaxStallFrames, &command.frames)) {
+        return fail_with(error, "wait <frames>");
+    }
+    return true;
+}
+
+bool parse_waitfor(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kWaitFor;
+    command.seconds = kDefaultWaitSeconds;
+    if (count < 2) {
+        return fail_with(error, "waitfor ready | frontend | ingame | level <name> | menu <id> | focus <id> [seconds]");
+    }
+    const std::string what = get_lower(::core::at(tokens, 1));
+    size_t next = 2;
+    if (what == "fe") {
+        command.condition = Condition::kNewFrontend;
+        if (count < 3 || !is_identifier(::core::at(tokens, 2))) {
+            return fail_with(error, "waitfor fe <screen> [seconds]");
+        }
+        command.target = get_lower(::core::at(tokens, 2));
+        next = 3;
+    } else if (what == "ready") {
+        command.condition = Condition::kReady;
+    } else if (what == "frontend") {
+        command.condition = Condition::kFrontEnd;
+    } else if (what == "ingame") {
+        command.condition = Condition::kInGame;
+    } else if (what == "level" || what == "menu" || what == "focus") {
+        if (what == "level") {
+            command.condition = Condition::kStageMap;
+        } else if (what == "menu") {
+            command.condition = Condition::kMenu;
+        } else {
+            command.condition = Condition::kFocus;
+        }
+        if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(::core::at(tokens, 2))
+                                                                     : is_id(::core::at(tokens, 2)))) {
+            return fail_with(error, "waitfor " + what + " <" + (what == "level" ? "name" : "id") + "> [seconds]");
+        }
+        command.target = ::core::at(tokens, 2);
+        next = 3;
+    } else {
+        return fail_with(error, "no such condition: " + ::core::at(tokens, 1));
+    }
+    if (count > next + 1 ||
+        (count == next + 1 && !read_count(::core::at(tokens, next), 1, kMaxWaitSeconds, &command.seconds))) {
+        return fail_with(error, "waitfor: a timeout is whole seconds (1-3600)");
+    }
+    return true;
+}
+
+bool parse_level(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kStageMap;
+    if (count != 2 || !is_identifier(::core::at(tokens, 1))) {
+        return fail_with(error, "level <name>");
+    }
+    command.target = ::core::at(tokens, 1);
+    return true;
+}
+
+bool parse_teleport(const CommandWords& command_words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *command_words.tokens;
+    command.op = Op::kJumpTo;
+    // (a last word `board`: the skater put on its board instead of standing - test_view::JumpTo's on_board)
+    std::vector<std::string> words = tokens;
+    if (words.size() >= kMinTeleportWordsWithBoard && get_lower(words.back()) == "board") {
+        command.target = "board";
+        words.pop_back();
+    }
+    if ((words.size() != 4 && words.size() != kTeleportWordsWithHeading) || !read_numbers(words, 1, &command.numbers)) {
+        return fail_with(error, "teleport <x> <y> <z> [heading] [board]");
+    }
+    return true;
+}
+
+bool parse_camera(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kViewCam;
+    if (count == 2 && get_lower(::core::at(tokens, 1)) == "off") {
+        command.target = "off";
+    } else if ((count != kCameraWordsFixed && count != kCameraWordsDrift) ||
+               !read_numbers(tokens, 1, &command.numbers)) {
+        return fail_with(error, "camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
+    } else if (::core::at(command.numbers, 3) == 0.0F && ::core::at(command.numbers, 4) == 0.0F &&
+               ::core::at(command.numbers, kDirectionZIndex) == 0.0F) {
+        return fail_with(error, "camera: the direction is zero");
+    }
+    return true;
+}
+
+bool parse_capture(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kCapture;
+    if (count < 2 || count > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames)) {
+        return fail_with(error, "capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder]");
+    }
+    if (count == 3) {
+        std::string folder = ::core::at(tokens, 2);
+        if (folder.size() >= 2 && folder.front() == '"' && folder.back() == '"') {
+            folder = folder.substr(1, folder.size() - 2);
+        }
+        if (folder.empty() || folder.find("..") != std::string::npos) {
+            return fail_with(error, "capture: a folder name (no ..)");
+        }
+        command.target = folder;
+    }
+    return true;
+}
+
+bool parse_trace(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kTrace;
+    if (count != 2 || !read_count(::core::at(tokens, 1), 1, kMaxTraceFrames, &command.frames)) {
+        return fail_with(error, "trace <frames 1-" + std::to_string(kMaxTraceFrames) + ">");
+    }
+    return true;
+}
+
+bool parse_logtricks(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kLogTricks;
+    command.frames = 0; // (every trick object)
+    if (count > 2 || (count == 2 && !read_count(::core::at(tokens, 1), 1, kMaxLoggedTrickCount, &command.frames))) {
+        return fail_with(error, "logtricks [count]");
+    }
+    return true;
+}
+
+bool parse_fe(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    const std::string& line = *words.line;
+    command.op = Op::kFrontend;
+    command.seconds = kDefaultFrontendSeconds;
+    command.target = get_rest(line);
+    if (count < 2) {
+        return fail_with(error, "fe select <screen>/<item> | fe focus <screen>/<item> | fe back | fe press <input>");
+    }
+    // (select / focus: a last number is the timeout - the front end ignores it)
+    if (count == 4 && (get_lower(::core::at(tokens, 1)) == "select" || get_lower(::core::at(tokens, 1)) == "focus") &&
+        !read_count(::core::at(tokens, 3), 1, kMaxWaitSeconds, &command.seconds)) {
+        return fail_with(error, "fe " + get_lower(::core::at(tokens, 1)) + ": a timeout is whole seconds (1-3600)");
+    }
+    return true;
+}
+
+bool parse_echo(const CommandWords& words, OrderCode& command, std::string* /*error*/)
+{
+    const std::string& line = *words.line;
+    command.op = Op::kEcho;
+    command.target = get_rest(line);
+    return true;
+}
+
+bool parse_crash(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kCrash;
+    TestFault fault{};
+    if (count != 2 || !parse_test_fault(::core::at(tokens, 1), &fault)) {
+        return fail_with(error, std::string("crash <kind>: ") + test_fault_names());
+    }
+    command.target = test_fault_name(fault);
+    return true;
+}
+
+bool parse_quit(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = Op::kQuit;
+    if (count != 1) {
+        return fail_with(error, "quit takes nothing");
+    }
+    return true;
+}
+
+struct CommandParser {
+    const char* keyword;
+    bool (*parse)(const CommandWords& words, OrderCode& command, std::string* error);
+};
+// The commands, in the order their keywords are tested.
+constexpr auto kCommandParsers = std::to_array<CommandParser>({
+    {.keyword = "run", .parse = parse_run},
+    {.keyword = "choose", .parse = parse_choose},
+    {.keyword = "focus", .parse = parse_choose},
+    {.keyword = "hold", .parse = parse_hold},
+    {.keyword = "press", .parse = parse_press},
+    {.keyword = "wait", .parse = parse_wait},
+    {.keyword = "waitfor", .parse = parse_waitfor},
+    {.keyword = "level", .parse = parse_level},
+    {.keyword = "teleport", .parse = parse_teleport},
+    {.keyword = "camera", .parse = parse_camera},
+    {.keyword = "capture", .parse = parse_capture},
+    {.keyword = "trace", .parse = parse_trace},
+    {.keyword = "logtricks", .parse = parse_logtricks},
+    {.keyword = "fe", .parse = parse_fe},
+    {.keyword = "echo", .parse = parse_echo},
+    {.keyword = "crash", .parse = parse_crash},
+    {.keyword = "quit", .parse = parse_quit},
+});
+
+} // namespace
+
 CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::string* error)
 {
     std::vector<std::string> tokens;
@@ -439,189 +752,17 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
     }
     OrderCode command = {.op = Op::kEcho, .target = "", .params = {}, .condition = Condition::kNone, .frames = 0, .seconds = 0};
     const std::string keyword = get_lower(::core::at(tokens, 0));
-    const size_t count = tokens.size();
     auto fail = [error](const std::string& why) {
         *error = why;
         return CommandLineOutcome::kError;
     };
-    if (keyword == "run") {
-        if (count < 2 || !is_identifier(::core::at(tokens, 1))) {
-            return fail("run <script> [name=value | flag]...");
-        }
-        command.op = Op::kRun;
-        command.target = ::core::at(tokens, 1);
-        for (size_t i = 2; i < count; ++i) {
-            Param param;
-            if (!parse_param(::core::at(tokens, i), &param, error)) {
-                return CommandLineOutcome::kError;
-            }
-            command.params.push_back(param);
-        }
-    } else if (keyword == "choose" || keyword == "focus") {
-        command.op = keyword == "choose" ? Op::kChoose : Op::kFocus;
-        command.seconds = kDefaultChooseSeconds;
-        if (count < 2 || count > 3 || !is_id(::core::at(tokens, 1)) ||
-            (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxWaitSeconds, &command.seconds))) {
-            return fail(keyword + " <id> [seconds]");
-        }
-        command.target = ::core::at(tokens, 1);
-    } else if (keyword == "hold") {
-        // (test tooling: press's button held without waiting - the next commands run while it's down)
-        command.op = Op::kHold;
-        command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 ||
-            (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxHoldFrames, &command.frames))) {
-            return fail("hold <button> [frames]");
-        }
-        const Button* button = find_button(::core::at(tokens, 1));
-        if (!button) {
-            return fail("no such button: " + ::core::at(tokens, 1));
-        }
-        command.target = button->name;
-    } else if (keyword == "press") {
-        command.op = Op::kPress;
-        command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 ||
-            (count == 3 && !read_count(::core::at(tokens, 2), 1, kMaxPressFrames, &command.frames))) {
-            return fail("press <button> [frames]");
-        }
-        const Button* button = find_button(::core::at(tokens, 1));
-        if (!button) {
-            return fail("no such button: " + ::core::at(tokens, 1));
-        }
-        command.target = button->name;
-    } else if (keyword == "wait") {
-        command.op = Op::kStall;
-        if (count != 2 || !read_count(::core::at(tokens, 1), 0, kMaxStallFrames, &command.frames)) {
-            return fail("wait <frames>");
-        }
-    } else if (keyword == "waitfor") {
-        command.op = Op::kWaitFor;
-        command.seconds = kDefaultWaitSeconds;
-        if (count < 2) {
-            return fail("waitfor ready | frontend | ingame | level <name> | menu <id> | focus <id> [seconds]");
-        }
-        const std::string what = get_lower(::core::at(tokens, 1));
-        size_t next = 2;
-        if (what == "fe") {
-            command.condition = Condition::kNewFrontend;
-            if (count < 3 || !is_identifier(::core::at(tokens, 2))) {
-                return fail("waitfor fe <screen> [seconds]");
-            }
-            command.target = get_lower(::core::at(tokens, 2));
-            next = 3;
-        } else if (what == "ready") {
-            command.condition = Condition::kReady;
-        } else if (what == "frontend") {
-            command.condition = Condition::kFrontEnd;
-        } else if (what == "ingame") {
-            command.condition = Condition::kInGame;
-        } else if (what == "level" || what == "menu" || what == "focus") {
-            if (what == "level") {
-                command.condition = Condition::kStageMap;
-            } else if (what == "menu") {
-                command.condition = Condition::kMenu;
-            } else {
-                command.condition = Condition::kFocus;
-            }
-            if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(::core::at(tokens, 2))
-                                                                         : is_id(::core::at(tokens, 2)))) {
-                return fail("waitfor " + what + " <" + (what == "level" ? "name" : "id") + "> [seconds]");
-            }
-            command.target = ::core::at(tokens, 2);
-            next = 3;
-        } else {
-            return fail("no such condition: " + ::core::at(tokens, 1));
-        }
-        if (count > next + 1 ||
-            (count == next + 1 && !read_count(::core::at(tokens, next), 1, kMaxWaitSeconds, &command.seconds))) {
-            return fail("waitfor: a timeout is whole seconds (1-3600)");
-        }
-    } else if (keyword == "level") {
-        command.op = Op::kStageMap;
-        if (count != 2 || !is_identifier(::core::at(tokens, 1))) {
-            return fail("level <name>");
-        }
-        command.target = ::core::at(tokens, 1);
-    } else if (keyword == "teleport") {
-        command.op = Op::kJumpTo;
-        // (a last word `board`: the skater put on its board instead of standing - test_view::JumpTo's on_board)
-        std::vector<std::string> words = tokens;
-        if (words.size() >= kMinTeleportWordsWithBoard && get_lower(words.back()) == "board") {
-            command.target = "board";
-            words.pop_back();
-        }
-        if ((words.size() != 4 && words.size() != kTeleportWordsWithHeading) ||
-            !read_numbers(words, 1, &command.numbers)) {
-            return fail("teleport <x> <y> <z> [heading] [board]");
-        }
-    } else if (keyword == "camera") {
-        command.op = Op::kViewCam;
-        if (count == 2 && get_lower(::core::at(tokens, 1)) == "off") {
-            command.target = "off";
-        } else if ((count != kCameraWordsFixed && count != kCameraWordsDrift) ||
-                   !read_numbers(tokens, 1, &command.numbers)) {
-            return fail("camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
-        } else if (::core::at(command.numbers, 3) == 0.0F && ::core::at(command.numbers, 4) == 0.0F &&
-                   ::core::at(command.numbers, kDirectionZIndex) == 0.0F) {
-            return fail("camera: the direction is zero");
-        }
-    } else if (keyword == "capture") {
-        command.op = Op::kCapture;
-        if (count < 2 || count > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames)) {
-            return fail("capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder]");
-        }
-        if (count == 3) {
-            std::string folder = ::core::at(tokens, 2);
-            if (folder.size() >= 2 && folder.front() == '"' && folder.back() == '"') {
-                folder = folder.substr(1, folder.size() - 2);
-            }
-            if (folder.empty() || folder.find("..") != std::string::npos) {
-                return fail("capture: a folder name (no ..)");
-            }
-            command.target = folder;
-        }
-    } else if (keyword == "trace") {
-        command.op = Op::kTrace;
-        if (count != 2 || !read_count(::core::at(tokens, 1), 1, kMaxTraceFrames, &command.frames)) {
-            return fail("trace <frames 1-" + std::to_string(kMaxTraceFrames) + ">");
-        }
-    } else if (keyword == "logtricks") {
-        command.op = Op::kLogTricks;
-        command.frames = 0; // (every trick object)
-        if (count > 2 || (count == 2 && !read_count(::core::at(tokens, 1), 1, kMaxLoggedTrickCount, &command.frames))) {
-            return fail("logtricks [count]");
-        }
-    } else if (keyword == "fe") {
-        command.op = Op::kFrontend;
-        command.seconds = kDefaultFrontendSeconds;
-        command.target = get_rest(line);
-        if (count < 2) {
-            return fail("fe select <screen>/<item> | fe focus <screen>/<item> | fe back | fe press <input>");
-        }
-        // (select / focus: a last number is the timeout - the front end ignores it)
-        if (count == 4 &&
-            (get_lower(::core::at(tokens, 1)) == "select" || get_lower(::core::at(tokens, 1)) == "focus") &&
-            !read_count(::core::at(tokens, 3), 1, kMaxWaitSeconds, &command.seconds)) {
-            return fail("fe " + get_lower(::core::at(tokens, 1)) + ": a timeout is whole seconds (1-3600)");
-        }
-    } else if (keyword == "echo") {
-        command.op = Op::kEcho;
-        command.target = get_rest(line);
-    } else if (keyword == "crash") {
-        command.op = Op::kCrash;
-        TestFault fault{};
-        if (count != 2 || !parse_test_fault(::core::at(tokens, 1), &fault)) {
-            return fail(std::string("crash <kind>: ") + test_fault_names());
-        }
-        command.target = test_fault_name(fault);
-    } else if (keyword == "quit") {
-        command.op = Op::kQuit;
-        if (count != 1) {
-            return fail("quit takes nothing");
-        }
-    } else {
+    const auto parser = std::ranges::find_if(
+        kCommandParsers, [&](const CommandParser& command_parser) { return keyword == command_parser.keyword; });
+    if (parser == kCommandParsers.end()) {
         return fail("no such command: " + ::core::at(tokens, 0));
+    }
+    if (!parser->parse({.tokens = &tokens, .line = &line, .keyword = keyword}, command, error)) {
+        return CommandLineOutcome::kError;
     }
     *out = command;
     return CommandLineOutcome::kOrderCode;
