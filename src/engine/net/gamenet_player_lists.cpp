@@ -5,7 +5,6 @@
 #include "engine/net/player_info.h"
 #include "engine/core/enum_ops.h"
 #include "engine/gfx/engine_texture.h"
-#include "platform/d3dx.h"
 #include "platform/compiler.h"
 #include <cstring>
 #include <iterator>
@@ -157,7 +156,10 @@ uint16_t texture_palette_size(void* /*texture*/)
     return static_cast<uint16_t>(render::BitmapTexture::get_palette_size());
 }
 // D3DXMatrixMultiply (the D3DX library's, stdcall): out = a * b.
-void d_3d_x_matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_multiply(out, a, b); }
+void d_3d_x_matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
+{
+    maths::matrix_multiply(out, a, b);
+}
 
 // The first player (observers too) for whom the PlayerRecord member `test` is true (0 / 1 in EAX: tested as AL).
 PlayerRecord* find_player(Hub* manager, int (PlayerRecord::*test)())

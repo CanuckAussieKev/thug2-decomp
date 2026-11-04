@@ -10,7 +10,6 @@
 #include <span>
 
 #include "game/park_editing/park.h"
-#include "platform/d3dx.h"
 
 #include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
@@ -49,7 +48,7 @@ constexpr float kFarAway = 100000.0F;
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void multiply_matrices(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    d3dx::matrix_multiply(out, a, b);
+    maths::matrix_multiply(out, a, b);
 }
 
 uint8_t get_cells(double size, float cell)

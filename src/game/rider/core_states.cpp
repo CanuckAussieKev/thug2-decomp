@@ -3,7 +3,6 @@
 #include <cstdint>
 
 #include "engine/core/manager.h"
-#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/movable_contact.h"
@@ -61,10 +60,9 @@ void SkaterPhysicsModule::step_coping_move()
             ride_->get_contact_point(&where);
             lip_pos_ = where;
             if (get_tracker(this)->turned()) {
-                auto multiply = d3dx::matrix_multiply;
                 maths::Mat4& matrix = entity()->basis_frame();
-                multiply(&matrix, &matrix, &get_tracker(this)->turn());
-                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+                maths::matrix_multiply(&matrix, &matrix, &get_tracker(this)->turn());
+                maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
             }
         }
     }

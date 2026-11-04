@@ -2,7 +2,6 @@
 // The Nx particle systems themselves have no source yet: their methods are called as the game's.
 
 #include "engine/objects/particle_component.h"
-#include "platform/d3dx.h"
 
 #include <cstdint>
 #include <cstring>
@@ -159,8 +158,6 @@ float unnamed_float(script::Struct* params)
 // given to the particle manager's 0x00496510, kept as the system's +4).
 using ParticleParams = render::SparkleConfig;
 
-// D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // An array's first three integers' low bytes into `rgb`; `last` the third.
 void get_rgb(script::Array* array, std::span<uint8_t> rgb, uint32_t* last)
@@ -519,12 +516,12 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     maths::Vec4 angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kAngles, &angles, 0);
     maths::Mat4 rotation{};
-    matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
-                    &maths::make_pitch_matrix(rotation, angles.x));
-    matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
-                    &maths::make_yaw_matrix(rotation, angles.y));
-    matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
-                    &maths::make_roll_matrix(rotation, angles.z));
+    maths::matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
+                           &maths::make_pitch_matrix(rotation, angles.x));
+    maths::matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
+                           &maths::make_yaw_matrix(rotation, angles.y));
+    maths::matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
+                           &maths::make_roll_matrix(rotation, angles.z));
 
     particle_params.set_local_positions(params->has_bare_flag(kLocalSpace));
     if (particle_params.local_positions()) {

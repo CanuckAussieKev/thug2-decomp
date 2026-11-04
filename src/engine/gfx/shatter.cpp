@@ -3,7 +3,6 @@
 #include "engine/gfx/shatter.h"
 #include "engine/core/cursor.h"
 #include "engine/gfx/geom.h"
-#include "platform/d3dx.h"
 
 #include <windows.h>
 
@@ -324,7 +323,7 @@ void shatter_geom(PcGeom* geom)
             maths::Mat4 turn;
             maths::build_axis_angle_matrix(turn, axis, angle);
             // D3DX (linked library code): rotation = rotation * turn
-            d3dx::matrix_multiply(&rotation, &rotation, &turn);
+            maths::matrix_multiply(&rotation, &rotation, &turn);
         }
         core::at(mesh->index_buffers(), 0)->get_unlock(); // (unlocked)
         mesh->fetch_vertex_store(0)->get_unlock();

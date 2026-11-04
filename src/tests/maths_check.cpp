@@ -23,6 +23,8 @@
 #if defined(_MSC_VER) && defined(_M_IX86)
 #include <array>
 #include "engine/core/format.h"
+#include "engine/maths/mat4.h"
+#include "tests/maths_check_d3dx.h"
 #endif
 
 namespace {
@@ -1814,6 +1816,51 @@ void run(int count, std::mt19937_64& random)
     }
 }
 
+// NOT ORIGINAL - D3DX9's matrix product (d3dx9_43.dll, which the game called until stage 11) against the plain C++
+// that replaced it, maths::matrix_multiply: random matrices of the game's coordinate, unit and tiny (denormal
+// product) scales, each also multiplied in place (the result written over a, and over b).
+void matrix_product(int count)
+{
+    constexpr float kTinyScale = 1.0e-20F;
+    using Matrix = std::array<float, maths::kMatrixFloats>;
+    std::mt19937_64 random(static_cast<uint64_t>(kRandomSeed));
+    std::uniform_real_distribution<float> coordinate(-kCoordinateRange, kCoordinateRange);
+    std::uniform_real_distribution<float> unit(-1.0F, 1.0F);
+    Tally t_product("matrix_multiply (D3DX)", 'f');
+    Tally t_over_a("matrix_multiply, out = a", 'f');
+    Tally t_over_b("matrix_multiply, out = b", 'f');
+    for (int n = 0; n < count; ++n) {
+        Matrix a{};
+        Matrix b{};
+        const int scale = n % 3; // coordinates times unit, unit times unit, tiny times unit
+        for (int k = 0; k < maths::kMatrixFloats; ++k) {
+            const float left = scale == 0 ? coordinate(random) : unit(random);
+            core::at(a, k) = scale == 2 ? left * kTinyScale : left;
+            core::at(b, k) = unit(random);
+        }
+        Matrix want{};
+        tests::d3dx_matrix_multiply(want.data(), a.data(), b.data());
+        Matrix want_a = a;
+        tests::d3dx_matrix_multiply(want_a.data(), want_a.data(), b.data());
+        Matrix want_b = b;
+        tests::d3dx_matrix_multiply(want_b.data(), a.data(), want_b.data());
+        Matrix fresh{};
+        maths::matrix_multiply(fresh.data(), a.data(), b.data());
+        Matrix over_a = a;
+        maths::matrix_multiply(over_a.data(), over_a.data(), b.data());
+        Matrix over_b = b;
+        maths::matrix_multiply(over_b.data(), a.data(), over_b.data());
+        for (int k = 0; k < maths::kMatrixFloats; ++k) {
+            compare(t_product, core::at(fresh, k), core::at(want, k), k);
+            compare(t_over_a, core::at(over_a, k), core::at(want_a, k), k);
+            compare(t_over_b, core::at(over_b, k), core::at(want_b, k), k);
+        }
+    }
+    t_product.print();
+    t_over_a.print();
+    t_over_b.print();
+}
+
 #endif // the x87 reference
 
 } // namespace
@@ -1833,6 +1880,8 @@ int main(int argc, char** argv)
     text::print("x87 at 24 bits (as Direct3D 9 leaves it on the device's thread)\n");
     run(count, random);
     _controlfp_s(&previous, _PC_53, _MCW_PC);
+    text::print("D3DX9's matrix product (d3dx9_43.dll's SSE version) against the plain C++\n");
+    matrix_product(count);
     return 0;
 #else
     (void)argc;

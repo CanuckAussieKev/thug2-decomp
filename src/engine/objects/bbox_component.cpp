@@ -3,7 +3,6 @@
 // stores are rounded to float, the ones it keeps on the FPU stack are worked in double.
 
 #include "engine/objects/bbox_component.h"
-#include "platform/d3dx.h"
 
 #include <algorithm>
 #include <cmath>
@@ -54,8 +53,6 @@ constexpr float kTwelveInchScale = 12.0F;          // 0x0064546C
 constexpr float kRadiansPerDegree = 0.0174532924F; // 0x00645464
 constexpr float kHalf = 0.5F;                      // 0x006453BC
 
-// out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A manager's object list.
 memory::ListNode* manager_object_list(ObjectHubBase* manager) { return manager->fetch_object_set(); }
@@ -137,7 +134,8 @@ void CbBoxComponent::compute_rect(Rect2* rect)
     rect->basis_frame_ = entity()->basis_frame();
     if (rect->angle_ != 0.0F) {
         maths::Mat4 rotation;
-        matrix_multiply(&rect->basis_frame_, &maths::make_yaw_matrix(rotation, rect->angle_), &rect->basis_frame_);
+        maths::matrix_multiply(&rect->basis_frame_, &maths::make_yaw_matrix(rotation, rect->angle_),
+                               &rect->basis_frame_);
         rect->basis_frame_ = rect->basis_frame_; // (the original copies it onto itself)
     }
     rect->basis_frame_.upend();

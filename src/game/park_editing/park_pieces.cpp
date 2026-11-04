@@ -5,7 +5,6 @@
 #include <cstdint>
 
 #include "game/park_editing/park.h"
-#include "platform/d3dx.h"
 
 #include "engine/core/dbg.h"
 #include "engine/gfx/engine_geom.h"
@@ -37,7 +36,7 @@ uint8_t get_cells(float size, float cell) { return static_cast<uint8_t>(static_c
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void multiply_matrices(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    d3dx::matrix_multiply(out, a, b);
+    maths::matrix_multiply(out, a, b);
 }
 
 } // namespace

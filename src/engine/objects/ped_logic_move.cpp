@@ -13,7 +13,6 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/objects/smtptr.h"
 #include "game/rider/rider.h"
-#include "platform/d3dx.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -117,7 +116,7 @@ GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sol
 // D3DXMatrixMultiply (linked library code).
 void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
-    d3dx::matrix_multiply(&out, &a, &b);
+    maths::matrix_multiply(&out, &a, &b);
 }
 
 // _ftol2: a 64-bit truncation whose low half is used (the integer indefinite, 2^63 - a NaN, what doesn't fit - gives

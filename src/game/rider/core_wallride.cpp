@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "engine/maths/mat4.h"
-#include "platform/d3dx.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/ride_tracker.h"
@@ -81,10 +80,9 @@ maths::Vec4 SkaterPhysicsModule::carried_on_wall()
         } else {
             carried = get_tracker(this)->carried();
             if (get_tracker(this)->turned()) {
-                auto multiply = d3dx::matrix_multiply;
                 maths::Mat4& basis = entity()->basis_frame();
-                multiply(&basis, &basis, &get_tracker(this)->turn());
-                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+                maths::matrix_multiply(&basis, &basis, &get_tracker(this)->turn());
+                maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
             }
         }
     }

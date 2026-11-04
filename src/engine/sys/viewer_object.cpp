@@ -1,7 +1,6 @@
 // The model viewer's object (0x005897B0-0x0058AFB7). See viewer_object.h.
 
 #include "engine/sys/viewer_object.h"
-#include "platform/d3dx.h"
 
 #include <algorithm>
 #include <bit>
@@ -158,7 +157,10 @@ constexpr float kRadiansPerDegree = 0.017453292F;             // 0x00645464
 // A pooled script structure, and one cleared and freed (either may be null).
 
 // D3DXMatrixMultiply (library code: stdcall), out = a * b.
-void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
+void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
+{
+    maths::matrix_multiply(out, a, b);
+}
 
 // The model component's model (+0x208), its bone count (0x00492FF0) and hierarchy (0x00493040: objects of 0x50 bytes,
 // each with its matrix at +0x10) - render::RenderModel, not rewritten yet; the skeleton component's skeleton (the folded

@@ -5,7 +5,6 @@
 #include <initializer_list>
 
 #include "engine/maths/maths.h"
-#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/ride_tracker.h"
@@ -149,10 +148,9 @@ void SkaterPhysicsModule::do_ground_physics()
             entity()->old_pos() = entity()->at_point();
             safe_pos_ = entity()->at_point();
             if (get_tracker(this)->turned()) {
-                auto multiply = d3dx::matrix_multiply;
                 maths::Mat4& basis = entity()->basis_frame();
-                multiply(&basis, &basis, &get_tracker(this)->turn());
-                multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+                maths::matrix_multiply(&basis, &basis, &get_tracker(this)->turn());
+                maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
             }
         }
     }

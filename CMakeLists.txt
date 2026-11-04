@@ -961,10 +961,15 @@ target_include_directories(thug2_format_check PRIVATE src)
 target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
 # NOT ORIGINAL - thug2_maths_check.exe: the plain C++ that replaced the x87 inline assembly compared with that
-# assembly over many inputs (src/tests/maths_check.cpp; the reference half needs MSVC for 32-bit x86).
-add_executable(thug2_maths_check src/tests/maths_check.cpp)
+# assembly over many inputs, and maths::matrix_multiply with D3DX's matrix product (src/tests/maths_check.cpp; the
+# reference half needs MSVC for 32-bit x86).
+add_executable(thug2_maths_check src/tests/maths_check.cpp src/tests/maths_check_d3dx.cpp
+    src/engine/maths/mat4.cpp src/engine/maths/vec4.cpp src/engine/maths/maths.cpp src/engine/core/dbg.cpp)
 target_include_directories(thug2_maths_check PRIVATE src)
-target_link_libraries(thug2_maths_check PRIVATE thug2_formats Microsoft.GSL::GSL)
+# (d3dx9: D3DX's matrix product, the reference for maths::matrix_multiply; its DLL next to the check)
+target_link_libraries(thug2_maths_check PRIVATE thug2_formats Microsoft.GSL::GSL d3dx9)
+add_custom_command(TARGET thug2_maths_check POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2_maths_check>/d3dx9_43.dll")
 target_compile_options(thug2_maths_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
 # NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (engine/core/

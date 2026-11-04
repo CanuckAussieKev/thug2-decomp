@@ -3,7 +3,6 @@
 
 #include "engine/objects/path_follower.h"
 #include "engine/objects/avoid.h"
-#include "platform/d3dx.h"
 #include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 
@@ -116,7 +115,7 @@ void xform(const maths::Mat4& matrix, maths::Vec4& out, const maths::Vec4& in) {
 // D3DXMatrixMultiply (linked library code).
 void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
-    d3dx::matrix_multiply(&out, &a, &b);
+    maths::matrix_multiply(&out, &a, &b);
 }
 
 // The collision feeler (render::ProbeRay): constructed by 0x00417760, its line tested by 0x004172F0; what it hit is

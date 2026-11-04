@@ -5,7 +5,6 @@
 
 #include "engine/objects/model_component.h"
 #include "wire/message_ids.h"
-#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -84,8 +83,6 @@ void set_global_brightness(float brightness) { render::set_world_brightness(brig
 // A skeleton component's skeleton (0x005480F0: its +0x18).
 gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig(); }
 
-// out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
 // whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
@@ -243,7 +240,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
         none = false;
         maths::Mat4 turn;
         const CreateFn create = core::at(kCreate, axis);
-        matrix_multiply(&rotation, &rotation, &create(turn, angle * kRadiansPerDegree));
+        maths::matrix_multiply(&rotation, &rotation, &create(turn, angle * kRadiansPerDegree));
     }
     maths::Vec4 shift = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     if (!none) {
@@ -254,7 +251,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
             shift = {.x = shift.x - turned.x, .y = shift.y - turned.y, .z = shift.z - turned.z, .w = shift.w - turned.w};
             shift = shift * *out;
         }
-        matrix_multiply(out, &rotation, out);
+        maths::matrix_multiply(out, &rotation, out);
     }
     maths::Vec4& pos = core::at(out->row, 3);
     pos = entity()->at_point();

@@ -1,7 +1,6 @@
 // The skeleton component (engine/objects/skeleton_component.h).
 
 #include "engine/objects/skeleton_component.h"
-#include "platform/d3dx.h"
 
 #include <cstddef>
 #include <cmath>
@@ -281,7 +280,7 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     core::at(placed.row, 0).w = 0.0F;
     core::at(placed.row, 1).w = 0.0F;
     core::at(placed.row, 2).w = 0.0F;
-    d3dx::matrix_multiply(&joint_mat, &joint_mat, &placed);
+    maths::matrix_multiply(&joint_mat, &joint_mat, &placed);
 
     params->put_vec3(checksums::Name{kPos}, to_value(core::at(joint_mat.row, 3))); // pos
     maths::QuatRotation rotation{};

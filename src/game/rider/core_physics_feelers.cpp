@@ -11,7 +11,6 @@
 
 #include "engine/maths/maths.h"
 #include "engine/core/enum_ops.h"
-#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
@@ -90,8 +89,6 @@ constexpr float kQuarterTurn = 1.57079637F;     // 0x3FC90FDB
 constexpr float kThreeEighthsTurn = 2.3561945F; // 0x4016CBE4
 constexpr float kHalfTurn = 3.14159274F;        // 0x40490FDB
 
-// D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // 0x0057CB60 (GameObjects::GrindRailHub::get_absolute_pos): a rail node's position.
 maths::Vec4 rail_node_position(void* manager, const void* node)
@@ -354,7 +351,7 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
         const float down_left_turn = dir == kDownLeft ? -kEighthTurn : kHalfTurn;
         const float turn = dir == kUpLeft ? -kThreeEighthsTurn : down_left_turn;
         maths::Mat4 rotation;
-        matrix_multiply(&exit_frame, &exit_frame, &maths::make_yaw_matrix(rotation, turn));
+        maths::matrix_multiply(&exit_frame, &exit_frame, &maths::make_yaw_matrix(rotation, turn));
         break;
     }
     }

@@ -5,7 +5,6 @@
 #include <gsl/pointers>
 
 #include "engine/objects/collision_component.h"
-#include "platform/d3dx.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/engine.h"
 
@@ -55,7 +54,7 @@ gsl::owner<render::HitMesh*> sector_collision(const render::WorldCell* sector) {
 // +0x10, its translation at +0x40 (the matrix's fourth row).
 const render::HierarchyNode* bone_of(render::RenderModel* model) { return model->get_asset_hierarchy(); }
 
-void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
+void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { maths::matrix_multiply(out, a, b); }
 
 } // namespace
 

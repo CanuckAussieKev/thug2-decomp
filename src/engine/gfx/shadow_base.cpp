@@ -145,8 +145,6 @@ ShadowCompanionFn& shadow_companion()
     return shadow_companion;
 }
 
-// D3DX (linked library code; stdcall).
-void matrix_multiply(float* out, const float* a, const float* b) { d3dx::matrix_multiply(out, a, b); }
 void matrix_inverse(float* out, float* determinant, const float* matrix)
 {
     d3dx::matrix_inverse(out, determinant, matrix);
@@ -256,12 +254,12 @@ void shadow_texture_matrix(const float* a, const float* b, float* out, const flo
     std::array<float, maths::kMatrixFloats> matrix{};
     if (first) {
         std::memcpy(matrix.data(), first, sizeof(matrix));
-        matrix_multiply(matrix.data(), matrix.data(), a);
+        maths::matrix_multiply(matrix.data(), matrix.data(), a);
     } else {
         std::memcpy(matrix.data(), a, sizeof(matrix));
     }
-    matrix_multiply(matrix.data(), matrix.data(), b);
-    matrix_multiply(out, matrix.data(), scale_bias.data());
+    maths::matrix_multiply(matrix.data(), matrix.data(), b);
+    maths::matrix_multiply(out, matrix.data(), scale_bias.data());
 }
 
 // 0x004DB9D0
@@ -406,8 +404,8 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
             {kHalfF, 0, 0, 0, 0, -kHalfF, 0, 0, 0, 0, 1.0F, 0, kHalfF, kHalfF, 0, 1.0F}};
         std::array<float, maths::kMatrixFloats> view_projection{};
         std::array<float, maths::kMatrixFloats> to_texture{};
-        matrix_multiply(view_projection.data(), caster->view.data(), caster->near_projection_.data());
-        matrix_multiply(to_texture.data(), view_projection.data(), texture_bias.data());
+        maths::matrix_multiply(view_projection.data(), caster->view.data(), caster->near_projection_.data());
+        maths::matrix_multiply(to_texture.data(), view_projection.data(), texture_bias.data());
         shadow_texture_matrix(caster->view.data(), caster->projection.data(), caster->texture_matrix_.data(), nullptr);
         set_pixel_shader(nullptr, nullptr);
         renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);

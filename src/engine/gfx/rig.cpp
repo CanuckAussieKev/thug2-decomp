@@ -2,7 +2,6 @@
 // function, not decompiled); the x87 code is followed where it keeps values unrounded.
 
 #include "engine/gfx/rig.h"
-#include "platform/d3dx.h"
 
 #include <cstdint>
 #include <cstring>
@@ -42,7 +41,7 @@ constexpr uint32_t kMirroredBoneScale = 0xDFEE29AC;
 constexpr uint32_t kTurnBone = 0x9F173EEB;
 
 // out = a * b (D3DXMatrixMultiply, 0x005BFA8C).
-void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
+void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { maths::matrix_multiply(out, a, b); }
 
 void set_identity(maths::Mat4& matrix)
 {

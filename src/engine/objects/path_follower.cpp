@@ -4,7 +4,6 @@
 // in double here (and rounded to float where it stores them), in the original's order of operations.
 
 #include "engine/objects/path_follower.h"
-#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -42,7 +41,7 @@ void set_length(maths::Vec4& v, float length) { v.set_length(length); }
 // D3DXMatrixMultiply (linked library code).
 void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
-    d3dx::matrix_multiply(&out, &a, &b);
+    maths::matrix_multiply(&out, &a, &b);
 }
 
 // The length of a - b, unrounded: (z, y, then x) squared and summed.

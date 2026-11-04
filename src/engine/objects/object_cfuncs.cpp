@@ -1,7 +1,6 @@
 // Script commands (CFunctions) for nodes and composite objects, 0x00449280-0x00449F80 (see object_cfuncs.h).
 
 #include "engine/objects/object_cfuncs.h"
-#include "platform/d3dx.h"
 
 #include <cstdint>
 #include <new>
@@ -104,8 +103,6 @@ void angles_to_matrix(maths::Mat4* matrix, const script::VectorValue* angles)
     matrix->init_from_angles(*angles);
 }
 
-// D3DX's matrix product (linked library code; stdcall): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18) and that skeleton's matrix of `bone` (0x004A36E0; false -
 // `out` untouched - if it has no such bone).
@@ -356,13 +353,13 @@ bool cfunc_orient(script::Struct* params, script::Script* /*script*/)
     if (bone != 0U) {
         maths::Mat4 joint_mat;
         read_joint_matrix(skeleton_of(relative_to->fetch_module(kSkeleton)), bone, &joint_mat);
-        matrix_multiply(&matrix, &matrix, &joint_mat);
+        maths::matrix_multiply(&matrix, &matrix, &joint_mat);
     }
     if (relative_to) {
         maths::Mat4 relative;
         relative = relative_to->display_matrix();
         core::at(relative.row, 3) = relative_to->at_point();
-        matrix_multiply(&matrix, &matrix, &relative);
+        maths::matrix_multiply(&matrix, &matrix, &relative);
     }
     object->at_point() = core::at(matrix.row, 3);
     core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};

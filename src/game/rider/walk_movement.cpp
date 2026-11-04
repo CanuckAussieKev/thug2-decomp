@@ -8,7 +8,6 @@
 
 #include "engine/maths/shape_tests.h"
 #include "engine/script/member_code.h"
-#include "platform/d3dx.h"
 #include "engine/maths/vec4.h"
 #include "engine/maths/mat4.h"
 #include "engine/render/coll_cache.h"
@@ -566,7 +565,7 @@ void FootMovement::update_rotate_upright()
     maths::build_axis_angle_matrix(rotation, upright_axis_, angle);
     auto* object = static_cast<GameEntity*>(entity());
     // D3DXMatrixMultiply (0x005BFA8C)
-    d3dx::matrix_multiply(&object->basis_frame(), &object->basis_frame(), &rotation);
+    maths::matrix_multiply(&object->basis_frame(), &object->basis_frame(), &rotation);
     object->display_matrix() = object->basis_frame();
     const double remaining = static_cast<double>(left) - get_frame_length(this);
     left = remaining < 0.0 ? 0.0F : static_cast<float>(remaining);

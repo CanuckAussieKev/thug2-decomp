@@ -8,7 +8,6 @@
 #include <array>
 
 #include "engine/core/manager.h"
-#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
@@ -306,10 +305,9 @@ void SkaterPhysicsModule::step_wallplant()
     entity()->at_point() += get_tracker(this)->carried();
     tracker = get_tracker(this);
     if (tracker->turned()) {
-        auto multiply = d3dx::matrix_multiply;
         maths::Mat4& matrix = entity()->basis_frame();
-        multiply(&matrix, &matrix, &tracker->turn());
-        multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+        maths::matrix_multiply(&matrix, &matrix, &tracker->turn());
+        maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
     }
 }
 

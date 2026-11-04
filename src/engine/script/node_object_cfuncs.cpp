@@ -2,7 +2,6 @@
 // and the level's node objects made and killed by their class (see game_cfuncs.h).
 
 #include "engine/script/game_cfuncs.h"
-#include "platform/d3dx.h"
 #include "engine/script/trick_cfuncs.h"
 
 #include <algorithm>
@@ -249,7 +248,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
     auto turn = [&](maths::Mat4& (*create)(maths::Mat4&, float), float degrees) {
         maths::Mat4 rotation;
         create(rotation, static_cast<float>(degrees * to_radians));
-        d3dx::matrix_multiply(&frame, &frame, &rotation);
+        maths::matrix_multiply(&frame, &frame, &rotation);
     };
     turn(&maths::make_pitch_matrix, angle_x);
     turn(&maths::make_yaw_matrix, angle_y);

@@ -4,7 +4,6 @@
 
 #include "engine/objects/path_follower.h"
 #include "engine/objects/car_physics.h"
-#include "platform/d3dx.h"
 #include "engine/gfx/model.h"
 
 #include <algorithm>
@@ -74,8 +73,6 @@ constexpr float kSpinScale = 0.000668449211F;          // 0x00645EAC
 constexpr float kSpinSpeedScale = 90.0F;               // 0x00645EB0
 constexpr float kRadiansPerDegree = 0.0174532924F;     // 0x00645464
 
-// out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The model's skeleton description (0x00493040, no source yet).
 std::span<const render::HierarchyNode> model_bones(void* model)
@@ -144,9 +141,9 @@ void AutomobileDynamicsModule::seal()
     bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig();
     const std::span<const render::HierarchyNode> bones = model_bones(mesh_instance_);
     maths::Mat4 left_matrix = core::at(bones, 2).matrix();
-    matrix_multiply(&left_matrix, &left_matrix, &core::at(bones, 0).matrix());
+    maths::matrix_multiply(&left_matrix, &left_matrix, &core::at(bones, 0).matrix());
     maths::Mat4 right_matrix = core::at(bones, 4).matrix();
-    matrix_multiply(&right_matrix, &right_matrix, &core::at(bones, 0).matrix());
+    maths::matrix_multiply(&right_matrix, &right_matrix, &core::at(bones, 0).matrix());
     const double dx = static_cast<double>(core::at(left_matrix.row, 3).x) - core::at(right_matrix.row, 3).x;
     const double dy = static_cast<double>(core::at(left_matrix.row, 3).y) - core::at(right_matrix.row, 3).y;
     const double dz = static_cast<double>(core::at(left_matrix.row, 3).z) - core::at(right_matrix.row, 3).z;
@@ -251,21 +248,21 @@ void AutomobileDynamicsModule::refresh_bone_rig(BoneRigTarget rig_target, WheelP
         case kWheelB:
         case kWheelC:
         case kWheelD:
-            matrix_multiply(matrix, &maths::make_pitch_matrix(rotation, spin_radians), matrix);
+            maths::matrix_multiply(matrix, &maths::make_pitch_matrix(rotation, spin_radians), matrix);
             break;
         case kSteeringWheelA:
         case kSteeringWheelB:
-            matrix_multiply(matrix, &maths::make_roll_matrix(rotation, steer_radians), matrix);
-            matrix_multiply(matrix, &maths::make_pitch_matrix(rotation, spin_radians), matrix);
+            maths::matrix_multiply(matrix, &maths::make_roll_matrix(rotation, steer_radians), matrix);
+            maths::matrix_multiply(matrix, &maths::make_pitch_matrix(rotation, spin_radians), matrix);
             break;
         case kBody:
-            matrix_multiply(matrix, &maths::make_pitch_matrix(rotation, tilt_radians), matrix);
+            maths::matrix_multiply(matrix, &maths::make_pitch_matrix(rotation, tilt_radians), matrix);
             break;
         default:
             break;
         }
         if (i != 0) {
-            matrix_multiply(matrix, matrix, &core::at(matrices, static_cast<int16_t>(bone.parent_index())));
+            maths::matrix_multiply(matrix, matrix, &core::at(matrices, static_cast<int16_t>(bone.parent_index())));
         }
     }
 }

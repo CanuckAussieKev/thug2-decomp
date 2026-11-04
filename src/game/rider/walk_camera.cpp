@@ -2,7 +2,6 @@
 // 0x00524C20-0x00525E3F (and 0x00525F70).
 
 #include "game/rider/walk_camera.h"
-#include "platform/d3dx.h"
 
 #include <bit>
 #include <cmath>
@@ -53,8 +52,6 @@ constexpr float kTiltScale = 1.5923566818237305F; // 0x0064BAFC
 constexpr float kTiltRange = 0.6000000238418579F; // 0x006463C4
 constexpr float kTiltBase = 0.4000000059604645F;  // 0x0064BAF8
 
-// D3DXMatrixMultiply (linked later; 0x005BFA8C).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The right stick's turn of the facing (0x00525468-): the sine rounded to float: x' = z * sin + cos * x,
 // z' = -(sin * x) + z * cos.
@@ -367,7 +364,7 @@ void FootView::tick_frame()
     core::at(look.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Mat4 tilt{};
     maths::make_pitch_matrix(tilt, free_look_->lean_angle() + skater_camera_->lean_angle());
-    matrix_multiply(&look, &tilt, &look);
+    maths::matrix_multiply(&look, &tilt, &look);
     core::at(look.row, 0) = {.x = -core::at(look.row, 0).x, .y = -core::at(look.row, 0).y, .z = -core::at(look.row, 0).z, .w = -core::at(look.row, 0).w};
     core::at(look.row, 2) = {.x = -core::at(look.row, 2).x, .y = -core::at(look.row, 2).y, .z = -core::at(look.row, 2).z, .w = -core::at(look.row, 2).w};
     const maths::Vec4 skater_up = core::at(skater_->basis_frame().row, 1);

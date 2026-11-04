@@ -1,7 +1,6 @@
 // Script commands (CFunctions) for maths, 0x00448AE0-0x00448EF0 (see math_cfuncs.h).
 
 #include "engine/script/math_cfuncs.h"
-#include "platform/d3dx.h"
 
 #include <algorithm>
 #include <cmath>
@@ -46,8 +45,6 @@ constexpr uint32_t kRz = 0x13FF6E56;         // "rz"
 float degree_to_radian_conv() { return kDegreeToRadianRatio; } // pi / 180
 float convert_to_degrees() { return kScriptRadiansToDegrees; } // 180 / pi
 
-// D3DX's matrix product (linked library code; stdcall): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The unnamed argument, in degrees for the trigonometry.
 float get_argument(script::Struct* params)
@@ -200,9 +197,9 @@ bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
     maths::Mat4 matrix{};
     matrix.reset_to_identity();
     maths::Mat4 rotation{};
-    matrix_multiply(&matrix, &maths::make_pitch_matrix(rotation, rx * degree_to_radian_conv()), &matrix);
-    matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, ry * degree_to_radian_conv()), &matrix);
-    matrix_multiply(&matrix, &maths::make_roll_matrix(rotation, rz * degree_to_radian_conv()), &matrix);
+    maths::matrix_multiply(&matrix, &maths::make_pitch_matrix(rotation, rx * degree_to_radian_conv()), &matrix);
+    maths::matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, ry * degree_to_radian_conv()), &matrix);
+    maths::matrix_multiply(&matrix, &maths::make_roll_matrix(rotation, rz * degree_to_radian_conv()), &matrix);
     maths::Vec4 turned{};
     matrix.xform(turned, point);
     script->args()->push_float(checksums::Name{kX}, turned.x);

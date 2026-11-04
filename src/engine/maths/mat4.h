@@ -178,8 +178,19 @@ Mat4& create_perspective_matrix(Mat4& matrix, Perspective view);
 // The row vector `v` (all four components) times `m`.
 Vec4 operator*(const Vec4& v, const Mat4& matrix);
 
-// Standard row-vector matrix product a * b (the same as D3DXMatrixMultiply). `out` may alias a or b.
+// Standard row-vector matrix product a * b, each element's four products summed in order (D3DXMatrixMultiply's
+// product; for rows 0 and 3 its last bit may differ from matrix_multiply's below). `out` may alias a or b.
 Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b);
+
+// NOT ORIGINAL - D3DXMatrixMultiply in plain C++: out = a * b (row vectors), `out` may alias a or b. The same float
+// operations as the SSE version of d3dx9_43.dll the game called before: each product a[i][k] * b[k][j], summed
+// as (p0 + p1) + (p2 + p3) in rows 0 and 3 and as ((p0 + p1) + p2) + p3 in rows 1 and 2 - bit for bit the same
+// results (thug2_maths_check compares them with D3DX).
+void matrix_multiply(std::span<float, kMatrixFloats> out, std::span<const float, kMatrixFloats> a,
+                     std::span<const float, kMatrixFloats> b);
+// The same for matrices, and for the 16 floats of the renderer's flat matrices.
+void matrix_multiply(Mat4* out, const Mat4* a, const Mat4* b);
+void matrix_multiply(float* out, const float* a, const float* b);
 
 // Fill `m` with a rotation of `angle` radians about one axis and return it.
 Mat4& make_pitch_matrix(Mat4& matrix, float angle);

@@ -1,7 +1,6 @@
 // Bone volumes: see bone_volumes.h. From the disassembly of 0x0048B330-0x0048BF0D.
 
 #include "engine/gfx/bone_volumes.h"
-#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -56,7 +55,7 @@ lists::KeyMap& get_table() { return bone_volumes_state().bone_volume_table_; }
 std::array<maths::Vec4, kBoneVolumeCount>& joint_point_array() { return bone_volumes_state().bone_world_pos_; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
-void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
+void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { maths::matrix_multiply(out, a, b); }
 
 // A bone's matrices: its inverse bind matrix, its pose, and the model's world matrix.
 struct BoneFrames {

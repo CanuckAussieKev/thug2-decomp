@@ -5,7 +5,6 @@
 
 #include "engine/maths/maths.h"
 #include "engine/core/enum_ops.h"
-#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/node_components.h"
@@ -368,10 +367,9 @@ void SkaterPhysicsModule::ride_moving_rail()
                 } else {
                     entity()->at_point() += get_tracker(this)->carried();
                     if (get_tracker(this)->turned()) {
-                        auto multiply = d3dx::matrix_multiply;
                         maths::Mat4& basis = entity()->basis_frame();
-                        multiply(&basis, &basis, &get_tracker(this)->turn());
-                        multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+                        maths::matrix_multiply(&basis, &basis, &get_tracker(this)->turn());
+                        maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
                     }
                 }
             }

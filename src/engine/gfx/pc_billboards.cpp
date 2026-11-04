@@ -436,7 +436,6 @@ void BillboardBatch::render()
         break;
     }
     auto transpose = d3dx::matrix_transpose; // (D3DX)
-    auto multiply = d3dx::matrix_multiply;
     std::array<float, maths::kMatrixFloats> projection{};
     std::array<float, maths::kMatrixFloats> view{};
     std::array<float, maths::kMatrixFloats> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
@@ -447,8 +446,8 @@ void BillboardBatch::render()
     core::at(view, maths::kMatTx) = core::at(view, maths::kMatTy) = core::at(view, maths::kMatTz) =
         0.0F; // (its last row cleared)
     core::at(view, kMatrixW) = 1.0F;
-    multiply(view_world.data(), view.data(), identity.data());
-    multiply(all.data(), projection.data(), view_world.data());
+    maths::matrix_multiply(view_world.data(), view.data(), identity.data());
+    maths::matrix_multiply(all.data(), projection.data(), view_world.data());
     renderer().d3d_device()->SetVertexShaderConstantF(0, all.data(), 4);
     auto* manager = &billboard_pool();
     const std::span<float> constants(pc_billboards_state().billboard_constants_); // c4-c6

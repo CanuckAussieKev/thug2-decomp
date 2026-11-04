@@ -3,7 +3,6 @@
 // events, the camera and the controls (Update), the state, and the logic task's work.
 
 #include "game/park_editing/park_editor.h"
-#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -165,8 +164,6 @@ void turn_move(double angle, double a, double b, XzOut xz)
     *z = static_cast<float>((cosine * a) - (sine * b));
 }
 
-// D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 } // namespace
 
@@ -561,10 +558,10 @@ void ParkBuilderMode::tick_frame()
     core::at(camera.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
     core::at(camera.row, 3) = {.x = 0.0F, .y = 0.0F, .z = orbit_radius_, .w = 1.0F};
     maths::Mat4 rotation{};
-    matrix_multiply(
+    maths::matrix_multiply(
         &camera, &camera,
         &maths::make_pitch_matrix(rotation, static_cast<float>(camera_tilt_ * -static_cast<double>(kAngleScaleToRad))));
-    matrix_multiply(
+    maths::matrix_multiply(
         &camera, &camera,
         &maths::make_yaw_matrix(rotation, static_cast<float>(camera_angle_ * static_cast<double>(kAngleScaleToRad))));
     const maths::Vec4& cursor_pos = get_cursor()->at_point();

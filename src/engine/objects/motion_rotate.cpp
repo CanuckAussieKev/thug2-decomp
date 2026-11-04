@@ -7,7 +7,6 @@
 #include <cstdint>
 
 #include "engine/core/manager.h"
-#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/objects/motion.h"
@@ -54,8 +53,6 @@ constexpr float kDegrees = get_bits(0x3C8EFA35);
 // Each axis' value of a per-axis vector.
 float& get_axis(maths::Vec4& v, int axis) { return v[axis]; }
 
-// D3DXMatrixMultiply (0x005BFA8C, the D3DX library: not decompiled): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The node after `node` in a manager's object list (null at the end: the head's data is -1).
 memory::ListNode* next_object_node(memory::ListNode* node)
@@ -192,15 +189,15 @@ void KinematicsModule::rotate_about_axis(AxisTurn axis_turn)
     maths::Mat4& matrix = entity()->basis_frame();
     switch (axis) {
     case 0:
-        matrix_multiply(&matrix, &maths::make_pitch_matrix(rotation, angle), &matrix);
+        maths::matrix_multiply(&matrix, &maths::make_pitch_matrix(rotation, angle), &matrix);
         matrix.square_up_axes(0);
         break;
     case 1:
-        matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
+        maths::matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
         matrix.square_up_axes(1);
         break;
     case 2:
-        matrix_multiply(&matrix, &maths::make_roll_matrix(rotation, angle), &matrix);
+        maths::matrix_multiply(&matrix, &maths::make_roll_matrix(rotation, angle), &matrix);
         matrix.square_up_axes(2);
         break;
     default:
@@ -336,7 +333,7 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
         }
         maths::Mat4 rotation;
         maths::Mat4& matrix = entity()->basis_frame();
-        matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
+        maths::matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
         return true;
     }
     int speed = kDefaultTurnSpeed;
@@ -487,9 +484,9 @@ void KinematicsModule::face_node(script::Struct* node)
     level_nodes::read_turn_angles(node, &angles);
     if (!(angles.x == 0.0F) || !(angles.y == 0.0F) || !(angles.z == 0.0F)) {
         maths::Mat4 rotation;
-        matrix_multiply(&matrix, &matrix, &maths::make_pitch_matrix(rotation, angles.x));
-        matrix_multiply(&matrix, &matrix, &maths::make_yaw_matrix(rotation, angles.y));
-        matrix_multiply(&matrix, &matrix, &maths::make_roll_matrix(rotation, angles.z));
+        maths::matrix_multiply(&matrix, &matrix, &maths::make_pitch_matrix(rotation, angles.x));
+        maths::matrix_multiply(&matrix, &matrix, &maths::make_yaw_matrix(rotation, angles.y));
+        maths::matrix_multiply(&matrix, &matrix, &maths::make_roll_matrix(rotation, angles.z));
     }
     entity()->display_matrix() = matrix;
 }

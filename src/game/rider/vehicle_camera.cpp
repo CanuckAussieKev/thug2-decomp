@@ -2,7 +2,6 @@
 // 0x00524420-0x00524C1E (0x00524420 isn't a Ghidra function).
 
 #include "game/rider/vehicle_camera.h"
-#include "platform/d3dx.h"
 
 #include <algorithm>
 #include <cmath>
@@ -62,8 +61,6 @@ gfx::ViewCam* camera_of(GameEntity* object)
     return core::down_cast<objects::ViewpointModule>(object->fetch_module(kCamera))->view_camera().get();
 }
 
-// D3DXMatrixMultiply (linked later; 0x005BFA8C).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The camera position the collision check pulls toward: `distance` along the orientation's at-row before
 // `position` (x with the product unrounded, as the original).
@@ -198,7 +195,7 @@ void CarView::update_orientation()
     anchor_point_.w = subject.w + 1.0F;
     maths::Mat4 tilt{};
     maths::make_roll_matrix(tilt, angle_ * kDegrees);
-    matrix_multiply(&orientation_, &tilt, &orientation_);
+    maths::matrix_multiply(&orientation_, &tilt, &orientation_);
 }
 
 // 0x00524B40

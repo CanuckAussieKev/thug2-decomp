@@ -8,7 +8,6 @@
 #include <cstdint>
 
 #include "engine/maths/mat4.h"
-#include "platform/d3dx.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_rect.h"
@@ -43,10 +42,5 @@ inline void matrix_to_quat(maths::Vec4* quat, const maths::Mat4* matrix) { *quat
 inline void quat_normalize(maths::Vec4* quat, float length) { maths::quat_make_unit(quat, length); }
 inline void quat_multiply(maths::Vec4* a, const maths::Vec4* b) { maths::quat_multiply(a, *b); }
 
-// D3DXMatrixMultiply (linked library code; stdcall).
-inline void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
 
 } // namespace objects::vehicle

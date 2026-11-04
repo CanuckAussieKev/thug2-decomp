@@ -10,7 +10,6 @@
 #include <cstring>
 
 #include "engine/gfx/view_cam.h"
-#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"
@@ -89,7 +88,7 @@ bool vert_air(const objects::RiderPoseState* state)
 
 maths::Mat4* skater_display_matrix(GameEntity* skater) { return core::down_cast<Rider>(skater)->get_draw_matrix(); }
 // D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
-void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
+void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { maths::matrix_multiply(out, a, b); }
 
 // a x b (the original's cross product, inlined: each component a difference of two products) into `out`; w 0.
 void perpendicular(maths::Vec4& out, const maths::Vec4& a, const maths::Vec4& b)

@@ -434,7 +434,7 @@ void ortho(maths::Mat4* out, float width, float height, float near_z, float far_
 {
     d3dx::matrix_ortho_rh(out, width, height, near_z, far_z);
 }
-void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
+void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { maths::matrix_multiply(out, a, b); }
 
 // A set's oldest triangle (a free one first: 0x00490CD0, the engine's).
 int oldest_triangle(const TextureSplats* splats) { return oldest_slot(*splats, kSplatCount); }

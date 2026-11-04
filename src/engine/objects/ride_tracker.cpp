@@ -3,7 +3,6 @@
 #include "engine/objects/ride_tracker.h"
 #include "engine/maths/mat4.h"
 #include "engine/objects/entity.h"
-#include "platform/d3dx.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
@@ -24,7 +23,7 @@ void keep_rotation(maths::Mat4& matrix)
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void d3d_matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
-    d3dx::matrix_multiply(out, a, b);
+    maths::matrix_multiply(out, a, b);
 }
 
 } // namespace

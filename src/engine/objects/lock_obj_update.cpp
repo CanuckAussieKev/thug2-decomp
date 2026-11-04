@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "platform/d3dx.h"
 #include "engine/gfx/rig.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -59,8 +58,6 @@ bool follow_model(ObjectModule* model, GameEntity* target)
            target->ident() < kFirstNonSkaterId;
 }
 
-// out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 void set_product(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
@@ -187,7 +184,7 @@ void PinnedObjectModule::update_lock()
     }
     entity()->vel() = target->vel();
     if ((lock_flags_ & kLockFlagAngles) != 0) {
-        matrix_multiply(&entity()->basis_frame(), &entity()->basis_frame(), &orientation_turn_);
+        maths::matrix_multiply(&entity()->basis_frame(), &entity()->basis_frame(), &orientation_turn_);
     }
     entity()->display_matrix() = entity()->basis_frame();
 }

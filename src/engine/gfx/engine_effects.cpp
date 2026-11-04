@@ -2,7 +2,6 @@
 // where it keeps values in registers, float where it stores them).
 
 #include "engine/gfx/engine_effects.h"
-#include "platform/d3dx.h"
 
 #include <bit>
 #include <cstdint>
@@ -220,7 +219,7 @@ void Shatter::get_step(ShatterStep shatter_step) const
         maths::Mat4 turn{};
         maths::build_axis_angle_matrix(turn, axis, turn_angle);
         // D3DX (linked library code): rotation = rotation * turn
-        d3dx::matrix_multiply(&rotation, &rotation, &turn);
+        maths::matrix_multiply(&rotation, &rotation, &turn);
     }
     velocity.y = static_cast<float>(velocity.y - (static_cast<double>(step) * gravity));
 }

@@ -2,7 +2,6 @@
 // the original keeps on the FPU stays a double here, what it stores is rounded to a float there.
 
 #include "engine/gfx/engine_texture_projection.h"
-#include "platform/d3dx.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -181,7 +180,7 @@ void TextureProjection::update_matrix()
         return;
     }
     // (D3DXMatrixMultiply)
-    d3dx::matrix_multiply(&projection_, &view, &lens);
+    maths::matrix_multiply(&projection_, &view, &lens);
 }
 
 // 0x0049FFE0

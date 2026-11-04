@@ -9,7 +9,6 @@
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/script/cell.h"
-#include "platform/d3dx.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/engine_model_lights.h"
@@ -302,7 +301,7 @@ void CinematicTable::update_object_transforms()
             core::at(owner_mat, 3) = 0.0F;
             core::at(owner_mat, maths::kMatYw) = 0.0F;
             core::at(owner_mat, maths::kMatZw) = 0.0F;
-            d3dx::matrix_multiply(joint_mat.data(), joint_mat.data(), owner_mat.data());
+            maths::matrix_multiply(joint_mat.data(), joint_mat.data(), owner_mat.data());
             maths::Mat4 matrix{};
             std::memcpy(matrix.data(), joint_mat.data(), kRotationBytes);
             matrix[3][0] = 0.0F;

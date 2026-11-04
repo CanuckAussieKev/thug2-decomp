@@ -1,10 +1,11 @@
 #include "engine/maths/mat4.h"
-#include "platform/d3dx.h"
 
+#include <algorithm>
 #include <cmath>
 #include <initializer_list>
 #include <utility>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/maths/maths.h"
@@ -73,6 +74,37 @@ Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b)
     return out;
 }
 
+void matrix_multiply(std::span<float, kMatrixFloats> out, std::span<const float, kMatrixFloats> a,
+                     std::span<const float, kMatrixFloats> b)
+{
+    constexpr int kSide = 4;    // rows and columns
+    constexpr int kLastRow = 3; // (summed in pairs, as row 0)
+    std::array<float, kMatrixFloats> product{};
+    for (int i = 0; i < kSide; ++i) {
+        for (int j = 0; j < kSide; ++j) {
+            const float p0 = core::at(a, (i * kSide) + 0) * core::at(b, (0 * kSide) + j);
+            const float p1 = core::at(a, (i * kSide) + 1) * core::at(b, (1 * kSide) + j);
+            const float p2 = core::at(a, (i * kSide) + 2) * core::at(b, (2 * kSide) + j);
+            const float p3 = core::at(a, (i * kSide) + 3) * core::at(b, (3 * kSide) + j);
+            core::at(product, (i * kSide) + j) =
+                (i == 0 || i == kLastRow) ? (p0 + p1) + (p2 + p3) : ((p0 + p1) + p2) + p3;
+        }
+    }
+    std::ranges::copy(product, out.begin());
+}
+
+void matrix_multiply(Mat4* out, const Mat4* a, const Mat4* b)
+{
+    matrix_multiply(out->floats(), a->floats(), b->floats());
+}
+
+void matrix_multiply(float* out, const float* a, const float* b)
+{
+    matrix_multiply(std::span<float, kMatrixFloats>(out, kMatrixFloats),
+                    std::span<const float, kMatrixFloats>(a, kMatrixFloats),
+                    std::span<const float, kMatrixFloats>(b, kMatrixFloats));
+}
+
 // The originals build the rotation and call the statically linked D3DXMatrixMultiply(this, &rotation, this).
 
 // 0x00405670
@@ -107,10 +139,9 @@ Mat4& Mat4::init_from_angles(const Vec4& angles)
     reset_to_identity();
     if (angles.x != 0.0F || angles.y != 0.0F || angles.z != 0.0F) {
         Mat4 rotation{};
-        auto multiply = d3dx::matrix_multiply;
-        multiply(this, this, &make_pitch_matrix(rotation, angles.x));
-        multiply(this, this, &make_yaw_matrix(rotation, angles.y));
-        multiply(this, this, &make_roll_matrix(rotation, angles.z));
+        matrix_multiply(this, this, &make_pitch_matrix(rotation, angles.x));
+        matrix_multiply(this, this, &make_yaw_matrix(rotation, angles.y));
+        matrix_multiply(this, this, &make_roll_matrix(rotation, angles.z));
     }
     return *this;
 }

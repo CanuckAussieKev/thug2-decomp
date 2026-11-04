@@ -28,6 +28,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 
@@ -533,7 +534,7 @@ void DrivableModule::update_inertia()
     }
     render::MatrixTranspose transposed;
     transposed.transpose_from(&basis_frame_);
-    matrix_multiply(&inv_inertia_, &inv_inertia_, &transposed);
+    maths::matrix_multiply(&inv_inertia_, &inv_inertia_, &transposed);
 }
 
 // 0x00438AE0

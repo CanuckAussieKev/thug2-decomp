@@ -973,8 +973,8 @@ void DrivableModule::refresh_bone_rig()
         core::at(bone.row, 1).z = 1.0F;
         core::at(bone.row, 2).y = 1.0F;
         maths::Mat4 turn;
-        matrix_multiply(&bone, &maths::make_roll_matrix(turn, wheel.display_steering_), &bone);
-        matrix_multiply(&bone, &maths::make_pitch_matrix(turn, -wheel.rotation), &bone);
+        maths::matrix_multiply(&bone, &maths::make_roll_matrix(turn, wheel.display_steering_), &bone);
+        maths::matrix_multiply(&bone, &maths::make_pitch_matrix(turn, -wheel.rotation), &bone);
         core::at(bone.row, 3) = wheel.offset;
         const float drop = wheel.y > wheel.max_drawn_y_ ? wheel.max_drawn_y_ : wheel.y;
         core::at(bone.row, 3).y = static_cast<float>(static_cast<double>(drop) + core::at(bone.row, 3).y);

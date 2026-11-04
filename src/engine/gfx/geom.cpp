@@ -4,7 +4,6 @@
 #include "engine/gfx/geom.h"
 #include "engine/core/down_cast.h"
 #include "engine/gfx/pc_mesh.h"
-#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -614,7 +613,7 @@ void PcGeom::rotate_y(int turns)
     maths::Mat4 rotation{};
     maths::make_yaw_matrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
-    d3dx::matrix_multiply(&rotation, &matrix, &rotation);
+    maths::matrix_multiply(&rotation, &matrix, &rotation);
     core::at(rotation.row, 3) = core::at(instance_->transform().row, 3);
     instance_->set_transform(rotation);
 }

@@ -1,7 +1,6 @@
 // Script commands (CFunctions) of the skater: board logos, velocity, bail streams (see skater_misc_cfuncs.h).
 
 #include "game/rider/skater_misc_cfuncs.h"
-#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -60,8 +59,6 @@ constexpr uint32_t kSkaterPlayBailStream = 0x38A0F1EC; // "skater_play_bail_stre
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The matrix turned about Y by `degrees` (the rotation: degrees in radians, rounded to float): m = m * rotation, or
 // with `before` m = rotation * m.
@@ -71,9 +68,9 @@ void turn_about_y(maths::Mat4& matrix, float degrees, bool before)
     maths::Mat4 rotation{};
     const maths::Mat4& turn = maths::make_yaw_matrix(rotation, radians);
     if (before) {
-        matrix_multiply(&matrix, &turn, &matrix);
+        maths::matrix_multiply(&matrix, &turn, &matrix);
     } else {
-        matrix_multiply(&matrix, &matrix, &turn);
+        maths::matrix_multiply(&matrix, &matrix, &turn);
     }
 }
 

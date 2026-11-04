@@ -4,7 +4,6 @@
 
 #include "game/rider/nonlocal_net_logic.h"
 #include "engine/core/enum_ops.h"
-#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -78,7 +77,7 @@ constexpr int kStateAir = 1, kStateLip = 3, kStateRail = 4;
 double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float(checksums::Name{name}, 1, skater); }
 
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
-void turn_by(maths::Mat4& matrix, const maths::Mat4& rotation) { d3dx::matrix_multiply(&matrix, &rotation, &matrix); }
+void turn_by(maths::Mat4& matrix, const maths::Mat4& rotation) { maths::matrix_multiply(&matrix, &rotation, &matrix); }
 
 } // namespace
 

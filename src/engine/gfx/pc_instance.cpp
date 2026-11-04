@@ -13,7 +13,6 @@
 
 #include "engine/core/manager.h"
 #include "engine/maths/vec4.h"
-#include "platform/d3dx.h"
 #include "engine/gfx/pc_instance.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/sub_mesh.h"
@@ -190,7 +189,6 @@ void send_lights()
                                             kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
 }
 
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 } // namespace
 
@@ -288,7 +286,7 @@ void Singleton::render(uint32_t draw_bits)
             const std::span<const maths::Mat4> bone_run(bones_, static_cast<std::size_t>(bone_count_));
             for (int bone = 0; bone < count; ++bone) {
                 maths::Mat4 world = transform_;
-                matrix_multiply(&world, &core::at(bone_run, bone), &world);
+                maths::matrix_multiply(&world, &core::at(bone_run, bone), &world);
                 set_world_transform(world.data());
                 renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world.data()));
                 for (MeshRef* mesh : scene_->mesh_run()) {

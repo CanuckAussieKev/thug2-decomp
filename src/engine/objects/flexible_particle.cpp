@@ -2,7 +2,6 @@
 // flexible_particle.h. From the disassembly of 0x0041D6E0-0x0041E25E.
 
 #include "engine/objects/flexible_particle.h"
-#include "platform/d3dx.h"
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/gfx/particle_system.h"
 
@@ -189,8 +188,6 @@ maths::Mat4* system_rotation(render::EmitterInstance* system, maths::Mat4* out)
     return system->build_emitter_orientation(out);
 }
 
-// out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The suspend component (no source yet): whether its object should be updated (0x00433EA0), suspended (+0x30, the
 // getter 0x00433E90), told to start (0x00433E70).
@@ -380,8 +377,8 @@ void FlexibleParticleComponent::tick_frame()
                 maths::Mat4 orientation = entity()->display_matrix();
                 core::at(orientation.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
                 maths::Mat4 rotation{};
-                matrix_multiply(&entity()->display_matrix(), system_rotation(system_.get_pull(), &rotation),
-                                &orientation);
+                maths::matrix_multiply(&entity()->display_matrix(), system_rotation(system_.get_pull(), &rotation),
+                                       &orientation);
                 system_.get_pull()->set_xform_ref(&entity()->display_matrix());
             }
             system_.get_pull()->set_at_point(entity()->at_point());

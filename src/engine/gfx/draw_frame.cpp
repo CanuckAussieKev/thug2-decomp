@@ -149,7 +149,6 @@ void matrix_perspective(maths::Mat4* out, float width, float height, float near_
     d3dx::matrix_perspective_rh(out, width, height, near_z, far_z);
 }
 void matrix_scaling(maths::Mat4* out, float x, float y, float z) { d3dx::matrix_scaling(out, x, y, z); }
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 void matrix_rotation_y(maths::Mat4* out, float angle) { d3dx::matrix_rotation_y(out, angle); }
 
 // atan2(y, x) - pi/2 (the pi/2 a float), rounded once to float.
@@ -330,7 +329,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     if (zoom != 1.0F) {
         maths::Mat4 scale;
         matrix_scaling(&scale, zoom, zoom, 1.0F);
-        matrix_multiply(&projection, &projection, &scale);
+        maths::matrix_multiply(&projection, &projection, &scale);
     }
     camera.near_height_ = height;
     camera.near_width_ = width;
