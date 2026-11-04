@@ -39,7 +39,7 @@
 #include "engine/sys/game_config.h"
 #include "platform/platform_system.h"
 #include "platform/stopwatch.h"
-#include "engine/util/unique_handle.h"
+#include "platform/unique_handle.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"

@@ -76,7 +76,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_score.h"
 #include "game/skate/point_tally.h"
-#include "engine/util/unique_handle.h"
+#include "platform/unique_handle.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"

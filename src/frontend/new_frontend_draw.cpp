@@ -24,7 +24,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "engine/util/unique_handle.h"
+#include "platform/unique_handle.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

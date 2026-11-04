@@ -56,7 +56,7 @@
 #include "platform/crash.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
-#include "engine/util/unique_handle.h"
+#include "platform/unique_handle.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

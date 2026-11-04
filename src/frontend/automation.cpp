@@ -56,7 +56,7 @@
 #include "platform/run_log.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
-#include "engine/util/unique_handle.h"
+#include "platform/unique_handle.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
