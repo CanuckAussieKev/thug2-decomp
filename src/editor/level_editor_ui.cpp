@@ -893,13 +893,10 @@ void badge(const char* text, ImU32 colour)
     ImGui::SameLine(0.0F, pad + (kBadgeGap * level_editor_ui_state().scale_));
 }
 
-void node_section(const ShapeMesh& model, int index)
+// The node's heading: its name (or a separator), class and type, its array, Added / Hidden; online, a
+// note for the families a level shared with THUGPRO plays online.
+void node_heading(const ShapeMesh& model, const nodes::Elem& node)
 {
-    const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (index < 0 || std::cmp_greater_equal(index, nodes.size())) {
-        return;
-    }
-    const nodes::Elem& node = core::at(nodes, index);
     if (model.nodes.node_only_) {
         ImGui::PushFont(level_editor_ui_state().heading_);
         gui::text_wrapped("%s", (node.name != 0U) ? nodes::caption(node.name).c_str() : "(no name)");
@@ -942,58 +939,185 @@ void node_section(const ShapeMesh& model, int index)
         ImGui::EndChild();
         ImGui::PopStyleColor();
     }
+}
+
+// The selected node's place: typed or dragged to scrub (Ctrl+click or a double-click types a number);
+// one undo step a field.
+void node_place_fields(const ShapeMesh& model)
+{
+    // Typed or dragged to scrub (Ctrl+click or a double-click types a number); one undo step a field.
+    std::array<float, 3> pos = {{model.nodes.pos.x, model.nodes.pos.y, model.nodes.pos.z}};
+    float heading = node_edit::get_heading_degrees(model.nodes.angles);
+    ImGui::PushFont(level_editor_ui_state().mono_);
+    field_label("Position");
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    const bool moved = ImGui::DragFloat3("##pos", pos.data(), 1.0F, 0.0F, 0.0F, "%.1f");
+    bool done = ImGui::IsItemDeactivated();
+    bool turned = false;
+    if (!model.nodes.rail) {
+        field_label("Heading");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        turned = ImGui::DragFloat("##heading", &heading, kHeadingDragSpeed, 0.0F, 0.0F, "%.1f\xC2\xB0");
+        done = done || ImGui::IsItemDeactivated();
+    }
+    ImGui::PopFont();
+    if (model.nodes.rail) {
+        // A rail point: alone, or its whole rail (the points linked to it) by as much (L).
+        field_label("Moves");
+        bool whole = model.nodes.entire_rail_;
+        std::array<char, kFieldLabelSize> label{};
+        text::format_to(label, "Whole %s (%d point%s)", model.nodes.chain_noun_, model.nodes.rail_points_,
+                        model.nodes.rail_points_ == 1 ? "" : "s");
+        if (ImGui::Checkbox(label.data(), &whole)) {
+            get_ask(Request::Kind::kReqEntireRail, whole ? 1 : 0);
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("Move all points together  (L)");
+        }
+    }
+    if (moved || turned) {
+        const V3 angles = turned ? node_edit::with_heading(model.nodes.angles, heading) : model.nodes.angles;
+        Request request = {.kind = Request::Kind::kNodeSet};
+        core::at(request.a, 0) = core::at(pos, 0);
+        core::at(request.a, 1) = core::at(pos, 1);
+        core::at(request.a, 2) = core::at(pos, 2);
+        core::at(request.b, 0) = angles.x;
+        core::at(request.b, 1) = angles.y;
+        core::at(request.b, 2) = angles.z;
+        level_editor_ui_state().requests_.push_back(request);
+    }
+    if (done) {
+        get_ask(Request::Kind::kNodeSetDone);
+    }
+    field_label("Angles");
+    get_mono("%.3f, %.3f, %.3f", model.nodes.angles.x, model.nodes.angles.y, model.nodes.angles.z);
+}
+
+// A restart's types and its order.
+void spawn_rows(const nodes::Elem& node)
+{
+    field_label("Types");
+    struct TypeName {
+        nodes::SpawnPointKind bit;
+        const char* name;
+    };
+    static constexpr auto kTypes =
+        std::to_array<TypeName>({{.bit = nodes::SpawnPointKind::kPlayer1, .name = "Player1"},
+                                 {.bit = nodes::SpawnPointKind::kPlayer2, .name = "Player2"},
+                                 {.bit = nodes::SpawnPointKind::kMultiplayer, .name = "Multiplayer"},
+                                 {.bit = nodes::SpawnPointKind::kHorse, .name = "Horse"},
+                                 {.bit = nodes::SpawnPointKind::kCtf, .name = "CTF"},
+                                 {.bit = nodes::SpawnPointKind::kTeam, .name = "Team"},
+                                 {.bit = nodes::SpawnPointKind::kKing, .name = "KingOfTheHill"},
+                                 {.bit = nodes::SpawnPointKind::kGeneric, .name = "Generic"}});
+    ImGui::PushFont(level_editor_ui_state().small_);
+    bool any = false;
+    for (const auto& type : kTypes) {
+        if (core::any(node.restart_types_ & type.bit)) {
+            badge(type.name, get_colour((node.colour & kColourRgbMask) | kHalfAlpha));
+            any = true;
+        }
+    }
+    if (!any) {
+        get_muted("(none)");
+    } else {
+        ImGui::NewLine();
+    }
+    ImGui::PopFont();
+    field_label("Order");
+    if (node.hidden) {
+        get_mono("hidden");
+    } else {
+        get_mono("%d of %d restarts", node.order + 1, nodes::walked(nodes::Family::kSpawn));
+    }
+}
+
+// A crown's order (an added one moved up or down).
+void crown_rows(const ShapeMesh& model, const nodes::Elem& node)
+{
+    field_label("Crown");
+    if (node.hidden) {
+        get_mono("hidden (%d active)", nodes::walked(nodes::Family::kCrown));
+    } else {
+        get_mono("%d of %d", node.order, nodes::walked(nodes::Family::kCrown));
+    }
+    if (model.nodes.node_only_ && !node.hidden) {
+        ImGui::BeginDisabled(!model.nodes.crown_up_);
+        if (ImGui::SmallButton("Move Up")) {
+            get_ask(Request::Kind::kCrownMove, -1);
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            gui::tooltip("%s", node.added ? "Move earlier in crown order" : "Only added crowns can be reordered");
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!model.nodes.crown_down_);
+        if (ImGui::SmallButton("Move Down")) {
+            get_ask(Request::Kind::kCrownMove, 1);
+        }
+        ImGui::EndDisabled();
+    }
+}
+
+// The selected node's buttons: Drop to Ground, Revert / Show, Delete / Hide.
+void node_buttons(const ShapeMesh& model)
+{
+    ImGui::PushFont(level_editor_ui_state().small_);
+    gui::text_disabled("Applies: %s", model.nodes.when_applied_);
+    if (model.nodes.moved) {
+        ImGui::SameLine();
+        gui::text_colored(ui_theme::kWarningColour, "Modified");
+    }
+    ImGui::PopFont();
+    if (ImGui::Button("Drop to Ground")) {
+        get_ask(Request::Kind::kDrop);
+    }
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Drop to Ground  (G)");
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!model.nodes.moved && !model.nodes.hidden);
+    if (ImGui::Button(model.nodes.hidden ? "Show" : "Revert")) {
+        get_ask(Request::Kind::kReset);
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (model.nodes.added || (model.nodes.can_hide_ && !model.nodes.hidden)) {
+        ImGui::PushStyleColor(ImGuiCol_Button, kDangerButtonColour);
+        if (ImGui::Button(model.nodes.added ? "Delete" : "Hide")) {
+            get_ask(Request::Kind::kRemoveNodeAction);
+        }
+        ImGui::PopStyleColor();
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("%s", model.nodes.added ? "Delete  (Del)" : "Hide original node  (Del)");
+        }
+        ImGui::SameLine();
+    } else if (!model.nodes.added && !model.nodes.hidden && !model.nodes.why_no_hide_.empty()) {
+        ImGui::BeginDisabled(true);
+        ImGui::Button("Hide");
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            gui::tooltip("%s", model.nodes.why_no_hide_.c_str());
+        }
+        ImGui::SameLine();
+    }
+}
+
+void node_section(const ShapeMesh& model, int index)
+{
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
+    if (index < 0 || std::cmp_greater_equal(index, nodes.size())) {
+        return;
+    }
+    const nodes::Elem& node = core::at(nodes, index);
+    node_heading(model, node);
     ImGui::Spacing();
     const bool editable = model.nodes.node_only_ && model.nodes.movable;
     if (ImGui::BeginTable("##node", 2, ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn("##label", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch);
         if (editable) {
-            // Typed or dragged to scrub (Ctrl+click or a double-click types a number); one undo step a field.
-            std::array<float, 3> pos = {{model.nodes.pos.x, model.nodes.pos.y, model.nodes.pos.z}};
-            float heading = node_edit::get_heading_degrees(model.nodes.angles);
-            ImGui::PushFont(level_editor_ui_state().mono_);
-            field_label("Position");
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            const bool moved = ImGui::DragFloat3("##pos", pos.data(), 1.0F, 0.0F, 0.0F, "%.1f");
-            bool done = ImGui::IsItemDeactivated();
-            bool turned = false;
-            if (!model.nodes.rail) {
-                field_label("Heading");
-                ImGui::SetNextItemWidth(-FLT_MIN);
-                turned = ImGui::DragFloat("##heading", &heading, kHeadingDragSpeed, 0.0F, 0.0F, "%.1f\xC2\xB0");
-                done = done || ImGui::IsItemDeactivated();
-            }
-            ImGui::PopFont();
-            if (model.nodes.rail) {
-                // A rail point: alone, or its whole rail (the points linked to it) by as much (L).
-                field_label("Moves");
-                bool whole = model.nodes.entire_rail_;
-                std::array<char, kFieldLabelSize> label{};
-                text::format_to(label, "Whole %s (%d point%s)", model.nodes.chain_noun_, model.nodes.rail_points_,
-                                model.nodes.rail_points_ == 1 ? "" : "s");
-                if (ImGui::Checkbox(label.data(), &whole)) {
-                    get_ask(Request::Kind::kReqEntireRail, whole ? 1 : 0);
-                }
-                if (ImGui::IsItemHovered()) {
-                    gui::tooltip("Move all points together  (L)");
-                }
-            }
-            if (moved || turned) {
-                const V3 angles = turned ? node_edit::with_heading(model.nodes.angles, heading) : model.nodes.angles;
-                Request request = {.kind = Request::Kind::kNodeSet};
-                core::at(request.a, 0) = core::at(pos, 0);
-                core::at(request.a, 1) = core::at(pos, 1);
-                core::at(request.a, 2) = core::at(pos, 2);
-                core::at(request.b, 0) = angles.x;
-                core::at(request.b, 1) = angles.y;
-                core::at(request.b, 2) = angles.z;
-                level_editor_ui_state().requests_.push_back(request);
-            }
-            if (done) {
-                get_ask(Request::Kind::kNodeSetDone);
-            }
-            field_label("Angles");
-            get_mono("%.3f, %.3f, %.3f", model.nodes.angles.x, model.nodes.angles.y, model.nodes.angles.z);
+            node_place_fields(model);
         } else if (node.has_pos_) {
             field_label("Position");
             get_mono("x %10.1f\ny %10.1f\nz %10.1f", node.pos.x, node.pos.y, node.pos.z);
@@ -1005,60 +1129,10 @@ void node_section(const ShapeMesh& model, int index)
             }
         }
         if (node.family == nodes::Family::kSpawn) {
-            field_label("Types");
-            struct TypeName {
-                nodes::SpawnPointKind bit;
-                const char* name;
-            };
-            static constexpr auto kTypes = std::to_array<TypeName>(
-                {{.bit = nodes::SpawnPointKind::kPlayer1, .name = "Player1"},    {.bit = nodes::SpawnPointKind::kPlayer2, .name = "Player2"}, {.bit = nodes::SpawnPointKind::kMultiplayer, .name = "Multiplayer"},
-                 {.bit = nodes::SpawnPointKind::kHorse, .name = "Horse"},        {.bit = nodes::SpawnPointKind::kCtf, .name = "CTF"},         {.bit = nodes::SpawnPointKind::kTeam, .name = "Team"},
-                 {.bit = nodes::SpawnPointKind::kKing, .name = "KingOfTheHill"}, {.bit = nodes::SpawnPointKind::kGeneric, .name = "Generic"}});
-            ImGui::PushFont(level_editor_ui_state().small_);
-            bool any = false;
-            for (const auto& type : kTypes) {
-                if (core::any(node.restart_types_ & type.bit)) {
-                    badge(type.name, get_colour((node.colour & kColourRgbMask) | kHalfAlpha));
-                    any = true;
-                }
-            }
-            if (!any) {
-                get_muted("(none)");
-            } else {
-                ImGui::NewLine();
-            }
-            ImGui::PopFont();
-            field_label("Order");
-            if (node.hidden) {
-                get_mono("hidden");
-            } else {
-                get_mono("%d of %d restarts", node.order + 1, nodes::walked(nodes::Family::kSpawn));
-            }
+            spawn_rows(node);
         }
         if (node.family == nodes::Family::kCrown) {
-            field_label("Crown");
-            if (node.hidden) {
-                get_mono("hidden (%d active)", nodes::walked(nodes::Family::kCrown));
-            } else {
-                get_mono("%d of %d", node.order, nodes::walked(nodes::Family::kCrown));
-            }
-            if (model.nodes.node_only_ && !node.hidden) {
-                ImGui::BeginDisabled(!model.nodes.crown_up_);
-                if (ImGui::SmallButton("Move Up")) {
-                    get_ask(Request::Kind::kCrownMove, -1);
-                }
-                ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                    gui::tooltip("%s", node.added ? "Move earlier in crown order"
-                                                       : "Only added crowns can be reordered");
-                }
-                ImGui::SameLine();
-                ImGui::BeginDisabled(!model.nodes.crown_down_);
-                if (ImGui::SmallButton("Move Down")) {
-                    get_ask(Request::Kind::kCrownMove, 1);
-                }
-                ImGui::EndDisabled();
-            }
+            crown_rows(model, node);
         }
         if (node.family == nodes::Family::kLight) {
             field_label("Colour");
@@ -1094,45 +1168,7 @@ void node_section(const ShapeMesh& model, int index)
         ImGui::EndTable();
     }
     if (editable) {
-        ImGui::PushFont(level_editor_ui_state().small_);
-        gui::text_disabled("Applies: %s", model.nodes.when_applied_);
-        if (model.nodes.moved) {
-            ImGui::SameLine();
-            gui::text_colored(ui_theme::kWarningColour, "Modified");
-        }
-        ImGui::PopFont();
-        if (ImGui::Button("Drop to Ground")) {
-            get_ask(Request::Kind::kDrop);
-        }
-        if (ImGui::IsItemHovered()) {
-            gui::tooltip("Drop to Ground  (G)");
-        }
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!model.nodes.moved && !model.nodes.hidden);
-        if (ImGui::Button(model.nodes.hidden ? "Show" : "Revert")) {
-            get_ask(Request::Kind::kReset);
-        }
-        ImGui::EndDisabled();
-        ImGui::SameLine();
-        if (model.nodes.added || (model.nodes.can_hide_ && !model.nodes.hidden)) {
-            ImGui::PushStyleColor(ImGuiCol_Button, kDangerButtonColour);
-            if (ImGui::Button(model.nodes.added ? "Delete" : "Hide")) {
-                get_ask(Request::Kind::kRemoveNodeAction);
-            }
-            ImGui::PopStyleColor();
-            if (ImGui::IsItemHovered()) {
-                gui::tooltip("%s", model.nodes.added ? "Delete  (Del)" : "Hide original node  (Del)");
-            }
-            ImGui::SameLine();
-        } else if (!model.nodes.added && !model.nodes.hidden && !model.nodes.why_no_hide_.empty()) {
-            ImGui::BeginDisabled(true);
-            ImGui::Button("Hide");
-            ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                gui::tooltip("%s", model.nodes.why_no_hide_.c_str());
-            }
-            ImGui::SameLine();
-        }
+        node_buttons(model);
     }
     // Phase 4: a rail's / path's operations, a rail's terrain, a ped's / car's path (level_editor_chains_ui.cpp).
     if ((model.nodes.node_only_ || model.chain.object) && model.chain.show) {
