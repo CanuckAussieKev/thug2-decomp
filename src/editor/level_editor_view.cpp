@@ -564,223 +564,260 @@ void set_show_collision(bool on)
     }
 }
 
-void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
-                   std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines)
+namespace {
+
+// A sector near enough to draw: its tri data, its order (nearest first, invisible walls before the rest) and its
+// collision switch.
+struct Candidate {
+    uint32_t checksum;
+    render::WorldCell* sector;
+    render::TriMeshSource* tri;
+    float order;
+    bool off;
+};
+struct Walk {
+    V3 camera;
+    const TickCycle* frame;
+    float near_z_;
+    std::vector<Candidate> found;
+};
+
+// The level sectors' walk: a sector near enough (and not wholly behind the camera) is a candidate.
+void visit_sector(void* context, uint32_t checksum, render::WorldCell* sector)
 {
-    view_stats().drawn_.clear();
-    view_stats().stats_ = {};
-    if (!level_editor_view_state().show_collision_) {
+    auto* w = static_cast<Walk*>(context);
+    bool off = false;
+    render::TriMeshSource* tri = drawn_tri_data_of(checksum, sector, &off);
+    if (!tri || tri->tri_count() == 0 || hidden_sector(checksum)) {
         return;
     }
-    // The sectors near enough, nearest first (invisible walls before the rest: never left out by the cap).
-    struct Candidate {
-        uint32_t checksum;
-        render::WorldCell* sector;
-        render::TriMeshSource* tri;
-        float order;
-        bool off;
-    };
-    struct Walk {
-        V3 camera;
-        const TickCycle* frame;
-        float near_z_;
-        std::vector<Candidate> found;
-    } walk = {.camera = camera_pos, .frame = &frame, .near_z_ = near_z, .found = {}};
-    scenery::for_each_level_sector(
-        [](void* context, uint32_t checksum, render::WorldCell* sector) {
-            auto* w = static_cast<Walk*>(context);
-            bool off = false;
-            render::TriMeshSource* tri = drawn_tri_data_of(checksum, sector, &off);
-            if (!tri || tri->tri_count() == 0 || hidden_sector(checksum)) {
-                return;
-            }
-            const bool wall = geom_of(sector) == nullptr;
-            const V3 min = to_v3(tri->bounds().min);
-            const V3 max = to_v3(tri->bounds().max);
-            const float distance = distance_to_box(w->camera, min, max);
-            if (distance > (wall ? kWallRadius : kRadius) && checksum != view_stats().wall_) {
-                return;
-            }
-            // (wholly behind the camera: left out)
-            bool front = false;
-            for (int i = 0; i < kBoxCorners && !front; ++i) {
-                const V3 corner = {.x = (i & 1) ? max.x : min.x, .y = (i & 2) ? max.y : min.y, .z = (i & 4) ? max.z : min.z};
-                front = -get_dot(corner - w->camera, w->frame->back) >= w->near_z_;
-            }
-            if (!front) {
-                return;
-            }
-            w->found.push_back({.checksum = checksum, .sector = sector, .tri = tri, .order = wall || checksum == view_stats().wall_ ? distance - kWallPriorityBias : distance, .off = off});
-        },
-        &walk);
-    std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.order < b.order; });
+    const bool wall = geom_of(sector) == nullptr;
+    const V3 min = to_v3(tri->bounds().min);
+    const V3 max = to_v3(tri->bounds().max);
+    const float distance = distance_to_box(w->camera, min, max);
+    if (distance > (wall ? kWallRadius : kRadius) && checksum != view_stats().wall_) {
+        return;
+    }
+    // (wholly behind the camera: left out)
+    bool front = false;
+    for (int i = 0; i < kBoxCorners && !front; ++i) {
+        const V3 corner = {
+            .x = (i & 1) != 0 ? max.x : min.x, .y = (i & 2) != 0 ? max.y : min.y, .z = (i & 4) != 0 ? max.z : min.z};
+        front = -get_dot(corner - w->camera, w->frame->back) >= w->near_z_;
+    }
+    if (!front) {
+        return;
+    }
+    w->found.push_back({.checksum = checksum,
+                        .sector = sector,
+                        .tri = tri,
+                        .order = wall || checksum == view_stats().wall_ ? distance - kWallPriorityBias : distance,
+                        .off = off});
+}
 
-    struct Polygon {
-        float depth;
-        uint32_t argb;
-        int count;
-        std::array<float, 4> x;
-        std::array<float, 4> y;
-    };
+// A face on the screen: its corners in pixels (3 or 4 after clipping), its depth and colour.
+struct Polygon {
+    float depth;
+    uint32_t argb;
+    int count;
+    std::array<float, 4> x;
+    std::array<float, 4> y;
+};
+
+// The collision view being drawn: the camera, the lens and viewport, the near plane, the edges' lines, the polygons,
+// the light that shades them.
+struct CollisionView {
+    V3 camera_pos;
+    const TickCycle* frame{};
+    const Lens* lens{};
+    std::span<const uint32_t, 4> viewport;
+    float near_z{};
+    std::vector<ui::Seg>* lines{};
     std::vector<Polygon> polygons;
-    const V3 light = make_unit({.x = 0.35F, .y = 0.85F, .z = 0.4F});
-    // A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
-    auto add_face = [&](std::span<const V3, 3> corners, const FaceFacts& facts) {
-        std::array<V3, 4> clipped{};
-        const int count = clip_triangle_to_near(camera_pos, frame, near_z, corners, clipped);
-        if (!count) {
-            return false;
-        }
-        Polygon poly = {};
-        poly.count = count;
-        bool left = true;
-        bool right = true;
-        bool below = true;
-        bool above = true;
-        float depth = 0.0F;
-        for (int k = 0; k < count; ++k) {
-            float nx = 0.0F;
-            float ny = 0.0F;
-            if (!cast_onto(camera_pos, frame, lens, core::at(clipped, k), near_z * kHalf, &nx, &ny)) {
-                nx = ny = 0.0F; // (on the near plane - can't happen after clipping)
-            }
-            left = left && nx < -1.0F;
-            right = right && nx > 1.0F;
-            below = below && ny < -1.0F;
-            above = above && ny > 1.0F;
-            ndc_to_pixel(viewport, nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
-            depth += -get_dot(core::at(clipped, k) - camera_pos, frame.back);
-        }
-        if (left || right || below || above) {
-            return false;
-        }
-        poly.depth = depth / static_cast<float>(count);
-        const FaceStyle style = style_of(facts);
-        const uint32_t argb = style.fill;
-        // (shaded by the face's facing: the shape reads through the colour)
-        const V3 normal =
-            perpendicular(core::at(corners, 1) - core::at(corners, 0), core::at(corners, 2) - core::at(corners, 0));
-        const float length = std::sqrt(get_dot(normal, normal));
-        const float shade = length > 0.0F ? 0.55F + (0.45F * std::fabs(get_dot(normal, light)) / length) : 1.0F;
-        auto red_value = static_cast<uint32_t>(static_cast<float>((argb >> kRedShift) & kChannelMask) * shade);
-        auto green_value = static_cast<uint32_t>(static_cast<float>((argb >> kGreenShift) & kChannelMask) * shade);
-        auto blue_value = static_cast<uint32_t>(static_cast<float>(argb & kChannelMask) * shade);
-        poly.argb = (argb & kAlphaMask) | (red_value << kRedShift) | (green_value << kGreenShift) | blue_value;
-        polygons.push_back(poly);
-        if (style.edge && lines) {
-            for (int k = 0; k < count; ++k) {
-                const int next_index = (k + 1) % count;
-                const ui::Seg line = {.ax = core::at(poly.x, k),
-                                      .ay = core::at(poly.y, k),
-                                      .bx = core::at(poly.x, next_index),
-                                      .by = core::at(poly.y, next_index),
-                                      .argb = style.edge,
-                                      .thickness = style.thickness};
-                if (style.dashed) {
-                    add_dashed(lines, line, kDashLength, kDashGap);
-                } else {
-                    lines->push_back(line);
-                }
-            }
-        }
-        return true;
-    };
-    // (the level's triggers: their kinds by sector)
-    std::unordered_map<uint32_t, uint32_t> trigger_colours;
-    for (const triggers::LevelTrigger& level_trigger : triggers::level_triggers()) {
-        trigger_colours[level_trigger.sector] = triggers::kind_colour(level_trigger.kind);
+    V3 light; // (the faces' shading)
+};
+
+// A face's polygon projected (false when it isn't on the screen).
+bool project_face(const CollisionView& view, std::span<const V3, 3> corners, Polygon& poly)
+{
+    const V3 camera_pos = view.camera_pos;
+    const TickCycle& frame = *view.frame;
+    const float near_z = view.near_z;
+    std::array<V3, 4> clipped{};
+    const int count = clip_triangle_to_near(camera_pos, frame, near_z, corners, clipped);
+    if (count == 0) {
+        return false;
     }
-    for (const Candidate& candidate : walk.found) {
-        if (static_cast<int>(polygons.size()) >= kMaxTriangles) {
-            view_stats().stats_.capped = true;
-            break;
+    poly.count = count;
+    bool left = true;
+    bool right = true;
+    bool below = true;
+    bool above = true;
+    float depth = 0.0F;
+    for (int k = 0; k < count; ++k) {
+        float nx = 0.0F;
+        float ny = 0.0F;
+        if (!cast_onto(camera_pos, frame, *view.lens, core::at(clipped, k), near_z * kHalf, &nx, &ny)) {
+            nx = ny = 0.0F; // (on the near plane - can't happen after clipping)
         }
-        const Cached* cached = cache_of(candidate.checksum, candidate.sector, candidate.tri);
+        left = left && nx < -1.0F;
+        right = right && nx > 1.0F;
+        below = below && ny < -1.0F;
+        above = above && ny > 1.0F;
+        ndc_to_pixel(view.viewport, nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
+        depth += -get_dot(core::at(clipped, k) - camera_pos, frame.back);
+    }
+    if (left || right || below || above) {
+        return false;
+    }
+    poly.depth = depth / static_cast<float>(count);
+    return true;
+}
+
+// A polygon's edges drawn in its style (dashed or solid).
+void add_face_edges(const CollisionView& view, const Polygon& poly, const FaceStyle& style)
+{
+    std::vector<ui::Seg>* lines = view.lines;
+    const int count = poly.count;
+    for (int k = 0; k < count; ++k) {
+        const int next_index = (k + 1) % count;
+        const ui::Seg line = {.ax = core::at(poly.x, k),
+                              .ay = core::at(poly.y, k),
+                              .bx = core::at(poly.x, next_index),
+                              .by = core::at(poly.y, next_index),
+                              .argb = style.edge,
+                              .thickness = style.thickness};
+        if (style.dashed) {
+            add_dashed(lines, line, kDashLength, kDashGap);
+        } else {
+            lines->push_back(line);
+        }
+    }
+}
+
+// A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
+bool add_face(CollisionView& view, std::span<const V3, 3> corners, const FaceFacts& facts)
+{
+    const V3 light = view.light;
+    Polygon poly = {};
+    if (!project_face(view, corners, poly)) {
+        return false;
+    }
+    const FaceStyle style = style_of(facts);
+    const uint32_t argb = style.fill;
+    // (shaded by the face's facing: the shape reads through the colour)
+    const V3 normal =
+        perpendicular(core::at(corners, 1) - core::at(corners, 0), core::at(corners, 2) - core::at(corners, 0));
+    const float length = std::sqrt(get_dot(normal, normal));
+    const float shade = length > 0.0F ? 0.55F + (0.45F * std::fabs(get_dot(normal, light)) / length) : 1.0F;
+    auto red_value = static_cast<uint32_t>(static_cast<float>((argb >> kRedShift) & kChannelMask) * shade);
+    auto green_value = static_cast<uint32_t>(static_cast<float>((argb >> kGreenShift) & kChannelMask) * shade);
+    auto blue_value = static_cast<uint32_t>(static_cast<float>(argb & kChannelMask) * shade);
+    poly.argb = (argb & kAlphaMask) | (red_value << kRedShift) | (green_value << kGreenShift) | blue_value;
+    view.polygons.push_back(poly);
+    if (style.edge != 0U && view.lines) {
+        add_face_edges(view, poly, style);
+    }
+    return true;
+}
+
+// A candidate sector's faces drawn (until the cap), the ones in the way of a click noted, the counts.
+void add_sector_faces(CollisionView& view, const Candidate& candidate,
+                      const std::unordered_map<uint32_t, uint32_t>& trigger_colours)
+{
+    const Cached* cached = cache_of(candidate.checksum, candidate.sector, candidate.tri);
+    FaceFacts facts;
+    facts.collision_only_ = cached->collision_only_;
+    facts.off = candidate.off;
+    facts.selected = candidate.checksum == view_stats().wall_;
+    facts.hovered = candidate.checksum == stored_hover_wall();
+    auto trigger = trigger_colours.find(candidate.checksum);
+    facts.trigger_colour_ = trigger == trigger_colours.end() ? 0 : trigger->second;
+    bool any = false;
+    for (size_t face_index = 0;
+         face_index < cached->flags.size() && static_cast<int>(view.polygons.size()) < kMaxTriangles; ++face_index) {
+        const auto corners = std::span<const V3>(cached->points).subspan(face_index * 3).first<3>();
+        facts.flags = core::at(cached->flags, face_index);
+        facts.taken = core::at(cached->taken, face_index) != 0;
+        if (!add_face(view, corners, facts)) {
+            continue;
+        }
+        // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
+        // nor is a face taken along - its piece's companion is where it is now)
+        if ((cached->collision_only_ || !candidate.off) && !facts.taken) {
+            view_stats().drawn_.push_back({.checksum = candidate.checksum,
+                                           .wall = cached->collision_only_,
+                                           .a = core::at(corners, 0),
+                                           .b = core::at(corners, 1),
+                                           .c = core::at(corners, 2),
+                                           .face = core::at(cached->index, face_index)});
+        }
+        any = true;
+        view_stats().stats_.taken += facts.taken ? 1 : 0;
+        view_stats().stats_.triggers +=
+            core::any(facts.flags & render::FaceFlag::kTrigger) && (facts.trigger_colour_ != 0U) ? 1 : 0;
+    }
+    if (any) {
+        ++view_stats().stats_.sectors;
+        view_stats().stats_.walls += cached->collision_only_ ? 1 : 0;
+        view_stats().stats_.off += candidate.off ? 1 : 0;
+    }
+}
+
+// The moved pieces' shared collision near the camera.
+struct CompanionWalk {
+    V3 camera;
+    std::vector<std::pair<uint32_t, const shared_collision::Companion*>> near;
+};
+
+void visit_companion(void* context, uint32_t checksum, const shared_collision::Companion& companion)
+{
+    auto* w = static_cast<CompanionWalk*>(context);
+    const render::TriMeshSource& tri = companion.get_geometry();
+    if (distance_to_box(w->camera, to_v3(tri.bounds().min), to_v3(tri.bounds().max)) <= kRadius &&
+        !hidden_sector(checksum)) {
+        w->near.emplace_back(checksum, &companion);
+    }
+}
+
+// A companion's faces drawn (until the cap) and noted.
+void add_companion_faces(CollisionView& view, uint32_t checksum, const shared_collision::Companion& companion)
+{
+    const render::TriMeshSource& tri = companion.get_geometry();
+    bool any = false;
+    for (int face_index = 0; std::cmp_less(face_index, tri.tri_count()) && tri.faces() &&
+                             static_cast<int>(view.polygons.size()) < kMaxTriangles;
+         ++face_index) {
+        std::array<V3, 3> corners{};
+        bool ok = true;
+        for (int k = 0; k < 3 && ok; ++k) {
+            const uint32_t index = tri.face_vertex(face_index, k);
+            ok = index < tri.num_vertices();
+            if (ok) {
+                core::at(corners, k) = companion.get_vertex(static_cast<int>(index));
+            }
+        }
         FaceFacts facts;
-        facts.collision_only_ = cached->collision_only_;
-        facts.off = candidate.off;
-        facts.selected = candidate.checksum == view_stats().wall_;
-        facts.hovered = candidate.checksum == stored_hover_wall();
-        auto trigger = trigger_colours.find(candidate.checksum);
-        facts.trigger_colour_ = trigger == trigger_colours.end() ? 0 : trigger->second;
-        bool any = false;
-        for (size_t face_index = 0;
-             face_index < cached->flags.size() && static_cast<int>(polygons.size()) < kMaxTriangles; ++face_index) {
-            const auto corners = std::span<const V3>(cached->points).subspan(face_index * 3).first<3>();
-            facts.flags = core::at(cached->flags, face_index);
-            facts.taken = core::at(cached->taken, face_index) != 0;
-            if (!add_face(corners, facts)) {
-                continue;
-            }
-            // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
-            // nor is a face taken along - its piece's companion is where it is now)
-            if ((cached->collision_only_ || !candidate.off) && !facts.taken) {
-                view_stats().drawn_.push_back({.checksum = candidate.checksum,
-                                               .wall = cached->collision_only_,
-                                               .a = core::at(corners, 0),
-                                               .b = core::at(corners, 1),
-                                               .c = core::at(corners, 2),
-                                               .face = core::at(cached->index, face_index)});
-            }
-            any = true;
-            view_stats().stats_.taken += facts.taken ? 1 : 0;
-            view_stats().stats_.triggers +=
-                core::any(facts.flags & render::FaceFlag::kTrigger) && (facts.trigger_colour_ != 0U) ? 1 : 0;
+        facts.flags = tri.face_flags(face_index);
+        facts.companion = true;
+        const bool drawn = ok && add_face(view, corners, facts);
+        if (drawn) {
+            view_stats().drawn_.push_back({.checksum = checksum,
+                                           .wall = false,
+                                           .a = core::at(corners, 0),
+                                           .b = core::at(corners, 1),
+                                           .c = core::at(corners, 2),
+                                           .face = face_index,
+                                           .companion = true});
         }
-        if (any) {
-            ++view_stats().stats_.sectors;
-            view_stats().stats_.walls += cached->collision_only_ ? 1 : 0;
-            view_stats().stats_.off += candidate.off ? 1 : 0;
-        }
+        any = drawn || any;
     }
-    // The moved pieces' shared collision where it is now (level_editor_shared_coll.h - not a sector's: drawn apart).
-    struct CompanionWalk {
-        V3 camera;
-        std::vector<std::pair<uint32_t, const shared_collision::Companion*>> near;
-    } companions = {.camera = camera_pos, .near = {}};
-    shared_collision::for_each_companion(
-        [](void* context, uint32_t checksum, const shared_collision::Companion& companion) {
-            auto* w = static_cast<CompanionWalk*>(context);
-            const render::TriMeshSource& tri = companion.get_geometry();
-            if (distance_to_box(w->camera, to_v3(tri.bounds().min), to_v3(tri.bounds().max)) <= kRadius &&
-                !hidden_sector(checksum)) {
-                w->near.emplace_back(checksum, &companion);
-            }
-        },
-        &companions);
-    for (const auto& entry : companions.near) {
-        const render::TriMeshSource& tri = entry.second->get_geometry();
-        bool any = false;
-        for (int face_index = 0; std::cmp_less(face_index, tri.tri_count()) && tri.faces() &&
-                                 static_cast<int>(polygons.size()) < kMaxTriangles;
-             ++face_index) {
-            std::array<V3, 3> corners{};
-            bool ok = true;
-            for (int k = 0; k < 3 && ok; ++k) {
-                const uint32_t index = tri.face_vertex(face_index, k);
-                ok = index < tri.num_vertices();
-                if (ok) {
-                    core::at(corners, k) = entry.second->get_vertex(static_cast<int>(index));
-                }
-            }
-            FaceFacts facts;
-            facts.flags = tri.face_flags(face_index);
-            facts.companion = true;
-            const bool drawn = ok && add_face(corners, facts);
-            if (drawn) {
-                view_stats().drawn_.push_back({.checksum = entry.first,
-                                               .wall = false,
-                                               .a = core::at(corners, 0),
-                                               .b = core::at(corners, 1),
-                                               .c = core::at(corners, 2),
-                                               .face = face_index,
-                                               .companion = true});
-            }
-            any = drawn || any;
-        }
-        view_stats().stats_.companions += any ? 1 : 0;
-    }
-    // Far to near: the nearer faces painted over the farther.
+    view_stats().stats_.companions += any ? 1 : 0;
+}
+
+// Far to near: the nearer faces painted over the farther (a four-cornered polygon as two triangles).
+void paint_polygons(std::vector<Polygon>& polygons, std::vector<ui::Overlay::Triangle>* triangles)
+{
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     triangles->reserve(triangles->size() + (polygons.size() * 2));
     for (const Polygon& polygon : polygons) {
@@ -801,7 +838,52 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
                                   .argb = polygon.argb});
         }
     }
-    view_stats().stats_.triangles = static_cast<int>(polygons.size());
+}
+
+} // namespace
+
+void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport,
+                   float near_z, std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines)
+{
+    view_stats().drawn_.clear();
+    view_stats().stats_ = {};
+    if (!level_editor_view_state().show_collision_) {
+        return;
+    }
+    // The sectors near enough, nearest first (invisible walls before the rest: never left out by the cap).
+    Walk walk = {.camera = camera_pos, .frame = &frame, .near_z_ = near_z, .found = {}};
+    scenery::for_each_level_sector(visit_sector, &walk);
+    std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.order < b.order; });
+
+    const V3 light = make_unit({.x = 0.35F, .y = 0.85F, .z = 0.4F});
+    CollisionView view{.camera_pos = camera_pos,
+                       .frame = &frame,
+                       .lens = &lens,
+                       .viewport = viewport,
+                       .near_z = near_z,
+                       .lines = lines,
+                       .polygons = {},
+                       .light = light};
+    // (the level's triggers: their kinds by sector)
+    std::unordered_map<uint32_t, uint32_t> trigger_colours;
+    for (const triggers::LevelTrigger& level_trigger : triggers::level_triggers()) {
+        trigger_colours[level_trigger.sector] = triggers::kind_colour(level_trigger.kind);
+    }
+    for (const Candidate& candidate : walk.found) {
+        if (static_cast<int>(view.polygons.size()) >= kMaxTriangles) {
+            view_stats().stats_.capped = true;
+            break;
+        }
+        add_sector_faces(view, candidate, trigger_colours);
+    }
+    // The moved pieces' shared collision where it is now (level_editor_shared_coll.h - not a sector's: drawn apart).
+    CompanionWalk companions = {.camera = camera_pos, .near = {}};
+    shared_collision::for_each_companion(visit_companion, &companions);
+    for (const auto& entry : companions.near) {
+        add_companion_faces(view, entry.first, *entry.second);
+    }
+    paint_polygons(view.polygons, triangles);
+    view_stats().stats_.triangles = static_cast<int>(view.polygons.size());
 }
 
 Attributes last_stats() { return view_stats().stats_; }
