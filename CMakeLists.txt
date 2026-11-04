@@ -199,6 +199,9 @@ add_subdirectory(src/platform)
 add_subdirectory(src/gpu)
 add_subdirectory(src/engine)
 add_subdirectory(src/game)
+add_subdirectory(src/frontend)
+add_subdirectory(src/editor)
+add_subdirectory(src/devtools)
 
 # --- The game ----------------------------------------------------------------------------------------------------
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
@@ -206,96 +209,6 @@ add_subdirectory(src/game)
 add_executable(thug2 WIN32
     src/app/main.cpp
     src/app/extensions.cpp
-    src/frontend/mouse_menus.cpp
-    src/frontend/new_frontend.cpp
-    src/frontend/new_frontend_extension.cpp
-    src/frontend/new_frontend_draw.cpp
-    src/frontend/new_frontend_game.cpp
-    src/frontend/new_frontend_mirror.cpp
-    src/frontend/new_frontend_model.cpp
-    src/frontend/new_frontend_options.cpp
-    src/editor/level_editor.cpp
-    src/devtools/restart_tester.cpp
-    src/devtools/screenshot.cpp
-    src/devtools/extensions.cpp
-    src/devtools/test_view.cpp
-    src/devtools/start_level.cpp
-    src/devtools/automation.cpp
-    src/editor/level_editor_hud.cpp
-    src/editor/level_editor_layout.cpp
-    src/editor/level_editor_objects.cpp
-    src/editor/level_editor_picking.cpp
-    src/editor/level_editor_shadows.cpp
-    src/editor/level_editor_view.cpp
-    src/editor/level_editor_walls.cpp
-    src/editor/level_editor_faces.cpp
-    src/editor/level_editor_clusters.cpp
-    src/editor/level_editor_cameras.cpp
-    src/editor/level_editor_goals.cpp
-    src/editor/level_editor_goals_ui.cpp
-    src/editor/level_editor_checks.cpp
-    src/editor/level_editor_budget.cpp
-    src/editor/level_editor_notes.cpp
-    src/editor/level_editor_ground.cpp
-    src/editor/level_editor_ground_game.cpp
-    src/editor/level_editor_gap_wizard.cpp
-    src/editor/level_editor_skate_view.cpp
-    src/editor/level_editor_ux9.cpp
-    src/editor/level_editor_carry.cpp
-    src/editor/level_editor_scenery.cpp
-    src/editor/level_editor_scale.cpp
-    src/editor/level_editor_shared_coll.cpp
-    src/editor/level_editor_ui.cpp
-    src/editor/level_editor_gui_text.cpp
-    src/editor/level_editor_camera.cpp
-    src/editor/level_editor_play.cpp
-    src/editor/level_editor_playtest.cpp
-    src/editor/level_editor_playtest_ui.cpp
-    src/editor/level_editor_prefs.cpp
-    src/editor/level_editor_ui_backend.cpp
-    src/editor/level_editor_ui_layout.cpp
-    src/editor/level_editor_ui_menus.cpp
-    src/editor/level_editor_ui_strip.cpp
-    src/editor/level_editor_ui_theme.cpp
-    src/editor/level_editor_nodes.cpp
-    src/editor/level_editor_node_edit.cpp
-    src/editor/level_editor_node_create.cpp
-    src/editor/level_editor_triggers.cpp
-    src/editor/level_editor_triggers_ui.cpp
-    src/editor/level_editor_entities.cpp
-    src/editor/level_editor_entities_ui.cpp
-    src/editor/level_editor_extension.cpp
-    src/editor/level_editor_preview.cpp
-    src/editor/level_editor_overlays.cpp
-    src/editor/level_editor_overlays_ui.cpp
-    src/editor/level_editor_arcs.cpp
-    src/editor/level_editor_grind_preview.cpp
-    src/editor/level_editor_ruler.cpp
-    src/editor/level_editor_thumbs.cpp
-    src/editor/level_editor_chains.cpp
-    src/editor/level_editor_chains_ui.cpp
-    src/editor/level_editor_spots_ui.cpp
-    src/editor/level_editor_fields.cpp
-    src/editor/level_editor_fields_ui.cpp
-    src/editor/level_editor_level_props.cpp
-    src/editor/level_editor_actions.cpp
-    src/editor/level_editor_changes.cpp
-    src/editor/level_editor_organize.cpp
-    src/editor/level_editor_clip.cpp
-    src/editor/level_editor_ux3.cpp
-    src/editor/level_editor_ux3_ui.cpp
-    src/editor/level_editor_hints.cpp
-    src/editor/level_editor_nav.cpp
-    src/editor/level_editor_ux8.cpp
-    src/editor/level_editor_ux8_pie.cpp
-    src/editor/level_editor_ux8_ui.cpp
-    src/editor/level_editor_snap.cpp
-    src/editor/level_editor_transform.cpp
-    src/editor/level_editor_transform_ui.cpp
-    src/editor/level_editor_adjust.cpp
-    src/editor/level_editor_arrange.cpp
-    src/editor/level_editor_arrange_ui.cpp
-    src/editor/level_editor_links.cpp
     src/app/component_types.cpp
     src/app/pc_setup.cpp
     src/app/startup.cpp
@@ -313,7 +226,7 @@ target_include_directories(thug2 PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_game thug2_engine thug2_gpu thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
+target_link_libraries(thug2 PRIVATE thug2_frontend thug2_editor thug2_devtools thug2_game thug2_engine thug2_gpu thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
