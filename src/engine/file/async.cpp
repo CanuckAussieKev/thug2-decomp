@@ -15,6 +15,7 @@
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
 #include "engine/file/data_overlay.h"
+#include "engine/file/disk.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
@@ -41,6 +42,13 @@ constexpr size_t kGapStart = 0x3C;           // PcAsyncFileHandle: the bytes not
 constexpr size_t kGapEnd = 0x7C;
 constexpr size_t kFileRefOffset = 0x88;
 constexpr size_t kPcHandleBytes = 0xA0;
+// The platform's open: overlapped, without the system's buffering and shared reading on Windows NT 6 and later,
+// else a plain read, nothing shared.
+constexpr fs::OpenSpec kOverlappedRead{.access = fs::Access::kRead, .sharing = fs::Sharing::kRead,
+                                       .disposition = fs::Disposition::kOpenExisting,
+                                       .hint = fs::Hint::kOverlappedUnbuffered};
+constexpr fs::OpenSpec kPlainRead{.access = fs::Access::kRead, .sharing = fs::Sharing::kNone,
+                                  .disposition = fs::Disposition::kOpenExisting, .hint = fs::Hint::kNormal};
 
 // Completed operations waiting for their callbacks: two lists, one filled while the other is run.
 struct PendingCallback {
@@ -437,7 +445,7 @@ private:
     int unknown7c_{0};
     void* destination_{nullptr}; // where a read through staging_bytes_ goes
     void* staging_bytes_{nullptr};
-    HANDLE file_ref_{INVALID_HANDLE_VALUE};
+    fs::DiskFile* file_ref_{fs::no_file()};
     OVERLAPPED async_ctl_{};
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
@@ -512,13 +520,11 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
     const bool overlapped = use_overlapped_io();
-    file_ref_ =
-        CreateFileA(path.data(), GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
-                    overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file_ref_ == INVALID_HANDLE_VALUE) {
+    file_ref_ = fs::disk().open(path.data(), overlapped ? kOverlappedRead : kPlainRead);
+    if (file_ref_ == fs::no_file()) {
         return false; // (the busy counts stay raised, as in the original)
     }
-    set_payload_bytes(static_cast<int>(::GetFileSize(file_ref_, nullptr)));
+    set_payload_bytes(static_cast<int>(fs::disk().size(file_ref_)));
     set_payload_bytes((payload_bytes() + kSectorMask) & ~kSectorMask); // whole 2 KB sectors (unbuffered reads)
     // (the original passed the handle's value as the result: only checked for a sign, and the next operation sets it)
     io_done_handler(operation(), false, 0, payload_bytes());
@@ -528,13 +534,13 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
 // 0x005B9AF0
 bool PcAsyncFileHandle::os_close_file()
 {
-    if (file_ref_ == INVALID_HANDLE_VALUE) {
+    if (file_ref_ == fs::no_file()) {
         return false;
     }
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
-    CloseHandle(file_ref_);
-    file_ref_ = INVALID_HANDLE_VALUE;
+    fs::disk().close(file_ref_);
+    file_ref_ = fs::no_file();
     io_done_handler(operation(), false, 0, 0);
     return true;
 }
@@ -550,8 +556,8 @@ bool PcAsyncFileHandle::os_read_finished()
     if (outcome_val() == kErrorIoPending) {
         done = async_ctl_.Internal != kStatusPending;
         if (done) {
-            DWORD bytes = 0;
-            GetOverlappedResult(file_ref_, &async_ctl_, &bytes, FALSE);
+            uint32_t bytes = 0;
+            fs::disk().overlapped_result(file_ref_, &async_ctl_, &bytes, false);
             set_outcome_val(0);
             io_done_handler(operation(), false, static_cast<int>(bytes), 0);
         }
@@ -575,12 +581,12 @@ int PcAsyncFileHandle::os_load_whole(void* buffer)
 // 0x005B9A40
 int PcAsyncFileHandle::os_read_chunk(void* buffer, int size, int count)
 {
-    auto length = static_cast<DWORD>(((size * count) + kSectorMask) & ~kSectorMask); // whole sectors
+    auto length = static_cast<uint32_t>(((size * count) + kSectorMask) & ~kSectorMask); // whole sectors
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
-    DWORD bytes = 0;
-    if (ReadFile(file_ref_, buffer, length, &bytes, use_overlapped_io() ? &async_ctl_ : nullptr) == FALSE) {
-        set_outcome_val(static_cast<int>(GetLastError()));
+    uint32_t bytes = 0;
+    if (!fs::disk().read(file_ref_, buffer, length, &bytes, use_overlapped_io() ? &async_ctl_ : nullptr)) {
+        set_outcome_val(static_cast<int>(fs::disk().last_error()));
         if (outcome_val() == kErrorIoPending && is_blocking()) {
             while (!os_read_finished()) {
             }

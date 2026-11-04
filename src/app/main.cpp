@@ -24,6 +24,8 @@
 #include "audio_dsound/dsound_device.h"
 #include "engine/audio/audio_device.h"
 #include "engine/audio/muted_device.h"
+#include "engine/file/disk.h"
+#include "fs_win32/win32_disk.h"
 #include "engine/media/movie.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
@@ -73,6 +75,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     log_open();
     get_log("thug2-decomp standalone");
     load_system_direct_input();
+    // NOT ORIGINAL: the operating system's files (engine/file/disk.h): Win32's, before anything opens one.
+    fs::install_disk(fs::win32::disk());
     // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
     app::install_command_tables();
     // NOT ORIGINAL: the extensions (the editor, the new front end, the dev tools) registered before any of the

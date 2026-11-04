@@ -1,7 +1,5 @@
 #include "engine/file/file_load.h"
 
-#include <windows.h>
-
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -11,6 +9,7 @@
 #include "base/core/dbg.h"
 #include "engine/file/archive.h"
 #include "engine/file/data_overlay.h"
+#include "engine/file/disk.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/render_device.h"
 #include "base/core/checked_index.h"
@@ -23,6 +22,13 @@ constexpr size_t kDataPrefixSize = 6;      // "data\" and its NUL
 constexpr int kDataPrefixLength = 5;
 constexpr size_t kDevelopmentPrefixLength = 15; // the paths written for the original development machine start with this many characters
 constexpr int kDiskPathLast = 255;         // the last index of a disk path that keeps room for the NUL
+constexpr uint32_t kErrorFileNotFound = 2;  // Win32's ERROR_FILE_NOT_FOUND
+constexpr uint32_t kErrorHandleEof = 38;    // Win32's ERROR_HANDLE_EOF
+// A data file opened for reading: by the data folder's open (nothing shared), by the overlay's (shared reading).
+constexpr fs::OpenSpec kDataFileRead{.access = fs::Access::kRead, .sharing = fs::Sharing::kNone,
+                                     .disposition = fs::Disposition::kOpenExisting, .hint = fs::Hint::kNormal};
+constexpr fs::OpenSpec kOverlayFileRead{.access = fs::Access::kRead, .sharing = fs::Sharing::kRead,
+                                        .disposition = fs::Disposition::kOpenExisting, .hint = fs::Hint::kNormal};
 
 // NOT ORIGINAL grouping - the archive's "handled" flag and the alternate drive switch. Made on first use, never
 // destroyed (file_load_state()).
@@ -47,6 +53,7 @@ bool archives_active() { return pre::hub() != nullptr; }
 bool& handled_by_archive() { return file_load_state().handled_by_archive_; }
 
 pre::ArchiveFile::FileInfo* as_archive_file(Hdl file) { return static_cast<pre::ArchiveFile::FileInfo*>(file); }
+fs::DiskFile* as_disk_file(Hdl file) { return static_cast<fs::DiskFile*>(file); }
 bool archive_exist(const char* name) { return pre::is_present(name); }
 Hdl archive_open(const char* name, const char* mode) { return pre::unseal({.name = name, .mode = mode}, false); }
 int archive_close(Hdl file) { return pre::shut(as_archive_file(file), false); }
@@ -65,7 +72,7 @@ uint32_t archive_seek(Hdl file, int offset, int origin)
 uint32_t archive_get_file_size(Hdl file) { return static_cast<uint32_t>(pre::get_file_size(as_archive_file(file))); }
 
 // Shows the fatal file error screen; never returns.
-[[noreturn]] void fatal_file_error(DWORD error)
+[[noreturn]] void fatal_file_error(uint32_t error)
 {
     (void)error; // (pushed to it; unused)
     render::device().show_disc_error();
@@ -89,9 +96,9 @@ void note_opened(const char* name, Hdl file, bool archive)
     if (archive) {
         size = as_archive_file(file)->size;
     } else {
-        LARGE_INTEGER bytes;
-        if (GetFileSizeEx(file, &bytes) != FALSE) {
-            size = bytes.QuadPart;
+        uint64_t bytes = 0;
+        if (fs::disk().size64(as_disk_file(file), &bytes)) {
+            size = static_cast<long long>(bytes);
         }
     }
     gfx::loading_console::note_file(archive ? "open" : "read", name, size);
@@ -134,22 +141,22 @@ Hdl open_on_disk(const char* name)
     std::array<char, kDiskPathSize> path{};
     make_disk_path(path, name);
 
-    HANDLE file = INVALID_HANDLE_VALUE;
+    Hdl file = fs::no_file();
     if (use_alternate_drive()) {
         core::at(path, 0) = 'Z';
-        file = CreateFileA(path.data(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        file = fs::disk().open(path.data(), kDataFileRead);
     }
-    if (file == INVALID_HANDLE_VALUE) {
-        file = CreateFileA(path.data(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == fs::no_file()) {
+        file = fs::disk().open(path.data(), kDataFileRead);
     }
-    if (file != INVALID_HANDLE_VALUE) {
+    if (file != fs::no_file()) {
         return file;
     }
 
-    const DWORD error = GetLastError();
-    if (error != ERROR_FILE_NOT_FOUND) {
+    const uint32_t error = fs::disk().last_error();
+    if (error != kErrorFileNotFound) {
         debug::printf("FatalFileError: %x %s\n", error, path.data());
-        fatal_file_error(static_cast<DWORD>(-1));
+        fatal_file_error(static_cast<uint32_t>(-1));
     }
     return nullptr;
 }
@@ -162,9 +169,8 @@ Hdl unseal(const char* name, const char* mode)
     // Original behaviour: archives first, then the data folder.
     std::array<char, kOverlayPathSize> overlay{};
     if (frontend::data_overlay::get_overlay_path(name, overlay)) {
-        HANDLE file =
-            CreateFileA(overlay.data(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (file != INVALID_HANDLE_VALUE) {
+        fs::DiskFile* file = fs::disk().open(overlay.data(), kOverlayFileRead);
+        if (file != fs::no_file()) {
             note_opened(name, file, false);
             return file;
         }
@@ -190,7 +196,7 @@ int shut(Hdl file)
             return result;
         }
     }
-    CloseHandle(file);
+    fs::disk().close(as_disk_file(file));
     return 0;
 }
 
@@ -203,10 +209,11 @@ int get_take_in(void* buffer, int size, int count, Hdl file)
             return result;
         }
     }
-    DWORD bytes_read = 0;
-    if (ReadFile(file, buffer, static_cast<DWORD>(size) * static_cast<DWORD>(count), &bytes_read, nullptr) == FALSE) {
-        const DWORD error = GetLastError();
-        if (error != ERROR_HANDLE_EOF) {
+    uint32_t bytes_read = 0;
+    if (!fs::disk().read(as_disk_file(file), buffer, static_cast<uint32_t>(size) * static_cast<uint32_t>(count),
+                         &bytes_read, nullptr)) {
+        const uint32_t error = fs::disk().last_error();
+        if (error != kErrorHandleEof) {
             fatal_file_error(error);
         }
     }
@@ -234,13 +241,13 @@ uint32_t seek_to(Hdl file, int offset, int origin)
             return result;
         }
     }
-    DWORD method = FILE_BEGIN; // (0: from the start, 1: from here, anything else: from the end)
+    fs::Origin from = fs::Origin::kBegin; // (0: from the start, 1: from here, anything else: from the end)
     if (origin == 1) {
-        method = FILE_CURRENT;
+        from = fs::Origin::kCurrent;
     } else if (origin != 0) {
-        method = FILE_END;
+        from = fs::Origin::kEnd;
     }
-    return SetFilePointer(file, offset, nullptr, method);
+    return fs::disk().seek(as_disk_file(file), offset, from);
 }
 
 // 0x005B9E00
@@ -252,8 +259,7 @@ uint32_t get_file_size(Hdl file)
             return result;
         }
     }
-    DWORD high = 0;
-    return ::GetFileSize(file, &high);
+    return fs::disk().size(as_disk_file(file));
 }
 
 // 0x005BA010
@@ -279,7 +285,7 @@ bool is_present(const char* name)
             closed_by_archive = handled_by_archive();
         }
         if (!closed_by_archive) {
-            CloseHandle(file);
+            fs::disk().close(as_disk_file(file));
         }
     }
     return file != nullptr;

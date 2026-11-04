@@ -29,11 +29,12 @@
 #include "engine/script/cell.h"
 #include "engine/script/tokens.h"
 #include "engine/file/data_overlay.h"
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
-#include "platform/unique_handle.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include <gsl/pointers>
@@ -108,11 +109,7 @@ CasCheck& cas_check()
     return state.get();
 }
 
-bool is_file(const std::string& path)
-{
-    const DWORD attributes = GetFileAttributesA(path.c_str());
-    return attributes != INVALID_FILE_ATTRIBUTES && ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U);
-}
+bool is_file(const std::string& path) { return fs::disk().kind(path.c_str()) == fs::PathKind::kFile; }
 
 // A path as the game folder keeps it: lower case, '\', without a leading "data\".
 std::string get_relative(const char* path)
@@ -237,16 +234,17 @@ bool is_part_list(script::Array* array)
 std::vector<uint8_t> read_whole_file(const std::string& path)
 {
     std::vector<uint8_t> data;
-    const util::UniqueHandle file(
-        CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr));
+    const fs::OwnedFile file(fs::disk().open(path.c_str(), {.access = fs::Access::kRead, .sharing = fs::Sharing::kRead,
+                                                            .disposition = fs::Disposition::kOpenExisting,
+                                                            .hint = fs::Hint::kNone}));
     if (!file) {
         return data;
     }
-    const DWORD size = GetFileSize(file.get(), nullptr);
-    if (size != INVALID_FILE_SIZE && size < kMaxFileMegabytes << kMegabyteShift) {
+    const uint32_t size = fs::disk().size(file.get());
+    if (size < kMaxFileMegabytes << kMegabyteShift) { // (and not all ones: a size that couldn't be read)
         data.resize(size);
-        DWORD read = 0;
-        if ((ReadFile(file.get(), data.data(), size, &read, nullptr) == FALSE) || read != size) {
+        uint32_t read = 0;
+        if (!fs::disk().read(file.get(), data.data(), size, &read, nullptr) || read != size) {
             data.clear();
         }
     }

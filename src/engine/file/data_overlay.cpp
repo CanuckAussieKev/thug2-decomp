@@ -3,8 +3,6 @@
 
 #include "engine/file/data_overlay.h"
 
-#include <windows.h>
-
 #include <algorithm>
 #include <cctype>
 #include <cstring>
@@ -19,6 +17,7 @@
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
 #include "engine/file/file_load.h"
+#include "engine/file/disk.h"
 
 namespace frontend::data_overlay {
 
@@ -27,16 +26,8 @@ namespace {
 constexpr int kOverlayNameLimit = 259; // the longest name that fits with its terminator
 constexpr std::size_t kOverlayPrefixLength = 5;
 
-bool is_folder(const std::string& path)
-{
-    const DWORD attributes = GetFileAttributesA(path.c_str());
-    return attributes != INVALID_FILE_ATTRIBUTES && ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0U);
-}
-bool is_file(const std::string& path)
-{
-    const DWORD attributes = GetFileAttributesA(path.c_str());
-    return attributes != INVALID_FILE_ATTRIBUTES && ((attributes & FILE_ATTRIBUTE_DIRECTORY) == 0U);
-}
+bool is_folder(const std::string& path) { return fs::disk().kind(path.c_str()) == fs::PathKind::kFolder; }
+bool is_file(const std::string& path) { return fs::disk().kind(path.c_str()) == fs::PathKind::kFile; }
 
 } // namespace
 
