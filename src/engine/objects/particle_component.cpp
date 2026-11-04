@@ -11,7 +11,7 @@
 #include "engine/gfx/particle_sets.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "game/online/gamenet_manager.h"
+#include "engine/net/session_query.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/cscript.h"
@@ -19,7 +19,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/game_clock.h"
 #include "engine/objects/control_pad.h"
-#include "engine/objects/collide_and_die.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/model_component.h"
@@ -556,8 +555,7 @@ void EffectsEmitterModule::tick_frame()
 {
     // (suspended: nothing - unless a network game runs and it has a lifetime)
     if (suspend_ && core::down_cast<DormancyModule>(suspend_)->is_far()) {
-        void* net = static_cast<void*>(net_hub());
-        if (!static_cast<online::Hub*>(net)->in_net_game() || lifespan_ == 0) {
+        if (!net::in_net_game() || lifespan_ == 0) {
             return;
         }
     }

@@ -10,14 +10,13 @@
 #include <array>
 
 #include "base/maths/mat4.h"
-#include "game/online/gamenet_manager.h"
+#include "engine/net/session_query.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
-#include "engine/objects/collide_and_die.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
@@ -354,7 +353,7 @@ void FlexibleParticleComponent::tick_frame()
     if (suspend_ && !suspend_should_update(suspend_)) {
         update = false;
     }
-    if (suspend_ && suspend_->far() && !net_hub()->in_net_game()) {
+    if (suspend_ && suspend_->far() && !net::in_net_game()) {
         // Suspended: only catching up, once the time reaches the particle manager's update time.
         if (clock_ >= particle_update_time()) {
             render::EmitterInstance* system = system_.get_pull();

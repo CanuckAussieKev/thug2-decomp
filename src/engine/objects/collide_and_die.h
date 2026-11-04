@@ -7,10 +7,6 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 
-namespace online {
-class Hub;
-}
-
 namespace script {
 class Struct;
 } // namespace script
@@ -59,9 +55,5 @@ private:
     maths::Vec4 vel_{};          // +0x34 vel (normalised)
     maths::Vec4 last_pos_{};     // +0x44 the object's position at the last update
 };
-
-// The objects' own copy of the network manager's pointer (set once at start-up, startup.cpp).
-online::Hub* net_hub();
-void set_net_hub(online::Hub* value);
 
 } // namespace objects

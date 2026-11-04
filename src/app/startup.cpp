@@ -53,7 +53,7 @@
 #include "engine/sys/stopwatch.h"
 #include "engine/script/node_manager.h"
 #include "engine/sys/game_config.h"
-#include "engine/objects/collide_and_die.h"
+#include "game/online/session_queries.h"
 #include "engine/gfx/engine_parts.h"
 #include "game/online/net_game_state.h"
 #include "base/core/language.h"
@@ -174,7 +174,7 @@ int game_main(int argc, char** argv)
         modules::Skate* skate_module = modules::Skate::spawn_occurrence(true);
         modules::FrontEnd* front_end = modules::create_front_end(true);
         online::Hub::fabricate(true);
-        objects::set_net_hub(online::net_game_state().online_hub()); // (the network manager)
+        online::install_session_queries(online::net_game_state().online_hub()); // (the objects' copy of it)
         park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::fabricate(true);
         frontend::create_screen_element_manager(true);
         level_nodes::create_node_manager(true);

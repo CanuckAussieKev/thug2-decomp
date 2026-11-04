@@ -5,11 +5,10 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "game/online/gamenet_manager.h"
+#include "engine/net/session_query.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
-#include "engine/objects/collide_and_die.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"
 #include "engine/script/fwd.h"
@@ -50,7 +49,7 @@ void VelocityTrackerModule::configure_from_data(script::Struct* params)
 // 0x0043D340
 void VelocityTrackerModule::tick_frame()
 {
-    if (!net_hub()->in_net_game() && suspend_flag(suspend_)) {
+    if (!net::in_net_game() && suspend_flag(suspend_)) {
         return;
     }
     const maths::Vec4& vel = entity()->vel();

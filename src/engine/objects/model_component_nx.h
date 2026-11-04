@@ -1,7 +1,7 @@
 #pragma once
 
 // What the model component's source (model_component*.cpp) reaches of the code not rewritten yet: render::RenderModel and its
-// geoms and lights (called at their addresses), the network's players. Internal to those files.
+// geoms and lights (called at their addresses). Internal to those files.
 
 #include <cstdint>
 
@@ -12,15 +12,10 @@
 #include "engine/gfx/model_utils.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "game/online/gamenet_manager.h"
-#include "engine/net/net_app.h"
-#include "engine/net/net_client.h"
-#include "game/online/player_info.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
 #include "base/core/down_cast.h"
-#include "game/online/net_game_state.h"
 
 namespace render {
 class RenderModel;
@@ -53,22 +48,6 @@ inline void allow_resizing(render::RenderModel* model, bool on) { model->allow_r
 inline void update_lights_brightness(void* lights)
 {
     static_cast<render::ModelLights*>(lights)->get_update_brightness();
-}
-
-// The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
-// machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-inline void* find_player_slot_by_obj(void* manager, uint32_t id)
-{
-    return static_cast<online::Hub*>(manager)->find_player_slot_by_obj(static_cast<uint16_t>(id));
-}
-inline bool is_own_player(void* player) { return static_cast<online::PlayerRecord*>(player)->is_own_player() != 0; }
-inline int player_skater_index(void* player)
-{
-    return static_cast<int>(static_cast<online::PlayerRecord*>(player)->get_skater_view_slot());
-}
-inline net::Guest* client_app(void* manager, int index)
-{
-    return core::down_cast<net::Guest>(static_cast<online::Hub*>(manager)->fetch_patron(index));
 }
 
 // The model's lights' direction setter: their vtable slot 2 with (index, direction). No address of its own: the

@@ -649,6 +649,7 @@ add_executable(thug2 WIN32
     src/engine/render/coll_tests.cpp
     src/engine/render/coll_tri.cpp
     src/game/online/transport_hooks.cpp
+    src/game/online/session_queries.cpp
     src/game/online/chat.cpp
     src/game/online/stats.cpp
     src/game/online/buddy_man.cpp
@@ -720,6 +721,7 @@ add_executable(thug2 WIN32
     src/engine/net/net_manager.cpp
     src/engine/net/net_metrics.cpp
     src/engine/net/net_compress.cpp
+    src/engine/net/session_query.cpp
     src/engine/net/net_lzham.cpp
     src/engine/net/net_descs.cpp
     src/engine/net/net_conn.cpp

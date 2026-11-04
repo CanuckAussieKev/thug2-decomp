@@ -13,14 +13,13 @@
 #include "engine/objects/control_pad.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
-#include "game/online/gamenet_manager.h"
+#include "engine/net/session_query.h"
 #include "engine/objects/vibration_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/stopwatch.h"
-#include "engine/objects/collide_and_die.h"
 #include "engine/script/fwd.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -264,7 +263,7 @@ void PadInputModule::update_pad2(const pad_input::Payload* data)
 // 0x0041EF20
 bool PadInputModule::is_input_blocked()
 {
-    if (!net_hub()->in_net_game()) {
+    if (!net::in_net_game()) {
         return false;
     }
     if (find_element(kControllerUnpluggedDialog)) {

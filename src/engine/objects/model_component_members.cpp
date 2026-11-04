@@ -13,7 +13,7 @@
 #include "base/maths/vec4.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
-#include "game/online/net_game_state.h"
+#include "engine/net/session_query.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/model_component_nx.h"
@@ -413,11 +413,9 @@ void MeshInstanceModule::stop_display_spins()
     get_clear(core::at(twist_rate_, 0));
     get_clear(core::at(twist_rate_, 1));
     get_clear(core::at(twist_rate_, 2));
-    void* manager = online::online_hub();
-    void* player = find_player_slot_by_obj(manager, entity()->ident());
-    if (player && is_own_player(player)) {
+    net::Guest* app = nullptr;
+    if (net::own_player_client(entity()->ident(), &app)) {
         net::NetMessageInfo message;
-        net::Guest* app = client_app(manager, player_skater_index(player));
         auto object = static_cast<uint8_t>(entity()->ident());
         message.set_content(&object);
         message.set_byte_count(1);
@@ -459,11 +457,9 @@ void MeshInstanceModule::spin_display(script::Struct* params)
                    dont_pause);
         axes |= static_cast<uint8_t>(1 << axis);
     }
-    void* manager = online::online_hub();
-    void* player = find_player_slot_by_obj(manager, entity()->ident());
-    if (player && is_own_player(player)) {
+    net::Guest* app = nullptr;
+    if (net::own_player_client(entity()->ident(), &app)) {
         net::NetMessageInfo message;
-        net::Guest* app = client_app(manager, player_skater_index(player));
         online::SpinModelMessage sent;
         sent.period = get_truncated(duration);
         sent.start = static_cast<int16_t>(get_truncated(start));

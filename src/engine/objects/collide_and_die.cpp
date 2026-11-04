@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "game/online/gamenet_manager.h"
+#include "engine/net/session_query.h"
 #include "engine/render/probe_ray.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -22,19 +22,6 @@
 #include "base/core/down_cast.h"
 
 namespace objects {
-
-namespace {
-
-online::Hub*& stored_online_hub()
-{
-    static online::Hub* online_hub{};
-    return online_hub;
-}
-
-} // namespace
-
-online::Hub* net_hub() { return stored_online_hub(); }
-void set_net_hub(online::Hub* value) { stored_online_hub() = value; }
 
 namespace {
 
@@ -88,7 +75,7 @@ void ImpactDestructModule::seal() { suspend_ = core::down_cast<DormancyModule>(e
 // 0x0041C3D0
 void ImpactDestructModule::tick_frame()
 {
-    if (!stored_online_hub()->in_net_game() && suspend_->far()) {
+    if (!net::in_net_game() && suspend_->far()) {
         return;
     }
     const int offset = clock_offset();

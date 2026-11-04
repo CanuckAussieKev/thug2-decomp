@@ -16,10 +16,9 @@
 #include "engine/gfx/model.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "game/online/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
-#include "game/online/player_info.h"
+#include "engine/net/session_query.h"
 #include "engine/objects/entity.h"
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
@@ -32,7 +31,6 @@
 #include "engine/objects/skeleton_component.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
-#include "game/online/net_game_state.h"
 #include "base/core/checksums.h"
 
 namespace objects {
@@ -83,23 +81,6 @@ void set_global_brightness(float brightness) { render::set_world_brightness(brig
 // A skeleton component's skeleton (0x005480F0: its +0x18).
 gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig(); }
 
-
-// The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
-// whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-void* find_player_slot_by_obj(uint32_t id)
-{
-    return static_cast<online::Hub*>(online::online_hub())->find_player_slot_by_obj(static_cast<uint16_t>(id));
-}
-bool is_own_player(void* player) { return static_cast<online::PlayerRecord*>(player)->is_own_player() != 0; }
-int player_skater_index(void* player)
-{
-    return static_cast<int>(static_cast<online::PlayerRecord*>(player)->get_skater_view_slot());
-}
-net::Guest* client_app(void* manager, int index)
-{
-    return core::down_cast<net::Guest>(static_cast<online::Hub*>(manager)->fetch_patron(index));
-}
-
 // A message's id and its length in bytes.
 struct MessageHead {
     online::MessageId id{};
@@ -111,13 +92,11 @@ void send_to_server(GameEntity* object, MessageHead message_head, void* data)
 {
     const auto id = message_head.id;
     const auto length = message_head.length;
-    void* manager = online::online_hub();
-    void* player = find_player_slot_by_obj(object->ident());
-    if (!player || !is_own_player(player)) {
+    net::Guest* app = nullptr;
+    if (!net::own_player_client(object->ident(), &app)) {
         return;
     }
     net::NetMessageInfo message;
-    net::Guest* app = client_app(manager, player_skater_index(player));
     message.set_content(data);
     message.set_byte_count(length);
     message.set_ident(id);
@@ -383,13 +362,11 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
         axes |= static_cast<uint8_t>(1 << axis);
     }
     online::SpinModelMessage sent;
-    void* manager = online::online_hub();
-    void* player = find_player_slot_by_obj(entity()->ident());
-    if (!player || !is_own_player(player)) {
+    net::Guest* app = nullptr;
+    if (!net::own_player_client(entity()->ident(), &app)) {
         return;
     }
     net::NetMessageInfo message;
-    net::Guest* app = client_app(manager, player_skater_index(player));
     sent.period = get_truncated(period);
     sent.start = static_cast<int16_t>(get_truncated(start));
     sent.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
