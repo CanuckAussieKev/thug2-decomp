@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "app/startup.h"
+#include "app/extensions.h"
 
 #include <windows.h>
 
@@ -20,12 +21,8 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/file/async.h"
 #include "engine/file/archive.h"
-#include "game/commands/career_complete.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
-#include "frontend/new_frontend.h"
 #include "engine/ui/screen_element_manager.h"
-#include "devtools/test_view.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/tod_manager.h"
 #include "game/save_cards/memcard.h"
@@ -49,7 +46,6 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/highscores.h"
 #include "game/skate/skate_module.h"
-#include "game/rider/thaw_bmx.h"
 #include "engine/pad_input/key_names.h"
 #include "engine/sys/mlp.h"
 #include "engine/sys/game_module.h"
@@ -156,17 +152,11 @@ int game_main(int argc, char** argv)
         memory::pop_mem_profile();
         pad_input::get_input_manager()->change_pad_follows_stick(true); // (+0x10C)
         script::allocate_pools();
-        // Not original - the level editor (editor/level_editor.h) and CREATE 100% CAS
-        // (game/commands/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
-        // registered after the game's own.
+        // Not original - the extensions' script commands and our game features' (app/extensions.h: the level
+        // editor's LevelEditor_Start..., CREATE 100% CAS's Career100_Apply..., TeleportSkaterStanding, ThawBmx_...,
+        // the new front end's pause items) registered after the game's own.
         // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
-        frontend::level_editor::register_script_functions();
-        frontend::career_complete::register_script_functions();
-        frontend::test_view::register_script_functions(); // (TeleportSkaterStanding - devtools/test_view.h)
-        skater::thaw_bmx::
-            register_script_functions(); // (ThawBmx_Available, the bike's members - game/rider/thaw_bmx.h)
-        frontend::new_frontend::
-            register_script_functions(); // (the overlay's pause items: NewFrontend_PauseItem / _Open)
+        app::register_added_script_commands();
         script::load_boot_script_files();
 
         memory::push_mem_profile("Game Singletons");
