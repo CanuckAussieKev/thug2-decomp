@@ -376,57 +376,67 @@ void collision_legend(const ShapeMesh& model)
     ImGui::End();
 }
 
+namespace {
+
+// The invisible wall selected (Shift+click): its name and state, its collision switched, reverted, dropped.
+void wall_section(const ShapeMesh& model)
+{
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::PushFont(level_editor_ui_state().heading_);
+    gui::text_colored(kWallNameColour, "%s", model.view.wall_name_.c_str());
+    ImGui::PopFont();
+    get_muted("Invisible wall");
+    ImGui::SameLine();
+    get_mono("0x%08X", model.view.wall);
+    ImGui::PushFont(level_editor_ui_state().mono_);
+    gui::text_wrapped("%s", model.view.wall_info_.c_str());
+    ImGui::PopFont();
+    // (level_editor_walls.h: the game's own switch, WorldCell::change_live; moved and turned as scenery)
+    if (model.view.wall_off_) {
+        gui::text_colored(kWallStateColour, "%s", model.view.wall_state_.c_str());
+    } else {
+        gui::text_wrapped("%s", model.view.wall_state_.c_str());
+    }
+    if (model.view.wall_off_) {
+        if (ImGui::Button("Restore Collision")) {
+            get_ask(Request::Kind::kWallCollision, 1);
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("Turn collision back on  (Del)");
+        }
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ui_theme::kDangerButtonColour);
+        if (ImGui::Button("Disable Collision")) {
+            get_ask(Request::Kind::kWallCollision, 0);
+        }
+        ImGui::PopStyleColor();
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("Turn this wall's collision off  (Del)");
+        }
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!model.view.wall_moved_ && !model.view.wall_off_);
+    if (ImGui::Button("Revert##wall")) {
+        get_ask(Request::Kind::kReset);
+    }
+    ImGui::EndDisabled();
+    if (ImGui::Button("Drop to Ground##wall")) {
+        get_ask(Request::Kind::kDrop);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Close##wall")) {
+        get_ask(Request::Kind::kClearWall);
+    }
+}
+
+} // namespace
+
 // The Inspector's part: an invisible wall selected (Shift+click), and what's hidden in the editor.
 void view_section(const ShapeMesh& model)
 {
     if (model.view.wall != 0U) {
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::PushFont(level_editor_ui_state().heading_);
-        gui::text_colored(kWallNameColour, "%s", model.view.wall_name_.c_str());
-        ImGui::PopFont();
-        get_muted("Invisible wall");
-        ImGui::SameLine();
-        get_mono("0x%08X", model.view.wall);
-        ImGui::PushFont(level_editor_ui_state().mono_);
-        gui::text_wrapped("%s", model.view.wall_info_.c_str());
-        ImGui::PopFont();
-        // (level_editor_walls.h: the game's own switch, WorldCell::change_live; moved and turned as scenery)
-        if (model.view.wall_off_) {
-            gui::text_colored(kWallStateColour, "%s", model.view.wall_state_.c_str());
-        } else {
-            gui::text_wrapped("%s", model.view.wall_state_.c_str());
-        }
-        if (model.view.wall_off_) {
-            if (ImGui::Button("Restore Collision")) {
-                get_ask(Request::Kind::kWallCollision, 1);
-            }
-            if (ImGui::IsItemHovered()) {
-                gui::tooltip("Turn collision back on  (Del)");
-            }
-        } else {
-            ImGui::PushStyleColor(ImGuiCol_Button, ui_theme::kDangerButtonColour);
-            if (ImGui::Button("Disable Collision")) {
-                get_ask(Request::Kind::kWallCollision, 0);
-            }
-            ImGui::PopStyleColor();
-            if (ImGui::IsItemHovered()) {
-                gui::tooltip("Turn this wall's collision off  (Del)");
-            }
-        }
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!model.view.wall_moved_ && !model.view.wall_off_);
-        if (ImGui::Button("Revert##wall")) {
-            get_ask(Request::Kind::kReset);
-        }
-        ImGui::EndDisabled();
-        if (ImGui::Button("Drop to Ground##wall")) {
-            get_ask(Request::Kind::kDrop);
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Close##wall")) {
-            get_ask(Request::Kind::kClearWall);
-        }
+        wall_section(model);
     }
     if (model.view.scenery_collision_ >= 0 && (model.view.wall == 0U)) {
         // A drawn piece's collision switched off by itself (it stays drawn; the same switch, level_editor_walls.h).

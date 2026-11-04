@@ -501,6 +501,63 @@ void outliner_section(ImFont* mono, const char* search)
     ImGui::TreePop();
 }
 
+namespace {
+
+// A note's field taken (the notes kept) or let go (one undo step, if they changed).
+void note_field_held()
+{
+    if (ImGui::IsItemActivated()) {
+        level_editor_notes_state().queue_.emplace_back(
+            [] { level_editor_notes_state().before_ = level_editor_notes_state().notes_; });
+    }
+    if (ImGui::IsItemDeactivated()) {
+        level_editor_notes_state().queue_.emplace_back([] {
+            bool same = level_editor_notes_state().before_.size() == level_editor_notes_state().notes_.size();
+            for (size_t i = 0; same && i < level_editor_notes_state().notes_.size(); ++i) {
+                same = get_same(core::at(level_editor_notes_state().before_, i),
+                                core::at(level_editor_notes_state().notes_, i));
+            }
+            if (!same) {
+                push_module_undo(std::make_shared<NotesStep>(level_editor_notes_state().before_));
+            }
+        });
+    }
+}
+
+// The note's colour buttons (the chosen one outlined); a click sets it, one undo step.
+void colour_buttons(const Note* note, const std::string& name, float scale)
+{
+    for (int colour_index = 0; colour_index < kColourCount; ++colour_index) {
+        ImGui::SameLine();
+        ImGui::PushID(colour_index);
+        const bool on = note->colour == core::at(kColours, colour_index);
+        const ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(core::at(kColours, colour_index)));
+        if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip,
+                               ImVec2(kColourButtonSize * scale, kColourButtonSize * scale))) {
+            const uint32_t rgb = core::at(kColours, colour_index);
+            level_editor_notes_state().queue_.emplace_back([name, rgb] {
+                Note* found_note = get_find(name);
+                if (!found_note || found_note->colour == rgb) {
+                    return;
+                }
+                push_undo();
+                found_note->colour = rgb;
+            });
+        }
+        if (on) {
+            const ImVec2 point_a = ImGui::GetItemRectMin();
+            const ImVec2 point_b = ImGui::GetItemRectMax();
+            ImGui::GetWindowDrawList()->AddRect(
+                ImVec2(point_a.x - kSelectionOutlineGrow, point_a.y - kSelectionOutlineGrow),
+                ImVec2(point_b.x + kSelectionOutlineGrow, point_b.y + kSelectionOutlineGrow),
+                IM_COL32(255, 255, 255, 255), kSelectionOutlineRounding, 0, kSelectionOutlineThickness);
+        }
+        ImGui::PopID();
+    }
+}
+
+} // namespace
+
 void pane(PaneArea area, float scale)
 {
     const auto view_x = area.x;
@@ -532,22 +589,7 @@ void pane(PaneArea area, float scale)
     gui::text_disabled("Editor only");
     // The text and the place: changed live, one undo step from the field taken to the field let go (pushed then - the
     // change complete: the autosave's snapshot follows it).
-    auto held = [] {
-        if (ImGui::IsItemActivated()) {
-            level_editor_notes_state().queue_.emplace_back([] { level_editor_notes_state().before_ = level_editor_notes_state().notes_; });
-        }
-        if (ImGui::IsItemDeactivated()) {
-            level_editor_notes_state().queue_.emplace_back([] {
-                bool same = level_editor_notes_state().before_.size() == level_editor_notes_state().notes_.size();
-                for (size_t i = 0; same && i < level_editor_notes_state().notes_.size(); ++i) {
-                    same = get_same(core::at(level_editor_notes_state().before_, i), core::at(level_editor_notes_state().notes_, i));
-                }
-                if (!same) {
-                    push_module_undo(std::make_shared<NotesStep>(level_editor_notes_state().before_));
-                }
-            });
-        }
-    };
+    auto held = [] { note_field_held(); };
     ImGui::InputTextMultiline("##text", level_editor_notes_state().edit_text_.data(),
                               sizeof(level_editor_notes_state().edit_text_), ImVec2(-1.0F, kTextFieldHeight * scale));
     if (ImGui::IsItemEdited()) {
@@ -561,33 +603,7 @@ void pane(PaneArea area, float scale)
     held();
     // The colour.
     gui::text_disabled("Colour");
-    for (int colour_index = 0; colour_index < kColourCount; ++colour_index) {
-        ImGui::SameLine();
-        ImGui::PushID(colour_index);
-        const bool on = note->colour == core::at(kColours, colour_index);
-        const ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(core::at(kColours, colour_index)));
-        if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip,
-                               ImVec2(kColourButtonSize * scale, kColourButtonSize * scale))) {
-            const uint32_t rgb = core::at(kColours, colour_index);
-            level_editor_notes_state().queue_.emplace_back([name, rgb] {
-                Note* found_note = get_find(name);
-                if (!found_note || found_note->colour == rgb) {
-                    return;
-                }
-                push_undo();
-                found_note->colour = rgb;
-            });
-        }
-        if (on) {
-            const ImVec2 point_a = ImGui::GetItemRectMin();
-            const ImVec2 point_b = ImGui::GetItemRectMax();
-            ImGui::GetWindowDrawList()->AddRect(
-                ImVec2(point_a.x - kSelectionOutlineGrow, point_a.y - kSelectionOutlineGrow),
-                ImVec2(point_b.x + kSelectionOutlineGrow, point_b.y + kSelectionOutlineGrow),
-                IM_COL32(255, 255, 255, 255), kSelectionOutlineRounding, 0, kSelectionOutlineThickness);
-        }
-        ImGui::PopID();
-    }
+    colour_buttons(note, name, scale);
     // Its place.
     std::array<float, 3> pos = {{note->pos.x, note->pos.y, note->pos.z}};
     ImGui::SetNextItemWidth(-1.0F);

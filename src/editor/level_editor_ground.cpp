@@ -569,6 +569,46 @@ std::string link_record(const Spec& spec, const char* material_name)
     return out.str();
 }
 
+namespace {
+
+// A record's ramps=a,b,c,d: each side's "-" (none), "k" (a kicker) or "q" (a quarter); false if not four of them.
+bool read_ramps(const std::vector<std::string>& parts, Spec* spec)
+{
+    if (parts.size() != 4) {
+        return false;
+    }
+    bool ok = true;
+    for (size_t i = 0; ok && i < 4; ++i) {
+        const std::string& part = core::at(parts, i);
+        if (part == "-") {
+            core::at(spec->ramps, i) = Ramp::kNone;
+        } else if (part == "k") {
+            core::at(spec->ramps, i) = Ramp::kKicker;
+        } else if (part == "q") {
+            core::at(spec->ramps, i) = Ramp::kQuarter;
+        } else {
+            ok = false;
+        }
+    }
+    return ok;
+}
+
+// A record's hides=colour,...: each an 8-digit hex colour; false at the first that isn't (the ones before it kept).
+bool read_hides(const std::string& value, Spec* spec)
+{
+    bool ok = true;
+    for (const std::string& part : split_commas(value)) {
+        uint32_t colour = 0;
+        ok = ok && is_hex8(part, &colour);
+        if (ok) {
+            spec->hides.push_back(colour);
+        }
+    }
+    return ok;
+}
+
+} // namespace
+
 bool read_record(const std::string& text, Spec* out)
 {
     std::istringstream in(text);
@@ -619,20 +659,8 @@ bool read_record(const std::string& text, Spec* out)
         } else if (key == "height") {
             ok = once(&have_height) && read_float(value, &spec.height) && spec.height > 0.0F;
         } else if (key == "ramps") {
-            std::vector<std::string> parts = split_commas(value);
-            ok = once(&have_ramps) && parts.size() == 4;
-            for (size_t i = 0; ok && i < 4; ++i) {
-                const std::string& part = core::at(parts, i);
-                if (part == "-") {
-                    core::at(spec.ramps, i) = Ramp::kNone;
-                } else if (part == "k") {
-                    core::at(spec.ramps, i) = Ramp::kKicker;
-                } else if (part == "q") {
-                    core::at(spec.ramps, i) = Ramp::kQuarter;
-                } else {
-                    ok = false;
-                }
-            }
+            const std::vector<std::string> parts = split_commas(value);
+            ok = once(&have_ramps) && read_ramps(parts, &spec);
         } else if (key == "length") {
             ok = once(&have_length) && read_float(value, &spec.length) && spec.length >= 0.0F;
         } else if (key == "material") {
@@ -654,14 +682,7 @@ bool read_record(const std::string& text, Spec* out)
                  v <= kMaxTerrain;
             spec.terrain = static_cast<uint16_t>(v);
         } else if (key == "hides") {
-            ok = once(&have_hides);
-            for (const std::string& part : split_commas(value)) {
-                uint32_t colour = 0;
-                ok = ok && is_hex8(part, &colour);
-                if (ok) {
-                    spec.hides.push_back(colour);
-                }
-            }
+            ok = once(&have_hides) && read_hides(value, &spec);
         }
         // (other keys: a later version's - skipped)
         if (!ok) {

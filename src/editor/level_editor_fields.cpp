@@ -313,6 +313,28 @@ std::string get_format(const Value& value, const NameLookup& names)
     return "";
 }
 
+namespace {
+
+// A flag's text: 1 / on / true / yes or 0 / off / false / no, in any case; false (and why) if neither.
+bool parse_on_off(const std::string& text, Value& v, std::string* error)
+{
+    std::string trimmed = get_trim(text);
+    for (char& character : trimmed) {
+        character = static_cast<char>(character >= 'A' && character <= 'Z' ? character - 'A' + 'a' : character);
+    }
+    if (trimmed == "1" || trimmed == "on" || trimmed == "true" || trimmed == "yes") {
+        v.on = true;
+    } else if (trimmed == "0" || trimmed == "off" || trimmed == "false" || trimmed == "no") {
+        v.on = false;
+    } else {
+        *error = "on or off";
+        return false;
+    }
+    return true;
+}
+
+} // namespace
+
 bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
 {
     Value v;
@@ -361,16 +383,7 @@ bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
         v.text = text;
         break;
     case Kind::kBitMark: {
-        std::string trimmed = get_trim(text);
-        for (char& character : trimmed) {
-            character = static_cast<char>(character >= 'A' && character <= 'Z' ? character - 'A' + 'a' : character);
-        }
-        if (trimmed == "1" || trimmed == "on" || trimmed == "true" || trimmed == "yes") {
-            v.on = true;
-        } else if (trimmed == "0" || trimmed == "off" || trimmed == "false" || trimmed == "no") {
-            v.on = false;
-        } else {
-            *error = "on or off";
+        if (!parse_on_off(text, v, error)) {
             return false;
         }
         break;

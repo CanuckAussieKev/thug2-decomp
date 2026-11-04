@@ -224,6 +224,31 @@ public:
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<GroundStep>(stored_specs()); }
 };
 
+// The copy's other meshes: nothing drawn (their strips all one index - degenerate), centred on the piece.
+void blank_other_meshes(render::PcGeom* geom, std::span<render::MeshRef*> meshes, V3 centre)
+{
+    for (uint32_t i = 1; i < mesh_count_of(geom); ++i) {
+        render::MeshRef* other = core::at(meshes, i);
+        if (!other) {
+            continue;
+        }
+        for (int k = 0; k < kBoxCorners; ++k) {
+            render::IdxStore* buffer = core::at(other->index_buffers(), k);
+            if ((core::at(other->index_counts(), k) == 0U) || !buffer || !buffer->indices()) {
+                continue;
+            }
+            if (std::ranges::any_of(std::span<const uint16_t>(buffer->indices(), core::at(other->index_counts(), k)),
+                                    [](uint16_t v) { return v != 0; })) {
+                std::memset(buffer->indices(), 0, core::at(other->index_counts(), k) * 2U);
+                upload_indices(buffer);
+            }
+        }
+        core::at(other->centre(), 0) = centre.x, core::at(other->centre(), 1) = centre.y,
+                                  core::at(other->centre(), 2) = centre.z;
+        other->set_radius(1.0F);
+    }
+}
+
 // The generated piece written into a copy of its donor (see the header). False and why.
 bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std::string* why)
 {
@@ -301,25 +326,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     core::at(first->centre(), 0) = centre.x, core::at(first->centre(), 1) = centre.y, core::at(first->centre(), 2) = centre.z;
     first->set_radius(std::sqrt(get_dot(half, half)));
     // The other meshes: nothing drawn (their strips all one index - degenerate).
-    for (uint32_t i = 1; i < mesh_count_of(geom); ++i) {
-        render::MeshRef* other = core::at(meshes, i);
-        if (!other) {
-            continue;
-        }
-        for (int k = 0; k < kBoxCorners; ++k) {
-            render::IdxStore* buffer = core::at(other->index_buffers(), k);
-            if ((core::at(other->index_counts(), k) == 0U) || !buffer || !buffer->indices()) {
-                continue;
-            }
-            if (std::ranges::any_of(std::span<const uint16_t>(buffer->indices(), core::at(other->index_counts(), k)),
-                                    [](uint16_t v) { return v != 0; })) {
-                std::memset(buffer->indices(), 0, core::at(other->index_counts(), k) * 2U);
-                upload_indices(buffer);
-            }
-        }
-        core::at(other->centre(), 0) = centre.x, core::at(other->centre(), 1) = centre.y, core::at(other->centre(), 2) = centre.z;
-        other->set_radius(1.0F);
-    }
+    blank_other_meshes(geom, meshes, centre);
     geom->bounds().min.x = mesh.min.x, geom->bounds().min.y = mesh.min.y, geom->bounds().min.z = mesh.min.z;
     geom->bounds().max.x = mesh.max.x, geom->bounds().max.y = mesh.max.y, geom->bounds().max.z = mesh.max.z;
 

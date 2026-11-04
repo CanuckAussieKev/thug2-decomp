@@ -1078,6 +1078,28 @@ const char* short_name(const std::string& path)
     return base ? std::next(base) : text;
 }
 
+// The level's loaded sounds (its wave table) in the palette: an emitter with that sound, by name.
+void add_sound_palette()
+{
+    const char* why = node_create::get_why_not(node_create::Kind::kSound, node_create::Team::kRed);
+    const int count = std::clamp(sound::level_wave_count(), 0, 256);
+    std::vector<std::pair<std::string, Source>> sounds;
+    for (int i = 0; i < count && !sound::no_sound(); ++i) {
+        const auto& wave = core::at(sound::loaded_level_waves(), i);
+        std::string label = "Sound emitter: " + nodes::caption(wave.checksum);
+        if (wave.looping) {
+            label += " (loop)";
+        }
+        sounds.emplace_back(label, Source{.kind = SourceKind::kSound, .names = {}, .sound = wave.checksum});
+    }
+    std::ranges::sort(sounds, [](const auto& a, const auto& b) { return a.first < b.first; });
+    for (auto& entry : sounds) {
+        entity_palette().palette_.push_back(
+            {.label = entry.first, .colour = kSoundPaletteColour, .why = why ? why : ""});
+        entity_palette().sources_.push_back(entry.second);
+    }
+}
+
 void build_palette()
 {
     entity_palette().palette_.clear();
@@ -1159,23 +1181,7 @@ void build_palette()
     }
     add(particles, kParticlePaletteColour);
     // The level's loaded sounds (its wave table): an emitter with that sound.
-    const char* why = node_create::get_why_not(node_create::Kind::kSound, node_create::Team::kRed);
-    const int count = std::clamp(sound::level_wave_count(), 0, 256);
-    std::vector<std::pair<std::string, Source>> sounds;
-    for (int i = 0; i < count && !sound::no_sound(); ++i) {
-        const auto& wave = core::at(sound::loaded_level_waves(), i);
-        std::string label = "Sound emitter: " + nodes::caption(wave.checksum);
-        if (wave.looping) {
-            label += " (loop)";
-        }
-        sounds.emplace_back(label, Source{.kind = SourceKind::kSound, .names = {}, .sound = wave.checksum});
-    }
-    std::ranges::sort(sounds, [](const auto& a, const auto& b) { return a.first < b.first; });
-    for (auto& entry : sounds) {
-        entity_palette().palette_.push_back(
-            {.label = entry.first, .colour = kSoundPaletteColour, .why = why ? why : ""});
-        entity_palette().sources_.push_back(entry.second);
-    }
+    add_sound_palette();
 }
 
 void build_models()

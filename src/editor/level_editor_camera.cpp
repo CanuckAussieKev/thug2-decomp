@@ -570,6 +570,80 @@ void apply_orbit(const Rig& rig)
     *rig.pos = pos;
 }
 
+namespace {
+
+// F: the selection framed - an ortho view zoomed to fit, else the camera flown back to see it.
+void frame_selection(const Rig& rig)
+{
+    if (!rig.have_selection_) {
+        hud::get_message("Nothing selected", kStatusMessageSeconds);
+    } else {
+        const float tan_half = std::min(rig.lens.tan_x_, rig.lens.tan_y_);
+        if (ortho()) {
+            // (an ortho view: its zoom to fit, the lens as perspective has it)
+            const float base =
+                tan_half * eye_distance(stored_ortho().equivalent) / std::max(1.0F, stored_ortho().equivalent);
+            stored_ortho().equivalent =
+                std::clamp(frame_distance({.radius = rig.radius, .tan_half_ = base, .minimum = 100.0F}),
+                           kMinOrthoEquivalent, kMaxOrthoEquivalent);
+        } else {
+            const float distance =
+                std::min(20000.0F, frame_distance({.radius = rig.radius, .tan_half_ = tan_half, .minimum = 100.0F}));
+            const TickCycle frame = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
+            fly_to(rig, {.pos = rig.target + frame.back * distance, .yaw = *rig.yaw, .pitch = *rig.pitch});
+        }
+        if (prefs::get_pull().speed_by_selection_) {
+            *rig.speed = speed_for_radius(rig.radius);
+        }
+    }
+}
+
+// Camera bookmark `index` stored (Ctrl+n), or recalled (n): flown to, an ortho one in its view.
+void use_bookmark(const Rig& rig, int index, bool store)
+{
+    std::array<char, kFrameTextSize> text{};
+    if (store) {
+        Bookmark& bookmark = core::at(level_editor_camera_state().marks_, index);
+        bookmark.set = true;
+        bookmark.pose = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
+        bookmark.view = stored_ortho().view;
+        bookmark.equivalent = stored_ortho().equivalent;
+        if (ortho()) {
+            bookmark.pose.pos =
+                rig.have_selection_ ? rig.target : stored_ortho().pivot; // (an ortho bookmark keeps its pivot)
+        }
+        const bool saved = save_bookmarks();
+        text::format_to(text, "Camera bookmark %d stored%s", index + 1, saved ? "" : " (not saved: the file)");
+        hud::get_message(text.data(), kStatusMessageSeconds);
+    } else if (core::at(level_editor_camera_state().marks_, index).set) {
+        const Bookmark& bookmark = core::at(level_editor_camera_state().marks_, index);
+        if (rig.deselect) {
+            rig.deselect();
+        }
+        Rig free = rig;
+        free.have_selection_ = false;
+        exit_ortho(free);
+        if (bookmark.view != View::kNone) {
+            // (fly to the perspective place it stands for, then the ortho view)
+            const V3 forward = get_forward(bookmark.pose.yaw, bookmark.pose.pitch);
+            fly_to(free,
+                   {.pos = bookmark.pose.pos - forward * bookmark.equivalent,
+                    .yaw = bookmark.pose.yaw,
+                    .pitch = bookmark.pose.pitch},
+                   bookmark.view, bookmark.equivalent);
+        } else {
+            fly_to(free, bookmark.pose);
+        }
+        text::format_to(text, "Camera bookmark %d", index + 1);
+        hud::get_message(text.data(), kBriefMessageSeconds);
+    } else {
+        text::format_to(text, "No camera bookmark %d yet - Ctrl+%d stores one", index + 1, index + 1);
+        hud::get_message(text.data(), kStatusMessageSeconds);
+    }
+}
+
+} // namespace
+
 void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_open)
 {
     // (the keys from the keymap - level_editor_actions.h: rebindable)
@@ -577,27 +651,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
     (void)ctrl;
     // F: the selection framed (the browser has its own F).
     if (actions::squeezed(actions::kFrameSelection) && !browser_open) {
-        if (!rig.have_selection_) {
-            hud::get_message("Nothing selected", kStatusMessageSeconds);
-        } else {
-            const float tan_half = std::min(rig.lens.tan_x_, rig.lens.tan_y_);
-            if (ortho()) {
-                // (an ortho view: its zoom to fit, the lens as perspective has it)
-                const float base =
-                    tan_half * eye_distance(stored_ortho().equivalent) / std::max(1.0F, stored_ortho().equivalent);
-                stored_ortho().equivalent =
-                    std::clamp(frame_distance({.radius = rig.radius, .tan_half_ = base, .minimum = 100.0F}),
-                               kMinOrthoEquivalent, kMaxOrthoEquivalent);
-            } else {
-                const float distance = std::min(
-                    20000.0F, frame_distance({.radius = rig.radius, .tan_half_ = tan_half, .minimum = 100.0F}));
-                const TickCycle frame = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
-                fly_to(rig, {.pos = rig.target + frame.back * distance, .yaw = *rig.yaw, .pitch = *rig.pitch});
-            }
-            if (prefs::get_pull().speed_by_selection_) {
-                *rig.speed = speed_for_radius(rig.radius);
-            }
-        }
+        frame_selection(rig);
     }
     // 1..9 recall a bookmark, Ctrl+1..9 store it. (Alt+1..4 are the view modes - level_editor_overlays.h.)
     const bool alt = (core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U);
@@ -606,45 +660,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         if (alt || (!store && !actions::squeezed(actions::kBookmark1 + i))) {
             continue;
         }
-        std::array<char, kFrameTextSize> text{};
-        if (store) {
-            Bookmark& bookmark = core::at(level_editor_camera_state().marks_, i);
-            bookmark.set = true;
-            bookmark.pose = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
-            bookmark.view = stored_ortho().view;
-            bookmark.equivalent = stored_ortho().equivalent;
-            if (ortho()) {
-                bookmark.pose.pos =
-                    rig.have_selection_ ? rig.target : stored_ortho().pivot; // (an ortho bookmark keeps its pivot)
-            }
-            const bool saved = save_bookmarks();
-            text::format_to(text, "Camera bookmark %d stored%s", i + 1, saved ? "" : " (not saved: the file)");
-            hud::get_message(text.data(), kStatusMessageSeconds);
-        } else if (core::at(level_editor_camera_state().marks_, i).set) {
-            const Bookmark& bookmark = core::at(level_editor_camera_state().marks_, i);
-            if (rig.deselect) {
-                rig.deselect();
-            }
-            Rig free = rig;
-            free.have_selection_ = false;
-            exit_ortho(free);
-            if (bookmark.view != View::kNone) {
-                // (fly to the perspective place it stands for, then the ortho view)
-                const V3 forward = get_forward(bookmark.pose.yaw, bookmark.pose.pitch);
-                fly_to(free,
-                       {.pos = bookmark.pose.pos - forward * bookmark.equivalent,
-                        .yaw = bookmark.pose.yaw,
-                        .pitch = bookmark.pose.pitch},
-                       bookmark.view, bookmark.equivalent);
-            } else {
-                fly_to(free, bookmark.pose);
-            }
-            text::format_to(text, "Camera bookmark %d", i + 1);
-            hud::get_message(text.data(), kBriefMessageSeconds);
-        } else {
-            text::format_to(text, "No camera bookmark %d yet - Ctrl+%d stores one", i + 1, i + 1);
-            hud::get_message(text.data(), kStatusMessageSeconds);
-        }
+        use_bookmark(rig, i, store);
     }
     // The numpad: 7 top, 1 front, 3 right (Ctrl: the opposite), 5 perspective / ortho.
     static const std::array<std::array<int, 2>, 4> kPad = {{{actions::kViewTop, actions::kViewBottom},

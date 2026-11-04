@@ -180,6 +180,46 @@ const char* ramp_name(ground::Ramp ramp)
     }
 }
 
+// Each side's ramp: none (a wall), a kicker or a quarter pipe.
+void ramp_combos(ground::Spec& draft)
+{
+    static const std::array<const char*, 4> kSideNames = {{"-X side", "+X side", "-Z side", "+Z side"}};
+    for (int side = 0; side < 4; ++side) {
+        ImGui::PushID(side);
+        if (ImGui::BeginCombo(core::at(kSideNames, side), ramp_name(core::at(draft.ramps, side)))) {
+            for (int row = 0; row < 3; ++row) {
+                auto ramp = static_cast<ground::Ramp>(row);
+                if (ImGui::Selectable(ramp_name(ramp), core::at(draft.ramps, side) == ramp)) {
+                    core::at(draft.ramps, side) = ramp;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopID();
+    }
+}
+
+// Use Selected Material: the selected scenery piece's material, if it can give it.
+void material_button()
+{
+    if (ImGui::Button("Use Selected Material")) {
+        goal_form().queue_.emplace_back([] {
+            const std::vector<uint32_t>& selection = scenery::get_selection();
+            std::string why;
+            ground::Spec spec = goal_form().draft_;
+            if (selection.empty()) {
+                goal_form().form_message_ = "Select a scenery piece to copy its material";
+            } else if (const char* no = ground::why_not_donor(core::at(selection, 0))) {
+                goal_form().form_message_ = std::string("Can't use this material: ") + no;
+            } else if (ground::choose_material(core::at(selection, 0), &spec, &why)) {
+                goal_form().draft_.material = spec.material, goal_form().draft_.uv = spec.uv,
+                goal_form().draft_.colour = spec.colour, goal_form().draft_.terrain = spec.terrain,
+                goal_form().form_message_.clear();
+            }
+        });
+    }
+}
+
 void ground_form(float view_x, float view_y, float view_width, float scale)
 {
     if (goal_form().stage_ != Stage::kForm) {
@@ -213,20 +253,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         draft.z1 = core::at(rect, 3);
     }
     ImGui::DragFloat("Ground at", &draft.base, 1.0F, 0.0F, 0.0F, "%.1f");
-    static const std::array<const char*, 4> kSideNames = {{"-X side", "+X side", "-Z side", "+Z side"}};
-    for (int side = 0; side < 4; ++side) {
-        ImGui::PushID(side);
-        if (ImGui::BeginCombo(core::at(kSideNames, side), ramp_name(core::at(draft.ramps, side)))) {
-            for (int row = 0; row < 3; ++row) {
-                auto ramp = static_cast<ground::Ramp>(row);
-                if (ImGui::Selectable(ramp_name(ramp), core::at(draft.ramps, side) == ramp)) {
-                    core::at(draft.ramps, side) = ramp;
-                }
-            }
-            ImGui::EndCombo();
-        }
-        ImGui::PopID();
-    }
+    ramp_combos(draft);
     ImGui::DragFloat("Ramp length", &draft.length, 1.0F, 0.0F, ground::kMaxLength,
                      draft.length > 0.0F ? "%.0f" : "auto");
     if (ImGui::IsItemHovered()) {
@@ -236,21 +263,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                      goal_form().grid_ > 0.0F ? "%.0f" : "off");
     gui::text_disabled("Material: %s",
                        (draft.material != 0U) ? object_edit::caption(draft.material).c_str() : "(automatic)");
-    if (ImGui::Button("Use Selected Material")) {
-        goal_form().queue_.emplace_back([] {
-            const std::vector<uint32_t>& selection = scenery::get_selection();
-            std::string why;
-            ground::Spec spec = goal_form().draft_;
-            if (selection.empty()) {
-                goal_form().form_message_ = "Select a scenery piece to copy its material";
-            } else if (const char* no = ground::why_not_donor(core::at(selection, 0))) {
-                goal_form().form_message_ = std::string("Can't use this material: ") + no;
-            } else if (ground::choose_material(core::at(selection, 0), &spec, &why)) {
-                goal_form().draft_.material = spec.material, goal_form().draft_.uv = spec.uv, goal_form().draft_.colour = spec.colour,
-                goal_form().draft_.terrain = spec.terrain, goal_form().form_message_.clear();
-            }
-        });
-    }
+    material_button();
     if (draft.lower) {
         gui::text_disabled("Pits need floor pieces inside the rectangle");
     }
