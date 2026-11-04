@@ -557,9 +557,13 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     if (items.empty()) {
         gui::text_disabled("%s", tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
     } else if (shown.empty()) {
-        gui::text_disabled("%s", level_editor_thumbs_state().list_mode_ == 1 ? "(none placed yet)"
-                            : level_editor_thumbs_state().list_mode_ == 2 ? "(no favourites)"
-                                               : "(no matches)");
+        const char* none = "(no matches)";
+        if (level_editor_thumbs_state().list_mode_ == 1) {
+            none = "(none placed yet)";
+        } else if (level_editor_thumbs_state().list_mode_ == 2) {
+            none = "(no favourites)";
+        }
+        gui::text_disabled("%s", none);
     }
     if (!grid) {
         // The list, a star at each row's end.
@@ -668,9 +672,14 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                         ImVec2((point_a.x + point_b.x - size.x) * kHalf, (point_a.y + point_b.y - size.y) * kHalf),
                         ImGui::GetColorU32(ImGuiCol_TextDisabled), wait);
                 }
-                const ImU32 border = selected ? IM_COL32(210, 87, 28, 255)
-                                     : hover  ? IM_COL32(200, 200, 200, 200)
-                                              : ImGui::GetColorU32(ImGuiCol_Border);
+                ImU32 border = 0;
+                if (selected) {
+                    border = IM_COL32(210, 87, 28, 255);
+                } else if (hover) {
+                    border = IM_COL32(200, 200, 200, 200);
+                } else {
+                    border = ImGui::GetColorU32(ImGuiCol_Border);
+                }
                 draw->AddRect(point_a, point_b, border, kCellRounding, 0, selected ? kSelectedBorderWidth : 1.0F);
                 // (the star in the top right corner)
                 const float radius = 7.0F * scale;

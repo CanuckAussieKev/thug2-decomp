@@ -102,8 +102,19 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         }
         return;
     }
-    const char* noun = chain.path ? "path" : chain.ladder ? "ladder" : chain.ledge ? "ledge" : "rail";
-    ImGui::SeparatorText(chain.path ? "Path" : chain.ladder ? "Ladder" : chain.ledge ? "Ledge" : "Rail");
+    const char* noun = "rail";
+    const char* title = "Rail";
+    if (chain.path) {
+        noun = "path";
+        title = "Path";
+    } else if (chain.ladder) {
+        noun = "ladder";
+        title = "Ladder";
+    } else if (chain.ledge) {
+        noun = "ledge";
+        title = "Ledge";
+    }
+    ImGui::SeparatorText(title);
     gui::text("%d point%s%s", chain.points, chain.points == 1 ? "" : "s", chain.added ? " (added)" : "");
     if (!chain.prev.empty()) {
         gui::text_disabled("after %s", chain.prev.c_str());

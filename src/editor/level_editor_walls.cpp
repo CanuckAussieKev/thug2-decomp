@@ -99,7 +99,10 @@ int get_combined(const std::vector<bool>& offs)
     for (const bool off : offs) {
         (off ? any_off : any_on) = true;
     }
-    return any_off && any_on ? 2 : any_off ? 0 : 1;
+    if (any_off && any_on) {
+        return 2; // (mixed)
+    }
+    return any_off ? 0 : 1;
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------

@@ -976,7 +976,12 @@ void apply_box()
 {
     const Rect2 box = rect_of(box_drag().x0, box_drag().y0, box_drag().x1, box_drag().y1);
     const bool crossing = crossing_drag(box_drag().x0, box_drag().x1);
-    const int op = ((box_drag().mods & actions::kShift) != 0) ? 1 : ((box_drag().mods & actions::kCtrl) != 0) ? 2 : 0;
+    int op = 0; // (Shift adds: 1; Ctrl removes: 2; plain: 0)
+    if ((box_drag().mods & actions::kShift) != 0) {
+        op = 1;
+    } else if ((box_drag().mods & actions::kCtrl) != 0) {
+        op = 2;
+    }
     const uint32_t filter = pick_filter_now();
     std::vector<uint32_t> objects;
     std::vector<uint32_t> sectors;

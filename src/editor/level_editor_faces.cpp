@@ -46,7 +46,6 @@ namespace frontend::level_editor::faces {
 
 namespace {
 
-constexpr int kHexLetterBase = 10; // the value of the hex digit 'a'
 constexpr std::size_t kFaceTextSize = 32;
 constexpr std::size_t kChecksumDigits = 8; // hex digits of a checksum
 constexpr uint32_t kFaceOverflowGuard = 6553; // above this a decimal face number would pass 0xFFFF with one more digit
@@ -74,20 +73,6 @@ const std::array<FlagInfo, kFlagCount> kFlags = {{
     {.bit = render::FaceFlag::kNoTagging, .name = "Not Taggable", .what = "Can't be tagged with graffiti"},
 }};
 
-int hex_digit(char character)
-{
-    if (character >= '0' && character <= '9') {
-        return character - '0';
-    }
-    if (character >= 'a' && character <= 'f') {
-        return character - 'a' + kHexLetterBase;
-    }
-    if (character >= 'A' && character <= 'F') {
-        return character - 'A' + kHexLetterBase;
-    }
-    return -1;
-}
-
 } // namespace
 
 const FlagInfo& bit_mark(int index) { return core::at(kFlags, std::clamp(index, 0, kFlagCount - 1)); }
@@ -106,7 +91,10 @@ int get_combined(const std::vector<render::FaceFlag>& flags, render::FaceFlag bi
     for (const render::FaceFlag flag : flags) {
         on += core::any(flag & bit) ? 1 : 0;
     }
-    return on == 0 ? 0 : on == flags.size() ? 1 : 2;
+    if (on == 0) {
+        return 0;
+    }
+    return on == flags.size() ? 1 : 2;
 }
 
 bool get_click(std::vector<FaceKey>* selection, FaceKey key, bool add)

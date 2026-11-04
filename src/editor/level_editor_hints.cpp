@@ -424,9 +424,13 @@ std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of)
             break;
         }
         if (!context.fly_always_) {
-            builder.acts({"tool_move", "tool_rotate", "tool_scale"}, context.tool == 1   ? "tool (rotate)"
-                                                                     : context.tool == 2 ? "tool (scale)"
-                                                                                         : "tool (move)");
+            const char* tool = "tool (move)";
+            if (context.tool == 1) {
+                tool = "tool (rotate)";
+            } else if (context.tool == 2) {
+                tool = "tool (scale)";
+            }
+            builder.acts({"tool_move", "tool_rotate", "tool_scale"}, tool);
         } else {
             builder.act("tool_cycle", "next tool");
         }

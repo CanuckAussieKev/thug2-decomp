@@ -265,10 +265,7 @@ bool is_hex_form(const std::string& name, uint32_t* value)
     uint32_t v = 0;
     for (size_t i = 2; i < kHexNameLength; ++i) {
         const char character = core::at(name, i);
-        const int digit = character >= '0' && character <= '9'   ? character - '0'
-                          : character >= 'a' && character <= 'f' ? character - 'a' + 10
-                          : character >= 'A' && character <= 'F' ? character - 'A' + 10
-                                                                 : -1;
+        const int digit = hex_digit(character);
         if (digit < 0) {
             return false;
         }
@@ -571,16 +568,15 @@ V3 handle_direction(HandleOf handle_of)
     const auto handle = handle_of.handle;
     const int axis = (handle >> 1) % 3;
     const float sign = ((handle & 1) != 0) ? 1.0F : -1.0F;
-    const V3 unit = axis == 0   ? V3{.x = 1.0F, .y = 0.0F, .z = 0.0F}
-                    : axis == 1 ? V3{.x = 0.0F, .y = 1.0F, .z = 0.0F}
-                                : V3{.x = 0.0F, .y = 0.0F, .z = 1.0F};
+    V3 unit{.x = 0.0F, .y = 0.0F, .z = 0.0F};
+    axis_ref(unit, axis) = 1.0F;
     return turn_about_up(unit, yaw) * sign;
 }
 
 V3 handle_point(V3 pos, float yaw, V3 size, int handle)
 {
     const int axis = (handle >> 1) % 3;
-    const float half = (axis == 0 ? size.x : axis == 1 ? size.y : size.z) * 0.5F;
+    const float half = axis_value(size, axis) * 0.5F;
     return pos + handle_direction({.yaw = yaw, .handle = handle}) * half;
 }
 
@@ -592,11 +588,11 @@ void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, ResizedFace res
     const auto along = face_drag.along;
     const int axis = (handle >> 1) % 3;
     V3 grown = size;
-    float* side = axis == 0 ? &grown.x : axis == 1 ? &grown.y : &grown.z;
-    const float before = *side;
-    *side = before + (std::isfinite(along) ? along : 0.0F);
+    float& side = axis_ref(grown, axis);
+    const float before = side;
+    side = before + (std::isfinite(along) ? along : 0.0F);
     grown = clamp_size(grown);
-    const float change = (axis == 0 ? grown.x : axis == 1 ? grown.y : grown.z) - before;
+    const float change = axis_value(grown, axis) - before;
     *new_size = grown;
     *new_pos = pos + handle_direction({.yaw = yaw, .handle = handle}) * (change * kHalf);
 }
@@ -3210,7 +3206,7 @@ void rescale(V3 origin, V3 dir, bool snap)
         return; // (the ray nearly along the axis: far off)
     }
     const int axis = resize_drag().handle >> 1;
-    const float size0 = axis == 0 ? resize_drag().size0.x : axis == 1 ? resize_drag().size0.y : resize_drag().size0.z;
+    const float size0 = axis_value(resize_drag().size0, axis);
     if (snap) {
         along = snap_to_grid(size0 + along, kResizeSnapGrid) - size0;
     }

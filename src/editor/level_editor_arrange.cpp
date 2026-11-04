@@ -129,11 +129,24 @@ constexpr float kHalf = 0.5F; // half
 
 float edge_of(const Span& span, Edge edge)
 {
-    return edge == Edge::kMin ? span.lo : edge == Edge::kMax ? span.hi : (span.lo + span.hi) * kHalf;
+    if (edge == Edge::kMin) {
+        return span.lo;
+    }
+    if (edge == Edge::kMax) {
+        return span.hi;
+    }
+    return (span.lo + span.hi) * kHalf;
 }
-
-float get_component(V3 v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
-float& component_ref(V3& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
+const char* edge_name(Edge edge)
+{
+    if (edge == Edge::kMin) {
+        return "min";
+    }
+    if (edge == Edge::kMax) {
+        return "max";
+    }
+    return "centre";
+}
 
 } // namespace
 
@@ -204,8 +217,8 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
     Aabb moving_box = {.min = moving.min + delta, .max = moving.max + delta};
     constexpr float kEps = 0.5F; // (boxes that only touch don't overlap)
     auto overlaps = [&](const Aabb& other_box, int axis, float slack) {
-        return get_component(moving_box.min, axis) < get_component(other_box.max, axis) + slack - kEps &&
-               get_component(moving_box.max, axis) > get_component(other_box.min, axis) - slack + kEps;
+        return axis_value(moving_box.min, axis) < axis_value(other_box.max, axis) + slack - kEps &&
+               axis_value(moving_box.max, axis) > axis_value(other_box.min, axis) - slack + kEps;
     };
     for (int axis = 0; axis < 3; ++axis) {
         if ((axes & (1 << axis)) == 0) {
@@ -241,11 +254,11 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
                 if (!overlaps(other_box, 1, 0.0F) || !overlaps(other_box, across, reach)) {
                     continue;
                 }
-                consider({.c = get_component(other_box.max, axis) - get_component(moving_box.min, axis),
-                          .face = get_component(other_box.max, axis),
+                consider({.c = axis_value(other_box.max, axis) - axis_value(moving_box.min, axis),
+                          .face = axis_value(other_box.max, axis),
                           .index = index});
-                consider({.c = get_component(other_box.min, axis) - get_component(moving_box.max, axis),
-                          .face = get_component(other_box.min, axis),
+                consider({.c = axis_value(other_box.min, axis) - axis_value(moving_box.max, axis),
+                          .face = axis_value(other_box.min, axis),
                           .index = index});
             } else {
                 // (stacked on it: over it; level with its top: beside it, within reach)
@@ -258,7 +271,7 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, Snap
             }
         }
         if (found >= 0) {
-            component_ref(out, axis) += correction;
+            axis_ref(out, axis) += correction;
             if (contacts) {
                 contacts->push_back({.axis = axis, .at = at, .other = found});
             }
@@ -663,10 +676,7 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
     const std::vector<float> moves = align_moves(spans, edge, reference);
     move_units(selection, units, core::at(axes, axis), moves);
     std::array<char, kReportTextSize> text{};
-    text::format_to(text, "Aligned %d pieces: %s on %s (%s, %s)", static_cast<int>(units.size()),
-                    edge == Edge::kMin   ? "min"
-                    : edge == Edge::kMax ? "max"
-                                         : "centre",
+    text::format_to(text, "Aligned %d pieces: %s on %s (%s, %s)", static_cast<int>(units.size()), edge_name(edge),
                     get_axis_name(axis), local ? "local" : "world",
                     reference == Reference::kFirst ? "the first" : "the bounds");
     hud::get_message(text.data(), hud::kShortMessageSeconds);
@@ -898,10 +908,13 @@ bool get_replace()
     if (selection.kind == edit::Kind::kObject && tab == 1) {
         return replace_objects(selection, source);
     }
-    hud::get_message(selection.kind == edit::Kind::kScenery  ? "Replace: choose a scenery piece"
-                     : selection.kind == edit::Kind::kObject ? "Replace: choose an object"
-                                                             : "Replace: nothing selected",
-                     hud::kMessageSeconds);
+    const char* message = "Replace: nothing selected";
+    if (selection.kind == edit::Kind::kScenery) {
+        message = "Replace: choose a scenery piece";
+    } else if (selection.kind == edit::Kind::kObject) {
+        message = "Replace: choose an object";
+    }
+    hud::get_message(message, hud::kMessageSeconds);
     return false;
 }
 
@@ -1655,23 +1668,23 @@ void add_contacts(const Painter& painter)
         const Aabb& moving_box = stored_snap().moving;
         const int u = contact.axis == 0 ? 1 : 0;
         const int v = contact.axis == 2 ? 1 : 2;
-        float u0 = std::max(get_component(aabb.min, u), get_component(moving_box.min, u));
-        float u1 = std::min(get_component(aabb.max, u), get_component(moving_box.max, u));
-        float v0 = std::max(get_component(aabb.min, v), get_component(moving_box.min, v));
-        float v1 = std::min(get_component(aabb.max, v), get_component(moving_box.max, v));
+        float u0 = std::max(axis_value(aabb.min, u), axis_value(moving_box.min, u));
+        float u1 = std::min(axis_value(aabb.max, u), axis_value(moving_box.max, u));
+        float v0 = std::max(axis_value(aabb.min, v), axis_value(moving_box.min, v));
+        float v1 = std::min(axis_value(aabb.max, v), axis_value(moving_box.max, v));
         if (u1 < u0) { // (beside it, not over it: the neighbour's whole face)
-            u0 = get_component(aabb.min, u), u1 = get_component(aabb.max, u);
+            u0 = axis_value(aabb.min, u), u1 = axis_value(aabb.max, u);
         }
         if (v1 < v0) {
-            v0 = get_component(aabb.min, v), v1 = get_component(aabb.max, v);
+            v0 = axis_value(aabb.min, v), v1 = axis_value(aabb.max, v);
         }
         std::array<V3, 4> corner{};
         const std::array<float, 4> us = {{u0, u1, u1, u0}};
         const std::array<float, 4> vs = {{v0, v0, v1, v1}};
         for (int k = 0; k < 4; ++k) {
-            component_ref(core::at(corner, k), contact.axis) = contact.at;
-            component_ref(core::at(corner, k), u) = core::at(us, k);
-            component_ref(core::at(corner, k), v) = core::at(vs, k);
+            axis_ref(core::at(corner, k), contact.axis) = contact.at;
+            axis_ref(core::at(corner, k), u) = core::at(us, k);
+            axis_ref(core::at(corner, k), v) = core::at(vs, k);
         }
         for (int k = 0; k < 4; ++k) {
             painter.get_seg(core::at(corner, k), core::at(corner, (k + 1) % 4), kSnapBoxColour, kSnapBoxWidth);

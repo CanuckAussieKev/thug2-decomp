@@ -523,9 +523,12 @@ void get_toolbar(const ShapeMesh& model)
         budget::tooltip();
     }
     if (out.level_hovered_) {
-        gui::tooltip(
-            "Editing a copy of %s. The original level is unchanged.\nLayout: %s", model.level_title_.c_str(),
-            model.edited_saved_ ? (model.unsaved ? "saved, with unsaved changes" : "saved") : "not saved yet");
+        const char* layout = "not saved yet";
+        if (model.edited_saved_) {
+            layout = model.unsaved ? "saved, with unsaved changes" : "saved";
+        }
+        gui::tooltip("Editing a copy of %s. The original level is unchanged.\nLayout: %s", model.level_title_.c_str(),
+                     layout);
     }
     for (const ui_strip::Occurrence& event : out.events) {
         switch (event.kind) {

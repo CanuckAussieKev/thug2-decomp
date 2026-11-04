@@ -209,7 +209,12 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     auto rail_node = [&](int index) {
         return index >= 0 && std::cmp_less(index, all.size()) && core::at(all, index).family == nodes::Family::kRail;
     };
-    const int index = rail_node(hovered) ? hovered : rail_node(selected) ? selected : -1;
+    int index = -1; // (the hovered rail point, else the selected one)
+    if (rail_node(hovered)) {
+        index = hovered;
+    } else if (rail_node(selected)) {
+        index = selected;
+    }
     const objects::GrindRailHub* rails = get_rails();
     if (index < 0 || !rails) {
         return;

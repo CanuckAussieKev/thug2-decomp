@@ -173,9 +173,8 @@ int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, s
 
 float distance_to_box(V3 point, V3 min, V3 max)
 {
-    auto axis = [](float value, float lo, float hi) {
-        return value < lo ? lo - value : value > hi ? value - hi : 0.0F;
-    };
+    // (below lo: by how much; else how far beyond hi, 0 within - the max keeps 0 for a NaN difference)
+    auto axis = [](float value, float lo, float hi) { return value < lo ? lo - value : std::max(0.0F, value - hi); };
     const float dx = axis(point.x, min.x, max.x);
     const float dy = axis(point.y, min.y, max.y);
     const float dz = axis(point.z, min.z, max.z);
@@ -245,7 +244,11 @@ FaceStyle style_of(const FaceFacts& facts)
         style.edge = kTakenEdge;
         style.dashed = true;
     } else if (wall || facts.selected || facts.hovered) {
-        style.edge = facts.selected ? kSelectedEdge : facts.hovered ? kHoveredEdge : kWallEdge;
+        if (facts.selected) {
+            style.edge = kSelectedEdge;
+        } else {
+            style.edge = facts.hovered ? kHoveredEdge : kWallEdge;
+        }
         style.dashed = facts.off;
         style.thickness = facts.selected || facts.hovered ? kHighlightedEdgeThickness : 1.0F;
     }

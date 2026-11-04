@@ -580,9 +580,12 @@ void tick_frame(TickCycle& tick_cycle)
         return;
     }
     // Letting go of its key / button: a hold runs what's pointed at; a tap keeps it up for a click.
-    const bool held = pie_menu().pie_.pad_button_
-                          ? (pie_menu().pie_.kind == pie::Kind::kView ? tick_cycle.pad.y_down_ : tick_cycle.pad.x_down_)
-                          : pie_menu().pie_.key >= 0 && get_held(tick_cycle.keys, pie_menu().pie_.key);
+    bool held = false; // (the pie's button or key still down)
+    if (pie_menu().pie_.pad_button_) {
+        held = pie_menu().pie_.kind == pie::Kind::kView ? tick_cycle.pad.y_down_ : tick_cycle.pad.x_down_;
+    } else {
+        held = pie_menu().pie_.key >= 0 && get_held(tick_cycle.keys, pie_menu().pie_.key);
+    }
     if (!held && !pie_menu().pie_.sticky) {
         if (SDL_GetTicks() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0) {
             pie_menu().pie_.sticky = true;

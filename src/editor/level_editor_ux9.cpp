@@ -170,7 +170,14 @@ void get_apply()
 
 const char* ramp_name(ground::Ramp ramp)
 {
-    return ramp == ground::Ramp::kKicker ? "Kicker" : ramp == ground::Ramp::kQuarter ? "Quarter pipe" : "None (wall)";
+    switch (ramp) {
+    case ground::Ramp::kKicker:
+        return "Kicker";
+    case ground::Ramp::kQuarter:
+        return "Quarter pipe";
+    default:
+        return "None (wall)";
+    }
 }
 
 void ground_form(float view_x, float view_y, float view_width, float scale)

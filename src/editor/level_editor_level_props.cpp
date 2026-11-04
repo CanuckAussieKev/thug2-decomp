@@ -108,8 +108,8 @@ bool valid_sky(const std::string& sky)
     return lower.find("_sky") != std::string::npos;
 }
 
-int get_channel(int value) { return value < 0 ? 0 : value > kColourChannelMax ? kColourChannelMax : value; }
-int span_to(int value) { return value < 0 ? 0 : value > kSpanLimit ? kSpanLimit : value; }
+int get_channel(int value) { return std::clamp(value, 0, kColourChannelMax); }
+int span_to(int value) { return std::clamp(value, 0, kSpanLimit); }
 
 std::string write_record(const Props& props)
 {
@@ -238,13 +238,23 @@ std::vector<std::pair<const char*, fields::Value>> structure_values(const Props&
 
 bool get_override(const Props& edited, const Props& level, gfx::TodParams* params)
 {
-    const Props* ambient = edited.has_ambient_ ? &edited : level.has_ambient_ ? &level : nullptr;
+    const Props* ambient = nullptr; // (the edited level's, else the level's own)
+    if (edited.has_ambient_) {
+        ambient = &edited;
+    } else if (level.has_ambient_) {
+        ambient = &level;
+    }
     if (ambient) {
         params->ambient_red_ = get_channel(core::at(ambient->ambient, 0));
         params->ambient_green_ = get_channel(core::at(ambient->ambient, 1));
         params->ambient_blue_ = get_channel(core::at(ambient->ambient, 2));
     }
-    const Props* fog = edited.has_fog_ ? &edited : level.has_fog_ ? &level : nullptr;
+    const Props* fog = nullptr;
+    if (edited.has_fog_) {
+        fog = &edited;
+    } else if (level.has_fog_) {
+        fog = &level;
+    }
     if (!fog) {
         return false;
     }

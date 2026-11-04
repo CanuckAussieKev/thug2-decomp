@@ -996,7 +996,10 @@ float preview_mph(uint32_t name)
         }
     }
     const uint32_t cls = class_of(look_up_node_params(name));
-    return cls == kVehicle ? kVehicleMph : cls == kPedestrian ? kPedestrianMph : kDefaultMph;
+    if (cls == kVehicle) {
+        return kVehicleMph;
+    }
+    return cls == kPedestrian ? kPedestrianMph : kDefaultMph;
 }
 
 float current_heading(const objects::GameEntity* object)

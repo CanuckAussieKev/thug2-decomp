@@ -228,7 +228,13 @@ void get_palette()
         const bool enabled = actions::is_switched_on(index);
         ImGui::PushID(index);
         const int checked = actions::get_checked(index);
-        const std::string text = (checked == 1 ? "[x] " : checked == 0 ? "[ ] " : "") + act_step.name;
+        const char* box = ""; // (a toggle's: ticked or not)
+        if (checked == 1) {
+            box = "[x] ";
+        } else if (checked == 0) {
+            box = "[ ] ";
+        }
+        const std::string text = box + act_step.name;
         if (!enabled) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
         }
@@ -985,8 +991,11 @@ void row_toggles(const nodes::Elem& node, float x)
         const FlipOver& toggle = core::at(toggles, tab);
         // (lit when on: the lock orange; the eye and selectable light; off: dim)
         ImGui::PushID(tab);
-        ImGui::PushStyleColor(ImGuiCol_Text,
-                              toggle.state ? (tab == 1 ? kLockOnColour : kToggleOnColour) : kToggleOffColour);
+        ImVec4 text_colour = kToggleOffColour;
+        if (toggle.state) {
+            text_colour = tab == 1 ? kLockOnColour : kToggleOnColour;
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, text_colour);
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0F, 0.0F, 0.0F, 0.0F));
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kToggleFramePadding * ui_scale(), 0.0F));
         const bool clicked = ImGui::SmallButton(toggle.state ? toggle.on : toggle.off);

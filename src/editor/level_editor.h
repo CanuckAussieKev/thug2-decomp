@@ -314,6 +314,11 @@ inline V3 perpendicular(V3 a, V3 b)
     return {.x = (a.y * b.z) - (a.z * b.y), .y = (a.z * b.x) - (a.x * b.z), .z = (a.x * b.y) - (a.y * b.x)};
 }
 V3 make_unit(V3 v);
+// A vector's component along axis 0 (x), 1 (y) or 2 (z - any other axis too), read or written.
+float axis_value(V3 v, int axis);
+float& axis_ref(V3& v, int axis);
+// A hexadecimal digit's value (0-15; -1: not one).
+int hex_digit(char character);
 
 // A camera's frame as the game keeps it (gfx::ViewCam basis_frame_ rows): right, up, back (the view looks along -back).
 struct TickCycle {

@@ -214,6 +214,7 @@ constexpr float kLookMargin = 1.5F; // the camera stops this many sizes away
 constexpr float kMinBoxLookDistance = 200.0F;
 constexpr float kMinFrameRadius = 50.0F;
 constexpr uint32_t kMillisecondsPerSecond = 1000U;
+constexpr int kHexLetterBase = 10;          // the value of the hex digit 'a'
 constexpr double kMaxFrameSeconds = 0.1;    // a frame counts for at most this long
 constexpr double kFastFlyFactor = 4.0;      // Shift flies four times as fast
 constexpr float kMinWheelStep = 20.0F;
@@ -236,6 +237,31 @@ constexpr float kQuarterTurnDegrees = 90.0F; // degrees in a quarter turn
 } // namespace
 
 // --- the pieces -------------------------------------------------------------------------------------------------
+
+float axis_value(V3 v, int axis) { return axis_ref(v, axis); }
+float& axis_ref(V3& v, int axis)
+{
+    if (axis == 0) {
+        return v.x;
+    }
+    if (axis == 1) {
+        return v.y;
+    }
+    return v.z;
+}
+int hex_digit(char character)
+{
+    if (character >= '0' && character <= '9') {
+        return character - '0';
+    }
+    if (character >= 'a' && character <= 'f') {
+        return character - 'a' + kHexLetterBase;
+    }
+    if (character >= 'A' && character <= 'F') {
+        return character - 'A' + kHexLetterBase;
+    }
+    return -1;
+}
 
 V3 make_unit(V3 v)
 {
@@ -1148,11 +1174,13 @@ void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float rad
     const xform::Pivot pivot = xform::at_hand().pivot;
     const V3 base = object_edit::pos_of(objects.front());
     for (objects::GameEntity* object : objects) {
-        object_edit::turn_about(object,
-                                pivot == xform::Pivot::kOwn      ? object_edit::pos_of(object)
-                                : pivot == xform::Pivot::kCentre ? centre
-                                                                 : base,
-                                radians);
+        V3 about = base;
+        if (pivot == xform::Pivot::kOwn) {
+            about = object_edit::pos_of(object);
+        } else if (pivot == xform::Pivot::kCentre) {
+            about = centre;
+        }
+        object_edit::turn_about(object, about, radians);
     }
 }
 // Turned a notch (an object or a node by the rotation snap's step - 15 degrees unless the toolbar says otherwise -
@@ -1425,7 +1453,7 @@ bool scale_objects(const std::vector<objects::GameEntity*>& objects, V3 factor, 
                     continue;
                 }
                 const int axis = scale_tool::nearest_axis(rows, axis_index);
-                (axis == 0 ? local.x : axis == 1 ? local.y : local.z) = core::at(along, axis_index);
+                axis_ref(local, axis) = core::at(along, axis_index);
             }
         }
         const V3 now = scale_tool::get_object_scale(object);
@@ -2003,9 +2031,13 @@ xform::Gizmo gizmo_now()
 {
     xform::Gizmo gizmo;
     gizmo.mode = drag_state().dragging_ ? drag_state().drag_mode_ : gizmo_mode();
-    gizmo.pivot = gizmo.mode == xform::Mode::kShiftBy ? selection_pos()
-                  : drag_state().dragging_                        ? drag_state().transform_pivot_
-                                                      : transform_pivot(gizmo.mode);
+    if (gizmo.mode == xform::Mode::kShiftBy) {
+        gizmo.pivot = selection_pos();
+    } else if (drag_state().dragging_) {
+        gizmo.pivot = drag_state().transform_pivot_;
+    } else {
+        gizmo.pivot = transform_pivot(gizmo.mode);
+    }
     selection_axes(gizmo.axes);
     gizmo.length = arrow_length();
     gizmo.rotates = selection_turns();
@@ -2214,7 +2246,13 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 
 void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
-    const int axis = drag_state().typed_.axis >= 0 ? drag_state().typed_.axis : drag_state().axis_ >= 0 && drag_state().axis_ < 3 ? drag_state().axis_ : -1;
+    // (the typed axis, else the arrow's, else none: uniform)
+    int axis = -1;
+    if (drag_state().typed_.axis >= 0) {
+        axis = drag_state().typed_.axis;
+    } else if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
+        axis = drag_state().axis_;
+    }
     float factor = 1.0F;
     float typed = 0.0F;
     if (xform::typed_value(drag_state().typed_, &typed)) {
@@ -2460,7 +2498,12 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     // (a typed amount: that far along the typed axis - else the arrow's, else X - from where the drag started)
     float typed = 0.0F;
     if (xform::typed_value(drag_state().typed_, &typed)) {
-        const int axis = drag_state().typed_.axis >= 0 ? drag_state().typed_.axis : drag_state().axis_ >= 0 ? drag_state().axis_ : 0;
+        int axis = 0;
+        if (drag_state().typed_.axis >= 0) {
+            axis = drag_state().typed_.axis;
+        } else if (drag_state().axis_ >= 0) {
+            axis = drag_state().axis_;
+        }
         const V3 wanted = drag_state().drag_start_ + axis_vector(axis) * typed;
         if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z) {
             place_selection(wanted);
@@ -2495,8 +2538,8 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
         }
         wanted = drag_state().drag_from_ + u * along;
         if (snap.on && absolute && xform::at_hand().space == xform::Space::kWorld) {
-            float* component = drag_state().axis_ == 0 ? &wanted.x : drag_state().axis_ == 1 ? &wanted.y : &wanted.z;
-            *component = snap_to_grid(*component, grid);
+            float& component = axis_ref(wanted, drag_state().axis_);
+            component = snap_to_grid(component, grid);
         } else if (snap.on) {
             const float total = get_dot(wanted - drag_state().drag_start_, u);
             wanted = wanted + u * (relative(total) - total);
@@ -2537,9 +2580,12 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     }
     // (no snapping held: a scenery piece's box faces flush with its neighbours' - level_editor_arrange.h)
     if (!snap.on && !get_primary() && picked_node_index() < 0 && (wall_only() == 0U)) {
-        const int axes = drag_state().axis_ >= 0       ? (xform::at_hand().space == xform::Space::kWorld ? 1 << drag_state().axis_ : 0)
-                         : drag_state().drag_vertical_ ? 2
-                                           : 5;
+        // (the axes as bits: the arrow's axis in world space - none in local space -, else y up / down, else x and z)
+        const int free_axes = drag_state().drag_vertical_ ? 2 : 5;
+        int axes = free_axes;
+        if (drag_state().axis_ >= 0) {
+            axes = xform::at_hand().space == xform::Space::kWorld ? 1 << drag_state().axis_ : 0;
+        }
         if (axes != 0) {
             wanted = arrange::edge_snapped(pos, wanted, axes);
         }
@@ -2584,11 +2630,13 @@ void end_drag()
         note_for_adjust(drag_state().drag_mode_, selection_pos() - drag_state().drag_start_, uniform);
     }
     const V3 at = selection_pos();
-    note_action("%s to (%.0f, %.0f, %.0f): %s",
-                drag_state().drag_mode_ == xform::Mode::kSpinBy  ? "turned"
-                : drag_state().drag_mode_ == xform::Mode::kScale ? "scaled"
-                                                     : "dragged",
-                at.x, at.y, at.z, describe_selection().c_str());
+    const char* done = "dragged";
+    if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
+        done = "turned";
+    } else if (drag_state().drag_mode_ == xform::Mode::kScale) {
+        done = "scaled";
+    }
+    note_action("%s to (%.0f, %.0f, %.0f): %s", done, at.x, at.y, at.z, describe_selection().c_str());
     drag_state().drag_mode_ = xform::Mode::kShiftBy;
     drag_state().modal_ = false;
     drag_state().typed_ = {};
@@ -2820,10 +2868,14 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                     (ay > bottom && by > bottom)) {
                     continue;
                 }
-                const uint32_t colour = is_selected ? kSelectedGizmo : is_hovered ? kHoverGizmo : elem.colour;
-                const float thickness = is_selected || is_hovered             ? 3.0F
-                                        : elem.family == nodes::Family::kRail ? 2.0F
-                                                                              : 1.5F;
+                uint32_t colour = elem.colour;
+                if (is_selected) {
+                    colour = kSelectedGizmo;
+                } else if (is_hovered) {
+                    colour = kHoverGizmo;
+                }
+                const float plain_thickness = elem.family == nodes::Family::kRail ? 2.0F : 1.5F;
+                const float thickness = is_selected || is_hovered ? 3.0F : plain_thickness;
                 if (elem.family == nodes::Family::kLadder) {
                     for (int piece = 0; piece < kLadderPieceCount; piece += 2) { // (dashed)
                         line(ax + ((bx - ax) * static_cast<float>(piece) / kLadderPieceCountF),
@@ -3638,7 +3690,14 @@ const char* mode_name()
 // The gizmo's handle under the cursor, in words (level_editor_transform.h).
 std::string handle_hover_text(int handle)
 {
-    const char* axis = handle == 0 ? "X" : handle == 1 ? "Y" : handle == 2 ? "Z" : "";
+    const char* axis = "";
+    if (handle == 0) {
+        axis = "X";
+    } else if (handle == 1) {
+        axis = "Y";
+    } else if (handle == 2) {
+        axis = "Z";
+    }
     switch (gizmo_mode()) {
     case xform::Mode::kSpinBy:
         return "Rotate ring (Ctrl: snap)";
@@ -3659,10 +3718,14 @@ std::string hover_text()
                core::at(kAxisLetters, drag_state().hover_handle_ >> 1) +
                " face - drag to resize it";
     }
-    std::string text = drag_state().hover_axis_ >= 0        ? handle_hover_text(drag_state().hover_axis_)
-                       : (drag_state().hover_sector_ != 0U) ? scenery::describe_hover(drag_state().hover_sector_)
-                       : get_live(drag_state().hover_)      ? object_edit::describe(get_live(drag_state().hover_))
-                                                            : "-";
+    std::string text = "-";
+    if (drag_state().hover_axis_ >= 0) {
+        text = handle_hover_text(drag_state().hover_axis_);
+    } else if (drag_state().hover_sector_ != 0U) {
+        text = scenery::describe_hover(drag_state().hover_sector_);
+    } else if (get_live(drag_state().hover_)) {
+        text = object_edit::describe(get_live(drag_state().hover_));
+    }
     if (drag_state().hover_axis_ < 0 && pick_cycle().hover_cycle_ >= 0) {
         std::array<char, kPlaceTextSize> place{};
         text::format_to(place, "  (%d of %d under the cursor: click)", pick_cycle().hover_cycle_ + 1,
@@ -4150,12 +4213,18 @@ bool place_entity(int entry, V3 at)
 
 chains::Blit chain_kind_of(int entry)
 {
-    const int chain = chain_entry(entry);
-    return chain == 0   ? chains::Blit::kRail
-           : chain == 1 ? chains::Blit::kRouteWay
-           : chain == 2 ? chains::Blit::kLadder
-           : chain == 3 ? chains::Blit::kLedge
-                        : chains::Blit::kNone;
+    switch (chain_entry(entry)) {
+    case 0:
+        return chains::Blit::kRail;
+    case 1:
+        return chains::Blit::kRouteWay;
+    case 2:
+        return chains::Blit::kLadder;
+    case 3:
+        return chains::Blit::kLedge;
+    default:
+        return chains::Blit::kNone;
+    }
 }
 
 // A click while drawing: a point where the cursor's ray meets the level (edges snapped unless Alt; a free end near it
@@ -4389,10 +4458,15 @@ std::vector<std::pair<std::string, std::string>> keys_now()
     context.free_camera_ = drag_state().free_camera_;
     context.tool = static_cast<int>(xform::at_hand().mode);
     if (drag_state().dragging_) {
-        context.drag = drag_state().drag_mode_ == xform::Mode::kSpinBy  ? hints::Drag::kSpinBy
-                       : drag_state().drag_mode_ == xform::Mode::kScale ? hints::Drag::kScale
-                       : drag_state().axis_ >= 0                        ? hints::Drag::kMoveAxis
-                                                                        : hints::Drag::kShiftBy;
+        if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
+            context.drag = hints::Drag::kSpinBy;
+        } else if (drag_state().drag_mode_ == xform::Mode::kScale) {
+            context.drag = hints::Drag::kScale;
+        } else if (drag_state().axis_ >= 0) {
+            context.drag = hints::Drag::kMoveAxis;
+        } else {
+            context.drag = hints::Drag::kShiftBy;
+        }
     }
     context.modal = drag_state().modal_;
     if (drag_state().dragging_ && (!drag_state().typed_.text.empty() || drag_state().typed_.axis >= 0)) {
@@ -4615,10 +4689,14 @@ ui::ShapeMesh assemble_model()
         ui_browser_items().push_back({.id = item.id, .label = item.label});
     }
     model.browser_items_ = &ui_browser_items();
-    model.preview.index = !stored_browser().open || stored_browser().items.empty() ? -1
-                          : stored_browser().preview >= 0 && std::cmp_less(stored_browser().preview, stored_browser().items.size())
-                              ? stored_browser().preview
-                              : stored_browser().index;
+    if (!stored_browser().open || stored_browser().items.empty()) {
+        model.preview.index = -1;
+    } else if (stored_browser().preview >= 0 &&
+               std::cmp_less(stored_browser().preview, stored_browser().items.size())) {
+        model.preview.index = stored_browser().preview;
+    } else {
+        model.preview.index = stored_browser().index;
+    }
     model.nodes.families = drag_state().families_;
     model.nodes.selected = inspected_node();
     model.nodes.hovered = drag_state().hover_node_;
@@ -4634,9 +4712,13 @@ ui::ShapeMesh assemble_model()
         model.nodes.when_applied_ = node_edit::when_applied(core::at(nodes::get_all(), model.nodes.selected));
         if (node_edit::is_chain(drag_state().node_name_)) {
             model.nodes.rail = true; // (a rail's, a ladder's or a path's point: moved alone or with its chain)
-            model.nodes.chain_noun_ = chains::is_path(drag_state().node_name_)     ? "path"
-                                      : chains::is_ladder(drag_state().node_name_) ? "ladder"
-                                                                       : "rail";
+            if (chains::is_path(drag_state().node_name_)) {
+                model.nodes.chain_noun_ = "path";
+            } else if (chains::is_ladder(drag_state().node_name_)) {
+                model.nodes.chain_noun_ = "ladder";
+            } else {
+                model.nodes.chain_noun_ = "rail";
+            }
             model.nodes.entire_rail_ = pick_cycle().move_entire_rail_;
             model.nodes.rail_points_ = static_cast<int>(node_edit::moved_with(drag_state().node_name_, pick_cycle().move_entire_rail_).size());
         }
@@ -4812,9 +4894,9 @@ void show_browser()
     for (int row = 0; row < kBrowserRows; ++row) {
         const int index = stored_browser().top + row;
         if (index >= count) {
-            lines.emplace_back(
-                row == 0 ? (stored_browser().tab == 0 ? "(no pieces that can be moved)" : "(no objects that can be copied)")
-                         : "");
+            const char* empty_line =
+                stored_browser().tab == 0 ? "(no pieces that can be moved)" : "(no objects that can be copied)";
+            lines.emplace_back(row == 0 ? empty_line : "");
             continue;
         }
         const std::string label = core::at(stored_browser().items, index).label.substr(0, 40);
@@ -5335,6 +5417,21 @@ bool cycle_holds(float x, float y, bool shift, bool everything)
            pick_cycle().cycle_.filter == drag_state().pick_filter_;
 }
 
+// The hover's entry in the click cycle's order - its node, else `object`, else its scenery (-1: none of them).
+int hover_cycle_index(const objects::GameEntity* object)
+{
+    if (drag_state().hover_node_ >= 0) {
+        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, drag_state().hover_node_);
+    }
+    if (object) {
+        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident());
+    }
+    if (drag_state().hover_sector_ != 0U) {
+        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery, drag_state().hover_sector_);
+    }
+    return -1;
+}
+
 // A plain click: the cycle's entry it takes (the hover's), or a new cycle from everything under the cursor now.
 void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
 {
@@ -5367,14 +5464,7 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
         pick_cycle().cycle_.filter = drag_state().pick_filter_;
         pick_cycle().cycle_.order = picking::cycle_order(drag_state().hover_node_, objects, scenery, drag_state().pick_filter_);
         const objects::GameEntity* object = get_live(drag_state().hover_);
-        pick_cycle().cycle_.index =
-            drag_state().hover_node_ >= 0
-                ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, drag_state().hover_node_)
-            : object ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident())
-            : (drag_state().hover_sector_ != 0U)
-                ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery,
-                                        drag_state().hover_sector_)
-                : -1;
+        pick_cycle().cycle_.index = hover_cycle_index(object);
     }
     if (pick_cycle().cycle_.index >= 0 && pick_cycle().cycle_.order.size() > 1) {
         std::array<char, kPickTextSize> text{};
@@ -6277,13 +6367,7 @@ void drill_through(int steps, maths::Vec2 point, V3 dir)
         pick_cycle().cycle_.filter = drag_state().pick_filter_;
         pick_cycle().cycle_.order = picking::cycle_order(drag_state().hover_node_, objects, scenery, drag_state().pick_filter_);
         const objects::GameEntity* object = get_live(drag_state().hover_);
-        shown = drag_state().hover_node_ >= 0
-                    ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, drag_state().hover_node_)
-                : object ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident())
-                : (drag_state().hover_sector_ != 0U)
-                    ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery,
-                                            drag_state().hover_sector_)
-                    : -1;
+        shown = hover_cycle_index(object);
     }
     const int count = static_cast<int>(pick_cycle().cycle_.order.size());
     if (count < 2) {
@@ -6388,11 +6472,12 @@ void transform_keys(platform::KeyState keys, bool ctrl, bool shift, bool alt, co
         settings.mode = xform::next_mode(settings.mode);
     }
     if (settings.mode != before) {
-        const char* why = settings.mode == xform::Mode::kSpinBy && have_selection() && gizmo_mode() != settings.mode
-                              ? " (selection can't rotate)"
-                          : settings.mode == xform::Mode::kScale && have_selection() && gizmo_mode() != settings.mode
-                              ? " (selection can't scale)"
-                              : "";
+        const char* why = "";
+        if (settings.mode == xform::Mode::kSpinBy && have_selection() && gizmo_mode() != settings.mode) {
+            why = " (selection can't rotate)";
+        } else if (settings.mode == xform::Mode::kScale && have_selection() && gizmo_mode() != settings.mode) {
+            why = " (selection can't scale)";
+        }
         hud::get_message(std::string(xform::mode_name(settings.mode)) + " Tool" + why);
     }
     if (grave) {
@@ -7239,7 +7324,13 @@ void scale_selection_keys(const EditorFrame& editor_frame)
                 action.factor = scale_tool::along_axis(axis, factor);
                 action.uniform = false;
                 adjust::get_note(action);
-                const std::string axis_name(1, axis == 0 ? 'x' : axis == 1 ? 'y' : 'z');
+                char letter = 'z';
+                if (axis == 0) {
+                    letter = 'x';
+                } else if (axis == 1) {
+                    letter = 'y';
+                }
+                const std::string axis_name(1, letter);
                 hud::get_message("Stretched along " + axis_name);
                 note_action("stretched along %s (Alt+[ / ]): %s", axis_name.c_str(), describe_selection().c_str());
             }

@@ -409,9 +409,14 @@ void add_overlay(const overlays::Painter& painter)
     constexpr uint32_t kEnd = 0xFFF2D24A;
     constexpr uint32_t kHover = 0xC0FFFFFF;
     if (level_editor_gap_wizard_state().picked_ >= 1) {
-        const V3 other = level_editor_gap_wizard_state().picked_ >= 2  ? core::at(level_editor_gap_wizard_state().spots_, 1).point
-                         : level_editor_gap_wizard_state().have_hover_ ? level_editor_gap_wizard_state().hover_.point
-                                        : core::at(level_editor_gap_wizard_state().spots_, 0).point + V3{.x = 0, .y = 0, .z = 1};
+        V3 other{};
+        if (level_editor_gap_wizard_state().picked_ >= 2) {
+            other = core::at(level_editor_gap_wizard_state().spots_, 1).point;
+        } else if (level_editor_gap_wizard_state().have_hover_) {
+            other = level_editor_gap_wizard_state().hover_.point;
+        } else {
+            other = core::at(level_editor_gap_wizard_state().spots_, 0).point + V3{.x = 0, .y = 0, .z = 1};
+        }
         draw_gate(painter, gate_for(core::at(level_editor_gap_wizard_state().spots_, 0), other), kStart);
         painter.draw_label(core::at(level_editor_gap_wizard_state().spots_, 0).point, kStart, std::string("start: ") + spot_name(core::at(level_editor_gap_wizard_state().spots_, 0).kind));
     }

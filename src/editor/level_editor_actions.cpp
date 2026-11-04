@@ -224,10 +224,14 @@ bool parse_chord(const std::string& text, Chord* chord)
             break;
         }
         const std::string word = get_lower(get_trim(rest.substr(0, plus)));
-        const uint8_t bit = word == "ctrl" || word == "control" ? kCtrl
-                            : word == "shift"                   ? kShift
-                            : word == "alt" || word == "option" ? kAlt
-                                                                : 0;
+        uint8_t bit = 0;
+        if (word == "ctrl" || word == "control") {
+            bit = kCtrl;
+        } else if (word == "shift") {
+            bit = kShift;
+        } else if (word == "alt" || word == "option") {
+            bit = kAlt;
+        }
         if (bit == 0U) {
             break;
         }

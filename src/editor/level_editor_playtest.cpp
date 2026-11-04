@@ -333,11 +333,17 @@ namespace {
 const char* const kHeader = "thug2-decomp trails 1";
 const char* event_word(EventKind kind)
 {
-    return kind == EventKind::kGap ? "gap" : kind == EventKind::kBail ? "bail" : "combo";
+    if (kind == EventKind::kGap) {
+        return "gap";
+    }
+    return kind == EventKind::kBail ? "bail" : "combo";
 }
 const char* status_word(GapStatus status)
 {
-    return status == GapStatus::kLanded ? "landed" : status == GapStatus::kLost ? "lost" : "pending";
+    if (status == GapStatus::kLanded) {
+        return "landed";
+    }
+    return status == GapStatus::kLost ? "lost" : "pending";
 }
 // (a name kept to one line)
 std::string one_line(const std::string& text)
@@ -446,9 +452,13 @@ bool parse(const std::string& text, LevelTrails* trails)
             } else {
                 continue;
             }
-            occurrence.status = status == "landed" ? GapStatus::kLanded
-                                : status == "lost" ? GapStatus::kLost
-                                                   : GapStatus::kAwaiting;
+            if (status == "landed") {
+                occurrence.status = GapStatus::kLanded;
+            } else if (status == "lost") {
+                occurrence.status = GapStatus::kLost;
+            } else {
+                occurrence.status = GapStatus::kAwaiting;
+            }
             std::string rest;
             std::getline(fields, rest);
             if (!rest.empty() && core::at(rest, 0) == ' ') {
@@ -1190,9 +1200,13 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                 continue;
             }
             if (event.kind == EventKind::kGap) {
-                const uint32_t colour = event.status == GapStatus::kLanded ? 0xFF40FF60
-                                        : event.status == GapStatus::kLost ? 0xFFFF4040
-                                                                           : 0xFFFFE040;
+                // (ARGB: landed green, lost red, pending yellow)
+                const bool lost = event.status == GapStatus::kLost;
+                const bool landed = event.status == GapStatus::kLanded;
+                const uint32_t unlanded_colour = lost ? 0xFFFF4040 : 0xFFFFE040;
+                const uint32_t colour = landed ? 0xFF40FF60 : unlanded_colour;
+                const char* unlanded_outcome = lost ? " (lost)" : " (pending)";
+                const char* outcome = landed ? "" : unlanded_outcome;
                 circles->push_back(
                     {.x = x, .y = y, .radius = kGapMarkerRadius, .argb = colour, .filled = true, .thickness = 1.0F});
                 circles->push_back({.x = x,
@@ -1205,9 +1219,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                     texts->push_back({.x = x + kGapLabelOffsetX,
                                       .y = y - kGapLabelOffsetY,
                                       .argb = colour,
-                                      .text = event.name + (event.status == GapStatus::kLanded ? ""
-                                                            : event.status == GapStatus::kLost ? " (lost)"
-                                                                                               : " (pending)")});
+                                      .text = event.name + outcome});
                 }
             } else if (event.kind == EventKind::kCombo &&
                        distance2 < (kLabelFar * kComboLabelFraction) * (kLabelFar * kComboLabelFraction)) {

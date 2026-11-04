@@ -20,7 +20,11 @@ Item act_step(int index, const char* label, bool edits)
 {
     Item item;
     const actions::ActStep* action_step = actions::get_pull(index);
-    item.label = label ? label : action_step ? action_step->name : "?";
+    if (label) {
+        item.label = label;
+    } else {
+        item.label = action_step ? action_step->name : "?";
+    }
     item.keys = hints::leading_key_name(actions::get_keys_text(index));
     item.run = [index] { actions::get_run(index); };
     item.enabled = [index] { return actions::is_switched_on(index); };

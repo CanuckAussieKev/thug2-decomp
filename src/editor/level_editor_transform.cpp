@@ -144,7 +144,10 @@ const char* target_name(SnapTarget target)
 }
 Mode next_mode(Mode mode)
 {
-    return mode == Mode::kShiftBy ? Mode::kSpinBy : mode == Mode::kSpinBy ? Mode::kScale : Mode::kShiftBy;
+    if (mode == Mode::kShiftBy) {
+        return Mode::kSpinBy;
+    }
+    return mode == Mode::kSpinBy ? Mode::kScale : Mode::kShiftBy;
 }
 
 // --- the pure parts ---
@@ -449,9 +452,12 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
 
 V3 repeat_target(V3 from, const RepeatStep& step)
 {
-    const V3 offset = (step.quarters != 0) ? get_quarter_turn(step.offset, step.quarters)
-                      : step.turn != 0.0F  ? turn_about_up(step.offset, step.turn)
-                                           : step.offset;
+    V3 offset = step.offset;
+    if (step.quarters != 0) {
+        offset = get_quarter_turn(step.offset, step.quarters);
+    } else if (step.turn != 0.0F) {
+        offset = turn_about_up(step.offset, step.turn);
+    }
     return from + offset;
 }
 

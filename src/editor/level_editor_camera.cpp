@@ -670,7 +670,14 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         static const std::array<std::array<View, 2>, 3> kViews = {{
             {View::kTop, View::kBottom}, {View::kMenuSystem, View::kBack}, {View::kRight, View::kLeft}}};
         const View view = core::at(core::at(kViews, i), opposite ? 1 : 0);
-        const V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : stored_ortho().pivot) : look_point(rig);
+        V3 pivot{};
+        if (!ortho()) {
+            pivot = look_point(rig);
+        } else if (rig.have_selection_) {
+            pivot = rig.target;
+        } else {
+            pivot = stored_ortho().pivot;
+        }
         const V3 delta = pivot - *rig.pos;
         const float equivalent =
             ortho() ? stored_ortho().equivalent : std::clamp(std::sqrt(get_dot(delta, delta)), 200.0F, 20000.0F);

@@ -244,7 +244,12 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                 angles = angles || core::at(words, i).starts_with("angles=");
                 fields += core::at(words, i).starts_with("f.") ? 1 : 0;
             }
-            std::string what = pos ? (angles ? "moved / turned" : "moved") : angles ? "turned" : "";
+            std::string what;
+            if (pos) {
+                what = angles ? "moved / turned" : "moved";
+            } else if (angles) {
+                what = "turned";
+            }
             if (fields != 0) {
                 what += (what.empty() ? "" : ", ") + std::to_string(fields) + (fields == 1 ? " field" : " fields") +
                         " edited";
@@ -252,11 +257,19 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             table_row.summary = name + ": " + (what.empty() ? std::string("edited") : what);
         } else if (keyword == "node" || keyword == "point" || keyword == "camera") {
             table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
-            const std::string cls = keyword == "camera" ? "camera" : words.size() > 1 ? core::at(words, 1) : "?";
-            table_row.summary = std::string(keyword == "point"    ? "Point "
-                                            : keyword == "camera" ? "Camera "
-                                                                  : "Added ") +
-                                (words.empty() ? "?" : core::at(words, 0)) + " (" + cls + ")";
+            std::string cls = "?";
+            if (keyword == "camera") {
+                cls = "camera";
+            } else if (words.size() > 1) {
+                cls = core::at(words, 1);
+            }
+            const char* added = "Added ";
+            if (keyword == "point") {
+                added = "Point ";
+            } else if (keyword == "camera") {
+                added = "Camera ";
+            }
+            table_row.summary = std::string(added) + (words.empty() ? "?" : core::at(words, 0)) + " (" + cls + ")";
         } else if (keyword == "order") {
             table_row.summary =
                 "The added crowns' order: " + std::to_string(!words.empty() ? words.size() - 1 : 0) + " crowns";
@@ -286,11 +299,16 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                    keyword == "speed") {
             table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));
             const std::string value = words.size() > 1 ? core::at(words, 1) : "";
-            const char* what = keyword == "terrain"     ? " terrain "
-                               : keyword == "facing"    ? " facing "
-                               : keyword == "railspeed" ? " speed-up "
-                               : keyword == "speed"     ? " path speed "
-                                                        : " grindable on flat ground";
+            const char* what = " grindable on flat ground";
+            if (keyword == "terrain") {
+                what = " terrain ";
+            } else if (keyword == "facing") {
+                what = " facing ";
+            } else if (keyword == "railspeed") {
+                what = " speed-up ";
+            } else if (keyword == "speed") {
+                what = " path speed ";
+            }
             table_row.summary = name_of(table_row.id, words.empty() ? "?" : core::at(words, 0)) + what + value;
         } else if (keyword == "emitter") {
             table_row.id = words.empty() ? 0 : id_of(core::at(words, 0));

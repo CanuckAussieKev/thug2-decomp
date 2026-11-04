@@ -856,11 +856,13 @@ void check_online(std::vector<Issue>* out)
         issue.node = elem.name;
         issue.has_pos_ = elem.has_pos_;
         issue.pos = elem.pos;
-        issue.text = get_name(elem.name) +
-                     (added    ? " added"
-                      : hidden ? " hidden"
-                               : " moved") +
-                     " in a level shared with " + "THUGPRO (" + game + ")";
+        const char* change = " moved";
+        if (added) {
+            change = " added";
+        } else if (hidden) {
+            change = " hidden";
+        }
+        issue.text = get_name(elem.name) + change + " in a level shared with " + "THUGPRO (" + game + ")";
         append_one(out, issue);
     }
 }
@@ -1319,7 +1321,13 @@ void shown_counts(int* errors, int* warnings, int* infos)
         if (issue.level_own_ || ignored_state().contains(issue.key)) {
             continue;
         }
-        (issue.severity == Severity::kError ? *errors : issue.severity == Severity::kWarning ? *warnings : *infos) += 1;
+        if (issue.severity == Severity::kError) {
+            *errors += 1;
+        } else if (issue.severity == Severity::kWarning) {
+            *warnings += 1;
+        } else {
+            *infos += 1;
+        }
     }
 }
 
@@ -1454,12 +1462,15 @@ void problems_tab(float scale, ImFont* mono)
                 level_editor_checks_state().queue_.emplace_back([copy] { fix(copy); });
             }
             if (ImGui::IsItemHovered()) {
-                gui::tooltip("%s", issue.rule == Rule::kBelowGround       ? "Move to the surface above"
-                                        : issue.rule == Rule::kHiddenCollision ? "Turn the collision off"
-                                        : issue.rule == Rule::kLayoutRecord
-                                            ? "Drop the record: the next save leaves it out "
-                                              "(undoable)"
-                                            : "");
+                const char* fix = "";
+                if (issue.rule == Rule::kBelowGround) {
+                    fix = "Move to the surface above";
+                } else if (issue.rule == Rule::kHiddenCollision) {
+                    fix = "Turn the collision off";
+                } else if (issue.rule == Rule::kLayoutRecord) {
+                    fix = "Drop the record: the next save leaves it out (undoable)";
+                }
+                gui::tooltip("%s", fix);
             }
         }
         ImGui::SameLine();

@@ -559,7 +559,16 @@ float clamp_speed(float rate)
 
 bool is_ledge(const Point& point) { return same_text(point.cls, "ClimbingNode") && same_text(point.type, "Ledge"); }
 
-const char* hang_word(int hang) { return hang == kHangLeft ? "left" : hang == kHangRight ? "right" : ""; }
+const char* hang_word(int hang)
+{
+    if (hang == kHangLeft) {
+        return "left";
+    }
+    if (hang == kHangRight) {
+        return "right";
+    }
+    return "";
+}
 
 const std::vector<uint8_t>& rail_speed_qb()
 {
@@ -2033,9 +2042,12 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
     for (const auto& entry : speed_applied()) {
         auto extras = extras_state().find(entry.first);
         auto level = level_speeds().find(entry.first);
-        const float rate = extras != extras_state().end()  ? extras->second.speed
-                           : level != level_speeds().end() ? level->second
-                                                           : 0.0F;
+        float rate = 0.0F;
+        if (extras != extras_state().end()) {
+            rate = extras->second.speed;
+        } else if (level != level_speeds().end()) {
+            rate = level->second;
+        }
         if (rate > 0.0F) {
             add(rail_node_named(entry.first), rate, false);
         }
@@ -2250,10 +2262,14 @@ void put_graph(State* state, const Graph& graph)
 // A new point's name: ed_rail01 / ed_path01... free in the level and in the state.
 std::string fresh_point_name(nodes::Family family, const State& state, bool ledge = false)
 {
-    const char* stem = family == nodes::Family::kRouteWay ? "ed_path"
-                       : ledge                            ? "ed_ledge"
-                       : family == nodes::Family::kLadder ? "ed_ladder"
-                                                          : "ed_rail";
+    const char* stem = "ed_rail";
+    if (family == nodes::Family::kRouteWay) {
+        stem = "ed_path";
+    } else if (ledge) {
+        stem = "ed_ledge";
+    } else if (family == nodes::Family::kLadder) {
+        stem = "ed_ladder";
+    }
     return node_create::fresh_name(stem, [&](const std::string& name) {
         for (const Point& chain_point : state.points) {
             if (same_text(chain_point.name, name.c_str())) {
@@ -2272,9 +2288,13 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
                        (level_editor_chains_state().draw_ == Blit::kLedge || ((from != 0U) && is_ledge_node(from)));
     Point chain_point;
     chain_point.name = fresh_point_name(family, state, ledge);
-    chain_point.cls = family == nodes::Family::kRouteWay ? "Waypoint"
-                      : family == nodes::Family::kLadder ? "ClimbingNode"
-                                                         : "RailNode";
+    if (family == nodes::Family::kRouteWay) {
+        chain_point.cls = "Waypoint";
+    } else if (family == nodes::Family::kLadder) {
+        chain_point.cls = "ClimbingNode";
+    } else {
+        chain_point.cls = "RailNode";
+    }
     chain_point.pos = pos;
     if (ledge) {
         chain_point.type = "Ledge";
@@ -2582,7 +2602,11 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
             *message = "Select an end point to extend";
             return false;
         }
-        level_editor_chains_state().draw_ = family == nodes::Family::kRouteWay ? Blit::kRouteWay : ledge ? Blit::kLedge : Blit::kRail;
+        if (family == nodes::Family::kRouteWay) {
+            level_editor_chains_state().draw_ = Blit::kRouteWay;
+        } else {
+            level_editor_chains_state().draw_ = ledge ? Blit::kLedge : Blit::kRail;
+        }
         level_editor_chains_state().draw_last_ = name;
         level_editor_chains_state().pick_ = ChainOp::kCancel;
         *message = "Click to add points (Enter: finish)";
@@ -2718,10 +2742,13 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
             return false;
         }
         *select = name;
-        return get_apply(state, message,
-                         arg == static_cast<uint32_t>(kHangLeft)    ? "The ledge is hung from its left side"
-                         : arg == static_cast<uint32_t>(kHangRight) ? "The ledge is hung from its right side"
-                                                                    : "The game decides the ledge's side");
+        const char* applied = "The game decides the ledge's side";
+        if (arg == static_cast<uint32_t>(kHangLeft)) {
+            applied = "The ledge is hung from its left side";
+        } else if (arg == static_cast<uint32_t>(kHangRight)) {
+            applied = "The ledge is hung from its right side";
+        }
+        return get_apply(state, message, applied);
     }
     case ChainOp::kLinkArm: {
         if (!is_last(graph, name) && !is_first(graph, name)) {
@@ -2753,6 +2780,22 @@ void stop_drawing()
     level_editor_chains_state().ladder_have_foot_ = false;
 }
 
+namespace {
+
+// The family of the chain being drawn (a ledge's points are a ladder's).
+nodes::Family drawn_family()
+{
+    if (level_editor_chains_state().draw_ == Blit::kRouteWay) {
+        return nodes::Family::kRouteWay;
+    }
+    if (level_editor_chains_state().draw_ == Blit::kLedge) {
+        return nodes::Family::kLadder;
+    }
+    return nodes::Family::kRail;
+}
+
+} // namespace
+
 bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
 {
     *select = 0;
@@ -2766,9 +2809,7 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
         *message = "Click the next point";
         return false;
     }
-    const nodes::Family family = level_editor_chains_state().draw_ == Blit::kRouteWay ? nodes::Family::kRouteWay
-                                 : level_editor_chains_state().draw_ == Blit::kLedge  ? nodes::Family::kLadder
-                                                           : nodes::Family::kRail;
+    const nodes::Family family = drawn_family();
     State state = at_hand();
     Graph graph = graph_of(family);
     if ((level_editor_chains_state().draw_last_ != 0U) && !graph.contains(level_editor_chains_state().draw_last_)) {
@@ -2804,10 +2845,15 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
     level_editor_chains_state().draw_last_ = made;
     *select = made;
     if (message->empty()) {
-        *message = first ? (family == nodes::Family::kRouteWay ? "Path started (Enter: finish)"
-                            : family == nodes::Family::kLadder ? "Ledge started (Enter: finish)"
-                                                               : "Rail started (Enter: finish)")
-                         : "Point added - Enter or a right click finishes";
+        if (!first) {
+            *message = "Point added - Enter or a right click finishes";
+        } else if (family == nodes::Family::kRouteWay) {
+            *message = "Path started (Enter: finish)";
+        } else if (family == nodes::Family::kLadder) {
+            *message = "Ledge started (Enter: finish)";
+        } else {
+            *message = "Rail started (Enter: finish)";
+        }
     }
     return true;
 }
@@ -2971,9 +3017,7 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
     }
     // A free end of a chain of the kind drawn, within 24: taken as it is.
     if (level_editor_chains_state().draw_ != Blit::kNone) {
-        const nodes::Family family = level_editor_chains_state().draw_ == Blit::kRouteWay ? nodes::Family::kRouteWay
-                                     : level_editor_chains_state().draw_ == Blit::kLedge  ? nodes::Family::kLadder
-                                                               : nodes::Family::kRail;
+        const nodes::Family family = drawn_family();
         const Graph graph = graph_of(family);
         float best = kJoinReach * kJoinReach;
         for (const auto& entry : graph) {
@@ -3131,15 +3175,25 @@ View view_of(uint32_t name)
         } else if (script::Struct* params = look_up_node_params(name)) {
             static const uint32_t kLeft = name_hash("HangLeft");
             static const uint32_t kRight = name_hash("HangRight");
-            view.hang = params->has_bare_flag(kLeft) ? kHangLeft : params->has_bare_flag(kRight) ? kHangRight : 0;
+            if (params->has_bare_flag(kLeft)) {
+                view.hang = kHangLeft;
+            } else if (params->has_bare_flag(kRight)) {
+                view.hang = kHangRight;
+            } else {
+                view.hang = 0;
+            }
         }
     }
     if (view.rail) {
         auto speed = extras_state().find(name);
         auto level_speed = level_speeds().find(name);
-        view.speed = speed != extras_state().end()         ? speed->second.speed
-                     : level_speed != level_speeds().end() ? level_speed->second
-                                                           : 0.0F;
+        if (speed != extras_state().end()) {
+            view.speed = speed->second.speed;
+        } else if (level_speed != level_speeds().end()) {
+            view.speed = level_speed->second;
+        } else {
+            view.speed = 0.0F;
+        }
         script::Struct* own = look_up_node_params(name);
         uint32_t script = 0;
         auto applied = speed_applied().find(name);

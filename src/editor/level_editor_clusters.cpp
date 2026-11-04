@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's scenery trick-object clusters (ours). See level_editor_clusters.h.
 
 #include "editor/level_editor_clusters.h"
+#include "editor/level_editor.h"
 
 #include <algorithm>
 #include <cctype>
@@ -60,7 +61,11 @@ Membership get_from_node(uint32_t sector, bool trick_object, bool has_cluster, u
     Membership membership;
     membership.sector = sector;
     membership.trick = trick_object;
-    membership.cluster = trick_object ? (has_cluster && (cluster != 0U) ? cluster : sector) : 0;
+    if (!trick_object) {
+        membership.cluster = 0;
+    } else {
+        membership.cluster = has_cluster && (cluster != 0U) ? cluster : sector;
+    }
     return membership;
 }
 
@@ -84,10 +89,7 @@ bool read_hex8(const std::string& word, uint32_t* out)
     }
     uint32_t value = 0;
     for (const char character : word) {
-        const int digit = character >= '0' && character <= '9'   ? character - '0'
-                          : character >= 'a' && character <= 'f' ? character - 'a' + 10
-                          : character >= 'A' && character <= 'F' ? character - 'A' + 10
-                                                                 : -1;
+        const int digit = hex_digit(character);
         if (digit < 0) {
             return false;
         }
@@ -318,8 +320,8 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
     const std::shared_ptr<Step> before = get_capture(pieces);
     int changed = 0;
     for (const uint32_t piece : pieces) {
-        const Membership to{
-            .sector = piece, .trick = trick, .cluster = trick ? ((cluster != 0U) ? cluster : piece) : 0};
+        const uint32_t trick_cluster = (cluster != 0U) ? cluster : piece;
+        const Membership to{.sector = piece, .trick = trick, .cluster = trick ? trick_cluster : 0};
         if (get_same(get_now(piece), to)) {
             continue;
         }

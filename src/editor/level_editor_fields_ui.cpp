@@ -191,11 +191,13 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 ImGui::TextUnformatted(name.c_str());
             }
             if (ImGui::IsItemHovered()) {
-                gui::tooltip("%s%s%s", fields::kind_name(row.value.kind),
-                                  row.included     ? " (shared by the class)"
-                                  : row.overridden ? " (overrides the class)"
-                                                   : "",
-                                  row.edited ? "\nModified" : "");
+                const char* shared = "";
+                if (row.included) {
+                    shared = " (shared by the class)";
+                } else if (row.overridden) {
+                    shared = " (overrides the class)";
+                }
+                gui::tooltip("%s%s%s", fields::kind_name(row.value.kind), shared, row.edited ? "\nModified" : "");
             }
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
@@ -247,9 +249,14 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             }
             ImGui::TableNextColumn();
             ImGui::PushFont(small_font);
-            const ImVec4 colour = row.when == fields::When::kLive     ? kLive
-                                  : row.when == fields::When::kReload ? kReload
-                                                                      : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+            ImVec4 colour;
+            if (row.when == fields::When::kLive) {
+                colour = kLive;
+            } else if (row.when == fields::When::kReload) {
+                colour = kReload;
+            } else {
+                colour = ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+            }
             gui::text_colored(
                 row.editable || row.when == fields::When::kElsewhere ? colour
                                                                      : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
@@ -322,15 +329,20 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         for (const fields::Row& row : rows) {
             exists = exists || row.key == key;
         }
-        const char* why = name.empty() ? "Enter a field name"
-                          : !name_ok   ? "Use letters, digits and _"
-                          : exists     ? "Field already exists"
-                          : key == fields::get_key_name() || key == fields::key_class() ||
-                                  key == fields::get_key_type() || key == fields::key_pos() ||
-                                  key == fields::key_angles() || key == fields::key_links()
-                              ? "Edited elsewhere"
-                          : !value_ok ? "Invalid value"
-                                      : nullptr;
+        // (why the field can't be added: nullptr when it can)
+        const char* why = nullptr;
+        if (name.empty()) {
+            why = "Enter a field name";
+        } else if (!name_ok) {
+            why = "Use letters, digits and _";
+        } else if (exists) {
+            why = "Field already exists";
+        } else if (key == fields::get_key_name() || key == fields::key_class() || key == fields::get_key_type() ||
+                   key == fields::key_pos() || key == fields::key_angles() || key == fields::key_links()) {
+            why = "Edited elsewhere";
+        } else if (!value_ok) {
+            why = "Invalid value";
+        }
         ImGui::SameLine();
         ImGui::BeginDisabled(why != nullptr);
         if (ImGui::Button("Add")) {
@@ -340,8 +352,11 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         }
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-            gui::tooltip("%s", why ? (why == std::string("Invalid value") ? error.c_str() : why)
-                                        : "Add field (applies on reload)");
+            const char* tip = "Add field (applies on reload)";
+            if (why) {
+                tip = why == std::string("Invalid value") ? error.c_str() : why;
+            }
+            gui::tooltip("%s", tip);
         }
     }
     ImGui::PushFont(small_font);
@@ -506,7 +521,13 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::TableNextColumn();
         const char* own_time = level.have_defaults_ && own.time == 0 ? "(original: no)" : "(original: yes)";
         ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
-        if (ImGui::BeginCombo("##time", props.time == 1 ? "yes" : props.time == 0 ? "no" : own_time)) {
+        const char* time_shown = own_time;
+        if (props.time == 1) {
+            time_shown = "yes";
+        } else if (props.time == 0) {
+            time_shown = "no";
+        }
+        if (ImGui::BeginCombo("##time", time_shown)) {
             const auto labels = std::to_array<const char*>({own_time, "no", "yes"});
             for (int i = -1; i <= 1; ++i) {
                 if (ImGui::Selectable(core::at(labels, i + 1), props.time == i)) {

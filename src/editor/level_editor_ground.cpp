@@ -101,8 +101,12 @@ float ramp_length(const Spec& spec, int side)
     if (ramp == Ramp::kNone) {
         return 0.0F;
     }
-    float length =
-        spec.length > 0.0F ? spec.length : (ramp == Ramp::kKicker ? kKickerLengthFactor * spec.height : spec.height);
+    float length = 0.0F;
+    if (spec.length > 0.0F) {
+        length = spec.length;
+    } else {
+        length = ramp == Ramp::kKicker ? kKickerLengthFactor * spec.height : spec.height;
+    }
     length = std::max(kMinRampLength, length);
     if (spec.lower) {
         // (a pit: the ramp opposite takes its share of the width)
@@ -454,7 +458,17 @@ void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, col
     }
 }
 
-char ramp_letter(Ramp ramp) { return ramp == Ramp::kKicker ? 'k' : ramp == Ramp::kQuarter ? 'q' : '-'; }
+char ramp_letter(Ramp ramp)
+{
+    switch (ramp) {
+    case Ramp::kKicker:
+        return 'k';
+    case Ramp::kQuarter:
+        return 'q';
+    default:
+        return '-';
+    }
+}
 
 namespace {
 

@@ -250,10 +250,7 @@ bool parse_name(const std::string& typed, uint32_t* checksum)
     if (!hex.empty()) {
         uint32_t value = 0;
         for (const char character : hex) {
-            const int digit = character >= '0' && character <= '9'   ? character - '0'
-                              : character >= 'A' && character <= 'F' ? character - 'A' + 10
-                              : character >= 'a' && character <= 'f' ? character - 'a' + 10
-                                                                     : -1;
+            const int digit = hex_digit(character);
             if (digit < 0) {
                 return false;
             }
@@ -456,10 +453,7 @@ bool unescape(const std::string& text, std::string* out)
         int value = 0;
         for (int k = 1; k <= 2; ++k) {
             const char hex_char = core::at(text, i + k);
-            const int digit = hex_char >= '0' && hex_char <= '9'   ? hex_char - '0'
-                              : hex_char >= 'A' && hex_char <= 'F' ? hex_char - 'A' + 10
-                              : hex_char >= 'a' && hex_char <= 'f' ? hex_char - 'a' + 10
-                                                                   : -1;
+            const int digit = hex_digit(hex_char);
             if (digit < 0) {
                 return false;
             }
@@ -882,9 +876,13 @@ void add_value(script::Struct* structure, uint32_t key, const Value& v)
     case Kind::kFloats: {
         gsl::owner<script::Array*> array = script::new_array();
         auto size = static_cast<uint32_t>(v.kind == Kind::kFloats ? v.floats.size() : v.list.size());
-        array->configure_size_kind(size, v.kind == Kind::kNames      ? script::QbValueKind::kName
-                                         : v.kind == Kind::kIntegers ? script::QbValueKind::kInteger
-                                                                     : script::QbValueKind::kFloat);
+        script::QbValueKind element_kind = script::QbValueKind::kFloat;
+        if (v.kind == Kind::kNames) {
+            element_kind = script::QbValueKind::kName;
+        } else if (v.kind == Kind::kIntegers) {
+            element_kind = script::QbValueKind::kInteger;
+        }
+        array->configure_size_kind(size, element_kind);
         for (uint32_t i = 0; i < size; ++i) {
             if (v.kind == Kind::kFloats) {
                 array->change_float(i, core::at(v.floats, i));

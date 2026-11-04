@@ -365,9 +365,13 @@ Goal get_defaults(KindTag type, const std::string& id)
     goal.name = type_title(type);
     // (change_species reads score from the type's generic parameters: Goal_HighScore_genericParams 15000,
     // goal_highcombo_genericParams 10000; init_edited_goal's 100 otherwise)
-    goal.score = type == KindTag::kHighScore   ? kHighScoreTarget
-                 : type == KindTag::kHighCombo ? kHighComboTarget
-                                               : kDefaultScore;
+    if (type == KindTag::kHighScore) {
+        goal.score = kHighScoreTarget;
+    } else if (type == KindTag::kHighCombo) {
+        goal.score = kHighComboTarget;
+    } else {
+        goal.score = kDefaultScore;
+    }
     if (type == KindTag::kTrickBeat) {
         goal.spin = 0; // (change_species)
     }

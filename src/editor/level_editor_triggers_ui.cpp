@@ -197,7 +197,10 @@ void proxim_section(uint32_t node)
     changed |=
         name_field("Or by name##exit", &proxim_edit.exit, g_exit_buffer.data(), sizeof(g_exit_buffer), &g_exit_editing);
     gui::text_disabled("(none: node's own script)");
-    int shape = proxim_edit.shape ? (proxim_edit.box ? 2 : 1) : 0;
+    int shape = 0; // (none: 0, a sphere: 1, a box: 2)
+    if (proxim_edit.shape) {
+        shape = proxim_edit.box ? 2 : 1;
+    }
     ImGui::TextUnformatted("Shape");
     ImGui::SameLine();
     bool shape_changed = ImGui::RadioButton("Original", &shape, 0);

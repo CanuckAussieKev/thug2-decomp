@@ -436,7 +436,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         circles->push_back(
             {.x = px, .y = py, .radius = kFootDotRadius, .argb = argb, .filled = true, .thickness = 1.0F});
         // (the label: the first line - all of it when selected - cut short when far)
-        const size_t most = selected ? 60 : distance > 6000.0F ? 18 : 36;
+        const size_t unselected_most = distance > 6000.0F ? 18 : 36;
+        const size_t most = selected ? 60 : unselected_most;
         texts->push_back({.x = tx + kLabelOffsetX, .y = ty - kLabelOffsetY, .argb = argb, .text = caption(note.text, most)});
     }
 }

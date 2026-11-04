@@ -83,15 +83,13 @@ double allowed_on_axis(double factor, double low, double high)
     return factor;
 }
 
-float get_axis(V3 v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
-
 } // namespace
 
 V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3>& limits, bool uniform)
 {
     std::array<double, 3> out{};
     for (int axis = 0; axis < 3; ++axis) {
-        const double axis_factor = get_axis(factor, axis);
+        const double axis_factor = axis_value(factor, axis);
         if (!(axis_factor > 0.0) || !std::isfinite(axis_factor)) {
             core::at(out, axis) = 1.0;
             continue;
@@ -99,8 +97,10 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
         double low = 0.0;
         double high = kNoUpperBound;
         for (size_t i = 0; i < scales.size(); ++i) {
-            const double scale = get_axis(core::at(scales, i), axis) > 0.0F ? get_axis(core::at(scales, i), axis) : 1.0;
-            const double limit = i < limits.size() ? std::min<double>(get_axis(core::at(limits, i), axis), kMax) : kMax;
+            const double scale =
+                axis_value(core::at(scales, i), axis) > 0.0F ? axis_value(core::at(scales, i), axis) : 1.0;
+            const double limit =
+                i < limits.size() ? std::min<double>(axis_value(core::at(limits, i), axis), kMax) : kMax;
             low = std::max(low, kMin / scale);
             high = std::min(high, limit / scale);
         }
@@ -108,7 +108,7 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
     }
     if (uniform) {
         // (the factor asked for is the same on every axis: the one nearest 1 is what all of them allow)
-        const double asked_factor = get_axis(factor, 0);
+        const double asked_factor = axis_value(factor, 0);
         double common = core::at(out, 0);
         for (int axis = 1; axis < 3; ++axis) {
             common =
@@ -157,7 +157,7 @@ int nearest_axis(std::span<const V3, 3> axes, int world_axis)
     float best_dot = -1.0F;
     for (int i = 0; i < 3; ++i) {
         const float length = std::sqrt(get_dot(core::at(axes, i), core::at(axes, i)));
-        const float distance = length > 0.0F ? std::fabs(get_axis(core::at(axes, i), world_axis)) / length : 0.0F;
+        const float distance = length > 0.0F ? std::fabs(axis_value(core::at(axes, i), world_axis)) / length : 0.0F;
         if (distance > best_dot) {
             best_dot = distance;
             best = i;

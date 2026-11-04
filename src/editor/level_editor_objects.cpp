@@ -661,10 +661,14 @@ std::vector<TableRow> copyable()
             }
             const char* model = nullptr;
             node->fetch_text(kModel, &model, 0);
-            std::string label = cls == kLevelObject  ? "LevelObject "
-                                : cls == kGameObject ? "GameObject "
-                                : cls == kPedestrian ? "Pedestrian "
-                                                     : "Vehicle ";
+            std::string label = "Vehicle ";
+            if (cls == kLevelObject) {
+                label = "LevelObject ";
+            } else if (cls == kGameObject) {
+                label = "GameObject ";
+            } else if (cls == kPedestrian) {
+                label = "Pedestrian ";
+            }
             label += caption(name);
             if (model && (*model != '\0')) {
                 const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));

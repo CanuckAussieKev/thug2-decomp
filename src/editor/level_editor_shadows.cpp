@@ -39,8 +39,10 @@ float footprint_distance(FloorPoint point, V3 min, V3 max)
 {
     const auto x = point.x;
     const auto z = point.z;
-    const float dx = x < min.x ? min.x - x : (x > max.x ? x - max.x : 0.0F);
-    const float dz = z < min.z ? min.z - z : (z > max.z ? z - max.z : 0.0F);
+    const float dx_beyond = x > max.x ? x - max.x : 0.0F;
+    const float dx = x < min.x ? min.x - x : dx_beyond;
+    const float dz_beyond = z > max.z ? z - max.z : 0.0F;
+    const float dz = z < min.z ? min.z - z : dz_beyond;
     return std::sqrt((dx * dx) + (dz * dz));
 }
 

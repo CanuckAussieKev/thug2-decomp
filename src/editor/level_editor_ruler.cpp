@@ -276,7 +276,10 @@ void add_overlay(const overlays::Painter& painter)
 std::string describe()
 {
     if (level_editor_ruler_state().ends_ < 2) {
-        return level_editor_ruler_state().armed_ ? (level_editor_ruler_state().ends_ == 1 ? "ruler: click the second end" : "ruler: click the first end") : "";
+        if (!level_editor_ruler_state().armed_) {
+            return "";
+        }
+        return level_editor_ruler_state().ends_ == 1 ? "ruler: click the second end" : "ruler: click the first end";
     }
     return "ruler: " + describe(measure_of(level_editor_ruler_state().a_, level_editor_ruler_state().b_));
 }

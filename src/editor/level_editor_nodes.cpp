@@ -111,7 +111,10 @@ Family get_classify(NodeClass node_class)
         return Family::kSpawn;
     }
     if (cls == kGenericNode) {
-        return type == kCrown ? Family::kCrown : type == kEditorTrigger ? Family::kFireOff : Family::kOther;
+        if (type == kCrown) {
+            return Family::kCrown;
+        }
+        return type == kEditorTrigger ? Family::kFireOff : Family::kOther;
     }
     if (cls == kGameObject) {
         for (const uint32_t flag : kFlags) {
@@ -431,11 +434,17 @@ void get_scan()
                 static const uint32_t kMetal = name_hash("Metal");
                 static const uint32_t kWood = name_hash("Wood");
                 static const uint32_t kConcrete = name_hash("Concrete");
-                node.colour = node.family == Family::kLadder ? kLadderColour
-                              : node.type == kMetal          ? kMetalRailColour
-                              : node.type == kWood           ? kWoodRailColour
-                              : node.type == kConcrete       ? kConcreteRailColour
-                                                             : kOtherRailColour;
+                if (node.family == Family::kLadder) {
+                    node.colour = kLadderColour;
+                } else if (node.type == kMetal) {
+                    node.colour = kMetalRailColour;
+                } else if (node.type == kWood) {
+                    node.colour = kWoodRailColour;
+                } else if (node.type == kConcrete) {
+                    node.colour = kConcreteRailColour;
+                } else {
+                    node.colour = kOtherRailColour;
+                }
                 break;
             }
             case Family::kRouteWay:
@@ -565,9 +574,13 @@ const std::array<int, kFamilies>& get_counts()
 int walked(Family family)
 {
     get_refresh();
-    return family == Family::kCrown   ? node_walk().walked_crowns_
-           : family == Family::kSpawn ? node_walk().walked_spawns_
-                                      : core::at(level_editor_nodes_state().counts_, static_cast<int>(family));
+    if (family == Family::kCrown) {
+        return node_walk().walked_crowns_;
+    }
+    if (family == Family::kSpawn) {
+        return node_walk().walked_spawns_;
+    }
+    return core::at(level_editor_nodes_state().counts_, static_cast<int>(family));
 }
 
 uint32_t get_generation()

@@ -111,10 +111,14 @@ void token_glyph(const std::string& token, const Fonts& fonts)
     case hints::Glyph::kMouseMiddle:
     case hints::Glyph::kWheel:
     case hints::Glyph::kDoubleClick: {
-        const int button = glyph == hints::Glyph::kMouseLeft || glyph == hints::Glyph::kDoubleClick ? 0
-                           : glyph == hints::Glyph::kMouseRight                                     ? 1
-                           : glyph == hints::Glyph::kMouseMiddle                                    ? 2
-                                                                                                    : -1;
+        int button = -1; // (a mouse glyph's button: left 0, right 1, middle 2)
+        if (glyph == hints::Glyph::kMouseLeft || glyph == hints::Glyph::kDoubleClick) {
+            button = 0;
+        } else if (glyph == hints::Glyph::kMouseRight) {
+            button = 1;
+        } else if (glyph == hints::Glyph::kMouseMiddle) {
+            button = 2;
+        }
         mouse_glyph(draw, ImVec2(pos.x, pos.y), {.h = height, .button = button}, glyph == hints::Glyph::kWheel,
                     glyph == hints::Glyph::kDoubleClick);
         width = (height * kMouseGlyphAspect) + (glyph == hints::Glyph::kDoubleClick ? kDoubleClickExtra * scale : 0.0F);
@@ -125,10 +129,14 @@ void token_glyph(const std::string& token, const Fonts& fonts)
     case hints::Glyph::kPadX:
     case hints::Glyph::kPadY: {
         // (Xbox's colours: A green, B red, X blue, Y yellow)
-        const ImU32 colour = glyph == hints::Glyph::kPadA   ? IM_COL32(80, 170, 70, 255)
-                             : glyph == hints::Glyph::kPadB ? IM_COL32(200, 60, 50, 255)
-                             : glyph == hints::Glyph::kPadX ? IM_COL32(50, 110, 210, 255)
-                                                            : IM_COL32(220, 180, 40, 255);
+        ImU32 colour = IM_COL32(220, 180, 40, 255); // (the controller's button colours: A, B, X, else Y)
+        if (glyph == hints::Glyph::kPadA) {
+            colour = IM_COL32(80, 170, 70, 255);
+        } else if (glyph == hints::Glyph::kPadB) {
+            colour = IM_COL32(200, 60, 50, 255);
+        } else if (glyph == hints::Glyph::kPadX) {
+            colour = IM_COL32(50, 110, 210, 255);
+        }
         const float radius = height * 0.5F;
         draw->AddCircleFilled(ImVec2(pos.x + radius, pos.y + radius), radius, colour);
         const std::array<char, 2> letter = {{token.back(), 0}};
@@ -337,9 +345,8 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
         const float w = std::max(size.x, key_size.x) + (18.0F * scale);
         const float height = size.y + (item.keys.empty() ? 0.0F : key_size.y) + (8.0F * scale);
         // (left / right of the centre: the box grows away from it)
-        const float left = dx > 0.3F    ? at.x - (10.0F * scale)
-                           : dx < -0.3F ? at.x - w + (10.0F * scale)
-                                        : at.x - (w * 0.5F);
+        const float unpointed_left = dx < -0.3F ? at.x - w + (10.0F * scale) : at.x - (w * 0.5F);
+        const float left = dx > 0.3F ? at.x - (10.0F * scale) : unpointed_left;
         const ImVec2 point_a(left, at.y - (height * 0.5F));
         const ImVec2 point_b(left + w, at.y + (height * 0.5F));
         const bool hot = i == pie.hovered;

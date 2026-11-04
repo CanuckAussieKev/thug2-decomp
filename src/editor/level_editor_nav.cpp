@@ -185,8 +185,12 @@ int drill_index(int current, int steps, int count)
     if (count <= 0) {
         return -1;
     }
-    const int base = current >= 0 && current < count ? current : (steps > 0 ? -1 : 0);
-    return (((base + steps) % count) + count) % count;
+    if (current >= 0 && current < count) {
+        return (((current + steps) % count) + count) % count;
+    }
+    // (none current: from before the first going forwards, from the first going back)
+    const int start = steps > 0 ? -1 : 0;
+    return (((start + steps) % count) + count) % count;
 }
 
 int slice_at(float dx, float dy, int count, float deadzone)

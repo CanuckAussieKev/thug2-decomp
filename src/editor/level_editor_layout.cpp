@@ -257,10 +257,15 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
             if (value.empty() || *end != '\0' || !std::isfinite(number)) {
                 return false;
             }
-            (key == "brightness" ? spec->brightness
-             : key == "inner"    ? spec->inner
-             : key == "outer"    ? spec->outer
-                                 : spec->radius) = number;
+            if (key == "brightness") {
+                spec->brightness = number;
+            } else if (key == "inner") {
+                spec->inner = number;
+            } else if (key == "outer") {
+                spec->outer = number;
+            } else {
+                spec->radius = number;
+            }
         }
     }
     return std::ranges::find(seen, "pos") != seen.end();
@@ -715,10 +720,7 @@ bool saved_layout_scene(const std::string& file_name, uint32_t* scene)
     uint32_t value = 0;
     for (int i = 0; i < kSceneNameDigits; ++i) {
         const char character = core::at(file_name, i);
-        const int digit = character >= '0' && character <= '9'   ? character - '0'
-                          : character >= 'A' && character <= 'F' ? character - 'A' + 10
-                          : character >= 'a' && character <= 'f' ? character - 'a' + 10
-                                                                 : -1;
+        const int digit = hex_digit(character);
         if (digit < 0) {
             return false;
         }
@@ -1758,9 +1760,13 @@ std::string level_title()
         g_cached_scene = scene;
         std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
         auto it = levels.find(load);
-        cached = it != levels.end() && !it->second.title.empty() ? it->second.title
-                 : (scene != 0U)                                 ? object_edit::caption(scene)
-                                                                 : "";
+        if (it != levels.end() && !it->second.title.empty()) {
+            cached = it->second.title;
+        } else if (scene != 0U) {
+            cached = object_edit::caption(scene);
+        } else {
+            cached = "";
+        }
     }
     return cached;
 }
