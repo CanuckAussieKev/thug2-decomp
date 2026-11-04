@@ -26,7 +26,7 @@
 #include "game/skate/skate_module.h"
 #include "game/skate/thugpro_cas.h"
 #include "engine/pad_input/device.h"
-#include "platform/platform.h"
+#include "platform/sdl_events.h"
 #include "platform/screenshot.h"
 #include "platform/stopwatch.h"
 #include "platform/process_flags.h"

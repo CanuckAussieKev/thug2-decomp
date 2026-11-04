@@ -31,7 +31,7 @@
 #include "engine/sound/sfx.h"
 #include "engine/pad_input/device.h"
 #include "engine/sys/mlp.h"
-#include "platform/platform.h"
+#include "platform/sdl_events.h"
 #include "platform/mute_audio.h"
 #include "platform/run_log.h"
 #include "platform/process_flags.h"

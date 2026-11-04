@@ -36,6 +36,7 @@
 #include "platform/process_flags.h"
 #include "platform/crt.h"
 #include "platform/registry.h"
+#include "platform/sdl_events.h"
 #include "platform/sdl_window.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/script/game_cfuncs.h"

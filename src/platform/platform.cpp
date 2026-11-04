@@ -36,12 +36,6 @@ void set_actuators(int port, int left, int right)
     sio::set_sdl_actuators(port, static_cast<uint16_t>(left), static_cast<uint16_t>(right));
 }
 
-// 0x005F56E0. Originally from PartyMod Fixes: the SDL event pump (which also sees the quit request; PartyMod jumped from here). The
-// original pumped the game window's (0x007D6A28) Win32 messages:
-//     MSG msg;
-//     while (PeekMessageA(&msg, window, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageA(&msg); }
-void process_window_events() { os_layer::pump_sdl_events(); }
-
 // 0x005F44F0
 bool init_input(HINSTANCE instance, HWND window, int config)
 {

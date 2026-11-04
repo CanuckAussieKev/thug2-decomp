@@ -21,6 +21,7 @@
 #include "frontend/screen_element.h"
 #include "game/skate/profile_manager.h"
 #include "platform/platform.h"
+#include "platform/sdl_events.h"
 #include "platform/platform_input.h"
 #include "engine/memory/mem.h"
 #include "base/core/stubs.h"
