@@ -168,7 +168,7 @@ add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
 # --- The boundary layer (docs/architecture.md "Layers") ----------------------------------------------------------
 # The places where bytes come from outside: files on disk (formats), network messages (wire). Each is a static library
 # that depends only on the standard library and thug2_base; the game sees their typed APIs. (GPU vertex data: src/gpu,
-# part of the game target - it needs the Direct3D device; the platform APIs: src/platform.)
+# thug2_gpu - it needs the Direct3D device; the platform APIs: src/platform.)
 # --- Microsoft GSL 4.2.0 (MIT; THIRD_PARTY_NOTICES.md) -----------------------------------------------------------
 # The C++ Core Guidelines' support library, header-only: gsl::owner (the ownership mark), gsl::at (indexing checked
 # against the extent - an index out of range ends the game with a report instead of reading past), gsl::narrow.
@@ -196,6 +196,7 @@ add_subdirectory(src/base)
 add_subdirectory(src/formats)
 add_subdirectory(src/wire)
 add_subdirectory(src/platform)
+add_subdirectory(src/gpu)
 
 # --- The game ----------------------------------------------------------------------------------------------------
 # thug2-decomp.exe: the game built from this source. It runs from the game folder of the player's own THUG2 install
@@ -508,7 +509,6 @@ add_executable(thug2 WIN32
     src/engine/gfx/pc_weather.cpp
     src/engine/gfx/pc_billboards.cpp
     src/engine/gfx/pc_buffers.cpp
-    src/gpu/vertex_buffers.cpp
     src/engine/gfx/pc_gamma.cpp
     src/engine/gfx/pc_grass.cpp
     src/engine/gfx/pc_instance.cpp
@@ -898,7 +898,7 @@ target_include_directories(thug2 PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (engine/pad_input/direct_input.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
+target_link_libraries(thug2 PRIVATE thug2_gpu thug2_platform thug2_wire thug2_formats thug2_base sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
