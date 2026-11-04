@@ -134,11 +134,11 @@ CheckOptions:
   # outside a condition), the literal suffixes upper-case as readability-uppercase-literal-suffix wants them.
   readability-implicit-bool-conversion.AllowPointerConditions: true
   readability-implicit-bool-conversion.UseUpperCaseLiteralSuffix: true
-  # Cognitive complexity, as a ratchet (stage 10): the original's long switch-and-loop functions and the editor's UI
-  # functions are split into named steps round by round, the threshold lowered as each level reaches 0 (100, then 50,
-  # then the check's default 25). Macros' own conditionals (GSL's Expects, the THUG2_* macros) are not the reader's: not
-  # counted.
-  readability-function-cognitive-complexity.Threshold: 100
+  # Cognitive complexity at 50, not the check's default 25 (stage 10): the original's long switch-and-loop functions
+  # and the editor's UI functions were split into named steps down to 50. Most of the functions between 26 and 50 are
+  # one loop of the original or one ImGui panel, and splitting them further would scatter a decompiled routine without
+  # making it clearer. Macros' own conditionals (GSL's Expects, the THUG2_* macros) are not the reader's: not counted.
+  readability-function-cognitive-complexity.Threshold: 50
   readability-function-cognitive-complexity.IgnoreMacros: true
   # Names are at least 2 characters (the check's default is 3). Allowed single letters: the coordinates and components
   # x y z w u v (a vector's or a texture's own letters) for variables, and a / b for parameters (a function of two
