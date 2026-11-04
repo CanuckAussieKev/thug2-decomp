@@ -532,6 +532,39 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
 // its target, if any, and tilted. Then the models' own turn (the angles, advanced by the angular velocities, about
 // the pivot), scale (also with the distance to the camera, ScaleWithDistance) and hover, and each model's object
 // placed: hidden while the element is transparent.
+// In the widescreen front end, how far an element spanning the 4:3 layout is stretched to the window's edges: from
+// its models' boxes (turned by `local` and scaled) as `view` sees them at `place`.
+float ModelWidget::layout_stretch(void* view, const maths::Vec4& scale, const maths::Mat4& local,
+                                  const maths::Vec4& place) const
+{
+    std::array<maths::Vec4, kBoxCorners * kMaxModels> corners{};
+    int count = 0;
+    for (int i = 0; i < model_total_; ++i) {
+        if (!core::at(models_, i).object) {
+            continue;
+        }
+        objects::ObjectModule* component = core::at(models_, i).object->fetch_module(kModelModuleName);
+        const maths::BBox* box = component ? model_bounding_box_if_any(component) : nullptr;
+        if (!box) {
+            count = 0; // (a model without a box yet: left as it is this frame)
+            break;
+        }
+        for (int corner_index = 0; corner_index < kBoxCorners; ++corner_index) {
+            const maths::Vec4 corner = {
+                .x = (((corner_index & 1) != 0) ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
+                .y = (((corner_index & 2) != 0) ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
+                .z = (((corner_index & 4) != 0) ? box->max.z : box->min.z) + core::at(models_, i).offset.z,
+                .w = 1.0F};
+            const maths::Vec4 moved = corner * local;
+            core::at(corners,
+                     count++) = {.x = moved.x * scale.x, .y = moved.y * scale.y, .z = moved.z * scale.z, .w = 1.0F};
+        }
+    }
+    const double tan_half_angle = std::tan(static_cast<double>(camera_angle(view)) * (3.14159265358979323846 / 360.0));
+    const float stretch = widescreen_stretch(corners.data(), count, place, tan_half_angle);
+    return stretch;
+}
+
 void ModelWidget::tick_frame()
 {
     if (is_dead_ || (model_total_ == 0)) {
@@ -641,33 +674,7 @@ void ModelWidget::tick_frame()
     if (on_layout && render::get_front_end_widescreen()) {
         void* view = viewport_camera(view_slot_);
         if (view) {
-            std::array<maths::Vec4, kBoxCorners * kMaxModels> corners{};
-            int count = 0;
-            for (int i = 0; i < model_total_; ++i) {
-                if (!core::at(models_, i).object) {
-                    continue;
-                }
-                objects::ObjectModule* component = core::at(models_, i).object->fetch_module(kModelModuleName);
-                const maths::BBox* box = component ? model_bounding_box_if_any(component) : nullptr;
-                if (!box) {
-                    count = 0; // (a model without a box yet: left as it is this frame)
-                    break;
-                }
-                for (int corner_index = 0; corner_index < kBoxCorners; ++corner_index) {
-                    const maths::Vec4 corner = {
-                        .x = (((corner_index & 1) != 0) ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
-                        .y = (((corner_index & 2) != 0) ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
-                        .z = (((corner_index & 4) != 0) ? box->max.z : box->min.z) + core::at(models_, i).offset.z,
-                        .w = 1.0F};
-                    const maths::Vec4 moved = corner * local;
-                    core::at(corners, count++) = {
-                        .x = moved.x * scale.x, .y = moved.y * scale.y, .z = moved.z * scale.z, .w = 1.0F};
-                }
-            }
-            const double tan_half_angle =
-                std::tan(static_cast<double>(camera_angle(view)) * (3.14159265358979323846 / 360.0));
-            const float stretch = widescreen_stretch(corners.data(), count, place, tan_half_angle);
-            scale.x *= stretch;
+            scale.x *= layout_stretch(view, scale, local, place);
         }
     }
 

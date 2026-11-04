@@ -240,56 +240,143 @@ void MenuBase::arrange()
     place_top_left(&aim_point());
     object_flags() |= kDirty;
     // where the first item goes: the free space split by internal_just
-    float offset = vertical_ ? static_cast<float>((static_cast<double>(level_y()) - total) *
-                                                  (static_cast<double>(inner_align_v_) + 1.0) * kHalf)
-                             : static_cast<float>((static_cast<double>(span()) - total) *
-                                                  (static_cast<double>(inner_align_h_) + 1.0) * kHalf);
-    {
-        ElementPtr item;
-        item.assign_value(eldest().get_pull());
-        if (regular) {
-            offset = static_cast<float>((static_cast<double>(regular_space_) * kHalf) + offset);
-            for (; item; item.assign_value(item->following().get_pull())) {
-                if (vertical_) {
-                    item->change_alignment(inner_align_h_, 0.0F);
-                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * kHalf),
-                                          offset, true);
-                } else {
-                    item->change_alignment(0.0F, inner_align_v_);
-                    item->change_location(
-                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
-                }
-                offset = static_cast<float>(static_cast<double>(offset) + regular_space_);
-            }
-        } else {
-            for (; item; item.assign_value(item->following().get_pull())) {
-                // half the item's padded length; the offset moves by the unrounded half, then by the rounded one
-                const double half =
-                    (vertical_ ? static_cast<double>(item->level_y()) : static_cast<double>(item->span())) *
-                    margin_factor_ * 0.5;
-                auto half_stored = static_cast<float>(half);
-                offset = static_cast<float>(half + offset);
-                if (vertical_) {
-                    item->change_alignment(inner_align_h_, 0.0F);
-                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * kHalf),
-                                          offset, true);
-                } else {
-                    item->change_alignment(0.0F, inner_align_v_);
-                    item->change_location(
-                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
-                }
-                offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
-                if ((item->object_flags() & kDirty) != 0U) {
-                    object_flags() |= kDirty;
-                }
-            }
-        }
-    }
+    const float offset = vertical_ ? static_cast<float>((static_cast<double>(level_y()) - total) *
+                                                        (static_cast<double>(inner_align_v_) + 1.0) * kHalf)
+                                   : static_cast<float>((static_cast<double>(span()) - total) *
+                                                        (static_cast<double>(inner_align_h_) + 1.0) * kHalf);
+    place_items(regular, offset);
     if (chosen_item_id_ == 0 && eldest() && focused_) {
         selected_index_ = 0;
         move_selection(1, true, true);
         if (chosen_item_id_ != 0U) {
             send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
+        }
+    }
+}
+
+// (Part of 0x004A7B80) The items placed along the menu from `offset`: a regular space each, or their padded
+// lengths and the gap.
+void MenuBase::place_items(bool regular, float offset)
+{
+    ElementPtr item;
+    item.assign_value(eldest().get_pull());
+    if (regular) {
+        offset = static_cast<float>((static_cast<double>(regular_space_) * kHalf) + offset);
+        for (; item; item.assign_value(item->following().get_pull())) {
+            if (vertical_) {
+                item->change_alignment(inner_align_h_, 0.0F);
+                item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * kHalf),
+                                      offset, true);
+            } else {
+                item->change_alignment(0.0F, inner_align_v_);
+                item->change_location(
+                    offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
+            }
+            offset = static_cast<float>(static_cast<double>(offset) + regular_space_);
+        }
+    } else {
+        for (; item; item.assign_value(item->following().get_pull())) {
+            // half the item's padded length; the offset moves by the unrounded half, then by the rounded one
+            const double half = (vertical_ ? static_cast<double>(item->level_y()) : static_cast<double>(item->span())) *
+                                margin_factor_ * 0.5;
+            auto half_stored = static_cast<float>(half);
+            offset = static_cast<float>(half + offset);
+            if (vertical_) {
+                item->change_alignment(inner_align_h_, 0.0F);
+                item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * kHalf),
+                                      offset, true);
+            } else {
+                item->change_alignment(0.0F, inner_align_v_);
+                item->change_location(
+                    offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * kHalf), true);
+            }
+            offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
+            if ((item->object_flags() & kDirty) != 0U) {
+                object_flags() |= kDirty;
+            }
+        }
+    }
+}
+
+// (Part of 0x004A8100) The selected item found again (by id, else by index) after a focus was sent; refocused if
+// it moved.
+void MenuBase::find_selection_again()
+{
+    // find the selected item again (by id, else by index), lay the items out
+    bool refocus = false;
+    if (chosen_item_id_ != 0U) {
+        int index = 0;
+        ElementPtr item;
+        item.assign_value(find_child_with_id(chosen_item_id_, &index));
+        if (!item) {
+            ElementPtr by_index;
+            by_index.assign_value(find_child_at_slot(selected_index_));
+            if (by_index) {
+                chosen_item_id_ = by_index->ident();
+                set_selection_tags();
+            } else {
+                selected_index_ = -1;
+                move_selection(1, true, true);
+            }
+            refocus = true;
+        } else {
+            selected_index_ = index;
+            set_selection_tags();
+        }
+    } else {
+        move_selection(1, true, true);
+        refocus = true;
+    }
+    if (refocus && focused_) {
+        move_selection(1, true, true);
+        if (chosen_item_id_ != 0U) {
+            send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
+        }
+    }
+}
+
+// (Part of 0x004A8100) The focus taken: the item by grid_index (the last item whose tag_grid_x is at most it) or
+// child_id, focused.
+void MenuBase::take_focus(objects::Signal* event)
+{
+    controller_ = objects::event_controller(event);
+    // the item to focus: grid_index (the last item whose tag_grid_x is at most it), child_id
+    int grid = -1;
+    if (event->payload() && event->payload()->fetch_int_value(kGridIndex, &grid, 0)) {
+        grid_index_ = grid;
+        ElementPtr item;
+        item.assign_value(eldest().get_pull());
+        int found = -1;
+        for (int i = 0; item; ++i) {
+            int x = -1;
+            if (item->read_int_tag(kTagGridX, &x) && x <= grid) {
+                found = i;
+            }
+            item.assign_value(item->following().get_pull());
+        }
+        if (found != -1) {
+            selected_index_ = found;
+            chosen_item_id_ = 1;
+        }
+    }
+    uint32_t child_id = 0;
+    if (event->payload() && event->payload()->read_hash_value(kChildId, &child_id, 0)) {
+        ElementPtr item;
+        item.assign_value(eldest().get_pull());
+        for (int i = 0; item; ++i) {
+            if (child_id == item->ident()) {
+                chosen_item_id_ = child_id;
+                selected_index_ = i;
+                break;
+            }
+            item.assign_value(item->following().get_pull());
+        }
+    }
+    focused_ = true;
+    if (chosen_item_id_ != 0U) {
+        move_selection(1, true, false);
+        if (chosen_item_id_ != 0U) {
+            get_launch(kFocus, chosen_item_id_, event->payload());
         }
     }
 }
@@ -307,81 +394,12 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         return false;
     }
     if (event->kind_tag() == kFocusSentEvent) {
-        // find the selected item again (by id, else by index), lay the items out
-        bool refocus = false;
-        if (chosen_item_id_ != 0U) {
-            int index = 0;
-            ElementPtr item;
-            item.assign_value(find_child_with_id(chosen_item_id_, &index));
-            if (!item) {
-                ElementPtr by_index;
-                by_index.assign_value(find_child_at_slot(selected_index_));
-                if (by_index) {
-                    chosen_item_id_ = by_index->ident();
-                    set_selection_tags();
-                } else {
-                    selected_index_ = -1;
-                    move_selection(1, true, true);
-                }
-                refocus = true;
-            } else {
-                selected_index_ = index;
-                set_selection_tags();
-            }
-        } else {
-            move_selection(1, true, true);
-            refocus = true;
-        }
-        if (refocus && focused_) {
-            move_selection(1, true, true);
-            if (chosen_item_id_ != 0U) {
-                send_focus(checksums::Name{chosen_item_id_}, controller_, -1);
-            }
-        }
+        find_selection_again();
         arrange();
         event->set_event_handled(ident(), 0);
     }
     if (event->kind_tag() == kFocus && !focused_) {
-        controller_ = objects::event_controller(event);
-        // the item to focus: grid_index (the last item whose tag_grid_x is at most it), child_id
-        int grid = -1;
-        if (event->payload() && event->payload()->fetch_int_value(kGridIndex, &grid, 0)) {
-            grid_index_ = grid;
-            ElementPtr item;
-            item.assign_value(eldest().get_pull());
-            int found = -1;
-            for (int i = 0; item; ++i) {
-                int x = -1;
-                if (item->read_int_tag(kTagGridX, &x) && x <= grid) {
-                    found = i;
-                }
-                item.assign_value(item->following().get_pull());
-            }
-            if (found != -1) {
-                selected_index_ = found;
-                chosen_item_id_ = 1;
-            }
-        }
-        uint32_t child_id = 0;
-        if (event->payload() && event->payload()->read_hash_value(kChildId, &child_id, 0)) {
-            ElementPtr item;
-            item.assign_value(eldest().get_pull());
-            for (int i = 0; item; ++i) {
-                if (child_id == item->ident()) {
-                    chosen_item_id_ = child_id;
-                    selected_index_ = i;
-                    break;
-                }
-                item.assign_value(item->following().get_pull());
-            }
-        }
-        focused_ = true;
-        if (chosen_item_id_ != 0U) {
-            move_selection(1, true, false);
-            if (chosen_item_id_ != 0U) {
-                get_launch(kFocus, chosen_item_id_, event->payload());
-            }
-        }
+        take_focus(event);
         event->set_event_handled(ident(), 0);
     }
     if (event->kind_tag() == kUnfocus && focused_) {

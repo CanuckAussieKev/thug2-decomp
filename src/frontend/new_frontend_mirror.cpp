@@ -252,6 +252,48 @@ bool excluded_title(const std::string& clean_title)
     return std::ranges::any_of(kTitles, [&](const char* title) { return upper == title; });
 }
 
+namespace {
+
+// A button escape at `escape_at` in a text (\b, \m and their digit): the key's name as the game spells it, between
+// spaces when words touch it.
+void append_button_name(std::string& out, const std::string& raw, size_t escape_at)
+{
+    const char escape = core::at(raw, escape_at + 1);
+    const std::string name =
+        button_namer() ? button_namer()({.tag = escape, .digit = core::at(raw, escape_at + 2)}) : std::string();
+    if (!name.empty()) {
+        if (!out.empty() && out.back() != ' ' && out.back() != '/') {
+            out += ' ';
+        }
+        out += name;
+        if (escape_at + 3 < raw.size() && core::at(raw, escape_at + 3) != ' ' && core::at(raw, escape_at + 3) != '/' &&
+            core::at(raw, escape_at + 3) != '=') {
+            out += ' ';
+        }
+    }
+}
+
+// A cleaned text's spaces collapsed (not across line ends) and trimmed.
+std::string collapse_spaces(const std::string& out)
+{
+    std::string tidy;
+    for (const char character : out) {
+        if (character == ' ' && (tidy.empty() || tidy.back() == ' ' || tidy.back() == '\n')) {
+            continue;
+        }
+        if (character == '\n' && !tidy.empty() && tidy.back() == ' ') {
+            tidy.pop_back();
+        }
+        tidy += character;
+    }
+    while (!tidy.empty() && (tidy.back() == ' ' || tidy.back() == '\n')) {
+        tidy.pop_back();
+    }
+    return tidy;
+}
+
+} // namespace
+
 std::string clean_text(const std::string& raw, bool newlines)
 {
     std::string out;
@@ -278,18 +320,7 @@ std::string clean_text(const std::string& raw, bool newlines)
             }
             if ((escape == 'b' || escape == 'B' || escape == 'm' || escape == 'M') && i + 2 < raw.size()) {
                 // (a button: the key's name as the game spells it, between spaces when words touch it)
-                const std::string name =
-                    button_namer() ? button_namer()({.tag = escape, .digit = core::at(raw, i + 2)}) : std::string();
-                if (!name.empty()) {
-                    if (!out.empty() && out.back() != ' ' && out.back() != '/') {
-                        out += ' ';
-                    }
-                    out += name;
-                    if (i + 3 < raw.size() && core::at(raw, i + 3) != ' ' && core::at(raw, i + 3) != '/' &&
-                        core::at(raw, i + 3) != '=') {
-                        out += ' ';
-                    }
-                }
+                append_button_name(out, raw, i);
                 i += 2;
                 continue;
             }
@@ -307,20 +338,7 @@ std::string clean_text(const std::string& raw, bool newlines)
         out += character;
     }
     // Spaces collapsed (not across line ends), trimmed.
-    std::string tidy;
-    for (const char character : out) {
-        if (character == ' ' && (tidy.empty() || tidy.back() == ' ' || tidy.back() == '\n')) {
-            continue;
-        }
-        if (character == '\n' && !tidy.empty() && tidy.back() == ' ') {
-            tidy.pop_back();
-        }
-        tidy += character;
-    }
-    while (!tidy.empty() && (tidy.back() == ' ' || tidy.back() == '\n')) {
-        tidy.pop_back();
-    }
-    return tidy;
+    return collapse_spaces(out);
 }
 
 void set_button_namer(ButtonNamer namer) { button_namer() = namer; }

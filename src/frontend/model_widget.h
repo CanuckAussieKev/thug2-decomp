@@ -74,6 +74,11 @@ public:
     [[nodiscard]] const std::array<float, 3>& angle() const { return angle_; }
 
 private:
+    // (Part of tick_frame: in the widescreen front end, how far an element spanning the 4:3 layout is stretched to
+    // the window's edges - from its models' boxes, turned by `local` and scaled, as `view` sees them at `place`.)
+    [[nodiscard]] float layout_stretch(void* view, const maths::Vec4& scale, const maths::Mat4& local,
+                                       const maths::Vec4& place) const;
+
     std::array<ShapeMesh, kMaxModels> models_; // +0x178
     int model_total_{0};           // +0x434
     float camera_z_{-kDefaultCameraDistance};      // +0x438 (CameraZ: the distance in front of the camera, negative)

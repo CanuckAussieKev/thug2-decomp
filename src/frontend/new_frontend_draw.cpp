@@ -1376,11 +1376,72 @@ void options_screen(Ctx& ctx, float window_width, float window_height)
 }
 
 // The level select.
-void levels_screen(Ctx& ctx, int* visible_rows)
+// The level select's column: the title for what it's for, the game tabs and the section's levels (`visible_rows`:
+// how many fit).
+void draw_level_column(Ctx& ctx, int* visible_rows, const Section* section, uint32_t colour)
 {
     const Menu& menu = *ctx.menu;
     const Catalogue* data = menu.payload();
     const SectionView* view = menu.get_view();
+    const int section_index = menu.get_section_index();
+    ctx.dl->PushClipRect(ImVec2(ctx.f->get_x(0.0F), ctx.f->get_y(0.0F)),
+                         ImVec2(ctx.f->get_x(kColumn + kScrimFeather), ctx.f->get_y(kDesignHeight)), true);
+    const char* title = text_tools::kTitleFreeSkate;
+    if (menu.levels_purpose() == LevelsFor::kEdit) {
+        title = text_tools::kTitleEditLevel;
+    } else if (menu.levels_purpose() == LevelsFor::kFreeze) {
+        title = text_tools::kTitleChangeLevel;
+    } else if (menu.levels_purpose() == LevelsFor::kNet) {
+        title = text_tools::kTitleNetLevel;
+    }
+    const float rule = get_header(ctx, {.x = kColumnInner, .y = 36.0F}, title, true, nullptr);
+    // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
+    std::vector<std::pair<std::string, uint32_t>> tabs;
+    for (int i = 0; data && std::cmp_less(i, data->sections().size()); ++i) {
+        tabs.emplace_back(core::at(data->sections(), i).tab, core::at(data->sections(), i).colour);
+    }
+    const float tabs_bottom = get_tabs(ctx, {.tabs = tabs, .selected = section_index}, rule + 14.0F);
+    const float tab_h = 0.0F;
+    const float y = tabs_bottom;              // The list.
+    const float list_top = y + tab_h + 18.0F; // (tab_h 0: Tabs gave the bottom of its last row)
+    const float list_bottom = 692.0F;
+    const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / kLevelRowHeight));
+    if (visible_rows) {
+        *visible_rows = fit;
+    }
+    const RowStyle rs = level_row_style();
+    ctx.dl->PushClipRect(ImVec2(ctx.f->get_x(0.0F), ctx.f->get_y(list_top - kListClipAbove)),
+                         ImVec2(ctx.f->get_x(kColumn + kScrimFeather), ctx.f->get_y(list_bottom + kListClipBelow)),
+                         true);
+    const float scroll = menu.list_scroll();
+    const int count = view ? static_cast<int>(view->levels.size()) : 0;
+    const int first = std::max(0, static_cast<int>(std::floor(scroll)) - 1);
+    const int last = std::min(count - 1, static_cast<int>(std::ceil(scroll)) + fit + 1);
+    for (int row = first; row <= last; ++row) {
+        const StageMap& stage = core::at(section->levels, core::at(view->levels, row));
+        const float top = list_top + ((static_cast<float>(row) - scroll) * kLevelRowHeight);
+        const bool locked = std::cmp_less(row, view->locked.size()) && core::at(view->locked, row);
+        get_row(ctx, rs, top, pad2(row + 1).c_str(), stage.name.c_str(),
+                {.amount = menu.row_amount(row), .cut = colour, .dim = locked});
+        if (top >= list_top - 1.0F && top + kLevelRowHeight <= list_bottom + 1.0F) {
+            ctx.get_hit(Hit::Kind::kStageMap, row, kColumnLeft, top, kColumnInner + kRowHitOverhang,
+                        top + kLevelRowHeight);
+        }
+    }
+    ctx.dl->PopClipRect();
+    if (count == 0) {
+        const Style empty = mono12(kMuted2);
+        draw_text(ctx.dl, empty, *ctx.f,
+                  {.x = ctx.f->get_x(kColumnLeft), .y = datum(empty, *ctx.f, ctx.f->get_y(list_top), kTextLineHeight)},
+                  text_tools::kNoLevels);
+    }
+    ctx.dl->PopClipRect();
+}
+
+void levels_screen(Ctx& ctx, int* visible_rows)
+{
+    const Menu& menu = *ctx.menu;
+    const Catalogue* data = menu.payload();
     const int section_index = menu.get_section_index();
     const Section* section = data && section_index >= 0 && std::cmp_less(section_index, data->sections().size())
                                  ? &core::at(data->sections(), section_index)
@@ -1399,59 +1460,7 @@ void levels_screen(Ctx& ctx, int* visible_rows)
                           get_col(colour, 1.0F - grow));
 
     if (grow < kLaunchGrowDone) {
-        ctx.dl->PushClipRect(ImVec2(ctx.f->get_x(0.0F), ctx.f->get_y(0.0F)),
-                             ImVec2(ctx.f->get_x(kColumn + kScrimFeather), ctx.f->get_y(kDesignHeight)), true);
-        const char* title = text_tools::kTitleFreeSkate;
-        if (menu.levels_purpose() == LevelsFor::kEdit) {
-            title = text_tools::kTitleEditLevel;
-        } else if (menu.levels_purpose() == LevelsFor::kFreeze) {
-            title = text_tools::kTitleChangeLevel;
-        } else if (menu.levels_purpose() == LevelsFor::kNet) {
-            title = text_tools::kTitleNetLevel;
-        }
-        const float rule = get_header(ctx, {.x = kColumnInner, .y = 36.0F}, title, true, nullptr);
-        // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
-        std::vector<std::pair<std::string, uint32_t>> tabs;
-        for (int i = 0; data && std::cmp_less(i, data->sections().size()); ++i) {
-            tabs.emplace_back(core::at(data->sections(), i).tab, core::at(data->sections(), i).colour);
-        }
-        const float tabs_bottom = get_tabs(ctx, {.tabs = tabs, .selected = section_index}, rule + 14.0F);
-        const float tab_h = 0.0F;
-        const float y = tabs_bottom;              // The list.
-        const float list_top = y + tab_h + 18.0F; // (tab_h 0: Tabs gave the bottom of its last row)
-        const float list_bottom = 692.0F;
-        const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / kLevelRowHeight));
-        if (visible_rows) {
-            *visible_rows = fit;
-        }
-        const RowStyle rs = level_row_style();
-        ctx.dl->PushClipRect(ImVec2(ctx.f->get_x(0.0F), ctx.f->get_y(list_top - kListClipAbove)),
-                             ImVec2(ctx.f->get_x(kColumn + kScrimFeather), ctx.f->get_y(list_bottom + kListClipBelow)),
-                             true);
-        const float scroll = menu.list_scroll();
-        const int count = view ? static_cast<int>(view->levels.size()) : 0;
-        const int first = std::max(0, static_cast<int>(std::floor(scroll)) - 1);
-        const int last = std::min(count - 1, static_cast<int>(std::ceil(scroll)) + fit + 1);
-        for (int row = first; row <= last; ++row) {
-            const StageMap& stage = core::at(section->levels, core::at(view->levels, row));
-            const float top = list_top + ((static_cast<float>(row) - scroll) * kLevelRowHeight);
-            const bool locked = std::cmp_less(row, view->locked.size()) && core::at(view->locked, row);
-            get_row(ctx, rs, top, pad2(row + 1).c_str(), stage.name.c_str(),
-                    {.amount = menu.row_amount(row), .cut = colour, .dim = locked});
-            if (top >= list_top - 1.0F && top + kLevelRowHeight <= list_bottom + 1.0F) {
-                ctx.get_hit(Hit::Kind::kStageMap, row, kColumnLeft, top, kColumnInner + kRowHitOverhang,
-                            top + kLevelRowHeight);
-            }
-        }
-        ctx.dl->PopClipRect();
-        if (count == 0) {
-            const Style empty = mono12(kMuted2);
-            draw_text(
-                ctx.dl, empty, *ctx.f,
-                {.x = ctx.f->get_x(kColumnLeft), .y = datum(empty, *ctx.f, ctx.f->get_y(list_top), kTextLineHeight)},
-                text_tools::kNoLevels);
-        }
-        ctx.dl->PopClipRect();
+        draw_level_column(ctx, visible_rows, section, colour);
     }
     if (grow > 0.0F) {
         // (the launch: the picture comes up sharp over the column)
@@ -2073,6 +2082,33 @@ void colour_track(Ctx& ctx, const mirror::View& v, const mirror::Row& row, bool 
     }
 }
 
+// A row's value at the column's right (the selected row's in the house colour), unless its label reaches it.
+void draw_row_value(Ctx& ctx, const RowStyle& rs, Style& value, const mirror::Row& row, float top, bool selected)
+{
+    const float base = datum(rs.name, *ctx.f, ctx.f->get_y(top + rs.row_pad_top_), rs.line_height_);
+    value.colour = selected ? Menu::kHouseYellow : kMuted;
+    const float value_x = ctx.f->get_x(kColumnInner) - get_measure(value, *ctx.f, row.value.c_str());
+    if (ctx.f->get_x(rs.text_x_) + get_measure(rs.name, *ctx.f, row.label.c_str()) + ctx.f->current_s(kLabelValueGap) <
+        value_x) {
+        draw_text(ctx.dl, value, *ctx.f, {.x = value_x, .y = base}, row.value.c_str());
+    }
+}
+
+// An editor's view (the skater, the park) keeps the right: only the selected item's value over the hints.
+void draw_editor_value(Ctx& ctx, const mirror::View& v, float left, float bottom)
+{
+    const mirror::Row* sel = v.selected >= 0 ? &core::at(v.rows, v.selected) : nullptr;
+    if (sel && !sel->value.empty()) {
+        Style label_style = mono12(Menu::kHouseYellow, false);
+        label_style.css = kLabelTextSize;
+        draw_text(ctx.dl, label_style, *ctx.f,
+                  {.x = ctx.f->get_x(left),
+                   .y = datum(label_style, *ctx.f, ctx.f->get_y(bottom - (kLabelTextSize * kTextLineHeight)),
+                              kTextLineHeight)},
+                  sel->value.c_str());
+    }
+}
+
 // A plain list: the pause menus' look - the screen dimmed, the column's scrim, the items numbered down the left (each
 // one's value in mono at the column's right), the selected item's name on the right with the screen's other words.
 void list_of_items(Ctx& ctx, const mirror::Tracker& tracker, float window_width, float window_height, float* scroll)
@@ -2130,14 +2166,7 @@ void list_of_items(Ctx& ctx, const mirror::Tracker& tracker, float window_width,
         get_row(ctx, rs, top, pad2(i + 1).c_str(), row.label.c_str(),
                 {.amount = tracker.row_amount(i), .cut = Menu::kHouseYellow, .dim = !row.focusable});
         if (!row.value.empty()) {
-            const float base = datum(rs.name, *ctx.f, ctx.f->get_y(top + rs.row_pad_top_), rs.line_height_);
-            value.colour = i == v.selected ? Menu::kHouseYellow : kMuted;
-            const float value_x = ctx.f->get_x(kColumnInner) - get_measure(value, *ctx.f, row.value.c_str());
-            if (ctx.f->get_x(rs.text_x_) + get_measure(rs.name, *ctx.f, row.label.c_str()) +
-                    ctx.f->current_s(kLabelValueGap) <
-                value_x) {
-                draw_text(ctx.dl, value, *ctx.f, {.x = value_x, .y = base}, row.value.c_str());
-            }
+            draw_row_value(ctx, rs, value, row, top, i == v.selected);
         }
         if (row.track > 0 && row.focusable) {
             // (between the label and the number: from past the widest label to a fixed width, at most; a selected row's
@@ -2185,17 +2214,7 @@ void list_of_items(Ctx& ctx, const mirror::Tracker& tracker, float window_width,
         bottom = swatch_top - kSwatchGap;
     }
     if (v.editor) {
-        // (an editor's view - the skater, the park - keeps the right: only the selected item's value over the hints)
-        const mirror::Row* sel = v.selected >= 0 ? &core::at(v.rows, v.selected) : nullptr;
-        if (sel && !sel->value.empty()) {
-            Style label_style = mono12(Menu::kHouseYellow, false);
-            label_style.css = kLabelTextSize;
-            draw_text(ctx.dl, label_style, *ctx.f,
-                      {.x = ctx.f->get_x(left),
-                       .y = datum(label_style, *ctx.f, ctx.f->get_y(bottom - (kLabelTextSize * kTextLineHeight)),
-                                  kTextLineHeight)},
-                      sel->value.c_str());
-        }
+        draw_editor_value(ctx, v, left, bottom);
         return;
     }
     const mirror::Row* sel = v.selected >= 0 ? &core::at(v.rows, v.selected) : nullptr;

@@ -309,6 +309,10 @@ public:
     static constexpr uint32_t kHouseYellow = 0xFFF2E205;
 
 private:
+    // (Parts of select_id: on the level select a tab or a level; on the options screen a group, the game options or
+    // a setting.)
+    bool select_level_id(const std::string& id);
+    bool select_option_id(const std::string& id);
     void get_go(Screen screen);
     void stack_off();
     void get_show(Screen screen); // (the wipe's half-way)

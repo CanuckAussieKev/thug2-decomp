@@ -56,6 +56,14 @@ public:
     [[nodiscard]] bool cycles_around() const { return cycles_around_; }
 
 private:
+    // (Part of 0x004A7B80, arrange: the items placed along the menu from `offset` - a regular space each, or their
+    // padded lengths and the gap.)
+    void place_items(bool regular, float offset);
+    // (Parts of 0x004A8100, pass_event_to_script: the selected item found again after a focus was sent; the focus taken
+    // - the item by grid_index or child_id.)
+    void find_selection_again();
+    void take_focus(objects::Signal* event);
+
     int selected_index_{-1};     // +0x178 (-1 none)
     uint32_t chosen_item_id_{0}; // +0x17C (0 none)
     bool focused_{false};        // +0x180

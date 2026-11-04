@@ -165,6 +165,77 @@ private:
         }
         return get_fail("a string that doesn't end");
     }
+    // An object (just past its "{"): its members, key and value, to its "}".
+    bool object_value(Json* out, int depth)
+    {
+        out->kind = Json::Kind::kObject;
+        ++look_at_;
+        get_space();
+        if (look_at_ < text_->size() && core::at(*text_, look_at_) == '}') {
+            ++look_at_;
+            return true;
+        }
+        for (;;) {
+            get_space();
+            if (look_at_ >= text_->size() || core::at(*text_, look_at_) != '"') {
+                return get_fail("an object's key isn't a string");
+            }
+            std::string key;
+            if (!string_value(&key)) {
+                return false;
+            }
+            get_space();
+            if (look_at_ >= text_->size() || core::at(*text_, look_at_) != ':') {
+                return get_fail("no ':' after a key");
+            }
+            ++look_at_;
+            Json value;
+            if (!get_value(&value, depth + 1)) {
+                return false;
+            }
+            out->members.emplace_back(std::move(key), std::move(value));
+            get_space();
+            if (look_at_ < text_->size() && core::at(*text_, look_at_) == ',') {
+                ++look_at_;
+                continue;
+            }
+            if (look_at_ < text_->size() && core::at(*text_, look_at_) == '}') {
+                ++look_at_;
+                return true;
+            }
+            return get_fail("an object not closed");
+        }
+    }
+
+    // An array (just past its "["): its items to its "]".
+    bool array_value(Json* out, int depth)
+    {
+        out->kind = Json::Kind::kArray;
+        ++look_at_;
+        get_space();
+        if (look_at_ < text_->size() && core::at(*text_, look_at_) == ']') {
+            ++look_at_;
+            return true;
+        }
+        for (;;) {
+            Json value;
+            if (!get_value(&value, depth + 1)) {
+                return false;
+            }
+            out->items.push_back(std::move(value));
+            get_space();
+            if (look_at_ < text_->size() && core::at(*text_, look_at_) == ',') {
+                ++look_at_;
+                continue;
+            }
+            if (look_at_ < text_->size() && core::at(*text_, look_at_) == ']') {
+                ++look_at_;
+                return true;
+            }
+            return get_fail("an array not closed");
+        }
+    }
+
     bool get_value(Json* out, int depth)
     {
         if (depth > kMaxFileDepth) {
@@ -176,69 +247,10 @@ private:
         }
         const char character = core::at(*text_, look_at_);
         if (character == '{') {
-            out->kind = Json::Kind::kObject;
-            ++look_at_;
-            get_space();
-            if (look_at_ < text_->size() && core::at(*text_, look_at_) == '}') {
-                ++look_at_;
-                return true;
-            }
-            for (;;) {
-                get_space();
-                if (look_at_ >= text_->size() || core::at(*text_, look_at_) != '"') {
-                    return get_fail("an object's key isn't a string");
-                }
-                std::string key;
-                if (!string_value(&key)) {
-                    return false;
-                }
-                get_space();
-                if (look_at_ >= text_->size() || core::at(*text_, look_at_) != ':') {
-                    return get_fail("no ':' after a key");
-                }
-                ++look_at_;
-                Json value;
-                if (!get_value(&value, depth + 1)) {
-                    return false;
-                }
-                out->members.emplace_back(std::move(key), std::move(value));
-                get_space();
-                if (look_at_ < text_->size() && core::at(*text_, look_at_) == ',') {
-                    ++look_at_;
-                    continue;
-                }
-                if (look_at_ < text_->size() && core::at(*text_, look_at_) == '}') {
-                    ++look_at_;
-                    return true;
-                }
-                return get_fail("an object not closed");
-            }
+            return object_value(out, depth);
         }
         if (character == '[') {
-            out->kind = Json::Kind::kArray;
-            ++look_at_;
-            get_space();
-            if (look_at_ < text_->size() && core::at(*text_, look_at_) == ']') {
-                ++look_at_;
-                return true;
-            }
-            for (;;) {
-                Json value;
-                if (!get_value(&value, depth + 1)) {
-                    return false;
-                }
-                out->items.push_back(std::move(value));
-                get_space();
-                if (look_at_ < text_->size() && core::at(*text_, look_at_) == ',') {
-                    ++look_at_;
-                    continue;
-                }
-                if (look_at_ < text_->size() && core::at(*text_, look_at_) == ']') {
-                    ++look_at_;
-                    return true;
-                }
-                return get_fail("an array not closed");
-            }
+            return array_value(out, depth);
         }
         if (character == '"') {
             out->kind = Json::Kind::kChars;
@@ -329,6 +341,47 @@ uint32_t parse_colour(const std::string& text, uint32_t fallback)
     return kOpaqueAlphaMask | static_cast<uint32_t>(std::strtoul(std::next(text.c_str()), nullptr, kHexBase));
 }
 
+namespace {
+
+// A level's optional fields: its art variants and their labels (dropped unless one per variant), the flags
+// that unlock and mark it, its level number (or name), whether it hides while locked or uses the generic art.
+void read_level_extras(const Json& json_level, StageMap& level)
+{
+    if (const Json* variants = json_level.get_pull("art_variants"); variants && variants->kind == Json::Kind::kArray) {
+        for (const Json& v : variants->items) {
+            if (v.kind == Json::Kind::kChars && !v.text.empty()) {
+                level.art_variants_.push_back(v.text);
+            }
+        }
+    }
+    if (const Json* labels = json_level.get_pull("art_labels"); labels && labels->kind == Json::Kind::kArray) {
+        for (const Json& v : labels->items) {
+            if (v.kind == Json::Kind::kChars) {
+                level.art_labels_.push_back(v.text);
+            }
+        }
+    }
+    if (level.art_labels_.size() != level.art_variants_.size()) {
+        level.art_labels_.clear();
+    }
+    level.flag = json_level.text_util("flag");
+    level.seen_flag_ = json_level.text_util("seen_flag");
+    level.game_tag_ = json_level.text_util("game_tag");
+    if (const Json* num = json_level.get_pull("level_num")) {
+        if (num->kind == Json::Kind::kNumber) {
+            level.level_index_ = static_cast<int>(num->number);
+        } else if (num->kind == Json::Kind::kChars) {
+            level.level_num_name_ = num->text;
+        }
+    }
+    const Json* hide = json_level.get_pull("hide_when_locked");
+    level.hide_when_locked_ = (hide != nullptr) && hide->kind == Json::Kind::kBool && hide->boolean;
+    const Json* generic = json_level.get_pull("generic_art");
+    level.generic_art_ = (generic != nullptr) && generic->kind == Json::Kind::kBool && generic->boolean;
+}
+
+} // namespace
+
 bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error)
 {
     auto fail = [error](const std::string& why) {
@@ -385,38 +438,7 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
             level.name = json_level.text_util("name");
             level.load = json_level.text_util("load");
             level.art = json_level.text_util("art");
-            if (const Json* variants = json_level.get_pull("art_variants");
-                variants && variants->kind == Json::Kind::kArray) {
-                for (const Json& v : variants->items) {
-                    if (v.kind == Json::Kind::kChars && !v.text.empty()) {
-                        level.art_variants_.push_back(v.text);
-                    }
-                }
-            }
-            if (const Json* labels = json_level.get_pull("art_labels"); labels && labels->kind == Json::Kind::kArray) {
-                for (const Json& v : labels->items) {
-                    if (v.kind == Json::Kind::kChars) {
-                        level.art_labels_.push_back(v.text);
-                    }
-                }
-            }
-            if (level.art_labels_.size() != level.art_variants_.size()) {
-                level.art_labels_.clear();
-            }
-            level.flag = json_level.text_util("flag");
-            level.seen_flag_ = json_level.text_util("seen_flag");
-            level.game_tag_ = json_level.text_util("game_tag");
-            if (const Json* num = json_level.get_pull("level_num")) {
-                if (num->kind == Json::Kind::kNumber) {
-                    level.level_index_ = static_cast<int>(num->number);
-                } else if (num->kind == Json::Kind::kChars) {
-                    level.level_num_name_ = num->text;
-                }
-            }
-            const Json* hide = json_level.get_pull("hide_when_locked");
-            level.hide_when_locked_ = (hide != nullptr) && hide->kind == Json::Kind::kBool && hide->boolean;
-            const Json* generic = json_level.get_pull("generic_art");
-            level.generic_art_ = (generic != nullptr) && generic->kind == Json::Kind::kBool && generic->boolean;
+            read_level_extras(json_level, level);
             if (level.name.empty() || level.load.empty()) {
                 return fail("a level of " + section.id + " has no name or load script");
             }
@@ -1161,77 +1183,90 @@ ActStep Menu::get_wheel(int notches)
     return last;
 }
 
+// On the level select: a tab ("tab:" and its section's id or tab) or a level (its load script or name; the section
+// shown first).
+bool Menu::select_level_id(const std::string& id)
+{
+    if (id.starts_with("tab:")) {
+        for (size_t section_index = 0;
+             catalogue_ && section_index < catalogue_->sections().size() && section_index < views_.size();
+             ++section_index) {
+            if (same_text(core::at(catalogue_->sections(), section_index).id, id.substr(4)) ||
+                same_text(core::at(catalogue_->sections(), section_index).tab, id.substr(4))) {
+                set_section(static_cast<int>(section_index));
+                return true;
+            }
+        }
+        return false;
+    }
+    for (size_t section_index = 0;
+         catalogue_ && section_index < catalogue_->sections().size() && section_index < views_.size();
+         ++section_index) {
+        // (the section shown first: a name in two games - Airport - picks the one there)
+        const size_t section = (section_index + static_cast<size_t>(section_)) % views_.size();
+        const std::vector<int>& rows = core::at(views_, section).levels;
+        for (size_t row_index = 0; row_index < rows.size(); ++row_index) {
+            const StageMap& level =
+                core::at(core::at(catalogue_->sections(), section).levels, core::at(rows, row_index));
+            if (same_text(level.load, id) || same_text(level.name, id)) {
+                set_section(static_cast<int>(section));
+                move_level(static_cast<int>(row_index));
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// On the options screen: a group ("group:" and its id), the game options, or a setting (its key, or section.key).
+bool Menu::select_option_id(const std::string& id)
+{
+    const std::vector<options::GroupSet>& groups = options::bunches();
+    if (id.starts_with("group:")) {
+        for (size_t group_index = 0; group_index < groups.size(); ++group_index) {
+            if (same_text(core::at(groups, group_index).id, id.substr(kGroupPrefixLength))) {
+                set_option_group(static_cast<int>(group_index));
+                reset_rows();
+                return true;
+            }
+        }
+        return false;
+    }
+    if (same_text(id, "game_options")) {
+        option_row_ = static_cast<int>(option_rows().size());
+        return true;
+    }
+    const size_t dot = id.find('.');
+    for (size_t group_index = 0; group_index < groups.size(); ++group_index) {
+        for (size_t row_index = 0; row_index < core::at(groups, group_index).rows.size(); ++row_index) {
+            const options::Spec& spec =
+                core::at(options::get_specs(), core::at(core::at(groups, group_index).rows, row_index));
+            const bool match = dot == std::string::npos ? same_text(spec.key, id)
+                                                        : same_text(spec.section, id.substr(0, dot)) &&
+                                                              same_text(spec.key, id.substr(dot + 1));
+            if (match) {
+                if (ints::as_signed(group_index) != bundle_) {
+                    set_option_group(static_cast<int>(group_index));
+                    reset_rows();
+                }
+                option_row_ = static_cast<int>(row_index);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool Menu::select_id(const std::string& id)
 {
     if (occupied()) {
         return false;
     }
     if (shown_ == Screen::kLevels) {
-        if (id.starts_with("tab:")) {
-            for (size_t section_index = 0;
-                 catalogue_ && section_index < catalogue_->sections().size() && section_index < views_.size();
-                 ++section_index) {
-                if (same_text(core::at(catalogue_->sections(), section_index).id, id.substr(4)) ||
-                    same_text(core::at(catalogue_->sections(), section_index).tab, id.substr(4))) {
-                    set_section(static_cast<int>(section_index));
-                    return true;
-                }
-            }
-            return false;
-        }
-        for (size_t section_index = 0;
-             catalogue_ && section_index < catalogue_->sections().size() && section_index < views_.size();
-             ++section_index) {
-            // (the section shown first: a name in two games - Airport - picks the one there)
-            const size_t section = (section_index + static_cast<size_t>(section_)) % views_.size();
-            const std::vector<int>& rows = core::at(views_, section).levels;
-            for (size_t row_index = 0; row_index < rows.size(); ++row_index) {
-                const StageMap& level =
-                    core::at(core::at(catalogue_->sections(), section).levels, core::at(rows, row_index));
-                if (same_text(level.load, id) || same_text(level.name, id)) {
-                    set_section(static_cast<int>(section));
-                    move_level(static_cast<int>(row_index));
-                    return true;
-                }
-            }
-        }
-        return false;
+        return select_level_id(id);
     }
     if (shown_ == Screen::kOptions) {
-        const std::vector<options::GroupSet>& groups = options::bunches();
-        if (id.starts_with("group:")) {
-            for (size_t group_index = 0; group_index < groups.size(); ++group_index) {
-                if (same_text(core::at(groups, group_index).id, id.substr(kGroupPrefixLength))) {
-                    set_option_group(static_cast<int>(group_index));
-                    reset_rows();
-                    return true;
-                }
-            }
-            return false;
-        }
-        if (same_text(id, "game_options")) {
-            option_row_ = static_cast<int>(option_rows().size());
-            return true;
-        }
-        const size_t dot = id.find('.');
-        for (size_t group_index = 0; group_index < groups.size(); ++group_index) {
-            for (size_t row_index = 0; row_index < core::at(groups, group_index).rows.size(); ++row_index) {
-                const options::Spec& spec =
-                    core::at(options::get_specs(), core::at(core::at(groups, group_index).rows, row_index));
-                const bool match = dot == std::string::npos ? same_text(spec.key, id)
-                                                            : same_text(spec.section, id.substr(0, dot)) &&
-                                                                  same_text(spec.key, id.substr(dot + 1));
-                if (match) {
-                    if (ints::as_signed(group_index) != bundle_) {
-                        set_option_group(static_cast<int>(group_index));
-                        reset_rows();
-                    }
-                    option_row_ = static_cast<int>(row_index);
-                    return true;
-                }
-            }
-        }
-        return false;
+        return select_option_id(id);
     }
     return false;
 }

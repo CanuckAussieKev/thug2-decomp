@@ -1742,6 +1742,74 @@ std::string log_tricks(int count, std::string* failed)
     return result.data();
 }
 
+// frontend: the new front end's command - refused, an error, or its result (false: not done yet).
+bool run_frontend_command(Runner& runner, const OrderCode& command)
+{
+    bool done = true;
+    const std::string result = frontend::new_frontend::automation_command(command.target, &done);
+    if (!done) {
+        return false; // (Continue: once its screen is up)
+    }
+    if (result.starts_with("refused")) {
+        get_fail(runner, result, true);
+    } else if (result.starts_with("error")) {
+        get_fail(runner, result, false);
+    } else {
+        get_finish(runner, result);
+    }
+    return true;
+}
+
+// jumpto: the skater put standing there (in a level with the skater), marked in a trace.
+bool run_jump_to(Runner& runner, const OrderCode& command)
+{
+    if ((current_load_state() == 0U) || in_front_end() || !skater_present()) {
+        get_fail(runner, "not in a level with the skater", false);
+        return true;
+    }
+    const std::vector<float>& numbers = command.numbers;
+    frontend::test_view::Vec3 at = {};
+    const std::string failed = frontend::test_view::jump_to(
+        {.x = ::core::at(numbers, 0), .y = ::core::at(numbers, 1), .z = ::core::at(numbers, 2)}, numbers.size() > 3,
+        numbers.size() > 3 ? ::core::at(numbers, 3) : 0.0F, &at, command.target == "board");
+    if (!failed.empty()) {
+        get_fail(runner, failed, false);
+        return true;
+    }
+    std::array<char, kStatusResultSize> result{};
+    text::format_to(result, "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
+    if (FILE* trace_file = trace_state().file.get()) { // (a trace marks each teleport: the rides it holds)
+        text::print_to(trace_file, "# %s -> %s\n", runner.text.c_str(), result.data());
+        std::fflush(trace_file);
+    }
+    get_finish(runner, result.data());
+    return true;
+}
+
+// viewcam: the camera locked (its position, direction and drift) or let go.
+bool run_view_cam(Runner& runner, const OrderCode& command)
+{
+    if (command.target == "off") {
+        frontend::test_view::unlock_camera();
+    } else if (!frontend::test_view::lock_camera(
+                   {.position = {.x = ::core::at(command.numbers, 0),
+                                 .y = ::core::at(command.numbers, 1),
+                                 .z = ::core::at(command.numbers, 2)},
+                    .direction = {.x = ::core::at(command.numbers, 3),
+                                  .y = ::core::at(command.numbers, 4),
+                                  .z = ::core::at(command.numbers, kDirectionZIndex)},
+                    .drift = command.numbers.size() > kDriftXIndex
+                                 ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, kDriftXIndex),
+                                                             .y = ::core::at(command.numbers, kDriftYIndex),
+                                                             .z = ::core::at(command.numbers, kDriftZIndex)}
+                                 : frontend::test_view::Vec3{.x = 0.0F, .y = 0.0F, .z = 0.0F}})) {
+        get_fail(runner, "the direction has no horizon (straight up / down)", false);
+        return true;
+    }
+    get_finish(runner, "ok");
+    return true;
+}
+
 // Start the next command; true if it's done already (the next can start this frame).
 void write_status(Runner& runner);
 
@@ -1807,63 +1875,13 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         get_finish(runner, command.target);
         return true;
     case Op::kFrontend: {
-        bool done = true;
-        const std::string result = frontend::new_frontend::automation_command(command.target, &done);
-        if (!done) {
-            return false; // (Continue: once its screen is up)
-        }
-        if (result.starts_with("refused")) {
-            get_fail(runner, result, true);
-        } else if (result.starts_with("error")) {
-            get_fail(runner, result, false);
-        } else {
-            get_finish(runner, result);
-        }
-        return true;
+        return run_frontend_command(runner, command);
     }
     case Op::kJumpTo: {
-        if ((current_load_state() == 0U) || in_front_end() || !skater_present()) {
-            get_fail(runner, "not in a level with the skater", false);
-            return true;
-        }
-        const std::vector<float>& numbers = command.numbers;
-        frontend::test_view::Vec3 at = {};
-        const std::string failed = frontend::test_view::jump_to(
-            {.x = ::core::at(numbers, 0), .y = ::core::at(numbers, 1), .z = ::core::at(numbers, 2)}, numbers.size() > 3,
-            numbers.size() > 3 ? ::core::at(numbers, 3) : 0.0F, &at, command.target == "board");
-        if (!failed.empty()) {
-            get_fail(runner, failed, false);
-            return true;
-        }
-        std::array<char, kStatusResultSize> result{};
-        text::format_to(result, "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
-        if (FILE* trace_file = trace_state().file.get()) { // (a trace marks each teleport: the rides it holds)
-            text::print_to(trace_file, "# %s -> %s\n", runner.text.c_str(), result.data());
-            std::fflush(trace_file);
-        }
-        get_finish(runner, result.data());
-        return true;
+        return run_jump_to(runner, command);
     }
     case Op::kViewCam:
-        if (command.target == "off") {
-            frontend::test_view::unlock_camera();
-        } else if (!frontend::test_view::lock_camera(
-                       {.position = {.x = ::core::at(command.numbers, 0),
-                                     .y = ::core::at(command.numbers, 1),
-                                     .z = ::core::at(command.numbers, 2)},
-                        .direction = {.x = ::core::at(command.numbers, 3),
-                                      .y = ::core::at(command.numbers, 4),
-                                      .z = ::core::at(command.numbers, kDirectionZIndex)},
-                        .drift = command.numbers.size() > kDriftXIndex
-                                     ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, kDriftXIndex),
-                                                                 .y = ::core::at(command.numbers, kDriftYIndex),
-                                                                 .z = ::core::at(command.numbers, kDriftZIndex)}
-                                     : frontend::test_view::Vec3{.x = 0.0F, .y = 0.0F, .z = 0.0F}})) {
-            get_fail(runner, "the direction has no horizon (straight up / down)", false);
-            return true;
-        }
-        get_finish(runner, "ok");
-        return true;
+        return run_view_cam(runner, command);
     case Op::kCapture: {
         const std::string failed = sys::screenshot::start_series(command.frames, command.target);
         if (!failed.empty()) {

@@ -498,15 +498,7 @@ void UiTree::listener_receive(objects::Signal* event)
             core::at(manager->pad_event_types_, i) = types->fetch_part(i);
         }
     }
-    bool pad_event = false;
-    if (manager->num_priorities_ > 0) {
-        for (int i = 0; i < manager->pad_event_kind_count_; ++i) {
-            if (event->kind_tag() == core::at(manager->pad_event_types_, i)) {
-                pad_event = true;
-                break;
-            }
-        }
-    }
+    const bool pad_event = manager->num_priorities_ > 0 && manager->is_pad_event(event->kind_tag());
     if (manager->check_device_ && event->payload()) {
         int device = 0;
         if (event->payload()->fetch_int_value(kDeviceNum, &device, 0)) {
@@ -548,13 +540,7 @@ void UiTree::listener_receive(objects::Signal* event)
     }
     // a pad event from the system: offered to the controller's focused elements until one handles it (a
     // change of the list starts the round again with the elements not offered it yet)
-    bool is_pad_type = false;
-    for (int i = 0; i < manager->pad_event_kind_count_; ++i) {
-        if (event->kind_tag() == core::at(manager->pad_event_types_, i)) {
-            is_pad_type = true;
-            break;
-        }
-    }
+    const bool is_pad_type = manager->is_pad_event(event->kind_tag());
     if (!is_pad_type || event->aim_point() != kSystem) {
         return;
     }

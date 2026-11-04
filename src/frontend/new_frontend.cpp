@@ -1106,6 +1106,36 @@ bool has_visible_sprite(const UiWidget* element, int* budget)
     return false;
 }
 
+// A slider item's marker (its up_arrow sprite): where it is along the bar, and which colour slider it is.
+void read_slider_marker(const UiWidget* widget, mirror::ItemRead* item)
+{
+    static const uint32_t kHueArrow = name_hash("hue_up_arrow");
+    static const auto kColourArrows =
+        std::to_array<uint32_t>({name_hash("hue_up_arrow"), name_hash("saturation_up_arrow"),
+                                 name_hash("value_up_arrow"), name_hash("alpha_up_arrow")});
+    // (colormenu_nowrap_arrow_left / right -53 .. 80 for the colour menus' markers, scalingmenu_arrow_left /
+    // right -49 .. 76 for the scaling ones)
+    const uint32_t id = id_of_element(widget);
+    float left = -kScaleArrowLeft;
+    float right = kScaleArrowRight;
+    for (const uint32_t colour : kColourArrows) {
+        if (id == colour) {
+            left = -kColourArrowLeft;
+            right = kColourArrowRight;
+        }
+    }
+    item->adjustable = true;
+    item->slider_at_ = std::clamp((widget->aim_point().x - left) / (right - left), 0.0F, 1.0F);
+    item->slider_hue_ = id == kHueArrow;
+    item->slider_kind_ = 0; // (the colour arrows' sliders: 1-4)
+    for (int arrow = 0; arrow < 4; ++arrow) {
+        if (id == core::at(kColourArrows, arrow)) {
+            item->slider_kind_ = arrow + 1;
+            break;
+        }
+    }
+}
+
 // An item's checkbox ("checkbox" sprite shown: ticked when its "checkmark" is) and whether its value changes with Left /
 // Right (left_arrow / right_arrow sprites in it, shown on the focused item).
 //
@@ -1120,11 +1150,8 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
     static const uint32_t kLeft = name_hash("left_arrow");
     static const uint32_t kRight = name_hash("right_arrow");
     static const uint32_t kUp = name_hash("up_arrow");
-    static const uint32_t kHueArrow = name_hash("hue_up_arrow");
     static const uint32_t kStar = name_hash("star");
     static const uint32_t kCircle = name_hash("circle");
-    static const auto kColourArrows = std::to_array<uint32_t>({name_hash("hue_up_arrow"), name_hash("saturation_up_arrow"),
-                                             name_hash("value_up_arrow"), name_hash("alpha_up_arrow")});
     for (const UiWidget* widget = element; widget && --*budget > 0; widget = get_next(widget)) {
         if (type_of(widget) == sprite_type()) {
             const uint32_t texture = core::down_cast<const ImageWidget>(widget)->texture();
@@ -1132,27 +1159,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 item->adjustable = true;
             }
             if (texture == kUp) {
-                // (colormenu_nowrap_arrow_left / right -53 .. 80 for the colour menus' markers, scalingmenu_arrow_left /
-                // right -49 .. 76 for the scaling ones)
-                const uint32_t id = id_of_element(widget);
-                float left = -kScaleArrowLeft;
-                float right = kScaleArrowRight;
-                for (const uint32_t colour : kColourArrows) {
-                    if (id == colour) {
-                        left = -kColourArrowLeft;
-                        right = kColourArrowRight;
-                    }
-                }
-                item->adjustable = true;
-                item->slider_at_ = std::clamp((widget->aim_point().x - left) / (right - left), 0.0F, 1.0F);
-                item->slider_hue_ = id == kHueArrow;
-                item->slider_kind_ = 0; // (the colour arrows' sliders: 1-4)
-                for (int arrow = 0; arrow < 4; ++arrow) {
-                    if (id == core::at(kColourArrows, arrow)) {
-                        item->slider_kind_ = arrow + 1;
-                        break;
-                    }
-                }
+                read_slider_marker(widget, item);
             }
             if (item->stat_index_ >= 0 && (texture == kStar || texture == kCircle)) {
                 // A stat's star (build_stat_slider: ten of them; stats_menu_update_row lights the first `value` in
@@ -1208,6 +1215,111 @@ std::vector<std::pair<std::string, int>> skater_stats(uint32_t name)
     return stats;
 }
 
+// A menu's item: its id, whether it takes the focus, its texts; its graphic and its value's sprites (not on the
+// skater select, where it's the skater's name).
+mirror::ItemRead read_menu_item(const UiWidget* child, bool skaters, bool selected, int& budget)
+{
+    mirror::ItemRead item;
+    item.id = id_of_element(child);
+    item.focusable = mouse_menus::item_focusable(child);
+    collect_texts(child, &item.texts, {}, &budget, false);
+    if (!skaters && !selected) {
+        int sprite_budget = kSpriteBudget;
+        item.graphic_value_ = has_visible_sprite(child, &sprite_budget);
+    }
+    if (!skaters) {
+        int value_budget = kValueBudget;
+        if (const UiWidget* first = first_child(child)) {
+            read_value_sprites(first, &item, &value_budget);
+        }
+    }
+    if (skaters) {
+        objects::ProfileRoster* manager = objects::profile_roster();
+        objects::RiderIdentity* profile = manager ? manager->get_template(item.id) : nullptr;
+        const char* name = profile ? profile->fetch_shown_name() : nullptr;
+        item.display = name ? name : "";
+    }
+    return item;
+}
+
+// A dialog's title (the menu's first text) and text (the text block's lines, its children).
+void read_dialog_texts(UiWidget* menu, mirror::MenuRead& read, int& budget)
+{
+    // The title: the menu's first text; the text: the text block's lines (its children).
+    static const uint32_t kTextBlock = name_hash("TextBlockElement");
+    for (UiWidget* child = first_child(menu); child; child = get_next(child)) {
+        if (read.dialog_title_.empty() && type_of(child) == text_type()) {
+            const char* text = core::down_cast<LabelWidget>(child)->chars();
+            read.dialog_title_ = text ? text : "";
+        } else if (type_of(child) == kTextBlock) {
+            std::vector<std::string> lines;
+            collect_texts(child, &lines, {}, &budget, false);
+            std::string joined;
+            for (const std::string& line : lines) {
+                joined += (joined.empty() ? "" : " ") + line;
+            }
+            read.dialog_lines_.push_back(joined);
+        }
+    }
+}
+
+// The skater select's skater name and the selected skater's stats.
+void read_skater_select(mirror::MenuRead& read)
+{
+    if (UiWidget* name = game_screens::get_find(name_hash("select_skater_name"))) {
+        if (type_of(name) == text_type() && core::down_cast<LabelWidget>(name)->chars()) {
+            read.skater_name_ = core::down_cast<LabelWidget>(name)->chars();
+        }
+    }
+    if (read.selected_index_ >= 0 && std::cmp_less(read.selected_index_, read.items.size())) {
+        read.stats = skater_stats(core::at(read.items, read.selected_index_).id);
+    }
+}
+
+// A column beside the menu on its screen (the grab tricks' names beside their key combos): a word at a row's height
+// is that row's value; the rest are the screen's other words.
+void read_texts_beside(const UiWidget* screen, const std::vector<const UiWidget*>& skip, const UiWidget* menu,
+                       mirror::MenuRead& read, int& budget)
+{
+    // A column beside the menu (the grab tricks' names beside their key combos): a word at a row's height is that
+    // row's value; the rest are the screen's other words.
+    std::vector<std::pair<std::string, float>> beside;
+    collect_texts_at(screen, &beside, skip, &budget);
+    std::vector<float> row_y;
+    for (const UiWidget* child = first_child(menu); child; child = get_next(child)) {
+        float y = absolute_y(child);
+        for (const UiWidget* text_child = first_child(child); text_child; text_child = get_next(text_child)) {
+            if (type_of(text_child) == text_type()) {
+                y = absolute_y(text_child);
+                break;
+            }
+        }
+        row_y.push_back(y);
+    }
+    // (the nearest row, within half the rows' spacing)
+    float spacing = kRowSpacing;
+    for (size_t i = 1; i < row_y.size(); ++i) {
+        if (core::at(row_y, i) - core::at(row_y, i - 1) > kRowSlack) {
+            spacing = std::min(spacing, core::at(row_y, i) - core::at(row_y, i - 1));
+        }
+    }
+    for (const auto& [text, y] : beside) {
+        size_t row = row_y.size();
+        float best = spacing * kHalf;
+        for (size_t i = 0; i < row_y.size() && i < read.items.size(); ++i) {
+            if (std::fabs(core::at(row_y, i) - y) < best && core::at(read.items, i).focusable) {
+                best = std::fabs(core::at(row_y, i) - y);
+                row = i;
+            }
+        }
+        if (row < row_y.size()) {
+            core::at(read.items, row).texts.push_back(text);
+        } else {
+            read.extra_texts_.push_back(text);
+        }
+    }
+}
+
 mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
 {
     mirror::MenuRead read;
@@ -1227,56 +1339,14 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     int budget = kWalkBudget;
     int index = 0;
     for (const UiWidget* child = first_child(menu); child && index < kMaxMenuChildren; child = get_next(child), ++index) {
-        mirror::ItemRead item;
-        item.id = id_of_element(child);
-        item.focusable = mouse_menus::item_focusable(child);
-        collect_texts(child, &item.texts, {}, &budget, false);
-        if (!skaters && index != read.selected_index_) {
-            int sprite_budget = kSpriteBudget;
-            item.graphic_value_ = has_visible_sprite(child, &sprite_budget);
-        }
-        if (!skaters) {
-            int value_budget = kValueBudget;
-            if (const UiWidget* first = first_child(child)) {
-                read_value_sprites(first, &item, &value_budget);
-            }
-        }
-        if (skaters) {
-            objects::ProfileRoster* manager = objects::profile_roster();
-            objects::RiderIdentity* profile = manager ? manager->get_template(item.id) : nullptr;
-            const char* name = profile ? profile->fetch_shown_name() : nullptr;
-            item.display = name ? name : "";
-        }
-        read.items.push_back(std::move(item));
+        read.items.push_back(read_menu_item(child, skaters, index == read.selected_index_, budget));
     }
     if (in_dialog) {
-        // The title: the menu's first text; the text: the text block's lines (its children).
-        static const uint32_t kTextBlock = name_hash("TextBlockElement");
-        for (UiWidget* child = first_child(menu); child; child = get_next(child)) {
-            if (read.dialog_title_.empty() && type_of(child) == text_type()) {
-                const char* text = core::down_cast<LabelWidget>(child)->chars();
-                read.dialog_title_ = text ? text : "";
-            } else if (type_of(child) == kTextBlock) {
-                std::vector<std::string> lines;
-                collect_texts(child, &lines, {}, &budget, false);
-                std::string joined;
-                for (const std::string& line : lines) {
-                    joined += (joined.empty() ? "" : " ") + line;
-                }
-                read.dialog_lines_.push_back(joined);
-            }
-        }
+        read_dialog_texts(menu, read, budget);
         return read;
     }
     if (skaters) {
-        if (UiWidget* name = game_screens::get_find(name_hash("select_skater_name"))) {
-            if (type_of(name) == text_type() && core::down_cast<LabelWidget>(name)->chars()) {
-                read.skater_name_ = core::down_cast<LabelWidget>(name)->chars();
-            }
-        }
-        if (read.selected_index_ >= 0 && std::cmp_less(read.selected_index_, read.items.size())) {
-            read.stats = skater_stats(core::at(read.items, read.selected_index_).id);
-        }
+        read_skater_select(read);
         return read;
     }
     // A list: its title (title_text, the themed menus'), the other words on its screen (under the same child of the
@@ -1302,43 +1372,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         }
     }
     if (screen && screen != menu) {
-        // A column beside the menu (the grab tricks' names beside their key combos): a word at a row's height is that
-        // row's value; the rest are the screen's other words.
-        std::vector<std::pair<std::string, float>> beside;
-        collect_texts_at(screen, &beside, skip, &budget);
-        std::vector<float> row_y;
-        for (const UiWidget* child = first_child(menu); child; child = get_next(child)) {
-            float y = absolute_y(child);
-            for (const UiWidget* text_child = first_child(child); text_child; text_child = get_next(text_child)) {
-                if (type_of(text_child) == text_type()) {
-                    y = absolute_y(text_child);
-                    break;
-                }
-            }
-            row_y.push_back(y);
-        }
-        // (the nearest row, within half the rows' spacing)
-        float spacing = kRowSpacing;
-        for (size_t i = 1; i < row_y.size(); ++i) {
-            if (core::at(row_y, i) - core::at(row_y, i - 1) > kRowSlack) {
-                spacing = std::min(spacing, core::at(row_y, i) - core::at(row_y, i - 1));
-            }
-        }
-        for (const auto& [text, y] : beside) {
-            size_t row = row_y.size();
-            float best = spacing * kHalf;
-            for (size_t i = 0; i < row_y.size() && i < read.items.size(); ++i) {
-                if (std::fabs(core::at(row_y, i) - y) < best && core::at(read.items, i).focusable) {
-                    best = std::fabs(core::at(row_y, i) - y);
-                    row = i;
-                }
-            }
-            if (row < row_y.size()) {
-                core::at(read.items, row).texts.push_back(text);
-            } else {
-                read.extra_texts_.push_back(text);
-            }
-        }
+        read_texts_beside(screen, skip, menu, read, budget);
     }
     return read;
 }
@@ -2441,6 +2475,149 @@ void press_direction(modules::FrontEnd* front_end, Intake input)
     run_action(front_end, menu_state().get_press(input));
 }
 
+// A key pressed on the front end's menus: the arrows / WASD, choose and back, the tabs (Q / E the level art on the
+// level select).
+void handle_key_down(modules::FrontEnd* front_end, const SDL_Event& widget)
+{
+    const bool repeat = widget.key.repeat != 0;
+    const bool shift = (widget.key.keysym.mod & KMOD_SHIFT) != 0;
+    switch (widget.key.keysym.scancode) {
+    case SDL_SCANCODE_UP:
+    case SDL_SCANCODE_W:
+        press_direction(front_end, Intake::kUp);
+        break;
+    case SDL_SCANCODE_DOWN:
+    case SDL_SCANCODE_S:
+        press_direction(front_end, Intake::kDown);
+        break;
+    case SDL_SCANCODE_LEFT:
+    case SDL_SCANCODE_A:
+        press_direction(front_end, Intake::kLeft);
+        break;
+    case SDL_SCANCODE_RIGHT:
+    case SDL_SCANCODE_D:
+        press_direction(front_end, Intake::kRight);
+        break;
+    case SDL_SCANCODE_RETURN:
+    case SDL_SCANCODE_KP_ENTER:
+    case SDL_SCANCODE_SPACE:
+        if (!repeat) {
+            run_action(front_end, menu_state().get_press(Intake::kConfirm));
+        }
+        break;
+    case SDL_SCANCODE_ESCAPE:
+    case SDL_SCANCODE_BACKSPACE:
+        if (!repeat) {
+            run_action(front_end, menu_state().get_press(Intake::kBack));
+        }
+        break;
+    case SDL_SCANCODE_Q:
+        // (on the level select Q / E change the picture; the tabs keep Page Up / Down, 1 / 2, Tab and the shoulders)
+        if (menu_state().get_shown() == Screen::kLevels) {
+            cycle_level_art(-1);
+        } else {
+            run_action(front_end, menu_state().get_press(Intake::kPrevTab));
+        }
+        break;
+    case SDL_SCANCODE_PAGEUP:
+    case SDL_SCANCODE_1:
+        run_action(front_end, menu_state().get_press(Intake::kPrevTab));
+        break;
+    case SDL_SCANCODE_E:
+        if (menu_state().get_shown() == Screen::kLevels) {
+            cycle_level_art(1);
+        } else {
+            run_action(front_end, menu_state().get_press(Intake::kNextTab));
+        }
+        break;
+    case SDL_SCANCODE_PAGEDOWN:
+    case SDL_SCANCODE_2:
+        run_action(front_end, menu_state().get_press(Intake::kNextTab));
+        break;
+    case SDL_SCANCODE_TAB:
+        run_action(front_end, menu_state().get_press(shift ? Intake::kPrevTab : Intake::kNextTab));
+        break;
+    default:
+        break;
+    }
+}
+
+// A controller button pressed: the d-pad (repeating while held), choose, Start, back, the shoulders' tabs.
+void handle_button_down(modules::FrontEnd* front_end, const SDL_Event& widget)
+{
+    switch (widget.cbutton.button) {
+    case SDL_CONTROLLER_BUTTON_DPAD_UP:
+        press_direction(front_end, Intake::kUp);
+        stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kUp), .wait = kRepeatDelay};
+        break;
+    case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+        press_direction(front_end, Intake::kDown);
+        stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kDown), .wait = kRepeatDelay};
+        break;
+    case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+        press_direction(front_end, Intake::kLeft);
+        stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kLeft), .wait = kRepeatDelay};
+        break;
+    case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+        press_direction(front_end, Intake::kRight);
+        stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kRight), .wait = kRepeatDelay};
+        break;
+    case SDL_CONTROLLER_BUTTON_A:
+        run_action(front_end, menu_state().get_press(Intake::kConfirm));
+        break;
+    case SDL_CONTROLLER_BUTTON_START:
+        // (Start on the pause menu resumes, as the original's; elsewhere it chooses)
+        run_action(front_end,
+                   menu_state().get_press(menu_state().get_shown() == Screen::kFreeze && menu_state().deepness() <= 1
+                                              ? Intake::kBack
+                                              : Intake::kConfirm));
+        break;
+    case SDL_CONTROLLER_BUTTON_B:
+        run_action(front_end, menu_state().get_press(Intake::kBack));
+        break;
+    case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+        run_action(front_end, menu_state().get_press(Intake::kPrevTab));
+        break;
+    case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+        run_action(front_end, menu_state().get_press(Intake::kNextTab));
+        break;
+    default:
+        break;
+    }
+}
+
+// The left stick as a d-pad: past half way (back inside a third: let go).
+void handle_stick(modules::FrontEnd* front_end, const SDL_Event& widget)
+{
+    // The left stick as a d-pad: past half way (back inside a third: let go).
+    int* axis = nullptr;
+    if (widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX) {
+        axis = &stick_repeat().stick_x_;
+    } else if (widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
+        axis = &stick_repeat().stick_y_;
+    }
+    if (!axis) {
+        return;
+    }
+    const int value = widget.caxis.value;
+    const int settled = std::abs(value) < 11000 ? 0 : *axis; // (between the two: as it was)
+    const int pushed_back = value < -16000 ? -1 : settled;
+    const int now = value > 16000 ? 1 : pushed_back;
+    if (now == *axis) {
+        return;
+    }
+    *axis = now;
+    if (now == 0) {
+        stick_repeat().repeat_ = {};
+        return;
+    }
+    const Intake sideways = now > 0 ? Intake::kRight : Intake::kLeft;
+    const Intake vertical = now > 0 ? Intake::kDown : Intake::kUp;
+    const Intake input = axis == &stick_repeat().stick_x_ ? sideways : vertical;
+    press_direction(front_end, input);
+    stick_repeat().repeat_ = {.direction = static_cast<int>(input), .wait = kRepeatDelay};
+}
+
 void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
 {
     int w = 0;
@@ -2461,109 +2638,11 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
     };
     switch (widget.type) {
     case SDL_KEYDOWN: {
-        const bool repeat = widget.key.repeat != 0;
-        const bool shift = (widget.key.keysym.mod & KMOD_SHIFT) != 0;
-        switch (widget.key.keysym.scancode) {
-        case SDL_SCANCODE_UP:
-        case SDL_SCANCODE_W:
-            press_direction(front_end, Intake::kUp);
-            break;
-        case SDL_SCANCODE_DOWN:
-        case SDL_SCANCODE_S:
-            press_direction(front_end, Intake::kDown);
-            break;
-        case SDL_SCANCODE_LEFT:
-        case SDL_SCANCODE_A:
-            press_direction(front_end, Intake::kLeft);
-            break;
-        case SDL_SCANCODE_RIGHT:
-        case SDL_SCANCODE_D:
-            press_direction(front_end, Intake::kRight);
-            break;
-        case SDL_SCANCODE_RETURN:
-        case SDL_SCANCODE_KP_ENTER:
-        case SDL_SCANCODE_SPACE:
-            if (!repeat) {
-                run_action(front_end, menu_state().get_press(Intake::kConfirm));
-            }
-            break;
-        case SDL_SCANCODE_ESCAPE:
-        case SDL_SCANCODE_BACKSPACE:
-            if (!repeat) {
-                run_action(front_end, menu_state().get_press(Intake::kBack));
-            }
-            break;
-        case SDL_SCANCODE_Q:
-            // (on the level select Q / E change the picture; the tabs keep Page Up / Down, 1 / 2, Tab and the shoulders)
-            if (menu_state().get_shown() == Screen::kLevels) {
-                cycle_level_art(-1);
-            } else {
-                run_action(front_end, menu_state().get_press(Intake::kPrevTab));
-            }
-            break;
-        case SDL_SCANCODE_PAGEUP:
-        case SDL_SCANCODE_1:
-            run_action(front_end, menu_state().get_press(Intake::kPrevTab));
-            break;
-        case SDL_SCANCODE_E:
-            if (menu_state().get_shown() == Screen::kLevels) {
-                cycle_level_art(1);
-            } else {
-                run_action(front_end, menu_state().get_press(Intake::kNextTab));
-            }
-            break;
-        case SDL_SCANCODE_PAGEDOWN:
-        case SDL_SCANCODE_2:
-            run_action(front_end, menu_state().get_press(Intake::kNextTab));
-            break;
-        case SDL_SCANCODE_TAB:
-            run_action(front_end, menu_state().get_press(shift ? Intake::kPrevTab : Intake::kNextTab));
-            break;
-        default:
-            break;
-        }
+        handle_key_down(front_end, widget);
         return;
     }
     case SDL_CONTROLLERBUTTONDOWN:
-        switch (widget.cbutton.button) {
-        case SDL_CONTROLLER_BUTTON_DPAD_UP:
-            press_direction(front_end, Intake::kUp);
-            stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kUp), .wait = kRepeatDelay};
-            break;
-        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
-            press_direction(front_end, Intake::kDown);
-            stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kDown), .wait = kRepeatDelay};
-            break;
-        case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-            press_direction(front_end, Intake::kLeft);
-            stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kLeft), .wait = kRepeatDelay};
-            break;
-        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-            press_direction(front_end, Intake::kRight);
-            stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kRight), .wait = kRepeatDelay};
-            break;
-        case SDL_CONTROLLER_BUTTON_A:
-            run_action(front_end, menu_state().get_press(Intake::kConfirm));
-            break;
-        case SDL_CONTROLLER_BUTTON_START:
-            // (Start on the pause menu resumes, as the original's; elsewhere it chooses)
-            run_action(front_end, menu_state().get_press(menu_state().get_shown() == Screen::kFreeze &&
-                                                                 menu_state().deepness() <= 1
-                                                             ? Intake::kBack
-                                                             : Intake::kConfirm));
-            break;
-        case SDL_CONTROLLER_BUTTON_B:
-            run_action(front_end, menu_state().get_press(Intake::kBack));
-            break;
-        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
-            run_action(front_end, menu_state().get_press(Intake::kPrevTab));
-            break;
-        case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
-            run_action(front_end, menu_state().get_press(Intake::kNextTab));
-            break;
-        default:
-            break;
-        }
+        handle_button_down(front_end, widget);
         return;
     case SDL_CONTROLLERBUTTONUP:
         if (widget.cbutton.button >= SDL_CONTROLLER_BUTTON_DPAD_UP &&
@@ -2572,33 +2651,7 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& widget)
         }
         return;
     case SDL_CONTROLLERAXISMOTION: {
-        // The left stick as a d-pad: past half way (back inside a third: let go).
-        int* axis = nullptr;
-        if (widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX) {
-            axis = &stick_repeat().stick_x_;
-        } else if (widget.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
-            axis = &stick_repeat().stick_y_;
-        }
-        if (!axis) {
-            return;
-        }
-        const int value = widget.caxis.value;
-        const int settled = std::abs(value) < 11000 ? 0 : *axis; // (between the two: as it was)
-        const int pushed_back = value < -16000 ? -1 : settled;
-        const int now = value > 16000 ? 1 : pushed_back;
-        if (now == *axis) {
-            return;
-        }
-        *axis = now;
-        if (now == 0) {
-            stick_repeat().repeat_ = {};
-            return;
-        }
-        const Intake sideways = now > 0 ? Intake::kRight : Intake::kLeft;
-        const Intake vertical = now > 0 ? Intake::kDown : Intake::kUp;
-        const Intake input = axis == &stick_repeat().stick_x_ ? sideways : vertical;
-        press_direction(front_end, input);
-        stick_repeat().repeat_ = {.direction = static_cast<int>(input), .wait = kRepeatDelay};
+        handle_stick(front_end, widget);
         return;
     }
     case SDL_MOUSEMOTION:
@@ -2858,6 +2911,90 @@ bool showing() { return new_frontend_state().state_ == State::kShown || new_fron
 // (while a cover is on, the screen under it is hidden: no presses reach it blind - a few frames, 3 s at most)
 bool blocks_game_input() { return is_switched_on() && (showing() || new_frontend_state().guard_ || screen_cover().cover_.get_on()); }
 
+namespace {
+
+// A tool's own UI has the screen: ours aside - not drawn, nothing restyled, nothing covered.
+void step_aside_for_tool()
+{
+    if (new_frontend_state().state_ != State::kIdle && new_frontend_state().state_ != State::kAway) {
+        get_log("new front end: the level editor is up - ours aside");
+        change_phase(State::kAway);
+    }
+    if (screen_cover().cover_.get_on()) {
+        get_log("new front end: cover off - the level editor is up");
+    }
+    screen_cover().cover_.halt();
+    if (menu_mirror().mirror_.get_up()) {
+        menu_mirror().mirror_.get_reset();
+        menu_mirror().mirror_hits_.clear();
+    }
+    new_frontend_state().events_.clear();
+    menu_mirror().mirror_events_.clear();
+    hide_root(false);
+}
+
+// Ours idle or aside: back to idle in a level with nothing to show; shown when it can be; else the restyled
+// screen's mouse.
+void tick_aside(modules::FrontEnd* front_end, Anchor anchor, bool usable)
+{
+    if ((current_load_state() == 0U) ||
+        (!in_front_end() && anchor == Anchor::kNone && new_frontend_state().state_ == State::kAway && !get_paused())) {
+        if (new_frontend_state().state_ != State::kIdle) {
+            change_phase(State::kIdle);
+            free_device_objects();
+        }
+    }
+    if (usable) {
+        get_show(anchor);
+        keep_root_hidden();
+        return;
+    }
+    // (the restyled screen and the cover are kept by before_screen_layout; the mouse over the restyled screen here)
+    if (menu_mirror().mirror_.get_up()) {
+        mirror_mouse(front_end);
+    } else {
+        menu_mirror().mirror_events_.clear();
+    }
+    keep_root_hidden();
+}
+
+// A level starting from ours: idle once it has started, or back to the menus after 30 seconds.
+void tick_launching(float dt)
+{
+    menu_state().tick(dt);
+    if ((new_frontend_state().launch_level_ == kLoadMainMenu && !in_front_end()) ||
+        (new_frontend_state().launch_level_ != kLoadMainMenu &&
+         current_load_state() != new_frontend_state().launch_level_) ||
+        (new_frontend_state().launch_level_ != kLoadMainMenu && loading_screen_up())) {
+        change_phase(State::kIdle);
+        free_device_objects();
+    } else if (new_frontend_state().state_time_ > kLevelStartTimeoutSeconds) {
+        get_log("new front end: the level didn't start in 30 seconds - back to the menus");
+        menu_state().cancel_launch();
+        change_phase(State::kIdle);
+    }
+}
+
+// The original's screen changed on its own: ours aside - back when an anchor is up.
+void step_aside_from_screen(Anchor anchor, bool usable)
+{
+    // (the original's screen changed on its own: ours aside - back when an anchor is up)
+    if (anchor == Anchor::kNone && !in_front_end() && !get_paused()) {
+        change_phase(State::kIdle);
+        free_device_objects();
+    } else if (usable && anchor != Anchor::kNone) {
+        get_show(anchor);
+    } else {
+        change_phase(State::kAway);
+        // (a dialog over the anchor, a sub-screen over the pause menu...: ours stays on screen until it is ready)
+        if ((current_load_state() != 0U) && !loading_screen_up()) {
+            start_cover(Cover::Over::kOurs, "the original's screen changed under ours");
+        }
+    }
+}
+
+} // namespace
+
 void tick_frame(modules::FrontEnd* front_end)
 {
     if (!is_switched_on()) {
@@ -2891,21 +3028,7 @@ void tick_frame(modules::FrontEnd* front_end)
     // menu stayed drawn over the level editor - its hand-off never finished, as this isn't called while the editor
     // runs... mouse_menus::tick_frame calls it then too, for this).
     if (level_editor::live_now()) {
-        if (new_frontend_state().state_ != State::kIdle && new_frontend_state().state_ != State::kAway) {
-            get_log("new front end: the level editor is up - ours aside");
-            change_phase(State::kAway);
-        }
-        if (screen_cover().cover_.get_on()) {
-            get_log("new front end: cover off - the level editor is up");
-        }
-        screen_cover().cover_.halt();
-        if (menu_mirror().mirror_.get_up()) {
-            menu_mirror().mirror_.get_reset();
-            menu_mirror().mirror_hits_.clear();
-        }
-        new_frontend_state().events_.clear();
-        menu_mirror().mirror_events_.clear();
-        hide_root(false);
+        step_aside_for_tool();
         return;
     }
 
@@ -2927,38 +3050,10 @@ void tick_frame(modules::FrontEnd* front_end)
     switch (new_frontend_state().state_) {
     case State::kIdle:
     case State::kAway:
-        if ((current_load_state() == 0U) || (!in_front_end() && anchor == Anchor::kNone &&
-                                             new_frontend_state().state_ == State::kAway && !get_paused())) {
-            if (new_frontend_state().state_ != State::kIdle) {
-                change_phase(State::kIdle);
-                free_device_objects();
-            }
-        }
-        if (usable) {
-            get_show(anchor);
-            keep_root_hidden();
-            return;
-        }
-        // (the restyled screen and the cover are kept by before_screen_layout; the mouse over the restyled screen here)
-        if (menu_mirror().mirror_.get_up()) {
-            mirror_mouse(front_end);
-        } else {
-            menu_mirror().mirror_events_.clear();
-        }
-        keep_root_hidden();
+        tick_aside(front_end, anchor, usable);
         return;
     case State::kLaunching:
-        menu_state().tick(dt);
-        if ((new_frontend_state().launch_level_ == kLoadMainMenu && !in_front_end()) ||
-            (new_frontend_state().launch_level_ != kLoadMainMenu && current_load_state() != new_frontend_state().launch_level_) ||
-            (new_frontend_state().launch_level_ != kLoadMainMenu && loading_screen_up())) {
-            change_phase(State::kIdle);
-            free_device_objects();
-        } else if (new_frontend_state().state_time_ > kLevelStartTimeoutSeconds) {
-            get_log("new front end: the level didn't start in 30 seconds - back to the menus");
-            menu_state().cancel_launch();
-            change_phase(State::kIdle);
-        }
+        tick_launching(dt);
         return;
     case State::kShown:
         break;
@@ -2980,19 +3075,7 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
     }
     if (!usable) {
-        // (the original's screen changed on its own: ours aside - back when an anchor is up)
-        if (anchor == Anchor::kNone && !in_front_end() && !get_paused()) {
-            change_phase(State::kIdle);
-            free_device_objects();
-        } else if (usable && anchor != Anchor::kNone) {
-            get_show(anchor);
-        } else {
-            change_phase(State::kAway);
-            // (a dialog over the anchor, a sub-screen over the pause menu...: ours stays on screen until it is ready)
-            if ((current_load_state() != 0U) && !loading_screen_up()) {
-                start_cover(Cover::Over::kOurs, "the original's screen changed under ours");
-            }
-        }
+        step_aside_from_screen(anchor, usable);
         return;
     }
     std::vector<SDL_Event> events;
