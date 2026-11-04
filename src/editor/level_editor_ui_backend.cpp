@@ -19,7 +19,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "base/util/com_ptr.h"
-#include "platform/platform_d3d.h"
+#include "platform/imgui_texture_id.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"

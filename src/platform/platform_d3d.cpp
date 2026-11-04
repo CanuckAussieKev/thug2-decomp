@@ -9,8 +9,6 @@
 #include <unordered_map>
 
 #include "engine/gfx/pc_flexible_particles.h"
-#include "base/core/raw_view.h"
-#include "base/core/pointer_cell.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 
@@ -100,7 +98,9 @@ HRESULT create_quad_index_buffer(uint32_t quads)
     uint16_t* index = nullptr;
     render::renderer().d3d_device()->CreateIndexBuffer(quads * kIndicesPerQuad * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
                                     &render::quad_index_buffer(), nullptr);
-    render::quad_index_buffer()->Lock(0, 0, raw::as<void*>(&index), 0);
+    void* locked = nullptr;
+    render::quad_index_buffer()->Lock(0, 0, &locked, 0);
+    index = static_cast<uint16_t*>(locked);
     const std::span<uint16_t> indices(index, static_cast<size_t>(quads) * 6);
     size_t at = 0;
     for (uint32_t quad = 0, first = 0; quad < quads; ++quad, first += 4, at += kIndicesPerQuad) {
@@ -124,7 +124,9 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuff
     const uint32_t start = first * stride;
     if ((count * stride) + start > dynamic_vertices_size()) {
         // Full: start again at the beginning.
-        dynamic_vertices()->Lock(0, 0, raw::as<void*>(&dynamic_vertices_locked()), D3DLOCK_DISCARD);
+        void* locked = dynamic_vertices_locked(); // (left as it was if the lock writes nothing)
+        dynamic_vertices()->Lock(0, 0, &locked, D3DLOCK_DISCARD);
+        dynamic_vertices_locked() = static_cast<uint8_t*>(locked);
         dynamic_vertices_used() = 0;
         if (room) {
             *room = dynamic_vertices_size() / stride;
@@ -137,7 +139,9 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuff
     if (room) {
         *room = (dynamic_vertices_size() - start) / stride;
     }
-    dynamic_vertices()->Lock(0, 0, raw::as<void*>(&dynamic_vertices_locked()), D3DLOCK_NOOVERWRITE);
+    void* locked = dynamic_vertices_locked(); // (left as it was if the lock writes nothing)
+    dynamic_vertices()->Lock(0, 0, &locked, D3DLOCK_NOOVERWRITE);
+    dynamic_vertices_locked() = static_cast<uint8_t*>(locked);
     return std::span<uint8_t>(dynamic_vertices_locked(), dynamic_vertices_size()).subspan(start).data();
 }
 
@@ -240,8 +244,5 @@ void release_direct_3d()
     dynamic_vertices_used() = 0;
     dynamic_vertices_locked() = nullptr;
 }
-
-uint64_t imgui_texture_id(IDirect3DTexture9* texture) { return static_cast<uint64_t>(cell::address(texture)); }
-IDirect3DTexture9* imgui_texture_of(uint64_t id) { return cell::pointer<IDirect3DTexture9>(static_cast<uintptr_t>(id)); }
 
 } // namespace os_layer
