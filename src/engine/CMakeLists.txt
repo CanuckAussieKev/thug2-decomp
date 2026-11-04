@@ -55,6 +55,7 @@ add_library(thug2_engine STATIC
     objects/anim_movies.cpp
     objects/rail_manager.cpp
     file/thugpro_cas.cpp
+    audio/audio_device.cpp
     audio/bink_stream.cpp
     audio/bink_stream_files.cpp
     audio/music_player.cpp

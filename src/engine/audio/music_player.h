@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/audio/audio_handles.h"
+
 namespace objects {
 class AudioStreamModule;
 } // namespace objects
@@ -169,8 +171,9 @@ void change_track_state(int track, bool off, int list);
 // start is switched off in the current playlist (unless the debug checks are on). Not while a music stream plays.
 void play_track(const char* name, bool loop);
 
-// NOT ORIGINAL - the DirectSound device (0x007D6A38; null without sound), as the audio code keeps it.
-void* get_sound_device();
-void set_sound_device(void* device);
+// NOT ORIGINAL - the sound output (0x007D6A38: DirectSound's device, made through audio::Device; null without sound),
+// as the audio code keeps it.
+SoundOutput* get_sound_device();
+void set_sound_device(SoundOutput* device);
 
 } // namespace audio

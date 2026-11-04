@@ -7,7 +7,6 @@
 
 #include <d3d9.h>
 #include <mmsystem.h>
-#include <dsound.h>
 
 #include <algorithm>
 #include <bit>
@@ -17,6 +16,7 @@
 #include <array>
 #include <iterator>
 
+#include "engine/audio/audio_device.h"
 #include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/device_d3d.h"
 #include "render_d3d9/d3d9_handles.h"
@@ -107,7 +107,7 @@ DeviceState& device_state()
 struct AdapterInfo {
     D3DADAPTER_IDENTIFIER9 adapter_identifier_{};
     bool depth_textures_supported_{};
-    std::array<char, kSoundDeviceNameSize> sound_device_name_{}; // the description of the last sound device DirectSound listed
+    std::array<char, kSoundDeviceNameSize> sound_device_name_{}; // the description of the last sound device listed
     IDirect3DSurface9* depth_texture_target_{};
     uint32_t back_buffer_format_{};
     uint32_t screen_surface_format_{};
@@ -250,14 +250,12 @@ namespace {
 
 IDirect3DSurface9*& depth_texture_target() { return adapter_info().depth_texture_target_; }
 D3DADAPTER_IDENTIFIER9& adapter_identifier() { return adapter_info().adapter_identifier_; }
-// The description of the last sound device DirectSound listed.
+// The description of the last sound device listed.
 std::array<char, kSoundDeviceNameSize>& sound_device_name() { return adapter_info().sound_device_name_; }
 
 // The dynamic vertex buffer and the quads' index buffer (the platform layer's).
 void create_dynamic_vertex_buffer(uint32_t size) { os_layer::create_dynamic_vertex_buffer(size); }
 void create_dynamic_index_buffer(uint32_t quads) { os_layer::create_quad_index_buffer(quads); }
-
-using DirectSoundEnumerateFn = HRESULT(WINAPI*)(BOOL(CALLBACK*)(GUID*, const char*, const char*, void*), void*);
 
 constexpr std::size_t kD3DCAPS9PixelShaderVersionOffset = 0xCC;
 constexpr std::size_t kD3DCAPS9DevCaps2Offset = 0xD4;
@@ -275,8 +273,9 @@ static_assert(sizeof(D3DADAPTER_IDENTIFIER9) == kD3DADAPTERIDENTIFIER9Bytes, "ze
 
 } // namespace
 
-// 0x004D7C20 (not a function in Ghidra: DirectSoundEnumerateA's callback)
-BOOL CALLBACK sound_device_found(GUID* /*guid*/, const char* description, const char* /*module*/, void* /*context*/)
+// 0x004D7C20 (not a function in Ghidra: DirectSoundEnumerateA's callback; the sound output's listing calls it with
+// each description, and goes on to the next - the original returned TRUE)
+void sound_device_found(const char* description)
 {
     const size_t length = std::strlen(description);
     if (length > kSoundDeviceNameSize) {
@@ -284,7 +283,7 @@ BOOL CALLBACK sound_device_found(GUID* /*guid*/, const char* description, const 
     } else {
         std::memcpy(sound_device_name().data(), description, length + 1);
     }
-    return TRUE; // (all are listed: the last one stays)
+    // (all are listed: the last one stays)
 }
 
 // 0x004D7C80
@@ -313,8 +312,8 @@ HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multis
     D3DADAPTER_IDENTIFIER9& id = adapter_identifier();
     std::memset(&id, 0, sizeof(id));
     d3d9::state().direct_3d()->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &id);
-    // (through the exe's import of DirectSoundEnumerateA)
-    DirectSoundEnumerateA(&sound_device_found, nullptr);
+    // (the exe's import of DirectSoundEnumerateA: the sound output's devices)
+    audio::device().list_outputs(&sound_device_found);
     // A Radeon 8500 (0x00786AB5)...
     renderer().set_radeon8500(std::strstr(std::data(id.Description), "8500") != nullptr);
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.

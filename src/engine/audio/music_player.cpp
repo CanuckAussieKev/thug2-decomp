@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "engine/audio/music_player.h"
+#include "engine/audio/audio_handles.h"
 
 #include <windows.h>
 
@@ -42,8 +43,8 @@ MusicState& music_state()
     return state.get();
 }
 
-void* get_sound_device() { return music_state().sound_device(); }
-void set_sound_device(void* device) { music_state().set_sound_device(device); }
+SoundOutput* get_sound_device() { return music_state().sound_device(); }
+void set_sound_device(SoundOutput* device) { music_state().set_sound_device(device); }
 
 namespace {
 constexpr int kTracksPerMask = 64;        // a playlist's masks are two 64-bit words

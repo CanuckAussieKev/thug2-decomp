@@ -2,15 +2,11 @@
 
 #include "platform/platform_system.h"
 
-#include <mmsystem.h>
-#include <dsound.h>
-
 #include <cstdint>
 #include <cstring>
 #include <array>
 #include <span>
 
-#include "platform/mute_audio.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "base/maths/rect.h"
@@ -142,34 +138,6 @@ HWND create_game_window(const char* class_name, const char* title, maths::PixelP
     SetLastError(0);
     return CreateWindowExA(ex_style, class_name, title, style, x, y, frame_width, frame_height, nullptr, nullptr, instance,
                            nullptr);
-}
-
-// 0x005F59D0
-IDirectSound8* init_direct_sound(HWND window)
-{
-    IDirectSound8* device = nullptr;
-    DirectSoundCreate8(nullptr, &device, nullptr);
-    if (device) {
-        device->SetCooperativeLevel(window, DSSCL_PRIORITY);
-    }
-    // NOT ORIGINAL: [features] mute_audio=1 - the process's audio session muted before anything plays
-    // (platform/mute_audio.h)
-    if (sound::audio_muted()) {
-        sound::set_audio_session_muted(true);
-    }
-    return device;
-}
-
-// 0x005F5A00
-void release_direct_sound(IDirectSound8* device)
-{
-    if (device) {
-        device->Release();
-    }
-    // NOT ORIGINAL: unmuted again, or Windows would keep the session muted for the exe's next run
-    if (sound::audio_muted()) {
-        sound::set_audio_session_muted(false);
-    }
 }
 
 // 0x005F5A20

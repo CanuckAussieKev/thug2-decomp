@@ -1,15 +1,13 @@
 #pragma once
 
 #include <windows.h>
-#include <mmsystem.h>
-#include <dsound.h>
 
 #include <cstdint>
 #include <span>
 #include "base/maths/rect.h"
 
 // The Win32 platform layer's system side (0x005F5740-0x005F5AF0): finding the game's CD, the game window (PartyMod's
-// SDL window replaces it: platform/sdl_window.h), DirectSound, and two decoders - the sound files' 4-bit ADPCM and
+// SDL window replaces it: platform/sdl_window.h) and two decoders - the sound files' 4-bit ADPCM and
 // swizzled texture texels.
 namespace os_layer {
 
@@ -24,11 +22,8 @@ char find_cd_drive(const char* volume);
 HWND create_game_window(const char* class_name, const char* title, maths::PixelPoint at, maths::PixelSize size,
                         WNDPROC window_proc, HINSTANCE instance, int icon, bool full_screen);
 
-// 0x005F59D0 / 0x005F5A00 (cdecl): DirectSound (priority level, for `window`) made / released. The original kept the
-// device in the audio's state itself; WinMain keeps the device init_direct_sound returns there (null if DirectSound
-// couldn't be made) and hands it back to release_direct_sound (which takes null).
-IDirectSound8* init_direct_sound(HWND window);
-void release_direct_sound(IDirectSound8* device);
+// (0x005F59D0 / 0x005F5A00, DirectSound made / released: the DirectSound backend's audio::Device open / close,
+// audio_dsound/dsound_device.cpp.)
 
 // 0x005F5A20 (cdecl): `count` 16-bit samples from 4-bit ADPCM (two to a byte, the low nibble first): each nibble
 // moves the step index first, then adds +-(step x magnitude / 4 + step / 8), within 16 bits.

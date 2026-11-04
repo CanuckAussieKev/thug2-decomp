@@ -49,7 +49,7 @@ private:
 };
 MusicApiState& music_api_state();
 
-// NOT ORIGINAL grouping - the music player's switches and volumes, the DirectSound device, the playlists and their
+// NOT ORIGINAL grouping - the music player's switches and volumes, the sound output, the playlists and their
 // titles, the three streams and their owners, the user soundtrack's order. Made on first use, never destroyed
 // (music_state()).
 class MusicState {
@@ -67,8 +67,8 @@ public:
     void set_bgm_stream_kind(int value) { bgm_stream_kind_ = value; }
     bool& shuffle_user() { return shuffle_user_; }
     [[nodiscard]] bool shuffle_user() const { return shuffle_user_; }
-    [[nodiscard]] void* sound_device() const { return sound_device_; }
-    void set_sound_device(void* value) { sound_device_ = value; }
+    [[nodiscard]] SoundOutput* sound_device() const { return sound_device_; }
+    void set_sound_device(SoundOutput* value) { sound_device_ = value; }
     std::array<Playlist, 2>& playlists() { return playlists_; }
     [[nodiscard]] const std::array<Playlist, 2>& playlists() const { return playlists_; }
     std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks>& track_titles() { return track_titles_; }
@@ -87,7 +87,7 @@ private:
     float music_stream_volume_{100.0F};
     int bgm_stream_kind_{};
     bool shuffle_user_{};
-    void* sound_device_{};
+    SoundOutput* sound_device_{}; // (0x007D6A38)
     std::array<Playlist, 2> playlists_{}; // (the music's two playlists; 0 is the game's, 1 the script's)
     std::array<std::array<char, kTrackTitleSize>, kPlaylistTracks> track_titles_{};
     std::array<Stream, 3> streams_{};

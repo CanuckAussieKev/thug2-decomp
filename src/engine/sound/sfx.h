@@ -6,7 +6,7 @@
 // that follow objects (a list of 128 entries from 0x006F3668), volumes (VolumeRef: up to 5 channels) and the
 // listener.
 //
-// Nothing plays when there's no DirectSound device (0x007D6A38) or on the platforms without sound (0x007CEFA8 = 2
+// Nothing plays when there's no sound output (0x007D6A38: DirectSound's device, made through audio::Device) or on the platforms without sound (0x007CEFA8 = 2
 // or 6): most functions check that first ("NoSound()").
 //
 // NOT ORIGINAL: thug2-decomp.ini [features] mute_audio=1 silences everything (effects, music, streams, movies) from
@@ -18,6 +18,7 @@
 #include <span>
 
 #include "base/maths/vec4.h"
+#include "engine/audio/audio_handles.h"
 #include "engine/memory/mem.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
@@ -173,10 +174,10 @@ struct PositionalSound {
     PositionalSound* prev;               // +0x14
 };
 
-// One of the driver's voices (0x18 bytes; up to 48).
+// One of the driver's voices (0x18 bytes; up to 48): its buffer on the sound output (audio::Device).
 struct Voice {
-    void* buffer;        // +0x00: IDirectSoundBuffer
-    void* buffer_3d_;    // +0x04: IDirectSound3DBuffer (3D hardware only)
+    audio::SoundBuffer* buffer;       // +0x00 (DirectSound: IDirectSoundBuffer)
+    audio::SoundBuffer3d* buffer_3d_; // +0x04: its 3D controls (3D hardware only)
     int base_frequency_; // +0x08
     int frequency;       // +0x0C: the last set
     bool playing;        // +0x10

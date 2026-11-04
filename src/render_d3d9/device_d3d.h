@@ -14,8 +14,9 @@ namespace render {
 // `hardware_vertices` (else software), 2x multisampling if `multisample` - and note the adapter (a Radeon 8500;
 // an Intel 915G with Realtek audio). Returns the HRESULT.
 HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multisample);
-// 0x004D7C20: DirectSoundEnumerateA's callback - keeps each device's description (0x00786AC8). Returns TRUE.
-BOOL CALLBACK sound_device_found(GUID* guid, const char* description, const char* module, void* context);
+// 0x004D7C20: told each sound output device's description (audio::Device::list_outputs; DirectSoundEnumerateA's
+// callback) - keeps it (0x00786AC8).
+void sound_device_found(const char* description);
 
 // The present parameters the device was made with (device.cpp's record; the original's global).
 D3DPRESENT_PARAMETERS& present_parameters();

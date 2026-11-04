@@ -18,8 +18,6 @@
 
 #include <windows.h>
 
-#include <mmsystem.h>
-#include <dsound.h>
 #include <array>
 #include <gsl/assert>
 
@@ -33,6 +31,8 @@
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/sound_component.h"
+#include "engine/audio/audio_device.h"
+#include "engine/audio/audio_handles.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/music_api.h"
 #include "engine/script/param_struct.h"
@@ -65,14 +65,13 @@ constexpr float kDropoffMargin = 480.0F; // a sound this far beyond its range is
 constexpr int kStopDelayMilliseconds = 2000;
 constexpr int kMixerBytes = 8;
 constexpr size_t kWaveFileNameSize = 256;
-constexpr size_t kDscapsBytes = 0x60;        // DirectSound's structures as this build's headers lay them out
-constexpr size_t kBufferDescBytes = 0x24;
+constexpr size_t kBufferDescBytes = 0x24;    // a wave's buffer description (DirectSound's DSBUFFERDESC)
 constexpr int kPcWaveUnknown12 = 0x40;
 constexpr size_t kSoundsPrefixLength = 12;   // "data\sounds\"
 constexpr size_t kSoundExtensionBytes = 5;   // ".snd" and its NUL
 constexpr float kRadiansPerDegree = 0.017453292F;
 constexpr float kMinDistance3d = 90.0F;
-constexpr int kSilentAttenuation = 10000;    // DirectSound's quietest volume, in hundredths of a decibel (below zero)
+constexpr int kSilentAttenuation = -audio::kSilentAttenuation; // the quietest volume, hundredths of a decibel below 0
 constexpr float kTenOverLn2 = 14.42695045F;  // 10 / ln 2: natural log to tenths of a decibel
 constexpr int kHundredthsOfDecibel = 100;
 constexpr float kPanScale = 1000.0F;
@@ -81,7 +80,6 @@ constexpr int kMaxFrequency = 200000;
 constexpr int kMinFrequency = 100;
 constexpr int kDescFlags3d = 0x400B0;
 constexpr int kDescFlags2d = 0x400E0;
-constexpr size_t kGuidBytes = 16;
 
 constexpr int kMaxPlaying = 48;
 constexpr int kMaxPositional = 128;
@@ -97,11 +95,11 @@ float& default_dropoff() { return sound_state().default_dropoff(); }
 bool quiet_misses() { return game_config::from_cd(); }
 memory::HeapUnique<AudioMixer>& sole() { return sound_state().audio_mixer(); }
 
-// NOT ORIGINAL grouping - the DirectSound voices and their counts. Made on first use, never destroyed (voice_state()).
+// NOT ORIGINAL grouping - the voices and their counts. Made on first use, never destroyed (voice_state()).
 struct VoiceState {
     float voice_volume_{100.0F};
     uint32_t sfx_references_{};
-    void* listener_{};
+    audio::SoundListener* listener_{};
     std::array<Voice, kVoiceCount> voices_{};
     int playing_voices_{};
     bool has_3d_{};
@@ -114,11 +112,8 @@ VoiceState& voice_state()
     static core::NoDestroy<VoiceState> state;
     return state.get();
 }
-// DirectSound's GUIDs, as the exe's data has them (dsound.lib's): IID_IDirectSound3DBuffer, IID_IDirectSound3DListener,
-// and DS3DALG_DEFAULT (GUID_NULL: the default 3D algorithm).
-const GUID kIidSound3dBuffer{.Data1 = 0x279AFA86, .Data2 = 0x4981, .Data3 = 0x11CE, .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
-const GUID kIidSound3dListener{.Data1 = 0x279AFA84, .Data2 = 0x4981, .Data3 = 0x11CE, .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
-const GUID kDefault3dAlgorithm{};
+// DS3DALG_DEFAULT (GUID_NULL: the default 3D algorithm), as the wave's description keeps it.
+constexpr std::array<uint32_t, 4> kDefault3dAlgorithm{};
 
 uint32_t& ref_tally() { return voice_state().sfx_references_; }
 
@@ -128,15 +123,12 @@ int& playing_voices() { return voice_state().playing_voices_; }
 bool& has_3d() { return voice_state().has_3d_; }
 int& voice_count() { return voice_state().voice_count_; }
 int& last_voice() { return voice_state().last_voice_; }
-void*& get_listener() { return voice_state().listener_; }
-void* input_port() { return audio::get_sound_device(); }
+audio::SoundListener*& get_listener() { return voice_state().listener_; }
+audio::SoundOutput* input_port() { return audio::get_sound_device(); }
 float voice_volume() { return voice_state().voice_volume_; }
 
-// The DirectSound objects the voices hold as void* (the original's layout).
-IDirectSound* sound_device() { return static_cast<IDirectSound*>(input_port()); }
-IDirectSoundBuffer* buffer_of(void* buffer) { return static_cast<IDirectSoundBuffer*>(buffer); }
-IDirectSound3DBuffer* buffer_3d_of(void* buffer) { return static_cast<IDirectSound3DBuffer*>(buffer); }
-IDirectSound3DListener* listener() { return static_cast<IDirectSound3DListener*>(get_listener()); }
+// The sound output the voices play on (its calls stand for the DirectSound calls the original made here).
+audio::Device& output() { return audio::device(); }
 
 // Cameras (not rewritten yet).
 void* nearest_camera(const maths::Vec4* position, float* distance)
@@ -630,8 +622,8 @@ int group_count() { return -1; }
 // 0x0047C7A0
 void stop_voice(int voice)
 {
-    if (void* buffer = core::at(get_voices(), voice).buffer) {
-        buffer_of(buffer)->Stop();
+    if (audio::SoundBuffer* buffer = core::at(get_voices(), voice).buffer) {
+        output().stop_buffer(buffer);
     }
 }
 
@@ -667,8 +659,7 @@ void update_voice_states()
         if (!voice.playing || !voice.buffer) {
             continue;
         }
-        DWORD status = 0;
-        if (buffer_of(voice.buffer)->GetStatus(&status) == DS_OK && ((status & DSBSTATUS_PLAYING) == 0U)) {
+        if (output().buffer_finished(voice.buffer)) {
             --playing_voices();
             voice.playing = false;
         }
@@ -687,17 +678,15 @@ void init_voices(AudioMixer* manager)
         core::at(get_voices(), i).wave = nullptr;
         core::at(get_voices(), i).playing = false;
     }
-    static_assert(sizeof(DSCAPS) == kDscapsBytes);
-    DSCAPS caps{};
-    caps.dwSize = sizeof(caps);
-    const HRESULT result = sound_device()->GetCaps(&caps);
+    audio::OutputCaps caps{};
+    const bool known = output().get_caps(input_port(), caps);
     has_3d() = false;
-    if (result != DS_OK) {
+    if (!known) {
         voice_count() = kMaxVoices;
         return;
     }
-    has_3d() = caps.dwFreeHw3DAllBuffers > 0;
-    const uint32_t mixing = caps.dwFreeHwMixingAllBuffers;
+    has_3d() = caps.free_3d_buffers > 0;
+    const uint32_t mixing = caps.free_mixing_buffers;
     if (mixing <= kFewHardwareBuffers) {
         voice_count() = kMaxVoices;
     } else {
@@ -708,15 +697,7 @@ void init_voices(AudioMixer* manager)
         return;
     }
     // the primary buffer's listener
-    static_assert(sizeof(DSBUFFERDESC) == kBufferDescBytes);
-    DSBUFFERDESC desc{};
-    desc.dwSize = sizeof(desc);
-    desc.dwFlags = DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRL3D;
-    IDirectSoundBuffer* primary = nullptr;
-    sound_device()->CreateSoundBuffer(&desc, &primary, nullptr);
-    primary->QueryInterface(kIidSound3dListener, &get_listener());
-    listener()->SetPosition(0.0F, 0.0F, 0.0F, DS3D_IMMEDIATE);
-    primary->Release();
+    get_listener() = output().create_listener(input_port());
 }
 
 // 0x0047CBD0
@@ -725,8 +706,8 @@ void stop_all_voices()
     audio::stop_music();
     audio::halt_streams(-1);
     for (int i = 0; i < voice_count(); ++i) {
-        if (void* buffer = core::at(get_voices(), i).buffer) {
-            buffer_of(buffer)->Stop();
+        if (audio::SoundBuffer* buffer = core::at(get_voices(), i).buffer) {
+            output().stop_buffer(buffer);
         }
     }
 }
@@ -854,20 +835,18 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         maths::Vec4 relative = volume->anchor_point() - *viewer_location(camera);
         if (camera != viewport && viewport) {
             const maths::Vec4 front = -core::at(cam_orientation(viewport)->row, 2);
-            listener()->SetOrientation(front.x, front.y, front.z, 0.0F, -1.0F, 0.0F, DS3D_DEFERRED);
+            output().orient_listener(get_listener(), {.x = front.x, .y = front.y, .z = front.z});
             const maths::Vec4 heard = -core::at(cam_orientation(camera)->row, 2);
             const maths::Vec4 seen = -core::at(cam_orientation(viewport)->row, 2);
             const double angle = maths::read_turn_angle(heard, seen);
             relative.rotate_about_y(static_cast<float>(angle * kRadiansPerDegree));
         } else {
             const maths::Vec4 front = -core::at(cam_orientation(camera)->row, 2);
-            listener()->SetOrientation(front.x, front.y, front.z, 0.0F, -1.0F, 0.0F, DS3D_DEFERRED);
+            output().orient_listener(get_listener(), {.x = front.x, .y = front.y, .z = front.z});
         }
         const float range = volume->dropoff();
-        IDirectSound3DBuffer* buffer_3d = buffer_3d_of(voice.buffer_3d_);
-        buffer_3d->SetMaxDistance(range, DS3D_DEFERRED);
-        buffer_3d->SetMinDistance(kMinDistance3d, DS3D_DEFERRED);
-        buffer_3d->SetPosition(relative.x, relative.y, relative.z, DS3D_DEFERRED);
+        output().place_buffer_3d(voice.buffer_3d_, {.max_distance = range, .min_distance = kMinDistance3d},
+                                 {.x = relative.x, .y = relative.y, .z = relative.z});
         int attenuation = -kSilentAttenuation;
         const double level = static_cast<double>(voice_volume()) * 0.0099999998F;
         if (level > 0.0) {
@@ -879,10 +858,9 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             }
         }
         const bool audible = core::at(volume->lanes(), 0) > 0.0F || core::at(volume->lanes(), 1) > 0.0F;
-        buffer_of(voice.buffer)
-            ->SetVolume(output_attenuation(audible ? attenuation : -kSilentAttenuation)); // (NOT ORIGINAL: mute_audio)
+        output().set_buffer_volume(voice.buffer, output_attenuation(audible ? attenuation : -kSilentAttenuation)); // (NOT ORIGINAL: mute_audio)
         if (get_listener()) {
-            listener()->CommitDeferredSettings();
+            output().commit_listener(get_listener());
         }
         return;
     }
@@ -912,8 +890,8 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             }
         }
     }
-    buffer_of(voice.buffer)->SetVolume(output_attenuation(attenuation)); // (NOT ORIGINAL: mute_audio)
-    buffer_of(voice.buffer)->SetPan(pan);
+    output().set_buffer_volume(voice.buffer, output_attenuation(attenuation)); // (NOT ORIGINAL: mute_audio)
+    output().set_buffer_pan(voice.buffer, pan);
     if (pitch == 0.0F) {
         return;
     }
@@ -931,7 +909,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     if (frequency != voice.frequency) {
         voice.frequency = frequency;
         if (static_cast<bool>(render::renderer().frequency_setting_allowed())) {
-            buffer_of(voice.buffer)->SetFrequency(static_cast<DWORD>(frequency));
+            output().set_buffer_frequency(voice.buffer, static_cast<uint32_t>(frequency));
         }
     }
 }
@@ -949,69 +927,53 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
     }
     Voice& voice = core::at(get_voices(), index);
     if (voice.playing && voice.buffer) {
-        buffer_of(voice.buffer)->Stop();
+        output().stop_buffer(voice.buffer);
     }
     if (wave != voice.wave) {
         if (voice.buffer_3d_) {
-            buffer_3d_of(voice.buffer_3d_)->Release();
+            output().release_buffer_3d(voice.buffer_3d_);
         }
         voice.buffer_3d_ = nullptr;
         if (voice.buffer) {
-            buffer_of(voice.buffer)->Release();
+            output().release_buffer(voice.buffer);
         }
         voice.buffer = nullptr;
         voice.wave = nullptr;
         const bool three_d = has_3d() && volume->kind_tag() == VolumeRef::kType3d;
         wave->desc_flags_ = three_d ? kDescFlags3d : kDescFlags2d;
-        std::memcpy(wave->desc_3d_algorithm_.data(), &kDefault3dAlgorithm, kGuidBytes);
+        wave->desc_3d_algorithm_ = kDefault3dAlgorithm;
         // (the wave's buffer description, sfx.h; its format the wave's first fields - the original pointed
         // DirectSound at them in place)
-        WAVEFORMATEX format{};
-        format.wFormatTag = wave->format_tag_;
-        format.nChannels = wave->channels;
-        format.nSamplesPerSec = wave->samples_per_second_;
-        format.nAvgBytesPerSec = wave->bytes_per_second_;
-        format.nBlockAlign = wave->block_align_;
-        format.wBitsPerSample = wave->bits_per_sample_;
-        format.cbSize = wave->extra_size_;
-        DSBUFFERDESC desc{};
-        desc.dwSize = wave->desc_size_;
-        desc.dwFlags = wave->desc_flags_;
-        desc.dwBufferBytes = wave->desc_bytes_;
-        desc.dwReserved = wave->desc_reserved_;
-        desc.lpwfxFormat = &format;
-        std::memcpy(&desc.guid3DAlgorithm, wave->desc_3d_algorithm_.data(), sizeof(desc.guid3DAlgorithm));
-        IDirectSoundBuffer* created = nullptr;
-        const HRESULT made = sound_device()->CreateSoundBuffer(&desc, &created, nullptr);
-        voice.buffer = created;
-        if (made != DS_OK) {
+        const audio::BufferDesc desc{.format = {.format_tag = wave->format_tag_,
+                                                .channels = wave->channels,
+                                                .samples_per_second_ = wave->samples_per_second_,
+                                                .bytes_per_second_ = wave->bytes_per_second_,
+                                                .block_align_ = wave->block_align_,
+                                                .bits_per_sample_ = wave->bits_per_sample_,
+                                                .extra_size_ = wave->extra_size_},
+                                     .desc_size_ = wave->desc_size_,
+                                     .flags = wave->desc_flags_,
+                                     .bytes = wave->desc_bytes_,
+                                     .reserved = wave->desc_reserved_,
+                                     .algorithm = wave->desc_3d_algorithm_};
+        const audio::MadeBuffer created = output().create_buffer(input_port(), desc);
+        voice.buffer = created.buffer;
+        if (!created.made) {
             return -1;
         }
         if (has_3d() && volume->kind_tag() == VolumeRef::kType3d) {
-            created->QueryInterface(kIidSound3dBuffer, &voice.buffer_3d_);
+            voice.buffer_3d_ = output().buffer_3d(created.buffer);
         }
-        void* first = nullptr;
-        DWORD first_bytes = 0;
-        void* second = nullptr;
-        DWORD second_bytes = 0;
-        if (created->Lock(0, wave->desc_bytes_, &first, &first_bytes, &second, &second_bytes, DSBLOCK_ENTIREBUFFER) ==
-            DS_OK) {
-            std::memcpy(first, wave->data, first_bytes);
-            if (second) {
-                std::memcpy(second, std::span<const uint8_t>(wave->data, wave->desc_bytes_).subspan(first_bytes).data(), second_bytes);
-            }
-            created->Unlock(first, first_bytes, second, second_bytes);
-        }
+        output().fill_buffer(created.buffer, std::span<const uint8_t>(wave->data, wave->desc_bytes_));
         voice.wave = wave;
     }
     voice.base_frequency_ = static_cast<int>(wave->samples_per_second_);
     voice.frequency = 0;
     apply_voice_settings(index, volume, pitch);
-    buffer_of(voice.buffer)->SetCurrentPosition(0);
-    const HRESULT result = buffer_of(voice.buffer)->Play(0, 0, entry->looping ? DSBPLAY_LOOPING : 0U);
+    const bool played = output().play_buffer(voice.buffer, entry->looping);
     ++playing_voices();
     voice.playing = true;
-    return result == 0 ? index : -1;
+    return played ? index : -1;
 }
 
 // 0x0047D390

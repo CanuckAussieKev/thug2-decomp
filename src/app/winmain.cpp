@@ -22,6 +22,7 @@
 #include <SDL2/SDL.h>
 
 #include "base/core/dbg.h"
+#include "engine/audio/audio_device.h"
 #include "engine/audio/music_player.h"
 #include "engine/memory/manager.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
@@ -168,11 +169,12 @@ void c_exit() { crt::c_exit(); }                              // _cexit: atexit 
 
 // The platform layer's parts without source yet.
 char find_cd_drive(const char* volume) { return os_layer::find_cd_drive(volume); }
-// (the DirectSound device kept in the audio's state: audio::get_sound_device)
-void init_direct_sound(HWND window) { audio::set_sound_device(os_layer::init_direct_sound(window)); }
+// (the sound output - DirectSound's device, through the installed audio::Device - kept in the audio's state:
+// audio::get_sound_device)
+void init_direct_sound(HWND window) { audio::set_sound_device(audio::device().open(window)); }
 void release_direct_sound()
 {
-    os_layer::release_direct_sound(static_cast<IDirectSound8*>(audio::get_sound_device()));
+    audio::device().close(audio::get_sound_device());
     audio::set_sound_device(nullptr);
 }
 void release_direct_3d() { os_layer::release_direct_3d(); }
