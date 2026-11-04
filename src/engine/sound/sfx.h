@@ -6,11 +6,11 @@
 // that follow objects (a list of 128 entries from 0x006F3668), volumes (VolumeRef: up to 5 channels) and the
 // listener.
 //
-// Nothing plays when there's no sound output (0x007D6A38: DirectSound's device, made through audio::Device) or on the platforms without sound (0x007CEFA8 = 2
-// or 6): most functions check that first ("NoSound()").
+// Nothing plays when there's no sound output (0x007D6A38: DirectSound's device, made through audio::Device) or on
+// the platforms without sound (0x007CEFA8 = 2 or 6): most functions check that first ("NoSound()").
 //
 // NOT ORIGINAL: thug2-decomp.ini [features] mute_audio=1 silences everything (effects, music, streams, movies) from
-// the first frame - the audio session and the volume paths, platform/mute_audio.h; the workspaces' test games run so.
+// the first frame - the muted sound output, engine/audio/muted_device.h; the workspaces' test games run so.
 
 #include <cstddef>
 #include <cstdint>

@@ -13,7 +13,7 @@
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_parts.h"
-#include "platform/mute_audio.h"
+#include "engine/audio/audio_device.h"
 #include "platform/process_flags.h"
 #include "engine/audio/stream_files.h"
 #include "platform/bink.h"
@@ -32,8 +32,8 @@ constexpr int kReadChunkBytes = 0x2000;
 using render::Bink;
 void video_set_loudness(Bink* bink, uint32_t track, int volume)
 {
-    bink::set_volume(bink, {.track = track, .volume = sound::output_bink_volume(volume)});
-} // (NOT ORIGINAL: mute_audio)
+    bink::set_volume(bink, {.track = track, .volume = device().track_volume(volume)}); // (the output's level for it)
+}
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // video_open: use the I/O buffer size set (bink_set_io_size)
 constexpr uint32_t kBinkFileHandle = 0x04000000; // video_open: the name is (the address of) an open file handle

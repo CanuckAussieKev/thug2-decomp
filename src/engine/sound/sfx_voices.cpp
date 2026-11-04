@@ -2,7 +2,6 @@
 
 #include "engine/gfx/viewport.h"
 #include "engine/sound/sfx.h"
-#include "platform/mute_audio.h"
 
 #include <algorithm>
 #include <cmath>
@@ -858,7 +857,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             }
         }
         const bool audible = core::at(volume->lanes(), 0) > 0.0F || core::at(volume->lanes(), 1) > 0.0F;
-        output().set_buffer_volume(voice.buffer, output_attenuation(audible ? attenuation : -kSilentAttenuation)); // (NOT ORIGINAL: mute_audio)
+        output().set_buffer_volume(voice.buffer, audible ? attenuation : -kSilentAttenuation);
         if (get_listener()) {
             output().commit_listener(get_listener());
         }
@@ -890,7 +889,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             }
         }
     }
-    output().set_buffer_volume(voice.buffer, output_attenuation(attenuation)); // (NOT ORIGINAL: mute_audio)
+    output().set_buffer_volume(voice.buffer, attenuation);
     output().set_buffer_pan(voice.buffer, pan);
     if (pitch == 0.0F) {
         return;

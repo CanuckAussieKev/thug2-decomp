@@ -15,6 +15,7 @@
 #include <span>
 
 #include "platform/output_sinks.h"
+#include "platform/mute_audio.h"
 #include "platform/run_log.h"
 #include "engine/sys/startup_init.h"
 #include "app/command_table.h"
@@ -22,6 +23,7 @@
 #include "app/winmain.h"
 #include "audio_dsound/dsound_device.h"
 #include "engine/audio/audio_device.h"
+#include "engine/audio/muted_device.h"
 #include "render_d3d9/d3d9_device.h"
 #include "render_d3d9/d3d9_ui_backend.h"
 #include "engine/gfx/ui_backend.h"
@@ -87,8 +89,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // NOT ORIGINAL: Dear ImGui's platform and renderer backends for our UI layers - the level editor's, the new front
     // end's (engine/gfx/ui_backend.h): Direct3D 9's.
     render::install_ui_backend(render::d3d9::ui_backend());
-    // NOT ORIGINAL: the sound output the engine plays on (engine/audio/audio_device.h): DirectSound's.
-    audio::install_device(audio::dsound::device());
+    // NOT ORIGINAL: the sound output the engine plays on (engine/audio/audio_device.h): DirectSound's - or, with
+    // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h).
+    audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())
+                                               : audio::dsound::device());
     // NOT ORIGINAL: the loading console's panel, which that backend draws (engine/gfx/loading_console.h).
     gfx::loading_console::install_panel(gfx::loading_console::panel_hooks());
     // NOT ORIGINAL: [features] debug_collision's log after each feeler query (game/rider/debug_collision.h).

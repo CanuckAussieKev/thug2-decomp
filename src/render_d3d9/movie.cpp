@@ -35,7 +35,7 @@
 #include "engine/pad_input/device.h"
 #include "engine/sys/mlp.h"
 #include "platform/sdl_events.h"
-#include "platform/mute_audio.h"
+#include "engine/audio/audio_device.h"
 #include "platform/run_log.h"
 #include "platform/process_flags.h"
 #include "platform/bink.h"
@@ -225,8 +225,8 @@ namespace {
 
 void video_set_loudness(Bink* bink, uint32_t track, int volume)
 {
-    bink::set_volume(bink, {.track = track, .volume = sound::output_bink_volume(volume)});
-} // (NOT ORIGINAL: mute_audio)
+    bink::set_volume(bink, {.track = track, .volume = audio::device().track_volume(volume)}); // (the output's level)
+}
 
 // The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
 void put_render_state(int state, uint32_t value)

@@ -19,7 +19,6 @@
 #include "base/core/no_destroy.h"
 #include "engine/audio/audio_device.h"
 #include "engine/audio/audio_handles.h"
-#include "platform/mute_audio.h"
 
 namespace audio::dsound {
 
@@ -30,8 +29,10 @@ constexpr size_t kBufferDescBytes = 0x24;
 constexpr size_t kGuidBytes = 16;
 
 // DirectSound's GUIDs, as the exe's data has them (dsound.lib's): IID_IDirectSound3DBuffer, IID_IDirectSound3DListener.
-const GUID kIidSound3dBuffer{.Data1 = 0x279AFA86, .Data2 = 0x4981, .Data3 = 0x11CE, .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
-const GUID kIidSound3dListener{.Data1 = 0x279AFA84, .Data2 = 0x4981, .Data3 = 0x11CE, .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+const GUID kIidSound3dBuffer{.Data1 = 0x279AFA86, .Data2 = 0x4981, .Data3 = 0x11CE,
+                              .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+const GUID kIidSound3dListener{.Data1 = 0x279AFA84, .Data2 = 0x4981, .Data3 = 0x11CE,
+                                .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
 
 // What DirectSoundEnumerateA's callback is handed: the engine's function told each description.
 struct Listing {
@@ -54,11 +55,6 @@ public:
         if (device) {
             device->SetCooperativeLevel(static_cast<HWND>(window), DSSCL_PRIORITY);
         }
-        // NOT ORIGINAL: [features] mute_audio=1 - the process's audio session muted before anything plays
-        // (platform/mute_audio.h)
-        if (sound::audio_muted()) {
-            sound::set_audio_session_muted(true);
-        }
         return handle(device);
     }
 
@@ -67,10 +63,6 @@ public:
     {
         if (output) {
             object(output)->Release();
-        }
-        // NOT ORIGINAL: unmuted again, or Windows would keep the session muted for the exe's next run
-        if (sound::audio_muted()) {
-            sound::set_audio_session_muted(false);
         }
     }
 
