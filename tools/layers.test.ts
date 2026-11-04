@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { compare, libraryOf, loadMap, mayInclude, readBaseline, violations } from "./layers.ts";
+import { compare, libraryOf, loadMap, mayInclude, readBaseline, strictViolations, violations } from "./layers.ts";
 
 test("folders belong to the library of their longest prefix", () => {
     const map = loadMap();
@@ -28,6 +28,14 @@ test("the ratchet reports new violations and baseline lines that are gone", () =
     const result = compare(["a -> b", "c -> d"], ["c -> d", "e -> f"]);
     assert.deepEqual(result.added, ["a -> b"]);
     assert.deepEqual(result.stale, ["e -> f"]);
+});
+
+test("the strict libraries have no upward include, in the sources or the baseline", () => {
+    const map = loadMap();
+    assert.deepEqual(strictViolations(map, ["src/engine/x.cpp -> src/game/y.h", "src/game/a.cpp -> src/editor/b.h"]), [
+        "src/engine/x.cpp -> src/game/y.h",
+    ]);
+    assert.deepEqual(strictViolations(map, [...violations(map), ...readBaseline()]), []);
 });
 
 test("the repository has exactly the baseline's upward includes", () => {

@@ -5,6 +5,8 @@
 //   node tools/layers.ts              check against the baseline
 //   node tools/layers.ts --list       print every violation (the baseline's text)
 //   node tools/layers.ts --write      rewrite the baseline (only ever shorter: refuses to add a line)
+// The map's 'strict' libraries (base, platform, engine) are held at none: any upward include of theirs fails, in the
+// sources or in the baseline.
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -15,6 +17,7 @@ const BASELINE_FILE = join(import.meta.dirname, "layers_baseline.txt");
 
 export interface LayerMap {
     libraries: Record<string, { folders: string[]; allowed: string[] }>;
+    strict?: string[];
 }
 
 export function loadMap(): LayerMap {
@@ -75,6 +78,15 @@ export function violations(map: LayerMap = loadMap()): string[] {
     return found.sort();
 }
 
+/** The lines ("file -> header") whose including file belongs to one of the map's strict libraries. */
+export function strictViolations(map: LayerMap, lines: string[]): string[] {
+    const strict = new Set(map.strict ?? []);
+    return lines.filter((line) => {
+        const from = libraryOf(map, line.split(" -> ")[0] as string);
+        return from !== undefined && strict.has(from);
+    });
+}
+
 export function readBaseline(): string[] {
     if (!existsSync(BASELINE_FILE)) return [];
     return readFileSync(BASELINE_FILE, "utf8")
@@ -105,11 +117,17 @@ function baselineText(lines: string[]): string {
 }
 
 function main(): number {
-    const current = violations();
+    const map = loadMap();
+    const current = violations(map);
     const flag = process.argv[2];
     if (flag === "--list") {
         console.log(current.join("\n"));
         return 0;
+    }
+    const strict = strictViolations(map, [...current, ...readBaseline()]);
+    if (strict.length > 0) {
+        for (const line of new Set(strict)) console.error(`upward include of a strict library: ${line}`);
+        return 1;
     }
     const { added, stale } = compare(current, readBaseline());
     if (flag === "--write") {
