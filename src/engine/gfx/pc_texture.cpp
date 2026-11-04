@@ -522,11 +522,11 @@ void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height,
     const int y_max = (height * 1024) - 1024;
     size_t written = 0;
     for (int row = height; row > 0; --row, y += y_step) {
-        const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
+        const int cy = y < 0 ? 0 : std::min(y, y_max);
         const int sy = static_cast<int16_t>(cy >> 10);
         int x = x_start;
         for (int column = width; column > 0; --column, x += x_step) {
-            const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
+            const int cx = x < 0 ? 0 : std::min(x, x_max);
             core::at(into, written++) = sample_at(from, {.width = width, .height = height},
                                                   {.sx = static_cast<int16_t>(cx >> kSubpixelBits),
                                                    .sy = sy,
@@ -745,8 +745,8 @@ bool PcTexture::spin_by(float angle, maths::Vec2 centre)
         int x = row_x;
         int y = row_y;
         for (uint32_t column = width; column != 0U; --column, x += xx_step, y += xy_step) {
-            const int cx = x < 0 ? 0 : x > x_max ? x_max : x;
-            const int cy = y < 0 ? 0 : y > y_max ? y_max : y;
+            const int cx = x < 0 ? 0 : std::min(x, x_max);
+            const int cy = y < 0 ? 0 : std::min(y, y_max);
             *out = sample_at(pixels, {.width = static_cast<int>(width), .height = static_cast<int>(height)}, {.sx = static_cast<int16_t>(cx >> kSubpixelBits), .sy = static_cast<int16_t>(cy >> kSubpixelBits), .fx = cx & kSubpixelMask, .fy = cy & kSubpixelMask});
             ++out;
         }

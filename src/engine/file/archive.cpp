@@ -385,7 +385,12 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         uint8_t* patch = nullptr;
         uint32_t patch_size = 0;
         bool patched = false;
-        const char letter = get_language() == core::kLanguageFrench ? 'f' : get_language() == core::kLanguageGerman ? 'd' : '\0';
+        char letter = '\0'; // (the French and German archives' letter)
+        if (get_language() == core::kLanguageFrench) {
+            letter = 'f';
+        } else if (get_language() == core::kLanguageGerman) {
+            letter = 'd';
+        }
         if (letter != '\0') {
             core::at(path, length - 1) = letter;
             if (!file::is_present(path.data())) {

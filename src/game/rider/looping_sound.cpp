@@ -197,9 +197,12 @@ void RiderRollingAudio::tick_frame()
     int bike = -1;
     if (skater::thaw_bmx::is_switched_on()) {
         using skater::thaw_bmx::BikeSound;
-        BikeSound kind = cur_phase_ == kStateGround                                               ? BikeSound::kRoll
-                         : cur_phase_ == kStateRail && (sliding_ == 0U) && (no_rail_sound_ == 0U) ? BikeSound::kGrind
-                                                                                                  : BikeSound::kAir;
+        BikeSound kind = BikeSound::kAir;
+        if (cur_phase_ == kStateGround) {
+            kind = BikeSound::kRoll;
+        } else if (cur_phase_ == kStateRail && (sliding_ == 0U) && (no_rail_sound_ == 0U)) {
+            kind = BikeSound::kGrind;
+        }
         bike = skater::thaw_bmx::bike_sound_of(entity(), kind, &sound_);
         if (bike >= 0) {
             have_sound_ = static_cast<uint8_t>(bike);

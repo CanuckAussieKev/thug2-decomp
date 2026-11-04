@@ -7,6 +7,7 @@
 
 #include <d3d9.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -116,9 +117,9 @@ void read_in()
     }
 }
 
-int parse_anisotropy(int value) { return value < 2 ? 0 : (value > kMaxAnisotropy ? kMaxAnisotropy : value); }
+int parse_anisotropy(int value) { return value < 2 ? 0 : std::min(value, kMaxAnisotropy); }
 
-int parse_multisample(int value) { return value < 2 ? 0 : (value > kMaxMultisample ? kMaxMultisample : value); }
+int parse_multisample(int value) { return value < 2 ? 0 : std::min(value, kMaxMultisample); }
 
 float parse_scale(const char* text)
 {
@@ -131,7 +132,7 @@ float parse_scale(const char* text)
         return 1.0F;
     }
     auto scale = static_cast<float>(value);
-    return scale < kMinScale ? kMinScale : (scale > kMaxScale ? kMaxScale : scale);
+    return scale < kMinScale ? kMinScale : std::min(scale, kMaxScale);
 }
 
 int device_anisotropy(int option, bool device_can_filter, uint32_t max_anisotropy)

@@ -351,7 +351,8 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
         exit_frame.rotate_y(0.0F);
         break;
     default: { // UpLeft, DownLeft; Up and anything else half a turn
-        const float turn = dir == kUpLeft ? -kThreeEighthsTurn : dir == kDownLeft ? -kEighthTurn : kHalfTurn;
+        const float down_left_turn = dir == kDownLeft ? -kEighthTurn : kHalfTurn;
+        const float turn = dir == kUpLeft ? -kThreeEighthsTurn : down_left_turn;
         maths::Mat4 rotation;
         matrix_multiply(&exit_frame, &exit_frame, &maths::make_yaw_matrix(rotation, turn));
         break;

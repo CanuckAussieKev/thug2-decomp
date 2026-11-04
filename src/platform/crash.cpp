@@ -210,11 +210,13 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
     get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name.data(),
             static_cast<unsigned>(offset), static_cast<unsigned>(context->Eip), note);
     if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2) {
-        get_log("  %s address %08X",
-                info->ExceptionRecord->ExceptionInformation[0] == kExecuteFault   ? "executing"
-                : info->ExceptionRecord->ExceptionInformation[0] != 0 ? "writing"
-                                                                      : "reading",
-                static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
+        const char* access = "reading";
+        if (info->ExceptionRecord->ExceptionInformation[0] == kExecuteFault) {
+            access = "executing";
+        } else if (info->ExceptionRecord->ExceptionInformation[0] != 0) {
+            access = "writing";
+        }
+        get_log("  %s address %08X", access, static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
     }
     get_log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X",
             static_cast<unsigned>(context->Eax), static_cast<unsigned>(context->Ebx),

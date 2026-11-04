@@ -28,6 +28,7 @@
 #include "engine/gfx/loading_console.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/language.h"
 
 namespace packs {
 
@@ -249,7 +250,12 @@ void load_pre(const char* name)
     unsigned int allocated = 0;
     size_t archive_size = 0; // (not original: the archive's bytes in the block, the bound for its reader)
     bool loaded = false;
-    const char letter = game_config::get_language() == 3 ? 'f' : game_config::get_language() == 5 ? 'd' : '\0';
+    char letter = '\0'; // (the French and German packs' letter)
+    if (game_config::get_language() == core::kLanguageFrench) {
+        letter = 'f';
+    } else if (game_config::get_language() == core::kLanguageGerman) {
+        letter = 'd';
+    }
     if (letter != '\0') {
         core::at(path, length - 1) = letter;
         if (!file::is_present(path.data())) {

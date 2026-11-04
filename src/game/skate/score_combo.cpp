@@ -435,7 +435,8 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
     if (!unnamed) {
         escape_spaces(trick->text_, text);
         // "\c3%s%s\c0 " / "\c2%s%s\c0 " / "%s%s " with "" and the text: the colour around the text, then a space
-        const char* colour = ((flags & kTrickColour3) != 0U) ? "\\c3" : ((flags & kTrickSpecial) != 0U) ? "\\c2" : "";
+        const char* special_colour = ((flags & kTrickSpecial) != 0U) ? "\\c2" : "";
+        const char* colour = ((flags & kTrickColour3) != 0U) ? "\\c3" : special_colour;
         text::format_to(trick->shown_, "%s%s%s ", colour, trick->text_.data(), (*colour != '\0') ? "\\c0" : "");
         // The trick before it (the last one named, not "...") gets the " + " joining them.
         for (int i = log_.num() - 2; i >= 0; --i) {
@@ -588,7 +589,8 @@ void PointTally::change_spin_degrees(int degrees)
     auto flags = static_cast<uint8_t>(trick->flag_bits_);
     // The original's formats: "\c3%s\_%d\_%s\c0[\_+ ]", "\c2%s\_%d\_%s\c0[\_+ ]", "%s\_%d\_%s[\_+ ]" (renamed: without
     // the "%d\_") - the colour around the text, then the join to the next trick.
-    const char* colour = ((flags & kTrickColour3) != 0U) ? "\\c3" : ((flags & kTrickSpecial) != 0U) ? "\\c2" : "";
+    const char* special_colour = ((flags & kTrickSpecial) != 0U) ? "\\c2" : "";
+    const char* colour = ((flags & kTrickColour3) != 0U) ? "\\c3" : special_colour;
     const char* colour_end = (*colour != '\0') ? "\\c0" : "";
     const char* join = joined ? "\\_+ " : "";
     if (!renamed) {

@@ -263,14 +263,19 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     const uint32_t load = current_load_state();
     const bool in_level = (load != 0U) && load != kLoadMainMenu;
     const bool loading = loading_screen_up();
-    game.fields.push_back({.key = "where", .value = (load == 0U) ? "starting up" : in_level ? "level" : "front end"});
+    const char* started_where = in_level ? "level" : "front end";
+    game.fields.push_back({.key = "where", .value = (load == 0U) ? "starting up" : started_where});
     game.fields.push_back({.key = "level load script", .value = (load != 0U) ? get_name_of(load) : ""});
     const uint32_t scene =
         frontend::level_editor::scenery::world_scene_key(frontend::level_editor::scenery::main_scene());
     game.fields.push_back({.key = "scene", .value = (scene != 0U) ? get_name_of(scene) : ""});
     game.fields.push_back({.key = "game mode", .value = active_ruleset_label()});
     const modules::FrontEnd* front_end = the_front_end();
-    game.fields.push_back({.key = "paused", .value = front_end ? (front_end->is_halted() ? "yes" : "no") : ""});
+    const char* paused = "";
+    if (front_end) {
+        paused = front_end->is_halted() ? "yes" : "no";
+    }
+    game.fields.push_back({.key = "paused", .value = paused});
     game.fields.push_back({.key = "loading screen", .value = loading ? "yes" : "no"});
     game.fields.push_back({.key = "level editor", .value = frontend::level_editor::live_now() ? "open" : "closed"});
     game.fields.push_back({.key = "frames run", .value = std::to_string(frame_loop::frames_run())});
@@ -674,11 +679,14 @@ void prepare_all()
     if ((core::at(setting, 0) != '\0') && parse_key(setting.data(), 0, by_name) == 0) {
         get_log("screenshot key: [Keybinds] Screenshot=%s isn't a key - using the default", setting.data());
     }
+    const char* from = ""; // (where the key came from)
+    if (core::at(setting, 0) != '\0') {
+        from = ", [Keybinds] Screenshot";
+    } else if (snipping) {
+        from = ", F12: Windows' Snipping Tool takes Print Screen";
+    }
     get_log("screenshot key: %s (scan code %d%s) - saves to %s",
-            SDL_GetScancodeName(static_cast<SDL_Scancode>(screenshot_state().key_)), screenshot_state().key_,
-            (core::at(setting, 0) != '\0') ? ", [Keybinds] Screenshot"
-            : snipping                     ? ", F12: Windows' Snipping Tool takes Print Screen"
-                                           : "",
+            SDL_GetScancodeName(static_cast<SDL_Scancode>(screenshot_state().key_)), screenshot_state().key_, from,
             folder_path().c_str());
     if (snipping && screenshot_state().key_ == kPrintScreen) {
         get_log(

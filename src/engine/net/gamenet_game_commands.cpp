@@ -397,7 +397,15 @@ bool cfunc_join_team(Struct* params, Script* /*script*/)
     uint32_t color = 0; // (uninitialised in the original: without one, its slot decides - most likely team 3)
     params->read_hash_value(0U, &color, 0);
     std::array<uint8_t, 2> request{};
-    core::at(request, 1) = color == kBlue ? 1 : color == kRed ? 0 : color == kGreen ? 2 : 3;
+    uint8_t team = 3; // (blue 1, red 0, green 2, else 3)
+    if (color == kBlue) {
+        team = 1;
+    } else if (color == kRed) {
+        team = 0;
+    } else if (color == kGreen) {
+        team = 2;
+    }
+    core::at(request, 1) = team;
     core::at(request, 0) = static_cast<uint8_t>(get_skater_id(player_skater(local)));
     net::AppHost* client = manager->client_app();
     if (frame_clock::get_time() - last_team_request() >= kJoinTeamInterval) {

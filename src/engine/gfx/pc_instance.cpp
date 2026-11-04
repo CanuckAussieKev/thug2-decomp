@@ -426,7 +426,10 @@ int compare_instances(const void* a, const void* b)
         }
         const int x = first->scene()->transparent_count();
         const int y = second->scene()->transparent_count();
-        return x == y ? 0 : x > y ? 1 : -1;
+        if (x == y) {
+            return 0;
+        }
+        return x > y ? 1 : -1;
     }
     if (skinned_by_shader(second)) {
         return 1;

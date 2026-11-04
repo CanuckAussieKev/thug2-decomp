@@ -59,7 +59,10 @@ int player_of(script::Struct* params)
 bool get_option(script::Struct* params, Option option)
 {
     const modules::Skate::PlayerSettings& player = core::at(modules::Skate::sole()->participants(), player_of(params));
-    return option == kVibration ? player.vibration_ : option == kAutoKick ? player.auto_kick_ : player.spin_taps_;
+    if (option == kVibration) {
+        return player.vibration_;
+    }
+    return option == kAutoKick ? player.auto_kick_ : player.spin_taps_;
 }
 bool set_option(script::Struct* params, Option option, bool on)
 {

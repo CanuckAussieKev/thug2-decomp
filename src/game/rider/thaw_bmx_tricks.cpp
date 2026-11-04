@@ -277,7 +277,7 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
         const maths::Vec4 along = b - a;
         const double length = dot3(along, along);
         double fraction = length > 0.0 ? dot3(start - a, along) / length : 0.0;
-        fraction = fraction < 0.0 ? 0.0 : (fraction > 1.0 ? 1.0 : fraction);
+        fraction = fraction < 0.0 ? 0.0 : std::min(fraction, 1.0);
         on_rail = a + static_cast<float>(fraction) * along;
         on_line = start;
     }
@@ -476,7 +476,8 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     const float remaining = target - state.tap_pitch_;
     if (remaining != 0.0F) {
         const float most = kTapPitch / kTapPitchTime * get_frame_length(core);
-        const float step = std::fabs(remaining) < most ? remaining : (remaining > 0.0F ? most : -most);
+        const float most_step = remaining > 0.0F ? most : -most;
+        const float step = std::fabs(remaining) < most ? remaining : most_step;
         state.tap_pitch_ += step;
         object->basis_frame().pitch_locally(step);
         core->display_matrix().pitch_locally(step);
@@ -675,7 +676,8 @@ int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* 
         // from the air on it (with the stick held back / forward as it lands).
         const BikeState* state = state_of(core, false);
         const float pitch = state ? state->last_air_pitch_ : 0.0F;
-        return (name == kPitchingForward ? pitch > 0.0F : pitch < 0.0F) ? 1 : 0;
+        const bool pitching = name == kPitchingForward ? pitch > 0.0F : pitch < 0.0F;
+        return pitching ? 1 : 0;
     }
     if (name == kShouldStall) { // 0x005C8410: +0x49D
         const BikeState* state = state_of(core, false);

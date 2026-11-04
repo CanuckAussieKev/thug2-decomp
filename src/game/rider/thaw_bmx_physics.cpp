@@ -369,7 +369,7 @@ float steer_blend(float rate, float sharp_rotation)
 float steer_in(float in, bool on, float frame_length)
 {
     const float out = on ? in + (frame_length / kSteerInTime) : in - (frame_length / kSteerOutTime);
-    return out > 1.0F ? 1.0F : (out < 0.0F ? 0.0F : out);
+    return out > 1.0F ? 1.0F : std::max(out, 0.0F);
 }
 
 ManualOutput manual_step(const ManualInput& in)
@@ -579,7 +579,7 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     }
     out.why = 3;
     if (along > 0.0F) {
-        const float cosine = turn < -1.0F ? -1.0F : (turn > 1.0F ? 1.0F : turn);
+        const float cosine = turn < -1.0F ? -1.0F : std::min(turn, 1.0F);
         const float mx = in.wheel.x - in.last.x;
         const float my = in.wheel.y - in.last.y;
         const float mz = in.wheel.z - in.last.z;

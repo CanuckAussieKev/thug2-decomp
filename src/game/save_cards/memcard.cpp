@@ -74,7 +74,12 @@ DWORD FileLoad::seek_to(SeekTo seek)
 {
     const auto offset = seek.offset;
     const auto origin = seek.origin;
-    const DWORD method = origin == 0 ? FILE_BEGIN : origin == 1 ? FILE_CURRENT : FILE_END;
+    DWORD method = FILE_END; // (0: from the start, 1: from here, anything else: from the end)
+    if (origin == 0) {
+        method = FILE_BEGIN;
+    } else if (origin == 1) {
+        method = FILE_CURRENT;
+    }
     return SetFilePointer(hdl_, offset, nullptr, method);
 }
 

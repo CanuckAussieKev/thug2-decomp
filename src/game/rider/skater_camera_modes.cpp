@@ -102,9 +102,12 @@ void RiderChaseView::change_regime(CameraRegime camera_regime)
     const auto time = camera_regime.time;
     auto* camera = entity()->fetch_module(kCamera);
     const int screen = screen_mode();
-    const char* array_name = screen == 1   ? "Skater_Camera_2P_Vert_Array"
-                             : screen == 2 ? "Skater_Camera_2P_Horiz_Array"
-                                           : "Skater_Camera_Array";
+    const char* array_name = "Skater_Camera_Array";
+    if (screen == 1) {
+        array_name = "Skater_Camera_2P_Vert_Array";
+    } else if (screen == 2) {
+        array_name = "Skater_Camera_2P_Horiz_Array";
+    }
     script::Array* modes = script::fetch_list(array_name);
     script::Struct* params = script::read_sub_struct(modes->fetch_part(static_cast<uint32_t>(mode)));
     mode_sel_ = mode;

@@ -376,7 +376,8 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     facing.make_unit();
 
     maths::Vec4 from = entity()->at_point();
-    const double height = sticker ? 30.0 : (low ? 20.0 : 50.0); // 0x00646240 / 0x006486AC / 0x006463CC
+    const double tag_height = low ? 20.0 : 50.0;       // 0x006486AC / 0x006463CC
+    const double height = sticker ? 30.0 : tag_height; // 0x00646240
     from.y = static_cast<float>(from.y + height);
     feeler.set_excluded({.ignore = kTagIgnoreFlags, .require = render::kNoFaceFlags});
     // From 12 behind to the reach ahead (the w's products kept unrounded).
@@ -546,7 +547,8 @@ bool TaggingControlComponent::try_tagging()
     const modules::PointTally* score =
         core::down_cast<RiderPointKeeper>(entity()->fetch_module(kSkaterScore))->points_held();
     const int combo_score = get_truncated(score->pot() * static_cast<double>(score->multiplier()));
-    const int size = combo_score > 5000 ? 100 : (combo_score > 1000 ? 75 : 50);
+    const int smaller_size = combo_score > 1000 ? 75 : 50;
+    const int size = combo_score > 5000 ? 100 : smaller_size;
     tagging_->place_tag(false, start, end, size, true);
     cooldown_ = script::fetch_float(kPhysicsGraffitiWaitFrames);
     if (combo_score > 0) {

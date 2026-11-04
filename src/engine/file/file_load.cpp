@@ -234,7 +234,12 @@ uint32_t seek_to(Hdl file, int offset, int origin)
             return result;
         }
     }
-    const DWORD method = origin == 1 ? FILE_CURRENT : origin != 0 ? FILE_END : FILE_BEGIN;
+    DWORD method = FILE_BEGIN; // (0: from the start, 1: from here, anything else: from the end)
+    if (origin == 1) {
+        method = FILE_CURRENT;
+    } else if (origin != 0) {
+        method = FILE_END;
+    }
     return SetFilePointer(file, offset, nullptr, method);
 }
 

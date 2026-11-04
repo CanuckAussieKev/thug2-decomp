@@ -793,11 +793,12 @@ bool handle_chat_command(const char* text)
     std::array<char, kLineSize> line{};
     if (_stricmp(command.data(), "thugpro") == 0) {
         const HostListing& info = session().info;
+        const char* host_options = session().have ? "the host's" : "no host options yet";
         text::format_to(
             line,
             "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
             "%02X",
-            get_machine_id(), client ? (session().have ? "the host's" : "no host options yet") : "ours",
+            get_machine_id(), client ? host_options : "ours",
             client ? info.time_of_day_ : host_server_info().time_of_day_, client ? info.weather : host().weather,
             client ? get_level_options(info) : host().level_options_, client ? get_pro_sets(info) : host().pro_sets_);
         get_say(line.data());

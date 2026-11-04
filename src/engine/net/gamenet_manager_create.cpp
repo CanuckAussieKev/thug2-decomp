@@ -103,7 +103,13 @@ Hub::Hub()
     crt::get_srand(crt::get_instant());
     for (int i = 0; i < kChallengeLength; ++i) {
         const int pick = crt::get_rand() % 62;
-        core::at(challenge_, i) = static_cast<char>(pick < kChallengeDigits ? '0' + pick : pick < kChallengeLetters ? 'A' + pick - kChallengeDigits : 'a' + pick - kChallengeLetters);
+        int character = 'a' + pick - kChallengeLetters; // (a digit, a capital or a small letter)
+        if (pick < kChallengeDigits) {
+            character = '0' + pick;
+        } else if (pick < kChallengeLetters) {
+            character = 'A' + pick - kChallengeDigits;
+        }
+        core::at(challenge_, i) = static_cast<char>(character);
     }
     core::at(challenge_, kChallengeLength) = '\0';
 }

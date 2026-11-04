@@ -1382,7 +1382,8 @@ void Rider::launch_projectile()
     const bool flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on != 0;
     const bool walk =
         (walking->in_vehicle() == 0U) && walking->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking;
-    const uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
+    const bool left_wrist = walk ? flipped : !flipped;
+    const uint32_t wrist = left_wrist ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
     maths::Vec4 bone;
     maths::Vec4 rotated;
     core::down_cast<BoneRigModule>(fetch_module(kSkeleton2))->get_local_bone_position(wrist, &bone);

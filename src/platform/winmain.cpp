@@ -327,7 +327,8 @@ void read_network_params(const char* command_line)
     // (The numbers are compared unsigned: a negative one counts as too big.)
     if (const auto at = find("-MAXPLAYERS")) {
         auto players = static_cast<uint32_t>(get_number(after(*at, kMaxPlayersValueAt)));
-        online::net_game_state().set_net_max_players(static_cast<int>(players < 2 ? 2 : players > online::kPlayerSlotCount ? online::kPlayerSlotCount : players));
+        const uint32_t at_most = std::min(players, static_cast<uint32_t>(online::kPlayerSlotCount));
+        online::net_game_state().set_net_max_players(static_cast<int>(players < 2 ? 2U : at_most));
     }
     if (const auto at = find("-GROUP")) {
         online::set_lobby_group_id(get_number(after(*at, kGroupValueAt)));

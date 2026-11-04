@@ -411,7 +411,10 @@ int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Scr
         return 1;
     }
     if (name == kIsOn) {
-        return all ? (all_active() ? 1 : 0) : (core::at(bones_, index).active_ ? 1 : 0);
+        if (all) {
+            return all_active() ? 1 : 0;
+        }
+        return core::at(bones_, index).active_ ? 1 : 0;
     }
     configure(all, index, params);
     return 1;

@@ -460,7 +460,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
             ((static_cast<double>(direction.z) * facing.z) + (static_cast<double>(direction.y) * facing.y)) +
             (static_cast<double>(direction.x) * facing.x);
         auto cosine_f = static_cast<float>(cosine);
-        const float clamped = cosine > kOne ? kOne : (cosine_f < -kOne ? -kOne : cosine_f);
+        const float clamped = cosine > kOne ? kOne : std::max(cosine_f, -kOne);
         if (acos_degrees(clamped) > walk_parameter(kSlopLockAngle)) {
             // Far off the facing: turned in place at rotate_in_place_rate (walking: x walk_rotate_factor; against a
             // wall, or a wall where it turns to: x wall_rotate_factor), going the pushed way.
@@ -514,7 +514,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                         (static_cast<double>(control.x) * facing.x));
             off = off + off;
             auto off_f = static_cast<float>(off);
-            const float turn_blend = off > kOne ? kOne : (off_f < 0.0F ? 0.0F : off_f);
+            const float turn_blend = off > kOne ? kOne : std::max(off_f, 0.0F);
             const float worse = walk_parameter(kWorseTurnFactor);
             const float worst = walk_parameter(kWorseWorseTurnFactor);
             auto rate =

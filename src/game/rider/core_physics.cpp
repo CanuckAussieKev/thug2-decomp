@@ -353,7 +353,7 @@ void SkaterPhysicsModule::check_for_ground()
                 }
                 if (keep && along > 0.0F) {
                     // How far the skater could have dropped this frame at that angle (at least a physics value).
-                    const float cosine = turn > 1.0F ? 1.0F : (turn < -1.0F ? -1.0F : turn);
+                    const float cosine = turn > 1.0F ? 1.0F : std::max(turn, -1.0F);
                     const maths::Vec4& skater_position = object->at_point();
                     const maths::Vec4& old = object->old_pos();
                     const float mx = skater_position.x - old.x;

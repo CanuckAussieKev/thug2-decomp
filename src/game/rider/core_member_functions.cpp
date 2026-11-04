@@ -840,12 +840,14 @@ int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script* /
     if (params->has_bare_flag(kBackside)) {
         const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
         const bool backside = last_spin_backside_ != 0;
-        return (flipped ? !backside : backside) ? 1 : 0;
+        const bool spun_backside = flipped ? !backside : backside; // (flipped: the other way round)
+        return spun_backside ? 1 : 0;
     }
     if (params->has_bare_flag(kFrontside)) {
         const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
         const bool backside = last_spin_backside_ != 0;
-        return (flipped ? backside : !backside) ? 1 : 0;
+        const bool spun_frontside = flipped ? backside : !backside;
+        return spun_frontside ? 1 : 0;
     }
     return 1;
 }

@@ -2,6 +2,7 @@
 
 #include "engine/objects/vehicle_sound.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -354,7 +355,7 @@ void EngineAudioModule::update_collide_sound()
     // The skater told how hard (0-1). (Out of memory, the original adds to a null structure - kept.)
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-    const float level = strength > 1.0F ? 1.0F : (strength < 0.0F ? 0.0F : strength);
+    const float level = strength > 1.0F ? 1.0F : std::max(strength, 0.0F);
     Expects(event != nullptr);
     event->push_float(checksums::Name{kStrength}, level);
     vehicle_ptr_->rider_ref()->post_own_event(kVehicleBodycollision, event);

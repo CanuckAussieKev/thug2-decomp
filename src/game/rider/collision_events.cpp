@@ -7,6 +7,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -374,7 +375,7 @@ float to_segment(const std::array<float, 3>& point, const std::array<float, 3>& 
                                   (core::at(w, 2) * core::at(edge, 2))) /
                                      ee
                                : 0.0F;
-    fraction = fraction < 0.0F ? 0.0F : (fraction > 1.0F ? 1.0F : fraction);
+    fraction = fraction < 0.0F ? 0.0F : std::min(fraction, 1.0F);
     const std::array<float, 3> closest = {{core::at(a, 0) + (core::at(edge, 0) * fraction),
                                            core::at(a, 1) + (core::at(edge, 1) * fraction),
                                            core::at(a, 2) + (core::at(edge, 2) * fraction)}};
@@ -660,7 +661,11 @@ void get_emit(int before)
     // The detail line.
     detail.number = event.number;
     detail.state = get_state_name(now.state);
-    detail.physics = now.physics == 0 ? "skating" : now.physics == 1 ? "walking" : "-";
+    if (now.physics == 0) {
+        detail.physics = "skating";
+    } else {
+        detail.physics = now.physics == 1 ? "walking" : "-";
+    }
     detail.speed =
         std::sqrt((core::at(now.vel, 0) * core::at(now.vel, 0)) + (core::at(now.vel, 1) * core::at(now.vel, 1)) +
                   (core::at(now.vel, 2) * core::at(now.vel, 2)));
@@ -1040,10 +1045,11 @@ std::string format_detail(const Detail& detail)
         line += " corners=- col_box=-";
     }
     if (detail.edge >= 0) {
-        text::format_to(text, " edge=%d edge_dist=%.1f open_edge=%s", detail.edge, detail.edge_distance_,
-                        detail.edge_open_ < 0      ? std::string_view("-").data()
-                        : (detail.edge_open_ != 0) ? std::string_view("1").data()
-                                                   : std::string_view("0").data());
+        const char* open_edge = "-"; // (not known: -; else 1 or 0)
+        if (detail.edge_open_ >= 0) {
+            open_edge = (detail.edge_open_ != 0) ? "1" : "0";
+        }
+        text::format_to(text, " edge=%d edge_dist=%.1f open_edge=%s", detail.edge, detail.edge_distance_, open_edge);
         line += text.data();
     } else {
         line += " edge=- edge_dist=- open_edge=-";

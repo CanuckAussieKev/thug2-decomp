@@ -598,7 +598,14 @@ const char* get_button_key_name(int button)
     }
 
     const bool menu_keys = !piece_menu && menu && !typing;
-    const int code = menu_keys ? get_menu_key(button) : typing ? typing_key(button) : play_key(button);
+    int code = 0;
+    if (menu_keys) {
+        code = get_menu_key(button);
+    } else if (typing) {
+        code = typing_key(button);
+    } else {
+        code = play_key(button);
+    }
     convert_key_name(code);
     text::format_to(key_name_result(), "%s", name_buffer().data());
     if (button == kButtonTwoKeys) {

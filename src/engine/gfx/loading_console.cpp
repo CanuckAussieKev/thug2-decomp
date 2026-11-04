@@ -448,7 +448,8 @@ void get_layout(double now)
     y += console_font().line_height_ + (pad * kHalf);
     for (size_t i = 0; i < lines.size(); ++i) {
         const bool newest = i + 1 == lines.size();
-        const uint32_t color = newest ? (stalled ? 0xFFFFC080U : 0xFFFFFFFFU) : 0xFFB8B8B8U;
+        const uint32_t newest_color = stalled ? 0xFFFFC080U : 0xFFFFFFFFU;
+        const uint32_t color = newest ? newest_color : 0xFFB8B8B8U;
         draw_text({.x = x0 + pad, .y = y}, core::at(lines, i).c_str(), columns, colour::Packed{color});
         y += console_font().line_height_;
     }

@@ -205,10 +205,14 @@ void GoalManager::append_objective_list_entries()
             if (goal->is_contest_objective()) {
                 params->fetch_int_value(kWinRecord, &value, 0);
                 text::format_to(record, "%i", value);               // "%i"
-                const char* suffix = value == 1   ? "st place"      // "st place"
-                                     : value == 2 ? "nd place"      // "nd place"
-                                     : value == 3 ? "rd place"      // "rd place"
-                                                  : "";
+                const char* suffix = "";
+                if (value == 1) {
+                    suffix = "st place"; // "st place"
+                } else if (value == 2) {
+                    suffix = "nd place"; // "nd place"
+                } else if (value == 3) {
+                    suffix = "rd place"; // "rd place"
+                }
                 std::size_t length = std::strlen(record.data());
                 text::format_to(std::span<char>(record).subspan(length), "%s", suffix);
                 item->append_word(kRecordText, record.data());

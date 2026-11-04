@@ -717,10 +717,11 @@ void BlendChannel::set_wobble_details(std::span<const float, kWobbleDetailCount>
             } else if (core::at(details, 0) == kWobbleBaseStepFast) {
                 bits = 2;
             }
-            const uint8_t b1 = core::at(details, 1) == 0.04F ? 0 : core::at(details, 1) == 10.1F ? 1 : 0;
-            const uint8_t b2 = core::at(details, 2) == 0.0022F ? 0 : core::at(details, 2) == 20.0F ? 1 : 0;
-            const uint8_t b3 = core::at(details, 3) == 0.0017F ? 0 : core::at(details, 3) == 10.0F ? 1 : 0;
-            const uint8_t b4 = core::at(details, 4) == 1.5F ? 0 : core::at(details, 4) == 1.0F ? 1 : 0;
+            // (each detail's bit: 1 for its second setting; its first - 0.04, 0.0022, 0.0017, 1.5 - and any other value 0)
+            const uint8_t b1 = core::at(details, 1) == 10.1F ? 1 : 0;
+            const uint8_t b2 = core::at(details, 2) == 20.0F ? 1 : 0;
+            const uint8_t b3 = core::at(details, 3) == 10.0F ? 1 : 0;
+            const uint8_t b4 = core::at(details, 4) == 1.0F ? 1 : 0;
             std::array<uint8_t, 2> data{};
             core::at(data, 0) = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << kWobbleLastDetailShift);
             core::at(data, 1) = static_cast<uint8_t>(get_owner(this)->ident());

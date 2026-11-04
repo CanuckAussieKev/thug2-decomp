@@ -3,6 +3,7 @@
 
 #include "engine/objects/walk_hang.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -1032,7 +1033,8 @@ void objects::FootMovement::shimmy(float move)
     } else {
         if (past_end) {
             const float fraction = along;
-            const double clamped = fraction > 1.0F ? 1.0 : fraction < 0.0F ? 0.0 : fraction;
+            const double non_negative = fraction < 0.0F ? 0.0 : fraction;
+            const double clamped = fraction > 1.0F ? 1.0 : non_negative;
             const double over = static_cast<double>(along) - clamped;
             auto rest = static_cast<float>(std::fabs(over) * std::sqrt(static_cast<double>(length_squared_f)));
             maths::Vec4 reversed{};
@@ -1629,7 +1631,7 @@ void objects::FootMovement::climb_ladder()
     }
     // else on it: the animation, the place along it (ladder_climb_offset out of it)
     const float fraction = along;
-    along = fraction > 1.0F ? 1.0F : fraction < 0.0F ? 0.0F : fraction;
+    along = fraction > 1.0F ? 1.0F : std::max(fraction, 0.0F);
     if (along == 0.0F || along == 1.0F) {
         anim_state_ = kAnimLadder;
         speed_ = 0.0F;

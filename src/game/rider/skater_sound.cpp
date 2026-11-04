@@ -97,8 +97,8 @@ void RiderSfxPlayer::play_land(Impact impact)
 {
     const auto speed = impact.speed;
     const auto terrain = impact.terrain;
-    const uint32_t table =
-        cur_phase_ == kStateRail ? ((sliding_ != 0U) ? kTableSlideLand : kTableGrindLand) : kTableLand;
+    const uint32_t rail_table = (sliding_ != 0U) ? kTableSlideLand : kTableGrindLand;
+    const uint32_t table = cur_phase_ == kStateRail ? rail_table : kTableLand;
     auto speed_percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     auto loudness_percent = static_cast<float>(static_cast<double>(speed_percent) * volume_mult_);
     using skater::thaw_bmx::BikeSound;
@@ -114,7 +114,8 @@ void RiderSfxPlayer::play_jump(RiderSfxPlayer::Impact impact, int state)
 {
     const auto speed = impact.speed;
     const auto terrain = impact.terrain;
-    const uint32_t table = state == kStateRail ? ((sliding_ != 0U) ? kTableSlideJump : kTableGrindJump) : kTableJump;
+    const uint32_t rail_table = (sliding_ != 0U) ? kTableSlideJump : kTableGrindJump;
+    const uint32_t table = state == kStateRail ? rail_table : kTableJump;
     auto speed_percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     auto loudness_percent = static_cast<float>(static_cast<double>(speed_percent) * volume_mult_);
     using skater::thaw_bmx::BikeSound;

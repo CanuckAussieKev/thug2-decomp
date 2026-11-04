@@ -90,7 +90,10 @@ void set_quad(const Glow* glow, const std::array<float, 3>& u, const std::array<
     std::array<GlowVertex, 4>& quad = glow_quad();
     // (a corner's coordinate on an axis)
     auto coordinate = [](GlowVertex& corner, int axis) -> float& {
-        return axis == 0 ? corner.x : axis == 1 ? corner.y : corner.z;
+        if (axis == 0) {
+            return corner.x;
+        }
+        return axis == 1 ? corner.y : corner.z;
     };
     for (int i = 0; i < 3; ++i) {
         const double across = static_cast<double>(core::at(u, i)) * size;

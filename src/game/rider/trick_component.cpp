@@ -834,7 +834,12 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         clear_used();
         return false;
     };
-    auto finish = [&](Scan scan) { return scan == Scan::kFound ? succeed() : scan == Scan::kStopped ? false : fail(); };
+    auto finish = [&](Scan scan) {
+        if (scan == Scan::kFound) {
+            return succeed();
+        }
+        return scan == Scan::kStopped ? false : fail();
+    };
 
     switch (kind->value.word()) {
     case kPress: { // Press: the button pressed (the event gets the flags itself, nothing marked)

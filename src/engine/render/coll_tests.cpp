@@ -27,7 +27,13 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 // A plane distance this small counts as on the plane (0x006453B8).
 constexpr float kOnPlane = 0.00001F;
 
-float get_component(const maths::Vec4& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
+float get_component(const maths::Vec4& v, int axis)
+{
+    if (axis == 0) {
+        return v.x;
+    }
+    return axis == 1 ? v.y : v.z;
+}
 
 // Where the triangle edge from `a` to `b` - plane distances da and db, on either side - meets the plane:
 // a + (b - a) da / (da - db); a itself when the distances are (nearly) equal. Rounded as the original's x87 code

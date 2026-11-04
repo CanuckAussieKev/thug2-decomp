@@ -306,7 +306,7 @@ void PcWeather::render_rain(maths::Vec2 centre)
         }
     };
     for (int gz = min_z; gz <= max_z; ++gz) {
-        const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
+        const int row_index = gz < 0 ? 0 : std::min(gz, depth - 1);
         const WeatherRow& row = core::at(rows, row_index);
         if (row.first == kEmptyRow) {
             continue;
@@ -404,7 +404,7 @@ void PcWeather::render_snow(maths::Vec2 centre)
     core::Cursor<float> out(points);
     uint32_t used = 0;
     for (int gz = min_z; gz <= max_z; ++gz) {
-        const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
+        const int row_index = gz < 0 ? 0 : std::min(gz, depth - 1);
         const WeatherRow& row = core::at(rows, row_index);
         if (row.first == kEmptyRow) {
             continue;

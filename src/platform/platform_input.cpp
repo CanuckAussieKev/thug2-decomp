@@ -663,7 +663,14 @@ int32_t truncate(double value) { return static_cast<int32_t>(value); }
 // A mouse axis as a stick: its movement scaled, within the stick's range.
 double mouse_axis_stick(const DIMOUSESTATE2* state, int control)
 {
-    const LONG value = control == 1 ? state->lX : control == 2 ? state->lY : control == 3 ? state->lZ : 0;
+    LONG value = 0; // (axis 1 x, 2 y, 3 the wheel)
+    if (control == 1) {
+        value = state->lX;
+    } else if (control == 2) {
+        value = state->lY;
+    } else if (control == 3) {
+        value = state->lZ;
+    }
     const double stick = static_cast<double>(value) * kMouseStickScale;
     if (stick > kStickMax) {
         return kStickMax;
@@ -699,7 +706,12 @@ bool mouse_control_down(const DIMOUSESTATE2* state, int control)
         return (core::at(state->rgbButtons, control - 4) >> kButtonDownShift) != 0;
     }
     if (control >= 1 && control <= 3) {
-        const LONG value = control == 1 ? state->lX : control == 2 ? state->lY : state->lZ;
+        LONG value = state->lZ;
+        if (control == 1) {
+            value = state->lX;
+        } else if (control == 2) {
+            value = state->lY;
+        }
         return value > 3 || value < -3;
     }
     return false;
