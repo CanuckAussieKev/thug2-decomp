@@ -5,16 +5,16 @@
 
 #include <cstdint>
 
+namespace render {
+struct FeelerResult;
+}
+
 namespace collision_overlay {
 
-// A feeler query's result and the code that asked.
-struct FeelerResult {
-    int hit{};
-    uint32_t caller{};
-};
-
-// After a feeler's query (render::ProbeRay::get_hit_shape): `hit` is its result, `caller` the return address into the
-// code that asked. Logs the hit when the feature is on.
-void note_feeler_query(const void* feeler, FeelerResult feeler_result);
+// After a feeler's query (render::ProbeRay::get_hit_shape, its feeler-query observer): `hit` is its result, `caller`
+// the return address into the code that asked. Logs the hit when the feature is on.
+void note_feeler_query(const void* feeler, render::FeelerResult feeler_result);
+// note_feeler_query made the feelers' observer (render::set_feeler_query_observer), from app/main.cpp.
+void install();
 
 } // namespace collision_overlay

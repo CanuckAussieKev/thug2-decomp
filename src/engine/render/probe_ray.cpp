@@ -13,7 +13,6 @@
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_world.h"
 #include "engine/objects/entity.h"
-#include "game/rider/debug_collision.h"
 #include "base/core/compiler.h"
 #include "platform/code_address.h"
 #include "base/core/checked_index.h"
@@ -24,6 +23,12 @@ namespace render {
 void set_current_cache(HitMeshCache* cache) { collision_state().set_current_cache(cache); }
 
 namespace {
+
+FeelerQueryObserver& feeler_query_observer()
+{
+    static FeelerQueryObserver observer{};
+    return observer;
+}
 
 // The cache queries use when the feeler has none.
 
@@ -43,6 +48,8 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 double get_length_squared(double x, double y, double z) { return ((z * z) + (y * y)) + (x * x); }
 
 } // namespace
+
+void set_feeler_query_observer(FeelerQueryObserver observer) { feeler_query_observer() = observer; }
 
 // 0x00417760
 ProbeRay::ProbeRay() : callback_(nullptr), hit_cache_(nullptr)
@@ -119,8 +126,10 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     contact_pos_ = hit_.point;
     surface_dir_ = hit_.normal;
     const int result = hit_static || entity_ ? 1 : 0;
-    // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/rider/debug_collision.h).
-    collision_overlay::note_feeler_query(this, {.hit = result, .caller = static_cast<uint32_t>(code_address_value(THUG2_RETURN_ADDRESS()))});
+    // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/rider/debug_collision.h, the observer).
+    if (FeelerQueryObserver observer = feeler_query_observer()) {
+        observer(this, {.hit = result, .caller = static_cast<uint32_t>(code_address_value(THUG2_RETURN_ADDRESS()))});
+    }
     return result;
 }
 

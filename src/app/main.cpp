@@ -23,6 +23,7 @@
 #include "game/commands/node_hooks.h"
 #include "game/front_end/pad_hooks.h"
 #include "game/online/transport_hooks.h"
+#include "game/rider/debug_collision.h"
 #include "game/skate/render_hooks.h"
 #include "game/skate/sys_hooks.h"
 #include "game/world/object_hooks.h"
@@ -73,6 +74,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     sio::install_game_hooks();
     // NOT ORIGINAL: what the engine's main loop and debug mode ask of the game (game/skate/sys_hooks.h).
     sys::install_game_hooks();
+    // NOT ORIGINAL: [features] debug_collision's log after each feeler query (game/rider/debug_collision.h).
+    collision_overlay::install();
     sys::run_startup_initialisers();
     return sys::win_main(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
 }

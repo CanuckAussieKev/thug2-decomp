@@ -134,4 +134,14 @@ private:
 
 // NOT ORIGINAL - the cache queries use when the feeler has none; the rider sets it around its feelers.
 void set_current_cache(HitMeshCache* cache);
+
+// NOT ORIGINAL - who is told after each feeler query (ProbeRay::get_hit_shape): the feeler, its result and the return
+// address into the code that asked. [features] debug_collision's log installs itself (game/rider/debug_collision.h,
+// from app/main.cpp before any of the original's code runs). Not set: no one.
+struct FeelerResult {
+    int hit{};
+    uint32_t caller{};
+};
+using FeelerQueryObserver = void (*)(const void* feeler, FeelerResult feeler_result);
+void set_feeler_query_observer(FeelerQueryObserver observer);
 } // namespace render

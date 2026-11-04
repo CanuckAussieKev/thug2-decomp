@@ -44,8 +44,8 @@
 // - Shatter (0x005A5090) on a LevelGeometry node: the sector made invisible (0x005A3B80) and shattered (sector
 //   vtable +0x04, 0x004A1090); it doesn't touch the collision. Kill on it: the killed flag above, plus 0x004D8C90.
 //
-// render::ProbeRay::get_hit_shape (0x004172F0, src/engine/render/probe_ray.cpp) calls note_feeler_query after each query; nothing
-// else changes.
+// render::ProbeRay::get_hit_shape (0x004172F0, src/engine/render/probe_ray.cpp) calls note_feeler_query (its feeler-query
+// observer, installed from app/main.cpp) after each query; nothing else changes.
 
 #include <cstddef>
 #include <cstdint>
@@ -234,7 +234,7 @@ void log_hit(const void* feeler, uint32_t caller)
 } // namespace
 
 // Called by render::ProbeRay::get_hit_shape (0x004172F0) after each query.
-void note_feeler_query(const void* feeler, FeelerResult feeler_result)
+void note_feeler_query(const void* feeler, render::FeelerResult feeler_result)
 {
     const auto hit = feeler_result.hit;
     const auto caller = feeler_result.caller;
@@ -245,5 +245,7 @@ void note_feeler_query(const void* feeler, FeelerResult feeler_result)
         log_hit(feeler, caller);
     }
 }
+
+void install() { render::set_feeler_query_observer(&note_feeler_query); }
 
 } // namespace collision_overlay

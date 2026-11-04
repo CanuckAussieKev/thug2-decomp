@@ -8,7 +8,6 @@ src/devtools/start_level.cpp -> src/editor/level_editor_layout.h
 src/devtools/start_level.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor_play.cpp -> src/frontend/mouse_menus.h
-src/engine/render/probe_ray.cpp -> src/game/rider/debug_collision.h
 src/formats/check/format_check.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check.cpp -> src/wire/message_ids.h
 src/formats/check/format_check.cpp -> src/wire/net_wire.h
