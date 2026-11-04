@@ -8,7 +8,7 @@
         },
         "platform": { "folders": ["src/platform/"], "allowed": ["base"] },
         "formats": { "folders": ["src/formats/"], "allowed": ["base"] },
-        "wire": { "folders": ["src/wire/"], "allowed": ["base"] },
+        "wire": { "folders": ["src/wire/"], "allowed": ["base", "formats"] },
         "gpu": { "folders": ["src/gpu/"], "allowed": ["base", "platform"] },
         "engine": { "folders": ["src/engine/"], "allowed": ["base", "platform", "formats", "wire", "gpu"] },
         "game": {

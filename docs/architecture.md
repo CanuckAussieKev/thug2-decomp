@@ -143,7 +143,7 @@ everything above it uses the game's own types and may change them freely.
   dictionaries and images, scenes / models / skins (`scene_format`), collision, skeletons, animations, fonts, sound
   effects, the streamed sounds' index, the park map and its rails, the save file. Each takes a byte span
   (`ByteReader` / `ByteWriter`, `byte_stream.h`: little-endian, unaligned, bounds-checked) and gives plain records.
-  `thug2_format_check` (`formats/check/`) runs every reader over a game folder, compares it with an independent
+  `thug2_format_check` (`tests/`) runs every reader over a game folder, compares it with an independent
   reading of the bytes, and round-trips the writers.
 - `wire/` (static library `thug2_wire`): the packet framing (`net_wire`) and every game message
   (`gamenet_messages`, `skater_messages`, `play_messages`, `skate_net_messages`), byte-compatible with the
@@ -161,8 +161,8 @@ everything above it uses the game's own types and may change them freely.
   (`mute_audio.h`), the owners of Win32 and C runtime handles (`unique_handle.h`) and the sinks behind the base
   layer's output (`output_sinks.h`).
 
-`formats/` and `wire/` depend only on the standard library and `base/` (`ints.h`,
-`checksums.h`, `pointer_cell.h`, `raw_view.h`); they build and are checked without the game.
+`formats/` depends only on the standard library and `base/` (`ints.h`, `checksums.h`, `pointer_cell.h`, `raw_view.h`);
+`wire/` also on `formats/` (the byte stream). They build and are checked without the game.
 
 **The original's layouts stay in the boundary**: the named helpers that read memory through another type or keep a
 pointer in an integer - `cell::` (`base/core/pointer_cell.h`), `raw::` (`base/core/raw_view.h`),

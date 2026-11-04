@@ -37,7 +37,7 @@
 #include "formats/wave_format.h"
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
-#include "formats/check/format_check_files.h"
+#include "tests/format_check_files.h"
 #include "base/core/ints.h"
 #include "base/core/pointer_cell.h"
 #include "base/core/cursor.h"

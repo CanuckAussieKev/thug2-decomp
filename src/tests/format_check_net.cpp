@@ -24,7 +24,7 @@
 #include "base/core/format.h"
 #include "base/core/same_bits.h"
 #include "base/core/str.h"
-#include "formats/check/format_check_net.h"
+#include "tests/format_check_net.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy into the test messages' fixed fields)
 
