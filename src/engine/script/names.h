@@ -43,8 +43,5 @@ void register_member_function_table(std::span<const MemberFunctionEntry> records
 // and after the `count` records the terminator's {0, 0, 0, -1}. (NOT ORIGINAL as a function: each initialiser has
 // the stores written out.)
 void fill_member_function_code(std::span<MemberFunctionEntry> records, std::span<const MemberCode> code);
-// Every table's code, in the original's initialiser order (0x00640E30 - 0x006448C0; generated:
-// member_function_code.cpp). Run at start-up.
-void fill_member_function_tables();
 
 } // namespace script

@@ -17,6 +17,7 @@
 #include "platform/output_sinks.h"
 #include "platform/run_log.h"
 #include "engine/sys/startup_init.h"
+#include "app/command_table.h"
 #include "app/extensions.h"
 #include "app/winmain.h"
 #include "game/commands/node_hooks.h"
@@ -51,6 +52,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     log_open();
     get_log("thug2-decomp standalone");
     load_system_direct_input();
+    // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
+    app::install_command_tables();
     // NOT ORIGINAL: the extensions (the editor, the new front end, the dev tools) registered before any of the
     // original's code runs (app/extensions.h).
     app::register_extensions();

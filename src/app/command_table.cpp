@@ -1,6 +1,10 @@
 // Generated once from the reference build's tables; maintained by hand since.
 // The script Function table (name, function: 0x0067F3A0, 1254 entries) and the member-function name table
-// (0x00681AD0, 250 names) as source.
+// (0x00681AD0, 250 names) as source: the composition of the game's commands, in the original's order (a command's
+// index is its identity in the script symbol tables). Made here, the one place that sees every library, and handed
+// to the script engine at start-up (app::install_command_tables, script_tables.h).
+
+#include "app/command_table.h"
 
 #include "engine/script/script_tables.h"
 
@@ -91,9 +95,8 @@ bool command_true(Struct* /*params*/, Script* /*script*/) { return stubs::return
 bool command_false(Struct* /*params*/, Script* /*script*/) { return stubs::return_false(); }
 bool command_music_is_paused(Struct* /*params*/, Script* /*script*/) { return audio::music_is_paused(); }
 
-} // namespace
-
-std::array<NativeCommand, kCFunctionCount>& cfunction_table()
+// The Function table (script::cfunction_table() is the engine's view of it once installed).
+std::array<NativeCommand, kCFunctionCount>& command_entries()
 {
     constexpr size_t kCfunctionTableSize = 1254;
     static std::array<NativeCommand, kCfunctionTableSize> cfunction_table{{
@@ -1360,7 +1363,8 @@ std::array<NativeCommand, kCFunctionCount>& cfunction_table()
     return cfunction_table;
 }
 
-std::array<const char*, kMemberFunctionNameCount>& member_function_names()
+// The member-function names.
+std::array<const char*, kMemberFunctionNameCount>& member_function_name_entries()
 {
     constexpr size_t kMemberFunctionNamesSize = 250;
     static std::array<const char*, kMemberFunctionNamesSize> member_function_names{{"AnimLoaded",
@@ -1616,4 +1620,15 @@ std::array<const char*, kMemberFunctionNameCount>& member_function_names()
     return member_function_names;
 }
 
+} // namespace
+
 } // namespace script
+
+namespace app {
+
+void install_command_tables()
+{
+    script::install_command_tables(script::command_entries(), script::member_function_name_entries());
+}
+
+} // namespace app

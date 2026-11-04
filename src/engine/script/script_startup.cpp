@@ -61,6 +61,32 @@ uint32_t get_num_c_functions() { return static_cast<uint32_t>(kCFunctionCount); 
 // 0x005A5670
 uint32_t count_method_entries() { return static_cast<uint32_t>(kMemberFunctionNameCount); }
 
+namespace {
+
+// The tables the app installed (script_tables.h).
+struct InstalledTables {
+    std::array<NativeCommand, kCFunctionCount>* commands{nullptr};
+    std::array<const char*, kMemberFunctionNameCount>* member_names{nullptr};
+};
+
+InstalledTables& installed_tables()
+{
+    static InstalledTables tables;
+    return tables;
+}
+
+} // namespace
+
+void install_command_tables(std::array<NativeCommand, kCFunctionCount>& commands,
+                            std::array<const char*, kMemberFunctionNameCount>& member_names)
+{
+    installed_tables() = {.commands = &commands, .member_names = &member_names};
+}
+
+std::array<NativeCommand, kCFunctionCount>& cfunction_table() { return *installed_tables().commands; }
+
+std::array<const char*, kMemberFunctionNameCount>& member_function_names() { return *installed_tables().member_names; }
+
 NativeCommand* find_c_function(const char* name)
 {
     for (NativeCommand& entry : cfunction_table()) {

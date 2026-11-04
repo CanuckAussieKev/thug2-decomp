@@ -4,6 +4,8 @@
 // three zero words) and the terminator's {0, 0, 0, -1}. They run at start-up in the original's order
 // (app/startup_init.cpp).
 
+#include "game/commands/member_function_code.h"
+
 #include <array>
 #include <cstddef>
 #include <span>

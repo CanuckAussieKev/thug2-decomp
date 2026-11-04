@@ -20,6 +20,7 @@
 #include <array>
 
 #include "engine/script/names.h"
+#include "game/commands/member_function_code.h"
 #include "base/core/checked_index.h"
 
 namespace sys {
