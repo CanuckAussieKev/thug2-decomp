@@ -122,7 +122,7 @@ void Script::teardown()
 
     forget_stored_randoms_of(this);
     if (objects::SignalRouteTable* table = signal_routes_) {
-        if (table->in_use()) {
+        if (table->in_use() != 0) {
             // Its handlers are being run: it is marked dead and freed afterwards (by forward_trigger).
             table->set_alive(false);
         } else {
@@ -212,7 +212,7 @@ void Script::run_on_exit_scripts()
         preempt(name, nullptr);
     }
     // From the top level down; the depth is read once (the interrupts push and pop levels of their own).
-    for (int i = call_depth_; i; --i) {
+    for (int i = call_depth_; i != 0; --i) {
         uint32_t& on_exit = core::at(call_stack(), i - 1).on_exit_script_ptr_;
         if (const uint32_t name = on_exit) {
             on_exit = 0;
@@ -228,7 +228,7 @@ void Script::report_stopped()
         signal_routes_->unregister_with_tracker(this);
         signal_routes_->remove_group(objects::kAllGroups);
     }
-    if (spawn_flags_ & kScriptFlagTrackerBlocked) {
+    if ((spawn_flags_ & kScriptFlagTrackerBlocked) != 0) {
         objects::get_tracker()->forget_script(this);
     }
 }
@@ -312,7 +312,7 @@ void Script::relaunch()
     gsl::owner<Struct*> params = script::new_struct();
     uint32_t name = 0;
     objects::Entity* object = nullptr;
-    if (call_depth_) {
+    if (call_depth_ != 0) {
         // The bottom level: the script it was started with.
         params->get_assign(core::at(call_stack(), 0).arg_struct_);
         object = core::at(call_stack(), 0).owner_entity_;
@@ -332,14 +332,14 @@ void Script::relaunch()
 bool Script::all_scripts_still_defined()
 {
     if (call_depth_ == 0) {
-        return code_copy_ || find_symbol(script_title_);
+        return (code_copy_ != nullptr) || (find_symbol(script_title_) != nullptr);
     }
     if (!find_symbol(script_title_)) {
         return false;
     }
     // (the bottom level's script isn't looked for when it runs a private copy)
     for (int i = code_copy_ ? 1 : 0; i < call_depth_; ++i) {
-        if (!find_symbol(core::at(call_stack(), i).script_id_)) {
+        if (find_symbol(core::at(call_stack(), i).script_id_) == nullptr) {
             return false;
         }
     }
@@ -352,7 +352,8 @@ bool Script::has_attached_script() { return pc_ != nullptr; }
 // 0x00472F90
 void Script::set_spawner_file(Script* spawner)
 {
-    const uint32_t name = spawner->call_depth_ ? core::at(spawner->call_stack(), 0).script_id_ : spawner->script_title_;
+    const uint32_t name =
+        (spawner->call_depth_ != 0) ? core::at(spawner->call_stack(), 0).script_id_ : spawner->script_title_;
     spawner_file_ = find_symbol(name)->unknown8(); // (no check that it is still defined)
 }
 
@@ -382,7 +383,7 @@ void Script::set_on_exit_script(uint32_t name) { on_exit_script_ = name; }
 void Script::clear_on_exit_scripts()
 {
     on_exit_script_ = 0;
-    for (int i = call_depth_; i; --i) {
+    for (int i = call_depth_; i != 0; --i) {
         core::at(call_stack(), i - 1).on_exit_script_ptr_ = 0;
     }
 }

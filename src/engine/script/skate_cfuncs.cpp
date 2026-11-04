@@ -136,13 +136,13 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
     case kRIGHT:
         return input.right() != 0; // right
     case kUpLeft:
-        return input.up() && input.left(); // upleft
+        return (input.up() != 0U) && (input.left() != 0U); // upleft
     case kUpRight:
-        return input.up() && input.right(); // upright
+        return (input.up() != 0U) && (input.right() != 0U); // upright
     case kDownLeft:
-        return input.down() && input.left(); // downleft
+        return (input.down() != 0U) && (input.left() != 0U); // downleft
     case kDownRight:
-        return input.down() && input.right(); // downright
+        return (input.down() != 0U) && (input.right() != 0U); // downright
     case kX:
         return input.x() != 0; // x
     case kTRIANGLE:

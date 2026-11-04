@@ -238,7 +238,7 @@ HostListing::~HostListing()
 HostListing* HostListing::teardown(unsigned int flags)
 {
     this->~HostListing();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -351,7 +351,7 @@ void Hub::update_hosting_status()
 bool Hub::start_server_list()
 {
     tasks::PileUp* logic = get_logic_tasks();
-    if (!is_local_network_play()) {
+    if (is_local_network_play() == 0) {
         return true;
     }
     destroy_match_client();
@@ -459,7 +459,7 @@ void Hub::empty_server_listing()
 {
     delete_all(&waiting_servers_);
     delete_all(&servers_);
-    if (is_local_network_play()) {
+    if (is_local_network_play() != 0) {
         destroy_match_client();
     }
 }

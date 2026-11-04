@@ -185,7 +185,7 @@ int count_playing_voices()
 {
     int playing = 0;
     for (int voice = 0; voice < kMaxPlaying; ++voice) {
-        if (is_voice_playing(voice)) {
+        if (is_voice_playing(voice) != 0) {
             ++playing;
         }
     }
@@ -209,12 +209,12 @@ AudioMixer::AudioMixer()
 int AudioMixer::get_playing_index(uint32_t id)
 {
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (core::at(get_playing(), i).unique_id_ == id && is_voice_playing(i)) {
+        if (core::at(get_playing(), i).unique_id_ == id && (is_voice_playing(i) != 0)) {
             return i;
         }
     }
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (core::at(get_playing(), i).checksum == id && is_voice_playing(i)) {
+        if (core::at(get_playing(), i).checksum == id && (is_voice_playing(i) != 0)) {
             // (a debug report, compiled out)
             if (script::fetch_int_value(kDebugA) == 0) {
                 script::fetch_int_value(kDebugB);
@@ -235,7 +235,7 @@ void AudioMixer::add_positional_sound(uint32_t unique_id, checksums::Name sound_
     ++positional_count(); // (counted even when no entry is free, as the original)
     PositionalSound* entry = nullptr;
     for (int i = 0; i < kMaxPositional; ++i) {
-        if (!(core::at(positional_pool(), i).in_use_ & 1)) {
+        if ((core::at(positional_pool(), i).in_use_ & 1) == 0U) {
             entry = &core::at(positional_pool(), i);
             break;
         }
@@ -380,10 +380,10 @@ SoundWaveSlot* AudioMixer::fetch_wave_slot(uint32_t checksum)
 // 0x0047B340
 bool AudioMixer::is_frozen() const
 {
-    if (mute_override_) {
+    if (mute_override_ != 0U) {
         return false;
     }
-    return render::loading_screen_shown() || objects::simulation_halted();
+    return (render::loading_screen_shown() != 0U) || objects::simulation_halted();
 }
 
 // 0x0047B360
@@ -539,7 +539,7 @@ bool AudioMixer::is_sound_playing(uint32_t unique_id, int* index)
     }
     for (int i = 0; i < kMaxPlaying; ++i) {
         if (core::at(get_playing(), i).unique_id_ == unique_id) {
-            if (!is_voice_playing(i)) {
+            if (is_voice_playing(i) == 0) {
                 return false;
             }
             if (index) {
@@ -576,7 +576,7 @@ bool AudioMixer::set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, 
             break;
         }
     }
-    if (index == kMaxPlaying || !is_voice_playing(index)) {
+    if (index == kMaxPlaying || (is_voice_playing(index) == 0)) {
         get_report_missing();
         return false;
     }

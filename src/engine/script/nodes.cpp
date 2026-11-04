@@ -293,7 +293,7 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
             token = script::parse_arguments(params, token, parent_params);
             uint32_t handler = 0;
             params->read_hash_value(kScr, &handler, 0);
-            if (handler) {
+            if (handler != 0U) {
                 for_each_script_call({.script = handler, .target = target}, callback, nullptr, depth + 1);
             }
             break;

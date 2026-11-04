@@ -90,7 +90,7 @@ void note_opened(const char* name, Hdl file, bool archive)
         size = as_archive_file(file)->size;
     } else {
         LARGE_INTEGER bytes;
-        if (GetFileSizeEx(file, &bytes)) {
+        if (GetFileSizeEx(file, &bytes) != FALSE) {
             size = bytes.QuadPart;
         }
     }
@@ -204,7 +204,7 @@ int get_take_in(void* buffer, int size, int count, Hdl file)
         }
     }
     DWORD bytes_read = 0;
-    if (!ReadFile(file, buffer, static_cast<DWORD>(size) * static_cast<DWORD>(count), &bytes_read, nullptr)) {
+    if (ReadFile(file, buffer, static_cast<DWORD>(size) * static_cast<DWORD>(count), &bytes_read, nullptr) == FALSE) {
         const DWORD error = GetLastError();
         if (error != ERROR_HANDLE_EOF) {
             fatal_file_error(error);

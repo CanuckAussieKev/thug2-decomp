@@ -161,7 +161,7 @@ void Hub::profile_frames(int frames)
 }
 
 // 0x0044F240
-void Hub::stop_loop() { is_finished_ = true; }
+void Hub::stop_loop() { is_finished_ = 1U; }
 
 // 0x0044F260
 Hub* create_manager(bool create)
@@ -205,10 +205,10 @@ void Hub::get_main_loop()
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
     auto frame_start = static_cast<uint64_t>(counter.QuadPart);
-    is_finished_ = false;
-    for (bool repeat = true; repeat; repeat = !is_finished_) {
+    is_finished_ = 0U;
+    for (bool repeat = true; repeat; repeat = (is_finished_ == 0U)) {
         ++frames_run(); // (not original - see frames_run)
-        if (screen_saver_timeout && frames_since_screen_saver++ >= kScreenSaverResetFrames) {
+        if ((screen_saver_timeout != 0U) && frames_since_screen_saver++ >= kScreenSaverResetFrames) {
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             frames_since_screen_saver = 0;
         }
@@ -267,7 +267,7 @@ void Hub::get_main_loop()
 
         frame_clock::note_refresh();
         frame_clock::once_every_draw();
-        if (profile_frames_) {
+        if (profile_frames_ != 0) {
             debug::printf("\nProfiling.....Start of main loop\n\n"); // "\nProfiling.....Start of main loop\n\n"
             --profile_frames_;
             profiling_ = 1;

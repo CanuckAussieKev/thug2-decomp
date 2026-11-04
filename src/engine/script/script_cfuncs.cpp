@@ -188,7 +188,7 @@ int format_text(script::Struct& results, script::Struct* params)
     size_t p = 0;
     // (the format's character at i; its terminator and, for a lone '%' at the end, what the original read past it: 0)
     auto ch = [&](size_t i) { return i < source.size() ? ::core::at(source, i) : '\0'; };
-    while (ch(p)) {
+    while (ch(p) != '\0') {
         if (ch(p) == '\\' && ch(p + 1) == '%') {
             ::core::at(buffer, used++) = '%';
             p += 2;
@@ -272,10 +272,10 @@ int format_text(script::Struct& results, script::Struct* params)
         }
     }
     ::core::at(buffer, used) = '\0';
-    if (text_name) {
+    if (text_name != 0U) {
         results.append_word(text_name, buffer.data());
     }
-    if (name_key_hash) {
+    if (name_key_hash != 0U) {
         results.put_name_key(checksums::Name{name_key_hash}, checksums::hash_from_text(buffer.data()));
     }
     return result;
@@ -290,7 +290,7 @@ bool cfunc_change(script::Struct* params, script::Script* /*script*/)
     uint32_t name = 0;
     params->read_hash_value(kGlobalName, &name, 0);
     Component* value = nullptr;
-    if (name) {
+    if (name != 0U) {
         value = params->find_component(kNewValue);
         if (!value) {
             return false;
@@ -431,7 +431,7 @@ bool cfunc_global_exists(script::Struct* params, script::Script* /*script*/)
     params->read_hash_value(kType, &type_name, 0);
     const script::QbValueKind type = type_from_name(type_name);
     SymbolTableEntry* entry = script::find_symbol(name);
-    return entry && entry->type() == type;
+    return (entry != nullptr) && entry->type() == type;
 }
 
 // 0x0044A900: EnableScriptPrintf <0 / 1> (1): the scripts' printf on or off.
@@ -481,7 +481,7 @@ bool cfunc_script_exists(script::Struct* params, script::Script* /*script*/)
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
     SymbolTableEntry* entry = script::resolve_symbol(name);
-    return entry && entry->type() == script::QbValueKind::kScriptBody;
+    return (entry != nullptr) && entry->type() == script::QbValueKind::kScriptBody;
 }
 
 // 0x0044AA20: IsArray <value>: whether the unnamed value is an array.

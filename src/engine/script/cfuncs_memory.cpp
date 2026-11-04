@@ -114,7 +114,7 @@ bool cfunc_mem_view_toggle(Struct* /*params*/, Script* /*script*/)
 }
 
 // 0x004480A0: GotExtraMemory: whether the machine has the extra memory (0x007CEFAC).
-bool cfunc_got_extra_memory(Struct* /*params*/, Script* /*script*/) { return game_config::get_extra_memory() != 0; }
+bool cfunc_got_extra_memory(Struct* /*params*/, Script* /*script*/) { return game_config::get_extra_memory(); }
 
 // 0x004480B0: MemPushContext <heap name> | 0 (the bottom-up heap; another number does nothing): allocations go to
 // that heap until MemPopContext. Always true.
@@ -248,7 +248,7 @@ bool cfunc_dump_heaps(Struct* params, Script* /*script*/)
     dump_heaps_begin();
     memory::Hub* manager = hub();
     debug::printf("Current Heap: %s\n\n", manager->current_heap_name()); // "Current Heap: %s\n"
-    const bool bytes = params && params->has_bare_flag(kDumpHeapsBytes);
+    const bool bytes = (params != nullptr) && params->has_bare_flag(kDumpHeapsBytes);
     // (two layouts of the heading)
     if (bytes) {
         debug::printf("Name                       Used    Frag    Free    Min Blocks\n");

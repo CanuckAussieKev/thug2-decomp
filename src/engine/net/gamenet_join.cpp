@@ -372,7 +372,7 @@ bool Hub::joins_accepted(JoinRefusedReason& reason, ConnectInfo* msg, Conn* conn
     }
     if (check_password) {
         const char* password = fetch_secret();
-        if (*password && std::strcmp(password, msg->password.data()) != 0) {
+        if ((*password != '\0') && std::strcmp(password, msg->password.data()) != 0) {
             reason = JoinRefusedReason::kPassword;
             return false;
         }
@@ -572,7 +572,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         context->receiver_app()->put_on_outbox(conn->hdl(), &desc);
         return net::kResultPassOn;
     }
-    if (!(context->wire_options() & kRunForForeign)) {
+    if ((context->wire_options() & kRunForForeign) == 0U) {
         return net::kResultConsumed;
     }
     const net::Hub* net = net::Hub::sole();
@@ -648,7 +648,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
     if (!instance) {
         return;
     }
-    if (!authenticated) {
+    if (authenticated == 0) {
         std::array<char, kJoinRefusedSize> refused = {};
         core::at(refused, 0) = static_cast<char>(core::to_underlying(JoinRefusedReason::kCdKey));
         send_refused(instance->app, instance->conn, refused.data());
@@ -721,7 +721,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         if (!memory::manager_ready_flag()) {
             memory::ensure_manager();
         }
-        auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceSize, true, nullptr));
+        auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceSize, 1, nullptr));
         auto* profile = modules::Skate::fetch_account(static_cast<int>(static_cast<int8_t>(player->entity_key())));
         profile->emit_into_buffer(buffer, kAppearanceSize, 0);
         player->account()->decode_from_bytes(buffer, kAppearanceSize);
@@ -819,7 +819,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         if (context->receiver_app()->begin_conn_walk(&search)->get_link_speed_class() == Conn::kBandwidthModem) {
             narrowband = true; // (a narrowband server gets no face)
         }
-        size = profile->emit_into_buffer(info->appearance.data(), kAppearanceSize, narrowband);
+        size = profile->emit_into_buffer(info->appearance.data(), kAppearanceSize, static_cast<int>(narrowband));
     }
     static std::array<uint8_t, kJoinInfoHeaderSize + kAppearanceSize> request_bytes; // (the message is copied when queued)
     util::ByteWriter writer(request_bytes.data(), sizeof(request_bytes));

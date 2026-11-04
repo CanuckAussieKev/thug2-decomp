@@ -61,7 +61,7 @@ inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::En
 // The singletons: the skate module, the game mode, the goal manager.
 inline modules::Skate* get_skate() { return modules::Skate::sole(); }
 inline goals::MatchRules* get_game_mode() { return goals::game_mode(); }
-inline bool is_squad_match() { return get_game_mode()->is_squad_match(); }
+inline bool is_squad_match() { return get_game_mode()->is_squad_match() != 0; }
 inline uint32_t get_game_type() { return get_game_mode()->get_name_key(); }
 inline goals::GoalManager* objective_board() { return goals::get_objective_board(); }
 inline goals::Objective* get_goal(goals::GoalManager* goals, uint32_t name) { return goals->get_goal(name, 1); }
@@ -129,7 +129,7 @@ inline void team_name_key(std::array<char, kTeamNameKeyBytes>& out, int team)
     if (negative) {
         value = 0U - value;
     }
-    for (bool again = true; again; again = value) {
+    for (bool again = true; again; again = (value != 0U)) {
         core::at(digits, length++) = static_cast<char>('0' + (value % kDecimalBase));
         value /= kDecimalBase;
     }
@@ -140,7 +140,7 @@ inline void team_name_key(std::array<char, kTeamNameKeyBytes>& out, int team)
     if (negative) {
         core::at(out, at++) = '-';
     }
-    while (length) {
+    while (length != 0) {
         core::at(out, at++) = core::at(digits, --length);
     }
     for (const char letter : std::string_view("_name")) {

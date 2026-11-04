@@ -72,9 +72,9 @@ void HostEnd::pull_inbound()
             return;
         }
         inbound_byte_total() += received;
-        const int size = (flag_bits() & kAppSecure) ? received - 2 : received;
+        const int size = ((flag_bits() & kAppSecure) != 0U) ? received - 2 : received;
         if (Conn* conn = net::find_conn_at_address(this, from.sin_addr.s_addr, ntohs(from.sin_port))) {
-            if ((is_new(conn) || !(flag_bits() & kAppSecure)) &&
+            if ((is_new(conn) || ((flag_bits() & kAppSecure) == 0U)) &&
                 static_cast<int>(conn->incoming().used) + size < static_cast<int>(kConnReceiveBufferSize)) {
                 if (pull_datagram(this, std::span<const uint8_t>(receive_buffer()).first(static_cast<size_t>(received)),
                                   vacant(conn->incoming()))) {
@@ -116,7 +116,7 @@ void HostEnd::flush_outbox(Conn* conn)
         if (!outgoing_backlog(this, conn) || net::over_bandwidth_budget(this, conn)) {
             break;
         }
-        if (is_off_machine(conn) && !is_outsider(conn) && (flag_bits() & kAppMeasureLatency)) {
+        if (is_off_machine(conn) && !is_outsider(conn) && ((flag_bits() & kAppMeasureLatency) != 0U)) {
             NetMessageInfo desc;
             construct_msg_desc(&desc);
             uint32_t& sent = conn->ping_probe().probe_sent_at();
@@ -161,7 +161,7 @@ void HostEnd::flush_outbox(Conn* conn)
         if (!bundle_messages(conn, kLanePriority, false)) {
             done = true;
         }
-        if (get_num_pending_messages(conn) > pending_before && (conn->cur_standing() & kConnStatus1)) {
+        if (get_num_pending_messages(conn) > pending_before && ((conn->cur_standing() & kConnStatus1) != 0U)) {
             // more waiting for acks: take it as high latency and lower the bandwidth
             add_latency(conn, max_latency());
             change_throughput(conn, fetch_throughput(conn) - kBandwidthStep);
@@ -196,7 +196,7 @@ int HostEnd::on_link_ask_msg(InboundMsgCtx* context)
 {
     NetMessageInfo desc;
     construct_msg_desc(&desc);
-    if (context->wire_options() & kPacketForeign) {
+    if ((context->wire_options() & kPacketForeign) != 0U) {
         if (!net::allows_outside_peers(context->receiver_app())) {
             return kResultConsumed;
         }
@@ -221,7 +221,7 @@ int HostEnd::on_link_drop_ask_msg(InboundMsgCtx* context)
     NetMessageInfo desc;
     construct_msg_desc(&desc);
     const Conn* conn = context->sender_conn();
-    if (conn->cur_standing() & kConnDisconnAccepted) {
+    if ((conn->cur_standing() & kConnDisconnAccepted) != 0U) {
         return kResultConsumed;
     }
     desc.set_ident(wire::MessageId::kDisconnAccepted);
@@ -234,7 +234,7 @@ int HostEnd::on_link_drop_ask_msg(InboundMsgCtx* context)
 int HostEnd::on_clock_sync_msg(InboundMsgCtx* context)
 {
     context->set_body_size(sizeof(uint16_t));
-    if (context->wire_options() & kPacketForeign) {
+    if ((context->wire_options() & kPacketForeign) != 0U) {
         return kResultConsumed;
     }
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)

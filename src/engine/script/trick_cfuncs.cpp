@@ -222,7 +222,7 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
     bool found_special = false;
     int slot = 0;
     uint32_t key_combo = 0;
-    if (trick) {
+    if (trick != 0U) {
         if (!params->has_bare_flag(kSpecial)) {
             Struct* mapping = profile->fetch_details_params(kTrickMapping);
             key_combo = key_combo_for_trick(mapping, trick);
@@ -257,7 +257,7 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
         Struct* mapping = profile->fetch_details_params(kTrickMapping);
         key_combo = key_combo_for_cat(mapping, cat_number);
     }
-    if (!key_combo) {
+    if (key_combo == 0U) {
         return false;
     }
     script->args()->put_name_key("current_key_combo", key_combo);
@@ -318,7 +318,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
             continue;
         }
         trick_type_of(trick, &trick_type);
-        if ((!special || type) && trick_type != type) {
+        if ((!special || (type != 0U)) && trick_type != type) {
             continue;
         }
         Struct* trick_params = nullptr;
@@ -335,7 +335,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
             const auto& created = core::down_cast<objects::Rider>(skater)->trick_slots();
             for (int slot = 1; slot < kTrickSlotEnd; ++slot) {
                 int full = 0;
-                if (core::at(created, slot)->other_params()->fetch_int_value(kFull, &full, 0) && full) {
+                if (core::at(created, slot)->other_params()->fetch_int_value(kFull, &full, 0) && (full != 0)) {
                     core::at(cats, cat_count++) = slot;
                 }
             }
@@ -420,7 +420,7 @@ bool cfunc_get_trick_display_text(script::Struct* params, script::Script* script
             extra = extras->fetch_part(0);
         }
     }
-    if (extra) {
+    if (extra != 0U) {
         auto* first = script::fetch_list(extra)->struct_at(0);
         Struct* extra_params = nullptr;
         first->read_sub_struct(kParams, &extra_params, 1);
@@ -446,7 +446,7 @@ bool cfunc_get_special_trick_info(script::Struct* params, script::Script* script
     } else {
         script->args()->put_name_key(checksums::Name{kSpecialTrickName}, trick.trick());
     }
-    script->args()->put_int(checksums::Name{kIsCat}, trick.flag());
+    script->args()->put_int(checksums::Name{kIsCat}, static_cast<int>(trick.flag()));
     return true;
 }
 
@@ -631,7 +631,7 @@ bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::
     for (int i = 0; i < size; ++i) {
         const uint32_t trick = tricks->fetch_part(i);
         uint32_t key_combo = key_combo_for_trick(mapping, trick);
-        if (!key_combo) {
+        if (key_combo == 0U) {
             const int count = profile->get_max_specials();
             for (int slot = 0; slot < count; ++slot) {
                 RiderIdentity::SpecialTrick special;

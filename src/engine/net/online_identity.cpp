@@ -46,7 +46,7 @@ bool valid_name(const char* name)
         return false;
     }
     for (const char c : std::string_view(name)) {
-        if (!std::isalnum(static_cast<unsigned char>(c))) {
+        if (std::isalnum(static_cast<unsigned char>(c)) == 0) {
             return false;
         }
     }
@@ -59,7 +59,7 @@ bool valid_key(const char* key)
         return false;
     }
     for (const char c : std::string_view(key)) {
-        if (!std::isgraph(static_cast<unsigned char>(c))) {
+        if (std::isgraph(static_cast<unsigned char>(c)) == 0) {
             return false;
         }
     }

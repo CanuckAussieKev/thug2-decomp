@@ -290,7 +290,7 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0U, &array, 0);
-    if (array && array->extent() && array->kind_tag() == script::QbValueKind::kName) {
+    if (array && (array->extent() != 0U) && array->kind_tag() == script::QbValueKind::kName) {
         objects::Entity* object = script->entity().get_pull();
         const uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent())));
         script->bind_script(name, nullptr, object);
@@ -493,7 +493,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
     Array* array = source;
     if (make_copy) {
         params->read_hash_value("NewArrayName", &new_name, 0); // "NewArrayName"
-        if (!new_name) {
+        if (new_name == 0U) {
             return false;
         }
         gsl::owner<Array*> made = script::new_array(); // (the script's parameters take it below)
@@ -502,7 +502,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
         script::duplicate_array(array, source);
     }
     const int size = static_cast<int>(array->extent());
-    if (size) {
+    if (size != 0) {
         const std::span<Cell> elements = array->cells();
         const uint32_t old_last = core::at(elements, size - 1).word();
         for (int swaps = size * script::kShuffleSwapsPerChoice; swaps > 0; --swaps) {
@@ -557,7 +557,7 @@ bool format_printf_text(char* out, Struct* params, Script* /*script*/)
         Expects(format != nullptr);
         format->put_name_key(checksums::Name{kTextName}, kPrintfText);
         format->append_structure_if_any(params);
-        if (format_text_into(format, format)) {
+        if (format_text_into(format, format) != 0) {
             format->fetch_text("PrintfText", &text, 0); // "PrintfText"
         } else {
             text = "";                  // ""

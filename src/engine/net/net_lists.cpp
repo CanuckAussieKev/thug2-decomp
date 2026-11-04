@@ -25,7 +25,7 @@ void HandlerLists::teardown()
 BlockedConnEntry* BlockedConnEntry::destroy_banned(unsigned int flags)
 {
     uncouple();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         dealloc(this);
     }
     return this;

@@ -124,7 +124,7 @@ uint32_t read_machine_id()
 void copy_field(char* out, size_t size, const char* in)
 {
     const size_t length = in ? strnlen(in, size - 1) : 0;
-    if (length) {
+    if (length != 0U) {
         std::memcpy(out, in, length);
     }
     core::at(std::span<char>(out, size), length) = '\0';
@@ -316,9 +316,9 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     // own setup sets its default ones), then runs each toggle by its flag - so an option not set here stays as the
     // level's setup made it (our ports run the defaults in their setup scripts).
     const uint8_t options = get_level_options(info);
-    if (level_prefix && *level_prefix) {
+    if (level_prefix && (*level_prefix != '\0')) {
         for (int n = 1; n <= kLevelOptionCount; ++n) {
-            if (!(options & (1 << (n - 1)))) {
+            if ((options & (1 << (n - 1))) == 0) {
                 continue;
             }
             constexpr size_t kNameSize = 96;
@@ -332,7 +332,7 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     if (pro_set_level(level_load)) {
         const uint8_t sets = get_pro_sets(info);
         for (int i = 0; i < kProSetCount; ++i) {
-            apply_pro_set(i, (sets >> i) & 1, level_load, effects);
+            apply_pro_set(i, ((sets >> i) & 1) != 0, level_load, effects);
         }
     }
 }
@@ -591,7 +591,7 @@ bool unlock_time_of_day()
         return false;
     }
     Hub* manager = online::online_hub();
-    return manager && manager->in_net_game();
+    return (manager != nullptr) && manager->in_net_game();
 }
 
 struct Install {
@@ -791,7 +791,7 @@ bool handle_chat_command(const char* text)
         return false;
     }
     Hub* manager = online::online_hub();
-    const bool client = manager && manager->in_net_game() && !manager->get_on_server();
+    const bool client = (manager != nullptr) && manager->in_net_game() && !manager->get_on_server();
     constexpr size_t kLineSize = 160;
     std::array<char, kLineSize> line{};
     if (_stricmp(command.data(), "thugpro") == 0) {
@@ -822,7 +822,7 @@ bool handle_chat_command(const char* text)
         static const auto kTimes = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
         static const auto kWeathers = std::to_array<const char*>({"default", "clear", "rain", "snow"});
         const uint32_t state = tod ? state_named(first.data(), kTimes.data(), 4) : state_named(first.data(), kWeathers.data(), 4);
-        if (words < 2 || !state) {
+        if (words < 2 || (state == 0U)) {
             get_say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
                         : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
             return true;
@@ -856,7 +856,7 @@ bool handle_chat_command(const char* text)
         constexpr size_t kNameSize = 96;
         std::array<char, kNameSize> name{};
         text::format_to(name, "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
-        const bool ran = prefix && effects.launch_script(checksums::hash_from_text(name.data()), on);
+        const bool ran = (prefix != nullptr) && effects.launch_script(checksums::hash_from_text(name.data()), on);
         text::format_to(line, "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
                         ran ? "" : " (this level has no such option)");
     } else {

@@ -227,7 +227,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     render::clear_scene_light_queue();
     render::drop_particle_textures(false);
     objects::PathManager::sole()->dealloc();
-    if (!skate_module()->in_net_game_level()) {
+    if (skate_module()->in_net_game_level() == 0) {
         mem_manager()->release_net_scratch_zone();
     }
     objects::destroy_coim_heap();
@@ -239,7 +239,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     const size_t length = text::format_to(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);
     text::format_to(std::span(text).subspan(length), "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> kKilobyteShift);
     OutputDebugStringA(text.data());
-    if (skate_module()->in_net_game_level()) {
+    if (skate_module()->in_net_game_level() != 0) {
         mem_manager()->create_net_scratch_zone();
     }
     if (skate_module()->in_front_end_or_net_mode()) {
@@ -266,7 +266,7 @@ void apply_flag_command(FlagCommandData* data, objects::Entity* object)
         data->result = true;
         break;
     case kFlagActionTest:
-        if (object->flag_bits() & (1U << (data->value & kFlagBitMask))) {
+        if ((object->flag_bits() & (1U << (data->value & kFlagBitMask))) != 0U) {
             data->result = true;
         }
         break;
@@ -359,10 +359,10 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
     }
     // Not original - THAW's BMX (game/rider/thaw_bmx.h skater_script): on the bike THAW's PedKnockDown takes its bike
     // branch. Original behaviour: the skater goes to `name` as given.
-    if (skater && skater->is_local_skater()) {
+    if (skater && (skater->is_local_skater() != 0U)) {
         name = skater::thaw_bmx::skater_script(skater, name, script);
     }
-    if (skater && skater->is_local_skater() && name) {
+    if (skater && (skater->is_local_skater() != 0U) && (name != 0U)) {
         skater->switch_to_script(name, script_params);
     }
     return true;
@@ -416,7 +416,7 @@ bool cfunc_pause_skater(script::Struct* params, script::Script* /*script*/)
 {
     const bool hide = params->has_bare_flag("hide"); // "hide"
     int index = 0;                             // (unset in the original when missing - an asserted parameter)
-    params->fetch_int_value(0U, &index, true);
+    params->fetch_int_value(0U, &index, 1);
     if (objects::Rider* skater = get_rider_at(index)) {
         skater->get_freeze(); // (the original's vtable +0x2C)
         skater->conceal(hide);
@@ -428,7 +428,7 @@ bool cfunc_pause_skater(script::Struct* params, script::Script* /*script*/)
 bool cfunc_un_pause_skater(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
-    params->fetch_int_value(0U, &index, true);
+    params->fetch_int_value(0U, &index, 1);
     if (objects::Rider* skater = get_rider_at(index)) {
         skater->unpause(); // (the original's vtable +0x30)
         skater->conceal(false);
@@ -671,7 +671,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script* /*script*/)
     const online::Hub* game_net = online::online_hub();
     net::ConnSearch search;
     uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
-    params->read_hash_value(kOmnigon, &omnigon, true);
+    params->read_hash_value(kOmnigon, &omnigon, 1);
     const bool flag = params->has_entry_named(kOmnigonFlag);
     script::script_state().set_last_broadcasted_omnigon(omnigon);
     net::AppHost* server = game_net->host();
@@ -718,7 +718,7 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct* /*params*/, script::Sc
 {
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         const objects::Rider* skater = get_rider_at(i);
-        if (skater && skater->is_local_skater()) {
+        if (skater && (skater->is_local_skater() != 0U)) {
             debug::printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", kScreenModeDebugNumber); // "cfuncs %d: SUTUBBBED..."
         }
     }
@@ -729,7 +729,7 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct* /*params*/, script::Sc
     }
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         objects::Rider* skater = get_rider_at(i);
-        if (skater && skater->is_local_skater()) {
+        if (skater && (skater->is_local_skater() != 0U)) {
             update_score_display(skater);
         }
     }
@@ -747,7 +747,7 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct* /*params*/, script::Sc
 bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
 {
     const char* text = nullptr; // (unset in the original when missing - an asserted parameter)
-    params->fetch_text(kCheatText, &text, true);
+    params->fetch_text(kCheatText, &text, 1);
     if (std::strlen(text) < kMinCheatLength) {
         script::launch_script(kCheatFailed, nullptr, nullptr, false, nullptr);
         return false;
@@ -761,7 +761,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
     for (int round = 0; round < kCheatRounds; ++round) {
         text::format_to(buffer, "%d", static_cast<int>(round + checksum));
         core::at(buffer, std::strlen(buffer.data())) = 'X';
-        for (core::CStringCursor c(buffer.data()); *c; ++c) {
+        for (core::CStringCursor c(buffer.data()); *c != '\0'; ++c) {
             sum += static_cast<signed char>(*c) * kCheatCharacterWeight;
         }
         checksum = checksums::hash_from_text(buffer.data());
@@ -778,9 +778,9 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
         int cheat_c1 = 0;
         int cheat_c2 = 0;
         uint32_t script = 0;
-        cheat->fetch_int_value("c1", &cheat_c1, true);        // "c1"
-        cheat->fetch_int_value("c2", &cheat_c2, true);        // "c2"
-        cheat->read_hash_value("cheatscript", &script, true); // "cheatscript"
+        cheat->fetch_int_value("c1", &cheat_c1, 1);        // "c1"
+        cheat->fetch_int_value("c2", &cheat_c2, 1);        // "c2"
+        cheat->read_hash_value("cheatscript", &script, 1); // "cheatscript"
         if (ints::as_unsigned(cheat_c1) == c1 && ints::as_unsigned(cheat_c2) == c2) {
             script::launch_script(kCheatFound, nullptr, nullptr, false, nullptr);
             script::launch_script(script, nullptr, nullptr, false, nullptr);
@@ -797,7 +797,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
 bool cfunc_level_is(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t level = 0; // (unset in the original when missing - an asserted parameter)
-    params->read_hash_value(0U, &level, true);
+    params->read_hash_value(0U, &level, 1);
     return modules::Skate::sole()->level() == level;
 }
 

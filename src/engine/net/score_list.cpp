@@ -101,7 +101,7 @@ bool has_score_line(PlayerRecord* p)
         return true;
     }
     objects::ObjectModule* score = p->skater()->fetch_module(kSkaterScore);
-    return !score || points_of(core::down_cast<objects::RiderPointKeeper>(score)->points_held()) != 0;
+    return (score == nullptr) || points_of(core::down_cast<objects::RiderPointKeeper>(score)->points_held()) != 0;
 }
 
 // A new line (null if out of memory: then used anyway, as the original).
@@ -276,16 +276,16 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             text::format_data_to(prefix,
                                  script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
         } else if (entry->has_flag()) {
-            if (entry->flag_bits() & 1) {
+            if ((entry->flag_bits() & 1) != 0U) {
                 text::append_into(prefix, "\\s0");
             }
-            if (entry->flag_bits() & kEntryStyle1) {
+            if ((entry->flag_bits() & kEntryStyle1) != 0U) {
                 text::append_into(prefix, "\\s1");
             }
-            if (entry->flag_bits() & kEntryStyle2) {
+            if ((entry->flag_bits() & kEntryStyle2) != 0U) {
                 text::append_into(prefix, "\\s2");
             }
-            if (entry->flag_bits() & kEntryStyle3) {
+            if ((entry->flag_bits() & kEntryStyle3) != 0U) {
                 text::append_into(prefix, "\\s3");
             }
         } else {

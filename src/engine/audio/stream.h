@@ -266,7 +266,7 @@ struct StreamSlot {
     // 0x004538F0: the stream deleted (either class).
     void dealloc();
 
-    [[nodiscard]] bool get_playing() const { return wad_ || bink_; }
+    [[nodiscard]] bool get_playing() const { return (wad_ != nullptr) || (bink_ != nullptr); }
 
     // The fields other code reads and sets.
     [[nodiscard]] WadStream* wad() const { return wad_; }

@@ -171,7 +171,7 @@ bool get_terrain_structure(uint8_t terrain, Struct** out, uint32_t name)
         return true;
     }
     Struct* standard = script::read_sub_struct(kStandardTerrainDefault);
-    return standard && standard->read_sub_struct(name, out, 0);
+    return (standard != nullptr) && standard->read_sub_struct(name, out, 0);
 }
 
 // 0x00444460
@@ -383,7 +383,7 @@ bool get_terrain_sound(SoundInfo* info, TerrainLookup lookup)
         script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &sound_actions, 1);
     }
     Struct* sound_action = find_sound_action(sound_actions, {.table = table, .value = value});
-    return sound_action && get_sound_info(sound_action, info);
+    return (sound_action != nullptr) && get_sound_info(sound_action, info);
 }
 
 // 0x00444BB0

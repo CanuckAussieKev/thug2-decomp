@@ -98,10 +98,11 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     }
 
     // Claim new space from the region.
-    const std::span<uint8_t> space = region()->carve(this, static_cast<int>(kBlockHeaderSize + rounded), use_fallbacks_ == 0 && halt_if_exhausted);
+    const std::span<uint8_t> space = region()->carve(this, static_cast<int>(kBlockHeaderSize + rounded),
+                                                     static_cast<int>(use_fallbacks_ == 0 && halt_if_exhausted));
     ChunkPrefix* const header = space.empty() ? nullptr : header_at(space.data());
     if (!header) {
-        if (use_fallbacks_ && !heap_busy()) {
+        if ((use_fallbacks_ != 0) && (heap_busy() == 0)) {
             heap_busy() = 1;
             for (int i = 0; i < kFallbackCount; ++i) {
                 Arena* other = core::at(fallbacks_, i);

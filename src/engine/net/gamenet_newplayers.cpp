@@ -84,7 +84,7 @@ void Hub::add_new_player(JoinerRecord* info)
     auto obj_id = static_cast<int8_t>(info->entity_key());
     const PlayerFlag flags = info->flag_bits();
     if (!core::any(flags & PlayerFlag::kObserver)) {
-        const bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0;
+        const bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr);
         auto* profile =
             modules::Skate::fetch_account(split_screen ? static_cast<int>(obj_id) : 0); // the skater's profile
         if (!in_net_game()) {
@@ -97,7 +97,7 @@ void Hub::add_new_player(JoinerRecord* info)
                                   ? skaters->count_riders()
                                   : (skaters->count_riders() + 1) & 7;
             skater = skate->spawn_skater_entity(info->account(), false, static_cast<int>(obj_id), count);
-            if (info->drive_control_mode()) { // its vehicle control type
+            if (info->drive_control_mode() != 0) { // its vehicle control type
                 core::down_cast<objects::RiderFrameLog>(
                     core::down_cast<objects::GameEntity>(skater)->fetch_module(kVehicleComponent))
                     ->set_vehicle_control_type(static_cast<uint32_t>(info->drive_control_mode()));

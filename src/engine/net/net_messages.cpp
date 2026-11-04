@@ -28,7 +28,7 @@ uint8_t* compress_message(wire::MessageId* id, uint16_t* length, const void* dat
 uint8_t* copy_data(wire::MessageId* id, uint16_t* length, const void* data, uint8_t compression)
 {
     uint8_t* compressed = nullptr;
-    if (compression) {
+    if (compression != 0U) {
         compressed = compress_message(id, length, data, compression);
         if (compressed) {
             data = compressed;
@@ -111,7 +111,7 @@ BulkStreamNode::BulkStreamNode(StreamDesc* desc) : msg_meta_(desc) { init_node(t
 MsgNormalLink* MsgNormalLink::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         release_memory(this);
     }
     return this;
@@ -121,7 +121,7 @@ MsgNormalLink* MsgNormalLink::teardown(unsigned int flags)
 ReliableMsgNode* ReliableMsgNode::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         release_memory(this);
     }
     return this;
@@ -131,7 +131,7 @@ ReliableMsgNode* ReliableMsgNode::teardown(unsigned int flags)
 OrderedMsgNode* OrderedMsgNode::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         release_memory(this);
     }
     return this;
@@ -141,7 +141,7 @@ OrderedMsgNode* OrderedMsgNode::teardown(unsigned int flags)
 BulkStreamNode* BulkStreamNode::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         release_memory(this);
     }
     return this;

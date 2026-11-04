@@ -268,7 +268,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         }
     }
     script::StructPtr reply = script::make_struct();
-    if (refused) {
+    if (refused != 0U) {
         reply->put_name_key(checksums::Name{kReason}, refused);
         reply->put_name_key(checksums::Name{kJustDialog}, 0);
         manager->join_phase_job()->drop_out();
@@ -296,7 +296,7 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 {
     (void)script;
     Hub* manager = net_game_state().online_hub();
-    if ((manager->flag_bits() >> 3) & 1) { // (0x00533F70: LAN mode)
+    if (((manager->flag_bits() >> 3) & 1) != 0) { // (0x00533F70: LAN mode)
         return true;
     }
     uint32_t id = 0;
@@ -320,7 +320,7 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 int on_server_reply_msg(net::InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content());
-    if (net_game_state().asked_for()) {
+    if (net_game_state().asked_for() != 0U) {
         net_game_state().set_asked_for(context->sender_conn()->remote_ip());
         net_game_state().set_join_server_ip_succeeded(true);
     }
@@ -381,7 +381,7 @@ void listing_games_callback(const GamesListing& listing)
     auto* const manager = listing.manager;
     (void)staging;
     (void)progress;
-    if (!success) {
+    if (success == 0) {
         net_game_state().online_hub()->lobby_service()->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
@@ -396,7 +396,7 @@ void listing_games_callback(const GamesListing& listing)
         core::at(server->label(), kLabelLength) = '\0';
         server->set_ping(game_spy::server_get_ping(sb)); // (its ping)
         bool same_network = false;
-        if (game_spy::server_direct_connect(sb)) {                             // (it answered directly)
+        if (game_spy::server_direct_connect(sb) != 0) {                        // (it answered directly)
             const uint32_t ours = game_spy::peer_get_public_ip(peer);          // (our public address)
             if (game_spy::server_get_public_address(sb) == ours) {             // (its public address)
                 server->set_remote_ip(game_spy::server_get_private_address(sb)); // (its private address)
@@ -418,7 +418,7 @@ void listing_games_callback(const GamesListing& listing)
         read_server_players(server, sb);
         memory::ListNode* list = &manager->servers();
         get_append(list, server);
-        if (game_spy::server_has_basic_keys(sb)) {                                       // (it has its basic keys)
+        if (game_spy::server_has_basic_keys(sb) != 0) {        // (it has its basic keys)
             const int index = gfx::count_list_items(list) - 1; // (the list's count)
             manager->show_server_in_menu(server, index);
             get_run(kUpdateServerList);
@@ -458,12 +458,12 @@ void listing_games_callback(const GamesListing& listing)
         read_server_keys(server, sb);
         server->clear_players();
         read_server_players(server, sb);
-        if (!server->in_list() && game_spy::server_has_basic_keys(sb)) {
+        if (!server->in_list() && (game_spy::server_has_basic_keys(sb) != 0)) {
             manager->show_server_in_menu(server, 0);
             get_run(kUpdateServerList);
             server->set_in_list(true);
         }
-        if (!server->detailed() && game_spy::server_has_full_keys(sb)) {
+        if (!server->detailed() && (game_spy::server_has_full_keys(sb) != 0)) {
             server->set_detailed(true);
             if (server->chosen()) {
                 const script::StructPtr params = script::make_struct();

@@ -122,7 +122,7 @@ Tokens add_named_expression(Tokens token, uint32_t name, Struct& dest, Struct* a
 {
     gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
-    if (value->type_and_flag_ & kComponentTypeBits) {
+    if ((value->type_and_flag_ & kComponentTypeBits) != 0) {
         value->name = name;
         dest.attach_module(value);
     } else {
@@ -277,7 +277,7 @@ Tokens skip_value(Tokens token)
         const QbToken open = as_token(*token);
         const QbToken close = open == QbToken::kStructStart ? QbToken::kStructEnd : QbToken::kArrayEnd;
         int depth = 1;
-        for (bool again = true; again; again = depth) {
+        for (bool again = true; again; again = (depth != 0)) {
             token = step_over_token(token);
             if (as_token(*token) == open) {
                 ++depth;
@@ -561,7 +561,7 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
     }
     case QbToken::kAllArguments: // <...>
         if (args) {
-            if (name) {
+            if (name != 0U) {
                 gsl::owner<Struct*> structure = script::new_struct();
                 structure->get_assign(args);
                 dest->append_struct_ref(name, structure);
@@ -993,7 +993,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
                     // (the byte the function returns, as it is)
                     using Routine = uint8_t (*)(Struct*, Script*);
                     const auto routine = symbol->value().function();
-                    value.value.set_word(routine(params, script));
+                    value.value.set_word(static_cast<uint32_t>(routine(params, script)));
                     if (params) {
                         params->get_clear();
                         delete_struct(params);

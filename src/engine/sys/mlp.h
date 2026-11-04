@@ -28,7 +28,7 @@ struct Hub {
     [[nodiscard]] const tasks::PileUp& system_tasks() const { return system_tasks_; }
 
 private:
-    uint8_t is_finished_{false}; // +0x00: (a bool) ends the loop after the current frame
+    uint8_t is_finished_{0U}; // +0x00: (a bool) ends the loop after the current frame
     std::array<uint8_t, 3> pad01{};
     tasks::PileUp logic_tasks_;   // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
     tasks::PileUp display_tasks_; // +0x38 (the original's +0x40; not run by the loop)

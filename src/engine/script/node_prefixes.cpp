@@ -167,7 +167,7 @@ void PrefixTables::add_node_array(uint32_t name)
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 0);
         const char* text = script::find_script_checksum_name(node_name);
-        if (!text || !*text) {
+        if (!text || (*text == '\0')) {
             continue;
         }
         // The name is copied as it is read (the copy isn't terminated until a prefix is cut off): at each '_', the
@@ -177,7 +177,7 @@ void PrefixTables::add_node_array(uint32_t name)
         std::array<char, kBufferSize> buffer{};
         std::size_t digits = buffer.size(); // (where the trailing digits start; the size: none)
         std::size_t place = 0;
-        for (core::CStringCursor p(text); *p; ++p, ++place) {
+        for (core::CStringCursor p(text); *p != '\0'; ++p, ++place) {
             char& at = core::at(buffer, place);
             at = *p;
             const char c = *p;
@@ -240,7 +240,7 @@ std::span<const uint32_t> PrefixTables::get_nodes(uint32_t prefix)
         }
         auto n = static_cast<uint16_t>(nodes->num());
         const std::span<uint16_t> indices = nodes->index_run();
-        if (!n) {
+        if (n == 0U) {
             continue;
         }
         Array* array = script::fetch_list(table->node_array());
@@ -283,7 +283,7 @@ std::span<const uint32_t> collect_nodes_by_prefix(const char* prefix)
     std::array<char, kBufferSize> buffer{};
     const std::string_view prefix_text(prefix);
     const size_t length = prefix_text.size();
-    if (length && core::at(prefix_text, length - 1) == '_') {
+    if ((length != 0U) && core::at(prefix_text, length - 1) == '_') {
         core::copy_into(std::span<const char>(prefix, length + 1), std::span<char>(buffer).first(length + 1)); // (the original's unchecked)
         core::at(buffer, length - 1) = '\0';
         prefix = buffer.data();

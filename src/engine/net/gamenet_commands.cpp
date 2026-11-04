@@ -170,7 +170,7 @@ bool cfunc_get_num_teams(Struct* /*params*/, Script* script)
 bool cfunc_connected_to_peer(Struct* /*params*/, Script* /*script*/)
 {
     void* peer = net_game_state().online_hub()->lobby_service()->get_lobby_handle();
-    return peer && game_spy::peer_is_connected(peer);
+    return (peer != nullptr) && (game_spy::peer_is_connected(peer) != 0);
 }
 
 // 0x00535EE0: InGroupRoom - the lobby's flag (+0x134).
@@ -183,7 +183,7 @@ bool cfunc_in_group_room(Struct* /*params*/, Script* /*script*/)
 bool cfunc_is_auto_serving(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
-    if (!manager->in_net_game() || !(manager->flag_bits() & 1)) {
+    if (!manager->in_net_game() || ((manager->flag_bits() & 1) == 0)) {
         return false;
     }
     return manager->host_mode() == 1;
@@ -214,7 +214,7 @@ bool cfunc_download_motd(Struct* /*params*/, Script* /*script*/)
 bool cfunc_services_are_available(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
-    if (manager->services_available() == 1) {
+    if (manager->services_available()) {
         if (!manager->motd_received()) {
             manager->set_next_service_state(ServiceState::kWaiting);
             manager->set_service_state(ServiceState::kWake);
@@ -336,7 +336,7 @@ bool cfunc_reset_pro_set_flags(Struct* /*params*/, Script* /*script*/)
     for (int bit = 0; bit < kProSetCount; ++bit) {
         const script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kFlag}, script::fetch_int_value(kFirstProSetFlag) + bit);
-        get_run((manager->script_flag_bits() & (1U << bit)) ? kSetFlag : kUnSetFlag, params.get());
+        get_run(((manager->script_flag_bits() & (1U << bit)) != 0U) ? kSetFlag : kUnSetFlag, params.get());
     }
     return true;
 }

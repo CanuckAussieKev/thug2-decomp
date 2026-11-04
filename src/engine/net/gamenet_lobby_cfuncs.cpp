@@ -91,7 +91,7 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script* /*scrip
         client->get_socket(), lobby->nat_cookie(), kClientNatIndex,
         code_address(stubs::do_nothing) /* no progress callback */, &RoomManager::nat_negotiation_completed,
         lobby->nat_cookie()); // negotiation on the client's socket
-    if (error) {
+    if (error != 0) {
         nat_free_negotiations();
         pop_heap();
         return false;

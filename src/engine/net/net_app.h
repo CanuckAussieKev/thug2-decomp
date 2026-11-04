@@ -191,9 +191,9 @@ struct AppHost {
     // 0x00456B70
     void set_outside_packet_hook(UnknownPacketCallback handler) { unknown_packet_sink_ = handler; }
     // 0x00456F90
-    [[nodiscard]] bool is_host_local() const { return (flag_bits_ >> 3) & 1; }
+    [[nodiscard]] bool is_host_local() const { return ((flag_bits_ >> 3) & 1) != 0U; }
     // 0x00456FA0
-    [[nodiscard]] bool allows_outside_peers() const { return (flag_bits_ >> 4) & 1; }
+    [[nodiscard]] bool allows_outside_peers() const { return ((flag_bits_ >> 4) & 1) != 0U; }
 
     // 0x00456A90: "<name>: Error <WSAGetLastError>" to the debugger output.
     void raise_fault();

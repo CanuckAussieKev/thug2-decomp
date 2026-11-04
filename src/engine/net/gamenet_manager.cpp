@@ -99,13 +99,13 @@ int Hub::is_network_game() const { return (flag_bits_ & kHubNetworkModeFlags) !=
 // 0x0044E4F0
 bool Hub::in_net_game()
 {
-    if (!(flag_bits_ & kHubNetworkModeFlags)) {
+    if ((flag_bits_ & kHubNetworkModeFlags) == 0U) {
         return false;
     }
     if (host_ && !host_->is_host_local()) {
         return true;
     }
-    return client_app_ && !client_app_->is_host_local();
+    return (client_app_ != nullptr) && !client_app_->is_host_local();
 }
 
 } // namespace online

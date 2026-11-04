@@ -433,7 +433,7 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     objects::PadSnapshot pad;
     pad.tick_frame(handler->control_data());
     auto* device = handler->dev();
-    if (!device->is_attached() || !device->is_usable()) {
+    if (!device->is_attached() || (device->is_usable() == 0U)) {
         return false;
     }
     script->args()->push_float(checksums::Name{kLeftX}, core::at(pad.scaled_stick(), 2));
@@ -545,7 +545,7 @@ void apply_view_mode(int mode)
 {
     view_mode() = mode;
     modules::change_view_mode(mode);
-    if (view_mode()) {
+    if (view_mode() != 0) {
         make_camera_active(checksums::Name{kViewerCameraObject}, 0, true);
     } else if (objects::Entity* object = objects::ObjectHubBase::look_up_entity(kSkaterCamObject)) {
         if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera)) {
@@ -612,7 +612,7 @@ bool cfunc_reload_anim(script::Struct* params, script::Script* /*script*/)
     params->fetch_text(kFileName, &file, 0);
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t name = checksums::hash_from_text(file);
-    if (base) {
+    if (base != 0U) {
         name = base + anim;
     }
     assets::Resource* asset = assets->obtain_loaded_item(name, 0);
@@ -639,7 +639,7 @@ bool cfunc_debounce(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t button = 0;
     params->read_hash_value(0U, &button, 0);
-    if (!button) {
+    if (button == 0U) {
         return true;
     }
     float time = 1.0F;
@@ -666,7 +666,7 @@ bool cfunc_start_keyboard_handler(script::Struct* params, script::Script* /*scri
 {
     modules::FrontEnd* front_end = modules::front_end_instance().get();
     int device = 0; // (unset in the original when missing - an asserted parameter)
-    params->fetch_int_value(kMaxLength, &device, true);
+    params->fetch_int_value(kMaxLength, &device, 1);
     front_end->register_key_listener(device);
     return true;
 }
@@ -986,14 +986,14 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script* /*script
         choose->put_name_key(checksums::Name{kNodeName}, restart);
         item->put_sub_struct(kMenuParams, choose.get());
         float scale = 0.0F; // (unset in the original when missing - an asserted parameter)
-        params->fetch_float(kInitialScale, &scale, true);
+        params->fetch_float(kInitialScale, &scale, 1);
         item->push_float(checksums::Name{kScale}, scale); // "scale"
         script::launch_script(kThemeMenuAddItem, item.get(), nullptr, false, nullptr);
         item.reset();
         choose.reset();
         ++count;
     }
-    if (!count) {
+    if (count == 0) {
         const script::StructPtr item = script::make_struct();
         item->append_word(kMenuText, "No restarts in level"); // "No restarts in level"
         item->put_name_key(checksums::Name{kMenuId}, kFirstRestartId);
@@ -1037,8 +1037,9 @@ bool cfunc_add_faces_to_menu(script::Struct* /*params*/, script::Script* /*scrip
         return false;
     }
     int count = 0;
-    for (bool again = true; again; again = count < kMaxFilesListed && FindNextFileA(search, &found)) {
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(std::data(found.cFileName)) <= kMaxFileNameLength) {
+    for (bool again = true; again; again = count < kMaxFilesListed && (FindNextFileA(search, &found) != FALSE)) {
+        if (((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0U) &&
+            std::strlen(std::data(found.cFileName)) <= kMaxFileNameLength) {
             constexpr size_t kFileSize = 0x110;
             std::array<char, kFileSize> file{};
             constexpr size_t kNameSize = 0xC8;

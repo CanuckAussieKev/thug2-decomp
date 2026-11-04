@@ -160,7 +160,7 @@ void Hub::spectate_player(PlayerRecord* player)
     set_walk_camera_skater(walk_camera, skater);
     core::down_cast<objects::FootView>(walk_camera)->set_instant_frames(3);
     const objects::RiderPoseState* state = core::down_cast<objects::RiderBoardPhysics>(control)->pose();
-    if (!state->in_vehicle() && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating) {
+    if ((state->in_vehicle() == 0U) && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating) {
         skater_camera->hold_off(false);
         walk_camera->hold_off(true);
     } else {
@@ -301,10 +301,10 @@ void Hub::remove_player_record(PlayerRecord* player)
         PlayerRecord* local = find_own_player_record(this);
         spectate_player(local && player_skater(local) ? local : viewed_player_);
     }
-    if (player->holds_crown() && crown_) { // it had the crown: taken off
+    if ((player->holds_crown() != 0) && crown_) { // it had the crown: taken off
         crown_->take_off();
     }
-    if (player->is_carrying_flag()) { // it carried a flag: returned
+    if (player->is_carrying_flag() != 0) { // it carried a flag: returned
         flag_returned(player);
     }
     if (player) {
@@ -377,13 +377,13 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         build_net_notice(true, text, name.data(), nullptr, nullptr, nullptr, false, kPanelTime);
     }
     if (reason == kDropObserving) {
-        if (player->holds_crown()) { // the crown taken off
+        if (player->holds_crown() != 0) { // the crown taken off
             if (crown_) {
                 crown_->take_off();
             }
             player->give_crown(false);
         }
-        if (player->is_carrying_flag()) {
+        if (player->is_carrying_flag() != 0) {
             flag_returned(player);
         }
     } else {
@@ -419,7 +419,7 @@ void Hub::re_add_pending_players()
     update_lobby_server();
     net_game_state().set_open_waiting(true);
     if (net_game_state().online_active() && net_game_state().online_hub()->in_net_game() &&
-        net_game_state().query_reporting() && net_game_state().open_waiting() != 1) { // (just set: never)
+        net_game_state().query_reporting() && !net_game_state().open_waiting()) { // (just set: never)
         game_spy::qr2_send_state_changed(nullptr);
     }
     int frames = kRejoinDelayFrames;
@@ -509,7 +509,7 @@ void Hub::remove_players_and_apps()
 void Hub::update_lobby_server()
 {
     void* peer = lobby_service_->remote();
-    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->hosting()) {
+    if (peer && (game_spy::peer_is_connected(peer) != 0) && lobby_service_->hosting()) {
         game_spy::peer_state_changed(peer); // (the hosted game's details to GameSpy's peer SDK)
     }
 }
@@ -545,13 +545,13 @@ void Hub::enter_observe_mode()
     if (get_on_server()) {
         evict_player(local, kDropObserving);
     }
-    if (local->holds_crown()) { // its crown given up
+    if (local->holds_crown() != 0) { // its crown given up
         local->give_crown(false);
         if (crown_) {
             crown_->take_off();
         }
     }
-    if (local->is_carrying_flag()) { // its flag returned (hide_ctf_arrow whatever the team, unlike flag_returned)
+    if (local->is_carrying_flag() != 0) { // its flag returned (hide_ctf_arrow whatever the team, unlike flag_returned)
         const int team = local->get_flag_team();
         constexpr size_t kKeySize = 64;
         std::array<char, kKeySize> key{};

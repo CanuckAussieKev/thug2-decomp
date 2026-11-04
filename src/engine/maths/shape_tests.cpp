@@ -120,7 +120,7 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
     Vec4& normal = *out.normal;
     const Vec4& s = line.start;
     const Vec4& e = line.end;
-    if (contains_point(s) && contains_point(e)) {
+    if ((contains_point(s) != 0) && (contains_point(e) != 0)) {
         return false;
     }
 
@@ -263,7 +263,7 @@ void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
         const float lo = min[axis];
         const float hi = max[axis];
         float& o = out[axis];
-        if (axes & (1U << axis)) {
+        if ((axes & (1U << axis)) != 0U) {
             o = p;
         } else {
             o = (p <= lo) ? lo : hi; // NaN goes to max, as in the original

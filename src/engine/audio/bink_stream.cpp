@@ -224,7 +224,7 @@ Result WadStream::start_read()
     played_ = 0;
     unknown10_ = 0;
     *async_ctl_ = platform::read_from(*async_ctl_, from_wad_ ? shift_ : 0, async_ctl_->hEvent);
-    if (ReadFile(file_ref_, octets_, kReadChunkBytes, nullptr, async_ctl_)) {
+    if (ReadFile(file_ref_, octets_, kReadChunkBytes, nullptr, async_ctl_) != FALSE) {
         read_done_ = true;
         return 0;
     }

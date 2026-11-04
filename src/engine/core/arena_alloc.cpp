@@ -127,7 +127,7 @@ std::span<uint8_t> Zone::carve(MemSource* allocator, int size, int /*unused*/)
     const MemSource* other = core::at(allocators_, side ^ 1);
     const int64_t new_top = int64_t{allocator->top_side()} + (int64_t{allocator->direction()} * size);
     int64_t result = new_top;
-    if (side) {
+    if (side != 0) {
         const int64_t limit = other ? other->top_side() : 0;
         if (new_top < limit) {
             return {};
@@ -148,7 +148,7 @@ std::span<uint8_t> Zone::carve(MemSource* allocator, int size, int /*unused*/)
 // 0x005BC620
 MemoryArena::MemoryArena(uint32_t size)
 {
-    if (size) {
+    if (size != 0U) {
         const uint32_t rounded = size & ~0xFU;
         // (New makes sure the memory system is set up)
         memory() = std::span<uint8_t>(static_cast<uint8_t*>(alloc(rounded)), rounded);

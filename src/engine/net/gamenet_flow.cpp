@@ -305,7 +305,8 @@ void Hub::observer_input(pad_input::Responder<Hub>* input)
             return;
         }
     }
-    if (input->control_data()->makes() & pad_input::kMaskCross) { // (the controller's button pressed: the next player)
+    // (the controller's button pressed: the next player)
+    if ((input->control_data()->makes() & pad_input::kMaskCross) != 0U) {
         manager->spectate_request_ = 1;
     }
 }
@@ -413,7 +414,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     auto* skate = get_skate();
     uint32_t& checked = gamenet_flow_state().auto_serve_checked_; // the link checked last
-    if (manager->is_network_game() && frame_clock::get_time() - checked > kLinkCheckInterval) {
+    if ((manager->is_network_game() != 0) && frame_clock::get_time() - checked > kLinkCheckInterval) {
         const bool net_game = manager->in_net_game();
         checked = frame_clock::get_time();
         // the network cable unplugged: a method of the network object (0x006EFDD8) - on the PC the shared
@@ -435,7 +436,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
             net::Conn* conn = player->conn();
             if (!conn->is_host_local()) {
                 int reason = -1;
-                if (conn->cur_standing() & 1) { // (in the game)
+                if ((conn->cur_standing() & 1) != 0U) { // (in the game)
                     if (conn->get_silence_duration() > kSilentTimeout) {
                         reason = kDropTimedOut;
                     } else if (conn->get_highest_resend_count() > kMaxResends) {

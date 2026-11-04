@@ -114,7 +114,7 @@ int32_t PackedBitBuffer::read_signed_bits(int count)
 {
     uint32_t bits = read_bits(count);
     // Shift counts are taken mod 32, as the original's x86 shifts do.
-    if (bits & (1U << ((count - 1) & kShiftMask))) {
+    if ((bits & (1U << ((count - 1) & kShiftMask))) != 0U) {
         bits |= ~((1U << (count & kShiftMask)) - 1);
     }
     return static_cast<int32_t>(bits);

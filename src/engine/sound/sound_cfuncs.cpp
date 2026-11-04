@@ -223,7 +223,7 @@ bool cfunc_set_sfx_reverb(Struct* params, Script* /*script*/)
     level = std::min(level, 100.0F); // (0x006463D4; a NaN is kept)
     params->fetch_int_value(kMode, &mode, 0);
     const bool instant = params->has_bare_flag(kInstant);
-    sound::AudioMixer::print_sounds(std::bit_cast<int>(level), mode, instant);
+    sound::AudioMixer::print_sounds(std::bit_cast<int>(level), mode, static_cast<int>(instant));
     return true;
 }
 
@@ -255,7 +255,7 @@ bool cfunc_set_global_pitch_modulation(Struct* params, Script* /*script*/)
     params->fetch_float(0U, &pitch, 0);
     const bool a = params->has_bare_flag(kPitchFlagA);
     const bool b = params->has_bare_flag(kPitchFlagB);
-    sound::AudioMixer::set_pitch(pitch, b, a);
+    sound::AudioMixer::set_pitch(pitch, static_cast<int>(b), static_cast<int>(a));
     return true;
 }
 
@@ -290,7 +290,7 @@ bool cfunc_set_positional_sound_silence_override_mode(Struct* params, Script* /*
 {
     int mode = 1;
     params->fetch_int_value(0U, &mode, 1);
-    audio_mixer_handle()->set_mute_override(mode != 0);
+    audio_mixer_handle()->set_mute_override(static_cast<uint8_t>(mode != 0));
     return true;
 }
 

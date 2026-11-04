@@ -146,7 +146,7 @@ void report_game_state(Hub* manager, bool on)
 {
     auto* lobby = manager->lobby_service().get();
     void* peer = lobby->get_lobby_handle();
-    if (peer && game_spy::peer_is_connected(peer) && lobby->is_hosting()) {
+    if (peer && (game_spy::peer_is_connected(peer) != 0) && lobby->is_hosting()) {
         game_spy::peer_state_changed(peer);
     }
     // (the byte compared with 1 when starting, tested for non-zero when ending, as in the original)
@@ -281,7 +281,7 @@ bool cfunc_start_network_game(Struct* /*params*/, Script* /*script*/)
 bool cfunc_send_game_over_to_observers(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
-    if (!(manager->flag_bits() & kFlagsServer)) {
+    if ((manager->flag_bits() & kFlagsServer) == 0U) {
         return true;
     }
     net::NetMessageInfo desc;
@@ -297,7 +297,7 @@ bool cfunc_end_network_game(Struct* /*params*/, Script* /*script*/)
     Hub* manager = net_game_state().online_hub();
     report_game_state(manager, false);
     net::NetMessageInfo desc;
-    if (manager->flag_bits() & kFlagsServer) {
+    if ((manager->flag_bits() & kFlagsServer) != 0U) {
         desc = net::NetMessageInfo();
         net::AppHost* server = manager->host();
         get_run(kDoBackendRetry);
@@ -333,7 +333,7 @@ bool cfunc_set_num_teams(Struct* params, Script* /*script*/)
     net::NetMessageInfo desc;
     int teams = 0;
     params->fetch_int_value(0U, &teams, 0);
-    if (!(manager->flag_bits() & kFlagsServer)) {
+    if ((manager->flag_bits() & kFlagsServer) == 0U) {
         net::NetMessageInfo request;
         auto count = static_cast<uint8_t>(teams);
         request.set_content(&count);
@@ -420,23 +420,23 @@ bool cfunc_is_host(Struct* /*params*/, Script* /*script*/)
     if (!manager->in_net_game()) {
         return false;
     }
-    if (manager->flag_bits() & kFlagsServer) {
+    if ((manager->flag_bits() & kFlagsServer) != 0U) {
         return manager->host_mode() == 0;
     }
     void* local = manager->get_own_player();
-    return local && static_cast<PlayerRecord*>(local)->is_host_player() != 0;
+    return (local != nullptr) && static_cast<PlayerRecord*>(local)->is_host_player() != 0;
 }
 
 // 0x00538DC0: AllPlayersAreReady - on the server, every player's connection is ready (+0x60 bit 0); true elsewhere.
 bool cfunc_all_players_are_ready(Struct* /*params*/, Script* /*script*/)
 {
     const Hub* manager = net_game_state().online_hub();
-    if (!(manager->flag_bits() & kFlagsServer)) {
+    if ((manager->flag_bits() & kFlagsServer) == 0U) {
         return true;
     }
     for (const memory::ListNode* node = get_next_node(&manager->players()); const PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
-        if (!(static_cast<uint8_t>(player->conn()->cur_standing()) & 1)) {
+        if ((static_cast<uint8_t>(player->conn()->cur_standing()) & 1) == 0) {
             return false;
         }
     }
@@ -472,7 +472,8 @@ bool cfunc_create_player_options(Struct* params, Script* /*script*/)
     player->flag_bits() |= PlayerFlag::kMarked;
     script::StructPtr dialog = script::make_struct();
     const int profile = player->profile_id();
-    if ((manager->flag_bits() & kFlagsInternet) && profile && manager->presence_service()->authenticated()) {
+    if (((manager->flag_bits() & kFlagsInternet) != 0U) && (profile != 0) &&
+        manager->presence_service()->authenticated()) {
         dialog->put_int(checksums::Name{kProfile}, player->profile_id());
         dialog->append_word(kNick, player_name(player));
         dialog->put_name_key(checksums::Name{0U},
@@ -508,7 +509,7 @@ bool cfunc_fill_player_list_menu(Struct* /*params*/, Script* /*script*/)
         rgba->configure_size_kind(4, script::QbValueKind::kInteger);
         uint32_t blue = 0;
         const int profile = player->profile_id();
-        if (profile && manager->presence_service()->authenticated()) {
+        if ((profile != 0) && manager->presence_service()->authenticated()) {
             if (is_buddy(manager, player->profile_id())) {
                 rgba->set_element(0, kColourHalf);
                 rgba->set_element(1, kColourHalf);

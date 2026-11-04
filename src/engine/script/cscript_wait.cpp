@@ -63,14 +63,14 @@ void Script::update_wait()
 {
     switch (suspend_reason_) {
     case BlockReason::kCount:
-        if (suspend_frames_left_) {
+        if (suspend_frames_left_ != 0) {
             --suspend_frames_left_;
         } else {
             suspend_reason_ = BlockReason::kNothing;
         }
         break;
     case BlockReason::kFrame:
-        if (suspend_frames_left_) {
+        if (suspend_frames_left_ != 0) {
             --suspend_frames_left_;
         } else if (!one_per_frame_released()) {
             // The first such script to finish counting this frame goes on; the others wait (at 0) for the next.
@@ -167,7 +167,7 @@ void Script::gate_off(uint32_t event_type)
 {
     suspend_reason_ = BlockReason::kBlock;
     suspend_arg_ = event_type;
-    if (event_type) {
+    if (event_type != 0U) {
         objects::get_tracker()->add_listener(event_type, this);
         spawn_flags_ |= kScriptFlagTrackerBlocked;
     }
@@ -209,14 +209,14 @@ void component_destroyed_all_scripts(objects::ObjectModule* component)
 // 0x00473800
 bool Script::receive_event(objects::Signal* event)
 {
-    if (suspend_reason_ == BlockReason::kBlock && suspend_arg_ && event->kind_tag() == suspend_arg_) {
+    if (suspend_reason_ == BlockReason::kBlock && (suspend_arg_ != 0U) && event->kind_tag() == suspend_arg_) {
         suspend_reason_ = BlockReason::kNothing;
     }
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < call_depth_; ++i) {
         CallFrame& frame = core::at(call_stack(), i);
         if (static_cast<BlockReason>(frame.suspend_kind_ & kReturnWaitTypeMask) == BlockReason::kBlock &&
-            frame.suspend_arg_ref_ && event->kind_tag() == frame.suspend_arg_ref_) {
+            (frame.suspend_arg_ref_ != 0U) && event->kind_tag() == frame.suspend_arg_ref_) {
             frame.suspend_kind_ &= ~kReturnWaitTypeMask;
         }
     }
@@ -274,9 +274,10 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     frame.suspend_arg_ref_ = suspend_arg_;
     frame.suspend_frames_ref_ = suspend_frames_left_;
     frame.sleep_timer_ = suspend_clock_;
-    frame.trait_mask_ = static_cast<uint8_t>((frame.trait_mask_ & ~(kReturnFlagTimerStarted | kReturnFlagInterrupted)) |
-                                             (suspend_clock_started_ ? kReturnFlagTimerStarted : 0) |
-                                             ((flag_bits_ & kScriptRunInterrupted) ? kReturnFlagInterrupted : 0));
+    frame.trait_mask_ =
+        static_cast<uint8_t>((frame.trait_mask_ & ~(kReturnFlagTimerStarted | kReturnFlagInterrupted)) |
+                             (suspend_clock_started_ ? kReturnFlagTimerStarted : 0) |
+                             (((flag_bits_ & kScriptRunInterrupted) != 0) ? kReturnFlagInterrupted : 0));
     // The callee: its default parameters (its first line), then the call's. (With no code the original reads
     // through null - not checked.) The loop pointer is kept: the callee's loops go above the caller's.
     script_title_ = name;
@@ -322,8 +323,9 @@ bool Script::return_from_script(Struct* results)
             blocking_module_ = frame.sleep_component_;
             suspend_arg_ = frame.suspend_arg_ref_;
         }
-        flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) |
-                                          ((frame.trait_mask_ & kReturnFlagInterrupted) ? kScriptRunInterrupted : 0));
+        flag_bits_ =
+            static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) |
+                                 (((frame.trait_mask_ & kReturnFlagInterrupted) != 0) ? kScriptRunInterrupted : 0));
     }
     if (results) {
         args_->append_structure_if_any(results);
@@ -396,7 +398,7 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
         signal_routes_->mark_group(group);
     }
     const int count = static_cast<int>(table->extent());
-    if (!signal_routes_ && count) {
+    if (!signal_routes_ && (count != 0)) {
         gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
         signal_routes_ = made;
     }

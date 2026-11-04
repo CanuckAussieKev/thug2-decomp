@@ -232,7 +232,7 @@ void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum,
 // 0x0046FBA0
 void parse_precompiled_qb(const char* filename, std::span<uint8_t> data, int unused)
 {
-    const uint32_t flag = unused != 0;
+    const auto flag = static_cast<uint32_t>(unused != 0);
     const uint32_t file = checksums::hash_from_text(filename);
     note_code_block(data);
     noted_images()[file] = data.data();

@@ -45,7 +45,7 @@ uint32_t& generation()
 // Whether `place` is in the block of `size` bytes at `begin` (its end included).
 bool holds(const uint8_t* begin, std::size_t size, const uint8_t* place)
 {
-    if (!begin || std::less<>()(place, begin)) {
+    if ((begin == nullptr) || std::less<>()(place, begin)) {
         return false;
     }
     return std::cmp_less_equal(place - begin, size);

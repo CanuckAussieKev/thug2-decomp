@@ -197,8 +197,8 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
     const float move_z = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
     const float turn_x = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT);
     const float turn_y = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
-    const bool up = core::at(keys, SDL_SCANCODE_E) || core::at(keys, SDL_SCANCODE_PAGEUP);
-    const bool down = core::at(keys, SDL_SCANCODE_Q) || core::at(keys, SDL_SCANCODE_PAGEDOWN);
+    const bool up = (core::at(keys, SDL_SCANCODE_E) != 0U) || (core::at(keys, SDL_SCANCODE_PAGEUP) != 0U);
+    const bool down = (core::at(keys, SDL_SCANCODE_Q) != 0U) || (core::at(keys, SDL_SCANCODE_PAGEDOWN) != 0U);
     if (move_x == 0.0F && move_z == 0.0F && turn_x == 0.0F && turn_y == 0.0F && !up && !down) {
         return false;
     }

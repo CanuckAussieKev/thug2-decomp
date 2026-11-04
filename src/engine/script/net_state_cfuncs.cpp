@@ -165,9 +165,9 @@ bool cfunc_join_server(script::Struct* params, script::Script* /*script*/)
     } else {
         const char* address = nullptr;
         int port = 0;
-        params->fetch_text(0U, &address, false);
-        params->fetch_int_value(0U, &port, false);
-        if (port && address) {
+        params->fetch_text(0U, &address, 0);
+        params->fetch_int_value(0U, &port, 0);
+        if ((port != 0) && address) {
             game_net->start_client_session(false, false, true, 0);
             game_net->join_server({.ip = get_inet_addr(address), .port = static_cast<uint16_t>(port)}, 0);
         }
@@ -215,7 +215,7 @@ bool cfunc_test_net_setup(script::Struct* params, script::Script* /*script*/)
     const bool ok = stubs::return_true(); // (the net manager's setup test, a shared stub)
     if (ok) {
         uint32_t script = 0; // (unset in the original when missing - an asserted parameter)
-        params->read_hash_value("success_script", &script, true); // "success_script"
+        params->read_hash_value("success_script", &script, 1); // "success_script"
         script::launch_script(script, params, nullptr, false, nullptr);
         return ok;
     }
@@ -252,7 +252,7 @@ bool cfunc_can_change_devices(script::Struct* /*params*/, script::Script* /*scri
 bool cfunc_load_network_drivers(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const char* use = script::fetch_text("use_deci2");
-    if (!use || !*use) {
+    if (!use || (*use == '\0')) {
         return net::Hub::load_network_drivers(nullptr, nullptr, nullptr);
     }
     const char* ip = script::fetch_text("viewer_ip");
@@ -301,7 +301,7 @@ bool cfunc_enable_actuators(script::Struct* params, script::Script* /*script*/)
     auto* input = pad_input::get_input_manager();
     for (int i = 0; i < 2; ++i) {
         if (core::at(modules::Skate::sole()->participants(), i).vibration_) {
-            if (enable) {
+            if (enable != 0) {
                 input->enable_actuators(i);
             } else {
                 input->stop_rumble(i);
@@ -416,7 +416,7 @@ bool cfunc_notify_bail_done(script::Struct* /*params*/, script::Script* script)
         return true;
     }
     auto* skater = core::down_cast<objects::Rider>(object);
-    if (!skater->is_local_skater()) {
+    if (skater->is_local_skater() == 0U) {
         return true;
     }
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot())) {
@@ -517,7 +517,7 @@ bool cfunc_join_with_password(script::Struct* params, script::Script* /*script*/
 {
     online::Hub* game_net = online::online_hub();
     const char* password = nullptr; // (unset in the original when missing - an asserted parameter)
-    params->fetch_text(kSTRING, &password, true);
+    params->fetch_text(kSTRING, &password, 1);
     game_net->retry_entry_with_key(password);
     return true;
 }
@@ -565,7 +565,7 @@ uint32_t network_preference(uint32_t name)
 {
     script::Struct* preference = online::online_hub()->get_online_settings()->fetch_setting(name);
     uint32_t value = 0; // (unset in the original when missing - an asserted parameter)
-    preference->read_hash_value(kChecksum, &value, true); // "checksum"
+    preference->read_hash_value(kChecksum, &value, 1); // "checksum"
     return value;
 }
 } // namespace
@@ -634,7 +634,7 @@ bool cfunc_try_join_internet_game(script::Struct* /*params*/, script::Script* /*
 bool cfunc_try_join_server_ip(script::Struct* params, script::Script* /*script*/)
 {
     const char* address = nullptr;                // (unset in the original when missing - an asserted parameter)
-    params->fetch_text("string", &address, true); // "string"
+    params->fetch_text("string", &address, 1);    // "string"
     uint32_t ip = get_inet_addr(address);
     if (ip == kNoAddress) {
         ip = host_first_address(address); // (its h_addr_list[0], or none)

@@ -103,7 +103,7 @@ void sibling_file(SiblingName sibling, std::array<char, kPathBytes>& out)
 // A CAS artist's cached copy of `file` dropped, so it's read again from the edited file.
 void drop_cached_file(const char* file)
 {
-    if (!script::fetch_int_value(kCasArtist)) {
+    if (script::fetch_int_value(kCasArtist) == 0) {
         return;
     }
     assets::ResourceRegistry* assets = assets::asset_manager();
@@ -219,7 +219,7 @@ void PreviewEntity::play_animation(uint32_t anim)
 PreviewEntity::~PreviewEntity()
 {
     task_->drop_out(); // (its input handler; not null-checked: as the original)
-    if (asset_) {
+    if (asset_ != 0U) {
         assets::ResourceRegistry* assets = assets::asset_manager();
         if (assets::Resource* asset = assets->obtain_loaded_item(asset_, 0)) {
             assets->discard_loaded_item(asset);
@@ -293,7 +293,7 @@ void PreviewEntity::reload_animation(const char* file, uint32_t anim)
     }
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t name = checksums::hash_from_text(file);
-    if (anim) {
+    if (anim != 0U) {
         name = get_animation(this)->get_anim_set() + anim;
     }
     if (assets::Resource* asset = assets->obtain_loaded_item(name, 0)) {
@@ -446,7 +446,7 @@ void PreviewEntity::update_panel()
         }
     }
     ObjectModule* model = fetch_module(kModel);
-    if (model && get_bone_count(model_of(model))) {
+    if (model && (get_bone_count(model_of(model)) != 0)) {
         spin_wheels();
     }
 }
@@ -454,20 +454,20 @@ void PreviewEntity::update_panel()
 // 0x0058AB30
 void PreviewEntity::own_update()
 {
-    if (actions_ & kCommandTogglePanel) {
+    if ((actions_ & kCommandTogglePanel) != 0U) {
         panel_shown_ = !panel_shown_;
         script::launch_script(kKillViewerObjectPanel, nullptr, nullptr, false, nullptr);
     }
-    if (actions_ & kCommandFaster) {
+    if ((actions_ & kCommandFaster) != 0U) {
         scale_anim_rate((is_halted_ ? saved_speed_ : speed_) + kSpeedStep);
     }
-    if (actions_ & kCommandSlower) {
+    if ((actions_ & kCommandSlower) != 0U) {
         scale_anim_rate((is_halted_ ? saved_speed_ : speed_) - kSpeedStep);
     }
-    if (actions_ & kCommandStepForward) {
+    if ((actions_ & kCommandStepForward) != 0U) {
         step_animation(true);
     }
-    if (actions_ & kCommandStepBack) {
+    if ((actions_ & kCommandStepBack) != 0U) {
         step_animation(false);
     }
     // The rest are the viewer's (if there is one).
@@ -483,7 +483,7 @@ void PreviewEntity::own_update()
         {.command = kCommandRollRight, .viewer_command_ = 0x20000},
     });
     for (const auto& c : kViewerCommands) {
-        if (actions_ & c.command) {
+        if ((actions_ & c.command) != 0U) {
             if (modules::Viewer* viewer = modules::get_live_viewer()) {
                 viewer->add_commands(c.viewer_command_);
             }
@@ -500,30 +500,30 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     const int delay = script::fetch_int_value(kViewerAutoRepeatTime);
     const int rate = script::fetch_int_value(kViewerAutoRepeatSpeed);
     int count = 0; // (the static starts as the first call's delay)
-    if (!(repeat_count_guard() & 1)) {
+    if ((repeat_count_guard() & 1) == 0U) {
         repeat_count_guard() |= 1;
         count = delay;
     } else {
         count = repeat_count();
     }
-    if (handler->control_data()->makes() & pad_input::kMaskTriangle) {
+    if ((handler->control_data()->makes() & pad_input::kMaskTriangle) != 0U) {
         object->actions() |= PreviewEntity::kCommandTogglePanel;
     }
     // A frame back / on when Left / Right is pressed, and while it's held: after `delay` frames, then every `rate`.
     const pad_input::Payload* data = handler->control_data();
-    if (data->makes() & pad_input::Payload::kButtonLeft) {
+    if ((data->makes() & pad_input::Payload::kButtonLeft) != 0U) {
         object->actions() |= PreviewEntity::kCommandStepBack;
         repeat_count() = delay;
-    } else if (data->makes() & pad_input::Payload::kButtonRight) {
+    } else if ((data->makes() & pad_input::Payload::kButtonRight) != 0U) {
         object->actions() |= PreviewEntity::kCommandStepForward;
         repeat_count() = delay;
-    } else if (data->buttons() & pad_input::Payload::kButtonLeft) {
+    } else if ((data->buttons() & pad_input::Payload::kButtonLeft) != 0U) {
         repeat_count() = --count;
         if (count <= 0) {
             object->actions() |= PreviewEntity::kCommandStepBack;
             repeat_count() = rate;
         }
-    } else if (data->buttons() & pad_input::Payload::kButtonRight) {
+    } else if ((data->buttons() & pad_input::Payload::kButtonRight) != 0U) {
         repeat_count() = --count;
         if (count <= 0) {
             object->actions() |= PreviewEntity::kCommandStepForward;
@@ -532,28 +532,28 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     } else {
         repeat_count() = delay;
     }
-    if (handler->control_data()->makes() & pad_input::kMaskLeftStickClick) {
+    if ((handler->control_data()->makes() & pad_input::kMaskLeftStickClick) != 0U) {
         object->actions() |= PreviewEntity::kCommandToggleMode;
     }
     const uint32_t buttons = handler->control_data()->buttons();
-    if (buttons & pad_input::kMaskR1) {
-        if (!(buttons & 0x2)) {
+    if ((buttons & pad_input::kMaskR1) != 0U) {
+        if ((buttons & 0x2) == 0U) {
             object->actions() |= PreviewEntity::kCommandCameraUp;
         }
-    } else if (buttons & 0x2) {
+    } else if ((buttons & 0x2) != 0U) {
         object->actions() |= PreviewEntity::kCommandCameraDown;
     }
     const uint32_t makes = handler->control_data()->makes();
-    if (makes & 0x4) {
+    if ((makes & 0x4) != 0U) {
         object->actions() |= PreviewEntity::kCommandFaster;
-    } else if (makes & 0x1) {
+    } else if ((makes & 0x1) != 0U) {
         object->actions() |= PreviewEntity::kCommandSlower;
     }
     if (!object->fetch_module(AnimBlenderComponent::kType)) {
         const uint32_t held = handler->control_data()->buttons();
-        if (held & pad_input::kMaskCircle) {
+        if ((held & pad_input::kMaskCircle) != 0U) {
             object->actions() |= PreviewEntity::kCommandRollLeft;
-        } else if (held & pad_input::kMaskSquare) {
+        } else if ((held & pad_input::kMaskSquare) != 0U) {
             object->actions() |= PreviewEntity::kCommandRollRight;
         }
     }

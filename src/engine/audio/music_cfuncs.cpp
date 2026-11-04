@@ -265,7 +265,7 @@ bool cfunc_track_enabled(Struct* params, Script* /*script*/)
 {
     int track = 0;
     params->fetch_int_value(0U, &track, 0);
-    if (!audio::track_total(0)) {
+    if (audio::track_total(0) == 0) {
         return false;
     }
     uint64_t low = 0;

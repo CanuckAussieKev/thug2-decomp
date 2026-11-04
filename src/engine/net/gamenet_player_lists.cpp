@@ -320,7 +320,7 @@ int Hub::count_other_players()
     PlayerSearch search;
     int count = 0;
     for (PlayerRecord* player = begin_player_walk(&search, false); player; player = step_player_walk(&search, false)) {
-        if (!player->has_finished_joining()) { // (flags 0x21)
+        if (player->has_finished_joining() == 0) { // (flags 0x21)
             ++count;
         }
     }
@@ -557,7 +557,8 @@ int Hub::count_observers()
     int count = 0;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        if (is_observer(player) && !player->is_pending_observer() && (!is_own_player(player) || host_mode_ == 0)) {
+        if (is_observer(player) && (player->is_pending_observer() == 0) &&
+            (!is_own_player(player) || host_mode_ == 0)) {
             ++count;
         }
     }
@@ -671,7 +672,7 @@ bool Hub::prepare_local_face()
         return false;
     }
     memory::Hub* memory = memory::Hub::get_pull();
-    if (flag_bits_ & 1) {
+    if ((flag_bits_ & 1) != 0) {
         auto* local = get_own_player();
         memory->enter_heap_scope(memory->net_misc_heap());
         local->assign_face_texture_data(static_cast<uint8_t*>(memory::alloc(kFaceSize + 1)));
@@ -741,7 +742,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     record->set_eliminated_time(info->eliminated_time());
     record->set_drive_control_mode(info->drive_control_mode());
     PlayerFlag flags = record->flag_bits();
-    if (core::any(flags & PlayerFlag::kRejoining) && (flag_bits_ & 1)) {
+    if (core::any(flags & PlayerFlag::kRejoining) && ((flag_bits_ & 1) != 0)) {
         record->set_rejoin_group(host_->frame_count());
     }
     if (!core::any(flags & PlayerFlag::kObserver) || core::any(flags & PlayerFlag::kPendingObserver)) {
@@ -754,7 +755,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
         record->account()->decode_from_bytes(buffer, kAppearanceBufferBytes);
         memory::Hub::dealloc(buffer);
     }
-    if (flag_bits_ & 1) {
+    if ((flag_bits_ & 1) != 0) {
         flags = record->flag_bits();
         record->set_add_at_frame(host_->frame_count() + timeout);
         if (!core::any(flags & PlayerFlag::kLocal)) {
@@ -821,7 +822,7 @@ void carried_flags_task(tasks::Task<Hub>* /*unused*/)
     }
     for (auto* player = manager->begin_player_walk(&search, false); player;
          player = manager->step_player_walk(&search, false)) {
-        if (!player->is_carrying_flag()) { // (carries a flag)
+        if (player->is_carrying_flag() == 0) { // (carries a flag)
             continue;
         }
         uint32_t name = 0;

@@ -185,7 +185,7 @@ bool Conn::is_sound() const { return (cur_standing_ & kConnBroken) == 0; }
 // 0x00455C30
 uint32_t Conn::get_retry_delay()
 {
-    if (cur_standing_ & kStatus2) {
+    if ((cur_standing_ & kStatus2) != 0U) {
         return kStatus2ResendThreshold;
     }
     int threshold = 2 * get_mean_ping();

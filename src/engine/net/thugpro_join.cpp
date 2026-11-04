@@ -32,7 +32,7 @@ uint32_t read_scripts_hash()
     std::array<char, kTextSize> text{};
     build_info::fetch_text("online", "thugpro_scripts_hash", "", text.data(), sizeof(text));
     auto hash = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, kHexBase));
-    return hash ? hash : kReleaseScriptsHash;
+    return (hash != 0U) ? hash : kReleaseScriptsHash;
 }
 
 // THUGPRO's refusal texts: its names (their checksums are what its own client sets), our words.
@@ -55,7 +55,7 @@ constexpr auto kReasons = std::to_array<ReasonText>({
 
 uint32_t scripts_hash()
 {
-    if (hash_override()) {
+    if (hash_override() != 0U) {
         return hash_override();
     }
     static const uint32_t kScriptsHash = read_scripts_hash();

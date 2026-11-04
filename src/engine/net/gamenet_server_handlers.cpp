@@ -97,7 +97,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
         modules::Skate::drop_skater_from_roster(core::down_cast<objects::Rider>(skater)); // its skater gone
         player->flag_bits() |= PlayerFlag::kObserver;                   // an observer now
         player->set_skater(nullptr);
-        if (player->is_host_player()) {
+        if (player->is_host_player() != 0) {
             player->clear_server_player();
             manager->assign_first_come_first_served();
         }
@@ -390,7 +390,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     net::NetMessageInfo desc;
     if (get_game_type() == kNetCtf) {
         // Its flag returned.
-        if (!player || !player->is_carrying_flag()) {
+        if (!player || (player->is_carrying_flag() == 0)) {
             return kContinue;
         }
         desc = net::NetMessageInfo();
@@ -429,7 +429,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         return kContinue;
     }
     // The crown dropped: a new spot for it.
-    if (!player || !player->holds_crown()) { // (has the crown)
+    if (!player || (player->holds_crown() == 0)) { // (has the crown)
         return kContinue;
     }
     desc = net::NetMessageInfo();

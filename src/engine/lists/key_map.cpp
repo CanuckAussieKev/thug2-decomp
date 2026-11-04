@@ -132,7 +132,7 @@ bool KeyMap::step_iterator()
 
     // Move on to the next bucket with anything in it.
     Item* bucket = nullptr;
-    for (bool again = true; again; again = !bucket->value && !bucket->next) {
+    for (bool again = true; again; again = (bucket->value == nullptr) && (bucket->next == nullptr)) {
         if (++iter_bucket_ >= 1 << bits_) {
             return false;
         }

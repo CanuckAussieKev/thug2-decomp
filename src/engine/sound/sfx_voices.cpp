@@ -193,7 +193,7 @@ void stop_positional_voice(AudioMixer* /*manager*/, const PositionalSound* entry
         if (core::at(get_playing(), i).unique_id_ != entry->unique_id_) {
             continue;
         }
-        if (is_voice_playing(i) && !no_sound()) {
+        if ((is_voice_playing(i) != 0) && !no_sound()) {
             const int index = sound::AudioMixer::get_playing_index(entry->unique_id_);
             if (index >= 0) {
                 stop_voice(index);
@@ -274,7 +274,7 @@ bool AudioMixer::is_unique_id_free(uint32_t id)
     if (!no_sound() && id != 0) {
         for (int i = 0; i < kMaxPlaying; ++i) {
             if (core::at(get_playing(), i).unique_id_ == id) {
-                if (is_voice_playing(i)) {
+                if (is_voice_playing(i) != 0) {
                     return false;
                 }
                 break;
@@ -339,7 +339,7 @@ uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pi
     if (!entry) {
         return 0;
     }
-    const uint32_t id = unique_id ? unique_id : checksum;
+    const uint32_t id = (unique_id != 0U) ? unique_id : checksum;
     if (!quiet_misses() && script::fetch_int_value(kDebugB) != 0 && !params) {
         is_unique_id_free(id); // (a debug check whose report is compiled out)
     }
@@ -535,7 +535,7 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
         maths::Vec4 heard{};
         const maths::Vec4* position = object_sound_position(object, &heard, camera);
         const maths::Vec4 here = *position;
-        if (sound->entry->flags & 1) {
+        if ((sound->entry->flags & 1) != 0) {
             auto frame_seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
             maths::Vec4 previous{};
             doppler_shift(&pitch, &here, object_sound_previous(object, &previous, camera), frame_seconds, camera);
@@ -668,7 +668,7 @@ void update_voice_states()
             continue;
         }
         DWORD status = 0;
-        if (buffer_of(voice.buffer)->GetStatus(&status) == DS_OK && !(status & DSBSTATUS_PLAYING)) {
+        if (buffer_of(voice.buffer)->GetStatus(&status) == DS_OK && ((status & DSBSTATUS_PLAYING) == 0U)) {
             --playing_voices();
             voice.playing = false;
         }
@@ -799,7 +799,7 @@ bool read_in(PcWave& pc_wave, const char* file_name, uint32_t flags)
     pc_wave.desc_size_ = kBufferDescBytes;
     pc_wave.desc_flags_ = flags;
     pc_wave.desc_format_ = &pc_wave;
-    if (pc_wave.block_align_) {
+    if (pc_wave.block_align_ != 0U) {
         size -= size % pc_wave.block_align_;
     }
     pc_wave.desc_bytes_ = size;

@@ -23,7 +23,7 @@ void PingProbe::input_delay_amount(int latency)
     uint32_t total = 0; // (wraps like the original's int sum)
     int count = 0;
     for (const int time : times_) {
-        if (time) {
+        if (time != 0) {
             total += static_cast<uint32_t>(time);
             ++count;
         }

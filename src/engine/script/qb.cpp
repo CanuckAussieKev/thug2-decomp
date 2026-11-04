@@ -189,7 +189,7 @@ Tokens step_over_token(Tokens token)
         return token + kTokenWithPairBytes;
     case QbToken::kChecksumName: { // a checksum's name: the checksum, then the text
         Tokens p = token + kTokenWithWordBytes;
-        while (*p) {
+        while (*p != 0U) {
             ++p;
         }
         return p + 1;
@@ -329,7 +329,7 @@ void prepare_script_tokens(std::span<uint8_t> code)
                     name[0] = token_byte(QbToken::kNativeFunction);
                     store_word32(name + 1, symbol->value().word());
                 } else if (symbol->type() == QbValueKind::kNativeMethod) {
-                    if (symbol->value().word()) {
+                    if (symbol->value().word() != 0U) {
                         store_word32(name + 1, symbol->value().word());
                         name[0] = token_byte(QbToken::kMemberFunction);
                     } else {
@@ -401,7 +401,7 @@ void keep_qb_names(bool keep) { keep_qb_names() = keep; }
 
 void note_qb_name(uint32_t checksum, const char* name)
 {
-    if (keep_qb_names() && name && *name) {
+    if (keep_qb_names() && name && (*name != '\0')) {
         kept_names()[checksum] = name;
     }
 }
@@ -445,7 +445,7 @@ void forget_stored_randoms_of(const Script* owner)
 void shuffle(StoredRandom& random, bool avoid_repeat)
 {
     const uint8_t last = core::at(random.order_, random.num_ - 1);
-    for (int swaps = random.num_ * kShuffleSwapsPerChoice; swaps; --swaps) {
+    for (int swaps = random.num_ * kShuffleSwapsPerChoice; swaps != 0; --swaps) {
         const int a = maths::rnd(random.num_);
         const int b = maths::rnd(random.num_);
         const uint8_t swapped = core::at(random.order_, a);
@@ -634,7 +634,7 @@ void free_symbol(SymbolTableEntry* symbol) { symbol_pools().dealloc(symbol); }
 void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
 {
     unlink_symbol(symbol);
-    if (symbol->unknown0() & 4) { // (kept: not owned by the table?)
+    if ((symbol->unknown0() & 4) != 0) { // (kept: not owned by the table?)
         return;
     }
     switch (symbol->type()) {

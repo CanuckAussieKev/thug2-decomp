@@ -513,7 +513,7 @@ void RoomManager::enum_players_callback(const EnumPlayer& player)
     auto* const lobby = player.lobby;
     (void)room_type;
     (void)flags;
-    if (!success || index == -1) {
+    if ((success == 0) || index == -1) {
         return;
     }
     if (find_player(lobby, nick)) {
@@ -534,7 +534,7 @@ void RoomManager::join_room_callback(const JoinRoomResult& joined)
     auto* const lobby = joined.lobby;
     (void)result;
     const Hub* manager = net_game_state().online_hub();
-    if (!success) {
+    if (success == 0) {
         get_run(kJoinLobbyFailed);
         return;
     }
@@ -586,7 +586,7 @@ bool cfunc_lobby_disconnect(script::Struct* params, script::Script* script)
     const Hub* manager = net_game_state().online_hub();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
-    while (lobby->negotiations()) { // (counted down one at a time, as the original - a negative count takes long)
+    while (lobby->negotiations() != 0) { // (counted down one at a time, as the original - a negative count takes long)
         --lobby->negotiations();
         lobby = manager->lobby_service().get();
     }
@@ -636,7 +636,7 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
     const Hub* manager = net_game_state().online_hub();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
-    if (lobby->group_id()) {
+    if (lobby->group_id() != 0) {
         game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &core::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
     }
     ram_stats()->leave_heap_scope();

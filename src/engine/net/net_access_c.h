@@ -145,7 +145,8 @@ inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->~Pend
 inline gsl::owner<SeqQueuedMsg*> construct_seq_msg(void* memory, wire::MessageId id, uint16_t length, const uint8_t* data, wire::MessageGroup group,
                                        bool compressed)
 {
-    return new (memory) SeqQueuedMsg(id, length, data, {.group = group, .compression = compressed});
+    return new (memory)
+        SeqQueuedMsg(id, length, data, {.group = group, .compression = static_cast<uint8_t>(compressed)});
 }
 inline gsl::owner<OrderedMsgNode*> construct_msg_seq_link(void* memory, SeqQueuedMsg* msg)
 {

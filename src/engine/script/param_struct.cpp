@@ -276,7 +276,7 @@ bool Struct::fetch_text(uint32_t name, const char** out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kString, &value) && !get_hunt(name, QbValueKind::kInlineText, &value)) {
-        if (assert) {
+        if (assert != 0) {
             dump_to_log(this);
         }
         return false;
@@ -296,7 +296,7 @@ bool Struct::fetch_int_value(uint32_t name, int* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kInteger, &value)) {
-        if (assert) {
+        if (assert != 0) {
             dump_to_log(this);
         }
         return false;
@@ -316,7 +316,7 @@ bool Struct::fetch_float(uint32_t name, float* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kFloat, &value)) {
-        if (assert) {
+        if (assert != 0) {
             dump_to_log(this);
         }
         return false;
@@ -336,7 +336,7 @@ bool Struct::fetch_pair(uint32_t name, maths::Vec2* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kPair, &value)) {
-        if (assert) {
+        if (assert != 0) {
             dump_to_log(this);
         }
         return false;
@@ -370,7 +370,7 @@ bool Struct::read_sub_struct(uint32_t name, Struct** out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kStruct, &value)) {
-        if (assert) {
+        if (assert != 0) {
             dump_to_log(this);
         }
         return false;
@@ -390,7 +390,7 @@ bool Struct::fetch_list(uint32_t name, Array** out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kArray, &value)) {
-        if (assert) {
+        if (assert != 0) {
             dump_to_log(this);
         }
         return false;
@@ -410,7 +410,7 @@ bool Struct::fetch_script(uint32_t name, ParamScript* out, int assert)
 {
     Cell code;
     if (!get_hunt(name, QbValueKind::kScriptBody, &code)) {
-        if (assert) {
+        if (assert != 0) {
             dump_to_log(this);
         }
         return false;
@@ -440,7 +440,7 @@ bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
             }
         }
     }
-    if (assert && !found) {
+    if ((assert != 0) && !found) {
         dump_to_log(this);
     }
     return found;
@@ -471,7 +471,7 @@ bool Struct::fetch_vec(uint32_t name, VectorValue* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, QbValueKind::kVector, &value)) {
-        if (assert) {
+        if (assert != 0) {
             dump_to_log(this);
         }
         return false;
@@ -615,7 +615,7 @@ char* get_script_string(int index) { return script_string_slot(index); }
 void free_string(char* string)
 {
     const char* start = script_state().permanent_strings_start();
-    if (start && !std::less<>()(string, start) &&
+    if ((start != nullptr) && !std::less<>()(string, start) &&
         std::cmp_less(string - start, script_state().permanent_strings_size())) {
         return;
     }
@@ -748,7 +748,7 @@ void release_component(Component* component)
         }
         break;
     case QbValueKind::kScriptBody:
-        if (component->value.word()) {
+        if (component->value.word() != 0U) {
             forget_code_block(component->value.code());
             memory::free_malloc(component->value.code());
         }
@@ -777,7 +777,7 @@ void release_component(Component* component)
 // 0x004773E0
 void duplicate_component(Component* dest, const Component* source, int reference)
 {
-    if (dest->value.word()) {
+    if (dest->value.word() != 0U) {
         release_component(dest);
     }
     copy_value_kind(*dest, *source);
@@ -828,7 +828,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
         break;
     }
     case QbValueKind::kStruct: {
-        if (reference) {
+        if (reference != 0) {
             set_value_kind(*dest, QbValueKind::kStructRef);
             dest->value.set_structure(source->value.structure());
             break;
@@ -845,7 +845,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
         break;
     }
     case QbValueKind::kArray: {
-        if (!reference) {
+        if (reference == 0) {
             gsl::owner<Array*> array = alloc_script_array();
             if (array) {
                 new (array) script::Array;
@@ -1482,7 +1482,7 @@ void duplicate_array(Array* dest, Array* source)
     const QbValueKind type = source->kind_tag();
     const uint32_t size = source->extent();
     dest->configure_size_kind(size, type);
-    if (size) {
+    if (size != 0U) {
         copy_array_elements(dest->cells(), source->cells().first(size), type);
     }
 }

@@ -61,7 +61,7 @@ const char* precompiled_extension() { return game_config::fetch_platform_suffix(
 // The symbol `existing` makes way for a new definition: set aside (temporary loads) or removed.
 void get_replace(SymbolTableEntry* existing, int temporary)
 {
-    if (temporary) {
+    if (temporary != 0) {
         replace_symbol_later(existing);
         unlink_symbol(existing);
     } else {
@@ -156,7 +156,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
     }
 
     // First the checksums' names.
-    for (Tokens p(file); *p;) {
+    for (Tokens p(file); *p != 0U;) {
         if (as_token(*p) == QbToken::kChecksumName) {
             uint32_t checksum = 0;
             const char* name = nullptr;
@@ -191,7 +191,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             p = skip_newline_tokens(p + 1); // (past the '=')
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
-                get_replace(existing, temporary);
+                get_replace(existing, static_cast<int>(temporary));
             }
             p = parse_symbol_definition(p, name, filename);
             if (!existing && temporary) {
@@ -212,7 +212,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
                     checksum == read_stored_script(existing->value().code()).checksum_) {
                     break;
                 }
-                get_replace(existing, temporary);
+                get_replace(existing, static_cast<int>(temporary));
                 define_script_symbol(code, checksums::Name{name}, checksum, filename);
             } else {
                 SymbolTableEntry* symbol = define_script_symbol(code, checksums::Name{name}, checksum, filename);
@@ -272,7 +272,7 @@ void restart_changed_scripts()
 {
     for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
         // (byte 0 bit 0: new since the last time - create_symbol sets it)
-        if ((symbol->unknown0() & 1) && symbol->type() == QbValueKind::kScriptBody) {
+        if (((symbol->unknown0() & 1) != 0) && symbol->type() == QbValueKind::kScriptBody) {
             for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {
                 if (script_refers_to(script, symbol->name_value())) {
                     script->relaunch();
@@ -289,7 +289,7 @@ void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int
     if (fetch_word32(Tokens(data)) == kPIP) {
         parse_precompiled_qb(filename, data, unused); // (relocated in place)
     } else {
-        read_qb_file(filename, data, unused, use_qb_names, temporary);
+        read_qb_file(filename, data, unused, use_qb_names != 0, temporary != 0);
     }
     restart_changed_scripts();
 }
@@ -316,7 +316,7 @@ void load_qb(const char* filename, int unused, int temporary)
         // (scripts\engine\menu\keyboard.qb), in place of the original's plain packs::ReadIn.
         const std::span<const uint8_t> data = load_patched_script(filename);
         memory::leave_heap_scope();
-        read_qb_file(filename, data, unused, false, temporary);
+        read_qb_file(filename, data, unused, false, temporary != 0);
         packs::offload(filename);
     }
     restart_changed_scripts();
@@ -325,7 +325,7 @@ void load_qb(const char* filename, int unused, int temporary)
 // 0x0046EEC0
 void unload_qb(uint32_t file_checksum)
 {
-    if (!file_checksum) {
+    if (file_checksum == 0U) {
         return;
     }
     // The file's symbols: listed first (removing them changes the table), then removed.
@@ -335,7 +335,7 @@ void unload_qb(uint32_t file_checksum)
             ++count;
         }
     }
-    if (count) {
+    if (count != 0) {
         memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
         auto** block = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * 4));
         memory::leave_heap_scope();

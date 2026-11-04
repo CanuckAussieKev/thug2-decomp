@@ -157,7 +157,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
             continue;
         }
         const uint32_t name = component->name;
-        if (!name) {
+        if (name == 0U) {
             continue;
         }
         float to = 0.0F;

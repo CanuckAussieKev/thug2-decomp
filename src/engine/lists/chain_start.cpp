@@ -86,7 +86,7 @@ memory::ListNode* node_at(memory::ListNode& head, int index)
     if (node->data() == memory::ListNode::head_marker() || !node) {
         return nullptr;
     }
-    while (index--) {
+    while ((index--) != 0) {
         node = node->next();
         if (node->data() == memory::ListNode::head_marker() || !node) {
             return nullptr;

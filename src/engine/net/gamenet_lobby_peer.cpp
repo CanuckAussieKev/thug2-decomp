@@ -308,7 +308,7 @@ void RoomManager::get_connect_callback(void* peer, int success, int /*unused*/, 
 {
     auto* lobby = static_cast<RoomManager*>(param);
     lobby->connecting_ = false;
-    if (!success) {
+    if (success == 0) {
         debug::printf("******* Connect Callback FAILED!\n");
         get_run(kConnectionFailureDialog);
         return;
@@ -473,7 +473,8 @@ void RoomManager::hole_punch_result_fn(void* /*unused*/, int cookie, void* /*unu
     }
     const net::AppHost* server = manager->host();
     push_internet_heap();
-    if (nat_begin(server->get_socket(), cookie, 0, no_progress(), &RoomManager::nat_negotiation_completed, cookie)) {
+    if (nat_begin(server->get_socket(), cookie, 0, no_progress(), &RoomManager::nat_negotiation_completed, cookie) !=
+        0) {
         nat_cancel(cookie);
         nat_think();
         pop_heap();

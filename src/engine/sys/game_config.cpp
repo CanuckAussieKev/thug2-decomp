@@ -106,7 +106,7 @@ const char* get_argument_value(const char* option, Arguments args)
         const char* after = std::next(core::at(args, i), static_cast<std::ptrdiff_t>(std::strlen(option)));
         const bool has_next = i + 1 < args.size();
         if (*after == '=') {
-            if (*std::next(after)) {
+            if (*std::next(after) != '\0') {
                 value = std::next(after);
             } else if (has_next) {
                 value = core::at(args, i + 1);
@@ -114,7 +114,7 @@ const char* get_argument_value(const char* option, Arguments args)
         } else if (*after == '\0' && has_next) {
             const char* next = core::at(args, i + 1);
             if (*next == '=') {
-                if (*std::next(next)) {
+                if (*std::next(next) != '\0') {
                     value = std::next(next);
                 } else if (i + 2 < args.size()) {
                     value = core::at(args, i + 2);

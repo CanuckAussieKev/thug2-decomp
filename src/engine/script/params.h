@@ -18,13 +18,13 @@ using Function = bool (*)(Struct* params, Script* script);
 // (the game reports it).
 inline bool fetch_text(Struct* params, uint32_t name, const char** out, bool assert = false)
 {
-    return params->fetch_text(name, out, assert);
+    return params->fetch_text(name, out, static_cast<int>(assert));
 }
 
 // The checksum parameter `name` (a name written without quotes in the script), or false if there isn't one.
 inline bool read_hash_value(Struct* params, uint32_t name, uint32_t* out, bool assert = false)
 {
-    return params->read_hash_value(name, out, assert);
+    return params->read_hash_value(name, out, static_cast<int>(assert));
 }
 
 // Whether the flag `name` (a bare name among the parameters) is present.

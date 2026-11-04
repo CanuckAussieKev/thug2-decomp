@@ -252,7 +252,7 @@ bool Script::execute_command(Tokens& pc)
         }
         name = value->value.word();
         delete_component(value);
-        if (!name) {
+        if (name == 0U) {
             name = read_name(pc);
         }
     } else {
@@ -534,7 +534,7 @@ void Script::run_loop_exit(Tokens& pc)
         if (token == QbToken::kLoopStart) {
             ++depth;
         } else if (token == QbToken::kLoopRepeat) {
-            if (depth) {
+            if (depth != 0) {
                 --depth;
             } else {
                 searching = false;
@@ -583,7 +583,7 @@ ScriptOutcome Script::tick_frame()
             }
         }
         current_script_var() = this;
-        if (!(flag_bits_ & kScriptRunWaitUpdated)) {
+        if ((flag_bits_ & kScriptRunWaitUpdated) == 0) {
             update_wait();
         }
         if (suspend_reason_ != BlockReason::kNothing) {

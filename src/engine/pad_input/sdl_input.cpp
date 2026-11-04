@@ -226,8 +226,8 @@ SdlInputState& sdl_input_state()
 // --- the game's state ---------------------------------------------------------------------------------------
 
 // The on-screen keyboard (text entry) is up.
-bool get_keyboard_on_screen() { return screen_flags().keyboard_on_screen_ != 0; }
-uint8_t in_menu_flag() { return screen_flags().in_menu_flag_; }
+bool get_keyboard_on_screen() { return screen_flags().keyboard_on_screen_; }
+uint8_t in_menu_flag() { return static_cast<uint8_t>(screen_flags().in_menu_flag_); }
 
 // --- controllers and players ----------------------------------------------------------------------------------
 
@@ -268,7 +268,8 @@ void enroll_player(SDL_GameController* controller)
 void prune_players()
 {
     for (int i = 0; i < kMaxPlayers; ++i) {
-        if (core::at(sdl_input_state().players_, i).controller && !SDL_GameControllerGetAttached(core::at(sdl_input_state().players_, i).controller)) {
+        if (core::at(sdl_input_state().players_, i).controller &&
+            (SDL_GameControllerGetAttached(core::at(sdl_input_state().players_, i).controller) == SDL_FALSE)) {
             debug_log::printf(StageMap::kInfo, "Pruned player %d\n", i + 1);
             core::at(sdl_input_state().players_, i).controller = nullptr;
             --sdl_input_state().seats_in_use_;
@@ -303,7 +304,7 @@ void init_controllers()
     debug_log::printf(StageMap::kInfo, "Initializing Controller Input\n");
     sdl_input_state().controllers_.clear();
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
-        if (SDL_IsGameController(i)) {
+        if (SDL_IsGameController(i) != SDL_FALSE) {
             attach_controller(i);
         }
     }
@@ -325,12 +326,12 @@ uint8_t is_controller_button_held(SDL_GameController* controller, PadButton butt
     if (button == kLeftTrigger) {
         auto pressure =
             static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >> kTriggerShift);
-        return pressure > kTriggerHeldThreshold;
+        return static_cast<uint8_t>(pressure > kTriggerHeldThreshold);
     }
     if (button == kRightTrigger) {
         auto pressure =
             static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) >> kTriggerShift);
-        return pressure > kTriggerHeldThreshold;
+        return static_cast<uint8_t>(pressure > kTriggerHeldThreshold);
     }
     return SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(button));
 }
@@ -388,10 +389,10 @@ uint8_t in_park_editor()
 // Original behaviour (PartyMod v1.0.4): the binding is read, nothing presses it.
 void press_caveman(std::array<uint8_t, kPortBufferBytes>& data)
 {
-    if (sdl_input_state().in_menu_ || sdl_input_state().editing_park_) {
+    if ((sdl_input_state().in_menu_ != 0U) || (sdl_input_state().editing_park_ != 0U)) {
         return;
     }
-    if (!sdl_input_state().settings_.ps2_controls_) {
+    if (sdl_input_state().settings_.ps2_controls_ == 0U) {
         core::at(data, kControlExtraButtons) |= 1 << 0; // black
         return;
     }
@@ -405,126 +406,130 @@ void press_caveman(std::array<uint8_t, kPortBufferBytes>& data)
 // and white (bit 1).
 void poll_controller(InputPort* device, SDL_GameController* controller)
 {
-    if (!SDL_GameControllerGetAttached(controller)) {
+    if (SDL_GameControllerGetAttached(controller) == SDL_FALSE) {
         return;
     }
     std::array<uint8_t, kPortBufferBytes>& data = device->control_data();
     device->set_is_usable(1);
     device->set_is_connected(true);
 
-    if (is_controller_button_held(controller, sdl_input_state().pad_.menu)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.menu) != 0U) {
         core::at(data, kControlButtonsHigh) |= 1 << 3;
     }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_toggle_)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_toggle_) != 0U) {
         core::at(data, kControlButtonsHigh) |= 1 << 0;
     }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_swivel_lock_)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_swivel_lock_) != 0U) {
         core::at(data, kControlButtonsHigh) |= 1 << 2;
     }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.focus)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.focus) != 0U) {
         core::at(data, kControlButtonsHigh) |= 1 << 1;
     }
 
-    if (is_controller_button_held(controller, sdl_input_state().pad_.grind)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.grind) != 0U) {
         core::at(data, kControlButtonsLow) |= 1 << 4;
         core::at(data, kPressureTriangle) = kFullPressure;
     }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.grab)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.grab) != 0U) {
         core::at(data, kControlButtonsLow) |= 1 << kCircleBit;
         core::at(data, kPressureCircle) = kFullPressure;
     }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.ollie)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.ollie) != 0U) {
         core::at(data, kControlButtonsLow) |= 1 << kCrossBit;
         core::at(data, kPressureCross) = kFullPressure;
     }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.kick)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.kick) != 0U) {
         core::at(data, kControlButtonsLow) |= 1 << kSquareBit;
         core::at(data, kPressureSquare) = kFullPressure;
     }
 
     // the shoulders
-    if (sdl_input_state().settings_.ps2_controls_) {
-        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_)) {
+    if (sdl_input_state().settings_.ps2_controls_ != 0U) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 2;
             core::at(data, kPressureL1) = kFullPressure;
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 3;
             core::at(data, kPressureR1) = kFullPressure;
-            if (sdl_input_state().editing_park_) {
+            if (sdl_input_state().editing_park_ != 0U) {
                 core::at(data, kControlExtraButtons) |= 1 << 0; // black, editing a park
             }
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 0;
             core::at(data, kPressureL2) = kFullPressure;
-            if (sdl_input_state().in_menu_) {
+            if (sdl_input_state().in_menu_ != 0U) {
                 core::at(data, kControlExtraButtons) |= 1 << 1; // white, in a menu
             }
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 1;
             core::at(data, kPressureR2) = kFullPressure;
-            if (sdl_input_state().in_menu_) {
+            if (sdl_input_state().in_menu_ != 0U) {
                 core::at(data, kControlExtraButtons) |= 1 << 0; // black, in a menu
-            } else if (sdl_input_state().editing_park_) {
+            } else if (sdl_input_state().editing_park_ != 0U) {
                 core::at(data, kControlExtraButtons) |= 1 << 1; // white, editing a park
             }
         }
-    } else if (sdl_input_state().editing_park_ && !get_keyboard_on_screen()) {
+    } else if ((sdl_input_state().editing_park_ != 0U) && !get_keyboard_on_screen()) {
         // editing a park: the right trigger is L1
-        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 2;
             core::at(data, kPressureL1) = kFullPressure;
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 0;
             core::at(data, kPressureL2) = kFullPressure;
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_) != 0U) {
             core::at(data, kControlExtraButtons) |= 1 << 1;
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_) != 0U) {
             core::at(data, kControlExtraButtons) |= 1 << 0;
         }
     } else {
-        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 2;
             core::at(data, kPressureL1) = kFullPressure;
             core::at(data, kControlButtonsLow) |= 1 << 0;
             core::at(data, kPressureL2) = kFullPressure;
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_) != 0U) {
             core::at(data, kControlButtonsLow) |= 1 << 3;
             core::at(data, kPressureR1) = kFullPressure;
             core::at(data, kControlButtonsLow) |= 1 << 1;
             core::at(data, kPressureR2) = kFullPressure;
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_) != 0U) {
             core::at(data, kControlExtraButtons) |= 1 << 1;
         }
-        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_) != 0U) {
             core::at(data, kControlExtraButtons) |= 1 << 0;
         }
     }
-    if (is_controller_button_held(controller, sdl_input_state().pad_.caveman)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.caveman) != 0U) {
         press_caveman(data);
     }
 
     // the d-pad (plain buttons: not the triggers)
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.up))) {
+    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.up)) !=
+        0U) {
         core::at(data, kControlButtonsHigh) |= 1 << 4;
         core::at(data, kPressureUp) = kFullPressure;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.right))) {
+    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.right)) !=
+        0U) {
         core::at(data, kControlButtonsHigh) |= 1 << kRightBit;
         core::at(data, kPressureRight) = kFullPressure;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.down))) {
+    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.down)) !=
+        0U) {
         core::at(data, kControlButtonsHigh) |= 1 << kDownBit;
         core::at(data, kPressureDown) = kFullPressure;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.left))) {
+    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.left)) !=
+        0U) {
         core::at(data, kControlButtonsHigh) |= 1 << kLeftBit;
         core::at(data, kPressureLeft) = kFullPressure;
     }
@@ -542,7 +547,7 @@ constexpr uint8_t kLockedOut = 2;
 
 void update_menu_keys(platform::KeyState keys)
 {
-    const uint8_t keyboard_on_screen = screen_flags().keyboard_on_screen_;
+    const auto keyboard_on_screen = static_cast<uint8_t>(screen_flags().keyboard_on_screen_);
     if (sdl_input_state().in_menu_ != sdl_input_state().was_in_menu_ || keyboard_on_screen != sdl_input_state().was_keyboard_on_screen_) {
         if (sdl_input_state().keys_.ollie != SDL_SCANCODE_RETURN && sdl_input_state().menu_keys_.affirmative == 1) {
             sdl_input_state().menu_keys_.affirmative = kLockedOut;
@@ -568,7 +573,7 @@ void update_menu_keys(platform::KeyState keys)
         if (sdl_input_state().keys_.right != SDL_SCANCODE_RIGHT && sdl_input_state().menu_keys_.right == 1) {
             sdl_input_state().menu_keys_.right = kLockedOut;
         }
-        if (sdl_input_state().settings_.ps2_controls_) {
+        if (sdl_input_state().settings_.ps2_controls_ != 0U) {
             if (sdl_input_state().keys_.left_spin_ != SDL_SCANCODE_1 &&
                 sdl_input_state().menu_keys_.rotate_left_ == 1) {
                 sdl_input_state().menu_keys_.rotate_left_ = kLockedOut;
@@ -706,7 +711,7 @@ void poll_keyboard(InputPort* device)
     }
 
     // the shoulders
-    if (sdl_input_state().settings_.ps2_controls_) {
+    if (sdl_input_state().settings_.ps2_controls_ != 0U) {
         if (down(sdl_input_state().keys_.left_spin_) || menu_down(sdl_input_state().menu_keys_.rotate_left_)) {
             core::at(data, kControlButtonsLow) |= 1 << 2;
             core::at(data, kPressureL1) = kFullPressure;
@@ -714,27 +719,27 @@ void poll_keyboard(InputPort* device)
         if (down(sdl_input_state().keys_.right_spin_) || menu_down(sdl_input_state().menu_keys_.rotate_right_)) {
             core::at(data, kControlButtonsLow) |= 1 << 3;
             core::at(data, kPressureR1) = kFullPressure;
-            if (sdl_input_state().editing_park_) {
+            if (sdl_input_state().editing_park_ != 0U) {
                 core::at(data, kControlExtraButtons) |= 1 << 0; // black, editing a park
             }
         }
         if (down(sdl_input_state().keys_.nollie)) {
             core::at(data, kControlButtonsLow) |= 1 << 0;
             core::at(data, kPressureL2) = kFullPressure;
-            if (sdl_input_state().in_menu_) {
+            if (sdl_input_state().in_menu_ != 0U) {
                 core::at(data, kControlExtraButtons) |= 1 << 1; // white, in a menu
             }
         }
         if (down(sdl_input_state().keys_.switch_revert_) || menu_down(sdl_input_state().menu_keys_.zoom)) {
             core::at(data, kControlButtonsLow) |= 1 << 1;
             core::at(data, kPressureR2) = kFullPressure;
-            if (sdl_input_state().in_menu_) {
+            if (sdl_input_state().in_menu_ != 0U) {
                 core::at(data, kControlExtraButtons) |= 1 << 0; // black, in a menu
-            } else if (sdl_input_state().editing_park_) {
+            } else if (sdl_input_state().editing_park_ != 0U) {
                 core::at(data, kControlExtraButtons) |= 1 << 1; // white, editing a park
             }
         }
-    } else if (sdl_input_state().editing_park_ && !get_keyboard_on_screen()) {
+    } else if ((sdl_input_state().editing_park_ != 0U) && !get_keyboard_on_screen()) {
         // editing a park: the right trigger is L1
         if (down(sdl_input_state().keys_.switch_revert_)) {
             core::at(data, kControlButtonsLow) |= 1 << 2;
@@ -887,7 +892,7 @@ void handle_input_event(SDL_Event* event)
 {
     switch (event->type) {
     case SDL_CONTROLLERDEVICEADDED:
-        if (SDL_IsGameController(event->cdevice.which)) {
+        if (SDL_IsGameController(event->cdevice.which) != SDL_FALSE) {
             attach_controller(event->cdevice.which);
         } else {
             debug_log::printf(StageMap::kInfo, "Not a game controller: %s\n",
@@ -916,7 +921,7 @@ void handle_input_event(SDL_Event* event)
         const int player = SDL_GameControllerGetPlayerIndex(controller);
         if (player == -1) {
             enroll_player(controller);
-        } else if (core::at(sdl_input_state().players_, player).locked_out_) {
+        } else if (core::at(sdl_input_state().players_, player).locked_out_ != 0U) {
             ++core::at(sdl_input_state().players_, player).locked_out_;
         }
         sdl_input_state().using_keyboard_ = false;
@@ -925,7 +930,7 @@ void handle_input_event(SDL_Event* event)
     case SDL_CONTROLLERBUTTONUP: {
         SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
         const int player = SDL_GameControllerGetPlayerIndex(controller);
-        if (player != -1 && core::at(sdl_input_state().players_, player).locked_out_) {
+        if (player != -1 && (core::at(sdl_input_state().players_, player).locked_out_ != 0U)) {
             --core::at(sdl_input_state().players_, player).locked_out_;
         }
         return;
@@ -1023,7 +1028,8 @@ void write_game_key_bindings()
 
 void load_input_settings()
 {
-    sdl_input_state().settings_.ps2_controls_ = build_info::fetch_flag(build_info::kMiscellaneous, "UsePS2Controls", true);
+    sdl_input_state().settings_.ps2_controls_ =
+        static_cast<uint8_t>(build_info::fetch_flag(build_info::kMiscellaneous, "UsePS2Controls", true));
     sdl_input_state().settings_.ui_controls_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "UIControls", 1));
 }
 
@@ -1146,7 +1152,7 @@ void init_sdl_input()
     load_key_binds();
     load_pad_binds();
     init_controllers();
-    if (sdl_input_state().settings_.ps2_controls_) {
+    if (sdl_input_state().settings_.ps2_controls_ != 0U) {
         sys::install_is_ps2();
     }
     // (not PartyMod's - [features] debug_mode: CD false, the developers' menus - engine/sys/debug_mode.h)
@@ -1166,7 +1172,8 @@ void init_sdl_input()
 void process_sdl_device(InputPort* device)
 {
     sdl_input_state().editing_park_ = in_park_editor();
-    sdl_input_state().in_menu_ = in_menu_flag() && !sdl_input_state().editing_park_;
+    sdl_input_state().in_menu_ =
+        static_cast<uint8_t>((in_menu_flag() != 0U) && (sdl_input_state().editing_park_ == 0U));
 
     device->set_capabilities(3);
     device->set_rumble_motor_count(2);
@@ -1209,7 +1216,7 @@ void process_sdl_device(InputPort* device)
     }
     auto port = static_cast<uint32_t>(device->port_no());
     if (port < kMaxPlayers && core::at(sdl_input_state().players_, port).controller &&
-        !core::at(sdl_input_state().players_, port).locked_out_ && !new_frontend) {
+        (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !new_frontend) {
         poll_controller(device, core::at(sdl_input_state().players_, port).controller);
     }
     // (not original: the buttons the test-automation channel presses - frontend/automation.h)
@@ -1218,7 +1225,10 @@ void process_sdl_device(InputPort* device)
     core::at(data, kControlButtonsHigh) = static_cast<uint8_t>(~core::at(data, kControlButtonsHigh));
     core::at(data, kControlButtonsLow) = static_cast<uint8_t>(~core::at(data, kControlButtonsLow));
     set_held_down(device, (kAllButtonBits ^ (core::at(data, kControlButtonsHigh) << kByteBits | core::at(data, kControlButtonsLow))) != 0);
-    device->set_start_or_a(((~core::at(data, kControlButtonsHigh) & (1 << 3)) || (~core::at(data, kControlButtonsLow) & (1 << kCrossBit))) ? 1 : 0);
+    device->set_start_or_a((((~core::at(data, kControlButtonsHigh) & (1 << 3)) != 0) ||
+                            ((~core::at(data, kControlButtonsLow) & (1 << kCrossBit)) != 0))
+                               ? 1
+                               : 0);
 
     // (typed text only works with these set)
     online::net_game_state().set_text_entry(true);
@@ -1228,7 +1238,8 @@ void process_sdl_device(InputPort* device)
 void set_sdl_actuators(int port, uint16_t high, uint16_t low)
 {
     for (SDL_GameController* controller : sdl_input_state().controllers_) {
-        if (SDL_GameControllerGetAttached(controller) && SDL_GameControllerGetPlayerIndex(controller) == port) {
+        if ((SDL_GameControllerGetAttached(controller) != SDL_FALSE) &&
+            SDL_GameControllerGetPlayerIndex(controller) == port) {
             SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), low, high, 0);
         }
     }

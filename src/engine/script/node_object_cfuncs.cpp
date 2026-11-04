@@ -192,13 +192,13 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
                 break;
             }
             // (the sector's name: the getter folded at 0x005480C0, its +4)
-            if (!only || sector->checksum() == only) {
+            if ((only == 0U) || sector->checksum() == only) {
                 render::Geom* geom = nullptr;
                 if (sector->is_operative()) { // active
                     geom = static_cast<render::Geom*>(sector->geom_handle());
                 }
                 const int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
-                if (count) {
+                if (count != 0) {
                     if (!memory::manager_ready_flag()) { // (the memory manager set up, if it isn't)
                         memory::ensure_manager();
                     }
@@ -269,7 +269,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
 // scene in turn (fit_viewer_camera; the last one's placing stays). False without the viewer module (0x007CE4A4).
 bool cfunc_center_camera(script::Struct* params, script::Script* /*script*/)
 {
-    if (!objects::view_mode()) {
+    if (objects::view_mode() == 0) {
         return false;
     }
     float scale = kDefaultCenterScale;
@@ -366,7 +366,7 @@ bool create_from_node(script::Struct* node)
     for (memory::ListNode* at = first_scene(); at && !sector;) {
         memory::ListNode* next = next_scene(at);
         scene = render::scene_of_node(at);
-        sector = look_up_sector(scene, clone_from ? clone_from : section_id);
+        sector = look_up_sector(scene, (clone_from != 0U) ? clone_from : section_id);
         at = next;
     }
     if (!sector) {
@@ -375,7 +375,7 @@ bool create_from_node(script::Struct* node)
                       script::find_checksum_name_or_unknown(section_id));
         return true;
     }
-    if (!clone_from) {
+    if (clone_from == 0U) {
         toggle_shown(sector, kEveryViewport);
         change_live(sector, true);
         enable_collision(sector, true);
@@ -552,7 +552,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
             node->erase_module(kGeometryRemove);
             uint32_t name = 0;
             node->read_hash_value(kName, &name, 0);
-            if (!name) {
+            if (name == 0U) {
                 script::dump_to_log(node, 0);
                 debug::printf("FAILED BECAUSE Node %d is LevelGeometry, but has no Name=....\n",
                               i); // "FAILED BECAUSE Node %d is LevelGeometry..."
@@ -582,7 +582,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
             } else {
                 uint32_t clone_from = 0;
                 node->read_hash_value(kCloneFrom, &clone_from, 0);
-                if (!clone_from && !modules::Skate::is_multiplayer() && park_editor_off()) {
+                if ((clone_from == 0U) && (modules::Skate::is_multiplayer() == 0) && park_editor_off()) {
                     // "FAILED BECAUSE: Cannot find level geometry or collision for node %d ..."
                     debug::printf("FAILED BECAUSE: Cannot find level geometry or collision for node %d \nMaybe there "
                                   "are spaces in or after the name of the Max object (%s)\?\nOr maybe the .QN file "
@@ -591,14 +591,14 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
                 }
             }
             bool trick = node->has_entry_named(kTrickObject);
-            if (!game_config::from_cd() && script::fetch_int_value(kAllTrickObjects)) {
+            if (!game_config::from_cd() && (script::fetch_int_value(kAllTrickObjects) != 0)) {
                 trick = true;
             }
             if (!skips_node(node) && trick) {
                 memory::push_mem_profile("Trick Object Clusters"); // "Trick Object Clusters"
-                node->read_hash_value(kName, &object_name, true);
+                node->read_hash_value(kName, &object_name, 1);
                 uint32_t cluster = object_name;
-                node->read_hash_value(kCluster, &cluster, false);
+                node->read_hash_value(kCluster, &cluster, 0);
                 objects::trick_spot_hub()->add_cluster(cluster);
                 objects::trick_spot_hub()->add_object(object_name, cluster);
                 memory::pop_mem_profile();
@@ -631,7 +631,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
     }
     memory::pop_mem_profile();
     rails->remove_overlaps_if_not_park();
-    if (!script::fetch_int_value(kNoGapChecklist)) {
+    if (script::fetch_int_value(kNoGapChecklist) == 0) {
         static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list())->get_build();
     }
     for (memory::ListNode* at = first_scene(); at;) {
@@ -788,7 +788,7 @@ bool node_is_alive(uint32_t name)
 bool set_node_color(uint32_t name, script::Struct* params)
 {
     int value = kDefaultNodeColour;
-    params->fetch_int_value(kColor, &value, true);
+    params->fetch_int_value(kColor, &value, 1);
     const uint32_t rgba = (static_cast<uint32_t>(value) & 0xFF) | (static_cast<uint32_t>(value) >> 8 & 0xFF) << 8 |
                           (static_cast<uint32_t>(value) >> 16 & 0xFF) << 16 | 0x80U << 24;
     script::Struct* node = level_nodes::fetch_vertex(name, true);
@@ -848,7 +848,7 @@ bool shatter_node(uint32_t name)
 bool set_node_terrain(uint32_t name, script::Struct* params)
 {
     uint32_t terrain = 0; // (unset in the original when missing - an asserted parameter)
-    params->read_hash_value(kTerrain, &terrain, true);
+    params->read_hash_value(kTerrain, &terrain, 1);
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
@@ -870,7 +870,7 @@ bool node_command(checksums::Name node, int action, script::Script* script, scri
 {
     const uint32_t name = node.value();
     online::Hub* game_net = online::net_game_state().online_hub();
-    if (game_net->is_network_game() && skips_node(level_nodes::fetch_vertex(name, true))) {
+    if ((game_net->is_network_game() != 0) && skips_node(level_nodes::fetch_vertex(name, true))) {
         return false;
     }
     int second_viewport = 0;
@@ -952,7 +952,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0; // (read and not used)
     float scale = 1.0F;
-    params->read_hash_value(kName, &name, true);
+    params->read_hash_value(kName, &name, 1);
     maths::Vec4 velocity;
     if (params->has_bare_flag(kShatterVelocityFlag)) {
         params->fetch_float(kScale, &scale, 0); // "scale"
@@ -962,9 +962,9 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
         velocity.z = static_cast<float>(static_cast<double>(scale) * v.z);
         velocity.w = static_cast<float>(static_cast<double>(scale) * v.w);
     } else {
-        params->fetch_float(kVelX, &velocity.x, true);
-        params->fetch_float(kVelY, &velocity.y, true);
-        params->fetch_float(kVelZ, &velocity.z, true);
+        params->fetch_float(kVelX, &velocity.x, 1);
+        params->fetch_float(kVelY, &velocity.y, 1);
+        params->fetch_float(kVelZ, &velocity.z, 1);
         velocity.w = 0.0F;
     }
     float area = 0.0F;
@@ -992,7 +992,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     int value_33d_f = 0;
     params->fetch_int_value(kShatterParameter33DF, &value_33d_f, 0);
     float minimum_area = kDefaultMinimumArea;
-    if (modules::Skate::is_multiplayer()) {
+    if (modules::Skate::is_multiplayer() != 0) {
         minimum_area = kNodeObjectMinimumArea; // (5000)
     }
     area = std::max(area, minimum_area);

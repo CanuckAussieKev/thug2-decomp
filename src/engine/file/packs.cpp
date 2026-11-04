@@ -250,7 +250,7 @@ void load_pre(const char* name)
     size_t archive_size = 0; // (not original: the archive's bytes in the block, the bound for its reader)
     bool loaded = false;
     const char letter = game_config::get_language() == 3 ? 'f' : game_config::get_language() == 5 ? 'd' : '\0';
-    if (letter) {
+    if (letter != '\0') {
         core::at(path, length - 1) = letter;
         if (!file::is_present(path.data())) {
             core::at(path, length - 2) = 'p';
@@ -359,7 +359,7 @@ void load_pre(const char* name)
         pre_format::read_file_record(archive, &from); // (read once already)
         const std::span<uint8_t> target = data.subspan(offset, aligned16(static_cast<size_t>(file.size)));
         file.data = target.data();
-        if (from.compressed_size) {
+        if (from.compressed_size != 0) {
             // Not original - unpacked bounded by the file's size (lzss::unpack: decode's bytes for a valid file).
             size_t written = 0;
             if (!lzss::unpack(from.data, static_cast<size_t>(from.compressed_size), target.data(),
@@ -414,7 +414,7 @@ bool cfunc_load_pip_pre(script::Struct* params, script::Script* /*script*/)
         heap = 0;
     }
     load_pre(name);
-    if (heap) {
+    if (heap != 0U) {
         memory::leave_heap_scope();
     }
     return true;

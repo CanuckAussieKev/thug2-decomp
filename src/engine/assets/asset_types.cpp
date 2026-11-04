@@ -246,7 +246,7 @@ void copy_words(void* to, const void* from, int words) { std::memcpy(to, from, 4
 void* alloc_load_params(uint32_t /*size*/)
 {
     for (int i = 0; i < 4; ++i) {
-        if (!(params_in_use() & (1U << i))) {
+        if ((params_in_use() & (1U << i)) == 0U) {
             params_in_use() |= 1U << i;
             return std::span(params_pool()).subspan(kParamBlockBytes * static_cast<size_t>(i)).data();
         }
@@ -353,7 +353,7 @@ int AnimResource::offload()
 // 0x00407290
 void AnimResource::free_buffer()
 {
-    if (archive_) {
+    if (archive_ != 0U) {
         packs::offload(archive_);
         archive_ = 0;
         set_octets(nullptr);
@@ -380,7 +380,8 @@ int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/
     gsl::owner<objects::CinematicTable*> cutscene{memory::make_owned<objects::CinematicTable>()};
     std::array<char, kPathSize> file{};
     platform_name(name, file.data());
-    if (!cutscene->read_in(file.data(), 1, async, static_cast<const objects::CutsceneSkater*>(params))) {
+    if (!cutscene->read_in(file.data(), 1, static_cast<int>(async),
+                           static_cast<const objects::CutsceneSkater*>(params))) {
         return -1;
     }
     change_contents(cutscene);
@@ -619,7 +620,7 @@ void SceneCollisionAsset::set_up_params(LoadParams load_params)
     }
     if (auto* s = static_cast<Struct*>(structure)) {
         s->read_hash_value(kSceneKey, &args_->checksum, 0);
-        args_->flag = s->has_bare_flag(kIsNet);
+        args_->flag = static_cast<uint8_t>(s->has_bare_flag(kIsNet));
     }
 }
 
@@ -778,7 +779,7 @@ void SkinResource::set_up_params(LoadParams load_params)
     }
     if (auto* s = static_cast<Struct*>(structure)) {
         s->fetch_int_value(kTexDictOffset, &args_->value, 0);
-        args_->flag0 = s->has_bare_flag(kSkinFlag0);
+        args_->flag0 = static_cast<uint8_t>(s->has_bare_flag(kSkinFlag0));
     }
 }
 
@@ -787,7 +788,7 @@ int SkinResource::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 {
     start_loading();
     set_up_params({.params = params, .structure = structure});
-    if (copy && !args_->on_heap_) {
+    if (copy && (args_->on_heap_ == 0U)) {
         memory::push_mem_profile("skin from data stream");
         data = copy_data(this, data, size);
         memory::pop_mem_profile();
@@ -810,7 +811,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     const char* kind = has_cas ? "skin" : "mdl";
     std::array<char, kSkinNameSize> file{};
     text::format_to(file, "%s.%s.%s", base.data(), kind, render::platform_suffix());
-    args_->has_cas_ = has_cas;
+    args_->has_cas_ = static_cast<uint8_t>(has_cas);
     ++files_reading_;
     uint32_t size = 0;
     if (has_cas && !async) {
@@ -835,7 +836,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
         args_->cas_size_ = cas_size;
         start_reading(this, cas_file_, cas_buffer_, cas_size, async);
     }
-    if (args_->on_heap_) {
+    if (args_->on_heap_ != 0U) {
         memory::leave_heap_scope();
     }
     if (!async) {
@@ -857,7 +858,7 @@ bool SkinResource::finish_loading(void* buffer, uint32_t size)
     gsl::owner<void*> model = make_skinned_model(checksum(), buffer, size, p->cas_data_, p->cas_size_, textures,
                                                  p->value, p->has_cas_, p->flag0);
     change_contents(model); // (the resource's: offload deletes it)
-    if (args_->on_heap_ && octets()) {
+    if ((args_->on_heap_ != 0U) && octets()) {
         free_buffer();
     }
     free_load_params(args_);
@@ -894,7 +895,7 @@ bool SkinResource::cancel_now()
 void SkinResource::free_buffer()
 {
     free_malloc_buffer(cas_buffer_);
-    if (archive_) {
+    if (archive_ != 0U) {
         packs::offload(archive_);
         archive_ = 0;
         set_octets(nullptr);
@@ -1022,9 +1023,9 @@ void TexDictAsset::set_up_params(LoadParams load_params)
     }
     if (auto* s = static_cast<Struct*>(structure)) {
         s->fetch_int_value(kTexDictOffset, &args_->value, 0);
-        args_->flag = s->has_bare_flag(kTexDictFlag);
-        args_->flag8 = s->has_bare_flag(kTexDictFlag8);
-        args_->flag9 = s->has_bare_flag(kTexDictFlag9);
+        args_->flag = static_cast<uint8_t>(s->has_bare_flag(kTexDictFlag));
+        args_->flag8 = static_cast<uint8_t>(s->has_bare_flag(kTexDictFlag8));
+        args_->flag9 = static_cast<uint8_t>(s->has_bare_flag(kTexDictFlag9));
     }
 }
 

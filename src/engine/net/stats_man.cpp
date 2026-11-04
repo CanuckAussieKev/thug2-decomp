@@ -242,7 +242,7 @@ public:
 TopEntry* TopEntry::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054D8F0)
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -252,7 +252,7 @@ TopEntry* TopEntry::teardown(unsigned int flags)
 SortEntry* SortEntry::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054EA20)
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -270,7 +270,7 @@ void LevelScores::destroy_body()
 LevelScores* LevelScores::teardown(unsigned int flags)
 {
     destroy_body();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -559,8 +559,9 @@ void RankingsManager::raise_tallies(bool final)
         set_player_int(game_, "score", manager->get_entrant_points(static_cast<uint32_t>(id)), id);
         set_player_int(game_, "combo", player->best_combo(), id);
     }
-    set_game_int(game_, "highscore", manager->cheating_noted() | net_game_state().cheat_flag());
-    send_game_snap_shot(game_, nullptr, final);
+    set_game_int(game_, "highscore",
+                 static_cast<int>(manager->cheating_noted()) | static_cast<int>(net_game_state().cheat_flag()));
+    send_game_snap_shot(game_, nullptr, static_cast<int>(final));
     if (final) {
         cur_phase_ = RankingsManager::State::kReady;
         if (game_) {

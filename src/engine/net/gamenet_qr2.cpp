@@ -138,7 +138,7 @@ void server_key_callback(int key, void* buffer, void* /*unused*/)
         buffer_add_int(buffer, manager->get_player_limit());
         return;
     case kKeyGamemode:
-        if (net_game_state().game_reported()) {
+        if (net_game_state().game_reported() != 0U) {
             buffer_add(buffer, "openplaying");
         } else if (net_game_state().open_waiting()) {
             buffer_add(buffer, "openwaiting");

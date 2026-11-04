@@ -217,7 +217,7 @@ void AsyncFileHandle::io_done_handler(int event, bool error, int value, int /*ex
 {
     outcome_val_ = value;
     io_completed() = true;
-    if (callback_ && !error && (callback_mask_ & (1U << (event & kEventBitMask)))) {
+    if (callback_ && !error && ((callback_mask_ & (1U << (event & kEventBitMask))) != 0U)) {
         async_add_callback(this, event, value); // counted done when the callback has run
         return;
     }
@@ -579,7 +579,7 @@ int PcAsyncFileHandle::os_read_chunk(void* buffer, int size, int count)
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops() = in_flight_ops() + 1;
     DWORD bytes = 0;
-    if (!ReadFile(file_ref_, buffer, length, &bytes, use_overlapped_io() ? &async_ctl_ : nullptr)) {
+    if (ReadFile(file_ref_, buffer, length, &bytes, use_overlapped_io() ? &async_ctl_ : nullptr) == FALSE) {
         set_outcome_val(static_cast<int>(GetLastError()));
         if (outcome_val() == kErrorIoPending && is_blocking()) {
             while (!os_read_finished()) {
@@ -625,7 +625,7 @@ void platform_init()
     OSVERSIONINFOA version = {};
     version.dwOSVersionInfoSize = sizeof(version);
     THUG2_MSVC_WARNING(suppress : 4996) // GetVersionExA: deprecated, but what the original asks
-    if (GetVersionExA(&version)) {
+    if (GetVersionExA(&version) != FALSE) {
         use_overlapped_io() = version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion > kWindowsXpMajorVersion;
     }
 }

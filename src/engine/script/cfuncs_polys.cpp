@@ -241,8 +241,9 @@ bool cfunc_spawn_poly(Struct* params, Script* /*script*/)
     params->read_hash_value(kBlendMode, &details->blend_mode(), 0);
     uint32_t texture = 0;
     params->read_hash_value(kTexture, &texture, 0);
-    details->set_texture(texture ? render::engine_parts().particle_texture_dict()->fetch_skin(texture) // the texture dictionary
-                               : nullptr);
+    details->set_texture(
+        (texture != 0U) ? render::engine_parts().particle_texture_dict()->fetch_skin(texture) // the texture dictionary
+                        : nullptr);
     render::engine::spawn_poly(details,
                                &vector1, &vector2);
     return true;

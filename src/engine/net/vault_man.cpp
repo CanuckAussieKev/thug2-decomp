@@ -225,7 +225,7 @@ VaultItem::VaultItem()
 VaultItem* VaultItem::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (0x0054B2D0)
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -254,7 +254,7 @@ VaultCategory::~VaultCategory()
 VaultCategory* VaultCategory::teardown(unsigned int flags)
 {
     this->~VaultCategory();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -433,7 +433,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         // (an empty list leaves the transfer as it is: it's read again next time)
         const char* line = text_tools::get_token(vault->octets_, "\r\n");
         if (line) {
-            for (bool again = true; again; again = line) {
+            for (bool again = true; again; again = (line != nullptr)) {
                 void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
                 VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
                 Expects(category != nullptr);

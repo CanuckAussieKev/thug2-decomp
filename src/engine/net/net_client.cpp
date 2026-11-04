@@ -132,7 +132,7 @@ void Guest::pull_inbound()
             return;
         }
         inbound_byte_total() += received;
-        const int size = (flag_bits() & kAppSecure) ? received - 2 : received;
+        const int size = ((flag_bits() & kAppSecure) != 0U) ? received - 2 : received;
         sockaddr_in server{};
         std::memcpy(&server, host_sock_addr_.data(), sizeof(server));
         if (Conn* conn = net::find_conn_at_address(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
@@ -193,7 +193,7 @@ void Guest::flush_outbox(Conn* conn)
             desc.set_rank(kTopRank);
             net::put_on_outbox(this, conn->hdl(), &desc);
         }
-        if (is_off_machine(conn) && !is_outsider(conn) && (flag_bits() & kAppMeasureLatency)) {
+        if (is_off_machine(conn) && !is_outsider(conn) && ((flag_bits() & kAppMeasureLatency) != 0U)) {
             NetMessageInfo desc;
             construct_msg_desc(&desc);
             uint32_t& sent = conn->ping_probe().probe_sent_at();
@@ -267,7 +267,7 @@ int Guest::handle_connection_refused(InboundMsgCtx* context)
 int Guest::on_clock_sync_msg(InboundMsgCtx* context)
 {
     context->set_body_size(sizeof(uint16_t));
-    if (context->wire_options() & kPacketForeign) {
+    if ((context->wire_options() & kPacketForeign) != 0U) {
         return kResultConsumed;
     }
     const auto stamp = net::wire::value_at<uint16_t>(context->body());

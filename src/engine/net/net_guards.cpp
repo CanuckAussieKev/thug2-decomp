@@ -64,7 +64,7 @@ bool game_mode_exists(uint32_t mode)
 bool script_exists(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && symbol->type() == script::QbValueKind::kScriptBody;
+    return (symbol != nullptr) && symbol->type() == script::QbValueKind::kScriptBody;
 }
 
 int leave_server(net::InboundMsgCtx* context)

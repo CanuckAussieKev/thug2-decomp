@@ -210,7 +210,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     rgba->configure_size_kind(4, script::QbValueKind::kInteger);
     FriendsManager* buddy = manager->presence_service().get();
     uint32_t script = 0;
-    if (player->account_ && mark_friend_online(buddy)) {
+    if ((player->account_ != 0) && mark_friend_online(buddy)) {
         if (player->account_ != own_profile(buddy) && !buddy->is_buddy(player->account_)) { // not a buddy yet
             set_rgba(rgba, 0, kPromptHalf, 0, kPromptHalf);
             choose->put_int(checksums::Name{kProfile}, player->account_);
@@ -262,7 +262,7 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
     auto* const param = info.param;
     Hub* manager = net_game_state().online_hub();
     auto set_state = [manager](ServiceState state) { manager->set_service_state(state); };
-    if (!success) {
+    if (success == 0) {
         set_state(ServiceState::kLobbyListEmpty);
         return;
     }
@@ -288,7 +288,7 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
         return game_spy::server_get_int_value(server, key, fallback);
     };
     const int lobby = server_int("lobby_num", 0);
-    if (lobby) {
+    if (lobby != 0) {
         uint32_t size = 0;
         const void* data = manager->get_pending_data(&size);
         if (static_cast<uint32_t>(lobby) ==
@@ -310,7 +310,7 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
     if (rating() < room->min_rating()) {
         room->set_out_of_range(true);
     }
-    if (server_int("neversoft", 0)) {
+    if (server_int("neversoft", 0) != 0) {
         room->set_neversoft(true);
     }
     if (room->num_players() > room->max_players()) {

@@ -143,7 +143,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
         break;
     }
     case QbValueKind::kStruct:
-        if (reference) {
+        if (reference != 0) {
             set_value_kind(*to, QbValueKind::kStructRef);
             to->value.set_word(array->fetch_part(index));
         } else {
@@ -153,7 +153,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
         }
         break;
     case QbValueKind::kArray:
-        if (reference) {
+        if (reference != 0) {
             set_value_kind(*to, QbValueKind::kArrayRef);
             to->value.set_word(array->fetch_part(index));
         } else {
@@ -329,7 +329,8 @@ void ValueResolver::get_clear()
 // 0x0046D220
 void ValueResolver::reset_if_dirty()
 {
-    if (value_top_ || (core::at(values_, 0).type_and_flag_ & kComponentTypeBits) || operator_top_ || fault_) {
+    if ((value_top_ != 0) || ((core::at(values_, 0).type_and_flag_ & kComponentTypeBits) != 0) ||
+        (operator_top_ != 0) || fault_) {
         get_clear();
     }
 }
@@ -358,7 +359,7 @@ void ValueResolver::push_operator(QbToken op)
 void ValueResolver::intake(const Component* value)
 {
     // (the first value goes in the bottom slot)
-    if (value_top_ || (core::at(values_, 0).type_and_flag_ & kComponentTypeBits)) {
+    if ((value_top_ != 0) || ((core::at(values_, 0).type_and_flag_ & kComponentTypeBits) != 0)) {
         if (++value_top_ >= kValueStackDepth) {
             get_clear();
             fault_ = "Value stack overflow"; // "Value stack overflow"
@@ -656,7 +657,7 @@ void ValueResolver::execute()
                 structure->append_structure_if_any(a->value.structure());
                 Struct* other = b->value.structure();
                 for (Component* each = other->step_to_entry(nullptr); each; each = other->step_to_entry(each)) {
-                    if (each->name) {
+                    if (each->name != 0U) {
                         result.value.structure()->remove_component_of_type(each->name, value_kind(*each));
                     } else if (value_kind(*each) == QbValueKind::kName) {
                         result.value.structure()->erase_module(each->value.word());
@@ -864,7 +865,7 @@ void ValueResolver::execute()
             // A structure's member: copied (a referenced structure's members are referred to).
             if (type_b == QbValueKind::kName) {
                 if (const Component* member = a->value.structure()->find_last_component(b->value.word())) {
-                    duplicate_component(&result, member, type_a == QbValueKind::kStructRef);
+                    duplicate_component(&result, member, static_cast<int>(type_a == QbValueKind::kStructRef));
                 }
             } else {
                 error(
@@ -886,7 +887,8 @@ void ValueResolver::execute()
         } else if (b->value.word() >= a->value.array()->extent()) {
             error("[] index out of range"); // "[] index out of range"
         } else {
-            copy_array_element_to_component(a->value.array(), b->value.word(), &result, type_a == QbValueKind::kArrayRef);
+            copy_array_element_to_component(a->value.array(), b->value.word(), &result,
+                                            static_cast<int>(type_a == QbValueKind::kArrayRef));
             if ((result.type_and_flag_ & kComponentTypeBits) == 0) {
                 error(
                     "Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."

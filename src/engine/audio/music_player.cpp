@@ -100,9 +100,16 @@ int& order_count() { return shuffle_state().order_count_; }
 int& order_position() { return shuffle_state().order_position_; }
 bool& reshuffle() { return shuffle_state().reshuffle_; }
 
-bool music_on() { return music_state().sound_device() && game_config::hardware() != 2 && music_state().music_header_loaded(); }
+bool music_on()
+{
+    return (music_state().sound_device() != nullptr) && game_config::hardware() != 2 &&
+           music_state().music_header_loaded();
+}
 // The same for streamed sound effects (0x0067D7E1).
-bool streams_on() { return music_state().sound_device() && game_config::hardware() != 2 && music_state().streams_on(); }
+bool streams_on()
+{
+    return (music_state().sound_device() != nullptr) && game_config::hardware() != 2 && music_state().streams_on();
+}
 
 std::array<Stream, 3>& get_streams() { return music_state().streams(); }
 constexpr int kStreams = 3;
@@ -297,7 +304,7 @@ void set_random_mode(int mode)
     if (!music_on()) {
         return;
     }
-    random_order() = mode != 0;
+    random_order() = static_cast<uint8_t>(mode != 0);
     shuffle_user_flag() = mode > 0;
     if (mode != 0) {
         shuffle_user_soundtrack();
@@ -373,7 +380,7 @@ bool load_music_header(const char* name)
     if (!music_on()) {
         return false;
     }
-    music_header_loaded() = file_there(name, 0) != 0;
+    music_header_loaded() = file_there(name, 0);
     return music_header_loaded();
 }
 
@@ -456,7 +463,7 @@ int shuffle_random(int n)
 void play_next_track()
 {
     Playlist& list = core::at(get_playlists(), current_playlist());
-    if (!music_on() || list.unknownca8_) {
+    if (!music_on() || (list.unknownca8_ != 0U)) {
         return;
     }
     if (music_status() != 1) { // 1: no stream playing
@@ -545,7 +552,7 @@ void play_next_track_in_order()
         return;
     }
     Playlist& list = core::at(get_playlists(), current_playlist());
-    if (list.unknownca8_) {
+    if (list.unknownca8_ != 0U) {
         return;
     }
     if (music_status() != 1) { // 1: no stream playing
@@ -602,14 +609,14 @@ void tick_frame()
     for (int i = 0; i < kStreams; ++i) {
         Stream& stream = core::at(get_streams(), i);
         if (stream.listener && !get_playing(stream)) {
-            if (stream.listener->name) {
+            if (stream.listener->name != 0U) {
                 stream.listener->name = 0;
                 stream.listener->size = 0;
             }
             stream.listener = nullptr;
         }
     }
-    if (frame_count() & kUpdateFrameMask) {
+    if ((frame_count() & kUpdateFrameMask) != 0) {
         return;
     }
     const int playlist = current_playlist();
@@ -619,7 +626,7 @@ void tick_frame()
     if (music_is_paused()) {
         return;
     }
-    if (!random_track_order() && playlist != 1) {
+    if ((random_track_order() == 0) && playlist != 1) {
         play_next_track_in_order();
     } else {
         play_next_track();
@@ -731,7 +738,7 @@ const char* get_soundtrack_name(int index)
             WideCharToMultiByte(CP_ACP, 0, one.data(), 1, converted.data(), static_cast<int>(converted.size() - 1),
                                 nullptr, nullptr);
             if (length < kTitleLastIndex) {
-                core::at(name, length) = core::at(converted, 0) ? core::at(converted, 0) : '~';
+                core::at(name, length) = (core::at(converted, 0) != '\0') ? core::at(converted, 0) : '~';
                 ++length;
             }
         }

@@ -39,7 +39,7 @@ constexpr uint32_t kMusicStreamVolume = 0x73F8E03BU; // MusicStreamVolume
 constexpr float kDefaultStreamVolume = 50.0F;        // percent, when the script gives no music volume
 constexpr size_t kPathSize = 256;
 
-bool sound_available() { return music_state().sound_device() && game_config::hardware() != 2; }
+bool sound_available() { return (music_state().sound_device() != nullptr) && game_config::hardware() != 2; }
 bool music_on() { return sound_available() && music_state().music_header_loaded(); }
 bool streams_on() { return sound_available() && music_state().streams_on(); }
 
@@ -131,7 +131,7 @@ bool play_track_by_name(const char* name, float volume)
         platform_set_music_volume(volume);
         return true;
     }
-    if (!num_user_tracks(user_soundtrack())) {
+    if (num_user_tracks(user_soundtrack()) == 0U) {
         return false;
     }
     if (!play_user_track(user_soundtrack(), static_cast<int>(user_track()))) {
@@ -375,7 +375,7 @@ bool update_stream_volume(int slot)
     Stream* stream = stream_at(index);
     sound::VolumeRef volume;
     const sound::AudioMixer* manager = sound_manager();
-    if (stream->use_pos_info_) {
+    if (stream->use_pos_info_ != 0U) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = render::fetch_nearest_camera(
             &owner->entity()->at_point(), nullptr);

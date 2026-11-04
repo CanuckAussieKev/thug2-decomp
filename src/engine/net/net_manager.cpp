@@ -139,7 +139,7 @@ void Hub::set_network_domain(const char* name)
 // 0x004548F0
 uint32_t Hub::get_local_address()
 {
-    if (local_address_) {
+    if (local_address_ != 0U) {
         return local_address_;
     }
     return inet_addr(local_ip_.data());

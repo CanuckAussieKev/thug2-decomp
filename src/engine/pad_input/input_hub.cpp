@@ -117,7 +117,7 @@ void Payload::block_button_input(uint32_t mask)
 void Payload::block_stick_input(uint32_t mask)
 {
     for (int i = 0; i < kQueueCapacity; ++i) {
-        if (!(mask & (1U << i))) {
+        if ((mask & (1U << i)) == 0U) {
             continue;
         }
         const bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
@@ -133,7 +133,7 @@ void Payload::digital_as_stick()
         if (entry.mask <= 0) {
             break;
         }
-        core::at(incident_, entry.event) = (buttons_ & entry.mask) ? sio::kFullPressure : 0;
+        core::at(incident_, entry.event) = ((buttons_ & entry.mask) != 0U) ? sio::kFullPressure : 0;
     }
 }
 
@@ -160,7 +160,7 @@ void Payload::apply_deadzone_rules()
 // 0x0044EA30
 void Payload::pad_follows_stick()
 {
-    if (buttons_ & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft)) {
+    if ((buttons_ & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft)) != 0U) {
         return;
     }
     const uint8_t x = core::at(incident_, kLeftX);
@@ -195,7 +195,7 @@ HostEnd::HostEnd()
 // 0x0044EAA0
 void HostEnd::poll_input_sinks()
 {
-    if (data_in_ && data_in_->is_usable_) {
+    if (data_in_ && (data_in_->is_usable_ != 0U)) {
         set_buttons(content_, data_in_->buttons_);
         std::memcpy(content_.incident().data(), data_in_->incident_.data(), sizeof(content_.incident()));
         handlers_.work_on(nullptr);
@@ -203,7 +203,7 @@ void HostEnd::poll_input_sinks()
         return;
     }
     const sio::InputPort* device = dev_;
-    if (!device || !device->is_usable()) {
+    if (!device || (device->is_usable() == 0U)) {
         return;
     }
     Hub* manager = sole().get();

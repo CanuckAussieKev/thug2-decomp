@@ -150,7 +150,7 @@ void give_callback(ResourceRegistry* manager, Resource* asset)
 // `asset` depends on the asset `group` (if given): each knows the other.
 void join_group(ResourceRegistry* manager, Resource* asset, uint32_t group)
 {
-    if (!group) {
+    if (group == 0U) {
         return;
     }
     Resource* owner = manager->obtain_loaded_item(group, 1);
@@ -211,8 +211,8 @@ void* ResourceRegistry::read_resource_from_stream(checksums::Name resource, Reso
     memory::pop_mem_profile();
     const int failed = asset->load_from_buffer(data, size, copy, params, structure);
     memory::push_mem_profile("Asset Overhead");
-    if (failed) {
-        if (!keep_failed_assets()) {
+    if (failed != 0) {
+        if (keep_failed_assets() == 0) {
             delete asset;
         }
         memory::pop_mem_profile();
@@ -230,7 +230,7 @@ void* ResourceRegistry::load_asset(const char* name, ResourceKind type, AssetKey
 {
     auto checksum = asset_key.checksum;
     const auto group = asset_key.group;
-    if (!checksum) {
+    if (checksum == 0U) {
         checksum = checksums::hash_from_text(name);
     }
     if (type == ResourceKind::kNone) {
@@ -244,8 +244,8 @@ void* ResourceRegistry::load_asset(const char* name, ResourceKind type, AssetKey
     asset->set_checksum(checksum);
     join_group(this, asset, group);
     const int failed = asset->read_in(name, async, use_archive, params, structure);
-    if (failed) {
-        if (!keep_failed_assets()) {
+    if (failed != 0) {
+        if (keep_failed_assets() == 0) {
             delete asset;
         }
         return nullptr;
@@ -259,7 +259,7 @@ void* ResourceRegistry::load_asset(const char* name, ResourceKind type, AssetKey
 void* ResourceRegistry::fetch_or_load_resource(const char* name, ResourceKind type, uint32_t checksum, uint32_t group,
                                                bool async, bool use_archive, bool permanent, void* params, void* structure)
 {
-    if (!checksum) {
+    if (checksum == 0U) {
         checksum = checksums::hash_from_text(name);
     }
     void* data = nullptr;
@@ -277,7 +277,7 @@ void* ResourceRegistry::fetch_or_load_resource(const char* name, ResourceKind ty
 bool ResourceRegistry::load_anim(const char* name, uint32_t base, uint32_t offset, bool async, bool use_archive)
 {
     uint32_t checksum = checksums::hash_from_text(name);
-    if (base) {
+    if (base != 0U) {
         checksum = base + offset;
     }
     if (asset_exists(checksum)) {

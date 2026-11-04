@@ -243,7 +243,7 @@ Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
     const Slots slots(this);
     // (NOT ORIGINAL: at most every slot once - a full hash without the name went round for ever)
     uint32_t tries = slots.get_mask() + 1;
-    for (uint32_t slot = name & slots.get_mask(); tries-- && !slots.vacant(slot);
+    for (uint32_t slot = name & slots.get_mask(); ((tries--) != 0U) && !slots.vacant(slot);
          slot = (slot + 1) & slots.get_mask()) {
         auto* node =
             core::at(arrays_, slots.get_array(slot)).node_entries_->struct_at(slots.elem(slot));
@@ -273,7 +273,7 @@ void NodeManager::start_walk(uint32_t name)
 {
     Walk walk(this);
     walk.assign_value(0, 0);
-    if (!name) {
+    if (name == 0U) {
         return;
     }
     const Slots slots(this);
@@ -328,11 +328,11 @@ Array* NodeManager::get_last_node_array()
 {
     // NOT ORIGINAL: the level editor's overlay array (set_editor_node_array) is passed over - callers mean the level's.
     uint32_t i = num_;
-    while (i && node_array_hooks().editor_array_ &&
+    while ((i != 0U) && (node_array_hooks().editor_array_ != 0U) &&
            core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_) {
         --i;
     }
-    return i ? core::at(arrays_, i - 1).node_entries_ : nullptr;
+    return (i != 0U) ? core::at(arrays_, i - 1).node_entries_ : nullptr;
 }
 
 // 0x0045D150
@@ -340,11 +340,11 @@ uint32_t NodeManager::get_last_node_array_name()
 {
     // NOT ORIGINAL: as get_last_node_array, the editor's overlay array passed over.
     uint32_t i = num_;
-    while (i && node_array_hooks().editor_array_ &&
+    while ((i != 0U) && (node_array_hooks().editor_array_ != 0U) &&
            core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_) {
         --i;
     }
-    return i ? core::at(arrays_, i - 1).label_ : 0;
+    return (i != 0U) ? core::at(arrays_, i - 1).label_ : 0;
 }
 
 // 0x0045D140
@@ -393,7 +393,7 @@ void NodeManager::resolve_links(Array* nodes)
     for (uint32_t i = 0; i < count; ++i) {
         auto* node = nodes->struct_at(i);
         Array* links = nullptr;
-        if (!node->fetch_list(kLinks, &links, 0) || !links->extent()) {
+        if (!node->fetch_list(kLinks, &links, 0) || (links->extent() == 0U)) {
             continue;
         }
         const uint32_t link_count = links->extent();
@@ -501,7 +501,7 @@ void use_big_name_hash(NodeManager* manager, uint32_t slots)
 {
     big_node_arrays().big_owner_ = manager;
     std::vector<BigSlot>().swap(big_node_arrays().big_slots_);
-    if (manager && slots) {
+    if (manager && (slots != 0U)) {
         big_node_arrays().big_slots_.assign(slots, BigSlot{.element_list_ = 0, .list_link_ = -1});
     }
     big_node_arrays().big_walk_ = {.element_list_ = 0, .list_link_ = -1};

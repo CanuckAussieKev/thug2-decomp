@@ -196,26 +196,26 @@ int handle_object_update_length(net::InboundMsgCtx* context)
     stream.change_intake_contents(context->body(), kObjectUpdateBytes);
     const uint32_t present = stream.read_bits(8) & 0xFF;
     for (int skater = 0; skater < kPlayerSlotCount; ++skater) {
-        if (!(present & (1U << skater))) {
+        if ((present & (1U << skater)) == 0U) {
             continue;
         }
         stream.read_bits(kObjectUpdateTimeBits); // the time
         const uint32_t flags = stream.read_bits(kObjectUpdateFieldBits);
         for (int field = 0; field < kObjectUpdatePoseFields; ++field) { // the position and the rotation
-            if (flags & (1U << field)) {
+            if ((flags & (1U << field)) != 0U) {
                 stream.read_signed_bits(kObjectUpdatePoseBits);
             }
         }
-        if (flags & kObjectUpdateHasState) {
+        if ((flags & kObjectUpdateHasState) != 0U) {
             stream.read_bits(4);
             stream.read_bits(kObjectUpdateValue7cBits);
             stream.read_bits(1);
             stream.read_bits(1);
         }
-        if (flags & kObjectUpdateHasControls) {
+        if ((flags & kObjectUpdateHasControls) != 0U) {
             stream.read_bits(kObjectUpdateControlsFieldBits);
         }
-        if (flags & kObjectUpdateHasWord) {
+        if ((flags & kObjectUpdateHasWord) != 0U) {
             stream.read_signed_bits(kObjectUpdateWordBits);
         }
     }
@@ -369,7 +369,7 @@ int handle_team_object(net::InboundMsgCtx* context)
     const uint32_t object = message_word(context, 0);
     auto& objects = core::at(manager->team_objects(), player->team()); // five per team
     for (uint32_t& slot : objects) {
-        if (!slot) {
+        if (slot == 0U) {
             slot = object;
             return kContinue;
         }

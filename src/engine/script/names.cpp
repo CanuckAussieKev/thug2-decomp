@@ -190,7 +190,7 @@ void load_checksum_names(const char* file)
     std::array<char, kNameSize> name{};
     std::memcpy(name.data(), file, std::strlen(file) + 1);
     std::size_t extension = 0;
-    while (core::at(name, extension) && core::at(name, extension) != '.') {
+    while ((core::at(name, extension) != '\0') && core::at(name, extension) != '.') {
         ++extension;
     }
     std::memcpy(std::span<char>(name).subspan(extension).data(), ".chk", kChkExtensionBytes);
@@ -227,7 +227,7 @@ void publish_method_table(std::span<const char* const> names)
 void register_member_function_table(std::span<const MemberFunctionEntry> records)
 {
     for (const MemberFunctionEntry& record : records) {
-        if (!record.callsign_) {
+        if (record.callsign_ == 0U) {
             break;
         }
         SymbolTableEntry* symbol = create_symbol(record.callsign_);

@@ -23,7 +23,7 @@ constexpr std::array<uint32_t, kByteValueCount> make_table()
     for (uint32_t i = 0; i < kByteValueCount; ++i) {
         uint32_t c = i;
         for (int bit = 0; bit < kBitsInByte; ++bit) {
-            c = (c & 1) ? kCrcPolynomial ^ (c >> 1) : c >> 1;
+            c = ((c & 1) != 0U) ? kCrcPolynomial ^ (c >> 1) : c >> 1;
         }
         core::at(table, i) = c;
     }
@@ -63,7 +63,7 @@ uint32_t fold_text_into_checksum(uint32_t crc, const char* string)
     if (!string) {
         return crc;
     }
-    for (core::CStringCursor at(string); *at; ++at) {
+    for (core::CStringCursor at(string); *at != '\0'; ++at) {
         crc = get_step(crc, name_char(*at));
     }
     return crc;

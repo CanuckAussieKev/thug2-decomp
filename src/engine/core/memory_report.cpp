@@ -83,7 +83,7 @@ void log_memory_use(const char* when)
     PROCESS_MEMORY_COUNTERS counters = {};
     counters.cb = sizeof(counters);
     const auto [total, largest] = address_space();
-    if (K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) {
+    if (K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters)) != FALSE) {
         text::format_to(part, "; process: private %d MB (peak %d MB)", static_cast<int>(counters.PagefileUsage >> kMegabyteShift),
                         static_cast<int>(counters.PeakPagefileUsage >> kMegabyteShift));
         line += part.data();

@@ -33,7 +33,7 @@ constexpr float kDefaultDropoff = 1020.0F;      // the range a stream is heard f
 constexpr float kLoudChannelThreshold = 2.0F;
 constexpr float kPercentScale = 0.01F; // a percentage as a fraction
 
-bool sound_on() { return music_state().sound_device() && game_config::hardware() != 2; }
+bool sound_on() { return (music_state().sound_device() != nullptr) && game_config::hardware() != 2; }
 bool& stream_header_loaded() { return music_state().streams_on(); }
 bool streams_on() { return sound_on() && stream_header_loaded(); }
 
@@ -263,7 +263,7 @@ uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int opt
     if (!streams_on() || streams_blocked() || streaming_halted()) {
         return 0;
     }
-    if (!id) {
+    if (id == 0U) {
         id = checksum;
     }
     stream_id_finished(id); // (its answer unused)
@@ -351,7 +351,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums:
     Loudness stream_volume;
     construct_volume(&stream_volume);
     change_muted(&stream_volume);
-    if (use_pos_info) {
+    if (use_pos_info != 0) {
         const objects::GameEntity* object = component->entity();
         void* emitter = nearest_emitter(&object->at_point());
         bool audible = true;
@@ -376,7 +376,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums:
         std::memcpy(&core::at(stream_volume.lanes(), 1), &volume, 4);
     }
     const uint32_t playing = play_stream(checksum, &stream_volume, pitch, option, priority, id);
-    if (playing) {
+    if (playing != 0U) {
         const int last = last_stream();
         if (core::at(get_owners(), last)) {
             owner_id(core::at(get_owners(), last), last) = 0;
@@ -397,7 +397,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, checksums:
             if (core::at(get_streams(), i).id != playing) {
                 continue;
             }
-            if (use_pos_info) {
+            if (use_pos_info != 0) {
                 core::at(get_streams(), i).use_pos_info_ = 1;
                 core::at(get_streams(), i).falloff_curve_ = falloff_curve;
             } else {

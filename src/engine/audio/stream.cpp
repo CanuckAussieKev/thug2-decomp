@@ -285,7 +285,7 @@ void init_platform()
         const DWORD size = GetFileSize(index, nullptr);
         std::vector<uint8_t> contents(size == INVALID_FILE_SIZE ? 0 : size);
         DWORD read = 0;
-        if (!contents.empty() && !ReadFile(index, contents.data(), size, &read, nullptr)) {
+        if (!contents.empty() && (ReadFile(index, contents.data(), size, &read, nullptr) == FALSE)) {
             read = 0;
         }
         CloseHandle(index);
@@ -300,7 +300,7 @@ void init_platform()
             reader.skip(4);
         }
         LARGE_INTEGER wad_size{};
-        if (get_wad_file() == INVALID_HANDLE_VALUE || !GetFileSizeEx(get_wad_file(), &wad_size)) {
+        if (get_wad_file() == INVALID_HANDLE_VALUE || (GetFileSizeEx(get_wad_file(), &wad_size) == FALSE)) {
             wad_size.QuadPart = 0;
         }
         wad_entries() = static_cast<WadEntry*>(memory::alloc(count * sizeof(WadEntry)));
@@ -357,7 +357,7 @@ int find_wad_entry(uint32_t checksum)
 uint32_t stream_exists(checksums::Name stream_name, int music)
 {
     const uint32_t checksum = stream_name.value();
-    if (music) {
+    if (music != 0) {
         return 0;
     }
     return find_wad_entry(checksum) != -1 ? checksum : 0;

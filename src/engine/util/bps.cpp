@@ -42,7 +42,7 @@ uint32_t crc32(const uint8_t* bytes, size_t size)
         for (uint32_t i = 0; i < kByteValues; ++i) {
             uint32_t c = i;
             for (int bit = 0; bit < kBitsInByte; ++bit) {
-                c = c & 1 ? kCrcPolynomial ^ (c >> 1) : c >> 1;
+                c = ((c & 1) != 0U) ? kCrcPolynomial ^ (c >> 1) : c >> 1;
             }
             core::at(table, i) = c;
         }
@@ -74,7 +74,7 @@ uint64_t read_number(std::span<const uint8_t> buffer, size_t* offset)
     for (;;) {
         const uint8_t byte = read_byte(buffer, offset);
         result += static_cast<int>((byte & kNumberDataMask) << static_cast<int>(shift)); // (32-bit shifts, as upstream)
-        if (byte & kNumberEndFlag) {
+        if ((byte & kNumberEndFlag) != 0) {
             break;
         }
         shift += kNumberDataBits;
@@ -88,7 +88,7 @@ uint64_t read_number(std::span<const uint8_t> buffer, size_t* offset)
 int32_t decode_varint(std::span<const uint8_t> buffer, size_t* offset)
 {
     auto value = static_cast<int32_t>(read_number(buffer, offset));
-    return (value & 1) ? -(value >> 1) : (value >> 1);
+    return ((value & 1) != 0) ? -(value >> 1) : (value >> 1);
 }
 
 } // namespace

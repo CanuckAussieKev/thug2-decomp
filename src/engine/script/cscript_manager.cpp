@@ -120,12 +120,13 @@ void tick_child_scripts()
             next = next->following();
         }
         const uint8_t flags = script->spawn_flags();
-        bool run = (flags & kScriptFlagSpawned) && !((flags & kScriptFlagPaused) && script->pc());
-        if (run && (flags & kScriptFlagPauseWithObject) && script->entity().get_pull()) {
+        bool run =
+            ((flags & kScriptFlagSpawned) != 0) && !(((flags & kScriptFlagPaused) != 0) && (script->pc() != nullptr));
+        if (run && ((flags & kScriptFlagPauseWithObject) != 0) && script->entity().get_pull()) {
             run = object_runs_scripts(script->entity().get_pull());
         }
         if (run && script->tick_frame() == ScriptOutcome::kFinished) {
-            if (script->on_finish_script()) {
+            if (script->on_finish_script() != 0U) {
                 launch_script(script->on_finish_script(), script->callback_params().get(), script->entity().get_pull(), false,
                               nullptr);
             }
@@ -150,7 +151,7 @@ void kill_all_child_scripts()
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
         if (((script->spawn_flags() & kScriptFlagSpawned) != 0) &&
-            !(script->spawn_flags() & kScriptFlagNotSessionSpecific)) {
+            ((script->spawn_flags() & kScriptFlagNotSessionSpecific) == 0)) {
             Script::destroy(script);
         }
         script = next;
@@ -187,7 +188,7 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
     script->spawn_flags() = static_cast<uint8_t>((script->spawn_flags() & kSpawnFlagsKept) | kScriptFlagSpawned |
                                                 (not_session_specific ? kScriptFlagNotSessionSpecific : 0) |
                                                 (pause_with_object ? kScriptFlagPauseWithObject : 0));
-    if (callback) {
+    if (callback != 0U) {
         script->set_on_finish_script(callback);
         gsl::owner<Struct*> copy = script::new_struct();
         script->callback_params() = memory::take_unique<Struct, StructFree>(copy);
@@ -363,7 +364,7 @@ void resume_child_script(Script* script)
 bool script_exists(uint32_t name)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
-    return symbol && symbol->type() == QbValueKind::kScriptBody;
+    return (symbol != nullptr) && symbol->type() == QbValueKind::kScriptBody;
 }
 
 // 0x00472E00
@@ -449,7 +450,7 @@ void stop_all_scripts()
 void stop_scripts_using_object(objects::Entity* object, uint32_t name)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        if (uses_object(script, object) && (!name || script->script_title() == name)) {
+        if (uses_object(script, object) && ((name == 0U) || script->script_title() == name)) {
             halt(script);
         }
     }
@@ -459,7 +460,7 @@ void stop_scripts_using_object(objects::Entity* object, uint32_t name)
 void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t name)
 {
     for (Script* script = script_list_head(); script; script = script->following()) {
-        if (uses_object(script, object) && (!name || script_refers_to(script, name))) {
+        if (uses_object(script, object) && ((name == 0U) || script_refers_to(script, name))) {
             halt(script);
         }
     }

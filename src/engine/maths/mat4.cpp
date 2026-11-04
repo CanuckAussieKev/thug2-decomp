@@ -480,7 +480,7 @@ bool Mat4::restore_right_angles()
         Vec4 cross = cross_vec(a, b);
         target = cross.make_unit();
     };
-    if (short0 + short1 + short2 >= 2) {
+    if (static_cast<int>(short0) + static_cast<int>(short1) + static_cast<int>(short2) >= 2) {
         reset_to_identity();
         return true;
     }
@@ -692,7 +692,7 @@ Mat4& Mat4::get_adjugate(const Mat4& source)
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
             auto cofactor = static_cast<float>(minor(source, {.skip_row_ = c, .skip_col_ = r}));
-            core::at(row, r)[c] = ((r + c) & 1) ? -cofactor : cofactor;
+            core::at(row, r)[c] = (((r + c) & 1) != 0) ? -cofactor : cofactor;
         }
     }
     return *this;

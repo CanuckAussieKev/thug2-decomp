@@ -106,7 +106,7 @@ uint32_t script_pool_bytes(const Pools& p)
 uint32_t script_region_size()
 {
     uint32_t extra = get_grown(script_pool_bytes(at_hand()), script_pool_bytes(kOriginal));
-    if (extra) {
+    if (extra != 0U) {
         extra += kScriptHeapOverhead; // (the heap's block headers and alignment for the eleven allocations)
     }
     return kOriginalScriptRegion + ((extra + kAlign16) & ~kAlign16MaskUnsigned) + script_heap_extra();

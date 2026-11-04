@@ -200,7 +200,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     int named = 0;
     for (PlayerRecord* player = start_roster_sweep(manager, &players, true); player;
          player = step_roster_sweep(manager, &players, true)) {
-        if (is_observer(player) && !player->is_pending_observer()) {
+        if (is_observer(player) && (player->is_pending_observer() == 0)) {
             continue;
         }
         if (named >= kServerInfoPlayers) {
@@ -434,7 +434,7 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     }
     manager->clear_queued_scripts();
     manager->set_match_ended(false);
-    if (!message.flag) {
+    if (message.flag == 0U) {
         return kContinue;
     }
     auto* logic_tasks = (&assets::get_main_loop_manager()->logic_tasks());

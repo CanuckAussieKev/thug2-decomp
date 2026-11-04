@@ -41,7 +41,7 @@ void construct_context(InboundMsgCtx* context) { *context = InboundMsgCtx(); }
 NoteHandler* NoteHandler::teardown(unsigned int flags)
 {
     list_link_.uncouple(); // (lists::Elem<NoteHandler>'s 0x00457030)
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -56,7 +56,7 @@ void Router::prepare_all()
         if (node->data() == memory::ListNode::head_marker() || !node) {
             continue;
         }
-        for (bool again = true; again; again = node) {
+        for (bool again = true; again; again = (node != nullptr)) {
             const memory::ListNode* next = node->next();
             if (next->data() == memory::ListNode::head_marker()) {
                 next = nullptr;
@@ -149,7 +149,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size())) {
         context.set_type_code(static_cast<wire::MessageId>(packet.u8()));
         Hub* table = fetch_hub(conn->owner_app());
-        const bool has_length = !(message_flags(table, context.type_code()) & kMsgNoLength);
+        const bool has_length = (message_flags(table, context.type_code()) & kMsgNoLength) == 0;
         if (has_length) {
             context.set_body_size(packet.u16());
             // NOT ORIGINAL: a length past the packet's end ends it (the original copied that much into its buffer)
@@ -162,7 +162,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             add_message_metric(metrics, static_cast<wire::MessageId>(*std::next(p, kSequencedInnerIdOffset)), context.body_size());
         }
         if (has_length) {
-            if (context.body_size()) {
+            if (context.body_size() != 0U) {
                 std::memcpy(buffer.data(), p, context.body_size());
             }
         } else {

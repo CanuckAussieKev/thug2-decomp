@@ -125,7 +125,7 @@ bool AppHost::decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out) c
     if (length < 3) {
         return false;
     }
-    if (!(flag_bits_ & kSecure)) {
+    if ((flag_bits_ & kSecure) == 0U) {
         core::copy_into(packet, out);
         return true;
     }
@@ -226,7 +226,7 @@ bool AppHost::transmit_to(net::Address address, const uint8_t* data, int length,
     to.sin_port = htons(port);
     to.sin_addr.s_addr = ip;
     int result = 0;
-    if (flag_bits_ & kSecure) {
+    if ((flag_bits_ & kSecure) != 0U) {
         encrypt(data, scrambled_.data(), length, &length);
         result = sockets::send_bytes_to(sock_, scrambled_.data(), length, flags, to);
     } else {
@@ -247,7 +247,7 @@ bool AppHost::post_out(const uint8_t* data, int length, int flags)
     if (!linked_up_) {
         return false;
     }
-    if (flag_bits_ & kSecure) {
+    if ((flag_bits_ & kSecure) != 0U) {
         encrypt(data, scrambled_.data(), length, &length);
         return sockets::send_bytes(sock_, scrambled_.data(), length, flags) != SOCKET_ERROR;
     }
@@ -257,7 +257,7 @@ bool AppHost::post_out(const uint8_t* data, int length, int flags)
 // 0x00457110
 bool AppHost::prepare_all()
 {
-    if (!(flag_bits_ & kLocal)) {
+    if ((flag_bits_ & kLocal) == 0U) {
         const SOCKET made = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         sock_ = static_cast<uint32_t>(made);
         constexpr auto kNoSocket = INVALID_SOCKET; // (winsock's macro: a C cast of ~0)
@@ -270,8 +270,8 @@ bool AppHost::prepare_all()
             raise_fault();
             return false;
         }
-        if ((flag_bits_ & kBroadcast) && sockets::set_option(sock_, SOL_SOCKET, SO_BROADCAST, &on,
-                                                    sizeof(on)) == SOCKET_ERROR) {
+        if (((flag_bits_ & kBroadcast) != 0U) &&
+            sockets::set_option(sock_, SOL_SOCKET, SO_BROADCAST, &on, sizeof(on)) == SOCKET_ERROR) {
             raise_fault();
             return false;
         }
@@ -345,7 +345,7 @@ void AppHost::block_connection(Conn* conn)
 // 0x00457490
 void AppHost::tear_down_state()
 {
-    if (!(flag_bits_ & kLocal)) {
+    if ((flag_bits_ & kLocal) == 0U) {
         closesocket(sock_);
     }
     dispatcher_deinit(&dispatcher_);
@@ -445,7 +445,7 @@ bool AppHost::important_messages_due(Conn* conn) const
     for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
          link = important.following_item()) {
         const uint32_t sent = link->stamp_ms();
-        if (!sent || clock_ - sent > retransmit_limit(conn)) {
+        if ((sent == 0U) || clock_ - sent > retransmit_limit(conn)) {
             return true;
         }
     }
@@ -453,7 +453,7 @@ bool AppHost::important_messages_due(Conn* conn) const
     for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs()); link;
          link = sequenced.following_item()) {
         const uint32_t sent = link->stamp_ms();
-        if (!sent || clock_ - sent > retransmit_limit(conn)) {
+        if ((sent == 0U) || clock_ - sent > retransmit_limit(conn)) {
             return true;
         }
     }
@@ -473,7 +473,7 @@ bool AppHost::messages_due(Conn* conn) const
     for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
          link = important.following_item()) {
         const uint32_t sent = link->stamp_ms();
-        if (!sent || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn)) {
+        if ((sent == 0U) || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn)) {
             return true;
         }
     }
@@ -481,7 +481,7 @@ bool AppHost::messages_due(Conn* conn) const
     for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs()); link;
          link = sequenced.following_item()) {
         const uint32_t sent = link->stamp_ms();
-        if (!sent || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn)) {
+        if ((sent == 0U) || clock_ < link->due_time() || clock_ - sent > retransmit_limit(conn)) {
             return true;
         }
     }

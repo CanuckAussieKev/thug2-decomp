@@ -103,7 +103,7 @@ void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
 // 0x00543910
 bool PlayerRecord::is_invulnerable()
 {
-    if (!(conn_->cur_standing() & net::Conn::kConnReady) || !rider()->get_flag_2c_4()) {
+    if (((conn_->cur_standing() & net::Conn::kConnReady) == 0U) || !rider()->get_flag_2c_4()) {
         return true;
     }
     if (rider()->state_history()->state_count() < kMinStateHistoryFrames) { // (its state history's frames)
@@ -120,7 +120,7 @@ bool PlayerRecord::is_invulnerable()
             return true;
         }
     }
-    if (is_eliminated() || (skater_->composite_flags() >> 2) & 1) {
+    if (is_eliminated() || (((skater_->composite_flags() >> 2) & 1) != 0U)) {
         return true;
     }
     if (frame_clock::get_time() - join_time_ <= kJustJoinedTime) {

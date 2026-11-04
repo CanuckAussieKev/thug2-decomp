@@ -548,7 +548,7 @@ void AppHost::drop_broken_links()
     Conn* conn = search.head_element(&circuits_);
     while (conn) {
         Conn* next = search.following_item();
-        if ((get_standing(conn) & kConnClosing) && !messages_due(conn)) {
+        if (((get_standing(conn) & kConnClosing) != 0U) && !messages_due(conn)) {
             mark_stale(conn);
         }
         if (!is_sound(conn) && conn->incoming().used == 0 && !messages_due(conn)) {

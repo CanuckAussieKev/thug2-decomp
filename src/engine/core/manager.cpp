@@ -153,14 +153,14 @@ void Hub::leave_heap_scope()
 {
     --context_depth_;
     core::at(alloc_source_stack_, context_depth_) = nullptr; // (the original left -1 there; never read)
-    ongoing_ = context_depth_ ? &core::at(alloc_source_stack_, context_depth_ - 1) : nullptr;
+    ongoing_ = (context_depth_ != 0) ? &core::at(alloc_source_stack_, context_depth_ - 1) : nullptr;
 }
 
 // 0x005BB150
 const char* Hub::current_heap_name() { return (*ongoing_)->label(); }
 
 // 0x005BAC10
-MemSource* Hub::first_zone() { return heap_count_ ? core::at(heaps_, 0) : nullptr; }
+MemSource* Hub::first_zone() { return (heap_count_ != 0) ? core::at(heaps_, 0) : nullptr; }
 
 // 0x005BAC20 (the last heap is never found, so its "next" is null too)
 MemSource* Hub::following_zone(MemSource* heap)
@@ -488,7 +488,7 @@ unsigned int malloc_size(void* memory) { return memory ? get_block_size(memory) 
 void* regrow(void* memory, unsigned int size)
 {
     void* block = nullptr;
-    if (size) {
+    if (size != 0U) {
         block = heap_allocate(*Hub::get_pull()->ongoing(), size, 1);
         if (block) {
             mark_block_in_use(block);

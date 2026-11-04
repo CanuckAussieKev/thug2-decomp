@@ -154,7 +154,7 @@ uint8_t* ArchiveFile::find_entry_by_key(FileInfo* handle)
         }
         if (info->data && info == handle) {
             open_entry_ = info;
-            return info->compressed_size_ ? info->unpacked : info->data;
+            return (info->compressed_size_ != 0) ? info->unpacked : info->data;
         }
     }
     return nullptr;
@@ -184,7 +184,7 @@ int ArchiveFile::get_take_in(void* out, unsigned int count)
     FileInfo* file = open_entry_;
     auto left = static_cast<unsigned int>(file->size - file->position);
     const unsigned int n = count <= left ? count : left;
-    const uint8_t* source = file->compressed_size_ ? file->unpacked : file->data;
+    const uint8_t* source = (file->compressed_size_ != 0) ? file->unpacked : file->data;
     move_memory_block(out, std::span<const uint8_t>(source, static_cast<size_t>(file->size)).subspan(static_cast<size_t>(file->position)).data(), n);
     file->position += static_cast<int>(n);
     return static_cast<int>(n);
@@ -386,7 +386,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         uint32_t patch_size = 0;
         bool patched = false;
         const char letter = get_language() == core::kLanguageFrench ? 'f' : get_language() == core::kLanguageGerman ? 'd' : '\0';
-        if (letter) {
+        if (letter != '\0') {
             core::at(path, length - 1) = letter;
             if (!file::is_present(path.data())) {
                 core::at(path, length - 2) = 'p';

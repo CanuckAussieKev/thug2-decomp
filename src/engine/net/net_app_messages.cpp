@@ -97,7 +97,7 @@ bool lzss_stream_fits(std::span<const uint8_t> stream, int expected)
         if (size == 0) {
             return expanded == expected;
         }
-        if (flags & 1) {
+        if ((flags & 1) != 0U) {
             ++in;
             --size;
             ++expanded;
@@ -127,13 +127,13 @@ void free_queued_msg(PendingMsg* msg)
 bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
 {
     const uint8_t flags = message_flags(app->supervisor(), msg->ident());
-    auto size = static_cast<uint16_t>(msg->byte_count() + ((~flags & kMsgNoLength) ? 3 : 1));
+    auto size = static_cast<uint16_t>(msg->byte_count() + (((~flags & kMsgNoLength) != 0) ? 3 : 1));
     if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize)) {
         return false;
     }
     util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));
     writer.u8(core::to_underlying(msg->ident()));
-    if (!(message_flags(app->supervisor(), msg->ident()) & kMsgNoLength)) {
+    if ((message_flags(app->supervisor(), msg->ident()) & kMsgNoLength) == 0) {
         writer.u16(msg->byte_count());
     }
     writer.bytes(msg->content(), msg->byte_count());
@@ -459,7 +459,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     const uint16_t packetstamp = reader.u16();
     uint32_t sent_time = 0;
     context->set_body_size(sizeof(uint16_t));
-    if (context->wire_options() & kPacketForeign) {
+    if ((context->wire_options() & kPacketForeign) != 0U) {
         return kResultConsumed;
     }
 
@@ -468,7 +468,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
         ReliableMsgNode* next = nullptr;
         for (ReliableMsgNode* link = search.head_element(&context->sender_conn()->important_msgs()); link; link = next) {
             next = search.following_item();
-            if (packetstamp == static_cast<uint16_t>(link->packet_clock()) && link->stamp_ms()) {
+            if (packetstamp == static_cast<uint16_t>(link->packet_clock()) && (link->stamp_ms() != 0U)) {
                 free_queued_msg(link->shared_msg());
                 sent_time = link->stamp_ms();
                 link->teardown(1);
@@ -480,7 +480,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
         OrderedMsgNode* next = nullptr;
         for (OrderedMsgNode* link = search.head_element(&context->sender_conn()->sequenced_msgs()); link; link = next) {
             next = search.following_item();
-            if (packetstamp == static_cast<uint16_t>(link->packet_clock()) && link->stamp_ms()) {
+            if (packetstamp == static_cast<uint16_t>(link->packet_clock()) && (link->stamp_ms() != 0U)) {
                 SeqQueuedMsg* msg = link->shared_msg();
                 if (--msg->share_count() == 0) {
                     destroy_queued_msg(msg);
@@ -493,7 +493,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     }
 
     Conn* conn = context->sender_conn();
-    if (is_off_machine(conn) && (conn->cur_standing() & kConnStatus1) && sent_time) {
+    if (is_off_machine(conn) && ((conn->cur_standing() & kConnStatus1) != 0U) && (sent_time != 0U)) {
         uint32_t latency = get_timestamp(context->receiver_app()) - sent_time;
         const uint32_t current =
             net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency());

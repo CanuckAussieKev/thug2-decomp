@@ -381,7 +381,7 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
 uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, bool assert, void (*callback)())
 {
     util::ByteWriter out(buffer, size);
-    return emit_structure(out, structure, assert, callback);
+    return emit_structure(out, structure, static_cast<int>(assert), callback);
 }
 
 // 0x0047A070
@@ -404,10 +404,10 @@ void decode_array(Array* array, util::ByteReader& reader);
 // A component's name after its type byte: an index into one of the two name arrays, or the name itself.
 uint32_t read_name(util::ByteReader& reader, uint8_t type)
 {
-    if (type & kShortNameFlag) {
+    if ((type & kShortNameFlag) != 0) {
         return fetch_list(kShortNames)->fetch_part(reader.u8());
     }
-    if (type & kMediumNameFlag) {
+    if ((type & kMediumNameFlag) != 0) {
         return fetch_list(kMediumNames)->fetch_part(reader.u16());
     }
     return reader.u32();

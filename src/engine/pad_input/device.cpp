@@ -198,10 +198,10 @@ void InputPort::get_settle()
 // the reading).
 void InputPort::fire_actuator(int actuator, int percent)
 {
-    if (rumble_off_) {
+    if (rumble_off_ != 0U) {
         return;
     }
-    if (cur_phase_ != InputPort::State::kReady || !(capabilities_ & kHasActuators)) {
+    if (cur_phase_ != InputPort::State::kReady || ((capabilities_ & kHasActuators) == 0U)) {
         return;
     }
     if (actuator < 0 || actuator >= rumble_motor_count_) {
@@ -221,10 +221,10 @@ void InputPort::fire_actuator(int actuator, int percent)
 // 0x005BDAD0
 void InputPort::stop_rumble()
 {
-    if (rumble_off_) {
+    if (rumble_off_ != 0U) {
         return;
     }
-    if (cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
+    if (cur_phase_ == InputPort::State::kReady && ((capabilities_ & kHasActuators) != 0U)) {
         for (int i = 0; i < rumble_motor_count_; ++i) {
             core::at(rumble_raw_, i) = 0;
         }
@@ -237,7 +237,7 @@ void InputPort::stop_rumble()
 // stop_rumble acts, which sets it again).
 void InputPort::clear_rumble()
 {
-    if (rumble_off_) {
+    if (rumble_off_ != 0U) {
         rumble_off_ = 0;
         stop_rumble();
         return;
@@ -249,7 +249,7 @@ void InputPort::clear_rumble()
 // 0x005BDB60
 void InputPort::pause_actuators()
 {
-    if (pause_count_ == 0 && cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
+    if (pause_count_ == 0 && cur_phase_ == InputPort::State::kReady && ((capabilities_ & kHasActuators) != 0U)) {
         for (int i = 0; i < rumble_motor_count_; ++i) {
             core::at(actuator_saved_, i) = core::at(rumble_raw_, i);
             core::at(rumble_raw_, i) = 0;
@@ -269,7 +269,7 @@ void InputPort::unpause_actuators()
     if (pause_count_ != 0) {
         return;
     }
-    if (cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
+    if (cur_phase_ == InputPort::State::kReady && ((capabilities_ & kHasActuators) != 0U)) {
         for (int i = 0; i < rumble_motor_count_; ++i) {
             core::at(rumble_raw_, i) = core::at(actuator_saved_, i);
         }
@@ -280,7 +280,7 @@ void InputPort::unpause_actuators()
 // 0x005BDC60
 void InputPort::stop_actuators()
 {
-    if (cur_phase_ == InputPort::State::kReady && (capabilities_ & kHasActuators)) {
+    if (cur_phase_ == InputPort::State::kReady && ((capabilities_ & kHasActuators) != 0U)) {
         for (int i = 0; i < rumble_motor_count_; ++i) {
             core::at(rumble_raw_, i) = 0;
             core::at(actuator_saved_, i) = 0;
@@ -410,7 +410,7 @@ void key_input(KeyEvent key_event)
         key = kTypedBackspace;
         break; // Backspace
     case VK_ESCAPE: // Escape (not its auto-repeats)
-        if (flags & kKeyRepeatFlag) {
+        if ((flags & kKeyRepeatFlag) != 0) {
             queue = false;
         } else {
             key = kTypedEscape;
@@ -680,7 +680,7 @@ void special_key_input(KeyEvent key_event)
             break;
         }
     }
-    if (queued) {
+    if (queued != 0) {
         core::at(keyboard_chars(), keyboard_char_count()++) = queued;
     }
     if (keyboard_char_count() == kKeyboardCharCapacity) {
@@ -707,7 +707,7 @@ int get_menu_port() { return objects::profile_roster()->cursor_pos(); }
 
 uint8_t if_above(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t pressure_or_zero(uint8_t value) { return value > kPressedThreshold ? value : 0; }
-uint8_t all_or_nothing(uint32_t value) { return value ? kFullPressure : 0; }
+uint8_t all_or_nothing(uint32_t value) { return (value != 0U) ? kFullPressure : 0; }
 // A stick from -32768..32767 to 0..255 (signed division, rounding toward zero).
 uint8_t get_stick(int value) { return static_cast<uint8_t>(value / kStickScale); }
 } // namespace
@@ -791,7 +791,8 @@ void InputPort::pull_data(int /*unused*/)
     read_pad_state(port_no_, &pad);
     const auto& p = pad.pressure;
     const uint16_t buttons = pad.buttons;
-    const bool keyboard_menu = keyboard_control_ && menu_mode; // (the keyboard drives the menus: some buttons ignored)
+    const bool keyboard_menu =
+        (keyboard_control_ != 0U) && menu_mode; // (the keyboard drives the menus: some buttons ignored)
     is_usable_ = 1;
     is_connected_ = true;
     // Two bytes of button bits, each set while the button is up.
@@ -854,7 +855,9 @@ void InputPort::pull_data(int /*unused*/)
     if (core::at(p, kSnapshotWhite) > kPressedThreshold) {
         core::at(control_data_, kControlExtraButtons) |= 2;
     }
-    held_down_ = ((core::at(control_data_, kControlButtonsHigh) << kByteBits | core::at(control_data_, kControlButtonsLow)) ^ kAllButtonBits) != 0;
+    held_down_ = static_cast<uint8_t>(
+        ((core::at(control_data_, kControlButtonsHigh) << kByteBits | core::at(control_data_, kControlButtonsLow)) ^
+         kAllButtonBits) != 0);
 
     // The keyboard takes over the menus after start, a pressed trigger, a typed Enter, or (playing) Enter.
     bool enter_typed = false;
@@ -868,7 +871,9 @@ void InputPort::pull_data(int /*unused*/)
             }
         }
     }
-    keyboard_control_ = (buttons & kSnapshotStart) || core::at(p, kSnapshotA) >= kPressedThreshold || enter_typed || (playing && get_key_down(kScanEnter));
+    keyboard_control_ =
+        static_cast<uint8_t>(((buttons & kSnapshotStart) != 0) || core::at(p, kSnapshotA) >= kPressedThreshold ||
+                             enter_typed || (playing && get_key_down(kScanEnter)));
 }
 
 // --- the manager -------------------------------------------------------------------------------------------
@@ -921,7 +926,7 @@ void process_all(memory::ListNode* devices)
     lists::Hunt<InputPort> search;
     bool first = true;
     for (InputPort* device = search.head_element(devices); device; device = search.following_item()) {
-        device->work_on(first);
+        device->work_on(static_cast<int>(first));
         first = false;
     }
 }

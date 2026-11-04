@@ -126,7 +126,7 @@ gsl::owner<HostEnd*> Hub::make_server_app(int id, const char* name, int max_clie
         server->set_linked_up(true);
     } else {
         server->get_bind(static_cast<uint32_t>(address), port);
-        if (flags & 1) {
+        if ((flags & 1) != 0) {
             server->set_linked_up(true);
         }
     }

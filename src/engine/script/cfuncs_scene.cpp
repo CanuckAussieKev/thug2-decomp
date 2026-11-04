@@ -102,7 +102,7 @@ void unload_tex_dict(void* textures) { render::unload_tex_dict(static_cast<rende
 // (0x0049DFD0).
 void load_scene_collision(void* scene, const char* name, bool is_net)
 {
-    static_cast<render::WorldScene*>(scene)->load_collision_file(name, is_net);
+    static_cast<render::WorldScene*>(scene)->load_collision_file(name, static_cast<int>(is_net));
 }
 void add_scene_collision(void* scene, const char* add) { static_cast<render::WorldScene*>(scene)->load_add_scene(add); }
 
@@ -135,7 +135,7 @@ bool cfunc_load_terrain_sounds(Struct* params, Script* /*script*/)
 bool cfunc_preload_model(Struct* params, Script* /*script*/)
 {
     const char* name = nullptr;
-    params->fetch_text(kName, &name, true);
+    params->fetch_text(kName, &name, 1);
     gsl::owner<render::RenderModel*> model = spawn_model(1);
     const bool allow_replace_tex = params->has_bare_flag(kAllowReplaceTex);
     text::Chars file;
@@ -156,7 +156,7 @@ bool cfunc_unload_all_level_geometry(Struct* /*params*/, Script* /*script*/)
 bool cfunc_load_collision(Struct* params, Script* /*script*/)
 {
     const char* name = nullptr;
-    params->fetch_text(kScene, &name, false);
+    params->fetch_text(kScene, &name, 0);
     if (name) {
         const bool is_net = params->has_bare_flag(kIsNet);
         load_scene_collision(look_up_scene(name), name, is_net);
@@ -169,8 +169,8 @@ bool cfunc_add_collision(Struct* params, Script* /*script*/)
 {
     const char* scene = nullptr;
     const char* add = nullptr;
-    params->fetch_text(kScene, &scene, false);
-    params->fetch_text(kAdd, &add, false);
+    params->fetch_text(kScene, &scene, 0);
+    params->fetch_text(kAdd, &add, 0);
     if (scene && add) {
         add_scene_collision(look_up_scene(scene), add);
     }
@@ -181,7 +181,7 @@ bool cfunc_add_collision(Struct* params, Script* /*script*/)
 bool cfunc_quick_reload(Struct* params, Script* /*script*/)
 {
     const char* name = nullptr;
-    params->fetch_text(kScene, &name, false);
+    params->fetch_text(kScene, &name, 0);
     if (name) {
         quick_reload_scene(name);
     }
@@ -193,14 +193,14 @@ bool cfunc_unload_anim(Struct* params, Script* /*script*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name = nullptr;
-    params->fetch_text(kName, &name, true);
+    params->fetch_text(kName, &name, 1);
     uint32_t desc = 0;
     uint32_t reference = 0;
     params->read_hash_value(kSpecKey, &desc, 1);
     if (!params->read_hash_value(kTargetKey, &reference, 0)) {
         reference = static_cast<uint32_t>(assets->unknown18()); // the reference checksum (SetReferenceChecksum)
     }
-    const uint32_t checksum = desc ? reference + desc : checksums::hash_from_text(name);
+    const uint32_t checksum = (desc != 0U) ? reference + desc : checksums::hash_from_text(name);
     if (assets::Resource* asset = assets->obtain_loaded_item(checksum, 0)) {
         assets->discard_loaded_item(asset);
     }
@@ -213,13 +213,13 @@ bool cfunc_load_asset(Struct* params, Script* /*script*/)
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t parent = 0;
     const char* name = nullptr;
-    if (!params->fetch_text(kName, &name, false)) {
-        params->fetch_text(0U, &name, true);
+    if (!params->fetch_text(kName, &name, 0)) {
+        params->fetch_text(0U, &name, 1);
     }
-    params->read_hash_value(kParent, &parent, false);
+    params->read_hash_value(kParent, &parent, 0);
     const bool async = params->has_bare_flag(kAsync);
     uint32_t desc = 0;
-    params->read_hash_value(kDesc, &desc, false);
+    params->read_hash_value(kDesc, &desc, 0);
     if (!assets->fetch_or_load_resource(name, assets::ResourceKind::kNone, desc, parent, async, false,
                                         assets->get_permanent_by_default(), nullptr, params)) {
         script::fetch_int_value(kAssertOnMissingAssets); // (an assert on it compiled out)
@@ -233,8 +233,8 @@ bool cfunc_load_anim(Struct* params, Script* /*script*/)
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name = nullptr;
     uint32_t desc = 0;
-    params->fetch_text(kName, &name, false);
-    params->read_hash_value(kSpecKey, &desc, true);
+    params->fetch_text(kName, &name, 0);
+    params->read_hash_value(kSpecKey, &desc, 1);
     const bool async = params->has_bare_flag(kAsync);
     const bool use_pip = params->has_bare_flag(kUsePip);
     return assets->load_anim(name, desc, static_cast<uint32_t>(assets->unknown18()), async, use_pip);
@@ -246,7 +246,7 @@ bool cfunc_load_skeleton(Struct* params, Script* /*script*/)
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name = nullptr;
     uint32_t checksum = 0;
-    params->fetch_text(kName, &name, true);
+    params->fetch_text(kName, &name, 1);
     params->read_hash_value(0U, &checksum, 1);
     assets->fetch_or_load_resource(name, assets::ResourceKind::kNone, checksum, 0, false, false, assets->get_permanent_by_default(), nullptr, nullptr);
     return true;
@@ -258,7 +258,7 @@ bool cfunc_set_reference_checksum(Struct* params, Script* /*script*/)
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t checksum = 0; // (uninitialised in the original when neither is given; the getter asserts)
     if (!params->read_hash_value(0U, &checksum, 0)) {
-        params->fetch_int_value(0U, &checksum, true);
+        params->fetch_int_value(0U, &checksum, 1);
     }
     assets->set_unknown18(static_cast<int>(checksum));
     return true;
@@ -269,7 +269,7 @@ bool cfunc_set_default_permanent(Struct* params, Script* /*script*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     int permanent = 0; // (uninitialised in the original without one; the getter asserts)
-    params->fetch_int_value(0U, &permanent, true);
+    params->fetch_int_value(0U, &permanent, 1);
     assets->set_permanent_by_default(permanent != 0);
     return true;
 }
@@ -279,8 +279,8 @@ bool cfunc_add_scene(Struct* params, Script* /*script*/)
 {
     const char* scene = nullptr;
     const char* add = nullptr;
-    params->fetch_text(kScene, &scene, false);
-    params->fetch_text(kAdd, &add, false);
+    params->fetch_text(kScene, &scene, 0);
+    params->fetch_text(kAdd, &add, 0);
     if (scene && add) {
         memory::Hub* manager = memory::Hub::sole();
         manager->enter_heap_scope(manager->debug_heap());
@@ -294,7 +294,7 @@ bool cfunc_add_scene(Struct* params, Script* /*script*/)
 bool cfunc_unload_scene(Struct* params, Script* /*script*/)
 {
     const char* name = nullptr;
-    params->fetch_text(kScene, &name, false);
+    params->fetch_text(kScene, &name, 0);
     bool found = false;
     if (name) {
         void* scene = look_up_scene(name);

@@ -143,7 +143,7 @@ bool cfunc_load_qb(script::Struct* params, script::Script* /*script*/)
         return true;
     }
     for (uint32_t& file : script::script_state().level_qb_files()) {
-        if (!file) {
+        if (file == 0U) {
             file = checksums::hash_from_text(name);
             break;
         }

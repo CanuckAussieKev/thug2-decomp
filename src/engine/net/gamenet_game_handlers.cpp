@@ -242,7 +242,7 @@ int handle_flag_returned(net::InboundMsgCtx* context)
         return kDone;
     }
     PlayerRecord* player = find_player_slot_by_obj(manager, &id);
-    if (!player || !player->is_carrying_flag()) { // (carrying a flag: 0 / 1)
+    if (!player || (player->is_carrying_flag() == 0)) { // (carrying a flag: 0 / 1)
         return kContinue;
     }
     const int team = player->get_flag_team(); // the flag's team
@@ -270,7 +270,7 @@ int handle_rails_data(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
-    if (!(context->wire_options() & net::kPacketChecksumMismatch)) {
+    if ((context->wire_options() & net::kPacketChecksumMismatch) == 0U) {
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->bottom_up_heap());
         static_cast<park_editing::RailAuthoring*>(get_rail_editor())
@@ -298,7 +298,7 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
-    if (!(context->wire_options() & net::kPacketChecksumMismatch)) {
+    if ((context->wire_options() & net::kPacketChecksumMismatch) == 0U) {
         // {u32 level, the goals as a written structure} (NOT ORIGINAL: read within the message - a short one is
         // dropped, the structure decoded no further than its end)
         util::ByteReader reader(context->body(), context->body_size());
@@ -371,7 +371,7 @@ int handle_selected_goals(net::InboundMsgCtx* context)
     // on until it found a 0)
     util::ByteReader reader(context->body(), context->body_size());
     const uint8_t show = reader.u8();
-    for (uint32_t goal = reader.u32(); reader.ok() && goal; goal = reader.u32()) {
+    for (uint32_t goal = reader.u32(); reader.ok() && (goal != 0U); goal = reader.u32()) {
         goals::Objective* entry = get_goal(goals, goal);
         entry->un_beat(); // (the original's vtable +0x74)
         entry->choose_one();
@@ -478,9 +478,9 @@ int handle_goal_completed(net::InboundMsgCtx* context)
     }
     // A teammate's: the goal (or the last of its chain) ended here too.
     const goals::GoalEdge* next = goal->sub_nodes();
-    if (next->objective_key_) {
+    if (next->objective_key_ != 0U) {
         goals::Objective* last = goal;
-        while (next && next->objective_key_) {
+        while (next && (next->objective_key_ != 0U)) {
             last = get_goal(goals, next->objective_key_);
             next = last->sub_nodes();
         }

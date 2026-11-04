@@ -103,7 +103,7 @@ const char* const kHashFieldName = "checksum";    // "checksum"
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
-bool get_filled(const char* text) { return text && *text; }
+bool get_filled(const char* text) { return (text != nullptr) && (*text != '\0'); }
 
 // A preference's ui_string set to `text` (the parameters freed again).
 void set_preference_text(prefs::Preferences* preferences, uint32_t name, const char* text)
@@ -161,7 +161,7 @@ void Hub::use_network_preferences()
     const char* subnet_override = script::fetch_text(kSubnetMaskOverride);
     const char* dns_override = script::fetch_text(kDnsServerOverride);
     if (ip_override) {
-        if (!*ip_override) {
+        if (*ip_override == '\0') {
             ip_override = nullptr;
         } else {
             dhcp = false;
@@ -229,7 +229,7 @@ void Hub::use_network_preferences()
     uint32_t device = 0;
     preferences->fetch_setting(kDeviceType)->read_hash_value(kChecksum, &device, 1);
     const bool force_broadband_pc = *script::fetch_text(kForceBroadbandPc) != 0;
-    if (*script::fetch_text(kForcePcmcia)) {
+    if (*script::fetch_text(kForcePcmcia) != '\0') {
         if (ip_override) {
             get_run(kSpoofPcmciaAdaptorSetup);
         }
@@ -328,7 +328,7 @@ bool Hub::connect_to_internet(ConnectScripts scripts)
             return online;
         }
     }
-    if (online_script_) {
+    if (online_script_ != 0U) {
         get_run(online_script_);
     }
     return online;
@@ -340,7 +340,7 @@ void Hub::disconnect_from_internet(uint32_t script)
     tasks::PileUp* tasks = get_logic_tasks();
     net::Hub* net = net::Hub::sole();
     modem_state_shown_ = -1;
-    if (script) {
+    if (script != 0U) {
         online_fail_script_ = script;
     }
     tasks->queue_job(dialup_job_.get());
@@ -388,7 +388,7 @@ void Hub::find_server_at(uint32_t ip)
     if (!browser_client_) {
         start_matchmaking_client();
     }
-    if (!ip) {
+    if (ip == 0U) {
         net_game_state().set_asked_for(0);
         return;
     }
@@ -436,7 +436,7 @@ void Hub::change_arena(uint32_t level)
 {
     level_ = level;
     void* peer = lobby_service_->get_lobby_handle();
-    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->is_hosting()) {
+    if (peer && (game_spy::peer_is_connected(peer) != 0) && lobby_service_->is_hosting()) {
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     }
     // (cleared just before it's tested: the reporting's state-changed call below never happens)

@@ -144,7 +144,7 @@ PlayerRecord::~PlayerRecord()
 PlayerRecord* PlayerRecord::teardown(unsigned int flags)
 {
     this->~PlayerRecord();
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -226,7 +226,7 @@ void PlayerRecord::await_ready_response(uint32_t id)
     if (!conn_ || !conn_->is_off_machine()) {
         return;
     }
-    if (id) {
+    if (id != 0U) {
         ready_query_owed_ = id;
     }
     conn_->cur_standing() &= ~net::Conn::kConnReady;
@@ -273,10 +273,13 @@ void PlayerRecord::mark_just_joined()
     flag_bits_ |= PlayerFlag::kJustJoined;
 }
 void PlayerRecord::clear_just_joined() { flag_bits_ &= ~PlayerFlag::kJustJoined; }
-int PlayerRecord::has_finished_joining() { return core::any(flag_bits_ & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) != 0 ? 1 : 0; }
+int PlayerRecord::has_finished_joining()
+{
+    return core::any(flag_bits_ & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) ? 1 : 0;
+}
 void PlayerRecord::set_host_player() { flag_bits_ |= PlayerFlag::kServer; }
 void PlayerRecord::clear_server_player() { flag_bits_ &= ~PlayerFlag::kServer; }
-int PlayerRecord::is_carrying_flag() { return core::any(flag_bits_ & PlayerFlag::kCarryingFlags) != 0 ? 1 : 0; }
+int PlayerRecord::is_carrying_flag() { return core::any(flag_bits_ & PlayerFlag::kCarryingFlags) ? 1 : 0; }
 int PlayerRecord::get_flag_team()
 {
     for (int team = 0; team < 4; ++team) {
@@ -301,8 +304,8 @@ bool PlayerRecord::is_eliminated()
         return false;
     }
     objects::ObjectModule* score = rider()->fetch_module(kSkaterScore);
-    return score && core::down_cast<objects::RiderPointKeeper>(score)->points_held()->get_total_score() ==
-                        0; // (its score's lives)
+    return (score != nullptr) && core::down_cast<objects::RiderPointKeeper>(score)->points_held()->get_total_score() ==
+                                     0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kKing)); }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl() : 0; }
@@ -315,7 +318,7 @@ int PlayerRecord::is_pending_observer() { return static_cast<int>(core::any(flag
 ScoreEntry* ScoreEntry::teardown(unsigned int flags)
 {
     unlink_node(this);
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;

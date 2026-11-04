@@ -299,7 +299,7 @@ FriendNote::FriendNote()
 Buddy* Buddy::teardown(unsigned int flags)
 {
     destroy_buddy_node(this);
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
@@ -309,7 +309,7 @@ Buddy* Buddy::teardown(unsigned int flags)
 FriendNote* FriendNote::teardown(unsigned int flags)
 {
     destroy_message_node(this);
-    if (flags & 1) {
+    if ((flags & 1) != 0U) {
         memory::Hub::dealloc(this);
     }
     return this;
