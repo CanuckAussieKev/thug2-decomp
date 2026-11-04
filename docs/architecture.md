@@ -74,10 +74,9 @@ online session - the GameSpy lobby, rooms, buddies, the content vault, stats, th
 messages and handlers, the THUGPRO peer mode and guards - is `game/online` (74 files, namespaces `online::` and
 `net::` as they were). The two things the transport asks of the session are hooks set by the exe before any original
 code runs (`online::install_transport_hooks`, game/online/transport_hooks.h): the peer-mode question
-(`net::set_peer_mode_query`) and the check on received messages (`net::set_received_message_check`). The engine
-files that still read the session directly (the interpreter, the animation channel, the surface sounds, the pad
-input, mlp, the model viewer) are the baseline's `engine -> game/online` lines, for round 10; the objects ask it through
-`net::SessionQueries` (below).
+(`net::set_peer_mode_query`) and the check on received messages (`net::set_received_message_check`). The rest of
+the engine asks the session through `net::SessionQueries` (below); the text-entry flag the session sets is the
+input's (`sio::text_entry_flag`), and the handler that does nothing is the dispatcher's (`net::handle_nothing`).
 
 **Where the script commands live**: the game's script commands (CFunctions) that read the skater, the session, the goals or the
 parks - `game_cfuncs`, `game_flow_cfuncs`, `game_util_cfuncs`, `trick_cfuncs`, `world_cfuncs`, `net_state_cfuncs`,
@@ -105,10 +104,32 @@ out of the game mode, the front end's controllers, the park editor's state, the 
 projectile's hit, the trick objects' clusters, the walk component's ladder and rail checks, THAW's BMX - goes through
 `objects::GameHooks` (`engine/objects/game_hooks.h`: function pointers, each the game's own code, installed once by
 `objects::install_game_hooks`, game/world/object_hooks.h, from `app/main.cpp`). What the engine asks of the online
-session - whether a network game is on, the client app of this machine's player of an object - is
-`net::SessionQueries` (`engine/net/session_query.h`, installed by `online::install_session_queries` at start-up where
-the original kept the objects' copy of the network manager's pointer). The viewport count (`modules::viewport_count`)
-is `engine/gfx/viewport`'s, beside the screen mode that sets it.
+session - whether a network game is on (on the objects' copy of the network manager's pointer, or on the manager as it
+is now), the session's client apps, the client app of this machine's player of an object - is `net::SessionQueries`
+(`engine/net/session_query.h`, installed by `online::install_session_queries` at start-up where the original kept the
+objects' copy of the network manager's pointer): the objects, the interpreter, the animation channels and the terrain
+sounds use it. The viewport count (`modules::viewport_count`) is `engine/gfx/viewport`'s, beside the screen mode that
+sets it.
+
+**The engine includes nothing of the game.** Each engine subsystem that asks the game something has its own small
+set of hooks, named for the subsystem that asks - not one set for the whole engine - and each is installed once from
+`app/main.cpp` before any original code runs, by an installer on the game's side that may include any game module:
+
+| asks | hooks | installed by | what |
+|---|---|---|---|
+| engine/objects | `objects::GameHooks` (`engine/objects/game_hooks.h`) | `objects::install_game_hooks` (game/world/object_hooks) | above |
+| engine/gfx | `render::GameHooks` (`engine/gfx/game_hooks.h`) | `render::install_game_hooks` (game/skate/render_hooks) | the career level (the screen's aspect), multiplayer, the game mode's name, the front end's pause, the park editor's shell (the time of day) |
+| engine/pad_input | `sio::GameHooks` (`engine/pad_input/game_hooks.h`) | `sio::install_game_hooks` (game/front_end/pad_hooks) | the front end's menus up, its input port, the park editor editing, THAW's BMX half-stick key |
+| engine/sys | `sys::GameHooks` (`engine/sys/game_hooks.h`) | `sys::install_game_hooks` (game/skate/sys_hooks) | the main loop's GameSpy service, THUGPRO's position scale and the rail debugging after the render; the front end's pause for debug mode |
+| engine/render | `render::set_feeler_query_observer` (`engine/render/probe_ray.h`) | `collision_overlay::install` (game/rider/debug_collision) | `[features] debug_collision`'s log after each feeler query |
+| engine/net | `net::SessionQueries`, the transport hooks | `online::install_session_queries` (at start-up), `online::install_transport_hooks` | above |
+| engine/script | the node hooks (`engine/script/node_hooks.h`) | `commands::install_node_hooks` | above |
+
+Each hook is the game's own code that the engine called at that place: one indirect call for a direct one, none added
+per object, draw or poll. Some things moved down instead, because they need only the engine: the CAS option lists
+(`engine/gfx/cas_options`), THUGPRO's CAS parts from the user's install (`engine/file/thugpro_cas`), the viewer's
+pending script (`engine/sys/model_viewer`). `tools/layers.json` lists the engine (with base and platform) as strict:
+no upward include, not even in the baseline.
 
 **The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
