@@ -480,14 +480,29 @@ void chip(const char* label, int mode, const char* tip)
     }
 }
 
-} // namespace
+// What the items panel's parts share: the model, its items and tab, whether the highlight moved by keys (follow), the
+// fonts, the UI scale and the requests.
+struct ItemsPanel {
+    const ui::ShapeMesh* model{};
+    const std::vector<ui::BrowserItem>* items{};
+    int tab{};
+    bool follow{};
+    ImFont* mono{};
+    ImFont* small_font{};
+    float scale{};
+    std::vector<ui::Request>* requests{};
+};
 
-int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono,
-                ImFont* small_font, float scale, std::vector<ui::Request>* requests)
+void push_request(std::vector<ui::Request>* requests, ui::Request::Kind kind, int value)
 {
-    const std::vector<ui::BrowserItem>& items = *model.browser_items_;
-    const int tab = model.browser_tab_;
-    // The mode and the lists.
+    ui::Request pending_request{.kind = kind};
+    pending_request.value = value;
+    requests->push_back(pending_request);
+}
+
+// The mode and the lists: All / Recent / Favourites chips, the Grid / List toggle. Whether the grid is shown.
+bool mode_chips(float scale)
+{
     const float right_edge = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
     chip("All", 0, "Every entry of this tab");
     ImGui::SameLine(0.0F, kChipGap * scale);
@@ -516,8 +531,12 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     if (!grid) {
         ImGui::PopStyleColor();
     }
+    return grid;
+}
 
-    // The entries listed: the filter, then the mode (Recent in its order).
+// The entries listed: the filter, then the mode (Recent in its order).
+std::vector<int> shown_entries(const std::vector<ui::BrowserItem>& items, int tab, const char* filter)
+{
     std::vector<int> shown;
     if (level_editor_thumbs_state().list_mode_ == 1) {
         std::unordered_map<uint32_t, int> by_id;
@@ -546,14 +565,12 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
             shown.push_back(i);
         }
     }
+    return shown;
+}
 
-    auto request = [&](ui::Request::Kind kind, int value) {
-        ui::Request pending_request{.kind = kind};
-        pending_request.value = value;
-        requests->push_back(pending_request);
-    };
-    int hovered = -1;
-    ImGui::BeginChild("##items", ImVec2(0.0F, height), ImGuiChildFlags_Borders);
+// Nothing to show: why.
+void empty_notice(const std::vector<ui::BrowserItem>& items, const std::vector<int>& shown, int tab)
+{
     if (items.empty()) {
         gui::text_disabled("%s", tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
     } else if (shown.empty()) {
@@ -565,45 +582,138 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         }
         gui::text_disabled("%s", none);
     }
-    if (!grid) {
-        // The list, a star at each row's end.
-        ImGui::PushFont(mono);
-        const float star_radius = ImGui::GetTextLineHeight() * 0.42F;
-        for (const int index : shown) {
-            ImGui::PushID(index);
-            const bool selected = index == model.browser_index_;
-            const float row_y = ImGui::GetCursorScreenPos().y;
-            const float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-            ImGui::SetNextItemAllowOverlap();
-            if (ImGui::Selectable(core::at(items, index).label.c_str(), selected,
-                                  ImGuiSelectableFlags_AllowDoubleClick)) {
-                request(ui::Request::Kind::kBrowserIndex, index);
-                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                    request(ui::Request::Kind::kBrowserPlace, 0);
-                }
-            }
-            if (ImGui::IsItemHovered()) {
-                hovered = index;
-            }
-            if (selected && follow) {
-                ImGui::SetScrollHereY(kScrollCentre);
-            }
-            const float right = row_right - star_radius - 2.0F;
-            if (star_button("##star", ImVec2(right, row_y + (ImGui::GetTextLineHeight() * kHalf)), star_radius,
-                            favourite(tab, core::at(items, index).id))) {
-                toggle_favourite(tab, core::at(items, index).id);
-            }
-            ImGui::PopID();
-        }
-        ImGui::PopFont();
-        ImGui::EndChild();
-        level_editor_thumbs_state().wanted_.clear();
-        return hovered;
-    }
+}
 
-    // The grid: cells of a thumbnail and a name; only the rows in view are laid out (and their pictures asked for).
+// The list, a star at each row's end. The entry hovered (-1: none).
+int list_rows(const ItemsPanel& panel, const std::vector<int>& shown)
+{
+    const std::vector<ui::BrowserItem>& items = *panel.items;
+    const int tab = panel.tab;
+    int hovered = -1;
+    ImGui::PushFont(panel.mono);
+    const float star_radius = ImGui::GetTextLineHeight() * 0.42F;
+    for (const int index : shown) {
+        ImGui::PushID(index);
+        const bool selected = index == panel.model->browser_index_;
+        const float row_y = ImGui::GetCursorScreenPos().y;
+        const float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+        ImGui::SetNextItemAllowOverlap();
+        if (ImGui::Selectable(core::at(items, index).label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
+            push_request(panel.requests, ui::Request::Kind::kBrowserIndex, index);
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                push_request(panel.requests, ui::Request::Kind::kBrowserPlace, 0);
+            }
+        }
+        if (ImGui::IsItemHovered()) {
+            hovered = index;
+        }
+        if (selected && panel.follow) {
+            ImGui::SetScrollHereY(kScrollCentre);
+        }
+        const float right = row_right - star_radius - 2.0F;
+        if (star_button("##star", ImVec2(right, row_y + (ImGui::GetTextLineHeight() * kHalf)), star_radius,
+                        favourite(tab, core::at(items, index).id))) {
+            toggle_favourite(tab, core::at(items, index).id);
+        }
+        ImGui::PopID();
+    }
+    ImGui::PopFont();
+    return hovered;
+}
+
+// A grid cell's size and its name's line.
+struct GridCell {
+    float cell{};
+    float label_height_{};
+    uint64_t texture{};
+};
+
+// A grid cell's picture: the thumbnail when drawn, else a placeholder.
+void cell_picture(const GridCell& grid_cell, int thumb_cell, ImVec2 point_a, ImVec2 point_b)
+{
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    if (thumb_cell >= 0 && (grid_cell.texture != 0U) && (core::at(cells_state().drawn(), thumb_cell) != 0U)) {
+        float u0 = 0.0F;
+        float v0 = 0.0F;
+        float u1 = 0.0F;
+        float v1 = 0.0F;
+        cell_uv(thumb_cell, {.x0 = &u0, .y0 = &v0, .x1 = &u1, .y1 = &v1});
+        draw->AddImage(static_cast<ImTextureID>(grid_cell.texture), point_a, point_b, ImVec2(u0, v0), ImVec2(u1, v1));
+    } else {
+        draw->AddRectFilled(point_a, point_b, IM_COL32(42, 44, 48, 255));
+        const char* wait = "...";
+        const ImVec2 size = ImGui::CalcTextSize(wait);
+        draw->AddText(ImVec2((point_a.x + point_b.x - size.x) * kHalf, (point_a.y + point_b.y - size.y) * kHalf),
+                      ImGui::GetColorU32(ImGuiCol_TextDisabled), wait);
+    }
+}
+
+// One cell of the grid: its thumbnail (asked for), its border, its star and its name cut to the cell. Whether it is
+// hovered.
+bool grid_cell_of(const ItemsPanel& panel, const GridCell& grid_cell, int index, std::vector<uint64_t>& wanted)
+{
+    const std::vector<ui::BrowserItem>& items = *panel.items;
+    const int tab = panel.tab;
+    const float cell = grid_cell.cell;
+    ImGui::PushID(index);
+    ImGui::BeginGroup();
+    const ImVec2 point_a = ImGui::GetCursorScreenPos();
+    const ImVec2 point_b(point_a.x + cell, point_a.y + cell);
+    const bool selected = index == panel.model->browser_index_;
+    ImGui::SetNextItemAllowOverlap();
+    if (ImGui::InvisibleButton("##thumb", ImVec2(cell, cell))) {
+        push_request(panel.requests, ui::Request::Kind::kBrowserIndex, index);
+    }
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+        push_request(panel.requests, ui::Request::Kind::kBrowserPlace, 0);
+    }
+    const bool hover = ImGui::IsItemHovered();
+    if (hover) {
+        gui::tooltip("%s\nDouble-click to place", core::at(items, index).label.c_str());
+    }
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const uint64_t key = get_key(tab, core::at(items, index).id);
+    const int thumb_cell = cells_state().get_take({.key = key, .frame = level_editor_thumbs_state().frame_});
+    wanted.push_back(key);
+    cell_picture(grid_cell, thumb_cell, point_a, point_b);
+    ImU32 border = 0;
+    if (selected) {
+        border = IM_COL32(210, 87, 28, 255);
+    } else if (hover) {
+        border = IM_COL32(200, 200, 200, 200);
+    } else {
+        border = ImGui::GetColorU32(ImGuiCol_Border);
+    }
+    draw->AddRect(point_a, point_b, border, kCellRounding, 0, selected ? kSelectedBorderWidth : 1.0F);
+    // (the star in the top right corner)
+    const float radius = 7.0F * panel.scale;
+    if (star_button("##star", ImVec2(point_b.x - radius - kStarInset, point_a.y + radius + kStarInset), radius,
+                    favourite(tab, core::at(items, index).id))) {
+        toggle_favourite(tab, core::at(items, index).id);
+    }
+    // The name, cut to the cell.
+    ImGui::SetCursorScreenPos(ImVec2(point_a.x, point_b.y + 1.0F));
+    std::string label = core::at(items, index).label;
+    while (label.size() > 3 && ImGui::CalcTextSize(label.c_str()).x > cell) {
+        label.resize(label.size() - 4);
+        label += "..";
+    }
+    ImGui::TextUnformatted(label.c_str());
+    ImGui::SetCursorScreenPos(ImVec2(point_a.x, point_a.y));
+    ImGui::Dummy(ImVec2(cell, cell + grid_cell.label_height_));
+    ImGui::EndGroup();
+    ImGui::PopID();
+    return hover;
+}
+
+// The grid: cells of a thumbnail and a name; only the rows in view are laid out (and their pictures asked for). The
+// entry hovered (-1: none).
+int grid_rows(const ItemsPanel& panel, const std::vector<int>& shown)
+{
+    const float scale = panel.scale;
+    int hovered = -1;
     const float cell = std::floor(92.0F * scale);
-    ImGui::PushFont(small_font);
+    ImGui::PushFont(panel.small_font);
     const float label_height = ImGui::GetTextLineHeight();
     const float spacing = 6.0F * scale;
     const float width = ImGui::GetContentRegionAvail().x;
@@ -612,10 +722,11 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     const float row_height =
         cell + label_height + ImGui::GetStyle().ItemSpacing.y; // (a row's group and the spacing after it)
     const uint64_t texture = ui_backend::atlas_texture();
+    const GridCell grid_cell{.cell = cell, .label_height_ = label_height, .texture = texture};
     std::vector<uint64_t> wanted;
     // (keys moved the highlight: its row scrolled into view)
-    if (follow) {
-        auto at = std::ranges::find(shown, model.browser_index_);
+    if (panel.follow) {
+        auto at = std::ranges::find(shown, panel.model->browser_index_);
         if (at != shown.end()) {
             const auto row = (at - shown.begin()) / columns; // (whole rows)
             const float y = static_cast<float>(row) * row_height;
@@ -635,70 +746,9 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 if (column != 0) {
                     ImGui::SameLine(0.0F, spacing);
                 }
-                ImGui::PushID(index);
-                ImGui::BeginGroup();
-                const ImVec2 point_a = ImGui::GetCursorScreenPos();
-                const ImVec2 point_b(point_a.x + cell, point_a.y + cell);
-                const bool selected = index == model.browser_index_;
-                ImGui::SetNextItemAllowOverlap();
-                if (ImGui::InvisibleButton("##thumb", ImVec2(cell, cell))) {
-                    request(ui::Request::Kind::kBrowserIndex, index);
-                }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                    request(ui::Request::Kind::kBrowserPlace, 0);
-                }
-                const bool hover = ImGui::IsItemHovered();
-                if (hover) {
+                if (grid_cell_of(panel, grid_cell, index, wanted)) {
                     hovered = index;
-                    gui::tooltip("%s\nDouble-click to place", core::at(items, index).label.c_str());
                 }
-                ImDrawList* draw = ImGui::GetWindowDrawList();
-                const uint64_t key = get_key(tab, core::at(items, index).id);
-                const int thumb_cell =
-                    cells_state().get_take({.key = key, .frame = level_editor_thumbs_state().frame_});
-                wanted.push_back(key);
-                if (thumb_cell >= 0 && (texture != 0U) && (core::at(cells_state().drawn(), thumb_cell) != 0U)) {
-                    float u0 = 0.0F;
-                    float v0 = 0.0F;
-                    float u1 = 0.0F;
-                    float v1 = 0.0F;
-                    cell_uv(thumb_cell, {.x0 = &u0, .y0 = &v0, .x1 = &u1, .y1 = &v1});
-                    draw->AddImage(static_cast<ImTextureID>(texture), point_a, point_b, ImVec2(u0, v0), ImVec2(u1, v1));
-                } else {
-                    draw->AddRectFilled(point_a, point_b, IM_COL32(42, 44, 48, 255));
-                    const char* wait = "...";
-                    const ImVec2 size = ImGui::CalcTextSize(wait);
-                    draw->AddText(
-                        ImVec2((point_a.x + point_b.x - size.x) * kHalf, (point_a.y + point_b.y - size.y) * kHalf),
-                        ImGui::GetColorU32(ImGuiCol_TextDisabled), wait);
-                }
-                ImU32 border = 0;
-                if (selected) {
-                    border = IM_COL32(210, 87, 28, 255);
-                } else if (hover) {
-                    border = IM_COL32(200, 200, 200, 200);
-                } else {
-                    border = ImGui::GetColorU32(ImGuiCol_Border);
-                }
-                draw->AddRect(point_a, point_b, border, kCellRounding, 0, selected ? kSelectedBorderWidth : 1.0F);
-                // (the star in the top right corner)
-                const float radius = 7.0F * scale;
-                if (star_button("##star", ImVec2(point_b.x - radius - kStarInset, point_a.y + radius + kStarInset),
-                                radius, favourite(tab, core::at(items, index).id))) {
-                    toggle_favourite(tab, core::at(items, index).id);
-                }
-                // The name, cut to the cell.
-                ImGui::SetCursorScreenPos(ImVec2(point_a.x, point_b.y + 1.0F));
-                std::string label = core::at(items, index).label;
-                while (label.size() > 3 && ImGui::CalcTextSize(label.c_str()).x > cell) {
-                    label.resize(label.size() - 4);
-                    label += "..";
-                }
-                ImGui::TextUnformatted(label.c_str());
-                ImGui::SetCursorScreenPos(ImVec2(point_a.x, point_a.y));
-                ImGui::Dummy(ImVec2(cell, cell + label_height));
-                ImGui::EndGroup();
-                ImGui::PopID();
             }
         }
     }
@@ -707,6 +757,34 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     ImGui::EndChild();
     level_editor_thumbs_state().wanted_ = std::move(wanted);
     return hovered;
+}
+
+} // namespace
+
+int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono,
+                ImFont* small_font, float scale, std::vector<ui::Request>* requests)
+{
+    const std::vector<ui::BrowserItem>& items = *model.browser_items_;
+    const int tab = model.browser_tab_;
+    const bool grid = mode_chips(scale);
+    const std::vector<int> shown = shown_entries(items, tab, filter);
+    const ItemsPanel panel{.model = &model,
+                           .items = &items,
+                           .tab = tab,
+                           .follow = follow,
+                           .mono = mono,
+                           .small_font = small_font,
+                           .scale = scale,
+                           .requests = requests};
+    ImGui::BeginChild("##items", ImVec2(0.0F, height), ImGuiChildFlags_Borders);
+    empty_notice(items, shown, tab);
+    if (!grid) {
+        const int hovered = list_rows(panel, shown);
+        ImGui::EndChild();
+        level_editor_thumbs_state().wanted_.clear();
+        return hovered;
+    }
+    return grid_rows(panel, shown);
 }
 
 } // namespace frontend::level_editor::thumbs
