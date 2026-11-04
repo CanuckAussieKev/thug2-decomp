@@ -473,6 +473,223 @@ void FallingTricksGoal::drop_move_entry(int index)
     core::at(tricks_, index).free = true;
 }
 
+// A new trick of the stack being made: its key combo (and the trick it maps to), the key combo's text, its taps and
+// its text.
+struct FallingTricksGoal::TrickLine {
+    uint32_t key_combo{};
+    uint32_t trick_name{};
+    const char* key_combo_text{};
+    int taps{1};
+    std::array<char, kTrickTextBytes> text{};
+};
+
+namespace {
+
+// A key combo entry's spin (a random one or a set one), Perfect and taps.
+void read_combo_entry(script::Struct* entry, StackedTrickEntry& trick_entry, int& taps)
+{
+    int spin = 0;
+    if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
+        spin = std::max(spin, kMinRandomSpinDegrees);
+        trick_entry.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
+        if (trick_entry.spin == 1) {
+            trick_entry.spin = 0;
+        }
+    }
+    if (entry->fetch_int_value(kSpin, &spin, 0)) {
+        trick_entry.spin = spin / kHalfTurnDegrees;
+    }
+    if (entry->has_bare_flag(kPerfect)) {
+        trick_entry.perfect = true;
+    }
+    if (entry->fetch_int_value(kNumTaps, &taps, 0)) {
+        trick_entry.taps = taps;
+    }
+}
+
+// The trick's name: its params' (a double tap: the trick's ExtraTricks' - if it has none, a single tap after all).
+const char* mapped_trick_name(uint32_t trick_name, StackedTrickEntry& trick_entry, int& taps)
+{
+    const char* trick_text = nullptr;
+    script::Struct* trick = script::read_sub_struct(trick_name);
+    if (!trick) {
+        trick = script::fetch_list(trick_name)->struct_at(0);
+    }
+    script::Struct* trick_params = nullptr;
+    trick->read_sub_struct(kParams, &trick_params, 1);
+    // A double tap: the trick's ExtraTricks' (if it has none, a single tap after all).
+    while (taps > 1) {
+        --taps;
+        uint32_t extra = 0;
+        if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
+            taps = 1;
+            trick_entry.taps = 1;
+            break;
+        }
+        auto* extra_trick = script::fetch_list(extra)->struct_at(0);
+        extra_trick->read_sub_struct(kParams, &trick_params, 1);
+    }
+    trick_params->fetch_text(kName, &trick_text, 1);
+    return trick_text;
+}
+
+} // namespace
+
+// The first free slot of the stack taken (cleared, in `group`).
+int FallingTricksGoal::take_trick_slot(int group)
+{
+    int slot = 0;
+    for (int i = 0; i < kMaxTricks; ++i) {
+        if (core::at(tricks_, i).free) {
+            StackedTrickEntry& entry = core::at(tricks_, i);
+            slot = i;
+            entry.free = false;
+            entry.group = group;
+            entry.key_combo_ = 0;
+            entry.trick = 0;
+            entry.trick2 = 0;
+            entry.spin = 0;
+            entry.taps = 1;
+            entry.perfect = false;
+            break;
+        }
+    }
+    return slot;
+}
+
+// A random trick of goal_tetris_tricks.
+void FallingTricksGoal::random_stack_trick(StackedTrickEntry& trick_entry, TrickLine& line)
+{
+    script::Array* tricks = nullptr;
+    args()->fetch_list(kStackTrickList, &tricks, 1);
+    auto* trick = tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent())));
+    const char* name = nullptr;
+    trick->fetch_text(kTrick, &name, 1);
+    if (trick->has_bare_flag(kGrind)) {
+        trick_entry.trick = prefixed_checksum({.prefix = "FS ", .name = name});
+        trick_entry.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
+    } else {
+        trick_entry.trick = checksums::hash_from_text(name);
+    }
+    const char* trick_text = nullptr;
+    trick->fetch_text(kText, &trick_text, 1);
+    text::copy_into(line.text, trick_text);
+    if (!trick->read_hash_value(kKeyCombo, &line.key_combo, 0)) {
+        trick->fetch_text(kKeyCombo, &line.key_combo_text, 0);
+    }
+}
+
+// A key combo: its trick from the skater's trick mapping (a special trick slot: the skater's trick in it), its text
+// with the spin. False when no key combo can be picked.
+bool FallingTricksGoal::key_combo_trick(script::Array* key_combos, StackedTrickEntry& trick_entry, TrickLine& line)
+{
+    uint32_t& key_combo = line.key_combo;
+    uint32_t& trick_name = line.trick_name;
+    int& taps = line.taps;
+    std::array<char, kTrickTextBytes>& text = line.text;
+    const int index = pick_key_combo(key_combos);
+    if (index == -1) {
+        return false;
+    }
+    if (key_combos->kind_tag() == script::QbValueKind::kName) {
+        key_combo = key_combos->fetch_part(static_cast<uint32_t>(index));
+    } else {
+        auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
+        entry->read_hash_value(kKeyCombo, &key_combo, 1);
+        read_combo_entry(entry, trick_entry, taps);
+    }
+    void* profile = modules::Skate::fetch_account(static_cast<script::Struct*>(nullptr));
+    auto* mapping = static_cast<objects::RiderIdentity*>(profile)->fetch_details_params(kTrickMapping);
+    const char* trick_text = nullptr;
+    if (!mapping->read_hash_value(key_combo, &trick_name, 0)) {
+        // A special trick slot: the skater's trick in it.
+        int special_slot = 0;
+        mapping->fetch_int_value(key_combo, &special_slot, 1);
+        const objects::Rider* skater = local_skater();
+        if (skater) {
+            core::at(skater->trick_slots(), special_slot)->other_params()->fetch_text(kName, &trick_text, 1);
+            trick_entry.taps = 1;
+        }
+    }
+    if (!trick_text) {
+        trick_text = mapped_trick_name(trick_name, trick_entry, taps);
+    }
+    core::at(text, 0) = '\0';
+    if (trick_entry.spin != 0) {
+        THUG2_MSVC_WARNING(suppress : 4996)
+        if (trick_entry.perfect) {
+            text::format_to(text, "Perfect ");
+        }
+        // (written over "Perfect ": the original's too)
+        THUG2_MSVC_WARNING(suppress : 4996)
+        text::format_to(text, "\\c5%i\\c0 ", trick_entry.spin * kHalfTurnDegrees);
+    }
+    text::append_into(text, trick_text);
+    trick_entry.key_combo_ = key_combo;
+    return true;
+}
+
+// The trick's text and its key combo's text in its container.
+void FallingTricksGoal::add_trick_texts(void* manager, const StackedTrickEntry& trick_entry, void* container,
+                                        TrickLine& line)
+{
+    const uint32_t key_combo = line.key_combo;
+    const char*& key_combo_text = line.key_combo_text;
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->append_word(kText, line.text.data());
+    params->put_name_key(checksums::Name{kFont}, kNewTrickFont);
+    params->put_name_key(checksums::Name{0U}, kNotFocusable);
+    gsl::owner<void*> text_element = new_text();
+    set_id(text_element, objects::kUnassignedId);
+    add_to_manager(manager, text_element);
+    change_traits(text_element, params);
+    change_owner(manager, {.parent = container, .child = text_element});
+    script::free_struct(params);
+
+    if (key_combo_text || (key_combo != 0U)) {
+        script::Struct* texts = script::read_sub_struct(trick_entry.taps == 2 ? kTrickTextDoubleTap : kTrickText);
+        if (!key_combo_text) {
+            texts->fetch_text(key_combo, &key_combo_text, 0);
+        }
+        params = script::new_struct();
+        params->append_word(kText, key_combo_text);
+        params->put_name_key(checksums::Name{kFont}, kSmall);
+        params->put_name_key(checksums::Name{0U}, kNotFocusable);
+        gsl::owner<void*> key_text = new_text();
+        set_id(key_text, objects::kUnassignedId);
+        add_to_manager(manager, key_text);
+        change_traits(key_text, params);
+        change_owner(manager, {.parent = container, .child = key_text});
+        script::free_struct(params);
+    }
+}
+
+// The add script (red once the stack is three quarters full); then the stack's tricks turned red.
+void FallingTricksGoal::run_add_script(void* manager, const char* key_combo_text, void* container, int max_tricks)
+{
+    gsl::owner<script::Struct*> params = script::new_struct();
+    if (!key_combo_text) {
+        params->put_name_key(checksums::Name{0U}, kNoKeyCombo);
+    }
+    auto stack_full = [&]() {
+        return !integer_or_flag(args().get(), kTrickTris) && !integer_or_flag(args().get(), kSingleCombo) &&
+               static_cast<double>(max_tricks) * three_quarters() < static_cast<double>(trick_total_);
+    };
+    const uint32_t add_script = stack_full() ? kAddRedTrick : kPushTrickScript;
+    run_on(get_spawn(add_script, params), container);
+    script::free_struct(params);
+    if (stack_full()) {
+        args()->put_int(checksums::Name{kRedTricks}, 1);
+        for (const StackedTrickEntry& other : tricks_) {
+            if (other.free) {
+                continue;
+            }
+            frontend::UiWidget* element = element_by_id(manager, other.element);
+            run_on(get_spawn(kTurnTrickRed, nullptr), element);
+        }
+    }
+}
+
 // 0x0056FA30
 void FallingTricksGoal::add_tricks(int count)
 {
@@ -499,124 +716,13 @@ void FallingTricksGoal::add_tricks(int count)
         void* manager = frontend::UiTree::sole();
         script::Array* key_combos = nullptr;
         args()->fetch_list(kTetrisKeyCombos, &key_combos, 0);
-        uint32_t key_combo = 0;
-        uint32_t trick_name = 0;
-        int slot = 0;
-        for (int i = 0; i < kMaxTricks; ++i) {
-            if (core::at(tricks_, i).free) {
-                StackedTrickEntry& entry = core::at(tricks_, i);
-                slot = i;
-                entry.free = false;
-                entry.group = group;
-                entry.key_combo_ = 0;
-                entry.trick = 0;
-                entry.trick2 = 0;
-                entry.spin = 0;
-                entry.taps = 1;
-                entry.perfect = false;
-                break;
-            }
-        }
+        const int slot = take_trick_slot(group);
         StackedTrickEntry& trick_entry = core::at(tricks_, slot);
-        const char* key_combo_text = nullptr;
-        int taps = 1;
-        std::array<char, kTrickTextBytes> text{};
+        TrickLine line;
         if (!key_combos) {
-            // A random trick of goal_tetris_tricks.
-            script::Array* tricks = nullptr;
-            args()->fetch_list(kStackTrickList, &tricks, 1);
-            auto* trick =
-                tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent())));
-            const char* name = nullptr;
-            trick->fetch_text(kTrick, &name, 1);
-            if (trick->has_bare_flag(kGrind)) {
-                trick_entry.trick = prefixed_checksum({.prefix = "FS ", .name = name});
-                trick_entry.trick2 = prefixed_checksum({.prefix = "BS ", .name = name});
-            } else {
-                trick_entry.trick = checksums::hash_from_text(name);
-            }
-            const char* trick_text = nullptr;
-            trick->fetch_text(kText, &trick_text, 1);
-            text::copy_into(text, trick_text);
-            if (!trick->read_hash_value(kKeyCombo, &key_combo, 0)) {
-                trick->fetch_text(kKeyCombo, &key_combo_text, 0);
-            }
-        } else {
-            // A key combo: its trick from the skater's trick mapping.
-            const int index = pick_key_combo(key_combos);
-            if (index == -1) {
-                return;
-            }
-            if (key_combos->kind_tag() == script::QbValueKind::kName) {
-                key_combo = key_combos->fetch_part(static_cast<uint32_t>(index));
-            } else {
-                auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
-                entry->read_hash_value(kKeyCombo, &key_combo, 1);
-                int spin = 0;
-                if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
-                    spin = std::max(spin, kMinRandomSpinDegrees);
-                    trick_entry.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
-                    if (trick_entry.spin == 1) {
-                        trick_entry.spin = 0;
-                    }
-                }
-                if (entry->fetch_int_value(kSpin, &spin, 0)) {
-                    trick_entry.spin = spin / kHalfTurnDegrees;
-                }
-                if (entry->has_bare_flag(kPerfect)) {
-                    trick_entry.perfect = true;
-                }
-                if (entry->fetch_int_value(kNumTaps, &taps, 0)) {
-                    trick_entry.taps = taps;
-                }
-            }
-            void* profile = modules::Skate::fetch_account(static_cast<script::Struct*>(nullptr));
-            auto* mapping = static_cast<objects::RiderIdentity*>(profile)->fetch_details_params(kTrickMapping);
-            const char* trick_text = nullptr;
-            if (!mapping->read_hash_value(key_combo, &trick_name, 0)) {
-                // A special trick slot: the skater's trick in it.
-                int special_slot = 0;
-                mapping->fetch_int_value(key_combo, &special_slot, 1);
-                const objects::Rider* skater = local_skater();
-                if (skater) {
-                    core::at(skater->trick_slots(), special_slot)->other_params()->fetch_text(
-                        kName, &trick_text, 1);
-                    trick_entry.taps = 1;
-                }
-            }
-            if (!trick_text) {
-                script::Struct* trick = script::read_sub_struct(trick_name);
-                if (!trick) {
-                    trick = script::fetch_list(trick_name)->struct_at(0);
-                }
-                script::Struct* trick_params = nullptr;
-                trick->read_sub_struct(kParams, &trick_params, 1);
-                // A double tap: the trick's ExtraTricks' (if it has none, a single tap after all).
-                while (taps > 1) {
-                    --taps;
-                    uint32_t extra = 0;
-                    if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
-                        taps = 1;
-                        trick_entry.taps = 1;
-                        break;
-                    }
-                    auto* extra_trick = script::fetch_list(extra)->struct_at(0);
-                    extra_trick->read_sub_struct(kParams, &trick_params, 1);
-                }
-                trick_params->fetch_text(kName, &trick_text, 1);
-            }
-            core::at(text, 0) = '\0';
-            if (trick_entry.spin != 0) {
-                THUG2_MSVC_WARNING(suppress : 4996)
-                if (trick_entry.perfect) {
-                    text::format_to(text, "Perfect ");
-                }
-                // (written over "Perfect ": the original's too)
-                THUG2_MSVC_WARNING(suppress : 4996)
-                text::format_to(text, "\\c5%i\\c0 ", trick_entry.spin * kHalfTurnDegrees);
-            }
-            text::append_into(text, trick_text);
-            trick_entry.key_combo_ = key_combo;
+            random_stack_trick(trick_entry, line);
+        } else if (!key_combo_trick(key_combos, trick_entry, line)) {
+            return;
         }
 
         // The trick's container in the stack, its text, and its key combo's text.
@@ -631,59 +737,10 @@ void FallingTricksGoal::add_tricks(int count)
         menu->set_focus_sent(0);
         change_owner(manager, {.parent = menu, .child = container});
         script::free_struct(params);
-
-        params = script::new_struct();
-        params->append_word(kText, text.data());
-        params->put_name_key(checksums::Name{kFont}, kNewTrickFont);
-        params->put_name_key(checksums::Name{0U}, kNotFocusable);
-        gsl::owner<void*> text_element = new_text();
-        set_id(text_element, objects::kUnassignedId);
-        add_to_manager(manager, text_element);
-        change_traits(text_element, params);
-        change_owner(manager, {.parent = container, .child = text_element});
-        script::free_struct(params);
-
-        if (key_combo_text || (key_combo != 0U)) {
-            script::Struct* texts = script::read_sub_struct(trick_entry.taps == 2 ? kTrickTextDoubleTap : kTrickText);
-            if (!key_combo_text) {
-                texts->fetch_text(key_combo, &key_combo_text, 0);
-            }
-            params = script::new_struct();
-            params->append_word(kText, key_combo_text);
-            params->put_name_key(checksums::Name{kFont}, kSmall);
-            params->put_name_key(checksums::Name{0U}, kNotFocusable);
-            gsl::owner<void*> key_text = new_text();
-            set_id(key_text, objects::kUnassignedId);
-            add_to_manager(manager, key_text);
-            change_traits(key_text, params);
-            change_owner(manager, {.parent = container, .child = key_text});
-            script::free_struct(params);
-        }
+        add_trick_texts(manager, trick_entry, container, line);
         trick_entry.element = static_cast<objects::Entity*>(container)->ident(); // its id
         ++trick_total_;
-
-        // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
-        params = script::new_struct();
-        if (!key_combo_text) {
-            params->put_name_key(checksums::Name{0U}, kNoKeyCombo);
-        }
-        auto stack_full = [&]() {
-            return !integer_or_flag(args().get(), kTrickTris) && !integer_or_flag(args().get(), kSingleCombo) &&
-                   static_cast<double>(max_tricks) * three_quarters() < static_cast<double>(trick_total_);
-        };
-        const uint32_t add_script = stack_full() ? kAddRedTrick : kPushTrickScript;
-        run_on(get_spawn(add_script, params), container);
-        script::free_struct(params);
-        if (stack_full()) {
-            args()->put_int(checksums::Name{kRedTricks}, 1);
-            for (const StackedTrickEntry& other : tricks_) {
-                if (other.free) {
-                    continue;
-                }
-                frontend::UiWidget* element = element_by_id(manager, other.element);
-                run_on(get_spawn(kTurnTrickRed, nullptr), element);
-            }
-        }
+        run_add_script(manager, line.key_combo_text, container, max_tricks);
     }
 }
 

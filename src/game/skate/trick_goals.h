@@ -48,6 +48,15 @@ private:
     std::array<bool, kMaxTricks> group_used_{};          // +0x438 the combo groups in use
     std::array<uint8_t, 2> pad456{};
 
+    // add_tricks' steps (trick_goals.cpp): a slot taken, a random trick or a key combo's, the trick's texts, the add
+    // script.
+    struct TrickLine;
+    int take_trick_slot(int group);
+    void random_stack_trick(StackedTrickEntry& trick_entry, TrickLine& line);
+    bool key_combo_trick(script::Array* key_combos, StackedTrickEntry& trick_entry, TrickLine& line);
+    static void add_trick_texts(void* manager, const StackedTrickEntry& trick_entry, void* container, TrickLine& line);
+    void run_add_script(void* manager, const char* key_combo_text, void* container, int max_tricks);
+
 public:
 
     // 0x0056F090: the constructor (Objective's, then the vtable). 0x0056F0B0 / 0x0056F290: the destructor body and the
