@@ -252,63 +252,28 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
     return cached;
 }
 
-} // namespace
+// A sector near the camera with collision: its checksum, its triangles and how far it is.
+struct Candidate {
+    uint32_t checksum{};
+    const render::TriMeshSource* tri{};
+    float distance{};
+};
 
-bool get_shown() { return overlays::get_shown(overlays::kSkateability); }
-void set_shown(bool on) { overlays::assign_value(overlays::kSkateability, on); }
-void halt() { cache().clear(); }
+// A face drawn: its depth, colour and corners on screen (3 or 4 once clipped).
+struct Polygon {
+    float depth{};
+    uint32_t argb{};
+    int count{};
+    std::array<float, 4> x{};
+    std::array<float, 4> y{};
+};
 
-void add_overlay(const overlays::Painter& painter)
+// The near sectors' faces coloured by what a skater can do there, clipped and on screen (at most kMaxFaces).
+std::vector<Polygon> gather_polygons(const overlays::Painter& painter, const std::vector<Candidate>& found,
+                                     const std::unordered_map<uint32_t, int>& triggers)
 {
-    std::memset(level_editor_skate_view_state().counts_.data(), 0, sizeof(level_editor_skate_view_state().counts_));
-    level_editor_skate_view_state().capped_ = false;
-    level_editor_skate_view_state().rail_segments_ = 0;
-    if (!get_shown() || !painter.overlay()) {
-        return;
-    }
-    // The level's kill / water triggers by sector (1 kill, 2 water).
-    std::unordered_map<uint32_t, int> triggers;
-    for (const triggers::LevelTrigger& level_trigger : triggers::level_triggers()) {
-        if (level_trigger.kind == triggers::Kind::kKill && !level_trigger.off) {
-            triggers[level_trigger.sector] = level_trigger.calls.water ? 2 : 1;
-        }
-    }
-    struct Candidate {
-        uint32_t checksum;
-        const render::TriMeshSource* tri;
-        float distance;
-    };
-    struct Walk {
-        V3 camera;
-        std::vector<Candidate> found;
-    } walk = {.camera = painter.camera(), .found = {}};
-    scenery::for_each_level_sector(
-        [](void* context, uint32_t checksum, render::WorldCell* sector) {
-            auto* w = static_cast<Walk*>(context);
-            const render::HitMesh* coll = sector->hit_body();
-            if (!render::is_static_collider(coll) || (coll->flag_bits() & 4)) {
-                return; // (no collision, or switched off)
-            }
-            const auto* tri = coll->geometry();
-            if (!tri || !tri->tri_count() || view::hidden_sector(checksum)) {
-                return;
-            }
-            const float distance = view::distance_to_box(w->camera, to_v3(tri->bounds().min), to_v3(tri->bounds().max));
-            if (distance <= kRadius) {
-                w->found.push_back({.checksum = checksum, .tri = tri, .distance = distance});
-            }
-        },
-        &walk);
-    std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.distance < b.distance; });
-    struct Polygon {
-        float depth;
-        uint32_t argb;
-        int count;
-        std::array<float, 4> x;
-        std::array<float, 4> y;
-    };
     std::vector<Polygon> polygons;
-    for (const Candidate& candidate : walk.found) {
+    for (const Candidate& candidate : found) {
         auto trigger = triggers.find(candidate.checksum);
         const Cached& cached =
             cache_of(candidate.checksum, candidate.tri, trigger == triggers.end() ? 0 : trigger->second);
@@ -353,27 +318,12 @@ void add_overlay(const overlays::Painter& painter)
             break;
         }
     }
-    std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
-    auto& under = painter.overlay()->under;
-    for (const Polygon& polygon : polygons) {
-        under.push_back({.ax = core::at(polygon.x, 0),
-                         .ay = core::at(polygon.y, 0),
-                         .bx = core::at(polygon.x, 1),
-                         .by = core::at(polygon.y, 1),
-                         .cx = core::at(polygon.x, 2),
-                         .cy = core::at(polygon.y, 2),
-                         .argb = polygon.argb});
-        if (polygon.count == 4) {
-            under.push_back({.ax = core::at(polygon.x, 0),
-                             .ay = core::at(polygon.y, 0),
-                             .bx = core::at(polygon.x, 2),
-                             .by = core::at(polygon.y, 2),
-                             .cx = core::at(polygon.x, 3),
-                             .cy = core::at(polygon.y, 3),
-                             .argb = polygon.argb});
-        }
-    }
-    // The editor's own kill / water triggers: their boxes outlined.
+    return polygons;
+}
+
+// The editor's own kill / water triggers: their boxes outlined.
+void outline_added_kills(const overlays::Painter& painter)
+{
     for (const triggers::Added& added_trigger : triggers::added_triggers()) {
         if (!added_trigger.alive || added_trigger.spec.kind != triggers::Kind::kKill) {
             continue;
@@ -390,7 +340,11 @@ void add_overlay(const overlays::Painter& painter)
                                   kEdgeThickness);
         }
     }
-    // Grind rails: the rail manager's active segments near the camera.
+}
+
+// Grind rails: the rail manager's active segments near the camera.
+void draw_rails(const overlays::Painter& painter)
+{
     const modules::Skate* skate = modules::Skate::sole();
     auto* rails = skate ? skate->rail_manager().get() : nullptr;
     if (rails && !rails->on_object() && rails->nodes()) {
@@ -413,6 +367,76 @@ void add_overlay(const overlays::Painter& painter)
         }
         level_editor_skate_view_state().rail_segments_ = drawn;
     }
+}
+
+} // namespace
+
+bool get_shown() { return overlays::get_shown(overlays::kSkateability); }
+void set_shown(bool on) { overlays::assign_value(overlays::kSkateability, on); }
+void halt() { cache().clear(); }
+
+void add_overlay(const overlays::Painter& painter)
+{
+    std::memset(level_editor_skate_view_state().counts_.data(), 0, sizeof(level_editor_skate_view_state().counts_));
+    level_editor_skate_view_state().capped_ = false;
+    level_editor_skate_view_state().rail_segments_ = 0;
+    if (!get_shown() || !painter.overlay()) {
+        return;
+    }
+    // The level's kill / water triggers by sector (1 kill, 2 water).
+    std::unordered_map<uint32_t, int> triggers;
+    for (const triggers::LevelTrigger& level_trigger : triggers::level_triggers()) {
+        if (level_trigger.kind == triggers::Kind::kKill && !level_trigger.off) {
+            triggers[level_trigger.sector] = level_trigger.calls.water ? 2 : 1;
+        }
+    }
+    struct Walk {
+        V3 camera;
+        std::vector<Candidate> found;
+    } walk = {.camera = painter.camera(), .found = {}};
+    scenery::for_each_level_sector(
+        [](void* context, uint32_t checksum, render::WorldCell* sector) {
+            auto* w = static_cast<Walk*>(context);
+            const render::HitMesh* coll = sector->hit_body();
+            if (!render::is_static_collider(coll) || (coll->flag_bits() & 4)) {
+                return; // (no collision, or switched off)
+            }
+            const auto* tri = coll->geometry();
+            if (!tri || !tri->tri_count() || view::hidden_sector(checksum)) {
+                return;
+            }
+            const float distance = view::distance_to_box(w->camera, to_v3(tri->bounds().min), to_v3(tri->bounds().max));
+            if (distance <= kRadius) {
+                w->found.push_back({.checksum = checksum, .tri = tri, .distance = distance});
+            }
+        },
+        &walk);
+    std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.distance < b.distance; });
+    std::vector<Polygon> polygons = gather_polygons(painter, walk.found, triggers);
+    std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
+    auto& under = painter.overlay()->under;
+    for (const Polygon& polygon : polygons) {
+        under.push_back({.ax = core::at(polygon.x, 0),
+                         .ay = core::at(polygon.y, 0),
+                         .bx = core::at(polygon.x, 1),
+                         .by = core::at(polygon.y, 1),
+                         .cx = core::at(polygon.x, 2),
+                         .cy = core::at(polygon.y, 2),
+                         .argb = polygon.argb});
+        if (polygon.count == 4) {
+            under.push_back({.ax = core::at(polygon.x, 0),
+                             .ay = core::at(polygon.y, 0),
+                             .bx = core::at(polygon.x, 2),
+                             .by = core::at(polygon.y, 2),
+                             .cx = core::at(polygon.x, 3),
+                             .cy = core::at(polygon.y, 3),
+                             .argb = polygon.argb});
+        }
+    }
+    // The editor's own kill / water triggers: their boxes outlined.
+    outline_added_kills(painter);
+    // Grind rails: the rail manager's active segments near the camera.
+    draw_rails(painter);
 }
 
 void get_legend(float view_x, float view_y, float view_width, float view_height, float scale)

@@ -494,37 +494,41 @@ void run_slice()
     core::at(items, at).run();
 }
 
-} // namespace
-
-void tick_frame(TickCycle& tick_cycle)
+// Quick sets: Ctrl+Alt+n stores, Alt+Shift+n selects.
+void quick_set_keys()
 {
     using namespace actions;
-    // Quick sets: Ctrl+Alt+n stores, Alt+Shift+n selects (not while dragging: digits are typed values then).
-    if (!tick_cycle.dragging) {
-        for (int i = 0; i < nav::kQuickSets; ++i) {
-            if (squeezed(core::at(ids().store, i))) {
-                store_set(nav::quick_set_name(i + 1));
-            }
-            if (squeezed(core::at(ids().recall, i))) {
-                recall_set(nav::quick_set_name(i + 1));
-            }
+    for (int i = 0; i < nav::kQuickSets; ++i) {
+        if (squeezed(core::at(ids().store, i))) {
+            store_set(nav::quick_set_name(i + 1));
+        }
+        if (squeezed(core::at(ids().recall, i))) {
+            recall_set(nav::quick_set_name(i + 1));
         }
     }
-    // The follow camera: on frames the selection (F) and keeps with it.
-    if (squeezed(ids().follow) && !tick_cycle.dragging) {
-        if (level_editor_ux8_state().following_) {
-            level_editor_ux8_state().following_ = false;
-            get_say("Follow off");
-        } else if (!tick_cycle.have_selection_) {
-            get_say("Nothing selected");
-        } else {
-            level_editor_ux8_state().following_ = true;
-            level_editor_ux8_state().follower_ = {};
-            fire_off(kFrameSelection);
-            get_say("Following selection");
-        }
+}
+
+// The follow camera toggled: on, it frames the selection (F) and keeps with it.
+void toggle_follow(const TickCycle& tick_cycle)
+{
+    using namespace actions;
+    if (level_editor_ux8_state().following_) {
+        level_editor_ux8_state().following_ = false;
+        get_say("Follow off");
+    } else if (!tick_cycle.have_selection_) {
+        get_say("Nothing selected");
+    } else {
+        level_editor_ux8_state().following_ = true;
+        level_editor_ux8_state().follower_ = {};
+        fire_off(kFrameSelection);
+        get_say("Following selection");
     }
-    // The pies.
+}
+
+// A pie opened by its key or the pad (not while flying with a pie key that's also a fly key).
+void open_pie_if_asked(const TickCycle& tick_cycle)
+{
+    using namespace actions;
     const bool pad_open = tick_cycle.pad.active && (tick_cycle.pad.x || tick_cycle.pad.y) && !pie_menu().pie_.open;
     const bool key_context = squeezed(ids().pie_context_);
     const bool key_view = squeezed(ids().pie_view_);
@@ -552,6 +556,42 @@ void tick_frame(TickCycle& tick_cycle)
             }
         }
     }
+}
+
+// Letting go of the pie's key / button: a hold runs what's pointed at; a tap keeps it up for a click.
+void let_go_of_pie(const TickCycle& tick_cycle)
+{
+    using namespace actions;
+    bool held = false; // (the pie's button or key still down)
+    if (pie_menu().pie_.pad_button_) {
+        held = pie_menu().pie_.kind == pie::Kind::kView ? tick_cycle.pad.y_down_ : tick_cycle.pad.x_down_;
+    } else {
+        held = pie_menu().pie_.key >= 0 && get_held(tick_cycle.keys, pie_menu().pie_.key);
+    }
+    if (!held && !pie_menu().pie_.sticky) {
+        if (SDL_GetTicks() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0) {
+            pie_menu().pie_.sticky = true;
+        } else {
+            run_slice();
+        }
+    }
+}
+
+} // namespace
+
+void tick_frame(TickCycle& tick_cycle)
+{
+    using namespace actions;
+    // Quick sets: Ctrl+Alt+n stores, Alt+Shift+n selects (not while dragging: digits are typed values then).
+    if (!tick_cycle.dragging) {
+        quick_set_keys();
+    }
+    // The follow camera: on frames the selection (F) and keeps with it.
+    if (squeezed(ids().follow) && !tick_cycle.dragging) {
+        toggle_follow(tick_cycle);
+    }
+    // The pies.
+    open_pie_if_asked(tick_cycle);
     if (!pie_menu().pie_.open) {
         return;
     }
@@ -580,19 +620,7 @@ void tick_frame(TickCycle& tick_cycle)
         return;
     }
     // Letting go of its key / button: a hold runs what's pointed at; a tap keeps it up for a click.
-    bool held = false; // (the pie's button or key still down)
-    if (pie_menu().pie_.pad_button_) {
-        held = pie_menu().pie_.kind == pie::Kind::kView ? tick_cycle.pad.y_down_ : tick_cycle.pad.x_down_;
-    } else {
-        held = pie_menu().pie_.key >= 0 && get_held(tick_cycle.keys, pie_menu().pie_.key);
-    }
-    if (!held && !pie_menu().pie_.sticky) {
-        if (SDL_GetTicks() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0) {
-            pie_menu().pie_.sticky = true;
-        } else {
-            run_slice();
-        }
-    }
+    let_go_of_pie(tick_cycle);
 }
 
 bool get_cancel()
