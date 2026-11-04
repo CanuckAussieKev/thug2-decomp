@@ -114,6 +114,28 @@ public:
     [[nodiscard]] float lean_angle() const { return lean_angle_; }
 
 private:
+    // tick_frame's facts its steps share (skater_camera_update.cpp): the skater's physics state, an instant
+    // frame, a wall ride's wall turned, the frame's seconds, the view's facing before, the up for the offsets.
+    struct ChaseFrame {
+        int physics_state{};
+        bool instant{};
+        bool turned{};
+        float seconds{};
+        float last_facing_z_{};
+        float last_facing_y_{};
+        float last_facing_x_{};
+        maths::Vec4 up{};
+    };
+    // tick_frame's steps: the orientation to look along, the roll, the facing from the velocity, the tilt and the
+    // turns, a lip's look, the view slerped, where the camera goes.
+    void follow_skater(maths::Mat4& orient, ChaseFrame& chase);
+    void ease_roll(const ChaseFrame& chase);
+    void face_velocity(maths::Mat4& orient, const ChaseFrame& chase);
+    void tilt_and_turn(maths::Mat4& orient, const ChaseFrame& chase);
+    void look_along_lip(maths::Mat4& orient, const ChaseFrame& chase);
+    void slerp_view(maths::Mat4& view, const maths::Mat4& orient, const ChaseFrame& chase);
+    void place_view(maths::Mat4& view, const ChaseFrame& chase, ObjectModule* camera_component);
+
     std::array<uint8_t, kUnknown18End - kUnknown18Start> unknown18_{};
     int mode_sel_{0};            // +0x24 the camera mode (an index of Skater_Camera_Array)
     int instant_frames_{};       // +0x28 frames that jump straight to the target

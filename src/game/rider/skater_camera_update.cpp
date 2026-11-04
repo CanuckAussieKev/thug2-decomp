@@ -145,12 +145,43 @@ void RiderChaseView::tick_frame()
     const float last_facing_x = core::at(view.row, 2).x;
     const objects::RiderPoseState* state = state_ref_;
     const int physics_state = state->cur_phase();
-    auto* core = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
-    bool turned = false;
 
-    // The orientation to look along: the skater's (its display matrix), or on a wall ride and while +0x2EC holds
-    // it, the last one; a wall ride notes how far the wall's facing turned.
+    ChaseFrame chase{.physics_state = physics_state,
+                     .instant = instant,
+                     .seconds = seconds,
+                     .last_facing_z_ = last_facing_z,
+                     .last_facing_y_ = last_facing_y,
+                     .last_facing_x_ = last_facing_x};
     maths::Mat4 orient{};
+    follow_skater(orient, chase);
+    ease_roll(chase);
+
+    // The up for the offsets: the orientation's (off the ground), else the state's ground normal (+0xF8).
+    const maths::Vec4 up = physics_state != 0 ? core::at(orient.row, 1) : state->drawn_normal();
+
+    chase.up = up;
+    face_velocity(orient, chase);
+    if ((rider_ref_->is_local_skater() != 0U) && (state_ref_->flag(PoseFlag::kFromAcidDrop).on != 0U)) {
+        auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
+        orient = physics->drop_matrix();
+    }
+
+    tilt_and_turn(orient, chase);
+    look_along_lip(orient, chase);
+    slerp_view(view, orient, chase);
+    std::memcpy(orientation_.data(), &view, sizeof(orientation_));
+
+    place_view(view, chase, camera_component);
+}
+
+// The orientation to look along: the skater's (its display matrix), or on a wall ride and while +0x2EC holds
+// it, the last one; a wall ride notes how far the wall's facing turned.
+void RiderChaseView::follow_skater(maths::Mat4& orient, ChaseFrame& chase)
+{
+    const int physics_state = chase.physics_state;
+    auto* core = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
+    GameEntity* skater = nullptr; // (rider_ref_, read again where it is used)
+    bool& turned = chase.turned;
     if (physics_state != 2 && (!core || (core->point_rail_spin() == 0U))) {
         wall_ride_frames_ = 0;
         skater = rider_ref_;
@@ -187,7 +218,12 @@ void RiderChaseView::tick_frame()
             ++wall_ride_frames_;
         }
     }
+}
 
+void RiderChaseView::ease_roll(const ChaseFrame& chase)
+{
+    const int physics_state = chase.physics_state;
+    const bool instant = chase.instant;
     // The roll: on a rail on the skater's model, the balance's lean.
     double roll = 0.0;
     if (physics_state == 4 && (rider_ref_->is_local_skater() != 0U)) {
@@ -202,10 +238,13 @@ void RiderChaseView::tick_frame()
             roll_now = static_cast<float>(((roll - roll_now) * look_rate_) + roll_now);
         }
     }
+}
 
-    // The up for the offsets: the orientation's (off the ground), else the state's ground normal (+0xF8).
-    const maths::Vec4 up = physics_state != 0 ? core::at(orient.row, 1) : state->drawn_normal();
-
+void RiderChaseView::face_velocity(maths::Mat4& orient, const ChaseFrame& chase)
+{
+    const int physics_state = chase.physics_state;
+    const RiderBoardPhysics* control = control_;
+    GameEntity* skater = nullptr; // (rider_ref_, read again where it is used)
     // The facing from the velocity (or straight down).
     skater = rider_ref_;
     const float velocity_z = skater->vel().z;
@@ -285,11 +324,13 @@ void RiderChaseView::tick_frame()
             up_row.make_unit();
         }
     }
-    if ((rider_ref_->is_local_skater() != 0U) && (state_ref_->flag(PoseFlag::kFromAcidDrop).on != 0U)) {
-        auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
-        orient = physics->drop_matrix();
-    }
+}
 
+void RiderChaseView::tilt_and_turn(maths::Mat4& orient, const ChaseFrame& chase)
+{
+    const int physics_state = chase.physics_state;
+    const bool turned = chase.turned;
+    GameEntity* skater = nullptr; // (rider_ref_, read again where it is used)
     // The tilt in the air: up to 20 degrees, back to level after.
     float& air_tilt = air_tilt_;
     bool wall_ride = false;
@@ -354,7 +395,11 @@ void RiderChaseView::tick_frame()
         const float tilt = free_look_module_->lean_angle();
         get_multiply(&orient, &maths::make_pitch_matrix(rotation, tilt), &orient);
     }
+}
 
+void RiderChaseView::look_along_lip(maths::Mat4& orient, const ChaseFrame& chase)
+{
+    const int physics_state = chase.physics_state;
     // On a lip: looking along it (a quarter turn), or - with something in the way that way - the other way.
     if (physics_state == 3) {
         lip_turn() = kHalfPi;
@@ -416,8 +461,16 @@ void RiderChaseView::tick_frame()
             rider_ref_->flag_bits() &= ~(1U << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask));
         }
     }
+}
 
+void RiderChaseView::slerp_view(maths::Mat4& view, const maths::Mat4& orient, const ChaseFrame& chase)
+{
     // The view looking along the orientation (right and at reversed), slerped from the camera's.
+    const bool instant = chase.instant;
+    const float seconds = chase.seconds;
+    const float last_facing_z = chase.last_facing_z_;
+    const float last_facing_y = chase.last_facing_y_;
+    const float last_facing_x = chase.last_facing_x_;
     maths::Mat4 goal{};
     goal.set_from_euler_angles(0.0F, 0.0F, 0.0F);
     core::at(goal.row, 0) =
@@ -465,8 +518,13 @@ void RiderChaseView::tick_frame()
             }
         }
     }
-    std::memcpy(orientation_.data(), &view, sizeof(orientation_));
+}
 
+void RiderChaseView::place_view(maths::Mat4& view, const ChaseFrame& chase, ObjectModule* camera_component)
+{
+    const int physics_state = chase.physics_state;
+    const bool instant = chase.instant;
+    const maths::Vec4 up = chase.up;
     // Where: the target, behind along the view and above along the up; looking at it from above the skater.
     maths::Vec4 target{};
     fetch_goal(&target, instant);
