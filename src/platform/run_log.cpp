@@ -39,7 +39,7 @@ RunLogState& run_log_state()
     return state.get();
 }
 
-// The last lines logged, kept for get_log_tail (the screenshot sidecar - platform/screenshot.h): fixed slots, no
+// The last lines logged, kept for get_log_tail (the screenshot sidecar - devtools/screenshot.h): fixed slots, no
 // allocation or lock (Log runs in the crash logger too); a line written while another thread reads may come out torn.
 constexpr unsigned kTailLines = 32;
 constexpr size_t kTailWidth = 320;

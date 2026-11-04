@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-// NOT ORIGINAL - the screenshot key's pure parts (ours; see platform/screenshot.h): the file names, the back buffer's
+// NOT ORIGINAL - the screenshot key's pure parts (ours; see devtools/screenshot.h): the file names, the back buffer's
 // pixels made RGB, the PNG (stb_image_write) and the sidecar text. No game state, no renderer.
 namespace sys::screenshot {
 

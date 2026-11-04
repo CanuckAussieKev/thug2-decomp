@@ -42,7 +42,7 @@
 #include "engine/gfx/texture_splats.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
-#include "platform/screenshot.h"
+#include "devtools/screenshot.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine.h"
@@ -621,7 +621,7 @@ void draw_viewport(int index)
         // Original behaviour: nothing.
         const DeviceViewport& drawn = renderer().device_viewport();
         frontend::level_editor::note_view(static_cast<gfx::ViewCam*>(camera), angle, aspect, std::array<uint32_t, 4>{drawn.x, drawn.y, drawn.width, drawn.height});
-        // Not original - the screenshot key's sidecar (platform/screenshot.h): the camera noted.
+        // Not original - the screenshot key's sidecar (devtools/screenshot.h): the camera noted.
         const maths::Mat4* frame = cam_orientation(camera);
         const std::array<float, 3> at = {{position->x, position->y, position->z}};
         const std::array<float, 3> forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}};

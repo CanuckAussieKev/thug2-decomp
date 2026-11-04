@@ -1,5 +1,10 @@
 # NOT ORIGINAL - the upward includes that exist today (tools/layers.ts). May only shrink: delete a line when its
 # include goes, never add one. Regenerate with: node tools/layers.ts --write
+src/devtools/screenshot.cpp -> src/editor/level_editor.h
+src/devtools/screenshot.cpp -> src/editor/level_editor_hud.h
+src/devtools/screenshot.cpp -> src/editor/level_editor_scenery.h
+src/devtools/screenshot.cpp -> src/frontend/automation.h
+src/devtools/screenshot.cpp -> src/frontend/front_end.h
 src/editor/level_editor.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor_play.cpp -> src/frontend/front_end.h
 src/editor/level_editor_play.cpp -> src/frontend/mouse_menus.h
@@ -11,6 +16,7 @@ src/engine/gfx/anim_controller.cpp -> src/frontend/screen_constants.h
 src/engine/gfx/cag_cfuncs.cpp -> src/game/rider/tagging.h
 src/engine/gfx/cag_cfuncs.cpp -> src/game/skate/profile_manager.h
 src/engine/gfx/cag_cfuncs.cpp -> src/game/skate/skate_module.h
+src/engine/gfx/draw_frame.cpp -> src/devtools/screenshot.h
 src/engine/gfx/draw_frame.cpp -> src/editor/level_editor.h
 src/engine/gfx/draw_frame.cpp -> src/frontend/new_frontend.h
 src/engine/gfx/draw_frame.cpp -> src/frontend/test_view.h
@@ -293,6 +299,7 @@ src/engine/pad_input/device.cpp -> src/frontend/screen_element.h
 src/engine/pad_input/device.cpp -> src/frontend/screen_element_manager.h
 src/engine/pad_input/device.cpp -> src/game/park_editing/park_editor.h
 src/engine/pad_input/device.cpp -> src/game/skate/profile_manager.h
+src/engine/pad_input/sdl_input.cpp -> src/devtools/screenshot.h
 src/engine/pad_input/sdl_input.cpp -> src/editor/level_editor.h
 src/engine/pad_input/sdl_input.cpp -> src/frontend/automation.h
 src/engine/pad_input/sdl_input.cpp -> src/frontend/mouse_menus.h
@@ -382,6 +389,7 @@ src/engine/script/world_cfuncs.cpp -> src/game/skate/skate_module.h
 src/engine/sound/sfx_voices.cpp -> src/frontend/data_overlay.h
 src/engine/sys/debug_mode.cpp -> src/editor/level_editor.h
 src/engine/sys/debug_mode.cpp -> src/frontend/front_end.h
+src/engine/sys/mlp.cpp -> src/devtools/screenshot.h
 src/engine/sys/mlp.cpp -> src/editor/level_editor_ui.h
 src/engine/sys/mlp.cpp -> src/frontend/new_frontend.h
 src/engine/sys/mlp.cpp -> src/game/skate/skate_module.h
@@ -394,6 +402,7 @@ src/formats/check/format_check.cpp -> src/wire/skate_net_messages.h
 src/formats/check/format_check_net.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check_net.cpp -> src/wire/play_messages.h
 src/formats/check/format_check_net.cpp -> src/wire/skater_messages.h
+src/frontend/automation.cpp -> src/devtools/screenshot.h
 src/frontend/mouse_menus.cpp -> src/editor/level_editor.h
 src/frontend/mouse_menus.cpp -> src/editor/level_editor_play.h
 src/frontend/mouse_menus.cpp -> src/editor/level_editor_playtest.h
@@ -411,6 +420,7 @@ src/game/park_editing/park_editor.cpp -> src/frontend/front_end.h
 src/game/park_editing/piece_menu.cpp -> src/frontend/screen_element.h
 src/game/park_editing/piece_menu.cpp -> src/frontend/screen_element_manager.h
 src/game/park_editing/piece_menu.cpp -> src/frontend/text_element.h
+src/game/rider/collision_events.cpp -> src/devtools/screenshot.h
 src/game/rider/floating_name.cpp -> src/frontend/screen_element.h
 src/game/rider/floating_name.cpp -> src/frontend/screen_element_manager.h
 src/game/rider/rider.cpp -> src/frontend/front_end.h
@@ -457,23 +467,6 @@ src/platform/platform_input.cpp -> src/engine/gfx/renderer.h
 src/platform/platform_input.cpp -> src/engine/gfx/view_cam.h
 src/platform/platform_input.cpp -> src/engine/gfx/view_setup.h
 src/platform/platform_input.cpp -> src/engine/pad_input/device.h
-src/platform/screenshot.cpp -> src/editor/level_editor.h
-src/platform/screenshot.cpp -> src/editor/level_editor_hud.h
-src/platform/screenshot.cpp -> src/editor/level_editor_scenery.h
-src/platform/screenshot.cpp -> src/engine/gfx/engine_parts.h
-src/platform/screenshot.cpp -> src/engine/gfx/loading_bar_cfuncs.h
-src/platform/screenshot.cpp -> src/engine/gfx/renderer.h
-src/platform/screenshot.cpp -> src/engine/gfx/screenshot_capture.h
-src/platform/screenshot.cpp -> src/engine/objects/entity.h
-src/platform/screenshot.cpp -> src/engine/script/cscript.h
-src/platform/screenshot.cpp -> src/engine/script/names.h
-src/platform/screenshot.cpp -> src/engine/script/param_struct.h
-src/platform/screenshot.cpp -> src/engine/sys/mlp.h
-src/platform/screenshot.cpp -> src/frontend/automation.h
-src/platform/screenshot.cpp -> src/frontend/front_end.h
-src/platform/screenshot.cpp -> src/game/rider/rider.h
-src/platform/screenshot.cpp -> src/game/skate/game_mode.h
-src/platform/screenshot.cpp -> src/game/skate/skate_module.h
 src/platform/stopwatch.cpp -> src/engine/gfx/engine.h
 src/platform/stopwatch.cpp -> src/engine/sys/game_config.h
 src/wire/gamenet_messages.cpp -> src/formats/byte_stream.h

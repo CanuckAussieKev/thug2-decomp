@@ -299,7 +299,7 @@ add_executable(thug2 WIN32
     src/frontend/new_frontend_options.cpp
     src/editor/level_editor.cpp
     src/frontend/restart_tester.cpp
-    src/platform/screenshot.cpp
+    src/devtools/screenshot.cpp
     src/platform/screenshot_files.cpp
     src/engine/gfx/screenshot_capture.cpp
     src/frontend/career_complete.cpp

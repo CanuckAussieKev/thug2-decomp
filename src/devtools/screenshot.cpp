@@ -1,6 +1,6 @@
-// NOT ORIGINAL - the screenshot key (platform/screenshot.h).
+// NOT ORIGINAL - the screenshot key (devtools/screenshot.h).
 
-#include "platform/screenshot.h"
+#include "devtools/screenshot.h"
 
 #include <windows.h>
 

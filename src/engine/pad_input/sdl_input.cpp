@@ -28,7 +28,7 @@
 #include "platform/debug_log.h"
 #include "engine/sys/debug_mode.h"
 #include "platform/platform_cfuncs.h"
-#include "platform/screenshot.h"
+#include "devtools/screenshot.h"
 #include "platform/sdl_events.h"
 #include "platform/platform_input.h"
 #include "base/core/checked_index.h"
@@ -1193,7 +1193,7 @@ void init_sdl_input()
     frontend::level_editor::prepare_all();
     // (nor the new front end's input - frontend/new_frontend.h; nothing when it's off)
     frontend::new_frontend::prepare_all();
-    // (nor the screenshot key - platform/screenshot.h)
+    // (nor the screenshot key - devtools/screenshot.h)
     sys::screenshot::prepare_all();
 }
 

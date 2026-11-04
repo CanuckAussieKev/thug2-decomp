@@ -51,7 +51,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/mlp.h"
-#include "platform/screenshot.h"
+#include "devtools/screenshot.h"
 #include "platform/crash.h"
 #include "platform/run_log.h"
 #include "game/skate/point_tally.h"

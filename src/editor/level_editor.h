@@ -225,7 +225,7 @@ float adjust_view_angle(gfx::ViewCam* camera, float angle);
 float get_near_plane(gfx::ViewCam* camera);
 // After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
 void blit();
-// For the screenshot sidecar (platform/screenshot.h): what the editor shows now - its mode, the level, its camera,
+// For the screenshot sidecar (devtools/screenshot.h): what the editor shows now - its mode, the level, its camera,
 // the selection and the node inspected, what's under the cursor, the changes - as name / value pairs; none while it
 // isn't running.
 std::vector<std::pair<std::string, std::string>> describe_for_screenshot();

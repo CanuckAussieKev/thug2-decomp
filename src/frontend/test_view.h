@@ -11,7 +11,7 @@ class ViewCam;
 // given position, while standing (not skating) so you don't move, then you can screenshot every frame from that
 // position"; not the game's and not PartyMod's). Used by the test-automation channel's `teleport` and `camera`
 // commands (frontend/automation.h) and the script command below; the frame series that goes with them is the
-// screenshot code's (platform/screenshot.h, start_series).
+// screenshot code's (devtools/screenshot.h, start_series).
 //
 // - Teleport: the local skater put at a point STANDING (walking, no momentum), on the ground below it (the game's
 //   collision ray from 12 units above the point to 4000 below; the point as given if nothing is hit), facing a

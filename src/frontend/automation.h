@@ -59,7 +59,7 @@ class Struct;
 //                                         slow exact move: z-fighting shows); `camera off` lets it go
 //   capture <frames> [folder]             the next <frames> rendered frames (1-600), every one, as frame_0001.png ...
 //                                         in the screenshot folder's <folder> (default series_<time>), with one
-//                                         series.txt (platform/screenshot.h start_series); done once all are written
+//                                         series.txt (devtools/screenshot.h start_series); done once all are written
 //   trace <frames>                        the local skater traced for the next <frames> game frames (1-36000) into
 //                                         thug2-decomp-trace.txt (rewritten): a line a frame - frame, position,
 //                                         velocity, the up row's y, the SkaterState state (0 ground, 1 air, 2 wall,

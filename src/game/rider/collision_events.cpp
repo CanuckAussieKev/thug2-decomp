@@ -32,7 +32,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
 #include "engine/sys/mlp.h"
-#include "platform/screenshot.h"
+#include "devtools/screenshot.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"

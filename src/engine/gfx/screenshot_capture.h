@@ -4,7 +4,7 @@
 
 #include "platform/screenshot_files.h"
 
-// NOT ORIGINAL - the screenshot key's renderer backend (ours; see platform/screenshot.h). Renderer-independence (as
+// NOT ORIGINAL - the screenshot key's renderer backend (ours; see devtools/screenshot.h). Renderer-independence (as
 // the level editor's UI backend): screenshot_capture.cpp is the only file of the feature that includes Direct3D; an
 // OpenGL / Vulkan renderer replaces only it.
 namespace gfx::screenshot_capture {

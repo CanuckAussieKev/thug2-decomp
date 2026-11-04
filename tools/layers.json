@@ -22,9 +22,13 @@
             "folders": ["src/editor/"],
             "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game"]
         },
+        "devtools": {
+            "folders": ["src/devtools/"],
+            "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game"]
+        },
         "app": {
             "folders": ["src/app/", "src/tests/"],
-            "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game", "frontend", "editor"]
+            "allowed": ["base", "platform", "formats", "wire", "gpu", "engine", "game", "frontend", "editor", "devtools"]
         }
     }
 }
