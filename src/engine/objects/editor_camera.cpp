@@ -152,6 +152,50 @@ private:
 void rail_editor_moving(int moved) { park_editing::RailAuthoring::sole()->change_live(moved != 0); }
 bool in_park_editor() { return modules::Skate::sole()->level() == kLoadSk5Ed; }
 
+// The editor camera's zoom and height buttons held, by controller type.
+struct CameraButtons {
+    bool zoom_in;
+    bool zoom_out;
+    bool raise;
+    bool lower;
+};
+
+// The zoom and height buttons by controller type.
+CameraButtons read_camera_buttons(const PadSnapshot& pad, PadInputModule* input)
+{
+    bool zoom_in = false;
+    bool zoom_out = false;
+    bool raise = false;
+    bool lower = false;
+    const int controller = game_config::hardware();
+    const uint32_t buttons = input->events();
+    if (controller == 4 || controller == kControllerPs2Pad) {
+        zoom_in = (buttons & kButtonZoomIn) != 0;
+        zoom_out = (buttons & kButtonZoomOut) != 0;
+        if (park_editing::ParkBuilderMode::sole()->editor_state() == kEdit) {
+            raise = (buttons & kButtonRaiseA) != 0;
+            lower = (buttons & kButtonLowerA) != 0;
+        } else {
+            raise = (buttons & kButtonRaiseB) != 0;
+            lower = (buttons & kButtonLowerB) != 0;
+        }
+    } else if (controller == kControllerXbox) {
+        if ((buttons & kButtonShift) != 0U) {
+            zoom_in = (buttons & kButtonLowerB) != 0;
+            zoom_out = (buttons & kButtonRaiseA) != 0;
+        } else {
+            lower = (buttons & kButtonLowerB) != 0;
+            raise = (buttons & kButtonRaiseA) != 0;
+        }
+    } else {
+        zoom_in = pad.shoulder_right_a().held_down() != 0;
+        zoom_out = pad.shoulder_right_b().held_down() != 0;
+        raise = pad.shoulder_left_a().held_down() != 0;
+        lower = pad.shoulder_left_b().held_down() != 0;
+    }
+    return {.zoom_in = zoom_in, .zoom_out = zoom_out, .raise = raise, .lower = lower};
+}
+
 } // namespace
 
 // 0x004E4F50
@@ -428,6 +472,32 @@ int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* param
     return 2;
 }
 
+// (Part of 0x004E5C20) Raising the height: not past the camera's max height under a ceiling, nor into it, nor
+// without one.
+float EditorViewModule::rise_under_ceiling(float rise) const
+{
+    const maths::Vec4 from = {.x = cursor_.x,
+                              .y = static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
+                              .z = cursor_.z,
+                              .w = cursor_.w};
+    const maths::Vec4 to = {.x = cursor_.x, .y = from.y - kDown, .z = cursor_.z, .w = cursor_.w};
+    Feeler ceiling;
+    ceiling.change_origin(from);
+    ceiling.change_finish(to);
+    if (ceiling.get_hit_shape(1, 0)) {
+        const float room = from.y - ceiling.get_point().y;
+        if (get_global(kEditorCamMaxHeight) < room) {
+            rise = 0.0F;
+        }
+        if (room < 0.0F) {
+            rise = 0.0F;
+        }
+    } else {
+        rise = 0.0F;
+    }
+    return rise;
+}
+
 // 0x004E5C20
 void EditorViewModule::tick_frame()
 {
@@ -463,36 +533,11 @@ void EditorViewModule::tick_frame()
     lean_angle_ = std::max(lean_angle_, min_tilt_);
 
     // The zoom and height buttons by controller type.
-    bool zoom_in = false;
-    bool zoom_out = false;
-    bool raise = false;
-    bool lower = false;
-    const int controller = game_config::hardware();
-    const uint32_t buttons = input_ptr_->events();
-    if (controller == 4 || controller == kControllerPs2Pad) {
-        zoom_in = (buttons & kButtonZoomIn) != 0;
-        zoom_out = (buttons & kButtonZoomOut) != 0;
-        if (park_editing::ParkBuilderMode::sole()->editor_state() == kEdit) {
-            raise = (buttons & kButtonRaiseA) != 0;
-            lower = (buttons & kButtonLowerA) != 0;
-        } else {
-            raise = (buttons & kButtonRaiseB) != 0;
-            lower = (buttons & kButtonLowerB) != 0;
-        }
-    } else if (controller == kControllerXbox) {
-        if ((buttons & kButtonShift) != 0U) {
-            zoom_in = (buttons & kButtonLowerB) != 0;
-            zoom_out = (buttons & kButtonRaiseA) != 0;
-        } else {
-            lower = (buttons & kButtonLowerB) != 0;
-            raise = (buttons & kButtonRaiseA) != 0;
-        }
-    } else {
-        zoom_in = pad.shoulder_right_a().held_down() != 0;
-        zoom_out = pad.shoulder_right_b().held_down() != 0;
-        raise = pad.shoulder_left_a().held_down() != 0;
-        lower = pad.shoulder_left_b().held_down() != 0;
-    }
+    const CameraButtons pressed = read_camera_buttons(pad, input_ptr_);
+    const bool zoom_in = pressed.zoom_in;
+    const bool zoom_out = pressed.zoom_out;
+    const bool raise = pressed.raise;
+    const bool lower = pressed.lower;
     double zoom_rate = get_global(kEditorCamInOutSpeed);
     if (!zoom_in) {
         zoom_rate = zoom_out ? -zoom_rate : 0.0F;
@@ -521,23 +566,7 @@ void EditorViewModule::tick_frame()
         }
     }
     if ((raise || lower) && rise > 0.0F) {
-        const maths::Vec4 from = {.x = cursor_.x, .y = static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
-                                  .z = cursor_.z, .w = cursor_.w};
-        const maths::Vec4 to = {.x = cursor_.x, .y = from.y - kDown, .z = cursor_.z, .w = cursor_.w};
-        Feeler ceiling;
-        ceiling.change_origin(from);
-        ceiling.change_finish(to);
-        if (ceiling.get_hit_shape(1, 0)) {
-            const float room = from.y - ceiling.get_point().y;
-            if (get_global(kEditorCamMaxHeight) < room) {
-                rise = 0.0F;
-            }
-            if (room < 0.0F) {
-                rise = 0.0F;
-            }
-        } else {
-            rise = 0.0F;
-        }
+        rise = rise_under_ceiling(rise);
     }
     level_y_ = rise + level_y_;
 

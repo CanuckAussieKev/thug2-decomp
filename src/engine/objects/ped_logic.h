@@ -286,6 +286,14 @@ public:
     bool ped_turn_to_current_waypoint_orientation(script::Struct* params, script::Script* script);
 
 private:
+    // (Part of 0x004ED8A0, choose_node_after: among several links, the one taken - the widest turn when none is low
+    // or normal priority, else a random normal one or (by the probability) a low one.)
+    [[nodiscard]] uint32_t choose_among_links(int count, bool from_stop) const;
+    // (Parts of 0x004F2AD0, skater_move_update: the next waypoint reached, and a crouch before a jump; the move this
+    // frame - the sound state it asks for, 1 in the air, -1 none.)
+    void approach_waypoint(float step, bool airborne);
+    int move_skater_ped(float step, bool airborne);
+
     uint32_t kind_{};            // +0x18 0 a walker, 2 a skater (Ped_SetIsSkater)
     uint32_t female_{};          // +0x1C 1: SkeletonName is Ped_Female
     uint32_t flag_bits_{0};      // +0x20 PED_FLAG_*

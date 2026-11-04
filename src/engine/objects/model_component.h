@@ -170,6 +170,10 @@ public:
     [[nodiscard]] bool level_object() const { return level_object_; }
 
 private:
+    // (Part of 0x00420D10, set_up_mesh: another object's model's geoms cloned - Geom, Geoms or all - and its colour
+    // values; false when a geom named isn't there, set_up_mesh ending there.)
+    bool clone_model_from(script::Struct* params, uint32_t name);
+
     // invoke_method_by_name's longer member functions (model_component_members.cpp).
     void aim_light(script::Struct* params);
     void stop_display_spins();

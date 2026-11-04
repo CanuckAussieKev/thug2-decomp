@@ -486,6 +486,93 @@ void DrivableModule::integrate()
     update_dependents();
 }
 
+// (Part of 0x00438BB0) A collider's face against the world: where it crosses the world's faces, and lines from
+// the body's position to its four corners - as contacts. False when a trigger interrupted the collision.
+bool DrivableModule::gather_contacts(const Collider& collider, render::BoxProbe& rect, render::ProbeRay& feeler)
+{
+    const std::span<Contact> contacts = get_contacts();
+    rect.rect().origin = collider.world_corner_;
+    rect.rect().side_a_ = core::at(collider.world_edges_, 0);
+    rect.rect().side_b_ = core::at(collider.world_edges_, 1);
+    if (rect.get_query(0)) {
+        trigger_rect(trigger_ptr_, kCrossingEvents, &rect);
+        if (get_interrupted(this)) {
+            return false;
+        }
+        rect.join_hits();
+        for (int k = rect.joined_count() - 1; k >= 0; --k) {
+            const render::RectHit& hit = core::at(rect.joined(), k);
+            for (int end_index = 1; end_index >= 0; --end_index) {
+                Contact& contact = core::at(contacts, contact_count_);
+                contact.point = core::at(hit.ends, end_index).point;
+                contact.normal = hit.normal;
+                contact.from_feeler_ = false;
+                const bool on_edge = core::at(hit.ends, end_index).on_triangle_edge_;
+                if (!normal_faces_away(&contact)) {
+                    contact.depth = on_edge ? static_cast<float>(get_penetration(&contact, &collider)) : 0.0F;
+                    ++contact_count_;
+                } else if (on_edge && find_edge_contact(&contact, &rect, &collider, k, end_index)) {
+                    ++contact_count_;
+                }
+            }
+        }
+    }
+    if (debug_mode_ != 0) {
+        rect.debug_draw(kDebugWhite, kDebugWhite, kDebugWhite, 1);
+    }
+    feeler.line().start = at_point_;
+    feeler.line().end = rect.rect().origin;
+    for (int corner = 0; corner < 4; ++corner) {
+        if (corner == 1) {
+            feeler.line().end = {
+                .x = static_cast<float>(static_cast<double>(feeler.line().end.x) + rect.rect().side_a_.x),
+                .y = static_cast<float>(static_cast<double>(rect.rect().side_a_.y) + feeler.line().end.y),
+                .z = static_cast<float>(static_cast<double>(rect.rect().side_a_.z) + feeler.line().end.z),
+                .w = static_cast<float>(static_cast<double>(rect.rect().side_a_.w) + feeler.line().end.w)};
+        } else if (corner == 2) {
+            feeler.line().end = {
+                .x = static_cast<float>(static_cast<double>(feeler.line().end.x) + rect.rect().side_b_.x),
+                .y = static_cast<float>(static_cast<double>(rect.rect().side_b_.y) + feeler.line().end.y),
+                .z = static_cast<float>(static_cast<double>(rect.rect().side_b_.z) + feeler.line().end.z),
+                .w = static_cast<float>(static_cast<double>(rect.rect().side_b_.w) + feeler.line().end.w)};
+        } else if (corner == 3) {
+            feeler.line().end = {
+                .x = static_cast<float>(static_cast<double>(feeler.line().end.x) - rect.rect().side_a_.x),
+                .y = static_cast<float>(static_cast<double>(feeler.line().end.y) - rect.rect().side_a_.y),
+                .z = static_cast<float>(static_cast<double>(feeler.line().end.z) - rect.rect().side_a_.z),
+                .w = static_cast<float>(static_cast<double>(feeler.line().end.w) - rect.rect().side_a_.w)};
+        }
+        if (feeler.get_hit_shape(false, false) != 0) {
+            trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
+            if (get_interrupted(this)) {
+                return false;
+            }
+            Contact& contact = core::at(contacts, contact_count_);
+            contact.point = feeler.contact_pos();
+            contact.normal = feeler.surface_dir();
+            if (!normal_faces_away(&contact)) {
+                // How far in: the rest of the line, along the normal.
+                const maths::Seg& line = feeler.line();
+                const double dz = static_cast<double>(line.start.z) - line.end.z;
+                const double dy = static_cast<double>(line.start.y) - line.end.y;
+                const double dx = static_cast<double>(line.start.x) - line.end.x;
+                contact.depth = static_cast<float>(
+                    (1.0 - feeler.reach()) *
+                    (((dz * feeler.surface_dir().z) + (dy * feeler.surface_dir().y)) + (dx * feeler.surface_dir().x)));
+                ++contact_count_;
+                // (the original marks the next record, not this one - the one past the table when it is full)
+                if (static_cast<std::size_t>(contact_count_) < contacts.size()) {
+                    core::at(contacts, contact_count_).from_feeler_ = true;
+                }
+            }
+        }
+        if (debug_mode_ != 0) {
+            feeler.debug_draw(kDebugWhite, kDebugWhite, kDebugWhite, 1);
+        }
+    }
+    return true;
+}
+
 // 0x00438BB0
 void DrivableModule::collide()
 {
@@ -500,81 +587,8 @@ void DrivableModule::collide()
     // position to its four corners.
     for (int i = 1; i >= 0; --i) {
         const Collider& collider = core::at(colliders_, i);
-        rect.rect().origin = collider.world_corner_;
-        rect.rect().side_a_ = core::at(collider.world_edges_, 0);
-        rect.rect().side_b_ = core::at(collider.world_edges_, 1);
-        if (rect.get_query(0)) {
-            trigger_rect(trigger_ptr_, kCrossingEvents, &rect);
-            if (get_interrupted(this)) {
-                return;
-            }
-            rect.join_hits();
-            for (int k = rect.joined_count() - 1; k >= 0; --k) {
-                const render::RectHit& hit = core::at(rect.joined(), k);
-                for (int end_index = 1; end_index >= 0; --end_index) {
-                    Contact& contact = core::at(contacts, contact_count_);
-                    contact.point = core::at(hit.ends, end_index).point;
-                    contact.normal = hit.normal;
-                    contact.from_feeler_ = false;
-                    const bool on_edge = core::at(hit.ends, end_index).on_triangle_edge_;
-                    if (!normal_faces_away(&contact)) {
-                        contact.depth = on_edge ? static_cast<float>(get_penetration(&contact, &collider)) : 0.0F;
-                        ++contact_count_;
-                    } else if (on_edge && find_edge_contact(&contact, &rect, &collider, k, end_index)) {
-                        ++contact_count_;
-                    }
-                }
-            }
-        }
-        if (debug_mode_ != 0) {
-            rect.debug_draw(kDebugWhite, kDebugWhite, kDebugWhite, 1);
-        }
-        feeler.line().start = at_point_;
-        feeler.line().end = rect.rect().origin;
-        for (int corner = 0; corner < 4; ++corner) {
-            if (corner == 1) {
-                feeler.line().end = {.x = static_cast<float>(static_cast<double>(feeler.line().end.x) + rect.rect().side_a_.x),
-                                    .y = static_cast<float>(static_cast<double>(rect.rect().side_a_.y) + feeler.line().end.y),
-                                    .z = static_cast<float>(static_cast<double>(rect.rect().side_a_.z) + feeler.line().end.z),
-                                    .w = static_cast<float>(static_cast<double>(rect.rect().side_a_.w) + feeler.line().end.w)};
-            } else if (corner == 2) {
-                feeler.line().end = {.x = static_cast<float>(static_cast<double>(feeler.line().end.x) + rect.rect().side_b_.x),
-                                    .y = static_cast<float>(static_cast<double>(rect.rect().side_b_.y) + feeler.line().end.y),
-                                    .z = static_cast<float>(static_cast<double>(rect.rect().side_b_.z) + feeler.line().end.z),
-                                    .w = static_cast<float>(static_cast<double>(rect.rect().side_b_.w) + feeler.line().end.w)};
-            } else if (corner == 3) {
-                feeler.line().end = {.x = static_cast<float>(static_cast<double>(feeler.line().end.x) - rect.rect().side_a_.x),
-                                    .y = static_cast<float>(static_cast<double>(feeler.line().end.y) - rect.rect().side_a_.y),
-                                    .z = static_cast<float>(static_cast<double>(feeler.line().end.z) - rect.rect().side_a_.z),
-                                    .w = static_cast<float>(static_cast<double>(feeler.line().end.w) - rect.rect().side_a_.w)};
-            }
-            if (feeler.get_hit_shape(false, false) != 0) {
-                trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
-                if (get_interrupted(this)) {
-                    return;
-                }
-                Contact& contact = core::at(contacts, contact_count_);
-                contact.point = feeler.contact_pos();
-                contact.normal = feeler.surface_dir();
-                if (!normal_faces_away(&contact)) {
-                    // How far in: the rest of the line, along the normal.
-                    const maths::Seg& line = feeler.line();
-                    const double dz = static_cast<double>(line.start.z) - line.end.z;
-                    const double dy = static_cast<double>(line.start.y) - line.end.y;
-                    const double dx = static_cast<double>(line.start.x) - line.end.x;
-                    contact.depth = static_cast<float>(
-                        (1.0 - feeler.reach()) * (((dz * feeler.surface_dir().z) + (dy * feeler.surface_dir().y)) +
-                                                  (dx * feeler.surface_dir().x)));
-                    ++contact_count_;
-                    // (the original marks the next record, not this one - the one past the table when it is full)
-                    if (static_cast<std::size_t>(contact_count_) < contacts.size()) {
-                        core::at(contacts, contact_count_).from_feeler_ = true;
-                    }
-                }
-            }
-            if (debug_mode_ != 0) {
-                feeler.debug_draw(kDebugWhite, kDebugWhite, kDebugWhite, 1);
-            }
+        if (!gather_contacts(collider, rect, feeler)) {
+            return;
         }
     }
     if (contact_count_ == 0) {

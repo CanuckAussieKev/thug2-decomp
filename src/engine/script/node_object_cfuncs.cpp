@@ -502,6 +502,67 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // ParkBuilderMode::kStateOff
 render::WorldCell* find_sector(uint32_t name) { return render::engine::look_up_sector(name); }
 bool park_editor_off() { return park_editing::ParkBuilderMode::sole()->editor_state() == kParkEditorOff; }
 
+// A level geometry node (node `index` of the array): its sector shown and collided with or not, an occluder, its
+// terrain (missing sector or name: messages); a trick object becomes its cluster's (`object_name`: the last
+// trick object's name read, kept from one node to the next).
+void set_up_level_geometry(script::Struct* node, uint32_t index, uint32_t& object_name)
+{
+    node->erase_module(kGeometryRemove);
+    uint32_t name = 0;
+    node->read_hash_value(kName, &name, 0);
+    if (name == 0U) {
+        script::dump_to_log(node, 0);
+        debug::printf("FAILED BECAUSE Node %d is LevelGeometry, but has no Name=....\n",
+                      index); // "FAILED BECAUSE Node %d is LevelGeometry..."
+    }
+    if (render::WorldCell* sector = find_sector(name)) {
+        if (!park_editor_off()) {
+            if (node->has_bare_flag(kCreatedAtStart)) {
+                skips_node(node); // (asked, the answer unused)
+            }
+        } else if (node->has_bare_flag(kCreatedAtStart) && !skips_node(node)) {
+            toggle_shown(sector, kEveryViewport);
+            change_live(sector, true);
+            enable_collision(sector, true);
+        } else {
+            change_live(sector, false);
+        }
+        if (node->has_bare_flag(kOccluder)) {
+            sector->mark_as_occluder(true);
+            change_live(sector, false);
+            if (!node->has_bare_flag(kCreatedAtStart)) {
+                mark_as_occluder(name, 0);
+            }
+        }
+        uint32_t terrain = kDefaultTerrain;
+        node->read_hash_value(kSurfaceKindKey, &terrain, 0);
+        sector->set_light_group(terrain);
+    } else {
+        uint32_t clone_from = 0;
+        node->read_hash_value(kCloneFrom, &clone_from, 0);
+        if ((clone_from == 0U) && (modules::Skate::is_multiplayer() == 0) && park_editor_off()) {
+            // "FAILED BECAUSE: Cannot find level geometry or collision for node %d ..."
+            debug::printf("FAILED BECAUSE: Cannot find level geometry or collision for node %d \nMaybe there "
+                          "are spaces in or after the name of the Max object (%s)\?\nOr maybe the .QN file "
+                          "does not match the .SCN file checked into Perforce\?\n",
+                          index, script::find_checksum_name_or_unknown(name));
+        }
+    }
+    bool trick = node->has_entry_named(kTrickObject);
+    if (!game_config::from_cd() && (script::fetch_int_value(kAllTrickObjects) != 0)) {
+        trick = true;
+    }
+    if (!skips_node(node) && trick) {
+        memory::push_mem_profile("Trick Object Clusters"); // "Trick Object Clusters"
+        node->read_hash_value(kName, &object_name, 1);
+        uint32_t cluster = object_name;
+        node->read_hash_value(kCluster, &cluster, 0);
+        objects::trick_spot_hub()->add_cluster(cluster);
+        objects::trick_spot_hub()->add_object(object_name, cluster);
+        memory::pop_mem_profile();
+    }
+}
+
 } // namespace
 
 // 0x005A34E0: ParseNodeArray [no_cleanup]: the level's node array (the node manager's 0x0045C220) set up: unless
@@ -549,60 +610,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
                 sector->set_light_group(terrain);
             }
         } else if (node_class == kClassLevelGeometry) {
-            node->erase_module(kGeometryRemove);
-            uint32_t name = 0;
-            node->read_hash_value(kName, &name, 0);
-            if (name == 0U) {
-                script::dump_to_log(node, 0);
-                debug::printf("FAILED BECAUSE Node %d is LevelGeometry, but has no Name=....\n",
-                              i); // "FAILED BECAUSE Node %d is LevelGeometry..."
-            }
-            if (render::WorldCell* sector = find_sector(name)) {
-                if (!park_editor_off()) {
-                    if (node->has_bare_flag(kCreatedAtStart)) {
-                        skips_node(node); // (asked, the answer unused)
-                    }
-                } else if (node->has_bare_flag(kCreatedAtStart) && !skips_node(node)) {
-                    toggle_shown(sector, kEveryViewport);
-                    change_live(sector, true);
-                    enable_collision(sector, true);
-                } else {
-                    change_live(sector, false);
-                }
-                if (node->has_bare_flag(kOccluder)) {
-                    sector->mark_as_occluder(true);
-                    change_live(sector, false);
-                    if (!node->has_bare_flag(kCreatedAtStart)) {
-                        mark_as_occluder(name, 0);
-                    }
-                }
-                uint32_t terrain = kDefaultTerrain;
-                node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                sector->set_light_group(terrain);
-            } else {
-                uint32_t clone_from = 0;
-                node->read_hash_value(kCloneFrom, &clone_from, 0);
-                if ((clone_from == 0U) && (modules::Skate::is_multiplayer() == 0) && park_editor_off()) {
-                    // "FAILED BECAUSE: Cannot find level geometry or collision for node %d ..."
-                    debug::printf("FAILED BECAUSE: Cannot find level geometry or collision for node %d \nMaybe there "
-                                  "are spaces in or after the name of the Max object (%s)\?\nOr maybe the .QN file "
-                                  "does not match the .SCN file checked into Perforce\?\n",
-                                  i, script::find_checksum_name_or_unknown(name));
-                }
-            }
-            bool trick = node->has_entry_named(kTrickObject);
-            if (!game_config::from_cd() && (script::fetch_int_value(kAllTrickObjects) != 0)) {
-                trick = true;
-            }
-            if (!skips_node(node) && trick) {
-                memory::push_mem_profile("Trick Object Clusters"); // "Trick Object Clusters"
-                node->read_hash_value(kName, &object_name, 1);
-                uint32_t cluster = object_name;
-                node->read_hash_value(kCluster, &cluster, 0);
-                objects::trick_spot_hub()->add_cluster(cluster);
-                objects::trick_spot_hub()->add_object(object_name, cluster);
-                memory::pop_mem_profile();
-            }
+            set_up_level_geometry(node, i, object_name);
         }
         if (skips_node(node)) {
             continue;

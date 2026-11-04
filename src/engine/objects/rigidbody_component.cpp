@@ -327,6 +327,160 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
     sounds->fetch_float(kBounceVelocityFullSpeed, &bounce_full_speed_, 0);         // BounceVelocityFullSpeed
 }
 
+// The shape's size: its farthest point, or sphere's edge, from the centre of mass.
+float BodyDynamicsModule::shape_extent() const
+{
+    float extent = 0.0F;
+    for (int i = contact_count_; i != 0;) {
+        const maths::Vec4& point = core::at(contact_run(), --i);
+        const double x = point.x;
+        const double y = point.y;
+        const double z = point.z;
+        auto length = static_cast<float>(std::sqrt(((z * z) + (x * x)) + (y * y)));
+        if (!(extent > length)) {
+            extent = length;
+        }
+    }
+    for (int i = sphere_count_; i != 0;) {
+        const Sphere& sphere = core::at(sphere_run(), --i);
+        const double x = sphere.center.x;
+        const double y = sphere.center.y;
+        const double z = sphere.center.z;
+        auto length = static_cast<float>(std::sqrt(((z * z) + (x * x)) + (y * y)) + sphere.radius);
+        if (!(extent > length)) {
+            extent = length;
+        }
+    }
+    return extent;
+}
+
+// Angles: the shape's points and spheres turned.
+void BodyDynamicsModule::turn_shape(script::Struct* params) const
+{
+    maths::Vec4 angles;
+    level_nodes::read_turn_angles(params, &angles);
+    maths::Mat4 turn;
+    turn.init_from_angles(angles);
+    auto element = [&turn](int row_index, int column) {
+        return static_cast<double>(core::at(turn.row, row_index)[column]);
+    };
+    for (int i = contact_count_; i != 0;) {
+        maths::Vec4& point = core::at(contact_run(), --i);
+        const double x = point.x;
+        const double y = point.y;
+        const double z = point.z;
+        point.z = static_cast<float>(((element(0, 2) * x) + (element(1, 2) * y)) + (element(2, 2) * z));
+        point.x = static_cast<float>(((element(0, 0) * x) + (element(1, 0) * y)) + (element(2, 0) * z));
+        point.y = static_cast<float>(((element(0, 1) * x) + (element(1, 1) * y)) + (element(2, 1) * z));
+    }
+    for (int i = sphere_count_; i != 0;) {
+        maths::Vec4& point = core::at(sphere_run(), --i).center;
+        const double x = point.x;
+        const double y = point.y;
+        const double z = point.z;
+        point.z = static_cast<float>(((element(1, 2) * y) + (element(2, 2) * z)) + (element(0, 2) * x));
+        point.x = static_cast<float>(((element(1, 0) * y) + (element(2, 0) * z)) + (element(0, 0) * x));
+        point.y = static_cast<float>(((element(1, 1) * y) + (element(2, 1) * z)) + (element(0, 1) * x));
+    }
+}
+
+// The shape: the contacts or spheres given, else Box (the default), Pyramid, Cylinder or Triangle.
+void BodyDynamicsModule::configure_shape(script::Struct* params)
+{
+    // The shape: the contacts or spheres given, else Box (the default), Pyramid, Cylinder or Triangle.
+    int shape = (contact_count_ != 0U) ? 4 : 0;
+    if (params->has_entry_named(kContacts)) { // contacts
+        script::Array* contacts = nullptr;
+        params->fetch_list(kContacts, &contacts, 0);
+        set_contacts(contacts);
+        shape = 4;
+    }
+    if (params->has_entry_named(kSpheres)) { // (the spheres)
+        script::Array* spheres = nullptr;
+        params->fetch_list(kSpheres, &spheres, 0);
+        set_spheres(spheres);
+        shape = 4;
+    }
+    if (params->has_bare_flag(kBox)) { // Box
+        shape = 0;
+    } else if (params->has_bare_flag(kPyramid)) { // Pyramid
+        shape = 1;
+    } else if (params->has_bare_flag(kCylinder)) { // Cylinder
+        shape = 2;
+    } else if (params->has_bare_flag(kTriangle)) { // Triangle
+        shape = 3;
+    }
+    switch (shape) {
+    case 0: {
+        maths::Vec4 top = {.x = kBoxWidth, .y = kBoxWidth, .z = kBoxDepth, .w = 1.0F};
+        params->fetch_vec("dimensions", &top, 0);
+        maths::Vec4 bottom = top;
+        params->fetch_vec("top_dimensions", &top, 0);
+        params->fetch_vec("bottom_dimensions", &bottom, 0);
+        top = {.x = top.x * kHalf, .y = top.y * kHalf, .z = top.z * kHalf, .w = top.w * kHalf};
+        bottom = {.x = bottom.x * kHalf, .y = bottom.y * kHalf, .z = bottom.z * kHalf, .w = bottom.w * kHalf};
+        set_box(&top, &bottom);
+        break;
+    }
+    case 1: {
+        float height = kBoxHeight;
+        float depth = kBoxDepth;
+        params->fetch_float(kHeight, &height, 0); // height
+        params->fetch_float(kDepth, &depth, 0);   // depth
+        height = height * kHalf;
+        depth = depth * kHalf;
+        set_pyramid({.half_height_ = height, .half_depth_ = depth});
+        break;
+    }
+    case 2: {
+        float radius = kCylinderRadius;
+        float height = kCylinderHeight;
+        int edges = kCylinderEdges;
+        params->fetch_float(kRadius, &radius, 0); // radius
+        float bottom_radius = radius;
+        params->fetch_float(kTopRadius, &radius, 0);           // top_radius
+        params->fetch_float(kBottomRadius, &bottom_radius, 0); // bottom_radius
+        params->fetch_float(kHeight, &height, 0);              // height
+        params->fetch_int_value(kEdges, &edges, 0);            // edges
+        height = height * kHalf;
+        set_cylinder({.top_radius_ = radius, .bottom_radius_ = bottom_radius, .half_height_ = height, .edges = edges});
+        break;
+    }
+    case 3: {
+        maths::Vec4 dimensions = {.x = kBoxWidth, .y = kBoxWidth, .z = kBoxDepth, .w = 1.0F};
+        params->fetch_vec(kDimensions, &dimensions, 0); // Dimensions
+        dimensions = {
+            .x = dimensions.x * kHalf, .y = dimensions.y * kHalf, .z = dimensions.z * kHalf, .w = dimensions.w * kHalf};
+        set_triangle(&dimensions);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+// directed_friction: one structure per contact (its direction, or none).
+void BodyDynamicsModule::configure_directed_friction(script::Struct* params)
+{
+    if (params->has_entry_named(kDirectedFriction)) { // directed_friction: one structure per contact
+        script::Array* friction = nullptr;
+        params->fetch_list(kDirectedFriction, &friction, 0);
+        steer_friction_ = reallocate(steer_friction_, contact_count_ * sizeof(DirectedFriction));
+        const std::span<DirectedFriction> frictions(steer_friction_, contact_count_);
+        for (int i = contact_count_; i != 0;) {
+            --i;
+            script::Struct* settings = friction->struct_at(static_cast<uint32_t>(i));
+            DirectedFriction& directed = core::at(frictions, i);
+            if (settings->has_entry_named(kNone)) { // none
+                directed.active = false;
+            } else {
+                directed.active = true;
+                settings->fetch_vec(0U, &directed.direction, 1);
+            }
+        }
+    }
+}
+
 // 0x0042F050
 void BodyDynamicsModule::configure_from_data(script::Struct* params)
 {
@@ -422,120 +576,12 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         }
     }
 
-    // The shape: the contacts or spheres given, else Box (the default), Pyramid, Cylinder or Triangle.
-    int shape = (contact_count_ != 0U) ? 4 : 0;
-    if (params->has_entry_named(kContacts)) { // contacts
-        script::Array* contacts = nullptr;
-        params->fetch_list(kContacts, &contacts, 0);
-        set_contacts(contacts);
-        shape = 4;
-    }
-    if (params->has_entry_named(kSpheres)) { // (the spheres)
-        script::Array* spheres = nullptr;
-        params->fetch_list(kSpheres, &spheres, 0);
-        set_spheres(spheres);
-        shape = 4;
-    }
-    if (params->has_bare_flag(kBox)) { // Box
-        shape = 0;
-    } else if (params->has_bare_flag(kPyramid)) { // Pyramid
-        shape = 1;
-    } else if (params->has_bare_flag(kCylinder)) { // Cylinder
-        shape = 2;
-    } else if (params->has_bare_flag(kTriangle)) { // Triangle
-        shape = 3;
-    }
-    switch (shape) {
-    case 0: {
-        maths::Vec4 top = {.x = kBoxWidth, .y = kBoxWidth, .z = kBoxDepth, .w = 1.0F};
-        params->fetch_vec("dimensions", &top, 0);
-        maths::Vec4 bottom = top;
-        params->fetch_vec("top_dimensions", &top, 0);
-        params->fetch_vec("bottom_dimensions", &bottom, 0);
-        top = {.x = top.x * kHalf, .y = top.y * kHalf, .z = top.z * kHalf, .w = top.w * kHalf};
-        bottom = {.x = bottom.x * kHalf, .y = bottom.y * kHalf, .z = bottom.z * kHalf, .w = bottom.w * kHalf};
-        set_box(&top, &bottom);
-        break;
-    }
-    case 1: {
-        float height = kBoxHeight;
-        float depth = kBoxDepth;
-        params->fetch_float(kHeight, &height, 0); // height
-        params->fetch_float(kDepth, &depth, 0);  // depth
-        height = height * kHalf;
-        depth = depth * kHalf;
-        set_pyramid({.half_height_ = height, .half_depth_ = depth});
-        break;
-    }
-    case 2: {
-        float radius = kCylinderRadius;
-        float height = kCylinderHeight;
-        int edges = kCylinderEdges;
-        params->fetch_float(kRadius, &radius, 0); // radius
-        float bottom_radius = radius;
-        params->fetch_float(kTopRadius, &radius, 0);        // top_radius
-        params->fetch_float(kBottomRadius, &bottom_radius, 0); // bottom_radius
-        params->fetch_float(kHeight, &height, 0);        // height
-        params->fetch_int_value(kEdges, &edges, 0);     // edges
-        height = height * kHalf;
-        set_cylinder({.top_radius_ = radius, .bottom_radius_ = bottom_radius, .half_height_ = height, .edges = edges});
-        break;
-    }
-    case 3: {
-        maths::Vec4 dimensions = {.x = kBoxWidth, .y = kBoxWidth, .z = kBoxDepth, .w = 1.0F};
-        params->fetch_vec(kDimensions, &dimensions, 0); // Dimensions
-        dimensions = {.x = dimensions.x * kHalf, .y = dimensions.y * kHalf, .z = dimensions.z * kHalf, .w = dimensions.w * kHalf};
-        set_triangle(&dimensions);
-        break;
-    }
-    default:
-        break;
-    }
+    configure_shape(params);
 
-    if (params->has_entry_named(kDirectedFriction)) { // directed_friction: one structure per contact
-        script::Array* friction = nullptr;
-        params->fetch_list(kDirectedFriction, &friction, 0);
-        steer_friction_ = reallocate(steer_friction_, contact_count_ * sizeof(DirectedFriction));
-        const std::span<DirectedFriction> frictions(steer_friction_, contact_count_);
-        for (int i = contact_count_; i != 0;) {
-            --i;
-            script::Struct* settings = friction->struct_at(static_cast<uint32_t>(i));
-            DirectedFriction& directed = core::at(frictions, i);
-            if (settings->has_entry_named(kNone)) { // none
-                directed.active = false;
-            } else {
-                directed.active = true;
-                settings->fetch_vec(0U, &directed.direction, 1);
-            }
-        }
-    }
+    configure_directed_friction(params);
 
     if (params->has_entry_named(kAngles)) { // Angles: the shape turned
-        maths::Vec4 angles;
-        level_nodes::read_turn_angles(params, &angles);
-        maths::Mat4 turn;
-        turn.init_from_angles(angles);
-        auto element = [&turn](int row_index, int column) {
-            return static_cast<double>(core::at(turn.row, row_index)[column]);
-        };
-        for (int i = contact_count_; i != 0;) {
-            maths::Vec4& point = core::at(contact_run(), --i);
-            const double x = point.x;
-            const double y = point.y;
-            const double z = point.z;
-            point.z = static_cast<float>(((element(0, 2) * x) + (element(1, 2) * y)) + (element(2, 2) * z));
-            point.x = static_cast<float>(((element(0, 0) * x) + (element(1, 0) * y)) + (element(2, 0) * z));
-            point.y = static_cast<float>(((element(0, 1) * x) + (element(1, 1) * y)) + (element(2, 1) * z));
-        }
-        for (int i = sphere_count_; i != 0;) {
-            maths::Vec4& point = core::at(sphere_run(), --i).center;
-            const double x = point.x;
-            const double y = point.y;
-            const double z = point.z;
-            point.z = static_cast<float>(((element(1, 2) * y) + (element(2, 2) * z)) + (element(0, 2) * x));
-            point.x = static_cast<float>(((element(1, 0) * y) + (element(2, 0) * z)) + (element(0, 0) * x));
-            point.y = static_cast<float>(((element(1, 1) * y) + (element(2, 1) * z)) + (element(0, 1) * x));
-        }
+        turn_shape(params);
     }
 
     // The centre of mass: given, else the average of the points.
@@ -578,27 +624,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // mass_over_moment, else the default scaled down by the size of a big shape.
     if (!params->fetch_float(kMassOverMoment, &mass_over_moment_, 0)) {
-        float extent = 0.0F;
-        for (int i = contact_count_; i != 0;) {
-            const maths::Vec4& point = core::at(contact_run(), --i);
-            const double x = point.x;
-            const double y = point.y;
-            const double z = point.z;
-            auto length = static_cast<float>(std::sqrt(((z * z) + (x * x)) + (y * y)));
-            if (!(extent > length)) {
-                extent = length;
-            }
-        }
-        for (int i = sphere_count_; i != 0;) {
-            const Sphere& sphere = core::at(sphere_run(), --i);
-            const double x = sphere.center.x;
-            const double y = sphere.center.y;
-            const double z = sphere.center.z;
-            auto length = static_cast<float>(std::sqrt(((z * z) + (x * x)) + (y * y)) + sphere.radius);
-            if (!(extent > length)) {
-                extent = length;
-            }
-        }
+        const float extent = shape_extent();
         if (extent > kBigShape) {
             const double scale = static_cast<double>(extent) * kShapeScale;
             mass_over_moment_ = static_cast<float>(mass_over_moment_ / (scale * scale));

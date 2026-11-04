@@ -293,6 +293,50 @@ void MeshInstanceModule::init_bone_volumes()
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
+// (Part of 0x00420D10) Another object's model's geoms cloned (Geom, Geoms or all of them) and its colour values;
+// false when a geom named isn't there (nothing after it is set up either).
+bool MeshInstanceModule::clone_model_from(script::Struct* params, uint32_t name)
+{
+    auto* object = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(name));
+    auto* source = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
+    color_value_count_ = source->color_value_count_;
+    for (int i = 0; i < color_value_count_; ++i) {
+        core::at(color_values_, i) = core::at(source->color_values_, i);
+    }
+    uint32_t mesh_label = 0;
+    script::Array* geoms = nullptr;
+    if (params->read_hash_value(kGeom, &mesh_label, 0)) {
+        render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
+        if (!geom) {
+            return false; // (nothing after it either)
+        }
+        render::Geom* clone = clone_model_geom(geom, mesh_instance_.get());
+        activate_geom(clone);
+        add_geom(mesh_instance_.get(), clone, mesh_label);
+    } else if (params->fetch_list(kGeoms, &geoms, 0)) {
+        for (uint32_t i = 0; i < geoms->extent(); ++i) {
+            mesh_label = geoms->fetch_part(i);
+            if (mesh_label == 0U) {
+                continue;
+            }
+            render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
+            if (!geom) {
+                return false;
+            }
+            render::Geom* clone = clone_model_geom(geom, mesh_instance_.get());
+            activate_geom(clone);
+            add_geom(mesh_instance_.get(), clone, mesh_label);
+        }
+    } else {
+        for (int i = 0; i < source->mesh_instance_->fetch_geom_total(); ++i) {
+            render::Geom* clone = clone_model_geom(source->mesh_instance_->fetch_geom(i), mesh_instance_.get());
+            activate_geom(clone);
+            add_geom(mesh_instance_.get(), clone, source->mesh_instance_->fetch_part_label(i));
+        }
+    }
+    return true;
+}
+
 // 0x00420D10
 void MeshInstanceModule::set_up_mesh(script::Struct* params)
 {
@@ -324,42 +368,8 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             mesh_instance_->add_asset_geom({.asset_name_ = name, .name = 0}, multicolor != 0, true);
         } else if (params->read_hash_value(kCloneFrom, &name, 0)) {
             // Another object's model's geoms cloned (and its colour values).
-            auto* object = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(name));
-            auto* source = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
-            color_value_count_ = source->color_value_count_;
-            for (int i = 0; i < color_value_count_; ++i) {
-                core::at(color_values_, i) = core::at(source->color_values_, i);
-            }
-            uint32_t mesh_label = 0;
-            script::Array* geoms = nullptr;
-            if (params->read_hash_value(kGeom, &mesh_label, 0)) {
-                render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
-                if (!geom) {
-                    return; // (nothing after it either)
-                }
-                render::Geom* clone = clone_model_geom(geom, mesh_instance_.get());
-                activate_geom(clone);
-                add_geom(mesh_instance_.get(), clone, mesh_label);
-            } else if (params->fetch_list(kGeoms, &geoms, 0)) {
-                for (uint32_t i = 0; i < geoms->extent(); ++i) {
-                    mesh_label = geoms->fetch_part(i);
-                    if (mesh_label == 0U) {
-                        continue;
-                    }
-                    render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
-                    if (!geom) {
-                        return;
-                    }
-                    render::Geom* clone = clone_model_geom(geom, mesh_instance_.get());
-                    activate_geom(clone);
-                    add_geom(mesh_instance_.get(), clone, mesh_label);
-                }
-            } else {
-                for (int i = 0; i < source->mesh_instance_->fetch_geom_total(); ++i) {
-                    render::Geom* clone = clone_model_geom(source->mesh_instance_->fetch_geom(i), mesh_instance_.get());
-                    activate_geom(clone);
-                    add_geom(mesh_instance_.get(), clone, source->mesh_instance_->fetch_part_label(i));
-                }
+            if (!clone_model_from(params, name)) {
+                return;
             }
         } else {
             const char* file = nullptr;

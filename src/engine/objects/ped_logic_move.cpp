@@ -882,6 +882,90 @@ void PedestrianBrainModule::generic_move_update()
     motion->stick_to_ground();
 }
 
+// (Part of 0x004F2AD0) Reaching the next waypoint (in the air, or for a vert node, in 3D); near enough, the
+// crouch before a jump.
+void PedestrianBrainModule::approach_waypoint(float step, bool airborne)
+{
+    // Reaching the next waypoint (in the air, or for a vert node, in 3D).
+    const maths::Vec4& at = entity()->at_point();
+    double dx = 0.0;
+    double dy = 0.0;
+    double dz = 0.0;
+    if (((flag_bits_ & kPedFlagVertNext) != 0U) || airborne) {
+        dx = static_cast<double>(at.x) - next_node_pos_.x;
+        dy = static_cast<float>(static_cast<double>(at.y) - next_node_pos_.y);
+        dz = static_cast<float>(static_cast<double>(at.z) - next_node_pos_.z);
+    } else {
+        dx = static_cast<double>(at.x) - next_node_pos_.x;
+        dy = 0.0F;
+        dz = static_cast<float>(static_cast<double>(at.z) - next_node_pos_.z);
+    }
+    auto distance_sqr = static_cast<float>(((dx * dx) + (dz * dz)) + (dy * dy));
+    const int min_distance = script::fetch_int_value(kMinDistanceToWaypoint);
+    if (((flag_bits_ & kPedFlagJumpingToNode) == 0U) &&
+        (static_cast<double>(step) * step > distance_sqr || static_cast<double>(min_distance) > distance_sqr)) {
+        reach_waypoint();
+    }
+    if ((flag_bits_ & kPedFlagCrouch) != 0U) {
+        if (static_cast<double>(script::fetch_int_value(kCrouchDistance)) > distance_sqr) {
+            flag_bits_ &= ~kPedFlagCrouch;
+            change_phase(kStateJumpCrouch, kSkaterPedStateTable, nullptr);
+        }
+    }
+}
+
+// (Part of 0x004F2AD0) The move this frame: steered along the path, or straight at the next node; kept to the
+// ground unless grinding. The sound state it asks for: 1 in the air, else -1 (none).
+int PedestrianBrainModule::move_skater_ped(float step, bool airborne)
+{
+    int sound = -1;
+    const maths::Vec4 old = entity()->at_point();
+    bool faced = false;
+    if (kind_ == 2 &&
+        ((flag_bits_ & (kPedFlagGrinding | kPedFlagVertNext | kPedFlagVertLast | kPedFlagGrindBailing)) == 0U) &&
+        ((flag_bits_ & kPedFlagJumpingToNode) == 0U)) {
+        if (!turn_towards_node_after()) {
+            keep_to_path();
+        }
+        move_steered();
+        if (airborne) {
+            entity()->display_matrix() = saved_matrix_;
+        }
+    } else {
+        // Straight at the next node.
+        maths::Vec4 to = {.x = next_node_pos_.x - old.x,
+                          .y = next_node_pos_.y - old.y,
+                          .z = next_node_pos_.z - old.z,
+                          .w = next_node_pos_.w - old.w};
+        const maths::Vec4& dir = to.make_unit();
+        auto z = static_cast<float>(static_cast<double>(step) * dir.z);
+        auto w = static_cast<float>(static_cast<double>(step) * dir.w);
+        const maths::Vec4 moved = {.x = static_cast<float>((static_cast<double>(step) * dir.x) + old.x),
+                                   .y = static_cast<float>((static_cast<double>(step) * dir.y) + old.y),
+                                   .z = static_cast<float>(static_cast<double>(z) + old.z),
+                                   .w = static_cast<float>(static_cast<double>(w) + old.w)};
+        keep_to_path();
+        move_steered();
+        entity()->at_point() = moved;
+        face_movement(old);
+        faced = true;
+    }
+    if ((flag_bits_ & (kPedFlagGrinding | kPedFlagGrindBailing)) == 0U) {
+        if (airborne) {
+            sound = 1;
+        } else {
+            stick_to_ground_ped();
+            if (!faced) {
+                face_movement(old);
+            }
+            align_to_ground();
+        }
+    } else if (airborne) {
+        sound = 1;
+    }
+    return sound;
+}
+
 // 0x004F2AD0
 void PedestrianBrainModule::skater_move_update()
 {
@@ -903,77 +987,11 @@ void PedestrianBrainModule::skater_move_update()
         }
     }
     if (((flag_bits_ & kPedFlagMoving) != 0U) || airborne) {
-        // Reaching the next waypoint (in the air, or for a vert node, in 3D).
-        const maths::Vec4& at = entity()->at_point();
-        double dx = 0.0;
-        double dy = 0.0;
-        double dz = 0.0;
-        if (((flag_bits_ & kPedFlagVertNext) != 0U) || airborne) {
-            dx = static_cast<double>(at.x) - next_node_pos_.x;
-            dy = static_cast<float>(static_cast<double>(at.y) - next_node_pos_.y);
-            dz = static_cast<float>(static_cast<double>(at.z) - next_node_pos_.z);
-        } else {
-            dx = static_cast<double>(at.x) - next_node_pos_.x;
-            dy = 0.0F;
-            dz = static_cast<float>(static_cast<double>(at.z) - next_node_pos_.z);
-        }
-        auto distance_sqr = static_cast<float>(((dx * dx) + (dz * dz)) + (dy * dy));
-        const int min_distance = script::fetch_int_value(kMinDistanceToWaypoint);
-        if (((flag_bits_ & kPedFlagJumpingToNode) == 0U) &&
-            (static_cast<double>(step) * step > distance_sqr || static_cast<double>(min_distance) > distance_sqr)) {
-            reach_waypoint();
-        }
-        if ((flag_bits_ & kPedFlagCrouch) != 0U) {
-            if (static_cast<double>(script::fetch_int_value(kCrouchDistance)) > distance_sqr) {
-                flag_bits_ &= ~kPedFlagCrouch;
-                change_phase(kStateJumpCrouch, kSkaterPedStateTable, nullptr);
-            }
-        }
+        approach_waypoint(step, airborne);
     }
     int sound = -1;
     if (((flag_bits_ & kPedFlagMoving) != 0U) && step != 0.0F) {
-        const maths::Vec4 old = entity()->at_point();
-        bool faced = false;
-        if (kind_ == 2 &&
-            ((flag_bits_ & (kPedFlagGrinding | kPedFlagVertNext | kPedFlagVertLast | kPedFlagGrindBailing)) == 0U) &&
-            ((flag_bits_ & kPedFlagJumpingToNode) == 0U)) {
-            if (!turn_towards_node_after()) {
-                keep_to_path();
-            }
-            move_steered();
-            if (airborne) {
-                entity()->display_matrix() = saved_matrix_;
-            }
-        } else {
-            // Straight at the next node.
-            maths::Vec4 to = {.x = next_node_pos_.x - old.x, .y = next_node_pos_.y - old.y, .z = next_node_pos_.z - old.z,
-                              .w = next_node_pos_.w - old.w};
-            const maths::Vec4& dir = to.make_unit();
-            auto z = static_cast<float>(static_cast<double>(step) * dir.z);
-            auto w = static_cast<float>(static_cast<double>(step) * dir.w);
-            const maths::Vec4 moved = {.x = static_cast<float>((static_cast<double>(step) * dir.x) + old.x),
-                                       .y = static_cast<float>((static_cast<double>(step) * dir.y) + old.y),
-                                       .z = static_cast<float>(static_cast<double>(z) + old.z),
-                                       .w = static_cast<float>(static_cast<double>(w) + old.w)};
-            keep_to_path();
-            move_steered();
-            entity()->at_point() = moved;
-            face_movement(old);
-            faced = true;
-        }
-        if ((flag_bits_ & (kPedFlagGrinding | kPedFlagGrindBailing)) == 0U) {
-            if (airborne) {
-                sound = 1;
-            } else {
-                stick_to_ground_ped();
-                if (!faced) {
-                    face_movement(old);
-                }
-                align_to_ground();
-            }
-        } else if (airborne) {
-            sound = 1;
-        }
+        sound = move_skater_ped(step, airborne);
     } else {
         push_position();
         entity()->display_matrix() = saved_matrix_;

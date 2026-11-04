@@ -81,6 +81,10 @@ public:
     void set_simple_collision(bool value) { simple_collision_ = value; }
 
 private:
+    // (Part of 0x004E5C20, tick_frame: the height's rise kept under a ceiling - none past the camera's max height
+    // under it, nor into it, nor without one.)
+    [[nodiscard]] float rise_under_ceiling(float rise) const;
+
     uint32_t unknown18{};
     maths::Vec4 focus_{};       // +0x1C what the camera looks at (the cursor, the height eased)
     maths::Vec4 viewer_{};      // +0x2C the camera's position

@@ -337,6 +337,10 @@ public:
     [[nodiscard]] GameEntity* rider_ref() const { return rider_ref_; }
 
 private:
+    // (Part of 0x00438BB0, collide: a collider's face against the world - where it crosses the world's faces, and
+    // lines from the body's position to its four corners - as contacts; false when a trigger interrupted it.)
+    bool gather_contacts(const Collider& collider, render::BoxProbe& rect, render::ProbeRay& feeler);
+
     maths::Vec4 at_point_{};        // +0x18 the centre of mass (world)
     maths::Vec4 linear_momentum_{}; // +0x28 linear momentum
     maths::Vec4 orientation_{};     // +0x38 a quaternion (x, y, z, w)

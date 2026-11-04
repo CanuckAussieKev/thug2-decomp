@@ -173,82 +173,96 @@ void PedestrianBrainModule::choose_node_after()
             }
         }
     } else {
-        const maths::Vec4 incoming = {.x = next_node_pos_.x - node_pos_.x, .y = next_node_pos_.y - node_pos_.y,
-                                      .z = next_node_pos_.z - node_pos_.z, .w = next_node_pos_.w - node_pos_.w};
-        std::array<int, kRouteSlots> lows{};
-        std::array<int, kRouteSlots> normals{};
-        for (int i = 0; i < count; ++i) {
-            core::at(normals, i) = i;
-            core::at(lows, i) = i;
-        }
-        int low_count = 0;
-        int normal_count = 0;
-        const int min_angle = script::fetch_int_value(kMinInnerPathAngle);
-        float best_angle = 0.0F;
-        int best = 0;
-        for (int i = 0; i < count; ++i) {
-            const uint32_t link = level_nodes::fetch_link(next_node_, i);
-            if (link == list_link_) {
-                continue;
-            }
-            script::Struct* linked = level_nodes::fetch_vertex(link, true);
-            uint32_t link_class = 0;
-            uint32_t link_type = 0;
-            linked->read_hash_value(kClass, &link_class, 0);
-            linked->read_hash_value(kTypeName, &link_type, 0);
-            if (link_class != kWaypoint || link_type != kPedAi) {
-                continue;
-            }
-            uint32_t link_action = 0;
-            if (!from_stop && linked->read_hash_value(kSkateAction, &link_action, 0) && link_action == kStopAction) {
-                continue;
-            }
-            maths::Vec4 link_pos;
-            level_nodes::fetch_place(link, &link_pos);
-            const maths::Vec4 outgoing = {.x = next_node_pos_.x - link_pos.x, .y = next_node_pos_.y - link_pos.y,
-                                          .z = next_node_pos_.z - link_pos.z, .w = next_node_pos_.w - link_pos.w};
-            double angle = maths::read_turn_angle(incoming, outgoing);
-            if (angle > kFullTurnDegrees) {
-                angle -= static_cast<double>(truncate(angle * kInverseFullTurn)) * kFullTurnDegrees;
-            }
-            if (angle > best_angle) {
-                best_angle = static_cast<float>(angle);
-                best = i;
-            }
-            if (!(angle >= min_angle)) {
-                continue;
-            }
-            uint32_t priority = 0;
-            linked->read_hash_value(kPriority, &priority, 1);
-            if (priority == kLow) {
-                core::at(lows, low_count++) = i;
-            } else if (priority == kNormal) {
-                core::at(normals, normal_count++) = i;
-            }
-        }
-        if (normal_count == 0 && low_count == 0) {
-            chosen = level_nodes::fetch_link(next_node_, best);
-        } else {
-            bool low = normal_count == 0;
-            if (!low) {
-                low = low_count != 0;
-                if (low) {
-                    const float probability = script::fetch_float("ped_low_priority_waypoint_probability");
-                    const int roll = maths::rnd(100);
-                    low = !(static_cast<double>(probability) * kHundred < roll);
-                }
-            }
-            if (low) {
-                chosen = level_nodes::fetch_link(next_node_, core::at(lows, maths::rnd(low_count)));
-            } else {
-                chosen = level_nodes::fetch_link(next_node_, core::at(normals, maths::rnd(normal_count)));
-            }
-        }
+        chosen = choose_among_links(count, from_stop);
     }
     if (chosen != 0U) {
         node_after_ = chosen;
         level_nodes::fetch_place(chosen, &node_after_pos_);
     }
+}
+
+// (Part of 0x004ED8A0) Among the next node's several links, the one taken: waypoints for peds (not back the way
+// it came; a stop only from a stop) - the widest turn when none is low or normal priority, else a random normal
+// one or, by the low priority probability, a low one.
+uint32_t PedestrianBrainModule::choose_among_links(int count, bool from_stop) const
+{
+    uint32_t chosen = 0;
+    const maths::Vec4 incoming = {.x = next_node_pos_.x - node_pos_.x,
+                                  .y = next_node_pos_.y - node_pos_.y,
+                                  .z = next_node_pos_.z - node_pos_.z,
+                                  .w = next_node_pos_.w - node_pos_.w};
+    std::array<int, kRouteSlots> lows{};
+    std::array<int, kRouteSlots> normals{};
+    for (int i = 0; i < count; ++i) {
+        core::at(normals, i) = i;
+        core::at(lows, i) = i;
+    }
+    int low_count = 0;
+    int normal_count = 0;
+    const int min_angle = script::fetch_int_value(kMinInnerPathAngle);
+    float best_angle = 0.0F;
+    int best = 0;
+    for (int i = 0; i < count; ++i) {
+        const uint32_t link = level_nodes::fetch_link(next_node_, i);
+        if (link == list_link_) {
+            continue;
+        }
+        script::Struct* linked = level_nodes::fetch_vertex(link, true);
+        uint32_t link_class = 0;
+        uint32_t link_type = 0;
+        linked->read_hash_value(kClass, &link_class, 0);
+        linked->read_hash_value(kTypeName, &link_type, 0);
+        if (link_class != kWaypoint || link_type != kPedAi) {
+            continue;
+        }
+        uint32_t link_action = 0;
+        if (!from_stop && linked->read_hash_value(kSkateAction, &link_action, 0) && link_action == kStopAction) {
+            continue;
+        }
+        maths::Vec4 link_pos;
+        level_nodes::fetch_place(link, &link_pos);
+        const maths::Vec4 outgoing = {.x = next_node_pos_.x - link_pos.x,
+                                      .y = next_node_pos_.y - link_pos.y,
+                                      .z = next_node_pos_.z - link_pos.z,
+                                      .w = next_node_pos_.w - link_pos.w};
+        double angle = maths::read_turn_angle(incoming, outgoing);
+        if (angle > kFullTurnDegrees) {
+            angle -= static_cast<double>(truncate(angle * kInverseFullTurn)) * kFullTurnDegrees;
+        }
+        if (angle > best_angle) {
+            best_angle = static_cast<float>(angle);
+            best = i;
+        }
+        if (!(angle >= min_angle)) {
+            continue;
+        }
+        uint32_t priority = 0;
+        linked->read_hash_value(kPriority, &priority, 1);
+        if (priority == kLow) {
+            core::at(lows, low_count++) = i;
+        } else if (priority == kNormal) {
+            core::at(normals, normal_count++) = i;
+        }
+    }
+    if (normal_count == 0 && low_count == 0) {
+        chosen = level_nodes::fetch_link(next_node_, best);
+    } else {
+        bool low = normal_count == 0;
+        if (!low) {
+            low = low_count != 0;
+            if (low) {
+                const float probability = script::fetch_float("ped_low_priority_waypoint_probability");
+                const int roll = maths::rnd(100);
+                low = !(static_cast<double>(probability) * kHundred < roll);
+            }
+        }
+        if (low) {
+            chosen = level_nodes::fetch_link(next_node_, core::at(lows, maths::rnd(low_count)));
+        } else {
+            chosen = level_nodes::fetch_link(next_node_, core::at(normals, maths::rnd(normal_count)));
+        }
+    }
+    return chosen;
 }
 
 // 0x004EEFA0

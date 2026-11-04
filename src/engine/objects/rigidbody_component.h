@@ -249,6 +249,15 @@ public:
     void check_sleep();
 
 private:
+    // (Parts of 0x0042F050, configure_from_data: the shape - the contacts or spheres given, else Box, Pyramid,
+    // Cylinder or Triangle; directed_friction's one structure per contact.)
+    void configure_shape(script::Struct* params);
+    void configure_directed_friction(script::Struct* params);
+    // (Angles: the shape's points and spheres turned.)
+    void turn_shape(script::Struct* params) const;
+    // (The shape's size: its farthest point or sphere's edge from the centre of mass.)
+    [[nodiscard]] float shape_extent() const;
+
     float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     float restitution_{kDefaultRestitution}; // +0x2C coeff_restitution (0.4)

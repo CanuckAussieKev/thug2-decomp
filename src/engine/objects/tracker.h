@@ -36,6 +36,7 @@ constexpr std::size_t kEventNameBytes = 0x40;
 constexpr std::size_t kEventNameCount = 0x100;
 constexpr std::size_t kWaiterCount = 40;
 
+struct Signal;
 class Entity; // +0x08 flags (0x20: has a position), +0x14 id, +0x3C alias count, +0x4C position
 
 // The "no object" id: the target or source of an event that has none.
@@ -204,6 +205,9 @@ public:
     void set_launched_from_script(int value) { launched_from_script_ = value; }
 
 private:
+    // (Part of 0x00462F00, launch_event: to every event listener and then the target.)
+    void send_to_target(Signal& event);
+
     // (The offsets are the original's, which has its vtable at +0x00.)
     int next_auto_id_{0};             // +0x04
     gsl::owner<lists::KeyMap*> entity_list_;      // +0x08 id -> Entity (8 bits)

@@ -117,6 +117,81 @@ void delete_script_list(ScriptList* list)
     ScriptList::operator delete(list);
 }
 
+// A broadcast event (0x00462F00): every script listening for the type, in the order they started listening;
+// with a radius (>= 0), only those whose object is nearer the source than that.
+void broadcast_event(ScriptList* list, Signal& event, float radius)
+{
+    const uint32_t source = event.from_where(); // (the launch's source)
+    // Every script listening for the type, in the order they started listening; with a radius (>= 0), only
+    // those whose object is nearer the source than that (scripts without an object, or whose object has no
+    // position, always get it).
+    maths::Vec4 source_position{};
+    if (radius >= 0.0F) {
+        source_position = get_position(find_object_by_id(source)); // (not checked for null)
+    }
+    auto in_range = [&](script::Script* script) {
+        if (!(radius >= 0.0F)) {
+            return true;
+        }
+        Entity* object = script->entity().get_pull();
+        if (!object || !has_position(object)) {
+            return true;
+        }
+        const double distance = maths::get_distance_squared(source_position, get_position(object));
+        return static_cast<double>(radius) * radius > distance;
+    };
+    int count = 0;
+    const ScriptNode* first = list->following();
+    if (!first->is_head()) {
+        for (const ScriptNode* node = first; node;) {
+            node = node->following();
+            ++count;
+            if (node->is_head()) {
+                break;
+            }
+        }
+    }
+    if (count == 1) {
+        script::Script* script = first->payload();
+        if (in_range(script)) {
+            script->receive_event(&event);
+        }
+    } else {
+        // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
+        // is skipped.
+        using Pointer = SharedRef<SharedBase>;
+        auto* scripts_block = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * 4));
+        const std::span<script::Script*> scripts(scripts_block, static_cast<std::size_t>(count));
+        // (the original's new[]: its count before them - here the count is the local one)
+        auto* pointers_block = static_cast<Pointer*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer)));
+        const std::span<Pointer> pointers(pointers_block, pointers_block ? static_cast<std::size_t>(count) : 0);
+        for (Pointer& pointer : pointers) {
+            memory::construct_in<Pointer>(&pointer);
+        }
+        const ScriptNode* node = list->following()->is_head() ? nullptr : list->following();
+        for (int i = 0; node; ++i) {
+            core::at(scripts, i) = node->payload();
+            core::at(pointers, i).assign_value(&node->payload()->shared_base());
+            node = node->following();
+            if (node->is_head()) {
+                break;
+            }
+        }
+        for (int i = 0; i < count; ++i) {
+            if (core::at(pointers, i) && in_range(core::at(scripts, i))) {
+                core::at(scripts, i)->receive_event(&event);
+            }
+        }
+        if (pointers_block) {
+            for (int i = count - 1; i >= 0; --i) {
+                core::at(pointers, i).get_release(); // (the destructors, last first)
+            }
+            memory::dealloc(pointers_block);
+        }
+        memory::dealloc(static_cast<void*>(scripts_block));
+    }
+}
+
 } // namespace
 
 // --- the list of scripts ---------------------------------------------------------------------------------
@@ -501,103 +576,47 @@ void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
     script->gate_off(0);
 }
 
+// (Part of 0x00462F00) Every event listener, then the target: an object, or else the spawned script with that id.
+void EventWaitBoard::send_to_target(Signal& event)
+{
+    // Every event listener, then the target: an object, or else the spawned script with that id.
+    for (SignalReceiver* listener = event_listeners_; listener; listener = listener->next_subscriber()) {
+        ++listener->busy();
+        listener_receive(listener, &event);
+        --listener->busy();
+    }
+    const uint32_t event_target = event.aim_point();
+    if (event_target != kNoObjectId && ((event.flag_bits() & Signal::kFlagHandled) == 0U)) {
+        if (Entity* object = look_up_object(event_target)) {
+            forward_trigger(object, &event);
+        } else {
+            script::Script* script = script::look_up_spawned_script(event_target);
+            if (!script) {
+                log_.echo_out(true, kLogSize);
+            }
+            script->receive_event(&event); // (null when there's no such script - an original crash)
+        }
+    }
+}
+
 // 0x00462F00
 bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t source, script::Struct* data, bool broadcast,
                                   float radius)
 {
     ++launch_depth_;
-    log_.add_row({.type = type, .target = target, .source = source, .script = static_cast<uint32_t>(launched_from_script_), .how = 0, .kind = SignalTrace::Kind::kLaunched});
+    log_.add_row({.type = type,
+                  .target = target,
+                  .source = source,
+                  .script = static_cast<uint32_t>(launched_from_script_),
+                  .how = 0,
+                  .kind = SignalTrace::Kind::kLaunched});
     launched_from_script_ = 0;
     Signal event(type, source, target, data);
 
     if (!broadcast) {
-        // Every event listener, then the target: an object, or else the spawned script with that id.
-        for (SignalReceiver* listener = event_listeners_; listener; listener = listener->next_subscriber()) {
-            ++listener->busy();
-            listener_receive(listener, &event);
-            --listener->busy();
-        }
-        const uint32_t event_target = event.aim_point();
-        if (event_target != kNoObjectId && ((event.flag_bits() & Signal::kFlagHandled) == 0U)) {
-            if (Entity* object = look_up_object(event_target)) {
-                forward_trigger(object, &event);
-            } else {
-                script::Script* script = script::look_up_spawned_script(event_target);
-                if (!script) {
-                    log_.echo_out(true, kLogSize);
-                }
-                script->receive_event(&event); // (null when there's no such script - an original crash)
-            }
-        }
+        send_to_target(event);
     } else if (auto* list = static_cast<ScriptList*>(listeners_->fetch_entry(type, true))) {
-        // Every script listening for the type, in the order they started listening; with a radius (>= 0), only
-        // those whose object is nearer the source than that (scripts without an object, or whose object has no
-        // position, always get it).
-        maths::Vec4 source_position{};
-        if (radius >= 0.0F) {
-            source_position = get_position(find_object_by_id(source)); // (not checked for null)
-        }
-        auto in_range = [&](script::Script* script) {
-            if (!(radius >= 0.0F)) {
-                return true;
-            }
-            Entity* object = script->entity().get_pull();
-            if (!object || !has_position(object)) {
-                return true;
-            }
-            const double distance = maths::get_distance_squared(source_position, get_position(object));
-            return static_cast<double>(radius) * radius > distance;
-        };
-        int count = 0;
-        const ScriptNode* first = list->following();
-        if (!first->is_head()) {
-            for (const ScriptNode* node = first; node;) {
-                node = node->following();
-                ++count;
-                if (node->is_head()) {
-                    break;
-                }
-            }
-        }
-        if (count == 1) {
-            script::Script* script = first->payload();
-            if (in_range(script)) {
-                script->receive_event(&event);
-            }
-        } else {
-            // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
-            // is skipped.
-            using Pointer = SharedRef<SharedBase>;
-            auto* scripts_block = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * 4));
-            const std::span<script::Script*> scripts(scripts_block, static_cast<std::size_t>(count));
-            // (the original's new[]: its count before them - here the count is the local one)
-            auto* pointers_block = static_cast<Pointer*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer)));
-            const std::span<Pointer> pointers(pointers_block, pointers_block ? static_cast<std::size_t>(count) : 0);
-            for (Pointer& pointer : pointers) {
-                memory::construct_in<Pointer>(&pointer);
-            }
-            const ScriptNode* node = list->following()->is_head() ? nullptr : list->following();
-            for (int i = 0; node; ++i) {
-                core::at(scripts, i) = node->payload();
-                core::at(pointers, i).assign_value(&node->payload()->shared_base());
-                node = node->following();
-                if (node->is_head()) {
-                    break;
-                }
-            }
-            for (int i = 0; i < count; ++i) {
-                if (core::at(pointers, i) && in_range(core::at(scripts, i))) {
-                    core::at(scripts, i)->receive_event(&event);
-                }
-            }
-            if (pointers_block) {
-                for (int i = count - 1; i >= 0; --i) {
-                    core::at(pointers, i).get_release(); // (the destructors, last first)
-                }
-                memory::dealloc(pointers_block);
-            }
-            memory::dealloc(static_cast<void*>(scripts_block));
-        }
+        broadcast_event(list, event, radius);
     }
 
     // The first WaitForEvent waiter for this type whose object is the target (or that has no object, or the

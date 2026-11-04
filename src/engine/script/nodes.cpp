@@ -207,6 +207,84 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
     return nearest;
 }
 
+namespace {
+
+// A script call walk's statement at a name: where it starts, what the walk looks for and where it reports, the
+// parameters read into, the caller's, and how deep the walk is.
+struct NameCall {
+    script::Tokens call;
+    uint32_t target{};
+    ScriptCallCallback callback{};
+    Struct* params{};
+    Struct* parent_params{};
+    int depth{};
+};
+
+// A name at the start of a statement (or one already looked up): a script is followed into, a C or member
+// function that is the target handed to the callback; EndGap's gapscript= is followed too. The token after
+// what was read returned.
+script::Tokens follow_name_call(script::Tokens token, const NameCall& walk)
+{
+    const script::Tokens call = walk.call;
+    const uint32_t target = walk.target;
+    const ScriptCallCallback callback = walk.callback;
+    Struct* params = walk.params;
+    Struct* parent_params = walk.parent_params;
+    const int depth = walk.depth;
+    const uint32_t name = script::as_token(*token) == script::QbToken::kMemberFunction
+                              ? script::member_entry_at(token + 1)->callsign_
+                              : script::fetch_word32(token + 1);
+    token += script::kTokenWithWordBytes;
+    if (script::as_token(*token) == script::QbToken::kEquals) {
+        return token;
+    }
+    const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
+    if (!symbol) {
+        return token;
+    }
+    switch (symbol->type()) {
+    case script::QbValueKind::kScriptBody:
+        params->get_clear();
+        token = script::parse_arguments(params, token, parent_params);
+        if (name == target) {
+            callback(params, call.address());
+        } else {
+            token = script::skip_to_end_of_statement(token);
+        }
+        for_each_script_call({.script = name, .target = target}, callback, params, depth + 1);
+        break;
+    case script::QbValueKind::kNativeFunc:
+        if (name != target) {
+            token = script::skip_to_end_of_statement(token);
+            break;
+        }
+        params->get_clear();
+        token = script::parse_arguments(params, token, parent_params);
+        callback(params, call.address());
+        break;
+    case script::QbValueKind::kNativeMethod:
+        if (name != target) {
+            token = script::skip_to_end_of_statement(token);
+            break;
+        }
+        params->get_clear();
+        token = script::parse_arguments(params, token, parent_params);
+        callback(params, call.address());
+        if (name == kEndGap) {
+            uint32_t gap_script = 0;
+            if (params->read_hash_value(kGapScript, &gap_script, 0)) {
+                for_each_script_call({.script = gap_script, .target = target}, callback, nullptr, depth + 1);
+            }
+        }
+        break;
+    default:
+        break;
+    }
+    return token;
+}
+
+} // namespace
+
 // 0x0045C950
 void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct* parent_params, int depth)
 {
@@ -230,55 +308,12 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
         case script::QbToken::kMemberFunction: {
             // A name at the start of a statement (or one already looked up): a script is followed into, a C or
             // member function that is `target` handed to the callback; EndGap's gapscript= is followed too.
-            const uint32_t name = script::as_token(*token) == script::QbToken::kMemberFunction
-                                      ? script::member_entry_at(token + 1)->callsign_
-                                      : script::fetch_word32(token + 1);
-            token += script::kTokenWithWordBytes;
-            if (script::as_token(*token) == script::QbToken::kEquals) {
-                break;
-            }
-            const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-            if (!symbol) {
-                break;
-            }
-            switch (symbol->type()) {
-            case script::QbValueKind::kScriptBody:
-                params->get_clear();
-                token = script::parse_arguments(params, token, parent_params);
-                if (name == target) {
-                    callback(params, call.address());
-                } else {
-                    token = script::skip_to_end_of_statement(token);
-                }
-                for_each_script_call({.script = name, .target = target}, callback, params, depth + 1);
-                break;
-            case script::QbValueKind::kNativeFunc:
-                if (name != target) {
-                    token = script::skip_to_end_of_statement(token);
-                    break;
-                }
-                params->get_clear();
-                token = script::parse_arguments(params, token, parent_params);
-                callback(params, call.address());
-                break;
-            case script::QbValueKind::kNativeMethod:
-                if (name != target) {
-                    token = script::skip_to_end_of_statement(token);
-                    break;
-                }
-                params->get_clear();
-                token = script::parse_arguments(params, token, parent_params);
-                callback(params, call.address());
-                if (name == kEndGap) {
-                    uint32_t gap_script = 0;
-                    if (params->read_hash_value(kGapScript, &gap_script, 0)) {
-                        for_each_script_call({.script = gap_script, .target = target}, callback, nullptr, depth + 1);
-                    }
-                }
-                break;
-            default:
-                break;
-            }
+            token = follow_name_call(token, {.call = call,
+                                             .target = target,
+                                             .callback = callback,
+                                             .params = params,
+                                             .parent_params = parent_params,
+                                             .depth = depth});
             break;
         }
         case script::QbToken::kNativeFunction: {
