@@ -50,24 +50,27 @@ src/
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
               sounds, saves, custom parks (library thug2_formats)
   wire/       the network messages and their framing (library thug2_wire)
-  gpu/        the GPU's vertex and index buffers
+  gpu/        the GPU's vertex and index buffers (library thug2_gpu)
   base/       the OS-free helpers under everything: core (checksums, formatting, text, checked indexing, the enum and
               pointer helpers), maths, two containers (lists), the bit stream and BPS patches (util) (library
               thug2_base)
   engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network transport, pad input, ui (the
-              original's screen elements and our UI fonts), ext (the extension points)
+              original's screen elements and our UI fonts), ext (the extension points) (library thug2_engine)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
               network session; the transport stays in engine/net), commands (the game's script commands), world
               (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park
-              editor's camera)
-  frontend/   the new front end and the mouse menus
-  editor/     the level editor
-  devtools/   the developer tools (screenshot key, test-automation channel, restart tester, start level, test view)
+              editor's camera) (library thug2_game)
+  frontend/   the new front end and the mouse menus (library thug2_frontend)
+  editor/     the level editor (library thug2_editor)
+  devtools/   the developer tools (screenshot key, test-automation channel, restart tester, start level, test view;
+              library thug2_devtools)
+  tests/      the offline checks (thug2_format_check, thug2_maths_check, thug2_parse_check, thug2_printf_check)
 ```
 
 `engine/` doesn't include `game/`, `frontend/` or `editor/`; the engine and the game reach the editor, the front end
 and the dev tools only through `engine/ext` (each of those is an `ext::Extension` that `app/` registers); `formats/`, `wire/` and `platform/` include nothing of the
-game but `base/` (they build as libraries of their own, on `thug2_base`); `base/` includes nothing but the standard library
+game but `base/` (they build as libraries of their own, on `thug2_base`); each folder's `CMakeLists.txt` defines its
+library, and `tools/cmake_layers.ts` checks that the libraries link as the layers allow; `base/` includes nothing but the standard library
 and GSL. One folder is one namespace (formats and wire
 keep the namespaces their headers had). The layers and their rules: docs/architecture.md.
 

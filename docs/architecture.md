@@ -3,7 +3,8 @@
 ## Layers
 
 The game is one executable (`thug2-decomp.exe`, CMake target `thug2`) built from `src/`, in layers. A layer may
-include the layers below it, never the ones above.
+include the layers below it, never the ones above. Each layer but `app/` is a static library, `thug2_<folder>`,
+defined in its folder's `CMakeLists.txt`; `app/` is the exe, which links them all.
 
 ```
 app/                        main, WinMain, the start-up, the game's main: the composition (may include anything)
@@ -133,6 +134,33 @@ no upward include, not even in the baseline.
 
 **The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
+**The libraries link as the map says.** Each library links only the ones its layer may include (`PUBLIC`: their
+headers are part of its own), and reaches every one of them through those links:
+
+```
+thug2_base  <-  thug2_formats  <-  thug2_wire
+            <-  thug2_platform <-  thug2_gpu
+thug2_gpu + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
+every library  <-  thug2 (src/app: thug2-decomp.exe)
+```
+
+The checks in `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`:
+base; `thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
+library that calls them (SDL, DirectSound, Winsock, D3D9, D3DX and the GameSpy SDK by the platform; imgui, LZHAM and
+DirectInput by the engine; imgui by the editor and the front end). `node tools/cmake_layers.ts` (part of `npm test`)
+reads the `CMakeLists.txt` files and fails when a library links outside the map or doesn't reach a library the map
+allows it, when a source sits in another library's folder, or when a `.cpp` is compiled by no target or by two.
+The one exception is the editor / front end / dev tools' sibling edges (round 29's): they link each other exactly
+where `tools/layers_baseline.txt` still has include lines between them - static libraries that need each other, which
+CMake repeats on the link line for a linker that reads each library once (GNU ld) - and a sibling link with no
+baseline line left fails.
+
+Nothing is registered by a static initialiser: the start-up runs explicit tables (app's start-up initialisers, the
+command table, the component registry), so the linker drops no object the game needs (a static library leaves out an
+object nothing refers to). The project's only dynamic initialisers are four list-head markers and one callback
+pointer, each used in its own file. Each library keeps its sources in the order the exe listed them before the
+split; the exe's symbols were compared before and after.
+
 **The boundary layer** is where the game meets bytes it doesn't lay out itself. Only there do byte layouts matter;
 everything above it uses the game's own types and may change them freely.
 
@@ -149,7 +177,7 @@ everything above it uses the game's own types and may change them freely.
   (`gamenet_messages`, `skater_messages`, `play_messages`, `skate_net_messages`), byte-compatible with the
   original's and THUGPRO's peers. Encoders and decoders over the same byte stream; a short or oversized message is
   refused, not read past.
-- `gpu/`: the Direct3D vertex and index buffers (`vertex_buffers`): made, filled through their copies in memory,
+- `gpu/` (static library `thug2_gpu`, on platform): the Direct3D vertex and index buffers (`vertex_buffers`): made, filled through their copies in memory,
   written again after a device reset, torn down. Game code sees the buffers' API, not the device; it reads and writes
   vertices by attribute through `gpu::VertexView` / `VertexWriter` (`vertex_view.h`: a stride and offsets, never the
   bytes themselves).
