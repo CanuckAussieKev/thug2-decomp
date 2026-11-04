@@ -750,13 +750,10 @@ void select_rails()
         }
     }
     auto within = [&](V3 point) {
-        for (const auto& box : boxes) {
-            if (point.x >= box.first.x && point.x <= box.second.x && point.y >= box.first.y &&
-                point.y <= box.second.y && point.z >= box.first.z && point.z <= box.second.z) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(boxes, [&](const auto& box) {
+            return point.x >= box.first.x && point.x <= box.second.x && point.y >= box.first.y &&
+                   point.y <= box.second.y && point.z >= box.first.z && point.z <= box.second.z;
+        });
     };
     auto listed = [&](uint32_t colour) { return colour && std::ranges::find(clusters, colour) != clusters.end(); };
     for (int i = 0; i < count; ++i) {

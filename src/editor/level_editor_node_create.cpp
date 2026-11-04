@@ -306,14 +306,10 @@ bool valid_name(const std::string& name)
     if (name.empty() || name.size() > kMaxNodeNameLength) {
         return false;
     }
-    for (const char character : name) {
-        const bool ok = (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
-                        (character >= '0' && character <= '9') || character == '_';
-        if (!ok) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(name, [](const char character) {
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+               (character >= '0' && character <= '9') || character == '_';
+    });
 }
 
 std::vector<Prop> get_fields(const Spec& spec)
@@ -447,12 +443,9 @@ const char* limit_message(Kind kind, const Counts& counts)
 
 bool hide_leaves_no_restart(nodes::SpawnPointKind types, nodes::SpawnPointKind others)
 {
-    for (const nodes::SpawnPointKind bit : {nodes::SpawnPointKind::kPlayer1, nodes::SpawnPointKind::kMultiplayer}) {
-        if (core::any(types & bit) && !core::any(others & bit)) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(
+        std::array{nodes::SpawnPointKind::kPlayer1, nodes::SpawnPointKind::kMultiplayer},
+        [&](const nodes::SpawnPointKind bit) { return core::any(types & bit) && !core::any(others & bit); });
 }
 
 int get_index_of(const LinkChain& list, const std::string& name)
@@ -893,12 +886,8 @@ LinkChain at_hand()
 
 bool is_added(uint32_t name)
 {
-    for (const Spec& spec : level_editor_node_create_state().list_) {
-        if (name_hash(spec.name) == name) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(level_editor_node_create_state().list_,
+                               [&](const Spec& spec) { return name_hash(spec.name) == name; });
 }
 
 bool name_taken(const std::string& name)

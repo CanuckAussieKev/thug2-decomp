@@ -442,12 +442,9 @@ bool valid_snapshot_name(const std::string& name)
     if (name.empty() || name.size() > kMaxSetNameLength || get_lower(name) == "autosave") {
         return false;
     }
-    for (const char character : name) {
-        if ((std::isalnum(static_cast<unsigned char>(character)) == 0) && character != '_' && character != '-') {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(name, [](const char character) {
+        return (std::isalnum(static_cast<unsigned char>(character)) != 0) || character == '_' || character == '-';
+    });
 }
 
 std::string snapshot_file_name(uint32_t scene, const std::string& name)

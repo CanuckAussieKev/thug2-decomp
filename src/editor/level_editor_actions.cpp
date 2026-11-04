@@ -911,13 +911,10 @@ bool get_held(platform::KeyState keys, int index)
         return false;
     }
     const uint8_t held = held_mods(keys);
-    for (const Chord& chord : act_step->keys) {
-        if (chord.scancode > 0 && chord.scancode < SDL_NUM_SCANCODES &&
-            hold_matches(chord, core::at(keys, chord.scancode) != 0, held)) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(act_step->keys, [&](const Chord& chord) {
+        return chord.scancode > 0 && chord.scancode < SDL_NUM_SCANCODES &&
+               hold_matches(chord, core::at(keys, chord.scancode) != 0, held);
+    });
 }
 
 void fire_off(int index)

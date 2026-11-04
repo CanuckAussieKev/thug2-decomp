@@ -176,13 +176,10 @@ bool valid_word(const std::string& name)
     if (name.empty() || name.size() > kMaxNameLength) {
         return false;
     }
-    for (const char character : name) {
-        if (!((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
-              (character >= '0' && character <= '9') || character == '_')) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(name, [](const char character) {
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+               (character >= '0' && character <= '9') || character == '_';
+    });
 }
 
 bool read_triple(const std::string& text, V3* out)
@@ -2058,15 +2055,13 @@ bool flat_grindable(V3 a, V3 b)
         return false;
     }
     refresh_flat(rails);
-    for (const objects::GrindPoint* node : flat_chains().flat_cache_.marked) {
+    return std::ranges::any_of(flat_chains().flat_cache_.marked, [&](const objects::GrindPoint* node) {
         const objects::GrindPoint* next = node->succ();
-        if (next && same_segment(a, b, {.x = node->at_point().x, .y = node->at_point().y, .z = node->at_point().z},
-                                 {.x = next->at_point().x, .y = next->at_point().y, .z = next->at_point().z},
-                                 kSameSegmentTolerance)) {
-            return true;
-        }
-    }
-    return false;
+        return next != nullptr &&
+               same_segment(a, b, {.x = node->at_point().x, .y = node->at_point().y, .z = node->at_point().z},
+                            {.x = next->at_point().x, .y = next->at_point().y, .z = next->at_point().z},
+                            kSameSegmentTolerance);
+    });
 }
 
 void tick()

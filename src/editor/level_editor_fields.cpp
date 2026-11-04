@@ -1231,14 +1231,11 @@ bool reset_node(uint32_t name)
 
 bool node_edited(uint32_t name)
 {
-    for (const Touched& touched_entry : touched()) {
-        if (touched_entry.node == name && level_node(name) == touched_entry.structure &&
-            !same_own(own_of(touched_entry.structure, touched_entry.key, touched_entry.flag), touched_entry.origin,
-                      touched_entry.flag)) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(touched(), [&](const Touched& touched_entry) {
+        return touched_entry.node == name && level_node(name) == touched_entry.structure &&
+               !same_own(own_of(touched_entry.structure, touched_entry.key, touched_entry.flag), touched_entry.origin,
+                         touched_entry.flag);
+    });
 }
 
 std::vector<uint32_t> touched_keys(uint32_t name)

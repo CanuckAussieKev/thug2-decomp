@@ -81,12 +81,8 @@ bool is_hex8(const std::string& w)
     if (w.size() != kChecksumDigits) {
         return false;
     }
-    for (const char character : w) {
-        if (std::isxdigit(static_cast<unsigned char>(character)) == 0) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(
+        w, [](const char character) { return std::isxdigit(static_cast<unsigned char>(character)) != 0; });
 }
 
 std::string get_num(float v)

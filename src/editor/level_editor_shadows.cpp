@@ -145,16 +145,12 @@ bool nearest_to_group(ShadowGroup shadow_group,
     const float z = (shadow_min.z + shadow_max.z) * 0.5F;
     const float mine = footprint_distance({.x = x, .z = z}, group_min, group_max);
     const float mine_centre = centre_distance({.x = x, .z = z}, group_min, group_max);
-    for (const auto& other : others) {
+    // (no other group nearer, or as near with its centre nearer)
+    return std::ranges::none_of(others, [&](const auto& other) {
         const float theirs = footprint_distance({.x = x, .z = z}, other.first, other.second);
-        if (theirs < mine) {
-            return false;
-        }
-        if (theirs == mine && centre_distance({.x = x, .z = z}, other.first, other.second) < mine_centre) {
-            return false;
-        }
-    }
-    return true;
+        return theirs < mine ||
+               (theirs == mine && centre_distance({.x = x, .z = z}, other.first, other.second) < mine_centre);
+    });
 }
 
 bool get_beside(V3 shadow_min, V3 shadow_max, V3 caster_min, V3 caster_max)

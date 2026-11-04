@@ -307,12 +307,7 @@ std::vector<Lock>& stored_locks()
 
 bool latched(uint32_t kind, uint32_t id)
 {
-    for (const Lock& lock : stored_locks()) {
-        if (lock.kind == kind && lock.id == id) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(stored_locks(), [&](const Lock& lock) { return lock.kind == kind && lock.id == id; });
 }
 
 bool set_locked(uint32_t kind, uint32_t id, bool locked)

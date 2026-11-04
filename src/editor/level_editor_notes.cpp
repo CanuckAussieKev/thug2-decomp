@@ -127,12 +127,9 @@ bool valid_name(const std::string& name)
     if (name.empty() || name.size() > kMaxWordLength) { // (as layout_file.ts's validWord)
         return false;
     }
-    for (const char character : name) {
-        if ((std::isalnum(static_cast<unsigned char>(character)) == 0) && character != '_') {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(name, [](const char character) {
+        return (std::isalnum(static_cast<unsigned char>(character)) != 0) || character == '_';
+    });
 }
 
 bool read_triple(const std::string& text, V3* out)

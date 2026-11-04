@@ -1198,12 +1198,8 @@ std::string get_fresh_id()
         if (index_of_goal_id(id) >= 0) {
             return true;
         }
-        for (const char* suffix : {"_pro", "_start"}) {
-            if (node_create::name_taken(id + suffix)) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(std::array{"_pro", "_start"},
+                                   [&](const char* suffix) { return node_create::name_taken(id + suffix); });
     });
 }
 

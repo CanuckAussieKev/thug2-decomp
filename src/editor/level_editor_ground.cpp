@@ -507,12 +507,9 @@ bool valid_word(const std::string& name)
     if (name.empty() || name.size() > kMaxNameLength) {
         return false;
     }
-    for (const char character : name) {
-        if (!((std::isalnum(static_cast<unsigned char>(character)) != 0) || character == '_')) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(name, [](const char character) {
+        return (std::isalnum(static_cast<unsigned char>(character)) != 0) || character == '_';
+    });
 }
 
 } // namespace
