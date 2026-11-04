@@ -53,11 +53,12 @@ src/
   base/       the OS-free helpers under everything: core (checksums, formatting, text, checked indexing, the enum and
               pointer helpers), maths, two containers (lists), the bit stream and BPS patches (util) (library
               thug2_base)
-  engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network, pad input
-  game/       skating, the rider, goals, parks, saves
-  frontend/   menus and screens
+  engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network, pad input, ui (the
+              original's screen elements)
+  game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module)
+  frontend/   the new front end and the mouse menus
   editor/     the level editor
-  devtools/   the developer tools (the screenshot key)
+  devtools/   the developer tools (screenshot key, test-automation channel, restart tester, start level, test view)
 ```
 
 `engine/` doesn't include `game/`, `frontend/` or `editor/`; `formats/`, `wire/` and `platform/` include nothing of the

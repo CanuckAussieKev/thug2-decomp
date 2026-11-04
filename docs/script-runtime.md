@@ -8,7 +8,7 @@ fields, flags) plus `cscript_core.cpp` (A), `cscript_exec.cpp` (B), `cscript_wai
 `cscript_manager.cpp` (D). For the script cache (FetchScript / ReleaseScript use counting) see "What the cache
 does" (batch 70). For the token format see `src/engine/script/qb.h`. Sections 11 and 12
 (events, objects) come from batches 75-77 (`src/engine/objects/signal.*`, `tracker.*`, `entity.*`, `entity_hub.*`), the
-front end's part of the frame (section 2) from batch 78 (`src/frontend/front_end.*`), the frame order, the
+front end's part of the frame (section 2) from batch 78 (`src/game/front_end/front_end.*`), the frame order, the
 object walk, pausing objects and composite objects (sections 2 and 12) from batches 79-81
 (`src/engine/objects/compositemgr.*`, `composite.*`, `src/engine/lists/chain_start.*`).
 

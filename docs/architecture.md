@@ -7,9 +7,10 @@ include the layers below it, never the ones above.
 
 ```
 app/                        main, WinMain, the start-up, the game's main: the composition (may include anything)
-editor/  frontend/  devtools/   the level editor; menus and screens; the developer tools (the screenshot key)
+editor/  frontend/  devtools/   the level editor; the new front end and mouse menus; the developer tools
 game/                       skating, the rider, goals, parks, saves
-engine/                     memory, lists, files, assets, script, objects, renderer, audio, network, pad input
+engine/                     memory, lists, files, assets, script, objects, renderer, audio, network, pad input,
+                            ui (the original's screen elements)
 -------------------------   the boundary: where bytes come from outside the game
 formats/  wire/  gpu/       file formats; network messages; GPU buffers
 platform/                   Win32, the SDL window, DirectSound's set-up, the GameSpy SDK, crash reports, code addresses
@@ -39,7 +40,15 @@ set-up (`engine/pad_input/direct_input`, `input_setup`).
 
 **The composition** (`src/app`): `main.cpp`, WinMain (`winmain.cpp`: the command line, the window, the devices),
 PartyMod's start-up (`pc_setup.cpp`) and the game's main (`startup.cpp`: the singletons, modules and the main loop).
-It may include every layer. `src/devtools` (the screenshot key) sits beside the editor and the new front end.
+It may include every layer. `src/devtools` sits beside the editor and the new front end: the screenshot key, the
+test-automation channel (`automation`), the restart tester, the start level and the test view.
+
+**Where the UI lives** (what `frontend/` held was three things): the original's screen elements, which the game's HUD
+and menus use (`screen_element*`, `text_element`, `text_block`, `menu_element`, `sprite_element`, `scrolling_menu`,
+`model_widget`, `theme_cfuncs`, `screen_constants.h`), are `engine/ui` (they include no game header); the original's
+pause / menu module is `game/front_end`, CREATE 100% CAS's commands `game/commands`, and the data overlay (a file
+system source) `engine/file/data_overlay`. `src/frontend` is now the new front end and the mouse menus only. The
+namespaces are the ones the files had (`frontend::` for all of these).
 
 **The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `engine/net`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
