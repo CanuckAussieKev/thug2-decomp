@@ -1,6 +1,7 @@
 // The menus (vmenu / hmenu) and the container element: see menu_element.h.
 
 #include "engine/ui/menu_element.h"
+#include "engine/ui/screen_constants.h"
 #include "engine/ui/screen_element_manager.h"
 
 #include <algorithm>
@@ -8,7 +9,6 @@
 #include "engine/objects/signal.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/contest.h"
 #include "engine/objects/entity.h"
 #include "engine/ui/screen_element.h"
 #include "base/core/checksums.h"
@@ -33,7 +33,7 @@ constexpr uint32_t kController = 0xB30D9965, kGridIndex = 0xFACF9A8B, kChildId =
 constexpr uint32_t kSystem = 0x36B2EE74, kFocus = 0x9D3FB516, kUnfocus = 0x4ADF0CD3, kFocusSentEvent = 0x3056434F;
 constexpr uint32_t kPadUp = 0x30A4F836, kPadDown = 0x0FD1AC26, kPadLeft = 0x6949DB75, kPadRight = 0x05DDD87C;
 
-float regular_space_minimum() { return ::modules::kCompetitionTiny; } // 0.0001
+float regular_space_minimum() { return kTinyAlpha; } // 0.0001
 
 void get_launch(uint32_t type, uint32_t target, Struct* data)
 {

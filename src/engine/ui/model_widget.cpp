@@ -24,7 +24,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/contest.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_constants.h"
@@ -83,7 +82,7 @@ float inv_two_pi() { return frontend::kInvTwoPi; }
 float two_pi() { return frontend::kTwoPi; }
 float get_pi() { return maths::kPi; }
 float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
-float visible_alpha() { return ::modules::kCompetitionTiny; }      // 0.0001
+float visible_alpha() { return kTinyAlpha; }      // 0.0001
 
 // UiWidget's pieces.
 void base_set_properties(UiWidget* widget, Struct* params) { widget->UiWidget::change_traits(params); }

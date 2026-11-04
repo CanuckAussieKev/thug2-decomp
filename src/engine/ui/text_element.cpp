@@ -16,7 +16,6 @@
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/contest.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/ui/screen_element.h"
@@ -28,7 +27,6 @@
 #include "engine/gfx/movie.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/anim_movies.h"
-#include "game/goals/objective.h"
 #include "base/maths/vec2.h"
 #include "base/maths/rect.h"
 #include <gsl/pointers>
@@ -70,9 +68,9 @@ using text::copy_unbounded;
 float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
 float rotation_offset()
 {
-    return ::goals::kGoalLifeSecondsPerMillisecond;
+    return kRotationOffset;
 } // 0.001 (added to a rotation in radians)
-float minimum_alpha() { return ::modules::kCompetitionTiny; } // 0.0001: below it, transparent
+float minimum_alpha() { return kTinyAlpha; } // 0.0001: below it, transparent
 float layout_top() { return frontend::kLayoutTop; }           // -200: text whose top is above it is hidden
 float layout_bottom() { return frontend::kLayoutBottom; }     // 648: ... or below it
 float get_zero() { return ::objects::kFloatZero; }

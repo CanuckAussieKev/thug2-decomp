@@ -2,6 +2,7 @@
 // the layout pass, its properties and member functions).
 
 #include "engine/ui/screen_element.h"
+#include "engine/ui/screen_constants.h"
 #include "engine/ui/screen_element_manager.h"
 
 #include <bit>
@@ -22,7 +23,6 @@
 #include "engine/gfx/weather.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/cag_cfuncs.h"
-#include "game/goals/objective.h"
 #include "base/maths/rect.h"
 #include "base/maths/vec2.h"
 #include "base/core/checksums.h"
@@ -69,7 +69,7 @@ constexpr uint32_t kDeadBeef = 0xDEADBEEF;
 float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
 float rotation_offset()
 {
-    return ::goals::kGoalLifeSecondsPerMillisecond;
+    return kRotationOffset;
 } // 0.001 (added to a rotation in radians)
 float convert_to_degrees() { return ::commands::kScriptRadiansToDegrees; }
 

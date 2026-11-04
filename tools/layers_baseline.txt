@@ -375,16 +375,7 @@ src/engine/sys/mlp.cpp -> src/frontend/new_frontend.h
 src/engine/sys/mlp.cpp -> src/game/skate/skate_module.h
 src/engine/sys/mlp.cpp -> src/game/skate/thugpro_cas.h
 src/engine/sys/model_viewer.cpp -> src/game/front_end/front_end.h
-src/engine/ui/menu_element.cpp -> src/game/skate/contest.h
-src/engine/ui/model_widget.cpp -> src/game/skate/contest.h
-src/engine/ui/screen_constants.h -> src/game/goals/objective.h
-src/engine/ui/screen_constants.h -> src/game/skate/contest.h
-src/engine/ui/screen_element.cpp -> src/game/goals/objective.h
 src/engine/ui/screen_element_manager.cpp -> src/frontend/new_frontend.h
-src/engine/ui/sprite_element.cpp -> src/game/goals/objective.h
-src/engine/ui/sprite_element.cpp -> src/game/skate/contest.h
-src/engine/ui/text_element.cpp -> src/game/goals/objective.h
-src/engine/ui/text_element.cpp -> src/game/skate/contest.h
 src/formats/check/format_check.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check.cpp -> src/wire/message_ids.h
 src/formats/check/format_check.cpp -> src/wire/net_wire.h

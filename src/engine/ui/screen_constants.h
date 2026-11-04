@@ -2,16 +2,18 @@
 
 #include "engine/objects/anim_movies.h"
 #include "engine/script/math_cfuncs.h"
-#include "game/skate/contest.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/gfx/movie.h"
 #include "engine/gfx/tod_manager.h"
-#include "game/goals/objective.h"
 
 // The front end's (and the animation controller's) float constants from the original's read-only data, by name.
 // The first group is defined in screen_element.cpp; the second are defined where their other users are.
 
 namespace frontend {
+// Two small values the goal and competition code has too (goals::kGoalLifeSecondsPerMillisecond,
+// modules::kCompetitionTiny): the UI keeps its own copies so it needs no game header.
+inline constexpr float kTinyAlpha{0.0001F};     // below it an element is transparent
+inline constexpr float kRotationOffset{0.001F}; // added to a rotation in radians
 inline constexpr float kAspectToLayout{0.75000006F}; // 0x00649FEC
 inline constexpr float kWideScreen{0.9F};            // 0x00649FE4
 inline constexpr float kMinusInv448{-0.002232143F};  // 0x00649FE0
