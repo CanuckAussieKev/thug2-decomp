@@ -1,6 +1,6 @@
 {
     "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs.",
-    "strict": ["base", "platform", "engine"],
+    "strict": ["base", "platform", "engine", "game"],
     "libraries": {
         "base": {
             "folders": ["src/base/"],
