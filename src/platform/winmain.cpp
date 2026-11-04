@@ -408,7 +408,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
             write_default_setting(name.data(), core::at(core::at(kDefaultBindings, device), i));
         }
     }
-    os_layer::init_input(instance, render::renderer().game_window(), static_cast<int>(cell::of(kSettingsKey.data())));
+    os_layer::init_input(instance, render::renderer().game_window(), kSettingsKey.data());
 
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.

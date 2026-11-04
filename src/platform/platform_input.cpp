@@ -16,13 +16,13 @@
 #include "engine/pad_input/device.h"
 #include "engine/gfx/view_cam.h"
 #include "base/core/compiler.h"
-#include "base/core/raw_view.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
 #include "platform/platform_state.h"
+#include "platform/registry.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (wcscpy: the original's own, into its fixed buffers)
 
@@ -533,10 +533,10 @@ void load_registry_options(const char* key)
     // (The size starts at 1, so the first read - "distance" - always fails, setting it to 4: "distance" is
     // read again after "options".)
     DWORD size = 1;
-    if (RegQueryValueExA(options, "distance", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
+    if (sys::query_registry_value(options, "distance", &type, &value, &size) == ERROR_SUCCESS) {
         place_at_range(value);
     }
-    if (RegQueryValueExA(options, "options", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
+    if (sys::query_registry_value(options, "options", &type, &value, &size) == ERROR_SUCCESS) {
         if ((value & 1) != 0U) {
             render::view_setup().set_fog_setting(true);
         }
@@ -559,10 +559,10 @@ void load_registry_options(const char* key)
             render::view_setup().set_distance_clipping(true);
         }
     }
-    if (RegQueryValueExA(options, "distance", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
+    if (sys::query_registry_value(options, "distance", &type, &value, &size) == ERROR_SUCCESS) {
         place_at_range(value);
     }
-    if (RegQueryValueExA(options, "resolution", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
+    if (sys::query_registry_value(options, "resolution", &type, &value, &size) == ERROR_SUCCESS) {
         render::renderer().set_resolution_setting(value > 3 ? 0 : static_cast<int>(value));
     }
 
@@ -570,12 +570,12 @@ void load_registry_options(const char* key)
     // whatever was there after it).
     std::array<char, kJoystickNameSize> text{};
     size = sizeof(text);
-    if (RegQueryValueExA(options, "pad0", nullptr, &type, raw::bytes(text.data()), &size) == ERROR_SUCCESS) {
+    if (sys::query_registry_value(options, "pad0", &type, text.data(), &size) == ERROR_SUCCESS) {
         core::at(get_controls(), 0).joystick = parse_joystick_guid(text.data(), size);
     }
     std::memset(text.data(), 0, sizeof(text));
     size = sizeof(text);
-    if (RegQueryValueExA(options, "pad1", nullptr, &type, raw::bytes(text.data()), &size) == ERROR_SUCCESS) {
+    if (sys::query_registry_value(options, "pad1", &type, text.data(), &size) == ERROR_SUCCESS) {
         core::at(get_controls(), 1).joystick = parse_joystick_guid(text.data(), size);
     }
 
@@ -584,7 +584,7 @@ void load_registry_options(const char* key)
         for (int i = 0; i < kBindings; ++i) {
             text::format_to(text, "k%i_%i", port, i);
             size = 4;
-            if (RegQueryValueExA(options, text.data(), nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
+            if (sys::query_registry_value(options, text.data(), &type, &value, &size) == ERROR_SUCCESS) {
                 core::at(core::at(get_controls(), port).keys, i) = static_cast<int32_t>(value);
             }
         }
@@ -593,7 +593,7 @@ void load_registry_options(const char* key)
         for (int i = 0; i < kBindings; ++i) {
             text::format_to(text, "gp%i_%i", port, i);
             size = 4;
-            if (RegQueryValueExA(options, text.data(), nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
+            if (sys::query_registry_value(options, text.data(), &type, &value, &size) == ERROR_SUCCESS) {
                 core::at(core::at(get_controls(), port).gamepad, i) = static_cast<int32_t>(value);
             }
         }

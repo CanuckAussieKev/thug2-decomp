@@ -10,6 +10,6 @@ namespace os_layer {
 void set_actuators(int port, int left, int right);
 
 // 0x005F44F0 (cdecl): set up input once. False without a window; true if already set up.
-bool init_input(HINSTANCE instance, HWND window, int config);
+bool init_input(HINSTANCE instance, HWND window, const char* config);
 
 } // namespace os_layer

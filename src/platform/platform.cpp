@@ -37,7 +37,7 @@ void set_actuators(int port, int left, int right)
 }
 
 // 0x005F44F0
-bool init_input(HINSTANCE instance, HWND window, int config)
+bool init_input(HINSTANCE instance, HWND window, const char* config)
 {
     (void)instance; // (the original passes it to DirectInput8Create - PartyMod's SDL input doesn't use it)
     (void)config;   // (the original's settings loader took it - PartyMod's doesn't)
